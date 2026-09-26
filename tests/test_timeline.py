@@ -425,7 +425,8 @@ def test_starting_todays_note_opens_the_composer_rather_than_writing_it():
     """
     from pathlib import Path
 
-    app = (Path(__file__).resolve().parent.parent / "frontend" / "app.js").read_text(
+    #: timeline.js since the Timeline tab was split out of app.js.
+    app = (Path(__file__).resolve().parent.parent / "frontend" / "timeline.js").read_text(
         encoding="utf-8"
     )
     body = app[app.index("function startTodaysNote()") :]

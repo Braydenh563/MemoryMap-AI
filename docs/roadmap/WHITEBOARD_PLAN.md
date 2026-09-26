@@ -530,3 +530,52 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     below 1024 the way the phone band already hides other labels, and
     re-measure; it is worth about 60px, which is more than the 2px the wrap
     is short by. Owner: whoever next opens the pad's bar.
+
+## Placed from INBOX, 2026-09-23
+
+- **The small conventions every canvas user takes for granted.** The owner,
+  verbatim: "I cant do things on the whiteboard and mindmap like double clcike
+  the rotate point above the top centre of an object and reset it to its
+  default rotate. the whiteboard and mindmap are still missing a lot of those
+  small features that we as user's use all the time and take for granted but
+  very much notice when they arent there." Then: "same with the documents and
+  other app features." One pass per surface, whiteboard and map first (with
+  the map UX remainder), then documents, notes, chat and the Library: list
+  what a Figma, Miro, tldraw, Google Docs or VS Code user expects
+  (double-click a handle to reset it, Alt-drag to duplicate, Shift to
+  constrain, arrow-key nudge, Escape to cancel a gesture, Ctrl+D, Ctrl+A in
+  scope, triple-click a paragraph, and so on), measure which are missing in
+  the running app, build them. Decision, taken: the missing ones are built
+  without asking; a convention the app breaks on purpose keeps its reason
+  written next to it.
+  **The whiteboard and map half is built**: the checklist, with before and
+  after for each convention, is `agent-remaining/mapux2.md` (agent M,
+  `canvasconventions.js` 54/54). Its one row left, Escape during a marquee or
+  lasso, was measured 2026-09-23 and was wrong: it took the rectangle away
+  and then cleared the selection as well, and the release's click cleared
+  it again. Escape now takes back the drag and nothing else, and the rest of
+  the drag selects nothing (`wbmarqueeescape.js`, new, 8/8, 4/8 before).
+  With a board menu open, Escape closes the menu and keeps the selection
+  (INBOX 396). **Open:** the same pass on documents, notes, chat and the
+  Library.
+
+## Placed from INBOX, 2026-09-25
+
+419. **The owner, 2026-09-24, verbatim.** "in the whiteboard, the arrange
+    dropdown menu appears above the top bar, cutting off the contents" (only
+    the Order rows showed) and "clicking the meatball button on the popup
+    tools menu when selected on a text box or sticky note on the whiteboard
+    doesnt show any dropdown menu, or it flickers for a seck somewhere to the
+    right then disappears". **Not reproduced** in headless Chromium, on the
+    head after `ccd1b48`: Arrange opens under its button at 1440x900,
+    1184x760, 1366x600, 1280x480, 1024x768, 947x608, 820x700, 700x900, in
+    full screen, with touch, at 125% scale with real scrollbars, dark
+    (`wbmenuroom.js` 36/36); the context bar's ⋯ opens beside the bar and
+    stays for a sticky and a text box, selected or being edited, by click
+    or tap, after a render, a state fetch, a resize, and with the pointer
+    wandering over the canvas and onto the menu. Every placement path read
+    (`placeEscapedMenu`, `wbKeepMenuBesideBar`) can only put Arrange above
+    its button when the window has less room below than above, which the top
+    bar never has. Both reports come from the desktop window (WebView2); the
+    next step needs the owner: the window size, whether the top bar was
+    dragged, and a screen recording of the ⋯ case. Recommendation: ask.

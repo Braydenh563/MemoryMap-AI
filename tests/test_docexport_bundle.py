@@ -160,7 +160,8 @@ def test_the_word_export_is_a_real_docx_with_the_words_in_it(client, app_state):
     response = client.get(f"/documents/{created['id']}/export.docx")
 
     assert response.status_code == 200
-    assert "essay.docx" in response.headers["content-disposition"]
+    #: The title keeps its case, as every other export does ("My-Essay.md").
+    assert "Essay.docx" in response.headers["content-disposition"]
     #: A .docx is a zip of XML; reading the document part back is the cheapest
     #: check that this is a real one and that the text survived.
     archive = zipfile.ZipFile(io.BytesIO(response.content))
@@ -173,8 +174,11 @@ def test_the_word_export_is_a_real_docx_with_the_words_in_it(client, app_state):
 
 @docx_only
 def test_the_word_converter_keeps_its_limits_where_it_can_see_them():
-    """What it does not understand stays the paragraph it was."""
-    data = docexport.to_docx("T", "| a | b |\n| --- | --- |\n| 1 | 2 |\n")
+    """What it does not understand stays the paragraph it was. Tables were
+    the example here until INBOX 404 taught it them (a Word table now, see
+    `test_prose_tools.py`'s round trip); an embed is the one that stays."""
+    data = docexport.to_docx("T", "![[Another note]]\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
 
     xml = zipfile.ZipFile(io.BytesIO(data)).read("word/document.xml").decode("utf-8")
-    assert "| a | b |" in xml
+    assert "![[Another note]]" in xml
+    assert "<w:tbl>" in xml and "| a | b |" not in xml

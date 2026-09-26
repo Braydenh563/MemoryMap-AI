@@ -12,9 +12,9 @@ result is what happened.
 
 from __future__ import annotations
 
-import pathlib
 
 from memorymap.ai.agent import TOUCHED_LIMIT, _touched_items
+from tests._app_js import app_js_text
 
 
 def test_a_single_note_result_is_itself_the_note():
@@ -100,12 +100,9 @@ def test_a_titled_document_with_no_title_text_still_gets_a_label():
 # two ways this feature breaks are both visible in its source, and both have
 # already happened once.
 
-APP_JS = pathlib.Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
-
 def test_the_chip_routes_on_kind_rather_than_assuming_a_note():
     """`flashEntry(id)` on a document id opens an unrelated note."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     assert "const TOUCHED_KINDS = {" in source
     assert "openDocumentFromNote(id)" in source
 
@@ -114,7 +111,7 @@ def test_the_transcript_serialiser_matches_the_wrapped_row():
     """`classList.contains` is an exact token match, so a row wrapped as
     `.tool-chip-wrap` is invisible to a `.tool-chip` test: and the whole tool
     call then disappears from the conversation when it is reopened."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     assert 'node.classList.contains("tool-chip-wrap")' in source
     assert "node.toolStep ||" in source
 

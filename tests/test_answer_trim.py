@@ -47,6 +47,22 @@ from memorymap.ai.answer_trim import trim_assistant_padding
             "You take IT. Would you like me to list the assignments?",
             "You take IT.",
         ),
+        #: The weekly digest, reported: "Hello there! Based on the notes you
+        #: provided, here is a quick digest...". The qualifier leads into an
+        #: announcement here, not a claim, so the whole sentence is padding.
+        (
+            "Hello there! Based on the notes you provided, here is a quick "
+            "digest of what you saved:\n\n- Work: a shift on Tuesday night.",
+            "- Work: a shift on Tuesday night.",
+        ),
+        (
+            "Here's your weekly digest. You saved three notes about work.",
+            "You saved three notes about work.",
+        ),
+        (
+            "Based on your notes, here is a brief recap:\n\n## Work\n\nOne shift.",
+            "## Work\n\nOne shift.",
+        ),
     ],
 )
 def test_the_padding_comes_off(raw, want):
@@ -59,6 +75,8 @@ def test_the_padding_comes_off(raw, want):
         #: A qualifier is part of the claim, not a greeting.
         "Based on your notes, you train five days a week.",
         "According to your notes, the assignment is due Friday.",
+        #: "Here is" followed by content, not by an announcement of content.
+        "Based on your notes, here is the plan: gym on Monday, rest on Tuesday.",
         #: A heading is not an announcement.
         "## Courses\n\nYou take IT.",
         #: The pleasantry *is* the answer: an empty answer says less than a

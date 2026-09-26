@@ -352,3 +352,44 @@ def test_quitting_is_a_post_not_a_get(ai_client):
     """A GET would be reachable from a link in another tab, and "the app quit
     when I clicked something" is a bug report nobody enjoys writing."""
     assert ai_client.get("/shutdown").status_code in (404, 405)
+
+
+def test_quitting_uses_the_launchers_own_close_when_it_registered_one(ai_client, monkeypatch):
+    """The owner: "the quit memorymap button doesnt work anymore", "I cant
+    close the app". In the desktop window SIGINT never reaches the main
+    thread (it sits in the window's event loop), so the desktop launcher
+    registers the tray Quit's close and /shutdown runs that instead."""
+    import threading
+
+    from memorymap.core import quit_hook
+
+    ran = threading.Event()
+    signalled = []
+    monkeypatch.setattr("os.kill", lambda *args: signalled.append(args))
+    quit_hook.set_quit_handler(ran.set)
+    try:
+        assert ai_client.post("/shutdown").json() == {"stopping": True}
+        assert ran.wait(3)
+        assert signalled == []
+    finally:
+        quit_hook.set_quit_handler(None)
+
+
+def test_quitting_falls_back_to_sigint_without_a_registered_close(ai_client, monkeypatch):
+    import signal
+    import threading
+
+    from memorymap.core import quit_hook
+
+    quit_hook.set_quit_handler(None)
+    sent = threading.Event()
+    calls = []
+
+    def fake_kill(pid, sig):
+        calls.append(sig)
+        sent.set()
+
+    monkeypatch.setattr("os.kill", fake_kill)
+    ai_client.post("/shutdown")
+    assert sent.wait(3)
+    assert calls == [signal.SIGINT]

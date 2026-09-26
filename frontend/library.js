@@ -104,6 +104,18 @@ let libraryCounts = {};
 let libraryOverview = {};
 let libraryKind = "all";
 
+//: The kinds the server cut at its per-kind page (`truncated` in GET
+//: /library), and the full payload as it came, so a search can swap in the
+//: server's own matches for those kinds and clearing it can put the page
+//: back. INBOX 424: at 400 notes a search for the oldest one said "Nothing
+//: matching", because the client filtered a list that never held it.
+let libraryTruncated = {};
+//: What the last draw showed, and when (see loadLibrary).
+let librarySignature = "";
+let libraryDrawnAt = 0;
+let libraryBaseItems = [];
+let libraryServerQuery = "";
+
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
 //: a number slices the already-filtered/sorted list to one flat page instead.
@@ -185,16 +197,37 @@ function renderLibraryView() {
 }
 
 async function loadLibrary() {
+  const grid = document.getElementById("library-grid");
+  showSkeletons(grid);
   const body = await apiJson("/library").catch(() => null);
+  clearSkeletons(grid);
   //: Same distinction the Timeline draws: nothing came back is not the same
   //: fact as there is nothing to show, and only one of them is about the
-  //: person's own library. See `surfaceFailed` in app.js.
+  //: person's own library. See `surfaceFailed` in navigation.js.
   if (!body) {
     surfaceFailed(document.getElementById("library-empty"), "library", loadLibrary);
     return;
   }
   surfaceRecovered(document.getElementById("library-empty"));
+  //: **The same answer is not drawn twice** (INBOX 424 g, decided with its
+  //: recorded recommendation): every visit to Library rebuilt every card
+  //: (580ms of long tasks at 1x on a 400-note notebook) even when nothing
+  //: had changed. When `/library` answers exactly what is on screen, drawn
+  //: under five minutes ago, and nothing is selected, the cards stay as they
+  //: are; relative dates are then at most five minutes old. A selection
+  //: still forces the rebuild, since clearing it is what a reload is for.
+  const signature = JSON.stringify(body);
+  const fresh = Date.now() - libraryDrawnAt < 5 * 60 * 1000;
+  if (signature === librarySignature && fresh && !librarySelection.size && $("library-grid")?.children.length) {
+    return;
+  }
+  librarySignature = signature;
+  libraryDrawnAt = Date.now();
   libraryItems = (body && body.items) || [];
+  libraryBaseItems = libraryItems;
+  libraryTruncated = (body && body.truncated) || {};
+  libraryServerQuery = "";
+  await refreshLibraryServerSearch();
   libraryCounts = (body && body.counts) || {};
   libraryOverview = (body && body.overview) || {};
   // A selection that survives a reload is a selection that can act on
@@ -204,7 +237,7 @@ async function loadLibrary() {
   renderLibraryOverview();
   renderLibraryFilters();
   renderLibraryView();
-  renderLibrary();
+  renderLibrary({ quiet: true });
 }
 
 /** The one line of the old overview strip that was not already on screen.
@@ -255,7 +288,10 @@ function renderLibraryFilters() {
     // included it disagreed with what pressing the chip actually shows.
     const count =
       kind.key === "all"
-        ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
+        ? Object.entries(libraryCounts).reduce(
+            (sum, [key, n]) => sum + (key === "activity" || key === "draft" ? 0 : n),
+            0,
+          )
         : kind.key === "meeting"
           ? libraryItems.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting")).length
           : libraryCounts[kind.key] || 0;
@@ -264,6 +300,9 @@ function renderLibraryFilters() {
     button.className =
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    //: What the Recycle bin row in Tools and features rings (`recycle-bin`
+    //: in app.js's REVEAL_TARGETS).
+    button.dataset.kind = kind.key;
     // Reported live: "can the activity button be moved somewhere better", 
     // it isn't a *kind of thing you made* the way the ten chips before it
     // are (it is excluded from "Everything"'s own count above for exactly
@@ -290,12 +329,21 @@ function renderLibraryFilters() {
     badge.className = "library-chip-count";
     badge.textContent = count;
     button.append(icon, label, badge);
+    //: **An empty kind is not offered** (the owner's de-vibecoding pass:
+    //: thirteen chips over two rows at 1440, six of them reading 0). The
+    //: count above already says a filter is empty before it is pressed; the
+    //: next step is not drawing a filter that can only show nothing. Kept in
+    //: the row (a class, not a removal) so the active chip, and a kind that
+    //: fills while the tab is open, need no second code path; "Everything"
+    //: and whichever chip is selected always show.
+    button.classList.toggle("is-empty", count === 0 && kind.key !== "all" && libraryKind !== kind.key);
     button.addEventListener("click", () => {
       libraryKind = kind.key;
       libraryCurrentPage = 1;
       renderLibraryFilters();
-      renderLibrary();
+      //: The dock's Create first: the empty state copies its label.
       updateLibraryCreateButton();
+      renderLibrary();
     });
     box.appendChild(button);
   }
@@ -368,9 +416,62 @@ async function refreshLibrarySemantic() {
   }
 }
 
-function renderLibrary() {
+// **Cards in reading order.** The card grid was CSS column masonry
+// (`column-width: 17rem`), which packs well and reads top to bottom one
+// column at a time: under "Newest first" the second newest thing was the
+// first card of the *second screenful* of column one, not the card beside the
+// newest, and every tag (sorted last) landed in the rightmost column, which
+// is how the seeded screen looked (four columns, the fourth all tags). The
+// order a sort promises is left to right, then down, as in Finder, Photos and
+// every gallery. So the cards are dealt across n columns in order, card i to
+// column i mod n: the top row is exactly the n newest, the columns still pack
+// their own cards with no row gaps (a note card is up to eight lines and a
+// tag card is two, so a row-aligned grid would leave a hole under every tag),
+// and the arrow keys can move by one card or by n.
+//
+// n comes from the grid's own width against the 17rem card the masonry used,
+// so the count of columns at every width is what it was. One column in Rows,
+// and below 600, where the phone band has always drawn a single column.
+const LIBRARY_CARD_MIN_REM = 17;
+let libraryColumnsShown = 1;
+let libraryColumnsObserver = null;
+
+function libraryColumnCount(grid) {
+  if (libraryView() === "list" || window.innerWidth < 600) return 1;
+  //: **A log is one column** (INBOX 426 z, image 89). An activity row is
+  //: laid out as a line (when, what, the detail), and the masonry dealt
+  //: those lines into 17rem columns: the time and the title took the width
+  //: and the detail was left 11px, one letter to a line down the page.
+  //: `grid-column: 1 / -1` was the old answer and means nothing to columns
+  //: dealt by script, so the Activity chip deals one.
+  if (libraryKind === "activity") return 1;
+  const width = grid.clientWidth;
+  if (!width) return 1;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const gap = parseFloat(getComputedStyle(grid).columnGap) || rem * 1.5;
+  return Math.max(1, Math.floor((width + gap) / (LIBRARY_CARD_MIN_REM * rem + gap)));
+}
+
+// Re-deals the cards when the width changes the column count (a resize, the
+// sidebar folding, the sub-tab becoming visible after measuring 0 wide), and
+// only then: a resize that keeps the count moves nothing.
+function watchLibraryColumns(grid) {
+  if (libraryColumnsObserver || typeof ResizeObserver !== "function") return;
+  libraryColumnsObserver = new ResizeObserver(() => {
+    if (!grid.clientWidth) return;
+    if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary({ quiet: true });
+  });
+  libraryColumnsObserver.observe(grid);
+}
+
+function renderLibrary(options) {
+  //: `quiet`: a render nobody asked for (fresh data arriving), drawn without
+  //: the cross-fade below. Read off an object rather than destructured in the
+  //: signature, so a listener that passes its event here reads it as false.
+  const quiet = options?.quiet === true;
   const grid = $("library-grid");
   if (!grid) return;
+  watchLibraryColumns(grid);
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
   // "meeting" isn't a real kind (item.kind is still "note"), a meeting note
@@ -412,6 +513,7 @@ function renderLibrary() {
     // message text: you remember what a thing was about far more often than
     // what it ended up being called.
     const wordMatch = (i) =>
+      i.serverMatch === query ||
       (i.title || "").toLowerCase().includes(query) ||
       (i.preview || "").toLowerCase().includes(query);
     // With Semantic on, a note also matches if the meaning search returned it,
@@ -422,6 +524,21 @@ function renderLibrary() {
       : items.filter(wordMatch);
   }
   items = librarySorted(items);
+
+  // The server sends the newest page of a big kind; say so under the grid
+  // rather than let 200 cards pass for all of them. A search reaches the
+  // rest, so the line only shows while there is no search.
+  const cutNote = $("library-truncated");
+  if (cutNote) {
+    const cut = Object.keys(libraryTruncated).filter((k) => libraryKind === "all" || libraryKind === k);
+    const shown = (k) => libraryBaseItems.filter((i) => i.kind === k).length;
+    cutNote.classList.toggle("hidden", Boolean(query) || !cut.length);
+    cutNote.textContent = cut.length
+      ? `Showing the newest ${cut
+          .map((k) => `${shown(k)} of ${libraryTruncated[k]} ${LIBRARY_KINDS.find((x) => x.key === k)?.label.toLowerCase() || k}`)
+          .join(", ")}. Search to reach the rest.`
+      : "";
+  }
 
   // Sliced after filtering/sorting and before the render loop below, same
   // point renderLibraryDocuments() slices at.
@@ -441,12 +558,35 @@ function renderLibrary() {
   }
 
   const updateDOM = () => {
+    //: Measured before the grid is emptied, never after: reading its width
+    //: forces a layout, and a layout of an empty grid clamps the section's
+    //: scroll to 0, which is how the Library came back from another tab at
+    //: the top every time (traced: the offset was still 400 when the tab
+    //: showed, then 0 on the re-render's first layout).
+    const cols = libraryColumnCount(grid);
     grid.replaceChildren();
     grid.classList.toggle("library-list", libraryView() === "list");
+    libraryColumnsShown = cols;
+    grid.classList.toggle("library-columns", cols > 1);
+    const columns = [];
+    for (let c = 0; c < cols && cols > 1; c++) {
+      const col = document.createElement("div");
+      col.className = "library-col";
+      columns.push(col);
+    }
+    grid.append(...columns);
     // Same incremental renderer the Notes list uses. The Library holds notes,
     // documents, images, chats and skills together, so it is the one list that
     // can be larger than any single collection in the app.
-    renderIncrementally(grid, items, (item) => libraryCard(item), {
+    //: In columns, card i goes to column i mod n and the renderer is handed an
+    //: empty fragment for it, so a chunk that lands later still deals its
+    //: cards across the same columns in the same order.
+    renderIncrementally(grid, items, (item, i) => {
+      const card = libraryCard(item);
+      if (!columns.length) return card;
+      columns[i % columns.length].appendChild(card);
+      return document.createDocumentFragment();
+    }, {
       afterChunk: () => {
         renderLibraryContextBars();
         //: **The thumbnail column is only reserved when a thumbnail exists.**
@@ -463,17 +603,62 @@ function renderLibrary() {
 
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
+    $("library-empty-clear")?.classList.toggle("hidden", !(query && !items.length));
+    //: **An empty state says the next step, and offers it** (INBOX 266 part
+    //: 1). Measured on a new notebook: the Library's first screen said
+    //: "Nothing of this kind yet." under an "Everything 0" chip, because the
+    //: test for a new notebook was `!libraryItems.length` and the log counts
+    //: as items: 35 activity rows (the unlock, the first settings) on a
+    //: notebook with nothing in it, so the one message written for a new
+    //: person never showed. Activity is a record about the notebook, not a
+    //: thing in it, so it does not count as having made anything. And the
+    //: state now carries the create action beside it, the same one the dock's
+    //: Create button runs for this kind, so the next step is one press from
+    //: the sentence that suggests it rather than a hunt for the dock.
+    const madeAnything = libraryItems.some((i) => i.kind !== "activity");
+    const createBtn = $("library-empty-create");
+    const dockCreate = $("library-new-doc");
+    const offerCreate = !query && !items.length && !["activity", "archived"].includes(libraryKind);
+    if (createBtn) {
+      createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
+      if (offerCreate && dockCreate) {
+        createBtn.replaceChildren(...[...dockCreate.childNodes].map((n) => n.cloneNode(true)));
+        createBtn.title = dockCreate.title;
+      }
+    }
     if (!items.length) {
-      $("library-empty-title").textContent = !libraryItems.length
-        ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
-        : query
-          ? `Nothing matching “${$("library-search").value.trim()}”.`
-          : "Nothing of this kind yet.";
+      const kindName = LIBRARY_KINDS.find((k) => k.key === libraryKind)?.label;
+      $("library-empty-title").textContent = query
+        ? `Nothing matching “${$("library-search").value.trim()}”.`
+        : !madeAnything
+          ? "Nothing here yet. Make a document, a board or a map, or upload a file."
+          : libraryKind === "archived"
+            ? "The bin is empty."
+            : kindName && libraryKind !== "all"
+              ? `No ${kindName.toLowerCase()} yet.`
+              : "Nothing of this kind yet.";
     }
   };
 
-  // Premium UI: Use native View Transitions for buttery smooth layout animations
-  if (!document.startViewTransition) {
+  //: A cross-fade when the grid changes because somebody changed what it
+  //: shows (a kind chip, the sort, cards and rows), which is a change worth
+  //: seeing happen. **Not while typing in its search box**: each keystroke
+  //: re-renders, and a View Transition snapshots and fades the whole window,
+  //: so a search was a flicker per letter. Traced over "design notes" typed
+  //: into the box: raster 313ms with the fade, 109ms without. And not when
+  //: the person asked for less motion.
+  //:
+  //: **Not for a render the person did not ask for, either** (INBOX 400):
+  //: `loadLibrary` renders with `quiet`, which is every arrival of fresh
+  //: data, including the one that follows entering the tab. Traced at 500
+  //: notes, 50 documents and 40 chats (`f2-trace.js`, `tab-library`): the
+  //: fade held the window on its snapshot for a 216 to 283ms frame gap on
+  //: every switch to Library, a cross-fade of a page that was already
+  //: changing because the tab changed.
+  const typing = document.activeElement?.id === "library-search";
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
+    document.documentElement.dataset.motion === "reduced";
+  if (!document.startViewTransition || typing || still || quiet) {
     updateDOM();
   } else {
     document.startViewTransition(() => updateDOM());
@@ -489,6 +674,51 @@ function renderLibrary() {
 // and the chat list already make: three buttons on a card this size is most of
 // the card, and the actions are things you do occasionally to a thing you are
 // mostly here to open.
+// **Copy title, and copy a link to it** (pass2.md, micro-conventions: "copy
+// link/copy title on items"). Measured: of the Library's menus only a saved
+// link could be copied. A title is what you paste into a message; a
+// `[[link]]` is what you paste into a note or a document to point at a
+// document, the same reference the "/" menu writes and `resolveWikiTarget`
+// opens. A note is left out of the second: an untitled note is named by its
+// first sixty characters, which is not a name a link can be trusted to find.
+function libraryCopyActions(kind, title) {
+  const name = String(title || "").replace(/^#{1,6}\s+/, "").trim();
+  if (!name || kind === "activity" || kind === "tag") return [];
+  const out = [
+    makeMenuItem("ph:copy Copy title", "Copy the name to the clipboard", () => copyToClipboard(name)),
+  ];
+  if (kind === "document") {
+    out.push(
+      makeMenuItem("ph:link Copy link", "Copy a [[link]] to paste into a note or a document", () =>
+        copyToClipboard(`[[${name}]]`)
+      )
+    );
+  }
+  return out;
+}
+
+//: Before the first destructive row, so Delete stays the last thing in the
+//: menu, where every menu in the app keeps it.
+function withLibraryCopyActions(items, kind, title) {
+  const copies = libraryCopyActions(kind, title);
+  //: Before Archive as well as Delete, so the rows that put a thing away stay
+  //: together at the end rather than the copies splitting them.
+  const put = /\b(Delete|Move to bin|Remove|Archive|Unarchive)\b/;
+  const at = items.findIndex((it) => put.test(it.label || ""));
+  const all = at === -1 ? [...items, ...copies] : [...items.slice(0, at), ...copies, ...items.slice(at)];
+  //: **Grouped past five rows** (DESIGN.md, the recipe index): a note's card
+  //: menu is seven rows, and it read as one list (menus.js). Three groups,
+  //: named by what the rows do rather than listed per kind, so every kind's
+  //: menu gets them from here: what you do with the thing, the two copies,
+  //: and the rows that put it away. `kebabMenu` draws a hairline wherever
+  //: the name changes; a menu of five or fewer declares nothing, as before.
+  if (all.length <= 5) return all;
+  return all.map((it) => ({
+    ...it,
+    group: copies.includes(it) ? "copy" : put.test(it.label || "") ? "end" : "act",
+  }));
+}
+
 function libraryActions(item) {
   const reload = () => loadLibrary();
   if (item.kind === "chat") {
@@ -546,8 +776,13 @@ function libraryActions(item) {
         reload();
       }),
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
-        window.open(`/documents/${item.id}/export.md`, "_blank");
+        downloadFromApi(`/documents/${item.id}/export.md`, "document.md");
       }),
+      //: The shared "act on this" rows (INBOX 393): every object can be taken
+      //: to the chat that answers about it.
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
+        askAtlasAboutThing("document", item.title)
+      ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
@@ -620,11 +855,15 @@ function libraryActions(item) {
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("ph:graph Show in graph", "Open the graph centred on this note", () => showNoteInGraph(item.id)),
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
+        askAtlasAboutThing("note", item.title)
+      ),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
       makeMenuItem("ph:download-simple Download .md", "Save a copy of this note as a markdown file", () => {
-        window.open(`/entries/${item.id}/export.md`, "_blank");
+        downloadFromApi(`/entries/${item.id}/export.md`, "note.md");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
         await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
@@ -702,8 +941,18 @@ function libraryActions(item) {
       // close for `<img src>`, just missed here. Every notebook with a
       // password set (the normal case) 401'd on Download until this.
       makeMenuItem("ph:download-simple Download", "Save this file", () => {
-        window.open(mediaSrc(`/files/${item.id}`), "_blank");
+        //: `downloadFromApi`, not `window.open`: in the desktop window a new
+        //: window goes to the system browser, which holds neither the header
+        //: nor the media cookie (WORLD_CLASS_PLAN §12, S1), and this app's
+        //: own save path is the one that works in both shells.
+        downloadFromApi(`/files/${item.id}`, item.title || "file");
       }),
+      //: The same way into a chat every other object's menu offers (INBOX
+      //: 393's vocabulary); a file's read text and caption are searchable by
+      //: the agent, so the question has something to answer from.
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this file", () =>
+        askAtlasAboutThing("file", item.title)
+      ),
       // Live-reported: an uploaded file "can't be deleted", true for its
       // own ⋯ menu specifically; bulk-select delete already worked
       // (`library-bulk-delete` already has a `file` branch), but nothing
@@ -762,6 +1011,142 @@ function toggleLibrarySelection(item, on) {
   if (on) librarySelection.add(key);
   else librarySelection.delete(key);
   renderLibraryContextBars();
+}
+
+// **A title and a preview that say the same words twice.** A note with no
+// heading is titled by its own first 60 characters, and its preview is the
+// same text from the start, so the card printed "Call the dentist about the
+// appointment on Thursday;…" in bold and then "Call the dentist about the
+// appointment on Thursday; ask about the retainer." under it: the one
+// sentence twice, measured on four of eleven seeded note cards. A document's
+// preview repeats its title the same way ("Design system notes Surface
+// tiers…"). What Apple Notes and Bear draw is the first line as the title and
+// the rest as the preview, and that is the rule here:
+// - the preview begins with the whole title: the preview is what follows it;
+// - the title was cut short (it ends in "…") and the preview carries on from
+//   it: the title becomes the whole first sentence when that is short enough
+//   to be a title (the title's own two-line clamp ellipsises it where it has
+//   to), and the preview is the sentences after it; a first sentence too
+//   long to be a title keeps the cut title, and the preview carries on from
+//   the cut with a leading "…", so no word is printed twice either way.
+// Anything else is left exactly as it was.
+const LIBRARY_TITLE_SENTENCE_MAX = 140;
+const LIBRARY_CLIPPED_TITLE = 60;
+
+// **A sub-tab keeps its place.** Measured: scrolled 400px down the All view,
+// over to Notes and back, and the Library was at the top again (the Notes
+// list, whose scroller is <main>, kept its 500px). Each sub-tab scrolls in its
+// own section, and a section that is hidden with its tab loses its offset, then
+// comes back empty while its list is fetched and rebuilt.
+//
+// So the offset a person scrolled to is remembered per section and put back
+// once the section is showing and its content is tall enough to hold it. Only
+// a scroll a person made counts: the one the browser makes when a list is
+// emptied and refilled (the offset clamps to 0 on the way) is not somebody
+// choosing the top.
+function keepLibraryScroll() {
+  const saved = new Map();
+  const pending = new Set();
+  const sections = [...document.querySelectorAll("#tab-library .library-view-section")];
+  const restore = () => {
+    for (const el of sections) {
+      if (!el.clientHeight) {
+        if (saved.get(el.id)) pending.add(el.id);
+        continue;
+      }
+      if (!pending.has(el.id)) continue;
+      const want = saved.get(el.id) || 0;
+      if (el.scrollHeight - el.clientHeight >= want) {
+        el.scrollTop = want;
+        pending.delete(el.id);
+      }
+    }
+  };
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(restore) : null;
+  for (const el of sections) {
+    let userAt = 0;
+    const mark = () => {
+      userAt = performance.now();
+    };
+    for (const name of ["wheel", "touchmove", "keydown", "pointerdown"]) {
+      el.addEventListener(name, mark, { passive: true });
+    }
+    el.addEventListener(
+      "scroll",
+      () => {
+        if (performance.now() - userAt > 1000) return;
+        saved.set(el.id, el.scrollTop);
+        pending.delete(el.id);
+      },
+      { passive: true }
+    );
+    observer?.observe(el);
+    for (const child of el.children) observer?.observe(child);
+  }
+}
+
+function libraryTitleAndPreview(title, preview, mayBeClipped = true) {
+  const text = String(preview || "").trim();
+  const bare = String(title || "").replace(/…$/, "").trim();
+  if (!text || !bare || !text.startsWith(bare)) return { title, preview: text };
+  //: Cut short: the server clips an untitled note's first line at 60
+  //: characters with no ellipsis of its own (routes_library.py), so a cut is
+  //: a title that long, or one the text carries on from mid-word.
+  const cut =
+    mayBeClipped &&
+    (/…$/.test(title) || bare.length >= LIBRARY_CLIPPED_TITLE - 1 || /\w/.test(text[bare.length] || ""));
+  if (!cut) {
+    return { title, preview: text.slice(bare.length).replace(/^[\s:.,;·-]+/, "").trim() };
+  }
+  const end = text.slice(bare.length).search(/[.?!](\s|$)/);
+  const sentenceEnd = end === -1 ? text.length : bare.length + end + 1;
+  if (sentenceEnd <= LIBRARY_TITLE_SENTENCE_MAX) {
+    return { title: text.slice(0, sentenceEnd).trim(), preview: text.slice(sentenceEnd).trim() };
+  }
+  const rest = text.slice(bare.length).trim();
+  return { title, preview: rest ? `…${rest}` : "" };
+}
+
+//: **A settings change, said in words.** The log records a preference edit
+//: as the server wrote it, `key=value` with the value in Python's own
+//: spelling (routes_settings.py `update_preferences`): `disabled_tools=[
+//: 'find_contradictions']`, `avatar_style={'variant': 14, ...}`. A reader
+//: of their own notebook's history should see "Tools switched off: find
+//: contradictions". Rows already in the log are read the same way, so
+//: this is done here rather than when the row is written. Anything that
+//: is not one `key=value` is returned as it came.
+const ACTIVITY_SETTING_NAMES = {
+  notifications_muted_except_reminders: "Mute notifications except reminders",
+  disabled_tools: "Tools switched off",
+  avatar_style: "Your look",
+  user_profile: "About me",
+  display_name: "Your name",
+};
+
+function activitySettingValue(raw) {
+  const value = raw.trim();
+  if (value === "True") return "on";
+  if (value === "False") return "off";
+  if (value === "None" || value === "" || value === "[]" || value === "{}") return "none";
+  if (value === "…") return "changed";
+  //: A dict is a whole group of choices (a look, a layout): which of them
+  //: moved is not in the record, so it says only that it changed.
+  if (value.startsWith("{")) return "changed";
+  if (value.startsWith("[")) {
+    const items = value.slice(1, -1).split(",").map((s) => s.trim().replace(/^['"]|['"]$/g, ""));
+    return items.filter(Boolean).map((s) => s.replace(/_/g, " ")).join(", ") || "none";
+  }
+  return value.replace(/^['"]|['"]$/g, "");
+}
+
+function activityDetailText(detail) {
+  const text = String(detail || "").trim();
+  const match = /^([a-z][a-z0-9_]*)=([\s\S]*)$/.exec(text);
+  if (!match) return text;
+  const [, key, raw] = match;
+  const words = key.replace(/_/g, " ");
+  const name = ACTIVITY_SETTING_NAMES[key] || words.charAt(0).toUpperCase() + words.slice(1);
+  return `${name}: ${activitySettingValue(raw)}`;
 }
 
 function libraryCard(item) {
@@ -849,7 +1234,13 @@ function libraryCard(item) {
   // same call, which is harmless.
   // Strip block markdown (like headings) from the title before inline rendering,
   // so a note starting with `# Title` doesn't show the raw `# `.
-  const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  let cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  const { title: shownTitle, preview: shownPreview } = libraryTitleAndPreview(
+    cleanTitle,
+    item.preview,
+    item.kind === "note" || item.kind === "shelved" || item.kind === "archived" || item.kind === "draft"
+  );
+  cleanTitle = shownTitle;
   renderInlineMarkdown(title, cleanTitle, []);
   // The 2-line clamp above cuts a long title off mid-word with no way to read
   // the rest short of opening the card, a native tooltip costs nothing.
@@ -879,13 +1270,12 @@ function libraryCard(item) {
   // every note card lost its preview entirely, leaving 60 characters of a
   // 420-character card. The question is not whether the preview begins with
   // the title, it is whether it goes on to say anything more.
-  const bare = cleanTitle.replace(/…$/, "").trim();
-  const sameAsTitle =
-    item.preview &&
-    bare &&
-    item.preview.startsWith(bare) &&
-    item.preview.trim().length <= bare.length + 1;
-  if (item.preview && !sameAsTitle) {
+  //: The repeat itself is now taken out by `libraryTitleAndPreview` above:
+  //: what reaches here is only what the preview says beyond the title. A
+  //: card whose words are all in its title gets two more lines of title
+  //: (`.library-card-whole`), so a one-sentence note is read to its end.
+  card.classList.toggle("library-card-whole", !shownPreview && cleanTitle !== item.title);
+  if (shownPreview) {
     const preview = document.createElement("p");
     preview.className = "library-card-preview";
     // Inline markdown, the same renderer the note list uses (§22): a note
@@ -893,16 +1283,42 @@ function libraryCard(item) {
     // backticks here, which is the Library rendering the *source* of a note
     // while every other surface renders the note. Inline only: block elements
     // would turn a card into a document, which is what the clamp is for.
-    const cleanPreview = item.preview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
-    renderInlineMarkdown(preview, cleanPreview, []);
+    //: **An activity row's detail is a record, never markdown** (INBOX 426
+    //: z, image 90): `notifications_muted_except_reminders=False` went
+    //: through the inline renderer, which read `_muted_except_` as italics
+    //: and printed "notificationsmutedexcept_reminders". It is plain text,
+    //: and a settings change is said in words (`activityDetailText`).
+    if (item.kind === "activity") {
+      preview.textContent = activityDetailText(shownPreview);
+    } else {
+      const cleanPreview = shownPreview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+      renderInlineMarkdown(preview, cleanPreview, []);
+    }
     card.appendChild(preview);
   }
 
   const foot = document.createElement("div");
   foot.className = "library-card-meta";
+  //: **"Uncategorised" is not a fact.** It was printed on the foot of every
+  //: note card that has no category, eleven identical copies on one seeded
+  //: screen, each as loud as a real category on the card beside it. An
+  //: unset property is left out, which is how Linear and Notion draw one; a
+  //: real category is drawn the way the note's own meta row draws it (a dot
+  //: in the category's colour, then its name in ink), so a note reads the
+  //: same in the Library as in the list.
+  const isNoteKind = item.kind === "note" || item.kind === "shelved" || item.kind === "archived";
   const detail = document.createElement("span");
-  setLabel(detail, item.detail);
+  if (item.detail === "Uncategorised") {
+    detail.classList.add("library-card-detail-none");
+  } else {
+    setLabel(detail, item.detail);
+    if (isNoteKind && item.detail) {
+      detail.className = "library-card-category";
+      detail.style.setProperty("--category-dot", categoryDotColour(item.detail));
+    }
+  }
   const when = document.createElement("span");
+  when.className = "library-card-when";
   when.textContent = relativeTime(item.updated_at);
   when.title = new Date(item.updated_at).toLocaleString();
   foot.append(detail, when);
@@ -912,7 +1328,7 @@ function libraryCard(item) {
   card.title = `${kindWord} · ${item.title}`;
   card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
 
-  const actions = libraryActions(item);
+  const actions = withLibraryCopyActions(libraryActions(item), item.kind, item.title);
   if (actions.length) {
     const menu = kebabMenu(actions, `Actions for ${item.title}`);
     menu.classList.add("library-card-menu");
@@ -1127,8 +1543,31 @@ $("skills-add-new")?.addEventListener("click", async () => {
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
 let librarySearchDebounceTimeout;
+//: A search in a notebook bigger than one page asks the server, which
+//: matches before it cuts; the kinds it did not cut stay filtered here, as
+//: they always were. Each match is flagged so the local word filter, which
+//: sees only a clipped preview, does not drop it again.
+async function refreshLibraryServerSearch() {
+  const query = ($("library-search")?.value || "").trim();
+  const kinds = Object.keys(libraryTruncated);
+  if (!query || !kinds.length) {
+    if (libraryServerQuery) libraryItems = libraryBaseItems;
+    libraryServerQuery = "";
+    return;
+  }
+  if (query === libraryServerQuery) return;
+  const body = await apiJson(`/library?q=${encodeURIComponent(query)}`).catch(() => null);
+  // A later keystroke has already moved on; its own call will land.
+  if (!body || ($("library-search")?.value || "").trim() !== query) return;
+  const matches = (body.items || [])
+    .filter((i) => kinds.includes(i.kind))
+    .map((i) => ({ ...i, serverMatch: query.toLowerCase() }));
+  libraryItems = libraryBaseItems.filter((i) => !kinds.includes(i.kind)).concat(matches);
+  libraryServerQuery = query;
+}
+
 async function runLibrarySearch() {
-  await refreshLibrarySemantic();
+  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch()]);
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
@@ -1339,6 +1778,19 @@ const LIBRARY_CREATE_BY_KIND = {
     label: "ph:graph New concept map",
     run: () => createConceptMap(),
   },
+  //: **A board from the Library's own Create** (INBOX 266 part 1). The
+  //: picker offered notes, documents, maps, chats and meetings, and a board,
+  //: the Library's second sub-tab, was not among them: a person pressing
+  //: Create to make one found no row for it and had to know to go to Boards
+  //: & maps first. The run is that sub-tab's own New board, pressed, so a
+  //: board made here is made exactly the way one made there is.
+  board: {
+    label: "ph:plus New board",
+    run: () => {
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      $("wb-boards-new")?.click();
+    },
+  },
   // Reported directly: "in the library 'all' subtab, the files section has
   // the general create button and not an upload button." It did: `file` had
   // no entry here, so it fell through to the "＋ Create" picker, which asks
@@ -1378,9 +1830,17 @@ const LIBRARY_CREATE_HINTS = {
   note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
   map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
+  board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
   meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
+  file: ["ph:upload-simple", "A PDF, an image or any file you already have."],
 };
+
+//: The picker's rows, in order: the things you write, the things you draw,
+//: then the things that arrive from elsewhere. The picker's sentence used to
+//: say "Five kinds of thing", which went stale the day a sixth row was
+//: added; it names no count now, so it cannot drift from the rows under it.
+const LIBRARY_CREATE_ORDER = ["note", "document", "map", "board", "chat", "meeting", "file"];
 
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");
@@ -1395,7 +1855,7 @@ function openLibraryCreatePicker() {
   title.textContent = "Create";
   const text = document.createElement("p");
   text.className = "muted";
-  text.textContent = "Five kinds of thing live in the library. Pick one and it opens ready to write.";
+  text.textContent = "Pick what to make, or bring a file in. It opens ready to use.";
   const list = document.createElement("ul");
   list.className = "doc-ai-history-list";
   list.setAttribute("role", "list");
@@ -1413,7 +1873,7 @@ function openLibraryCreatePicker() {
     }
   };
 
-  for (const kind of ["note", "document", "map", "chat", "meeting"]) {
+  for (const kind of LIBRARY_CREATE_ORDER) {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
     const [icon, hint] = LIBRARY_CREATE_HINTS[kind];
     const li = document.createElement("li");
@@ -1613,7 +2073,10 @@ function skillCard(skill, lastRun) {
   const footer = document.createElement("div");
   footer.className = "skill-card-footer";
   const run = document.createElement("button");
-  run.className = "small";
+  //: Ghost, not filled: a page of skills drew one filled Run per card, four
+  //: to twelve filled buttons on one screen, where the ramp allows one per
+  //: surface and this surface's is "New skill" (pass2.md finding 15).
+  run.className = "ghost small";
   setLabel(run, "ph:play Run");
   run.title = `Run “${skill.name}” in the chat`;
   // runSkill, not startSkill: it prompts for the skill's inputs when it has
@@ -1698,7 +2161,12 @@ async function renderSkillsDashboard() {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
     // to be here and exists nowhere else in this codebase.
-    wrap.className = "checkbox-label";
+    //: **Now the settings switch** (DESIGN.md: "An on/off setting:
+    //: `label.setting-check` with the switch first"). The pill toggle drew
+    //: each job as an outlined accent pill in bold accent text, the loudest
+    //: thing on the page for a setting (pass2.md finding 16); these are the
+    //: same three preferences Settings shows, so they now look like them.
+    wrap.className = "setting-check";
     const box = document.createElement("input");
     box.type = "checkbox";
     box.id = id;
@@ -1776,6 +2244,34 @@ async function renderSkillsDashboard() {
 // sub-tab was opened, and it depended on load order: whichever script
 // happened to run last owned the global. See `librarySubtabs` below.
 
+//: **The skill logs fold to a rail** (the owner, 2026-09-24: "make the skill
+//: logs sidebar collapsible"). A class on the split, so the grid's second
+//: column shrinks to the rail and the skills take the room; remembered per
+//: browser, a convenience rather than a setting.
+function setSkillLogsCollapsed(collapsed) {
+  const split = document.querySelector(".skills-split");
+  const button = $("skills-logs-collapse");
+  if (!split || !button) return;
+  split.classList.toggle("skills-logs-collapsed", collapsed);
+  button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  const words = collapsed ? "Show the skill logs" : "Collapse the skill logs";
+  button.title = words;
+  button.setAttribute("aria-label", words);
+  try {
+    localStorage.setItem("mm-skill-logs-collapsed", collapsed ? "1" : "");
+  } catch {
+    // Storage refused (a private window): the fold still works for this visit.
+  }
+}
+$("skills-logs-collapse")?.addEventListener("click", () => {
+  setSkillLogsCollapsed(!document.querySelector(".skills-split")?.classList.contains("skills-logs-collapsed"));
+});
+try {
+  if (localStorage.getItem("mm-skill-logs-collapsed") === "1") setSkillLogsCollapsed(true);
+} catch {
+  // Storage unreadable: start open.
+}
+
 $("skills-logs-clear")?.addEventListener("click", async () => {
   const ok = await confirmDialog("Clear the skill run log? This can't be undone.");
   if (!ok) return;
@@ -1786,7 +2282,9 @@ $("skills-logs-clear")?.addEventListener("click", async () => {
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
-  logList.innerHTML = "<p class='muted'>Loading logs…</p>";
+  //: The placeholder only for an empty list: over a list already drawn it
+  //: blanked the logs for the length of the fetch on every visit.
+  if (!logList.children.length) logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
   // **Filtered in SQL, not here, and asking for 20 of *everything* was half
   // the reason this panel looked broken.** Reported as "I dont think the
@@ -1804,6 +2302,13 @@ async function renderSkillLogs() {
   const skillLogs =
     (await apiJson("/audit?limit=50&entity_type=skill").catch(() => null)) || [];
   logList.innerHTML = "";
+  //: Clear with nothing to clear is a control that does nothing, so it says
+  //: why it is resting (DESIGN.md: a disabled control says why in its title).
+  const clear = $("skills-logs-clear");
+  if (clear) {
+    clear.disabled = !skillLogs.length;
+    clear.title = skillLogs.length ? "Clear this log" : "Nothing to clear yet";
+  }
 
   if (!skillLogs.length) {
     logList.innerHTML =
@@ -1975,7 +2480,7 @@ function libraryDocsMatchesProperty(doc) {
 //:
 //: **Grouped by key, `<optgroup>` per one.** The first shape kept this flat,
 //: an option reading `status: draft (2)` rather than a group, because
-//: `enhanceSelect` (app.js) built its menu by walking `select.options`,
+//: `enhanceSelect` (sheets-selects.js) built its menu by walking `select.options`,
 //: which drops which `<optgroup>` an option came from: the grouping existed
 //: only in a control the reader never saw. INBOX 273 taught the shared
 //: opener to draw a group's label, which is the recipe fifty-one other
@@ -2217,10 +2722,14 @@ async function renderLibraryDocuments() {
     // have previews". Served by the list endpoint as a flattened 240-character
     // snippet (`routes_documents._preview`) rather than by shipping every
     // document's full text to draw a list.
-    if (doc.preview) {
+    //: What follows the title, not the title again: a document's body starts
+    //: with its own "# Title" line, so the snippet began with the title the
+    //: row prints in bold one line up (`libraryTitleAndPreview`).
+    const docPreview = libraryTitleAndPreview(doc.title || "", doc.preview || "", false).preview;
+    if (docPreview) {
       const preview = document.createElement("span");
       preview.className = "doc-list-preview";
-      preview.textContent = doc.preview;
+      preview.textContent = docPreview;
       body.append(preview);
     }
 
@@ -2230,7 +2739,7 @@ async function renderLibraryDocuments() {
     // "All" view's own data), which would leave this list showing a document
     // that was just renamed or deleted until something else refreshed it.
     const menu = kebabMenu(
-      [
+      withLibraryCopyActions([
         // **A read-only showcase, not the editor.** Asked for directly:
         // "make a way to view documents in the documents tab in the
         // lightbox." The row's own click already opens the full editor, 
@@ -2279,7 +2788,7 @@ async function renderLibraryDocuments() {
           renderLibraryDocuments();
         }),
         makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
-          window.open(`/documents/${doc.id}/export.md`, "_blank");
+          downloadFromApi(`/documents/${doc.id}/export.md`, "document.md");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
           if (
@@ -2297,7 +2806,7 @@ async function renderLibraryDocuments() {
           libraryDocsSelection.delete(doc.id);
           renderLibraryDocuments();
         }),
-      ],
+      ], "document", doc.title),
       `Actions for "${doc.title || "Untitled"}"`
     );
     menu.classList.add("doc-list-menu");
@@ -2567,6 +3076,13 @@ function setLibraryMediaKind(kind) {
   if (readFilter) {
     readFilter.classList.toggle("hidden", libraryMediaKind !== "files");
     if (libraryMediaKind !== "files") readFilter.value = "all";
+  }
+  //: And the kind-of-picture filter is an Images idea: a PDF is neither a
+  //: sketch nor an uploaded image in the sense that menu means.
+  const originMenu = $("library-media-origin-menu");
+  if (originMenu) {
+    originMenu.classList.toggle("hidden", libraryMediaKind === "files");
+    if (libraryMediaKind === "files") originMenu.open = false;
   }
   const input = $("library-images-upload-input");
   if (input) {
@@ -2868,7 +3384,91 @@ function ocrSelectRegion(index) {
   }
 }
 
+//: **Every stored reading of a picture, as the lightbox shows them** (INBOX
+//: 421 e: "the text in the lightbox doesnt even appear in the ocr
+//: workspace"). The sections come from one reading at most (`in_regions` on
+//: the server's `readings`); any other one is listed under the message,
+//: labelled by its reader, with its own delete, so the lightbox and this
+//: panel never disagree about what was read. Which field the sections came
+//: from is kept for Delete reading, which clears that one.
+let ocrWorkspaceReadings = [];
+function ocrRenderOtherReadings(body) {
+  const box = $("ocr-other-readings");
+  ocrWorkspaceReadings = Array.isArray(body?.readings) ? body.readings : [];
+  if (!box) return;
+  box.replaceChildren();
+  const others = ocrWorkspaceReadings.filter((r) => !r.in_regions && (r.text || "").trim());
+  for (const reading of others) {
+    const item = document.createElement("section");
+    item.className = "ocr-other-reading";
+    item.dataset.source = reading.source;
+    const head = document.createElement("div");
+    head.className = "ocr-other-reading-head";
+    const label = document.createElement("span");
+    label.className = "ocr-other-reading-label";
+    label.textContent = ocrWorkspaceReadings.some((r) => r.in_regions) ? `Also: ${reading.label}` : reading.label;
+    //: "Clean up repeated lines" (INBOX 423f), same reasoning and route as
+    //: the workspace's own `ocr-clean-loops` button: no reader branch needed
+    //: here, the route cleans whichever of the media item's fields actually
+    //: hold a loop, this reading's own or not.
+    const clean = document.createElement("button");
+    clean.type = "button";
+    clean.className = "ghost small icon-only ocr-other-reading-clean";
+    clean.title = "Clean up repeated lines in this reading";
+    clean.setAttribute("aria-label", `Clean up repeated lines (${reading.label})`);
+    setLabel(clean, "ph:broom");
+    clean.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const image = ocrWorkspaceCurrent;
+      if (!image) return;
+      button.disabled = true;
+      try {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
+        renderLibraryImagesGallery();
+        toast("Cleaned up repeated lines.");
+        await ocrLoadPage(image, ocrWorkspacePage);
+      } catch (error) {
+        toast(error.message || "Could not clean up that reading.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small icon-only danger ocr-other-reading-delete";
+    remove.title = "Delete this reading";
+    remove.setAttribute("aria-label", `Delete this reading (${reading.label})`);
+    setLabel(remove, "ph:trash");
+    remove.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const image = ocrWorkspaceCurrent;
+      if (!image) return;
+      if (!(await confirmDialog(`Delete this reading (${reading.label})? You can read it again any time.`))) return;
+      button.disabled = true;
+      try {
+        await analyseMediaRow(image, reading.source === "tesseract" ? "ocr" : "vision-ocr", { text: "" });
+        renderLibraryImagesGallery();
+        toast("Reading deleted.");
+        await ocrLoadPage(image, ocrWorkspacePage);
+      } catch (error) {
+        toast(error.message || "Could not delete that reading.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    head.append(label, clean, remove);
+    const text = document.createElement("p");
+    text.className = "ocr-other-reading-text";
+    text.textContent = reading.text;
+    item.append(head, text);
+    box.appendChild(item);
+  }
+  box.classList.toggle("hidden", !others.length);
+}
+
 function ocrRenderRegions(body) {
+  ocrRenderOtherReadings(body);
   const boxes = $("ocr-boxes");
   const list = $("ocr-region-list");
   const message = $("ocr-message");
@@ -2888,9 +3488,16 @@ function ocrRenderRegions(body) {
   //: took the whole page load down with it ("(body.pages || []).some is not
   //: a function" in the reader's status line, found by measurement).
   const hasReading = body.source !== "text-file" && (ocrWorkspaceRegions.length > 0
+    || ocrWorkspaceReadings.some((r) => r.in_regions)
     || Boolean((body.text || "").trim())
     || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim())));
   $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
+  //: **"Clean up repeated lines"** (INBOX 423f). Cleans the whole media row's
+  //: stored fields (`vision_ocr_text`/`ocr_text`), not a PDF's per-page
+  //: `PageRead` rows, so it is offered only for the single-file reading a
+  //: picture or a text file has, the same case "Delete this reading" reaches
+  //: through `analyseMediaRow` rather than the page-reads route for.
+  $("ocr-clean-loops")?.classList.toggle("hidden", !hasReading || ocrIsPdf(ocrWorkspaceCurrent));
   //: **Redo, made discoverable rather than merely possible.** Reported
   //: directly: "there's also no way to delete or redo ocr text extractions."
   //: Clicking "Read this page"/"Read this image" always re-reads and replaces
@@ -2921,7 +3528,8 @@ function ocrRenderRegions(body) {
     //: typed blocks in order (`ocr.regions_from_reading`), real sections,
     //: real structure, just no rectangles, so the badge says what is true of
     //: it rather than apologising for what it lacks. The missing half is in
-    //: the message underneath, where the offer to install Tesseract lives.
+    //: the message underneath, worded by whether Tesseract is actually
+    //: installed (INBOX 423d): install it, or switch the reader to it.
     reading: "ph:list-bullets Sections from the reading",
     //: Kept only so an older cached response does not render as "Nothing read
     //: yet", which would be wrong in the most alarming direction. Nothing
@@ -3484,7 +4092,7 @@ async function ocrRunRegion(mode) {
     //: request's fields were ever looked at. Overriding `headers` drops that
     //: default so the browser writes its own boundary; the two headers the
     //: server actually needs are put back by hand. Same handling as every
-    //: other FormData post in this app (`attachImageFiles` in app.js says so
+    //: other FormData post in this app (`attachImageFiles` in chat-attach.js says so
     //: in its own comment).
     const answer = await apiJson(`${base}/region-read`, {
       method: "POST",
@@ -3627,9 +4235,9 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     fileLabel.title = fileLabel.textContent;
   }
   const img = $("ocr-image");
-  //: `_src` is an already-tokened url from a caller that has one (the
-  //: lightbox); `url` is the raw path every gallery row carries. Running an
-  //: already-tokened url back through `mediaSrc` appends a second token.
+  //: `_src` is an already-resolved url from a caller that has one (the
+  //: lightbox); `url` is the raw path every gallery row carries and goes
+  //: through `mediaSrc` here.
   //: `ocrPageImageUrl` keeps that rule and adds the PDF case, where the
   //: picture of the page is rendered rather than stored.
   const continuous =
@@ -4024,7 +4632,7 @@ async function ocrLoadSiblings({ force = false } = {}) {
     //: file the reader cannot reach at all. `GET /media` is paged (INBOX
     //: 117), so this asks until `X-Total-Count` is satisfied.
     apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => []),
-    apiJson("/files/gallery", { silent: true }).catch(() => []),
+    apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []),
   ]);
   for (const item of images || []) item._isImage = isImageUrl(item.url);
   for (const item of attachments || []) {
@@ -4277,7 +4885,7 @@ function openOcrWorkspace(image, images, page = 0) {
   rail.replaceChildren();
   rail.classList.add("hidden");
   //: Below 600 the reader is the screen, not a dialog over it: the sheet
-  //: recipe's `page` variant, stamped by `ocrPhonePage` in app.js, which is
+  //: recipe's `page` variant, stamped by `ocrPhonePage` in phone-shell.js, which is
   //: the only file allowed to write a variant class (DESIGN.md's "A sheet"
   //: row, `tests/test_ui_recipes.py`). Called before the overlay is shown so
   //: the first frame is already the right shape: a dialog that arrives as a
@@ -4758,7 +5366,7 @@ async function ocrLoadReaders() {
   if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
     select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
   }
-  //: No repaint call is needed: `enhanceSelect` (app.js) watches each select
+  //: No repaint call is needed: `enhanceSelect` (sheets-selects.js) watches each select
   //: with `MutationObserver(rebuild, {childList: true, subtree: true})`, and
   //: assigning `option.textContent` replaces the option's text node: a
   //: childList mutation: so the app's own dropdown rebuilds itself. Written
@@ -5146,6 +5754,11 @@ onDomReady(() => {
     }
   });
   $("ocr-delete-reading")?.addEventListener("click", async (event) => {
+    //: Read before the first `await`: the browser clears `currentTarget` once
+    //: the click's dispatch ends, so after the confirm it was null, the
+    //: handler threw, and the reading was never deleted (the owner's log,
+    //: 2026-09-24: "Cannot set properties of null (setting 'disabled')").
+    const button = event.currentTarget;
     const image = ocrWorkspaceCurrent;
     if (!image) return;
     const isPdf = ocrIsPdf(image);
@@ -5153,7 +5766,6 @@ onDomReady(() => {
     if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
       return;
     }
-    const button = event.currentTarget;
     button.disabled = true;
     try {
       if (isPdf) {
@@ -5163,7 +5775,14 @@ onDomReady(() => {
         //: Same reader-to-field mapping `ocrReadImage` uses for the read
         //: itself, so delete clears the field the *current* reader would
         //: have written rather than guessing at the other one.
-        const kind = ocrReader() === "tesseract" ? "ocr" : "vision-ocr";
+        //: The field the sections on screen came from, when the server said
+        //: (`readings[].in_regions`, INBOX 421 e): with the reader set to the
+        //: model and the sections split from a Tesseract reading, the reader
+        //: alone named the wrong field and Delete removed nothing on screen.
+        const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
+        const kind = shown
+          ? (shown === "tesseract" ? "ocr" : "vision-ocr")
+          : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
         await analyseMediaRow(image, kind, { text: "" });
         //: The gallery tile behind this dialog now claims a reading that is
         //: gone: same repaint `ocrReadImage` triggers after writing one.
@@ -5173,6 +5792,30 @@ onDomReady(() => {
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
       toast(error.message || "Could not delete that reading.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  //: **"Clean up repeated lines"** (INBOX 423f): a stored reading with a
+  //: degenerate loop in it ("Test, Test, Test, ...") stays looped forever
+  //: otherwise, nothing re-reads a reading that is already on the row. Runs
+  //: the server's own `cut_reading_loops` on the media item and repaints
+  //: from the response, the same shape `ocrReadImage` already uses for a
+  //: fresh read. No confirm dialog: unlike delete, nothing is lost, a
+  //: reading with no loop simply comes back unchanged.
+  $("ocr-clean-loops")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    button.disabled = true;
+    try {
+      const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+      await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
+      renderLibraryImagesGallery();
+      toast("Cleaned up repeated lines.");
+      await ocrLoadPage(image, ocrWorkspacePage);
+    } catch (error) {
+      toast(error.message || "Could not clean up that reading.", true);
     } finally {
       button.disabled = false;
     }
@@ -5332,13 +5975,12 @@ onDomReady(() => {
       //: picture of what was transcribed cannot be checked later, which is
       //: the same failure this whole workspace exists to fix.
       const name = ocrWorkspaceCurrent?.original_name || "image";
-      //: **The token must not go in the note.** A caller that opened the
-      //: workspace from the lightbox hands over an already-tokened `_src`
-      //: (see `ocrLoadPage`), and writing that into a note's markdown would
-      //: store this session's auth token in the notebook, and hand it to
-      //: anyone the note is later exported or shared with. The query string
-      //: is dropped; `mediaSrc` re-adds a live token whenever the note is
-      //: rendered.
+      //: **Only the path goes in the note.** Until 2026-09-24 a `_src` from
+      //: the lightbox carried the session token as a query string, and
+      //: writing that into a note's markdown stored the notebook's key in
+      //: the notebook itself. No URL carries it now (the media cookie does
+      //: the work, WORLD_CLASS_PLAN §12 S1), and the query string is still
+      //: dropped, because a note should hold the address and nothing else.
       //: A PDF page has no stored url of its own, the picture is rendered on
       //: request: so the note points at the page endpoint instead, which
       //: renders the same page again whenever the note is opened.
@@ -5715,7 +6357,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // extension-sniffing `isImageUrl()` below: which is exactly right for a
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
-  const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
   // subtab at all and all the files are in the files subtab", and that is
@@ -5803,7 +6445,93 @@ onDomReady(() => {
   document
     .getElementById("library-media-read")
     ?.addEventListener("change", () => filterLibraryImagesGallery());
+  //: `change`, not `click`: the checkbox sits inside its own label, so a press
+  //: on the words fires a click on both and a click handler would toggle twice.
+  document.getElementById("library-media-origins")?.addEventListener("change", (event) => {
+    const check = event.target.closest("[data-image-origin]");
+    if (!check || check.disabled) return;
+    const next = new Set(libraryImageOriginsOn);
+    if (check.checked) next.add(check.dataset.imageOrigin);
+    else next.delete(check.dataset.imageOrigin);
+    if (!next.size) return;
+    libraryImageOriginsOn = next;
+    filterLibraryImagesGallery();
+  });
 });
+
+//: **Where a picture came from: the sketch pad, or anywhere else.** Asked for
+//: directly (2026-09-23): filter the Images sub-tab by sketches and uploaded
+//: images. A sketch has no table or flag of its own: `saveSketch` (media.js)
+//: sends its PNG through `/media/upload` as `sketch-<stamp>.png` and files a
+//: note in "Sketches" that shows it, so the name is the one thing the gallery
+//: row carries that says which it is. Anchored at the start, so a photo
+//: called "my-sketchbook-cover.jpg" stays an upload.
+function libraryImageOrigin(item) {
+  return /^sketch(?:[-_ ][^/]*)?\.png$/i.test(String(item?.original_name || "")) ? "sketch" : "upload";
+}
+
+const LIBRARY_IMAGE_ORIGINS = [
+  { key: "sketch", label: "Sketches", glyph: "ph-scribble-loop" },
+  { key: "upload", label: "Uploaded images", glyph: "ph-image" },
+];
+
+//: Which origins are on. Not stored, for the reason the Files read filter is
+//: not: a filter left on across sessions is how a gallery comes back next
+//: week apparently missing half its pictures.
+let libraryImageOriginsOn = new Set(LIBRARY_IMAGE_ORIGINS.map((o) => o.key));
+
+//: The menu's rows, and the caption the closed button carries. The Timeline's
+//: `renderTimelineKinds` shape: a checkbox in its own label per row, the last
+//: one on cannot be turned off (an empty gallery is not a filter), and the
+//: count of each kind beside its name.
+function renderLibraryImageOrigins() {
+  const box = $("library-media-origins");
+  if (!box) return;
+  const counts = new Map();
+  for (const item of libraryImagesCache || []) {
+    if (!item._isImage) continue;
+    const key = libraryImageOrigin(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  box.replaceChildren();
+  for (const origin of LIBRARY_IMAGE_ORIGINS) {
+    const on = libraryImageOriginsOn.has(origin.key);
+    const row = document.createElement("label");
+    row.className = "menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label";
+    row.title = on ? `Hide ${origin.label.toLowerCase()}` : `Show ${origin.label.toLowerCase()}`;
+    const icon = document.createElement("i");
+    icon.className = `ph ${origin.glyph} ph-lead`;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = origin.label;
+    const many = document.createElement("span");
+    many.className = "muted timeline-kind-count";
+    many.textContent = ` ${counts.get(origin.key) || 0}`;
+    label.appendChild(many);
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = on;
+    check.dataset.imageOrigin = origin.key;
+    if (on && libraryImageOriginsOn.size === 1) {
+      check.disabled = true;
+      row.title = "At least one kind has to be shown";
+    }
+    row.append(icon, label, check);
+    box.appendChild(row);
+  }
+  const all = libraryImageOriginsOn.size === LIBRARY_IMAGE_ORIGINS.length;
+  const words = LIBRARY_IMAGE_ORIGINS.filter((o) => libraryImageOriginsOn.has(o.key)).map((o) =>
+    o.label.toLowerCase()
+  );
+  const caption = $("library-media-origin-label");
+  if (caption) caption.textContent = `Kinds: ${all ? "all" : words.join(", ")}`;
+  const button = $("library-media-origin-btn");
+  if (button) {
+    button.title = all
+      ? "Which kinds of picture the gallery shows: sketches and uploaded images"
+      : `Showing ${words.join(", ")}. Press to change which kinds the gallery shows`;
+  }
+}
 
 function filterLibraryImagesGallery() {
   const grid = $("library-images-grid");
@@ -5827,7 +6555,12 @@ function filterLibraryImagesGallery() {
       if (readState === "read") return mediaHasBeenRead(i);
       if (readState === "unread") return !mediaHasBeenRead(i);
       return true;
-    });
+    })
+    //: The Images half of the same idea: which kind of picture is part of
+    //: which pictures this sub-tab shows, so it is applied with the kind and
+    //: the sort still runs over what is left.
+    .filter((i) => libraryMediaKind === "files" || libraryImageOriginsOn.has(libraryImageOrigin(i)));
+  renderLibraryImageOrigins();
   const matched = query
     ? ofKind.filter(
         (i) =>
@@ -6214,7 +6947,7 @@ function filterLibraryImagesGallery() {
       const parts = [];
       if (image.caption_model) {
         parts.push(
-          `Described by ${shortModelName(image.caption_model)}${image.caption_edited ? ", edited by hand" : ""}`
+          `${captionCredit(image.caption_model, shortModelName)}${image.caption_edited ? ", edited by hand" : ""}`
         );
       } else if (image.caption && image.caption_edited) {
         parts.push("Described by hand");
@@ -6233,7 +6966,7 @@ function filterLibraryImagesGallery() {
       if (image._isImage) {
         const full = [];
         if (image.caption_model) {
-          full.push(`Described by ${image.caption_model}${image.caption_edited ? ", edited by hand" : ""}`);
+          full.push(`${captionCredit(image.caption_model)}${image.caption_edited ? ", edited by hand" : ""}`);
         } else if (image.caption && image.caption_edited) {
           full.push("Described by hand");
         }
@@ -6758,12 +7491,9 @@ function filterLibraryImagesGallery() {
     setLabel(save, "ph:download-simple");
     save.addEventListener("click", (event) => {
       event.stopPropagation();
-      const link = document.createElement("a");
-      link.href = mediaSrc(image._isAttachment ? `/files/${image.id}` : image.url);
-      link.download = image.original_name || "file";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      //: The app's own save path rather than a clicked `<a download>`, which
+      //: the desktop window swallows (see `saveFile`).
+      downloadFromApi(image._isAttachment ? `/files/${image.id}` : image.url, image.original_name || "file");
     });
 
     //: **The card's own way into the picture at full size.** Reported as the
@@ -7356,6 +8086,8 @@ function filterLibraryImagesGallery() {
 // was no reason to change that shape while moving it.
 onDomReady(() => {
   const librarySubtabs = document.getElementById("library-subtabs");
+  const LIBRARY_SECTION_FRESH_MS = 5000;
+  const librarySectionShownAt = {};
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
     // "library-view-documents" is the *All* view, it kept its id when it was
@@ -7396,10 +8128,23 @@ onDomReady(() => {
           }
         });
 
+        //: **A sub-tab shown a moment ago is not fetched again** (the owner:
+        //: "it can be a bit glitchy and flashy switching somewhat fast
+        //: through the library subtabs"). Every press re-fetched and rebuilt
+        //: its section from scratch, so flicking Documents, Boards, AI skills
+        //: and back rebuilt each one per press, and presses faster than a
+        //: fetch stacked two rebuilds of one section on top of each other.
+        //: Within a few seconds the section is shown as it was; after that,
+        //: or from any other path that changes its data, it renders as before.
+        const now = Date.now();
+        const fresh = now - (librarySectionShownAt[targetId] || 0) < LIBRARY_SECTION_FRESH_MS;
+        librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
           renderLibraryImagesGallery();
           startLibraryImagesPoll();
+        } else if (fresh) {
+          stopLibraryImagesPoll();
         } else {
           stopLibraryImagesPoll();
           if (targetId === "library-view-whiteboard") {
@@ -7427,7 +8172,14 @@ onDomReady(() => {
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
   $("library-media-bulk-delete")?.addEventListener("click", bulkDeleteLibraryMedia);
   $("library-media-clear-selection")?.addEventListener("click", clearLibraryMediaSelection);
-  $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
+  //: Debounced like the Library's own search: every keystroke rebuilt every
+  //: card (INBOX 424, measured 498ms over seven keys at 4x throttle), so a
+  //: word typed at speed now rebuilds once, when the typing pauses.
+  let libraryImagesSearchTimer = null;
+  $("library-images-search")?.addEventListener("input", () => {
+    clearTimeout(libraryImagesSearchTimer);
+    libraryImagesSearchTimer = setTimeout(filterLibraryImagesGallery, 150);
+  });
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {
     const doc = await createDocumentNamed();
@@ -7561,6 +8313,32 @@ onDomReady(() => {
       toast(error.message, true);
     }
   });
+  //: The add form folds away again the way a popover does: Escape from any
+  //: of its fields, or Done, and the focus goes back to the button that
+  //: opened it rather than to the top of the page.
+  const foldBookmarkForm = () => {
+    $("bookmark-form")?.classList.add("hidden");
+    $("bookmark-add")?.focus();
+  };
+  $("bookmark-form-done")?.addEventListener("click", foldBookmarkForm);
+  $("bookmark-form")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    foldBookmarkForm();
+  });
+  keepLibraryScroll();
+  //: The empty state's own Create: the dock's button, pressed, so the two can
+  //: never offer different things (`updateLibraryCreateButton` decides what
+  //: that is per kind).
+  $("library-empty-create")?.addEventListener("click", () => $("library-new-doc")?.click());
+  $("library-empty-clear")?.addEventListener("click", () => {
+    const search = $("library-search");
+    if (!search) return;
+    search.value = "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    search.focus();
+  });
   $("bookmark-search")?.addEventListener("input", filterBookmarks);
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
   $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
@@ -7634,7 +8412,48 @@ function syncSelectbarCount(idPrefix, n) {
 //: and `#library-media-selectbar` already are in index.html, so a sub-tab
 //: that never had one gets the identical bar rather than a fourth visual
 //: treatment for "items are selected".
-function createLibrarySelectbar(idPrefix, ariaLabel) {
+//: **One "Select all" for every Library selection bar** (owner: "no select
+//: all option??"). A bar names the list it governs (`data-select-all-for`),
+//: and the button works through that list's own tick boxes, dispatching the
+//: `change` each tick already listens for, so every list's own selection set
+//: and count stay the single source of truth and no list needs its own
+//: select-all code. It toggles: when everything shown is ticked it reads
+//: "Select none". Only what is rendered is ticked, which on a paged list is
+//: this page, the same thing a person can see and check before a delete.
+const SELECT_ALL_TICKS = "input.doc-list-tick, input.library-card-tick, input.library-tile-tick";
+
+function shownTicksIn(list) {
+  return [...list.querySelectorAll(SELECT_ALL_TICKS)].filter((t) => t.getClientRects().length);
+}
+
+function syncSelectAllLabels() {
+  for (const button of document.querySelectorAll("button[data-select-all-for]")) {
+    const list = document.getElementById(button.dataset.selectAllFor);
+    const ticks = list ? shownTicksIn(list) : [];
+    const all = ticks.length > 0 && ticks.every((t) => t.checked);
+    setLabel(button, all ? "ph:x-square Select none" : "ph:checks Select all");
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("button[data-select-all-for]");
+  if (!button) return;
+  const list = document.getElementById(button.dataset.selectAllFor);
+  if (!list) return;
+  const ticks = shownTicksIn(list);
+  const want = ticks.some((t) => !t.checked);
+  for (const tick of ticks) {
+    if (tick.checked === want) continue;
+    tick.checked = want;
+    tick.dispatchEvent(new Event("change"));
+  }
+  syncSelectAllLabels();
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches?.(SELECT_ALL_TICKS)) syncSelectAllLabels();
+});
+
+function createLibrarySelectbar(idPrefix, ariaLabel, listId = null) {
   const bar = document.createElement("div");
   bar.id = `${idPrefix}-selectbar`;
   //: `selectbar` is the recipe's sticky half (DESIGN.md, "A bar of actions
@@ -7646,6 +8465,12 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   const count = document.createElement("span");
   count.id = `${idPrefix}-selected-count`;
   count.className = "library-selected-count";
+  const selAll = document.createElement("button");
+  selAll.className = "ghost small";
+  selAll.type = "button";
+  selAll.title = "Tick everything shown, or untick it all";
+  if (listId) selAll.dataset.selectAllFor = listId;
+  setLabel(selAll, "ph:checks Select all");
   const end = document.createElement("span");
   end.className = "library-contextbar-end";
   const del = document.createElement("button");
@@ -7659,7 +8484,7 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   clear.type = "button";
   clear.textContent = "Done";
   end.append(del, clear);
-  bar.append(count, end);
+  bar.append(count, selAll, end);
   return bar;
 }
 
@@ -7793,7 +8618,7 @@ onDomReady(() => {
   // Documents/Files sub-tabs' own bars have in index.html.
   const boardsGrid = document.getElementById("library-boards-grid");
   if (boardsGrid && !document.getElementById("library-boards-selectbar")) {
-    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards");
+    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards", "library-boards-grid");
     boardsGrid.parentNode.insertBefore(bar, boardsGrid);
     document.getElementById("library-boards-bulk-delete").addEventListener("click", bulkDeleteLibraryBoards);
     document.getElementById("library-boards-clear-selection").addEventListener("click", clearLibraryBoardsSelection);
@@ -7807,7 +8632,7 @@ onDomReady(() => {
 
   const linksList = document.getElementById("bookmark-list");
   if (linksList && !document.getElementById("library-links-selectbar")) {
-    const bar = createLibrarySelectbar("library-links", "Actions for the selected links");
+    const bar = createLibrarySelectbar("library-links", "Actions for the selected links", "bookmark-list");
     linksList.parentNode.insertBefore(bar, linksList);
     document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
@@ -8572,6 +9397,14 @@ function contentsOrderedKeys(groups) {
   return keys.sort((a, b) => a.localeCompare(b));
 }
 
+function contentsNoteName(entry) {
+  const first = String(entry.content || "").split("\n").find((line) => line.trim()) || "";
+  const heading = /^\s*#{1,6}\s+(.+)$/.exec(first);
+  if (!heading) return noteLabel(entry, 80);
+  const name = notePreviewText(heading[1]).replace(/\s+/g, " ").trim();
+  return name || noteLabel(entry, 80);
+}
+
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
@@ -8690,6 +9523,10 @@ async function renderContents() {
         thumb.src = mediaSrc(shot.url);
         thumb.alt = "";
         thumb.loading = "lazy";
+        //: A picture that will not load is simply not shown: the row's own
+        //: words still name the note, and the missing-media placeholder is a
+        //: 170px box that pushed this row's label off the index's left edge.
+        thumb.addEventListener("error", () => thumb.remove());
         link.appendChild(thumb);
       }
       const text = document.createElement("span");
@@ -8701,7 +9538,12 @@ async function renderContents() {
         contentsMode === "folder" && entry.source_path
           ? entry.source_path.split("/").pop()
           : "";
-      text.textContent = fileName || noteLabel(entry, 80);
+      //: **An index lists titles.** A note with a heading was labelled with
+      //: its heading run straight into its first paragraph ("Sprint retro
+      //: What went well: measuring..."), which reads as one long title. A
+      //: note that has a heading is named by it; one without is named by its
+      //: opening words, as before.
+      text.textContent = fileName || contentsNoteName(entry);
       link.appendChild(text);
       //: The right-hand column of an index: what a row is filed under, or
       //: when it was written when the grouping already answers "under what".

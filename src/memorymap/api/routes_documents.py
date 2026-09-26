@@ -7,20 +7,21 @@ AI's retrieved context unless the user asks for them by name.
 
 from __future__ import annotations
 
+import json
 import logging
-
 import re
 import tempfile
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docmeta, docview, filetypes
+from memorymap.core import deps, docexport, docmeta, docview, filetypes, syntaxcheck
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -290,6 +291,28 @@ def list_file_types() -> dict:
     every call instead of answering.
     """
     return {"default": filetypes.DEFAULT_FILE_TYPE, "types": filetypes.as_dicts()}
+
+
+class SyntaxCheckBody(BaseModel):
+    language: str = Field(min_length=1, max_length=16)
+    text: str = Field(default="", max_length=syntaxcheck.MAX_CHARS)
+
+
+@router.post("/check-syntax")
+def check_syntax(body: SyntaxCheckBody) -> list[dict]:
+    """Syntax diagnostics for a code document (INBOX 392).
+
+    `[{line, col, message, severity}]`, 1-based, empty when the text parses.
+    Stateless on purpose: it takes the text rather than a document id, so the
+    editor can check what is on screen before it has been saved, and it never
+    touches the database. A language this server cannot check is a 400, not
+    an empty list, because an empty list is what "no errors" looks like.
+    Declared above `/{document_id}` for the reason `/file-types` is.
+    """
+    try:
+        return syntaxcheck.check(body.language, body.text)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 #: A page of the document list, not a ceiling on how many documents a
@@ -1151,6 +1174,46 @@ def ai_edit(
         "message": drafter.offline_message() if offline else "",
         "ollama_running": not offline,
     }
+
+
+class AiCheckBody(BaseModel):
+    """What to check: the selection when there is one, else the document."""
+
+    selection: str = Field(default="", max_length=MAX_CONTENT)
+
+
+@router.post("/{document_id}/ai-check")
+def ai_check(
+    document_id: int, body: AiCheckBody, session: Session = Depends(get_session)
+) -> StreamingResponse:
+    """Check with AI, in place (INBOX 410): findings streamed as NDJSON.
+
+    It used to hand the document to the Chat tab with a long prompt, which
+    left the editor, answered in a chat bubble with nothing to apply, and
+    drew a skill suggestion over it that did not fit (INBOX 413). Now each
+    finding arrives in the suggestions panel as the model writes it: the
+    exact words, a one-line reason, a one-line fix. Nothing is changed here;
+    the panel applies a fix only when it is pressed. Read before the stream
+    starts, because the session is closed by the time the body is sent.
+    """
+    document = _existing(session, document_id)
+    text = body.selection.strip() or (document.content or "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="There's nothing to check yet.")
+
+    def lines():
+        for event in drafter.review_stream(
+            text,
+            deps.get_model_manager().for_feature("documents"),
+            deps.get_ollama(),
+        ):
+            yield json.dumps(event) + "\n"
+
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 class RephraseBody(BaseModel):

@@ -291,19 +291,24 @@ def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
         client.post("/auth/unlock", json={"password": "nope"})
 
     # Age the failures past the wait they earned; the right password gets in
-    # and wipes the slate, so the next wrong guess starts from zero.
+    # and wipes the slate, so the next wrong guess starts from zero. Both
+    # layers since §12 S2: this client's own list and the global backstop.
     routes_auth._failed_unlocks[:] = [t - 5 for t in routes_auth._failed_unlocks]
+    for failures in routes_auth._failed_by_client.values():
+        failures[:] = [t - 5 for t in failures]
     assert client.post("/auth/unlock", json={"password": "first-pass"}).status_code == 200
     assert routes_auth._failed_unlocks == []
+    assert routes_auth._failed_by_client == {}
 
 
 def test_full_auth_flow(client):
     # Fresh app: setup required, API open (nothing to protect yet).
-    assert client.get("/auth/status").json() == {"setup_required": True}
+    # `auto_session` is False: sign-in is on by default (INBOX 426 aa).
+    assert client.get("/auth/status").json() == {"setup_required": True, "auto_session": False}
     assert client.post("/entries", json={"content": "pre-password note"}).status_code == 201
 
     token = client.post("/auth/setup", json={"password": "hunter2"}).json()["token"]
-    assert client.get("/auth/status").json() == {"setup_required": False}
+    assert client.get("/auth/status").json() == {"setup_required": False, "auto_session": False}
 
     # Once a password exists the data routes lock without a token…
     assert client.get("/entries").status_code == 401

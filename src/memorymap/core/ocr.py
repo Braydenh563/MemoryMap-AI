@@ -468,7 +468,28 @@ def _reading_block_kind(body: str) -> str:
 def extract_and_store(upload_id: int, image_path: Path) -> None:
     """Runs OCR synchronously and writes the result onto the `MediaUpload`
     row if any text was found. Split out from `extract_in_background` below
-    so tests can call this directly without waiting on a real thread."""
+    so tests can call this directly without waiting on a real thread.
+
+    **Once per picture, by one engine** (owner: "the vision captioning and
+    ocr should only happen each once, not multiple times each"). It had no
+    stored-result guard, so every save of a note holding the picture read it
+    again; and it ran beside the vision model's own read of the same text.
+    Now it stands down when the text is already stored, and when a vision
+    model is there to read it (`vision_ocr_and_store`, queued by the same
+    commit), so the picture is read once, by the better reader available.
+    """
+    deps = importlib.import_module("memorymap.core.deps")
+    from memorymap.core.database import MediaUpload
+
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None or upload.ocr_text:
+            return
+    try:
+        if deps.get_model_manager().resolve_vision_model(deps.get_ollama()):
+            return
+    except Exception:  # noqa: BLE001  # no backend reachable: Tesseract is the reader
+        pass
     text = extract_text(image_path)
     if not text:
         return
@@ -485,10 +506,6 @@ def extract_and_store(upload_id: int, image_path: Path) -> None:
     # ai.embeddings`, and this is its wrong-direction edge: `deps` is the
     # container that builds the embedding service, so nothing it builds
     # should name it back. Runtime behaviour is identical.
-    deps = importlib.import_module("memorymap.core.deps")
-
-    from memorymap.core.database import MediaUpload
-
     with deps.get_db().session() as session:
         upload = session.get(MediaUpload, upload_id)
         if upload is None:
@@ -503,7 +520,7 @@ def extract_in_background(upload_id: int, image_path: Path) -> None:
     already done by the time this runs, the same "don't make the caller
     wait for something that isn't the point of the request" reasoning as
     `ai/embeddings.py`'s background reinstall-and-retry."""
-    jobs.enqueue("ocr", extract_and_store, upload_id, image_path, name=image_path.name)
+    jobs.enqueue("ocr", extract_and_store, upload_id, image_path, name=image_path.name, dedupe_key=("ocr", upload_id))
 
 
 #: Per platform, the first package manager found on PATH gets tried. Every

@@ -87,8 +87,8 @@ def read_document_and_store(attachment_id: int) -> str | None:
                 logger.info("could not read %s", row.filename, exc_info=True)
                 text = ""
             if text:
-                row.ocr_text = text
-                session.commit()
+                _fill_if_empty(session, Attachment, attachment_id, "ocr_text", text)
+                session.refresh(row)
 
         if row.caption:
             return row.caption
@@ -108,11 +108,37 @@ def read_document_and_store(attachment_id: int) -> str | None:
             return None
         if not described:
             return None
-        row.caption = described
-        row.caption_model = models.utility_model()
-        row.caption_edited = False
-        session.commit()
-        return described
+        #: **Written only if the field is still empty when the answer lands.**
+        #: The model call takes seconds, and a description typed in that time
+        #: was overwritten by the late automatic one (caught by CI, where the
+        #: upload's own background read raced the test's hand-written value).
+        #: The check has to be in the write itself: reading the row again
+        #: first would leave the same race a step narrower.
+        wrote = _fill_if_empty(
+            session,
+            Attachment,
+            attachment_id,
+            "caption",
+            described,
+            caption_model=models.utility_model(),
+            caption_edited=False,
+        )
+        session.refresh(row)
+        return described if wrote else row.caption
+
+
+def _fill_if_empty(session, model, row_id: int, field: str, value: str, **also) -> bool:  # noqa: ANN001
+    """Set `field` (and `also`) only where `field` is still NULL or empty. True if it wrote."""
+    from sqlalchemy import or_, update
+
+    column = getattr(model, field)
+    result = session.execute(
+        update(model)
+        .where(model.id == row_id, or_(column.is_(None), column == ""))
+        .values({field: value, **also})
+    )
+    session.commit()
+    return bool(result.rowcount)
 
 
 def read_in_background(attachment_id: int) -> None:

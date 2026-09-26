@@ -309,3 +309,74 @@ def test_pdf_vision_ocr_and_store_records_the_completed_task(
     history = taskhistory.recent()
     assert history[0]["kind"] == "vision_ocr"
     assert history[0]["outcome"] == "completed"
+
+
+# --- degenerate repetition loops (INBOX 421 e) ------------------------------
+#
+# The owner's lightbox showed a vision reading of "Goal, People, Test, Test,
+# Test, ..." hundreds of times: a small model stuck in a loop. The reading is
+# cut where it is produced, so every store (upload, route, re-read) gets the
+# same answer and nothing downstream (search, the agent's context) indexes
+# the loop.
+
+
+def _once(text, word):
+    """The loop is gone: the word it repeated is left at most once."""
+    return text.count(word) == 1
+
+
+def test_a_word_looped_hundreds_of_times_is_collapsed_to_one():
+    text = "Goal, People, " + "Test, " * 400 + "Test"
+    cut = vision_ocr.cut_reading_loops(text)
+    assert cut.startswith("Goal, People, Test") and _once(cut, "Test") and len(cut) < 25
+
+
+def test_a_looped_phrase_and_a_looped_line_are_collapsed():
+    cut = vision_ocr.cut_reading_loops("List: " + "Milk and eggs " * 30 + "done")
+    assert cut.startswith("List: ") and cut.endswith("done") and _once(cut, "Milk and eggs")
+    cut = vision_ocr.cut_reading_loops("Row one\n" + "Total: 0\n" * 50 + "End")
+    assert cut.startswith("Row one\n") and cut.endswith("End") and _once(cut, "Total: 0")
+
+
+def test_a_last_unfinished_repeat_goes_with_the_loop_but_a_longer_word_stays():
+    assert _once(vision_ocr.cut_reading_loops("Test " * 20 + "Test"), "Test")
+    cut = vision_ocr.cut_reading_loops("Test " * 20 + "Testing")
+    assert cut.endswith("Testing") and cut.count("Test") == 2
+
+
+def test_eight_in_a_row_is_left_alone_and_punctuation_runs_are_kept():
+    eight = ("ha " * 8).strip()
+    assert vision_ocr.cut_reading_loops(eight) == eight
+    table = "| a | b |\n|---|---|\n" + "=" * 40 + "\n" + "." * 30
+    assert vision_ocr.cut_reading_loops(table) == table
+
+
+def test_a_reading_is_capped_at_a_word_boundary():
+    words = " ".join(f"word{i}" for i in range(20000))
+    cut = vision_ocr.cut_reading_loops(words)
+    assert len(cut) <= vision_ocr.READING_MAX_CHARS
+    assert words.startswith(cut) and words[len(cut)] == " "
+
+
+def test_vision_ocr_text_cuts_the_loop_before_it_is_stored(app_state, session, fake_ollama, tmp_path):
+    fake_ollama.librarian_reply = "Goal, People, " + "Test, " * 500
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    deps.override_ai(ollama=fake_ollama)
+
+    vision_ocr.vision_ocr_and_store(upload_id, image_path)
+    with deps.get_db().session() as check:
+        stored = check.get(MediaUpload, upload_id).vision_ocr_text
+    assert stored.startswith("Goal, People, Test") and _once(stored, "Test")
+
+
+def test_a_looped_caption_is_cut_too(tmp_path, fake_ollama):
+    from memorymap.ai import captioning
+
+    fake_ollama.librarian_reply = "A whiteboard with " + "arrows and boxes, " * 60
+    image_path = tmp_path / "photo.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    cut = captioning.caption_text(image_path, "llava", fake_ollama)
+    assert cut.startswith("A whiteboard with") and _once(cut, "arrows and boxes")

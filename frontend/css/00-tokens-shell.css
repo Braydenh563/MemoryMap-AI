@@ -21,12 +21,77 @@
    its own here: Chromium still drew the popup with this app's own
    (light, inherited-from-`select`) text colour, so `option`/`optgroup`
    get their background/text set directly below too, belt and suspenders. */
+/* **The board's grid tokens do not inherit** (INBOX 392 and 312: "really
+   slow to pan and move around", on maps and plain boards alike). They are
+   rewritten on `#whiteboard-container` on every pan and zoom frame, and an
+   ordinary custom property inherits, so each write re-styled every element
+   on the board: traced on a 60-topic map, a wheel pan spent 2,439ms in
+   style recalculation over 50 steps (1,713 elements per frame) against 67ms
+   of script. Registered as non-inheriting, a write re-styles the container
+   alone (3 elements per frame, 16ms over the same gesture). Only the
+   container reads them, for its own background. `--wb-inv-zoom` has to
+   inherit (the grips read it), so it is written only when the zoom level
+   changes, never on a pan (`wbSyncGridToTransform`). */
+@property --wb-grid-size {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 24px;
+}
+
+@property --wb-grid-offset-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wb-grid-offset-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 :root {
   color-scheme: light;
 }
 
 :root[data-mode="dark"] {
   color-scheme: dark;
+}
+
+/* **`--accent-text`: the accent, when it is words** (INBOX 426, round 4;
+   the decision: links and accent-coloured text use a text-safe token, the
+   accent itself stays for fills). An accent is chosen for how it looks as
+   a fill, and as text it can fail: "rose" (#ec4899) on the paper palette's
+   ground was 3.35:1 for "Get it from ollama.com", measured by
+   `contrast.js`, and a custom accent can be any colour at all.
+   So the text colour is derived from whatever `--accent` is at the root,
+   palette, preset or picked, keeping its hue and holding its lightness and
+   chroma: at most OKLCH L 0.45 and C 0.16 in a light mode (darkening), at
+   least L 0.8 and at most C 0.12 in a dark one (lightening). The chroma cap
+   is what makes one lightness hold for every hue: a pure red or cyan at
+   full chroma is out of gamut and is clipped, and the clip moves its
+   luminance. Measured by `scratchpad/ui-sweeps/accenttext.js` over every
+   palette, accent preset and mode (348 combinations with nine extreme
+   picked colours): raw `--accent` is under 4.5:1 on 228 of them, this
+   token on none, lowest 4.71:1 (pure cyan picked, light, on a settings
+   group's 224 grey). An accent already on the safe side keeps its
+   lightness; only a very vivid one loses some chroma.
+
+   The fallback is the accent itself, for an engine without relative colour
+   syntax: a `var()` of a colour it could not parse would be invalid where
+   it is used and paint nothing at all (CLAUDE.md section 5's trap). */
+:root {
+  --accent-text: var(--accent);
+}
+
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --accent-text: oklch(from var(--accent) min(l, 0.45) min(c, 0.16) h);
+  }
+
+  :root[data-mode="dark"] {
+    --accent-text: oklch(from var(--accent) max(l, 0.8) min(c, 0.12) h);
+  }
 }
 
 select option,
@@ -108,6 +173,17 @@ select optgroup {
   --motion-fast: 0.12s;   /* hover/press feedback, checkbox/toggle state */
   --motion-base: 0.16s;   /* the default: colour, background, border, opacity */
   --motion-slow: 0.2s;    /* a bigger move: panel/sidebar open, card lift */
+  /* The curves (INBOX 399 (4)). `ease` was the curve of 125 of the app's
+     transitions and `ease-out` or a hand-written cubic-bezier of the rest,
+     five curves for one kind of motion. A control that answers the pointer
+     should arrive at once and settle, which is what `--ease-out` does: most
+     of the change in the first third. `--ease-in-out` is for a thing that
+     travels between two resting places; `--ease-spring` overshoots once, for
+     a knob or a pop, never for a surface. Every transition names one of the
+     three (`tests/test_motion_tokens.py`). */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -220,11 +296,22 @@ select optgroup {
      was `#cdd5e0`, which is what caught this. Strings, numbers and comments
      reuse `--ok`, `--warn` and `--muted`, none of which the user can change. */
   --syntax-keyword: #7c3aed;
-  --warn: #9a5b04;
+  /* #9a5b04 was 4.48:1 on its own `--warn-soft` chip ("confirms first" in
+     Settings, Tools; contrast.js), a hair under AA. One step darker is 4.85.
+     And #935603 was 4.45:1 as a skill row's "Changes notes" on the row's
+     grey in the flat looks (contrast.js, Settings, Skills, round 2): one
+     more step, #8a5003, is 4.9 there. */
+  --warn: #8a5003;
   --warn-soft: rgba(245, 189, 79, 0.25);
   --ok: #10653c;
   --ok-soft: rgba(52, 199, 123, 0.20);
-  --error: #b91c1c;
+  /* #b91c1c was 4.34:1 as "Forget everything learned" (a ghost danger
+     button: --error on --error-soft) over a settings group's grey
+     (contrast.js, Settings, What it learned, round 2); #b01a1a is 4.67. */
+  --error: #b01a1a;
+  /* Text on a filled --error ground: white on the light theme's deep red,
+     dark ink on the dark theme's light red (white there measured 2.2:1). */
+  --on-error: #ffffff;
   /* Added with the AI status dot, which needs a soft ground the way ok and
      warn already had one. */
   --error-soft: rgba(220, 38, 38, 0.18);
@@ -389,6 +476,14 @@ select optgroup {
      once, on this very row, before it moved here. A shared measurement
      belongs at the root; the header now reads this token too. */
   --control-h-lg: 2.25rem;
+  /* The shared control height, at the root (2026-09-24 polish pass). It was
+     declared only on four containers (.library-controls, .library-head,
+     .library-toolbar, .dock), and 70 rules read it, so everywhere outside
+     those four a `height: var(--control-h)` was invalid at use and simply
+     dropped: the Reminders filter chips measured 22px against the Library's
+     36px, and the Write with AI popup's buttons came out at 20px. The four
+     containers still set their own value; everything else gets this one. */
+  --control-h: var(--control-h-lg);
   /* The settings sheet's own row height. It is `--control-h-lg` everywhere a
      pointer is a mouse, and it exists as a token of its own for one reason:
      below 820 it steps to `--target-min` (01-forms-settings.css, "the
@@ -437,12 +532,27 @@ select optgroup {
      (the recipe most used, so the winner); anything that shows paragraphs in
      a wide column reads this rather than choosing its own. */
   --measure: 54rem;
+  /* **A document's page** (DOCUMENTS_PLAN 17a): the measure its prose is set
+     in and the margin either side of it. The measure is in `ch` so it counts
+     characters of whatever face the editor is drawing in: measured with
+     `scratchpad/ui-sweeps/docpage17.js`, the old 78ch cap put 93 characters
+     of a mixed-alphabet paragraph on a line, past the 60 to 90 the plan's
+     gate allows, and 64ch puts 77. The margin is fluid between a comfortable
+     minimum and 2rem, so the text is never ten pixels from its pane's edge
+     again, which is what 17a measured it at. */
+  --doc-measure: 64ch;
+  --doc-gutter: clamp(var(--space-6), 2.5vw, var(--space-9));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
   /* Equal to the side gutter -- see `.layout`'s gap for the measurement. */
   --page-top: var(--page-gutter);
-  --page-bottom: var(--space-8);
+  /* The same as the other three edges (INBOX 425, the owner: "there is a lot
+     of space lost because of these margins and floating panels"). Measured
+     at 1440: 16px of gutter at the sides and the top and 24px at the bottom,
+     plus the last card's own padding, so every page ended in a 40px band of
+     nothing above the status bar. One number on all four edges. */
+  --page-bottom: var(--page-gutter);
 
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
      Both ends of it.
@@ -499,7 +609,7 @@ select optgroup {
      Now just the button's own height plus one gap, and (04-chat-dock-
      appearance.css, 07-whiteboard-misc.css) applied only while
      `body.scroll-top-visible` says the button is actually on screen to
-     clear (app.js's `initScrollTopButton`). */
+     clear (navigation.js's `initScrollTopButton`). */
   --scroll-top-clearance: calc(2.75rem + var(--space-4));
 
   /* How much of the window the on-screen keyboard is currently covering
@@ -557,6 +667,13 @@ select optgroup {
   --radius-lg: calc(var(--radius) * 0.8);
   /* cards, dialogs */
   --radius-pill: 999px;
+  /* The segmented-control table (DESIGN.md, "Segmented controls"): a choice
+     control's track, and a sub-tab strip's. Named because five track radii
+     had grown with none written down; `tests/test_ui_recipes.py` holds every
+     track to these two, the pill in the chat dock, the bar's own corner in a
+     `.dock`, and 0 for the one full-bleed strip. */
+  --radius-choice: calc(var(--radius) * 0.5 + var(--radius-md));
+  --radius-strip: var(--radius-lg);
 
   /* --- aliases for a second set of token names (audit of §40) ---------------
      Twenty-three declarations across the newer components reached for names
@@ -740,7 +857,10 @@ select,
   --warn-soft: rgba(251, 191, 36, 0.16);
   --ok: #4ade80;
   --ok-soft: rgba(74, 222, 128, 0.15);
-  --error: #f87171;
+  /* #f87171 read 4.21:1 as a danger button's label on its own --error-soft
+     ground (Settings, Learned: "Forget everything learned"; contrast.js). */
+  --error: #fa8585;
+  --on-error: #2a0b0b;
   --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
@@ -814,7 +934,8 @@ select,
     --warn-soft: rgba(251, 191, 36, 0.16);
     --ok: #4ade80;
     --ok-soft: rgba(74, 222, 128, 0.15);
-    --error: #f87171;
+    --error: #fa8585;
+    --on-error: #2a0b0b;
     --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);
@@ -933,6 +1054,21 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* **A link is the accent, everywhere, unless something says otherwise.**
+   There was no base rule, so every plain `<a>` (Settings' "Get it from
+   ollama.com", help text, rendered answers without their own class) drew in
+   the browser's own #00e blue and visited purple, in both themes. `:where`
+   keeps it at zero specificity, so every link that already has a style of
+   its own keeps it. */
+:where(a) {
+  color: var(--accent-text);
+  text-underline-offset: 0.15em;
+}
+
+:where(a):hover {
+  text-decoration-thickness: 2px;
 }
 
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
@@ -1383,7 +1519,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      run. `hidden` would also fight the hover rule below. */
   visibility: hidden;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease, visibility var(--motion-fast);
+  transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast) var(--ease-out);
 }
 
 .ai-status-wrap:hover .ai-status-popup,
@@ -1779,7 +1915,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 /* The bar that stops below the Notes sub-tab strip. `--notes-sticky-top` is
-   written onto this page by `initNotesSubtabHeightToken` (app.js) and carries
+   written onto this page by `initNotesSubtabHeightToken` (phone-shell.js) and carries
    the strip's measured height plus its bottom margin; the `0px` that stylesheet
    declares for the token is what applies for the frame before that lands. */
 #tab-notes {
@@ -1799,7 +1935,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-selected-count {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .library-view button {
@@ -1975,7 +2111,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      card. The edge is transparent rather than absent so the height is
      unchanged and `[data-contrast="on"]` can colour it back. */
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   box-shadow: none;
   color: var(--muted);
@@ -2102,7 +2238,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .library-card:hover .library-card-menu,
@@ -2148,7 +2284,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      -webkit-line-clamp already ellipsizes without it, reported live as
      missing, not reproduced here, cheap enough to harden regardless. */
   font-size: var(--text-body);
-  font-weight: 650;
+  font-weight: 600;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2585,7 +2721,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* See the visibility rule further down: this used to be 0, so the kebab did
      not exist until the pointer found it. */
   opacity: 0.6;
-  transition: opacity var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 /* **The row above now holds exactly one control, and that is the point.**
@@ -2786,7 +2922,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile figcaption:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The picture and its name are one object** (INBOX 56). The name under the
@@ -3076,7 +3212,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   content: "▸";
   flex: 0 0 auto;
   opacity: 0.7;
-  transition: transform var(--motion-base) ease;
+  transition: transform var(--motion-base) var(--ease-out);
 }
 
 .library-image-reading[open] > summary::before {
@@ -3621,7 +3757,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .status-item b {
   color: var(--ink);
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3634,11 +3770,11 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .status-task {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .status-task b {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .status-key {
@@ -3777,6 +3913,14 @@ header#top-bar.tabs-wrapped #tab-bar {
   background: var(--accent-surface);
   color: var(--on-accent);
   font-weight: 600;
+}
+
+/* The tabs you are not on answer the pointer (INBOX 405): full ink and the
+   veil, where they used to get only `button:hover`'s 7% brightness, which on
+   muted text on a light bar made the label paler, not stronger. */
+#tab-bar button:not(.active):hover {
+  color: var(--ink);
+  background: var(--hover-veil);
 }
 
 :root[data-mode="dark"] #tab-bar button.active {
@@ -3944,7 +4088,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    **720 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3): an iPad in
    portrait is 768 or 810 CSS px, and at 721-819 this app was giving a tablet
    a desktop two-column layout with a 197px sidebar against a 600px content
-   column. `STACKED_LAYOUT` in app.js carries the same number and has to move
+   column. `STACKED_LAYOUT` in sheets-selects.js carries the same number and has to move
    with it: `applySidebarWidth` writes an inline `grid-template-columns` while
    the layout is not stacked, and an inline style beats this rule whatever its
    media query says. Below 820 the sidebar is a sheet (07-whiteboard-misc.css)
@@ -3961,7 +4105,7 @@ header#top-bar.tabs-wrapped #tab-bar {
        back that the clamp exists to remove. Only the vertical insets,
        which are not viewport-relative, still step. */
     --page-top: var(--space-3);
-    --page-bottom: var(--space-6);
+    --page-bottom: var(--space-3);
   }
 
   .layout {
@@ -4374,7 +4518,7 @@ summary.small.icon-button {
      once that transition ends, so nothing sits behind it accepting clicks
      after this. */
   opacity: 1;
-  transition: opacity 220ms ease-out;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .boot-splash.hidden {
@@ -4441,7 +4585,7 @@ summary.small.icon-button {
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 220ms ease-out;
+  transition: transform var(--motion-slow) var(--ease-out);
   animation: boot-splash-progress-crawl 2.4s ease-out forwards;
 }
 
@@ -4504,7 +4648,7 @@ summary.small.icon-button {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-size: var(--text-md);
   cursor: pointer;
@@ -4550,7 +4694,7 @@ summary.small.icon-button {
 .library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover,
 .library-image-tile .library-image-menu-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The content column scrolls down, never sideways.**

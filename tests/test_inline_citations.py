@@ -17,16 +17,13 @@ produced none, and the chips renumbered to match.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
-
-SOURCE = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 @pytest.fixture(scope="module")
 def app_js() -> str:
-    return SOURCE.read_text(encoding="utf-8")
+    return app_js_text()
 
 
 def test_the_function_exists(app_js):
@@ -152,22 +149,24 @@ def test_the_live_renderer_is_stopped_before_the_markers_go_in(app_js):
     )
 
 
-def test_a_sentence_split_across_markup_is_skipped_not_reassembled(app_js):
-    """A citation attached to the wrong half of a sentence is worse than no
-    citation, and the chip row still lists every source either way."""
-    body = app_js.split("function addInlineCitations(")[1].split("\nfunction renderAnswerGrounding(")[0]
-    assert "indexOf(" in body, "matching must stay a whole-sentence search inside one text node"
+def test_a_sentence_split_across_markup_is_still_found(app_js):
+    """INBOX 318, measured with `scratchpad/ui-sweeps/askgrounding.js` against
+    an answer shaped the way a model writes (a list with bold labels, a word in
+    italics): the grounding named three notes and no marker was placed,
+    because the search looked for the raw markdown sentence inside one text
+    node at a time. It matches on letters and digits across the block now, and
+    the marker goes after the sentence's last letter, so it can never land on
+    half a sentence, which was the reason the old rule gave for skipping."""
+    body = app_js.split("const CITATION_WORD_CHAR")[1].split("\nfunction citationMarker(")[0]
     assert "NodeFilter.SHOW_TEXT" in body
+    assert "citationKey(g.sentence)" in body, "sentences are compared on letters and digits"
+    assert "index.at[start + key.length - 1]" in body, "the marker goes after the last letter"
 
 
-def test_both_halves_of_a_split_node_are_rescanned(app_js):
-    """The measured bug: placing a marker splits the text node, and a
-    paragraph routinely holds several grounded sentences. Re-queueing only
-    the tail left the first sentence of a paragraph unmarked whenever the
-    second one happened to be longer (they are matched longest-first)."""
-    body = app_js.split("function addInlineCitations(")[1].split("\nfunction renderAnswerGrounding(")[0]
-    assert "queue.unshift(tail)" in body
-    assert "queue.unshift(node)" in body
+def test_placing_the_markers_twice_draws_them_once(app_js):
+    """The Ask tab re-places them after every live paint (INBOX 320)."""
+    body = app_js.split("function addInlineCitations(")[1].split("\nfunction citationMarker(")[0]
+    assert 'querySelectorAll(".answer-citation")) old.remove()' in body
 
 
 def test_the_chips_are_numbered_to_match_the_markers(app_js):
@@ -195,7 +194,7 @@ def test_the_chips_are_numbered_to_match_the_markers(app_js):
 #: called is a marker race waiting to happen, in whichever surface adds one
 #: next.
 def test_every_live_markdown_renderer_is_stopped_somewhere() -> None:
-    source = SOURCE.read_text(encoding="utf-8")
+    source = app_js_text()
     #: `const x = liveMarkdownRenderer(...)` and `render: liveMarkdownRenderer(...)`
     #: are the two shapes in use; the second is a step field, stopped as
     #: `step.render?.stop?.()`, so the name to look for is the key either way.

@@ -278,21 +278,20 @@ const VIEWPORT = (() => {
   // boundary. The colour maths is the same as the block above (a `color(srgb
   // …)`-aware parse, flatten, WCAG ratio), written again rather than shared
   // because a `page.evaluate` body cannot see the other one's locals.
+  // §12.5 (1fce645, the same redesign that led into the pie ring, ccd1b48)
+  // made the ring and the strip mutually exclusive: opening the ring on a
+  // topic puts the strip away, so the two can no longer be read from one
+  // right-click. The colour maths (a `color(srgb …)`-aware parse, flatten,
+  // WCAG ratio) is shared between the two passes below via `wbTheme...`
+  // globals this evaluate sets up once, since a `page.evaluate` body cannot
+  // see the other one's locals.
   const firstNode = await page.evaluate(() => {
     const el = document.querySelector(".wb-object.wb-map-node");
     selectWbItem("object", Number(el.dataset.id));
     return Number(el.dataset.id);
   });
   await page.waitForTimeout(500);
-  await page.evaluate((id) => {
-    const el = document.querySelector(`.wb-object[data-id="${id}"]`);
-    const r = el.getBoundingClientRect();
-    el.dispatchEvent(new MouseEvent("contextmenu", {
-      bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
-    }));
-  }, firstNode);
-  await page.waitForTimeout(500);
-  const chrome = await page.evaluate(() => {
+  const stripChrome = await page.evaluate(() => {
     const parse = (css) => {
       const modern = css.match(/color\(srgb\s+([^)]+)\)/);
       if (modern) {
@@ -320,30 +319,79 @@ const VIEWPORT = (() => {
     const stripInk = Math.round(ratio(over(parse(getComputedStyle(glyph).color), tray), tray) * 100) / 100;
     const sr = strip.getBoundingClientRect();
 
-    const ring = document.getElementById("wb-map-radial");
-    const slot = ring.querySelector(".wb-map-radial-slot");
-    const cs = getComputedStyle(slot);
-    const slotFill = over(parse(cs.backgroundColor), canvas);
     return {
       theme: document.documentElement.dataset.theme || "(system)",
       stripShown: !strip.classList.contains("hidden"),
       stripRows: Math.round(sr.height) > 60 ? 2 : 1,
       stripInk,
       stripInsideCanvas: Math.round(sr.right) <= window.innerWidth,
-      ringOpen: !ring.classList.contains("hidden"),
-      slotEdge: Math.round(ratio(over(parse(cs.borderTopColor), slotFill), canvas) * 100) / 100,
-      slotInk: Math.round(ratio(over(parse(getComputedStyle(slot.querySelector("i")).color), slotFill), slotFill) * 100) / 100,
     };
   });
   check(
     `[${tag}] the edit strip's controls read against the tray they sit in`,
-    chrome.stripShown && chrome.stripInk >= 4.5 && chrome.stripInsideCanvas,
-    JSON.stringify(chrome)
+    stripChrome.stripShown && stripChrome.stripInk >= 4.5 && stripChrome.stripInsideCanvas,
+    JSON.stringify(stripChrome)
   );
+
+  await page.evaluate((id) => {
+    const el = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent("contextmenu", {
+      bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    }));
+  }, firstNode);
+  await page.waitForTimeout(500);
+  const ringChrome = await page.evaluate(() => {
+    const parse = (css) => {
+      const modern = css.match(/color\(srgb\s+([^)]+)\)/);
+      if (modern) {
+        const parts = modern[1].split("/");
+        const rgb = parts[0].trim().split(/\s+/).map(Number);
+        return { r: rgb[0] * 255, g: rgb[1] * 255, b: rgb[2] * 255, a: parts.length > 1 ? parseFloat(parts[1]) : 1 };
+      }
+      const m = css.match(/rgba?\(([^)]+)\)/);
+      if (!m) return { r: 0, g: 0, b: 0, a: 0 };
+      const parts = m[1].split(/[,/]/).map((x) => parseFloat(x.trim()));
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+    };
+    const over = (t, b) => ({ r: t.r * t.a + b.r * (1 - t.a), g: t.g * t.a + b.g * (1 - t.a), b: t.b * t.a + b.b * (1 - t.a), a: 1 });
+    const lum = (c) => {
+      const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const page_ = parse(getComputedStyle(document.body).backgroundColor);
+    const canvas = over(parse(getComputedStyle(document.getElementById("whiteboard-container")).backgroundColor), { ...page_, a: 1 });
+
+    const ring = document.getElementById("wb-map-radial");
+    const slot = ring.querySelector(".wb-map-radial-slot");
+    const cs = getComputedStyle(slot);
+    // The ring is a pie menu (ccd1b48): a slot's own visible border is gone
+    // (border: 0, the divider is the ring's shared ::before annulus), so
+    // "the slot's own edge" is read from that annulus, over the slot's own
+    // fill, over the canvas.
+    // **The boundary, not the divider.** The annulus colour is the hairline
+    // between sectors, read against the sectors either side of it; what
+    // WCAG 1.4.11 asks 3:1 of is where the control meets the canvas, and the
+    // ring draws that as two 1px shadows on the same `::before` (outer
+    // spread, inner inset, `--wb-radial-edge`). This read the divider as the
+    // edge and measured 1.39:1 light, 1.58:1 dark. Both edge colours are
+    // read from the computed `box-shadow`, and the weaker one is reported.
+    const before = getComputedStyle(ring, "::before");
+    const slotFill = over(parse(cs.backgroundColor), canvas);
+    const shadowColours = (before.boxShadow.match(/color\(srgb[^)]*\)|rgba?\([^)]*\)/g) || []).slice(0, 2);
+    const edges = shadowColours.map((c) => Math.round(ratio(over(parse(c), canvas), canvas) * 100) / 100);
+    return {
+      ringOpen: !ring.classList.contains("hidden"),
+      slotEdge: edges.length === 2 && /inset/.test(before.boxShadow) ? Math.min(...edges) : 0,
+      divider: Math.round(ratio(over(parse(before.borderTopColor), slotFill), slotFill) * 100) / 100,
+      slotInk: Math.round(ratio(over(parse(getComputedStyle(slot.querySelector("i")).color), slotFill), slotFill) * 100) / 100,
+    };
+  });
   check(
     `[${tag}] a ring slot's edge and glyph read against the canvas`,
-    chrome.ringOpen && chrome.slotEdge >= 3 && chrome.slotInk >= 4.5,
-    JSON.stringify({ slotEdge: chrome.slotEdge, slotInk: chrome.slotInk })
+    ringChrome.ringOpen && ringChrome.slotEdge >= 3 && ringChrome.slotInk >= 4.5,
+    JSON.stringify(ringChrome)
   );
 
   await page.screenshot({ path: `${OUT}/mindmap-theme-${tag}.png` });

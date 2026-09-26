@@ -22,7 +22,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WB = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+#: whiteboard.js and whiteboard-map.js joined: the mind map layer moved into
+#: whiteboard-map.js verbatim on 2026-09-24, and the renderer and the
+#: gestures that call into it stayed in whiteboard.js.
+WB = "\n".join(
+    (ROOT / "frontend" / n).read_text(encoding="utf-8") for n in ("whiteboard.js", "whiteboard-map.js")
+)
 
 
 def _body(name: str) -> str:
@@ -153,3 +158,41 @@ def test_an_object_is_raised_once_a_gesture_not_once_a_frame() -> None:
     }"""
         in WB
     )
+
+
+# --- INBOX 424a: a group drag on a 250-object board ---------------------------
+#
+# Measured by the 424 audit at 4x CPU: forty moves of a 20-item selection spent
+# 8.6s in long tasks, 2.6s of it in `querySelector`, because the selection bar
+# was placed on every move and asked `wbItemBBox` about every member, each ask
+# a document-wide query. After: `objDragMove` 5,167ms to 167ms, longest task
+# 901ms to 213ms (scratchpad perf harness, board:drag20).
+
+
+def test_a_drag_places_the_selection_bar_once_a_frame() -> None:
+    """Every drag-move handler queues the bar; none places it inline."""
+    move =WB[WB.index("function objDragMove(") : WB.index("async function objDragEnd(")]
+    assert "wbQueueSelectionBar();" in move
+    assert "wbUpdateSelectionBar();" not in move
+    queue = _code("wbQueueSelectionBar")
+    assert "requestAnimationFrame(" in queue
+    # A direct placement calls a queued one off rather than placing twice.
+    assert "cancelAnimationFrame(wbSelectionBarFrame)" in _code("wbUpdateSelectionBar")
+
+
+def test_an_item_box_finds_its_element_once() -> None:
+    """`wbItemBBox` goes through the element cache, which re-queries only for an
+    element a render has replaced, and every render empties it."""
+    bbox = _code("wbItemBBox")
+    assert "document.querySelector(" not in bbox
+    element = _code("wbItemElement")
+    assert "isConnected" in element
+    assert "wbItemElCache.clear();" in _code("renderWhiteboard")
+
+
+def test_the_selection_chrome_is_found_once_per_gesture() -> None:
+    chrome = _code("wbTranslateSelectionChrome")
+    assert "origin.chromeGroups" in chrome and "isConnected" in chrome
+    assert "wbTranslateSelectionChrome(dx, dy, origin);" in _code("wbApplyBulkMove")
+    # The bar's own editing check asks the board, not the whole page.
+    assert 'container.querySelector(".wb-object.wb-text-editing")' in _code("wbUpdateSelectionBar")

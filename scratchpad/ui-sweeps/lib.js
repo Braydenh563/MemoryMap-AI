@@ -22,7 +22,13 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
   'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent'];
 async function boot(opts={}) {
-  const browser = await chromium.launch();
+  //: SCROLLBARS=1 draws real scrollbars, as Windows does (17px, taking
+  //: layout width). Headless Chromium hides them by default, which is the
+  //: one difference between a sweep and the owner's desktop window that no
+  //: viewport or scale setting reproduces (INBOX 397).
+  const browser = await chromium.launch(
+    process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
+  );
   const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);
@@ -41,26 +47,75 @@ async function boot(opts={}) {
   // app.js). A sweep that let that offer appear would measure a toast nobody
   // asked about, and a click landing on it. A sweep that wants the tour opens
   // it itself (scratchpad/ui-sweeps/tour.js does).
+  // LOOK picks a look by its preset id (`default` is Classic), for a sweep
+  // that has to hold in more than the default look. Unset means whatever the
+  // app's own default is, which is what every older sweep measured.
+  await ctx.addInitScript((look) => {
+    try {
+      if (look) localStorage.setItem('themePreset', look);
+    } catch (e) {}
+  }, process.env.LOOK || '');
+  // GLASS=off (or on) sets the glass preference over whatever the look says,
+  // for a sweep that has to hold with the glass-off list applied.
+  await ctx.addInitScript((glass) => {
+    try {
+      if (glass) localStorage.setItem('glass', glass);
+    } catch (e) {}
+  }, process.env.GLASS || '');
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);
       localStorage.setItem('onboardingDone', '1');
       localStorage.setItem('tourDone', '1');
+      // The companion's one-time nudge is a toast too (avatars.js,
+      // `nameMarkBuddyHint`): marked seen for the same reason. A sweep that
+      // wants it clears this key.
+      if (!localStorage.getItem('nm-buddy-hint-sweep')) localStorage.setItem('nm-buddy-hint', 'done');
     } catch (e) {}
   }, process.env.THEME || 'light');
+  // OVERRIDE_JS="whiteboard.js=/tmp/base/whiteboard.js" serves that file in
+  // place of the app's own, so a "before" can be measured against a base
+  // commit's script on the same server and data dir as the "after".
+  if (process.env.OVERRIDE_JS) {
+    const [name, file] = process.env.OVERRIDE_JS.split('=');
+    const body = require('fs').readFileSync(file, 'utf8');
+    await ctx.route(`**/${name}*`, (route) => route.fulfill({ body, contentType: 'application/javascript' }));
+  }
+  // The same for one stylesheet: OVERRIDE_CSS="07-whiteboard-misc.css=/path".
+  if (process.env.OVERRIDE_CSS) {
+    const [name, file] = process.env.OVERRIDE_CSS.split('=');
+    const body = require('fs').readFileSync(file, 'utf8');
+    await ctx.route(`**/css/${name}*`, (route) => route.fulfill({ body, contentType: 'text/css' }));
+  }
   const page = await ctx.newPage();
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });
   await page.goto(BASE + '/', {waitUntil:'domcontentloaded'});
-  await page.waitForSelector('#lock-password', {state:'visible', timeout:20000});
-  await page.fill('#lock-password', PW);
-  await page.click('#lock-submit');
+  //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
+  //: when the app opens" turned off never shows `#lock-password` on this
+  //: computer, and waiting for it timed out every sweep on such a data dir.
+  //: So wait for whichever comes first: the lock field, or the app itself
+  //: (the boot splash down, the lock overlay hidden, a token stored).
+  const way = await (await page.waitForFunction(() => {
+    const field = document.getElementById('lock-password');
+    const overlay = document.getElementById('lock-overlay');
+    const splash = document.getElementById('boot-splash');
+    if (field && overlay && !overlay.classList.contains('hidden') && field.offsetParent !== null) return 'lock';
+    const settled = !splash || splash.classList.contains('hidden');
+    if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
+    return false;
+  }, null, {timeout:20000, polling:100})).jsonValue();
+  if (way === 'lock') {
+    await page.fill('#lock-password', PW);
+    await page.click('#lock-submit');
+  }
   await page.waitForTimeout(3000);
-  if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
+  if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }
   await page.evaluate(()=>{ const o=document.getElementById('onboarding-overlay'); if(o) o.classList.add('hidden'); });
   await page.waitForTimeout(800);
-  return {browser, ctx, page, OUT};
+  //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
+  return {browser, ctx, page, OUT, signIn: way};
 }
 module.exports = {boot, OUT, PW, BASE};

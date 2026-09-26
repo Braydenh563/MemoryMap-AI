@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 HTML = Path("frontend/index.html").read_text(encoding="utf-8")
 CSS = "".join(
@@ -123,7 +124,6 @@ def test_every_kebab_uses_the_same_icon():
         p.name: p.read_text(encoding="utf-8")
         for p in (
             Path("frontend/index.html"),
-            Path("frontend/app.js"),
             Path("frontend/library.js"),
             Path("frontend/documents.js"),
         )
@@ -131,7 +131,8 @@ def test_every_kebab_uses_the_same_icon():
     for name, text in sources.items():
         assert "dots-three-vertical" not in text, f"{name} uses the vertical kebab"
     assert 'class="ph ph-dots-three"' in sources["index.html"]
-    assert '"ph:dots-three"' in sources["app.js"]
+    assert '"ph:dots-three"' in app_js_text()
+    assert "dots-three-vertical" not in app_js_text(), "app.js uses the vertical kebab"
     #: library.js used to draw its own kebab and is asserted *not* to now: the
     #: Images/Files gallery menu was a second implementation of one control, 
     #: its own `<details>`, its own list class, its own placement code, which

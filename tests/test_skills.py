@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from memorymap.ai import agent, skill_runner, skills, tools
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -974,11 +975,10 @@ def test_a_skill_description_is_not_clipped_to_one_line():
     """Reported twice. The row reused `.persona-preview`, which is nowrap with
     an ellipsis: so the only field saying what a skill *does* got whatever
     width was left after five chips."""
-    from memorymap.api.app import FRONTEND_DIR
 
     from tests._css_paths import css_text
 
-    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     css = css_text()
     assert 'note.className = "muted skill-blurb"' in app_js
     blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
@@ -1080,7 +1080,7 @@ def test_a_step_index_past_the_end_runs_the_last_step_rather_than_nothing(
 def test_the_chat_offers_to_edit_the_step_a_run_stopped_on():
     """The DOM-blind half: the runner's `only_step` is reachable from the place
     a stopped run is actually looked at, beside the Resume it belongs with."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("const editStepAction = (index) => ({")
     body = app[start : app.index("\n  };\n", start)]
     assert "skillOnlyStep: index" in body

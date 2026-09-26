@@ -110,6 +110,9 @@ function gcSurface(options = {}) {
     wired: false,
     dropTarget: null,
     dragNode: null,
+    //: The rest of a lasso selection travelling with `dragNode`, each with its
+    //: offset from it and whether it was pinned before the gesture.
+    dragGroup: [],
     //: The node the pointer is over. The tab mirrors it into
     //: `graphHoveredId`, which the SVG renderer and the node popup read.
     hoveredId: null,
@@ -282,6 +285,204 @@ const GC_EDGE_STYLES = {
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
 };
+// GRAPH-SIM-BEGIN
+//: **Similarity is a backbone, not every pair** (INBOX 412, the owner: "when
+//: I tick similarity on the graph, this happens, is there a way to make it
+//: more visually understandable or parsable??"). Measured on a 42-note
+//: notebook with vectors shaped like bge-small's: the server sent its cap of
+//: 200 similarity lines against 24 links, up to 20 on one note, every one the
+//: same dotted blue, and their springs pulled six topics into one ball with
+//: 1,701 crossings. An embedding model scores almost everything in a notebook
+//: as a little alike, so "above a cutoff" is most pairs.
+//:
+//: What the tools that draw weighted networks for a living do, read before
+//: this was written: Gephi and InfraNodus thin by weight before drawing and
+//: then map the weight onto the stroke (thickness, opacity); Kumu scales a
+//: connection's width by its strength and focuses a selection's
+//: neighbourhood; Obsidian and Logseq fade everything a hovered note is not
+//: joined to; Heptabase does not draw inferred relations at all and lists
+//: them beside the card instead. The fit here is the first two plus the
+//: fade that was already on this map: each note keeps its `k` closest
+//: matches (a k-nearest-neighbour graph: a line survives if it is one of the
+//: k strongest of *either* end, so a note that is nobody's favourite still
+//: shows its own two), graded by score, beneath the links.
+//:
+//: `k` is 2 (GRAPH_PLAN, "Decisions made, 2026-09-24"): measured on the same
+//: notebook, 2 left 58 lines and 39 crossings, 3 left 80 lines and 84
+//: crossings; both kept the six topics apart, so the fewer lines win.
+const GC_SIM_TOP_K = 2;
+//: The server's own floor (`SIMILARITY_EDGE_THRESHOLD` in routes_graph.py):
+//: the slider starts here, which means "no extra cutoff".
+const GC_SIM_FLOOR = 0.55;
+
+function gcPruneSimilarity(edges, options = {}) {
+  const k = options.k == null ? GC_SIM_TOP_K : options.k;
+  const threshold = options.threshold == null ? GC_SIM_FLOOR : options.threshold;
+  const endId = (end) => (end && end.id != null ? end.id : end);
+  const byNote = new Map();
+  const eligible = [];
+  edges.forEach((edge, index) => {
+    if (edge.kind !== "similar") return;
+    // A line with no score cannot be graded, and drawing it at full strength
+    // would make the one line nothing is known about the loudest.
+    if (typeof edge.score !== "number" || !(edge.score >= threshold)) return;
+    eligible.push(index);
+    for (const end of [endId(edge.source), endId(edge.target)]) {
+      if (!byNote.has(end)) byNote.set(end, []);
+      byNote.get(end).push(index);
+    }
+  });
+  const keep = new Set();
+  for (const indices of byNote.values()) {
+    // Strongest first; a tie goes to the line listed first, so the same
+    // notebook always draws the same lines.
+    indices.sort((a, b) => edges[b].score - edges[a].score || a - b);
+    for (const index of indices.slice(0, k)) keep.add(index);
+  }
+  return edges.filter((edge, index) => edge.kind !== "similar" || keep.has(index));
+}
+
+//: Three strengths, not a continuous ramp: the canvas strokes one batched
+//: path per style, and three are enough for the eye to rank (a fourth step
+//: of opacity at these levels is not seen). Graded against the range that is
+//: actually drawn rather than against 0..1, because every model has its own
+//: baseline: bge-small put this notebook's lines between 0.64 and 0.83, and
+//: on an absolute scale all of them would have landed in one band.
+//:
+//: The strongest band stays below a link's own opacity, so a similarity line
+//: never out-shouts a connection somebody made. One dash for all three: the
+//: dash says "inferred", the weight says "how strongly".
+const GC_SIMILAR_BANDS = [
+  { width: 0.8, alpha: 0.16, dash: [4, 4], colour: "accent" },
+  { width: 1.2, alpha: 0.28, dash: [4, 4], colour: "accent" },
+  { width: 1.8, alpha: 0.42, dash: [4, 4], colour: "accent" },
+];
+
+function gcSimilarityBand(score, lo, hi) {
+  if (!(hi > lo)) return 2;
+  const t = Math.max(0, Math.min(1, (score - lo) / (hi - lo)));
+  return t < 1 / 3 ? 0 : t < 2 / 3 ? 1 : 2;
+}
+
+//: **Labels do not land on labels or on other notes.** `items` are label
+//: boxes in the order they should win space (world units, `force` set on the
+//: ones drawn whatever they cover); `discs` are the drawn notes. A label that
+//: covers another note's dot hides the dot, which is the one thing on the
+//: map that is clickable. Measured before: 13 of 18 placed labels sat on a
+//: dot. The dots go into a grid so a big map costs a few cell reads per
+//: label rather than a scan of every note.
+function gcPlaceLabels(items, discs) {
+  let cell = 0;
+  for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
+  cell = Math.max(cell * 4, 1);
+  const grid = new Map();
+  for (const disc of discs) {
+    const x0 = Math.floor((disc.x - disc.r) / cell);
+    const x1 = Math.floor((disc.x + disc.r) / cell);
+    const y0 = Math.floor((disc.y - disc.r) / cell);
+    const y1 = Math.floor((disc.y + disc.r) / cell);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = `${cx},${cy}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(disc);
+      }
+    }
+  }
+  const coversDisc = (box) => {
+    const x0 = Math.floor(box.left / cell);
+    const x1 = Math.floor(box.right / cell);
+    const y0 = Math.floor(box.top / cell);
+    const y1 = Math.floor(box.bottom / cell);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        for (const disc of grid.get(`${cx},${cy}`) || []) {
+          if (disc.id === box.id) continue;
+          const nx = Math.max(box.left, Math.min(disc.x, box.right));
+          const ny = Math.max(box.top, Math.min(disc.y, box.bottom));
+          if ((nx - disc.x) ** 2 + (ny - disc.y) ** 2 < disc.r * disc.r) return true;
+        }
+      }
+    }
+    return false;
+  };
+  const placed = [];
+  for (const box of items) {
+    if (!box.force) {
+      let clashes = false;
+      for (const other of placed) {
+        if (
+          box.left < other.right &&
+          box.right > other.left &&
+          box.top < other.bottom &&
+          box.bottom > other.top
+        ) {
+          clashes = true;
+          break;
+        }
+      }
+      if (clashes || coversDisc(box)) continue;
+    }
+    placed.push(box);
+  }
+  return placed;
+}
+//: Where a score pill goes on a line from the note in focus (`a`) to one of
+//: its matches (`b`): the first spot along the line, nearer the match than
+//: the middle so the number reads as belonging to that note, where the pill
+//: covers no label, no other pill and no dot. Measured first at the middle
+//: of every line: on a fitted 42-note map, six pills around one note piled
+//: onto each other and onto two labels, because lines to close matches are
+//: short. `t` is the fraction of the way from `a` to `b`. When nowhere is
+//: free the answer says so (`placed: false`) and the caller leaves that pill
+//: out rather than stacking it: every score is also in the note's tooltip
+//: (`gcTooltip`), which has room for all of them, and a pile of overlapping
+//: pills was the measured failure this exists to prevent (10 overlaps among
+//: six pills at the fitted zoom). Zooming in makes the room.
+const GC_PILL_STOPS = [0.62, 0.5, 0.74, 0.38, 0.84, 0.28];
+
+function gcPlacePill(a, b, w, h, boxes, discs) {
+  const free = (box) => {
+    for (const other of boxes) {
+      if (box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top) {
+        return false;
+      }
+    }
+    for (const disc of discs) {
+      const nx = Math.max(box.left, Math.min(disc.x, box.right));
+      const ny = Math.max(box.top, Math.min(disc.y, box.bottom));
+      if ((nx - disc.x) ** 2 + (ny - disc.y) ** 2 < disc.r * disc.r) return false;
+    }
+    return true;
+  };
+  const at = (stop) => {
+    const x = a.x + (b.x - a.x) * stop;
+    const y = a.y + (b.y - a.y) * stop;
+    return { x, y, left: x - w / 2, right: x + w / 2, top: y - h / 2, bottom: y + h / 2 };
+  };
+  for (const stop of GC_PILL_STOPS) {
+    const box = at(stop);
+    if (free(box)) return { ...box, placed: true };
+  }
+  return { ...at(0.5), placed: false };
+}
+// GRAPH-SIM-END
+
+//: The Similarity cutoff slider (`#graph-similarity-min`, 55 to 95), as a
+//: score. Read from storage rather than the control so a pane beside a note,
+//: which has no slider, draws the same lines the tab does.
+function gcSimilarityCutoff() {
+  let stored = null;
+  try {
+    stored = localStorage.getItem("graph-similarity-min");
+  } catch (error) {
+    stored = null;
+  }
+  const value = Number(stored);
+  if (!stored || !Number.isFinite(value)) return GC_SIM_FLOOR;
+  return Math.max(GC_SIM_FLOOR, Math.min(0.95, value / 100));
+}
+
 const GC_EDGE_REASONED = { width: 1.5, alpha: 0.5, dash: null, colour: "accent" };
 const GC_EDGE_CONTRADICTS = { width: 2.2, alpha: 0.85, dash: [6, 4], colour: "error" };
 
@@ -721,6 +922,25 @@ function gcDraw(s = gcTab) {
   // stroke state is set once per bucket rather than once per edge. A dashed
   // stroke is the expensive one, and there are only ever a handful of dashes.
   const buckets = new Map();
+  //: Similarity lines in buckets of their own, stroked first so they sit
+  //: beneath every link (INBOX 412: the server appends them after the links,
+  //: so bucket order alone painted them on top).
+  const simBuckets = new Map();
+  //: The note whose similarity scores are written on its lines: the one
+  //: pointed at, else the one the keyboard is on, else the one whose panel is
+  //: open. Its lines are the ones not dimmed, so the numbers sit on the only
+  //: lines still in full view.
+  const scoreFor =
+    s.hoveredId != null
+      ? s.hoveredId
+      : gcKeyboardId(s) != null
+        ? gcKeyboardId(s)
+        : s.size === "full" && typeof graphPopupId !== "undefined"
+          ? graphPopupId
+          : null;
+  s.simScoreLabels = [];
+  const simLo = s.simRange ? s.simRange[0] : GC_SIM_FLOOR;
+  const simHi = s.simRange ? s.simRange[1] : 1;
   for (const edge of s.edges) {
     const a = edge.source;
     const b = edge.target;
@@ -741,12 +961,20 @@ function gcDraw(s = gcTab) {
     const byHover =
       !hl.hovering || a.id === s.hoveredId || b.id === s.hoveredId;
     const dim = !(bySearch && byHover);
-    const style = gcEdgeStyle(edge);
+    const similar = edge.kind === "similar" && typeof edge.score === "number";
+    const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
+    const style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
     const key = `${edge.kind}|${style.colour}|${style.width}|${style.dash}|${dim}`;
-    let bucket = buckets.get(key);
+    const into = similar ? simBuckets : buckets;
+    let bucket = into.get(key);
     if (!bucket) {
       bucket = { style, dim, path: new Path2D() };
-      buckets.set(key, bucket);
+      into.set(key, bucket);
+    }
+    if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
+      // From the note in focus towards its match, whichever end is which.
+      const [from, to] = a.id === scoreFor ? [a, b] : [b, a];
+      s.simScoreLabels.push({ from, to, score: edge.score });
     }
     if (s.tree) {
       // A tree's edges are curves between fixed points. `hierarchyPath` and
@@ -775,7 +1003,7 @@ function gcDraw(s = gcTab) {
       bucket.path.lineTo(b.x, b.y);
     }
   }
-  for (const bucket of buckets.values()) {
+  const strokeBucket = (bucket) => {
     const style = bucket.style;
     ctx.strokeStyle = gcTokens[style.colour] || gcTokens.muted;
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
@@ -784,7 +1012,9 @@ function gcDraw(s = gcTab) {
     ctx.lineWidth = style.width / k;
     ctx.setLineDash(style.dash ? style.dash.map((v) => v / k) : []);
     ctx.stroke(bucket.path);
-  }
+  };
+  for (const bucket of simBuckets.values()) strokeBucket(bucket);
+  for (const bucket of buckets.values()) strokeBucket(bucket);
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
@@ -1040,21 +1270,20 @@ function gcDraw(s = gcTab) {
       const degreeB = (s.adj.get(b.id) || { size: 0 }).size;
       return degreeB - degreeA;
     });
-    const placed = [];
     s.labelsWanted = labelled.length;
     s.labelsPriority = 0;
     const padX = 4 / k;
     const padY = 2 / k;
-    // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
-    // label stays legible over an edge or another node.
+    const items = [];
     for (const node of labelled) {
       const text = gcLabelText(node, s);
       // `measureText` is cheap but not free at a few hundred labels a frame,
-      // and the answer only changes when the text or the zoom does.
+      // and the answer only changes when the text or the zoom does. The zoom
+      // is only a scale: see `gcLabelWidth` for why that is not a re-measure.
       if (node._labelText !== text || node._labelSize !== size) {
         node._labelText = text;
         node._labelSize = size;
-        node._labelWidth = ctx.measureText(text).width;
+        node._labelWidth = gcLabelWidth(text, size);
       }
       const width = node._labelWidth;
       const x = beside ? node.x + node.r + 7 : node.x;
@@ -1066,33 +1295,81 @@ function gcDraw(s = gcTab) {
       // way to ask "do the labels on screen overlap" from outside a canvas is
       // to be handed the boxes: a screenshot of a pile of words and a
       // screenshot of a clean map are the same bytes to a sweep.
-      const box = {
+      items.push({
         id: node.id,
         rank,
+        force: rank === 0 || (rank === 1 && forceHits),
         left,
         right: left + width + padX * 2,
         top: y - size / 2 - padY,
         bottom: y + size / 2 + padY,
-      };
-      let clashes = false;
-      for (const other of placed) {
-        if (
-          box.left < other.right &&
-          box.right > other.left &&
-          box.top < other.bottom &&
-          box.bottom > other.top
-        ) {
-          clashes = true;
-          break;
-        }
-      }
-      if (clashes && !(rank === 0 || (rank === 1 && forceHits))) continue;
-      placed.push(box);
-      ctx.strokeText(text, x, y);
-      ctx.fillText(text, x, y);
+        text,
+        x,
+        y,
+      });
+    }
+    //: The dots a label may not cover: every note drawn this frame, at the
+    //: size it is drawn (hover growth included).
+    const discs = drawn.map((node) => ({
+      id: node.id,
+      x: node.x,
+      y: node.y,
+      r: node.r + (node._grow || 0),
+    }));
+    // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
+    // label stays legible over an edge or another node.
+    const placed = gcPlaceLabels(items, discs);
+    for (const item of placed) {
+      ctx.strokeText(item.text, item.x, item.y);
+      ctx.fillText(item.text, item.x, item.y);
     }
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
+  }
+
+  // --- the pointed-at note's similarity scores -------------------------------
+  //: Kumu's focus and Obsidian's hover both answer "what is this one joined
+  //: to"; a similarity line also has "how closely", which a line's weight
+  //: only ranks. So the note in focus writes the number on each of its
+  //: similarity lines, at the middle, as a small pill over everything else
+  //: (the lines it sits on are the only ones not dimmed). A percentage
+  //: rather than a cosine, because "72%" reads and "0.72" is a statistic.
+  if (s.simScoreLabels.length) {
+    const size = 11 / k;
+    ctx.font = `600 ${size}px ${gcTokens.font}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    //: Obstacles: the labels this frame placed, the pills placed so far, and
+    //: every drawn dot at the size it is drawn plus a hair of clearance.
+    const boxes = s.labelBoxes.slice();
+    //: A dimmed dot is drawn at 20% and is not what the reader is looking
+    //: at, so a pill may sit over it; a lit one may not.
+    const dots = drawn
+      .filter((node) => !node._dim)
+      .map((node) => ({ x: node.x, y: node.y, r: node.r + (node._grow || 0) + 2 / k }));
+    // Strongest first, so if space runs out it is the weakest that overlaps.
+    const pills = s.simScoreLabels.slice().sort((p, q) => q.score - p.score);
+    s.simScoreLabels = [];
+    for (const pill of pills) {
+      const text = `${Math.round(pill.score * 100)}%`;
+      const w = ctx.measureText(text).width + 8 / k;
+      const h = size + 5 / k;
+      const spot = gcPlacePill(pill.from, pill.to, w, h, boxes, dots);
+      if (!spot.placed) continue;
+      boxes.push(spot);
+      s.simScoreLabels.push({ id: pill.to.id, score: pill.score, ...spot });
+      ctx.globalAlpha = 0.94;
+      ctx.fillStyle = gcTokens.card;
+      ctx.beginPath();
+      ctx.roundRect(spot.left, spot.top, w, h, h / 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1 / k;
+      ctx.strokeStyle = gcTokens.accent;
+      ctx.stroke();
+      ctx.fillStyle = gcTokens.accent;
+      ctx.fillText(text, spot.x, spot.y);
+    }
   }
 
   ctx.restore();
@@ -1109,6 +1386,40 @@ function gcDraw(s = gcTab) {
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
   if (easing) gcRequestDraw(s);
+}
+
+//: **A label's width, measured once per text, not once per zoom step**
+//: (INBOX 424c). The label font is `12 / k` px so a label keeps its size on
+//: screen, which made every frame of a wheel zoom a new font size, and the
+//: per-node cache beside the call (text and size) a miss for every label:
+//: measured at 4x CPU, sixteen wheel steps on a 400-note graph spent 152ms in
+//: `measureText` alone. A glyph advance is proportional to the font size, so
+//: the width is measured once at a fixed reference size and scaled. Keyed by
+//: the text, and dropped whenever the font the tokens name changes (a theme
+//: with its own typeface), so a width can never be for another font.
+const GC_LABEL_REF_PX = 100;
+const gcLabelWidths = new Map();
+let gcLabelWidthFont = "";
+let gcLabelMeasureCtx = null;
+
+function gcLabelWidth(text, size) {
+  const font = `500 ${GC_LABEL_REF_PX}px ${gcTokens.font}`;
+  if (font !== gcLabelWidthFont || !gcLabelMeasureCtx) {
+    gcLabelWidths.clear();
+    gcLabelWidthFont = font;
+    if (!gcLabelMeasureCtx) gcLabelMeasureCtx = document.createElement("canvas").getContext("2d");
+    gcLabelMeasureCtx.font = font;
+  }
+  let width = gcLabelWidths.get(text);
+  if (width === undefined) {
+    width = gcLabelMeasureCtx.measureText(text).width;
+    //: A bound, not an eviction policy: a notebook's labels are a few
+    //: thousand strings at most, and this only stops a pathological one
+    //: (labels that change on every frame) from growing without end.
+    if (gcLabelWidths.size > 20000) gcLabelWidths.clear();
+    gcLabelWidths.set(text, width);
+  }
+  return (width * size) / GC_LABEL_REF_PX;
 }
 
 function gcLabelText(node, s = gcTab) {
@@ -1337,6 +1648,31 @@ function gcWireInteraction(s = gcTab) {
         node.fx = wx;
         node.fy = wy;
         gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy }, s);
+        //: **A lasso selection moves as one** (GRAPH_PLAN, "Decision changed,
+        //: 2026-09-09", its one open line: "a dragged cluster moving together
+        //: the same way"). Grabbing a note that is part of a selection of two
+        //: or more carries the rest at their offsets from it, each under the
+        //: same rule as the note in hand: a plain drag places, Shift pins, and
+        //: a note that was pinned stays pinned at its new place. A note outside
+        //: the selection drags alone, as it always has.
+        s.dragGroup =
+          s.selected.has(node.id) && s.selected.size > 1
+            ? gcSelectedNodes(s)
+                .filter((other) => other !== node && !other.isGroup)
+                .map((other) => ({
+                  node: other,
+                  dx: other.x - node.x,
+                  dy: other.y - node.y,
+                  startX: other.x,
+                  startY: other.y,
+                  wasPinned: other.fx != null,
+                }))
+            : [];
+        for (const mate of s.dragGroup) {
+          mate.node.fx = wx + mate.dx;
+          mate.node.fy = wy + mate.dy;
+          gcPost({ type: "drag", phase: "start", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+        }
         // **Everything holds still except this note's own neighbours.**
         //
         // Two rules were in conflict here and both are real. The SVG renderer
@@ -1353,10 +1689,11 @@ function gcWireInteraction(s = gcTab) {
         // physicality, and every other note on the map holds the position you
         // are aiming at, which is the gesture.
         const following = s.adj.get(node.id) || new Set();
+        const carried = new Set(s.dragGroup.map((mate) => mate.node.id));
         gcPost({
           type: "freeze",
           ids: s.nodes
-            .filter((n) => n !== node && n.fx == null && !following.has(n.id))
+            .filter((n) => n !== node && n.fx == null && !following.has(n.id) && !carried.has(n.id))
             .map((n) => n.id),
         }, s);
       })
@@ -1369,9 +1706,18 @@ function gcWireInteraction(s = gcTab) {
         node.y = wy;
         s.quadtreeDirty = true;
         gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy }, s);
+        for (const mate of s.dragGroup) {
+          mate.node.fx = mate.node.x = wx + mate.dx;
+          mate.node.fy = mate.node.y = wy + mate.dy;
+          gcPost({ type: "drag", phase: "move", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+        }
         //: `graphNodeUnder` aims at `graphNodesRef`, which is the tab's map.
         //: Drag-to-link is a Graph-tab gesture; a pane drags to place only.
-        s.dropTarget = s.size === "full" ? graphNodeUnder(node, { x: wx, y: wy }) : null;
+        //: Never while carrying a group: dropping a selection on a note is
+        //: not "link these two", and guessing which of the carried notes was
+        //: meant would be.
+        s.dropTarget =
+          s.size === "full" && !s.dragGroup.length ? graphNodeUnder(node, { x: wx, y: wy }) : null;
         gcRequestDraw(s);
       })
       .on("end", (event) => {
@@ -1394,6 +1740,26 @@ function gcWireInteraction(s = gcTab) {
         //: pinned node is a reposition, not a request to release it.
         const keep = node._dragShift || node._wasPinned;
         gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
+        for (const mate of s.dragGroup) {
+          const mateKeeps = node._dragShift || mate.wasPinned;
+          gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
+          const mateMoved =
+            Math.abs(mate.node.x - mate.startX) > 2 || Math.abs(mate.node.y - mate.startY) > 2;
+          if (!mateKeeps) {
+            mate.node.fx = null;
+            mate.node.fy = null;
+          } else if (mateMoved) {
+            //: The same "only a real pin is written down" rule as the note in
+            //: hand, below.
+            mate.node.graph_pin_x = mate.node.fx;
+            mate.node.graph_pin_y = mate.node.fy;
+            apiJson(`/graph/pin/${mate.node.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ x: mate.node.fx, y: mate.node.fy }),
+            }).catch(() => {});
+          }
+        }
+        s.dragGroup = [];
         gcPost({ type: "thaw" }, s);
         if (!keep) {
           node.fx = null;
@@ -1748,7 +2114,7 @@ function gcWireNodeMenu(s = gcTab) {
   //: press decides which. A node gets the same menu a right-click opens; the
   //: empty map arms the lasso, which is the other thing this canvas has that
   //: a phone could not reach at all, because its desktop gesture is Shift
-  //: and drag. `wireLongPress` (app.js) is the app's one hold: touch only,
+  //: and drag. `wireLongPress` (navigation.js) is the app's one hold: touch only,
   //: 500ms, cancelled by a move, so the app answers a hold at one speed
   //: everywhere. `tests/test_ui_recipes.py` counts this file's contextmenu
   //: listeners against its `wireLongPress` calls.
@@ -1769,7 +2135,12 @@ function gcWireNodeMenu(s = gcTab) {
     }
     gcArmTouchLasso(event, x, y, s);
   });
-  window.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
+  //: On the canvas, not the window: a wheel over the map zooms it out from
+  //: under the menu's node, which is the case this closes for. On the window
+  //: it ran on every wheel tick on every tab (traced: 49ms over one scroll of
+  //: Reminders), and closed the node menu when the wheel was over the menu
+  //: itself.
+  s.canvas.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
 }
 
 //: **The menu at the pointer is the app's own recipe** (DESIGN.md, "A menu at
@@ -1854,8 +2225,25 @@ function gcTooltip(node, s = gcTab) {
   }
   return (
     `${node.preview}\n[${node.category}] · ${links} connection${links === 1 ? "" : "s"}` +
-    `${node.access_count ? ` · used ${node.access_count}×` : ""}`
+    `${node.access_count ? ` · used ${node.access_count}×` : ""}` +
+    gcTooltipMatches(node, s)
   );
+}
+
+//: The note's similarity lines as a list, strongest first (INBOX 412): the
+//: one place every score fits whatever the zoom, which is what lets the pills
+//: on the canvas leave one out rather than stack it.
+function gcTooltipMatches(node, s = gcTab) {
+  const matches = [];
+  for (const edge of s.edges || []) {
+    if (edge.kind !== "similar" || typeof edge.score !== "number") continue;
+    const other = edge.source === node ? edge.target : edge.target === node ? edge.source : null;
+    if (other) matches.push({ other, score: edge.score });
+  }
+  if (!matches.length) return "";
+  matches.sort((p, q) => q.score - p.score);
+  const lines = matches.map((m) => `${Math.round(m.score * 100)}%  ${gcLabelText(m.other, s)}`);
+  return `\nClosest in meaning:\n${lines.join("\n")}`;
 }
 
 //: A click on a node, with the same three modes the SVG renderer had: trace
@@ -1975,10 +2363,13 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         s.worker.postMessage({ type: "recycle", buffer: positions.buffer }, [positions.buffer]);
         if (s.size === "full") {
           graphMinimapTick += 1;
-          if (graphMinimapTick % 8 === 0) graphMinimapPaint();
+          if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
       } else if (message.type === "end") {
-        if (s.size === "full") graphMinimapPaint();
+        //: What just came to rest, so the next render of exactly these
+        //: inputs can hold it instead of settling it again (`gcStartWorker`).
+        s.settledSig = s.layoutSig;
+        if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
           fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
@@ -2002,7 +2393,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     };
   }
   s.fittedOnce = false;
-  gcPost({
+  const init = {
     type: "init",
     epoch: s.epoch,
     // Performance mode (settings.js): the physics yields twice as long
@@ -2020,17 +2411,47 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       source: e.source.id != null ? e.source.id : e.source,
       target: e.target.id != null ? e.target.id : e.target,
       kind: e.kind,
+      //: A similarity line's score or a deduced link's confidence, for
+      //: Length by similarity. The worker was never sent it, so that switch
+      //: changed nothing on this renderer (INBOX 412, measured).
+      score: typeof e.score === "number" ? e.score : typeof e.reason_confidence === "number" ? e.reason_confidence : null,
     })),
     params: {
       gravity: Number(localStorage.getItem("graph-gravity") || 50),
       spread: Number(localStorage.getItem("graph-spread") || 50),
+      lengthByScore: localStorage.getItem("graph-length-score") !== "0",
     },
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout
     // at rest instead of relaxing it (see the decision on `viewSeed` above),
     // 1 is every other caller's unchanged behaviour.
     alpha: viewSeed ? viewSeed.alpha : 1,
-  }, s);
+  };
+  //: **A layout that already settled is held, not settled again** (INBOX
+  //: 424c/d). Every visit to the Graph tab refetched the map and restarted
+  //: the simulation at full heat from the positions it had already come to
+  //: rest in, so each visit paid a whole settle for a picture that ended up
+  //: where it started: measured at 4x CPU on a 400-note, 1,200-link graph,
+  //: about 7s of main-thread work in the eight seconds after arriving, and
+  //: the map visibly shuffling the whole time. The signature is everything
+  //: the worker's answer depends on apart from where the notes start (which
+  //: notes, their pins and sizes, every line, the forces, the world); when
+  //: it is the signature of the layout that last came to rest, and every
+  //: note is starting from where that layout left it (`holdIfSettled`, from
+  //: the render), the layout starts at rest, exactly the way a restored
+  //: view does. Anything that changes an input changes the signature, and
+  //: that render heats the layout as it always did.
+  const sig = JSON.stringify([
+    init.perf,
+    init.nodes.map((n) => [n.id, n.fx, n.fy, n.r]),
+    init.edges.map((e) => [e.source, e.target, e.kind, e.score]),
+    init.params,
+    world,
+  ]);
+  if (init.alpha && viewSeed?.holdIfSettled && s.settledSig === sig) init.alpha = 0;
+  s.layoutSig = sig;
+  s.settledSig = null;
+  gcPost(init, s);
   // Freeze the view's own notes *after* init, so the worker reads their
   // current (just-seeded) x/y as the position to hold, exactly the "freeze
   // holds where a note already is" contract `freeze` has for a drag.
@@ -2104,7 +2525,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
-  //: See `surfaceFailed` in app.js.
+  //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
@@ -2157,6 +2578,7 @@ async function renderGraphCanvas(s = gcTab) {
     return ruleColour(gcRuleKey(colourMode, node));
   };
   graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour, groups, s);
+  gcLegendEdgeKey(data);
   gcSelectionChanged(s);
 
   const ruleHides = colourMode !== "category" && colourMode !== "cluster";
@@ -2168,7 +2590,21 @@ async function renderGraphCanvas(s = gcTab) {
       !(graphGroupOf.has(n.id) && groups[graphGroupOf.get(n.id)]?.hiddenOnMap)
   );
   const kept = new Set(visibleNodes.map((n) => n.id));
-  const visibleEdges = data.edges.filter((e) => kept.has(e.source) && kept.has(e.target));
+  //: Pruned here, before anything else reads the edges, so the springs, a
+  //: note's degree (its size), the stats line and the drawing all see the
+  //: same backbone (INBOX 412; see `gcPruneSimilarity`). After the hidden
+  //: notes are taken out, so a note hidden from the map does not use up
+  //: one of its neighbour's two lines.
+  const visibleEdges = gcPruneSimilarity(
+    data.edges.filter((e) => kept.has(e.source) && kept.has(e.target)),
+    { threshold: gcSimilarityCutoff() }
+  );
+  {
+    const scores = visibleEdges
+      .filter((e) => e.kind === "similar" && typeof e.score === "number")
+      .map((e) => e.score);
+    s.simRange = scores.length ? [Math.min(...scores), Math.max(...scores)] : null;
+  }
   const hideOrphans = document.getElementById("graph-hide-orphans");
   if (hideOrphans && hideOrphans.checked) {
     const connected = new Set();
@@ -2300,6 +2736,9 @@ async function renderGraphCanvas(s = gcTab) {
 
   if (s.tree) {
     gcStop(s);
+    //: The positions a tree leaves behind are the tree's, not a force
+    //: layout's, so nothing may be held from them afterwards.
+    s.settledSig = null;
     if (!gcAutoFitDone(s)) {
       gcSetAutoFitDone(s, true);
       frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
@@ -2308,6 +2747,9 @@ async function renderGraphCanvas(s = gcTab) {
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {
       alpha: viewPositions && !unplacedByView ? 0 : 1,
       freezeIds: seededUnpinnedIds,
+      //: Every note is where the last layout left it: see the hold in
+      //: `gcStartWorker`. A saved view's own seeding is its own decision.
+      holdIfSettled: !viewPositions && visibleNodes.every((n) => Number.isFinite(prior.get(n.id)?.x)),
     });
   }
 
@@ -2515,6 +2957,34 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
       off
     );
   }
+}
+
+//: **What the two kinds of line mean, said on the map** (INBOX 412). Only
+//: while similarity lines are on it: with links alone there is one kind of
+//: line and nothing to tell apart. A fact, not a toggle, so a `span` like the
+//: cluster mode's filter note rather than a `.legend-toggle` button; the
+//: longer sentence is the Show section's '?', and this entry's `title`.
+function gcLegendEdgeKey(data) {
+  const legend = document.getElementById("graph-legend");
+  if (!legend || !data || !(data.edges || []).some((e) => e.kind === "similar")) return;
+  const key = document.createElement("span");
+  key.className = "legend-item legend-edge-key";
+  key.title =
+    "Solid lines are links. Dashed lines join each note to its closest matches in meaning: darker is closer. Point at a note to see the scores.";
+  const swatch = (kind, word) => {
+    const line = document.createElement("span");
+    line.className = `legend-line legend-line-${kind}`;
+    line.setAttribute("aria-hidden", "true");
+    key.append(line, document.createTextNode(word));
+  };
+  //: A link with a reason is drawn in the accent (`GC_EDGE_REASONED`), a
+  //: plain one in --muted: the swatch is whichever this map mostly has, so
+  //: the key never shows a line the map does not.
+  const links = (data.edges || []).filter((e) => e.kind === "link");
+  const reasoned = links.filter((e) => e.reason).length;
+  swatch(reasoned * 2 > links.length ? "reasoned" : "link", "Link");
+  swatch("similar", "Similar");
+  legend.appendChild(key);
 }
 
 //: A plain-language readout of what is on screen. The counts are facts about

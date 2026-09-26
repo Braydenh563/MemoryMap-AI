@@ -27,13 +27,13 @@
 //    its own functions, instead of splitting definition from call site. See
 //    the "wiring" section near the end of this file for the full
 //    explanation.
-// 2. `applyPalette()` (app.js) calls `refreshArtForTheme()` (this file), and
+// 2. `applyPalette()` (ai-tools.js) calls `refreshArtForTheme()` (this file), and
 //    `applyPalette` is itself reachable from a bare top-level call, 
 //    `applyAppearance()`, run once at parse time to paint the saved theme
 //    before first render. Caught live in Chromium, not by reading the code:
 //    a `ReferenceError` there aborted the rest of app.js's synchronous
 //    top-level wiring. Fixed with a `typeof` guard at that one call site
-//    (app.js's `applyPalette`) rather than moving `applyPalette` itself,
+//    (ai-tools.js's `applyPalette`) rather than moving `applyPalette` itself,
 //    since it does real app.js-only work (the whole-app palette/background)
 //    that has nothing to do with the dashboard.
 //
@@ -84,7 +84,12 @@ const DASH_WIDGETS = {
   //: the sidebar and the note cards call this Favourites.
   pinned: { title: "ph:star Favourites", description: "Notes you've starred, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
-  "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  //: WORLD_CLASS_PLAN B1's strip: the event feed (`GET /events`) had no
+  //: reader. Not a second "Recently added": that one lists what you wrote,
+  //: this one what *happened*, including what Atlas or a skill changed on
+  //: your behalf, which is the one thing no other widget can say.
+  activity: { title: "ph:pulse Recent activity", description: "What changed in your notebook lately, and whether you, Atlas or a skill changed it.", render: renderActivityWidget },
+  "most-used": { title: "ph:flame Most used", description: "The notes you open and ask about most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
@@ -147,18 +152,48 @@ const DASH_WIDGETS = {
 //: any widget, their list wins and this is never consulted again.
 const DASH_DEFAULT_WIDE = ["heatmap"];
 
+//: **What a dashboard nobody has arranged shows** (INBOX 393: "I lose trust
+//: in ... applications with poor ui design"). Every widget used to be on by
+//: default: measured, 23 cards on a fresh dashboard, most of them empty-state
+//: sentences on a new notebook, which reads as a demo of widgets rather than
+//: a place to start. A fresh layout shows these nine, in this order: what is
+//: due, what is new, what is kept, a box to write in, then the work and the
+//: look back. The other fourteen are one press away under Widgets. Only a
+//: layout that has never been saved is affected; any saved choice wins.
+const DASH_DEFAULT_SHOWN = [
+  "reminders", "recent-notes", "pinned", "capture",
+  "documents", "boards", "digest", "on-this-day", "heatmap",
+];
+
+//: Widgets added after the dashboard shipped that start switched off. The
+//: owner asked for a dashboard with less on it (INBOX 270), so a new widget is
+//: offered in the picker rather than appended to every existing dashboard.
+//: Applied only while a saved layout has never seen the widget: once anybody
+//: adds it, or saves a layout with it hidden, the saved layout decides.
+const DASH_OPT_IN = ["activity"];
+
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
-  const order = [...(saved.order || [])];
+  //: Empty lists count as never arranged: the preference's own default is
+  //: `{order: [], hidden: []}`, and Reset writes the same, so Reset returns to
+  //: this set too.
+  const fresh = !saved.order?.length && !saved.hidden?.length;
+  const order = [...(fresh ? DASH_DEFAULT_SHOWN : saved.order || [])];
+  const hidden = fresh
+    ? Object.keys(DASH_WIDGETS).filter((n) => !DASH_DEFAULT_SHOWN.includes(n))
+    : [...(saved.hidden || [])];
   for (const name of Object.keys(DASH_WIDGETS)) {
-    if (!order.includes(name)) order.push(name); // new widgets append
+    if (!order.includes(name)) {
+      order.push(name); // new widgets append
+      if (DASH_OPT_IN.includes(name) && !hidden.includes(name)) hidden.push(name);
+    }
   }
   // Older layouts stored this as {name: "wide"}, fold those in so a saved
   // layout still works.
   const legacyWide = Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide");
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
-    hidden: saved.hidden || [],
+    hidden,
     wide: saved.wide?.length
       ? saved.wide
       : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])),
@@ -293,7 +328,7 @@ async function refreshAiGreeting(forced = false) {
   return true;
 }
 
-//: The stopper `startMinuteTicker` (app.js) hands back, not a timer id: a
+//: The stopper `startMinuteTicker` (shell-reminders.js) hands back, not a timer id: a
 //: chained timeout has a new id every tick, so an id could not cancel it.
 let dashClockTimer = null;
 
@@ -311,7 +346,7 @@ function startDashClock() {
   if (document.hidden) return;
   //: One wake a minute, on the minute, rather than sixty: this paints HH:MM,
   //: so 59 of every 60 runs wrote the string already on screen. See
-  //: `startMinuteTicker` in app.js for why it is a wall-clock-aligned
+  //: `startMinuteTicker` in shell-reminders.js for why it is a wall-clock-aligned
   //: timeout chain and not a 60,000 ms interval (INBOX 266, item 7).
   dashClockTimer = startMinuteTicker(paintDashClock);
 }
@@ -439,9 +474,7 @@ async function renderDashSubmessage() {
     if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
   }
   if (stats && stats.per_day) {
-    // Current capture streak, counting back from today.
-    let streak = 0;
-    for (let i = stats.per_day.length - 1; i >= 0 && stats.per_day[i] > 0; i--) streak++;
+    const streak = dashStreak(stats.per_day);
     if (streak > 1) bits.push(`${streak}-day capture streak`);
   }
   el.textContent = bits.join(" · ");
@@ -519,15 +552,16 @@ function renderNameNudge(greetingEl) {
 
 let dashResizeObserver = null;
 
-function sizeDashWidget(card, rowUnit, gap) {
-  // Measure the card's natural height, not its current grid-constrained one.
-  const previous = card.style.gridRowEnd;
-  card.style.gridRowEnd = "span 1";
-  const height = card.getBoundingClientRect().height;
-  const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
-  const next = `span ${span}`;
-  if (next !== previous) card.style.gridRowEnd = next;
-  else card.style.gridRowEnd = previous;
+//: **Three passes, not one per card** (INBOX 400). Written per card, the
+//: loop set a card's span, read its height and set it again, so every card
+//: after the first read a layout the previous card had just dirtied: one
+//: forced layout of the whole page per widget. Profiled on a switch to the
+//: dashboard (`f2-prof.js`), that was 14.7ms of a 22ms switch. Every card's
+//: height depends on its own content and the column width alone, never on
+//: another card's span, so all of them can be released first, measured
+//: together against one layout, and set together.
+function sizeDashWidgetSpan(card, height, rowUnit, gap) {
+  return `span ${Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)))}`;
 }
 
 function sizeDashWidgets() {
@@ -536,9 +570,13 @@ function sizeDashWidgets() {
   const styles = getComputedStyle(grid);
   const rowUnit = Number.parseFloat(styles.getPropertyValue("grid-auto-rows")) || 8;
   const gap = Number.parseFloat(styles.rowGap) || 16;
-  for (const card of grid.querySelectorAll(".dash-widget")) {
-    sizeDashWidget(card, rowUnit, gap);
-  }
+  const cards = [...grid.querySelectorAll(".dash-widget")];
+  // Measure the cards' natural heights, not their grid-constrained ones.
+  for (const card of cards) card.style.gridRowEnd = "span 1";
+  const heights = cards.map((card) => card.getBoundingClientRect().height);
+  cards.forEach((card, i) => {
+    card.style.gridRowEnd = sizeDashWidgetSpan(card, heights[i], rowUnit, gap);
+  });
   grid.classList.add("spans-ready");
 }
 
@@ -587,8 +625,12 @@ async function renderDashStats() {
 
   const now = new Date();
   const perDay = (stats && stats.per_day) || [];
-  let streak = 0;
-  for (let i = perDay.length - 1; i >= 0 && perDay[i] > 0; i--) streak++;
+  const streak = dashStreak(perDay);
+  //: Atlas celebrates a streak of three days or more, once a day at most
+  //: (atlas.js, `atlasStreak`).
+  if (stats && typeof atlasStreak === "function") atlasStreak(streak);
+  //: The companion cheers once when the streak grows (avatars.js).
+  if (stats && typeof nameMarkBuddyStreak === "function") nameMarkBuddyStreak(streak);
   const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
   const open = (reminders || []).filter((r) => !r.done);
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
@@ -604,7 +646,9 @@ async function renderDashStats() {
       title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
     { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
-      title: stats ? "" : why, go: () => switchTab("dashboard") },
+      //: The days a streak counts are the Timeline's days; this tile used to
+      //: "go" to the dashboard it sits on, a button that did nothing.
+      title: stats ? "" : why, go: () => switchTab("timeline") },
     {
       icon: due ? "ph:alarm" : "ph:check-circle",
       value: reminders ? due || open.length : unknown,
@@ -616,6 +660,14 @@ async function renderDashStats() {
   ];
 
   box.replaceChildren();
+  //: **An empty notebook has no figures to show.** A first visit read four
+  //: zeros (notes, this week, day streak, reminders) above the welcome card
+  //: that already says the notebook is empty and what to do first: numbers
+  //: about nothing, before the one thing worth reading. The strip comes back
+  //: with the first note or reminder. A failed read is not empty, so it
+  //: still shows its dashes.
+  const empty = stats && stats.total_entries === 0 && reminders && !reminders.length;
+  box.classList.toggle("hidden", Boolean(empty));
   for (const tile of tiles) {
     const button = document.createElement("button");
     button.type = "button";
@@ -725,11 +777,34 @@ async function renderDashStats() {
 // only. That was the point of it, the middle of a navigation row is exactly
 // where reordering helps and never surprises, and applying it across the
 // whole strip is what let an action drift into the middle of the navigation.
+//: **"Ask" goes where a question can be answered today** (INBOX 266 part 1).
+//: Both of the dashboard's asking doors went to the Chat tab, and with no
+//: model running the Chat composer is disabled (`data-needs-model`): driven
+//: from a fresh load (`scratchpad/ui-sweeps/clicks.js`), "Ask AI" landed on a
+//: greyed box with the caret nowhere, and the empty notebook's "Ask your
+//: notebook" card promised "Works on keywords even with no AI running" and
+//: then opened the one place that does not. Notes, Ask is the place that
+//: does: it searches without a model and says so. So the door picks: Chat
+//: when a model is up, Notes, Ask when it is not, and the caret goes into
+//: whichever box is shown after the tab has finished arriving (`switchTab`
+//: awaits the tab's module before its own focus handling, so a same-turn
+//: `focus()` could land on a page that is not drawn yet).
+async function openAskFromDashboard() {
+  const offline = typeof aiIsOff === "function" && aiIsOff();
+  await switchTab(offline ? "notes" : "chat");
+  if (offline) {
+    showNotesSection("ask");
+    $("question")?.focus();
+  } else {
+    $("chat-input")?.focus();
+  }
+}
+
 const QUICK_START = [
   {
     icon: "ph:pencil-simple",
     label: "New note",
-    hint: "Capture a thought: Atlas files it",
+    hint: "Atlas files it for you",
     primary: true,
     run: () => {
       switchTab("notes");
@@ -740,17 +815,14 @@ const QUICK_START = [
   {
     icon: "ph:chat-circle",
     label: "Ask AI",
-    hint: "A question answered from your own notes",
-    run: () => {
-      switchTab("chat");
-      $("chat-input").focus();
-    },
+    hint: "Answered from your notes",
+    run: () => openAskFromDashboard(),
   },
-  { icon: "ph:palette", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  { icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
   {
     icon: "ph:alarm",
     label: "Remind me",
-    hint: "Type it in plain English and Atlas schedules it",
+    hint: "Say when, in plain words",
     run: () => {
       switchTab("reminders");
       $("reminder-magic").focus();
@@ -759,7 +831,7 @@ const QUICK_START = [
   {
     icon: "ph:microphone",
     label: "Meeting notes",
-    hint: "Record something longer and file the transcript",
+    hint: "Record and transcribe",
     run: () => openMeetingRecorder(),
   },
 ];
@@ -1094,6 +1166,22 @@ function paintDashEmblem() {
     holder.replaceChildren();
     return;
   }
+  //: A face instead of the logo when Appearance asks (avatars.js).
+  const face = typeof dashboardMarkSeed === "function" ? dashboardMarkSeed() : null;
+  if (face) {
+    //: The logo's sketch stops first: a p5 loop on a canvas that is no
+    //: longer in the page still draws every frame.
+    const sketch = typeof emblemInstances !== "undefined" ? emblemInstances.get(holder) : null;
+    if (sketch) {
+      sketch.remove();
+      emblemInstances.delete(holder);
+      emblemObservers?.get(holder)?.disconnect();
+      emblemObservers?.delete(holder);
+    }
+    holder.replaceChildren(nameMarkLive(face, size));
+    return;
+  }
+  holder.querySelector(".nm-live")?.remove();
   renderEmblem(holder, size, { animate: true });
 }
 
@@ -1216,7 +1304,9 @@ async function renderContinueLink(row) {
     .sort((a, b) => touched(b) - touched(a))[0];
   if (!newest) return;
   // One line of the note, short enough to sit in a pill beside three others.
-  const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
+  // Cut at a word with an ellipsis: a bare 42-character slice ended the pill
+  // on "responds to the blu", which reads as a typo rather than as more text.
+  const preview = clipText(notePreviewText(newest.content || ""), 42) || "your last note";
   //: **The note's own line is the label, not the hint.** 10-responsive.css
   //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
   //: why: "Continue is the one pill whose text is a note's own first line, so
@@ -1257,163 +1347,168 @@ async function renderContinueLink(row) {
 function featureCatalog() {
   return [
     { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
-      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
-      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", reveal: "notes-capture" },
+      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", reveal: "notes-template" },
+      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", reveal: "notes-improve" },
       // The writing room is a sub-tab of Notes and was in the palette but in
       // no catalogue row, which is the shape this audit was for: a surface
       // that shipped, got a command, and never got its line in the list of
       // what the app can do.
-      { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", run: () => { switchTab("notes"); showNotesSection("writing-room"); $("draft-thoughts")?.focus(); } },
-      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
-      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
-      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, then file the notes.", run: () => { closeFeatures(); openMeetingRecorder(); } },
-      { name: "Attachments", desc: "Attach files and images to any note.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", reveal: "writing-room" },
+      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", reveal: "sketch" },
+      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", reveal: "notes-dictation" },
+      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, then file the notes.", reveal: "meeting" },
+      { name: "Attachments", desc: "Attach files and images to any note.", reveal: "notes-attach" },
       // Beside Attachments, which is the entry a person who has files in the
       // notebook is already reading. Asked for directly: "I want an easier and
       // more accessible way to access the ocr workspace as a proper and more
       // central feature." This browser and the command palette are the app's
       // two answers to that, and the reader had been in neither.
-      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", run: () => { closeFeatures(); window.openPageReader?.(); } },
-      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-      { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
-      { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-      { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
+      { name: "Threads", desc: "Continue a thought to build a train of related notes.", reveal: "notes-thread" },
+      { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", reveal: "notes-capture" },
+      { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
+      { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
+      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
+      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", reveal: "recycle-bin" },
     ]},
     { group: "Ask & chat", items: [
-      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); showNotesSection("ask"); $("question").focus(); } },
-      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
-      { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", run: () => { switchTab("chat"); $("attach-note").click(); } },
-      { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", run: () => switchTab("chat") },
-      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", run: () => openSettingsModal("personas") },
-      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
-      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
+      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },
+      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", reveal: "chat-input" },
+      { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", reveal: "chat-attach" },
+      { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", reveal: "chat-conversations" },
+      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", reveal: "settings:personas" },
+      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", reveal: "settings:skills" },
+      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", reveal: "chat-agent-mode" },
       // The popup agent has the same capability as Chat's agent mode and is
       // reachable from every tab, which is exactly why it needs a row: a chord
       // nobody has been told about is not a feature anyone has.
-      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
-      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", run: () => openSettingsModal("memory") },
-      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", run: () => switchTab("chat") },
-      { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
-      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
+      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", reveal: "agent-palette" },
+      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", reveal: "settings:memory" },
+      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", reveal: "chat-web-search" },
+      { name: "Export chat", desc: "Download a conversation as Markdown.", reveal: "chat-export" },
+      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", reveal: "set-search-relevance" },
     ]},
     // **Documents had no rows at all**, and the editor is one of the largest
     // surfaces in the app: blocks, an outline, breadcrumbs, a spelling and
     // style check with its own dictionary, tables, properties, block links and
-    // embeds, version history. Every row below goes to the tab rather than
-    // driving the editor from outside it, with two exceptions that are real
-    // dialogs of their own (the dictionary and the template picker): a
-    // document-scoped action with no document open is a row that does nothing.
+    // embeds, version history. Every row below opens the control it names on
+    // the newest document (`revealDocument`, app.js), and with no document at
+    // all it rings New document instead: a document-scoped action with no
+    // document open is a row that would otherwise do nothing.
     { group: "Documents", items: [
-      { name: "New document", desc: "Long-form writing in Markdown, with live formatting as you type.", run: () => { switchTab("documents"); createDocument(); } },
-      { name: "Document templates", desc: "Start from a prefilled document instead of a blank page.", run: () => { closeFeatures(); switchTab("documents"); openDocTemplateDialog(); } },
-      { name: "Blocks and the “/” menu", desc: "Type / for headings, quotes, callouts, tables, columns and embeds.", run: () => switchTab("documents") },
-      { name: "Outline", desc: "Every heading as a list you can jump around by, marking where you are.", run: () => { switchTab("documents"); showDocSidebarSection("outline"); } },
-      { name: "Breadcrumbs", desc: "The heading trail above the text says where in the document the caret is.", run: () => switchTab("documents") },
-      { name: "Find and replace", desc: "Search the document, step through matches, replace one or all.", run: () => switchTab("documents") },
-      { name: "Focus mode", desc: "Hide everything but the text you are writing.", run: () => switchTab("documents") },
-      { name: "Document properties", desc: "Title, tags and your own fields, stored as front matter at the top.", run: () => switchTab("documents") },
-      { name: "Tables", desc: "Build and edit Markdown tables without counting pipes.", run: () => switchTab("documents") },
-      { name: "Block links and embeds", desc: "Link or quote a single paragraph from anywhere, by its own short id.", run: () => switchTab("documents") },
-      { name: "Backlinks", desc: "What points at this document, from notes, maps, chats and other documents.", run: () => switchTab("documents") },
-      { name: "Spelling and style", desc: "Findings in the margin for spelling, repeated words and clumsy phrasing.", run: () => switchTab("documents") },
-      { name: "Your dictionary", desc: "Words you have taught it, so they stop being flagged everywhere.", run: () => { closeFeatures(); openDocDictionary(); } },
-      { name: "Word goal", desc: "Set a target and watch the count, reading time and structure as you write.", run: () => switchTab("documents") },
-      { name: "Version history", desc: "Earlier saves of a document, with what changed, restorable.", run: () => switchTab("documents") },
-      { name: "AI edit", desc: "Rewrite, shorten, translate or review a passage, with the change reviewable before it lands.", run: () => switchTab("documents") },
-      { name: "Export a document", desc: "Download it as Markdown, or print it to PDF with its formatting kept.", run: () => switchTab("documents") },
+      { name: "New document", desc: "Long-form writing in Markdown, with live formatting as you type.", reveal: "doc-new" },
+      { name: "Document templates", desc: "Start from a prefilled document instead of a blank page.", reveal: "doc-templates" },
+      { name: "Blocks and the “/” menu", desc: "Type / for headings, quotes, callouts, tables, columns and embeds.", reveal: "doc-insert" },
+      { name: "Outline", desc: "Every heading as a list you can jump around by, marking where you are.", reveal: "doc-outline" },
+      { name: "Breadcrumbs", desc: "The heading trail above the text says where in the document the caret is.", reveal: "doc-crumbs" },
+      { name: "Find and replace", desc: "Search the document, step through matches, replace one or all.", reveal: "doc-find" },
+      { name: "Focus mode", desc: "Hide everything but the text you are writing.", reveal: "doc-focus" },
+      { name: "Document properties", desc: "Title, tags and your own fields, stored as front matter at the top.", reveal: "doc-properties" },
+      { name: "Tables", desc: "Build and edit Markdown tables without counting pipes.", reveal: "doc-tables" },
+      { name: "Block links and embeds", desc: "Link or quote a single paragraph from anywhere, by its own short id.", reveal: "doc-insert" },
+      { name: "Backlinks", desc: "What points at this document, from notes, maps, chats and other documents.", reveal: "doc-connections" },
+      { name: "Spelling and style", desc: "Findings in the margin for spelling, repeated words and clumsy phrasing.", reveal: "doc-prose" },
+      { name: "Your dictionary", desc: "Words you have taught it, so they stop being flagged everywhere.", reveal: "doc-dictionary" },
+      { name: "Word goal", desc: "Set a target and watch the count, reading time and structure as you write.", reveal: "doc-word-goal" },
+      { name: "Version history", desc: "Earlier saves of a document, with what changed, restorable.", reveal: "doc-history" },
+      { name: "AI edit", desc: "Rewrite, shorten, translate or review a passage, with the change reviewable before it lands.", reveal: "doc-ai" },
+      { name: "Export a document", desc: "Download it as Markdown, or print it to PDF with its formatting kept.", reveal: "doc-export" },
     ]},
     // Boards and maps were in the same position as Documents: built, reached
     // from the Library's own sub-tab, and mentioned nowhere in the list of
     // what the app does. A map is a board (see `createConceptMap`), so the two
     // share a group rather than pretending to be separate canvases.
     { group: "Boards, maps & drawing", items: [
-      { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", run: () => { closeFeatures(); switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", run: () => { closeFeatures(); createConceptMap(); } },
-      { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Board overview", desc: "A miniature of the whole board, to see where you are and jump.", run: () => { closeFeatures(); if (typeof wbToggleNavigator === "function") wbToggleNavigator(true); } },
-      { name: "Find a card", desc: "Search the board you are on and step through the matches.", run: () => { closeFeatures(); if (typeof wbOpenBoardSearch === "function") wbOpenBoardSearch(); } },
-      { name: "The tool rail", desc: "Select, draw, shapes, text, links and images, grouped by what they do.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Context bar", desc: "The properties of whatever is selected, above the selection itself.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
-      { name: "Export a board", desc: "Save the board, or just what you selected, as an image.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", reveal: "board-new" },
+      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", reveal: "map-create" },
+      { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", reveal: "map-keyboard" },
+      { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", reveal: "map-templates" },
+      { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", reveal: "board-arrange" },
+      { name: "Board overview", desc: "A miniature of the whole board, to see where you are and jump.", reveal: "board-overview" },
+      { name: "Find a card", desc: "Search the board you are on and step through the matches.", reveal: "board-find" },
+      { name: "The tool rail", desc: "Select, draw, shapes, text, links and images, grouped by what they do.", reveal: "board-tools" },
+      { name: "Context bar", desc: "The properties of whatever is selected, above the selection itself.", reveal: "board-context" },
+      { name: "Export a board", desc: "Save the board, or just what you selected, as an image.", reveal: "board-export" },
     ]},
     // The Library is the app's filing cabinet and had no rows either, which
     // left six sub-tabs of real surfaces undiscoverable from here.
     { group: "Library", items: [
-      { name: "Everything in one place", desc: "Notes, chats, documents, files and boards in one list you can filter.", run: () => switchTab("library") },
-      { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-docs"]')?.click(); } },
-      { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="images"]')?.click(); } },
-      { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click(); } },
-      { name: "Links", desc: "Bookmarks, grouped, with the page's own title and description.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-links"]')?.click(); } },
-      { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-skills"]')?.click(); } },
-      { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-contents"]')?.click(); } },
-      { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click(); } },
+      { name: "Everything in one place", desc: "Notes, chats, documents, files and boards in one list you can filter.", tab: "library" },
+      { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", reveal: "library-docs" },
+      { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", reveal: "library-images" },
+      { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", reveal: "library-files" },
+      { name: "Links", desc: "Bookmarks, grouped, with the page's own title and description.", reveal: "library-links" },
+      { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", reveal: "library-skills" },
+      { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", reveal: "library-contents" },
+      { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", reveal: "library-files" },
     ]},
     { group: "Map & discovery", items: [
-      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
-      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
-      { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
-      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", run: () => switchTab("graph") },
-      { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", run: () => switchTab("timeline") },
-      { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", run: () => switchTab("timeline") },
-      { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", run: () => switchTab("timeline") },
-      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
-      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-      { name: "Find on this screen", desc: "Ctrl+F searches whatever tab you are looking at.", run: () => { closeFeatures(); openGlobalFind(); } },
+      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
+      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
+      { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", reveal: "graph-physics" },
+      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
+      { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
+      { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },
+      { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", reveal: "timeline-bands" },
+      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", reveal: "widget-on-this-day" },
+      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", reveal: "notes-related" },
+      { name: "Find on this screen", desc: "Ctrl+F searches whatever tab you are looking at.", reveal: "global-find" },
     ]},
     { group: "Plan & focus", items: [
-      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
-      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
-      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
-      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
-      { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", run: () => openTensions() },
+      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", tab: "reminders" },
+      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", reveal: "reminder-magic" },
+      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", reveal: "widget-focus" },
+      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", reveal: "widget-digest" },
+      { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", reveal: "tensions" },
       // Resurfacing had shipped on two surfaces (the sort and the widget) and
       // was named on neither list.
-      { name: "Forgotten first", desc: "Sort your notes by what is slipping out of reach: old, unlinked, unopened.", run: () => { switchTab("notes"); showNotesSection("browse"); $("note-sort").focus(); } },
-      { name: "Rediscover", desc: "Three faded notes a day, with the reason each one surfaced.", run: () => switchTab("dashboard") },
-      { name: "Loose ends", desc: "How much of the notebook is connected, and the oldest notes that are not.", run: () => switchTab("dashboard") },
-      { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", run: () => switchTab("dashboard") },
-      { name: "Writing pace", desc: "How many words you have written each day this fortnight.", run: () => switchTab("dashboard") },
-      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
-      { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
+      { name: "Forgotten first", desc: "Sort your notes by what is slipping out of reach: old, unlinked, unopened.", reveal: "notes-forgotten" },
+      { name: "Rediscover", desc: "Three faded notes a day, with the reason each one surfaced.", reveal: "widget-rediscover" },
+      { name: "Loose ends", desc: "How much of the notebook is connected, and the oldest notes that are not.", reveal: "widget-orphans" },
+      { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", reveal: "widget-unfinished" },
+      { name: "Writing pace", desc: "How many words you have written each day this fortnight.", reveal: "widget-pace" },
+      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", reveal: "widget-heatmap" },
+      { name: "Streaks", desc: "How many days in a row you've captured something.", reveal: "widget-streak" },
     ]},
     { group: "Make it yours", items: [
-      { name: "Theme", desc: "Light, dark, or follow your system.", run: () => openSettingsModal("appearance") },
-      { name: "Accent colour", desc: "Presets or any custom colour you like.", run: () => openSettingsModal("appearance") },
-      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", run: () => openSettingsModal("appearance") },
-      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", run: () => openSettingsModal("appearance") },
-      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", run: () => openSettingsModal("appearance") },
-      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", run: () => openSettingsModal("appearance") },
-      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", run: () => openSettingsModal("appearance") },
-      { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", run: () => { closeFeatures(); nudgeZoom(1); } },
-      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", run: () => { switchTab("dashboard"); $("dash-edit").click(); } },
+      { name: "Theme", desc: "Light, dark, or follow your system.", reveal: "set-theme" },
+      { name: "Accent colour", desc: "Presets or any custom colour you like.", reveal: "set-accent" },
+      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", reveal: "set-typography" },
+      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", reveal: "set-radius" },
+      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", reveal: "set-background" },
+      { name: "A companion on screen", desc: "A small character that finds a free spot on each page and reacts to what you do.", reveal: "set-companion" },
+      { name: "Your look", desc: "Shuffle the face drawn from your name, or choose its parts yourself.", reveal: "settings:preferences" },
+      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", reveal: "set-contrast" },
+      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", reveal: "set-custom-css" },
+      { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", act: () => nudgeZoom(1) },
+      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", reveal: "dash-layout" },
       // Workspaces are the top-left control every tab is filtered by, and
       // nothing in either list said they existed.
-      { name: "Workspaces", desc: "Keep work, study and home in separate notebooks that share one app.", run: () => { closeFeatures(); openSpaceCreate(); } },
-      { name: "Note templates", desc: "Edit the shapes a new note can start from, or write your own.", run: () => openSettingsModal("templates") },
+      { name: "Workspaces", desc: "Keep work, study and home in separate notebooks that share one app.", reveal: "workspace-new" },
+      { name: "Note templates", desc: "Edit the shapes a new note can start from, or write your own.", reveal: "settings:templates" },
     ]},
     { group: "Data & control", items: [
-      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", run: () => openSettingsModal("data") },
-      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", run: () => openSettingsModal("data") },
-      { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
-      { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
-      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", run: () => openSettingsModal("tools") },
-      { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", run: () => openSettingsModal("tasks") },
-      { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", run: () => openSettingsModal("extras") },
-      { name: "Account & security", desc: "Change your password, and what happens when the app locks.", run: () => openSettingsModal("account") },
-      { name: "Logs", desc: "What the app and the models have been doing, in plain text.", run: () => openSettingsModal("logs") },
-      { name: "Lock", desc: "Password-protect the app on shared devices.", run: () => lockNow() },
-      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", run: () => { closeFeatures(); openPalette(); } },
-      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", run: () => { closeFeatures(); openShortcuts(); } },
-      { name: "Help", desc: "How the parts of the app fit together, in the app itself.", run: () => openSettingsModal("help") },
-      { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", run: () => openSettingsModal("about") },
-      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", run: () => { closeFeatures(); openOnboarding(); } },
+      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", reveal: "set-export" },
+      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", reveal: "set-import-md" },
+      { name: "Backups", desc: "Snapshot your notebook and restore it later.", reveal: "set-backups" },
+      { name: "Models", desc: "Choose the chat, utility and embedding models.", reveal: "settings:models" },
+      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", reveal: "settings:tools" },
+      { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", reveal: "settings:tasks" },
+      { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", reveal: "settings:extras" },
+      { name: "Account & security", desc: "Change your password, and what happens when the app locks.", reveal: "settings:account" },
+      { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
+      { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
+      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", reveal: "palette" },
+      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
+      { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
+      { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
+      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
     ]},
-  ];
+    //: Each row declares where it goes (`tab`, `reveal` or `act`) and
+    //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row
+    //: lands on what it names (tests/test_catalogue_reveal.py).
+  ].map((group) => ({ ...group, items: group.items.map(catalogueRun) }));
 }
 
 let featureAiTools = null; // fetched once per session
@@ -1450,8 +1545,10 @@ function renderFeatures(query) {
       items: featureAiTools.map((tool) => ({
         name: tool.name.replace(/_/g, " "),
         desc: tool.description + (tool.destructive ? " (asks you to confirm first)" : ""),
-        run: () => openSettingsModal("tools"),
-      })),
+        //: The tool's own row in Settings, ringed, not the top of the pane.
+        reveal: "ai-tool",
+        arg: tool.name,
+      })).map(catalogueRun),
     });
   }
 
@@ -1540,10 +1637,7 @@ function gettingStartedCard() {
       icon: "ph:chat-circle",
       label: "Ask your notebook",
       note: "Works on keywords even with no AI running.",
-      run: () => {
-        switchTab("chat");
-        $("chat-input")?.focus();
-      },
+      run: () => openAskFromDashboard(),
     },
     {
       icon: "ph:backpack",
@@ -1561,7 +1655,7 @@ function gettingStartedCard() {
       //: "take the tour" and opens a slideshow teaches that the tour is a
       //: slideshow, and there was then no door to the tour on the dashboard
       //: at all. The welcome card keeps its own doors, both correctly
-      //: worded: Settings, help and guide's "Replay welcome tour" and the
+      //: worded: Settings, Help's "Replay the welcome" and the
       //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
       //: Guarded because tour.js is a separate file: a page served without
@@ -1599,12 +1693,12 @@ function gettingStartedCard() {
     "notes and a dozen other panels appear once there's something to put in them.";
 
   card.append(emblem, title, blurb, steps, footer);
-  return { card, mount: () => renderEmblem(emblem, 56) };
+  return { card, mount: () => renderEmblem(emblem, 56, { animate: true }) };
 }
 
 async function renderDashboard() {
   // The saved layout lives in preferences, after a page reload this can run
-  // before startApp has fetched them. `loadPreferences` (app.js) is the shared
+  // before startApp has fetched them. `loadPreferences` (settings-panes.js) is the shared
   // reader: the cache if it is filled, otherwise the request already in flight,
   // which on a cold start is startApp's own. It used to be a second
   // `GET /preferences` here, and the dashboard is the first tab, so a cold
@@ -2206,7 +2300,7 @@ async function startArt(holder) {
   //: band above the status bar, with no DOM mutation at all, and the
   //: *background* art is off; the earlier investigation measured that one).
   //:
-  //: `reducedMotionWanted` (app.js) is the OS hint or the app's own switch;
+  //: `reducedMotionWanted` (chat.js) is the OS hint or the app's own switch;
   //: `perfModeOn` (settings.js) is the machine judgement. Both reached
   //: through `typeof`, since dashboard.js loads before settings.js and a
   //: render that somehow beat it should fall back to moving rather than
@@ -2351,15 +2445,30 @@ async function startArt(holder) {
 
 // Capture streak (Wave K): consecutive days up to today with at least
 // one note, read from the same per-day series the stats strip uses.
+//: **One streak rule for the whole dashboard, and it is the journal's.**
+//: `daily_journal` (api/routes_entries.py) counts back from today and allows
+//: today to be empty: nine days running and nothing yet this morning is a
+//: streak of nine, not zero, or the number drops at every midnight and
+//: comes back when you write, a counter that punishes the morning. The
+//: greeting, the figures strip and the Streak widget each counted their own
+//: and stopped at an empty today: measured at one in the morning after an
+//: evening of 22 notes, "0 day streak" and "No streak yet" beside a journal
+//: that said 1 (tests/test_dashboard_streak.py). `perDay` runs oldest to
+//: newest, the last entry being today.
+function dashStreak(perDay) {
+  const days = perDay || [];
+  let i = days.length - 1;
+  if (i >= 0 && !(days[i] > 0)) i -= 1;
+  let streak = 0;
+  for (; i >= 0 && days[i] > 0; i -= 1) streak += 1;
+  return streak;
+}
+
 async function renderStreakWidget(body) {
   const stats = await fetchDashStats();
   const perDay = stats.per_day || []; // oldest → newest, last = today
 
-  let current = 0;
-  for (let i = perDay.length - 1; i >= 0; i--) {
-    if (perDay[i] > 0) current += 1;
-    else break;
-  }
+  const current = dashStreak(perDay);
   let longest = 0;
   let run = 0;
   for (const count of perDay) {
@@ -2375,8 +2484,11 @@ async function renderStreakWidget(body) {
   const sub = document.createElement("p");
   sub.className = "muted";
   if (current > 0) {
+    //: A streak kept alive by yesterday says what keeps it going.
+    const today = perDay.length ? perDay[perDay.length - 1] : 0;
     sub.textContent =
       `You've captured ${current} day${current === 1 ? "" : "s"} running` +
+      (today ? "" : ". Save a note today to keep it") +
       (longest > current ? ` · best in the last fortnight: ${longest}` : "");
   } else {
     sub.textContent = "Save a note today to start one.";
@@ -2550,7 +2662,7 @@ async function renderPinnedWidget(body) {
 }
 
 async function renderMostUsedWidget(body) {
-  const entries = await apiJson("/entries/most-accessed");
+  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 });
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
 }
 
@@ -2617,7 +2729,7 @@ async function renderTopTagsWidget(body) {
 }
 
 async function renderQuestionsWidget(body) {
-  const questions = await apiJson("/chat/recent");
+  const questions = await apiJson("/chat/recent", { cacheMs: 30000 });
   if (!questions.length) {
     body.textContent = "Your recent questions will appear here.";
     body.classList.add("muted");
@@ -2706,6 +2818,12 @@ async function streamDigest(onDelta) {
       if (event.type === "answer") {
         text += event.delta;
         if (onDelta) onDelta(text);
+      } else if (event.type === "answer_final") {
+        //: The server took a greeting or an announcement off the digest
+        //: (`routes_insights`, `trim_assistant_padding`). The words already
+        //: drawn are replaced once, and the trimmed text is what is cached.
+        text = event.text || text;
+        if (onDelta) onDelta(text);
       } else if (event.type === "done") {
         cacheable = event.cacheable !== false;
       }
@@ -2786,12 +2904,15 @@ async function renderDigestWidget(body) {
 
 async function renderQuickCaptureWidget(body) {
   const textarea = document.createElement("textarea");
+  //: A placeholder is not a label: it goes as soon as you type, and a
+  //: screen reader reads nothing for the field without one (the a11y sweep).
+  textarea.setAttribute("aria-label", "Quick capture");
   textarea.rows = 2;
   // Don't promise AI filing when there's no AI to do it; the note still saves.
   textarea.placeholder =
     modelStatus && modelStatus.ollama_running === false
-      ? "Type a thought and press Save."
-      : "Type a thought and press Save, Atlas files it.";
+      ? "Type a thought and press Save (Ctrl+Enter)."
+      : "Type a thought and press Save (Ctrl+Enter), Atlas files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");
@@ -2815,6 +2936,15 @@ async function renderQuickCaptureWidget(body) {
     }, false)
   );
   row.appendChild(status);
+  //: Ctrl+Enter (Cmd+Enter) saves, as it does in the capture box on the
+  //: Notes tab and in every multi-line "post" field people use; plain
+  //: Enter stays a new line.
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault();
+      row.querySelector("button")?.click();
+    }
+  });
   body.append(textarea, row);
 }
 
@@ -2833,7 +2963,21 @@ async function renderRemindersWidget(body) {
   for (const reminder of reminders) {
     const li = document.createElement("li");
     const due = new Date(reminder.due_at);
-    li.textContent = `${reminder.text}: ${due.toLocaleString()}`;
+    //: The day and the time a person would say, never a machine timestamp
+    //: with seconds ("9/24/2026, 1:22:17 PM", measured); the relative phrase
+    //: ("in 23 hours") is the tooltip.
+    const when = due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    //: The thing to do, then when, on a line of its own in the muted rank:
+    //: "Submit IT assignment: Thu, Sep 24, 1:22 PM" as one run-on line made
+    //: the time read as part of the sentence.
+    const what = document.createElement("span");
+    what.className = "dash-reminder-text";
+    what.textContent = reminder.text;
+    const at = document.createElement("span");
+    at.className = "dash-reminder-when muted";
+    at.textContent = when;
+    li.append(what, at);
+    if (typeof relativeWhen === "function") li.title = relativeWhen(reminder.due_at);
     if (due < new Date()) li.classList.add("overdue");
     li.addEventListener("click", () => switchTab("reminders"));
     ul.appendChild(li);
@@ -3347,6 +3491,9 @@ async function renderFocusTimerWidget(body) {
 $("dash-edit").addEventListener("click", () => {
   dashEditMode = !dashEditMode;
   $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
+  // Done is the way out of a mode, so it is the one filled button in the
+  // bar while the mode is on (the badge beside it says which mode).
+  $("dash-edit").classList.toggle("ghost", !dashEditMode);
   renderDashboard();
 });
 // Widget picker modal (roadmap §26): a dedicated surface alongside "Edit
@@ -3425,7 +3572,7 @@ function dashEmpty(body, text) {
 async function renderBoardsWidget(body) {
   // Every board, not the first page: the widget ranks them by how much is on
   // them, and the busiest board is not necessarily on page one. That is the
-  // same walk `loadMapBoardIndex` (app.js) makes for the note list's map
+  // same walk `loadMapBoardIndex` (note-cards.js) makes for the note list's map
   // chips, with the same page size, and at boot the two ran within a tick of
   // each other: two walks of every board before the first tab had finished
   // drawing (WORLD_CLASS_PLAN A2). Sharing it means the widget can read
@@ -3453,7 +3600,7 @@ async function renderBoardsWidget(body) {
   for (const board of ranked) {
     dashActionRow(ul, {
       title: board.title,
-      // `mapCountLabel` (app.js) rather than three lines here. The three lines
+      // `mapCountLabel` (note-cards.js) rather than three lines here. The three lines
       // it replaces called a map's objects "images", which is the wrong noun
       // for the only thing on a map, the Library card had already been fixed
       // and this copy had not, which is precisely what §5 item 12 is about.
@@ -3480,7 +3627,7 @@ async function renderBoardsWidget(body) {
  * dashboard previewed as a scatter of dots while the identical map in the
  * Library previewed as a tree. Structure is the entire difference between a
  * map and a board, so the one place it was missing was the one place it
- * mattered. `mapPreview` (app.js) is now the only place this picture exists;
+ * mattered. `mapPreview` (note-cards.js) is now the only place this picture exists;
  * MINDMAP_PLAN.md §5 item 12 asked for exactly that.
  */
 function dashBoardThumb(board) {
@@ -3493,6 +3640,91 @@ function dashBoardThumb(board) {
   // ones: sizing belongs to the row, the drawing belongs to the map.
   svg.classList.add("dash-list-thumb", "dash-board-thumb");
   return svg;
+}
+
+// --- Recent activity: the event feed, read with its cursor ---------------------
+//
+// `GET /events` reads forwards from a cursor (WORLD_CLASS_PLAN B1). The first
+// render asks for the newest few with `tail`; every later render asks only for
+// what came after the cursor it was handed, so reopening the dashboard reads
+// the handful of new rows rather than the log again. No timer: the widget is
+// redrawn when the dashboard is, and an idle tab polling a log for a strip
+// nobody is looking at is the cost INBOX 266 (7) took out of this app.
+const DASH_ACTIVITY_KINDS = "entry,document,board,reminder";
+const DASH_ACTIVITY_ROWS = 8;
+let dashActivity = { items: [], cursor: null };
+
+const DASH_ACTIVITY_NOUNS = { entry: "Note", document: "Document", board: "Board", reminder: "Reminder" };
+
+async function dashActivityItems() {
+  const first = dashActivity.cursor === null;
+  const path = first
+    ? `/events?tail=${DASH_ACTIVITY_ROWS}&entity_type=${DASH_ACTIVITY_KINDS}`
+    : `/events?since=${dashActivity.cursor}&entity_type=${DASH_ACTIVITY_KINDS}`;
+  const feed = await apiJson(path, { silent: true });
+  dashActivity = {
+    items: [...dashActivity.items, ...(feed.items || [])].slice(-DASH_ACTIVITY_ROWS),
+    cursor: feed.cursor ?? dashActivity.cursor ?? 0,
+  };
+  return dashActivity.items;
+}
+
+async function renderActivityWidget(body) {
+  let items;
+  try {
+    items = await dashActivityItems();
+  } catch {
+    surfaceFailed(body, "recent activity", () => renderActivityWidget(body));
+    return;
+  }
+  if (!items.length) {
+    dashEmpty(body, "What you and Atlas change in the notebook shows up here.");
+    return;
+  }
+  const entries = await dashEntries().catch(() => []);
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const item of [...items].reverse()) {
+    const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
+    const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
+    const name = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 60) : "";
+    const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
+    //: A compacted run is one line, not a burst of edits (the feed's own
+    //: `snapshot` count says how many it stands for).
+    const run = item.snapshot ? ` (${item.snapshot} edits)` : "";
+    const who = historyActorLabel(item.actor);
+    const meta = [who, dashRelativeTime(item.created_at)].filter(Boolean).join(" · ");
+    const open = entry && !entry.is_deleted
+      ? () => flashEntry(entry.id)
+      : item.entity_type === "document" && item.action !== "deleted"
+        ? () => {
+            switchTab("documents");
+            openDocument(item.entity_id);
+          }
+        : null;
+    const title = `${verb}${run}: ${name || noun.toLowerCase()}`;
+    if (open) {
+      dashActionRow(ul, { title, meta, hint: `Open this ${noun.toLowerCase()}`, onOpen: open });
+      continue;
+    }
+    //: Something that is gone (a note deleted for good, a reminder) has
+    //: nothing to open, so it is a plain row rather than a button that does
+    //: nothing, which is the "dead control" the vibe check counts.
+    const li = document.createElement("li");
+    const text = document.createElement("span");
+    text.className = "dash-list-text";
+    const titleEl = document.createElement("span");
+    titleEl.className = "dash-list-title";
+    titleEl.textContent = title;
+    const metaEl = document.createElement("span");
+    metaEl.className = "dash-list-preview";
+    metaEl.textContent = meta;
+    text.append(titleEl, metaEl);
+    li.appendChild(text);
+    ul.appendChild(li);
+  }
+  body.appendChild(ul);
 }
 
 async function renderDocumentsWidget(body) {

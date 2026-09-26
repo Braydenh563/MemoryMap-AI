@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.ai import model_manager
-from memorymap.core import deps, taskhistory
+from memorymap.core import deps, taskhistory, vault
 
 
 @pytest.fixture()
@@ -20,12 +20,18 @@ def app_state(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path / "data"))
     deps.reset_app_state()
     model_manager.reset_jobs()
+    # The vault's key is module-level too: a test that unlocked it left the
+    # next test in the same process reading private notes with a stale key
+    # ("couldn't be decrypted" where "unlock to read it" was asserted), which
+    # only showed once the suite ran in parallel and the order changed.
+    vault.close()
     # Process-global like the log buffer, so it leaks between tests exactly the
     # way the job registry does, and a test asserting "no jobs have finished"
     # would otherwise pass or fail on what ran before it.
     taskhistory.clear()
     deps.init_app_state(data_dir=tmp_path / "data")
     yield deps.get_config()
+    vault.close()
     deps.reset_app_state()
     model_manager.reset_jobs()
     taskhistory.clear()

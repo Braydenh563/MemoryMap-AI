@@ -26,6 +26,7 @@ import base64
 import importlib
 import logging
 import mimetypes
+import re
 import tempfile
 import threading
 import time
@@ -101,6 +102,62 @@ VISION_OCR_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp
 _NO_TEXT_SENTINEL = "NO_TEXT_FOUND"
 
 
+#: **A reading is text, not a loop** (INBOX 421 e). A small vision model can
+#: fall into repeating itself until it runs out of tokens: the owner's
+#: lightbox showed "Goal, People, Test, Test, Test, ..." hundreds of times,
+#: stored, searchable and handed to the agent as what the picture says. Any
+#: unit of up to 80 characters that repeats more than `READING_MAX_REPEATS`
+#: times in a row is kept once. Only a unit with a letter or digit in it: a
+#: run of dashes or dots is a table rule or a leader line, which a page really
+#: has. Nine of the same word in a row is not a sentence anyone writes; eight
+#: ("ha ha ha...") is left alone.
+READING_MAX_REPEATS = 8
+#: And a ceiling, for a loop too long to repeat exactly (a counter that keeps
+#: incrementing): about four dense pages of text for one picture or one page.
+READING_MAX_CHARS = 16000
+_READING_LOOP = re.compile(r"(.{1,80}?)\1{%d,}" % READING_MAX_REPEATS, re.DOTALL)
+_WORDISH = re.compile(r"\w")
+
+
+def cut_reading_loops(text: str | None) -> str:
+    """`text` with every degenerate repetition kept once, then capped.
+
+    Applied where a model's reading or description is produced
+    (`vision_ocr_text`, `captioning.caption_text` and its page twin), so every
+    path that stores one (the upload's own job, the per-file routes, a forced
+    re-read) stores the same cut text. A last, unfinished repeat ("Test" after
+    four hundred "Test, ") goes with its loop; a longer word that only starts
+    the same way ("Testing") does not.
+    """
+    if not text:
+        return text or ""
+    # Bounded before the search, so a runaway reply cannot make the scan slow.
+    text = text[: READING_MAX_CHARS * 2]
+    out: list[str] = []
+    pos = 0
+    while True:
+        match = _READING_LOOP.search(text, pos)
+        if match is None:
+            out.append(text[pos:])
+            break
+        unit = match.group(1)
+        if not _WORDISH.search(unit):
+            out.append(text[pos : match.end()])
+            pos = match.end()
+            continue
+        out.append(text[pos : match.start()] + unit)
+        pos = match.end()
+        core = re.sub(r"\W+$", "", unit)
+        tail = re.match(re.escape(core) + r"(?!\w)", text[pos:]) if core else None
+        if tail:
+            pos += tail.end()
+    cut = "".join(out).strip()
+    if len(cut) > READING_MAX_CHARS:
+        head = cut[:READING_MAX_CHARS]
+        cut = (head.rsplit(None, 1)[0] if re.search(r"\s", head) else head).rstrip()
+    return cut
+
+
 def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
     """Best-effort transcription for one image file. Never raises.
 
@@ -123,7 +180,7 @@ def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
             model,
             [{"role": "user", "content": VISION_OCR_PROMPT, "images": [uri]}],
         )
-        text = (reply.get("content") or "").strip()
+        text = cut_reading_loops((reply.get("content") or "").strip())
         if not text or text.upper() == _NO_TEXT_SENTINEL:
             return ""
         return text
@@ -359,7 +416,7 @@ def pdf_vision_ocr_in_background(upload_id: int, pdf_path: Path) -> None:
     """Fire-and-forget, exactly as `vision_ocr_in_background`, and more
     necessary here, since a scan is up to `pdfpages.MAX_PAGES` model round
     trips rather than one."""
-    jobs.enqueue("vision-pdf", pdf_vision_ocr_and_store, upload_id, pdf_path, name=pdf_path.name)
+    jobs.enqueue("vision-pdf", pdf_vision_ocr_and_store, upload_id, pdf_path, name=pdf_path.name, dedupe_key=("read", upload_id))
 
 
 def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
@@ -367,4 +424,4 @@ def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
     Same shape as `captioning.caption_in_background`, a real model round
     trip is far slower than the request itself, and nothing about "was the
     upload accepted" should wait on it."""
-    jobs.enqueue("vision", vision_ocr_and_store, upload_id, image_path, name=image_path.name)
+    jobs.enqueue("vision", vision_ocr_and_store, upload_id, image_path, name=image_path.name, dedupe_key=("read", upload_id))

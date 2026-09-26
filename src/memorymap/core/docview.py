@@ -307,16 +307,78 @@ def html_to_markdown(html: str) -> str:
 
 #: Word's own namespace. One constant because every tag below needs it.
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+#: The relationship id on a hyperlink, in the officeDocument namespace.
+_R_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
+#: A part of a real .docx is text, and 40 MB of it is not a document.
+_DOCX_PART_CAP = 40_000_000
+#: Links this importer writes back out as links; anything else keeps its words.
+_DOCX_SAFE_LINK = re.compile(r"^(https?://|mailto:)", re.IGNORECASE)
+#: Faces that mean "this is code": a run in one is inline code, a paragraph
+#: of nothing else is a line of a code block.
+_DOCX_MONO = {"consolas", "courier new", "courier", "menlo", "monaco", "cascadia code", "cascadia mono", "source code pro", "lucida console"}
+
+
+def _docx_part(archive: zipfile.ZipFile, name: str, parse) -> object | None:
+    """One XML part of the archive, parsed, or None when it is absent, too
+    big or not XML: every part but the document itself is optional."""
+    try:
+        info = archive.getinfo(name)
+        if info.file_size > _DOCX_PART_CAP:
+            return None
+        return parse(archive.read(name))
+    except Exception:  # noqa: BLE001 - an optional part never sinks the import
+        return None
+
+
+def _docx_list_kinds(numbering) -> dict[tuple[str, int], str]:
+    """(numId, level) to "bullet" or "number", from `word/numbering.xml`."""
+    if numbering is None:
+        return {}
+    abstract: dict[str, dict[int, str]] = {}
+    for node in numbering.iter(f"{_W}abstractNum"):
+        levels = {}
+        for level in node.iter(f"{_W}lvl"):
+            fmt = level.find(f"{_W}numFmt")
+            value = fmt.get(f"{_W}val") if fmt is not None else "bullet"
+            levels[int(level.get(f"{_W}ilvl") or 0)] = "bullet" if value in ("bullet", "none") else "number"
+        abstract[node.get(f"{_W}abstractNumId") or ""] = levels
+    kinds: dict[tuple[str, int], str] = {}
+    for node in numbering.iter(f"{_W}num"):
+        ref = node.find(f"{_W}abstractNumId")
+        levels = abstract.get(ref.get(f"{_W}val") if ref is not None else "", {})
+        for level, kind in levels.items():
+            kinds[(node.get(f"{_W}numId") or "", level)] = kind
+    return kinds
+
+
+def docx_has_revisions(path: Path) -> bool:
+    """Whether the Word file carries tracked changes (`w:ins`, `w:del`)."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            if archive.getinfo("word/document.xml").file_size > _DOCX_PART_CAP:
+                return False
+            raw = archive.read("word/document.xml")
+    except (KeyError, OSError, zipfile.BadZipFile):
+        return False
+    return b"<w:ins " in raw or b"<w:del " in raw
 
 
 def docx_to_markdown(path: Path) -> str:
     """A .docx read without markitdown and without python-docx.
 
-    A .docx is a zip whose `word/document.xml` holds the paragraphs. This reads
-    that part with defusedxml (the file is somebody's upload, so an XML bomb is
-    a real shape to refuse rather than a hypothetical) and maps what a person
-    would notice: heading styles become `#`, list paragraphs become `-`, bold
-    and italic runs keep their markers, and everything else is a paragraph.
+    A .docx is a zip whose `word/document.xml` holds the body. This reads it
+    with defusedxml (the file is somebody's upload, so an XML bomb is a real
+    shape to refuse rather than a hypothetical) and maps what a person would
+    notice, in the body's own order: heading styles become `#`, list
+    paragraphs become `-` or `1.` (which one, from `word/numbering.xml` or the
+    list style's name) indented by their level, quotes become `>`, tables
+    become pipe tables, links keep their address (from the relationships
+    part), bold, italic and strike keep their markers, and Word's tracked
+    changes become suggestion mode's marks (`{++…++}`, `{--…--}`), so a draft
+    reviewed in Word arrives with its revisions still to accept or reject.
+    This is the other half of `docexport.to_docx`, and
+    `tests/test_prose_tools.py` sends one through both.
 
     Returns "" for anything it cannot read, which is what puts the caller back
     on its existing "no text found" path rather than a traceback.
@@ -327,59 +389,181 @@ def docx_to_markdown(path: Path) -> str:
         return ""
     try:
         with zipfile.ZipFile(path) as archive:
-            #: A zip bomb refused by size before it is parsed: the document
-            #: part of a real .docx is text, and 40 MB of it is not a document.
             info = archive.getinfo("word/document.xml")
-            if info.file_size > 40_000_000:
+            if info.file_size > _DOCX_PART_CAP:
                 return ""
             raw = archive.read("word/document.xml")
+            rels = _docx_part(archive, "word/_rels/document.xml.rels", DefusedET.fromstring)
+            numbering = _docx_part(archive, "word/numbering.xml", DefusedET.fromstring)
     except (KeyError, OSError, zipfile.BadZipFile):
         return ""
     try:
         root = DefusedET.fromstring(raw)
     except Exception:  # noqa: BLE001
         return ""
+    links: dict[str, str] = {}
+    if rels is not None:
+        for rel in rels.iter(_REL):
+            if rel.get("TargetMode") == "External" and rel.get("Id"):
+                links[rel.get("Id")] = rel.get("Target") or ""
+    kinds = _docx_list_kinds(numbering)
 
-    lines: list[str] = []
-    for paragraph in root.iter(f"{_W}p"):
+    def mono(run) -> bool:
+        props = run.find(f"{_W}rPr")
+        fonts = props.find(f"{_W}rFonts") if props is not None else None
+        face = (fonts.get(f"{_W}ascii") or fonts.get(f"{_W}hAnsi") or "") if fonts is not None else ""
+        return face.lower() in _DOCX_MONO
+
+    def run_text(run, deleted: bool, raw: bool = False) -> str:
+        tag = f"{_W}delText" if deleted else f"{_W}t"
+        text = "".join(node.text or "" for node in run.iter(tag))
+        if not text.strip() or raw:
+            return text
+        props = run.find(f"{_W}rPr")
+
+        def on(name: str) -> bool:
+            node = props.find(f"{_W}{name}") if props is not None else None
+            return node is not None and (node.get(f"{_W}val") or "true") not in ("0", "false")
+
+        lead = text[: len(text) - len(text.lstrip())]
+        tail = text[len(text.rstrip()) :]
+        core = text.strip()
+        if mono(run):
+            return f"{lead}`{core}`{tail}"
+        if on("strike"):
+            core = f"~~{core}~~"
+        if on("i"):
+            core = f"*{core}*"
+        if on("b"):
+            core = f"**{core}**"
+        return f"{lead}{core}{tail}"
+
+    def inline(node, deleted: bool = False) -> str:
+        """The paragraph's runs, links and revisions, in order."""
+        out = []
+        for child in node:
+            if child.tag == f"{_W}r":
+                out.append(run_text(child, deleted))
+            elif child.tag == f"{_W}hyperlink":
+                words = inline(child, deleted)
+                target = links.get(child.get(_R_ID) or "", "")
+                if words.strip() and _DOCX_SAFE_LINK.match(target):
+                    out.append(f"[{words}]({target})")
+                else:
+                    out.append(words)
+            elif child.tag in (f"{_W}ins", f"{_W}del"):
+                words = inline(child, child.tag == f"{_W}del")
+                if words.strip():
+                    out.append(f"{{++{words}++}}" if child.tag == f"{_W}ins" else f"{{--{words}--}}")
+            elif child.tag in (f"{_W}smartTag", f"{_W}customXml", f"{_W}sdtContent", f"{_W}fldSimple"):
+                out.append(inline(child, deleted))
+            elif child.tag == f"{_W}sdt":
+                content = child.find(f"{_W}sdtContent")
+                if content is not None:
+                    out.append(inline(content, deleted))
+        return "".join(out)
+
+    def paragraph(node) -> tuple[str, str]:
+        """(markdown, block kind): kind is "list" for a list item, so the
+        caller can keep a list's items on consecutive lines."""
         style = ""
-        numbered = False
-        properties = paragraph.find(f"{_W}pPr")
+        num = None
+        properties = node.find(f"{_W}pPr")
         if properties is not None:
-            node = properties.find(f"{_W}pStyle")
-            if node is not None:
-                style = node.get(f"{_W}val") or ""
-            numbered = properties.find(f"{_W}numPr") is not None
-        pieces: list[str] = []
-        for run in paragraph.iter(f"{_W}r"):
-            text = "".join(node.text or "" for node in run.iter(f"{_W}t"))
-            if not text:
-                continue
-            run_properties = run.find(f"{_W}rPr")
-            bold = run_properties is not None and run_properties.find(f"{_W}b") is not None
-            italic = run_properties is not None and run_properties.find(f"{_W}i") is not None
-            if bold:
-                text = f"**{text}**"
-            if italic:
-                text = f"*{text}*"
-            pieces.append(text)
-        body = "".join(pieces).strip()
+            found = properties.find(f"{_W}pStyle")
+            if found is not None:
+                style = found.get(f"{_W}val") or ""
+            num = properties.find(f"{_W}numPr")
+        #: Every run, empty ones too: a blank line inside a code block is a
+        #: paragraph holding one empty run in the code face.
+        runs = list(node.iter(f"{_W}r"))
+        if runs and all(mono(run) for run in runs) and num is None and not style.startswith(("Heading", "List")):
+            #: Every run in a code face: a line of a code block, as it was.
+            return "".join(run_text(run, False, raw=True) for run in node.iter(f"{_W}r")), "code"
+        body = inline(node).strip()
         if not body:
+            return "", "blank"
+        heading = re.match(r"Heading\s?(\d)", style)
+        if heading:
+            return f"{'#' * min(6, max(1, int(heading.group(1))))} {body}", "block"
+        if style.startswith("Title"):
+            return f"# {body}", "block"
+        if num is not None or style.startswith("List"):
+            level = 0
+            kind = "number" if "Number" in style else "bullet"
+            if num is not None:
+                ilvl = num.find(f"{_W}ilvl")
+                num_id = num.find(f"{_W}numId")
+                level = int(ilvl.get(f"{_W}val") or 0) if ilvl is not None else 0
+                key = (num_id.get(f"{_W}val") if num_id is not None else "") or ""
+                kind = kinds.get((key, level), kind)
+            else:
+                trailing = re.search(r"(\d)$", style)
+                level = int(trailing.group(1)) - 1 if trailing else 0
+            marker = "1." if kind == "number" else "-"
+            #: The box characters the exporter writes for a task list.
+            body = re.sub(r"^☑\s*", "[x] ", re.sub(r"^☐\s*", "[ ] ", body))
+            return f"{'   ' * level if kind == 'number' else '  ' * level}{marker} {body}", "list"
+        if "Quote" in style:
+            return f"> {body}", "block"
+        return body, "block"
+
+    def table(node) -> list[str]:
+        rows = []
+        for row in node.iter(f"{_W}tr"):
+            cells = []
+            for cell in row.findall(f"{_W}tc"):
+                words = " ".join(filter(None, (inline(p).strip() for p in cell.iter(f"{_W}p"))))
+                cells.append(words.replace("|", "\\|"))
+            if cells:
+                rows.append(cells)
+        if not rows:
+            return []
+        width = max(len(row) for row in rows)
+        rows = [row + [""] * (width - len(row)) for row in rows]
+        #: A header row set in bold is a header row: the pipe table's own
+        #: first row already says so, and `**` around each name would not.
+        if all(re.fullmatch(r"\*\*.*\*\*", cell) or not cell for cell in rows[0]):
+            rows[0] = [cell[2:-2] if cell else cell for cell in rows[0]]
+        out =["| " + " | ".join(rows[0]) + " |", "|" + " --- |" * width]
+        out += ["| " + " | ".join(row) + " |" for row in rows[1:]]
+        return out
+
+    body = root.find(f"{_W}body")
+    blocks = list(body) if body is not None else list(root.iter(f"{_W}p"))
+    lines: list[str] = []
+    in_code = False
+    for block in blocks:
+        if block.tag not in (f"{_W}tbl", f"{_W}p"):
+            continue
+        text, kind = paragraph(block) if block.tag == f"{_W}p" else ("", "table")
+        if in_code and kind != "code":
+            lines.extend(["```", ""])
+            in_code = False
+        if kind == "table":
+            if lines and lines[-1] != "":
+                lines.append("")
+            lines.extend(table(block) + [""])
+        elif kind == "code":
+            if not in_code:
+                if lines and lines[-1] != "":
+                    lines.append("")
+                lines.append("```")
+                in_code = True
+            lines.append(text)
+        elif kind == "blank":
             #: A blank paragraph is a blank line, which is what keeps two
             #: paragraphs from running together as one.
             if lines and lines[-1] != "":
                 lines.append("")
-            continue
-        match = re.match(r"Heading(\d)", style)
-        if match:
-            level = min(6, max(1, int(match.group(1))))
-            lines.extend([f"{'#' * level} {body}", ""])
-        elif style.startswith("Title"):
-            lines.extend([f"# {body}", ""])
-        elif numbered or style.startswith("List"):
-            lines.append(f"- {body}")
+        elif kind == "list":
+            lines.append(text)
         else:
-            lines.extend([body, ""])
+            if lines and lines[-1] != "" and re.match(r"\s*(-|1\.) ", lines[-1]):
+                lines.append("")
+            lines.extend([text, ""])
+    if in_code:
+        lines.append("```")
     out = "\n".join(lines).strip()
     return f"{out}\n" if out else ""
 
@@ -519,7 +703,14 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
     from memorymap.entry import importer
 
     converted = ""
-    if importer.markitdown_available():
+    #: **A Word file with tracked changes is read here, markitdown or not.**
+    #: markitdown takes every insertion as written and drops every deletion,
+    #: which is accepting a reviewer's changes on the reader's behalf without
+    #: showing them; this reader keeps them as suggestion mode's marks to
+    #: accept or reject in the editor (INBOX 404).
+    if suffix == ".docx" and docx_has_revisions(path):
+        converted = docx_to_markdown(path)
+    elif importer.markitdown_available():
         try:
             converted = importer.convert_to_markdown(path)
         except Exception:  # noqa: BLE001

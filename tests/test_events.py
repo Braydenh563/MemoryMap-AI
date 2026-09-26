@@ -146,6 +146,29 @@ def test_the_feed_reads_forwards_from_a_cursor(client):
     assert after["cursor"] >= start["cursor"]
 
 
+def test_the_feed_can_start_from_the_latest_few(client):
+    """A strip opening for the first time wants the last few things that
+    happened, not the first hundred in the notebook's life: `tail` hands back
+    the newest N, still oldest first, with the cursor to follow on from."""
+    for word in ("one", "two", "three", "four"):
+        client.post("/entries", json={"content": word, "tags": []})
+    everything = client.get("/events?limit=500").json()
+    tail = client.get("/events?tail=2").json()
+    assert [item["id"] for item in tail["items"]] == [
+        item["id"] for item in everything["items"][-2:]
+    ]
+    assert tail["cursor"] == everything["cursor"]
+    assert client.get(f"/events?since={tail['cursor']}").json()["items"] == []
+
+
+def test_the_feed_takes_a_list_of_kinds(client):
+    client.post("/entries", json={"content": "a note", "tags": []})
+    client.post("/documents", json={"title": "a document", "content": ""})
+    client.put("/preferences", json={"theme": "dark"})
+    items = client.get("/events?entity_type=entry,document").json()["items"]
+    assert {item["entity_type"] for item in items} == {"entry", "document"}
+
+
 def test_the_feed_leaves_the_bookkeeping_out(client):
     entry = client.post("/entries", json={"content": "before", "tags": []}).json()
     client.put(f"/entries/{entry['id']}", json={"content": "after"})

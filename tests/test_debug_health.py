@@ -30,11 +30,16 @@ def test_shape_on_an_empty_notebook(client):
     logbuffer.clear()
     body = client.get("/debug/health").json()
     assert body["app_version"] == __version__
-    assert body["data_dir"] == str(deps.get_config().data_dir)
-    assert body["db"]["path"] == str(deps.get_config().db_path)
+    # Never an absolute server path (WORLD_CLASS_PLAN §12, Brief 15; the
+    # home-relative and outside-home forms are pinned just below).
+    assert body["db"]["path"] == deps.get_config().db_path.name
+    assert str(deps.get_config().data_dir) not in str(body)
     assert body["db"]["size_bytes"] >= 0
     assert body["counts"] == {
         "entries": 0,
+        "notes": 0,
+        "drafts": 0,
+        "boards": 0,
         "documents": 0,
         "media": 0,
         "attachments": 0,
@@ -170,3 +175,42 @@ def test_renders_fast_on_an_empty_notebook(client):
         f"fastest of {len(samples)} samples was {fastest * 1000:.2f}ms, over the "
         f"20ms budget (median {samples[len(samples) // 2] * 1000:.2f}ms)"
     )
+
+
+def test_health_counts_notes_drafts_and_boards_apart(client):
+    """About said "96 notes" beside a dashboard's 44: boards and drafts were
+    folded into the note count. Each kind is its own number now."""
+    client.post("/entries", json={"content": "A plain note about bees"})
+    client.post("/entries", json={"content": "Half a thought", "is_draft": True})
+    counts = client.get("/debug/health").json()["counts"]
+    assert counts["notes"] == 1
+    assert counts["drafts"] == 1
+    assert counts["boards"] == 0
+    assert counts["entries"] == 2
+
+
+def test_the_paths_are_never_absolute(client, tmp_path, monkeypatch):
+    """INBOX 310: `data_dir` and `db.path` were full server paths, harmless
+    behind the unlock gate on localhost and a map of the server's disk (the
+    account name in it included) for anyone holding a token once other
+    devices can connect. Home is shown as `~`; anything else by its name."""
+    import os
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    body = client.get("/debug/health").json()
+    data_dir = deps.get_config().data_dir
+    assert body["data_dir"] == "~" + os.sep + str(data_dir.relative_to(tmp_path))
+    assert str(tmp_path) not in str(body)
+
+
+def test_a_data_folder_outside_home_is_shown_by_its_name(client, tmp_path, monkeypatch):
+    import os
+
+    elsewhere = tmp_path / "not-home"
+    elsewhere.mkdir()
+    monkeypatch.setenv("HOME", str(elsewhere))
+    monkeypatch.setenv("USERPROFILE", str(elsewhere))
+    body = client.get("/debug/health").json()
+    assert body["data_dir"] == "\u2026" + os.sep + deps.get_config().data_dir.name
+    assert str(tmp_path) not in str(body)

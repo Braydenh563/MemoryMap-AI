@@ -19,11 +19,13 @@ const { boot } = require('./lib.js');
   if (!id) { console.log('FAIL: probe note missing'); process.exit(1); }
   const sel = `#entry-list li[data-id="${id}"]`;
   const before = await page.evaluate((s) => { const li = document.querySelector(s); const c = li.querySelector('.entry-content'); return { clamped: c.classList.contains('entry-clamped'), h: Math.round(c.getBoundingClientRect().height) }; }, sel);
-  // A tap on the row's star must not open the page.
-  await page.click(`${sel} .favourite-btn`);
+  // A tap on the row's own control (its ⋯, the one the row keeps below 600
+  // since INBOX 392; the star is a swipe there) must not open the page.
+  await page.click(`${sel} .entry-actions .menu-wrap > button`);
   await page.waitForTimeout(900);
   const starOpened = await page.evaluate(() => !!document.querySelector('.sheet-overlay[data-sheet="note"]'));
-  if (starOpened) findings.push('tapping the star opened the page');
+  if (starOpened) findings.push('tapping the row menu opened the page');
+  await page.keyboard.press('Escape');
   await page.evaluate(() => loadEntries()); await page.waitForTimeout(1200);
   // A tap on the row opens it.
   await page.click(`${sel} .entry-content`);

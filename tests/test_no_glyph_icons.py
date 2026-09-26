@@ -36,6 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_ai_name import _html_outside_comments, _js_string_bodies  # noqa: E402
+from tests._app_js import app_js_family  # noqa: E402
 
 #: The glyphs this app has a Phosphor icon for, and reaches for anyway. Each
 #: is paired with the icon that replaces it, so a failure says what to write.
@@ -230,7 +231,9 @@ def test_no_typed_glyph_stands_in_for_an_icon():
     offenders: list[str] = []
     for path in sorted((ROOT / "frontend").glob("*.js")):
         source = path.read_text(encoding="utf-8")
-        offenders += _scan(path.name, _js_string_bodies(source), source.splitlines())
+        #: The pieces of the old app.js answer to app.js's allowances.
+        name = "app.js" if app_js_family(path) else path.name
+        offenders += _scan(name, _js_string_bodies(source), source.splitlines())
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     offenders += _scan("index.html", _html_outside_comments(html), html.splitlines())
     offenders += _scan("index.html", _html_element_text(html), html.splitlines())

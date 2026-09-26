@@ -315,7 +315,7 @@ select.ai-unavailable {
 
 /* A file attached to a note. Replaces the bare `<a href="/media/…">` that
    used to render here, which navigated the whole app away to a 401 page
-   with no way back, see `fileCard` in app.js for the full account.
+   with no way back, see `fileCard` in notes-list.js for the full account.
 
    `inline-flex`, not `block`: this is produced by the inline-markdown
    renderer and can legitimately sit mid-sentence. Stacked one per line is
@@ -364,7 +364,7 @@ select.ai-unavailable {
 .file-card-icon {
   flex: 0 0 auto;
   font-size: var(--text-h3);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .file-card-text {
@@ -657,7 +657,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 .wiki-link {
   border: 0;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-weight: 600;
   padding: 0 0.3em;
@@ -707,7 +707,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 }
 
 .map-chip .ph {
-  color: var(--accent);
+  color: var(--accent-text);
   flex: 0 0 auto;
 }
 
@@ -778,29 +778,46 @@ button.map-chip:focus-visible {
   top: -9999px;
   left: -9999px;
   z-index: 60;
-  list-style: none;
-  margin: 0;
-  padding: var(--space-1);
-  width: 19rem;
+  display: flex;
+  align-items: stretch;
   max-width: calc(100vw - var(--space-9));
-  max-height: 17rem;
-  overflow-y: auto;
-  /* Scrolling the menu must not chain to the page behind it, a wheel event
-     that reaches the page moves the caret this menu is anchored to. */
-  overscroll-behavior: contain;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--glass-blur));
+  overflow: hidden;
 }
 
 .editor-menu.hidden {
   display: none;
 }
 
+/* The list: the block menu's one scroller. 22rem holds a tile, a name over a
+   one-line description and a short key hint without the description being
+   cut on the common rows (measured: the longest `about` is 49 characters). */
+.editor-menu-list {
+  flex: 0 0 auto;
+  width: 22rem;
+  max-width: 100%;
+  max-height: min(24rem, 60vh);
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  overflow-y: auto;
+  /* Scrolling the menu must not chain to the page behind it, a wheel event
+     that reaches the page moves the caret this menu is anchored to. */
+  overscroll-behavior: contain;
+}
+
+/* The heading of a group stays in view while its rows scroll under it, so
+   the reader always knows which part of the catalogue they are in. */
 .editor-menu-group {
+  position: sticky;
+  top: calc(var(--space-1) * -1);
+  z-index: 1;
   padding: var(--space-2) var(--space-3) var(--space-1);
+  background: var(--modal-bg, var(--card));
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -809,35 +826,160 @@ button.map-chip:focus-visible {
 }
 
 .editor-menu-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  font-size: var(--text-md);
   cursor: pointer;
+}
+
+/* The icon's tile: one size for every row, so the names line up on one edge
+   and the kinds read by shape before they are read by word. */
+.editor-menu-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--text-lg);
+}
+
+.editor-menu-tile.doc-block-kind {
+  border-color: color-mix(in srgb, var(--callout-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--callout-accent) 14%, transparent);
+  color: var(--callout-accent);
+}
+
+.editor-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .editor-menu-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-md);
+  color: var(--ink);
 }
 
-/* The hint is the syntax the command inserts. It is the part that teaches the
-   markdown behind the menu, so it stays legible rather than decorative, but
-   it must never win space from the label it annotates. */
-.editor-menu-hint {
+.editor-menu-about {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.editor-menu-hit {
+  background: none;
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* The markdown the row writes. It teaches the syntax behind the menu, so it
+   stays legible rather than decorative, and never wins space from the name. */
+.editor-menu-keys {
   flex: 0 0 auto;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-xs);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.editor-menu-item.active,
-.editor-menu-item:hover {
+/* One highlighted row, never two: the pointer sets `.active` itself when it
+   moves (`editorSetActive`), so a `:hover` fill here drew a second row lit
+   wherever the pointer happened to rest while the keyboard walked away. */
+.editor-menu-item.active {
   background: var(--accent-soft);
+}
+
+.editor-menu-item.active .editor-menu-tile {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent-text);
+}
+
+/* The preview: the chosen row's block, drawn by the page's own renderer, in
+   a column beside the list. Clipped with a fade rather than scrolled, the
+   same rule the template dialog's preview keeps: one scroller per popup. */
+.editor-menu-preview {
+  position: relative;
+  flex: 0 0 auto;
+  width: 16rem;
+  max-height: min(24rem, 60vh);
+  padding: var(--space-3) var(--space-4);
+  border-left: 1px solid var(--border);
+  background: var(--inner);
+  overflow: hidden;
+}
+
+.editor-menu-preview.hidden {
+  display: none;
+}
+
+.editor-menu-preview::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--space-7);
+  background: linear-gradient(to bottom, transparent, var(--inner));
+  pointer-events: none;
+}
+
+.editor-menu-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.editor-menu-preview-about {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.editor-menu-preview-keys {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* The sample is a real render at a reading size a little under the page's,
+   so a callout or two columns fit the pane without being a thumbnail. */
+.editor-menu-sample {
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+.editor-menu-sample > :first-child {
+  margin-top: 0;
+}
+
+.editor-menu-sample .callout,
+.editor-menu-sample .md-toc,
+.editor-menu-sample .doc-cols {
+  margin-block: 0;
+}
+
+.editor-menu-sample .doc-cols {
+  gap: var(--space-4);
 }
 
 /* --- callouts ("specialised boxes and frames") -------------------------------
@@ -851,14 +993,16 @@ button.map-chip:focus-visible {
    theme change moves callouts with everything else instead of stranding them
    at a hard-coded hue. */
 .callout {
-  /* The defaults live here rather than as fallbacks inside each var(), 
+  /* The defaults live here rather than as fallbacks inside each var(),
      a declared token read with a fallback makes the fallback dead code, which
      test_style_scale.py fails the build over, and rightly: two places stating
      the same default is how they drift apart. The .callout-{kind} rules below
-     override these; same specificity, later in source, so they win. */
+     set only the ink; the tint, the edge and the icon tile are all mixed from
+     it, so fourteen kinds are fourteen one-line rules and every one of them
+     has a light and a dark value because its ink does (INBOX 421 b). */
   --callout-accent: var(--accent);
-  --callout-tint: var(--accent-soft);
-  --callout-edge: var(--border);
+  --callout-tint: color-mix(in srgb, var(--callout-accent) 8%, transparent);
+  --callout-edge: color-mix(in srgb, var(--callout-accent) 26%, transparent);
   margin: var(--space-4) 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--callout-edge);
@@ -867,6 +1011,17 @@ button.map-chip:focus-visible {
   background: var(--callout-tint);
 }
 
+/* The Live view's callout lines and label chips, and the block toolbar's kind
+   swatches, start from the same default ink as the rendered box. */
+.cm-md-callout,
+.cm-md-callout-label,
+.doc-block-kind {
+  --callout-accent: var(--accent);
+}
+
+/* The title is the ink, not the kind's colour: an amber or a green title on
+   its own tint is the pair that fails contrast first, and the kind is already
+   said twice, by the edge and by the tile. */
 .callout-head {
   display: flex;
   align-items: center;
@@ -874,7 +1029,26 @@ button.map-chip:focus-visible {
   margin: 0 0 var(--space-2);
   font-weight: 700;
   font-size: var(--text-md);
+  color: var(--ink);
+}
+
+/* The kind's badge: its icon on a square of its own tint, one size for every
+   kind, so a column of callouts lines its titles up on one edge. */
+.callout-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
   color: var(--callout-accent);
+  font-size: var(--text-md);
+}
+
+.callout-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* --- a callout that folds (REDESIGN.md §R7.3 item 3) -----------------------
@@ -903,7 +1077,7 @@ button.map-chip:focus-visible {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .callout-foldable[open] > .callout-head::after {
@@ -932,32 +1106,205 @@ button.map-chip:focus-visible {
   display: none;
 }
 
-.callout-note,
-.callout-info,
-.callout-question {
+/* The kinds, by the ink each one means elsewhere in the app. Three are mixed
+   from two palette tokens rather than given a hue of their own (cyan from the
+   accent and the green, violet from the accent and the red), so a palette
+   change still moves every callout with the rest of the page. The Live view's
+   line classes (`.cm-md-callout-{kind}`) and label chips read the same ink,
+   so a kind is one colour in all three views. */
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-note"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-info"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-todo"] {
   --callout-accent: var(--accent);
-  --callout-tint: var(--accent-soft);
 }
 
-.callout-tip,
-.callout-todo {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-abstract"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-tip"] {
+  --callout-accent: color-mix(in oklab, var(--accent) 45%, var(--ok));
+}
+
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-success"] {
   --callout-accent: var(--ok);
-  --callout-tint: var(--ok-soft);
 }
 
-.callout-warning {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-question"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-warning"] {
   --callout-accent: var(--warn);
-  --callout-tint: var(--warn-soft);
 }
 
-.callout-danger {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-failure"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-danger"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-bug"] {
   --callout-accent: var(--error);
-  --callout-tint: var(--error-soft);
 }
 
-.callout-quote {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-example"] {
+  --callout-accent: color-mix(in oklab, var(--accent) 55%, var(--error));
+}
+
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-quote"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-toggle"] {
   --callout-accent: var(--muted);
+}
+
+/* A toggle is a disclosure, not a box: no tint, no edge, only the caret and
+   an indent that says what belongs to it (Notion's toggle, spelled as a
+   callout so it stays a quote anywhere else). */
+.callout-toggle {
   --callout-tint: transparent;
+  --callout-edge: transparent;
+  padding: var(--space-1) 0;
+  border-left-color: transparent;
+}
+
+.callout-toggle > .callout-head {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.callout-toggle > .callout-head .callout-icon {
+  display: none;
+}
+
+.callout-toggle > .callout-head::after {
+  margin-left: 0;
+  transform: rotate(-45deg);
+}
+
+.callout-toggle[open] > .callout-head::after {
+  transform: rotate(45deg);
+}
+
+.callout-toggle > .callout-body {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+  margin-left: var(--space-1);
+}
+
+/* --- the structural blocks (INBOX 421 b) ------------------------------------
+   Columns wear `.doc-cols` (09-editor.css), one rule for all three views. */
+
+/* Three rules, one `<hr>` each in any other reader. The hairline is the
+   plain divider; the dots are a section break inside one topic; the strong
+   rule ends one. */
+.md-rule {
+  height: 1px;
+  margin: var(--space-6) 0;
+  border: 0;
+  background: var(--border);
+}
+
+.md-rule-thick {
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.md-rule-dots {
+  height: auto;
+  background: none;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.md-rule-dots::before {
+  content: "\2022\2003\2022\2003\2022";
+  font-size: var(--text-md);
+  letter-spacing: 0.1em;
+}
+
+/* A quote with its attribution: the words, then the name on its own line,
+   set small and muted, under the quote's own edge. */
+.md-quote {
+  margin: var(--space-4) 0;
+}
+
+.md-quote > blockquote {
+  margin-bottom: var(--space-1);
+}
+
+.md-quote-cite {
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.md-quote-cite::before {
+  content: "\2013\2002";
+}
+
+/* Contents: a quiet panel of links, indented by heading level. */
+.md-toc {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.md-toc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.md-toc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-toc-item {
+  margin: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--text-md);
+}
+
+.md-toc-item a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.md-toc-item a:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+.md-toc-depth-1 { padding-left: var(--space-5); }
+.md-toc-depth-2 { padding-left: var(--space-7); }
+.md-toc-depth-3 { padding-left: var(--space-9); }
+
+.md-toc-empty {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* Display maths, centred on its own line; the source, when the renderer is
+   not loaded, set in the code face so it reads as notation. */
+.md-math-block {
+  margin: var(--space-4) 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+/* Inline maths, `$x$`: sits in the line of prose it was written in, so it
+   takes none of the display block's centring or margin. */
+.md-math-inline {
+  display: inline-block;
+  vertical-align: -0.1em;
+}
+
+.md-math-source {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-md);
+  color: var(--muted);
 }
 
 /* --- transcluded notes (![[note]]) -------------------------------------------
@@ -1278,7 +1625,7 @@ button.map-chip:focus-visible {
   background: linear-gradient(to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
   opacity: 0.5;
   border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) ease, opacity var(--motion-fast) ease;
+  transition: background var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
   touch-action: none;
 }
 
@@ -1466,48 +1813,56 @@ body.resizing-sidebar {
    line to push out. The owner confirmed both halves of this from the
    screen: "the min height worked but it broke the multiline". */
 
-/* The compact alternative: one row that scrolls sideways.
+/* The compact alternative: one row, and what does not fit behind More.
 
-   **`overflow-y` stated explicitly.** The base rule above sets `overflow:
-   visible` (both axes); this only overrode `overflow-x`, so `overflow-y`
-   stayed `visible`, and the spec forces a mixed `visible`/other pair to
-   compute `visible` as `auto` on *both* axes -- the same rule the comment
-   above this one names, reintroduced by the one axis this rule forgot to
-   set. Reported again, 2026-09-09: "fix the formatting bar in the
-   documents tab, it is crushed vertically and has a vertical scrollbar",
-   from whoever still has `row` saved in `doc-toolbar-mode` (the default
-   changed to `wrap` after that history, but a stored preference from
-   before it changed still reads "row"). `hidden`, not `visible`: the row
-   never wraps, so there is never a second line to lose. */
+   **It used to scroll sideways, and that was the bug** (INBOX 426 a). The
+   owner, with a screenshot at about 1000px: "I cant access the formatting
+   toolbar or any of the other key tools". A scrolling row hides the tools
+   past its edge behind a 4px scrollbar that reads as decoration, and the
+   strip's own group was pinned over its right end, so Insert was cut in half
+   under it and nothing after Insert could be seen. The history of this rule
+   is the history of that scroller: the `overflow-y` pair that computed to
+   `auto` and drew a vertical bar, the bottom padding reserved for the
+   scrollbar, the floor that kept the scrollbar clear of the buttons. All of
+   it is gone with the scroller.
+
+   Now the row does not wrap and does not clip: `fitDocToolbarRow`
+   (documents.js) measures it and folds the tools that do not fit
+   (`.doc-toolbar-over` below), and More in the strip's own group wraps the
+   strip to show them in place. */
 .doc-toolbar[data-toolbar-mode="row"] {
   flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
-     chrome, not content. */
-  scrollbar-width: thin;
-  /* Reported directly: this mode reads "squished", with "no padding"
-     under the icons. A horizontal scrollbar reserves its own strip of
-     space at the bottom of the box it scrolls, and `overflow-y: hidden`
-     above (required, see this rule's own history) means that strip comes
-     out of the existing bottom padding rather than being added beneath
-     it. Measured at 520px wide with the scrollbar actually rendering:
-     the base rule's 6.4px of bottom padding left the 4px scrollbar and
-     the buttons sharing one gap, ~2px of it visible. So the block
-     padding is stated here, with the scrollbar's own height added back
-     on the bottom edge only: the buttons keep a full, even gap and the
-     scrollbar sits below it rather than in it. */
-  padding-block: var(--space-3) calc(var(--space-3) + var(--space-1));
 }
 
-/* The floor for this mode, and only this mode (see the base rule's note on
-   why it must never be written there). Measured at 520px wide with the
-   scrollbar actually rendering: 58px against a 36px control, 13px under
-   the buttons with the 4px scrollbar inside that. Without it the strip
-   came out at 50.8px with 7.4px under the buttons, about 2px of which
-   cleared the scrollbar, which is the reported clipping. */
-#doc-toolbar[data-toolbar-mode="row"] {
-  min-height: calc(var(--control-h) + var(--space-3) * 2 + var(--space-1));
+/* A tool that does not fit on the row, until More is pressed. Scoped to the
+   closed strip rather than undone by the open one, so an open strip shows
+   each tool with its own `display`, not a guessed one. */
+.doc-toolbar:not(.is-more-open) > .doc-toolbar-over {
+  display: none;
+}
+
+/* More pressed: the strip wraps, as the expanded mode does, and the folded
+   tools are back in their own places, with their own menus. */
+.doc-toolbar.is-more-open {
+  flex-wrap: wrap;
+}
+
+/* A narrow strip folds its layout toggle behind More before any tool
+   (`fitDocToolbarRow`); pressed, More brings it back with the rest. */
+.doc-toolbar.is-layout-folded:not(.is-more-open) .doc-toolbar-layout {
+  display: none;
+}
+
+/* The document strip's group, trimmed when it would sit alone on a row
+   (`trimDocToolbarGroup`): the layout and collapse buttons are rows of the
+   document's own ⋯ menu, and line numbers stays on the strip. */
+.doc-toolbar.is-group-trimmed > .doc-toolbar-tools > :is(.doc-toolbar-layout, .doc-toolbar-collapse) {
+  display: none;
+}
+
+/* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
+.doc-toolbar .doc-toolbar-more[hidden] {
+  display: none;
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**
@@ -1523,7 +1878,7 @@ body.resizing-sidebar {
    `overflow: visible` was always the wrong lever: it is the *popup* that
    needs to leave the scroller, not the strip that needs to stop being one.
    So the popup goes `position: fixed` while it is open and is placed against
-   the viewport by `clampToolbarMenu` (app.js): a fixed box is clipped only
+   the viewport by `clampToolbarMenu` (sheets-selects.js): a fixed box is clipped only
    by an ancestor that establishes a containing block (a transform, filter or
    backdrop-filter), and nothing between here and <body> does. The strip
    keeps clipping and keeps its scroll position throughout.
@@ -1597,52 +1952,19 @@ body.resizing-sidebar {
   flex: none;
 }
 
-/* A scrolling strip's scrollbar is chrome, not content. Reported with a
-   screenshot of the bar with a full-width track under it: at 2px it is a hair
-   line that still says "there is more", which is the whole job. */
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar {
-  height: 4px;
-}
-
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-pill);
-  background: var(--border);
-}
-
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-track {
-  background: none;
-}
-
-/* **The strip's own two controls, pinned to its right edge.** Asked for:
-   "cant collapse and make horizontally scrollable the tools bar in the notes
-   capture subtab and documents editor." `position: sticky` is the point: in
-   row mode the toolbar is a scroller, and a control that scrolls away with the
-   buttons it controls is a control you have to go looking for. Its own ground
-   so the buttons underneath do not show through as they pass. */
+/* **The strip's own controls, at its right end.** Asked for: "cant collapse
+   and make horizontally scrollable the tools bar in the notes capture subtab
+   and documents editor." It was `position: sticky` over a scrolling row, so
+   it stayed in reach, and it sat on top of whatever tools scrolled under it:
+   Insert, cut in half, in the owner's screenshot (INBOX 426 a). The row no
+   longer scrolls (see the row mode above), so the group is an ordinary flex
+   item at the end, and nothing is ever drawn under it. */
 .doc-toolbar-tools {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
-  position: sticky;
-  right: 0;
   padding-left: var(--space-3);
-  /* Opaque under the buttons, not glass: a translucent card over the
-     controls scrolling beneath it left the three pinned buttons hard to
-     read (reported with a screenshot). The fade is only the first few
-     pixels; the rest is the solid modal ground the other popovers use.
-     Measured identical on both `#note-toolbar`'s clone and `#doc-toolbar`
-     itself: `mountDocToolbarControlsFor` builds this group the same way
-     for every `.doc-toolbar`, so nothing here is note-specific. */
-  background: linear-gradient(to right, transparent, var(--modal-bg-opaque) var(--space-3));
-  /* Reported: "square-cornered", still true on both toolbars, this rule
-     never set one at all. `var(--radius)`, the strip's own outer corner
-     (right above), not a smaller control radius: this group sits flush
-     against the strip's right edge, the same edge the strip itself
-     rounds, so a sharp box there reads as a patch stuck onto a rounded
-     container rather than a shape cut from it. */
-  border-radius: var(--radius);
-  z-index: 1;
 }
 
 /* Collapsed: the strip keeps its own two controls and its name, and gives the
@@ -1719,6 +2041,70 @@ body.resizing-sidebar {
 .doc-toolbar .md-colour-select:focus-visible {
   border-color: var(--border);
   background-color: var(--chip-bg);
+}
+
+/* **An icon-and-caret picker** (`data-select-icon`, enhanceSelect). The word
+   stays in the opener for a screen reader and leaves the row: the same
+   clipping `.visually-hidden` uses, never `display: none`, which would take
+   it out of the accessibility tree. The opener is then the strip's own
+   square control with a caret beside it, so it reads as one of the buttons
+   around it rather than as a field. Measured at the 1184px desktop window
+   (`scratchpad/ui-sweeps/notetoolbar.js`): the two colour pickers were 120px
+   and 133px in Classic, and the strip wrapped "Preview" onto a second row. */
+.select-opener-icon .select-value {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.doc-toolbar .select-opener-icon {
+  gap: var(--space-1);
+  padding-inline: var(--space-3) var(--space-2);
+}
+
+.select-opener-icon .select-caret {
+  font-size: 0.75em;
+  color: var(--muted);
+}
+
+/* **The words go before the controls wrap** (the owner, at the 1184px desktop
+   window: "Preview" alone on a second row). Below the tablet band the note
+   strip's three worded buttons keep their icon and hide their word, the way
+   `.seg.seg-multi` does below 1200 (DESIGN.md's recipe index): hidden, not
+   dropped, and each button's `title` names it for a pointer while the word
+   itself still names it for a screen reader. */
+@media (max-width: 820px) {
+  .note-toolbar .toolbar-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* With the word gone the button is an icon-only control, so it takes that
+     control's square (`.doc-toolbar .icon-only`) and the icon loses the gap
+     it kept before a label that is no longer beside it. */
+  .note-toolbar button:has(> .toolbar-word) {
+    width: var(--control-h);
+    padding-inline: 0;
+  }
+
+  .note-toolbar button:has(> .toolbar-word) > .ph-lead {
+    margin-inline-end: 0;
+  }
 }
 
 /* **One chrome for the whole strip, whatever element a control happens to be.**
@@ -1902,6 +2288,11 @@ body.resizing-sidebar {
 .conv-name {
   display: -webkit-box;
   line-clamp: 2;
+  /* The prefixed one is the one Chromium honours; with only the standard
+     property the title was one line cut at the sidebar edge with no
+     ellipsis ("what is due in the allotm"). */
+  -webkit-line-clamp: 2;
+  white-space: normal;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -2330,7 +2721,7 @@ body.resizing-sidebar {
 
 #doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:hover,
 #doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -2375,6 +2766,25 @@ body.resizing-sidebar {
 .outline-link:hover {
   background: var(--surface-3);
   color: var(--ink);
+}
+
+/* **The row floor follows the density, and the pointer.** The rows were
+   25.2px at every setting, under DESIGN.md's 28px `--target-min`, which was
+   left on purpose because a table of contents is a dense list you scan and
+   24px is WCAG 2.2 AA's own floor. That reasoning is the compact density's,
+   so compact keeps it; comfortable and spacious are the settings a person
+   picks to get room, and there the rows take the floor every other control
+   has. A coarse pointer takes it at every density, because on a touch screen
+   `--target-min` is 44px and a 25px row is a row you miss
+   (`scratchpad/ui-sweeps/outlinerows.js`). */
+:root:not([data-density="compact"]) .outline-link {
+  min-height: var(--target-min);
+}
+
+@media (pointer: coarse) {
+  .outline-link {
+    min-height: var(--target-min);
+  }
 }
 
 /* **The fold gutter** (DOCUMENTS_PLAN Phase 4 item 3). One column, the same
@@ -2558,7 +2968,7 @@ button.outline-twist:focus-visible {
   gap: var(--space-2);
 }
 
-/* `.select-shell` as well as the select itself: `enhanceSelect` in app.js
+/* `.select-shell` as well as the select itself: `enhanceSelect` in sheets-selects.js
    rebuilds every `<select>` inside one on a MutationObserver, so for the frame
    before that runs the select is the row's own child and afterwards it is a
    grandchild. Naming both means the row never has a frame at the wrong width,
@@ -2660,7 +3070,7 @@ button.outline-twist:focus-visible {
 }
 
 .ph-highlighter.doc-comment-kind {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The remark itself: the document's own ink at the list's size, three lines at
@@ -2690,7 +3100,7 @@ button.outline-twist:focus-visible {
 
 .doc-comment-item:hover .doc-comment-action,
 .doc-comment-action:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* A section of remarks is taller than a row of them, and it is the one in this
@@ -2741,7 +3151,7 @@ button.outline-twist:focus-visible {
 
 .doc-storage-toggle:hover,
 .doc-storage-toggle:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -3043,6 +3453,204 @@ button.outline-twist:focus-visible {
   --chip-bg: rgba(255, 255, 255, 0.07);
 }
 
+/* --- Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions,
+   2026-09-23). A neutral warm-grey ground with no gradient and no blobs,
+   solid panels, one ink-blue accent: the content is the colour. Chosen by the
+   owner against an audit that found the old default's indigo, lavender
+   gradient and glass to be the look people read as machine-made. The accent
+   holds 5.3:1 on white; the grey ground is warm rather than blue-grey so the
+   one blue on the page is the thing that acts. -------------------------------- */
+:root[data-palette="utilitarian"] {
+  --page: #f4f3f1;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #ffffff;
+  --inner: #f7f6f4;
+  --input-bg: #ffffff;
+  --glass-border: #e3e1dd;
+  --modal-bg: #ffffff;
+  --glass-shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 2px 8px rgba(28, 28, 26, 0.04);
+  --ink: #1c1c1a;
+  --muted: #66645f;
+  --accent: #2f5bd3;
+  --accent-soft: rgba(47, 91, 211, 0.1);
+  --border: rgba(28, 28, 26, 0.1);
+  --chip-bg: rgba(28, 28, 26, 0.05);
+}
+
+:root[data-palette="utilitarian"][data-mode="dark"] {
+  --page: #161615;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #1e1e1c;
+  --inner: #242422;
+  --input-bg: #1a1a19;
+  --glass-border: #2f2f2c;
+  --modal-bg: #1e1e1c;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --ink: #ecebe8;
+  /* Muted and accent a step lighter than first chosen (#a09e98, #5b95ff),
+     measured by contrast.js once it composited translucent grounds instead
+     of skipping them: the accent on its own soft ground (a picked chip in
+     Appearance, the Library's Contents labels) was 3.98:1, and muted text
+     on the raised greys (a file's extracted-text summary, Data's sizes, a
+     model name on a soft row) 3.76 to 4.34:1, against DESIGN.md's 4.5. Now
+     4.89 and 4.8 at the worst ground measured; on the card 7.0 and 8.0. The
+     text on a solid accent is dark in this mode (`--on-accent`), so the
+     lighter accent raises that pair too (6.2 to 7.6). */
+  --muted: #b5b3ad;
+  --accent: #78a8ff;
+  --accent-soft: rgba(120, 168, 255, 0.16);
+  --border: rgba(236, 235, 232, 0.1);
+  --chip-bg: rgba(236, 235, 232, 0.06);
+}
+
+/* --- Editorial paper: off-white paper, black type, one red-orange for what
+   acts, and hairlines where the other palettes fill a card. The accent holds
+   4.6:1 on the paper. Deliberately not a cream with a serif (the other
+   machine-made default); the type stays the system face, set in black. ------- */
+:root[data-palette="paper"] {
+  --page: #faf9f6;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #faf9f6;
+  --inner: #f3f1ec;
+  --input-bg: #ffffff;
+  --glass-border: rgba(17, 17, 17, 0.16);
+  --modal-bg: #faf9f6;
+  --glass-shadow: none;
+  --ink: #111111;
+  --muted: #57544e;
+  --accent: #c63d17;
+  --accent-soft: rgba(198, 61, 23, 0.1);
+  --border: rgba(17, 17, 17, 0.14);
+  --chip-bg: rgba(17, 17, 17, 0.05);
+}
+
+:root[data-palette="paper"][data-mode="dark"] {
+  --page: #141312;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #141312;
+  --inner: #1c1b19;
+  --input-bg: #1a1917;
+  --glass-border: rgba(242, 239, 233, 0.16);
+  --modal-bg: #181715;
+  --glass-shadow: none;
+  --ink: #f2efe9;
+  --muted: #a49f95;
+  --accent: #ff7a4d;
+  --accent-soft: rgba(255, 122, 77, 0.14);
+  --border: rgba(242, 239, 233, 0.14);
+  --chip-bg: rgba(242, 239, 233, 0.06);
+}
+
+/* --- Technical mono: a cool graphite ground, monospace for the numbers and
+   the small print, a green signal accent, square corners (the look's radius,
+   in THEME_PRESETS). The accent holds 4.6:1 on the card. --------------------- */
+:root[data-palette="mono"] {
+  --page: #eceff2;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #f8f9fa;
+  --inner: #f0f2f4;
+  --input-bg: #ffffff;
+  --glass-border: #d5dae0;
+  --modal-bg: #f8f9fa;
+  --glass-shadow: 0 1px 2px rgba(21, 25, 30, 0.08);
+  --ink: #15191e;
+  --muted: #56606b;
+  --accent: #1a7f45;
+  --accent-soft: rgba(26, 127, 69, 0.1);
+  --border: rgba(21, 25, 30, 0.13);
+  --chip-bg: rgba(21, 25, 30, 0.06);
+}
+
+:root[data-palette="mono"][data-mode="dark"] {
+  --page: #0f1215;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #161a1f;
+  --inner: #1c2127;
+  --input-bg: #12161a;
+  --glass-border: #262c33;
+  --modal-bg: #161a1f;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ink: #e6eaee;
+  --muted: #8f9aa6;
+  --accent: #42d67f;
+  --accent-soft: rgba(66, 214, 127, 0.14);
+  --border: rgba(230, 234, 238, 0.11);
+  --chip-bg: rgba(230, 234, 238, 0.06);
+}
+
+/* **Every palette's opaque surface is its own.** `--modal-bg-opaque` (menus,
+   docks, popovers, the graph toolbar) was only ever set by the base theme, so
+   under any palette it stayed the Classic navy, rgb(24, 27, 37) measured in
+   dark (owner: "some popup ui's havent followed the theme change ... the
+   graph top bar, dropdown menus"). Derived here from the palette's own
+   `--modal-bg` with its alpha dropped, so every palette, old and new, carries
+   it without a line per palette. */
+:root[data-palette] {
+  --modal-bg-opaque: rgb(from var(--modal-bg) r g b);
+}
+
+/* **The background wash, a choice** (owner: "the background doesnt have that
+   shine or slight colour gradient the blue one did (maybe it can be
+   togglable??)"). The flat looks paint a solid ground; with the wash on
+   (Appearance, "Background wash", on by default) they get a soft light from
+   the top left and a faint tint of their own accent in the far corner, never
+   the Classic lavender. */
+:root[data-page-wash="on"]:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) {
+  --blob-a: color-mix(in srgb, var(--accent) 9%, transparent);
+  /* The far corner answers the near one, as Classic's does (owner: "put a
+     bit of the background shine in the bottom right corner as well like the
+     classic view"). It was 4% of the ink: on dark, a grey nobody could see. */
+  --blob-b: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+:root[data-page-wash="on"][data-palette="utilitarian"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #f8f7f5 0%, #f4f3f1 45%, #efeeea 100%);
+}
+
+:root[data-page-wash="on"][data-palette="utilitarian"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #1b1b1a 0%, #161615 45%, #121211 100%);
+}
+
+:root[data-page-wash="on"][data-palette="paper"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #fdfcfa 0%, #faf9f6 50%, #f4f2ec 100%);
+}
+
+:root[data-page-wash="on"][data-palette="paper"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #191817 0%, #141312 50%, #100f0e 100%);
+}
+
+:root[data-page-wash="on"][data-palette="mono"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #f3f5f7 0%, #eceff2 50%, #e5e9ed 100%);
+}
+
+:root[data-page-wash="on"][data-palette="mono"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #141820 0%, #0f1215 50%, #0b0d10 100%);
+}
+
+/* The three flat looks draw no wash on the dashboard hero: its accent glow
+   is the Classic look's light on glass, and on a solid panel it read as the
+   lavender stain the new default exists to remove. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .dash-hero {
+  background: var(--card);
+}
+
+:root[data-palette="paper"] :is(.card, .dash-hero) {
+  box-shadow: none;
+}
+
+/* The mono look's one rule beyond colour: numbers and small print in the
+   monospace face, with figures that line up. */
+:root[data-palette="mono"] :is(.muted, time, .chip, .status-bar, .stat-value, [class$="-count"]) {
+  font-family: var(--mono, ui-monospace, "Cascadia Code", Consolas, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- the picker itself ------------------------------------------------------- */
 /* Swatches, not a dropdown: a palette is a look, and a list of names asks you
    to imagine it. Each card previews its own colours. */
@@ -3065,13 +3673,43 @@ button.outline-twist:focus-visible {
   text-align: left;
   box-shadow: none;
   color: var(--ink);
-  transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
+  transition: border-color var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
 }
 
 @media (hover: hover) {
   .theme-card:hover {
     border-color: var(--accent);
   }
+}
+
+/* **The words stay inside the card** (owner: "make sure the text in the theme
+   cards doesnt overflow"). A card is a grid cell as narrow as 8.5rem, and a
+   look's name at 16px bold ran edge to edge ("Manuscript" to within the
+   padding at 1184, measured) and would have crossed it at the larger font
+   sizes Appearance offers. The name is the app's small title size, wraps
+   between words and, for a single long word, inside it, never past the edge. */
+.theme-card {
+  min-width: 0;
+  /* Top, never centred: a card is a button, and a button centres its
+     content, so in a row of equal-height cells a one-line name sat its swatch
+     8px lower than a two-line one beside it (presets 9 vs 17px, palettes 9 vs
+     24px, measured). Every swatch now starts on one line and every name under
+     it on another. */
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.theme-card > span,
+.theme-card :is(strong, small, p) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.theme-card-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 /* A ghost button that is currently *on*. Peek is the first of these: it is an
@@ -3081,7 +3719,7 @@ button.outline-twist:focus-visible {
 button.is-on {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -3122,15 +3760,21 @@ button.is-on {
   background: var(--sw-accent);
 }
 
+/* The palette card's title matches a look card's (`.theme-card-name`), and
+   its description is body text: regular weight, not the bold every settings
+   button inherits, which made four lines of description read as a second
+   title (measured, 600 on every `.theme-note`). */
 .theme-name {
-  font-size: 0.8rem;
+  font-size: var(--text-md);
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .theme-note {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--muted);
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3199,7 +3843,7 @@ button.is-on {
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: background var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out);
 }
 
 .start-step:hover {
@@ -3234,61 +3878,6 @@ button.is-on {
     transition: none;
     transform: none;
   }
-}
-
-/* --- the web reader: an article, not a ribbon of text ------------------------- */
-/* A comfortable measure. Full-width lines are the single biggest thing that
-   makes stripped text unpleasant to read, the eye loses the line return. */
-.web-reader-text {
-  max-width: 68ch;
-  line-height: 1.65;
-}
-
-.web-reader-text p {
-  margin: 0 0 0.8rem;
-}
-
-/* The page's own heading depth, preserved rather than flattened. */
-.web-reader-text .reader-heading {
-  margin: 1.25rem 0 0.4rem;
-  line-height: 1.3;
-}
-
-.web-reader-text h3.reader-heading {
-  font-size: 1.15rem;
-}
-
-.web-reader-text h4.reader-heading {
-  font-size: 1rem;
-}
-
-.web-reader-text h5.reader-heading,
-.web-reader-text h6.reader-heading {
-  font-size: 0.92rem;
-  color: var(--muted);
-}
-
-.web-reader-text blockquote {
-  margin: 0.8rem 0;
-  padding: 0.25rem 0 0.25rem 1rem;
-  border-left: 3px solid var(--accent);
-  color: var(--muted);
-}
-
-.web-reader-text pre {
-  background: var(--chip-bg);
-  padding: 0.8rem 0.8rem;
-  border-radius: calc(var(--radius) * 0.6);
-  overflow-x: auto;
-}
-
-.web-reader-text ul {
-  margin: 0 0 0.8rem;
-  padding-left: 1.25rem;
-}
-
-.web-reader-text li {
-  margin-bottom: 0.25rem;
 }
 
 /* Keyboard focus on the map. The graph takes one tab stop and the arrows move
@@ -3396,14 +3985,18 @@ button.is-on {
     flex-wrap: wrap;
   }
 
-  .doc-toolbar {
-    overflow-x: auto;
+  /* One row on a phone, as the one-row mode is: what does not fit is
+     behind More (`fitDocToolbarRow`), never behind a scrollbar that is not
+     even drawn (INBOX 426 a: it was `overflow-x: auto` with the bar hidden,
+     so two thirds of the strip at 360px could only be found by accident).
+     **Only a strip the fit has been mounted on** (round 2, errors.js at
+     390): documents.js is loaded lazily, so on the Notes tab before the
+     Library has ever been opened the capture strip has no More and no
+     fit, and a one-row strip there was cut at the card's edge with
+     Bulleted list, Task, Link and Preview past it. Without its group it
+     wraps, which loses nothing. */
+  .doc-toolbar:has(> .doc-toolbar-tools) {
     flex-wrap: nowrap;
-    scrollbar-width: none;
-  }
-
-  .doc-toolbar::-webkit-scrollbar {
-    display: none;
   }
 
   /* The chat page pins itself to the window on desktop; on a phone the
@@ -3466,12 +4059,23 @@ button.is-on {
 :root {
   --accent-surface: color-mix(in oklab, var(--accent) 88%, #000 12%);
   --on-accent: #fff;
+  /* **Hover is a colour, never a filter** (INBOX 405). `button:hover` was
+     `filter: brightness(1.07)` on every button in the app: a 7% shift nobody
+     reads as a state change, and on a translucent or floating button a
+     compositing layer per hover that re-rasterised its text (the chat's
+     "Jump to latest" pill flickered in the desktop window). A solid button
+     goes one step deeper on hover; a surface of any colour takes the veil,
+     a wash laid over whatever ground it has. */
+  --accent-surface-hover: color-mix(in oklab, var(--accent-surface) 86%, #000);
+  --hover-veil: rgba(31, 36, 48, 0.07);
 }
 
 :root[data-mode="dark"] {
   /* The accent is light here, so lighten it further and use dark ink on it. */
   --accent-surface: var(--accent);
   --on-accent: #0d1017;
+  --accent-surface-hover: color-mix(in oklab, var(--accent-surface) 84%, #fff);
+  --hover-veil: rgba(255, 255, 255, 0.09);
 }
 
 /* Chips carry 12px text, where AA is least forgiving, and were using the
@@ -3494,7 +4098,7 @@ button.is-on {
   scrollbar-width: none;
   background: var(--card);
   backdrop-filter: blur(16px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-strip);
   padding: var(--space-1);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
@@ -3518,7 +4122,7 @@ button.is-on {
   height: var(--control-h-lg);
   padding: 0 1.25rem;
   border-radius: var(--radius-md);
-  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
+  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }
 
 .notes-subtabs button.active {
@@ -3542,7 +4146,7 @@ button.is-on {
 }
 
 .agent-toggle:has(input:checked) .agent-toggle-label {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Textareas that follow their content. The JS sets the height; these keep the
@@ -3815,7 +4419,7 @@ textarea.autogrow {
    padding here and adds the scrollbar's strip to it, rather than taking a
    larger padding whole. */
 .note-toolbar[data-toolbar-mode="row"] {
-  padding-block: var(--space-1) calc(var(--space-1) * 2);
+  padding-block: var(--space-1);
 }
 
 /* A non-image upload's tile in the Library gallery. Same footprint as an
@@ -3867,7 +4471,7 @@ textarea.autogrow {
   height: 9rem;
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   background: var(--chip-bg);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-display);
   cursor: pointer;
 }
@@ -3891,7 +4495,7 @@ textarea.autogrow {
 }
 
 .file-card-pending {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Direction on a link chip. Colour is deliberately *not* the only signal, 
@@ -4041,7 +4645,23 @@ textarea.autogrow {
 
 /* The findings themselves. A list, under the bar that counts them, so opening
    it does not cover the document it is about. */
+/* The right dock's width (`applyDocProseDock`). Declared on the tab page,
+   not the panel, and the grip writes it there too: focus mode's side panel
+   and the page's padding beside it both read it, and only an ancestor of
+   both can give them one number. */
+#tab-documents {
+  --doc-prose-w: 20rem;
+}
+
 .doc-prose-panel {
+  /* **Sized by its own width, not the window's** (INBOX 426 b: "the
+     suggestions panel doesnt adapt properly to the sidebar"). The same panel
+     is a 20rem column on the right, a band the width of the editor at the
+     bottom, a side panel in focus mode and a 300px band on a phone, and a
+     media query sees none of those. The `@container doc-prose` rules below
+     read this box. */
+  container-type: inline-size;
+  container-name: doc-prose;
   margin-top: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--border);
@@ -4114,6 +4734,53 @@ textarea.autogrow {
    text is not an edge case, it is the accessibility setting. */
 .doc-prose-panel:has(.doc-prose-row[aria-current]) {
   max-height: min(24vh, 15rem);
+}
+
+/* **Docked on the right** (INBOX 410, `applyDocProseDock`): the panel is a
+   column in `#doc-panes`, beside the source and the preview, so the editor
+   gives up width instead of height. Its height is the row's, with no ceiling:
+   the ceilings above exist to keep the editor's height, and here none of it is
+   being taken. The width is `--doc-prose-w`, set by the grip, and the text
+   column keeps at least half (clamped in script). */
+#doc-panes.doc-prose-right {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+#doc-panes.doc-prose-right>.doc-source-wrap,
+#doc-panes.doc-prose-right>.doc-preview {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.doc-prose-panel.doc-prose-right,
+.doc-prose-panel.doc-prose-right:has(.doc-prose-row[aria-current]) {
+  flex: 0 0 var(--doc-prose-w);
+  width: var(--doc-prose-w);
+  max-height: none;
+  margin-top: 0;
+}
+
+/* The sidebars' grip as a flex item between the text and the column rather
+   than absolutely placed inside a box that scrolls, where it would scroll away
+   with the list. Gone with the panel when the panel is closed. */
+.doc-prose-resize.sidebar-resize {
+  position: static;
+  flex: 0 0 var(--space-3);
+  height: auto;
+  align-self: stretch;
+}
+
+.doc-prose-resize:has(+ .doc-prose-panel.hidden) {
+  display: none;
+}
+
+/* Where there is no room beside the editor the panel is under it whatever was
+   chosen (`DOC_PROSE_NARROW`), so the toggle that chooses is not offered. */
+@media (max-width: 720px) {
+  .doc-prose-panel .doc-prose-tools .doc-prose-dock {
+    display: none;
+  }
 }
 
 .doc-prose-head {
@@ -4251,6 +4918,56 @@ textarea.autogrow {
   background: var(--muted);
 }
 
+.doc-finding-dot-grammar {
+  background: var(--warn);
+}
+
+/* Accessibility: the accent as a ring, so it is not read as a style note's
+   filled accent dot. */
+.doc-finding-dot-access {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Check with AI: the accent at half strength, the dotted underline's own ink,
+   so it is neither a style note's solid accent nor accessibility's ring. */
+.doc-finding-dot-ai {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* Suggestion mode (INBOX 404). An insertion is underlined on a green ground,
+   a deletion struck through in the error ink, the pair every editor with
+   tracked changes uses; the ink of the words themselves is left alone, so
+   contrast is the body text's own. The markers show only outside Live. */
+.cm-suggest-ins {
+  text-decoration: underline;
+  text-decoration-color: var(--ok);
+  text-decoration-thickness: 2px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cm-suggest-del {
+  text-decoration: line-through;
+  text-decoration-color: var(--error);
+  text-decoration-thickness: 2px;
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cm-suggest-marker {
+  color: var(--muted);
+}
+
+/* The sentence being read aloud (INBOX 404): a ground, not an ink, so every
+   underline a finding or a suggestion draws stays readable on top of it. */
+.cm-read-aloud {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: var(--radius-sm);
+}
+
 /* The words carry the identity, so they hold the weight and they are the half
    that ellipsises: the reason is a sentence and can be read from the title. */
 .doc-finding-words {
@@ -4279,7 +4996,7 @@ textarea.autogrow {
 }
 
 .doc-prose-row[aria-current] .doc-finding-words {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* The completion popup. `position: fixed` because it is placed in viewport
@@ -4322,11 +5039,37 @@ textarea.autogrow {
 
 .doc-complete-list li.active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .doc-complete-list li.active span {
   color: inherit;
+}
+
+/* An expansion row (prose autofill): the trigger, then what it writes, in the
+   two inks a word row already uses, the gap between them a spacing step so the
+   detail reads as a caption rather than the rest of the word. A shortcode leads
+   with its glyph at the row's own size. */
+.doc-complete-list li.doc-complete-fill {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.doc-complete-list li .doc-complete-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+}
+
+.doc-complete-list li.active .doc-complete-detail {
+  color: var(--muted);
+}
+
+.doc-complete-list li .doc-complete-glyph {
+  color: inherit;
+  font-size: var(--text-md);
 }
 
 /* The caret mirror (documents.js). Off-screen rather than `display: none`, a
@@ -4490,7 +5233,7 @@ textarea.autogrow {
    as the answer and the rest as the alternatives. Weight only: a second
    colour here would compete with the accent the hovered row already uses. */
 .doc-suggest-best {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .doc-suggest-none {
@@ -4499,42 +5242,77 @@ textarea.autogrow {
   font-size: var(--text-xs);
 }
 
+/* **The writing dictionary as a settings sheet** (INBOX 410: "ugly and needs a
+   proper professional modern redesign"). One column: the head (title, the count
+   as muted text, the '?', close), a line, one field that finds and adds, a
+   quiet list of words, the file actions, then the checks as settings rows. No
+   boxed chip, no boxed rows, no accent pill: the only edges are the field's and
+   the list's hairline, and the only fill is the row under the pointer. */
 .doc-dictionary-dialog {
-  width: min(30rem, 92vw);
-  max-height: 80vh;
+  width: min(32rem, 92vw);
+  max-height: 85vh;
   overflow-y: auto;
 }
 
-.doc-dictionary-controls {
+.doc-dictionary-head {
+  align-items: center;
+}
+
+.doc-dictionary-head h2 {
+  margin: 0;
+}
+
+.doc-dictionary-count {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.doc-dictionary-lead {
+  margin: var(--space-1) 0 var(--space-4);
+}
+
+/* The field: the magnifier inside its leading edge, Add at its trailing edge
+   only while what is typed is a new word. */
+.doc-dictionary-field {
+  position: relative;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
 }
 
-/* Same recipe as `.note-edit-meta`'s own row a few hundred lines up:
-   `.select-opener`'s `min-height: var(--target-min)` (28px) and a plain
-   `button.small`'s own height never agreed, reported here as "the
-   preferences combobox and add a word button arent the same height". */
-.doc-dictionary-controls .select-opener,
-.doc-dictionary-controls #doc-dictionary-add {
-  height: var(--control-h-lg);
-  min-height: 0;
-  padding-block: 0;
-  box-sizing: border-box;
+.doc-dictionary-field-icon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.doc-dictionary-variant {
+.doc-dictionary-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: var(--space-7);
+}
+
+.doc-dictionary-field #doc-dictionary-add {
   flex: none;
+  white-space: nowrap;
 }
 
+/* The list: rows at the list-row height, a hairline above and below so the
+   list reads as one object, and its own scroller past a dozen words so the
+   checks below stay in reach. */
 .doc-dictionary-list {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-1) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--row-gap);
+  max-height: 16rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
 }
 
 .doc-dictionary-row {
@@ -4542,9 +5320,90 @@ textarea.autogrow {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1) 0 var(--space-3);
   border-radius: var(--radius-sm);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.doc-dictionary-row:hover,
+.doc-dictionary-row:focus-within {
+  background: var(--hover-veil);
+}
+
+.doc-dictionary-word {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Remove shows on the row under the pointer or with focus in it; on a touch
+   screen, where nothing hovers, it is always there. */
+.doc-dictionary-remove {
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.doc-dictionary-row:hover .doc-dictionary-remove,
+.doc-dictionary-row:focus-within .doc-dictionary-remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-dictionary-remove {
+    opacity: 1;
+  }
+}
+
+.doc-dictionary-empty {
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+  color: var(--muted);
+}
+
+.doc-dictionary-files {
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.doc-dictionary-section {
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A setting with a value: the name over its one line on the left, the control
+   on the right, on the same padding `.setting-check` rows keep so the three
+   rows share one left edge. */
+.doc-dictionary-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.doc-dictionary-setting-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.doc-dictionary-setting-text small,
+.doc-dictionary-dialog .setting-check small {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-dictionary-row,
+  .doc-dictionary-remove {
+    transition: none;
+  }
 }
 
 /* The suggestions panel: a real panel now, with room for its list. Reported:
@@ -4552,19 +5411,115 @@ textarea.autogrow {
 .doc-prose-head {
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
 }
 
+/* The count is one line: "5 / suggestions" stacked over two, beside a row of
+   buttons running out of the panel, was the reported shape (INBOX 426 b). */
+.doc-prose-title {
+  white-space: nowrap;
+}
+
+/* **The head's buttons wrap; they never leave the panel.** This was
+   `flex: none`, a row that refused to be narrower than its five buttons:
+   measured in the 320px right dock, 415px of buttons, Dictionary and the
+   close cut off at the panel's edge and the panel scrolling 222px sideways.
+   Each button keeps its own width and its words; the row wraps between
+   them and hugs the far edge while it fits beside the count. */
 .doc-prose-tools {
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-1);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.doc-prose-tools > button {
   flex: none;
+  white-space: nowrap;
+}
+
+/* A narrow panel (the right dock, a phone, focus mode's side panel): the
+   count has the first line to itself and the buttons start under it at the
+   same left edge, rather than a ragged right-aligned block beside a word. */
+/* **A narrow panel's head is one row: the count, then a group of icon
+   buttons** (INBOX 426 z, image 92: "the docked Suggestions header buttons
+   wrap badly"). Worded, the four buttons took two rows of their own under
+   the count in the 320px right dock, the close alone on the second. Below
+   26rem their words go, the `.toolbar-word` recipe's way (hidden, not
+   dropped: each button's title and aria-label name it, and the word is
+   still read out), and each takes the icon-only square, so Check with AI,
+   Dictionary, the dock and the close sit beside the count in one group.
+   Fix N keeps its words: its number is the thing it says. */
+@container doc-prose (max-width: 26rem) {
+  /* The count is never cut ("7 sugg…" beside Fix 2 was measured): when the
+     group does not fit beside it, the whole group moves to the next line,
+     at the right, still one row. */
+  .doc-prose-tools {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-inline-start: auto;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all):has(.ph-text) {
+    aspect-ratio: 1;
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all) > .ph-lead {
+    margin-inline-end: 0;
+  }
 }
 
 .doc-prose-empty {
+  margin: 0;
+}
+
+/* Check with AI's own line (INBOX 410): what it is doing or did, then the ways
+   on, one row that wraps rather than overflowing a narrow right-docked panel.
+   The line is `--muted` at the panel's small size: it reports, it does not ask. */
+.doc-prose-ai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.doc-prose-ai-line {
+  flex: 1 1 12rem;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.doc-prose-ai-line.error {
+  color: var(--error);
+}
+
+.doc-prose-ai-notice {
+  flex: 1 1 100%;
   margin: 0;
 }
 
@@ -4607,13 +5562,15 @@ textarea.autogrow {
    nothing else declares, and left the fill and the hairline exactly where they
    were. */
 button.ghost.doc-template-choice {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
   width: 100%;
   height: auto;
-  padding: var(--space-2) var(--space-3);
+  /* Room on the right for the chosen row's check, so choosing moves no text. */
+  padding: var(--space-2) var(--space-7) var(--space-2) var(--space-3);
   border: none;
   border-radius: var(--radius-md);
   background: none;
@@ -4622,13 +5579,129 @@ button.ghost.doc-template-choice {
   text-align: left;
 }
 
+/* Two states, two tints, the rule every menu in the app follows
+   (08-consistency.css, "Hover is a ghost tint; accent-soft is reserved for
+   selected"): a row is chosen by a click now (INBOX 410) and made only by
+   the Use button, so the row under the pointer and the row that will be
+   made have to read differently. */
 button.ghost.doc-template-choice:hover,
 button.ghost.doc-template-choice:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+button.ghost.doc-template-choice[aria-checked="true"] {
   background: var(--accent-soft);
 }
 
 .doc-template-choice > strong {
   font-weight: 600;
+}
+
+.doc-template-choice[aria-checked="true"] > strong {
+  color: var(--accent-text);
+}
+
+/* The chosen row's check: the mark a menu draws for "in effect", so the
+   choice is never the fill alone. Absent, not invisible, on the others. */
+.doc-template-check {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--space-3);
+  align-items: center;
+  color: var(--accent-text);
+}
+
+.doc-template-choice[aria-checked="true"] > .doc-template-check {
+  display: flex;
+}
+
+/* **The template picker with its preview** (`showDocTemplatePreview`). The
+   list keeps its own width and the page takes the rest; below 44rem there is
+   no room for two columns and the preview is left out, since every row still
+   carries its one-line hint. The page is the document's own reading
+   typography at the small step, on the inset surface every other "a picture
+   of something" in the app uses, clipped with a fade rather than scrolled:
+   it is a glimpse of the shape, and a second scroller inside a dialog is a
+   thing to fight with. */
+.doc-ai-history-dialog.doc-template-dialog {
+  width: min(46rem, calc(100vw - var(--space-8)));
+}
+
+.doc-template-body {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.doc-template-preview {
+  margin-top: var(--space-4);
+  height: min(24rem, 60vh);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
+  pointer-events: none;
+}
+
+.doc-template-page {
+  padding: var(--space-5) var(--space-6);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* A note template's page (INBOX 410) is its text as the Capture box will hold
+   it: plain, with its own line breaks, not rendered markdown. */
+.note-template-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.doc-template-page :is(.md-h1, .md-h2, .md-h3) {
+  margin: var(--space-3) 0 var(--space-1);
+  line-height: 1.25;
+}
+
+/* A page at about two thirds of the document's own scale: the title one step
+   over the section heads, the heads one step over the text, so the shape of
+   the template (a title, then its sections) is what the eye gets first. */
+/* `renderMarkdown` draws `#` as `h3.md-h1` and `##` as `h4.md-h2` (a note's
+   headings sit under the page's own), so the classes are what to aim at. */
+.doc-template-page .md-h1 {
+  margin-top: 0;
+  font-size: var(--text-h3);
+}
+
+.doc-template-page :is(.md-h2, .md-h3) {
+  font-size: var(--text-md);
+}
+
+/* A task box is a 28px control in a note; in a picture of a page it is a
+   glyph, at the size of the text beside it. */
+.doc-template-page input[type="checkbox"] {
+  width: 0.9em;
+  height: 0.9em;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.doc-template-empty {
+  margin: 0;
+}
+
+@media (max-width: 43.99rem) {
+  .doc-template-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-template-preview {
+    display: none;
+  }
 }
 
 /* The note edit form's meta row: tags take the slack, the category sits
@@ -4911,7 +5984,10 @@ button.ghost.doc-template-choice:focus-visible {
    every document is a strip that reads as louder than the heading it describes.
    Muted until hovered, which is the same restraint the outline's own rows use. */
 .doc-crumbs {
-  margin-top: var(--space-2);
+  /* No margin of its own (INBOX 425 i): the column's 0.5rem gap already sets
+     it off from the dock, and the two together were 14.4px of a row whose
+     whole job is to be quiet. */
+  margin-top: 0;
   /* **Not shrinkable, and this row is why the rule needs saying.** The editor
      column is a flex column, and a flex item's automatic minimum size (the
      thing that normally stops a column from crushing an item below its own
@@ -4953,6 +6029,13 @@ button.ghost.doc-template-choice:focus-visible {
 /* The separator belongs to the list, not to the buttons: a crumb rendered
    with a trailing character of its own would put that character inside the
    button's hit area and read it out as part of the heading's name. */
+/* Each crumb and its separator on one line, now that the crumb is a block
+   (see `.doc-crumb`). */
+.doc-crumbs-list > li {
+  display: flex;
+  align-items: center;
+}
+
 .doc-crumbs-list li + li::before {
   content: "\203A";
   color: var(--muted);
@@ -4972,6 +6055,13 @@ button.ghost.doc-template-choice:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* A block, started at its own left edge. As the app's buttons are, it was
+     an inline flex box centring its text, and an ellipsis never applies to
+     a flex container's text: measured with a 39-character title, the crumb
+     cut 6px off each end, "A document ... title" drawn as "document ...
+     titl" with no ellipsis at all (INBOX 425 i). */
+  display: block;
+  text-align: start;
 }
 
 .doc-crumb:hover,
@@ -4988,7 +6078,7 @@ button.ghost.doc-template-choice:focus-visible {
   font-weight: 600;
 }
 
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   /* The phone floor, the same one the docks and the segmented controls take:
      a crumb is a tap target, and 0.15rem of padding around 0.75rem text is
      22px of one. */
@@ -4997,4 +6087,110 @@ button.ghost.doc-template-choice:focus-visible {
     display: inline-flex;
     align-items: center;
   }
+}
+
+/* --- an embedded document, drawn as a card (INBOX 421 b) ---------------------
+   One button: the document's tile, its title over one facts line and its
+   first words, and the "opens elsewhere" mark at the end. Inside the
+   `.note-embed` frame in a note or a document's Read view, on its own in the
+   Live view. */
+.embed-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 32rem;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: none;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.embed-card:hover {
+  background: var(--hover-veil);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.embed-card-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--text-lg);
+}
+
+.embed-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.embed-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.embed-card-meta {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.embed-card-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.embed-card-go {
+  color: var(--muted);
+}
+
+/* The dock's breadcrumb back to the Library's Documents (INBOX 424 p): a
+   quiet ghost button ahead of the title, with a hairline after it so the
+   place and the name read as "Documents / This document". */
+.doc-dock-identity > .doc-back {
+  flex: none;
+  color: var(--muted);
+  padding-inline: var(--space-2) var(--space-3);
+  margin-inline-end: var(--space-2);
+  border-right: 1px solid var(--divider);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.doc-dock-identity > .doc-back:hover {
+  color: var(--ink);
+}
+
+/* **A place, not a button** (INBOX 425 i). The dock's ghost-button rules
+   gave the crumb the tonal fill and the full edge of an action, so with the
+   title beside it on one row it read as a half-rounded button glued to an
+   input: measured 116px of filled box with a hairline through its right
+   side. The crumb keeps its target size and its hover, and loses the fill
+   and every edge but the divider that says "Documents / this document". */
+.doc-dock .doc-dock-identity > .doc-back.ghost {
+  background: none;
+  border-color: transparent var(--divider) transparent transparent;
+  box-shadow: none;
+}
+
+.doc-dock .doc-dock-identity > .doc-back.ghost:hover {
+  background: var(--chip-bg);
 }

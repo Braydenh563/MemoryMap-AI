@@ -302,6 +302,54 @@ _LOADING_HTML = """<!doctype html>
 </body></html>"""
 
 
+#: The loading page's six colours, per look and mode: ground, text, faint
+#: text, secondary text, accent, bar track. The page's own stylesheet is
+#: written in the Classic set, which is the fallback for any other palette.
+_LOADING_CLASSIC = ("#12141c", "#e7e9ee", "#5d6472", "#9aa1ad", "#4664f0", "#262b3a")
+_LOADING_LOOKS = {
+    ("utilitarian", "dark"): ("#161615", "#ecebe8", "#75736e", "#a09e98", "#5b95ff", "#2a2a27"),
+    ("utilitarian", "light"): ("#f4f3f1", "#1c1c1a", "#8a8883", "#66645f", "#2f5bd3", "#e3e1dd"),
+    ("paper", "dark"): ("#141312", "#f2efe9", "#77726a", "#a49f95", "#ff7a4d", "#2a2826"),
+    ("paper", "light"): ("#faf9f6", "#111111", "#8a867e", "#57544e", "#c63d17", "#e6e3dc"),
+    ("mono", "dark"): ("#0f1215", "#e6eaee", "#5f6a75", "#8f9aa6", "#42d67f", "#232a31"),
+    ("mono", "light"): ("#eceff2", "#15191e", "#7b8591", "#56606b", "#1a7f45", "#d5dae0"),
+}
+_LOOK_PALETTES = {"utilitarian": "utilitarian", "paper": "paper", "mono": "mono", "default": "default"}
+
+
+def _recolour_loading_page(html: str, data_dir: str | None) -> str:
+    """The loading page in the look the app will open in (owner: "some popup
+    ui's havent followed the theme change like the loading screen").
+
+    The page is shown before the app, from `html=`, so it cannot read the
+    browser storage the look lives in; the look is mirrored to the server's
+    preferences (`ui_state`), which this reads from the data folder. Only the
+    page's stylesheet is recoloured; the logo keeps its own colours. Any
+    failure leaves the page as written, which is a loading screen in the
+    Classic colours rather than no loading screen.
+    """
+    try:
+        from memorymap.core.config import ConfigManager
+
+        state = ConfigManager(data_dir or None).get_preference("ui_state", {}) or {}
+    except Exception:  # noqa: BLE001  # a cosmetic read must never stop the launch
+        return html
+    # The same order as `appearancePref` (settings.js): a palette chosen by
+    # hand, then the chosen look's palette, then the default look's.
+    preset = state.get("themePreset")
+    palette = state.get("palette") or (_LOOK_PALETTES.get(preset, "") if preset else "utilitarian")
+    mode = "light" if state.get("theme") == "light" else "dark"
+    colours = _LOADING_LOOKS.get((palette, mode))
+    if not colours:
+        return html
+    head, sep, rest = html.partition("</style>")
+    if not sep:
+        return html
+    for old, new in zip(_LOADING_CLASSIC, colours):
+        head = head.replace(old, new)
+    return head + sep + rest
+
+
 def _loading_html(steps=None, data_dir: str | None = None) -> str:
     """`_LOADING_HTML` with the launcher's step history seeded into it.
 
@@ -318,7 +366,7 @@ def _loading_html(steps=None, data_dir: str | None = None) -> str:
     if data_dir is None:
         data_dir = os.environ.get("MEMORYMAP_DATA_DIR") or ""
 
-    html = _LOADING_HTML
+    html = _recolour_loading_page(_LOADING_HTML, data_dir)
     if steps:
         seed = [
             {
@@ -381,7 +429,9 @@ def _ensure_std_streams() -> None:
         return
     stream = None
     try:
-        log_dir = Path(os.environ.get("MEMORYMAP_DATA_DIR") or "data").resolve() / "logs"
+        from memorymap.core.config import resolved_data_dir
+
+        log_dir = resolved_data_dir() / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stream = open(log_dir / "desktop-stdio.log", "a", encoding="utf-8", buffering=1)  # noqa: SIM115
     except OSError:
@@ -419,6 +469,65 @@ def _run_server() -> None:
     from memorymap.api.app import create_app
 
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
+    # **The process used to sit here for 5 to 9 seconds after "Finished
+    # server process" was already logged** (INBOX 423i). Every synchronous
+    # route in this app (almost all of them: `def`, not `async def`) is run
+    # by Starlette through `anyio.to_thread.run_sync`, which hands the call
+    # to a small pool of "AnyIO worker thread" objects it keeps warm. Each
+    # one is meant to stop itself once the server's own root asyncio task
+    # finishes (`root_task.add_done_callback(worker.stop, ...)`,
+    # anyio/_backends/_asyncio.py), but that callback is scheduled on the
+    # event loop for its *next* iteration, and `uvicorn.run()` can tear the
+    # loop down before that iteration ever runs. A worker left over that way
+    # is not a daemon thread (nothing in anyio asks for one), so Python's own
+    # interpreter shutdown, which joins every non-daemon thread before the
+    # process can actually exit, sits waiting on it, measured here at 1.8 to
+    # 4.6 seconds depending on how much of anyio's `MAX_IDLE_TIME` window had
+    # already passed.
+    #
+    # There is no way to make an already-started thread a daemon (`Thread.
+    # daemon = True` raises once `.start()` has run), so this asks each
+    # leftover worker to stop the same way anyio's own done-callback would
+    # have: its `.stop()` puts a sentinel on its queue, which is a few
+    # microseconds of work, not a wait. `join(1.0)` bounds this function's
+    # own worst case rather than trusting that to be instant everywhere.
+    _stop_lingering_worker_threads()
+
+
+def _stop_lingering_worker_threads(timeout: float = 1.0) -> None:
+    """Ask every still-alive `anyio` thread-pool worker to stop, and wait at
+    most `timeout` for them, instead of leaving Python's interpreter
+    shutdown to join them with no timeout at all (see `_run_server`).
+
+    Matched by class, not merely by "any non-daemon thread": a thread this
+    app does not recognise is left alone rather than told to stop by a
+    method it may not have, or one whose name means something else.
+    `getattr(..., "stop", None)` is the extra caution on top of that: an
+    anyio release that renames or removes the method should make this a
+    silent no-op (the 5 to 9 second wait comes back, not a crash on quit),
+    never an `AttributeError` in the middle of shutting down.
+    """
+    candidates = [
+        thread
+        for thread in threading.enumerate()
+        if thread is not threading.main_thread()
+        and not thread.daemon
+        and thread.is_alive()
+        and type(thread).__module__ == "anyio._backends._asyncio"
+        and type(thread).__name__ == "WorkerThread"
+    ]
+    if not candidates:
+        return
+    for thread in candidates:
+        stop = getattr(thread, "stop", None)
+        if callable(stop):
+            try:
+                stop()
+            except Exception:  # noqa: BLE001 - best-effort, the join below still bounds the wait
+                logger.debug("couldn't ask %s to stop", thread.name, exc_info=True)
+    deadline = time.monotonic() + max(0.0, timeout)
+    for thread in candidates:
+        thread.join(max(0.0, deadline - time.monotonic()))
 
 
 def _wait_for_server(timeout: float = 20.0) -> bool:
@@ -448,6 +557,41 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
         except OSError:
             time.sleep(0.05)
     return False
+
+
+def _splash_status(text: str) -> None:
+    """Say what the app is doing on the packaged exe's bootloader splash.
+
+    The splash is a still card (memorymap.spec); this line under its rule is
+    the part that moves, so a slow first launch reads as work, not a hang.
+    Does nothing outside a PyInstaller build made with a splash."""
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.update_text(text)
+    except Exception as exc:  # noqa: BLE001  # the status line is cosmetic
+        logger.debug("couldn't update the bootloader splash: %s", exc)
+
+
+def _close_bootloader_splash() -> None:
+    """Take down the packaged exe's bootloader splash (memorymap.spec's
+    `Splash`), if this is a packaged build that has one.
+
+    `pyi_splash` exists only inside a PyInstaller build made with a splash,
+    so its absence is the normal case everywhere else, not an error. Closed
+    once the app window is shown rather than when it is created: between the
+    two there is nothing on screen, which is the gap the splash is for.
+    """
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+    except Exception as exc:  # noqa: BLE001  # a splash that won't close must not stop the app
+        logger.debug("couldn't close the bootloader splash: %s", exc)
 
 
 def _close_launch_splash() -> None:
@@ -565,6 +709,71 @@ def _mark_start_step_done(window) -> None:
         logger.debug("couldn't tick the last step in the loading window: %s", exc)
 
 
+def _port_holder(port: int) -> str:
+    """Who has `port` on HOST: "free", "memorymap" (another copy of this
+    app, which answers `/health` with its name) or "other".
+
+    A bind first, not a connect: on Windows a connect to a closed local port
+    is retried for about two seconds before it is refused, and this runs on
+    every launch. A port that cannot be bound but does not answer (a socket
+    in TIME_WAIT, say) counts as free, since uvicorn's own bind, which sets
+    SO_REUSEADDR, will manage where this plain one did not.
+    """
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind((HOST, port))
+        return "free"
+    except OSError:
+        pass
+    import json
+    import urllib.request
+
+    # No proxy: a system proxy setting must never be asked about loopback.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(f"http://{HOST}:{port}/health", timeout=2) as response:
+            body = json.loads(response.read(4096).decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        try:
+            with socket.create_connection((HOST, port), timeout=0.5):
+                return "other"
+        except OSError:
+            return "free"
+    if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
+        return "memorymap"
+    return "other"
+
+
+def _desktop_port() -> int:
+    """The port the desktop window's server should use: `PORT`, unless
+    another program already has it.
+
+    **Why.** The window waits for *something* to answer on the port and then
+    opens it. Port 8000 is the default of half the development servers in
+    existence, and with one of them running, the MemoryMap window opened that
+    program's page, with the MemoryMap server failing to bind behind it and
+    nothing on screen saying so. Another copy of this app on the port is
+    left alone: a second launch opening a window onto the first copy's
+    server is what a second double-click has always done.
+
+    The next free port up is used instead, the same one on every launch while
+    the other program keeps 8000, because the window's saved settings belong
+    to one address (`http://127.0.0.1:<port>`): a different port each launch
+    would be a signed-out window with the default theme each time.
+    """
+    if _port_holder(PORT) != "other":
+        return PORT
+    for candidate in range(PORT + 1, min(PORT + 51, 65536)):
+        if _port_holder(candidate) == "free":
+            logger.warning(
+                "port %s belongs to another program; using %s instead", PORT, candidate
+            )
+            return candidate
+    return PORT
+
+
 def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
     """Same poll `_wait_for_server` does, plus pushing `startup_status`'s
     current phase to the loading window whenever it changes, see that
@@ -605,7 +814,20 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
+    global PORT
     os.environ["MEMORYMAP_DESKTOP"] = "1"
+    PORT = _desktop_port()
+    os.environ["MEMORYMAP_PORT"] = str(PORT)
+    # **This process now holds the notebook** (core/instance_lock.py): the
+    # port is final, so a second launch can find this server, and the focus
+    # handler is how that launch brings this window forward instead of
+    # starting a second server on the same data directory. Released by
+    # `_run_desktop` once the window is really gone.
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    instance_lock.claim(resolved_data_dir(), PORT)
+    instance_lock.set_focus_handler(lambda: _bring_forward(window))
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     if _wait_for_server_with_progress(window):
@@ -615,17 +837,15 @@ def _boot_and_swap(window) -> None:
         # rather than a tick bought to fill the bar. It is on screen for the
         # navigation only, but it is the difference between a launch that
         # ends on a finished list and one that ends on four of five.
+        #
         # Ticked, then swapped immediately. A quarter-second hold was tried
-        # here first, to make this window's own finished list visible, and the
-        # owner asked for it back: "remove the delay on the other splash
-        # loading screen in the main window". They are right, and the reason is
-        # that the hold was solving the wrong window's problem. The list a
-        # person actually watches finish is the launcher's splash, which now
-        # ticks its own last step before it closes
-        # (`_finish_splash_start_step`); by the time this page could show
-        # anything, the app is what they are waiting for. Nothing is lost: the
-        # step is still marked done, so a `Details` pane or a log read after
-        # the fact tells the truth about what happened.
+        # here first and the owner asked for it back ("remove the delay on the
+        # other splash loading screen in the main window"): the list a person
+        # watches finish is the launcher's splash (`scripts/splash.ps1`), or on
+        # a packaged build the bootloader's (`_close_bootloader_splash`). A
+        # later pass added a 1.5s sleep here for packaged builds; it only made
+        # every launch 1.5s slower, and the missing splash it was aimed at is
+        # the pre-Python one, which this page cannot be.
         _mark_start_step_done(window)
         window.load_url(f"http://{HOST}:{PORT}")
         _focus_window(window)
@@ -714,6 +934,19 @@ def _spawn_desktop(hidden: bool):
     try:
         import subprocess
 
+        if getattr(sys, "frozen", False):
+            # The packaged exe is the interpreter and the app at once: no
+            # `-m memorymap` (its argparse exits on `-m`, so Settings'
+            # Restart closed the app and nothing came back), no pythonw.exe
+            # beside it, and no console to show or hide either way.
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            return subprocess.Popen(
+                [sys.executable, "--desktop"],
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                close_fds=True,
+                cwd=os.getcwd(),
+            )
         if hidden:
             pythonw = _pythonw_path()
             if pythonw is None:
@@ -1049,7 +1282,9 @@ def _webview2_runtime_missing() -> bool:
             try:
                 with winreg.OpenKey(hive, subkey) as key:
                     version, _ = winreg.QueryValueEx(key, "pv")
-                    if str(version).strip():
+                    # Microsoft's page: a `pv` of "0.0.0.0" is an uninstalled
+                    # runtime whose key was left behind, like an empty one.
+                    if str(version).strip() not in ("", "0.0.0.0"):
                         return False
             except OSError:
                 continue
@@ -1093,6 +1328,90 @@ def _warn_webview2_missing() -> None:
         logger.warning("could not open the WebView2 download page: %s", exc)
 
 
+def _bring_forward(window) -> None:
+    """Un-minimise, un-hide and focus the window: what a second launch asks
+    for. `restore` first because a minimised window that is only shown stays
+    minimised on some backends; missing on an older pywebview, and skipped."""
+    try:
+        window.restore()
+    except Exception as exc:  # noqa: BLE001 - optional on older pywebview
+        logger.debug("window.restore() did not work: %s", exc)
+    _focus_window(window)
+
+
+def _existing_instance():
+    """`(state, lock)` for this data directory's `instance.lock`, with a copy
+    that is still starting waited for rather than raced: "live", "stale" or
+    "none" (core/instance_lock.py)."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    state, lock = instance_lock.find_running(resolved_data_dir())
+    if state == "starting":
+        _splash_status("MemoryMap is already starting...")
+        state = "live" if instance_lock.wait_until_answering(lock.port) else "stale"
+    return state, lock
+
+
+def _hand_off_to_running(lock, action: str) -> None:
+    """A launch that found this notebook already open: bring its window
+    forward, or open another window onto the same server. Never a second
+    server on one data directory (the owner's decision: single instance by
+    default, with "Open a new window on each launch" in Settings, About).
+
+    A focus that fails (the running copy was started in browser mode and has
+    no window, or it did not answer in time) falls through to a new window,
+    because a second double-click that visibly does nothing reads as the app
+    being broken.
+    """
+    from memorymap.core import instance_lock
+
+    _close_launch_splash()
+    _close_bootloader_splash()
+    if action == "focus":
+        if sys.platform == "win32":
+            # Windows refuses a background process's own focus request;
+            # this process, just launched by the person, may hand its right
+            # to the foreground to the running one.
+            try:
+                import ctypes
+
+                ctypes.windll.user32.AllowSetForegroundWindow(lock.pid)
+            except Exception as exc:  # noqa: BLE001 - best effort
+                logger.debug("AllowSetForegroundWindow failed: %s", exc)
+        if instance_lock.request_focus(lock):
+            print(f"MemoryMap is already running (port {lock.port}); brought its window forward.")
+            return
+    _open_window_onto(lock.port)
+
+
+def _open_window_onto(port: int) -> None:
+    """A window onto a server another process runs: no server thread, no
+    tray, no loading page (the server is already up). Shares the running
+    window's storage, since the saved sign-in and theme belong to the one
+    address both windows open. Closing it ends this process only."""
+    url = f"http://{HOST}:{port}"
+    try:
+        import webview
+    except ImportError:
+        import webbrowser
+
+        print(f"MemoryMap is already running; opening {url}")
+        webbrowser.open(url)
+        return
+    from memorymap.core.config import resolved_data_dir
+
+    window = webview.create_window(
+        "MemoryMap AI", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
+    )
+    storage = resolved_data_dir() / "webview"
+    storage.mkdir(parents=True, exist_ok=True)
+    try:
+        webview.start(_focus_window, window, private_mode=False, storage_path=str(storage))
+    except TypeError:
+        webview.start(_focus_window, window)
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -1109,7 +1428,19 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # all (deps.init_app_state hasn't run, and doesn't need to), so this is
     # safe before the server thread, or the process's own console, has
     # done anything.
+    from memorymap.core import instance_lock
     from memorymap.core.config import ConfigManager
+
+    # **Single instance first**, before the relaunch and before any window:
+    # a launch that finds this notebook already open hands off to it and is
+    # done, so it never pays for a relaunch, a loading page or a server.
+    state, running = _existing_instance()
+    action = instance_lock.decide(
+        state, new_window=bool(ConfigManager().get_preference("new_window_on_launch", False))
+    )
+    if action != "start":
+        _hand_off_to_running(running, action)
+        return
 
     show_on_startup = ConfigManager().get_preference("show_console_on_startup", True)
     relaunched = _maybe_relaunch_hidden(show_on_startup, hidden_relaunch)
@@ -1124,7 +1455,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
             "  pip install pywebview\n"
             "Starting the normal server instead, open http://localhost:8000"
         )
-        _run_server()
+        _run_server_holding_lock()
         return
 
     # Hide the console before starting anything else, unless the user has
@@ -1178,6 +1509,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         _warn_webview2_missing()
         return
 
+    _splash_status("Opening the window...")
     window = webview.create_window(
         "MemoryMap AI",
         html=_loading_html(),
@@ -1190,9 +1522,46 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
     )
+    # The in-app Quit (POST /shutdown) closes this window and ends the
+    # process the way the tray's Quit does; SIGINT, the server-mode path,
+    # never reaches a main thread inside the window's event loop.
+    from memorymap.core import quit_hook
+
+    def _quit_from_app() -> None:
+        # The window goes first (the owner: "the quit application button is
+        # a little slow"). Stopping the background work can wait up to 5s
+        # for the autonomous scheduler to finish a write; that wait now
+        # happens behind a window that is already gone, not in front of one
+        # that looks frozen.
+        hide = getattr(window, "hide", None)
+        if callable(hide):
+            try:
+                hide()
+            except Exception:  # noqa: BLE001 - cosmetic; the exit below still runs
+                logger.debug("window.hide failed during quit", exc_info=True)
+        _stop_background_work()
+        try:
+            window.destroy()
+        except Exception:  # noqa: BLE001 - the exit below is the guarantee
+            logger.debug("window.destroy failed during quit", exc_info=True)
+        os._exit(0)
+
+    quit_hook.set_quit_handler(_quit_from_app)
+    # The documents focus mode's "Fill the whole screen": a web view's own
+    # full screen fills the web view, not the window (INBOX 426 z), so the
+    # page asks the window through `POST /desktop/fullscreen`.
+    from memorymap.core import window_hook
+
+    toggle_fullscreen = getattr(window, "toggle_fullscreen", None)
+    if callable(toggle_fullscreen):
+        window_hook.set_fullscreen_handler(toggle_fullscreen)
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.
+    try:
+        window.events.shown += _close_bootloader_splash
+    except AttributeError:  # an older pywebview without window events
+        _close_bootloader_splash()
     _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
@@ -1326,7 +1695,9 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
 
         window.events.closing += _on_closing
 
-    storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
+    from memorymap.core.config import resolved_data_dir
+
+    storage = resolved_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:
         webview.start(  # blocks until the window closes; daemon dies with us
@@ -1355,6 +1726,8 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # nothing can get back to.
         if tray_icon is not None:
             tray_icon.stop()
+        instance_lock.set_focus_handler(None)
+        instance_lock.release()
 
 
 def _start_tray(
@@ -1818,7 +2191,9 @@ def _repair_install() -> None:
     """
     import shutil
 
-    data_dir = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve()
+    from memorymap.core.config import resolved_data_dir
+
+    data_dir = resolved_data_dir()
     storage = data_dir / "webview"
     if storage.exists():
         shutil.rmtree(storage, ignore_errors=True)
@@ -1859,17 +2234,55 @@ def main() -> None:
     # relaunch itself again. Not something a person should ever type, hence
     # SUPPRESS rather than a documented flag.
     parser.add_argument("--hidden-relaunch", action="store_true", help=argparse.SUPPRESS)
+    # Internal: the Windows installer's optional-packages page (installer.iss)
+    # runs this after copying the app, with the ids the person ticked.
+    parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    _splash_status("Loading MemoryMap AI...")
+    from memorymap.core import extras
+
+    extras.activate_frozen_extras()
+    if args.install_extras:
+        _close_bootloader_splash()
+        ids = [part.strip() for part in args.install_extras.split(",") if part.strip()]
+        raise SystemExit(1 if extras.install_blocking(ids) else 0)
+    # Only the desktop window takes the bootloader splash down when it shows;
+    # every other mode of a packaged build closes it here, or it would stay on
+    # screen for as long as the process runs.
     if args.export:
+        _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))
     if args.reset_password:
+        _close_bootloader_splash()
         raise SystemExit(_reset_password())
     if args.reinstall:
         _repair_install()
     if args.desktop:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:
+        _close_bootloader_splash()
+        state, running = _existing_instance()
+        if state == "live":
+            # One server per data directory in browser mode as well: the
+            # launcher scripts already open a browser onto a copy on their
+            # own port, and this covers a copy on another port.
+            print(f"MemoryMap is already running on this notebook: http://{HOST}:{running.port}")
+            return
+        _run_server_holding_lock()
+
+
+def _run_server_holding_lock() -> None:
+    """`_run_server`, with this data directory's `instance.lock` held for as
+    long as it runs, so a desktop launch finds it and opens a window onto it
+    rather than starting a second server."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    instance_lock.claim(resolved_data_dir(), PORT)
+    try:
         _run_server()
+    finally:
+        instance_lock.release()
 
 
 if __name__ == "__main__":

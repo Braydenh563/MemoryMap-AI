@@ -139,7 +139,16 @@ def collect() -> list[dict]:
     # document reads a bulk upload starts. Before the bounded pool these were
     # loose threads that the panel could not see at all, so a folder of 200
     # pictures looked exactly like an idle app (WORLD_CLASS_PLAN A3).
-    tasks.extend(bgpool.pending())
+    #: A caption that is running is already a row above, with the picture's
+    #: own name ("Captioning sketch-..."); the pool's row for the same job
+    #: ("Describing an image") made one caption look like two (owner's
+    #: screenshot, INBOX 392). Queued captions stay: nothing else lists them.
+    captioning_now = bool(captioning.running_captions())
+    tasks.extend(
+        row
+        for row in bgpool.pending()
+        if not (captioning_now and row["kind"] == "job-caption" and not row.get("queued"))
+    )
 
     # Autonomous optimization task
     from memorymap.ai import autonomous
@@ -376,6 +385,30 @@ def clear_history() -> dict:
     return {"cleared": True}
 
 
+# --- the desktop window's full screen ------------------------------------------
+
+
+@router.get("/desktop/fullscreen")
+def desktop_fullscreen_state() -> dict:
+    """Whether this app runs in a window that can fill the screen itself.
+
+    `available` is false in a browser tab, where the page uses the browser's
+    own Fullscreen API (see `core.window_hook` for why the desktop window
+    cannot)."""
+    from memorymap.core import window_hook
+
+    return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
+
+
+@router.post("/desktop/fullscreen")
+def desktop_fullscreen_toggle() -> dict:
+    """Put the desktop window into full screen, or take it out."""
+    from memorymap.core import window_hook
+
+    state = window_hook.toggle()
+    return {"available": state is not None, "fullscreen": bool(state)}
+
+
 # --- shutting the app down cleanly -------------------------------------------
 
 
@@ -407,8 +440,14 @@ def shutdown() -> dict:
     import signal
     import threading
 
+    from memorymap.core import quit_hook
+
     def _stop() -> None:
+        # The desktop window registers its own close (see quit_hook's
+        # docstring for why SIGINT alone did nothing there).
+        if quit_hook.request_quit():
+            return
         os.kill(os.getpid(), signal.SIGINT)
 
-    threading.Timer(0.35, _stop).start()
+    threading.Timer(0.15, _stop).start()  # long enough for this reply to leave
     return {"stopping": True}

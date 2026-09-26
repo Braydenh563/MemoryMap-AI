@@ -46,6 +46,67 @@ open_router = APIRouter(tags=["settings"])
 # Preferences the user may change from the UI, a deliberate allowlist
 # so a stray request can't scribble on model settings (those have their
 # own validated endpoints in routes_models).
+class AvatarStyle(BaseModel):
+    """How the person's own generated face is drawn, beyond their name.
+
+    `variant` is which take on the name (0 is the name's own; each shuffle
+    moves it on), and the rest override one part each: an empty string
+    leaves the part to the name, "none" takes it away, and anything else is
+    the part's own key in avatars.js. Short lower-case words only, so a value
+    can never be more than a key the drawing code looks up.
+    """
+
+    variant: int = Field(default=0, ge=0, le=9999)
+    mood: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hair: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    outfit: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hat: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    eyewear: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hand: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    # The skin tone and the hair colour, by name ("fair", "chestnut").
+    skin: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hairtone: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    # "feminine" or "masculine" chooses the look your face is drawn with;
+    # empty leaves it to the name and to Appearance, Face looks.
+    look: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+
+    @field_validator("hand", "mood", "hair", "outfit", "hat", "eyewear", "skin", "hairtone", "look")
+    @classmethod
+    def _not_retired(cls, value: str, info) -> str:
+        """A part taken out of the drawing is left to the name, not kept."""
+        return "" if value in RETIRED_AVATAR_PARTS.get(info.field_name, ()) else value
+
+
+#: **Parts taken out of the drawing** (INBOX 426 w, 90.png). A style saved
+#: before a part was removed keeps naming it: the rude gesture came out of
+#: the held things (INBOX 426 j) and a saved `hand: "middlefinger"` left
+#: Your look's Holding select empty, a value none of its options has. The
+#: frontend owns the lists of parts (avatars.js); the server knows only
+#: what has been retired, and drops it both ways: on save (the validator
+#: above) and on read (`_clean_avatar_style`), for a style saved before.
+RETIRED_AVATAR_PARTS: dict[str, frozenset[str]] = {"hand": frozenset({"middlefinger"})}
+
+
+def _clean_avatar_style(raw: object) -> dict:
+    """A saved style as it may be drawn now: only the parts, each a valid
+    word and not retired. A key that is no part, or a value that fails the
+    part's own rule, is dropped, not the whole style."""
+    if not isinstance(raw, dict):
+        return {}
+    clean: dict = {}
+    for name in AvatarStyle.model_fields:
+        if name not in raw:
+            continue
+        try:
+            value = getattr(AvatarStyle(**{name: raw[name]}), name)
+        except ValueError:
+            continue
+        if value == "" and raw[name] != "":
+            continue
+        clean[name] = value
+    return clean
+
+
 class TemplateItem(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     content: str = Field(max_length=2000)
@@ -54,12 +115,16 @@ class TemplateItem(BaseModel):
     description: str = Field(default="", max_length=200)
 
 
-# Kept in sync by hand with BUILTIN_TEMPLATES in app.js. The templates
-# themselves (their markdown bodies) only ever lived in the frontend, Wave
-# B never gave the server a reason to know their content, but the NAMES
-# have to be known here too, or a custom template called "Journal" would
-# save fine and only collide with the shipped one client-side, in whichever
-# session happens to render the <select> next.
+# The names BUILTIN_TEMPLATES in app.js ships (tests/test_notes_extras_api.py
+# pins the two sets to each other). The templates themselves (their markdown
+# bodies) only ever lived in the frontend; Wave B never gave the server a
+# reason to know their content. A `custom_templates` item carrying one of
+# these names is that built-in's *edit* (INBOX 409, "templates cant be
+# edited"): the persona shape, where an override lives under the shipped
+# name in the same list as the person's own and removing it is the reset.
+# `_validated_templates` used to refuse these names outright, which is what
+# made the built-ins uneditable; now the only collision it refuses is two
+# items with one name.
 BUILTIN_TEMPLATE_NAMES = {"Journal", "Recipe", "Contact", "Meeting"}
 
 
@@ -170,6 +235,15 @@ class PreferencesBody(BaseModel):
     #: this document is on", the honest default for a notebook that does not
     #: know who is writing in it.
     spelling_variant: Literal["off", "uk", "us"] | None = None
+    #: The grammar checker (Harper, run in the browser; INBOX 401). On by
+    #: default: it costs nothing until a prose document or note box is open,
+    #: and nothing on the main thread even then.
+    grammar_check: bool | None = None
+    #: Curly quotes and a dash from two hyphens as you type in a prose
+    #: document (the autofill ask, 2026-09-24). Off by default: software that
+    #: changes what was typed without being asked is the thing people turn off
+    #: first, so this one asks.
+    smart_punctuation: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -245,8 +319,14 @@ class PreferencesBody(BaseModel):
     #: Pydantic does not know about is silently dropped, so a setting that is
     #: never declared is a switch that never saves.
     close_to_tray: bool | None = None
+    #: Whether a second desktop launch opens another window onto the running
+    #: server rather than bringing the running window forward. Read by
+    #: __main__.py before any window opens (core/instance_lock.py).
+    new_window_on_launch: bool | None = None
+    #: The person's own face: a shuffle and per-part overrides (AvatarStyle).
+    avatar_style: AvatarStyle | None = None
     #: Which status-bar slots the user has switched off. **The list of what is
-    #: hidden, not what is shown**, see `STATUS_SLOTS` in app.js: a slot added
+    #: hidden, not what is shown**, see `STATUS_SLOTS` in spaces-find.js: a slot added
     #: in a later version then appears by default for everyone, instead of
     #: being invisible to every user who ever opened that settings screen.
     status_bar_hidden: list[str] | None = None
@@ -458,6 +538,8 @@ def get_preferences() -> dict:
         "communication_style": config.get_preference("communication_style", "friendly"),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
+        "grammar_check": config.get_preference("grammar_check", True),
+        "smart_punctuation": config.get_preference("smart_punctuation", False),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep
@@ -564,6 +646,9 @@ def get_preferences() -> dict:
         # Default True, matching `_on_closing` in __main__.py: the two must
         # agree or the checkbox shows the opposite of what the window does.
         "close_to_tray": config.get_preference("close_to_tray", True),
+        # Default False, matching `_run_desktop` in __main__.py.
+        "new_window_on_launch": config.get_preference("new_window_on_launch", False),
+        "avatar_style": _clean_avatar_style(config.get_preference("avatar_style", {})),
         "status_bar_hidden": config.get_preference("status_bar_hidden", []),
         "status_bar_clock": config.get_preference("status_bar_clock", False),
     }
@@ -749,13 +834,29 @@ def set_console_mode(
         # CodeQL py/cyclic-import loop: and deferring it into the function
         # body does not clear that, only dropping the statement does. The
         # desktop entry point is the caller here, not a dependency.
-        restart_in_console_mode = importlib.import_module(
-            "memorymap.__main__"
-        ).restart_in_console_mode
+        restart_in_console_mode = _desktop_entry().restart_in_console_mode
 
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
     return {"show_console_on_startup": show_console, "restarting": restarting}
+
+
+def _desktop_entry():
+    """The desktop entry module, the one actually running.
+
+    `sys.modules["__main__"]` first: a packaged build runs `__main__.py` as
+    `__main__`, and PyInstaller bundles no second copy under the name
+    `memorymap.__main__` (nothing imports it by that name, so its analysis
+    never sees it), so `import_module` alone raised there and Settings'
+    Restart answered 500. From source, `python -m memorymap` is the same
+    module under the same key, and reusing it avoids importing a second copy
+    of the launcher. The import is the fallback for everything else (tests,
+    `uvicorn --factory`), where the running `__main__` is not ours.
+    """
+    running = sys.modules.get("__main__")
+    if running is not None and hasattr(running, "restart_in_console_mode"):
+        return running
+    return importlib.import_module("memorymap.__main__")
 
 
 @router.post("/system/restart")
@@ -776,9 +877,7 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     """
     if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
         return {"restarting": False}
-    restart_in_console_mode = importlib.import_module(
-        "memorymap.__main__"
-    ).restart_in_console_mode  # same cycle break as above
+    restart_in_console_mode = _desktop_entry().restart_in_console_mode  # same cycle break
 
     show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
     background_tasks.add_task(restart_in_console_mode, not show_console)
@@ -809,26 +908,21 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
 
 
 def _validated_templates(raw: list[dict]) -> list[dict]:
-    """Every custom template, name-checked, or a 422 naming the collision.
+    """Every saved template, name-checked, or a 422 naming the collision.
 
-    Mirrors `_validated_skills` immediately above: a name that shadows a
-    built-in is refused rather than silently allowed to win wherever the
-    merged list is drawn next, and two customs can't collide with each other
-    either. Rejecting (rather than de-duping, the way `addSkill` on the
-    frontend quietly does for skills) was the deliberate choice here, 
-    silently dropping a *different* saved template because its name was
-    reused would be a surprise deletion of someone's own text, which a
-    skill's shorter prompt doesn't risk in the same way.
+    Two items cannot share a name. Rejecting (rather than de-duping, the way
+    `addSkill` on the frontend quietly does for skills) was the deliberate
+    choice here: silently dropping a *different* saved template because its
+    name was reused would be a surprise deletion of someone's own text,
+    which a skill's shorter prompt doesn't risk in the same way. A name that
+    is a built-in's is not a collision: it is how a built-in is edited
+    (`BUILTIN_TEMPLATE_NAMES` above), and there can be one such edit per
+    built-in for the same reason there can be one template per name.
     """
     seen: set[str] = set()
     out = []
     for item in raw:
         name = (item.get("name") or "").strip()
-        if name in BUILTIN_TEMPLATE_NAMES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"“{name}” is a built-in template, pick another name",
-            )
         if name in seen:
             raise HTTPException(
                 status_code=422,
@@ -1156,9 +1250,17 @@ def event_feed(
     limit: int = Query(default=100, ge=1, le=500),
     entity_type: str = Query(default="", max_length=40),
     include_quiet: bool = Query(default=False),
+    tail: int = Query(default=0, ge=0, le=100),
     session: Session = Depends(get_session),
 ) -> dict:
     """The event log forwards, for anything that follows what happens here.
+
+    `tail=N` is where a follower starts: the newest N events (after `since`
+    and the filters), still oldest first, with the cursor after the last. A
+    strip opening for the first time wants the last few things that
+    happened, and without it the only way in was the first hundred events of
+    the notebook's life, or `/audit` backwards and a cursor worked out by
+    hand. It is the Dashboard's Recent activity widget's first read.
 
     `/audit` reads backwards from now, which is what a viewer wants and what
     a feed cannot use: a poller has to ask "what has happened since the last
@@ -1185,11 +1287,18 @@ def event_feed(
     one line rather than as a burst of edits.
     """
     query = select(AuditLog).where(AuditLog.id > since)
-    if entity_type:
-        query = query.where(AuditLog.entity_type == entity_type)
+    #: One type or a comma list: a strip about the notebook's content wants
+    #: notes, documents, boards and reminders, and not the preference toggles
+    #: and model downloads that would otherwise fill its last ten rows.
+    types = [part.strip() for part in entity_type.split(",") if part.strip()]
+    if types:
+        query = query.where(AuditLog.entity_type.in_(types))
     if not include_quiet:
         query = query.where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
-    rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
+    if tail:
+        rows = list(session.scalars(query.order_by(AuditLog.id.desc()).limit(tail)))[::-1]
+    else:
+        rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
     return {"items": [_feed_item(row) for row in rows], "cursor": rows[-1].id if rows else since}
 
 
@@ -1874,13 +1983,64 @@ def _validated_import_directory(path_value: str) -> Path:
     """
     if not path_value or "\x00" in path_value:
         raise ValueError("Invalid directory path")
-    try:
-        p = Path(path_value).resolve(strict=True)
-    except OSError as exc:
-        raise ValueError("Invalid directory path") from exc
+    # Normalised with `realpath` and confined by a prefix test before the
+    # disk is touched at all: the form CodeQL's path-injection query knows
+    # as a guard (a `Path.resolve(strict=True)` first is itself a read of
+    # an unchecked path, and `is_relative_to` is not recognised).
+    # The guard is spelled out here rather than behind a helper: CodeQL only
+    # counts a `startswith` that sits in the same function as the read.
+    real = os.path.normpath(os.path.realpath(path_value))
+    root = _import_root_for(real)
+    if not root or not real.startswith(root):
+        raise ValueError("Outside the folders an import may read")
+    p = Path(real)
     if not p.is_dir():
         raise ValueError("Invalid directory path")
+    # **Inside home or the data folder, judged after `resolve`** (WORLD_CLASS
+    # _PLAN §12, S3). "There is no narrower base directory" above was written
+    # for the owner at their own keyboard; for anyone holding a token over a
+    # network, this route was a read of any folder the server can see. Home
+    # is where a vault lives; the data folder is where the app itself puts
+    # things. Checked on the resolved path, so a symlink in home that points
+    # at `/etc` is judged by where it lands, not by where it sits.
     return p
+
+
+def _import_roots() -> list[str]:
+    """The folders a directory import may read from, as real paths."""
+    roots = []
+    for candidate in (Path.home(), deps.get_config().data_dir):
+        try:
+            roots.append(os.path.realpath(candidate))
+        except OSError:
+            continue
+    return roots
+
+
+def _under_root(real: str, root: str) -> bool:
+    """Is the real path `real` the folder `root` or somewhere inside it?"""
+    return real == root or real.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def _import_root_for(real: str) -> str:
+    """The import root `real` lies in (separator-aware), or "" for none."""
+    for root in _import_roots():
+        if _under_root(real, root):
+            return root
+    return ""
+
+
+def _inside(root: Path, f: Path) -> bool:
+    """Does `f`, symlinks followed, still lie inside `root`?
+
+    The walk below reads every `.md` under the chosen folder, and a symlink
+    inside it can point anywhere: `innocent.md -> ~/.ssh/config.md`, or a
+    linked folder. The folder was checked; what it links to was not, so
+    each file is checked by where it resolves.
+    """
+    real = os.path.realpath(f)
+    return _under_root(real, os.path.realpath(root)) and os.path.isfile(real)
+
 
 def _run_directory_import(directory_path: str):
     try:
@@ -1892,6 +2052,9 @@ def _run_directory_import(directory_path: str):
         skipped = 0
         skipped_oversize = 0
         for f in p.rglob("*.md"):
+            if not _inside(p, f):
+                skipped += 1
+                continue
             try:
                 #: `import_markdown` (the upload path just below) has always
                 #: capped a file at `MAX_IMPORT_BYTES` before reading it; this
@@ -1968,7 +2131,10 @@ def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTa
     try:
         p = _validated_import_directory(req.path)
     except ValueError:
-        raise HTTPException(400, "Invalid directory path") from None
+        raise HTTPException(
+            400,
+            "Choose a folder that exists inside your home folder or the notebook's data folder.",
+        ) from None
     # The validated, resolved path, not req.path, is what the background
     # job and the response both carry from here on.
     canonical_path = str(p)

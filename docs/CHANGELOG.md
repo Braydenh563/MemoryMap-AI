@@ -5,10 +5,860 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
+## [Unreleased]
+
+### Fixed
+
+- The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
+- Three listener leaks the new `scratchpad/ui-sweeps/listenerrounds.js` measures per rebuild, against a control that measures 0: every help '?' put four listeners on the page (fifty at boot, four more each time the chat welcome was rebuilt for a new chat, each holding the old welcome), the chat's Skills dropdown two on the page and one on the Settings checkbox its pace pill mirrors on every rebuild (+35 a skill saved), and an emblem whose holder left the page kept its p5 sketch and the sketch's window listeners (+23 a new chat). The help popovers share one set of page listeners now, the dropdown's go with its build, and a render releases any sketch whose holder is gone. 0 listeners a round after the fix, `leaks.js` still 0/0 across the seven tabs.
+- The feminine Atlas's hip sash sways on the compositor, as the tail and the breathing do, rather than repainting its layer every frame while the companion walks (176 paints a second down to 118, the same as the masculine look).
+- The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
+
+## [0.3.3] - 2026-09-26
+
+### Added
+
+- The corner companion can be petted (rest the pointer on it for a moment: a happy wiggle), tossed (let it go while moving fast and it flies on, slowing, to a perch near where it comes down) and watches a near pointer with its eyes, as Faces follow the pointer allows (round 5).
+- The corner companion notices what happens in the app, quietly and rarely: it puts on its reading glasses and reads along when you open a long note, peeks over when the graph lays itself out again, cheers once when your capture streak grows, yawns now and then at night, covers its eyes when you open a private note and looks towards a new toast; never two within six seconds, and none under Reduce motion.
+- The avatar lab and the companion simulator, for anyone working on how the app draws people: `tools/avatar-lab.html` puts the app's own renderers on one page (Atlas in both looks, every mood, pose and size, a reference picture laid over it, the generated faces with Your look's parts), with changes previewed live and nothing saved to the app; `tools/companion-sim.html` runs the real corner companion on a stand-in page. Both are served at `/tools` when the app runs from a source checkout.
+- Optional sign-in: Settings, Account and security has "Ask for a password when the app opens", on by default. Turned off (it asks for your current password), the app opens on this computer without the lock screen; another device on your network still needs the password, and private notes stay encrypted and ask for it when you open one ("Unlock private notes"). Lock and Lock everywhere still end the session and drop the key. Recorded in the audit log.
+- The corner companion has a size: small, medium or large from its menu or Appearance's Companion size, or any size from the handle at its corner, kept on this computer; it grows and shrinks about the point it touches its perch and is kept off controls at any size. On a dark page a faint light of the accent sits behind it so a dark figure does not sink into the page; on a light one it stands on a soft shadow (INBOX 426 x).
+- The corner companion's face changes with what is happening and comes back: glad when you say hello (laughing on the third poke), put out when poked too often, excited at a saved note or an answer, surprised by a bell or an error, intent while an answer is written, heavy-lidded when you have been away and a wave when you come back, and now and then at rest a neighbouring look for a few seconds. Its faces are drawn ahead in idle time, so a reaction swaps a cached picture (under 1ms) (INBOX 426 x).
+- Atlas redrawn a third time, traced from the owner's chosen reference sheet with the proportions measured (head a third of the height, no neck, arms two thirds of a head long, eyes a third of the head wide) and the palette sampled from it (a blue body from a sky-blue-white core through periwinkle to a blue-violet shade, violet only at the ear and hair tips and in the nebula, navy for the eyes and the galaxy): a soft bean head on a pear body, all curves, two fluffy rounded ears with an inner ear of galaxy and a star at each tip, a soft fringe swept back over them (a mane of three flowing locks with a curl for the feminine look), large deep eyes with a lit iris and two catchlights, chubby tapered limbs grown from inside the body with round paws and feet, a constellation of linked star points traced inside the chest with a brighter star at the heart, three thin orbit rings with tiny planets about the head, and a tail from the lower back that flows out in an S, the body's blue running into navy galaxy with star dots, ending in a tuft of white starlight (longer for the feminine look). The accent tints only the glow. No filters; every glow is a gradient. The icon is the head, ears and eyes.
+- A companion of your own: Appearance's Corner companion has Your own character, with any name and the same part pickers as Your look (look, mood, hair, skin, clothes, headwear, eyewear, what it holds), each From its name until chosen (INBOX 426 e).
+- Atlas thinks with a hand at its chin, as the reference sheet draws it.
+- Settings, Appearance, Atlas look: masculine (a shorter swept crest with two spikes, straighter brows, broader shoulders) or feminine (a long flowing crest ending in a curl, lashes, arched brows, rounder blush and a star clip); both are the same Atlas. Face looks: Mixed (as before), Masculine or Feminine, for generated faces whose name says nothing either way; a name that does say keeps its own. Your own face can choose its look in Profile, Your look.
+- The companion can sit, stand, hang or lean on any panel, toolbar, tile or card on the page, not only the top and bottom bars, and lets go onto the nearest edge within reach. Pick it up by any part of it; its x is gone (Hide is in its menu, which opens at the pointer). It never jumps: it walks, hops or fades to a new place. It no longer startles as you move through the notebook (only for an error, and rarely), and it runs a few errands: it goes to the Reminders button with a bell when one is due, sits on the chat composer while a long answer is written, holds up a tiny note when you save one, and looks at new messages. Atlas is its own choice in Appearance, Corner companion, whatever persona the chat is using.
+- Atlas redrawn from the owner's reference sheets: a glossy gel spirit whose round head flows up into one swept crest, a slim soft body with tapered arms and stem legs, star dust and a violet nebula inside the body on a blue to violet gradient, a glowing four-point star in the chest, a short tail ending in a little constellation, and its two rings of stars. The small icon is the head and a short swept curl.
+- Atlas wears two rings of stars that float round its body at crossing tilts, passing behind it and in front: a faint glowing line with star dust drifting along it (slowly at rest, faster when it is pleased or busy) and a few star glints of different sizes twinkling, dimmer when it sleeps. Its tail is plain now, with one glint at the tip.
+- Atlas looks proud when you save a note and celebrates a capture streak of three days or more (once a day), alongside its other moods.
+- Settings, Appearance, Atlas style: the character (the default) or the classic glowing globe, Atlas's first face, with its own moods. Every Atlas follows the choice at once: chat marks, persona rows, the dashboard mark, the welcome, the large view and the corner companion, where the globe floats and wears headphones, reading glasses or a nightcap.
+- Atlas as the corner companion does the companion's reactions in its own style: glowing headphones with its tail's notes pulsing to the beat while the app plays sound, a crescent moon hung on its crest late at night, half-moon lenses of light while a long answer streams, a bell of light for a due reminder, one of its notes held up as a lantern, a snapped link between two notes when offline, and its orbit dimming and slowing as it drifts off to sleep.
+- Atlas is a character of its own now (atlas.js): a lean star spirit in the accent colour, drawn as one silhouette with one outline (arms, legs and tail grow out of the body rather than sitting on it), a small crest swept back from its crown, a tail, one tapering shape with three of the logo's notes set into it, and light inside its chest (a soft glow with three faint linked points, like light inside a gem) that brightens when it is pleased, dims when it sleeps and lights point by point while it thinks. Almond eyes with a glint. Fifteen expressions (calm, happy, delighted, laughing, thinking, curious, surprised, confused, sleepy, sad, proud, shy, determined, love, worried), each a mix of brows, lids, eyes, mouth, blush, tilt, body squash, crest, tail and star, eased from one to the next, on a glossy body lit from the top left. It breathes, blinks (sometimes twice), sways, and its tail sways and wags when it is pleased; as the companion the tail rests along a ledge when it sits, hangs when it hangs and curls up when it sleeps. Full body from 96px, head and crest for marks, a simplified head under 28px. Its colours follow the accent and the theme.
+- Faces are drawn once and moved on the compositor: each face is cut into its moving parts and kept as cached pictures, so the companion no longer lays out the page as it moves (106 layouts a minute before, 7 after; at rest it measures the same as no companion). The companion can be picked up at any moment, even mid-walk, peeking or asleep; let go, it drops onto the surface under it, lands with a squash, looks around once and stays put. It does something every 20 to 60 seconds rather than every few, and its shy peek no longer flashes: it sinks to its eyes, never out of sight, and comes out for a pointer that stays. Faces outside a control can be reached with Tab and opened with Enter; dark hair, hats and suits have a lighter outline so they hold on a dark page. The companion is easier to find: a row in Everything this app does, a line in Help, a card in the Settings tour, and a one-time offer to turn it on.
+
+### Changed
+- The README has Atlas at its title and 25 screenshots, retaken on this release in the default look and expanded: Atlas in both looks and ten of its poses, the corner companion, a companion of your own, Your look, Documents in focus mode with its suggestions, Library Activity, the dark theme, a phone and the avatar lab. docs/ARCHITECTURE.md says how the frontend's 46 scripts load and share one scope, and docs/DESIGN.md has the recipes for accent-coloured words, the app's mark, Atlas and the companion.
+- The app's own code, one 50,000-line app.js, is now 23 files loaded in its old order (app.js, note-cards.js to spaces-find.js), each under 51 KB gzipped against 740 KB for the one file. Nothing a person sees changes; a warm reload measured about 30 ms slower and a cold load the same, for 22 more requests and 3.6% more bytes on the wire.
+
+### Fixed
+- On a touch screen the toast's close button is a 44px target like every other icon button (it was 20px), and screen readers no longer hear the chat's Export and Delete twice.
+- The corner companion's walk, kick and dangle move Atlas's feminine look too: its ribbon lower body sways from the hips where the masculine look moves its legs (it had no legs, so those moved nothing).
+- Settings, Appearance, Atlas look has Auto (follows Face looks), the default: the select used to read Masculine while nothing was stored and Atlas followed Face looks anyway. A Face looks change redraws an Atlas on Auto at once.
+- Documents: the writing suggestions no longer ask for title case in headings. The grammar checker's rule wanted every heading in title case, the opposite of the sentence case the app writes in, and it was most of the suggestions on a document written that way (four of six on the README's draft).
+- Documents: the expanded formatting toolbar's own buttons no longer take a row to themselves; when they would, layout and collapse are left to the document's ⋯ menu and line numbers moves to the end of the first row.
+- The graph's empty state shows the app's turning logo, as the chat's does, instead of a generic network icon.
+- Links and accent-coloured words use a text-safe shade of the accent in every palette and mode, so a bright accent (rose on paper, a picked yellow) no longer turns them unreadable; fills keep the accent itself.
+- On a phone, the Notes capture toolbar wraps instead of cutting off Bulleted list, Task, Link and Preview when the Library has not been opened yet. On a tablet-width window a toast sits in the lower corner instead of over the Notes sub-tabs (Chat keeps it at the top, clear of the composer). The light theme's warning and danger text is one step darker, so "Changes notes", "Forget everything learned" and the suggestions count pass contrast on grey rows.
+- The guided tour follows the control it points at while the page settles or content loads above it, instead of keeping the place it measured first; the companion card no longer needs Next then Back to move off its control, and the companion step is shown even when its settings group is folded (the tour opens it, and folds it again at the end). With no mind map yet, the mind maps section says so on its one card. Atlas in the guide's head is a round avatar the height of its title, centred beside it, instead of a figure hanging below the head.
+- Documents, focus mode: "Fill the whole screen" fills it in the desktop window (it asks the window itself; the page's own full screen only filled the page). In a narrow suggestions panel the header's buttons are one row of icons with their names on hover, beside the count. On a touch screen the formatting toolbar's own buttons (More, line numbers, collapse) are full 44px squares.
+- Library, Activity: one line per record in both views (when, what, the detail), where the grid had squeezed the detail to a column of single letters; a settings change reads in words ("Mute notifications except reminders: off") and keeps its underscores. The Bin's selection tick keeps a gap from the card's menu and no longer sits on the date in Rows.
+- Settings and every tab: after picking a Settings section or a tab with the mouse, the arrow keys, Page Down, Space, Home and End scroll the page you opened. In Settings they used to jump to the next section and back to its top; on a tab, Home and End switched tabs.
+- Settings: a setting's field sits at the right end of its row, as in Appearance, and Profile no longer ends with an empty card.
+- Settings scrolls smoothly with glass on: it no longer blurs the page behind it, which was redrawn on every scrolled frame (about 100ms a frame in a software-drawn window, 17ms now).
+- Settings, Skills, Templates and Personas: each row is its name and one line of what it does, 66px instead of 78px; the graph's node sheet on a phone meets the 44px tap size; on a phone a board's selection bar moves to the foot of the canvas when the top would cover what you selected.
+- Documents: the formatting toolbar refits when its tools change, not only when its width does; on a narrow toolbar the layout toggle goes behind More first; in focus mode the suggestions panel keeps the width you dragged it to.
+- Documents: the writing suggestions panel fits the width it is given. Its header wraps instead of running off a narrow right-hand panel (Dictionary and the close were cut off and the panel scrolled sideways), and a finding cut short shows its whole text on hover. In focus mode a Suggestions button on the floating bar opens the panel as a side panel, and the page makes room for it.
+- Documents: every formatting tool can be reached at every width. The one-row toolbar no longer scrolls sideways with its own buttons pinned over Insert; what does not fit folds behind a More button that opens the rest in place, and a phone gets the same instead of a hidden scroller. Focus mode gains a Tools button that brings back the document's dock and formatting toolbar without leaving it.
+- The app's logo turns again everywhere it is drawn (lock screen, dashboard, top bar, chat, About, the welcome, the getting-started card and the chat's own replies), including with the system's reduced-motion setting on, which had stopped every one of them; the new chat's welcome keeps its logo on a short window instead of dropping it.
+- Settings: every folded group head is the same height (the ones with a '?' stood 11px taller), and on touch screens they, and the icon buttons in dialogs, meet the 44px tap size.
+
+- Notes: the Favourite, Copy and more-actions buttons on every note card could not be pressed, with a mouse or a finger (the corner that holds them let every press through to the card); they work again. On a phone the notifications panel sat 34px off the left of the window and now fits it, and a dialog's buttons and a menu's rows meet the 44px touch floor (they were 36px).
+- Settings: Keyboard shortcuts, Extras and Skills fold the same way as Appearance (the first group open, the rest remembered): Keyboard shortcuts 2,621 to 1,752px, Extras 2,536 to 2,044px, Skills 2,615 to 2,118px, with the skill form opening itself when a skill is edited. Three package descriptions lost text meant for developers: a raw command line, and a note that read "asked for directly".
+- Settings, Appearance: its eight groups fold (the Themes group open, each group's open state remembered in this browser), and the companion, Atlas style and look, face looks and dashboard mark rows have their own "Atlas and faces" group, one click from the top. The pane is 1,298px tall with the rest folded, was 4,022; a closed group is one 51px row, and a "?" in a closed head opens its group.
+- Chat: with no model running, "No model connected" was said by the header badge and again by the composer notice under it; the notice (what still works, and the button that connects one) is the one statement now, and the badge returns with the model. The "Ask Atlas: ..." offer in empty states and help popovers is a suggestion chip like the chat starters, not an underlined link (28px tall, ink on a hairline pill, the compass in front).
+- Generated faces have more character and a presentation you choose: Settings, Appearance, Face looks is Masculine, Feminine or Neutral (the default), and Profile, Your look adds Neutral; it is never read from a name, or from a word in one. It picks the hair set (masculine adds an undercut, spikes, a mohawk, slicked back and a buzz with a line; feminine adds long curls and a messy fringe), the brows (heavy and straight, fine and arched, or between, in the hair colour), the jaw and cheeks, lashes, and facial hair (stubble, a short beard, a moustache: masculine only). Every face also gets two traits from its name: a beanie, cap, headphones or hood; round glasses or shades; freckles, a scar through one brow, an earring or a nose plaster; a smirk or a raised brow; a name whose words already dress it gets one small one at most.
+- Generated people look like a designed set: a natural skin tone (seven, porcelain to deep) with a hair colour from a natural palette chosen to read against it, and thirteen hand-drawn hairstyles (textured crop, side-swept fringe, soft quiff, curtains, tousled, short curls, wavy to the chin, long and straight, long waves, bob, bun, ponytail, locs), each with volume past the head, a parting or a fringe that goes one way, a hairline that frames the forehead, a back layer, a cast shadow under the fringe, a highlight sweep and a few strands of texture. Profile, Your look gains Hair colour and Skin; hairstyles saved under the old names still work. Creatures keep their soft gel coats.
+- Generated faces are drawn more cleanly: the body, hair and clothes come from one of twelve colour pairs chosen to sit together (each checked at 3:1 on the light and dark page), instead of three colours rolled apart; the default eyes are big dark irises with two catchlights, the crown of the head has a soft sheen, hungry faces lick their lip rather than stick their tongue out, the buns are one bun on the crown (two read as bear ears), and short hair and the quiff sweep to one side rather than sitting like a helmet. Sushi is a thing to hold or to wear in the hair. At 28px and under a face keeps one cue that breaks its outline (a creature loses its hat), drops the specks and draws a thicker line; a "zz" or a question mark moves beside the head when a hat is on it; the headband sits clear of the brows.
+- Generated faces read a name more carefully: a plain first name (Brayden, Sarah) is a clean, friendly default with one hairstyle and no costume, animal or held thing, and its look follows Profile, Your look or Settings, Appearance, Face looks rather than a guess; a handle drives at most two things to wear or hold, chosen by salience (Sushicraft563 holds a pickaxe with sushi in its hair, SushiLord wears a crown and holds sushi), one per head, face, hand and body; numbers only change the variety; "cooked" no longer puts on a chef's hat and "Janice", "Clover" and "Angela" are plain names again; at most one flavour (a wink, a sweat drop) is drawn, and only where it does not fight the mood.
+- Settings, About no longer receives the full path of the notebook's folder from the server: a folder in your home folder is shown as ~/..., anything else by its name, so the page gives away nothing about the server's disk.
+- The app no longer follows a model server's redirect to a different address: a request to your configured model stays on that address, and a redirect elsewhere is reported instead of followed. A redirect within the same server still works.
+- Internal: the check that every module reaching the network is reviewed now sees downloads made without the requests library too (the optional extras and embedding models), and both are recorded as fetching only addresses the app ships.
+- Import from path reads only folders inside your home folder or the notebook's data folder, and skips any file in the folder that links somewhere outside it. A folder elsewhere can still be imported with Import folder, which uploads the files you choose.
+- Wrong passwords from one device no longer lock the owner out: each address earns its own wait after five wrong tries, and a much larger limit across every address together still slows a guesser who keeps changing address.
+- Pictures and files no longer carry your session key in their address. Unlocking sets a cookie that only picture and file requests can use and no script can read, so the key stays out of browser history, the server's log and any note an image address is pasted into. The Library's Download on a file saves through the app's own save path, which also works in the desktop window.
+- Link suggestions and tensions open faster on a large notebook: the comparison of every pair of notes is kept until a note's meaning changes, instead of being redone on every request (5,000 notes: 322 ms to 104 ms for a repeat request; 2,000 notes: 114 ms to 28 ms).
+- Ask and chat find related notes faster on a large notebook: the semantic half of retrieval scores against the vectors already held in memory instead of reading every stored vector from the database for each question (5,000 notes: 19 to 74 ms before, about 1 ms after; 400 notes: 1.6 ms to 0.2 ms). A note edited, deleted or re-indexed a moment ago is scored on what is stored now.
+- A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.
+- Documents: the AI assistant's head is one row (the title and its help on the left, History and Close as quiet icon buttons on the right), and Edit / Write / Remove is a full-width control of three equal segments: the unchosen verbs are in the normal ink rather than the grey that read as disabled, and the chosen one is bold with an accent ring and icon.
+- Documents, tables in Live view: the arrow keys keep the column from row to row, Enter goes to the cell below (adding a row at the end, in the same column), and the arrows leave a table at the start or end of the document, making the blank line markdown needs. Rows pasted from a spreadsheet fill the cells from the caret, adding rows and columns as needed, in one undo step; pasted outside a table they become a new table. The table's menu (rows, columns, alignment, delete) now sits on the row you are editing instead of on the header.
+- Documents: the editor's top bar is one row where the window allows it (breadcrumb and title on the left; save state, Edit/Read, AI edit, focus and the menu on the right), and wraps its actions whole onto a second row only when the pane is too narrow. The "Documents" breadcrumb reads as a place rather than a button, and a long title in the outline breadcrumbs ends in an ellipsis instead of being cut at both ends. At 1440x900 and 1366x768 the first line of text moves up 49px (228px to 179px).
+- Documents: focus mode is on the dock (the corners button beside the menu) and on F11. It gives the page the whole window: the top bar, tabs, sidebar, dock, formatting strip, breadcrumbs and status bar all go, the text stays at its reading width in the middle, and a small floating bar keeps the title, the word count, the save state, full screen (where the browser allows it) and Exit. The bar fades while you write and comes back when you move the pointer; Escape or F11 leaves; a reload in the same session keeps it. Works in Live, Source, Split and Read. At 1440x900 the first line moves from 228px to 71px down and the writing area from 520px to 830px tall.
+- Internal: `scratchpad/ui-sweeps/facesheet.js` draws the generated characters' sheet (the full figure at 104px, the head at 104px and 28px, light or dark, with each name's reading), for judging a change to the faces by eye before and after.
+- Internal: `scratchpad/ui-sweeps/docroom.js` measures the documents editor's room: every band of chrome above the first line, and the writing column's share of the window, at 1440x900 and 1366x768 (228px of chrome above the first line; the column 520px tall, 58% of 900).
+- Every generated face is now a small designed character in one silhouette (a head that flows into its body, stubby limbs, one outline, one gradient, a contact shadow), with the name's reading drawn onto it: its colour, a species' ears, muzzle, beak, tail, wings or tentacles, hair and clothes for people, hats, eyewear and the thing in its hand. Lists, chat bubbles and pickers show its head; the large view and the companion show all of it.
+- The corner companion is alive and finds its own place on each page: it hangs from the top bar or a panel's underside, sits on a panel's top edge with its legs dangling (tucked where they would cover something), stands at the bottom bar, and never covers a control. Drop it on a panel and that page keeps it there (other pages keep choosing); carried, it swings with wide eyes, and let go over open space it falls to the edge below. It looks around, turns, blinks, stretches, yawns, naps, hops, waves, scratches its head, kicks its legs, swings, hangs like a sloth, by one hand or by its feet, and peeks shyly from behind a panel, ducking when the pointer comes near. It reacts to you: drowsy after three idle minutes and asleep after eight, waking with a stretch; it watches and nods along while you type, thinks and puts on reading glasses during a long answer, cheers a new note, jumps at an error, holds up a bell when a reminder is due, wears headphones while the app plays sound, a nightcap late at night, lights a lantern when the theme turns dark, and holds its unplugged cable offline. Reduce motion and Avatar animation Off keep it still.
+- Settings, Profile, Your look says how Shuffle works: it keeps what your name says (words for a mood or a costume) and any part you chose, and redraws the rest (colours, hair, clothes, smile and personality).
+- Profile & preferences saves itself, like every other Settings section (no Save button; a shuffle or a pick is kept at once). The dashboard greeting's persona shows its face beside the picker. The corner companion has its own menu on right-click or a long press: say hello, enlarge, back to its corner, keep it in any of the four corners, hide. Pointer-follow is stronger (eyes and head turn further, with a slight lean).
+- Your own face, your way: Settings, Profile, Your look has Shuffle (another take on your name, as many times as you like), Back to my name's own, and pickers for mood, hair, clothes, headwear, eyewear and what you are holding; saved with the profile and applied everywhere your face appears.
+- Atlas greets a new person on the welcome's first card, pleased and animated, with a line in its own voice; the later cards keep the logo. Faces are now animated by default (Settings, Appearance, Avatar animation: Always), and only the faces on screen move.
+- Atlas has a face of its own, and moods: a small globe in the accent colour glowing in a night sky with sparkles, big glossy eyes and a small smile, with the logo's ring of linked notes orbiting the head and a north star above. It thinks (eyes up, a thought bubble) while a chat turn runs, beams when it lands, looks surprised when it fails, and dozes after ten idle minutes or in the small hours; every Atlas on screen changes together. It is Atlas in the persona list, the picker, the large view and the companion; the live logo stays in the status bar, the chat's reply label and everywhere else it was.
+- Faces you can meet: click one for a hop and a line in its own voice, and a face outside a control opens large with what it was read as. New Appearance settings: Faces follow the pointer (eyes and heads turn a little towards the mouse, only faces on screen, one update a frame), Corner companion (you or the chat persona, draggable, remembered, hidden by its own x; off by default) and Dashboard mark (the logo, your face, or the greeting persona; the logo stays everywhere else).
+- Chat: each reply shows the face and name of the persona that wrote it, kept with the saved turn, so switching persona mid-conversation relabels nothing already on the page and a reopened chat shows who answered each message. The default assistant keeps the app's emblem; replies saved before this read as the default. Copying the transcript names each reply by its writer too.
+- Internal: the generated faces moved out of app.js into avatars.js, loaded straight after it, which brings the gzipped app.js back under its size bound (762,903 to 736,191 bytes).
+- Generated avatars read the name they are drawn for. Mood words ("depressed", "overly dramatic", even "exitable"), animals ("panda"), costumes ("wizard" is a hat, "academic" is glasses), typing ("ALL CAPS", "...", ":)", emoji, 666), internet words ("lol", "meh", "uwu") and stacked flavours ("wink", "ahhhh", "cooked") each change the face; a name that makes no sense becomes a small mutant whose eyes, stalks, spots and fangs come from its letters (the helixlabs idea); any other name gets a stable personality of its own. Villains get an evil grin ("muahaha", "evil overlord", 😈), and there are dead, sick, starstruck, cute and tipsy faces, vampire fangs, a clown nose, cowboy and party hats, a ninja mask and a space helmet (one hat per head). Hands too: a thumbs up, a peace sign, a wave, the middle finger (only when the name asks for it), and things held (a beer, a glass of wine, a hot drink, a sword, a magnifying glass, a microphone, a book, a phone, a flower, pizza, a donut, a balloon), a full table flip for "(╯°□°)╯︵ ┻━┻", money eyes for "stonks", and every name its own smile (toothy, lopsided, a big D, buck teeth, a gap) and small features (freckles, a beauty mark, lashes, a nose). Not everyone has hands: angels, birds and dragons get feathered or bat wings, fairies and bees see-through ones, krakens and octopuses tentacles, walkers and penguins feet, and a mutant rolls its own or none; they flap, sway and step when animated. The zoo grew to forty (frog, bear, bird, duck, hamster, sheep, cow, deer, unicorn, dragon, dino, shark, snake, axolotl, crab, raccoon, hedgehog, sloth, capybara, bee and more), wings come in seven kinds (angel, bird, dragon, bat, fairy, bee, butterfly), eyewear in eight (round, square, monocle, goggles, 3D, star and heart shades, a cyber visor), and there are pirate tricorns, karate headbands, tiaras, caps, beanies, flower crowns, bandanas and beards. Faces have hair (long, bob, pigtails, buns, ponytail, curly, short, spiky, quiff, buzz) and small touches (bows, earrings, lipstick, a flower clip, stubble); a name that says "girl", "queen" or "sis" draws from the feminine styles, one that says "bro", "king" or "dad" from the masculine, and a first name is never taken as either. In Always mode only the faces on screen move. Tools too: a controller for gamers ("gaming", "xbox", 🎮), a diamond pickaxe for crafters and miners, an axe, a hammer, a toy blaster, a bow and arrow, a wand, a fishing rod, a paintbrush, a spear and a trident. Mythical creatures (mermaid, elf, goblin, troll, gnome, genie, mummy, zombie, minotaur, Medusa, cyclops, phoenix, yeti), and everyday people in everyday clothes: shoulders under the face in a T-shirt, hoodie, shirt and tie, blazer, jumper or scoop neck with a necklace; "office" and "CEO" wear a suit, "street" a hoodie, "prom" a dress. Hover a face for what it was read as. New Appearance setting: Avatar animation (on hover, always, off) makes them blink and act out their mood; Reduce motion stops it.
+- Notes and documents: the "/" menu is a block inserter. Grouped (Recent, Basic, Structure, Callouts, Media, Embeds, Advanced, AI, Templates), each row an icon tile, a name, one line of what it does and the markdown it writes; a preview of the block beside the list on wider windows; letters-in-order search; Tab and Shift+Tab jump between groups; the blocks you used last come first. New blocks: headings 1 to 3, quote with attribution, toggle, two and three columns, table of contents, section break and strong divider, every callout kind, maths block, link card, date and time; a code block asks for its language next.
+- Notes and documents: blocks render as blocks everywhere. Callouts come in Obsidian's thirteen kinds plus a toggle, each with its own icon and colour in light and dark; columns sit side by side in notes and chat answers too; `[TOC]` lists the headings as links; `***` and `___` draw a section break and a strong rule; a quote ending `-- Name` shows its attribution; `$$ ... $$` is typeset in Read view and notes; an embedded document is a card. The HTML export styles all of them.
+- Documents: a rendered block has a small bar while you point at it: change a callout's kind or folding, jump to the block in the editor, copy its markdown, or delete it (with Undo). In Live view the callout's icon changes its kind.
+- Generated avatars read the name they are drawn for. Mood words ("depressed", "overly dramatic", even "exitable"), animals ("panda"), costumes ("wizard" is a hat, "academic" is glasses), typing ("ALL CAPS", "...", ":)", emoji, 666), internet words ("lol", "meh", "uwu") and stacked flavours ("wink", "ahhhh", "cooked") each change the face; a name that makes no sense becomes a small mutant whose eyes, stalks, spots and fangs come from its letters (the helixlabs idea); any other name gets a stable personality of its own. Hover a face for what it was read as. New Appearance setting: Avatar animation (on hover, always, off) makes them blink and act out their mood; Reduce motion stops it.
+- One running copy per notebook. Launching the desktop app while it is
+  already open now brings the open window forward instead of starting a
+  second server on the same data folder, which used to run the migrations
+  and background work against the SQLite file the first copy had open before
+  failing to bind the port. A running server writes `instance.lock` (port,
+  pid, a token) into the data folder; a launch checks it against `/health`
+  and asks the running copy to focus its window (`POST /instance/focus`,
+  guarded by that token). A lock whose port is silent and whose process is
+  gone, or past a 90 second boot grace, is stale and is taken over. Settings,
+  About, Advanced has "Open a new window on each launch", off by default: on,
+  a second launch opens another window onto the same running server, never a
+  second server. The rules are pure functions tested in
+  `tests/test_instance_lock.py` (24 tests, launcher driven with a fake
+  pywebview); not verified against a real pywebview window, Windows'
+  foreground rules or two windows sharing one WebView2 profile.
+- Settings, Preferences is now Profile & preferences, your own local
+  profile, and sits second in the settings list, right after Models. It opens
+  on a head with your mark (the same generated face your chat bubbles wear,
+  drawn from your name), and the name and About me come first; About me stops
+  at the 600 characters Atlas reads, with a count. The Settings head carries
+  your mark too, and pressing it opens the profile from any pane. Renaming
+  yourself repaints every mark at once, including the bubbles already in the
+  chat (`paintUserMarks`, DESIGN.md's new "A mark generated from a name"
+  recipe, with its lint in `tests/test_ui_recipes.py`). Measured by
+  `scratchpad/ui-sweeps/profile.js` at 1440 and 390, light and dark: no
+  overflow with a 52-character name, the head button the guide button's
+  height. The help chat's background librarian answer now points at
+  Background tasks, where that switch has lived for a while.
+- Atlas now knows your name as well as your "About me", while the profile
+  switch is on. Both reach the prompt through one function,
+  `librarian.profile_from_config`, and the about text is capped at its first
+  600 characters there: the API still accepts 2,000 so an older, longer
+  profile keeps saving, but the system message it lands in is resent on every
+  round of every turn. The whole profile context is held to a quarter of the
+  prose budget by `tests/test_user_profile_context.py`.
+- Internal: the popup agent (Ctrl+K) moved out of app.js into its own palette.js, loaded at boot after timeline.js, which brings the gzipped app.js back under its size bound (752,031 to 730,546 bytes).
+- Library: a file row's facts line is one register. The kind, size, date, reading state, reader link and "Used in" share one size and one line box (they sat on four sizes and three tops), split by the same middot, and "Read this" is an accent link rather than a boxed button.
+- Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
+- Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
+- Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.
+- Documents: Check with AI works in place. Its findings arrive in the suggestions panel as the model writes them (the exact words, why, and a fix), underlined in the text, each with Apply and Dismiss, and the button is Stop while it runs. With no model connected the panel says so, with a button to Settings, Models. Discuss in chat opens the chat with the document attached and nothing typed for you.
+- Documents: autofill in markdown and text documents. Type `lorem` and press Enter (or Tab) for a paragraph of filler text, `lorem20` for twenty words, `table 3x4` for a three by four table; on a line of their own, `today`, `date`, `now`, `time`, `todo`, `callout`, `hr`, `toc` (the headings as links) and `sig` (your name from Settings). `:` and two letters offer emoji by name. The list shows what each writes, and its first line appears after the caret before you take it. `**`, `_`, backticks and brackets close themselves, and Enter on an empty list item ends the list (it used to add a blank line). Settings, Preferences has Smart quotes and dashes, off by default.
+- Settings, Packages: Run Python files (Pyodide). Run on a .py document runs it in the same sandbox as JavaScript, with no network and none of your notes: print output and errors in the Output panel with a link to each line, Stop, the ten-second stop (counted from when the script starts, not while the runtime loads) and the 500-line cap. Before it is installed, Run says so and its Install Python button opens the Settings row. The standard library only; about 7 MB, downloaded once and offline from then on.
+- Settings, Packages: Tool calling without Ollama (needle). With no model server running, a request that needs a tool (make a note, set a reminder, search) is still carried out by needle, a 121M-parameter tool-calling model run inside MemoryMap; it writes no replies, so the answer is what the tools said. Telemetry is switched off (NEEDLE_TELEMETRY=0 and DO_NOT_TRACK=1 are set before the engine loads). Apache-2.0, about 36 MB, and offered only where a prebuilt engine exists (Linux, macOS and Windows on x86-64 and ARM64).
+- Packages can now be pinned downloads as well as pip packages: a fixed URL and sha256 per file, checked before anything is kept, unpacked into the data folder, no restart. MEMORYMAP_EXTRAS_MIRROR installs the same files from a local folder for a computer with no internet.
+- Uninstalling on Windows asks whether to delete the downloaded optional
+  packages too (notes are always kept).
+- ArrowUp and ArrowDown in an empty chat box step through the messages you
+  sent; Ctrl+Y redoes, as the board's buttons already said.
+- Chat, Web panel: redesigned as a reading pane. The head is the title, a dot for the search engine's state (its words on hover) and a menu to start or stop SearXNG, open Web search settings or clear recent searches; one search field with the icon inside, Enter to search and Stop only while a search or a page is loading; results as a list with the site's letter, arrow keys and Enter, a right-click menu, Copy link and Cite in chat; recent searches as rows. The reader has a Results link, Find in this page (Ctrl+F counts the page, not the tab), Copy link and Open in your browser beside it, one row of Ask about this, Cite in chat, Save as note and Bookmark, and the page as prose with no box round it and one scrollbar. Cite in chat attaches the page to your next message as a chip. The panel opens at its default width rather than its minimum, and cannot be dragged so wide that the conversation is squeezed.
+- Chat: your own messages carry a small mark generated from your profile name (or "You"), on the bubble's corner, so nothing in the bubble moves; the persona picker shows the chosen persona's mark beside it.
+- Persona marks are faces now: a head in one of the category colours over a ground in another, with eyes and a mouth, all drawn from the name. The closest two of 23 differ in 29.8% of their pixels (the old marks: 5.6%).
+- Documents, New from a template: a click chooses a template and shows its page; Use this template (or Enter, or a double click) makes it. The arrow keys move the choice and the first row is chosen when the dialog opens.
+- Settings, Templates: every template can be edited, the built-in ones included. An edited built-in keeps its name, says Edited, and Reset brings the original back; the Capture dropdown offers the edited text.
+- The Guide (Atlas) can answer "what are all the keys and hidden features of" each surface: a controls reference for the whiteboard, the mind map, the document editor, the code editor, the graph, chat, notes, the Library, the Timeline, Reminders and the Dashboard, plus a hidden features entry (the command palette, Find anything, the m chord's every letter, keyboard menus, select mode, the notes filter's operators). Written from each surface's own key tables, and a test fails when a key bound in the app is missing from the guide. A question that names a surface and asks about its keys or controls gets that surface's reference; "what does F12 do" finds the entry that documents F12.
+- Graph: Similarity draws each note's two closest matches rather than every pair (200 lines to 58 and 1,701 crossings to 39 on a 42-note notebook), darker and wider for a closer match, dashed and beneath the links, with a Strength slider to keep only the closest, a legend key and the scores on the note you point at. Length by similarity now works on the default renderer. Labels no longer sit on another note's dot. The options panel has Reset to defaults, with Undo.
+- A note's menu has Translate: it opens the note in Write with Atlas, set to
+  translate into the last language you picked.
+- Documents: F12 goes to where the name at the caret is defined in a code file, Shift+F12 lists every use of it (not the ones in strings or comments), and Ctrl+Shift+F opens Find anything on documents with the selection or the word.
+- Documents: Run (Ctrl+Shift+Enter) for a .js or .html file: the script runs in a sandbox with no network and none of the notebook's storage, its console and its errors come back in an Output panel under the editor with a link to each line, an HTML file's page shows above them, and Stop (or ten seconds of a script that never finishes) ends it. TypeScript and Python say what they would need.
+- Documents: snippets for Java, C#, C, C++, Go, Rust, Kotlin, Swift, Ruby, PHP, R, SQL and shell (main, sout, prop, fori, iferr, match, sel and more), and a few more for JavaScript, TypeScript and Python, offered in the completion list and written in the file's own indent.
+- Documents: sticky scroll in JavaScript, TypeScript, Python and CSS files: scrolled into a function, class or rule, its first line (and its parents') stays pinned at the top of the pane, and a click on it goes there.
+- Documents: Alt+Z wraps a code file's long lines (and unwraps them), and the document menu's Editor and layout group has Wrap long lines and Show whitespace for any file that is not prose; both are remembered.
+- Documents: a code file's outline and breadcrumb list its functions, classes and methods (a CSS file's rules), and the palette's Go to a symbol lists them at the caret. Fixed: a Python or shell file's outline showed every `#` comment as a heading.
+- Documents: code files draw quiet indentation guides at each indent step and colour bracket pairs by depth, as VS Code does; brackets inside strings and comments are left alone.
+- Documents: hovering a CSS property, an HTML element or an HTML attribute in a code file shows one line on what it is for, and a property's values.
+- Documents: a colour in a CSS file (or an HTML file's style block) has a small swatch beside it, and a click on it opens the colour picker; the picked colour is written back as hex or rgb(), whichever it was.
+- Documents: renaming a tag in an HTML, XML or JSX file renames its matching tag as you type (one undo takes both back), and XML files close a tag on `>` and finish `</` as HTML and JSX already did.
+- Documents: Emmet in JSX (inside a .js file's JSX, writing `className`) and XML as well as HTML and CSS, and Emmet's own editing commands in the palette for code files: wrap the selection with an abbreviation, and balance outward or inward to select the enclosing tag.
+- Documents: Ctrl+/ in a code file comments by the language at the caret, as VS Code does (`//` inside an HTML file's script, `/* */` in its style, `{/* */}` for a JSX child), and Shift+Alt+A block-comments the selection. Fixed: Ctrl+/ on a line of prose replaced the line with a lone "/", and a .sql document could not be opened at all.
+- Documents: code files complete as you type, as VS Code does. In HTML, `!` then Enter writes the HTML5 page and Emmet abbreviations (`div.card>ul>li*3`, `a[href]`, `p{text}`) expand from the list or with Tab; in CSS, a property is followed by its own values (`display: ` offers `flex` and `grid`, `color: ` the colours) and `m10` or `df` expand; the chosen suggestion's rest shows after the caret in muted ink and Tab takes it.
+- Translation in Write with Atlas: a Translate chip and a "Translate into"
+  group of 19 languages in the kind menu. The local model translates
+  meaning, keeps every fact, name, number and the markdown, and leaves code
+  and links alone; the chip remembers the last language picked.
+- Personas each get a mark generated from their name (the same name always
+  draws the same mark, nothing stored), so a list of them is told apart at
+  a glance; Atlas keeps the app's own emblem.
+- Grammar checking in documents and note boxes, on this computer: Harper
+  (Apache-2.0, vendored) underlines agreement, "a" or "an", its or it's and
+  the like with a double line, files them under Grammar in the suggestions
+  panel and offers its fixes in the word's own menu. It loads on the first
+  prose document or note box (nothing at boot; 1.75 s cold, about 100 ms per
+  check of 1,400 words, all in a worker) and the dictionary dialog turns it
+  off (INBOX 401).
+- Suggest changes, in a document's ⋯ menu: what you type is underlined on
+  green and what you delete is struck through instead of disappearing, each
+  one accepted or rejected from its own menu, or all at once; the status bar
+  says the mode is on and counts the changes. The marks are CriticMarkup in
+  the text (`{++added++}`, `{--removed--}`), so they save, sync, show in
+  history and survive a .md download like any other words (INBOX 404).
+- Read aloud, in a document's ⋯ menu: reads from the caret, or just the
+  selection, in this computer's own voice, one sentence at a time with that
+  sentence highlighted; Stop on the status bar or Esc. Markdown is read as
+  words, fenced code and suggested deletions are skipped (INBOX 404).
+- An accessibility check in the suggestions panel: a skipped heading level
+  (with the right level offered as the fix), an image with no description,
+  and link text that says nothing on its own ("click here", a bare web
+  address), each underlined with a dashed line (INBOX 404).
+- Word round trip: a .docx export now carries tables, links (web and mail
+  addresses only), nested and task lists, code blocks and strikethrough, and
+  suggested changes as Word's own tracked changes; opening a .docx reads all
+  of those back, including a reviewer's tracked changes as suggestions to
+  accept or reject (INBOX 404).
+- The guided tour walks through every main feature, one section after
+  another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
+  Reminders, Settings and the status bar each open the feature and point at
+  three to five of its controls. The last card of a section offers the next
+  one by name ("Next: Chat") or Finish, and the count is per section. Nothing
+  is created on the way: with no mind map yet, the tour points at New mind
+  map and says what it makes (INBOX 398).
+- Library cards: the select tick no longer sits on top of the card's menu
+  button, so pressing the menu opens it instead of ticking the card.
+- A file's menu in the Library offers Ask Atlas about this, like every other
+  object's menu; the reminder menu's entry uses the same icon as the rest.
+- Files: a file's menu in the Library offers Ask Atlas about this, the last kind of object without it; the reminder row's version wears the same chat icon as every other.
+- Chat: with no model connected, the Chat tab says so above the composer, names Notes, Ask as the place that answers without one, and carries the Connect a model button, as Ask, the popup agent and the writing desk already did. Before, the box was grey and only a tooltip said why.
+- Dashboard: Ask AI and the empty notebook's Ask your notebook go to Notes, Ask when no model is running (it answers from your notes without one) and to Chat when one is, with the caret in the box. Before, both opened a disabled Chat box with the caret nowhere.
+- Library: a new notebook's first screen says what to make and offers Create beside the sentence, instead of "Nothing of this kind yet" (the activity log was being counted as things you had made); a kind with nothing in it names itself ("No meetings yet"). The Create picker now offers a board and a file upload too, seven rows in all.
+- The Atlas guide panel is redesigned as one surface: the chat sits straight on the card instead of in a tinted box inside it, the head is one row (35px, was 63) with its subtitle on one line and three quiet, equal controls, the empty panel greets you like the Chat tab does (a title, one line, and the three questions as centred chips), and an answer's first line no longer sits 25px below the top of its bubble. The Settings, Help row's questions wear the same chip.
+- Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
+- Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
+- Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
+- The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
+- Ctrl+D opens today's note from any tab, or starts it in the composer with
+  the day as its title when the day has none (a document titled with the day
+  counts too). It is in the shortcuts list and can be rebound. On an open
+  board Ctrl+D still duplicates the selection, and inside the documents editor
+  it still selects the next match.
+- Settings, Models says what the built-in search engine costs in memory
+  (about 650 MB while the app is open, measured) and that choosing Ollama for
+- A dropdown's list opens under its own box, left edges aligned, and only hangs from the right edge when it would otherwise run past its container (the Corner companion list opened out to the left over the Settings nav).
+  embeddings keeps MemoryMap itself near 100 MB. Measured with the imports at
+  startup, which were already lazy: nothing heavier than FastAPI, SQLAlchemy
+  and alembic loads before the embedding model does.
+- Dragging a note that is part of a lasso selection on the graph carries the
+- Library: coming back to the tab no longer rebuilds every card when nothing has changed (0 DOM changes over three revisits, from 189).
+- Library images and files: the search box rebuilds the grid once when typing pauses instead of on every keystroke.
+  whole selection with it, at the same offsets. Before, only the note in hand
+  moved and the rest of the selection stayed put. The usual rules hold for
+- Settings rows keep their control at the end of the row and wrap the description instead (Corner companion put its select on a line of its own).
+- Dashboard: the Full view is back to how it was (the owner: it looked too close to Compact, and the Jump to buttons wrapped inside the toolbar row).
+  every note carried: a plain drag places, Shift pins, and a pinned note stays
+  pinned where it lands.
+- Quit from the desktop window closes the window at once; the background cleanup (up to 5s for a scheduler mid-write) now finishes behind it rather than in front of a window that looks frozen.
+- Settings, What it learned can delete or reset several rows at once: tick
+  them and the selection bar offers Delete, and Reset when a ticked row was
+  edited by you. One request changes them all or none, and each deletion is
+  still remembered so the next run does not derive it again.
+- A Recent activity widget for the dashboard, in the widget picker: what
+- The note composer: its placeholder's second and third lines no longer start with a stray indent, and the Highlight, Remove highlight and Link buttons are flat like the rest of the toolbar instead of looking pressed.
+  changed in the notebook lately (notes, documents, boards and reminders),
+  and whether you, Atlas or a skill changed it. Off until added, so no
+- Confirm dialogs set their question as a title above the consequence ("Quit MemoryMap?" over "The app and its server will stop").
+- Filled danger buttons and red count badges use a text colour chosen for their ground: in the dark theme the Quit, Delete and Empty bin buttons were white text on a light red (2.2:1), now dark text on it.
+- Graph: the minimap panel is opaque (node labels printed through it), with the fade on the map inside it instead.
+- Timeline rows show a wiki link's words instead of its raw [[brackets]] (the one list that printed markup).
+- Note cards show their first three links and a "+N more links" button for the rest, instead of every link chip at once.
+  existing dashboard grows a widget. It reads the event log's newest rows
+  once and then only what came after, with no timer running while the tab
+  sits idle.
+- Quit MemoryMap works again from the desktop window: the in-app Quit now closes the window and ends the process the way the tray's Quit does; it used to send an interrupt signal that never reached a window's event loop, so the dialog closed and the app stayed open.
+- Settings, Tools it can use: the tool list is a two-column grid with each description clamped to two lines (the rest on hover), so the section is 4,026px at 1440 instead of 6,901px.
+- The document editor's dock starts with a "Documents" breadcrumb back to the Library's Documents list, since the editor has no tab of its own.
+
+### Fixed
+
+- A menu opened while a scroll is still settling (a right-click during a trackpad's momentum, a smooth scroll) no longer closes itself a moment later: the scroll that closed it had started before it opened.
+- The avatar lab opens without the three inline-style warnings the app's content policy logged (its three style attributes are classes now).
+- The corner companion's size handle shows only while the pointer is over it, it has the keyboard's focus or it is being sized, never at rest and not while it is carried (round 4).
+- The corner companion's menu opens at the pointer when you right-click or hold it, and beside it from the keyboard; a walk or a poof under way stops where it is when the menu opens, so the menu is never left behind (it had been, 38 to 142px away, when the companion was clicked while moving) (INBOX 426 x, 84.png).
+- Stay here on every page means it: a companion pinned away from the window's edges keeps its place when the window is resized or the app opens at another size (it jumped by the whole change in size, 200px for a 900 to 700px window), one pinned by the bottom bar or a corner keeps its distance from that edge, and pinning it while it walks pins it where it is, not where it was going (INBOX 426 l).
+- Your look's Holding picker no longer shows empty: a face saved before a part was taken out (the rude gesture) is read without it, on this computer and by the server, so the picker reads From your name and the rest of the look is kept. A double-click on your profile picture, in the profile or the Settings head, opens it large as the companion's does (INBOX 426 w).
+- The corner companion's menu stays at it: nothing the companion does on its own moves it while its menu is open (it used to wander 338px off and leave the menu behind), and a panel that carries it carries the menu; the menu still flips to its left at the right edge and stays inside the window, measured at four sizes and scales, by right-click and by Shift+F10 (INBOX 426 x).
+- The corner companion leaves with its panel like the page does: on a panel in a scroll area it rides that area's scroll (the browser moves it, however fast you scroll) and is clipped with it, is still there when the panel comes back, and only goes elsewhere on its own beat once the page is still. A jump it must make (out of sight, or too far to walk) is a star-burst poof, 370ms. Choosing a perch went from 176ms to 6ms (INBOX 426 x).
+- The corner companion is far lighter on the page: no filter on its moving figure, its drawing's idle motion paced at twenty steps a second and held while you scroll, and no obstacle sweep per scroll step. Atlas idle went from +190ms to +63ms a second of main thread, and the companion's scripting while scrolling from +0.46ms to +0.06ms a frame (INBOX 426 x).
+- The corner companion stays on a panel that moves by a transform (a card sliding, a dock easing open) every frame for as long as it animates, rather than catching up a beat later; it was 32px adrift over a 2.4s slide, now under 1px (INBOX 426).
+- The companion rides with the panel it is on: a scroll or a moving panel carries it in the same frame (0px off its panel over a measured scroll, it used to stay put 240px away), a panel that leaves the view is let go at the edge and it walks to the nearest free perch once the page is still, a tab switch only asks for a look on its own beat, nothing fades it out and in elsewhere, Stay here on every page never moves on its own, Call back (its menu, Appearance, the command palette) brings it back from anywhere, its menu opens beside it, and a new profile name redraws it (INBOX 426 d, g, k, l, m, n, o, p).
+- The companion's arms and held things are no longer cut off at the sides (each drawn part is framed with room for its outline), a hanging companion keeps hold of its prop, and the rude hand gesture is gone; a test checks every gesture a line names is drawn (INBOX 426 c, j, k).
+- With the system's Reduce motion on, faces and the corner companion now keep moving slowly (every loop six to nine seconds) instead of freezing mid-frame; everything else still stops.
+- The shared control height is declared at the root, so the 70 rules that read it no longer lose their height outside the four containers that used to declare it (the Reminders filter chips were 22px against 36px everywhere else).
+- Library: flicking through the sub-tabs no longer rebuilds each one on every press; a section shown in the last few seconds is shown as it was, and the skill logs no longer blank to "Loading logs…" over a list already drawn (measured over eight quick switches: 16 fetches and 543 DOM changes before, 8 and 232 after).
+- Accessibility: every text field that had only a placeholder now has a label a screen reader reads (the chat box, quick capture, magic add, server address, About me, persona and skill fields, custom CSS, the import path), and each reminder's done box names the reminder it completes.
+- Settings, Help: one "Welcome and tours" group (Replay the welcome beside the tour buttons) and a "What each part does" heading over the topics, instead of a second "Help & guide" head, a lone button and a loose sentence.
+- The "m" key guide is a compact panel: "Go to" and "Do" side by side as two lists, each row a name with its key at the right edge, and a head that says how to close it. The Write with AI popup in the editor has one height for the field and both buttons, even padding, and its hint line starts under the field. Profile links straight to the avatar rows in Appearance.
+- Settings, Personas: the dashboard greeting's persona picker and its face are filled straight away instead of after the preferences load and the whole persona list (it showed an empty box with no face on a busy start). Wherever there is no persona to draw a face for, the animated app logo shows instead of an empty space.
+- The model status poll no longer times out after a start: it answered by asking every installed model its capabilities in turn (up to 5s each, inside an 8s budget); it now answers from what it already knows and asks the rest in the background. A slow answer is logged as a warning, not an error.
+- Settings: "Profile & preferences" is split into Profile (your name, look and About me, under Atlas) and General (recycle bin, chat history, answer style, search relevance, notifications, writing, first under Your notebook). Both save on their own; the heading that only linked to Web search is gone.
+- Account & security lists its facts as a label column and a value column, and a missing creation date says "Unknown" instead of a stray ", ". Chat titles in the sidebar wrap to two lines with an ellipsis instead of being cut at the edge. The Reminders filter chips are the same height as every other filter chip. Import folder and Import from path are secondary buttons, so each import card has one filled action.
+- Settings: the dialog is wider (the backend address was clipped) and its nav fits "Profile & preferences"; the model server line reads "isn't running" with the same dot as the search engine line instead of typed ●/○; the search engine heading loses its parenthetical; the leftover "Changes here save on their own" line is gone; file pickers across the app use the app's button style instead of the browser's grey "Choose Files" slab.
+- The page's bottom inset matches its other three edges (16px at 1440 instead of 24px plus the last card's padding), so pages no longer end in an empty band above the status bar.
+- Sheets (the per-feature model picker and every other bottom sheet) take a reading width on a desktop window instead of the whole screen, their rows start at the icon instead of centring, the state line sits under the title as a subtitle, and the model picker's first row says what it does ("Default (model)").
+- Dashboard edit mode: the long hint sentence is now an "Editing layout" badge and three short gestures on one line, the bar no longer wraps onto two lines on a desktop window, and Done is the filled button while editing.
+- Folded sidebars (Notes, Chat, Documents) show their name down the rail under the open button, with a faint accent wash, instead of an empty white column; the folded skill logs match them in width, button position and style.
+- Dashboard, Focused view: the search field has its own full-width row again instead of sharing a line with the greeting (its width changed with the greeting's length), and the banner is a compact version of the Full one, with the time on the right.
+- Shortened note text across the app (the dashboard's last-note pill, pickers, link labels, previews) is cut at a whole word with an ellipsis instead of mid-word.
+- The Library counted only the newest 200 of each kind, so a notebook of 400 notes read "Notes 198" and a Library search could not find an older note. Counts are the real totals, a search asks the server (which matches before it pages), and a line under the grid says when only the newest page is shown.
+- Saved looks in Appearance get room for their names (two lines before any truncation) and the delete button is a small badge on the card corner instead of crowding the name. The dashboard search field no longer lets the background art show through when glass is off.
+- The companion showed on the lock screen; now only once unlocked. Regenerating the dashboard greeting said "Asking Atlas" whatever persona it was set to; it names the right one. A second change of the greeting persona did not redraw its face. Faces under 28px (chat bubble marks) no longer loop or follow the pointer, which was cost for no visible gain.
+- Background art, Microbes costs about a quarter less a frame: each species' bodies are painted once into an atlas of headings and copied one per organism, and each glow is painted at the size it is drawn, both on whole pixels, where every outline used to be built, filled and stroked every frame and every glow scaled (2.2 to 2.4ms against 3.0 to 3.5ms a frame, median, in a software canvas at 1440x900).
+- Background art, Mesh and Floating orbs are light on the whole machine now, not only on the page: both were CSS animations of large layers that the browser recomposited at the display's full rate, about a core of CPU (1,000ms a second against 150 with the art off, in software compositing). The mesh is now a fifth-density canvas at fifteen frames a second and the orbs a canvas that clears only each orb's own box: 360 to 410ms and about 500ms a second, 0.6 to 1.3ms and 1.3 to 1.5ms a frame. Still mode is a captured image for both, as for the other styles.
+- Background art, Constellation costs about a third less a frame: star sprites are painted at the two sizes they are drawn and copied unscaled on whole pixels, the far layer's hundred tiny stars are four batched fills instead of a hundred image copies, and the links are hairlines without round caps (2.4 to 2.5ms against 3.5 to 4.1ms a frame, median, in a software canvas at 1440x900).
+- Background art, Mycelium: colonies start from scattered spores, each sending out two to five threads at uneven angles that wake one by one, instead of a ring of even threads from one point; each generation's first strokes fade in, and a generation now fades out over about two seconds on its own canvas while the next grows on a second one, instead of the whole window dimming and then clearing at once.
+- The corner companion: its speech bubble came out blank in some looks (text in a transparent colour), it sat on the back-to-top button, even after being dragged (it now measures the overlap with that button and the chat's jump pill wherever it is, and steps aside while they show), and dragging it was jerky (it now moves on the compositor once a frame, holding still while carried). It also showed you when set to the chat persona, and the dashboard mark set to the greeting persona kept the logo, whenever that persona was the default voice: both now show Atlas.
+- Mind maps: the topic menu from the ring's More opens beside the More sector at any display scale and text size. On a page made narrow by Windows' display scaling (a 1256px window at 200% is a 628px page) neither side of More had room, and the menu was pushed over More itself; it now tries the side More faces, the other side, then below or above it, and scrolls when it fits nowhere whole. A placement correction that would move the menu out of the window is refused and logged.
+- Inline maths, `$x^2$` on one line, now draws through the same TeX-to-MathML renderer the `$$ ... $$` blocks use, in notes, chat and documents Read view, instead of being reduced to a Unicode stand-in symbol (or, for a formula with no known symbol, left as literal source). A `$` pair only opens one when there is no space just inside either delimiter and the closing `$` is not immediately followed by a digit, so "$5 and $10" is still two prices.
+- The OCR workspace's message for a reading with no page positions (a vision reading, or a file's own extracted text) said "Install Tesseract" even when Tesseract was already on the machine and simply was not the chosen reader, the common case since the vision model is the default. It now says so only when Tesseract is actually missing; otherwise it says to switch the reader to it.
+- A stored reading with a degenerate loop in it ("Test, Test, Test, ...") from before this app started cutting loops out of a fresh reading, or from a model that still manages one, stayed looped forever: nothing re-read an already-stored reading on its own. A "Clean up repeated lines" broom button beside Delete reading, in both the OCR workspace and the lightbox's other-readings list, now runs the same cut on the stored text and repaints.
+- Server mode used to sit for a few extra seconds after "Finished server process" was already logged, before actually quitting. Almost every route here is a plain `def`, so Starlette runs it through anyio's own thread pool, and a worker thread anyio leaves warm is not a daemon thread; Python's interpreter shutdown joins it with no timeout before the process can exit. The server now asks any such thread still alive to stop right after `uvicorn.run()` returns, bounded to one second, instead of waiting on whatever anyio's own idle timeout happens to be.
+- Performance, notes: typing in the capture box no longer measures and resizes the hidden copy of its text on every keystroke (autogrow work over a 50-character run at 4x CPU: 492ms to 16ms), and a tab switch only resizes the text boxes whose content, width or font changed while they were out of sight (INBOX 424h, 424i).
+- Performance, lightbox: stepping to the next or previous picture no longer forces a layout to scroll a stage that is already at its start. Five presses at 4x CPU: 457ms of work to 37ms (INBOX 424f).
+- Performance, mind maps: expanding a folded branch brings back the topics it had instead of building each one again. Expanding the root of a 120-topic map at 4x CPU: the longest stall went from about 1,000ms to about 520ms (INBOX 424e).
+- Performance, graph: coming back to the Graph tab no longer re-settles a map that had already come to rest (it opens at rest and framed, and any change to what is shown or to the forces still lays it out again); measured at 4x CPU on a 400-note graph, the main-thread work in the 12 seconds after a revisit went from 6,746ms to 1,382ms. Zooming no longer re-measures every label on every frame (165ms of text measuring per 16 wheel steps to none) (INBOX 424c, 424d).
+- Performance, graph: the minimap is repainted at most once a frame while the layout moves, reuses its dots and lines instead of rebuilding them, and is not painted at all while it is switched off, the Graph tab is hidden or the window is minimised. Dragging a node on a 400-note graph at 4x CPU: minimap cost 1,502ms to 514ms (INBOX 424b).
+- Performance, board: dragging a group of twenty on a 250-object board no longer searches the whole page for every item on every move; the selection bar is placed once a frame. Measured at 4x CPU, the drag handler went from 5,167ms to 167ms over forty moves and the longest stall from 901ms to 213ms (INBOX 424a).
+- Performance, measured on a 400-note fixture at 4x CPU: typing in a long document no longer rebuilds the outline on every pause (515ms to 12ms per burst); the avatars' eyes no longer query the whole page on every pointer move (279ms to 20ms per 60 moves); the Library's image poll stops when you leave the Library (it kept fetching every 6s on other tabs). The sidebar's collapse button has a name screen readers can read (INBOX 424).
+- The corner companion: its speech bubble came out blank in some looks (text in a transparent colour), it sat on the back-to-top button (it now steps left of it while the button shows), and dragging it was jerky (it now moves on the compositor once a frame, holding still while carried). It also showed you when set to the chat persona, and the dashboard mark set to the greeting persona kept the logo, whenever that persona was the default voice: both now show Atlas.
+- Opening the Agent activity panel no longer shrinks the page under it. On the Graph and the Timeline the card lost 18rem the moment the panel opened (the graph card went from 767px to 479px tall at 1440x900, leaving empty page below it), and the boards list grew 40px past the bottom of the Library. The panel floats over every tab now; the scroll room it adds goes only to the lists that scroll (Dashboard, Reminders, the Notes list, the Library and Documents lists, the Timeline feed).
+- Documents: the spelling menu could open at the top of the window, or not at all, when the click that opened it made the editor redraw the line (a right-click, a long-press, a double-click on a word in a line with formatting). It is placed from the word itself now, follows it when the line shifts, and a "/" typed near the bottom of the editor no longer closes its own menu by scrolling.
+- Documents: an embedded document said "Nothing called ... yet" in Read view while Live view showed it; Ctrl+/ in a note wrote `<!--  -->` instead of opening the blocks menu.
+- Mind map ring: the ring has a visible edge. A thin line round its outside and round the hole marks where it is against the board (3.8:1 in light, 5.1:1 in dark; it was 1.4:1 and 1.6:1), and the dividers between its actions stay hairlines.
+- Library, Boards and maps: Map from notes works again with no model running. It was disabled with the AI-only controls, but it proposes an outline from how your notes are filed when no model answers, and says so.
+- Mind map ring: every action's icon and word sits in the middle of its sector with at least 10px to both edges and both dividers ("Add beside" and "Cross-link" were 1.4px from both edges); the ring is as thick as its longest word needs.
+- Mind map ring, More: its menu opens beside the More sector wherever the ring was when you pressed it, even if the board re-renders before the click; it can no longer open in the window's top-left corner, and says so in the console if anything tries. Focusing a sector no longer scrolls the board, which also closed the menu Enter had just opened.
+- Graph, Trace: the strip ends in an X that leaves trace mode (Escape too). Its old Done only cleared the two ends.
+- Lightbox: the zoom, Fit, Save and menu buttons read clearly in the light theme (they looked disabled on the dark backdrop, from every place a picture opens).
+- Picture readings: a model stuck repeating itself ("Test, Test, Test, ...") is cut to one copy before the reading is stored, and a reading is capped in length. Each reading in the lightbox can be deleted, and the OCR workspace shows the same readings the lightbox does: the vision model's even when Tesseract is not the chosen reader, and the other one beside it, labelled, with its own delete.
+- Tools and features, the command palette and Find anything's actions land on what they name: Suggested links opens the map's options and runs Suggest links, Export a board opens the export dialog, Theme opens Appearance with the theme control ringed, an AI tool opens its own row in Settings, a widget row shows its widget (or its row in the widget picker when it is off), and a document or board feature opens the newest one first. Before, 50 of the 110 written rows only switched tab, 11 more opened a Settings pane at its top, and the palette's Board overview and Find a card did nothing unless a board was open. A Settings deep link now rings its row (it rang only Search relevance before).
+- View toggles (Notes rows/cards, Library list/cards): only the chosen half is
+  filled; the other rests clear.
+- The OCR workspace's Delete reading works again (it threw after the confirm).
+- A callout's label in the document live view shows its icon, not "ph:warning".
+- Mind map: the topic and line rings are pie menus: one ring cut into sectors with hairline dividers, each action's icon and word inside its sector, the hovered or focused sector filled, and the topic whole inside the hole (the board pans with a ring slid in from an edge). The arrows walk the sectors, Enter runs one, Escape closes. More opens its menu beside the More sector, and never in the window's corner.
+- Whiteboard: with the Text or Sticky tool, a press-drag draws the box at the dragged size (a dashed preview while dragging, Shift for a square, a minimum of one line) and opens it for typing; a click still places the default size, and one undo takes a drawn box away.
+- Whiteboard and mind map: panning with the middle button follows the pointer. A pressed wheel's own wheel events no longer move the board mid-drag (they pushed it 3300 to 3600px sideways over a 300px drag), and a middle press on a topic or a card pans instead of dragging the item (it moved the board 0px of 200).
+- The installed Windows app keeps its launch log and window cache beside your
+  notes in `%APPDATA%\MemoryMap AI`, not in a `data` folder wherever Windows
+  started it, and the Start Menu's "Repair MemoryMap AI" now clears the cache
+  the window really uses (it cleared an empty folder before).
+- The installed Windows app knows time zones: the build now carries the zone
+  database Windows lacks, so your zone is saved and "today" is your day.
+- Settings' Restart relaunches the installed Windows app instead of closing it
+  for good, and Remove on an optional package deletes it from the app's own
+  folder (it used to run against your own Python and leave the package).
+- Optional packages on the installed app find Python installed the usual way
+  from python.org (the `py` launcher), and no longer mistake the Microsoft
+  Store's placeholder `python.exe` for one.
+- Import documents installs markitdown's PDF, Word and slides readers; bare
+  markitdown reads none of the three.
+- An app update run from Settings > About no longer starts the optional
+  packages download inside the installer, and accepts the download host GitHub
+  is moving release files to; the installer's packages page starts unticked,
+  and says why, when Python is not on the computer.
+- The desktop window opens on a free port when another program holds 8000,
+  instead of showing that program's page; the About panel's release notes are
+  in the packaged app; scripts are served as JavaScript even where the Windows
+  registry says otherwise; the installer refuses 32-bit Windows, which cannot
+  run the 64-bit app.
+- The Windows installer's Documents box also installs scanned-PDF reading and
+  Word export (one box, the page has no room for more).
+- The selection bar's "Rewrite this with AI" opens its bar again: the press that
+  opened it also counted as a click away and closed it at once.
+- The Guide keeps the utility model when smart routing is off (the switch
+  moves background jobs only). On a phone, toasts sit above the bottom tab bar,
+  except on Chat, where the composer is.
+- The attachment gallery answers a page of 200 rather than 1,000 by default,
+  and every reader of it (the Library's Files and Images, the pickers, the
+  editor's file list) reads to the end page by page, so a large notebook's
+  files are neither cut off nor sent in one response.
+- Download .md on a note card and on the Library's note and document cards
+  saves the file on a notebook with a password; it opened a tab reading
+  "Locked: unlock first", because a new tab sends no sign-in token.
+- The dashboard's Most used widget says, in the widget picker, that it lists
+  the notes you open and ask about most; it promised categories and tags,
+  which is the Top tags widget.
+- An OpenAI-compatible backend with nothing listening at its address is
+  reported as not running, rather than as running with no models, so every
+  control that needs a model is disabled before it is pressed instead of
+  failing after.
+- An OpenAI-compatible server that streams tool calls without an `index`
+  field (OpenAI always sends one; some local servers do not) no longer folds
+  every call into one and loses them all: a fragment that opens a call opens
+  the next bucket and a nameless one continues the last, so an omitted index
+  degrades to arrival order rather than to a collision.
+- A question reopened from Ask history keeps its numbered records and no longer
+  repeats them in a Sources box; the records column's facts have a word's gap.
+- The skill logs fold to a rail beside the skills and remember it.
+- Find anything's kind row fades only on an edge with more behind it, and the
+  kinds rest as plain text with only the chosen one filled.
+- Code documents: the selection bar offers only Ask Atlas and Rewrite (no markdown
+  formatting over code), and every indentation step is drawn 2em wide, whatever
+  the file's unit.
+- A new chat could stutter up and down after a hint above the composer closed:
+  the welcome's fit no longer toggles its own class to measure, and the
+  transcript keeps its scrollbar's room.
+- The Guide: the question after a long answer, and the fifth question of any conversation, failed with "Something went wrong asking that" (the route refused a history turn over 1,000 characters and more than six turns, and the panel sends its whole transcript); a listed answer is no longer cut off mid-list; and the shortcuts answer taught "g then a letter" for the tab chord, which has been "m" for months.
+- The AI assistant's Edit, Write and Remove choice uses the same quiet selected
+  state as every other choice control in the flat looks; the board export's
+  format and scope are option tiles instead of a wrapping strip.
+- Boards and maps: a drag-selection rectangle keeps up with the pointer on a big board or map. It is drawn on a canvas once a frame instead of rewriting the page each move, and letting go restyles only the items whose selection changed.
+- Lightbox: the picture never runs under the previous and next arrows, at Fit or zoomed, at any width, and the information card under it is one width on every picture, edge to edge with the toolbar.
+- Boards and maps: a picture exported (to a file or to the Library) is painted in the colours on screen, in light and dark: map topics, note cards and text boxes take their own fill, edge and ink, and a branch keeps its colour. In dark mode the topics used to come out white and the text dark on dark.
+- Library and lightbox: a picture exported from a board or map carries the description the app wrote for it as "Written by MemoryMap", not "typed by hand", and a vision model that later describes it is credited alone rather than as an edit.
+- Mind maps: a topic dropped on another topic, or joined to one by a line, is laid out as that topic's child with its own branch beside it, on a Free map as well as a tidied one, and one Undo puts the parent and every place back. It used to land on top of its new parent.
+- Mind maps: the ring of actions on a topic or a line holds its buttons inside its band. Each is a small tile, icon over word, evenly spaced round the circle, and the band is sized to the tiles, so none hangs over its edge or into its hole at any width.
+- The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
+- Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
+  is marked, and a run of sentences from the same notes in one paragraph
+  carries one mark at its end instead of one per sentence.
+- With no model server answering, the chat's model picker says "(not connected)"
+  after the inherited model instead of naming it as if it would run.
+- A new chat no longer opens on a scrollbar: the suggested questions take the
+  pane's width, the welcome tightens on a short window, phone starters scroll
+  sideways, and "Jump to latest" stays hidden until there are messages.
+- A chat answer's source cards read from the top (they centred their content,
+  so cards in a row started on different lines), keep the kind at the foot,
+  and no longer print a heading's `#` or repeat the title in the snippet.
+- Settings, Preferences: the chat history row keeps its unit on one line
+  (its note moved under it), units match their labels' size, and the answer
+  style is a labelled row on the pane's grid.
+- Chat: your messages are a quiet tinted bubble in the page's own ink, at
+  the same size as Atlas's, rather than a bright accent block with a "You"
+  header; the header says "No model connected" (and opens Settings) instead
+  of naming a model that is not running; and "Jump to latest" and the
+  back-to-top button hover to an opaque, visible state without flickering.
+- Find anything: group headings are capitalised headings with their count
+  ("Notes 15"), set a step below the results line; the kind chips count
+  what the search found rather than everything indexed (they said "Notes
+  46" beside 3 results); a snippet no longer prints a heading's `##`; and
+  the chip row fades where more chips scroll.
+- Menus, every one of them: the arrow keys work in every select, every dock
+  menu and the board's menus, Escape closes the menu (not Settings around it)
+  and gives the focus back to its button, and nothing opens with the focus
+  lost. Section labels, selects and icons stand on one left edge; long menus
+  (a note's, a chat's, a Library card's, Quick set) are grouped; Quick set
+  opens beside its button; the Timeline's Options no longer has two
+  sections called Show; the board's shapes open from the keyboard and its
+  View menu scrolls instead of growing sideways on a short window or a phone.
+- The dashboard's streak counts yesterday while today is still empty, like
+  the journal, instead of saying 0.
+- Contrast: the default look's dark muted and accent text, the warning chip
+  and the dark danger buttons now reach 4.5:1 on their own grounds.
+- Buttons: hovering a solid button deepens its colour instead of brightening it by 7% through a filter, which flickered on floating buttons in the desktop window; the tabs, the graph's zoom buttons and every icon button that had no hover of its own now answer the pointer (before: 101 of 571 buttons changed nothing but a filter). Every transition runs on the same three durations and curves, the switches' knob settles with a small spring, notifications fade in and out instead of popping, and the Library and Timeline show placeholder rows while their first page loads instead of a blank card.
+- Speed with a large notebook (500 notes, 50 documents, 40 chats), measured by trace: switching to Notes restyles only the notes near the window (61ms to about 30), the Timeline builds its rows without making two date formatters per row (a 60 to 90ms switch now about 30), switching to Library no longer cross-fades the whole window after every data load (a 216 to 283ms pause gone), and the dashboard measures its widgets in one pass instead of one page layout per widget.
+- A chip's x (detach a document, remove a file or a reference) is a round
+  target the same distance from the chip's top, bottom and right edge, not
+  a glyph with a stray gap after it.
+- Settings, About counts notes the way the dashboard does: it said "96
+  notes" for 44 notes, 2 drafts and 50 boards and maps, and its header's
+  "46 entries loaded" is gone.
+- The skill editor's Steps box is tall enough for its example and hint; the
+  last line was cut in half.
+- The guided tour can no longer leave the page dimmed with no card: a step
+  that fails shows its card centred, a card off the window or behind
+  something is re-centred, the page is kept from scrolling under it, and
+  each case leaves a "Tour:" line in Settings, Logs.
+- Boards: a concept map card's text is edited in the same editor as every other note box (live formatting, the "/" menu, Ctrl+B), with Enter to finish, Shift+Enter for a new line and Escape to discard; Tab in a card no longer jumps out of it.
+- Documents: New from a template shows a preview of the page each template makes beside the list, on a window wide enough for two columns.
+- Documents: the outline's rows take the app's 28px control floor under the comfortable and spacious densities and 44px on a touch screen; compact keeps the dense 25px list.
+- Library, Boards & maps: a board or map card says when it last changed (the later of its own edit and the last thing drawn on it), like every other Library card.
+- Fewer pills: the Library's kind row, the Boards filter, Reminders' Open/All/Done, the Write tab's starters and the dashboard's Jump to row are drawn with a button's corner; category, tag and fact chips with a small one; the dashboard's skill buttons lose their dashed edge; chips no longer rise on hover. On Ask, "Ask again" and "Try asking" questions are one style, a past question marked by a clock.
+- Library, Boards & maps on a phone: the dock is two rows like every other Library dock (was four, 198px to 114px at 390); New mind map and Reload move into the dock's menu there and back out on a wider window.
+- Segmented controls round their corners from one table: a choice control, a tab strip, a control inside a bar, the chat dock's pills and the one full-bleed strip; the OCR rail's Images, Files and Pages switch and the radio-backed toggles outside a bar now match the rest.
+- Ask: every sentence the notes back gets its citation number in the answer, including sentences in a list, after a bold label or with a word in italics (a formatted answer grounded to three notes used to show none); the Matching records column is numbered as each sentence completes instead of after the answer finishes.
+- A connection pill's ⋯ is round, so its hover no longer pokes past the
+  pill's border, and a linked note whose first line is a heading or a
+  clipped image reads as its words (no `#` or half an `![...`).
+- Whiteboard and mind map: Escape during a selection rectangle or a lasso takes the drag back and keeps what was selected before it; the rest of the drag and its release select nothing.
+- Whiteboard: a top-bar menu (Insert, Edit, Arrange, View, Board) that the window cannot hold opens under its button and scrolls there, instead of being drawn across the button and the top bar; Escape with a board menu open closes the menu and keeps the selection, so the context bar and its More stay where they were.
+- Mind map: the More button on a topic's ring opens its menu right beside the button (on its left when the right has no room) instead of down and to the right of the whole ring.
+- Mind map and whiteboard: panning no longer stalls on the press and the release (worst frame at 500 topics 166.6ms to 16.8ms): the grab cursor moved off the board's container, whose cursor every item inherited, and a Settings rule that made any class change anywhere restyle a whole subtree was narrowed. Cards, text boxes and topics well off screen are no longer drawn, and a dragged branch's lines stay on their topics every frame instead of trailing up to 12px behind.
+- A skill's facts line in Settings no longer starts a wrapped line with its
+  separator dot.
+- A reminder's time sits at the end of its row; with a mouse, its actions
+  appear over the time on hover instead of holding an empty 193px gap. An
+  overdue reminder keeps its amber edge without the amber frame as well.
+- Settings section intros step down to sit under their headings (they were
+  larger than the headings they describe).
+- Resizing the window across the phone width no longer leaves the Timeline's
+  previous view in the page: the rows counted twice (113 read as 226), which
+  broke arrow-key walking, the pinned day head and Enter's detail.
+- Timeline rows with a second line keep their kind mark and time on the
+  title's line, rather than centred between the two lines.
+- The graph options panel's four section heads share one style (they wore
+  three), and the dashboard's day streak tile opens the Timeline instead of
+  doing nothing.
+- Labels that lost their capitals in Quiet keep their rank: a section label is small, bold and in ink over a muted description, and the Contents index's section names are headings with the Timeline's underline over rows one step smaller; a Files row's name is in ink and lines up with its facts.
+- Scrolling and typing, traced and cut: the page scrollers and the editor scroll on the compositor (Notes scroll raster 2.7s to 0.25s, Library 1.0s to 0.2s, typing in a long document 3.2s to 0.24s over a 30-step scroll or 88 characters at 1184x760); a card's hover animation stands down while a list scrolls; the back-to-top check no longer matches every button in the app on every scroll frame (184ms to 12ms); the open-menu checks on every scroll event walk only the menus; typing in a document no longer restyles the whole editor per keystroke (style 1.65s to 0.35s) or rewrites 51 toolbar states; the Library search no longer cross-fades the window on every letter.
+- Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.
+- Reminders: Enter adds a reminder from its text field, and in the edit form Enter saves and Escape cancels.
+- Settings: Ctrl+F searches Settings while it is open (it used to search the page hidden behind it), and the arrow keys, Home and End walk the pane list.
+- Settings: Packages no longer shows its heading twice.
+- Dashboard widgets: a map in Boards & maps reads as a title like a board beside it (not an accent pill), the heatmap legend shows its swatches, and a reminder shows its time on a line of its own.
+- Settings: a pane's title no longer sits flush on its first group, and a checkbox row keeps a gap from the field above it (found by a sweep for flush-stacked controls across every tab and pane).
+- Documents: opening a markdown document right after typing in a code file no longer throws a stale completion error.
+- A plain toast can be dismissed by tapping its text, as well as by its close button.
+- A confirmation's button names its action ("Delete", "Remove", "Clear"...) read from the question, instead of a red "OK".
+- Reminders: a reminder's row keeps its two snoozes and Edit, and gains a menu with Open its note, Ask Atlas about this, Copy text and Delete (still undoable), in place of a fourth icon.
+- Lists keep the conventions people expect: a right-click (a hold on a phone) on a Library card, a Documents row, a link, a file, a note or a chat opens that row's own menu at the pointer; F2 renames the focused row; the arrow keys, Home and End move between cards and rows; Shift+click ticks the run between two; with a selection open, Escape clears it, Ctrl+A selects every row instead of the page's text, and Delete presses the bar's own Delete; the Library keeps its scroll position when you come back from another tab; an empty Library search offers Clear the search; Library cards and document rows gain Copy title (and Copy link for a document); New note, New document, New chat, Settings and light/dark name their shortcut in the tooltip.
+- Library on a phone: the Files and Images dock is two rows instead of three (sort and view fold into a menu, as on the other sub-tabs), the floating Create shows only on the All view where it belongs instead of beside each sub-tab's own filled action, and New mind map keeps its icon without its word below 600.
+- Library, second pass continued: skill cards title at card size (the eyebrow rule had set them at 12px), Built-in as a small label, Run as a ghost button so New skill is the one filled button, and the background workers as the settings switches; the skill log's Clear rests disabled with nothing to clear; the Contents index names a note by its heading, keeps its labels on one edge, and its jump chips lose the accent tint; chips that are still chips carry a hairline edge in the flat looks so they read on a white card; a failed thumbnail (dashboard, Contents, chat sources, timeline) is hidden instead of drawing the missing-image box in its slot; timeline rows show the category with its colour dot and tags as #tag, and leave Uncategorised out.
+- With glass on, the status bar is glass like the top bar instead of an opaque strip.
+- Resizing or turning a group of selected items is one undo step (Ctrl+Z put nothing back before), and Escape during it puts every member back.
+- The board's help, the map rail's help, the rotate and resize grips and the map's canvas menu now name the new gestures and keys (Alt-drag, Shift to constrain, Escape to take back a drag, double-click a grip or a line, Ctrl+0 and Shift+1), so they can be found without being told.
+- On a touch screen the Library card ticks and the reminder ticks keep their 44px target but draw a 22px box in the middle of it, instead of a bordered, shadowed 44px square beside every row at rest.
+- The keyboard hint strip no longer stands over the bottom of every new mind map (it counted note cards, which a map has none of): a map's selected topic already names the keys on its ring and the rail's ? lists them, and on a whiteboard the strip shows only while a single note card is selected, the only time Tab and Enter act, and never over that card.
+- The board and mind map View menu: groups are told apart by a hairline instead of a printed heading (DESIGN.md's menu rule), Zoom in and Zoom out leave it (the zoom bar has both), Zoom to 100% and the keys for it and for Fit join it, the Toolbar row moves in with the panels, the columns break before Panels so no rule sits at the head of a column, and a whiteboard no longer shows an empty "Map" group: 453px to 357px on a map at 1440.
+- Lock screen: a real title, the password field at body size and the Unlock button as wide as the field.
+- Notifications: the panel is wide enough for its activity picker, and in the flat looks an unread row is marked with a dot instead of a coloured left edge; the palette no longer paints a hovered row like the chosen one.
+- Find anything: the text-selection menu no longer appears over the Finder (a search field's selected query is not writing; fields inside overlays are excluded); result rows lose the button glow, titles step to 500, dates read "Sep 23", a zero-count kind is dimmed, the dialog's name is its heading and Sort matches the chips. In the flat looks no button carries the accent glow.
+- Settings: every pane opens with its name as a heading (eleven of eighteen began mid-thought), a list row's actions sit on its title line instead of leaving an empty band under it, and labels straight in a pane line up with their text.
+- Settings: every section help "?" sits on one right edge (five positions before) with no filled ground in the flat looks; a pane's title is a real heading flush with its text; skills, personas and templates show a title, a hairline Built-in label, dot-separated facts and "Changes notes" in the warn colour instead of rows of identical pills; a persona's voice is clamped to two lines instead of cut mid-word.
+- The guided tour is back on, and every door into it works again. It was broken whenever anything was open over the page (the Atlas guide, the command palette, the features browser, the shortcut sheet): each step lit up the overlay instead of the control. The tour now closes what is open before every step and checks that nothing is drawn over the control it points at. On a phone the card is a sheet at the top or bottom of the screen, Settings and Timeline point at More with words that say so, and the step count no longer changes half way through. Typing in the highlighted box types instead of moving the tour.
+- Graph: the Documents switch now shows every live document (unattached ones alone, hidden by Hide unlinked like any lone node) instead of only documents attached to notes, which left the switch doing nothing on most notebooks; the options panel's folds are inset from the edge and the Groups field matches its Add button's height.
+- Board and mind map conventions, second pass: a board's bare canvas answers a right-click with its own menu (paste here, a text box, a sticky, select all, zoom to 100%, fit) and a double-click with a text box ready to type; Ctrl+0, Ctrl+=, Ctrl+- and Shift+1 work the board's zoom, and the zoom buttons name them; a double-click on a mind map's branch line asks for its label instead of making a new topic on top of it.
+- Board and mind map conventions, first pass: double-click a rotate grip stands a card, text box or shape upright again; Shift on a corner keeps the box's proportions (it squared it); Shift keeps a drag on one axis; Alt-drag leaves a copy behind; Escape during a move, resize, turn or link draw puts everything back and records nothing; a burst of arrow nudges is one undo step and no longer drops presses; a group drag undoes whole; Ctrl+D, copy and paste take several items at once and paste at the pointer; a click on a shape's grip no longer deselects it; Ctrl+Shift+G on a board ungroups without also switching agent mode on.
+- Library, second pass: cards read left to right in the order the sort promises (they were dealt top to bottom one column at a time, so every tag landed in the last column); a note card no longer repeats its first line as its preview, and a document row no longer repeats its title; "Uncategorised" is left off card feet and a real category shows with its colour dot; a card's picture fills the card's top edge; a board card's icon leads its title; a file's first-page thumbnail that fails no longer draws "Image no longer in this notebook" inside the tile; the tick on Documents, Links and Files rows takes the kind mark's place under the pointer instead of a 28px square on every row; the Links add form folds away behind Add link (Esc or Done closes it); row titles share one rank and a file's read state is a fact, not a pill.
+- Note meta line, second pass: the category is a soft pill with its own stable colour dot, tags read #work, a date reads as the day alone (the note's own phrase on hover), and each connection is one pill with its menu inside it, so hidden menus no longer leave gaps between connections; image markdown no longer shows raw in a connection's label. Settings no longer scrolls sideways at 768.
+- De-vibecoding, settings: switch labels at 500 instead of bold, a healthy status is a green dot before muted text instead of a green sentence, section help is a bare glyph in the flat looks, number fields share one short width, and the name placeholders no longer carry a real person's name.
+- De-vibecoding, reminders: the due readout is a small muted note on the form, and a reminder's own words are body size instead of 12px.
+- De-vibecoding, timeline: row titles at 500 and the category as muted text, instead of a column of bold accent pills.
+- De-vibecoding, dashboard, chat and graph: sentence-case labels in Quiet, plain stat icons, no eyebrow over the greeting, an even 16px rhythm, the name nudge as inline text; card titles at 600 (650 rendered as bold on static fonts); chat suggestions read as questions, not accent pills; the thread mark and the graph legend lose their extra frames.
+- De-vibecoding, Notes and Library: a note's facts are one quiet line (category with a dot, #tags, space, links, date) instead of five pills, and confident AI filing moves to the category's tooltip; in the flat looks a selected tab, segment or filter chip is a neutral ground so the accent marks only actions; the Library hides empty kinds, shows a card's tick on hover (always on touch), drops the per-kind colour stripe in the flat looks, and titles step down to 600; the notes filter placeholder no longer truncates.
+- The "No model is connected" notices keep a gap below their button, so the draft chips and the agent's description no longer sit flush against it.
+- A cross-link on a mind map is drawn like the map's own branches: the same ribbon or line style, facing anchors, weight and taper, in its branch's colour, instead of a straight pen-coloured line.
+- With glass on, the graph's floating dock and panels and the chat composer are frosted panes like the rest of the glass chrome, instead of an opaque bar and a near-black well.
+- The full test suite runs across every core (pytest-xdist): under 9 minutes on four cores instead of about 25. The resurface timing test now waits for the embedding warm-up before it starts its clock.
+- Quiet utilitarian no longer sets compact density, which had squeezed every spacing token app-wide, and the dashboard's Full view has its labelled rows, two-line hints and larger clock back, so Full and Compact differ again (first widget at 631px against 483px at 1440).
+- On a phone the foot of the screen is one bar, not two: Back, Undo and the
+  AI status sit in the top bar, and the status bar's other controls are in
+  the top bar's menu. The status bar comes back only while a job is running,
+  or when offline or on power saver.
+- On a phone a note row is the note: no action buttons sitting on its tags,
+  no coloured strips at its edges, and the list runs the full width. Swipe
+  to favourite or bin, tap to open, or use the row's menu.
+- On a phone the Notes and Chat headers are one row (title and actions),
+  with the search under it; the chat's model, skills, web search and plan
+  are in the "How it answers" sheet behind the gear, so the controls under
+  the chat box fit on one row and nothing is cut off.
+- On a phone Reminders opens on the list; "New reminder" (the floating
+  button, and a button in the list's header on a computer) opens the add
+  form as a sheet, which closes once the reminder is added.
+- On a phone every list header is one row of title and actions with the
+  search under it, and the Library's cards start on the first screen: the
+  header is unframed, the words-written line is left to the dashboard, and
+  a card's preview is three lines.
+- On a phone toasts and the agent activity panel no longer cover the tab
+  bar (a toast also clears the floating button), and a long note shows five
+  lines in the list rather than eight.
+- A board's top bar menus keep an icon when their words are dropped on a
+  narrow window, instead of five identical arrows; on a phone an open board
+  takes the Library's sub-tabs' space, the map's keyboard hint is left to
+  keyboards, and the tool bar at the foot has lost a stray dark frame.
+- On a tablet, or any touch screen, every control is a finger's size
+  (44px) at any width, not only below 820; the status bar is a touch bar
+  there and no longer pushes the page sideways at 768; Reminders opens on
+  its list below 1100; and the Library's kind chips stay on one row.
+- On a phone every ⋯ menu opens as a sheet from the bottom of the screen,
+  with full-width rows; Escape closes only the top sheet when one is open
+  over another; and closing the sidebar sheet puts the focus back on the
+  button that opened it.
+- Tab in the documents editor leaves the caret after the indent it inserts;
+  what you typed next used to land before it.
+- JSX in a `.js` document is no longer underlined as a syntax error.
+- Scrolling does less per frame everywhere: the back-to-top button updates once per frame and only writes what changed, the bar-over-list edge measures only when a list crosses its top, and the graph's wheel listener lives on the graph canvas instead of every tab.
+- The packaged Windows app shows a splash from the moment it is opened, drawn
+  by the launcher itself before Python starts, and closes it when the window
+  appears. Not verified on a Windows build from this sandbox.
+- Optional packages installed from the packaged app, or ticked in the
+  installer, now actually load: they go into a folder beside your notes that
+  the packaged app reads. Needs a Python on PATH to run pip, as before.
+- Editing a note right after starting the app no longer blanks the notes list.
+- The note count is the same everywhere (drafts are left out, as the list
+  already did).
+- Select all (and Select none) in every selection bar; the Timeline's only
+  ticks notes and boards, the rows its actions can act on.
+- Clicking into a table cell in the documents live view puts the caret where
+  you clicked.
+- Undo covers text formatting, colours and every mind map style change.
+- The Notes toolbar stays on one line in the desktop window; the dashboard's
+  Start tiles fit one row there, and never wrap in compact view.
+- On a mind map the bottom bar offers one Cross-link tool drawn in the map's
+  own line style, instead of a generic straight and curved pair; a map
+  line's label drags with the pointer and no longer starts a selection box.
+- The dashboard's note count leaves out boards and maps, as the Notes list
+  does.
+- Notes, documents, boards and maps can be taken straight to a chat with
+  Atlas from their menus, and a note to the graph (centred and lit).
+- Menus, docks, popovers and the graph toolbar follow the chosen look in
+  every palette (they stayed navy in dark), the desktop loading page and the
+  packaged splash wear the look too, and a new Background wash setting gives
+  the flat looks a soft light across the page. Classic is second in the list.
+- The mind map node menu is eight rows with Add, Topic, Branch and Order
+  flyouts (was eighteen rows, most of the screen), and the topic's ring stays
+  open beside it. A press inside any menu no longer closes it before a group
+  can open. The dashboard's top is calmer: a lower hero with an ink clock,
+  one-line start tiles, and Jump to as quiet pills beside their label.
+- A dashboard you have not arranged shows nine widgets (reminders, recent
+  notes, favourites, quick capture, documents, boards and maps, the weekly
+  digest, on this day, the heatmap) instead of all twenty-three; the rest are
+  under Widgets, and Reset returns here. Reminder times read as a day and a
+  time, and the heatmap counts notes, not boards.
+- The Back and Forward history names places ("Documents: Weekly plan",
+  "Library: Documents") instead of internal ids.
+- Model pickers show the short model name and stop at 14rem, and no longer
+  call an installed model "not installed".
+- Theme and palette cards in Appearance keep their text inside the card and
+  line up: swatches and names on one line per row, descriptions in body weight.
+- Links everywhere use the accent colour (plain links were the browser's own
+  blue and purple); Timeline rows for boards and reminders no longer repeat
+  their title as a snippet; an empty Ollama embedding picker says why.
+- A note's connections are one chip and one ⋯ menu each (edit or clear the
+  reason, remove the link), instead of three round buttons inside every chip.
+- The chat header names the model that actually answers (on llama.cpp and
+  LM Studio, the loaded one), or says a set model is not installed, instead
+  of the configured default. A broken search by meaning now says so in a
+  toast and the bell, with a Fix it button, not only inside Settings.
+- A picture is described once and its text read once: repeat saves no
+  longer queue repeat jobs, Tesseract stands down when a vision model reads
+  the text, and a running caption shows as one row in Agent activity, not
+  two.
+- Panning and zooming the whiteboard and mind maps no longer re-styles every
+  item on the board each frame (traced: 2.4 s of style work over a 50-step
+  pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50
+  topics is one frame for pan, drag and zoom alike.
+- Text boxes, sticky notes and mind map topics keep their line breaks when
+  saved (they were joined into one line), and Tab / Shift+Tab indent lines
+  in them. Note boxes indent with Tab from the first keystroke after a
+  restart, not only once the editor has loaded. Renaming a topic can be
+  undone.
+- The note Capture box's formatting toolbar stays on one row in the desktop
+  window: the two colour pickers are an icon and a caret, and on a narrow
+  window List, Task and Preview show their icons only.
+- A missing search-by-meaning package is reported in words, with
+  nomic-embed-text offered as the alternative, instead of a traceback.
+
+### Added
+
+- Code documents act like a code editor: a syntax error is underlined with a
+  mark beside its line and says what is wrong on hover (Python, TOML, XML
+  and YAML checked by the app itself, JSON, JavaScript, TypeScript and CSS in
+  the window, nothing sent anywhere), and a list of the language's keywords
+  and the names already in the file appears as you type.
+- Code documents close quotes and brackets as you type, with the caret
+  between them: typing the closer steps over it, Backspace in an empty pair
+  takes both, and a pair typed over a selection wraps it. Enter between
+  braces opens an indented line with the closer below it, and a typed `}`
+  lines up with its opener, in every code type including C, Java, Go, Rust
+  and PHP.
+- Format for code documents, from a Format button in the document's dock,
+  Shift+Alt+F or the command palette: the selected lines, or the whole file
+  when nothing is selected. It re-indents by the brackets (by the elements
+  for HTML and XML), removes trailing spaces and ends the file with one line
+  break, never touches the inside of a string, keeps every JSON number
+  exactly as written, and refuses with the reason when the code does not
+  parse. Python and YAML keep their indentation, which is their syntax. One
+  Ctrl+Z undoes it.
+- Quick fixes for code problems: hovering an underline offers its fix as a
+  button, and Alt+Enter lists the fixes at the caret (with both formats
+  beneath); F8 goes to the next problem. Fixes add a missing bracket or
+  quote, change or remove a stray closer, close a comment, remove a JSON
+  trailing comma, add a missing comma or quotes in JSON, add Python's
+  missing colon, and convert mixed tabs and spaces. C, C++, C#, Java,
+  Kotlin, Go, Rust, Swift, PHP, R and SQL documents are now checked for
+  unbalanced brackets, strings and comments.
+
+### Changed
+
+- What a face holds (a wand, a mug, sushi, a book, a thumbs up) shows in its head mark again, in a small raised hand at the lower right as the first faces drew it, not only on the companion; the small mark keeps its one cue (INBOX 426 f).
+- The packaged app's startup splash is a still card without the progress bar it
+  could never move; a status line under it says what is loading.
+- A note's time sits in the same place on every card, its top-right corner
+  on the title's line (it gives way to the note's buttons on hover); the
+  dates a note's words mention read as one item ("Mentions 21 Sept, 25
+  Sept") rather than calendar chips beside the time; the space is shown only
+  when you have more than one; and a connection's menu button sits evenly
+  inside its pill.
+- The Guide knows much more and finds it more reliably. Fourteen new topics
+  (search, links, security and passwords, troubleshooting, performance, the
+  tour, personas, translation, templates, tags and categories, updates,
+  notifications, code files, mind maps), the words people actually use
+  added to every topic, and a ranked search that forgives a typo. On a bank
+  of 122 real questions it reaches the right topic first 99% of the time
+  (49% before), and with no model it answers with that one topic and names
+  the related ones instead of pasting three together.
+- A package check builds the frozen Windows app on every pull request that
+  touches packaging, the entry point or index.html, and weekly, and fetches
+  every script and stylesheet the page references plus each lazy bundle,
+  so a file missing from the bundle fails before release day.
+- The mind map layer (a map's nodes, edges, themes, tidy, the edit strip
+  and the radial menus) moved out of whiteboard.js into whiteboard-map.js.
+  Nothing it does changed; it still arrives with the Library, and
+  whiteboard.js is about a quarter smaller (212 KB gzipped, was 292 KB).
+- The document editor's code tools (checks, completions, Emmet, hover,
+  symbols, sticky scroll, go to definition, Run, format and quick fixes)
+  and its prose tools (grammar, suggestion mode, the accessibility check,
+  read aloud) moved out of documents.js into documents-code.js and
+  documents-prose.js. Nothing they do changed; they still arrive with the
+  Library, and documents.js is about a quarter smaller (242 KB gzipped,
+  was 314 KB).
+- The Timeline tab's code moved out of app.js into its own file,
+  timeline.js, loaded at startup right after the dashboard's. Nothing it
+  does changed; app.js is about 24 KB smaller to download (gzipped), which
+  brings it back under its size bound instead of raising the bound a third
+  time.
+- Atlas has a persona rather than a job title: "the librarian of this
+  notebook: warm, curious and a little witty", who knows the notes well,
+  likes spotting how they connect, speaks plainly and says so when the notes
+  don't know. A persona of your own still replaces it.
+- The m guide is one panel of key-and-label rows over a darker backdrop,
+  rather than glowing pills over the page's own text, and its "Atlas" entry
+  is called Guide, which is what it opens.
+- Atlas has a little more personality: the default Friendly style is warm,
+  a little curious and points out a link between notes when it spots one,
+  and the empty chat greets you in Atlas's own voice. The grounding rules are
+  unchanged, and a persona of your own replaces both.
+- The flat looks' background wash has a soft accent light in the bottom right
+  corner as well as the top left, as Classic does.
+- Capture's "Add to this note" tools (Attach, From library, Sketch, Dictate,
+  Improve) and "Add to document" are a quiet toolbar rather than a row of
+  heavy buttons, with Improve set apart; every Capture row shares one label
+  column, and on a phone the labels sit above their fields.
+- **A new default look, Quiet utilitarian**: a warm grey ground, solid
+  panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
+  paper and Technical mono, sit beside it in Appearance, and the previous
+  look is kept as Classic. A look you already chose is kept.
+- The documents live view reads as a page: the text sits in a measure of about
+  75 characters with a margin either side, and the space between blocks comes
+  from one scale (more above a section, less under its heading, one gap
+  however many blank lines were typed).
+- Tables in the documents live view mark the cell you are editing, have the
+  rendered view's cell spacing, keep their menu clear of the last heading,
+  and a new row from Tab puts the caret where you would type. Code blocks
+  have an inset, and quotations have a visible bar in both the live and the
+  rendered view.
+- The documents live view draws more of markdown: indent guides under
+  nested lists, finished tasks struck through (in the rendered view too),
+  bare web addresses and `<address>` links as links, and a backslash escape
+  without its backslash until you are on the line.
+- The mind map node menu is grouped with dividers instead of hover
+  submenus, so it works by touch and keyboard. Clearing a line's label
+  prompt no longer deletes it; "Take the label off the line" does.
+- "Advanced response settings" in Settings, Models lines up with every other
+  heading. Its disclosure arrow pushed it 20.8px to the right; the arrow now
+  hangs in the margin beside the heading instead of being removed.
+- On a phone, the '?' beside "Tools this skill may use" in Settings, Skills
+  can be pressed again. The fold's heading wrapped onto two lines inside a
+  box pinned to one line's height, which left the '?' outside the box it
+  belonged to; a fold heading now grows with its words. Found by a new sweep,
+  `scratchpad/ui-sweeps/help-popovers.js`, which opens every '?' in Settings
+  at 1440 and 390 and checks each one lands inside the window (82 of 82).
+- Reminder alerts no longer miss a reminder that is due when the notebook
+  holds many finished ones. The minute-by-minute check read one page of
+  reminders ordered oldest first with the ticked-off ones included, so the
+  page could be all done reminders; it now asks for open ones only, soonest
+  first. And two requests the app made twice at every start (recent
+  questions and most-used notes, once for the Notes tab and once for the
+  dashboard) are made once, because a request already in flight is now
+  shared by whoever asks for the same thing (measured with
+  `scratchpad/ui-sweeps/oi-dupfetch.js`: 6 boot requests to 4).
+- Similar-notes lists can no longer contain a note that was deleted or made
+  private in the same session. Its vector was blanked in place, and a blank
+  row outranked every genuinely unrelated note, so a short list could come
+  back with a hole in it; blanked rows are now skipped, and dropped from
+  memory once they are a quarter of the total.
+- A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here
+  comes from your notes" line. The line appeared when an answer arrived and
+  was gone once the conversation was reopened, because nothing stored it; the
+  saved turn now carries it, counted on the server by the same rule the live
+  answer used.
+- "Rebuild search index" in Settings, Models rebuilds the word index as well
+  as the semantic one. The word index was built once, when its table was
+  first made, and could not be rebuilt after a restore, an import or a fault;
+  `/search/stats` now also says when it was last rebuilt and with how many
+  rows.
+- `has:image`, `has:link` and `has:reminder` work in Find anything. They were
+  understood and matched nothing; now a picture attached or written into the
+  text, a connection to another note, and a reminder on the note each answer,
+  checked over the matches rather than on every save.
+- Search no longer finds things that are gone. Emptying the bin left each
+  purged note in the search index for good (it still answered `is:deleted`),
+  and deleting a space left its notes, documents and reminders findable from
+  All spaces, because both delete in bulk and the index only follows ordinary
+  saves. Both now take their rows out, and a lint fails any new bulk delete
+  of a searchable kind that does not.
+- A note the AI re-files, by adding context to it or by re-evaluating it, is
+  marked as the AI's choice, the same as a note it files on save. Moving one
+  of those by hand afterwards now records the correction the filing loop
+  learns from; before, only the two create paths set the mark, so a second
+  guess by the AI was invisible to it.
+- Settings, Models says which model background jobs actually run on, and why
+  (INBOX 277). The utility picker shows the stored choice, and that choice is
+  not the model in use while smart model routing is off or nothing has been
+  chosen; a line under it now reads, for example, "Background jobs run on
+  llama3.2, the chat model, because smart model routing is off", from one
+  server function (`utility_resolution`) that `utility_model()` itself uses.
+  The routing switch beside it also showed unchecked whenever Settings was
+  opened on Models, because only Background tasks ever filled it in; it now
+  reads the stored value when Models opens. Label in sentence case.
+
 ## [0.3.2] - 2026-09-21
 
 ### Fixed
 
+- The whiteboard context bar's "More" menu opens against the bar in a short
+  window. When neither side of the bar held the whole menu it was pinned
+  wherever it fitted, which at 947x608 (the 1184x760 window at 125% zoom) put
+  it over the bar it came from, 86px from either edge. It now takes the side
+  with more room, ends 2px from the bar's edge and scrolls inside that height.
+  The Size field and the bar's centre line were measured and already right on
+  this head (Size shows "16" and "128" whole in its 62px; every control
+  centred on one line, 0px spread).
+- Library, Images: a "Kinds" menu beside the search box shows sketches,
+  uploaded images or both, and the sort applies to whatever is left. A
+  sketch is the PNG the sketch pad saves as `sketch-<stamp>.png`; each kind's
+  count is in its row, and the last kind on cannot be turned off. The menu is
+  the Timeline's own "Kinds" dock menu, Images only, as the read filter is
+  Files only. The same pass fixes both kinds menus drawing a short label
+  centred between its icon and its switch (the Library's two at 669 and
+  637px, now both 632).
+- The Agent activity panel is laid out on one grid. Its head is the app's
+  panel-head recipe (the title, then three icon buttons with tooltips, all on
+  one centre line), and every run row is four columns: fold marker, icon,
+  name, state pill. The detail line and the bar start under the name rather
+  than 33px to the left of it, a long name or detail truncates to one line
+  with the whole text on hover, the state is a tinted pill whose right edge
+  is the same on every row, and a run's steps start under its icon. Measured
+  at 1184x760 by `scratchpad/ui-sweeps/monitorgrid.js`: header centres
+  within 0px, name, detail and bar left edges all at 80.4px, pills all
+  ending at 388.4px, the first row 57px rather than 96px.
+- The weekly digest no longer opens with a greeting or a sentence announcing
+  itself, and no longer turns "tonight" in yesterday's note into tonight.
+  Each note reaches the model with the day it was written and the prompt
+  names today, with an instruction to read relative words against the note's
+  own day and to say past ones as past; the previous "use no time
+  references" instruction is gone. The answer trim the Ask tab uses now runs
+  on the digest too, and also recognises "Based on the notes you provided,
+  here is a quick digest...".
+- Mind maps show in the Find anything search as mind maps, with their own
+  filter chip and glyph, and are found by the words written on their topics,
+  not only by their title (a board's text boxes likewise find the board).
+  Maps had been indexed as boards, and only the `# Title` line of either was
+  indexed. An existing index is put right at the next start by a diff over
+  the boards, a no-op once done.
+- Switching the background art to "Still", or changing the style, theme or
+  accent while it is still, no longer blanks the background for most of a
+  second: the old picture stays up until the new still frame has finished
+  encoding (measured over 700ms at 1440x900 in headless Chromium), then
+  swaps.
+- The new background art no longer costs the text on the page any
+  contrast. Measured against the real pixels behind every text element on
+  the Dashboard (three moments per style), the first versions of the bright
+  aurora, the constellation, the mesh and the mycelium took muted labels such
+  as "Start something" and "Jump to" under WCAG AA where the old styles had
+  not. In the dark theme a style's colours are now capped in luminance, and
+  in the light theme floored, while it builds them (never per frame): every
+  style now fails no more text than the art-off page does in the light theme
+  (3 over three captures), and at most as many in the dark.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the
@@ -221,6 +1071,43 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- An answer that finishes after you closed its panel now says so. Close the
+  popup agent or the Atlas guide while it is still answering, and when the
+  answer arrives a notification is recorded in the bell ("Popup agent
+  answered: ..." or "Atlas answered: ...") with a toast carrying an Open
+  button; either one reopens that panel scrolled to the answer. Nothing is
+  posted while the panel is open, or for a turn you stopped, and the mute and
+  "Panel only" switches still apply. Verified in a browser with both streams
+  held for two seconds (`scratchpad/ui-sweeps/unwatched.js`); not verified
+  against a real model.
+- The Chat tab, the Ask tab and Write with Atlas each have a model dropdown
+  beside where you type, the same setting as that feature's row in Settings,
+  Models: change either and the other follows on the next status tick. It
+  names the model that will actually run ("Inherited: llama3.2", resolved
+  through the role and smart routing), and keeps showing a chosen model that
+  is not installed. The Ask tab is its own row now (it had been running on
+  the Chat tab's choice without saying so), and the feature rows ride every
+  status poll, so the Chat tab's and the documents assistant's model sheets
+  no longer say "Models aren't available yet" until Settings has been opened.
+- Two new background art styles grown from your display name, after the
+  owner's helixlabs project (MIT; its `generateDNAProfile` idea, credited in
+  `frontend/bg-art.js`): the letters of the name, each weighted by its
+  place, choose every trait of three to five species. **Microbes** is an
+  ecosystem of swimming organisms (round, rod, comma, diatom, amoeba or
+  flagellate bodies; wandering, schooling, orbiting, tracing a figure or
+  clustering) that divide when there is room and fade with age; **Mycelium**
+  is a network of threads that germinate, branch, rest, fade and grow again
+  elsewhere. Settings says which species your name grew, and a new display
+  name regrows them.
+- Two sweeps for the background art. `scratchpad/ui-sweeps/bgartcost.js`
+  times each style's frame inside the page (the draw plus the raster it
+  forces, over five seconds), samples its allocations over ten seconds with
+  the heap profiler, and checks that "Still" leaves no loop and no canvas
+  behind; `bgart.js` timed the frame interval, which sits on the 16.7ms
+  vsync floor for any style that fits in a frame and so could not tell a
+  2ms style from a 12ms one. `scratchpad/ui-sweeps/bgartcontrast.js`
+  measures text contrast against the real pixels behind each text element
+  with the art on, which `contrast.js` cannot see through glass.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses
@@ -272,6 +1159,26 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app's emblem is drawn once and turned by a CSS rotation instead of a
+  p5 sketch redrawn 24 times a second for every emblem on the page, at the
+  same speed (one turn in 43.6 seconds). The architecture notes had it as
+  about 3.5 of the 5.5 CPU points an idle Dashboard cost; the page now runs
+  no animation-frame callbacks at all with the background art off (240 in
+  two seconds before, measured).
+- Every background art style but the waves is redrawn, and the whole
+  background is lighter to run. The aurora is now curtains of light, the
+  constellation has stars at three depths with a nebula and the odd meteor,
+  the floating orbs are glass bubbles at three depths, and the mesh is slow
+  colour fields that blend; the waves look as they did. Measured at
+  1440x900, default intensity, paint per frame: the aurora 5.97ms to about
+  1ms, the mesh 3.02ms and the bubbles 1.87ms to nothing at all (both are CSS
+  animations now, moved by the compositor), the waves 2.38ms to 0.88ms, the
+  constellation 1.92ms to 2.14ms with 40% more stars; allocations over ten
+  seconds fell from between 13MB and 46MB a style to under 5MB. The art no longer
+  uses p5, runs at 30 frames a second (20 on battery or a small machine),
+  stops when the window is hidden, unfocused for thirty seconds, idle for two
+  minutes or covered, and "Still" is now one captured image with nothing
+  running behind it.
 - A big mind map redraws only what changed. A change to one topic used to
   rebuild every topic and every line on the board, which is why a large map
   felt heavy to work on: at five hundred topics a redraw took just over half

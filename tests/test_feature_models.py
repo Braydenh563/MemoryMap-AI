@@ -24,6 +24,7 @@ import pytest
 
 from memorymap.ai import model_manager as mm
 from memorymap.core import deps
+from tests._app_js import app_js_text
 
 
 def _manager(app_state):
@@ -337,14 +338,16 @@ def test_the_guide_reaches_the_utility_model(ai_client, fake_ollama):
     assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
-def test_with_smart_routing_off_the_guide_falls_to_the_chat_model(ai_client, fake_ollama):
-    """The measured cause of INBOX 288, and it is the switch doing what it
-    says: routing off means background work uses the chat model."""
+def test_with_smart_routing_off_the_guide_keeps_the_utility_model(ai_client, fake_ollama):
+    """INBOX 288's cause, decided by the owner 2026-09-24 (WORLD_CLASS_PLAN
+    section 20): the routing switch moves background jobs, and the Guide is
+    an interactive panel, so it stays on the utility model either way."""
     manager = deps.get_model_manager()
     manager.set_chat_model("qwen3.5:9b")
     manager.set_utility_model("llama3.2")
     deps.get_config().set_preference("smart_model_routing_enabled", False)
-    assert _guide_model(ai_client, fake_ollama) == "qwen3.5:9b"
+    assert _guide_model(ai_client, fake_ollama) == "llama3.2"
+    assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
 def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_ollama):
@@ -355,3 +358,69 @@ def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_olla
     deps.get_config().set_preference("smart_model_routing_enabled", False)
     assert _guide_model(ai_client, fake_ollama) == "llama3.2"
     assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
+
+
+# --- the Ask box, a feature of its own (2026-09-23) ----------------------------
+#
+# The owner: "I want to be able to change the model I use within the features
+# themselves using a model dropdown which pairs with the feature-specific model
+# selections in settings." The Notes tab's Ask box and the Chat tab share
+# `/chat/stream`, so the Ask box ran on the "Chat tab" row without saying so:
+# a picker on the Ask box that wrote the chat row would have moved the Chat tab
+# too. It is its own row, told apart by the `notes_only` flag the Ask box
+# already sends and the Chat tab never does.
+
+
+def _stream(client, **body) -> None:
+    with client.stream("POST", "/chat/stream", json=body) as response:
+        list(response.iter_lines())
+
+
+def test_the_ask_box_is_a_feature_row(client):
+    rows = {row["key"]: row for row in client.get("/models/status").json()["feature_models"]}
+    assert rows["ask"]["label"] == "Ask tab"
+    assert rows["ask"]["role"] == "chat"
+
+
+def test_the_ask_box_runs_on_its_own_model_and_the_chat_tab_on_its(ai_client, fake_ollama):
+    manager = deps.get_model_manager()
+    manager.set_chat_model("llama3.2")
+    manager.set_feature_model("ask", "qwen3.5:4b")
+    manager.set_feature_model("chat", "gemma4:12b")
+    _save(ai_client, "a scarecrow joke I want to remember")
+
+    _stream(ai_client, question="what jokes have I saved?", notes_only=True, use_tools=False)
+    assert fake_ollama.chat_models[-1] == "qwen3.5:4b"
+    _stream(ai_client, question="what jokes have I saved?", use_tools=False)
+    assert fake_ollama.chat_models[-1] == "gemma4:12b"
+
+
+def test_an_unset_ask_box_follows_the_chat_model_not_the_chat_tab(ai_client, fake_ollama):
+    """Inherits through its role, like every row: a Chat tab override is that
+    tab's choice and does not leak into the Ask box."""
+    manager = deps.get_model_manager()
+    manager.set_chat_model("llama3.2")
+    manager.set_feature_model("chat", "gemma4:12b")
+    _save(ai_client, "a scarecrow joke I want to remember")
+    _stream(ai_client, question="what jokes have I saved?", notes_only=True, use_tools=False)
+    assert fake_ollama.chat_models[-1] == "llama3.2"
+
+
+def test_every_in_surface_picker_names_a_real_feature_and_a_real_control():
+    """`FEATURE_MODEL_SELECTS` (app.js) pairs a `<select>` with a row of the
+    table above. A key that is not a row would post a feature the API refuses,
+    and an id that is not in the page would be a picker that never drew: both
+    silent in the browser, so both pinned here."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    app = app_js_text()
+    page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    block = re.search(r"const FEATURE_MODEL_SELECTS = \[(.*?)\];", app, re.S)
+    assert block, "FEATURE_MODEL_SELECTS is gone from app.js"
+    pairs = re.findall(r'\["([\w-]+)",\s*"(\w+)"\]', block.group(1))
+    assert {key for _, key in pairs} >= {"chat", "ask", "writing"}
+    for element_id, key in pairs:
+        assert key in mm.FEATURES_BY_KEY, key
+        assert f'id="{element_id}"' in page, element_id

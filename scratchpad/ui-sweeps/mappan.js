@@ -122,10 +122,15 @@ function probe(page) {
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: "middle" });
   await page.waitForTimeout(60);
-  const midCursor = await page.evaluate(() => {
+  // The cursor of what is under the pointer, which is the one a person sees.
+  // It used to be read off the container, because the container carried it;
+  // it is the pan shield's now (MINDMAP_PLAN 13a-view), and reading the
+  // element at the point is true whichever element carries it.
+  const midCursor = await page.evaluate(([x, y]) => {
     const c = document.getElementById("whiteboard-container");
-    return { cls: c.classList.contains("wb-mid-pan"), cursor: getComputedStyle(c).cursor, sel: getComputedStyle(c).userSelect };
-  });
+    const at = document.elementFromPoint(x, y);
+    return { cls: c.classList.contains("wb-mid-pan"), cursor: getComputedStyle(at).cursor, sel: getComputedStyle(at).userSelect };
+  }, [cx, cy]);
   check("a middle press says it is a pan", midCursor.cls && midCursor.cursor === "grabbing",
     `class ${midCursor.cls}, cursor ${midCursor.cursor}, user-select ${midCursor.sel}`);
   const steps = [];
@@ -149,10 +154,11 @@ function probe(page) {
   check("a middle drag selects no text", sel === 0, `${sel} characters selected`);
   const strays = await page.evaluate(() => document.querySelectorAll(".wb-marquee").length);
   check("a middle drag leaves no marquee", strays === 0, `${strays} rectangles`);
-  const restCursor = await page.evaluate(() => {
+  const restCursor = await page.evaluate(([x, y]) => {
     const c = document.getElementById("whiteboard-container");
-    return { cls: c.classList.contains("wb-mid-pan"), cursor: getComputedStyle(c).cursor };
-  });
+    const at = document.elementFromPoint(x, y);
+    return { cls: c.classList.contains("wb-mid-pan"), cursor: getComputedStyle(at).cursor };
+  }, [cx - 120, cy - 72]);
   check("the grabbing cursor is dropped on release", !restCursor.cls && restCursor.cursor !== "grabbing",
     `class ${restCursor.cls}, cursor ${restCursor.cursor}`);
 

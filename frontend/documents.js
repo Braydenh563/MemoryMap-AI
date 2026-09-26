@@ -133,6 +133,14 @@ function syncDocFileType() {
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
   $("doc-toolbar")?.classList.toggle("hidden", !type.previewable);
+  //: And the other way round: Format lays out code, and has nothing to say
+  //: to prose, plain text or a CSV. The pair swap in one place, so a
+  //: document never shows both or neither.
+  $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
+  $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
+  //: Wrapping and whitespace are about a file that does not wrap by itself:
+  //: every type but prose, plain text and CSV included (INBOX 402).
+  for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
@@ -266,7 +274,7 @@ foldDocMenuGroup("ph:download-simple Download or print", [
   "doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf",
 ]);
 foldDocMenuGroup("ph:layout Editor and layout", [
-  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode",
+  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode", "doc-code-wrap-row", "doc-whitespace-row",
 ]);
 foldDocMenuGroup("ph:pencil-simple While you write", [
   "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
@@ -518,10 +526,23 @@ function cmSurface(view, meta = null) {
     coordsAt(pos) {
       const at = view.coordsAtPos(Math.max(0, Math.min(pos, view.state.doc.length)));
       if (!at) {
+        //: `offscreen`, because the corner below is not where the position
+        //: is: the engine has not laid that line out. A popup placed from it
+        //: opens at the top of the editor (INBOX 421 c), so the popups ask
+        //: for the caret to be brought into view instead.
         const box = view.dom.getBoundingClientRect();
-        return { left: box.left, top: box.top, bottom: box.top + 18, lineHeight: 18 };
+        return { left: box.left, top: box.top, bottom: box.top + 18, lineHeight: 18, offscreen: true };
       }
       return { left: at.left, top: at.top, bottom: at.bottom, lineHeight: at.bottom - at.top };
+    },
+    //: Bring a position into the lines the engine has laid out, so
+    //: `coordsAt` can answer for it (the "/" menu's use, `editorPositionMenu`).
+    scrollIntoView(pos) {
+      const CMx = window.CM6;
+      if (!CMx) return;
+      view.dispatch({
+        effects: CMx.view.EditorView.scrollIntoView(Math.max(0, Math.min(pos, view.state.doc.length)), { y: "nearest" }),
+      });
     },
     lineAt(pos) {
       const line = view.state.doc.lineAt(Math.max(0, Math.min(pos, view.state.doc.length)));
@@ -708,7 +729,7 @@ async function loadDocuments(selectId = null) {
   //: silently fails to resolve, not just a row missing from a list.
   //: A sentinel rather than `[]`, because an empty list and a failed request
   //: were the same value here and the sidebar said "No documents yet" for
-  //: both. See `surfaceFailed` in app.js.
+  //: both. See `surfaceFailed` in navigation.js.
   const loaded = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => null);
   if (!loaded) {
     surfaceFailed(document.getElementById("doc-empty"), "documents", () => loadDocuments(selectId));
@@ -877,7 +898,7 @@ async function openDocument(id) {
   // recorded here (not at each of openDocument's several call sites) so
   // none of them has to remember to, same reasoning openConversation's own
   // comment gives for doing it there instead of at ITS call sites.
-  recordTabVisit("documents", `doc:${doc.id}`);
+  recordTabVisit("documents", `doc:${doc.id}`, doc.title || "Untitled document");
   currentDoc = doc;
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;
@@ -1209,7 +1230,7 @@ async function renderDocBookmarks() {
     open.className = "outline-link";
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
-    // safeHref() (app.js): the same scheme guard library.js's bookmark rows
+    // safeHref() (notes-list.js): the same scheme guard library.js's bookmark rows
     // use, so a bookmark saved before INBOX 310's write-time check existed
     // can't reach window.open() with an unlisted scheme from here either.
     open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
@@ -1270,7 +1291,7 @@ async function attachBookmarkToDocument() {
   //: is the shape everyone tries Escape on first.
   //:
   //: **On the document, not on the `<select>` or even on the row.**
-  //: `enhanceSelect` in app.js replaces every select in the page with a shell
+  //: `enhanceSelect` in sheets-selects.js replaces every select in the page with a shell
   //: holding a `<button>` opener and a listbox, and takes the real select out
   //: of the tab order (`select-native-hidden`, `tabindex="-1"`), so the
   //: `select.focus()` below lands nowhere and the keystroke is dispatched at
@@ -1304,7 +1325,7 @@ async function attachBookmarkToDocument() {
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));
   $("doc-attach-bookmark").classList.add("hidden");
-  //: `focusSelect` (app.js), which is where this trap and its answer now live
+  //: `focusSelect` (sheets-selects.js), which is where this trap and its answer now live
   //: together. It was open-coded here first, before a sweep of the rest of the
   //: app found three more call sites doing the plain `.focus()` silently.
   focusSelect(select);
@@ -1392,32 +1413,123 @@ async function createDocument(template = null) {
   $("doc-title").select();
 }
 
+//: **Choosing is not making** (INBOX 410, the owner: "when selecting a
+//: template, I want to be able to confirm my template selection, not have it
+//: instantly be made when I press it"). A row is a radio: a click chooses it
+//: and the preview shows the page it would make; the dialog's one filled
+//: button (Use this template), Enter on the list, or a double click makes it.
+//: The arrows walk the rows, and the first row is chosen when the dialog
+//: opens, so one Enter still makes a page the way one Enter did before. The
+//: preview follows the choice and not the pointer: a pane showing the row
+//: under the mouse while the button below would make the row that was
+//: clicked is two answers to "what will I get". The choice lives here, not
+//: on a row, so the Use button (wired once, beside the other document
+//: controls) can read it.
+let docTemplateChoice = null;
+let docTemplateMade = false;
+
+function chooseDocTemplate(template, { focus = false } = {}) {
+  if (!template) return;
+  docTemplateChoice = template;
+  for (const row of document.querySelectorAll("#doc-template-list .doc-template-choice")) {
+    const on = row.dataset.template === template.id;
+    row.setAttribute("aria-checked", String(on));
+    //: The radio pattern's roving tab stop: Tab reaches the chosen row only,
+    //: the arrows move between rows.
+    row.tabIndex = on ? 0 : -1;
+    if (on && focus) row.focus();
+  }
+  showDocTemplatePreview(template);
+}
+
+async function useDocTemplate() {
+  //: A double click is a click and then a dblclick, and Enter can follow
+  //: either: one document per opening, whichever way it was confirmed.
+  if (docTemplateMade || !docTemplateChoice) return;
+  docTemplateMade = true;
+  $("doc-template-dialog")?.close();
+  await createDocument(docTemplateChoice);
+}
+
+function docTemplateListKeys(event) {
+  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
+  if (!rows.length) return;
+  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+  let next = null;
+  if (step) next = rows[(index + step + rows.length) % rows.length];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows[rows.length - 1];
+  if (next) {
+    event.preventDefault();
+    chooseDocTemplate(DOC_TEMPLATES.find((t) => t.id === next.dataset.template), { focus: true });
+  } else if (event.key === "Enter") {
+    //: Enter on a focused button would fire its click, which only chooses;
+    //: on this list Enter is the confirmation, as it is on a form.
+    event.preventDefault();
+    useDocTemplate();
+  }
+}
+
 function openDocTemplateDialog() {
   const dialog = $("doc-template-dialog");
   const list = $("doc-template-list");
   if (!dialog || !list) return;
+  docTemplateMade = false;
   list.replaceChildren();
   for (const template of DOC_TEMPLATES) {
     const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost doc-template-choice";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
     button.dataset.template = template.id;
     const name = document.createElement("strong");
     name.textContent = template.title;
     const hint = document.createElement("span");
     hint.className = "muted text-sm";
     hint.textContent = template.hint;
-    button.append(name, hint);
-    button.addEventListener("click", async () => {
-      dialog.close();
-      await createDocument(template);
-    });
+    //: The chosen row's check, the mark every menu in the app uses for
+    //: "in effect": the fill alone would be colour alone.
+    const check = document.createElement("i");
+    check.className = "ph ph-check doc-template-check";
+    check.setAttribute("aria-hidden", "true");
+    button.append(name, hint, check);
+    button.addEventListener("click", () => chooseDocTemplate(template));
+    button.addEventListener("dblclick", useDocTemplate);
     li.appendChild(button);
     list.appendChild(li);
   }
   dialog.showModal();
-  list.querySelector("button")?.focus();
+  chooseDocTemplate(DOC_TEMPLATES[0], { focus: true });
+}
+
+//: **The page a template makes, before it is made** (DOCUMENTS_PLAN Phase 4:
+//: templates "offered with a preview"). The gallery offered a sentence per
+//: row ("Brief, criteria, sections, sources, timeline."), which says what a
+//: template is about and not what it looks like. This is the filled body,
+//: through the same `docTemplateFill` the button uses and the same
+//: `renderMarkdown` the document's own preview uses, shrunk to a page in the
+//: dialog's second column, so what is shown is exactly what would be created.
+function showDocTemplatePreview(template) {
+  const pane = $("doc-template-preview");
+  if (!pane || !template) return;
+  if (pane.dataset.template === template.id) return;
+  pane.dataset.template = template.id;
+  const page = document.createElement("div");
+  page.className = "doc-template-page md";
+  const filled = docTemplateFill(template);
+  if (filled.content) {
+    renderMarkdown(page, filled.content);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "muted doc-template-empty";
+    empty.textContent = template.hint;
+    page.appendChild(empty);
+  }
+  pane.replaceChildren(page);
 }
 
 // Guards against creating several documents from one fast burst of typing.
@@ -1460,7 +1572,7 @@ function markDocDirty() {
     return;
   }
   docDirty = true;
-  $("doc-saved").textContent = "Unsaved…";
+  docSetStatusText($("doc-saved"), "Unsaved…");
   clearTimeout(docSaveTimer);
   // Autosave, but not on every keystroke, a pause is the natural moment.
   docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
@@ -2096,7 +2208,7 @@ const DOC_COMMANDS = [
     run: () => setDocView("rendered") },
   { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
     run: () => docRunControl("doc-format-toggle", "The formatting strip") },
-  { id: "focus", icon: "ph:moon", label: "Focus mode", keys: "",
+  { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
   { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
     run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
@@ -2122,6 +2234,41 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-export-docx", "The Word export") },
   { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
     run: () => docRunControl("doc-export-pdf", "The PDF export") },
+  //: `code: true` rows are offered by the palette only while a code
+  //: document is open; the shortcut sheet lists them always, marked by
+  //: their wording as being for code.
+  { id: "format", icon: "ph:brackets-curly", label: "Format the code, or the selected lines", keys: "Shift+Alt+F",
+    code: true, run: () => docRunControl("doc-code-format", "Formatting") },
+  { id: "quick-fix", icon: "ph:wrench", label: "Quick fixes for the problem at the caret", keys: "Alt+Enter",
+    code: true, run: () => docOpenCodeFixes() },
+  //: CodeMirror's default keymap has always bound this chord; the row is what
+  //: puts it in the palette and the shortcut sheet (INBOX 402).
+  { id: "block-comment", icon: "ph:brackets-angle", label: "Block comment around the selection", keys: "Shift+Alt+A",
+    code: true, run: () => docCodeCommentAtCaret(docSurface(), true) },
+  //: Emmet's editing commands (INBOX 402). No chord: VS Code has none for
+  //: them either, and every free one is spoken for by something commoner.
+  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "",
+    code: true, run: () => docEmmetWrap() },
+  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "",
+    code: true, run: () => docEmmetBalance(false) },
+  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "",
+    code: true, run: () => docEmmetBalance(true) },
+  //: VS Code's Ctrl+Shift+O, without the chord: the registry gives it to a
+  //: new chat. The outline panel lists the same symbols.
+  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
+    code: true, run: () => docOpenSymbols() },
+  { id: "definition", icon: "ph:arrow-square-in", label: "Go to where the name at the caret is defined", keys: "F12",
+    code: true, run: () => docGoToDefinition() },
+  { id: "references", icon: "ph:list-magnifying-glass", label: "List every use of the name at the caret", keys: "Shift+F12",
+    code: true, run: () => docShowReferences() },
+  { id: "find-documents", icon: "ph:magnifying-glass", label: "Find in every document", keys: "Ctrl+Shift+F",
+    run: () => docFindInDocuments() },
+  { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
+    code: true, run: () => docRunCode() },
+  { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
+    code: true, run: () => docToggleCodeDraw("codeWrap") },
+  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
+    code: true, run: () => docToggleCodeDraw("whitespace") },
 ];
 
 // DOC-COMMANDS-END
@@ -2129,7 +2276,7 @@ const DOC_COMMANDS = [
 //: **Only while a document is open and on screen.** The palette is reachable
 //: from every tab, and "Bold" run from the Notes tab would wrap a selection in
 //: a document nobody is looking at. `activeTab` is where the app keeps which
-//: tab is showing (app.js's `switchTab` writes it), so this asks the same
+//: tab is showing (navigation.js's `switchTab` writes it), so this asks the same
 //: question the tab bar answers.
 //:
 //: A row with no `run` is a keyboard-only move (Tab, Alt with an arrow): it
@@ -2144,7 +2291,8 @@ function docPaletteCommands() {
     return [];
   }
   if (tab !== "documents" || !currentDoc) return [];
-  return DOC_COMMANDS.filter((command) => command.run).map((command) => ({
+  const code = !docFileType().previewable;
+  return DOC_COMMANDS.filter((command) => command.run && (!command.code || code)).map((command) => ({
     group: "This document",
     label: `${command.icon} ${command.label}`,
     keys: command.keys,
@@ -2153,7 +2301,7 @@ function docPaletteCommands() {
 }
 
 //: The `?` sheet's editor section, from the same table, so the two cannot
-//: disagree. Called by `openShortcuts` (app.js) rather than wired here,
+//: disagree. Called by `openShortcuts` (settings-wiring.js) rather than wired here,
 //: because this file is in the Library's lazy bundle and the dialog can be
 //: opened before it has ever loaded: the section then simply says so.
 function renderDocShortcutSheet(list) {
@@ -2276,7 +2424,13 @@ function renderDocOutline() {
   if (!list || !wrap) return;
   const text = docText();
   const lines = text.split("\n");
-  const headings = docScanHeadings(text);
+  //: A code file's outline is its symbols (INBOX 402), a markdown file's its
+  //: headings; the same rows, the same breadcrumb. Never a code file read
+  //: as markdown: every `# comment` in a Python file was a heading here.
+  const fileType = docFileType();
+  let headings = [];
+  if (fileType.previewable) headings = docScanHeadings(text);
+  else if (docCmView && window.CM6) headings = docCodeSymbols(window.CM6, docCmView.state, fileType.ext);
 
   //: **The tasks in each section, counted.** DOCUMENTS_PLAN Phase 3 item 2
   //: asks for "task lists with progress in the outline", and the outline is
@@ -2350,6 +2504,21 @@ function renderDocOutline() {
     if (!wanted && filterBox.value) filterBox.value = "";
     filterBox.classList.toggle("hidden", !wanted);
   }
+  //: **Nothing the rows show has changed, so the rows stay.** This runs on
+  //: every pause in the typing, and typing inside a paragraph changes no
+  //: heading: rebuilding every row and then re-marking and re-scrolling the
+  //: current one (two forced layouts) was the largest cost of typing in a
+  //: long document (INBOX 424). Anything a row is drawn from is in the key.
+  const outlineKey = JSON.stringify([
+    headings.map((h) => [h.level, h.line, h.text, h.tasks && h.tasks.done, h.tasks && h.tasks.total, Boolean(h.symbol)]),
+    needle, [...folds], visible.map((row) => [row.shown, row.foldable]),
+  ]);
+  if (outlineKey === docOutlineKey && docOutlineRows.length === headings.length && list.isConnected) {
+    docOutlineHeadingList = headings;
+    renderDocCrumbs(docCaretLine());
+    return;
+  }
+  docOutlineKey = outlineKey;
   list.replaceChildren();
   const empty = $("doc-outline-empty");
   if (empty) {
@@ -2425,7 +2594,10 @@ function renderDocOutline() {
     //: rows on screen are then a search result rather than the document's
     //: order, and dropping one "between" two rows that are not next to each
     //: other in the document is a position nobody could have meant.
-    if (!needle) {
+    //: A symbol is not a section: a function dragged by its first line would
+    //: take the lines up to the next symbol with it, which is not the
+    //: function. Code rows jump; only headings move.
+    if (!needle && !heading.symbol) {
       li.draggable = true;
       li.addEventListener("dragstart", (event) => {
         docOutlineDragIndex = index;
@@ -2464,6 +2636,7 @@ function renderDocOutline() {
     }
     button.addEventListener("keydown", (event) => {
       if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      if (heading.symbol) return;
       event.preventDefault();
       if (!docOutlineNudge(index, event.key === "ArrowDown" ? 1 : -1)) {
         announce("That section cannot move any further.");
@@ -2518,6 +2691,8 @@ function renderDocOutline() {
 //: document, and rebuilding the outline per scroll was the obvious wrong
 //: answer this avoids.
 let docOutlineRows = [];
+//: What the rows were last drawn from; see the early return in renderDocOutline.
+let docOutlineKey = "";
 let docOutlineMarked = -1;
 //: The row a move asked to keep the focus ring on, as a fold key (level and
 //: text), because that is the one name for a heading that survives the
@@ -2772,10 +2947,11 @@ function renderDocPreview() {
   //: is set for by `exportDocumentPdf`.
   const remarks = docPrintComments ? docCommentFootnotes : docCommentStrip;
   const stripped = fm ? docFrontmatterStrip(text) : text;
-  const body = remarks(docBlockStripIds(stripped));
+  //: Suggested changes are drawn as struck and highlighted words (PROSE-TOOLS).
+  const body = docSuggestForRead(remarks(docBlockStripIds(stripped)));
   //: **How far the preview's line numbers are from the editor's.** Every
   //: block this renders carries the line it came from (`data-src-line`,
-  //: `renderMarkdown` in app.js), but it came from the line in the string
+  //: `renderMarkdown` in navigation.js), but it came from the line in the string
   //: below, not in the document: the title is prepended as a heading and the
   //: frontmatter is taken off the front, so the two texts are the same words
   //: at different line numbers. The split view's scroll map reads the stamps
@@ -2813,25 +2989,37 @@ function docRenderBody(container, text) {
   if (!blocks.length) {
     container.replaceChildren();
     docRenderFlow(container, text);
+    //: Once more over the whole page: the flow is rendered in pieces (around
+    //: block embeds and columns), and a `[TOC]` has to list every heading,
+    //: not only the ones in its own piece.
+    mdFillTocs(container);
     return;
   }
   container.replaceChildren();
+  //: The line an offset is on, for the pieces' `lineBase`.
+  const lineOf = (offset) => {
+    let count = 0;
+    for (let i = text.indexOf("\n"); i !== -1 && i < offset; i = text.indexOf("\n", i + 1)) count += 1;
+    return count;
+  };
   let at = 0;
   for (const block of blocks) {
-    if (block.from > at) docRenderFlow(container, text.slice(at, block.from));
+    if (block.from > at) docRenderFlow(container, text.slice(at, block.from), lineOf(at));
     const box = document.createElement("div");
-    box.className = "doc-cols";
+    box.className = `doc-cols md-cols md-cols-${block.columns.length}`;
+    box.dataset.srcLine = String(block.openLine);
     box.style.setProperty("--doc-cols", String(Math.max(1, block.columns.length)));
     for (const column of block.columns) {
       const col = document.createElement("div");
       col.className = "doc-col";
-      docRenderFlow(col, column.text);
+      docRenderFlow(col, column.text, lineOf(column.from));
       box.appendChild(col);
     }
     container.appendChild(box);
     at = block.to;
   }
-  if (at < text.length) docRenderFlow(container, text.slice(at));
+  if (at < text.length) docRenderFlow(container, text.slice(at), lineOf(at));
+  mdFillTocs(container);
 }
 
 //: `![[Document#^an-id]]` on its own line (DOCUMENTS_PLAN Phase 4 item 2).
@@ -2851,26 +3039,38 @@ const DOC_BLOCK_EMBED_LINE =
 //: view while the same line drew the block in Live, which is the two panes
 //: disagreeing about what the document says. Split out here and handed to the
 //: same filler the Live view's widget uses, so they cannot.
-function docRenderFlow(container, text) {
+//:
+//: `lineBase` is the line this piece starts on in the whole rendered text.
+//: **Every block's `data-src-line` is a line of the whole text, not of its
+//: piece.** `renderMarkdown` counts from the start of the string it is given,
+//: and this renders the page in pieces (around block embeds and columns), so
+//: every block after the first piece carried a line counted from the wrong
+//: zero: the split view's anchors dropped them (`docScrollAnchors` skips a
+//: line that goes backwards) and the block bar could not find them in the
+//: text at all (INBOX 421 b's "change it from the rendered block").
+function docRenderFlow(container, text, lineBase = 0) {
   const lines = String(text == null ? "" : text).split("\n");
   let buffer = [];
+  let bufferStart = 0;
   const flush = () => {
     if (!buffer.length) return;
-    docAppendRendered(container, buffer.join("\n"));
+    docAppendRendered(container, buffer.join("\n"), lineBase + bufferStart);
     buffer = [];
   };
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const match = DOC_BLOCK_EMBED_LINE.exec(line);
     if (!match) {
+      if (!buffer.length) bufferStart = index;
       buffer.push(line);
-      continue;
+      return;
     }
     flush();
     const host = document.createElement("div");
     host.className = "doc-embed-host";
+    host.dataset.srcLine = String(lineBase + index);
     docEmbedFill(host, match[1].trim());
     container.appendChild(host);
-  }
+  });
   flush();
 }
 
@@ -2878,9 +3078,14 @@ function docRenderFlow(container, text) {
 //: the same one would take the first's work away. Rendered into a spare
 //: element and moved across, which is also what keeps every piece in document
 //: order.
-function docAppendRendered(container, text) {
+function docAppendRendered(container, text, lineBase = 0) {
   const spare = document.createElement("div");
   renderMarkdown(spare, text);
+  if (lineBase) {
+    for (const block of spare.children) {
+      if (block.dataset.srcLine !== undefined) block.dataset.srcLine = String(Number(block.dataset.srcLine) + lineBase);
+    }
+  }
   while (spare.firstChild) container.appendChild(spare.firstChild);
 }
 
@@ -2959,7 +3164,7 @@ function layerDocWikiLinks(container) {
       link.type = "button";
       link.className = "wiki-link";
       //: The words, not the syntax the target happens to open with: see
-      //: `wikiLinkLabel` in app.js for why the raw `name` stays in the
+      //: `wikiLinkLabel` in shell-reminders.js for why the raw `name` stays in the
       //: document and only what is drawn is cleaned.
       link.textContent = window.wikiLinkLabel ? window.wikiLinkLabel(name) : name;
       link.title = target
@@ -3292,6 +3497,14 @@ function indentDocSelection(box, outdent) {
   if (!multiline && !outdent) {
     const at = box.selectionStart;
     docReplaceRange(box, at, box.selectionEnd, unit);
+    //: **After the indent, said rather than assumed.** The textarea's
+    //: `insertText` leaves the caret after what it inserted; the engine's
+    //: `replaceRange` maps a caret sitting exactly at the insertion point to
+    //: *before* it. Measured 2026-09-23 in both a code and a markdown
+    //: document: Tab then "a" at the start of `int x;` gave `a    int x;`,
+    //: so every Tab in the editor since the engine landed put the next
+    //: keystroke on the wrong side of the indent it had just made.
+    box.setSelectionRange(at + unit.length, at + unit.length);
     markDocDirty();
     renderDocGutter();
     return;
@@ -3327,6 +3540,7 @@ function indentDocSelection(box, outdent) {
 }
 
 function toggleDocComment(box) {
+  if (docCodeCommentAtCaret(box)) return;
   docUndoBreak();
   const type = docFileType();
   const { start, end, text } = docSelectedLines(box);
@@ -3375,6 +3589,33 @@ function toggleDocComment(box) {
   }
   markDocDirty();
   renderDocGutter();
+}
+
+//: **A code document comments by the language at the caret** (INBOX 402),
+//: as VS Code does: one HTML file is three languages, so a line inside its
+//: `<script>` takes `//`, inside `<style>` `/* */`, and the markup
+//: `<!-- -->`; a JSX child takes `{/* */}`. The file-type table above has one
+//: marker per file and cannot know that; CodeMirror's own command reads the
+//: `commentTokens` of the grammar at the cursor. It keeps this function's
+//: rules (uncomment only when every non-blank line is commented, the marker
+//: after the indentation, a round trip exact; `tests/test_code_vscode.py`),
+//: with one difference, VS Code's: a block of lines takes its marker at the
+//: block's own indent, so the block keeps its shape. A grammar with no tokens
+//: falls through to the file-type marker; prose, Plain and the textarea
+//: fallback never come here.
+function docCodeCommentRun(CM, target, block) {
+  return block ? CM.commands.toggleBlockComment(target) : CM.commands.toggleComment(target);
+}
+
+function docCodeCommentAtCaret(box, block = false) {
+  const CM = window.CM6;
+  const type = docFileType();
+  if (!CM || !docCmView || box?.view !== docCmView || type.previewable || docView === "plain") return false;
+  const view = docCmView;
+  const target = { state: view.state, dispatch: (tr) => view.dispatch(tr) };
+  if (!docCodeCommentRun(CM, target, block)) return false;
+  markDocDirty();
+  return true;
 }
 
 // --- Live preview: the same editor, with decorations on -----------------------
@@ -3838,6 +4079,127 @@ function docTableStepCell(table, row, col, delta) {
   }
 }
 
+//: The row an arrow or Enter goes to from `row`, stepping over the delimiter
+//: (which is the header's underline, not a row anyone writes in). `null`
+//: past either end: the caller's cue to leave the table or to add a row.
+//: INBOX 425 i: measured before this, ArrowDown from the third column
+//: landed in the fourth, because the editor moves by pixels and the cells
+//: of the next row are laid out by a grid it cannot see.
+function docTableStepRow(table, row, delta) {
+  let r = row + delta;
+  if (r === table.delim) r += delta;
+  if (r < 0 || r >= table.rows.length) return null;
+  return r;
+}
+
+//: A cell's text as markdown can hold it: one line, and a pipe escaped so it
+//: stays inside its cell rather than opening a new one. An already escaped
+//: pipe is kept as it is.
+function docTableEscapeCell(text) {
+  return String(text == null ? "" : text)
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .replace(/\\\|/g, "\u0000")
+    .replace(/\|/g, "\\|")
+    .replace(/\u0000/g, "\\|");
+}
+
+//: What a spreadsheet puts on the clipboard: rows on lines, cells split by
+//: tabs. `null` for anything without a tab, which is ordinary text and is
+//: pasted as it is. A trailing newline (every spreadsheet adds one) is not a
+//: row.
+function docTableGridFromText(text) {
+  if (typeof text !== "string" || text.indexOf("\t") === -1) return null;
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  if (!lines.length) return null;
+  return lines.map((line) => line.split("\t").map(docTableEscapeCell));
+}
+
+//: A new table from a grid, its first row as the header. Written the way
+//: this editor writes a new row (`| a | b |`, a space either side), so a
+//: pasted table and a typed one look the same in Source.
+function docTableFromGrid(grid) {
+  const width = Math.max(1, ...grid.map((row) => row.length));
+  const line = (cells) =>
+    "|" + Array.from({ length: width }, (_, i) => ` ${cells[i] == null ? "" : cells[i]} `).join("|") + "|";
+  return [line(grid[0] || []), "|" + Array.from({ length: width }, () => " --- ").join("|") + "|",
+    ...grid.slice(1).map(line)].join("\n");
+}
+
+//: The edits that put `text` into cells, each cell keeping the padding it
+//: was written with: the words between the spaces change and nothing else,
+//: the same promise every operation above keeps. A blank cell has no words
+//: to stand between, so it is written ` text `, as a new row's cells are.
+function docTableSetCellEdits(table, cells) {
+  const edits = [];
+  for (const { row, col, text } of cells) {
+    const span = docTableCellSpan(table, row, col);
+    if (!span) continue;
+    const raw = table.rows[row].cells[col];
+    if (!raw.trim()) {
+      edits.push({ from: span.from, to: span.to, insert: ` ${text} ` });
+      continue;
+    }
+    const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
+    const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+    edits.push({ from: span.from + lead, to: span.to - tail, insert: text });
+  }
+  return edits;
+}
+
+//: **A spreadsheet's rows pasted into a table fill its cells** (INBOX 425 i,
+//: "paste from a spreadsheet"). Measured before this: the whole clipboard
+//: landed in the one cell the caret was in, tabs and newlines and all, and
+//: the three lines after it stopped being a table. From the caret's cell,
+//: right and down, one cell per value; rows and columns the table does not
+//: have yet are added the way Tab and the cell menu add them, and a paste on
+//: the delimiter starts on the first body row.
+//:
+//: Returns one edit covering the table, so the paste is one step of undo,
+//: and the cell the last value went into for the caret. Every byte of the
+//: table the paste did not have to change is still the author's.
+function docTablePasteEdits(text, table, row, col, grid) {
+  if (!grid || !grid.length) return null;
+  const from = table.from;
+  let work = String(text);
+  let t = table;
+  const targets = [];
+  let r = row === t.delim ? t.delim + 1 : row;
+  for (let i = 0; i < grid.length; i += 1) {
+    if (r === t.delim) r += 1;
+    targets.push(r);
+    r += 1;
+  }
+  while (t && t.rows.length <= targets[targets.length - 1]) {
+    work = docTableApplyEdits(work, docTableAddRowEdits(t, t.rows.length - 1));
+    t = docTableParse(work, from);
+  }
+  const width = Math.max(...grid.map((cells) => cells.length));
+  while (t && t.columns < col + width) {
+    work = docTableApplyEdits(work, docTableAddColumnEdits(t, t.columns - 1));
+    t = docTableParse(work, from);
+  }
+  if (!t) return null;
+  //: A row made short by GFM's padding gets its missing cells for real
+  //: before anything is written into them, as Tab does.
+  for (const target of targets) {
+    work = docTableApplyEdits(work, docTableFillRowEdits(t, target, col + width - 1));
+    t = docTableParse(work, from);
+  }
+  const cells = [];
+  grid.forEach((values, i) =>
+    values.forEach((value, j) => cells.push({ row: targets[i], col: col + j, text: value }))
+  );
+  work = docTableApplyEdits(work, docTableSetCellEdits(t, cells));
+  const grown = work.length - String(text).length;
+  return {
+    edit: { from, to: table.to, insert: work.slice(from, table.to + grown) },
+    row: targets[targets.length - 1],
+    col: col + grid[grid.length - 1].length - 1,
+  };
+}
+
 // DOC-TABLE-END
 
 // -----------------------------------------------------------------------------
@@ -3902,6 +4264,16 @@ function docTableGo(context, edits, row, col) {
   const span = table && docTableCellSpan(table, row, col);
   if (!span) return true;
   const raw = table.rows[row].cells[col];
+  //: **An empty cell takes the caret after its first space, not its last.**
+  //: A new row is written `|  |  |`, two spaces a cell, and the caret was put
+  //: after both: measured, Tab out of the last cell and "Three" typed gave
+  //: `|  Three|`, a cell that no longer matched a single other one in the
+  //: table. One space in is where a person would have typed it by hand.
+  if (!raw.trim()) {
+    const at = span.from + Math.min(1, raw.length);
+    surface.setSelectionRange(at, at);
+    return true;
+  }
   const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
   const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
   surface.setSelectionRange(span.from + lead, Math.max(span.from + lead, span.to - tail));
@@ -3922,6 +4294,140 @@ function docTableTabStep(backwards, from = null) {
   if (backwards) return false;
   const rows = context.table.rows.length;
   return docTableGo(context, docTableAddRowEdits(context.table, rows - 1), rows, 0);
+}
+
+//: The caret at the end of a cell's words, for the gestures that move rather
+//: than select (Enter and the arrows): Tab selects the cell it lands in so
+//: typing replaces it, and an arrow that did the same would turn the next
+//: keystroke into a deletion.
+function docTableCaretTo(context, row, col) {
+  const surface = context.surface;
+  let table = context.table;
+  if (!table.rows[row]) return false;
+  if (col >= table.rows[row].cells.length) {
+    docTableDispatch({ surface, text: surface.text }, docTableFillRowEdits(table, row, col));
+    table = docTableParse(surface.text, table.from);
+    if (!table) return true;
+  }
+  const span = docTableCellSpan(table, row, Math.min(col, table.rows[row].cells.length - 1));
+  if (!span) return true;
+  const raw = surface.text.slice(span.from, span.to);
+  const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+  const at = raw.trim() ? span.to - tail : span.from + Math.min(1, raw.length);
+  surface.setSelectionRange(at, at);
+  return true;
+}
+
+//: **Enter and the arrows in a Live table** (INBOX 425 i: "tables are still
+//: really annoying to use and edit in the documents live view"). Measured
+//: before this in `scratchpad/ui-sweeps/doctablework.js`: ArrowDown from the
+//: third column landed in the fourth and ArrowUp into the header a column
+//: off, because the editor moves by pixels over cells a grid has laid out;
+//: Enter in the last row made a row but sent the caret to its first column;
+//: and a table that ended the document (or began it) could not be left by
+//: the arrows at all, so the only way to write under it was Source view.
+//:
+//: Now, in Live, the arrows keep the column from row to row (a cell whose
+//: words wrap over several lines is walked through first, as any paragraph
+//: is), Enter goes to the same column one row down and adds the row at the
+//: end, and past the table's edge the arrows leave it, making the blank line
+//: markdown needs when there is nothing on that side yet. Source keeps the
+//: plain editor's keys: there the rows are text, and moving by column over
+//: unaligned pipes would be the surprise.
+function docTableKeyMove(view, key) {
+  if (docView !== "live") return false;
+  const sel = view.state.selection.main;
+  if (!sel.empty || view.state.selection.ranges.length > 1) return false;
+  const context = docTableContext();
+  if (!context || context.surface.kind !== "codemirror" || context.surface.view !== view) return false;
+  const { table, cell } = context;
+  if (key === "Enter") {
+    const next = docTableStepRow(table, cell.row, 1);
+    if (next !== null) return docTableCaretTo(context, next, cell.col);
+    const rows = table.rows.length;
+    return docTableGo(context, docTableAddRowEdits(table, rows - 1), rows, cell.col);
+  }
+  const down = key === "ArrowDown";
+  const moved = view.moveVertically(sel, down);
+  const landed = docTableCellAt(table, moved.head);
+  if (moved.head !== sel.head && landed && landed.row === cell.row && landed.col === cell.col) return false;
+  const next = docTableStepRow(table, cell.row, down ? 1 : -1);
+  if (next !== null) return docTableCaretTo(context, next, cell.col);
+  const doc = view.state.doc;
+  if (down) {
+    if (table.to < doc.length) {
+      view.dispatch({ selection: { anchor: table.to + 1 }, scrollIntoView: true });
+    } else {
+      view.dispatch({
+        changes: { from: table.to, insert: "\n\n" },
+        selection: { anchor: table.to + 2 },
+        scrollIntoView: true,
+        userEvent: "input",
+      });
+    }
+    return true;
+  }
+  if (table.from > 0) {
+    view.dispatch({ selection: { anchor: table.from - 1 }, scrollIntoView: true });
+  } else {
+    view.dispatch({
+      changes: { from: 0, insert: "\n\n" },
+      selection: { anchor: 0 },
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+  }
+  return true;
+}
+
+//: A paste that is a spreadsheet's rows. Into a table, it fills cells from
+//: the caret's (`docTablePasteEdits`); anywhere else in a markdown document,
+//: it becomes a table of its own when the clipboard also carries an HTML
+//: table (which every spreadsheet puts there) and the rows are a rectangle
+//: of at least two by two, so tab-indented text pasted from a code editor is
+//: still pasted as the text it was. Never in a code file.
+function docTablePasteEvent(event, view) {
+  if (view.dom.classList.contains("doc-content-code")) return false;
+  const data = event.clipboardData;
+  if (!data) return false;
+  const grid = docTableGridFromText(data.getData("text/plain"));
+  if (!grid) return false;
+  const context = docTableContext();
+  if (context && context.surface.kind === "codemirror" && context.surface.view === view) {
+    const result = docTablePasteEdits(context.text, context.table, context.cell.row, context.cell.col, grid);
+    if (!result) return false;
+    event.preventDefault();
+    docUndoBreak();
+    view.dispatch({ changes: result.edit, userEvent: "input.paste", scrollIntoView: true });
+    const table = docTableParse(view.state.doc.toString(), context.table.from);
+    if (table) docTableCaretTo({ surface: context.surface, table }, result.row, result.col);
+    return true;
+  }
+  const html = data.getData("text/html") || "";
+  const square = grid.length >= 2 && grid[0].length >= 2 && grid.every((row) => row.length === grid[0].length);
+  if (!/<table[\s>]/i.test(html) || !square) return false;
+  event.preventDefault();
+  const { state } = view;
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  const endLine = state.doc.lineAt(sel.to);
+  //: A table is a block: it needs a blank line between it and the text on
+  //: either side, or the line after it would be read as one more row.
+  const textBefore = state.doc.sliceString(startLine.from, sel.from).trim();
+  const lineAbove = startLine.number > 1 ? state.doc.line(startLine.number - 1).text.trim() : "";
+  const textAfter = state.doc.sliceString(sel.to, endLine.to).trim();
+  const lineBelow = endLine.number < state.doc.lines ? state.doc.line(endLine.number + 1).text.trim() : "";
+  const before = textBefore ? "\n\n" : lineAbove ? "\n" : "";
+  const after = textAfter ? "\n\n" : lineBelow ? "\n" : "";
+  const table = docTableFromGrid(grid);
+  docUndoBreak();
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: before + table + after },
+    selection: { anchor: sel.from + before.length + table.length },
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  });
+  return true;
 }
 
 //: The whole table, for the one command that is not an edit inside it. The
@@ -5955,7 +6461,7 @@ function docLivePlugin(CM) {
   //: editor.js) and the syntax GitHub, Obsidian and Typora all understand.
   //: The capture is the whole `[!kind]`, so the marker can be hidden the way
   //: every other marker here is; the group inside it names the kind.
-  const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+  const CALLOUT = /^>\s*(\[!([A-Za-z][\w-]*)\][-+]?)/;
   //: How deep a list item is indented before the indent stops growing. Past
   //: four levels the number is more useful as "this is deep" than as a count,
   //: and an indent that kept growing would push a badly nested line off the
@@ -5997,19 +6503,22 @@ function docLivePlugin(CM) {
   //: back on that word or section". Hiding it outright would leave a note and
   //: a warning looking identical apart from a border colour, so the marker is
   //: replaced by the label the rest of the app already uses for that kind
-  //: (`CALLOUT_KINDS` in editor.js, the same table `calloutTemplate` writes
+  //: (`CALLOUT_KINDS` in editor.js, the same table the "/" menu writes
   //: from), which is what Obsidian shows in the same place.
   class DocCalloutWidget extends WidgetType {
-    constructor(kind, fold) {
+    constructor(kind, fold, at) {
       super();
       this.kind = kind;
       //: `null` when the callout is not a toggle at all, otherwise the line it
       //: starts on and whether it is currently folded.
       this.fold = fold;
+      //: The callout's first line, which the kind button rewrites.
+      this.at = at;
     }
     eq(other) {
       return (
         other.kind === this.kind &&
+        other.at === this.at &&
         !!other.fold === !!this.fold &&
         (!this.fold || (other.fold.at === this.fold.at && other.fold.closed === this.fold.closed))
       );
@@ -6025,7 +6534,24 @@ function docLivePlugin(CM) {
         (typeof CALLOUT_KINDS === "object" && CALLOUT_KINDS[this.kind]) || null;
       const chip = document.createElement("span");
       chip.className = `cm-md-callout-label cm-md-callout-label-${this.kind}`;
-      chip.textContent = meta ? `${meta.icon} ${meta.label}` : this.kind;
+      //: **The icon is the kind switcher** (INBOX 421 b: "change kind from the
+      //: rendered block"). A tile of the kind's own tint, like the rendered
+      //: head's, that opens the kinds menu (`docCalloutKindMenu`); the word
+      //: beside it still puts the caret in the line, as it always did. The
+      //: icon was once written as its `ph:` token in text here, which printed
+      //: "ph:warning Warning" (fixed 6e072b2); it is an element now.
+      const icon = document.createElement("span");
+      icon.className = "cm-md-callout-kindbtn";
+      icon.dataset.docCalloutKind = String(this.at);
+      icon.title = "Change the kind of this callout";
+      const glyph = document.createElement("i");
+      glyph.className = `ph ph-${String(meta ? meta.icon : "ph:note").replace(/^ph:/, "")}`;
+      glyph.setAttribute("aria-hidden", "true");
+      icon.appendChild(glyph);
+      const word = document.createElement("span");
+      word.className = "cm-md-callout-word";
+      word.textContent = meta ? meta.label : this.kind;
+      chip.append(icon, word);
       //: **A callout written `[!note]-` or `[!note]+` is a toggle**, which is
       //: the syntax Obsidian uses and the "toggles" half of Phase 3 item 2.
       //: The marker is the *initial* state and clicking does not rewrite it,
@@ -6037,8 +6563,9 @@ function docLivePlugin(CM) {
         const chevron = document.createElement("span");
         chevron.className = "cm-md-callout-fold";
         chevron.textContent = this.fold.closed ? "\u25B8" : "\u25BE";
-        chip.dataset.docCalloutFold = String(this.fold.at);
-        chip.title = this.fold.closed ? "Show what is inside" : "Fold this away";
+        word.dataset.docCalloutFold = String(this.fold.at);
+        chevron.dataset.docCalloutFold = String(this.fold.at);
+        word.title = this.fold.closed ? "Show what is inside" : "Fold this away";
         chip.append(" ", chevron);
       }
       return chip;
@@ -6064,6 +6591,7 @@ function docLivePlugin(CM) {
     toDOM() {
       const cell = document.createElement("span");
       cell.className = this.cls;
+      cell.contentEditable = "false";
       return cell;
     }
   }
@@ -6174,6 +6702,52 @@ function docLivePlugin(CM) {
       host.className = this.display ? "cm-md-math cm-md-math-block" : "cm-md-math";
       host.appendChild(docMathRender(this.tex, this.display));
       return host;
+    }
+  }
+
+  //: **`[TOC]` as the contents it stands for** (INBOX 421 b). The headings
+  //: come from the document's own text (`mdTocEntries`, app.js), the same
+  //: list the Read view draws, and an entry moves the caret to its heading
+  //: and scrolls it to the top, which is what "contents" means in an editor.
+  //: `eq` compares the serialised list, so typing in a paragraph does not
+  //: redraw it and renaming a heading does.
+  class DocTocWidget extends WidgetType {
+    constructor(entries) {
+      super();
+      this.entries = entries;
+      this.key = JSON.stringify(entries);
+    }
+    eq(other) {
+      return other.key === this.key;
+    }
+    ignoreEvent() {
+      return true;
+    }
+    toDOM(view) {
+      const nav = typeof mdTocElement === "function" ? mdTocElement() : document.createElement("nav");
+      nav.classList.add("cm-md-toc");
+      const list = nav.querySelector(".md-toc-list") || nav;
+      const top = this.entries.length ? Math.min(...this.entries.map((e) => e.level)) : 1;
+      for (const entry of this.entries) {
+        const item = document.createElement("li");
+        item.className = `md-toc-item md-toc-depth-${Math.min(3, entry.level - top)}`;
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = entry.text.replace(/[*_`~]/g, "");
+        link.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          docTocJump(view, entry);
+        });
+        item.appendChild(link);
+        list.appendChild(item);
+      }
+      if (!this.entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "md-toc-empty";
+        empty.textContent = "Headings you add appear here.";
+        list.appendChild(empty);
+      }
+      return nav;
     }
   }
 
@@ -6382,9 +6956,64 @@ function docLivePlugin(CM) {
             );
             return false;
           }
+          //: **A bare address and an `<address>` are links too** (INBOX 392's
+          //: inventory, `scratchpad/ui-sweeps/doclivemd.js`). The GitHub
+          //: dialect parses both, as a `URL` on its own and as an `Autolink`
+          //: holding one, and the view drew neither: a pasted address was
+          //: plain text you could not open, and `<https://…>` kept its
+          //: brackets. Both now wear the link chip and open on Ctrl+click
+          //: through the same `data-doc-href` a `[text](url)` link uses. A
+          //: `URL` inside a `Link` or an `Image` never reaches here: those
+          //: two branches return false and the walk skips their children.
+          if (name === "Autolink") {
+            const url = node.node.getChild("URL");
+            if (!url) return false;
+            const href = doc.sliceString(url.from, url.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(url.from, url.to)
+            );
+            if (!rangeRevealed(node.from, node.to)) {
+              hide(node.from, url.from);
+              hide(url.to, node.to);
+            }
+            return false;
+          }
+          if (name === "URL") {
+            const href = doc.sliceString(node.from, node.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(node.from, node.to)
+            );
+            return false;
+          }
+          //: `\*` is how a writer says "a star, not emphasis", and the
+          //: backslash is syntax like every other marker here: hidden while
+          //: the caret is elsewhere, back when it is on the line.
+          if (name === "Escape") {
+            if (!lineTouched(node.from)) hide(node.from, node.from + 1);
+            return false;
+          }
           if (name === "TaskMarker") {
-            if (lineTouched(node.from)) return false;
             const marker = doc.sliceString(node.from, node.to);
+            //: **A finished task reads as finished**, struck through in the
+            //: muted ink, which is what every task list the plan compares
+            //: against does and what the rendered view now does too
+            //: (09-editor.css). Drawn whether or not the caret is on the
+            //: line: the `[x]` coming back is a reveal, the item being done
+            //: is a fact about it.
+            if (/[xX]/.test(marker)) {
+              const task = node.node.parent;
+              const end = Math.min(task ? task.to : node.to, doc.lineAt(node.from).to);
+              if (end > node.to) {
+                ranges.push(Decoration.mark({ class: "cm-md-task-done" }).range(node.to, end));
+              }
+            }
+            if (lineTouched(node.from)) return false;
             ranges.push(
               Decoration.replace({
                 widget: new DocTaskWidget(/[xX]/.test(marker), node.from, node.to),
@@ -6460,11 +7089,22 @@ function docLivePlugin(CM) {
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
             const callout = CALLOUT.exec(first.text);
-            const kind = callout ? callout[2].toLowerCase() : null;
+            //: The kind as the reader means it: Obsidian's aliases resolve
+            //: (`caution` is a warning), and an unknown word is a note, the
+            //: same answer `mdCalloutHead` gives the rendered view.
+            const kind = callout
+              ? (typeof calloutKindOf === "function" && calloutKindOf(callout[2])) || "note"
+              : null;
             const cls = kind ? `cm-md-callout cm-md-callout-${kind}` : "cm-md-quote";
+            //: A plain quote's last line, `> -- Name`, is its attribution
+            //: (`mdQuoteAttribution`), set apart here as it is when rendered.
+            const lastLine = doc.lineAt(Math.max(node.from, node.to - 1));
+            const cites =
+              !kind && lastLine.from > first.from && /^\s*>\s*(?:--|\u2014|\u2013)\s*\S/.test(lastLine.text);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              ranges.push(Decoration.line({ class: cls }).range(line.from));
+              const lineCls = cites && line.from === lastLine.from ? `${cls} cm-md-quote-cite` : cls;
+              ranges.push(Decoration.line({ class: lineCls }).range(line.from));
               if (line.to >= node.to) break;
               at = line.to + 1;
             }
@@ -6488,7 +7128,7 @@ function docLivePlugin(CM) {
                   ? { at: first.from, closed: docCalloutFolded(state, first) }
                   : null;
                 ranges.push(
-                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle) }).range(from, end)
+                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle, first.from) }).range(from, end)
                 );
               }
             }
@@ -6572,7 +7212,12 @@ function docLivePlugin(CM) {
           }
           if (name === "HorizontalRule") {
             const line = doc.lineAt(node.from);
-            ranges.push(Decoration.line({ class: "cm-md-rule" }).range(line.from));
+            //: The variant the rendered view draws (`mdDividerKind`): a
+            //: hairline, the three-dot break, or the strong rule.
+            const variant = typeof mdDividerKind === "function" ? mdDividerKind(line.text) : null;
+            ranges.push(
+              Decoration.line({ class: `cm-md-rule${variant ? ` cm-md-rule-${variant}` : ""}` }).range(line.from)
+            );
             //: **The rule's own dashes go with the rest of the markers.**
             //: Measured before this: `---` rendered as the three characters
             //: `---` on a line that also drew the border, so the divider was a
@@ -6642,6 +7287,17 @@ function docLivePlugin(CM) {
       });
       //: The remark itself. Revealed as its own text when the caret is on its
       //: line, which is how every marker in this view is edited.
+      //: `[TOC]` on its own line, drawn as the contents while the caret is
+      //: elsewhere. The entries are read from the whole document once per
+      //: build, and only when the visible text has a `[TOC]` in it.
+      if (/\[toc\]/i.test(text)) {
+        let tocEntries = null;
+        scan(/^[ \t]*\[toc\][ \t]*$/gim, (match, from, to) => {
+          if (rangeRevealed(from, to)) return;
+          if (!tocEntries) tocEntries = typeof mdTocEntries === "function" ? mdTocEntries(doc.toString()) : [];
+          ranges.push(Decoration.replace({ widget: new DocTocWidget(tocEntries) }).range(from, to));
+        });
+      }
       scan(/%%([^\n]*?)%%/g, (match, from, to) => {
         const note = match[1].trim();
         if (!note) return;
@@ -6808,6 +7464,21 @@ function docLivePlugin(CM) {
           sel.from <= table.to &&
           sel.to >= table.from &&
           !!view.dom.querySelector('.cm-md-table-menu [aria-expanded="true"]');
+        //: **The cell being edited is marked** (INBOX 392: "it is hard to
+        //: edit things like tables"). With the pipes hidden, the caret was the
+        //: only thing saying which cell a keystroke would land in, and a
+        //: one-pixel caret in a grid of ruled cells is easy to lose: a ring
+        //: round the cell says it at a glance, and follows Tab and Shift+Tab.
+        //: Only while the editor has focus, like every other reveal here.
+        const activeCell = inTable ? docTableCellAt(table, sel.head) : null;
+        //: **The menu rides the row being edited** (INBOX 425 i). It sat at
+        //: the end of the header, so in the fourth body row of a four-row
+        //: table it was 158px from the caret, and past a screen of rows it was
+        //: off screen altogether: the actions for "this row" were drawn on a
+        //: different one. The delimiter is the header's underline, so a caret
+        //: on it puts the menu on the header.
+        const menuCell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+        const menuRow = menuCell.row === table.delim ? 0 : menuCell.row;
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -6836,7 +7507,13 @@ function docLivePlugin(CM) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
             const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
-            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place;
+            //: Every row's last cell keeps room for the kebab, since the kebab
+            //: now follows the caret from row to row: the room is reserved on
+            //: all of them so moving the caret never re-wraps a cell.
+            const last = c === row.cells.length - 1 ? " cm-md-td-last" : "";
+            const active =
+              activeCell && activeCell.row === r && activeCell.col === c ? " cm-md-td-active" : "";
+            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place + last + active;
             if (span.to > span.from) {
               ranges.push(Decoration.mark({ class: cls }).range(span.from, span.to));
             } else {
@@ -6852,8 +7529,8 @@ function docLivePlugin(CM) {
           //: controls sit in every editor the plan names, and is drawn out of
           //: the grid's flow by its class so it cannot become a column of its
           //: own.
-          if (r === 0 && (inTable || menuHeld)) {
-            const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+          if (r === menuRow && (inTable || menuHeld)) {
+            const cell = menuCell;
             //: The *view's* own surface, not the document's: this plugin is
             //: mounted in every note editor too (Phase 8), and a menu that
             //: edited `doc-content` from inside a note would write into
@@ -6866,6 +7543,96 @@ function docLivePlugin(CM) {
               }).range(row.to)
             );
           }
+        }
+      }
+    }
+
+    //: **The vertical rhythm** (DOCUMENTS_PLAN 17b). Measured before this
+    //: (`scratchpad/ui-sweeps/docpage17.js`): every gap between two blocks was
+    //: the blank line the writer typed, so a paragraph, a heading, a table and
+    //: a fence were all separated by exactly one 25.6px line of nothing, the
+    //: space above a section was the same as the space under it, and two
+    //: blank lines drew twice the gap the rendered view draws. The source's
+    //: blank line is what separates blocks, so it is the blank line that is
+    //: given the gap, from one small scale of tokens:
+    //:
+    //: - `cm-md-gap`: between two blocks, `--space-6`;
+    //: - `cm-md-gap-major` / `-minor`: above an h1 or h2 / an h3 to h6,
+    //:   `--space-9` / `--space-8`, so a section starts visibly apart from
+    //:   the one before it;
+    //: - `cm-md-gap-tight`: under a heading, `--space-3`, so the heading
+    //:   belongs to the text it introduces rather than floating between two;
+    //: - `cm-md-gap-extra`: the second and later blank lines of a run, which
+    //:   the rendered view collapses to one gap and so does this.
+    //:
+    //: **By `line-height`, never by `height`**, and this is the reason the
+    //: caret does not jump. A blank line's only content is the `<br>`, so its
+    //: line height *is* its height, and the caret CodeMirror draws on it is
+    //: that tall: arrowing through a gap moves nothing, and the line grows to
+    //: a text line only when a character is typed into it, which is a
+    //: change the writer made. The one exception is an extra blank line,
+    //: which is zero tall until the caret arrives on it and then takes the
+    //: plain gap, because a caret with no height is a caret nobody can find.
+    //:
+    //: Never inside a fenced block (a blank line in code is code) or the
+    //: frontmatter (hidden above), and only in the documents editor: the note
+    //: editors mount this plugin too, and a note card is not a page.
+    //:
+    //: **And not while the line numbers are on**, the rule the quiet fence
+    //: rows already follow (INBOX 262): a gutter number keeps the editor's
+    //: line height whatever its line's height is, so a 16px gap left its
+    //: number standing 10px into the line below (measured by `docgutter.js`,
+    //: "9 paints 10px into 10"). One row, one number, in line with the text
+    //: it counts is the gutter's contract, and where the two disagree the
+    //: gutter wins and the blank line keeps its full row.
+    if (view.dom.closest(".doc-editor") && !gutterOn) {
+      const fence = (pos) => {
+        for (let node = tree.resolveInner(pos, 1); node; node = node.parent) {
+          if (node.name === "FencedCode") return true;
+        }
+        return false;
+      };
+      const headingLevel = (text) => {
+        const atx = /^ {0,3}(#{1,6})(?:[ \t]|$)/.exec(text);
+        return atx ? atx[1].length : 0;
+      };
+      const blank = (n) => n >= 1 && n <= doc.lines && !doc.line(n).text.trim();
+      const fmEnd =
+        doc.length > 3 && doc.sliceString(0, 4) === "---\n"
+          ? (docFrontmatterParse(source()) || { to: -1 }).to
+          : -1;
+      //: The whole rendered viewport rather than the visible ranges the
+      //: other passes walk: this changes line heights, and a line drawn
+      //: just below the fold at a full line's height would shrink to its gap
+      //: as it scrolled into view, moving the text under the reader's eye.
+      {
+        const first = doc.lineAt(view.viewport.from).number;
+        //: One past the viewport's last line: measured, a document ending in
+        //: a newline reported a viewport ending one character short of its
+        //: length, so its final empty line was drawn and never given a gap.
+        const last = Math.min(doc.lines, doc.lineAt(view.viewport.to).number + 1);
+        for (let n = first; n <= last; n += 1) {
+          if (!blank(n)) continue;
+          const line = doc.line(n);
+          if (line.from <= fmEnd || fence(line.from)) continue;
+          let cls = "cm-md-gap";
+          if (blank(n - 1)) {
+            if (!touched(line.from, line.to)) cls = "cm-md-gap cm-md-gap-extra";
+          } else {
+            let next = n + 1;
+            while (blank(next)) next += 1;
+            const below = next <= doc.lines ? headingLevel(doc.line(next).text) : 0;
+            const above = n > 1 ? doc.line(n - 1).text : "";
+            //: A setext heading's underline is the line above a gap under
+            //: a heading just as surely as a `#` line is.
+            const underHeading =
+              headingLevel(above) ||
+              (/^ {0,3}=+[ \t]*$/.test(above) && n > 2 && !blank(n - 2));
+            if (below === 1 || below === 2) cls = "cm-md-gap cm-md-gap-major";
+            else if (below) cls = "cm-md-gap cm-md-gap-minor";
+            else if (underHeading) cls = "cm-md-gap cm-md-gap-tight";
+          }
+          ranges.push(Decoration.line({ class: cls }).range(line.from));
         }
       }
     }
@@ -6958,6 +7725,14 @@ function docLivePlugin(CM) {
             //: Through the same resolution the preview's own chips use, so a
             //: name that resolves in one view resolves in the other.
             docOpenWikiTarget(wiki.dataset.docWiki);
+            return true;
+          }
+          const kindButton = target.closest("[data-doc-callout-kind]");
+          if (kindButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            const box = kindButton.getBoundingClientRect();
+            docCalloutKindMenu(Number(kindButton.dataset.docCalloutKind), box.left, box.bottom + 4);
             return true;
           }
           const fold = target.closest("[data-doc-callout-fold]");
@@ -7203,6 +7978,10 @@ function docEmbedNode(target, name) {
     list.appendChild(entryItem(target.entry));
     return list;
   }
+  //: A document is a card (`mdDocumentCard`, app.js), the one the Read view
+  //: draws for the same line; it used to be a chip saying there was no
+  //: preview for a document yet.
+  if (target.kind === "document" && target.doc) return mdDocumentCard(target.doc, name);
   if (target.kind === "board" && typeof mapChip === "function") {
     const box = document.createElement("span");
     box.className = "doc-embed-map";
@@ -7364,7 +8143,7 @@ function docEmbedFill(host, name, options = null) {
 //: line is not a heading). The `[[…]]` text the picker inserts is the note's
 //: opening words verbatim, `# ` and all, so the two forms differ by exactly
 //: the characters the derivation removes and the comparison could never be
-//: true. `resolveWikiTarget` (app.js) is the resolver the Notes tab has used
+//: true. `resolveWikiTarget` (notes-list.js) is the resolver the Notes tab has used
 //: all along: it matches a vault note by its file stem, a board by title, a
 //: note by *content prefix* (which is what makes the picker's opening-words
 //: form resolve), and a document by title or title prefix.
@@ -7470,7 +8249,7 @@ function docOpenLink(href) {
 // ends are exact by construction), and the middle, which is where anybody
 // actually reads, is off by however much furniture is above it.
 //
-// So the map is line to block. `renderMarkdown` (app.js) stamps every block it
+// So the map is line to block. `renderMarkdown` (navigation.js) stamps every block it
 // draws with the source line it came from, which is the one place that can
 // know; `docScrollAnchors` turns those stamps into pairs of offsets, one in
 // each pane, and the sync interpolates between the two nearest. The old
@@ -8182,13 +8961,43 @@ th { background: var(--inner); }
 hr { height: 1px; margin: 2.5em 0; border: 0; background: var(--rule); }
 ul.task-list, .task-list { list-style: none; padding-left: 1.2em; }
 input[type="checkbox"] { margin-right: 0.4em; }
-.doc-callout {
+.callout {
   margin: 1.5em 0;
   padding: 0.8em 1em;
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--kind, var(--accent));
   border-radius: 0 6px 6px 0;
   background: var(--inner);
 }
+.callout-head { margin: 0 0 0.4em; font-weight: 700; list-style: none; }
+.callout-head::-webkit-details-marker { display: none; }
+details.callout > .callout-head::before { content: "\\25B8\\2002"; color: var(--muted); }
+details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
+.callout-icon:empty { display: none; }
+.callout-body > :last-child { margin-bottom: 0; }
+.callout-success, .callout-tip, .callout-abstract { --kind: #2f9e6e; }
+.callout-warning, .callout-question { --kind: #c98a12; }
+.callout-danger, .callout-failure, .callout-bug { --kind: #d0443c; }
+.callout-example { --kind: #8a5cd6; }
+.callout-quote, .callout-toggle { --kind: var(--rule); }
+.callout-toggle { background: none; }
+.doc-cols { display: grid; grid-template-columns: repeat(var(--doc-cols, 2), minmax(0, 1fr)); gap: 1.5em; }
+.doc-cols.md-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.doc-col > :first-child { margin-top: 0; }
+@media (max-width: 600px) { .doc-cols { grid-template-columns: 1fr; } }
+.md-rule-thick { height: 3px; }
+.md-rule-dots { height: auto; background: none; text-align: center; color: var(--muted); }
+.md-rule-dots::before { content: "\\2022\\2003\\2022\\2003\\2022"; }
+.md-quote { margin: 1.5em 0; }
+.md-quote > blockquote { margin-bottom: 0.3em; }
+.md-quote-cite { padding-left: 1.2em; color: var(--muted); font-size: 0.9em; }
+.md-quote-cite::before { content: "\\2013\\2002"; }
+.md-toc { margin: 1.5em 0; padding: 0.8em 1em; border: 1px solid var(--rule); border-radius: 6px; }
+.md-toc-head { margin: 0 0 0.4em; color: var(--muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
+.md-toc-list { margin: 0; padding: 0; list-style: none; }
+.md-toc-depth-1 { padding-left: 1.2em; }
+.md-toc-depth-2 { padding-left: 2.4em; }
+.md-toc-depth-3 { padding-left: 3.6em; }
+.md-math-block { margin: 1.5em 0; text-align: center; overflow-x: auto; }
 .doc-footnotes {
   margin-top: 3em;
   padding-top: 1em;
@@ -9640,6 +10449,8 @@ function initDocSidebarTabs() {
 // --- documents wiring ---
 $("doc-new").addEventListener("click", () => createDocument());
 $("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
+$("doc-template-list")?.addEventListener("keydown", docTemplateListKeys);
+$("doc-template-use")?.addEventListener("click", useDocTemplate);
 // Searching and sorting every document lives in the Library now (§36G), with
 // the notes, chats and files beside them. This is the way there, said out loud
 //, a list that silently stops at eight is a list that has lost your writing.
@@ -9656,6 +10467,12 @@ $("doc-browse-all").addEventListener("click", () => {
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
+//: The dock's breadcrumb (INBOX 424 p): back to the Library's Documents list,
+//: the place a document is opened from.
+$("doc-back")?.addEventListener("click", () => {
+  switchTab("library");
+  document.getElementById("library-subtab-docs")?.click();
+});
 //: **The document changed, whichever surface it changed in.** Bound to the
 //: fallback textarea's own `input` here and called straight by CodeMirror's
 //: update listener once the view is mounted, so there is one pipeline rather
@@ -9935,7 +10752,7 @@ function wireMarkdownToolbar(bar) {
 //: on the *same* element (a note re-opened for editing without a full
 //: reload) must not stack a second listener that fires the same keydown
 //: twice.
-//: Takes the element itself, not only its id: `renderEditForm` (app.js)
+//: Takes the element itself, not only its id: `renderEditForm` (notes-list.js)
 //: builds the note edit form's textarea and wires this before appending it
 //: to the document, where `$(id)` (`document.getElementById`) would find
 //: nothing yet. `#entry-content` is already in the page at boot, so the
@@ -10053,6 +10870,11 @@ const NOTE_SURFACES = {
   //: rendering, which is the plan's own split.
   "draft-text": { size: "box", live: true },
   "draft-thoughts": { size: "box", live: false },
+  //: A concept map card's text (Phase 8c, the board half), opened by
+  //: `wbEditNodeText` in whiteboard.js. It is a single idea, so Enter
+  //: commits and Escape abandons: the card hands those in as
+  //: `host.noteSurfaceKeys`, which go ahead of every other chord here.
+  "wb-card-editor": { size: "inline", live: true },
 };
 
 //: element -> view. Weak, because the edit form's textarea is thrown away and
@@ -10093,6 +10915,8 @@ function noteSurfaceMeta(host) {
 function noteSurfaceExtensions(CM, host, options) {
   return [
     options.live ? docLiveExtensions(CM) : [],
+    //: Grammar, the note's own list (PROSE-TOOLS, `noteGrammarPlugin`).
+    options.live ? noteGrammarPlugin(CM) : [],
     //: **No findings plugin here, and that is the option the plan names
     //: rather than an omission.** `docProseFound` is the *document's* list of
     //: prose findings, at the document's offsets; drawn over a note it would
@@ -10117,6 +10941,10 @@ function noteSurfaceExtensions(CM, host, options) {
     //: This app's chords first, so Ctrl+B is bold in a note for the same
     //: reason it is bold in a document.
     CM.view.keymap.of([
+      //: The host's own keys first (Phase 8c): a box whose Enter means "done"
+      //: says so on the element, and a table row cannot carry a closure over
+      //: the one card being edited.
+      ...(Array.isArray(host.noteSurfaceKeys) ? host.noteSurfaceKeys : []),
       ...noteSurfaceKeymap(host),
       ...CM.commands.historyKeymap,
       ...CM.commands.defaultKeymap,
@@ -10136,6 +10964,16 @@ function noteSurfaceExtensions(CM, host, options) {
 function noteSurfaceKeymap(host) {
   const surface = () => noteSurfaceFor(host) || textareaSurface(host);
   return [
+    //: **Ctrl+/ is the blocks menu in a note** (INBOX 402 kept it that way:
+    //: only the document editor answers it with the comment toggle). The
+    //: engine's `defaultKeymap` binds it to its own comment toggle, which in
+    //: a markdown note wrote `<!--  -->` where the menu should have opened
+    //: (measured, `slashicons.js`). Answered here, before that keymap, by
+    //: the same function the app's shortcut runs.
+    {
+      key: "Mod-/",
+      run: () => (typeof editorOpenMenuByShortcut === "function" ? editorOpenMenuByShortcut() : false),
+    },
     {
       key: "Tab",
       run: () => {
@@ -10158,7 +10996,10 @@ function noteSurfaceKeymap(host) {
     { key: "Mod-1", run: () => { applyMarkdown("h1", host.id); return true; } },
     { key: "Mod-2", run: () => { applyMarkdown("h2", host.id); return true; } },
     { key: "Mod-3", run: () => { applyMarkdown("h3", host.id); return true; } },
-    { key: "Mod-/", run: () => { toggleDocComment(surface()); return true; } },
+    //: No Ctrl+/ here: in a note it is the blocks menu (the registry's
+    //: `editorMenu`), and a comment toggle bound here as well wrapped the
+    //: line in the *document's* comment marker before the menu wrote "/"
+    //: over it (INBOX 402).
   ];
 }
 
@@ -10340,6 +11181,10 @@ async function mountNoteSurface(host, options = {}) {
   host.parentNode.insertBefore(wrap, host);
   wrap.appendChild(host);
   host.classList.add("note-surface-mirror");
+  //: The stylesheet sizes the mirror to the view; a height `autoGrow` wrote
+  //: before the mount would override it, and `autoGrow` leaves a mirror alone
+  //: from now on (INBOX 424i), so the old one would otherwise stay for good.
+  host.style.height = "";
   host.setAttribute("tabindex", "-1");
   host.setAttribute("aria-hidden", "true");
   //: **Seeded here, not at the focus that asked for the mount.** The bundle
@@ -10697,48 +11542,332 @@ function docRestoreReading() {
 
 docRestoreReading();
 
-//: **Focus mode.** Asked for as part of "the ultimate editor", every editor
-//: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
-//: tab bar, the sidebar and the document list disappear, and this one never
-//: did. Not remembered across sessions on purpose: full width is a standing
-//: preference about how you read; this is a mode for right now, and opening
-//: the app back into a chrome-less page with no visible way out would be its
-//: own bug.
+//: **Focus mode.** Asked for as part of "the ultimate editor", and again by
+//: the owner as "a document full screen mode so there is more space"
+//: (INBOX 425 i), which is how it was found to have had no visible way in:
+//: its button sat in the formatting strip, and that strip is hidden until
+//: asked for. Measured before this pass at 1440x900 with the mode off: 228px
+//: of chrome above the first line and a writing area 520px tall.
+//:
+//: The mode hides everything that is not the page: the app's top bar and tab
+//: strip (the tab page covers them, `position: fixed`, the same overlay the
+//: whiteboard's and graph's full-screen toggles use), the document sidebar,
+//: the dock, the formatting strip, the breadcrumbs and the status bar. What is
+//: left is the column at `--doc-measure`, centred in the window, and one small
+//: floating dock (`#doc-focus-bar`) with the title, the word count, the save
+//: state and the way out, which fades after `DOC_FOCUS_IDLE_MS` without the
+//: pointer moving and comes back on a move, a hover or a keyboard focus.
+//:
+//: **Remembered for the session, not for good.** `sessionStorage`, so a
+//: reload in the middle of writing comes back as it was, and a fresh launch
+//: always opens into the normal page: an app that starts with no chrome and
+//: its only exit faded out is its own bug. The earlier version remembered
+//: nothing, which made a reload throw the mode away mid-sentence.
+const DOC_FOCUS_KEY = "doc-focus";
+const DOC_FOCUS_IDLE_MS = 2500;
+let docFocusIdleTimer = 0;
+let docFocusLastWake = 0;
+let docFocusSavedWatch = null;
+//: Whether this mode asked for the browser's full screen, so leaving the mode
+//: only undoes what the mode did: a person who was already in the browser's
+//: own full screen before opening focus mode stays in it after.
+let docFocusOwnsFullscreen = false;
+
+function docFocusOn() {
+  return !!$("tab-documents")?.classList.contains("doc-focus");
+}
+
+//: **Tools, inside the mode** (INBOX 426 a). Brings the dock and the
+//: formatting strip back without leaving focus mode; remembered for the
+//: session with the mode itself, so a reload that restores the mode restores
+//: what it was showing. Showing the tools expands a collapsed strip, because
+//: the press asked to see the tools and a collapsed strip in focus mode is a
+//: bar with nothing on it but the way to open it.
+const DOC_FOCUS_TOOLS_KEY = "doc-focus-tools";
+
+function setDocFocusTools(on) {
+  const tab = $("tab-documents");
+  if (!tab) return;
+  tab.classList.toggle("doc-focus-tools", on);
+  const button = $("doc-focus-tools");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on ? "Hide the dock and the formatting tools" : "Show the dock and the formatting tools";
+    button.setAttribute("aria-label", button.title);
+  }
+  if (on && docToolbarCollapsed()) setDocToolbarCollapsed(false);
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_TOOLS_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_TOOLS_KEY);
+  } catch {
+    // Storage refused: the tools show for now and are not brought back.
+  }
+}
+
 function toggleDocFocus(force) {
   const tab = $("tab-documents");
   if (!tab) return;
   const on = typeof force === "boolean" ? force : !tab.classList.contains("doc-focus");
   tab.classList.toggle("doc-focus", on);
+  tab.classList.remove("doc-focus-idle");
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_KEY);
+  } catch {
+    // Storage refused (a private window): the mode still works, it just is
+    // not brought back by a reload.
+  }
   const button = $("doc-focus-toggle");
   if (button) {
     button.setAttribute("aria-pressed", String(on));
     button.title = on
-      ? "Leave focus mode (Esc)"
-      : "Focus mode: hide everything but the page (Esc to leave)";
+      ? "Leave focus mode (Esc or F11)"
+      : "Focus mode: hide everything but the page (F11)";
     button.setAttribute("aria-label", button.title);
     const icon = button.querySelector("i");
-    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    if (icon) icon.className = on ? "ph ph-corners-in" : "ph ph-corners-out";
   }
-  if (on) docSurface()?.focus();
+  if (on) {
+    docFocusFill();
+    docFocusWatch(true);
+    docFocusWake(true);
+    let tools = false;
+    try {
+      tools = sessionStorage.getItem(DOC_FOCUS_TOOLS_KEY) === "1";
+    } catch {
+      // No storage: the mode opens with the page alone, as it always has.
+    }
+    setDocFocusTools(tools);
+  } else {
+    docFocusWatch(false);
+    clearTimeout(docFocusIdleTimer);
+    if (docFocusOwnsFullscreen && docDesktopFs().full) {
+      docDesktopFullscreenToggle().then(docFocusSyncFullscreen);
+    } else if (docFocusOwnsFullscreen && document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    docFocusOwnsFullscreen = false;
+  }
+  //: The caret goes back to the page either way: entering, so the next key
+  //: is writing; leaving, because the control that was pressed (the floating
+  //: Exit) has just stopped being drawn and would otherwise take the focus
+  //: with it to <body>.
+  if (tab.classList.contains("hidden")) return;
+  docSurface()?.focus();
 }
 
-$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+//: The floating dock's words. The title and the count are written from
+//: `renderDocCounts` while the mode is on (it runs after every edit and every
+//: open, so a document switched from the palette relabels the dock too); the
+//: save state is watched, because it is written from a dozen places and none
+//: of them should have to know this dock exists.
+function docFocusFill() {
+  docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  docSetStatusText($("doc-focus-saved"), $("doc-saved")?.textContent || "");
+  renderDocCounts();
+  const full = $("doc-focus-fullscreen");
+  if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
+  docFocusSyncFullscreen();
+  //: Asked once, then kept: whether this page is in the desktop window,
+  //: whose own full screen is the one that fills the monitor.
+  if (!docDesktopFs().asked) {
+    docDesktopFs().asked = true;
+    apiJson("/desktop/fullscreen")
+      .then((state) => {
+        docDesktopFs().available = !!state?.available;
+        docDesktopFs().full = !!state?.fullscreen;
+        if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
+        docFocusSyncFullscreen();
+      })
+      .catch(() => {});
+  }
+}
 
-//: Escape leaves it: the same convention the whiteboard's and graph's own
-//: full-screen toggles use. Capture phase, and checked against the class
-//: first, so this never swallows an Escape meant for something opened over
-//: the page (the AI panel, a confirm dialog, the find bar), closing focus
-//: mode underneath one of those instead of the dialog itself would be
-//: surprising.
-document.addEventListener(
-  "keydown",
-  (event) => {
-    if (event.key !== "Escape") return;
-    if (!$("tab-documents")?.classList.contains("doc-focus")) return;
-    toggleDocFocus(false);
-  },
-  true
+function docFocusWatch(on) {
+  docFocusSavedWatch?.disconnect();
+  docFocusSavedWatch = null;
+  const listen = on ? "addEventListener" : "removeEventListener";
+  document[listen]("pointermove", docFocusPointer, { passive: true });
+  document[listen]("pointerdown", docFocusPointer, { passive: true });
+  document[listen]("keydown", docFocusKey, true);
+  if (!on) return;
+  const saved = $("doc-saved");
+  if (saved && typeof MutationObserver === "function") {
+    docFocusSavedWatch = new MutationObserver(() =>
+      docSetStatusText($("doc-focus-saved"), saved.textContent || "")
+    );
+    docFocusSavedWatch.observe(saved, { childList: true, characterData: true, subtree: true });
+  }
+}
+
+//: The dock comes back and the idle clock restarts. Throttled to one restart
+//: per quarter second, because `pointermove` fires at the display's rate and
+//: a timer cleared and set sixty times a second is work a poor laptop can
+//: feel for no change on screen.
+function docFocusWake(force = false) {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  const now = performance.now();
+  const idle = tab.classList.contains("doc-focus-idle");
+  if (!force && !idle && now - docFocusLastWake < 250) return;
+  if (idle) tab.classList.remove("doc-focus-idle");
+  docFocusLastWake = now;
+  clearTimeout(docFocusIdleTimer);
+  docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+}
+
+function docFocusRest() {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  //: Never out from under the hand or the keyboard: a pointer resting on the
+  //: dock or a focus inside it keeps it, and the clock is asked again later.
+  if ($("doc-focus-bar")?.matches(":hover, :focus-within")) {
+    docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+    return;
+  }
+  tab.classList.add("doc-focus-idle");
+}
+
+function docFocusPointer() {
+  docFocusWake();
+}
+
+//: A key pressed while writing is writing, so it sends the dock away at
+//: once rather than after the idle wait; a key pressed anywhere else (the
+//: focus on the page itself, Tab walking into the dock) brings it back.
+function docFocusKey(event) {
+  const target = event.target;
+  const writing = target instanceof Element &&
+    !!target.closest('[contenteditable="true"], textarea, input:not([type="checkbox"]):not([type="radio"])') &&
+    !target.closest("#doc-focus-bar");
+  if (!writing) {
+    docFocusWake(true);
+    return;
+  }
+  if (event.key === "Escape" || event.ctrlKey || event.metaKey || event.altKey) return;
+  clearTimeout(docFocusIdleTimer);
+  docFocusRest();
+}
+
+//: The browser's own full screen, offered only where it exists and only as
+//: an extra: the in-app mode is the whole feature, and this takes away the
+//: browser's or the desktop window's frame as well. A refusal (an iframe
+//: without permission, a webview that does not implement it) changes
+//: nothing but a toast.
+//:
+//: **In the desktop window it is the window that fills the screen** (INBOX
+//: 426 z, images 93 and 94: "Fill the whole screen" did nothing there). The
+//: web view granted the page its full screen, the button turned to "Leave
+//: full screen", and the window did not move: a web view's full screen fills
+//: the web view, and resizing the window around it is the host's job, which
+//: pywebview does not do. So where the server says there is a window
+//: (`GET /desktop/fullscreen`, core/window_hook.py) the window is asked, and
+//: the browser's API is used everywhere else. The state hangs off a hoisted
+//: function rather than a `let`: `docFocusFill` can run before this part of
+//: the file has, and a `let` would be in its temporal dead zone then.
+function docDesktopFs() {
+  docDesktopFs.state ||= { asked: false, available: false, full: false };
+  return docDesktopFs.state;
+}
+
+async function docDesktopFullscreenToggle() {
+  try {
+    const state = await apiJson("/desktop/fullscreen", { method: "POST" });
+    docDesktopFs().available = !!state?.available;
+    docDesktopFs().full = !!state?.fullscreen;
+    return docDesktopFs().available;
+  } catch {
+    return false;
+  }
+}
+
+function docFocusSyncFullscreen() {
+  const button = $("doc-focus-fullscreen");
+  if (!button) return;
+  const full = docDesktopFs().available ? docDesktopFs().full : !!document.fullscreenElement;
+  button.setAttribute("aria-pressed", String(full));
+  button.title = full ? "Leave full screen" : "Fill the whole screen";
+  button.setAttribute("aria-label", button.title);
+  const icon = button.querySelector("i");
+  if (icon) icon.className = full ? "ph ph-arrows-in" : "ph ph-arrows-out";
+}
+
+async function docFocusToggleFullscreen() {
+  if (docDesktopFs().available) {
+    if (await docDesktopFullscreenToggle()) {
+      docFocusOwnsFullscreen = docDesktopFs().full;
+    } else {
+      toast("Full screen is not available in this window.", true);
+    }
+    docFocusSyncFullscreen();
+    docSurface()?.focus();
+    return;
+  }
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      docFocusOwnsFullscreen = false;
+    } else {
+      await document.documentElement.requestFullscreen();
+      docFocusOwnsFullscreen = true;
+    }
+  } catch {
+    toast("Full screen is not available in this window.", true);
+  }
+  docFocusSyncFullscreen();
+  docSurface()?.focus();
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) docFocusOwnsFullscreen = false;
+  docFocusSyncFullscreen();
+});
+
+$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+$("doc-focus-exit")?.addEventListener("click", () => toggleDocFocus(false));
+$("doc-focus-fullscreen")?.addEventListener("click", docFocusToggleFullscreen);
+$("doc-focus-tools")?.addEventListener("click", () =>
+  setDocFocusTools(!$("tab-documents")?.classList.contains("doc-focus-tools"))
 );
+//: Escape leaves it: the same convention the whiteboard's and graph's own
+//: full-screen toggles use, and asked the way the graph's is (see INBOX 275
+//: at that handler): bubble phase, so an Escape the editor spends first
+//: (closing a completion list or the slash menu, collapsing a selection)
+//: arrives here already `defaultPrevented`; and never while a dialog or a
+//: menu is open over the page, whose Escape it is. The earlier listener was
+//: capture phase and so left focus mode underneath an open slash menu.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (!docFocusOn()) return;
+  if (typeof activeOverlay === "function" && activeOverlay()) return;
+  const menuOpen = [...document.querySelectorAll('[role="menu"], .cm-tooltip')]
+    .some((el) => el.getClientRects().length > 0);
+  if (menuOpen) return;
+  if (event.target instanceof Element && event.target.closest("#doc-prose-panel, #doc-find-bar, .cm-search")) return;
+  toggleDocFocus(false);
+});
+
+//: F11, the key that means "full screen" in every browser and in Word, only
+//: while a document is on screen; everywhere else it is left to the browser.
+//: In the editor's command table (`DOC_COMMANDS`, "focus"), which is what
+//: puts it in the shortcut sheet and the palette.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "F11" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  const tab = $("tab-documents");
+  if (!tab || tab.classList.contains("hidden")) return;
+  event.preventDefault();
+  toggleDocFocus();
+});
+
+//: Brought back after a reload in the same session. The tab page may still
+//: be hidden here (this file loads with the Library), which is fine: the
+//: class waits on it, and `toggleDocFocus` only takes the caret when the
+//: page is showing.
+try {
+  if (sessionStorage.getItem(DOC_FOCUS_KEY) === "1") toggleDocFocus(true);
+} catch {
+  // No storage, nothing to restore.
+}
 
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
@@ -10756,6 +11885,15 @@ $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
 $("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);
 $("doc-ai").addEventListener("click", openDocAiPanel);
+//: A code document's Format: the selection when there is one, else the
+//: whole file (`docFormatCode`). The press takes the focus from the editor,
+//: so it is handed back: formatting is a step in the middle of typing.
+$("doc-code-run")?.addEventListener("click", () => docRunCode());
+
+$("doc-code-format").addEventListener("click", async () => {
+  await docFormatCode("auto");
+  docCmView?.focus();
+});
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
 $("doc-ai-run").addEventListener("click", runDocAiEdit);
@@ -10903,10 +12041,11 @@ function applyDocToolbarMode(mode) {
   //: The label names what pressing it *does*, not the state it is in, the
   //: state is carried by `aria-pressed` for a screen reader and by the
   //: toolbar's own shape for everyone else.
-  if (label) label.textContent = row ? "Expand the toolbar" : "Use one scrolling row";
+  if (label) label.textContent = row ? "Expand the toolbar" : "Use one row";
   //: The strip's own layout button and this menu entry are two views of one
   //: setting, so painting one without the other is how they drift.
   applyDocToolbarLayoutButtons();
+  fitDocToolbars();
 }
 
 function setDocToolbarMode(mode) {
@@ -11067,6 +12206,7 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
     button.setAttribute("aria-label", button.title);
     setLabel(button, collapsed ? "ph:caret-down" : "ph:caret-up");
   }
+  for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) fitDocToolbarRow(bar);
 }
 
 function setDocToolbarCollapsed(collapsed) {
@@ -11097,6 +12237,20 @@ function mountDocToolbarControlsFor(bar) {
     name.className = "doc-toolbar-collapsed-name";
     name.textContent = "Formatting";
     tools.appendChild(name);
+
+    //: **More, for a strip on one row** (INBOX 426 a). Hidden until
+    //: `fitDocToolbarRow` finds tools that do not fit; pressing it lets the
+    //: strip wrap to show them, and pressing it again folds them back.
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ghost small icon-only doc-toolbar-more";
+    more.hidden = true;
+    setLabel(more, "ph:dots-three");
+    more.addEventListener("click", () => {
+      bar.classList.toggle("is-more-open");
+      syncDocToolbarMore(bar);
+    });
+    tools.appendChild(more);
 
     const layout = document.createElement("button");
     layout.type = "button";
@@ -11142,6 +12296,7 @@ function mountDocToolbarControlsFor(bar) {
   applyDocToolbarLayoutButtons(bar);
   applyDocToolbarCollapsed(docToolbarCollapsed(), bar);
   applyDocGutter();
+  watchDocToolbarWidth(bar);
 }
 
 function mountDocToolbarControls() {
@@ -11162,10 +12317,236 @@ function applyDocToolbarLayoutButtons(only = null) {
     button.setAttribute("aria-pressed", row ? "true" : "false");
     //: The tooltip names what pressing it *does*; `aria-pressed` carries the
     //: state. Same rule the dock menu's own label follows.
-    button.title = row ? "Expand the toolbar over several rows" : "Fit the toolbar on one scrolling row";
+    button.title = row ? "Expand the toolbar over several rows" : "Fit the toolbar on one row, the rest behind More";
     button.setAttribute("aria-label", button.title);
     setLabel(button, row ? "ph:rows" : "ph:arrows-left-right");
   }
+}
+
+//: **One row means one row, and what does not fit is behind More** (INBOX 426
+//: a). The owner, with a screenshot of this strip at about 1000px: "in the
+//: documents full screen mode, I cant access the formatting toolbar or any of
+//: the other key tools or controls". The one-row mode was a sideways scroller
+//: with the strip's own three buttons pinned over its right end
+//: (`position: sticky` on an opaque ground), so the pinned group sat on top
+//: of Insert, cut it in half, and every tool past it was behind a scrollbar
+//: that looks like decoration. The phone band (720px and under) made every
+//: strip that scroller, whatever the mode, with its scrollbar hidden.
+//:
+//: Now a strip that does not wrap is measured: its tools are laid out whole,
+//: and while the strip's own group runs past the strip's inner edge the last
+//: tool is folded away (`.doc-toolbar-over`, `display: none`), so the row
+//: ends where the strip does and nothing is drawn over anything. More (the
+//: first button of the group) says how many are folded; pressing it lets the
+//: strip wrap and shows them in place, the real controls with their own
+//: menus and handlers rather than copies in a list, so a `<details>` menu and
+//: a colour picker behave exactly as they do on the row. A group rule left at
+//: the end of the row with nothing after it is folded with its group.
+//:
+//: A wrapping strip (the default, and the note edit form's always) is left
+//: alone: it has nothing to fold.
+function fitDocToolbarRow(bar) {
+  const tools = bar.querySelector(":scope > .doc-toolbar-tools");
+  const more = tools?.querySelector(".doc-toolbar-more");
+  if (!tools || !more) return;
+  const items = [...bar.children].filter((el) => el !== tools);
+  const open = bar.classList.contains("is-more-open");
+  //: Measured as the closed row, whatever the reader has open: what fits is
+  //: a fact about the row, and the open state is put back afterwards.
+  bar.classList.remove("is-more-open", "is-layout-folded");
+  for (const el of items) el.classList.remove("doc-toolbar-over");
+  more.hidden = true;
+  const style = getComputedStyle(bar);
+  const measurable = bar.getClientRects().length > 0 &&
+    !bar.classList.contains("is-collapsed") &&
+    style.flexWrap === "nowrap";
+  if (measurable) {
+    const box = bar.getBoundingClientRect();
+    const edge = box.right -
+      parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
+    const fits = () => tools.getBoundingClientRect().right <= edge + 0.5;
+    if (!fits()) {
+      more.hidden = false;
+      //: **On a narrow strip the layout toggle is the first thing folded**
+      //: (INBOX 426 a, round 2). At 360 the strip's own group (More,
+      //: layout, line numbers, collapse) took 176 of a 300px row and left
+      //: room for two tools. The layout toggle is the one of the four a
+      //: reader sets once, so under 600px it goes behind More with the
+      //: tools, and comes back on the open strip's last row. Only when
+      //: something is folded anyway: a strip whose tools all fit keeps it,
+      //: so it is never out of reach.
+      if (box.width < 600) bar.classList.add("is-layout-folded");
+      for (let i = items.length - 1; i >= 0 && !fits(); i--) {
+        items[i].classList.add("doc-toolbar-over");
+        //: A menu folded while open would stay open with nothing to anchor
+        //: it: closed with its button.
+        if (items[i].tagName === "DETAILS" && !open) items[i].open = false;
+      }
+      const shown = items.filter((el) => !el.classList.contains("doc-toolbar-over"));
+      for (let i = shown.length - 1; i >= 0 && shown[i].classList.contains("doc-toolbar-sep"); i--) {
+        shown[i].classList.add("doc-toolbar-over");
+      }
+    }
+  }
+  if (open && !more.hidden) bar.classList.add("is-more-open");
+  syncDocToolbarMore(bar);
+  trimDocToolbarGroup(bar, style);
+}
+
+//: **The strip's own group never takes a row to itself** (INBOX 426, round 4,
+//: A3). Expanded at 1024, the document strip's two rows of tools filled to
+//: 657 and 685 of 726px and its own three buttons (layout, line numbers,
+//: collapse) went down to a third row alone: a row of chrome under the tools
+//: it is chrome for. Two of the three have a row of their own in the
+//: document's ⋯ menu ("Use one row", "Always show formatting"), so on the
+//: document strip, when the group would be alone, those two are left to the
+//: menu and line numbers stays, which fits the second row's tail. Only the
+//: document strip: a note's strip has no menu holding the other two. Put
+//: back first and measured again on every fit, so a wider window gets them
+//: back.
+//:
+//: Where it goes then: the end of the first row, if that row has the room
+//: (the window-controls corner, and measured at 1024 the first row had 69px
+//: free where the trimmed group needs 48), else the end of the last. The
+//: group is put back at the end of the strip before every fit, so the
+//: one-row mode, which measures it there, always finds it there.
+function trimDocToolbarGroup(bar, style = getComputedStyle(bar)) {
+  const tools = bar.querySelector(":scope > .doc-toolbar-tools");
+  if (!tools) return;
+  bar.classList.remove("is-group-trimmed");
+  if (bar.lastElementChild !== tools) bar.appendChild(tools);
+  if (bar.id !== "doc-toolbar" || style.flexWrap === "nowrap") return;
+  if (!bar.getClientRects().length || bar.classList.contains("is-collapsed")) return;
+  const shown = () => [...bar.children].filter((el) => el !== tools && el.getClientRects().length);
+  //: Rows counted by the bottom of each item's line: the tallest item sets
+  //: it, and items centred on one row share it to within a pixel or two.
+  const rowTops = () => {
+    const bottoms = [...bar.children].filter((el) => el.getClientRects().length)
+      .map((el) => el.getBoundingClientRect().bottom).sort((a, b) => a - b);
+    let count = 0;
+    let edge = -Infinity;
+    for (const bottom of bottoms) if (bottom > edge + 12) { count += 1; edge = bottom; }
+    return { size: count };
+  };
+  const alone = () => {
+    const items = shown();
+    const last = items[items.length - 1];
+    return Boolean(last) && tools.getBoundingClientRect().top >= last.getBoundingClientRect().bottom - 1;
+  };
+  if (!alone()) return;
+  const rowsBefore = rowTops().size;
+  bar.classList.add("is-group-trimmed");
+  //: Rows are told apart by where an item's middle falls, not by its top:
+  //: the strip centres items of different heights, so two on one row can
+  //: have tops a few pixels apart.
+  const items = shown();
+  const first = items[0]?.getBoundingClientRect();
+  if (!first) return;
+  const middle = (el) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+  const secondRow = items.find((el) => middle(el) > first.bottom);
+  if (!secondRow) return;
+  bar.insertBefore(tools, secondRow);
+  const onFirst = middle(tools) < first.bottom;
+  if (!onFirst || rowTops().size >= rowsBefore) bar.appendChild(tools);
+}
+
+//: More says what pressing it does and how many tools it holds, and carries
+//: its state on `aria-expanded`, the disclosure's own attribute.
+function syncDocToolbarMore(bar) {
+  const more = bar.querySelector(".doc-toolbar-more");
+  if (!more) return;
+  const open = bar.classList.contains("is-more-open");
+  const count = bar.querySelectorAll(".doc-toolbar-over:not(.doc-toolbar-sep)").length +
+    (bar.classList.contains("is-layout-folded") ? 1 : 0);
+  more.setAttribute("aria-expanded", String(open));
+  more.setAttribute("aria-pressed", String(open));
+  more.title = open
+    ? "Fold the extra tools away again"
+    : `${count} more tool${count === 1 ? "" : "s"}`;
+  more.setAttribute("aria-label", more.title);
+}
+
+//: Refitted whenever a strip's width changes, and only then: the observer
+//: also fires when More makes the strip taller, and that is not a reason to
+//: measure again. A strip that was hidden and is shown (the tab, focus mode's
+//: Tools, the collapse) goes from 0 to its width, which counts. The width is
+//: kept on the strip itself and cleared here, because the note edit form's
+//: strip is a clone of the capture strip and would otherwise arrive carrying
+//: the width it was cloned at, and never be measured. Hoisted state only (a
+//: property of this function, a data attribute): the appliers above can run
+//: before this part of the file has, and a `let` here would be in its
+//: temporal dead zone for them.
+function watchDocToolbarWidth(bar) {
+  if (typeof ResizeObserver !== "function") return;
+  watchDocToolbarWidth.observer ||= new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const width = String(Math.round(entry.contentRect.width));
+      if (entry.target.dataset.fitWidth === width) continue;
+      entry.target.dataset.fitWidth = width;
+      fitDocToolbarRow(entry.target);
+    }
+  });
+  delete bar.dataset.fitWidth;
+  watchDocToolbarWidth.observer.observe(bar);
+  watchDocToolbarContents(bar);
+}
+
+//: **Refitted when the row's contents change, too** (INBOX 426 a, round 2).
+//: A width is not the only thing that decides what fits: the extras
+//: (`mountEditorToolbarExtras`) are appended after the strip is first
+//: measured, and a control shown or hidden at a constant width (by file
+//: type, by a setting) moves the end of the row without resizing the strip,
+//: so the row stayed folded for tools that had gone, or ran under the end
+//: group for tools that had come, until the next resize.
+//:
+//: The observer sees every attribute change in the strip, and most of them
+//: are no reason to measure: the bold button gains `active` on every cursor
+//: move, and the fit itself folds tools with a class. So each change is
+//: reduced to a signature of what the row lays out (which direct children
+//: exist and whether each is hidden by the page, not by the fit) and the
+//: strip is refitted only when that signature moved, once per frame at most.
+function docToolbarLayoutSignature(bar) {
+  let sig = "";
+  for (const el of bar.children) {
+    if (el.classList.contains("doc-toolbar-tools")) continue;
+    const gone = el.hidden || el.classList.contains("hidden") || el.style.display === "none";
+    sig += `${el.tagName[0]}${gone ? 0 : 1}${el.textContent.length},`;
+  }
+  return sig;
+}
+
+function watchDocToolbarContents(bar) {
+  if (typeof MutationObserver !== "function") return;
+  //: Kept in a set, not marked on the element: the note edit form's strip is
+  //: a clone of the capture strip and a data attribute would arrive with it,
+  //: so the clone would think it was already watched. A property of this
+  //: function, for the same hoisting reason as the width observer's.
+  watchDocToolbarContents.seen ||= new WeakSet();
+  if (watchDocToolbarContents.seen.has(bar)) return;
+  watchDocToolbarContents.seen.add(bar);
+  let sig = docToolbarLayoutSignature(bar);
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const next = docToolbarLayoutSignature(bar);
+      if (next === sig) return;
+      sig = next;
+      fitDocToolbarRow(bar);
+    });
+  }).observe(bar, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["hidden", "class", "style"],
+  });
+}
+
+function fitDocToolbars() {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) fitDocToolbarRow(bar);
 }
 
 //: Applied on load as well as on click: the toolbar exists before a document
@@ -11314,6 +12695,27 @@ function docCaretStats(box) {
   };
 }
 
+//: **A status line's words are changed in place, never replaced.** Traced
+//: while typing into a 400-word document (scratchpad/ui-sweeps/scrolltrace.js,
+//: SCENE=typing-doc): every keystroke restyled the whole editor, 220 elements
+//: at 6 to 9ms a time, and the invalidation tracking named the cause as the
+//: caret readout's `textContent` write. Setting `textContent` removes the
+//: text node and inserts a new one, and an inserted node is a structural
+//: change that every `:has()` rule over an ancestor has to re-check (the
+//: editor sits inside `.card`, which `.card:has(details.dock-menu[open])`
+//: watches), so the check invalidated the `.doc-layout` subtree each time.
+//: Rewriting the existing text node's `data` is not a structural change, and
+//: nothing re-checks.
+function docSetStatusText(el, text) {
+  if (!el) return;
+  const node = el.firstChild;
+  if (node && node.nodeType === Node.TEXT_NODE && !node.nextSibling) {
+    if (node.data !== text) node.data = text;
+  } else if (el.textContent !== text) {
+    el.textContent = text;
+  }
+}
+
 //: The caret half of the status bar: cheap, and so run on every keystroke and
 //: every selection change.
 function renderDocCaret() {
@@ -11338,7 +12740,7 @@ function renderDocCaret() {
           stats.selectedWords === 1 ? "" : "s"
         } selected (${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"})`
       : ` · ${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"} selected`;
-  caret.textContent = `Ln ${stats.line}, Col ${stats.column}${selection}`;
+  docSetStatusText(caret, `Ln ${stats.line}, Col ${stats.column}${selection}`);
   //: The breadcrumb follows the caret, so it is drawn from the same stats
   //: rather than from a listener of its own: two things that answer "where am
   //: I" and update on different events are two things that disagree.
@@ -11421,8 +12823,11 @@ function renderDocToolbarState() {
   }
   for (const button of bar.querySelectorAll("button[data-md]")) {
     if (!DOC_TOOLBAR_STATEFUL.has(button.dataset.md)) continue;
-    const on = marks.has(button.dataset.md);
-    button.setAttribute("aria-pressed", on ? "true" : "false");
+    const on = marks.has(button.dataset.md) ? "true" : "false";
+    //: Only on a change: this runs on every keystroke, over 51 buttons (the
+    //: strip and its menus), and an attribute set to the value it already
+    //: had is still a mutation the style engine has to look at.
+    if (button.getAttribute("aria-pressed") !== on) button.setAttribute("aria-pressed", on);
   }
 }
 
@@ -11452,6 +12857,13 @@ function renderDocCounts() {
   ]
     .filter(Boolean)
     .join(" · ");
+  //: Focus mode's floating dock carries the count too, since the status bar
+  //: is hidden while it is on; and the title, which is how a document opened
+  //: from the palette while the mode is on relabels the dock.
+  if (docFocusOn()) {
+    docSetStatusText($("doc-focus-words"), words ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}` : "");
+    docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  }
 }
 
 function renderDocStatusBar() {
@@ -11906,6 +13318,10 @@ const DOC_PROSE_SKIP = [
   //: every document.
   /^[ \t]*>[ \t]*\[![A-Za-z]+\]/gm,
   /^---\n[\s\S]*?\n---/g, // frontmatter
+  //: Suggestion mode's marks (PROSE-TOOLS): a word proposed for deletion is
+  //: on its way out and not worth a finding, and the markers are syntax.
+  /\{--[\s\S]*?--\}/g,
+  /\{\+\+|\+\+\}/g,
 ];
 
 function docProseSkipMask(text) {
@@ -12080,19 +13496,32 @@ function renderDocProse() {
   //: `;;` and every long line, which is noise a programmer cannot turn off
   //: fast enough.
   const isCode = !docFileType().previewable;
-  docProseFound = isCode ? [] : docProseFindings(docText());
+  //: The rule findings, then the ones from the prose tools below (grammar,
+  //: accessibility), which never claim a span a rule already holds.
+  const text = docText();
+  //: And Check with AI's findings (`docAiFindings`), located afresh in the
+  //: text as it is now, so an applied or edited-away one simply goes.
+  docProseFound = isCode
+    ? []
+    : docProseExtras(text, docProseFindings(text)).concat(docAiFindings(text)).sort((a, b) => a.start - b.start);
   chip.hidden = isCode;
   count.textContent = docProseFound.length
     ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
     : "No suggestions";
   chip.classList.toggle("has-findings", docProseFound.length > 0);
+  docFocusSyncProse();
   //: A fresh set of findings means a fresh set of marks. The engine is told
   //: through an effect rather than by rebuilding anything: the decorations are
   //: computed from `docProseFound` over the visible lines, so the repaint is a
   //: screenful whatever the document's length.
   docCmRepaintFindings();
+  renderDocSuggestState();
   if (!panel.classList.contains("hidden")) renderDocProsePanel();
 }
+
+// The prose tools (grammar, suggestion mode, the accessibility check, read
+// aloud) are in documents-prose.js, which the Library bundle loads before
+// this file. See its header.
 
 // =============================================================================
 // The three shapes a finding is drawn in (DOCUMENTS_PLAN Phase 0 and Phase 2)
@@ -12126,6 +13555,9 @@ const DOC_FINDING_SKIP = new Set(["long-sentence"]);
 //: note as far as the eye is concerned, and both are answered the same way.
 function docFindingKind(finding) {
   if (finding.rule === "spelling") return "spelling";
+  if (finding.rule === "grammar") return "grammar";
+  if (finding.rule === "ai") return "ai";
+  if (DOC_ACCESS_RULES.has(finding.rule)) return "access";
   if (finding.rule === "repeat") return "repeat";
   return "style";
 }
@@ -12145,7 +13577,9 @@ function docProseHeader() {
 
   const tools = document.createElement("span");
   tools.className = "row doc-prose-tools";
-  const fixable = docProseFound.filter((f) => f.replacement !== null);
+  //: A model's fix is a judgement to read, never one of "every suggestion that
+  //: has one clear answer", so Fix all leaves the `ai` kind alone.
+  const fixable = docProseFound.filter((f) => f.replacement !== null && f.rule !== "ai");
   if (fixable.length) {
     const all = document.createElement("button");
     all.type = "button";
@@ -12165,11 +13599,15 @@ function docProseHeader() {
   //: editor into one that visibly stutters while you type. On request, it
   //: costs nothing until asked for; as a pass, it would cost something on
   //: every single character.
+  const running = docAiCheck.state === "running";
   const aiReview = smallButton(
-    "ph:sparkle Check with AI",
-    "Ask the local model to read for things spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity",
+    running ? "ph:stop Stop" : "ph:sparkle Check with AI",
+    running
+      ? "Stop checking; what it found so far stays"
+      : "Ask the model to read for what spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity. Findings appear here",
     () => docAiReview()
   );
+  aiReview.classList.add("doc-prose-ai-run");
   tools.appendChild(aiReview);
   //: The dictionary is reachable from the thing that uses it. A word list you
   //: can add to and never see again is a list nobody trusts.
@@ -12177,6 +13615,12 @@ function docProseHeader() {
     openDocDictionary()
   );
   tools.appendChild(dict);
+  //: Where the panel sits, bottom or right (`applyDocProseDock`), beside the
+  //: way out: both are about the panel itself rather than its findings.
+  const dock = smallButton("ph:square-split-horizontal", "Dock the suggestions on the right", () => toggleDocProseDock());
+  dock.classList.add("icon-only", "doc-prose-dock");
+  docProseDockLabel(dock, docProseDockSide() === "right");
+  tools.appendChild(dock);
   const close = smallButton("ph:x", "Close the suggestions", () => closeDocProsePanel());
   close.classList.add("icon-only", "doc-prose-close");
   close.setAttribute("aria-label", "Close the suggestions");
@@ -12188,9 +13632,27 @@ function docProseHeader() {
 function closeDocProsePanel() {
   $("doc-prose-panel")?.classList.add("hidden");
   $("doc-prose")?.setAttribute("aria-expanded", "false");
+  docFocusSyncProse();
   //: Focus goes back to the control that opened it, or it lands on the body
-  //: and the next Tab starts from the top of the page.
-  $("doc-prose")?.focus();
+  //: and the next Tab starts from the top of the page. In focus mode the
+  //: status bar is gone, so that is the floating dock's own button.
+  (docFocusOn() ? $("doc-focus-prose") : $("doc-prose"))?.focus();
+}
+
+//: The floating dock's Suggestions says what the chip says: how many, and
+//: whether the panel is open. Hidden for a code file, as the chip is.
+function docFocusSyncProse() {
+  const button = $("doc-focus-prose");
+  if (!button) return;
+  const n = docProseFound.length;
+  const words = n ? `${n} suggestion${n === 1 ? "" : "s"}` : "Suggestions";
+  const label = $("doc-focus-prose-count");
+  if (label) label.textContent = words;
+  button.hidden = Boolean($("doc-prose")?.hidden);
+  const open = !$("doc-prose-panel")?.classList.contains("hidden");
+  button.setAttribute("aria-expanded", String(open));
+  button.title = open ? "Close the writing suggestions" : n ? `Writing suggestions: ${words}` : "Writing suggestions";
+  button.setAttribute("aria-label", button.title);
 }
 
 function renderDocProsePanel() {
@@ -12201,16 +13663,21 @@ function renderDocProsePanel() {
   //: "there's no close x button." A panel whose only exit is the control that
   //: opened it is a panel you have to remember how to leave, and the empty
   //: state was the one view where that was most likely.
+  const aiStatus = docAiCheckStatus();
   if (!docProseFound.length) {
     panel.appendChild(docProseHeader());
+    if (aiStatus) panel.appendChild(aiStatus);
     const empty = document.createElement("p");
     empty.className = "muted doc-prose-empty";
     empty.textContent =
-      "Nothing to flag. These checks are spelling, spacing and sentence length, they read the text, not its meaning.";
+      docGrammarEnabled()
+        ? "Nothing to flag. These checks are spelling, grammar, spacing, sentence length and accessibility, they read the text, not its meaning."
+        : "Nothing to flag. These checks are spelling, spacing, sentence length and accessibility, they read the text, not its meaning.";
     panel.appendChild(empty);
     return;
   }
   panel.appendChild(docProseHeader());
+  if (aiStatus) panel.appendChild(aiStatus);
 
   //: **Grouped by kind, with a count on each group** (DOCUMENTS_PLAN Phase 0
   //: item 3). A flat list of twenty rows is twenty separate decisions in
@@ -12241,8 +13708,13 @@ function renderDocProsePanel() {
 //: and the squiggle can never drift apart.
 const DOC_FINDING_GROUPS = [
   ["spelling", "Spelling"],
+  ["grammar", "Grammar"],
   ["repeat", "Repeated words"],
   ["style", "Style and spacing"],
+  ["access", "Accessibility"],
+  //: Last: a model's reading is the weakest claim in the panel, and it says
+  //: so by where it sits.
+  ["ai", "Checked with AI"],
 ];
 
 //: Sixty rows, over all the groups rather than per group: the cap is there so
@@ -12392,6 +13864,19 @@ function docProseGroupList(findings) {
       fix.addEventListener("click", () => docProseFix(finding));
       head.appendChild(fix);
     }
+    //: A model's finding can be wrong, so it can be put away: Dismiss takes it
+    //: out of this check's list (Ignore, in the answers, is the standing
+    //: "never flag this wording here").
+    if (finding.rule === "ai") {
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "ghost small doc-prose-fix doc-prose-dismiss";
+      setLabel(dismiss, "ph:x");
+      dismiss.title = "Dismiss this finding";
+      dismiss.setAttribute("aria-label", dismiss.title);
+      dismiss.addEventListener("click", () => docAiDismiss(finding));
+      head.appendChild(dismiss);
+    }
     li.appendChild(head);
     const answers = document.createElement("div");
     answers.className = "doc-prose-answers hidden";
@@ -12493,7 +13978,7 @@ function docProseFixAll() {
   //: Back to front, so each replacement cannot move the offsets of the ones
   //: still to be applied.
   const fixable = docProseFound
-    .filter((f) => f.replacement !== null)
+    .filter((f) => f.replacement !== null && f.rule !== "ai")
     .sort((a, b) => b.start - a.start);
   let text = box.value;
   let applied = 0;
@@ -12592,42 +14077,117 @@ function hideDocComplete() {
   docReturnFromViewport(list);
   docCompleteMatches = [];
   docCompleteBox = null;
+  if (typeof docProseGhostSet === "function") docProseGhostSet(null, "");
+}
+
+//: **The autofill rows for the caret, if it is at a trigger** (the owner,
+//: 2026-09-24: "if I type lorem and press enter ... it will autofill the lorem
+//: ipsum filler text"). The token and the rows are documents-prose.js's pure
+//: `PROSE-FILL` region; this is the part that knows the editor: the caret's
+//: line, the name in Settings, the renderer's heading ids. Prose only: a code
+//: file has its own list (`docCodeTools`), and two lists at one caret is the
+//: thing this file keeps refusing.
+function docFillAt(box) {
+  if (typeof docFillToken !== "function" || !docProseFillOn()) return null;
+  const range = box.selection();
+  if (range.from !== range.to) return null;
+  const line = box.lineAt(range.from);
+  const column = range.from - line.from;
+  const tok = docFillToken(line.text.slice(0, column), line.text.slice(column));
+  if (!tok) return null;
+  //: The "/" menu and the `[[` menu own their keystrokes while open.
+  if (typeof editorMenuState === "object" && editorMenuState?.open) return null;
+  const options = docFillOptions(tok, {
+    now: new Date(),
+    locale: undefined,
+    name: (typeof prefsCache === "object" && prefsCache?.display_name) || "",
+    doc: tok.kind === "toc" ? docText() : "",
+    slug: typeof mdHeadingId === "function" ? mdHeadingId : (t) => t,
+  });
+  if (!options.length) return null;
+  return { start: line.from + tok.start, options };
 }
 
 function renderDocComplete(box) {
   const list = $("doc-complete-list");
-  if (!list || !docCompleteEnabled()) return hideDocComplete();
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
-  if (!docCompleteWords) docBuildVocabulary();
-  const needle = at.fragment.toLowerCase();
-  docCompleteMatches = docCompleteWords
-    .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
-    .slice(0, DOC_COMPLETE_MAX)
-    .map(([word]) => word);
+  if (!list) return hideDocComplete();
+  //: **One popup at the caret.** While the "/" menu is open, what is typed
+  //: after the slash is its query, not a word to complete: measured, "/warn"
+  //: drew the word list's "warning" over the top of the block menu's first
+  //: group (INBOX 421 b's screenshot pass).
+  if (typeof editorMenuState === "object" && editorMenuState?.open) return hideDocComplete();
+  //: The expansions first, and whatever the word switch says: they answer a
+  //: trigger the writer typed on purpose, where word suggestions are a guess.
+  const fill = docFillAt(box);
+  const at = docCompleteEnabled() ? docWordFragment(box) : null;
+  let words = [];
+  if (at) {
+    if (!docCompleteWords) docBuildVocabulary();
+    const needle = at.fragment.toLowerCase();
+    words = docCompleteWords
+      .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
+      .slice(0, DOC_COMPLETE_MAX)
+      .map(([word]) => ({ word, typed: at.fragment.length }));
+  }
+  //: A row is `{word, typed}` (the rest of a word) or `{fill, start}` (an
+  //: expansion that replaces from `start` to the caret).
+  docCompleteMatches = [
+    ...(fill ? fill.options.map((option) => ({ fill: option, start: fill.start })) : []),
+    ...words,
+  ];
   if (!docCompleteMatches.length) return hideDocComplete();
 
   docCompleteBox = box;
   docCompleteIndex = Math.min(docCompleteIndex, docCompleteMatches.length - 1);
   list.replaceChildren();
-  docCompleteMatches.forEach((word, index) => {
+  docCompleteMatches.forEach((match, index) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", String(index === docCompleteIndex));
     li.classList.toggle("active", index === docCompleteIndex);
-    const head = document.createElement("b");
-    head.textContent = word.slice(0, at.fragment.length);
-    const rest = document.createElement("span");
-    rest.textContent = word.slice(at.fragment.length);
-    li.append(head, rest);
+    if (match.fill) {
+      //: The trigger in full strength, what it writes quieter: the same two
+      //: inks a word row uses for typed and suggested. A shortcode leads with
+      //: its glyph, which is the picker.
+      li.classList.add("doc-complete-fill");
+      if (match.fill.glyph) {
+        const glyph = document.createElement("span");
+        glyph.className = "doc-complete-glyph";
+        glyph.textContent = match.fill.glyph;
+        li.appendChild(glyph);
+      }
+      const head = document.createElement("b");
+      head.textContent = match.fill.label;
+      li.appendChild(head);
+      if (match.fill.detail) {
+        const detail = document.createElement("span");
+        detail.className = "doc-complete-detail";
+        detail.textContent = match.fill.detail;
+        li.appendChild(detail);
+      }
+    } else {
+      const head = document.createElement("b");
+      head.textContent = match.word.slice(0, match.typed);
+      const rest = document.createElement("span");
+      rest.textContent = match.word.slice(match.typed);
+      li.append(head, rest);
+    }
     li.addEventListener("mousedown", (event) => {
       //: mousedown, not click: the textarea must not lose focus first, or the
       //: selection this writes into is gone by the time it runs.
       event.preventDefault();
-      applyDocComplete(box, word);
+      applyDocComplete(box, match);
     });
     list.appendChild(li);
   });
+  //: The ghost after the caret, on the engine only: the chosen row's rest, as
+  //: the code side draws it (`.cm-ghostText`).
+  if (box.kind === "codemirror" && typeof docProseGhostSet === "function") {
+    const chosen = docCompleteMatches[docCompleteIndex];
+    const caret = box.selection().from;
+    const ghost = chosen.fill ? docFillGhost(chosen.fill) : chosen.word.slice(chosen.typed);
+    docProseGhostSet(caret, ghost);
+  }
   const point = docCaretPoint(box);
   //: Kept on screen: a popup at the caret near the right edge or the bottom of
   //: the window would otherwise open off it, which is the app-wide rule for
@@ -12653,15 +14213,31 @@ function renderDocComplete(box) {
   docPlaceFixed(list, Math.max(8, left), top);
 }
 
-function applyDocComplete(box, word) {
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
+function applyDocComplete(box, match) {
+  if (!match) return hideDocComplete();
   //: A range edit rather than a whole-value rewrite: on the engine that keeps
   //: the completion as one undo step over the fragment it replaced, and it
   //: costs the length of the word rather than the length of the document.
   const caret = box.selection().from;
-  box.replaceRange(at.start, caret, word);
-  box.setSelection(at.start + word.length);
+  if (match.fill) {
+    //: Read again at the moment of taking it, the rule `docProseFix` keeps: the
+    //: row was drawn a keystroke ago, and a trigger that is no longer before
+    //: the caret is not one to replace.
+    const now = docFillAt(box);
+    if (!now || now.start !== match.start) return hideDocComplete();
+    const text = match.fill.text;
+    box.replaceRange(match.start, caret, text);
+    if (match.fill.select) {
+      box.setSelection(match.start + match.fill.select[0], match.start + match.fill.select[1]);
+    } else {
+      box.setSelection(match.start + text.length);
+    }
+  } else {
+    const at = docWordFragment(box);
+    if (!at) return hideDocComplete();
+    box.replaceRange(at.start, caret, match.word);
+    box.setSelection(at.start + match.word.length);
+  }
   hideDocComplete();
   box.focus();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -12680,11 +14256,16 @@ function docCompleteKeydown(event, box) {
     renderDocComplete(box);
     return true;
   }
-  //: **Tab, not Enter.** Enter in a document is a new line, and stealing it
-  //: for a suggestion is how an autocomplete becomes the thing you fight.
-  if (event.key === "Tab") {
+  //: **Tab for a word, and Enter only for an expansion.** Enter in a document
+  //: is a new line, and stealing it for a guessed word is how an autocomplete
+  //: becomes the thing you fight. An expansion is different: it answers a
+  //: trigger typed on purpose (`lorem`, `today` on its own line, `:smile`),
+  //: and "type lorem and press enter" is the ask it exists for. Escape, then
+  //: Enter, is still a plain new line.
+  const chosen = docCompleteMatches[docCompleteIndex];
+  if (event.key === "Tab" || (event.key === "Enter" && chosen?.fill && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey)) {
     event.preventDefault();
-    applyDocComplete(box, docCompleteMatches[docCompleteIndex]);
+    applyDocComplete(box, chosen);
     return true;
   }
   if (event.key === "Escape") {
@@ -12773,7 +14354,13 @@ function docAutocorrectAt(box) {
 // shape that silently accumulates duplicates (tests/test_frontend_handlers.py
 // exists because of exactly that).
 
-const DOC_TOOL_KEYS = { autocorrect: "doc-autocorrect", complete: "doc-complete" };
+const DOC_TOOL_KEYS = {
+  autocorrect: "doc-autocorrect",
+  complete: "doc-complete",
+  //: INBOX 402: VS Code's Alt+Z and "render whitespace", for a code file.
+  codeWrap: "doc-code-wrap",
+  whitespace: "doc-whitespace",
+};
 
 function docToolPref(name, fallback) {
   try {
@@ -13009,6 +14596,75 @@ function docMarkAnchor(mark, point) {
   return rects[0];
 }
 
+//: **Where a finding is on screen now, asked of the finding rather than of an
+//: element somebody held on to** (INBOX 421 c: "sometimes document editor
+//: dropdowns appear at the top of the screen ... sometimes it doesnt open at
+//: all"). The Live view redraws the line under the pointer the moment a press
+//: puts the caret on it (the line's markup is revealed), so the element a
+//: right-click or a long-press started on can be detached by the time the
+//: menu is placed, and a detached element measures `0,0,0,0`: the clamps then
+//: put the menu in the top left of the window, which is the screenshot. The
+//: live mark first; failing that the engine's own coordinates for the
+//: finding's span; failing that null, and the caller reveals the word or does
+//: not open, never opens at the origin.
+function docRectUsable(rect) {
+  return Boolean(rect) && Number.isFinite(rect.top) && Number.isFinite(rect.left)
+    && !(rect.top === 0 && rect.left === 0 && rect.bottom === 0 && (rect.right || 0) === 0);
+}
+
+function docFindingAnchor(finding, point) {
+  if (!finding) return null;
+  const mark = docFindingMarks().find((el) => el._docFinding === finding);
+  if (mark && mark.isConnected) {
+    const rect = docMarkAnchor(mark, point);
+    if (docRectUsable(rect)) return rect;
+  }
+  if (docCmView && Number.isFinite(finding.start)) {
+    const size = docCmView.state.doc.length;
+    const from = docCmView.coordsAtPos(Math.max(0, Math.min(finding.start, size)), 1);
+    const to = docCmView.coordsAtPos(Math.max(0, Math.min(finding.end ?? finding.start, size)), -1);
+    if (from && docRectUsable(from)) {
+      const sameLine = to && Math.abs(to.top - from.top) < 2;
+      return {
+        left: from.left,
+        right: sameLine ? Math.max(to.right, from.left) : from.left,
+        top: from.top,
+        bottom: from.bottom,
+      };
+    }
+  }
+  return null;
+}
+
+//: The finding a mark element stands for, even after the engine has thrown
+//: the element away: `_docFinding` is only attached to marks that are in the
+//: document when `docFindingMarks` runs, but the index on the element is
+//: still the finding's index.
+function docFindingOfMark(el) {
+  if (!el) return null;
+  if (el._docFinding) return el._docFinding;
+  const index = Number(el.dataset?.docFinding);
+  return Number.isInteger(index) ? docProseFound[index] || null : null;
+}
+
+//: **Where the first press of a double-click landed, in the text.** The press
+//: puts the caret on the line and the Live view reveals its markup, so the
+//: words shift right under a still pointer (measured: 16px for a line with
+//: one `**bold**` span), and the second press lands on whatever slid under
+//: it, not on the word that was double-clicked. Read in the capture phase,
+//: before the engine handles the press and before anything moves.
+let docFirstPress = null;
+document.addEventListener(
+  "mousedown",
+  (event) => {
+    if (!docCmView || event.detail !== 1 || event.button !== 0) return;
+    if (!(event.target instanceof Node) || !docCmView.contentDOM.contains(event.target)) return;
+    const pos = docCmView.posAtCoords({ x: event.clientX, y: event.clientY });
+    docFirstPress = pos == null ? null : { pos, at: performance.now() };
+  },
+  true
+);
+
 function docFindingAtPoint(x, y) {
   if (typeof x !== "number" || typeof y !== "number") return null;
   for (const mark of docFindingMarks()) {
@@ -13045,9 +14701,8 @@ function docRevealForSuggest(anchor, finding) {
 }
 
 function docOpenSuggestFor(finding, focus = true, point = null, revealed = false) {
-  const mark = docFindingMarks().find((el) => el._docFinding === finding);
-  if (mark) {
-    const anchor = docMarkAnchor(mark, point);
+  const anchor = docFindingAnchor(finding, point);
+  if (anchor) {
     //: Once only: a finding the editor cannot bring into view (a folded
     //: construct, a zero-height line) would otherwise ask for a frame forever.
     if (!revealed && docRevealForSuggest(anchor, finding)) {
@@ -13057,15 +14712,26 @@ function docOpenSuggestFor(finding, focus = true, point = null, revealed = false
     openDocSuggest(finding, anchor, focus);
     return true;
   }
-  const box = docActiveBox() || docSurface();
-  if (!box) return false;
-  const at = docCaretPoint(box);
-  openDocSuggest(finding, { left: at.left, top: at.top, bottom: at.bottom }, focus);
-  return true;
+  //: Not drawn at all: the finding is outside the lines the engine has laid
+  //: out. Scrolled to, then asked again on the next frame, once. The caret
+  //: used to be the fallback here, and the caret's own fallback, when the
+  //: engine had no coordinates for it either, was the editor's top left
+  //: corner: a menu about a word, opened at the top of the screen.
+  if (!revealed && docCmView && window.CM6 && Number.isFinite(finding.start)) {
+    docCmView.dispatch({
+      effects: window.CM6.view.EditorView.scrollIntoView(finding.start, { y: "center" }),
+    });
+    requestAnimationFrame(() => docOpenSuggestFor(finding, focus, null, true));
+    return true;
+  }
+  return false;
 }
 
-function docOpenSuggestAtCaret(box, point = null, focus = true) {
+function docOpenSuggestAtCaret(box, point = null, focus = true, pressed = null) {
   let finding = point ? docFindingAtPoint(point.x, point.y) : null;
+  //: The word the first press of a double-click was on, before the line
+  //: shifted under the pointer (`docFirstPress`).
+  if (!finding && pressed != null) finding = docFindingAtOffset(pressed);
   if (!finding) {
     //: The fallback, and it is the right one for a double-click: that gesture
     //: selects the word first, so the caret really is inside it.
@@ -13079,7 +14745,8 @@ function docOpenSuggestAtCaret(box, point = null, focus = true) {
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
-  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
+  const pressed = docFirstPress && performance.now() - docFirstPress.at < 1000 ? docFirstPress.pos : null;
+  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY }, true, pressed);
 });
 
 //: **One click on an underlined word, which is what an underline means
@@ -13133,10 +14800,12 @@ document.addEventListener("click", (event) => {
 function docOpenSuggestAtPoint(target, point) {
   const flag = target instanceof Element ? target.closest(".doc-flag, .cm-finding") : null;
   if (flag) docFindingMarks(); // resolves the engine's marks back to findings
-  if (flag && flag._docFinding) {
-    openDocSuggest(flag._docFinding, docMarkAnchor(flag, point));
-    return true;
-  }
+  //: Resolved to the *finding* and placed from that, never from `flag`'s own
+  //: box: the press that raised this event may already have made the engine
+  //: redraw the line, and then `flag` is a detached element measuring
+  //: `0,0,0,0`, which is the menu at the top of the window (INBOX 421 c).
+  const flagged = docFindingOfMark(flag);
+  if (flagged) return docOpenSuggestFor(flagged, true, point);
   const box = docToolsBoxFor(target);
   if (!box) return false;
   return Boolean(docOpenSuggestAtCaret(box, point));
@@ -13250,13 +14919,43 @@ $("doc-spelling-variant")?.addEventListener("change", async (event) => {
   //: The variant decides which half of the pair table is a finding, so the
   //: lookup has to be rebuilt before the next pass reads it.
   docVariantFor = null;
+  //: And the grammar checker's dialect with it (British or American rules).
+  docGrammarCache = { text: null, findings: [] };
   renderDocProse();
 });
-$("doc-dictionary-add")?.addEventListener("click", async () => {
-  const word = await promptDialog("Add a word to your dictionary:", "");
-  if (!word) return;
-  await docDictionaryAdd(word.trim());
-  openDocDictionary();
+$("doc-grammar-check")?.addEventListener("change", async (event) => {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ grammar_check: event.currentTarget.checked }),
+  }).catch(() => prefsCache);
+  docGrammarCache = { text: null, findings: [] };
+  renderDocProse();
+});
+//: The field finds and adds (`renderDocDictionary`, `docDictionaryAddTyped`);
+//: Add beside it is the same as Enter, for a pointer.
+$("doc-dictionary-add")?.addEventListener("click", () => docDictionaryAddTyped());
+$("doc-dictionary-search")?.addEventListener("input", () => renderDocDictionary());
+$("doc-dictionary-search")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  docDictionaryAddTyped();
+});
+$("doc-dictionary-import")?.addEventListener("click", () => $("doc-dictionary-file")?.click());
+$("doc-dictionary-file")?.addEventListener("change", async (event) => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  //: Cleared first, so choosing the same file again still raises a change.
+  input.value = "";
+  await docDictionaryImport(file);
+});
+$("doc-dictionary-export")?.addEventListener("click", () => docDictionaryExport());
+//: The same preference Settings, Preferences sets (`smart_punctuation`), here
+//: beside the other writing checks; saved on the change, as the two above are.
+$("doc-smart-punctuation")?.addEventListener("change", async (event) => {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ smart_punctuation: event.currentTarget.checked }),
+  }).catch(() => prefsCache);
 });
 
 $("doc-prose")?.addEventListener("click", () => {
@@ -13267,7 +14966,172 @@ $("doc-prose")?.addEventListener("click", () => {
   panel.classList.toggle("hidden", !open);
   chip.setAttribute("aria-expanded", String(open));
   if (open) renderDocProsePanel();
+  docFocusSyncProse();
 });
+
+$("doc-focus-prose")?.addEventListener("click", () => $("doc-prose")?.click());
+
+// --- where the suggestions panel sits (INBOX 410) ---------------------------
+//
+// The owner, 2026-09-24: "allow the suggestions panel to be docked on the
+// right instead if the user wishes." Under the editor it takes height from a
+// document that is usually taller than it is wide; beside it, on a wide
+// window, it takes width the text column was not using. So both, the writer's
+// choice from the panel's own head, remembered per browser (a layout
+// preference about this screen, not about the notebook), and a column that
+// resizes by the sidebars' own handle (`makeSidebarResizable` in sheets-selects.js: a
+// `role="separator"` grip, drag, arrow keys, Home or a double click to reset).
+//
+// **Right means a column in `#doc-panes`**, beside the source and the preview,
+// so split view and the right dock share one row and the editor gives up
+// width rather than height. The panel element moves; nothing is rebuilt, so
+// an open row and its scroll position survive the move. At 720px and below
+// (where the sidebars' own handles stop, there being no room beside anything)
+// it is always under the editor, whatever was chosen.
+const DOC_PROSE_DOCK_KEY = "docProseDock";
+const DOC_PROSE_WIDTH_KEY = "docProseWidth";
+const DOC_PROSE_WIDTH_DEFAULT = 320;
+const DOC_PROSE_WIDTH_MIN = 240;
+const DOC_PROSE_NARROW = "(max-width: 720px)";
+
+function docProseDockChoice() {
+  try {
+    return localStorage.getItem(DOC_PROSE_DOCK_KEY) === "right" ? "right" : "bottom";
+  } catch {
+    return "bottom";
+  }
+}
+
+//: The side in effect: the choice, except where there is no room for it.
+function docProseDockSide() {
+  return window.matchMedia(DOC_PROSE_NARROW).matches ? "bottom" : docProseDockChoice();
+}
+
+//: Clamped against the room there is: never under the floor, never more than
+//: half the editor's row, so the text column is always the larger of the two.
+function docProseApplyWidth(width) {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  if (!panel || !panes) return DOC_PROSE_WIDTH_DEFAULT;
+  const room = panes.getBoundingClientRect().width || window.innerWidth;
+  const max = Math.max(DOC_PROSE_WIDTH_MIN, Math.round(room * 0.5));
+  const clamped = Math.min(Math.max(Math.round(width), DOC_PROSE_WIDTH_MIN), max);
+  //: On the tab page, not the panel: focus mode's side panel and the page's
+  //: padding beside it read the same property (07-whiteboard-misc.css).
+  ($("tab-documents") || panel).style.setProperty("--doc-prose-w", `${clamped}px`);
+  try {
+    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+  } catch {
+    /* private mode: it just won't be remembered */
+  }
+  return clamped;
+}
+
+function docProseSavedWidth() {
+  try {
+    return Number(localStorage.getItem(DOC_PROSE_WIDTH_KEY)) || DOC_PROSE_WIDTH_DEFAULT;
+  } catch {
+    return DOC_PROSE_WIDTH_DEFAULT;
+  }
+}
+
+//: The grip, built once and moved with the panel: the sidebars' handle
+//: (`.sidebar-resize`, the same role, keys and double click), on the panel's
+//: leading edge because the panel grows away from the text, as the web panel's
+//: does in chat.
+let docProseGrip = null;
+
+function docProseResizeHandle() {
+  let handle = docProseGrip;
+  if (handle) return handle;
+  handle = document.createElement("div");
+  docProseGrip = handle;
+  handle.className = "sidebar-resize doc-prose-resize";
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the suggestions: arrow keys, or drag");
+  handle.title = "Drag to resize, double-click to reset";
+  const panel = () => $("doc-prose-panel");
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel().getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+    //: Dragging left (a negative delta) widens it: the mirror of a sidebar.
+    const move = (e) => docProseApplyWidth(startWidth - (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  });
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = panel().getBoundingClientRect().width;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      docProseApplyWidth(current + step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      docProseApplyWidth(current - step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT);
+    }
+  });
+  handle.addEventListener("dblclick", () => docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT));
+  return handle;
+}
+
+//: Put the panel where the side in effect says, and say so on the head's
+//: toggle. Safe to call any number of times: a panel already in place is not
+//: moved again.
+function applyDocProseDock() {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  const bar = $("doc-statusbar");
+  if (!panel || !panes || !bar) return;
+  const right = docProseDockSide() === "right";
+  const handle = docProseResizeHandle();
+  if (right) {
+    if (panel.parentElement !== panes) panes.append(handle, panel);
+    docProseApplyWidth(docProseSavedWidth());
+  } else if (panel.previousElementSibling !== bar) {
+    bar.after(panel);
+    handle.remove();
+  }
+  panes.classList.toggle("doc-prose-right", right);
+  panel.classList.toggle("doc-prose-right", right);
+  const toggle = panel.querySelector(".doc-prose-dock");
+  if (toggle) docProseDockLabel(toggle, right);
+}
+
+function docProseDockLabel(button, right) {
+  const words = right ? "Dock the suggestions at the bottom" : "Dock the suggestions on the right";
+  setLabel(button, right ? "ph:square-split-vertical" : "ph:square-split-horizontal");
+  button.title = words;
+  button.setAttribute("aria-label", words);
+  button.setAttribute("aria-pressed", String(right));
+}
+
+function toggleDocProseDock() {
+  const next = docProseDockChoice() === "right" ? "bottom" : "right";
+  try {
+    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+  } catch {
+    /* private mode: it moves for this session only */
+  }
+  applyDocProseDock();
+  //: Focus stays on the toggle, which moved with the panel: the press that
+  //: moved it should not lose the reader's place.
+  $("doc-prose-panel")?.querySelector(".doc-prose-dock")?.focus();
+}
+
+window.matchMedia(DOC_PROSE_NARROW).addEventListener("change", applyDocProseDock);
+applyDocProseDock();
 
 for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
   const input = $(id);
@@ -13631,6 +15495,18 @@ function docSuggestAlternatives(finding) {
   if (finding.replacement !== null && finding.replacement !== undefined) {
     push(finding.replacement);
   }
+  //: A grammar finding carries its checker's own answers, in its order. An
+  //: empty one means "remove it", which `push` would drop as blank.
+  if (Array.isArray(finding.alternatives)) {
+    for (const option of finding.alternatives) {
+      if (out.length >= DOC_SUGGEST_MAX) break;
+      if (option === "") {
+        if (!out.includes("")) out.push("");
+      } else {
+        push(option);
+      }
+    }
+  }
   if (DOC_WORD_RULES.has(finding.rule)) {
     const lower = finding.text.toLowerCase();
     //: The other direction of the variant table, so a document set to UK still
@@ -13693,6 +15569,12 @@ function docFindingLine(finding, variant = "row") {
   const why = document.createElement("span");
   why.className = "doc-finding-why";
   why.textContent = finding.message;
+  //: Both halves ellipsise in a narrow panel (INBOX 426 b), so each carries
+  //: its whole text as a title: the nearest title is the one the pointer
+  //: shows, so these win over the row button's "show me this" hint only
+  //: where the words themselves are under it.
+  words.title = words.textContent;
+  why.title = finding.message;
   line.append(dot, words, why);
   return line;
 }
@@ -13743,8 +15625,9 @@ function docSuggestAnswers(finding, opts = {}) {
     const item = document.createElement("button");
     item.type = "button";
     item.className = index === 0 ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
-    item.textContent = option === " " ? "one space" : option;
-    item.title = `Replace with \u201c${option}\u201d`;
+    const removal = `Remove \u201c${finding.text}\u201d`;
+    item.textContent = option === " " ? "one space" : option === "" ? removal : option;
+    item.title = option === "" ? removal : `Replace with \u201c${option}\u201d`;
     item.addEventListener("click", () => {
       docProseFix({ ...finding, replacement: option });
       close();
@@ -13865,6 +15748,11 @@ function docSuggestAnswers(finding, opts = {}) {
 function openDocSuggest(finding, anchorRect, focus = true) {
   const menu = $("doc-suggest-menu");
   if (!menu) return;
+  //: The last guard before the origin: a rect with nothing in it is asked of
+  //: the finding again, and with no answer the menu does not open rather
+  //: than opening at `8,8` (INBOX 421 c).
+  if (!docRectUsable(anchorRect)) anchorRect = docFindingAnchor(finding, null);
+  if (!docRectUsable(anchorRect)) return;
   docSuggestOpenFor = finding;
   menu.replaceChildren();
 
@@ -14053,9 +15941,7 @@ function docSuggestFollowAnchor(event) {
   //: in the capture phase like any other. Following the word because someone
   //: is reading the last row of the menu would be absurd.
   if (event && event.target instanceof Node && menu.contains(event.target)) return;
-  const mark = docFindingMarks().find((el) => el._docFinding === docSuggestOpenFor);
-  if (!mark) return closeDocSuggest();
-  const rect = docMarkAnchor(mark, null);
+  const rect = docFindingAnchor(docSuggestOpenFor, null);
   const host = docCmView ? docCmView.dom.getBoundingClientRect() : docSurface()?.rect?.();
   if (!rect || (host && (rect.bottom <= host.top + 1 || rect.top >= host.bottom - 1))) {
     return closeDocSuggest();
@@ -14067,6 +15953,15 @@ function docSuggestFollowAnchor(event) {
     bottom: rect.bottom,
   };
   placeDocSuggest();
+}
+
+let docSuggestFollowFrame = 0;
+function docScheduleSuggestFollow() {
+  if (docSuggestFollowFrame) return;
+  docSuggestFollowFrame = requestAnimationFrame(() => {
+    docSuggestFollowFrame = 0;
+    docSuggestFollowAnchor(null);
+  });
 }
 
 window.addEventListener("resize", docSuggestFollowAnchor);
@@ -14134,87 +16029,362 @@ let docLastTranslateLanguage = "";
 //: in the document's id to say which part of it was meant.
 const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 
-async function docAiReview() {
+//: **Discuss in chat, the secondary way now** (INBOX 410). Everything above
+//: about the badge still holds; what changed is the prompt. The long ask that
+//: used to go with it ("Read this for the things a spellchecker can't
+//: catch...") shared enough words with a proofreading skill to raise "You have
+//: a skill for this" over the composer, which the owner reported as not
+//: accurate (INBOX 413). The check itself runs in place now (`docAiReview`),
+//: so this opens the conversation and leaves the question to the writer: the
+//: document as a chip, a selection as a quote, and nothing else typed for them.
+function docAiDiscussInChat() {
   const box = docSurface();
   const text = (box?.text || "").trim();
-  if (!text) return toast("Nothing to review yet.", true);
+  if (!text) return toast("Nothing to discuss yet.", true);
   const input = document.getElementById("chat-input");
   if (!input) return toast("The chat isn't available right now.", true);
-
   const range = box ? box.selection() : null;
   const selection = range ? box.text.slice(range.from, range.to).trim() : "";
-  const ask =
-    "Read this for the things a spellchecker can't catch: its/it's and other " +
-    "agreement mistakes, tense that shifts partway through, unclear or awkward " +
-    "sentences, and tone. List each one as a numbered point naming the exact " +
-    "wording and a one-line fix, don't rewrite it.";
-
   switchTab("chat");
   if (selection) {
     const quoted =
       selection.length > DOC_AI_REVIEW_SELECTION_CHARS
         ? `${selection.slice(0, DOC_AI_REVIEW_SELECTION_CHARS)}…`
         : selection;
-    input.value = `${ask}\n\n${quoted}`;
+    input.value = `${quoted.split("\n").map((line) => `> ${line}`).join("\n")}\n\n`;
   } else {
-    input.value = ask;
-    //: The badge, via the composer's own staging list, the same chip an
-    //: imported file gets, removable by the same ✕, and read by the backend
-    //: from the document itself rather than from a snapshot pasted here.
     const attached = attachDocumentToChat(currentDoc && currentDoc.id, (currentDoc && currentDoc.title) || $("doc-title")?.value || "This document");
     if (!attached) {
       //: The one case where pasting is still the honest answer: the chip
       //: cannot be added (four already staged, or an unsaved document with no
       //: id yet), and silently asking about nothing would be worse.
-      input.value = `${ask}\n\n${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}`;
+      input.value = `${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}\n\n`;
     }
   }
   input.focus();
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// --- Check with AI, in place (INBOX 410) -----------------------------------
+//
+// The owner, 2026-09-24: "improve how the 'check with ai' feature works in the
+// documents editor." It used to leave the editor for the Chat tab, answer in a
+// bubble with nothing to apply, and raise a skill suggestion that did not fit
+// (INBOX 413). Now it stays: `POST /documents/{id}/ai-check` streams findings
+// (the exact words, a one-line reason, a one-line fix) and each becomes a
+// finding of kind `ai`, so it is underlined in the text, listed in the panel
+// under its own group, and answered by the same row and the same answers every
+// other finding has (`docFindingLine`, `docSuggestAnswers`), with Apply (the
+// row's check) and Dismiss. Stop is the button that started it. The model is
+// the documents feature's (Settings, Models, per feature).
+
+//: `state` is idle, running, done, stopped, offline or failed; `items` are
+//: `{text, message, replacement, near}` as they arrived, located afresh on every
+//: pass (`docAiFindings`) because the writer may keep typing while it runs.
+const docAiCheck = { state: "idle", items: [], message: "", controller: null, docId: null };
+
+//: The streamed items as findings against the text as it is now. An item whose
+//: words are gone (applied, or edited away) is simply not drawn; one dismissed
+//: is gone from `items` itself.
+function docAiFindings(text) {
+  if (!docAiCheck.items.length || docAiCheck.docId !== (currentDoc?.id ?? null)) return [];
+  const out = [];
+  for (const item of docAiCheck.items) {
+    let start = text.indexOf(item.text, Math.max(0, item.near - 200));
+    if (start === -1) start = text.indexOf(item.text);
+    if (start === -1) continue;
+    const finding = {
+      rule: "ai",
+      start,
+      end: start + item.text.length,
+      text: item.text,
+      message: item.message,
+      replacement: item.replacement || null,
+      aiItem: item,
+    };
+    if (docProseIgnored.has(docProseKey(finding))) continue;
+    out.push(finding);
+  }
+  return out;
+}
+
+function docAiDismiss(finding) {
+  docAiCheck.items = docAiCheck.items.filter((item) => item !== finding.aiItem);
+  renderDocProse();
+}
+
+async function docAiReview() {
+  if (docAiCheck.state === "running") {
+    docAiCheck.controller?.abort();
+    return;
+  }
+  const box = docSurface();
+  const full = box?.text || "";
+  if (!full.trim()) return toast("Nothing to check yet.", true);
+  const doc = currentDoc || (await ensureDocumentExists().catch(() => null));
+  if (!doc) return toast("Nothing to check yet.", true);
+  const range = box.selection();
+  const selection = range.to > range.from ? full.slice(range.from, range.to) : "";
+  const controller = new AbortController();
+  Object.assign(docAiCheck, {
+    state: "running", items: [], message: "", controller, docId: doc.id,
+  });
+  //: The panel opens on the check, so the findings land where the writer
+  //: can see them arrive.
+  $("doc-prose-panel")?.classList.remove("hidden");
+  $("doc-prose")?.setAttribute("aria-expanded", "true");
+  renderDocProse();
+  const offset = selection ? range.from : 0;
+  try {
+    const response = await fetch(`/documents/${doc.id}/ai-check`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        "X-Workspace-ID": activeSpaceId(),
+      },
+      //: The text as it is on screen, not as last saved: the autosave is a
+      //: second behind the typing, and a finding about words that are no
+      //: longer there is one the panel cannot find.
+      body: JSON.stringify({ selection: selection || full }),
+      signal: controller.signal,
+    });
+    if (response.status === 401) {
+      showLockScreen(false);
+      throw new Error("Locked");
+    }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.detail || `Request failed (${response.status})`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    const onEvent = (event) => {
+      if (event.type === "item") {
+        docAiCheck.items.push({
+          text: event.quote,
+          message: event.reason,
+          replacement: event.fix || "",
+          near: offset + Math.max(0, (selection || full).indexOf(event.quote)),
+        });
+        renderDocProse();
+      } else if (event.type === "done") {
+        docAiCheck.state = event.ollama_running === false ? "offline" : event.message ? "failed" : "done";
+        docAiCheck.message = event.message || "";
+      }
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+      const lines = buffered.split("\n");
+      buffered = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          onEvent(JSON.parse(line));
+        } catch {
+          recordBrowserLog("WARN", [`[AI check] Unparseable line: ${line.slice(0, 80)}`]);
+        }
+      }
+    }
+    if (docAiCheck.state === "running") docAiCheck.state = "done";
+  } catch (error) {
+    if (error.name === "AbortError") {
+      docAiCheck.state = "stopped";
+    } else {
+      docAiCheck.state = "failed";
+      docAiCheck.message = error.message || "The check did not finish.";
+    }
+  } finally {
+    if (docAiCheck.controller === controller) docAiCheck.controller = null;
+    renderDocProse();
+  }
+}
+
+//: **The check's own line in the panel**: what it is doing or did, and the
+//: two ways on (again, or Discuss in chat). No model is a `.notice-warn` with
+//: the way to connect one, rather than a toast that is gone before it is read.
+function docAiCheckStatus() {
+  if (docAiCheck.state === "idle" || docAiCheck.docId !== (currentDoc?.id ?? null)) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "doc-prose-ai";
+  wrap.setAttribute("role", "status");
+  const n = docAiCheck.items.length;
+  const found = `${n} finding${n === 1 ? "" : "s"}`;
+  if (docAiCheck.state === "offline") {
+    const notice = document.createElement("p");
+    notice.className = "notice notice-warn doc-prose-ai-notice";
+    const icon = document.createElement("i");
+    icon.className = "ph ph-plug";
+    icon.setAttribute("aria-hidden", "true");
+    const words = document.createElement("span");
+    words.textContent = "No AI model is connected, so Check with AI cannot read this yet.";
+    notice.append(icon, words);
+    const open = smallButton("ph:gear Open Settings, Models", "Connect or choose the model documents use", () => {
+      if (typeof openSettingsModal === "function") openSettingsModal("models");
+    });
+    open.classList.add("doc-prose-ai-settings");
+    wrap.append(notice, open);
+  } else {
+    const line = document.createElement("span");
+    line.className = "doc-prose-ai-line";
+    if (docAiCheck.state === "running") {
+      line.textContent = n ? `Checking with AI, ${found} so far…` : "Checking with AI…";
+    } else if (docAiCheck.state === "stopped") {
+      line.textContent = `Stopped. ${n ? `${found} before it stopped.` : "Nothing found before it stopped."}`;
+    } else if (docAiCheck.state === "failed") {
+      line.textContent = docAiCheck.message || "The check did not finish.";
+      line.classList.add("error");
+    } else {
+      line.textContent = n ? `Checked with AI: ${found}.` : "Checked with AI: nothing to flag.";
+    }
+    wrap.appendChild(line);
+  }
+  const chat = smallButton("ph:chat-circle Discuss in chat", "Open this document in a chat, to ask about it in your own words", () => docAiDiscussInChat());
+  chat.classList.add("doc-prose-ai-chat");
+  wrap.appendChild(chat);
+  return wrap;
+}
+
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
 //: never see again is a list nobody trusts, and a wrongly added word would
 //: otherwise silence a real typo forever with no way to find out why.
+//:
+//: **Redesigned as a settings sheet** (INBOX 410: "ugly and needs a proper
+//: professional modern redesign"). One field finds and adds: typing filters
+//: the list, Enter (or the field's Add) adds what is typed when it is not
+//: there already. The list is quiet rows whose remove shows on the row under
+//: the pointer or focus, with an empty state that says what the list is for
+//: and a no-match state that says Enter adds. The count is a fact by the
+//: title, in muted text rather than a boxed chip.
 async function openDocDictionary() {
-  const words = [...docDictionary()].sort();
   const dialog = $("doc-dictionary-dialog");
-  const list = $("doc-dictionary-list");
-  if (!dialog || !list) return;
-  list.replaceChildren();
-  if (!words.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent =
-      "Nothing here yet. Add a word from a suggestion and it stops being flagged everywhere.";
-    list.appendChild(empty);
+  if (!dialog) return;
+  const search = $("doc-dictionary-search");
+  if (search) search.value = "";
+  renderDocDictionary();
+  const variant = $("doc-spelling-variant");
+  if (variant) variant.value = docSpellingVariant();
+  const grammar = $("doc-grammar-check");
+  if (grammar) {
+    grammar.checked = !(prefsCache && prefsCache.grammar_check === false);
+    //: A checker that failed to load says so where it is switched on, rather
+    //: than sitting ticked over nothing.
+    grammar.closest("label")?.setAttribute(
+      "title",
+      docGrammarError
+        ? `The grammar checker could not start: ${docGrammarError}`
+        : "Grammar and style rules, checked on this computer by Harper"
+    );
   }
-  for (const word of words) {
+  const smart = $("doc-smart-punctuation");
+  if (smart) smart.checked = !!(prefsCache && prefsCache.smart_punctuation === true);
+  if (!dialog.open) dialog.showModal();
+  search?.focus();
+}
+
+//: The words matching the field, and the list drawn from them. Called on
+//: open, on every keystroke in the field, and after every add or remove.
+function renderDocDictionary() {
+  const list = $("doc-dictionary-list");
+  if (!list) return;
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  const query = ($("doc-dictionary-search")?.value || "").trim().toLowerCase();
+  const shown = query ? words.filter((word) => word.includes(query)) : words;
+  const count = $("doc-dictionary-count");
+  if (count) {
+    count.textContent = words.length ? `${words.length} word${words.length === 1 ? "" : "s"}` : "Empty";
+  }
+  //: Add is offered only when there is something new to add: a word typed
+  //: that is not already in the list.
+  const add = $("doc-dictionary-add");
+  if (add) {
+    const addable = !!query && !docDictionary().has(query) && docDictionaryWordOk(query);
+    add.hidden = !addable;
+    if (addable) setLabel(add, `ph:plus Add “${query}”`);
+  }
+  list.replaceChildren();
+  if (!shown.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state doc-dictionary-empty";
+    empty.textContent = query
+      ? docDictionary().has(query)
+        ? ""
+        : `No word here matches “${query}”. Press Enter to add it.`
+      : "No words yet. Type one above and press Enter, or add one from a flagged word.";
+    if (empty.textContent) list.appendChild(empty);
+    return;
+  }
+  for (const word of shown) {
     const row = document.createElement("li");
     row.className = "doc-dictionary-row";
     const label = document.createElement("span");
+    label.className = "doc-dictionary-word";
     label.textContent = word;
     const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
-      await docDictionaryWrite(words.filter((other) => other !== word));
-      openDocDictionary();
+      await docDictionaryWrite([...docDictionary()].filter((other) => other !== word));
+      renderDocDictionary();
+      renderDocProse();
+      $("doc-dictionary-search")?.focus();
     });
-    remove.classList.add("icon-only");
+    remove.classList.add("icon-only", "doc-dictionary-remove");
+    remove.setAttribute("aria-label", `Remove “${word}”`);
     row.append(label, remove);
     list.appendChild(row);
   }
-  const variant = $("doc-spelling-variant");
-  if (variant) variant.value = docSpellingVariant();
-  //: The count as a fact beside the title, not as a sentence in the copy: a
-  //: dictionary you cannot see the size of is one nobody believes is being kept
-  //: (the report this whole surface answers was "I swear I added 'idk' to the
-  //: dictionary last night").
-  const count = $("doc-dictionary-count");
-  if (count) {
-    count.textContent = words.length
-      ? `${words.length} word${words.length === 1 ? "" : "s"}`
-      : "empty";
-  }
-  dialog.showModal();
+}
+
+//: A dictionary entry is one word as the checker reads words: letters, with
+//: an apostrophe or a hyphen inside. Anything else would never match a
+//: finding, so it would sit in the list doing nothing.
+function docDictionaryWordOk(word) {
+  return /^[\p{L}][\p{L}\p{N}'’-]{0,59}$/u.test(word);
+}
+
+async function docDictionaryAddTyped() {
+  const search = $("doc-dictionary-search");
+  const word = (search?.value || "").trim();
+  if (!word) return;
+  if (!docDictionaryWordOk(word)) return toast("One word at a time: letters, with an apostrophe or hyphen inside.", true);
+  if (!docDictionary().has(word.toLowerCase())) await docDictionaryAdd(word);
+  if (search) search.value = "";
+  renderDocDictionary();
+  renderDocProse();
+  search?.focus();
+}
+
+//: **In and out as a .txt file, one word per line.** Import adds and never
+//: removes: a file from another machine merged into this one is the common
+//: case, and replacing would silently drop every word only this one had.
+async function docDictionaryImport(file) {
+  if (!file) return;
+  const text = await file.text().catch(() => "");
+  const incoming = [...new Set(text.split(/[\r\n,;\t]+/).map((w) => w.trim().toLowerCase()).filter(docDictionaryWordOk))];
+  const have = docDictionary();
+  const fresh = incoming.filter((word) => !have.has(word));
+  if (!incoming.length) return toast("No words found in that file. One word per line.", true);
+  if (fresh.length) await docDictionaryWrite([...have, ...fresh]);
+  renderDocDictionary();
+  renderDocProse();
+  toast(fresh.length
+    ? `Added ${fresh.length} word${fresh.length === 1 ? "" : "s"}${incoming.length > fresh.length ? `; ${incoming.length - fresh.length} were already here` : ""}.`
+    : "Every word in that file is already here.");
+}
+
+function docDictionaryExport() {
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
+  const blob = new Blob([`${words.join("\n")}\n`], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "writing-dictionary.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 //: Last line, deliberately: everything above has to exist before the first
@@ -14380,6 +16550,9 @@ const docCmParts = {
   //: Whether the *browser's* checker draws squiggles, which is a question with
   //: two answers over the life of one editor: see `docCmSpellcheck`.
   spell: null,
+  //: A code file's diagnostics and completions (`docCodeTools`); empty for
+  //: prose and in Plain.
+  code: null,
 };
 
 //: How the prose findings tell the view to repaint. A `StateEffect` rather
@@ -14405,7 +16578,11 @@ function docCmLanguageFor(CM, ext) {
     //: never been told about them. `markdownLanguage` is the GitHub dialect,
     //: which is the one this app's own renderer and its toolbar both speak.
     case "md": return CM.markdown.markdown({ base: CM.markdown.markdownLanguage });
-    case "js": return CM.javascript.javascript();
+    //: `jsx: true` because a React file is a `.js` file as often as not,
+    //: and without it every `<div>` in one was an error node, underlined as
+    //: a syntax error in code that runs. TypeScript stays without it: TSX
+    //: reads `<T>(x) => x` as a tag, which would break valid `.ts`.
+    case "js": return CM.javascript.javascript({ jsx: true });
     case "ts": return CM.javascript.javascript({ typescript: true });
     case "py": return CM.python.python();
     case "css": return CM.css.css();
@@ -14413,7 +16590,10 @@ function docCmLanguageFor(CM, ext) {
     case "json": return CM.json.json();
     case "yaml": return CM.yaml.yaml();
     case "bash": return stream(CM.shell);
-    case "sql": return stream(CM.sql);
+    //: `standardSQL`, the mode: `sql` is the factory that makes one, and
+    //: mounting it threw "i is not a function" from the parser, so opening a
+    //: .sql document failed outright (found by tests/test_code_vscode.py).
+    case "sql": return stream(CM.standardSQL);
     case "toml": return stream(CM.toml);
     case "go": return stream(CM.go);
     case "rs": return stream(CM.rust);
@@ -14506,6 +16686,32 @@ function docTableGridRules() {
   return rules;
 }
 
+//: **Indent guides under a nested list** (INBOX 392). A nested item was
+//: told apart from its parent by its indent alone, and three levels deep a
+//: reader was counting em widths to know which item a line belonged to. One
+//: hairline per ancestor, down the column of that ancestor's own marker, is
+//: what every outliner draws; it is a background rather than a border or a
+//: widget because a line decoration can carry it without adding a node, and
+//: it cannot move the text. The marker of level `k` sits at `k * 1.6em` (the
+//: hanging indent in the theme), so the guide for level `j` is at that plus
+//: 0.3em, under the bullet's middle.
+function docListGuides(depth) {
+  const tone = "color-mix(in srgb, var(--muted) 35%, transparent)";
+  const ink = `linear-gradient(${tone}, ${tone})`;
+  const layers = [];
+  const places = [];
+  for (let j = 0; j < depth; j += 1) {
+    layers.push(ink);
+    places.push(`${(j * 1.6 + 0.3).toFixed(2)}em 0`);
+  }
+  return {
+    backgroundImage: layers.join(", "),
+    backgroundPosition: places.join(", "),
+    backgroundSize: "1px 100%",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
 function docCmTheme(CM) {
   const dark = document.documentElement.dataset.mode === "dark";
   return CM.view.EditorView.theme(
@@ -14568,6 +16774,270 @@ function docCmTheme(CM) {
         backgroundColor: "var(--card)",
         border: "1px solid var(--border)",
         color: "var(--text)",
+      },
+
+      //: --- a code file's diagnostics and completions (INBOX 392) ----------
+      //: CodeMirror's own lint styles are fixed colours (#d11 for an error,
+      //: a red SVG squiggle, a white-on-#17c selected completion), which is
+      //: the same trap the highlighter fell into (`docCmHighlight`): right on
+      //: a white page, wrong on this app's dark one, and deaf to a custom
+      //: accent. Every one is restated here in the app's tokens.
+      //:
+      //: The underline is the prose findings' own shape, a wavy line in the
+      //: kind's ink (`.cm-finding-spelling`), so an error in code and a
+      //: misspelling in prose are one idea drawn once. The SVG CodeMirror
+      //: paints as a background is switched off rather than recoloured: its
+      //: colour is baked into a data URL.
+      ".cm-lintRange": {
+        backgroundImage: "none",
+        paddingBottom: "0",
+        textDecorationSkipInk: "none",
+        textUnderlineOffset: "0.18em",
+      },
+      ".cm-lintRange-error": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--error)",
+      },
+      ".cm-lintRange-warning": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--warn)",
+      },
+      ".cm-lintRange-info, .cm-lintRange-hint": {
+        textDecoration: "underline dotted",
+        textDecorationThickness: "2px",
+        textDecorationColor: "var(--muted)",
+      },
+      ".cm-lintRange-active": { backgroundColor: "var(--accent-soft)" },
+      //: The gutter mark: a dot in the kind's ink, centred on its line. The
+      //: library's marker is an SVG in its own colours set as `content`, so
+      //: `content: normal` takes it away and the box draws the dot.
+      ".cm-gutter-lint": { width: "1em" },
+      ".cm-gutter-lint .cm-gutterElement": {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0",
+      },
+      ".cm-lint-marker": {
+        content: "normal",
+        width: "0.55em",
+        height: "0.55em",
+        borderRadius: "var(--radius-pill)",
+        backgroundColor: "var(--muted)",
+      },
+      ".cm-lint-marker-error": { backgroundColor: "var(--error)" },
+      ".cm-lint-marker-warning": { backgroundColor: "var(--warn)" },
+      ".cm-diagnostic": {
+        padding: "var(--space-2) var(--space-4)",
+        marginLeft: "0",
+        fontSize: "var(--text-sm)",
+        borderLeft: "3px solid var(--muted)",
+      },
+      ".cm-diagnostic-error": { borderLeftColor: "var(--error)" },
+      ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
+      ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
+      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
+      //: A quick fix on the hover card. The library's own is white on a
+      //: fixed dark grey, a black slab on this app's light page; here it is
+      //: the quiet tinted button, on its own line under the message it
+      //: answers, with the accent edge on hover and on keyboard focus.
+      ".cm-diagnosticAction": {
+        font: "inherit",
+        fontSize: "var(--text-sm)",
+        color: "var(--text)",
+        backgroundColor: "var(--accent-soft)",
+        border: "none",
+        borderRadius: "var(--radius-sm, 6px)",
+        padding: "var(--space-1) var(--space-3)",
+        margin: "var(--space-2) var(--space-2) 0 0",
+        cursor: "pointer",
+      },
+      ".cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible": {
+        boxShadow: "inset 0 0 0 1px var(--accent)",
+        outline: "none",
+      },
+      //: **Opaque, where the tooltip above is glass.** `--card` is 55%
+      //: opaque (measured through `doccode.js`), which is right for a panel
+      //: over the page's own ground and wrong for a box of words laid over
+      //: other words: the code under a diagnostic read through its message.
+      //: The ground the selection bar uses for the same reason
+      //: (DESIGN.md's recipe index, "a bar of actions").
+      ".cm-tooltip.cm-tooltip-hover, .cm-tooltip.cm-tooltip-autocomplete": {
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete": {
+        borderRadius: "var(--radius-sm, 6px)",
+        boxShadow: "var(--shadow-md)",
+        overflow: "hidden",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul": {
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+        maxHeight: "16em",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+        padding: "var(--space-1) var(--space-4)",
+        lineHeight: "1.5",
+      },
+      ".cm-tooltip-autocomplete ul li[aria-selected]": {
+        backgroundColor: "var(--accent-soft)",
+        color: "var(--text)",
+      },
+      ".cm-completionMatchedText": {
+        textDecoration: "none",
+        fontWeight: "700",
+        color: "var(--accent-text)",
+      },
+      ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal" },
+      ".cm-completionIcon": { color: "var(--muted)", opacity: "1" },
+      //: The detail pane beside the list (an Emmet row's expansion): the
+      //: list's own opaque ground and code type, because it is code laid
+      //: over code.
+      ".cm-tooltip.cm-completionInfo": {
+        backgroundColor: "var(--modal-bg-opaque)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm, 6px)",
+        boxShadow: "var(--shadow-md)",
+        padding: "var(--space-2) var(--space-3)",
+        maxWidth: "min(480px, 60vw)",
+      },
+      ".cm-emmet-preview": {
+        margin: "0",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+        lineHeight: "1.5",
+        color: "var(--text)",
+        whiteSpace: "pre",
+        tabSize: "2",
+      },
+      //: The ghost text: the rest of the chosen row after the caret, in the
+      //: muted ink the placeholder uses, so it reads as offered, not typed.
+      ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Run's output, under the editor: a head row of the dock's own
+      //: small ghost buttons, then the page (an HTML file) above the log.
+      //: The log is code type, a hairline between rows, errors and
+      //: warnings in their own inks on their soft grounds.
+      ".cm-run-panel": {
+        display: "flex",
+        flexDirection: "column",
+        height: "min(40vh, 320px)",
+        borderTop: "1px solid var(--border)",
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-run-head": {
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-run-title": { fontWeight: "600", color: "var(--text)" },
+      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      ".cm-run-spacer": { flex: "1" },
+      ".cm-run-body": { flex: "1", minHeight: "0", display: "flex", flexDirection: "column" },
+      ".cm-run-frame": { display: "none", border: "0", width: "100%", flex: "3", minHeight: "0" },
+      ".cm-run-panel.is-page .cm-run-frame": { display: "block", borderBottom: "1px solid var(--border)" },
+      ".cm-run-log": {
+        flex: "2",
+        minHeight: "0",
+        overflow: "auto",
+        margin: "0",
+        padding: "0",
+        listStyle: "none",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+      },
+      ".cm-run-row": {
+        display: "flex",
+        alignItems: "baseline",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-3)",
+        borderBottom: "1px solid var(--border)",
+        color: "var(--text)",
+      },
+      ".cm-run-row.is-error": { color: "var(--error)", backgroundColor: "var(--error-soft)" },
+      ".cm-run-row.is-warn": { color: "var(--warn)", backgroundColor: "var(--warn-soft)" },
+      ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
+      ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+      ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      //: Run on a .py file before the Pyodide extra is installed: the row's
+      //: one action, kept whole beside the sentence it answers.
+      ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },
+      //: Sticky scroll: the enclosing scopes' first lines over the top of the
+      //: scroller, on the opaque ground words laid over words take, with the
+      //: hairline and small shadow of a bar that sits above content.
+      ".cm-sticky": {
+        position: "absolute",
+        zIndex: "3",
+        backgroundColor: "var(--modal-bg-opaque)",
+        borderBottom: "1px solid var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      },
+      ".cm-sticky.hidden": { display: "none" },
+      ".cm-sticky-line": {
+        paddingLeft: "var(--sticky-pad, 0px)",
+        whiteSpace: "pre",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        cursor: "pointer",
+      },
+      ".cm-sticky-line:hover": { backgroundColor: "var(--accent-soft)" },
+      //: Shown whitespace (Alt+Z's neighbour in the menu): a dot per space and
+      //: a line through a tab, in muted ink rather than the library's grey.
+      ".cm-highlightSpace": {
+        backgroundImage: "radial-gradient(circle at 50% 55%, var(--muted) 14%, transparent 16%)",
+      },
+      ".cm-highlightTab": {
+        backgroundImage: "linear-gradient(var(--muted), var(--muted))",
+        backgroundSize: "70% 1px",
+        backgroundPosition: "50% 55%",
+        backgroundRepeat: "no-repeat",
+      },
+      //: Indentation guides: a hairline in `--border` at the left edge of
+      //: each step of the whitespace, so it stops where the code starts.
+      ".cm-indent-guide": {
+        backgroundImage: "linear-gradient(to right, var(--border) 0 1px, transparent 1px)",
+        backgroundRepeat: "no-repeat",
+      },
+      //: Every step drawn 2em wide, whatever its number of spaces
+      //: (`docIndentGuides`, which measures `--doc-space-w`).
+      ".cm-indent-w1": { letterSpacing: "calc(2em / 1 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w2": { letterSpacing: "calc(2em / 2 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w3": { letterSpacing: "calc(2em / 3 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w4": { letterSpacing: "calc(2em / 4 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w5": { letterSpacing: "calc(2em / 5 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w6": { letterSpacing: "calc(2em / 6 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w7": { letterSpacing: "calc(2em / 7 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w8": { letterSpacing: "calc(2em / 8 - var(--doc-space-w, 0.25em))" },
+      //: Bracket pairs by depth: three of the app's own inks, each mixed a
+      //: third of the way back to the text, so the pairs are told apart
+      //: without the brackets shouting over the code between them.
+      ".cm-bracket-0": { color: "color-mix(in srgb, var(--accent-text) 70%, var(--text))" },
+      ".cm-bracket-1": { color: "color-mix(in srgb, var(--syntax-keyword, var(--ok)) 70%, var(--text))" },
+      ".cm-bracket-2": { color: "color-mix(in srgb, var(--warn) 70%, var(--text))" },
+      //: A name's one line on hover: the name in code type, the line in the
+      //: body's, the values it takes in muted ink under it.
+      ".cm-hover-doc": {
+        padding: "var(--space-2) var(--space-3)",
+        maxWidth: "min(420px, 70vw)",
+        fontSize: "var(--text-sm)",
+        lineHeight: "1.5",
+      },
+      ".cm-hover-doc code": { fontFamily: "var(--mono, ui-monospace, monospace)", fontWeight: "600", color: "var(--text)" },
+      ".cm-hover-doc-line": { color: "var(--text)", marginTop: "var(--space-1)" },
+      ".cm-hover-doc-values": { color: "var(--muted)", marginTop: "var(--space-1)" },
+      //: A colour value's swatch: the colour on a hairline in the border
+      //: token, square with the inner radius, one text-height small, so it
+      //: reads as a mark beside the value and not as a control of its own.
+      ".cm-color-swatch": {
+        display: "inline-block",
+        width: "0.8em",
+        height: "0.8em",
+        marginRight: "var(--space-1)",
+        verticalAlign: "-0.05em",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-inner)",
+        cursor: "pointer",
       },
 
       //: --- Live preview -------------------------------------------------
@@ -14656,15 +17126,15 @@ function docCmTheme(CM) {
         borderRadius: "var(--radius-pill)",
         background: "var(--accent-soft)",
         boxShadow: "none",
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         fontSize: "0.8em",
         lineHeight: "1.6",
         cursor: "pointer",
       },
       ".doc-comment-pin:hover": { background: "var(--accent)", color: "var(--on-accent)" },
-      ".cm-md-link": { color: "var(--accent)", textDecoration: "underline", cursor: "pointer" },
+      ".cm-md-link": { color: "var(--accent-text)", textDecoration: "underline", cursor: "pointer" },
       ".cm-md-wiki": {
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         backgroundColor: "var(--accent-soft)",
         borderRadius: "4px",
         padding: "0 0.25em",
@@ -14690,27 +17160,61 @@ function docCmTheme(CM) {
       //: measured rather than chosen: a `-` plus a space is 2 characters of a
       //: 0.8em-per-character face.
       ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
-      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
-      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
-      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
-      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em", ...docListGuides(1) },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em", ...docListGuides(2) },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em", ...docListGuides(3) },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em", ...docListGuides(4) },
+      ".cm-md-task-done": {
+        color: "var(--muted)",
+        textDecoration: "line-through",
+        textDecorationColor: "color-mix(in srgb, var(--muted) 70%, transparent)",
+      },
       //: The marker itself: the muted ink, so the eye reads the words rather
       //: than the punctuation, and left in the document so it can be
       //: selected, deleted and typed over like any other character.
       ".cm-md-li-mark": { color: "var(--muted)" },
+      //: **A quotation's bar has to be seen to do its job** (17c). It was
+      //: `--border`, a 10% ink that composites to 1.2:1 on the page, so a
+      //: quotation read as a paragraph set in grey. Half the muted ink is a
+      //: rule you can see without it competing with the callout's accent
+      //: bar, and the rendered view's `#doc-preview blockquote` (09-editor.css)
+      //: now draws the same bar, inset and ink, where before it drew the
+      //: browser's own 40px indent and nothing else.
       ".cm-md-quote": {
-        borderLeft: "3px solid var(--border)",
-        paddingLeft: "0.75em",
+        borderLeft: "3px solid color-mix(in srgb, var(--muted) 70%, transparent)",
+        paddingLeft: "var(--space-5)",
         color: "var(--muted)",
       },
+      //: The kind's own ink (`--callout-accent`, set per kind in
+      //: 05-sidebars-themes.css for this class and the rendered `.callout`
+      //: alike), so a warning is amber in the Live view as it is in Read.
       ".cm-md-callout": {
-        borderLeft: "3px solid var(--accent)",
+        borderLeft: "3px solid var(--callout-accent)",
         paddingLeft: "0.75em",
-        backgroundColor: "var(--accent-soft)",
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 8%, transparent)",
       },
+      ".cm-md-callout-toggle": {
+        borderLeftColor: "var(--border)",
+        backgroundColor: "transparent",
+      },
+      //: A quote's attribution line, set small and muted like the rendered
+      //: figure's caption.
+      ".cm-md-quote-cite": { fontSize: "0.88em", fontStyle: "normal" },
+      ".cm-md-rule-thick": { borderBottomWidth: "3px", borderBottomColor: "color-mix(in srgb, var(--muted) 55%, transparent)" },
+      ".cm-md-rule-dots": { borderBottom: "0", textAlign: "center" },
+      ".cm-md-rule-dots::after": {
+        content: "'\\2022\\2003\\2022\\2003\\2022'",
+        color: "var(--muted)",
+        fontSize: "0.85em",
+      },
+      //: The inset is the rendered `pre`'s own (`--space-5`): without it the
+      //: code's first glyph sat on the very edge of its tinted slab, 0px in,
+      //: which is how a block reads as a highlighted paragraph rather than
+      //: as a panel of code (17c).
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+        paddingInline: "var(--space-5)",
       },
       //: The opening and closing fence rows. Their text is hidden (INBOX
       //: 198), so a full line-height row of it is 26px of nothing at each end
@@ -14781,15 +17285,43 @@ function docCmTheme(CM) {
         height: "0.6em",
         margin: "0.4em 0",
       },
+      //: The gaps between blocks (17b), one token each; the note beside the
+      //: decoration in `docLivePlugin` says why this is `line-height` and not
+      //: `height`.
+      ".cm-md-gap": { lineHeight: "var(--space-6)" },
+      ".cm-md-gap-major": { lineHeight: "var(--space-9)" },
+      ".cm-md-gap-minor": { lineHeight: "var(--space-8)" },
+      ".cm-md-gap-tight": { lineHeight: "var(--space-3)" },
+      ".cm-md-gap-extra": { lineHeight: "0" },
       //: The callout's kind, in the place its `[!note]` marker was. Set in
       //: `em` so it tracks the editor's own type scale, and in the muted ink
       //: because it labels the block rather than being part of what it says.
       ".cm-md-callout-label": {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.35em",
         fontSize: "0.85em",
         fontWeight: "600",
-        color: "var(--muted)",
+        color: "var(--ink)",
         marginRight: "0.4em",
         userSelect: "none",
+        verticalAlign: "baseline",
+      },
+      //: The kind's badge, the rendered head's `.callout-icon` at the Live
+      //: view's type size, and the one control on the chip that is a button:
+      //: it opens the kinds menu.
+      ".cm-md-callout-kindbtn": {
+        display: "inline-grid",
+        placeItems: "center",
+        width: "1.5em",
+        height: "1.5em",
+        borderRadius: "var(--radius-sm)",
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 18%, transparent)",
+        color: "var(--callout-accent)",
+        cursor: "pointer",
+      },
+      ".cm-md-callout-kindbtn:hover": {
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 30%, transparent)",
       },
       //: A footnote's identifier, raised, where its brackets were. The
       //: reference is a link to the definition; the definition is the place
@@ -14816,14 +17348,14 @@ function docCmTheme(CM) {
       ".cm-md-footnote": {
         verticalAlign: "super",
         fontSize: "0.72em",
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         fontWeight: "600",
       },
       ".cm-md-footnote-ref": { cursor: "pointer" },
       //: The toggle's chevron sits with the callout's own label, in the same
       //: muted ink, because it is part of the same control.
       ".cm-md-callout-fold": { fontSize: "0.9em", opacity: "0.8" },
-      ".cm-md-callout-label[data-doc-callout-fold]": { cursor: "pointer" },
+      ".cm-md-callout-label [data-doc-callout-fold]": { cursor: "pointer" },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
 
@@ -14845,6 +17377,8 @@ function docCmTheme(CM) {
       ".cm-md-table": {
         display: "grid",
         borderLeft: "1px solid var(--border)",
+        //: The cell menu is positioned against whichever row it is on.
+        position: "relative",
       },
       //: Past `DOC_TABLE_GRID_MAX` columns there is no class to place the
       //: cells with, so the line falls back to what it did before them. It is
@@ -14863,10 +17397,25 @@ function docCmTheme(CM) {
         //: The cell menu is positioned against this line.
         position: "relative",
       },
+      //: The rendered view's own cell inset (`.md-table td`: 0.4rem by
+      //: 0.6rem), where this was 0.05em by 0.5em and a row of words sat
+      //: against the rules above and below it (17c, measured in
+      //: `scratchpad/ui-sweeps/docblocks17c.js`).
       ".cm-md-td": {
-        padding: "0.05em 0.5em",
+        padding: "var(--space-2) var(--space-4)",
         borderRight: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
+      },
+      //: The cell the caret is in: a ring inside the cell, so it moves no
+      //: rule and changes no column width, and a faint ground that sits
+      //: under a selection rather than hiding it.
+      ".cm-md-td-active": {
+        boxShadow: "inset 0 0 0 2px var(--accent)",
+        backgroundColor: "color-mix(in srgb, var(--accent) 6%, transparent)",
+        borderRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-table .cm-md-td-last": {
+        paddingRight: "calc(var(--space-4) + 1.75rem)",
       },
       ".cm-md-td-left": { textAlign: "left" },
       ".cm-md-td-center": { textAlign: "center" },
@@ -14886,10 +17435,12 @@ function docCmTheme(CM) {
       ".cm-md-frontmatter": { height: "0", overflow: "hidden", border: "0" },
       //: Out of the grid's flow, or the menu would be a column of its own and
       //: every cell in the table would narrow to make room for it.
+      //: Centred on its row, which is now any row (the menu follows the
+      //: caret): pinned to the top it sat 5px high on a one-line row.
       ".cm-md-table-menu": {
         position: "absolute",
         right: "2px",
-        top: "0",
+        top: "calc(50% - 0.875rem)",
         opacity: "0.7",
       },
       ".cm-md-table-menu:hover, .cm-md-table-menu:focus-within": { opacity: "1" },
@@ -14934,6 +17485,18 @@ function docCmTheme(CM) {
         backgroundColor: "color-mix(in srgb, var(--muted) 12%, transparent)",
         borderRadius: "3px",
       },
+      ".cm-finding-grammar:hover": {
+        backgroundColor: "color-mix(in srgb, var(--warn) 14%, transparent)",
+        borderRadius: "3px",
+      },
+      ".cm-finding-ai:hover": {
+        backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
+        borderRadius: "3px",
+      },
+      ".cm-finding-access:hover": {
+        backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
+        borderRadius: "3px",
+      },
       ".cm-finding-spelling": {
         textDecoration: "underline wavy",
         textDecorationColor: "color-mix(in srgb, var(--error) 80%, transparent)",
@@ -14946,6 +17509,28 @@ function docCmTheme(CM) {
         textDecoration: "underline dotted",
         textDecorationThickness: "2px",
         textDecorationColor: "var(--muted)",
+      },
+      //: Grammar (Harper, INBOX 401): a double line, the shape Word gives
+      //: grammar, in the warning ink, so it reads as neither a typo (wavy
+      //: red) nor a style note (wavy accent).
+      ".cm-finding-grammar": {
+        textDecoration: "underline double",
+        textDecorationColor: "var(--warn)",
+      },
+      //: Accessibility (INBOX 404): dashed, the one line shape left, in the
+      //: accent, because it is about structure rather than a mistake.
+      //: Check with AI (INBOX 410): dotted accent, a lighter mark than the
+      //: style note's wavy accent, because a model's reading is a suggestion
+      //: to consider rather than a rule broken.
+      ".cm-finding-ai": {
+        textDecoration: "underline dotted",
+        textDecorationThickness: "2px",
+        textDecorationColor: "color-mix(in srgb, var(--accent) 80%, transparent)",
+      },
+      ".cm-finding-access": {
+        textDecoration: "underline dashed",
+        textDecorationThickness: "2px",
+        textDecorationColor: "color-mix(in srgb, var(--accent) 80%, transparent)",
       },
     },
     { dark }
@@ -14988,7 +17573,7 @@ function docCmHighlight(CM) {
   //: compiler ignores (comment), and punctuation. More than that and a file
   //: reads as confetti, which is the failure mode of a highlighter that maps
   //: every lezer tag it can find.
-  const keyword = { color: "var(--accent)", fontWeight: "600" };
+  const keyword = { color: "var(--accent-text)", fontWeight: "600" };
   const name = { color: "var(--ink)" };
   const literal = { color: "var(--ok)" };
   const string = { color: "var(--warn)" };
@@ -15004,13 +17589,13 @@ function docCmHighlight(CM) {
       //: than writing, "where is this declared" is the question the eye is
       //: actually asking.
       { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--ink)", fontWeight: "600" },
-      { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--accent)" },
-      { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: "var(--accent)", fontWeight: "600" },
+      { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--accent-text)" },
+      { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: "var(--accent-text)", fontWeight: "600" },
       { tag: [t.variableName, t.propertyName, t.attributeName], ...name },
       { tag: [t.punctuation, t.separator, t.bracket, t.operator], ...punctuation },
       { tag: [t.meta, t.processingInstruction], color: "var(--muted)" },
       { tag: t.invalid, color: "var(--error)" },
-      { tag: t.link, color: "var(--accent)", textDecoration: "underline" },
+      { tag: t.link, color: "var(--accent-text)", textDecoration: "underline" },
       //: Markdown's own tags, so Source view on a `.md` file is not the one
       //: file type in the editor with no highlighting at all. Live view draws
       //: these itself, from the tree, with its markers hidden; this is what
@@ -15019,7 +17604,7 @@ function docCmHighlight(CM) {
       { tag: t.emphasis, fontStyle: "italic" },
       { tag: t.strong, fontWeight: "700" },
       { tag: t.strikethrough, textDecoration: "line-through" },
-      { tag: [t.monospace], color: "var(--accent)" },
+      { tag: [t.monospace], color: "var(--accent-text)" },
     ])
   );
   return docCmHighlightCache;
@@ -15034,6 +17619,12 @@ function docCmHighlight(CM) {
 function docCmKeymap(CM) {
   const surface = () => docSurface();
   return [
+    //: A Live table's own Enter and arrows, first so they are asked before
+    //: anything that would treat a row as a line of text; each declines
+    //: (returns false) everywhere that is not a Live table cell.
+    { key: "Enter", run: (view) => docTableKeyMove(view, "Enter") },
+    { key: "ArrowDown", run: (view) => docTableKeyMove(view, "ArrowDown") },
+    { key: "ArrowUp", run: (view) => docTableKeyMove(view, "ArrowUp") },
     {
       key: "Escape",
       run: () => {
@@ -15079,11 +17670,57 @@ function docCmKeymap(CM) {
     //: panel here and the app's own bar on the fallback, so this binding does
     //: not have to know which is on screen.
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
+    //: Find in every document (INBOX 404), VS Code's search across files.
+    { key: "Mod-Shift-f", run: () => docFindInDocuments() },
   ];
 }
 
 //: Everything the view is built from. Split out so the mount and a later
 //: rebuild (`docResetDocument`) cannot drift.
+//: **A click in a live-view table cell lands where it was pressed** (owner:
+//: "I can't edit specific boxes in tables in the document editor live
+//: view"). The cells are laid out as a CSS grid over one line of source, and
+//: CodeMirror's own coordinate mapping reads that line as if it were flowing
+//: text: measured, a click at the end of "r2b" put the caret at the cell's
+//: start and a click inside "r1a" put it in the next cell. The browser's own
+//: caret resolver does know the grid, so the press is resolved with it and
+//: handed to the view as a position. Focus is taken explicitly because a
+//: handled mousedown skips CodeMirror's own focus step: the first version of
+//: this returned `true` without it, and every keystroke after the click went
+//: nowhere. A drag, a Shift or Alt click, and anything but the main button
+//: stay CodeMirror's.
+function docTableCellClick(event, view) {
+  if (event.button !== 0 || event.shiftKey || event.altKey || event.detail > 1) return false;
+  if (!event.target.closest?.(".cm-md-td, .cm-md-th")) return false;
+  let node = null;
+  let offset = 0;
+  if (document.caretPositionFromPoint) {
+    const hit = document.caretPositionFromPoint(event.clientX, event.clientY);
+    if (hit) ({ offsetNode: node, offset } = hit);
+  } else if (document.caretRangeFromPoint) {
+    const hit = document.caretRangeFromPoint(event.clientX, event.clientY);
+    if (hit) ({ startContainer: node, startOffset: offset } = hit);
+  }
+  if (!node || !view.contentDOM.contains(node)) return false;
+  let pos;
+  try {
+    pos = view.posAtDOM(node, offset);
+  } catch {
+    return false;
+  }
+  event.preventDefault();
+  view.focus();
+  view.dispatch({ selection: { anchor: pos }, scrollIntoView: false, userEvent: "select.pointer" });
+  return true;
+}
+
+// -----------------------------------------------------------------------------
+// The code side (diagnostics, completions, Emmet, hover, symbols, sticky
+// scroll, go to definition, Run, format, quick fixes) is in documents-code.js,
+// which the Library bundle loads before this file. See its header.
+// -----------------------------------------------------------------------------
+
+
 function docCmExtensions(CM) {
   const type = docFileType();
   docCmParts.language = new CM.state.Compartment();
@@ -15093,8 +17730,13 @@ function docCmExtensions(CM) {
   docCmParts.live = new CM.state.Compartment();
   docCmParts.spell = new CM.state.Compartment();
   docCmParts.reading = new CM.state.Compartment();
+  docCmParts.code = new CM.state.Compartment();
   if (!docFindingsEffect) docFindingsEffect = CM.state.StateEffect.define();
   return [
+    //: First, so its gutter is the leftmost: the error mark sits outside the
+    //: line numbers, where every code editor the owner compares this with
+    //: puts it.
+    docCmParts.code.of(docCodeTools(CM)),
     //: Live's decorations, off until `setDocView` turns them on. Findings are
     //: a separate plugin because they are drawn in *every* view: an underline
     //: under a misspelling is not a rendering of the markdown, it is the
@@ -15102,6 +17744,8 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     CM.state.Prec.high(docFindingsPlugin(CM)),
+    //: Suggestion mode and read aloud (PROSE-TOOLS), inert until asked for.
+    docProseToolExtensions(CM),
     //: The dimming is a compartment because it is a preference that changes
     //: while the view is live; the typewriter listener is not, because it is
     //: inert until its flag is on and reconfiguring an extension to say
@@ -15131,7 +17775,7 @@ function docCmExtensions(CM) {
     CM.search.search({ top: true }),
     CM.view.rectangularSelection(),
     CM.view.crosshairCursor(),
-    docCmParts.wrap.of(type.previewable ? CM.view.EditorView.lineWrapping : []),
+    docCmParts.wrap.of(docCmDrawFor(CM, type)),
     docCmParts.language.of(docCmViewLanguage(CM)),
     docCmParts.theme.of(docCmTheme(CM)),
     docCmHighlight(CM),
@@ -15158,10 +17802,11 @@ function docCmExtensions(CM) {
         }
         return false;
       },
-      mousedown: () => {
+      mousedown: (event, view) => {
         docTabEscapes = false;
-        return false;
+        return docTableCellClick(event, view);
       },
+      paste: (event, view) => docTablePasteEvent(event, view),
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, and the one condition it stays on
@@ -15237,6 +17882,14 @@ function docCmUpdate(update) {
     //: event on a contenteditable and no second pass through this pipeline.
     if (typeof editorHandleInput === "function") editorHandleInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+  } else if (!$("doc-suggest-menu")?.classList.contains("hidden")) {
+    //: **The word moved without a scroll.** Putting the caret on a line, or
+    //: taking the focus off the editor, makes the Live view reveal or hide
+    //: that line's markup, and the words after it slide sideways under an
+    //: open menu (measured: 16px, the menu left pointing at the gap before
+    //: the word). No scroll or resize event is raised for that, so the
+    //: engine's own update is the signal, answered once per frame.
+    docScheduleSuggestFollow();
   }
   if (update.selectionSet) {
     renderDocCaret();
@@ -15425,6 +18078,38 @@ function docWatchAppearance() {
   });
 }
 
+//: **How a file's text is drawn, in the wrap compartment** (INBOX 402):
+//: prose wraps always; any other type wraps when Alt+Z (or the menu's row)
+//: says so, and shows its spaces and tabs when "Show whitespace" does. Both
+//: are per-viewer preferences, remembered like the other writing switches.
+function docCmDrawFor(CM, type) {
+  const parts = [];
+  if (type.previewable || docToolPref("codeWrap", false)) parts.push(CM.view.EditorView.lineWrapping);
+  if (!type.previewable && docToolPref("whitespace", false)) parts.push(CM.view.highlightWhitespace());
+  return parts;
+}
+
+//: Flip one of the two, or set it: the preference, the view, the menu's
+//: checkbox, in that order. Refused for prose, which has no such switch.
+function docToggleCodeDraw(name, on) {
+  const type = docFileType();
+  if (type.previewable) return false;
+  const next = on === undefined ? !docToolPref(name, false) : Boolean(on);
+  docSaveToolPref(name, next);
+  const CM = window.CM6;
+  if (docCmView && CM && docCmParts.wrap) {
+    docCmView.dispatch({ effects: docCmParts.wrap.reconfigure(docCmDrawFor(CM, type)) });
+  }
+  const box = $(name === "codeWrap" ? "doc-code-wrap" : "doc-whitespace");
+  if (box) box.checked = next;
+  return true;
+}
+
+$("doc-code-wrap")?.addEventListener("change", (event) => docToggleCodeDraw("codeWrap", event.target.checked));
+$("doc-whitespace")?.addEventListener("change", (event) => docToggleCodeDraw("whitespace", event.target.checked));
+if ($("doc-code-wrap")) $("doc-code-wrap").checked = docToolPref("codeWrap", false);
+if ($("doc-whitespace")) $("doc-whitespace").checked = docToolPref("whitespace", false);
+
 //: The file type changed while the document was open: the language and the
 //: wrapping follow it. Reconfigured rather than rebuilt, so the caret, the
 //: scroll position and the undo history survive.
@@ -15439,7 +18124,8 @@ function docCmSyncFileType() {
   docCmView.dispatch({
     effects: [
       docCmParts.language.reconfigure(docCmViewLanguage(CM)),
-      docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
+      docCmParts.wrap.reconfigure(docCmDrawFor(CM, type)),
+      ...(docCmParts.code ? [docCmParts.code.reconfigure(docCodeTools(CM))] : []),
     ],
   });
 }
@@ -15469,6 +18155,7 @@ function docCmSyncLanguage() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.language) return;
   docCmView.dispatch({ effects: docCmParts.language.reconfigure(docCmViewLanguage(CM)) });
+  docCmSyncCodeTools();
 }
 
 //: The line-number preference, applied to the engine. `applyDocGutter` still
@@ -15576,6 +18263,223 @@ function docCalloutFolded(state, line) {
 //: calling `toggleFold`, whose job is the *cursor's* fold: a click on a
 //: callout three screens from the caret would otherwise fold whatever the
 //: caret happened to be inside.
+//: A contents entry's jump: the n-th heading with this text and level, as
+//: `mdTocEntries` counted them, gets the caret and the top of the view.
+function docTocJump(view, entry) {
+  const CM = window.CM6;
+  if (!CM || !view) return;
+  const doc = view.state.doc;
+  let fenced = false;
+  for (let n = 1; n <= doc.lines; n += 1) {
+    const line = doc.line(n);
+    if (/^[ \t]*(?:```|~~~)/.test(line.text)) fenced = !fenced;
+    if (fenced) continue;
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line.text);
+    if (!heading || heading[1].length !== entry.level) continue;
+    if (heading[2].replace(/\s+#+$/, "") !== entry.text) continue;
+    view.dispatch({
+      selection: { anchor: line.to },
+      effects: CM.view.EditorView.scrollIntoView(line.from, { y: "start", yMargin: 24 }),
+    });
+    view.focus();
+    return;
+  }
+}
+
+//: **Change a callout's kind or folding from the block itself** (INBOX 421
+//: b). `at` is any position on the callout's first line; the rewrite touches
+//: only the `[!kind]` marker (`calloutRewriteHead`), through the surface, so
+//: it is one undo step and the autosave sees it like a keystroke.
+function docSetCalloutHead(at, kind, fold) {
+  const box = docSurface();
+  if (!box || typeof calloutRewriteHead !== "function") return;
+  const line = box.lineAt(Math.max(0, at));
+  const next = calloutRewriteHead(line.text, kind, fold);
+  if (next === line.text) return;
+  box.replaceRange(line.from, line.to, next);
+  if (!box.isDocument) return;
+  markDocDirty();
+  renderDocPreview();
+}
+
+//: **The block bar: act on a block from where it is drawn** (INBOX 421 b:
+//: "a block hover toolbar (change kind, fold, delete)"). In the Read and
+//: Split views, the rendered block under the pointer gets a small bar at its
+//: top right: the kind (a callout's, as its own icon tile, opening the kinds
+//: and folding menu), Edit (the block's first line, in the editor), Copy (its
+//: markdown) and Delete (with Undo). Everything it does is written to the
+//: text through the surface, so it is the editor's own undo step as well.
+//:
+//: Found from the block's `data-src-line` (a line of the rendered string,
+//: `docRenderFlow`) less `docPreviewLineShift` (the title and properties the
+//: preview adds or leaves out), and **checked against the text before
+//: anything is written**: a callout's first line has to be a callout head.
+//: A drag handle was left out: reordering by drag needs a drop model for the
+//: preview, which is not cheap, and Cut and paste in the editor does it.
+//: Pointer only: a phone has no hover, and its Live view carries the kind
+//: button on the callout itself.
+let docBlockBarFor = null;
+let docBlockBarHide = 0;
+
+function docBlockBarEl() {
+  let bar = document.getElementById("doc-block-bar");
+  if (bar) return bar;
+  bar = document.createElement("div");
+  bar.id = "doc-block-bar";
+  bar.className = "doc-block-bar hidden";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "This block");
+  bar.addEventListener("mouseenter", () => clearTimeout(docBlockBarHide));
+  bar.addEventListener("mouseleave", () => docBlockBarSoon());
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function docBlockBarSoon() {
+  clearTimeout(docBlockBarHide);
+  docBlockBarHide = setTimeout(docBlockBarClose, 250);
+}
+
+function docBlockBarClose() {
+  clearTimeout(docBlockBarHide);
+  docBlockBarFor = null;
+  document.getElementById("doc-block-bar")?.classList.add("hidden");
+}
+
+//: The source lines a rendered block came from, as [first, last] (0-based
+//: lines of `docText()`), trailing blank lines left out.
+function docBlockLines(block) {
+  const preview = $("doc-preview");
+  const stamp = Number(block.dataset.srcLine);
+  if (!preview || !Number.isFinite(stamp)) return null;
+  const lines = docText().split("\n");
+  const first = stamp - docPreviewLineShift;
+  if (first < 0 || first >= lines.length) return null;
+  const blocks = [...preview.children].filter((b) => b.dataset.srcLine !== undefined);
+  const next = blocks[blocks.indexOf(block) + 1];
+  let last = next ? Number(next.dataset.srcLine) - docPreviewLineShift - 1 : lines.length - 1;
+  last = Math.min(Math.max(first, last), lines.length - 1);
+  while (last > first && !lines[last].trim()) last -= 1;
+  return { first, last, lines };
+}
+
+function docLineOffset(lines, index) {
+  let at = 0;
+  for (let i = 0; i < index; i += 1) at += lines[i].length + 1;
+  return at;
+}
+
+function docBlockBarShow(block) {
+  if (docBlockBarFor === block) return;
+  const span = docBlockLines(block);
+  if (!span) return;
+  const bar = docBlockBarEl();
+  docBlockBarFor = block;
+  bar.replaceChildren();
+  const isCallout = block.classList.contains("callout");
+  const head = isCallout && typeof mdCalloutHead === "function"
+    ? mdCalloutHead(span.lines[span.first].replace(/^\s*>\s?/, ""))
+    : null;
+  if (head) {
+    const meta = CALLOUT_KINDS[head.kind] || CALLOUT_KINDS.note;
+    const kind = smallButton(meta.icon, `Change the kind: ${meta.label}`, (event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      const lineStart = docLineOffset(span.lines, span.first);
+      openMenuAtPoint(
+        calloutMenuItems(head.kind, head.fold, (k, fold) => docSetCalloutHead(lineStart, k, fold)),
+        "Callout kind",
+        box.left,
+        box.bottom + 4
+      );
+    });
+    kind.classList.add("doc-block-kind", `doc-block-kind-${head.kind}`);
+    bar.appendChild(kind);
+  }
+  bar.appendChild(smallButton("ph:pencil-simple", "Edit this block", () => docBlockEdit(span)));
+  bar.appendChild(smallButton("ph:copy", "Copy this block's markdown", (event) => {
+    copyToClipboard(span.lines.slice(span.first, span.last + 1).join("\n"), event.currentTarget);
+  }));
+  bar.appendChild(smallButton("ph:trash", "Delete this block", () => docBlockDelete(span)));
+  bar.classList.remove("hidden");
+  const rect = block.getBoundingClientRect();
+  const host = $("doc-preview").getBoundingClientRect();
+  const width = bar.offsetWidth;
+  const left = Math.min(rect.right, host.right) - width;
+  const top = Math.max(host.top, rect.top) - bar.offsetHeight / 2;
+  docPlaceFixed(bar, Math.max(host.left, left), Math.max(4, top));
+}
+
+function docBlockEdit(span) {
+  docBlockBarClose();
+  if (docView === "rendered") setDocView("live");
+  const box = docSurface();
+  if (!box) return;
+  const at = docLineOffset(docText().split("\n"), span.first);
+  requestAnimationFrame(() => {
+    box.focus();
+    box.setSelectionRange(at, at);
+    if (typeof box.scrollIntoView === "function") box.scrollIntoView(at);
+  });
+}
+
+function docBlockDelete(span) {
+  docBlockBarClose();
+  const box = docSurface();
+  if (!box) return;
+  const lines = docText().split("\n");
+  //: The block and the blank line after it, so the paragraphs either side do
+  //: not end up glued together or two blank lines apart.
+  let last = span.last;
+  if (last + 1 < lines.length && !lines[last + 1].trim()) last += 1;
+  const from = docLineOffset(lines, span.first);
+  const to = Math.min(docText().length, docLineOffset(lines, last) + lines[last].length + 1);
+  const removed = docText().slice(from, to);
+  box.replaceRange(from, to, "");
+  markDocDirty();
+  renderDocPreview();
+  toastAction("Block deleted.", "Undo", () => {
+    const now = docSurface();
+    if (!now) return;
+    now.replaceRange(from, from, removed);
+    markDocDirty();
+    renderDocPreview();
+  });
+}
+
+//: The top-level block under the pointer, in the preview only.
+document.addEventListener("mouseover", (event) => {
+  const preview = $("doc-preview");
+  if (!preview || preview.classList.contains("hidden")) return;
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest("#doc-block-bar")) return;
+  if (!preview.contains(event.target)) {
+    if (docBlockBarFor) docBlockBarSoon();
+    return;
+  }
+  if (window.matchMedia("(hover: none)").matches) return;
+  let block = event.target;
+  while (block && block.parentElement !== preview) block = block.parentElement;
+  if (!block || block.dataset.srcLine === undefined) return;
+  clearTimeout(docBlockBarHide);
+  docBlockBarShow(block);
+});
+$("doc-preview")?.addEventListener("scroll", docBlockBarClose);
+
+function docCalloutKindMenu(at, x, y) {
+  const box = docSurface();
+  if (!box || typeof calloutMenuItems !== "function" || typeof openMenuAtPoint !== "function") return;
+  const head = typeof mdCalloutHead === "function"
+    ? mdCalloutHead(box.lineAt(Math.max(0, at)).text.replace(/^\s*>\s?/, ""))
+    : null;
+  if (!head) return;
+  openMenuAtPoint(
+    calloutMenuItems(head.kind, head.fold, (kind, fold) => docSetCalloutHead(at, kind, fold)),
+    "Callout kind",
+    x,
+    y
+  );
+}
+
 function docToggleCalloutFold(at) {
   const CM = window.CM6;
   const view = docCmView;
@@ -15604,7 +18508,7 @@ function docFoldMarkedCallouts() {
   const effects = [];
   for (let number = 1; number <= view.state.doc.lines; number += 1) {
     const line = view.state.doc.line(number);
-    if (!/^\s*>\s*\[![A-Za-z]+\]-/.test(line.text)) continue;
+    if (!/^\s*>\s*\[![A-Za-z][\w-]*\]-/.test(line.text)) continue;
     const range = docCalloutFoldRange(view.state, line);
     if (range) effects.push(CM.language.foldEffect.of(range));
   }
@@ -15702,13 +18606,17 @@ function docCmViewShown() {
 function docWatchLock() {
   const overlay = document.getElementById("lock-overlay");
   if (!overlay || typeof MutationObserver !== "function") return;
+  //: A password prompt borrows the overlay (`askPasswordPrompt`, app.js) and
+  //: is not a lock, so it leaves the open document alone. `data-mode` is
+  //: watched too, so a prompt that turns into a real lock still purges.
   new MutationObserver(() => {
     if (overlay.classList.contains("hidden")) return;
+    if (overlay.dataset.mode === "prompt") return;
     if (!docCmView) return;
     //: `setState`, not a change transaction: the history is part of the
     //: state, and an undo that could bring the document back after a lock
     //: would make this purge decorative.
     docResetDocument("");
-  }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }
 docWatchLock();

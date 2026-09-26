@@ -45,6 +45,15 @@
   flex: 0 1 auto;
 }
 
+/* The close sits at the strip's far end, where every popup's X is, and is
+   the icon button's square rather than a stretched strip control. */
+.graph-trace .graph-trace-close {
+  flex: 0 0 auto;
+  width: var(--control-h);
+  margin-left: auto;
+  padding: 0;
+}
+
 .graph-trace-label {
   font-size: var(--text-md);
   font-weight: 600;
@@ -127,7 +136,7 @@
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
@@ -169,7 +178,7 @@
 }
 
 .graph-trace-note:hover {
-  filter: brightness(1.08);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
   text-decoration: none;
 }
 
@@ -189,7 +198,7 @@
   background: var(--accent-surface);
   color: var(--on-accent);
   border-radius: var(--radius-md);
-  font-weight: 650;
+  font-weight: 600;
   /* This button carries `.graph-trace-note` too (graph.js, for the shared
      chip reset), which caps chips at 12rem with an ellipsis so a long note
      preview doesn't take over the row, but "Generate Story from Path" is
@@ -224,7 +233,7 @@
 }
 
 .story-mode-btn:hover {
-  filter: brightness(1.07);
+  background: var(--accent-surface-hover);
   text-decoration: none;
 }
 
@@ -314,7 +323,7 @@
 }
 
 /* INBOX 33: the clearance above only earns its keep while there is a
-   `.scroll-top` on screen to clear. `app.js`'s `initScrollTopButton`
+   `.scroll-top` on screen to clear. `navigation.js`'s `initScrollTopButton`
    toggles this class in the same `update()` that shows the button, so the
    two can never drift out of sync with each other the way a fixed
    always-on padding and a sometimes-visible button did. */
@@ -492,12 +501,18 @@ body.scroll-top-visible #tab-notes .layout > main {
    wider"), still well inside the drag range's own ceiling
    (`WEB_PANEL_MAX` = 900px = 56.25rem in app.js). */
 #web-panel {
-  flex: 0 1 clamp(21rem, 32%, 30rem);
+  /* `flex-shrink: 0` (was 1): measured with `scratchpad/ui-sweeps/webpanel.js`
+     at 1440, the conversation's auto basis took the room and the panel sat on
+     its 280px floor, so the default width this clamp describes never once
+     applied. The floor below and the 1100px band that gives the panel the
+     whole of <main> are what keep the conversation usable; a shrink that
+     always ends at the floor was only a second, silent minimum. */
+  flex: 0 0 clamp(21rem, 32%, 30rem);
   /* Was 0: with #chat-main's own auto flex-basis competing for room in a
      moderate-width window, flex-shrink took the panel well below its own
      clamp() minimum (measured 259px against a 336px floor at 1400px wide),
      quietly undoing "wider" the moment the window wasn't huge. 17.5rem
-     matches `WEB_PANEL_MIN` in app.js: the floor the drag handle already
+     matches `WEB_PANEL_MIN` in sheets-selects.js: the floor the drag handle already
      enforces: so the panel can't get any narrower non-interactively than a
      manual resize would ever leave it. */
   min-width: 17.5rem;
@@ -533,7 +548,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    chat list below it. Measured before this fix: 0px, the shell flush against
    `#conversation-list`. The base `select { margin-bottom: var(--space-4) }`
    rule (01-forms-settings.css) would have supplied one, but `enhanceSelect()`
-   (app.js) hides `#chat-sidebar-sort` itself: `position: absolute`, out of
+   (sheets-selects.js) hides `#chat-sidebar-sort` itself: `position: absolute`, out of
    flow: and inserts `.select-shell` as the visible stand-in, which carries
    none of the original element's margin. Scoped to this sidebar rather than
    `.select-shell` generally: other call sites (a `.row`'s own `gap`, a modal
@@ -643,7 +658,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   height: 2rem;
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 1.15rem;
   line-height: 1;
 }
@@ -742,6 +757,12 @@ body.scroll-top-visible #tab-notes .layout > main {
   max-width: 16rem;
 }
 
+/* A chat model that is set but not installed says so in the warning ink, so
+   the badge cannot be read as the model that answers. */
+#chat-active-model.is-missing {
+  color: var(--warn);
+}
+
 .chat-subline:empty {
   display: none;
 }
@@ -754,13 +775,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   padding: 0;
   box-shadow: none;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .link-button:hover {
-  filter: brightness(1.15);
+  color: color-mix(in oklab, var(--accent-text) 70%, var(--ink));
 }
 
 /* These three followed the controls down into the dock, `select` especially,
@@ -879,6 +900,26 @@ body.scroll-top-visible #tab-notes .layout > main {
    wraps, so the wrapped line needs no special case at all. */
 .chat-dock-controls-spacer {
   flex: 1 1 auto;
+}
+
+/* **The model picker in the strip** (`#chat-feature-model`, app.js
+   `syncFeatureModelSelects`). Enhanced like every select, so the thing on
+   screen is `.select-opener`, which carries the form field's `--target-min`
+   floor: measured 39px tall beside the 30px seg and gear it sits with, the
+   one control on the line out of step. It takes the strip's one height, and
+   a cap, because a model id runs past thirty characters and the name
+   ellipsises inside the opener (whole on its title and in the open list). */
+.chat-dock-controls .select-shell:has(> .feature-model-select) {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 12rem;
+}
+
+.chat-dock-controls .select-shell:has(> .feature-model-select) .select-opener {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding-block: 0;
+  font-size: var(--text-md);
 }
 
 .chat-dock-controls select,
@@ -1247,7 +1288,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    The web panel is a column now, so there is nothing left in here that can
    yield, and a box that cannot shrink should not claim it can. The
    conversation above gives way instead (`#chat-messages`, which scrolls), and
-   `fitComposerToDock` in app.js keeps a hand-dragged composer inside whatever
+   `fitComposerToDock` in settings-panes.js keeps a hand-dragged composer inside whatever
    is left. */
 .chat-dock {
   flex: 0 0 auto;
@@ -1367,7 +1408,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   stroke: none;
   opacity: 0.16;
   pointer-events: none;
-  transition: opacity var(--motion-base) ease, r var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out), r var(--motion-base) var(--ease-out);
 }
 
 .graph-node:hover circle.graph-halo,
@@ -1755,7 +1796,7 @@ body.scroll-top-visible #tab-notes .layout > main {
 
 .md-table th {
   background: var(--chip-bg);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .md-table tbody tr:nth-child(even) {
@@ -1781,8 +1822,10 @@ select {
   border-radius: calc(var(--radius) * 0.7);
 }
 
-.chip,
-.seg,
+/* The track itself is the radius table's choice-control row
+   (`--radius-choice`, 03-dashboard-widgets.css) and its segments keep the
+   same corner. A chip is not a segment: it is a label with a small radius
+   (`.chip`, 01-forms-settings.css; DESIGN.md "Pills"). */
 .seg button {
   border-radius: calc(var(--radius) * 0.5 + var(--radius-md));
 }
@@ -1996,7 +2039,7 @@ label.setting-check,
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   cursor: pointer;
   margin: 0;
 }
@@ -2164,7 +2207,7 @@ label.setting-check,
   height: 0.5rem;
   border-radius: 50%;
   background: var(--border);
-  transition: background var(--motion-slow) ease;
+  transition: background var(--motion-slow) var(--ease-out);
 }
 
 .onboarding-dot.active {
@@ -2271,6 +2314,28 @@ label.setting-check,
   background: var(--inner);
   border: 1px solid var(--border);
   border-bottom-left-radius: var(--radius-sm);
+}
+
+/* **The bubble's padding is its inset, and a paragraph's margin was adding a
+   second one** (INBOX 270 part 4). `renderMarkdown` writes a `<p>` whose
+   browser margin is 1em, so an answer's first line sat 25px below the
+   bubble's top edge against 10px under its last, and the citation hung 15px
+   below the prose. The Chat tab zeroes the same margin for the same reason
+   (`.bubble-answer > :first-child`, 02-chat-graph.css); here the paragraphs
+   also step down to the scale so the gap inside an answer is the gap between
+   two answers' rows, not a larger one. */
+.help-chat-msg p {
+  margin-block: var(--space-2);
+}
+
+.help-chat-msg > :first-child,
+.help-chat-prose > :first-child {
+  margin-top: 0;
+}
+
+.help-chat-msg > :last-child,
+.help-chat-prose > :last-child {
+  margin-bottom: 0;
 }
 
 .help-chat-msg.is-pending {
@@ -2416,7 +2481,7 @@ label.setting-check,
   box-shadow: none;
   padding: 0 0.1em;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
@@ -2471,7 +2536,7 @@ span > .chip {
   opacity: 0;
   visibility: hidden;
   transform: translateY(0.5rem);
-  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease, visibility var(--motion-slow);
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out), visibility var(--motion-slow) var(--ease-out);
 }
 
 .scroll-top.visible {
@@ -2552,7 +2617,7 @@ span > .chip {
      category itself along the right-hand edge of every row. */
   pointer-events: none;
   background: inherit;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #category-list li:hover .category-actions,
@@ -2587,7 +2652,7 @@ span > .chip {
 #category-list li:has(.category-actions):hover .count,
 #category-list li:has(.category-actions):focus-within .count {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* Touch has no hover, so the controls are simply always there, which used
@@ -2730,7 +2795,7 @@ span > .chip {
 }
 
 .chat-nudge-mark {
-  color: var(--accent);
+  color: var(--accent-text);
   flex: 0 0 auto;
 }
 
@@ -2992,8 +3057,20 @@ span > .chip {
 /* The three selects and the adder are one family on one line, so they take
    the column's control height rather than the global form-field height (the
    same mismatch `.draft-controls` above was written for). */
-.draft-desk-controls {
+/* Two classes: `.draft-controls` in 08-consistency.css comes later in the
+   cascade and sets `flex-wrap: wrap`. */
+.draft-controls.draft-desk-controls {
   gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+
+/* The flex item is the enhanced select's shell, not the select inside it,
+   so the shrink rule below has to be stated here too: measured at the
+   1200px desktop window, the three shells held 144/118/111px and pushed
+   "Use notes" onto a second row. */
+.draft-desk-controls > .select-shell {
+  flex: 1 1 6rem;
+  min-width: 0;
 }
 
 .draft-desk-controls select,
@@ -3108,7 +3185,7 @@ span > .chip {
    the number just comes from the band below 820 rather than from a constant
    written for a desktop column. `scratchpad/ui-sweeps/writingroom.js` counts
    them. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   .draft-column,
   .draft-controls {
     --control-h: var(--target-min);
@@ -3310,7 +3387,7 @@ span > .chip {
   top: 0.3rem;
   right: 0.3rem;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .doc-item:hover .doc-item-menu,
@@ -3387,7 +3464,7 @@ span > .chip {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .doc-list-item:hover .doc-list-menu,
@@ -3425,7 +3502,7 @@ span > .chip {
 }
 
 .doc-list-title {
-  font-weight: 650;
+  font-weight: 600;
   font-size: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3647,6 +3724,24 @@ span > .chip {
   border-color: var(--accent);
 }
 
+/* Focus mode's button (INBOX 425 i) is the third icon-only utility on this
+   row, after the view chevron and before the kebab, so it wears what they
+   wear: measured, the ghost ramp's tonal fill made it the one filled square
+   between two outlined ones, and it read as a button already pressed. */
+.doc-dock .doc-focus-toggle.ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: var(--control-h);
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.doc-dock .doc-focus-toggle.ghost:hover {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+}
+
 .doc-dock .seg button {
   padding-block: 0;
 }
@@ -3658,8 +3753,22 @@ span > .chip {
    and three buttons, which wrapped onto two more rows. Giving the title the
    full row costs one line of height and buys the actions the space to sit on
    one, which is what the screenshot behind this was asking for. */
+/* **One row again, now that there is room for one** (INBOX 425 i: "maybe
+   the top bar needs a bit of redesigning ... to allow for more room").
+   The reason above was true of a row holding a status group, a select, a
+   four-way segment and three buttons. Since DOCUMENTS_PLAN Phase 1 the
+   actions are Saved, Edit/Read and its chevron, AI edit, Focus and the
+   kebab, about 480px; measured at 1440x900 the second row cost 42px of
+   height for nothing but a title with 700px of empty space beside it.
+
+   So the identity asks for 22rem and grows into whatever is left, and the
+   actions keep their own width: where both fit (1034px of dock at 1440,
+   960px at 1366) they share one 36px row; where they do not (a narrow
+   window, the chat dock open, a phone) flex-wrap drops the actions onto
+   their own line whole, pushed to the right edge, which is the old layout
+   and never a control split from its group. */
 .doc-dock > .doc-dock-identity {
-  flex: 1 1 100%;
+  flex: 1 1 22rem;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -3678,7 +3787,10 @@ span > .chip {
    HISTORY). */
 .card > .row.space-between > .row.doc-actions,
 .doc-dock > .doc-actions {
-  flex: 1 1 100%;
+  /* Its own width, on the title's row when both fit (see the identity rule
+     above), and on the right edge when it wraps onto a line of its own. */
+  flex: 0 1 auto;
+  margin-left: auto;
   /* **A flex item does not shrink past its own content unless it is told
      it may.** `min-width` defaults to `auto` on a flex item, which is its
      min-content width, so this row refused to go below the width its
@@ -3785,7 +3897,7 @@ span > .chip {
 }
 
 /* **The other side of the button** (INBOX 233). `placeDockMenuInWindow`
-   (app.js) adds this when the room under the opener is less than 240px and
+   (navigation.js) adds this when the room under the opener is less than 240px and
    there is more of it above: the panel then grows upward from the button
    instead of down past the bottom of the window. Nothing else about it
    changes, which is why this is a class on the `<details>` rather than an
@@ -3814,7 +3926,7 @@ span > .chip {
      a readable width, instead of shrinking the title toward zero. */
   min-width: 8rem;
   font-size: 1.15rem;
-  font-weight: 650;
+  font-weight: 600;
   border: 1px solid transparent;
   background: none;
 }
@@ -4061,25 +4173,25 @@ span > .chip {
 
 .markdown-body .md-h3 {
   font-size: 1.25em;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .markdown-body .md-h4 {
   font-size: 1.1em;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .markdown-body .md-h5 {
   font-size: 1em;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* The sixth level is the one the live view greys rather than shrinks: below
    body size it stops being a heading and starts being small print. */
 .markdown-body .md-h6 {
   font-size: 1em;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -4219,6 +4331,98 @@ span > .chip {
 .doc-ai-result-actions {
   justify-content: flex-end;
   gap: var(--space-3);
+}
+
+/* --- the assistant's head and its three verbs (the owner, 2026-09-24:
+   "redesign the top section of this panel, it is poorly structured and
+   there's definitely a better, more modern and professional way").
+
+   Measured before (scratchpad/ui-sweeps/docaihead.js, 1440x900): the head
+   held a 32px round bordered '?', a 97px tonal "History" and a 28px bordered
+   close, three shapes at two heights; the verb control was 318px of a 688px
+   column, its segments 30px tall in a 40px track; the unchosen verbs were
+   drawn in the muted ink, which is the colour this app gives a disabled
+   control, so "Write" read as unavailable; and the chosen one differed from
+   them by an 11% ink tint alone.
+
+   Now the head is one row: the title and its '?' on the left, History and
+   Close on the right, all three the same quiet 28px icon button. The verbs
+   are the panel's full width in three equal segments that fill the track;
+   an unchosen verb is in the body ink, and the chosen one keeps the
+   segmented recipe's fill and ink (no lift: a segment sits in its track,
+   INBOX 101) and adds weight and a ring in the accent, so which mode is on
+   reads at a glance without any segment looking switched off. */
+.doc-ai-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+}
+
+.doc-ai-head > h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.doc-ai-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost:hover,
+.doc-ai-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+.doc-ai-card > #doc-ai-verb {
+  display: flex;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+}
+
+.doc-ai-card > #doc-ai-verb label {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.doc-ai-card > #doc-ai-verb label > .ph {
+  color: var(--muted);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph {
+  color: var(--accent-text);
+}
+
+/* The keyboard's place in the group, drawn on the segment: the radio itself
+   is clipped to a pixel, so its own focus ring is never seen. */
+.doc-ai-card > #doc-ai-verb label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Extract notes (BACKLOG.md §62): another "read the AI's proposal before
@@ -4477,7 +4681,7 @@ span > .chip {
   /* The hairline the old dock used to separate itself from the transcript is
      redundant now that it has a border of its own. */
   border-top: 1px solid var(--border);
-  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 /* The whole card takes focus, the way a single field would. This is the
@@ -4693,7 +4897,7 @@ input.doc-title-input {
   border-color: transparent;
   background: none;
   font-size: var(--text-h3);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   padding-left: var(--space-2);
 }
@@ -5023,6 +5227,16 @@ input.doc-title-input::placeholder {
   overflow: auto;
 }
 
+/* On a phone the step is a sheet: the width of the window less its gutters,
+   docked by tour.js (`tourSheetPlace`) to whichever edge is away from the
+   control. The breakpoint is `PHONE_TABS`'s, where the tab bar moves to the
+   bottom. */
+@media (max-width: 599.98px) {
+  .tour-card {
+    width: calc(100vw - var(--space-9));
+  }
+}
+
 .tour-head {
   display: flex;
   align-items: center;
@@ -5075,4 +5289,62 @@ input.doc-title-input::placeholder {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+/* **A model picker is as wide as a short name, not as the id** (owner: "fix
+   how big this model selection dropdown box is"). Model ids run to fifty
+   characters (`hf.co/unsloth/gemma-...:UD-Q4_K_XL`); the label shows the short
+   name and the box stops at 14rem, ellipsising the rest, with the full id in
+   its tooltip. */
+.select-shell:has(> .feature-model-select),
+.feature-model-select {
+  max-width: 14rem;
+  min-width: 0;
+}
+
+.select-shell:has(> .feature-model-select) .select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* The welcome and the tour buttons as one row of equal buttons (Help,
+   redesigned): the tour buttons sit beside Replay the welcome rather than
+   under it, so the replay-tour margin goes. */
+.tour-replay-row {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tour-replay-row > .tour-replay-buttons {
+  display: contents;
+}
+
+/* A formatting toolbar's icon buttons are flat like its text buttons (B, I,
+   List, Task): `.icon-only` carries the tonal ground everywhere else, so in
+   the note composer's toolbar Highlight, Remove highlight and Link looked
+   pressed while nothing was on (2026-09-24 polish pass, measured
+   rgba(255,255,255,0.16) on three of twelve). The hover and pressed states
+   still fill them. Scoped by the two tab ids because
+   07-whiteboard-misc.css's generic icon-only ground carries eight
+   :not()s, which outrank a class-only selector. */
+:is(#tab-notes, #tab-documents) .doc-toolbar button.icon-only:not(:hover):not(:focus-visible):not([aria-pressed="true"]):not(.active) {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* A setting's words wrap before its control does (the owner, with a
+   screenshot: the Corner companion row put its select on a line of its own
+   under a long description). The label column takes the slack and shrinks
+   to its text; the control keeps its own width at the row's end, as every
+   other row in the section does. The row still wraps where the pane is too
+   narrow for both. */
+.setting-row > .setting-label {
+  flex: 1 1 14rem;
+}
+
+.setting-row > .setting-control,
+.setting-row > .select-shell {
+  flex: 0 0 auto;
 }

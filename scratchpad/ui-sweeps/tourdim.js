@@ -168,7 +168,12 @@ function ok(label, pass, detail) {
   const cardOpaque = await page.evaluate(() => {
     const el = document.getElementById("tour-card");
     const cs = getComputedStyle(el);
-    return { bg: cs.backgroundColor, img: cs.backgroundImage, solid: /^rgb\(/.test(cs.backgroundColor) };
+    // Opaque in either notation Chromium serialises: `rgb(...)` (never
+    // `rgba`), or `color(srgb r g b)` with no `/ alpha`, which is what a
+    // `color-mix` in the ground computes to. The first draft accepted only
+    // `rgb(` and failed a solid white card as `color(srgb 1 1 1)`.
+    const bg = cs.backgroundColor;
+    return { bg, img: cs.backgroundImage, solid: /^rgb\(/.test(bg) || /^color\(srgb [^/]+\)$/.test(bg) };
   });
   ok(
     "the step card has an opaque ground",

@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
+from tests._app_js import app_js_family, app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
@@ -104,7 +105,10 @@ def test_hand_built_menus_do_not_multiply() -> None:
     for path in JS:
         n = path.read_text(encoding="utf-8").count('setAttribute("role", "menu")')
         if n:
-            counts[path.name] = n
+            #: The pieces of the old app.js count as app.js (tests/_app_js.py):
+            #: a menu moving between them is not a new menu.
+            name = "app.js" if app_js_family(path) else path.name
+            counts[name] = counts.get(name, 0) + n
     for name, n in counts.items():
         assert n <= HAND_BUILT_MENUS.get(name, 0), (
             f"{name} builds {n} menus by hand; the recipe is kebabMenu(items, label) "
@@ -152,7 +156,7 @@ def test_a_long_kebab_menu_is_grouped() -> None:
     assert len(set(g for _, g in rows)) > 1, "one group over the whole menu groups nothing"
     #: And the recipe has to be able to draw it, which is two lines away in
     #: another file: the separator element and the stylesheet rule for it.
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'rule.className = "menu-sep"' in app and 'role", "separator"' in app, (
         "kebabMenu no longer draws a separator between groups"
     )
@@ -172,15 +176,16 @@ def test_a_pointer_anchored_menu_is_the_recipe() -> None:
     rule. The recipe lives in app.js and every `.pointer-menu-host` in the
     frontend comes from it.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "function openMenuAtPoint(" in app, (
         "the pointer-anchored menu recipe has gone from app.js; DESIGN.md's "
         "recipe index still points at openMenuAtPoint"
     )
-    builders = {
-        path.name: path.read_text(encoding="utf-8").count('className = "pointer-menu-host"')
-        for path in JS
-    }
+    builders: dict[str, int] = {}
+    for path in JS:
+        name = "app.js" if app_js_family(path) else path.name
+        n = path.read_text(encoding="utf-8").count('className = "pointer-menu-host"')
+        builders[name] = builders.get(name, 0) + n
     offenders = {name: n for name, n in builders.items() if n and name != "app.js"}
     assert not offenders, (
         f"{offenders} build a pointer-menu host of their own; the recipe is "
@@ -210,6 +215,8 @@ SHEET_RECIPE = {
     "sheet-card",
     "sheet-head",
     "sheet-title",
+    # The one line of state under a title (openSheet's `sub`).
+    "sheet-sub",
     "sheet-close",
     "sheet-list",
     "sheet-row",
@@ -231,8 +238,9 @@ def test_only_the_recipe_stamps_a_sheet_variant() -> None:
     for path in JS:
         js = path.read_text(encoding="utf-8")
         for match in re.findall(r'"sheet-(?:card-)?[a-z]+"', js):
-            assert path.name == "app.js", f"{path.name} writes {match} by hand"
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+            #: "app.js" is the app's code, every piece of it (tests/_app_js.py).
+            assert app_js_family(path), f"{path.name} writes {match} by hand"
+    app = app_js_text()
     assert app.count("sheet-${variant}") == 1
     assert app.count("sheet-card-${variant}") == 1
 
@@ -258,7 +266,7 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     every phone with one, which is the only surface in the app that cannot be
     checked in this sandbox at all.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     opener = app[app.index("function openSheet("):]
     opener = opener[: opener.index("\n}\n")]
     for needed in ('"role", "dialog"', '"aria-modal", "true"', '"Escape"', "wireBackdropClose"):
@@ -322,7 +330,7 @@ def test_the_corner_sheet_variant_floats_rather_than_leaning_on_an_edge() -> Non
 # sheet has always got wrong, and the half that can be shared without moving a
 # live subtree in and out of a dialog.
 def test_an_in_place_sheet_shares_the_recipe_dismissal() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function wireInPlaceSheetDismissal(")
     body = app[start : app.index("\n}\n", start)]
     for needed in ('"keydown"', '"pointerdown"', "true)", "stopPropagation"):
@@ -365,7 +373,8 @@ def test_a_fixed_filter_set_is_one_well_rather_than_a_row_of_chips() -> None:
 # rows, where the state is the checkbox's own and the browser announces it, and
 # the caption on the closed button is what says it when the menu is shut.
 def test_a_multi_toggle_filter_set_says_which_of_its_members_are_on() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    #: timeline.js since the Timeline tab was split out of app.js.
+    app = (ROOT / "frontend" / "timeline.js").read_text(encoding="utf-8")
     start = app.index("function renderTimelineKinds(")
     body = app[start : app.index("\n}\n", start)]
     assert 'type = "checkbox"' in body, (
@@ -444,7 +453,7 @@ def test_a_thumb_bar_rides_the_keyboard_inset_it_did_not_measure() -> None:
         for match in re.finditer(r"visualViewport", text):
             line = text.count("\n", 0, match.start()) + 1
             listeners.append(f"{path.name}:{line}")
-    owner = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    owner = app_js_text()
     body = owner[owner.index("function initKeyboardInset("):]
     body = body[: body.index("\n}\n")]
     assert body.count("visualViewport") == len(listeners), (
@@ -599,6 +608,55 @@ def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
         "the radial recipe has lost its `left`/`top` placement rule; "
         "DESIGN.md's recipe index says a slot is placed that way"
     )
+
+
+def test_the_radial_band_is_cut_to_its_tiles() -> None:
+    """The band under a ring holds its slots rather than a guessed width.
+
+    INBOX 410: with a fixed 3rem band under 7rem pills, every diagonal pill
+    hung 32px past the band's outer edge and 28px into its hole. The band is
+    now drawn from two edges `wbFitMapRadialBand` measures off the placed
+    slots, and the caption hangs under the outer edge; a rule that goes back
+    to sizing the band from the radius alone brings the overhang back.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    #: The map layer is whiteboard-map.js since the split; read both.
+    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
+    assert band, "the radial's band rule is gone"
+    assert "--wb-radial-outer" in band[0] and "--wb-radial-inner" in band[0], (
+        "the band must be drawn from the measured inner and outer edges"
+    )
+    caption = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial-caption"]
+    assert caption and "--wb-radial-outer" in caption[0], (
+        "the ring's caption hangs under the band's outer edge, not the radius"
+    )
+    place = js.split("function wbPlaceMapRadial(", 1)[1].split("\n}\n", 1)[0]
+    assert "wbFitMapRadialBand(ring)" in place, "placing a ring must fit its band"
+
+
+def test_the_radial_is_one_ring_cut_into_sectors() -> None:
+    """Each action is a sector of the ring, not a button laid on a band.
+
+    The owner, 2026-09-24: "the radial buttons are still clearly separate, I
+    want them to be part of the radial, not just buttons sitting ontop of
+    it". A slot is a button the size of the ring, clipped to its wedge by the
+    path `wbFitMapRadialBand` writes; its face sits at the wedge's middle; the
+    ring's own keys walk the sectors. A rule that goes back to sizing a slot
+    as a tile, or a fit that stops writing the clip, is the old ring again.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    slot = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial .wb-map-radial-slot"]
+    assert slot, "the sector rule is gone"
+    assert "calc(var(--wb-radial-outer) * 2)" in slot[0], "a sector is the whole ring's square, clipped"
+    fit = js.split("function wbFitMapRadialBand(", 1)[1].split("\n}\n", 1)[0]
+    assert "slot.style.clipPath" in fit and "wbMapRadialSectorPath" in fit, "the fit must cut each slot to its sector"
+    assert "--wb-sector-x" in fit and "--wb-sector-y" in fit, "the fit must place each face at its sector's middle"
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    slots = html.count("wb-map-radial-slot")
+    assert slots and html.count('class="wb-map-radial-face"') == slots, "every sector draws its icon and word in a face"
+    assert 'ring.addEventListener("keydown"' in js, "the ring must answer its own arrows, Enter and Escape"
 
 
 def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
@@ -988,6 +1046,8 @@ LIST_ROWS = {
     #: The popup agent's starters (INBOX 231). The grid is both the list and
     #: the rows' only selector, so the container it is spaced by is itself.
     ".command-palette-examples": ".command-palette-examples",
+    #: The writing dictionary's words (INBOX 410, the settings-sheet redesign).
+    ".doc-dictionary-row": ".doc-dictionary-list",
 }
 
 
@@ -1274,7 +1334,7 @@ def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
        containing block is covered the day it ships.
     """
     js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
 
     lifts = {
         "openDocSuggest": "docLiftToViewport(",
@@ -1388,7 +1448,8 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
 #: too, and this fails the moment one is unwired, which is the direction that
 #: matters. The names are here so a rename has to come past this test.
 FAILING_SURFACES = {
-    "frontend/app.js": ("notes", "timeline", "reminders"),
+    "frontend/app.js": ("notes", "reminders"),
+    "frontend/timeline.js": ("timeline",),
     "frontend/graph.js": ("map",),
     "frontend/graph-canvas.js": ("map",),
     "frontend/library.js": ("library",),
@@ -1398,7 +1459,8 @@ FAILING_SURFACES = {
 
 def test_every_wired_surface_still_reports_its_own_failures() -> None:
     for name, whats in FAILING_SURFACES.items():
-        js = (ROOT / name).read_text(encoding="utf-8")
+        #: "frontend/app.js" is the app's code, every piece of it.
+        js = app_js_text() if name == "frontend/app.js" else (ROOT / name).read_text(encoding="utf-8")
         for what in whats:
             assert f'"{what}"' in js and "surfaceFailed(" in js, (
                 f"{name} no longer reports a failed read for {what!r}: a surface "
@@ -1415,7 +1477,7 @@ def test_every_wired_surface_still_reports_its_own_failures() -> None:
 
 
 def test_the_failed_state_is_built_in_exactly_one_place() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert app.count('classList.add("is-failed")') == 1, (
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
@@ -1438,7 +1500,7 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
     below it. With them: 0, 75, 0, 0, 0, and the 75 is the editor landing 21px
     short of where the probe asked it to scroll, not the map.
     """
-    app_js = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
     assert "dataset.srcLine = String(" in app_js, (
         "renderMarkdown must stamp each block with the source line it came "
@@ -1523,10 +1585,13 @@ def test_every_tour_step_points_at_an_element_that_exists() -> None:
     """
     markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    # The leading id of a compound selector is checked too: a step pointing
+    # into a list the tab draws ("#library-grid .library-card-menu > button")
+    # has no stable id of its own, but the list it lives in has to exist.
     missing = [
         target
         for target, _side, _rest in _tour_steps()
-        if target.startswith("#") and target[1:] not in ids
+        if (lead := re.match(r"#([\w-]+)", target)) and lead.group(1) not in ids
     ]
     assert not missing, (
         "tour steps name elements that are not in index.html: "
@@ -1560,15 +1625,27 @@ def test_the_tour_card_is_placed_by_the_measure_and_correct_rule() -> None:
     from the nearest ancestor carrying a `filter`, and `.card` carries one
     whenever the background art is on, which is how a word menu asked for
     `left: 952` and drew at 1245.
+
+    **The check moved from one frame after the write to every frame the tour
+    is up, and this test moved with it** (INBOX 426 y). A single read-back a
+    frame later caught a tab switch mid-settle and left its own nudge in
+    ("tour-spot asked for 336,275, drew at 1128,4"). `tourPlaceFixed` now
+    records the box it asked for, and `tourWatchFrame` measures what was
+    drawn on every frame and places again, from a fresh origin, when the two
+    differ: the same set, measure, correct, held for as long as it takes.
     """
     js = TOUR_JS.read_text(encoding="utf-8")
     body = _function_body(js, "tourPlaceFixed")
     wrote = body.index(".style.left")
-    assert "getBoundingClientRect()" in body[wrote:], (
-        "tourPlaceFixed sets a position and never checks it landed there: "
-        "measure the rect after writing and correct by the difference "
-        "(DESIGN.md, the recipe index)"
+    assert "_tourWant" in body[wrote:], (
+        "tourPlaceFixed must record the box it asked for, so what was drawn "
+        "can be checked against it (DESIGN.md, the recipe index)"
     )
+    watch = _function_body(js, "tourWatchFrame")
+    assert "getBoundingClientRect()" in watch and "_tourWant" in watch, (
+        "tourWatchFrame must measure what was drawn against what was asked for"
+    )
+    assert "tourPosition()" in watch, "and place the step again when they differ"
     for name in ("tourPosition", "tourSpotlight"):
         assert "tourPlaceFixed(" in _function_body(js, name), (
             f"{name} must place through tourPlaceFixed, or the correction is "
@@ -1769,7 +1846,8 @@ def test_the_cut_out_is_never_drawn_where_it_cannot_be_seen() -> None:
     )
 
     show = _function_body(js, "tourShow")
-    assert "tourOnScreen(el)" in show, (
+    usable = _function_body(js, "tourUsable")
+    assert "tourUsable(el)" in show and "tourOnScreen(el)" in usable, (
         "a step whose control is not on screen after the wait is dropped, so "
         "the counter renumbers and the tour moves to one that can be pointed "
         "at (DESIGN.md, the recipe index)"
@@ -1794,7 +1872,10 @@ def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
     """A control hidden by a responsive rule, or gone from the markup, must
     cost its step rather than leave a card anchored to a zero-sized box in the
     corner of the window. Dropping it is also what keeps "3 of 7" true: the
-    counter is drawn from the run's own length, which shrinks with it."""
+    counter is drawn from the run's own steps, which shrink with it. Since
+    the sections chain (the owner, 2026-09-23), it counts the current
+    section's steps in the run, so "Graph, 2 of 4" is still a count of cards
+    that will really be shown."""
     js = TOUR_JS.read_text(encoding="utf-8")
     show = _function_body(js, "tourShow")
     assert "tourVisible(" in show and "splice(" in show, (
@@ -1802,9 +1883,103 @@ def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
         "is not (DESIGN.md, the recipe index)"
     )
     render = _function_body(js, "tourRender")
-    assert "run.steps.length" in render, (
-        "the counter must be drawn from the run's own length, or it promises "
+    assert "tourSectionPlace(run)" in render, (
+        "the counter must be drawn from the run's own steps, or it promises "
         "steps the tour has already dropped"
+    )
+    place = _function_body(js, "tourSectionPlace")
+    assert "run.steps.filter(" in place and "sectionId" in place, (
+        "the per-section count is the run's steps in this section, not the "
+        "table's: a dropped step must leave its section's count"
+    )
+
+
+def test_a_tour_steps_second_control_exists_and_says_where_it_went() -> None:
+    """On a phone Settings and Timeline live in More, and a step naming the
+    gear or the Timeline tab was dropped mid-run there, renumbering the
+    counter under the person (measured 2026-09-23 at 390x844: 1 of 15, then
+    4 of 14, then 10 of 13). A step's `or` is the control it moved behind, and
+    its `orText` is what the card says while pointing at that one instead: a
+    card that describes a gear while lighting a button labelled More is the
+    tour describing UI that is not there."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    table = TOUR_TABLE.search(js).group(1)
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    ors = re.findall(r'\bor: "([^"]+)",\s*orText: "([^"]+)"', table)
+    assert len(ors) == len(re.findall(r"\bor: \"", table)), (
+        "every step with an `or` control carries an `orText` right after it"
+    )
+    assert ors, "Settings and Timeline need their phone controls (More)"
+    for selector, text in ors:
+        assert selector.startswith("#") and selector[1:] in ids, (
+            f"the `or` control {selector} is not in index.html"
+        )
+        # More for the phone's tab overflow and a dock's ⋯; the others (the
+        # whiteboard's Tools opener, the reminder form's sheet) are checked by
+        # the sweep, which reads each card's words beside the control it lit.
+        if selector in ("#phone-more-btn", "#library-boards-more"):
+            assert "More" in text, f"{selector}'s words must say the control is in More: {text!r}"
+    assert "run.step.orText" in _function_body(js, "tourRender"), (
+        "tourRender shows `orText` when the step is pointing at its `or` control"
+    )
+    assert "tourResolve(" in _function_body(js, "tourReflow"), (
+        "a resize across the phone breakpoint moves the step between its two "
+        "controls rather than dropping it"
+    )
+
+
+def test_the_tour_closes_what_is_open_and_will_not_point_under_it() -> None:
+    """The fault behind "completely broken on all the slides except the first
+    one" (the owner, 2026-09-23), measured before this: with the Atlas guide,
+    the command palette, the features browser or the shortcut sheet open, all
+    four basics steps had the overlay on top of their control, so the hole in
+    the dim showed the overlay. Laid out and inside the window were both true;
+    in front was not."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    clear = _function_body(js, "tourClearTheWay")
+    for closer in ("closeSettingsModal", "closePalette", "closeFeatures", "closeShortcuts", ".sheet-close"):
+        assert closer in clear, f"tourClearTheWay must close what {closer} closes"
+    assert "tourClearTheWay(step)" in _function_body(js, "tourNavigate"), "every step clears the way first (keeping Settings only for a Settings step)"
+    assert "tourClearTheWay()" in _function_body(js, "openTour"), "and so does opening the tour"
+    usable = _function_body(js, "tourUsable")
+    assert "tourCovered(el)" in usable, "a control with something drawn over it is not usable"
+    covered = _function_body(js, "tourCovered")
+    assert "elementsFromPoint" in covered and "#tour-block" in covered, (
+        "covered is asked of what is on top, skipping the tour's own layers"
+    )
+
+
+def test_the_tour_count_is_settled_before_the_first_card() -> None:
+    """A chrome step (no tab) that is not laid out now never will be during
+    this run, so it is left out before the count is written: the counter says
+    the same total from the first card to the last."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    body = _function_body(js, "openTour")
+    assert "step.tab || step.notes || tourVisible(tourResolve(step).el)" in body
+
+
+def test_typing_in_the_lit_control_is_not_a_tour_key() -> None:
+    """The hole is the page and the capture box step invites typing: the
+    arrows and Enter inside a field outside the card belong to the field."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    start = js.index('document.addEventListener(\n  "keydown"')
+    handler = js[start : js.index("true\n);", start)]
+    assert "isContentEditable" in handler and "TEXTAREA" in handler and '!target.closest("#tour-card")' in handler
+
+
+def test_the_tour_is_switched_on_and_its_doors_are_live() -> None:
+    """The owner switched the tour off on 2026-09-21 until it was fixed; it is
+    on again, and every door reads the one flag rather than being disabled on
+    its own (the About button was the door that got left open last time)."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    assert re.search(r"^const TOUR_ENABLED = true;$", js, re.M), "TOUR_ENABLED must be true"
+    app = app_js_text()
+    assert re.search(r"aboutTour\.disabled = true", app), "About's door is still guarded by the flag"
+    guard = app[: app.index("aboutTour.disabled = true")].rsplit("\nif (", 1)[1]
+    assert "TOUR_ENABLED" in guard, "About's button is disabled only when the flag is off"
+    assert "if (!TOUR_ENABLED)" in _function_body(js, "renderTourReplay"), (
+        "the replay strip is disabled only when the flag is off"
     )
 
 
@@ -1823,6 +1998,79 @@ def test_a_new_tour_section_needs_no_new_code() -> None:
         )
 
 
+def _tour_sections() -> dict[str, list[tuple[str, str, str]]]:
+    """Each section's id, mapped to its steps as `_tour_steps` reads them."""
+    table = TOUR_TABLE.search(TOUR_JS.read_text(encoding="utf-8")).group(1)
+    starts = [(m.start(), m.group(1)) for m in re.finditer(r'\n  \{\n    id: "([a-z]+)",', table)]
+    out = {}
+    for i, (start, section_id) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(table)
+        out[section_id] = TOUR_STEP.findall(table[start:end])
+    return out
+
+
+def test_every_main_feature_has_a_tour_section_that_walks_into_it() -> None:
+    """The owner, 2026-09-23: "they dont guide me through the other main
+    features". A section per feature, three to five cards on its own
+    controls, and a section that names a tab has to switch to it: the old
+    sections pointed at the tab *buttons* and described what was behind
+    them."""
+    sections = _tour_sections()
+    for wanted in ("basics", "notes", "chat", "graph", "library", "boards", "maps",
+                   "timeline", "reminders", "settings", "status"):
+        assert wanted in sections, f"the tour has no {wanted!r} section"
+    for section_id, steps in sections.items():
+        # A pair of `media` steps is one card on either side of a breakpoint.
+        wide = [s for s in steps if "(max-width" not in s[2]]
+        assert 3 <= len(wide) <= 5, f"{section_id} has {len(wide)} cards; a section is three to five"
+        for target, _side, rest in steps:
+            assert "#tab-btn-" not in target, (
+                f"{section_id} points at a tab button ({target}); a section "
+                "walks into its feature and points at the feature's controls"
+            )
+            text = re.search(r'\btext: "([^"]+)"', rest).group(1)
+            assert len(text) <= 140, f"{target}: one or two short sentences, not {len(text)} characters"
+
+
+def test_the_tours_sections_chain_into_each_other() -> None:
+    """The owner: "If I want to do the other sections of the tour, I have to
+    go into the help settings and click the other tour section buttons". A
+    run starts at a section and carries on through every later one; the last
+    card of a section says "Next: <section>" beside a Finish."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    steps_for = _function_body(js, "tourStepsFor")
+    assert "TOUR_SECTIONS.slice(from)" in steps_for, (
+        "a run started at a section includes every section after it"
+    )
+    render = _function_body(js, "tourRender")
+    assert "`Next: ${place.next}`" in render and '"Finish"' in render, (
+        "the last card of a section offers the next one by name, and Finish"
+    )
+    skip = js[js.index('getElementById("tour-skip").addEventListener'):]
+    skip = skip[: skip.index(");\n") + 3]
+    assert "atSectionEnd" in skip and "tourClose(" in skip, (
+        "Finish ends the tour as finished (remembered, with its toast), Skip as skipped"
+    )
+
+
+def test_the_tour_never_makes_a_board_or_a_map() -> None:
+    """Never create data: a tour that walks into mind maps opens the newest
+    one there is, and in a notebook with none it points at New mind map and
+    says what that makes. So nothing on the tour's way to a board writes."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    for name in ("tourWhiteboard", "tourContext", "tourPrepareSection", "tourNavigate"):
+        body = _function_body(js, name)
+        for writer in ("method:", "POST", "wbCreateBoard", "createBoard"):
+            assert writer not in body, f"{name} must only read ({writer!r} found)"
+    sections = _tour_sections()
+    map_steps = [rest for target, _side, rest in sections["maps"] if 'wb: "map"' in rest]
+    assert map_steps and all('need: "map"' in rest for rest in map_steps), (
+        "every step that opens a map needs one to exist"
+    )
+    needs = _function_body(js, "tourPrepareSection")
+    assert "TOUR_NEEDS" in needs, "a section's needs are settled before its first card"
+
+
 # --- the phone top bar (UI_MODERNISATION_PLAN Phase 11 item 1) ---------------
 #
 # Below 600 the four everyday-and-session squares (theme, settings, lock,
@@ -1834,7 +2082,7 @@ def test_a_new_tour_section_needs_no_new_code() -> None:
 # is dropped rather than moved.
 
 def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function initPhoneHeaderMore()")
     body = app[start : app.index("initPhoneHeaderMore();", start)]
     assert "kebabMenu(" in body, "the phone header menu must be the kebabMenu recipe"
@@ -1856,7 +2104,7 @@ def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
     `mountPhoneSidebarOpeners` for every id in `SIDEBAR_IDS`. A fourth
     sidebar added without a row here would keep a rail on the phone that
     the other three no longer have."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     ids = re.search(r"const SIDEBAR_IDS = \[([^\]]*)\]", app)
     assert ids, "SIDEBAR_IDS is not where this lint expects it"
     sidebars = set(re.findall(r'"([^"]+)"', ids.group(1)))
@@ -1876,7 +2124,7 @@ def test_the_row_swipe_presses_the_rows_own_actions():
     function the row menu's own item calls; a swipe that grew an action of
     its own would be the third copy of a verb, and the first one nobody can
     see."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function initRowSwipe(list, actions)")
     body = app[start : app.index("// --- the note page", start)]
     assert '".favourite-btn"' in body
@@ -1903,8 +2151,10 @@ def test_every_right_click_menu_has_a_long_press_twin():
     per render. It is not counted here because the pattern above does not
     match it, which is the honest state of it rather than an oversight.
     """
-    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
-        text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
+    #: whiteboard-map.js since the mind map layer was split out of
+    #: whiteboard.js (2026-09-24); its node and edge menus came with it.
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
+        text = frontend_text(name)
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
@@ -1942,6 +2192,31 @@ def _fold_families(css: str, marker: str) -> set[str]:
     start = max(css.rfind("}", 0, hit), css.rfind("*/", 0, hit)) + 1
     block = re.sub(r"/\*.*?\*/", "", css[start:brace], flags=re.S)
     return set(re.findall(r"\.([a-z-]+)(?=(?:\[open\])? (?:details )?> summary)", block))
+
+
+def test_a_folded_settings_group_is_keyed_and_remembered() -> None:
+    """A whole Settings group that folds carries a unique key (DESIGN.md).
+
+    `wireSettingsFolds` keeps each fold's open state under its
+    `data-fold-key`, so a key used twice would open and close two groups
+    together, and a keyed `<details>` outside the fold recipe would have no
+    chevron. Each long pane's first group starts open, so a pane never opens
+    on nothing but closed rows.
+    """
+    raw = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    keyed = re.findall(r"<details([^>]*data-fold-key=\"([^\"]+)\"[^>]*)>", markup)
+    keys = [key for _, key in keyed]
+    assert len(keys) == len(set(keys)), f"a fold key used twice: {sorted(keys)}"
+    for attrs, key in keyed:
+        assert "settings-fold" in attrs, f"{key}: a keyed fold is `details.settings-fold`"
+    firsts: dict[str, bool] = {}
+    for attrs, key in keyed:
+        pane = key.split("-")[0]
+        firsts.setdefault(pane, " open" in attrs)
+    assert all(firsts.values()), f"a pane whose first fold starts closed: {firsts}"
+    js = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "wireSettingsFolds();" in js, "the folds' open state is remembered by wireSettingsFolds"
 
 
 def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
@@ -2132,7 +2407,7 @@ def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() ->
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     board = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
 
     menus = re.findall(r'<div id="(wb-[a-z-]+-menu)" class="wb-board-menu', html)
     assert len(menus) >= 5, (
@@ -2221,7 +2496,7 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     board's title, and a reference that resolves to nothing draws a tombstone
     saying what was there.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     editor = (ROOT / "frontend" / "editor.js").read_text(encoding="utf-8")
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
 
@@ -2254,3 +2529,475 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     )
     # The whole card is the control, not a link beside a picture.
     assert ".board-embed-open" in css, "the board object's button has no rules of its own"
+
+
+def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
+    """Below 600 the status bar is not on screen (INBOX 392, UI_MODERNISATION_PLAN
+    Phase 11 item 12): `dockPhoneStatus` moves Back, Undo and the AI dot into
+    the header and every other control is a row of the header's menu
+    (`PHONE_STATUS_ROWS`). A control added to the bar later with neither would
+    exist on a desktop and not on a phone, which Phase 11's decision forbids
+    ("nothing is hidden that the desktop has"). The notes count and the
+    palette hint, hidden below 720 by the bar's own band, and the clock, a
+    desktop opt-in, are the named exceptions."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = app_js_text()
+    footer = re.search(r'<footer[^>]*id="status-bar".*?</footer>', html, flags=re.S)
+    assert footer, "the status bar is gone from index.html"
+    ids = set(re.findall(r'<button[^>]*\bid="([^"]+)"', footer.group(0)))
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", app, flags=re.S)
+    assert rows, "PHONE_STATUS_ROWS is gone from app.js"
+    in_menu = set(re.findall(r'id: "([^"]+)"', rows.group(1)))
+    docker = app.split("function dockPhoneStatus", 1)[1][:2000]
+    for name in ("status-back", "status-undo", "ai-status"):
+        assert f'$("{name}")' in docker, f"{name} is no longer moved into the phone header"
+    moved = {"status-back", "status-undo", "ai-status"}
+    exceptions = {"status-notes", "status-command", "status-clock"}
+    # The transient ones bring the bar itself back while they show.
+    responsive_css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    transient = {name for name in ids if f"#{name}:not(.hidden" in responsive_css}
+    assert {"status-task", "status-activity"} <= transient, (
+        "a running job or an activity no longer brings the phone's status bar back"
+    )
+    # Three are rows of the tab bar's More sheet already, which is their way in.
+    more = app.split("function openPhoneMoreSheet", 1)[1][:4000]
+    in_more = {"status-reminders", "status-agent", "status-guide"}
+    assert '"reminders"' in app.split("const PHONE_MORE_TABS", 1)[1][:200], (
+        "Reminders left the More sheet, and the status bar's count was its phone way in"
+    )
+    for word in ("Ask the agent", "Guide"):
+        assert f'"{word}"' in more, f"'{word}' left the More sheet; give its status control a header row"
+    missing = sorted(ids - in_menu - moved - exceptions - transient - in_more)
+    assert not missing, (
+        f"status-bar controls with no way in on a phone: {missing}; add each to "
+        "PHONE_STATUS_ROWS (app.js), which makes it a row of the header menu"
+    )
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "--status-bar-h: 0px" in responsive, (
+        "the phone band no longer takes the status bar's height back"
+    )
+
+
+def test_a_menu_behind_a_button_is_an_action_sheet_on_a_phone() -> None:
+    """DESIGN.md, "A menu behind a button": below 600 both ⋯ builders open the
+    sheet recipe through `openKebabSheet` (INBOX 392: "a bottom sheet instead
+    of a popover"). A third builder, or one of these two losing the branch,
+    would put a popover back on a phone for that one menu."""
+    app = app_js_text()
+    for builder in ("function kebabMenu(", "function entryOverflowMenu("):
+        body = app.split(builder, 1)[1][:3000]
+        assert "PHONE_ACTION_SHEET" in body and "openKebabSheet(" in body, (
+            f"{builder.split('(')[0][9:]} no longer opens as an action sheet below 600"
+        )
+    sheet = app.split("function openKebabSheet(", 1)[1][:2500]
+    assert "openSheet(" in sheet and "has-submenu" in sheet, (
+        "openKebabSheet no longer uses the sheet recipe, or closes on a group's own row"
+    )
+
+
+def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
+    """DESIGN.md, "Hit targets": the 44px floor follows the pointer, not only
+    the width (INBOX 392). Measured with a touch context at 1024x768 before:
+    search boxes, sub-tabs and dock buttons at 36px and the status bar's items
+    at 28, because every floor was written for `max-width: 819.98px` and an
+    iPad in landscape is 1024. The `:root` token and the dock's own floor are
+    the two a regression would lose first."""
+    touch_query = "@media (max-width: 819.98px), (pointer: coarse)"
+    shell = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    token = re.search(r"@media[^{\n]*\{\s*:root\s*\{\s*--target-min:\s*2\.75rem;", shell)
+    assert token and token.group(0).startswith(touch_query), (
+        "the 44px --target-min is no longer declared for a coarse pointer at every width"
+    )
+    dock = re.search(r"@media[^{\n]*\{\s*\.dock button,", shell)
+    assert dock and dock.group(0).startswith(touch_query), (
+        "the dock's 44px floor is width-only again; a finger at 1024 gets 36px controls"
+    )
+
+
+def test_every_icon_only_button_meets_the_touch_floor() -> None:
+    """The icon-only floor, app-wide (uipolish-0924 item 3, OPEN.md 0.3.3).
+
+    A button with an icon and no words is only recognisable in a browser (its
+    words are an aria-label, its markup an `<i>` beside text nodes a selector
+    cannot see), so the measurement is `scratchpad/ui-sweeps/iconfloor.js`,
+    in `gate.sh --sweeps`: every icon-only button on every tab, a document, a
+    board and Settings, in a touch context, none under 44px (296 measured at
+    1024, 106 at 390, 0 under). What this holds statically is that the sweep
+    stays in the gate, and the one it found: the toast's close, a bare
+    `button` that no class floor reached (20x20 before)."""
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    sweeps = re.search(r"for s in ([^;]+); do step \"sweep-\$s\"", gate)
+    assert sweeps and "iconfloor" in sweeps.group(1).split(), "iconfloor.js left the --sweeps list"
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    block = re.search(
+        r"@media \(max-width: 819\.98px\), \(pointer: coarse\) \{\s*\.toast-close \{([^}]*)\}", css
+    )
+    assert block, "the toast's close lost its touch floor"
+    assert "min-width: var(--target-min)" in block.group(1)
+    assert "min-height: var(--target-min)" in block.group(1)
+
+
+def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
+    """A syntax error in a code document is the recipe DESIGN.md names (INBOX
+    392): CodeMirror's linter and completion list, restyled in `docCmTheme`
+    onto the app's tokens. The library's own lint and completion styles are
+    fixed colours (#d11, a red SVG squiggle, white on #17c), right on a white
+    page and wrong on the dark one; the underline is the prose findings'
+    shape so an error in code and a misspelling in prose are one idea."""
+    #: documents.js (the theme) and documents-code.js (docCodeTools, split
+    #: out of documents.js on 2026-09-24), joined.
+    docs = "\n".join(
+        (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        for name in ("documents.js", "documents-code.js")
+    )
+    theme = docs.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    for selector in (
+        '".cm-lintRange-error"',
+        '".cm-lint-marker-error"',
+        '".cm-diagnostic-error"',
+        '".cm-tooltip-autocomplete ul li[aria-selected]"',
+    ):
+        assert selector in theme, f"docCmTheme no longer restyles {selector}"
+    # The lint block of the theme, from its heading to the next one, with
+    # its comments taken out: the comments name the library's own colours on
+    # purpose, to say why they are restated.
+    lint = theme.split("a code file's diagnostics and completions", 1)[1].split("--- Live preview", 1)[0]
+    code = "\n".join(line for line in lint.splitlines() if not line.strip().startswith("//"))
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", code), (
+        "a hex colour in the code diagnostics' theme: use the app's tokens"
+    )
+    assert 'backgroundImage: "none"' in code, (
+        "the library's baked-in red squiggle is back under the app's own underline"
+    )
+    # The tools are for code only, and Plain turns them off.
+    tools = docs.split("function docCodeTools(CM) {", 1)[1].split("\n}\n", 1)[0]
+    assert "type.previewable" in tools and 'docView === "plain"' in tools, (
+        "the code tools no longer stand down for prose and for Plain"
+    )
+    # Never by running the file.
+    region = docs.split("// Code documents as a code editor", 1)[1].split("function docCmExtensions(CM)", 1)[0]
+    region = "\n".join(line for line in region.splitlines() if not line.strip().startswith("//"))
+    assert "new Function" not in region and "eval(" not in region, (
+        "a code check that executes the file: the CSP forbids it and it is not a check"
+    )
+
+
+def test_an_icon_picker_keeps_its_name_and_hides_its_word_by_clipping() -> None:
+    """The note strip's colour pickers are icons with a caret (the owner, at
+    the 1184px desktop window: "Preview" wrapped alone onto a second row).
+    The word leaves the row but not the accessibility tree: it is clipped,
+    never `display: none`, and the opener's name is the select's own
+    aria-label. The worded buttons follow the same rule where they go
+    icon-only."""
+    app = app_js_text()
+    enhance = app.split("function enhanceSelect(select) {", 1)[1].split("\nfunction ", 1)[0]
+    assert "select.dataset.selectIcon" in enhance and "select-opener-icon" in enhance, (
+        "enhanceSelect no longer draws the icon face data-select-icon asks for"
+    )
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector in (".select-opener-icon .select-value {", ".note-toolbar .toolbar-word {"):
+        assert selector in css, f"{selector} has no rule"
+        body = css.split(selector, 1)[1].split("}", 1)[0]
+        assert "clip-path" in body and "display: none" not in body, (
+            f"{selector} must clip the word, not remove it: it is the control's name"
+        )
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    bar = page.split('id="note-toolbar"', 1)[1].split('id="entry-content"', 1)[0]
+    assert bar.count('data-select-icon="') == 2, "the note strip's colour pickers are words again"
+    for select in re.findall(r"<select[^>]*data-select-icon[^>]*>", bar):
+        assert "aria-label=" in select and "title=" in select, (
+            "an icon picker needs an aria-label (its name) and a title (its hover text)"
+        )
+
+
+#: **The segmented-control radius table** (DESIGN.md, "Segmented controls";
+#: OPEN.md's App wide row). Measured 2026-09-21 and again 2026-09-23: five
+#: track radii in the app and none of them written down, so each new toggle
+#: picked one. The table names them, and this holds every rule that rounds a
+#: track to one of its rows, so a sixth cannot appear by a new rule reaching
+#: for whatever token was nearest. The value maps to the one context it is
+#: allowed in (None: anywhere).
+SEG_TRACK_RADII = {
+    "var(--radius-choice)": None,  # a choice control
+    "var(--radius-strip)": None,  # a sub-tab strip
+    "var(--radius-pill)": ".chat-dock-controls",  # the chat dock, a row of pills
+    "var(--radius-md)": ".dock",  # in a bar the control takes the bar's corner
+    "0": ".doc-sidebar-tabs",  # a full-bleed strip
+}
+
+
+def _seg_track_names() -> set[str]:
+    names = {
+        ".seg",
+        ".seg-compact",
+        ".segmented-control",
+        ".notes-subtabs",
+        ".library-subtabs",
+        ".doc-sidebar-tabs",
+        ".ocr-rail-switch",
+    }
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for tag in re.findall(r"<[a-z]+\s[^>]*>", page):
+        classes = re.search(r'class="([^"]*)"', tag)
+        ident = re.search(r'\sid="([^"]+)"', tag)
+        if (
+            classes
+            and ident
+            and re.search(r"(?<![\w-])(seg|segmented-control)(?![\w-])", classes.group(1))
+        ):
+            names.add("#" + ident.group(1))
+    return names
+
+
+def test_a_segmented_track_is_rounded_by_the_table() -> None:
+    names = _seg_track_names()
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius or selector.startswith("@"):
+                continue
+            value = " ".join(radius.group(1).replace("!important", "").split())
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                #: The last compound is the element the rule rounds: `.seg
+                #: button` rounds a segment, which is not what this table is
+                #: about, and `.dock .seg` rounds a track.
+                last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                if not set(re.findall(r"[.#][\w-]+", last)) & names:
+                    continue
+                if value not in SEG_TRACK_RADII:
+                    offenders.append(f"{path.name}: {part} -> {value}")
+                    continue
+                scope = SEG_TRACK_RADII[value]
+                if scope and scope not in part:
+                    offenders.append(f"{path.name}: {part} -> {value} (only under {scope})")
+    assert not offenders, (
+        "a segmented track rounded off the table (DESIGN.md, 'Segmented controls'):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+#: **Where a control may still be a capsule** (DESIGN.md, "Pills are rare, and
+#: never dashed"; INBOX 394 h). Every other rule that rounds a control to
+#: `--radius-pill` fails `test_a_control_is_a_pill_only_where_named`. The key
+#: is the selector as it is written, the value is why it earns the shape.
+PILL_CONTROLS = {
+    ".icon-btn": "a round icon button is a circle, not a pill",
+    ".lightbox-close": "a round button over a photo",
+    ".lightbox-nav": "a round button over a photo",
+    ".chat-jump-latest": "floats over the thread, the floating-action shape",
+    ".dock-fab": "the floating action button",
+    ".chat-dock-controls select": "the chat composer's row is pills (the radius table)",
+    ".chat-dock-controls>.chat-tool-group>button": "the chat composer's row is pills",
+    ".chat-dock-controls .chat-dock-more>button": "the chat composer's row is pills",
+    ".chat-dock-controls .seg": "the chat composer's row is pills",
+    ".chat-dock-controls .seg button": "the chat composer's row is pills",
+    ".chat-context-pill": "the context meter in the chat composer's row",
+    "#notif-btn.has-unread::after": "an unread dot",
+    ".notif-unread-chip": "a count badge",
+    ".selection-bar button": "a floating bar over a canvas",
+    ".wb-context button": "the board's floating context bar",
+    ".wb-map-strip>button.icon-only": "a round icon button in the map's floating strip",
+    '.wb-map-node[data-shape="pill"]': "a node shape the person picked",
+    "#entry-list .link-connection>.menu-wrap>button": "the round kebab inside a connection",
+}
+
+_PILL_CONTROL = re.compile(
+    r"(?<![\w-])(button|summary|select)(?![\w-])"
+    r"|chip|pill|btn|toggle|\.seg(?![\w-])|-close|-nav\b|jump|fab"
+)
+
+
+def test_a_control_is_a_pill_only_where_named() -> None:
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius or not re.search(r"radius-pill|\b9{3,}px", radius.group(1)):
+                continue
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                if not _PILL_CONTROL.search(last):
+                    continue
+                if re.sub(r"\s*>\s*", ">", part) not in PILL_CONTROLS:
+                    offenders.append(f"{path.name}: {part}")
+    assert not offenders, (
+        "a control drawn as a capsule outside PILL_CONTROLS (DESIGN.md, 'Pills are "
+        "rare'): use --radius-md for a button or a navigation row, --radius-sm for a "
+        "label, or add it with its reason:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_no_control_marks_itself_with_a_dashed_edge() -> None:
+    """A dashed edge is an empty slot; the dashboard's skill pills wore one to
+    say "this runs something", which read as a drop zone (INBOX 394 h)."""
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector, body in _rules(css):
+        if ".quick-link" in selector:
+            assert "dashed" not in body, f"{selector} is dashed again"
+
+
+def test_a_template_preview_is_the_page_the_row_would_make() -> None:
+    """DESIGN.md's recipe for a dialog of choices that each make something:
+    the preview is drawn by the function that creates the thing, so it cannot
+    describe a template differently from what it is, and it is inert and
+    hidden from a screen reader, which has each row's own hint."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    body = _function_body(docs, "showDocTemplatePreview")
+    assert "docTemplateFill(template)" in body and "renderMarkdown(" in body
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pane = re.search(r'<div id="doc-template-preview"[^>]*>', page)
+    assert pane and 'aria-hidden="true"' in pane.group(0) and "inert" in pane.group(0)
+
+
+def test_the_table_s_two_named_radii_are_tokens() -> None:
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert "--radius-choice:" in tokens and "--radius-strip:" in tokens
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "--radius-choice" in design and "--radius-strip" in design
+
+
+
+def test_a_search_and_read_pane_is_one_field_one_list_and_one_scroller() -> None:
+    """DESIGN.md's recipe index, the row for a side pane that searches and
+    reads (the chat tab's Web panel).
+
+    The owner, 2026-09-24: "the web browser sidebar needs a major improved
+    modern and professional redesign". Measured before
+    (`scratchpad/ui-sweeps/webpanel.js`): four boxed controls above the
+    results in two heights and two radii, the engine's state as a chip with a
+    worded Stop on its own row, and the page text in a bordered box that
+    scrolled inside a column that scrolled too. Each of those is the kind of
+    thing the next change puts back one piece at a time, so each is held here:
+
+    - the head is a `.panel-head` whose one fact is the engine dot, carrying
+      its words as a title and an accessible name, never a chip;
+    - the field is one well holding the glyph, the input and at most Stop,
+      which starts hidden (Enter searches; there is no Search button);
+    - the reader text draws no box and does not scroll: the reader is the
+      pane's one scroller.
+    """
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    start = page.index('<aside id="web-panel"')
+    panel = page[start : page.index("</aside>", start)]
+
+    head = re.search(r'<h3 class="panel-head web-panel-head">(.*?)</h3>', panel, re.S)
+    assert head, "the Web panel's head left the `h3.panel-head` recipe"
+    assert 'class="chip' not in head.group(1), "the engine state is a dot, not a chip"
+    dot = re.search(r'<span id="web-engine-dot"[^>]*>', head.group(1))
+    assert dot and 'role="img"' in dot.group(0) and "aria-label=" in dot.group(0) and "title=" in dot.group(0), (
+        "the engine dot carries its words as a title and an accessible name: colour is never the only signal"
+    )
+
+    field = re.search(r'<div class="web-search-field"[^>]*>(.*?)</div>', panel, re.S)
+    assert field, "the search field is one `.web-search-field` well"
+    buttons = re.findall(r"<button\b[^>]*>", field.group(1))
+    assert len(buttons) == 1 and 'id="web-stop"' in buttons[0] and "hidden" in buttons[0], (
+        "the field holds one button, Stop, hidden until something is loading; Enter searches"
+    )
+    assert 'id="web-go"' not in page, "a Search button beside the field is the form this replaced"
+
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector, body in _rules(css):
+        parts = [" ".join(p.split()) for p in selector.split(",")]
+        if any(p.endswith(".web-reader-text") for p in parts):
+            assert not re.search(r"overflow-y\s*:\s*(auto|scroll)", body), (
+                f"{selector}: the reader text scrolls again; the reader is the pane's one scroller"
+            )
+            assert not re.search(r"(?<![\w-])border\s*:\s*(?!0|none)", body), (
+                f"{selector}: the reader text is boxed again; a page is prose, not a field"
+            )
+
+
+def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
+    """DESIGN.md's recipe index, "A mark generated from a name".
+
+    The local profile's mark is deterministic from the display name, so the
+    person must draw the same mark in the chat, the Settings head and the
+    profile's head. A second builder, a holder the painter cannot find, or a
+    surface back on a generic glyph is how they would come to disagree after
+    a rename.
+    """
+    app = app_js_text()
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    #: The builder is avatars.js's since the faces were split out of app.js.
+    avatars = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+    assert avatars.count("function nameMark(") == 1, "the name mark is no longer drawn in one place"
+    for path in JS:
+        if path.name != "avatars.js":
+            assert "function nameMark(" not in path.read_text(encoding="utf-8"), (
+                f"{path.name} draws a second name mark"
+            )
+    painter = app.split("function paintUserMarks(", 1)[1].split("\nfunction ", 1)[0]
+    assert "[data-user-mark]" in painter and "nameMark(seed" in painter, (
+        "paintUserMarks no longer redraws every holder of the person's mark"
+    )
+    # Both heads are holders the painter can find.
+    assert 'id="profile-avatar" data-user-mark=' in html, "the profile head's mark is not painted"
+    assert re.search(r'id="settings-profile-btn"[^>]*>\s*<span[^>]*data-user-mark=', html), (
+        "the Settings head's mark is not painted"
+    )
+    # The chat's own bubble is a holder too, and never the old glyph.
+    bubble = app.split("function addBubble(", 1)[1].split("\nfunction ", 1)[0]
+    assert "dataset.userMark" in bubble and "nameMark(userMarkSeed()" in bubble, (
+        "the user's chat bubble no longer carries the profile's mark"
+    )
+    assert '"ph:user"' not in bubble, "the user's chat bubble went back to a generic glyph"
+    # Painted when the preferences arrive and after a save.
+    assert app.count("paintUserMarks();") >= 3, "the person's mark is not repainted on load and save"
+
+
+def test_a_whole_window_mode_leaves_one_fading_dock_with_a_way_out() -> None:
+    """DESIGN.md's recipe for a surface given the whole window (the documents
+    editor's focus mode, INBOX 425 i).
+
+    Four things a later edit could quietly break, each of which the owner
+    would only find by being stuck in the mode:
+
+    1. The floating dock is a labelled toolbar on the glass-panel recipe and
+       carries a worded Exit, so the way out is always a visible control and
+       never only a key.
+    2. Its idle state changes opacity and pointer events, nothing else: a fade
+       that moved or resized the dock would be a layout change on every wake.
+    3. The fade stops under reduced motion.
+    4. Escape asks before it leaves: bubble phase, not already spent by the
+       editor (`defaultPrevented`), and not while a dialog is open over the
+       page (`activeOverlay`). The first version listened in the capture
+       phase and left the mode underneath an open slash menu.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r"<div[^>]*id=\"doc-focus-bar\"[^>]*>", html)
+    assert tag, "the focus mode's floating dock is gone"
+    assert 'role="toolbar"' in tag.group(0) and "aria-label=" in tag.group(0)
+    assert "card glass" in tag.group(0), "the floating dock is not the glass-panel recipe"
+    bar = html[tag.start(): html.index("\n    </div>", tag.start())]
+    assert re.search(r'id="doc-focus-exit"[^>]*>.*Exit</button>', bar, flags=re.S), (
+        "the floating dock has no worded Exit"
+    )
+
+    idle = []
+    reduced = False
+    for path in CSS:
+        text = path.read_text(encoding="utf-8")
+        for selector, body in _rules(text):
+            if "doc-focus-idle" in selector and "doc-focus-bar" in selector:
+                idle.append(body)
+        stripped = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        for block in re.finditer(r"@media \(prefers-reduced-motion: reduce\) \{(.*?)\n\}", stripped, flags=re.S):
+            if "doc-focus-bar" in block.group(1) and "transition: none" in block.group(1):
+                reduced = True
+    assert idle, "no idle rule for the floating dock"
+    for body in idle:
+        props = {p.split(":")[0].strip() for p in body.split(";") if ":" in p}
+        assert props <= {"opacity", "pointer-events"}, f"the idle dock changes more than its opacity: {props}"
+    assert reduced, "the floating dock's fade has no reduced-motion block"
+
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    handler = docs.split('if (event.key !== "Escape" || event.defaultPrevented) return;', 1)
+    assert len(handler) == 2, "focus mode's Escape no longer checks that the editor did not spend it"
+    body = handler[1].split("});", 1)[0]
+    assert "docFocusOn()" in body and "activeOverlay()" in body, (
+        "focus mode's Escape no longer asks whether a dialog is open over the page"
+    )

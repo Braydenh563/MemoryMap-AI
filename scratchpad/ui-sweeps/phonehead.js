@@ -52,7 +52,12 @@ const { boot } = require('./lib.js');
   });
   console.log('menu', JSON.stringify(menu));
   if (!menu.open) findings.push('the More menu did not open');
-  if (menu.rows.length !== 4) findings.push('the More menu has ' + menu.rows.length + ' rows, not 4');
+  // The four app verbs end the menu; since INBOX 392 the status bar's own
+  // controls are the rows above them (`PHONE_STATUS_ROWS`), the bar being off
+  // a phone's screen.
+  const app = ['Light or dark', 'Settings', 'Lock', 'Quit MemoryMap'];
+  if (menu.rows.slice(-4).join('|') !== app.join('|')) findings.push('the More menu does not end with ' + app.join(', ') + ': ' + menu.rows.join(', '));
+  if (!menu.rows.includes('Recent places')) findings.push('the status bar rows are missing from the More menu');
   if (menu.lockShown === menu.lockBtnHidden) findings.push('the Lock row does not follow the lock button');
   if (menu.rowHeights.some((h) => h < 44)) findings.push('a menu row is under 44px on a phone: ' + menu.rowHeights.join('/'));
   await page.keyboard.press('Escape');

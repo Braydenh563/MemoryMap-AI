@@ -18,11 +18,15 @@
 //    gone simply stops being shown, and the counter renumbers.
 // 2. **Short, and in sections.** The owner: "the tour cant be too long
 //    because I dont want users skipping it or finding it too hard and giving
-//    up". The first run offers "The basics" alone, four steps; the rest are
-//    there to be asked for, whole or one section at a time, from Settings,
-//    help and guide. TOUR_SECTIONS is the one place that knows what a section
-//    is: the replay buttons are built from it, so a section added to that
-//    table needs no markup and no handler.
+//    up". A section is three to five cards and counts its own ("Graph, 2 of
+//    4"), and at its last card the tour offers the next section by name or a
+//    Finish, so every section is a place to stop and none is a place to get
+//    lost. The first run starts at "The basics" and chains on from there;
+//    Settings, help and guide starts at any section and chains on the same
+//    way (the owner, 2026-09-23: the other sections had to be found in
+//    Settings one at a time). TOUR_SECTIONS is the one place that knows what
+//    a section is: the replay buttons are built from it, so a section added
+//    to that table needs no markup and no handler.
 // 3. **It never traps anybody.** Skip is on every card, Escape does the same
 //    thing, the choice is remembered beside `onboardingDone`, and nothing
 //    here ever opens itself again once it has been finished or skipped.
@@ -42,7 +46,39 @@ const TOUR_PAD = 6; // how far the bright cut-out is held off the control
 //   title   three or four words
 //   text    one sentence, sentence case, no exclamation marks
 //   tab     the tab that has to be showing for the target to be visible
-//   notes   the Notes sub-tab ("capture", "browse") the target lives in
+//   notes   the Notes sub-tab ("capture", "browse", "writing-room", "ask")
+//           the target lives in
+//   or      a second selector, used when `target` is not on screen at this
+//           window size because the control has moved behind another one
+//           (on a phone Settings and Timeline live in More)
+//   orText  what the card says when it is pointing at `or` instead, which
+//           has to say where the control went, or the card describes a gear
+//           while lighting up a button labelled More
+//   library a Library sub-tab (its `data-target`) to press first
+//   wb      where the Boards & maps sub-tab has to be: "landing" (the list of
+//           boards), "board" or "map" (the newest one of that kind, opened;
+//           the tour never makes one, see `tourContext`)
+//   settings  the Settings section to open; the modal stays open between
+//           two steps that both name one, and closes for any other step
+//   unless  a name in TOUR_NEEDS, with `unlessText`: the words the card
+//           says instead when that is false of this notebook
+//   need    a name in TOUR_NEEDS: the step is kept only when that is true
+//           of this notebook when its section starts (a card's menu needs a
+//           card, a map's controls need a map)
+//   media   a media query the window must match for the step to be in the
+//           run at all, for a control that only exists on one side of a
+//           breakpoint (the chat list is a sidebar on a laptop and a button
+//           in the dock on a phone)
+//
+//: **Every main feature has a section, and a section walks INTO it** (the
+//: owner, 2026-09-23: "If I want to do the other sections of the tour, I have
+//: to go into the help settings and click the other tour section buttons, and
+//: they dont guide me through the other main features"). The old four
+//: sections pointed at the Graph, Timeline and Library *tab buttons* and said
+//: what was behind them; each section here opens the feature and points at
+//: three to five of its own controls, one sentence each. They are played one
+//: after the other: the last card of a section offers the next one by name,
+//: so no run ever needs Settings to find the rest.
 const TOUR_SECTIONS = [
   {
     id: "basics",
@@ -65,112 +101,476 @@ const TOUR_SECTIONS = [
         target: "#ai-status",
         side: "top",
         title: "Atlas, on this machine",
-        text: "This dot says what the local model is doing. Nothing you write is ever sent anywhere.",
+        text: "This dot says what the local model is doing. It runs on this computer, so your notes are never sent away to be read.",
       },
       {
         target: "#settings-btn",
         side: "bottom",
         title: "Settings",
         text: "Themes, the model, backups and this tour again all live behind the gear.",
+        or: "#phone-more-btn",
+        orText: "Settings is in More on a small screen: themes, the model, backups and this tour again.",
       },
     ],
   },
   {
-    id: "note",
-    label: "Writing a note",
-    blurb: "The core loop: type, file, save",
+    id: "notes",
+    label: "Notes",
+    blurb: "Capture, your notes, writing with Atlas and asking",
     steps: [
       {
         target: "#entry-content",
         side: "bottom",
         tab: "notes",
         notes: "capture",
-        title: "Type anything",
-        text: "A thought, a list, a link. Type [[two brackets]] to point at another note by its first few words.",
-      },
-      {
-        target: "#entry-category",
-        side: "top",
-        tab: "notes",
-        notes: "capture",
-        title: "Filing is automatic",
-        text: "Leave the category alone and Atlas files the note for you, or set it here when you would rather decide.",
-      },
-      {
-        target: "#entry-tags",
-        side: "top",
-        tab: "notes",
-        notes: "capture",
-        title: "Tags, if you want them",
-        text: "Optional and comma separated, and Atlas suggests some as you type.",
+        title: "Capture a thought",
+        text: "Type anything here: a thought, a list, a link. Two square brackets point at another note.",
       },
       {
         target: "#save-btn",
         side: "top",
         tab: "notes",
         notes: "capture",
-        title: "Save",
-        text: "That is the whole loop. Save as draft keeps a note out of the notebook until you are ready.",
+        title: "Save it",
+        text: "Save files the note, and Atlas picks its category unless you set one.",
       },
-    ],
-  },
-  {
-    id: "finding",
-    label: "Finding things",
-    blurb: "Search, filters and asking questions",
-    steps: [
       {
         target: "#note-search",
         side: "bottom",
         tab: "notes",
         notes: "browse",
-        title: "Search your notes",
-        text: "Type a word here to filter the list as you go.",
+        title: "Your notes",
+        text: "Every note you have saved is listed here. Type to filter the list as you go.",
       },
       {
-        target: "#notes-filter-menu",
+        target: "#draft-thoughts",
+        side: "right",
+        tab: "notes",
+        notes: "writing-room",
+        title: "Write with Atlas",
+        text: "Put rough thoughts here, in any order, and Atlas drafts them into finished writing.",
+      },
+      {
+        target: "#question",
         side: "bottom",
         tab: "notes",
-        notes: "browse",
-        title: "Match by meaning",
-        text: "Semantic search finds notes that mean the same thing without sharing a word with what you typed.",
+        notes: "ask",
+        title: "Ask your notes",
+        text: "Ask a question and the answer comes from your own notes, with the ones it used.",
       },
+    ],
+  },
+  {
+    id: "chat",
+    label: "Chat",
+    blurb: "Conversations with Atlas about your notes",
+    steps: [
       {
-        target: "#status-command",
+        target: "#chat-input",
         side: "top",
-        title: "Jump anywhere",
-        text: "Ctrl and K, or a press here, opens the command palette to search and to run anything by name.",
+        tab: "chat",
+        title: "Ask anything",
+        text: "Type a question here. Atlas answers from your notes and names the ones it read.",
       },
       {
-        target: "#tab-btn-chat",
+        target: "#chat-mode-seg",
+        side: "top",
+        tab: "chat",
+        title: "Ask or act",
+        text: "Ask only reads. Agent mode can also tag, link and organise, and asks before anything it cannot undo.",
+      },
+      {
+        target: "#chat-dock-more-btn",
+        side: "top",
+        tab: "chat",
+        title: "Length and persona",
+        text: "This gear sets how long the answers are and which persona gives them.",
+      },
+      {
+        target: "#conversation-list",
+        side: "right",
+        tab: "chat",
+        media: "(min-width: 600px)",
+        title: "Your conversations",
+        text: "Every chat is kept here. Pick one to carry on where you left off.",
+      },
+      {
+        target: ".phone-sidebar-opener[aria-controls=chat-sidebar]",
         side: "bottom",
-        title: "Ask your notebook",
-        text: "Chat answers questions from your own notes, and cites the ones it used.",
+        tab: "chat",
+        media: "(max-width: 599.98px)",
+        title: "Your conversations",
+        text: "This opens every chat you have had. Pick one to carry on where you left off.",
+      },
+    ],
+  },
+  {
+    id: "graph",
+    label: "Graph",
+    blurb: "A map of how your notes connect",
+    steps: [
+      {
+        target: "#graph-zoom",
+        side: "left",
+        tab: "graph",
+        title: "Moving around",
+        text: "Drag the map to move, zoom here or with the wheel, and click a note to open it.",
+      },
+      {
+        target: "#graph-search",
+        side: "bottom",
+        tab: "graph",
+        title: "Highlight notes",
+        text: "Type a word and the notes that match it light up on the map.",
+      },
+      {
+        target: "#graph-view-menu",
+        side: "bottom",
+        tab: "graph",
+        // Below 600 the gear is the one way in (10-responsive.css, Phase 11).
+        media: "(min-width: 600px)",
+        title: "The View menu",
+        text: "View changes the layout, what the colours mean and which notes are drawn.",
+      },
+      {
+        target: "#graph-options-toggle",
+        side: "bottom",
+        tab: "graph",
+        title: "Display options",
+        text: "Options set how tightly notes pull together and what the map shows.",
+      },
+    ],
+  },
+  {
+    id: "library",
+    label: "Library",
+    blurb: "Everything you have made, in one place",
+    steps: [
+      {
+        target: "#library-subtabs",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-documents",
+        title: "One place for everything",
+        text: "All, documents, boards and maps, images and files each have a sub-tab here.",
+      },
+      {
+        target: "#library-search",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-documents",
+        title: "Search the library",
+        text: "Find anything you have kept by a word in it.",
+      },
+      {
+        target: "#library-grid .library-card-menu > button",
+        side: "left",
+        tab: "library",
+        library: "library-view-documents",
+        need: "entries",
+        title: "A card's menu",
+        text: "Every card has one: open it, chat about it, export it or put it away.",
+      },
+      {
+        target: "#library-new-doc",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-documents",
+        title: "Make something new",
+        text: "Create starts a new note, document, board or mind map.",
+      },
+      {
+        target: "#library-subtab-docs",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-documents",
+        title: "Documents",
+        text: "Long pieces of writing live here, and each one opens in its own editor.",
+      },
+    ],
+  },
+  {
+    id: "boards",
+    label: "Boards",
+    blurb: "Free canvases for cards, sketches and shapes",
+    steps: [
+      {
+        target: "#wb-boards-new",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "landing",
+        title: "New board",
+        text: "New board starts an empty canvas that you arrange by hand. Every board and map you make is listed below it.",
+      },
+      {
+        target: "#wb-tool-group",
+        side: "top",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "board",
+        title: "The tools",
+        text: "Select, pan, draw, and add shapes and pictures from this rail.",
+        or: "#wb-tools-opener",
+        orText: "On a small screen this button opens the tools: select, pan, draw, shapes and pictures.",
+      },
+      {
+        target: "#wb-add-note",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "board",
+        title: "Notes on a board",
+        text: "Notes opens your notebook beside the board, so you can drag any note on as a card.",
+      },
+      {
+        target: "#wb-back-to-boards",
+        side: "bottom",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "board",
+        title: "Back to the list",
+        text: "This goes back to every board and mind map you have made.",
       },
     ],
   },
   {
     id: "maps",
-    label: "Boards and maps",
-    blurb: "The graph, the timeline and the library",
+    label: "Mind maps",
+    blurb: "Ideas that branch out from one centre",
     steps: [
       {
-        target: "#tab-btn-graph",
+        target: "#wb-boards-new-map",
         side: "bottom",
-        title: "The map",
-        text: "Graph draws how your notes connect, and lets you drag and zoom around them.",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "landing",
+        title: "New mind map",
+        text: "New mind map starts from one central idea. Inside it, Tab adds a branch and Enter adds one beside it.",
+        //: Said instead when the notebook has no map yet (INBOX 426 y): the
+        //: map's own cards are dropped from the run then, and this card is
+        //: the one that says why and what to press.
+        unless: "map",
+        unlessText: "You have no mind map yet, so this is where one starts: New mind map begins from one central idea, and inside it Tab adds a branch and Enter adds one beside it. Its own tools are shown once you have one.",
+        or: "#library-boards-more",
+        orText: "New mind map is in More on a small screen. It starts from one idea; Tab adds a branch.",
       },
       {
-        target: "#tab-btn-timeline",
-        side: "bottom",
-        title: "In order",
-        text: "Timeline is the same notebook by time, which is the view that shows a thread taking shape.",
+        target: "#wb-map-add-root",
+        side: "top",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "map",
+        need: "map",
+        media: "(min-width: 600px)",
+        title: "Add a topic",
+        text: "This adds a new top-level topic beside the ones the map already has.",
       },
       {
-        target: "#tab-btn-library",
+        target: "#wb-map-focus-here",
+        side: "top",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "map",
+        need: "map",
+        media: "(min-width: 600px)",
+        title: "Focus on a branch",
+        text: "This shows the selected branch and its neighbours, and hides the rest.",
+      },
+      {
+        target: "#wb-map-tidy",
+        side: "top",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "map",
+        need: "map",
+        media: "(min-width: 600px)",
+        title: "Tidy the layout",
+        text: "This lays every topic you have not pinned out again, neatly.",
+      },
+      {
+        // Below 600 the map's rail is one button that opens it as a sheet.
+        target: "#wb-tools-opener",
+        side: "top",
+        tab: "library",
+        library: "library-view-whiteboard",
+        wb: "map",
+        need: "map",
+        media: "(max-width: 599.98px)",
+        title: "The map's tools",
+        text: "This opens the map's tools: add a topic, focus on one branch, or tidy the layout.",
+      },
+    ],
+  },
+  {
+    id: "timeline",
+    label: "Timeline",
+    blurb: "Your notebook in the order it happened",
+    steps: [
+      {
+        target: "#timeline-view-seg",
         side: "bottom",
-        title: "Everything you made",
-        text: "Library holds boards, mind maps, documents and every file you have added.",
+        tab: "timeline",
+        title: "Feed or table",
+        text: "Read your notebook as a feed, day by day, or as a table you can sort.",
+        // Below 1100 the dock folds this switch into Options (app.js,
+        // `foldDockArrange`); Options also groups by time, so its own card
+        // is left to the wide window.
+        or: "#timeline-options-menu",
+        orText: "On a smaller window Options holds the feed or table switch, and groups the timeline by day, week or month.",
+      },
+      {
+        target: "#timeline-kinds-menu",
+        side: "bottom",
+        tab: "timeline",
+        title: "Choose the kinds",
+        text: "Kinds picks what is shown: notes, boards, documents and reminders.",
+      },
+      {
+        target: "#timeline-options-menu",
+        side: "bottom",
+        tab: "timeline",
+        // Below 1100 the view switch folds into Options, and the card before
+        // this one already points there (its `or`).
+        media: "(min-width: 1100px)",
+        title: "Group by time",
+        text: "Options groups the timeline by day, week, month or year.",
+      },
+      {
+        target: "#timeline-jump-today",
+        side: "bottom",
+        tab: "timeline",
+        title: "Back to today",
+        text: "Today scrolls the timeline back to now.",
+      },
+    ],
+  },
+  {
+    id: "reminders",
+    label: "Reminders",
+    blurb: "Things to be told about later",
+    steps: [
+      {
+        target: "#reminder-magic",
+        side: "bottom",
+        tab: "reminders",
+        title: "Say it in words",
+        text: "Type a reminder as a sentence, call mum tomorrow evening, and the local model sets the time.",
+        // Below 1100 the form is a sheet that New reminder opens (app.js,
+        // `openReminderCompose`), so the card points at the door to it.
+        or: "#reminders-new",
+        orText: "Add a reminder opens the form: type one as a sentence and the local model sets the time.",
+      },
+      {
+        target: "#reminder-presets-menu",
+        side: "bottom",
+        tab: "reminders",
+        media: "(min-width: 1100px)",
+        title: "Quick set",
+        text: "Quick set picks a common time, in an hour or tonight, in one press.",
+      },
+      {
+        target: "#reminder-filter",
+        side: "top",
+        tab: "reminders",
+        title: "Your reminders",
+        text: "Everything you have set is listed below. These show what is open, done or all of it.",
+      },
+      {
+        target: "#reminder-view-toggle",
+        side: "bottom",
+        tab: "reminders",
+        title: "List or calendar",
+        text: "See your reminders as a list, or laid out on a calendar by day.",
+        // Below 1100 the dock folds its arrange zone into More (app.js,
+        // `foldDockArrange`).
+        or: "#reminders-more-menu",
+        orText: "More holds the list or calendar switch on a smaller window, with the sorting.",
+      },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    blurb: "Appearance, the model and help",
+    steps: [
+      {
+        target: "#settings-search",
+        side: "right",
+        settings: "appearance",
+        title: "Search settings",
+        text: "Type what you are after and the matching settings are found for you.",
+      },
+      {
+        target: "#settings-nav-appearance",
+        side: "right",
+        media: "(min-width: 640.02px)",
+        settings: "appearance",
+        title: "Appearance",
+        text: "Themes, colours, fonts and the look of every surface.",
+      },
+      {
+        target: "#avatar-buddy-row",
+        side: "left",
+        settings: "appearance",
+        title: "A companion",
+        text: "Turn on a small character that finds a free spot on each page and reacts to what you do.",
+      },
+      {
+        target: "#settings-nav-models",
+        side: "right",
+        media: "(min-width: 640.02px)",
+        settings: "models",
+        title: "Models",
+        text: "Which local model Atlas runs on, and how to connect one.",
+      },
+      {
+        target: "#settings-nav-help",
+        side: "right",
+        media: "(min-width: 640.02px)",
+        settings: "help",
+        title: "Help and this tour",
+        text: "Guides, the welcome and every part of this tour, whenever you want them again.",
+      },
+      {
+        // At 640 and below the section list is this one picker.
+        target: "#settings-nav .settings-jump",
+        side: "bottom",
+        settings: "appearance",
+        media: "(max-width: 640px)",
+        title: "Every section",
+        text: "Pick a section here: Appearance for the look, Models for Atlas, Help for this tour again.",
+      },
+    ],
+  },
+  {
+    id: "status",
+    label: "Status bar",
+    blurb: "Shortcuts along the bottom edge, from any tab",
+    steps: [
+      {
+        target: "#status-command",
+        side: "top",
+        title: "Commands",
+        text: "Ctrl and K, or a press here, searches and runs anything by name.",
+      },
+      {
+        target: "#status-agent",
+        side: "top",
+        title: "Ask",
+        text: "Ask the agent to do something for you, from any tab.",
+      },
+      {
+        target: "#status-guide",
+        side: "top",
+        title: "Guide",
+        text: "Ask Atlas how the app works without leaving the page you are on.",
+      },
+      {
+        target: "#status-find",
+        side: "top",
+        title: "Find",
+        text: "Search every note, document and file you keep, and the app itself.",
       },
     ],
   },
@@ -209,11 +609,19 @@ function tourVisible(el) {
   if (box.width < 1 || box.height < 1) return false;
   const style = getComputedStyle(el);
   if (style.visibility === "hidden" || style.display === "none") return false;
+  //: A fourth way: **inside a closed `<details>`**, and it is how a docked
+  //: control folded into a dock's ⋯ looks. The menu's list keeps its layout
+  //: box while the menu is shut (measured at 390: New mind map, folded into
+  //: the boards dock's ⋯, answered a 241x36 box with nothing painted), so
+  //: every check above says yes to a button nobody can see. Only the
+  //: menu's own summary is on screen.
+  const shut = el.parentElement?.closest("details:not([open])");
+  if (shut && !shut.querySelector(":scope > summary")?.contains(el)) return false;
   return Number(style.opacity || "1") > 0.05;
 }
 
 //: The element a step actually points at, which is not always the element it
-//: names. `enhanceSelect` (app.js) wraps every `<select>` in the app in a
+//: names. `enhanceSelect` (sheets-selects.js) wraps every `<select>` in the app in a
 //: `.select-shell` and puts a button in front of it, leaving the native
 //: control in place but out of the layout: measured on the capture form's
 //: category picker, `#entry-category` is a 0x0 box behind a 129x30 opener, so
@@ -247,6 +655,69 @@ function tourOnScreen(el) {
   return across >= TOUR_ON_SCREEN_MIN && down >= TOUR_ON_SCREEN_MIN;
 }
 
+//: **On screen is not the same as in front**, and this is the case that made
+//: every step after the first look broken (2026-09-23, measured). A control
+//: can be laid out, inside the window and at full opacity while a sheet, the
+//: command palette, the features browser or the shortcut sheet is drawn over
+//: it. The tour then cut its hole around the control and the hole showed the
+//: overlay: with the Atlas guide open, all four steps of the basics answered
+//: `elementFromPoint` with `.sheet-overlay`, not the control. `tourVisible`
+//: and `tourOnScreen` both said yes to every one of them.
+//:
+//: So a target is also asked what is actually on top of it, at five points
+//: rather than one (a toast or a floating button over one corner is not a
+//: covered control), ignoring the tour's own layers, which are drawn around
+//: the hole and never in it. A point that lands on the control, on something
+//: inside it, or on an ancestor of it (the gap between two tab buttons is the
+//: tab bar) counts as uncovered.
+//:
+//: **A toast is not an overlay.** It is gone in seconds, and one that
+//: happens to be up when a step is judged used to cost that step for good:
+//: measured, a section finished with Finish leaves its "That is the tour"
+//: toast over the bottom of the window, and the next run's Chat mode and
+//: Graph zoom steps were dropped under it. `#toast-box` is skipped like the
+//: tour's own layers.
+function tourCovered(el) {
+  if (!el) return true;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const box = el.getBoundingClientRect();
+  let counted = 0;
+  let covered = 0;
+  for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.3], [0.8, 0.3], [0.2, 0.7], [0.8, 0.7]]) {
+    const x = box.left + box.width * fx;
+    const y = box.top + box.height * fy;
+    if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
+    counted += 1;
+    const top = document
+      .elementsFromPoint(x, y)
+      .find((node) => !node.closest("#tour-block, #tour-spot, #tour-card, #toast-box"));
+    if (!top || !(el.contains(top) || top.contains(el))) covered += 1;
+  }
+  return counted === 0 || covered * 2 > counted;
+}
+
+//: Which element a step points at right now, and whether it is the step's
+//: own control or its `or` one. The first of the two that is laid out wins,
+//: so a window resized across the phone breakpoint moves the card from the
+//: gear to More and back instead of dropping the step and renumbering the
+//: counter under the person's eyes. When neither is laid out the step's own
+//: element is returned, so the caller's "nothing to point at" is a judgement
+//: about the control the step is really about.
+function tourResolve(step) {
+  const own = tourAnchorFor(document.querySelector(step.target));
+  if (tourVisible(own) || !step.or) return { el: own, alt: false };
+  const other = tourAnchorFor(document.querySelector(step.or));
+  if (tourVisible(other)) return { el: other, alt: true };
+  return { el: own, alt: false };
+}
+
+//: The whole judgement in one place: a box, inside the window, with nothing
+//: of anybody else's drawn over it.
+function tourUsable(el) {
+  return tourVisible(el) && tourOnScreen(el) && !tourCovered(el);
+}
+
 //: **Set, measure, correct by the difference, never trust the first number.**
 //: DESIGN.md's rule for any popup placed in the window's own coordinates, and
 //: it is not defensive programming: a `position: fixed` element takes its
@@ -258,15 +729,100 @@ function tourOnScreen(el) {
 //: anyway: it costs one extra `getBoundingClientRect` per step and it is the
 //: difference between a card beside a button and a card in another postcode.
 function tourPlaceFixed(el, left, top) {
-  el.style.left = `${Math.round(left)}px`;
-  el.style.top = `${Math.round(top)}px`;
-  const box = el.getBoundingClientRect();
-  const dx = left - box.left;
-  const dy = top - box.top;
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-    el.style.left = `${Math.round(left + dx)}px`;
-    el.style.top = `${Math.round(top + dy)}px`;
+  //: **Measured against a probe that never moves, then checked a frame
+  //: later** (INBOX 397, the owner's desktop window, three reports). The
+  //: old pass wrote a position, read the element straight back and added
+  //: the difference. That is right for a containing block and wrong for
+  //: anything that makes the element's own box lag behind its style (a
+  //: transition, an animation, a compositor that has not caught up): the
+  //: read-back is where the box *was*, the "correction" doubles the move,
+  //: and the owner's screenshots show exactly that, the ring the right size
+  //: and 620px to one side, right on one run and left on the next, with the
+  //: card thrown off the window the same way. Headless Chromium never showed
+  //: it at any size, scale or with real scrollbars.
+  //:
+  //: The frame's origin is read from `#tour-origin`, a 0x0 fixed box at
+  //: 0,0 in the same parent that nothing ever moves, so an ancestor's
+  //: filter or transform is still accounted for, and the element's own
+  //: state cannot poison the number. The element is then read back once,
+  //: after a frame, and nudged only if it is still somewhere else.
+  //:
+  //: **No nudge a frame later any more** (INBOX 426 y, image 87: after "Next:
+  //: Notes" the ring was drawn in the wrong corner, and the log said
+  //: "tour-spot asked for 336,275, drew at 1128,4; moved"). The nudge added
+  //: the difference it read one frame on, and a frame is not long enough
+  //: for a tab switch to settle: whatever was still moving then (the frame
+  //: the layers are laid out in, the control itself) moved again after the
+  //: nudge, and the nudge's own distance was left in. The wanted box is kept
+  //: on the element instead, and `tourWatchFrame` compares it with what is
+  //: drawn on every frame the tour is up, placing again from a fresh origin
+  //: whenever the two disagree, for as long as they do.
+  const origin = tourOrigin();
+  el.style.left = `${Math.round(left - origin.left)}px`;
+  el.style.top = `${Math.round(top - origin.top)}px`;
+  el._tourWant = { left: Math.round(left), top: Math.round(top) };
+}
+
+//: **The tour follows what it points at, every frame it is up** (INBOX 426
+//: y). A step was placed once, when its control's box had held still for
+//: two frames, and again only on a resize or a scroll event. A control can
+//: move without either: content loading above it (a tab's list arriving, a
+//: face drawn, a fold opening), a transform settling on a layer between it
+//: and the window. Images 95 and 96 are that: the companion step's card over
+//: its own control until Next then Back placed it again. So while a card is
+//: showing, each frame reads the control's box and where the card and the
+//: ring were actually drawn, and places the step again when the control
+//: moved or either layer is not where it was asked to be. One
+//: `getBoundingClientRect` of each per frame; a layer that refuses to land
+//: (something outside the tour holding it) is left alone after ten tries
+//: rather than chased for ever.
+function tourWatch() {
+  if (tourWatch.frame) return;
+  tourWatch.frame = requestAnimationFrame(tourWatchFrame);
+}
+
+function tourWatchFrame() {
+  tourWatch.frame = 0;
+  const run = tourRun;
+  if (!run) return;
+  tourWatch.frame = requestAnimationFrame(tourWatchFrame);
+  const card = document.getElementById("tour-card");
+  if (!run.el || !card || card.getAttribute("aria-busy") === "true") return;
+  const box = run.el.getBoundingClientRect();
+  const key = [box.left, box.top, box.width, box.height].map(Math.round).join(",");
+  const drift = (el) => {
+    if (!el || el.classList.contains("hidden") || !el._tourWant) return false;
+    const drawn = el.getBoundingClientRect();
+    return Math.abs(drawn.left - el._tourWant.left) > 1.5 || Math.abs(drawn.top - el._tourWant.top) > 1.5;
+  };
+  const moved = key !== run.watchKey;
+  const off = drift(card) || drift(document.getElementById("tour-spot"));
+  if (!moved && !off) {
+    run.watchMisses = 0;
+    return;
   }
+  run.watchKey = key;
+  if (!moved && (run.watchMisses = (run.watchMisses || 0) + 1) > 10) return;
+  if (!tourVisible(run.el) || !tourOnScreen(run.el)) return;
+  tourPosition();
+}
+
+//: The window-coordinate origin of the frame the tour's layers are laid out
+//: in: (0, 0) unless an ancestor gives fixed boxes a frame of its own.
+function tourOrigin() {
+  let probe = document.getElementById("tour-origin");
+  if (!probe) {
+    probe = document.createElement("div");
+    probe.id = "tour-origin";
+    probe.setAttribute("aria-hidden", "true");
+    for (const [k, v] of Object.entries({
+      position: "fixed", left: "0px", top: "0px", width: "0px", height: "0px",
+      visibility: "hidden", pointerEvents: "none", transition: "none", animation: "none",
+    })) probe.style[k] = v;
+    const card = document.getElementById("tour-card");
+    (card?.parentElement || document.body).appendChild(probe);
+  }
+  return probe.getBoundingClientRect();
 }
 
 function tourClamp(value, low, high) {
@@ -484,6 +1040,21 @@ function tourSpotlight(target) {
 //: walks every scrolling ancestor including the page, which here would mean
 //: the whole tab shifting under a card already positioned against it.
 function tourBringIntoView(el) {
+  //: Sideways first, for the docks that scroll along instead of wrapping on
+  //: a phone: measured at 390, the Timeline's Feed or table switch sat at x
+  //: 192 to 417 in a 390 window, a third of it past the edge, and the card
+  //: then lit a control you could not see all of.
+  for (let row = el.parentElement; row && row !== document.body; row = row.parentElement) {
+    const across = getComputedStyle(row);
+    if (/(auto|scroll)/.test(across.overflowX) && row.scrollWidth > row.clientWidth + 1) {
+      const box = el.getBoundingClientRect();
+      const host = row.getBoundingClientRect();
+      if (box.left < host.left + TOUR_EDGE || box.right > host.right - TOUR_EDGE) {
+        row.scrollLeft += box.left - host.left - Math.max(0, (host.width - box.width) / 2);
+      }
+      break;
+    }
+  }
   const vh = document.documentElement.clientHeight;
   let node = el.parentElement;
   while (node && node !== document.body) {
@@ -556,14 +1127,43 @@ function tourPosition() {
     );
     return;
   }
-  const place = tourChoose(target, tourRun.step.side, size);
+  const place = tourSheetPlace(target, size) || tourChoose(target, tourRun.step.side, size);
   card.dataset.side = place.name;
   tourPlaceFixed(card, place.left, place.top);
 }
 
+//: The phone's card is a sheet, docked to the edge of the window away from the
+//: control, the width of the window less its gutters (the width is CSS's,
+//: `.tour-card` under the phone breakpoint). A 336px card placed beside a
+//: control on a 390px screen had nowhere to go but on top of the page's other
+//: half, and its position jumped from step to step as the controls moved
+//: between the header and the tab bar; a sheet that only ever sits at the top
+//: or the bottom is the phone's own shape for "something about this screen".
+//: Null above the breakpoint, and null when the control is so tall that both
+//: docks would cover it, where the side-by-side placer does better.
+const TOUR_SHEET_QUERY = "(max-width: 599.98px)";
+
+function tourSheetPlace(target, size) {
+  if (!window.matchMedia(TOUR_SHEET_QUERY).matches) return null;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const left = tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width));
+  const docks = {
+    "docked-bottom": { left, top: Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height) },
+    "docked-top": { left, top: TOUR_EDGE },
+  };
+  const lowHalf = target.top + target.height / 2 > vh / 2;
+  const order = lowHalf ? ["docked-top", "docked-bottom"] : ["docked-bottom", "docked-top"];
+  for (const name of order) {
+    const box = { ...docks[name], width: size.width, height: size.height };
+    if (tourOverlap(box, target) === 0) return { name, ...box };
+  }
+  return null;
+}
+
 function tourRender() {
   const run = tourRun;
-  const total = run.steps.length;
+  const place = tourSectionPlace(run);
   document.getElementById("tour-section").textContent = run.step.sectionLabel;
   //: **A stranded step still says something** (INBOX 315). `run.el` is null
   //: when the last step of a run has nothing on screen to point at: the tour
@@ -572,18 +1172,57 @@ function tourRender() {
   //: itself instead of pointing at a corner of the window.
   const card = document.getElementById("tour-card");
   card?.classList.toggle("tour-card-stranded", Boolean(run.stranded));
-  // "3 of 7", the owner's "card tutorial tour numbers". It counts the steps of
-  // THIS run (one section, or all of them), and it renumbers when a step is
-  // dropped for having no element, so it can never promise a step the tour is
-  // not going to show.
-  document.getElementById("tour-count").textContent = `${run.index + 1} of ${total}`;
+  // "2 of 4", the owner's "card tutorial tour numbers", beside the section's
+  // chip, so the head reads "Graph, 2 of 4". It counts THIS section's steps
+  // in this run, not the whole run: forty-odd cards counted as one number
+  // reads as a chore, four reads as a moment. It renumbers when a step is
+  // dropped for having no element, so it can never promise a step the tour
+  // is not going to show.
+  document.getElementById("tour-count").textContent = `${place.at + 1} of ${place.total}`;
   document.getElementById("tour-title").textContent = run.step.title;
+  const lacking = run.step.unless && run.context && !TOUR_NEEDS[run.step.unless]?.(run.context);
+  const text = run.alt && run.step.orText
+    ? run.step.orText
+    : lacking && run.step.unlessText
+      ? run.step.unlessText
+      : run.step.text;
   document.getElementById("tour-text").textContent = run.stranded
-    ? `${run.step.text} This control is not on screen at this window size, so there is nothing to point at here.`
-    : run.step.text;
+    ? `${text} This control is not on screen at this window size, so there is nothing to point at here.`
+    : text;
   document.getElementById("tour-back").disabled = run.index === 0;
-  document.getElementById("tour-next").textContent =
-    run.index === total - 1 ? "Done" : "Next";
+  //: **The last card of a section names the next one** (the owner,
+  //: 2026-09-23). "Next: Chat" is the primary and goes straight on into that
+  //: section without leaving the tour; the ghost on the other end of the row
+  //: becomes "Finish", which ends the tour as a finish (remembered, and the
+  //: toast says where the rest is) rather than as a skip. The very last card
+  //: of the run says Done.
+  const next = document.getElementById("tour-next");
+  const skip = document.getElementById("tour-skip");
+  next.textContent = place.next
+    ? `Next: ${place.next}`
+    : run.index >= run.steps.length - 1
+      ? "Done"
+      : "Next";
+  skip.textContent = place.next ? "Finish" : "Skip";
+  run.atSectionEnd = Boolean(place.next);
+}
+
+//: Where the current step sits in its own section, and what comes after it.
+//: The run is one flat list across every section it will play, so Back walks
+//: into the previous section as naturally as Next walks into the next one,
+//: and the section is read off each step. That is also what keeps the count
+//: honest: a step dropped from the run is dropped from its section's count.
+function tourSectionPlace(run) {
+  const here = run.steps[run.index] || run.step;
+  const id = here.sectionId;
+  const mine = run.steps.filter((step) => step.sectionId === id);
+  const following = run.steps[run.index + 1];
+  const last = !following || following.sectionId !== id;
+  return {
+    at: Math.max(0, mine.indexOf(here)),
+    total: Math.max(1, mine.length),
+    next: last && following ? following.sectionLabel : "",
+  };
 }
 
 async function tourFrame() {
@@ -625,37 +1264,106 @@ function tourActiveTab() {
 //: rather than on a timer: a frame is when layout has settled, and a target
 //: that is ready in one frame costs one frame.
 //:
-//: **Only a step that navigated waits.** A step naming a control that is
-//: always on the page (the tab bar, the status bar, the gear) has nothing on
-//: its way: if that control is not visible now it is because a responsive rule
-//: dropped it at this width, and no amount of waiting brings it back. Waiting
-//: anyway would put a second and a half of nothing between two cards every
-//: time a narrow window costs a step, which is the stall this wait was added
-//: to remove rather than to move somewhere else.
+//: **Only a step that navigated waits the long wait.** A step naming a
+//: control that is always on the page (the tab bar, the status bar, the gear)
+//: has nothing on its way: if it is not laid out now a responsive rule dropped
+//: it at this width, and `openTour` has already left such a step out. It still
+//: gets TOUR_SETTLE_MS, for the overlay the tour has just closed to leave.
 const TOUR_WAIT_MS = 1500;
 
-//: **The tour is switched off while it is being fixed** (the owner,
-//: 2026-09-21: "disable the start the tour button so the user cant press it
-//: until we enable it again when the guided tour isnt broken"). It has been
-//: reported broken more times than it has been reported working, and a
-//: feature that fails in front of a first-time user is worse than one that
-//: is honestly absent: the welcome is the first thing anybody sees.
-//:
-//: One flag, read by every door into the tour (the welcome's last slide, the
-//: replay strip in Settings, the offer toast), so turning it back on is this
-//: line and nothing else. The tour itself is untouched and still opens if it
-//: is called, which is what keeps the probes working.
-const TOUR_ENABLED = false;
+//: **The one switch for every door into the tour** (the welcome's last slide,
+//: the replay strip in Settings, the offer toast, About's button). It was
+//: turned off on 2026-09-21 (the owner: "disable the start the tour button so
+//: the user cant press it until we enable it again when the guided tour isnt
+//: broken") and back on on 2026-09-23, once every step of every section was
+//: walked at 1440x900, 1184x760 and 390x844 by `scratchpad/ui-sweeps/tour.js`
+//: with the overlays, the phone and the resize cases that had been breaking
+//: it. Turning it off again is this line and nothing else.
+const TOUR_ENABLED = true;
 
+//: A step that did not navigate still gets a short wait, because the tour
+//: closes whatever was over the page before every step (`tourClearTheWay`),
+//: and a sheet or a palette on its way out takes a frame or two to leave.
+const TOUR_SETTLE_MS = 400;
+
+//: Waits for the step's control to be laid out **and to have stopped
+//: moving**: the same box on two frames running. A tab that has just been
+//: switched to lays itself out over several frames (the notes list arrives,
+//: the capture box grows to its text), and a card placed against the first
+//: of those boxes points at where the control was a frame ago. Answers the
+//: resolved `{ el, alt }` (see `tourResolve`) whether or not it got there;
+//: the caller decides what an element that never settled costs.
 async function tourWaitForTarget(step) {
-  const find = () => tourAnchorFor(document.querySelector(step.target));
-  if (!step.tab && !step.notes) return find();
-  const deadline = Date.now() + TOUR_WAIT_MS;
+  const navigated = Boolean(step.tab || step.notes || step.settings);
+  const deadline = Date.now() + (navigated ? TOUR_WAIT_MS : TOUR_SETTLE_MS);
+  let last = "";
   for (;;) {
-    const el = find();
-    if (tourVisible(el)) return el;
-    if (Date.now() >= deadline) return el;
+    const found = tourResolve(step);
+    if (tourVisible(found.el)) {
+      const box = found.el.getBoundingClientRect();
+      const key = [box.left, box.top, box.width, box.height].map(Math.round).join(",");
+      if (key === last) return found;
+      last = key;
+    } else {
+      last = "";
+    }
+    if (Date.now() >= deadline) return found;
     await tourFrame();
+  }
+}
+
+//: **Everything the app can have open over the page, closed** (the owner,
+//: 2026-09-21: "the tour should automatically navigate the user and open or
+//: close the appropriate tabs and popups for the user"). Each close is
+//: guarded by its own "is it open" test and by `typeof`, because several of
+//: these closers do more than hide (the settings modal and the palette hand
+//: focus back to whatever opened them, the notifications panel marks what it
+//: showed as read), and running them when nothing is open would move focus
+//: or state for no reason.
+//:
+//: Measured before this existed, one tour per overlay, basics section at
+//: 1440x900: with the Atlas guide, the command palette, the features browser
+//: or the shortcut sheet open, every step's target was under the overlay
+//: (`elementFromPoint` at its centre answered the overlay, 4 of 4 steps each),
+//: so the hole in the dim showed the overlay rather than the control.
+//:
+//: `step` is the step about to be shown, or nothing when the tour is opening.
+//: The one overlay a step may ask to keep is Settings: its own section's
+//: steps point at controls inside the modal, so closing it before each of
+//: them would close the very thing the card is describing.
+function tourClearTheWay(step) {
+  const shown = (id) => {
+    const el = document.getElementById(id);
+    return Boolean(el) && !el.classList.contains("hidden");
+  };
+  const call = (name) => {
+    if (typeof window[name] === "function") window[name]();
+  };
+  const keepSettings = Boolean(step && step.settings);
+  if (!keepSettings && (typeof settingsModalOpen === "function" ? settingsModalOpen() : shown("settings-modal"))) {
+    call("closeSettingsModal");
+  }
+  if (shown("palette-overlay")) call("closePalette");
+  if (shown("features-overlay")) call("closeFeatures");
+  if (shown("shortcuts-overlay")) call("closeShortcuts");
+  if (shown("notif-panel")) call("closeNotifications");
+  // The agent's palette has no closer of its own; hiding it is what its own
+  // Escape and backdrop handlers do (app.js, `toggleAgentPalette`).
+  if (shown("command-palette-overlay")) {
+    document.getElementById("command-palette-overlay").classList.add("hidden");
+  }
+  call("closeActionMenus");
+  call("closeFinder");
+  // Every `openSheet` sheet (the Atlas guide, More on a phone, the action
+  // sheets) closes through its own X, which runs its `onClose` and hands
+  // focus back; removing the element would skip both. Topmost first.
+  for (const sheet of [...document.querySelectorAll(".sheet-overlay")].reverse()) {
+    sheet.querySelector(".sheet-close")?.click();
+  }
+  // The docks' `<details>` menus (Filter, the kebabs): an open one hangs over
+  // the page below its dock, which is where the next step's control often is.
+  for (const menu of document.querySelectorAll("details.dock-menu[open], details.doc-dock-menu[open]")) {
+    menu.open = false;
   }
 }
 
@@ -672,27 +1380,268 @@ async function tourNavigate(step) {
   //: every step is dropped, and the run empties. Nothing else in the app can
   //: be trusted to have closed either, so the tour closes what is open before
   //: it navigates, rather than pointing at a control under a sheet.
-  if (typeof closeSettingsModal === "function") closeSettingsModal();
-  if (typeof closeActionMenus === "function") closeActionMenus();
-  if (typeof closeFinder === "function") closeFinder();
+  tourClearTheWay(step);
+  if (step.settings) {
+    await tourOpenSettings(step.settings);
+    tourOpenFoldsAround(step);
+    await tourFrame();
+    return;
+  }
   if (step.tab && typeof switchTab === "function") {
     if (tourActiveTab() !== step.tab) await switchTab(step.tab);
   }
   if (step.notes && typeof showNotesSection === "function") showNotesSection(step.notes);
+  if (step.library) tourLibraryView(step.library);
+  if (step.wb) await tourWhiteboard(step.wb);
   await tourFrame();
+}
+
+//: A Library sub-tab, pressed only when it is not already the pressed one:
+//: pressing the whiteboard's sub-tab while a board is open would be a
+//: navigation of its own (it records history and can leave the canvas).
+function tourLibraryView(target) {
+  const button = document.querySelector(`#library-subtabs button[data-target="${target}"]:not([data-media-kind])`);
+  if (button && button.getAttribute("aria-selected") !== "true") button.click();
+}
+
+//: The Boards & maps sub-tab has two faces, the list of boards and a board
+//: open on its canvas, and a step names which one it needs. **The tour never
+//: makes a board.** "board" opens the newest free canvas there is, falling
+//: back to the default board every notebook already has (`id: null`, the
+//: one the gallery pins first); "map" opens the newest mind map, and its
+//: steps carry `need: "map"`, so a notebook with no map never reaches this
+//: with nothing to open: it is shown New mind map and told what that makes.
+async function tourWhiteboard(face) {
+  const canvas = document.getElementById("wb-canvas-view");
+  const onCanvas = Boolean(canvas) && !canvas.classList.contains("hidden");
+  if (face === "landing") {
+    if (onCanvas && typeof wbShowBoardsLanding === "function") wbShowBoardsLanding();
+    return;
+  }
+  const context = tourRun?.context || {};
+  const id = face === "map" ? context.map : context.board;
+  if (face === "map" && id == null) return;
+  if (onCanvas && (window.currentBoardId ?? null) === (id ?? null)) return;
+  if (typeof openWhiteboardBoard === "function") await openWhiteboardBoard(id ?? null);
+}
+
+//: **A settings step opens the fold its control is folded into** (INBOX 426
+//: y). Appearance's groups are `details.settings-fold`s, closed by default
+//: except Themes, and a control in a closed one has no box, so the
+//: companion step was dropped from every run on a fresh notebook and shown
+//: only where the reader happened to have opened "Atlas and faces". The
+//: folds the tour opens are closed again when it ends (`tourClose`), so
+//: the reader's own choice of what is open is what they come back to.
+function tourOpenFoldsAround(step) {
+  let el = null;
+  try {
+    el = document.querySelector(step.target);
+  } catch {
+    return;
+  }
+  for (let fold = el?.closest("details:not([open])"); fold; fold = fold.parentElement?.closest("details:not([open])")) {
+    fold.open = true;
+    if (tourRun) (tourRun.openedFolds ||= []).push(fold);
+  }
+}
+
+//: Settings is a modal rather than a tab, so its steps open it (once) and
+//: move between its sections, and `tourClearTheWay` leaves it up for them.
+async function tourOpenSettings(section) {
+  const open =
+    typeof settingsModalOpen === "function"
+      ? settingsModalOpen()
+      : !document.getElementById("settings-modal")?.classList.contains("hidden");
+  if (!open && typeof openSettingsModal === "function") {
+    if (tourRun) tourRun.openedSettings = true;
+    await openSettingsModal(section);
+  } else if (typeof showSettingsSection === "function") {
+    showSettingsSection(section);
+  }
+}
+
+//: What the notebook has, asked once when a section that depends on it
+//: starts: the newest mind map and the newest free board, from the one board
+//: index every surface shares (`loadMapBoardIndex`, app.js). Only read, never
+//: written: a failure here answers "none", which costs the map's steps and
+//: nothing else.
+async function tourContext() {
+  let rows = [];
+  try {
+    const index = typeof loadMapBoardIndex === "function" ? await loadMapBoardIndex(true) : null;
+    rows = index ? [...index.values()] : [];
+  } catch (error) {
+    rows = [];
+  }
+  const newest = (list) => list.reduce((best, row) => (!best || row.id > best.id ? row : best), null);
+  return {
+    map: newest(rows.filter((row) => row.type === "map"))?.id ?? null,
+    board: newest(rows.filter((row) => row.type !== "map"))?.id ?? null,
+  };
+}
+
+//: The `need` names a step can carry, each a question about this notebook.
+//: A step whose answer is no is taken out of its section before the
+//: section's first card is drawn, so the count is right from that card on.
+const TOUR_NEEDS = {
+  map: (context) => context.map != null,
+  entries: () => typeof allEntries !== "undefined" && Array.isArray(allEntries) && allEntries.length > 0,
+};
+
+//: Run once per section, as the walk enters it: fetches what the section's
+//: `need`s ask about and drops the steps that cannot be shown, keeping the
+//: walk on the same step (or the nearest one in the direction it was going).
+async function tourPrepareSection(run, sectionId) {
+  run.prepared.add(sectionId);
+  const asks = run.steps.some((step) => step.sectionId === sectionId && (step.need || step.wb));
+  if (!asks) return;
+  run.context = await tourContext();
+  const keep = run.steps.map(
+    (step) => step.sectionId !== sectionId || !step.need || Boolean(TOUR_NEEDS[step.need]?.(run.context))
+  );
+  let at = run.index;
+  if (run.direction < 0) {
+    while (at >= 0 && !keep[at]) at -= 1;
+  } else {
+    while (at < keep.length && !keep[at]) at += 1;
+  }
+  run.steps = run.steps.filter((_, i) => keep[i]);
+  if (at < 0) {
+    run.index = 0;
+    run.direction = 1;
+  } else {
+    run.index = keep.slice(0, at).filter(Boolean).length;
+  }
+}
+
+//: **The tour never leaves a dim with no card** (the owner, 2026-09-23 night,
+//: from the desktop window: "I pressed next on the first panel of the guided
+//: tour, and it dissappeared while keeping the page dimmed and pushed the top
+//: bar down by a couple pixels", started from Settings, help). Not reproduced
+//: in a headless run at 1333, 1440, 1600 or 2000 wide, which says the fault is
+//: in something this machine does not have, not that there is no fault. So
+//: whatever the walk runs into, the outcome is bounded: an exception becomes
+//: the centred card, a card that ends up off the window or behind something
+//: is re-centred, and both say what happened in Settings, Logs (console
+//: output is captured there), so the next report carries its own numbers.
+async function tourStep() {
+  const run = tourRun;
+  if (!run) return;
+  tourPinShell();
+  try {
+    await tourShow();
+  } catch (error) {
+    console.warn("Tour: a step failed, showing the card centred", error);
+    if (tourRun !== run) return;
+    tourStrand(run);
+  }
+  if (tourRun === run) tourVerifyCard();
+}
+
+//: The centred card for a step with nothing it can point at, the same state
+//: the last-step case below reaches (INBOX 315), reachable from anywhere.
+function tourStrand(run) {
+  run.el = null;
+  run.step = run.step || run.steps[Math.max(0, Math.min(run.index, run.steps.length - 1))];
+  run.alt = false;
+  run.stranded = true;
+  document.getElementById("tour-card")?.removeAttribute("aria-busy");
+  tourRender();
+  tourPosition();
+  document.getElementById("tour-next")?.focus();
+}
+
+//: The app is a fixed shell: the tabs scroll inside themselves and the page
+//: never does (`body { overflow: hidden }`). Hidden is not unscrollable,
+//: though: a focus or a scroll aimed at an element near an edge can still
+//: move the document a few pixels, and every fixed-position box the tour
+//: measured moves with it. "The top bar pushed down by a couple pixels" is
+//: that movement. Pinned back to the top before each step.
+function tourPinShell() {
+  for (const el of [document.scrollingElement, document.documentElement, document.body]) {
+    if (el && (el.scrollTop || el.scrollLeft)) {
+      console.warn(`Tour: the page itself was scrolled (${el.tagName} ${el.scrollLeft},${el.scrollTop}); put back`);
+      el.scrollTop = 0;
+      el.scrollLeft = 0;
+    }
+  }
+}
+
+//: Placed is not shown: the card must be inside the window and be the thing
+//: drawn at its own centre. When it is not, it goes to the middle, where
+//: nothing but the tour's own dim can be.
+function tourVerifyCard(tries = 0) {
+  const card = document.getElementById("tour-card");
+  if (!card || card.classList.contains("hidden") || card.getAttribute("aria-busy") === "true") return;
+  const box = card.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const inside = box.width > 0 && box.height > 0 && box.left >= -1 && box.top >= -1 &&
+    box.right <= vw + 1 && box.bottom <= vh + 1;
+  // A toast over the card is not the card lost (the toast box stacks above
+  // everything, the tour included, and is gone in seconds): measured, the
+  // Finish toast of one run re-centred the phone's docked card of the next.
+  const hit =
+    inside &&
+    document
+      .elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      .find((node) => !node.closest("#toast-box"));
+  if (inside && hit && card.contains(hit)) return;
+  //: **The root answering is not an answer.** While a view transition runs
+  //: (the Library's list re-renders through `startViewTransition`,
+  //: library.js), hit testing lands on its pseudo-element tree and
+  //: `elementsFromPoint` returns `<html>` for every point in the window,
+  //: the tour's own card included. Measured at 390: the Library, Boards and
+  //: Mind maps cards were re-centred for being "not on screen" while sitting
+  //: exactly where they were placed. Asked again once the transition has
+  //: had time to finish, and only a real miss moves the card.
+  if (inside && hit === document.documentElement && tries < 6) {
+    const run = tourRun;
+    setTimeout(() => {
+      if (tourRun === run) tourVerifyCard(tries + 1);
+    }, 150);
+    return;
+  }
+  console.warn(
+    `Tour: the card was not on screen (box ${Math.round(box.left)},${Math.round(box.top)} ` +
+      `${Math.round(box.width)}x${Math.round(box.height)} in ${vw}x${vh}, ` +
+      `front ${hit ? hit.id || hit.className || hit.tagName : "none"}); centred`
+  );
+  const size = card.getBoundingClientRect();
+  card.dataset.side = "centre";
+  tourPlaceFixed(
+    card,
+    tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+    tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+  );
 }
 
 async function tourShow() {
   const run = tourRun;
+  //: **One walk at a time.** Next pressed twice while a tab is loading used to
+  //: start a second walk over the same run while the first was still
+  //: awaiting, and the two then spliced and rendered over each other. Each
+  //: walk takes a ticket and stands down as soon as a newer one exists.
+  run.seq = (run.seq || 0) + 1;
+  const seq = run.seq;
+  const stale = () => tourRun !== run || run.seq !== seq;
+  document.getElementById("tour-card")?.setAttribute("aria-busy", "true");
   while (run.index >= 0 && run.index < run.steps.length) {
     const step = run.steps[run.index];
+    //: A section's `need`s are settled as the walk enters it, before its
+    //: first card, so the count that card shows is the count it keeps.
+    if (!run.prepared.has(step.sectionId)) {
+      await tourPrepareSection(run, step.sectionId);
+      if (stale()) return;
+      continue;
+    }
     await tourNavigate(step);
     // The awaits above give the tour time to have been skipped, or restarted
     // from Settings, while a tab was loading. Whatever happens next belongs to
     // whichever run is current, not to this one.
-    if (tourRun !== run) return;
-    const el = await tourWaitForTarget(step);
-    if (tourRun !== run) return;
+    if (stale()) return;
+    const { el, alt } = await tourWaitForTarget(step);
+    if (stale()) return;
     //: Brought into view first, then judged: a control below the fold of a
     //: scrolling panel is a step worth showing once the panel has been
     //: scrolled to it, and only a control that is still not in the window
@@ -706,9 +1655,9 @@ async function tourShow() {
       //: dropped, so a single mistimed measurement could eat the rest of the
       //: run one step at a time. One frame is what the move needs.
       await tourFrame();
-      if (tourRun !== run) return;
+      if (stale()) return;
     }
-    if (!tourVisible(el) || !tourOnScreen(el)) {
+    if (!tourUsable(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.
       //
@@ -724,7 +1673,9 @@ async function tourShow() {
       if (run.steps.length <= 1) {
         run.el = null;
         run.step = step;
+        run.alt = false;
         run.stranded = true;
+        document.getElementById("tour-card")?.removeAttribute("aria-busy");
         tourRender();
         tourPosition();
         document.getElementById("tour-next")?.focus();
@@ -740,9 +1691,13 @@ async function tourShow() {
     }
     run.stranded = false;
     run.el = el;
+    run.alt = alt;
     run.step = step;
+    document.getElementById("tour-card")?.removeAttribute("aria-busy");
     tourRender();
     tourPosition();
+    run.watchKey = "";
+    tourWatch();
     // Focus lands inside the card, on the control that moves the tour on, so
     // Enter and Space do the obvious thing the moment a card appears. The card
     // itself is the `aria-modal` dialog, so app.js's Tab trap keeps focus in
@@ -755,17 +1710,25 @@ async function tourShow() {
 
 // --- the run ----------------------------------------------------------------
 
+//: The steps a run plays: the named section **and every section after it**,
+//: in table order, or all of them. A run started from one section's button
+//: chains on to the rest exactly as the whole tour does (the owner,
+//: 2026-09-23), and each section's last card is where it can be finished.
 function tourStepsFor(sectionId) {
   const steps = [];
-  for (const section of TOUR_SECTIONS) {
-    if (sectionId && section.id !== sectionId) continue;
+  const from = sectionId ? TOUR_SECTIONS.findIndex((section) => section.id === sectionId) : 0;
+  if (from < 0) return steps;
+  for (const section of TOUR_SECTIONS.slice(from)) {
     for (const step of section.steps) {
+      if (step.media && !window.matchMedia(step.media).matches) continue;
       // Present in the markup at all is the cheap half of the test and it is
       // stable (a control in a tab that is not showing is still in the DOM);
       // whether it can actually be seen is decided in `tourShow`, once the
-      // tour has navigated to it.
-      if (document.querySelector(step.target)) {
-        steps.push({ ...step, sectionLabel: section.label });
+      // tour has navigated to it. A step inside a tab is let through
+      // unasked, because what it names can be drawn by the tab itself (a
+      // library card's menu exists only once the library has been listed).
+      if (step.tab || step.settings || document.querySelector(step.target)) {
+        steps.push({ ...step, sectionId: section.id, sectionLabel: section.label });
       }
     }
   }
@@ -773,7 +1736,21 @@ function tourStepsFor(sectionId) {
 }
 
 function openTour(sectionId) {
-  const steps = tourStepsFor(sectionId || null);
+  // Whatever is open over the page is closed before anything is judged, so
+  // the chrome steps below are judged against the page and not the overlay.
+  tourClearTheWay();
+  //: **A step that can never be shown at this size is left out before the
+  //: count is written, not dropped in the middle of the run.** The chrome
+  //: steps (no tab to switch to) point at controls that are always on the
+  //: page when they exist at all, so whether they are laid out now is the
+  //: whole answer: the status bar's Commands is not drawn on a phone and never
+  //: will be during this run. Dropping it only when the walk reached it made
+  //: the counter read "10 of 15", then "11 of 14", which reads as the tour
+  //: losing its place. Steps inside a tab are still judged when reached,
+  //: because their tab is not showing yet.
+  const steps = tourStepsFor(sectionId || null).filter(
+    (step) => step.settings || step.tab || step.notes || tourVisible(tourResolve(step).el)
+  );
   if (!steps.length) {
     if (typeof toast === "function") {
       toast("There is nothing to show in that part of the tour.");
@@ -786,12 +1763,16 @@ function openTour(sectionId) {
     direction: 1,
     el: null,
     step: null,
+    // The sections whose `need`s have been settled (`tourPrepareSection`),
+    // and what the notebook had when they were.
+    prepared: new Set(),
+    context: {},
     // Where the focus came from, so it can be handed back exactly there when
     // the tour ends, whether it ends at the last card, at Skip or at Escape.
     returnFocus: document.activeElement,
   };
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
-  tourShow();
+  tourStep();
 }
 
 function tourClose(finished) {
@@ -810,6 +1791,13 @@ function tourClose(finished) {
     // A browser with storage blocked still gets the tour, it just cannot
     // remember that it did. Refusing to run would be the worse failure.
   }
+  //: Settings, if the tour opened it, is closed with the tour: it was opened
+  //: to be pointed at, and left up it covers the page the focus goes back to.
+  if (run.openedSettings && typeof settingsModalOpen === "function" && settingsModalOpen()) {
+    if (typeof closeSettingsModal === "function") closeSettingsModal();
+  }
+  //: And the folds it opened to reach a control are folded again.
+  for (const fold of run.openedFolds || []) fold.open = false;
   run.returnFocus?.focus?.();
   if (finished && typeof toast === "function") {
     toast("That is the tour. Settings, help and guide has it again whenever you want it.");
@@ -824,21 +1812,25 @@ function tourNext() {
   }
   tourRun.index += 1;
   tourRun.direction = 1;
-  tourShow();
+  tourStep();
 }
 
 function tourBack() {
   if (!tourRun || tourRun.index === 0) return;
   tourRun.index -= 1;
   tourRun.direction = -1;
-  tourShow();
+  tourStep();
 }
 
 // --- wiring -----------------------------------------------------------------
 
 document.getElementById("tour-next").addEventListener("click", tourNext);
 document.getElementById("tour-back").addEventListener("click", tourBack);
-document.getElementById("tour-skip").addEventListener("click", () => tourClose(false));
+//: Skip mid-section, Finish at a section's last card (`tourRender` relabels
+//: it): the same way out, but a Finish is a tour completed, with its toast.
+document.getElementById("tour-skip").addEventListener("click", () =>
+  tourClose(Boolean(tourRun && tourRun.atSectionEnd))
+);
 //: The way out, in the corner of the card where every panel in this app keeps
 //: it. Skip was already there and does the same thing, but the owner did not
 //: read it as the exit: "it has no visible way to exit or quit it like a
@@ -859,6 +1851,18 @@ document.addEventListener(
   (event) => {
     if (!tourRun) return;
     const key = event.key;
+    //: **The hole is the page, so typing in it has to be typing.** The dim
+    //: leaves the highlighted control pressable (the "Type anything" step
+    //: lights the capture box so it can be tried), and before this the arrow
+    //: keys inside it moved the tour instead of the caret and Enter took the
+    //: tour a step on instead of starting a new line. Keys aimed at a field
+    //: outside the card are the field's; Escape still ends the tour.
+    const target = event.target;
+    const typing =
+      target instanceof Element &&
+      !target.closest("#tour-card") &&
+      (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+    if (typing && key !== "Escape") return;
     if (key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -886,13 +1890,23 @@ document.addEventListener(
 //: nothing. Captured on scroll so it hears scrolling inside a panel too, which
 //: does not bubble.
 function tourReflow() {
-  if (!tourRun || !tourRun.el) return;
+  if (!tourRun || !tourRun.el || !tourRun.step) return;
+  //: A resize can carry the window across the phone breakpoint, where a step
+  //: with an `or` control moves between the two (the gear and More). Asked
+  //: again here, so the card follows the control that is showing rather than
+  //: dropping the step because the one it started on went away.
+  const found = tourResolve(tourRun.step);
+  if (found.el !== tourRun.el && tourVisible(found.el)) {
+    tourRun.el = found.el;
+    tourRun.alt = found.alt;
+    tourRender();
+  }
   if (!tourVisible(tourRun.el) || !tourOnScreen(tourRun.el)) {
     // The control went away under the tour (a window narrowed past the width
     // that shows it, a panel scrolled it out of the window). The step goes
     // with it rather than the card hanging on beside a rectangle that is not
     // there any more.
-    tourShow();
+    tourStep();
     return;
   }
   tourPosition();

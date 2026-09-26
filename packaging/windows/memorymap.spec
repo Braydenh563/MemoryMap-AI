@@ -26,6 +26,22 @@ MIGRATIONS_DIR = REPO_ROOT / "migrations"
 ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon.ico")
+CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+
+# **The IANA time zone database, which Windows does not have.** zoneinfo
+# reads the system's zone files on Linux and macOS and the `tzdata` package
+# on Windows, and nothing in the build installed that package: the packaged
+# app refused the timezone the window reports on every start (the
+# `/preferences` validator raised ZoneInfoNotFoundError for every zone name,
+# "Europe/London" included) and read "today" and "in ten minutes" on the
+# machine's zone instead of the person's. Imported here, not just listed,
+# so a build environment without it fails at this line rather than shipping
+# a build that quietly lacks it; PyInstaller's own zoneinfo hook then bundles
+# the data on Windows.
+import tzdata  # noqa: E402,F401
+from PyInstaller.utils.hooks import collect_data_files  # noqa: E402
+
+TZDATA_FILES = collect_data_files("tzdata")
 
 a = Analysis(
     [str(ENTRY_SCRIPT)],
@@ -44,6 +60,11 @@ a = Analysis(
         # stays on the pre-Alembic additive-only path.
         (str(MIGRATIONS_DIR), "migrations"),
         (str(ALEMBIC_INI), "."),
+        # The About panel's release notes (api/app.py `/changelog`, which
+        # reads it from the bundle root when frozen). Without it the panel
+        # was empty on every packaged build.
+        (str(CHANGELOG), "."),
+        *TZDATA_FILES,
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at
@@ -60,6 +81,8 @@ a = Analysis(
         # SQLAlchemy's sqlite dialect, same "picked by name at runtime"
         # shape as the uvicorn entries above.
         "sqlalchemy.dialects.sqlite",
+        # zoneinfo finds this package by name at run time (see TZDATA_FILES).
+        "tzdata",
         # pywebview's Windows backends. edgechromium is the modern
         # (WebView2) one and what a current Windows ships; mshtml is the
         # legacy IE-engine fallback pywebview itself falls back to. Neither
@@ -112,8 +135,35 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# **A splash from the bootloader, before Python exists** (owner: "still no
+# splash on the windows exe packaged application"). start.bat has
+# scripts/splash.ps1 for its pre-Python phase; the packaged exe had nothing
+# on screen from the double-click until pywebview's window, which is the
+# whole cold import of this folder (seconds on a first launch with a virus
+# scanner reading every DLL). PyInstaller's Splash is drawn by the
+# bootloader itself, so it is up before any of that; `__main__.py`
+# (`_close_bootloader_splash`) takes it down when the app window is shown.
+# splash.png is a still card, the way Adobe's are: no drawn progress bar,
+# because the bootloader cannot move one and a bar that never moves reads as
+# a hang (the owner, 2026-09-24: "you may as well not have one at all if it
+# is just a picture with a non moving scroll bar"). What moves is the status
+# line under the rule, drawn by the bootloader at `text_pos` and updated by
+# `__main__._splash_status` as the app reaches each step.
+splash = Splash(
+    str(Path(SPECPATH) / "splash.png"),
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(36, 214),
+    text_size=10,
+    text_color="#a9a8a4",
+    text_font="Segoe UI",
+    text_default="Starting...",
+    always_on_top=False,
+)
+
 exe = EXE(
     pyz,
+    splash,
     a.scripts,
     [],
     exclude_binaries=True,
@@ -139,6 +189,7 @@ exe = EXE(
 # ship for v1.
 coll = COLLECT(
     exe,
+    splash.binaries,
     a.binaries,
     a.zipfiles,
     a.datas,

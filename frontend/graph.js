@@ -1576,7 +1576,7 @@ async function renderGraphSvg() {
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
-  //: See `surfaceFailed` in app.js.
+  //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
@@ -2740,7 +2740,7 @@ async function renderGraphSvg() {
     // ~300 ticks a cooling simulation fires, the dots barely move between
     // frames and a full rebuild each time would cost more than the map it is
     // summarising.
-    if (graphMinimapTick++ % 8 === 0) graphMinimapPaint();
+    if (graphMinimapTick++ % 8 === 0) graphMinimapQueuePaint();
   });
 
   // Search-highlight (Wave M): remember the selections and re-apply any
@@ -3499,7 +3499,7 @@ function openGraphLinkPanel(edge, nodes) {
 //: picture is a library upload referenced from its own markdown drew nothing
 //: at all, `#graph-popup-media` hidden with 0 children. Pasted, dropped and
 //: AI-attached pictures all end up as `![alt](/media/...)` in the body and
-//: there is no column that mirrors them (`noteAnyImage` in app.js says the
+//: there is no column that mirrors them (`noteAnyImage` in shell-reminders.js says the
 //: same thing about the other direction), so a panel that reads only
 //: `entry.attachments` is blind to the commonest kind of image note there is.
 //:
@@ -3801,7 +3801,7 @@ function renderGraphPopupActions(entry) {
 
   // keep ---------------------------------------------------------------
   //: One glyph in both states, coloured when it is on, the note cards'
-  //: own rule, and for the reason `favouriteButton` (app.js) records: the
+  //: own rule, and for the reason `favouriteButton` (note-cards.js) records: the
   //: "off" version used a *different icon*, and one of those was missing
   //: from the font and drew nothing at all.
   const favourite = smallButton(
@@ -4210,7 +4210,81 @@ function graphMinimapShown(shown) {
   box.classList.toggle("hidden", !shown);
 }
 
+//: **At most one paint a frame, and none nobody can see** (INBOX 424b).
+//: The layout's ticks ask for a repaint (every eighth one, and every one the
+//: worker sends while a node is dragged), and each paint used to rebuild the
+//: whole overview: measured at 4x CPU, a 40-move node drag on a 400-note,
+//: 1,200-link graph spent 1.56s in `graphMinimapPaint`, most of it
+//: `createElementNS`, `setAttribute` and `replaceChildren` for about 1,000
+//: elements whose count had not changed. Now the ticks queue a paint, the
+//: frame runs it once, the paint moves the existing dots and lines rather
+//: than making new ones, and a minimap that is switched off, on a tab that is
+//: not showing, or in a window that is hidden is not painted at all: it is
+//: marked stale and painted when it can be seen again.
+let graphMinimapQueued = 0;
+let graphMinimapStale = false;
+
+function graphMinimapCanShow() {
+  if (document.hidden) return false;
+  if (localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return false;
+  const page = document.getElementById("tab-graph");
+  return !page || !page.classList.contains("hidden");
+}
+
+function graphMinimapQueuePaint() {
+  if (!graphMinimapCanShow()) {
+    graphMinimapStale = true;
+    return;
+  }
+  if (graphMinimapQueued) return;
+  graphMinimapQueued = requestAnimationFrame(() => {
+    graphMinimapQueued = 0;
+    graphMinimapPaint();
+  });
+}
+
+//: The other half of the skip above: a paint that was passed over while the
+//: window was hidden happens when it comes back. (A tab switch back to Graph
+//: renders the map, which paints the minimap in full.)
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && graphMinimapStale) graphMinimapQueuePaint();
+});
+
+//: Exactly `count` element children of `tag` in `group`, reusing the ones
+//: already there: a layout tick moves the notes, it does not add or remove
+//: any, so after the first paint this appends and removes nothing.
+function graphMinimapChildren(group, count, tag, className) {
+  const kids = group.children;
+  while (kids.length > count) group.lastElementChild.remove();
+  if (kids.length < count) {
+    const fragment = document.createDocumentFragment();
+    for (let i = kids.length; i < count; i++) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      if (className) el.setAttribute("class", className);
+      fragment.appendChild(el);
+    }
+    group.appendChild(fragment);
+  }
+  return kids;
+}
+
+//: One attribute, written only when it changed. The last value lives on the
+//: element itself, so the check is a property read rather than a
+//: `getAttribute`; a settled map redrawn for a drag of one note rewrites the
+//: handful of dots that moved, not all of them.
+function graphMinimapSet(el, name, value) {
+  const key = `_mm_${name}`;
+  if (el[key] === value) return;
+  el[key] = value;
+  el.setAttribute(name, value);
+}
+
 function graphMinimapPaint() {
+  if (graphMinimapQueued) {
+    cancelAnimationFrame(graphMinimapQueued);
+    graphMinimapQueued = 0;
+  }
+  graphMinimapStale = false;
   const svg = document.getElementById("graph-minimap-svg");
   if (!svg || !graphNodesRef?.length) {
     graphMinimapShown(false);
@@ -4258,22 +4332,22 @@ function graphMinimapPaint() {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const pairs = graphMinimapEdgePairs();
     const edgeStride = Math.max(1, Math.ceil(pairs.length / GRAPH_MINIMAP_MAX_EDGES));
-    const lines = document.createDocumentFragment();
+    const ends = [];
     for (let i = 0; i < pairs.length; i += edgeStride) {
       const from = byId.get(pairs[i][0]);
       const to = byId.get(pairs[i][1]);
-      if (!from || !to) continue;
-      const [ax, ay] = toMini(from.x, from.y);
-      const [bx, by] = toMini(to.x, to.y);
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("class", "graph-minimap-edge");
-      line.setAttribute("x1", ax.toFixed(1));
-      line.setAttribute("y1", ay.toFixed(1));
-      line.setAttribute("x2", bx.toFixed(1));
-      line.setAttribute("y2", by.toFixed(1));
-      lines.appendChild(line);
+      if (from && to) ends.push(from, to);
     }
-    edgesGroup.replaceChildren(lines);
+    const lines = graphMinimapChildren(edgesGroup, ends.length / 2, "line", "graph-minimap-edge");
+    for (let i = 0; i < lines.length; i++) {
+      const [ax, ay] = toMini(ends[i * 2].x, ends[i * 2].y);
+      const [bx, by] = toMini(ends[i * 2 + 1].x, ends[i * 2 + 1].y);
+      const line = lines[i];
+      graphMinimapSet(line, "x1", ax.toFixed(1));
+      graphMinimapSet(line, "y1", ay.toFixed(1));
+      graphMinimapSet(line, "x2", bx.toFixed(1));
+      graphMinimapSet(line, "y2", by.toFixed(1));
+    }
   }
 
   // One <circle> per node, over the lines above. Deliberately not reusing the
@@ -4294,18 +4368,16 @@ function graphMinimapPaint() {
   //: blank, and a random sample would shimmer between repaints.
   const MINIMAP_MAX_DOTS = 700;
   const stride = Math.max(1, Math.ceil(nodes.length / MINIMAP_MAX_DOTS));
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < nodes.length; i += stride) {
+  const circles = graphMinimapChildren(dots, Math.ceil(nodes.length / stride), "circle", null);
+  for (let i = 0, c = 0; i < nodes.length; i += stride, c++) {
     const node = nodes[i];
     const [mx, my] = toMini(node.x, node.y);
-    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    dot.setAttribute("cx", mx.toFixed(1));
-    dot.setAttribute("cy", my.toFixed(1));
-    dot.setAttribute("r", "1.6");
-    dot.setAttribute("fill", node.colour || "currentColor");
-    fragment.appendChild(dot);
+    const dot = circles[c];
+    graphMinimapSet(dot, "cx", mx.toFixed(1));
+    graphMinimapSet(dot, "cy", my.toFixed(1));
+    graphMinimapSet(dot, "r", "1.6");
+    graphMinimapSet(dot, "fill", node.colour || "currentColor");
   }
-  dots.replaceChildren(fragment);
 
   //: **Where you are, and not only what you can see.** The viewport rectangle
   //: answers "which part of the map is on screen"; it cannot answer "where is
@@ -4326,7 +4398,9 @@ function graphMinimapPaint() {
     //: second, brighter dot cloud over the first. Past a handful the selection
     //: is the shape of the map rather than a place in it.
     let drawn = 0;
-    for (const node of nodes) {
+    //: Nothing in hand is the common case on every tick: no walk, and no
+    //: `replaceChildren` of an empty group with an empty fragment.
+    for (const node of marked.size ? nodes : []) {
       if (!marked.has(node.id) || drawn >= 12) continue;
       const [mx, my] = toMini(node.x, node.y);
       const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -4337,7 +4411,7 @@ function graphMinimapPaint() {
       rings.appendChild(ring);
       drawn += 1;
     }
-    here.replaceChildren(rings);
+    if (drawn || here.firstChild) here.replaceChildren(rings);
   }
 
   // Clicking the minimap centres the map on that point. Stored on the element
@@ -4454,7 +4528,7 @@ function graphMinimapFrame() {
 // too high, underneath the dock they exist to stay clear of, and the options
 // panel was capped against a top that did not exist.
 //
-// The same answer, for the same reason, as `initHeaderHeightToken` in app.js:
+// The same answer, for the same reason, as `initHeaderHeightToken` in phone-shell.js:
 // a ResizeObserver writes the measured height back into the token everything
 // already reads, so nothing gains a second property to learn. Through the
 // CSSOM rather than a `style=` attribute, which this app's CSP refuses. No
@@ -4733,7 +4807,20 @@ function graphApplyView(view) {
     view.positions && Object.keys(view.positions).length ? view.positions : null;
   localStorage.setItem("graph-layout", view.layout);
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
-  set("graph-layout", view.layout);
+  //: The layout is a radio group, not one control: `set()` on the group's
+  //: `<div>` wrote a `value` expando and fired "change" from the div, which
+  //: the listener read back as the layout, so the map was right and the View
+  //: menu still showed the old layout ticked (measured: a radial view
+  //: restored with Force still checked). The radio is what a person presses.
+  //: Looked up among the radios rather than by a selector built from the
+  //: saved string, which is whatever the stored JSON says.
+  const layoutRadio = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === view.layout
+  );
+  if (layoutRadio) {
+    layoutRadio.checked = true;
+    layoutRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   set("graph-colour", view.colour);
   // Real controls, not the section div: `set()` dispatches "change" on each,
   // which is exactly what the gravity/spread listener (app.js, "Physics
@@ -4849,3 +4936,170 @@ $("graph-length-score")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
+
+//: The Match strength row shows only while Similarity is on (INBOX 412): a
+//: cutoff for lines that are not drawn is a control that does nothing. Its
+//: value is remembered like the other Show settings and read by the render
+//: (`gcSimilarityCutoff`), so a change is a relayout: fewer lines means
+//: fewer springs, and the clusters should move apart when they go.
+function graphSyncSimilarityRow() {
+  const row = document.getElementById("graph-similarity-min-row");
+  const box = document.getElementById("graph-similarity");
+  if (row && box) row.classList.toggle("hidden", !box.checked);
+  const slider = document.getElementById("graph-similarity-min");
+  if (slider) {
+    const value = Number(slider.value);
+    slider.setAttribute(
+      "aria-valuetext",
+      value <= 55 ? "Each note's two closest matches" : `Matches of ${value}% and above`
+    );
+  }
+}
+(() => {
+  const slider = document.getElementById("graph-similarity-min");
+  if (!slider) return;
+  let stored = null;
+  try {
+    stored = localStorage.getItem("graph-similarity-min");
+  } catch (error) {
+    stored = null;
+  }
+  if (stored && Number.isFinite(Number(stored))) slider.value = stored;
+  slider.addEventListener("input", graphSyncSimilarityRow);
+  slider.addEventListener("change", () => {
+    try {
+      localStorage.setItem("graph-similarity-min", slider.value);
+    } catch (error) {
+      /* A browser with storage refused still filters, it just forgets. */
+    }
+    renderGraph();
+  });
+  document.getElementById("graph-similarity")?.addEventListener("change", graphSyncSimilarityRow);
+  graphSyncSimilarityRow();
+})();
+
+// --- reset to defaults ---------------------------------------------------------
+//
+// INBOX 412, the owner: "there is no reset the graph settings to default
+// option either". Obsidian's graph has one in the corner of its settings box
+// ("Restore default settings"); the app's own precedent is Settings >
+// Appearance's "Reset to defaults" and the shortcuts' one, and a reset that
+// can be taken back is `toastAction`'s Undo (DESIGN.md, the recipe index).
+//
+// **What a reset covers.** Every control that changes how the map is drawn:
+// the layout and the colour rule (View menu), the physics, every Show switch,
+// the similarity cutoff, the time filter, the minimap, and the categories or
+// kinds hidden from the legend. **What it leaves alone:** groups and saved
+// views, which are things somebody made and named rather than settings, and
+// which folds of the panel are open, which is where the reader is rather
+// than what the map looks like. `tests/test_graph_similarity.py` fails if a
+// control is added to the panel's persisted set without joining this table.
+//
+// Values are what the markup and the readers default to: `graphLayout()`
+// falls back to force, the colour select's first option is category, the
+// sliders start at 50, the minimap at top left and small, and `"max"` puts
+// the time slider at its "All time" end, which is a number only a render
+// knows.
+const GRAPH_DEFAULTS = {
+  layout: "force",
+  "graph-colour": "category",
+  "graph-gravity": "50",
+  "graph-spread": "50",
+  "graph-similarity": false,
+  "graph-similarity-min": "55",
+  "graph-entities": false,
+  "graph-documents": false,
+  "graph-maps": false,
+  "graph-hide-orphans": false,
+  "graph-labels": true,
+  "graph-curved": false,
+  "graph-nebula": true,
+  "graph-length-score": true,
+  "graph-time-slider": "max",
+  "graph-minimap-corner": "tl",
+  "graph-minimap-size": "sm",
+  hiddenCategories: [],
+  hiddenKeys: [],
+};
+
+//: The same shape as `GRAPH_DEFAULTS`, read off the controls as they stand,
+//: so Undo puts back exactly what the reset replaced.
+function graphCaptureSettings() {
+  const out = {};
+  for (const [key, fallback] of Object.entries(GRAPH_DEFAULTS)) {
+    if (key === "layout") {
+      out.layout = graphLayout();
+    } else if (key === "hiddenCategories") {
+      out.hiddenCategories = [...graphHiddenCategories];
+    } else if (key === "hiddenKeys") {
+      out.hiddenKeys = [...graphHiddenKeys];
+    } else {
+      const el = document.getElementById(key);
+      if (!el) out[key] = fallback;
+      else if (el.type === "checkbox") out[key] = el.checked;
+      else if (key === "graph-time-slider") out[key] = Number(el.value) >= Number(el.max) ? "max" : el.value;
+      else out[key] = el.value;
+    }
+  }
+  return out;
+}
+
+function graphSettingsEqual(a, b) {
+  return Object.keys(GRAPH_DEFAULTS).every(
+    (key) => JSON.stringify(a[key]) === JSON.stringify(b[key])
+  );
+}
+
+//: Every control is set the way a person would set it: its value, then the
+//: event its own handler listens for, so each one persists and redraws
+//: through the path it already has (the same move `graphApplyView` makes).
+//: The redraws that pile up are cheap: `renderGraphCanvas` drops every
+//: render but the last by its sequence number.
+function graphApplySettings(settings) {
+  const layout = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === settings.layout
+  );
+  if (layout && !layout.checked) {
+    layout.checked = true;
+    layout.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  graphHiddenCategories = new Set(settings.hiddenCategories || []);
+  graphHiddenKeys = new Set(settings.hiddenKeys || []);
+  for (const [key, value] of Object.entries(settings)) {
+    if (key === "layout" || key === "hiddenCategories" || key === "hiddenKeys") continue;
+    const el = document.getElementById(key);
+    if (!el) continue;
+    if (el.type === "checkbox") {
+      if (el.checked === Boolean(value)) continue;
+      el.checked = Boolean(value);
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (key === "graph-time-slider") {
+      // The time slider answers `input` (graph-canvas.js, `graphSyncTimeSlider`).
+      el.value = value === "max" ? el.max : value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (String(el.value) !== String(value)) {
+      el.value = value;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  graphSyncSimilarityRow();
+  setGraphPhysicsEnabled(settings.layout);
+  // One more, for the legend filters, which have no control of their own to
+  // fire an event on.
+  renderGraph();
+}
+
+function graphResetToDefaults() {
+  const before = graphCaptureSettings();
+  if (graphSettingsEqual(before, GRAPH_DEFAULTS)) {
+    toast("The map is already on its default settings.");
+    return;
+  }
+  graphApplySettings(GRAPH_DEFAULTS);
+  toastAction("Map settings reset to defaults.", "Undo", () => {
+    graphApplySettings(before);
+    toast("Map settings restored.");
+  });
+}
+
+document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);

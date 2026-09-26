@@ -1,8 +1,9 @@
 """A boot-loaded file may not quietly depend on a file that loads later.
 
-`index.html` loads five scripts: app.js, editor.js, dashboard.js, settings.js
-and tour.js. Everything else, graph.js and graph-canvas.js, documents.js,
-whiteboard.js and library.js, is in a lazy bundle (`LAZY_MODULES`, app.js) and
+`index.html` loads six scripts: app.js, editor.js, dashboard.js, timeline.js,
+settings.js and tour.js. Everything else, graph.js and graph-canvas.js, documents.js
+(with documents-code.js and documents-prose.js, split out of it), whiteboard.js
+(with whiteboard-map.js) and library.js, is in a lazy bundle (`LAZY_MODULES`, app.js) and
 arrives only when a tab asks for it. So a boot file that calls a function
 defined only in a lazy file is calling something that is not there yet, and
 what happens then depends entirely on how the call is written:
@@ -98,16 +99,25 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    "docFileType": "library, read by the selection bar only when the surface is `doc-content`, which exists only once the documents bundle has drawn it",
     #: The tab dispatch itself: `switchTab` awaits `ensureModule(TAB_MODULES[tab])`
     #: before it runs any of these, so by the time they are called the bundle is
     #: in the page. They are the bundle's own render entry points.
     "renderLibrary": "library, called from the Library tab's own dispatch",
     "renderLibraryFilters": "library, called from the Library tab's own dispatch",
     "loadLibrary": "library, called from the Library tab's own dispatch",
+    #: switchTab stops the media poll on leaving the Library (INBOX 424). The
+    #: poll can only have been started by library.js, so while the bundle is
+    #: not loaded there is nothing to stop and the guarded no-op is correct.
+    "stopLibraryImagesPoll": "library, a poll only library.js can have started",
+    "startLibraryImagesPoll": "library, restarted only when its sub-tab (drawn by library.js) is showing",
     "graphLayout": "graph, called from the Graph tab's own dispatch",
     "fitGraphToView": "graph, called from the Graph tab's own dispatch",
     "setGraphPhysicsEnabled": "graph, called from the Graph tab's own dispatch",
     "applyGraphHighlight": "graph, called from the Graph tab's own controls",
+    "graphNodeById": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "focusGraphNode": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "wbOwnsChord": "library, asked by the global shortcut handler; with the bundle absent no board is open, so no chord can be the board's and the guard's false is the right answer",
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",
     "mountNoteSurface": "library, called once the note engine setting has loaded it",
@@ -118,6 +128,16 @@ REACHED_AFTER_LOAD = {
     "gcStop": "graph, the canvas renderer's own teardown",
     "renderDocShortcutSheet": "library, the document editor's own sheet",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
+    "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
+    "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",
+    #: The catalogue reveals (app.js, REVEAL_TARGETS): each is called only
+    #: after `revealBoard` or the target itself has awaited the bundle.
+    "wbIsMap": "library, asked by revealBoard after `await ensureModule(\"library\")`",
+    "wbExportBoard": "library, called by the board-export reveal once revealBoard has opened a board",
+    "openGraphPopup": "graph, called by the graph-edit reveal after `await ensureModule(\"graph\")`",
+    "setDocView": "library, called by the doc-find reveal once revealDocument has opened a document",
+    "docToolbarCollapsed": "library, asked by revealStrip after `await ensureModule(\"library\")`",
+    "setDocToolbarCollapsed": "library, called by revealStrip after `await ensureModule(\"library\")`",
     #: Generic names that a lazy file happens to declare too. The call in the
     #: boot file is to its own local of the same name, not across the bundle.
     "build": "a local name in more than one file, not a cross-bundle call",

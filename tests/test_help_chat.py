@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from memorymap.ai import help_chat
+from tests._app_js import app_js_text
 
 
 def test_ask_without_ai_answers_from_the_help_text_never_5xx(client):
@@ -144,11 +145,8 @@ def test_every_help_topic_has_a_non_empty_body_and_badge():
 # which is the failure mode a duplicated constant always eventually has. The
 # whole point of this lint is that Python cannot see `switchTab`; reading its
 # actual `TABS` line is as close as it gets.
-APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
-
 def _real_top_level_tabs() -> set[str]:
-    match = re.search(r"^const TABS = \[(.*?)\];", APP_JS.read_text(encoding="utf-8"), re.M)
+    match = re.search(r"^const TABS = \[(.*?)\];", app_js_text(), re.M)
     assert match, "app.js no longer declares `const TABS = [...]` on one line"
     return set(re.findall(r'"([a-z-]+)"', match.group(1)))
 
@@ -270,7 +268,7 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
-    app_js = (frontend / "app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
@@ -358,7 +356,7 @@ def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
-    app = (frontend / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     table = app[app.index("const ATLAS_PROMPTS = {") :]
@@ -377,11 +375,8 @@ def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
 def test_the_palette_offers_a_typed_question_to_atlas():
     """A jump list has no answer for "how do I turn off web search?", so the
     box went empty, which reads as "this app has no answer"."""
-    from pathlib import Path
 
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     start = app.index("function paletteMatches(")
     body = app[start : app.index("\n}\n", start)]
     assert 'endsWith("?")' in body and "askAtlasAbout" in body
@@ -394,11 +389,8 @@ def test_the_palette_offers_a_typed_question_to_atlas():
 def test_atlas_has_a_shortcut_and_it_is_in_the_registry():
     """In `DEFAULT_SHORTCUTS`, which is what puts it in the shortcuts sheet and
     in the collision check, rather than bound in a listener of its own."""
-    from pathlib import Path
 
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     start = app.index("const DEFAULT_SHORTCUTS = {")
     table = app[start : app.index("\n};", start)]
     assert "askAtlas: {" in table
@@ -597,21 +589,19 @@ def test_the_guide_falls_back_to_the_chat_model_when_no_utility_model_is_chosen(
     assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
 
 
-def test_the_guide_falls_back_to_the_chat_model_when_smart_routing_is_off(
+def test_the_guide_keeps_the_utility_model_when_smart_routing_is_off(
     ai_client, fake_ollama
 ):
-    """Fallback two, and the one that looks like a bug from outside: a utility
-    model IS chosen and shown in Settings, and the Guide still runs the chat
-    model, because "smart model routing" off means every role collapses onto
-    the chat model. `ModelManager.utility_model()` is where that is decided,
-    for the janitor and the digest as much as for the Guide."""
+    """The owner's decision, 2026-09-24 (WORLD_CLASS_PLAN section 20): the
+    routing switch moves background jobs onto the chat model; the Guide is a
+    panel you type into, so it keeps the utility model either way."""
     from memorymap.core import deps
 
     manager = deps.get_model_manager()
     manager.set_chat_model("big-chat-model")
     manager.set_utility_model("small-utility-model")
     deps.get_config().set_preference("smart_model_routing_enabled", False)
-    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+    assert _guide_model(ai_client, fake_ollama) == "small-utility-model"
 
 
 def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_ollama):
@@ -632,7 +622,9 @@ def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_olla
     assert fake_ollama.chat_modes[-1] == presets.GUIDE_MODE
     mode = presets.resolve(presets.GUIDE_MODE)
     assert mode.think is None, "the Guide must not send think: False, or its thinking box is dead"
-    assert mode.max_output_tokens == presets.MODES["quick"].max_output_tokens
+    #: Not Quick's 256 since INBOX 410: a controls reference listed in full
+    #: needs more (`test_help_controls.py` checks it against the longest).
+    assert mode.max_output_tokens > presets.MODES["quick"].max_output_tokens
     assert mode.temperature == presets.MODES["quick"].temperature
 
 
@@ -794,7 +786,9 @@ def test_a_plural_question_finds_what_the_singular_finds():
     for singular, plural in (
         ("how do I set a reminder?", "where do reminders live?"),
         ("open a document", "where do my documents live?"),
-        ("write a note", "where are my notes?"),
+        #: Was ("write a note", "where are my notes?"): two different
+        #: questions, not one in two numbers; the second is a search.
+        ("make a note", "how do I make notes?"),
         ("make a backup", "where are my backups?"),
         ("what is a space?", "how do spaces work?"),
     ):
@@ -807,9 +801,7 @@ def test_a_plural_question_finds_what_the_singular_finds():
 def _atlas_questions() -> list[str]:
     """Every question the app itself offers to ask Atlas: the three starters
     under the transcript, and the line at the foot of a help popover."""
-    app = (
-        Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-    ).read_text(encoding="utf-8")
+    app = app_js_text()
     starters = app[app.index("const ATLAS_STARTERS = [") :]
     starters = starters[: starters.index("\n];")]
     per_tab = app[app.index("const ATLAS_TAB_STARTERS = {") :]

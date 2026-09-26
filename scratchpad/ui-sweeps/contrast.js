@@ -55,11 +55,23 @@ const empty=[];
 const run=async(label)=>{const r=await page.evaluate(()=>{
   const cv=document.createElement('canvas');cv.width=cv.height=1;const cx=cv.getContext('2d',{willReadFrequently:true});
   const parse=(c)=>{if(!c||c==='transparent')return null;const m=c.match(/^rgba?\(([^)]+)\)$/);if(m){const p=m[1].split(/[\s,\/]+/).map(Number);return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
+    // `color(srgb r g b / a)`, which is how Chromium reports a colour-mix()
+    // result, in 0..1 channels. The canvas below refuses it here, so it read
+    // as transparent and the image captions' dark scrim was measured as white
+    // text on the white card behind it: "1.00~" for a caption that is legible.
+    const s=c.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)$/);
+    if(s)return {r:Math.round(+s[1]*255),g:Math.round(+s[2]*255),b:Math.round(+s[3]*255),a:s[4]===undefined?1:+s[4]};
     // oklab()/color-mix() results: let the canvas resolve them to bytes.
     cx.clearRect(0,0,1,1);cx.fillStyle='#000';cx.fillStyle=c;if(cx.fillStyle==='#000000'&&!/black|#000/.test(c))return null;cx.fillRect(0,0,1,1);const d=cx.getImageData(0,0,1,1).data;return {r:d[0],g:d[1],b:d[2],a:d[3]/255};};
   const lum=({r,g,b})=>{const f=(v)=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
   const ratio=(a,b)=>{const l1=lum(a),l2=lum(b);return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);};
-  const bgOf=(el)=>{let translucent=false;for(let e=el;e;e=e.parentElement){const cs=getComputedStyle(e);if(cs.backgroundImage&&cs.backgroundImage!=='none')return {c:null,translucent,gradient:true};const c=parse(cs.backgroundColor);if(c&&c.a>0){if(c.a<1)translucent=true;if(c.a>=0.9)return {c,translucent};}}const root=parse(getComputedStyle(document.body).backgroundColor);const html=parse(getComputedStyle(document.documentElement).backgroundColor);const c=(root&&root.a>0)?root:(html&&html.a>0)?html:{r:255,g:255,b:255,a:1};return {c,translucent:true};};
+  //: Translucent layers are composited over the opaque one found below them,
+  //: not skipped: a caption on a 75% dark scrim over a white card was measured
+  //: as white on white (1.00:1) when the scrim is what it is read against.
+  //: Compositing over the card is the worst case for an image underneath
+  //: (a white photo), which is the case the scrim exists for.
+  const over=(top,base)=>({r:top.r*top.a+base.r*(1-top.a),g:top.g*top.a+base.g*(1-top.a),b:top.b*top.a+base.b*(1-top.a),a:1});
+  const bgOf=(el)=>{let translucent=false;const layers=[];let base=null;for(let e=el;e;e=e.parentElement){const cs=getComputedStyle(e);if(cs.backgroundImage&&cs.backgroundImage!=='none')return {c:null,translucent,gradient:true};const c=parse(cs.backgroundColor);if(c&&c.a>0){if(c.a<1)translucent=true;if(c.a>=0.9){base=c;break;}layers.push(c);}}if(!base){const root=parse(getComputedStyle(document.body).backgroundColor);const html=parse(getComputedStyle(document.documentElement).backgroundColor);base=(root&&root.a>0)?root:(html&&html.a>0)?html:{r:255,g:255,b:255,a:1};translucent=true;}let c=base;for(let i=layers.length-1;i>=0;i--)c=over(layers[i],c);return {c:{r:Math.round(c.r),g:Math.round(c.g),b:Math.round(c.b),a:1},translucent};};
   // `checked` so an "ok" is backed by a number. A run that reached a surface
   // and found nothing wrong and a run whose surface never rendered both
   // printed "ok" before this, and the second is the one that matters: the
@@ -124,6 +136,19 @@ for(const t of TABS){
 // is hidden and Settings is a row in the header's `#header-more` menu (Phase
 // 11 item 1), so a sweep that clicked it measured no Settings section at all
 // at phone width and said nothing about having skipped them.
+// The guide panel (INBOX 270 part 4): a sheet, so `.modal-overlay` already
+// puts it in scope; it only had to be opened. Empty, then with a conversation,
+// because the welcome and the bubbles are different text on different grounds.
+{
+  const opened=await page.evaluate(()=>{try{openHelpChat();return true;}catch(e){return false;}});
+  if(opened){
+    await page.waitForTimeout(500);await run('guide (empty)');
+    await page.evaluate(()=>{renderHelpChatMessage('user','How do I add a reminder?');renderHelpChatMessage('assistant','Open the **Reminders** tab.',[{label:'Open Reminders',tab:'reminders'}],['Reminders']);});
+    await page.waitForTimeout(200);await run('guide (a conversation)');
+    await page.evaluate(()=>helpChatNewChat());await page.keyboard.press('Escape');await page.waitForTimeout(300);
+  } else console.log('== guide: SKIPPED, openHelpChat is not reachable');
+}
+
 await page.evaluate(()=>{try{openSettingsModal('models');}catch(e){document.getElementById('settings-btn')?.click();}});await page.waitForTimeout(600);
 // The section strip is hidden below 600 (the phone puts every section in one
 // scroll with a jump select beside the search), so the sections are reached

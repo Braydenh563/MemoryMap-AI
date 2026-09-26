@@ -1,0 +1,209 @@
+// INBOX 426 a and b: every formatting tool reachable, and the suggestions
+// panel fitting its own width, measured rather than looked at.
+//
+// For each width, each toolbar mode (wrap, row) and each layout (the normal
+// page, and focus mode with its Tools on): every visible control in
+// `#doc-toolbar` lies inside the strip's rect, no two controls' rects
+// overlap, and the strip does not scroll sideways. Then the suggestions
+// panel docked on the right: its head's buttons inside the panel, no
+// sideways scroll; and in focus mode, opened from the floating dock.
+//
+//   BASE=http://127.0.0.1:8793 node scratchpad/ui-sweeps/doctoolbarfit.js
+//   WIDTHS=1024,1280 MODES=row SHOTS=/tmp/x node scratchpad/ui-sweeps/doctoolbarfit.js
+const { boot } = require('./lib.js');
+const { openDoc } = require('./docopen.js');
+
+const WIDTHS = (process.env.WIDTHS || '360,768,1024,1280,1600').split(',').map(Number);
+const MODES = (process.env.MODES || 'wrap,row').split(',');
+const SHOTS = process.env.SHOTS || '';
+let failures = 0;
+
+// Every control in the strip that is drawn, its rect, and the strip's own.
+function measure(sel) {
+  const bar = document.querySelector(sel);
+  if (!bar || !bar.checkVisibility()) return { hidden: true };
+  const br = bar.getBoundingClientRect();
+  const ctrls = [...bar.querySelectorAll('button, summary, select')]
+    .filter((e) => e.checkVisibility() && !e.closest('.doc-dock-menu-list, .select-menu')
+      && e.getBoundingClientRect().width > 0 && getComputedStyle(e).display !== 'none');
+  const rects = ctrls.map((e) => ({ name: (e.getAttribute('aria-label') || e.title || e.textContent).trim().slice(0, 24), r: e.getBoundingClientRect() }));
+  const outside = rects.filter(({ r }) => r.left < br.left - 0.5 || r.right > br.right + 0.5 || r.top < br.top - 0.5 || r.bottom > br.bottom + 0.5)
+    .map((x) => x.name);
+  const overlaps = [];
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i].r, b = rects[j].r;
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w > 0.5 && h > 0.5) overlaps.push(rects[i].name + ' / ' + rects[j].name);
+    }
+  }
+  const over = bar.querySelectorAll('.doc-toolbar-over').length;
+  const more = bar.querySelector('.doc-toolbar-more');
+  const layout = bar.querySelector('.doc-toolbar-layout');
+  return {
+    controls: rects.length, outside, overlaps,
+    sideways: bar.scrollWidth - bar.clientWidth,
+    h: Math.round(br.height), w: Math.round(br.width),
+    folded: over, more: more ? !more.hidden : null,
+    layout: layout ? (layout.checkVisibility() ? 'shown' : 'folded') : null,
+  };
+}
+
+function prose() {
+  const panel = document.getElementById('doc-prose-panel');
+  if (!panel || !panel.checkVisibility()) return { hidden: true };
+  const pr = panel.getBoundingClientRect();
+  const head = panel.querySelector('.doc-prose-head');
+  const btns = head ? [...head.querySelectorAll('button')].filter((b) => b.checkVisibility()) : [];
+  const cut = btns.filter((b) => {
+    const r = b.getBoundingClientRect();
+    return r.left < pr.left - 0.5 || r.right > pr.right + 0.5 || b.scrollWidth > b.clientWidth + 1;
+  }).map((b) => (b.getAttribute('aria-label') || b.textContent).trim());
+  const rows = [...panel.querySelectorAll('.doc-finding-words, .doc-finding-why')];
+  const untitled = rows.filter((r) => r.scrollWidth > r.clientWidth + 1 && !r.title).length;
+  return {
+    w: Math.round(pr.width), sideways: panel.scrollWidth - panel.clientWidth,
+    headButtons: btns.length, cut, untitledEllipsised: untitled,
+    fixed: getComputedStyle(panel).position === 'fixed',
+  };
+}
+
+function check(label, m) {
+  const bad = !m.hidden && (m.outside.length || m.overlaps.length || m.sideways > 0);
+  if (bad) failures++;
+  console.log(`${bad ? 'FAIL' : 'ok  '} ${label}`, JSON.stringify(m));
+}
+
+(async () => {
+  for (const mode of MODES) {
+    for (const width of WIDTHS) {
+      // TOUCH=1: a coarse pointer (hasTouch + isMobile), for the touch floor.
+      const touch = Boolean(process.env.TOUCH);
+      const { browser, page, ctx } = await boot({ viewport: { width, height: 800 }, hasTouch: touch, isMobile: touch });
+      await page.evaluate((m) => {
+        localStorage.setItem('doc-toolbar-mode', m);
+        localStorage.setItem('doc-toolbar-mode-migrated-2026-09-09', '1');
+        localStorage.setItem('doc-toolbar-collapsed', '0');
+        localStorage.setItem('docProseDock', 'right');
+        sessionStorage.removeItem('doc-focus');
+      }, mode);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 }).catch(() => {});
+      if (await page.isVisible('#lock-password').catch(() => false)) {
+        await page.fill('#lock-password', 'testpassword123');
+        await page.click('#lock-submit');
+        await page.waitForTimeout(3000);
+      }
+      await openDoc(page, {
+        title: 'Lecture notes',
+        content: '# Lecture notes\n\nxz is teh word  here.\n\n## Key questions\n\n## Summary (three sentences at most, please)\n\n## To follow up\n',
+      });
+      await page.evaluate(() => setDocView('live'));
+      await page.waitForTimeout(600);
+      const m0 = await page.evaluate(measure, '#doc-toolbar');
+      check(`${mode} ${width} normal`, m0);
+      if (mode === 'row' && m0.more) {
+        // The layout toggle: folded behind More only on a strip under 600px,
+        // and back when More is open.
+        const wantFolded = m0.w < 600;
+        const openLayout = await page.evaluate(() => {
+          const bar = document.getElementById('doc-toolbar');
+          bar.querySelector('.doc-toolbar-more').click();
+          const shown = bar.querySelector('.doc-toolbar-layout').checkVisibility();
+          bar.querySelector('.doc-toolbar-more').click();
+          return shown;
+        });
+        const lbad = (m0.layout === 'folded') !== wantFolded || !openLayout;
+        if (lbad) failures++;
+        console.log(`${lbad ? 'FAIL' : 'ok  '} ${mode} ${width} layout toggle`, JSON.stringify({ w: m0.w, layout: m0.layout, withMoreOpen: openLayout ? 'shown' : 'missing' }));
+        // A content change at a constant width: hide the first three tools,
+        // and the row must take back tools it had folded, then fold them again.
+        const cc = await page.evaluate(async () => {
+          const bar = document.getElementById('doc-toolbar');
+          const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const count = () => bar.querySelectorAll('.doc-toolbar-over').length;
+          const before = count();
+          const first = [...bar.querySelectorAll(':scope > button')].slice(0, 3);
+          for (const b of first) b.hidden = true;
+          await frames();
+          const hiddenThree = count();
+          for (const b of first) b.hidden = false;
+          await frames();
+          return { before, hiddenThree, after: count(), w: Math.round(bar.getBoundingClientRect().width) };
+        });
+        const cbad = !(cc.hiddenThree < cc.before && cc.after === cc.before);
+        if (cbad) failures++;
+        console.log(`${cbad ? 'FAIL' : 'ok  '} ${mode} ${width} refit on content change`, JSON.stringify(cc));
+      }
+      if (width < 600) check(`${mode} ${width} phone bar`, await page.evaluate(measure, '#doc-phone-bar'));
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/tb-${mode}-${width}-normal.png`, clip: { x: 0, y: 0, width, height: 320 } });
+
+      // The suggestions panel, docked right.
+      await page.evaluate(() => { const c = document.getElementById('doc-prose'); if (c) c.click(); });
+      await page.waitForTimeout(500);
+      const p1 = await page.evaluate(prose);
+      const p1bad = !p1.hidden && (p1.sideways > 0 || p1.cut.length || p1.untitledEllipsised);
+      if (p1bad) failures++;
+      console.log(`${p1bad ? 'FAIL' : 'ok  '} ${mode} ${width} suggestions`, JSON.stringify(p1));
+      if (SHOTS && mode === MODES[0]) await page.screenshot({ path: `${SHOTS}/prose-${width}-normal.png` });
+      await page.evaluate(() => { const c = document.getElementById('doc-prose'); if (c && c.getAttribute('aria-expanded') === 'true') c.click(); });
+
+      // Focus mode, Tools on.
+      await page.evaluate(() => toggleDocFocus(true));
+      await page.waitForTimeout(400);
+      const tools = await page.$('#doc-focus-tools');
+      if (tools) {
+        if ((await tools.getAttribute('aria-pressed')) !== 'true') await tools.click();
+        await page.waitForTimeout(500);
+        check(`${mode} ${width} focus+tools`, await page.evaluate(measure, '#doc-toolbar'));
+        if (SHOTS) await page.screenshot({ path: `${SHOTS}/tb-${mode}-${width}-focus.png`, clip: { x: 0, y: 0, width, height: 320 } });
+      } else {
+        failures++;
+        console.log(`FAIL ${mode} ${width} focus: no Tools on the floating dock`, JSON.stringify(await page.evaluate(measure, '#doc-toolbar')));
+      }
+      const fp = await page.$('#doc-focus-prose');
+      if (fp) {
+        // The grip's width, set on the page, carries into focus mode.
+        const gripW = await page.evaluate(() => docProseApplyWidth(400));
+        await fp.click();
+        await page.waitForTimeout(500);
+        const p2 = await page.evaluate(prose);
+        const geo = await page.evaluate(() => {
+          const panel = document.getElementById('doc-prose-panel').getBoundingClientRect();
+          const bar = document.getElementById('doc-toolbar');
+          const barR = bar.checkVisibility() ? bar.getBoundingClientRect().right : 0;
+          return { panelLeft: Math.round(panel.left), barRight: Math.round(barR) };
+        });
+        // Above 720 the grip width, held to half the window; on a phone the
+        // window less its two --space-4 gutters.
+        const want = width > 720 ? Math.min(gripW, width / 2) : width - 2 * 9.6;
+        p2.gripW = gripW; p2.want = Math.round(want); Object.assign(p2, geo);
+        const under = width > 720 && geo.barRight > geo.panelLeft + 0.5;
+        const bad = p2.hidden || p2.sideways > 0 || p2.cut.length || Math.abs(p2.w - want) > 1.5 || under;
+        if (bad) failures++;
+        console.log(`${bad ? 'FAIL' : 'ok  '} ${mode} ${width} focus suggestions`, JSON.stringify(p2));
+        if (SHOTS && mode === MODES[0]) await page.screenshot({ path: `${SHOTS}/prose-${width}-focus.png` });
+      } else {
+        failures++;
+        console.log(`FAIL ${mode} ${width} focus: no Suggestions on the floating dock`);
+      }
+      if (touch) {
+        // The touch floor on this round's controls: the floating dock's
+        // toggles, More, and the suggestions head (open here in focus mode).
+        const small = await page.evaluate(() => {
+          const sel = '#doc-focus-bar button, #doc-toolbar .doc-toolbar-tools button, #doc-prose-panel .doc-prose-tools button';
+          return [...document.querySelectorAll(sel)].filter((b) => b.checkVisibility()).map((b) => {
+            const r = b.getBoundingClientRect();
+            return [(b.getAttribute('aria-label') || b.textContent).trim().slice(0, 20), Math.round(r.width), Math.round(r.height)];
+          }).filter(([, w, h]) => Math.min(w, h) < 43.5);
+        });
+        if (small.length) failures++;
+        console.log(`${small.length ? 'FAIL' : 'ok  '} ${mode} ${width} touch floor`, JSON.stringify(small));
+      }
+      await browser.close();
+    }
+  }
+  console.log(failures ? `${failures} failing` : 'all reachable');
+  process.exitCode = failures ? 1 : 0;
+})();

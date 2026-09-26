@@ -12,12 +12,13 @@ setup screen first.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets
 import time
 
 import bcrypt
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -44,17 +45,42 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 #             not still be valid; this is the ceiling that a token leaked from
 #             a proxy log or a synced browser profile eventually hits.
 #
-# There is no cookie here to mark SameSite=Strict: the token travels as an
-# X-Auth-Token header the frontend sets explicitly, so a browser never attaches
-# it to a cross-site request on its own. That is a stronger position than a
-# SameSite cookie rather than a gap in one, the risk a SameSite flag addresses
-# is the browser sending credentials unprompted, and nothing here does.
+# The session token is never a cookie: it travels as an X-Auth-Token header the
+# frontend sets explicitly, so a browser never attaches it to a cross-site
+# request on its own. That is a stronger position than a SameSite cookie
+# rather than a gap in one. The one cookie this app sets is the media ticket
+# below, which opens pictures and files and nothing else.
 _SESSION_IDLE_TTL = 12 * 60 * 60  # fallback default; overridden by the
 # session_idle_ttl_minutes preference (Settings → Account) once one is set
 _SESSION_MAX_AGE = 7 * 24 * 60 * 60  # this old → expired, however busy
 
 # token -> [issued_at, last_used_at]
 _active_tokens: dict[str, list[float]] = {}
+
+# **The media ticket** (WORLD_CLASS_PLAN §12, S1). A declarative load (`<img
+# src>`, an `<iframe>`, a CSS background) cannot attach the X-Auth-Token
+# header, so `mediaSrc()` used to append `?token=<session token>` to every
+# `/media` and `/files` URL. That put the one credential that opens the whole
+# notebook into browser history, uvicorn's access log, and any note a person
+# pasted an image address into; on localhost a nuisance, on a LAN a leak.
+#
+# Now unlocking sets a cookie instead, and three properties do the work:
+#
+#   HttpOnly: no script on the page can read it, so an injected one cannot
+#             lift it the way it could read a URL.
+#   SameSite=Strict: another site cannot make the browser send it, so an
+#             `<img>` on a page elsewhere pointing here loads nothing.
+#   Path=/media and Path=/files: the browser sends it to those two prefixes
+#             only, and it holds a *ticket*, not the session token, so even a
+#             copy of it opens pictures and files and never the API.
+#
+# A ticket lives exactly as long as its session: it names one, and the gate
+# checks that session is still live on every use.
+MEDIA_COOKIE = "memorymap_media"
+MEDIA_COOKIE_PATHS = ("/media", "/files")
+# ticket -> the session token it was issued for
+_media_tickets: dict[str, str] = {}
+register_cache_reset(_media_tickets.clear)
 # Module state, not app state, so `deps.reset_app_state()` (the thing every
 # test's `app_state` fixture calls) threw the database away and kept the
 # tokens. Any test that ran `/auth/setup` before `test_account.py` in the same
@@ -79,8 +105,137 @@ def _sweep_expired(idle_ttl: int) -> None:
     ]
     for token in dead:
         del _active_tokens[token]
+    if dead:
+        _forget_dead_tickets()
     if dead and not _active_tokens:
         vault.close()
+
+
+def _forget_dead_tickets() -> None:
+    """Drop every media ticket whose session is gone."""
+    for ticket in [t for t, token in _media_tickets.items() if token not in _active_tokens]:
+        del _media_tickets[ticket]
+
+
+def _cookie_secure(request: Request) -> bool:
+    """Whether the media cookie may carry `Secure` on this request.
+
+    Always over https. Over plain http only on a loopback host, where
+    Chromium (the desktop window's WebView2 included) and Firefox treat
+    the origin as trustworthy and still store a `Secure` cookie; anywhere
+    else on http a `Secure` cookie is silently dropped by the browser and
+    every picture in the notebook would stop loading."""
+    if request.url.scheme == "https":
+        return True
+    return (request.url.hostname or "") in _LOOPBACK_HOSTS
+
+
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# **Optional sign-in** (INBOX 426 aa, the owner's brother: "some people might
+# not care about it and find it annoying"). One switch in Settings, Account
+# and security: "Ask for a password when the app opens", on by default. Off,
+# this computer is handed a session without the password; nothing else is.
+#
+# Kept in preferences.json but deliberately **not** declared on
+# `PreferencesBody` (routes_settings.py): `PUT /preferences` writes only the
+# fields it declares, so the one way to turn this off is the route below that
+# asks for the current password. tests/test_optional_sign_in.py holds that.
+PASSWORD_ON_OPEN_KEY = "ask_password_on_open"
+
+#: Headers a proxy or tunnel adds. Their presence on a loopback connection
+#: means the person asking is somewhere else, whatever address they claim, so
+#: a request carrying any of them is never given a password-free session.
+#: They are only ever *looked for*, never believed: the address used is
+#: `request.client.host`, the one uvicorn resolved for the connection.
+_FORWARDING_HEADERS = (
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+)
+
+
+def password_on_open(config: ConfigManager) -> bool:
+    """Whether the app asks for the password when it opens (default: yes)."""
+    return config.get_preference(PASSWORD_ON_OPEN_KEY, True) is not False
+
+
+def _is_loopback_address(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return bool(address.is_loopback or (mapped is not None and mapped.is_loopback))
+
+
+def _from_this_computer(request: Request) -> bool:
+    """Is this request from a person at this machine's own keyboard?
+
+    Three conditions, each closing a different door:
+
+    - the connection's own address is loopback (`request.client.host`, which
+      is what uvicorn resolved; a LAN device is never let in without the
+      password, whatever it sends);
+    - no forwarding header at all, because a tunnel or reverse proxy on this
+      machine connects from 127.0.0.1 on somebody else's behalf;
+    - the Host the browser named is a loopback name. A DNS-rebinding page
+      (evil.example re-pointed at 127.0.0.1) reaches this server from
+      loopback and is same-origin with itself, so the Origin check in
+      core/security.py passes it; the Host it sends is still its own name.
+    """
+    client = request.client.host if request.client else ""
+    if not _is_loopback_address(client or ""):
+        return False
+    if any(name in request.headers for name in _FORWARDING_HEADERS):
+        return False
+    return (request.url.hostname or "") in _LOOPBACK_HOSTS
+
+
+def _auto_session_allowed(request: Request, session: Session, config: ConfigManager) -> bool:
+    if _get_user(session) is None:
+        return False  # setup still makes a password: the vault needs one
+    if password_on_open(config):
+        return False
+    return _from_this_computer(request)
+
+
+def _grant_media(request: Request, response: Response, token: str) -> None:
+    """Set the media cookie for this session (see MEDIA_COOKIE above)."""
+    # One live ticket per session. A browser holds one cookie per path, so a
+    # session's earlier ticket is already gone from the jar it was set in;
+    # keeping it here would only let the table grow by one per reload (the
+    # boot path asks again every time) until the session ends.
+    for stale in [t for t, owner in _media_tickets.items() if owner == token]:
+        del _media_tickets[stale]
+    ticket = secrets.token_urlsafe(32)
+    _media_tickets[ticket] = token
+    for path in MEDIA_COOKIE_PATHS:
+        response.set_cookie(
+            MEDIA_COOKIE,
+            ticket,
+            max_age=_SESSION_MAX_AGE,
+            path=path,
+            httponly=True,
+            secure=_cookie_secure(request),
+            samesite="strict",
+        )
+
+
+def _revoke_media(request: Request, response: Response) -> None:
+    """Tell the browser to drop the media cookie on both paths."""
+    for path in MEDIA_COOKIE_PATHS:
+        response.delete_cookie(
+            MEDIA_COOKIE,
+            path=path,
+            httponly=True,
+            secure=_cookie_secure(request),
+            samesite="strict",
+        )
 
 
 def _token_valid(token: str | None, idle_ttl: int) -> bool:
@@ -92,29 +247,78 @@ def _token_valid(token: str | None, idle_ttl: int) -> bool:
     return True
 
 # Brute-force throttle for unlock attempts. The app binds 127.0.0.1, but a
-# server log showed a public client address arriving through a proxy header, 
+# server log showed a public client address arriving through a proxy header,
 # people do put this behind tunnels to reach it from a phone. bcrypt makes
 # each guess slow; nothing made *many* guesses slow, and the password floor
-# is four characters, which is PIN territory. One global bucket, not per-IP:
-# there is a single user to protect, and per-IP buckets are exactly what a
-# botnet has plenty of. Wrong guesses beyond the free allowance earn an
-# exponentially growing wait; a right password inside the wait still waits.
-_FAILURE_ALLOWANCE = 5  # free tries before the waits start
+# is four characters, which is PIN territory. Wrong guesses beyond the free
+# allowance earn an exponentially growing wait; a right password inside the
+# wait still waits.
+#
+# **Two layers** (WORLD_CLASS_PLAN §12, S2). Until 2026-09-24 this was one
+# global bucket, on the reasoning that there is a single user to protect and
+# per-address buckets are what a botnet has plenty of. True, and it had the
+# cost the review named: five wrong tries from *anyone* locked the owner out
+# for up to five minutes, which on localhost is only ever the owner and on a
+# LAN is a denial of service any device can run. So each client address now
+# earns its own waits at the old allowance, and the global list stays as the
+# backstop at a far larger one: a guesser at one address is slowed after
+# five, many addresses guessing together are slowed after fifty between
+# them, and the owner at their own address is slowed by neither until then.
+# On loopback every request is 127.0.0.1, so the local case is unchanged.
+_FAILURE_ALLOWANCE = 5  # free tries per client before the waits start
+_GLOBAL_FAILURE_ALLOWANCE = 50  # free tries across every client together
 _FAILURE_WINDOW = 15 * 60  # forgiven this long after the last failure
 _WAIT_CEILING = 300  # the wait stops growing at five minutes
-_failed_unlocks: list[float] = []
+#: Clients remembered at once. A guesser rotating addresses must not be able
+#: to grow this table without end; past the cap the quietest one is dropped,
+#: and the global list still counts every guess it made.
+_MAX_TRACKED_CLIENTS = 1024
+_failed_unlocks: list[float] = []  # every failure, from anyone: the backstop
+_failed_by_client: dict[str, list[float]] = {}
 
 
-def _refuse_if_throttled() -> None:
+def _clear_unlock_failures() -> None:
+    _failed_unlocks.clear()
+    _failed_by_client.clear()
+
+
+register_cache_reset(_clear_unlock_failures)
+
+
+def _client_key(request: Request | None) -> str:
+    """Who is guessing: the address uvicorn resolved for this connection.
+
+    `request.client.host` already honours `--forwarded-allow-ips`, so a
+    proxy the operator trusts is seen through and one they do not is not;
+    nothing here reads a forwarding header itself, which is what would let a
+    guesser name a fresh address per request.
+    """
+    if request is None or request.client is None:
+        return "unknown"
+    return request.client.host or "unknown"
+
+
+def _wait_left(failures: list[float], allowance: int, now: float) -> float:
+    """Seconds of wait this list of failures has earned, 0 when none."""
+    if failures and now - failures[-1] > _FAILURE_WINDOW:
+        failures.clear()  # long quiet: forgiven
+    over = len(failures) - allowance
+    if over < 0:
+        return 0.0
+    wait = min(2 ** over, _WAIT_CEILING)
+    return wait - (now - failures[-1])
+
+
+def _refuse_if_throttled(client: str = "unknown") -> None:
     """429 while inside the wait a run of wrong passwords has earned."""
     now = time.time()
-    if _failed_unlocks and now - _failed_unlocks[-1] > _FAILURE_WINDOW:
-        _failed_unlocks.clear()  # long quiet: forgiven
-    over = len(_failed_unlocks) - _FAILURE_ALLOWANCE
-    if over < 0:
-        return
-    wait = min(2 ** over, _WAIT_CEILING)
-    remaining = wait - (now - _failed_unlocks[-1])
+    own = _failed_by_client.get(client)
+    remaining = max(
+        _wait_left(own, _FAILURE_ALLOWANCE, now) if own is not None else 0.0,
+        _wait_left(_failed_unlocks, _GLOBAL_FAILURE_ALLOWANCE, now),
+    )
+    if own is not None and not own:
+        _failed_by_client.pop(client, None)
     if remaining > 0:
         raise HTTPException(
             status_code=429,
@@ -122,11 +326,20 @@ def _refuse_if_throttled() -> None:
         )
 
 
-def _unlock_failed() -> None:
-    _failed_unlocks.append(time.time())
+def _unlock_failed(client: str = "unknown") -> None:
+    now = time.time()
+    _failed_unlocks.append(now)
+    _failed_by_client.setdefault(client, []).append(now)
+    if len(_failed_by_client) > _MAX_TRACKED_CLIENTS:
+        quietest = min(_failed_by_client, key=lambda key: _failed_by_client[key][-1])
+        del _failed_by_client[quietest]
 
 
-def _unlock_succeeded() -> None:
+def _unlock_succeeded(client: str = "unknown") -> None:
+    # The global list too: whoever got the password right is the owner, and
+    # a backstop that outlived the owner's own unlock would be the lockout
+    # this change exists to remove. Other clients' own buckets are kept.
+    _failed_by_client.pop(client, None)
     _failed_unlocks.clear()
 
 
@@ -155,23 +368,24 @@ def require_unlock_media(
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
-    token: str | None = None,
+    memorymap_media: str | None = Cookie(default=None),
 ) -> None:
-    """Same gate as `require_unlock`, plus a query-param fallback.
+    """Same gate as `require_unlock`, plus the media cookie.
 
     For the handful of routes a plain `<img src>` points at directly
-    (`/media/{filename}`, `/files/{attachment_id}`), a declarative resource
-    load never attaches a custom header, only `fetch`/`XHR` can, so every
-    such image was a silent 401 (an empty/broken `<img>`, nothing thrown,
-    nothing logged) on any notebook with a password set, which is the normal
-    case. Scoped to just these routes rather than widened onto
-    `require_unlock` itself: that would put the token in every access-log
-    line for every request, not only the two that actually need it in a URL.
+    (`/media/{filename}`, `/files/{attachment_id}` and their page and preview
+    renders), a declarative resource load never attaches a custom header,
+    only `fetch`/`XHR` can, so every such image was a silent 401 on any
+    notebook with a password set, which is the normal case. The cookie is
+    what such a load carries (see MEDIA_COOKIE); a `fetch` still sends the
+    header. **A `?token=` query parameter is no longer read**: it was the
+    fallback here until 2026-09-24, and it was the leak S1 describes.
     """
     if _get_user(session) is None:
         return
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
-    if not _token_valid(x_auth_token or token, idle_ttl):
+    token = x_auth_token or _media_tickets.get(memorymap_media or "")
+    if not _token_valid(token, idle_ttl):
         raise HTTPException(status_code=401, detail="Locked: unlock first")
 
 
@@ -183,12 +397,22 @@ def _issue_token() -> str:
 
 
 @router.get("/status")
-def status(session: Session = Depends(get_session)) -> dict:
-    return {"setup_required": _get_user(session) is None}
+def status(
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    # `auto_session` answers for this caller only: whether *this* request
+    # would be given a session without a password. A LAN device is told
+    # False, which is all it needs to draw the lock screen.
+    return {
+        "setup_required": _get_user(session) is None,
+        "auto_session": _auto_session_allowed(request, session, config),
+    }
 
 
 @router.post("/setup")
-def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
+def setup(body: PasswordBody, request: Request, response: Response, session: Session = Depends(get_session)) -> dict:
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set")
@@ -199,19 +423,27 @@ def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
     vault.create(session, body.password)
     log_action(session, "created", "user", detail="password set")
     session.commit()
-    return {"token": _issue_token()}
+    token = _issue_token()
+    _grant_media(request, response, token)
+    return {"token": token}
 
 
 @router.post("/unlock")
-def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
-    _refuse_if_throttled()
+def unlock(
+    body: PasswordBody,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict:
+    client = _client_key(request)
+    _refuse_if_throttled(client)
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password set yet, use setup")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
-        _unlock_failed()
+        _unlock_failed(client)
         raise HTTPException(status_code=401, detail="Wrong password")
-    _unlock_succeeded()
+    _unlock_succeeded(client)
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
     #: **A full disk must not lock you out of your own notebook.** Measured
@@ -245,15 +477,159 @@ def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
         logging.getLogger("memorymap.auth").warning(
             "unlocked without writing the audit line: the disk is full"
         )
-    return {"token": _issue_token(), "vault_open": vault_open}
+    token = _issue_token()
+    _grant_media(request, response, token)
+    return {"token": token, "vault_open": vault_open}
+
+
+@router.post("/media-session", dependencies=[Depends(require_unlock)])
+def media_session(request: Request, response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+    """Set the media cookie again for a session the frontend already holds.
+
+    The boot path calls this when it finds a token in localStorage: a profile
+    that kept the token and lost its cookies (cleared site data, a browser
+    that drops cookies on exit) would otherwise show every picture broken
+    until the next unlock. `require_unlock` has already checked the header.
+    """
+    _grant_media(request, response, x_auth_token or "")
+    return {"ok": True}
+
+
+@router.post("/auto-session")
+def auto_session(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """A session without a password, for this computer, when sign-in is off.
+
+    Refused (403) unless `_from_this_computer` holds and the switch is off.
+    The vault is not touched: private notes stay locked until
+    `/auth/unlock-vault` is given the password. A token the caller already
+    holds and that is still live is kept rather than replaced, because the
+    boot path asks on every load and one tab must not mint a session per
+    reload.
+    """
+    if not _auto_session_allowed(request, session, config):
+        raise HTTPException(status_code=403, detail="Enter your password to unlock")
+    idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
+    if x_auth_token and _token_valid(x_auth_token, idle_ttl):
+        token = x_auth_token
+    else:
+        token = _issue_token()
+        user = _get_user(session)
+        try:
+            log_action(session, "unlocked", "user", user.id, "without a password (sign-in is off)")
+            session.commit()
+        except Exception as exc:
+            # A full disk must not lock anyone out (see `unlock`).
+            if not diskspace.out_of_space(exc):
+                raise
+            session.rollback()
+    _grant_media(request, response, token)
+    return {"token": token, "vault_open": vault.is_open()}
+
+
+@router.post("/unlock-vault", dependencies=[Depends(require_unlock)])
+def unlock_vault(
+    body: PasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Open private notes for a session that started without the password.
+
+    The same password check as `/auth/unlock` and the same throttle, so a
+    session without a password is not a second, unthrottled place to guess
+    it. The session's token is kept; only the key is loaded.
+    """
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+    if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="Wrong password")
+    _unlock_succeeded(client)
+    vault_open = vault.open_with(session, body.password)
+    try:
+        session.commit()  # the vault row, when open_with had to create one
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+        # Never hold a key in memory that is not on disk (see `unlock`).
+        vault.close()
+        vault_open = False
+    try:
+        log_action(session, "unlocked", "vault", detail="private notes opened")
+        session.commit()
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+    return {"vault_open": vault_open}
+
+
+class PasswordOnOpenBody(BaseModel):
+    enabled: bool
+    current_password: str | None = None
+
+
+@router.post("/password-on-open", dependencies=[Depends(require_unlock)])
+def set_password_on_open(
+    body: PasswordOnOpenBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Turn "Ask for a password when the app opens" on or off.
+
+    Off needs the current password, checked and throttled exactly like an
+    unlock: an unlocked screen is not proof of knowing it (the same reason
+    `/auth/change-password` asks), and this is the switch that lets the next
+    person at this keyboard in without it. On needs nothing, since it only
+    ever asks for more.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+    if not body.enabled:
+        client = _client_key(request)
+        _refuse_if_throttled(client)
+        if not body.current_password or not bcrypt.checkpw(
+            body.current_password.encode(), user.password_hash.encode()
+        ):
+            if body.current_password:
+                _unlock_failed(client)
+            raise HTTPException(status_code=401, detail="That isn't your current password")
+        _unlock_succeeded(client)
+    config.set_preference(PASSWORD_ON_OPEN_KEY, body.enabled)
+    log_action(
+        session, "edited", "user", user.id,
+        f"ask for a password when the app opens: {'on' if body.enabled else 'off'}",
+    )
+    session.commit()
+    return {"password_on_open": body.enabled}
 
 
 @router.post("/lock")
-def lock(x_auth_token: str | None = Header(default=None)) -> dict:
-    """Log out: the token stops working immediately."""
+def lock(
+    request: Request,
+    response: Response,
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """Log out: the token stops working immediately, and its media ticket too."""
     _active_tokens.pop(x_auth_token or "", None)
+    _forget_dead_tickets()
+    _revoke_media(request, response)
     # Forget the data key too, or "lock" would leave private notes readable.
-    if not _active_tokens:
+    # With sign-in off, always: the next load starts a session without a
+    # password, and it must not find the key another session left loaded.
+    if not _active_tokens or not password_on_open(config):
         vault.close()
     return {"locked": True}
 
@@ -283,12 +659,15 @@ def account(
         "vault_open": vault.is_open(),
         "vault_exists": vault.exists(session),
         "active_sessions": len(_active_tokens),
+        "password_on_open": password_on_open(config),
     }
 
 
 @router.post("/change-password", dependencies=[Depends(require_unlock)])
 def change_password(
     body: ChangePasswordBody,
+    request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
 ) -> dict:
@@ -312,6 +691,11 @@ def change_password(
         raise HTTPException(status_code=400, detail="That's already your password")
 
     if vault.exists(session) and not vault.is_open():
+        # A session started without a password (sign-in off) has the vault
+        # locked, and the current password just checked above is exactly
+        # what opens it.
+        vault.open_with(session, body.current_password)
+    if vault.exists(session) and not vault.is_open():
         # Without the data key in hand the vault cannot be re-wrapped, and
         # changing the password anyway would strand every private note.
         raise HTTPException(
@@ -334,7 +718,10 @@ def change_password(
     _active_tokens.pop(x_auth_token or "", None)
     signed_out = len(_active_tokens)
     _active_tokens.clear()
-    return {"changed": True, "token": _issue_token(), "other_sessions_ended": signed_out}
+    _media_tickets.clear()
+    token = _issue_token()
+    _grant_media(request, response, token)
+    return {"changed": True, "token": token, "other_sessions_ended": signed_out}
 
 
 class RotateVaultKeyBody(BaseModel):
@@ -344,6 +731,8 @@ class RotateVaultKeyBody(BaseModel):
 @router.post("/rotate-vault-key", dependencies=[Depends(require_unlock)])
 def rotate_vault_key(
     body: RotateVaultKeyBody,
+    request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
 ) -> dict:
@@ -379,6 +768,8 @@ def rotate_vault_key(
 
     if not vault.exists(session):
         raise HTTPException(status_code=400, detail="There's no vault to rotate yet")
+    if not vault.is_open():
+        vault.open_with(session, body.current_password)  # see change-password
     old_key = vault.key()
     if old_key is None:
         raise HTTPException(
@@ -447,18 +838,23 @@ def rotate_vault_key(
     _active_tokens.pop(x_auth_token or "", None)
     ended = len(_active_tokens)
     _active_tokens.clear()
+    _media_tickets.clear()
+    token = _issue_token()
+    _grant_media(request, response, token)
     return {
         "rotated": True,
         "notes_reencrypted": len(rewritten),
-        "token": _issue_token(),
+        "token": token,
         "other_sessions_ended": ended,
     }
 
 
 @router.post("/lock-all", dependencies=[Depends(require_unlock)])
-def lock_all() -> dict:
+def lock_all(request: Request, response: Response) -> dict:
     """End every session, including this one. The panic button."""
     ended = len(_active_tokens)
     _active_tokens.clear()
+    _media_tickets.clear()
+    _revoke_media(request, response)
     vault.close()
     return {"locked": True, "sessions_ended": ended}

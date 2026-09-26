@@ -12,11 +12,21 @@ it arrives with every internal link pointing at nothing.
 
 from __future__ import annotations
 
+import pytest
+
 from memorymap.api import routes_settings
 from memorymap.core.database import AuditLog, Entry
 from sqlalchemy import select
 
 from memorymap.entry import manager
+
+
+@pytest.fixture(autouse=True)
+def _vaults_live_in_home(tmp_path, monkeypatch):
+    """A vault is read only from inside home or the data folder (§12 S3),
+    and these build theirs under `tmp_path`, so `tmp_path` is home here."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
 
 
 def _vault(tmp_path):

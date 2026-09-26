@@ -15,12 +15,13 @@ corner case.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import frontend_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 
 
 def _read(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return frontend_text(name)
 
 
 def test_the_selection_bar_offers_asking_about_the_selection():

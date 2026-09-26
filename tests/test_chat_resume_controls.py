@@ -8,9 +8,14 @@ and the reopen path call it, and the state it needs is saved with the turn.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
-APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+#: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
+#: on 2026-09-24, and these tests read it wherever it lives.
+APP = app_js_text() + "\n" + (
+    ROOT / "frontend" / "palette.js"
+).read_text(encoding="utf-8")
 
 
 def test_one_function_draws_the_resume_controls() -> None:

@@ -173,12 +173,12 @@
 /* A note sitting on a date it only *talks about* is a different fact from one
    sitting on the day it was typed, and the old view said so in a tooltip. */
 .timeline-row[data-placed="mentioned"] .timeline-row-mark {
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
 }
 
 .timeline-row[data-kind="board"] .timeline-row-mark {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .timeline-row-main {
@@ -608,7 +608,7 @@
    bold alone wasn't enough to tell a category from a note in the arc view). */
 .graph-node text.graph-label-group {
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   fill: var(--accent);
 }
 
@@ -653,7 +653,7 @@
   background: none;
   border: none;
   box-shadow: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -755,18 +755,6 @@
      --muted; the name would also now collide with the --text-* type
      scale, which is a second reason not to resurrect it. */
   color: var(--muted);
-  font-size: 0.8rem;
-}
-
-/* Which upstream engine found a result. Quiet by design: it is provenance,
-   not part of the result, and should be readable without competing with the
-   title or the domain beside it. */
-.web-result-via {
-  font-size: 0.75rem;
-  opacity: 0.75;
-}
-
-.web-answered-detail {
   font-size: 0.8rem;
 }
 
@@ -872,7 +860,7 @@
 }
 
 .log-source-browser {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* A traceback is many lines, so it folds. Real newlines are safe here, this
@@ -906,7 +894,7 @@
   padding: 0 0.25rem;
   border-radius: var(--radius-pill);
   background: var(--error);
-  color: #fff;
+  color: var(--on-error);
   font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
@@ -938,7 +926,7 @@
   flex: 0 0 auto;
   padding: 0 0.25rem;
   line-height: 1.4;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .log-list li:hover .log-copy,
@@ -1254,11 +1242,12 @@
 .confirm-actions button.danger {
   background: var(--error);
   border-color: var(--error);
-  color: #fff;
+  color: var(--on-error);
 }
 
 .confirm-actions button.danger:hover {
-  filter: brightness(1.1);
+  background: color-mix(in oklab, var(--error) 86%, #000);
+  border-color: color-mix(in oklab, var(--error) 86%, #000);
 }
 
 /* The library create-picker's actions row has five buttons where every
@@ -1315,7 +1304,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   /* Contains the radio-hiding rule's own `position: absolute` below, so
      that 1px box stays inside this row instead of positioning against
      whatever ancestor happens to be positioned. */
@@ -1550,9 +1539,9 @@
 /* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
    button that runs a job on your notebook should not look identical to one
    that just switches tab, the two rows either side of it do nothing on their
-   own, and this one might tag forty notes. */
+   own, and this one might tag forty notes. Its lightning icon is the mark
+   (03-dashboard-widgets.css, INBOX 394 h: no dashed edge). */
 .quick-link-skill {
-  border-style: dashed;
   max-width: 14rem;
 }
 
@@ -1576,9 +1565,9 @@
 
 /* 1. Category. The bare `.chip` with no variant is the category, it earns the
       accent because it is the answer to "where does this note live?". */
-.entry-meta>.chip:not(.tag):not(.confidence):not(.review):not(.when):not(.link) {
+.entry-meta>.chip.category {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1692,7 +1681,7 @@
    Positioning this strip made it a stacking context, so the menu inside it
    could never rise past a sibling strip on the same z-index that happened to
    come later in the document, which is every note below this one. See
-   `openActionMenu` in app.js for what that cost. */
+   `openActionMenu` in menus.js for what that cost. */
 #entry-list>li .entry-actions.menu-open {
   z-index: 5;
 }
@@ -1878,7 +1867,7 @@
 /* Muted is a state worth seeing at a glance, not just reading in a label, 
    the same reasoning the battery/power-saver indicator already follows. */
 #notif-mute-toggle.active {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -1996,7 +1985,7 @@
 
 #notif-panel .notif-row .notif-read-toggle:hover,
 #notif-panel .notif-row .notif-read-toggle:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .notif-list>li:first-child {
@@ -2032,7 +2021,7 @@
 }
 
 .notif-unread .notif-title {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .notif-actionable {
@@ -2267,7 +2256,7 @@
   clip-path: none;
   overflow: visible;
   white-space: normal;
-  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background-color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   /* Optical: centres a 1.15rem control on a line of body text rather than
      sitting it on the baseline. */
   vertical-align: -0.2em;
@@ -2292,7 +2281,9 @@
   transform: translateY(-50%);
   border-radius: var(--radius-pill);
   background: var(--muted);
-  transition: transform var(--motion-base) ease, background-color var(--motion-base) ease;
+  /* The knob travels on the spring curve, one small overshoot at the end of
+     the track, the way a physical switch settles; its colour does not. */
+  transition: transform var(--motion-base) var(--ease-spring), background-color var(--motion-base) var(--ease-out);
 }
 
 /* Hover says it is interactive before it is clicked, the other half of
@@ -2357,7 +2348,16 @@
   width: 100%;
   height: 100%;
   flex: 1;
-  overflow: hidden;
+  /* `clip`, not `hidden` (INBOX 421 a): a `hidden` box is still a scroll
+     container, and focusing a map ring's sector (a button the size of the
+     whole ring, so partly past the canvas on a short window) scrolled it by
+     46px at 947x608. The board jumped, and the scroll event that followed a
+     frame later closed the menu More had just opened (every action menu
+     closes on scroll), so Enter on More opened nothing about one run in
+     three. A canvas never scrolls; the board pans. */
+  overflow: clip;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 /* Full screen. Mirrors `.graph-fullscreen` deliberately: the graph and the
@@ -2448,9 +2448,10 @@
   touch-action: none;
 }
 
-.whiteboard-container:active {
-  cursor: grabbing;
-}
+/* No `:active { cursor: grabbing }` here: the cursor is inherited by every
+   topic on the board, so that rule restyled all of them on each press and
+   release. The grabbing cursor is the pan shield's (07-whiteboard-misc.css,
+   MINDMAP_PLAN 13a-view). */
 
 /* Grid types. Asked for directly ("adding the grid", "grid lines (varying
    types)"), scoped to the three every comparable tool offers: draw.io and
@@ -3340,7 +3341,7 @@
 /* A sketch, or a note with an attached/pasted image, used to render as an
    empty-looking card: the whiteboard card never read entry.thumb_attachment_id
    /entry.thumb_url/entry.attachments at all: libraryCard() (library.js) and
-   entryItem() (app.js) both already show a thumbnail from the same fields,
+   entryItem() (note-cards.js) both already show a thumbnail from the same fields,
    this just closes the same gap here. Sits above .wb-card-content as a flex
    sibling, inheriting .wb-card's own padding rather than bleeding to the
    card's edge: simplest fix, and consistent with how the card's text
@@ -3439,8 +3440,8 @@ aside[data-resizable="1"] {
      to bordered buttons like Select, not as a control you could click.
      Reported directly against the Semantic toggle specifically. */
   border: 1px solid var(--border);
-  transition: background var(--motion-base) ease, color var(--motion-base) ease,
-    border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
 .checkbox-label:hover {
@@ -3450,7 +3451,7 @@ aside[data-resizable="1"] {
 .checkbox-label:has(input:checked) {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -3487,8 +3488,8 @@ aside[data-resizable="1"] {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--inner);
-  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
-    border-color var(--motion-base) ease;
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
 .saved-look:hover,
@@ -3572,7 +3573,7 @@ aside[data-resizable="1"] {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 .saved-look:hover .saved-look-delete,
@@ -3585,6 +3586,42 @@ aside[data-resizable="1"] {
   .saved-look-delete {
     opacity: 1;
   }
+}
+
+/* INBOX 425 (l), with a screenshot: "Sea of P..." and a delete button
+   crowding it. The cards shared the 104px track of the built-in presets, a
+   width sized for a swatch, not for a name a person typed; and the delete
+   button took a third of the footer, so the name got what was left. A saved
+   look gets a track a name fits in, the name wraps to two lines before it
+   truncates, and delete becomes a badge on the card's own corner, where it
+   covers neither the name nor the preview's accent dot (it sat on the dot
+   when it was inside the preview). */
+#custom-themes:not(.theme-presets-empty) {
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+
+.saved-look {
+  position: relative;
+}
+
+.saved-look-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+.saved-look-delete {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  color: var(--ink);
 }
 
 /* ===================== TENSIONS: THE DISAGREEMENT REVIEW ==================
@@ -3715,7 +3752,7 @@ aside[data-resizable="1"] {
   flex: 0 0 auto;
   align-self: center;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .notif-row:hover .notif-read-toggle,
@@ -3729,5 +3766,15 @@ aside[data-resizable="1"] {
    it would be hiding the state itself. */
 .notif-row.notif-unread .notif-read-toggle {
   opacity: 0.85;
-  color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* The question a confirm asks, as its title (confirmDialog): a step up from
+   the consequence under it, with the gap a heading has. */
+.confirm-text > .confirm-title {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  color: var(--ink);
 }

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-mode="dark" data-avatar-motion="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avatar lab</title>
+<!--
+  **The avatar lab** (INBOX 426 bb; the owner's bench, reworked): a page
+  that calls the app's real renderers (avatars.js, atlas.js) and nothing
+  else of the app, for judging Atlas and the generated characters and for
+  trying changes live without editing the files.
+
+  It works from two places: served by the app at /tools/avatar-lab.html
+  (the scripts then load from "/"), or opened as a file from the tools/
+  folder (they load from ../frontend/). The loader below picks the root.
+
+  What it shows: Atlas in both looks side by side, every mood, every size
+  from 16 to 200px, every pose the companion can take, on a light or a
+  dark ground; a reference image from disk onion-skinned over the hero at
+  any opacity; the generated characters by seed with the Your look
+  pickers; and a companion simulator (companion-sim.html) with a mock page
+  of panels.
+
+  What it changes, live and only here: the Tune panel writes
+  `window.ATLAS_TUNE` and calls `atlasRetune` (atlas.js documents the
+  keys), the CSS box is a stylesheet on this page, the colours are custom
+  properties on each drawing. Snapshots A and B keep two tunes to compare,
+  and Export writes the whole session as JSON so the chosen values can be
+  put into atlas.js by hand.
+
+  Cheap on purpose: specimens render in batches of six per frame, and a
+  card that scrolls out of view has its animations paused.
+
+  Three files (this page, avatar-lab.css, avatar-lab.js) because the app's
+  Content Security Policy allows no inline script or style; the CSS box
+  on the page becomes a constructed stylesheet, which the policy permits.
+
+  Pose cards each wrap the figure in a host with the companion's id
+  (`nm-buddy`), because the pose CSS keys on it; duplicate ids are fine
+  for a bench nothing else scripts.
+-->
+<link rel="stylesheet" href="avatar-lab.css">
+</head>
+<body>
+<div class="lab">
+  <header class="top">
+    <h1>Avatar lab</h1>
+    <span class="tag">the app's own renderers, nothing saved to the app</span>
+    <span class="tag" id="status">loading</span>
+    <i class="push"></i>
+    <button id="ground">Ground: dark</button>
+    <button id="motion">Motion: off</button>
+    <button id="clear">Clear</button>
+    <a class="tag" id="sim-link" href="companion-sim.html" target="_blank">Companion simulator</a>
+  </header>
+  <aside class="side">
+    <section class="sec">
+      <h2>Atlas</h2>
+      <label class="field inline">Look<select id="look"><option>masculine</option><option>feminine</option></select></label>
+      <label class="field inline">Style<select id="style"><option>character</option><option>classic</option></select></label>
+      <div id="moods" class="moods"></div>
+      <div class="row row-gap">
+        <button class="main" data-do="hero">Hero</button>
+        <button data-do="compare">Both looks</button>
+        <button data-do="moods">All moods</button>
+        <button data-do="sizes">All sizes</button>
+        <button data-do="poses">All poses</button>
+      </div>
+    </section>
+    <section class="sec">
+      <h2>Reference overlay</h2>
+      <input type="file" id="ref-file" accept="image/*">
+      <div class="knob"><span>Opacity</span><input type="range" id="ref-op" min="0" max="100" value="50"><output>0.50</output></div>
+      <div class="knob"><span>Scale</span><input type="range" id="ref-scale" min="10" max="300" value="100"><output>1.00</output></div>
+      <div class="knob"><span>Shift x</span><input type="range" id="ref-x" min="-200" max="200" value="0"><output>0</output></div>
+      <div class="knob"><span>Shift y</span><input type="range" id="ref-y" min="-200" max="200" value="0"><output>0</output></div>
+      <p class="hint">Lies over the hero and the Both looks stages.</p>
+    </section>
+    <section class="sec">
+      <h2>Character</h2>
+      <label class="field">Name or seed<input id="seed" value="Brayden"></label>
+      <div class="row">
+        <button class="main" data-do="avatar">Preview</button>
+        <button data-do="avatar-sizes">All sizes</button>
+        <button data-do="figure">Figure</button>
+        <button data-do="gallery">Gallery</button>
+      </div>
+      <p class="hint hint-head">Your look (the parts you choose; the seed above wears them)</p>
+      <div id="own-parts"></div>
+    </section>
+    <section class="sec">
+      <h2>Tune, live</h2>
+      <div id="knobs"></div>
+      <label class="field inline">Star rays<select id="tune-starRays"><option>4</option><option>8</option></select></label>
+      <div class="colours" id="colours"></div>
+      <label class="field">CSS on this page<textarea id="css" spellcheck="false" placeholder=".nm-atlas .atl-aura { opacity: 0.4; }"></textarea></label>
+      <div class="row">
+        <button data-do="snap-a">Keep as A</button>
+        <button data-do="snap-b">Keep as B</button>
+        <button data-do="ab">Show A and B</button>
+        <button data-do="reset-tune">Reset</button>
+      </div>
+      <p class="hint" id="snaps">A: none. B: none.</p>
+    </section>
+    <section class="sec">
+      <h2>Session</h2>
+      <textarea id="notes" placeholder="What changed, what to fix, what you like"></textarea>
+      <div class="row">
+        <button class="main" id="export">Export JSON</button>
+        <label class="field field-flush"><input type="file" id="import" accept="application/json"></label>
+      </div>
+    </section>
+  </aside>
+  <main class="canvas" id="canvas"><div class="empty"><h2>Start with a specimen.</h2><p>Hero, both looks, moods, sizes or poses on the left.</p></div></main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="avatar-lab.js"></script>
+</body>
+</html>

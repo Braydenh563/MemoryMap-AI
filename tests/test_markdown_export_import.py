@@ -63,10 +63,13 @@ def test_markdown_import_plain_file_and_skips(client):
     assert client.get("/entries").json()[0]["category"] == "Uncategorised"
 
 
-def test_directory_import_walks_a_folder_and_files_notes(client, tmp_path):
+def test_directory_import_walks_a_folder_and_files_notes(client, tmp_path, monkeypatch):
     """The Settings -> Data "Bulk Directory Import" path (an Obsidian-vault-
     style import): a background task rather than an upload, so it has to
     open its own DB session rather than reuse the request's."""
+    # A vault is read only from inside home or the data folder (§12 S3).
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     vault = tmp_path / "vault"
     vault.mkdir()
     (vault / "recipe.md").write_text(

@@ -21,6 +21,7 @@ everything because `startApp()` re-renders it.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "app.js"
 
@@ -39,7 +40,7 @@ USER_CONTENT_IDS = [
 
 def test_locking_purges_the_rendered_content():
     """`lockNow` must clear the DOM, not merely cover it."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("async function lockNow(")
     body = source[start : source.index("\n}", start)]
     assert "purgeLockedContent()" in body, (
@@ -48,7 +49,7 @@ def test_locking_purges_the_rendered_content():
 
 
 def test_every_user_content_container_is_purged():
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("const LOCK_PURGE_IDS")
     listed = source[start : source.index("];", start)]
     missing = [name for name in USER_CONTENT_IDS if f'"{name}"' not in listed]
@@ -59,7 +60,7 @@ def test_text_fields_are_cleared_too():
     """A textarea keeps its text in `.value`, which `replaceChildren()` never
     touches: the document editor would otherwise stay fully readable behind
     the lock screen."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("function purgeLockedContent(")
     body = source[start : source.index("\n}\n", start)]
     assert '"value" in field' in body or ".value = \"\"" in body
@@ -81,7 +82,7 @@ def test_locking_reaches_every_open_tab():
     origin only: the tab that locked has already handled itself, and nothing
     has to poll.
     """
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     assert 'addEventListener("storage"' in source, (
         "no cross-tab lock listener, a second open tab keeps showing everything"
     )
@@ -91,3 +92,48 @@ def test_locking_reaches_every_open_tab():
     assert "showLockScreen(false)" in handler
     # A sign-in elsewhere must not be mistaken for a lock.
     assert 'localStorage.getItem("token")' in handler
+
+
+def test_the_password_free_boot_is_taken_only_when_the_server_offers_it():
+    """Optional sign-in (INBOX 426 aa): the boot path asks for a session
+    without a password only when `/auth/status` says this caller may have
+    one, and falls back to the lock screen when it is refused."""
+    source = app_js_text()
+    start = source.index("async function initAuth(")
+    body = source[start : source.index("\n}\n", start)]
+    assert "status.auto_session" in body
+    assert "/auth/auto-session" in source
+    assert "showLockScreen(false)" in body
+
+
+def test_private_notes_ask_through_the_same_lock_screen():
+    """With sign-in off the vault stays locked, and it is opened by the
+    existing unlock UI in a prompt mode, not by a second password form."""
+    source = app_js_text()
+    assert "Unlock private notes" in source
+    assert "/auth/unlock-vault" in source
+    start = source.index("async function submitLockForm(")
+    body = source[start : source.index("\n}\n", start)]
+    assert '"prompt"' in body, "the lock form must know its prompt mode"
+
+
+def test_a_prompt_is_not_mistaken_for_the_lock_screen():
+    """The prompt borrows the overlay. A lock in another tab while it is up
+    must still purge this one, so "the overlay is showing" cannot be read as
+    "already locked" while it is in prompt mode."""
+    source = app_js_text()
+    start = source.index('addEventListener("storage"')
+    handler = source[start : source.index("\n});", start)]
+    assert 'dataset.mode !== "prompt"' in handler
+
+
+def test_no_second_password_form():
+    """DESIGN.md's recipe for asking the password for one action is the lock
+    card in prompt mode. A password field built anywhere else is a second
+    form to keep in step with the throttle, the error line and the purge."""
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    assert html.count('type="password"') == 4, "lock card plus Change password's three"
+    for path in sorted(APP_JS.parent.glob("*.js")):
+        source = path.read_text(encoding="utf-8")
+        assert 'type = "password"' not in source, path.name
+        assert "type=\"password\"" not in source, path.name

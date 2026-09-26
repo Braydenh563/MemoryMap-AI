@@ -25,7 +25,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WB = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+#: whiteboard.js and whiteboard-map.js joined: the mind map layer moved into
+#: whiteboard-map.js verbatim on 2026-09-24, and the renderer and the
+#: gestures that call into it stayed in whiteboard.js.
+WB = "\n".join(
+    (ROOT / "frontend" / n).read_text(encoding="utf-8") for n in ("whiteboard.js", "whiteboard-map.js")
+)
 
 
 def _body(name: str) -> str:
@@ -83,7 +88,7 @@ def test_every_topic_is_measured_after_the_writes_never_between_them() -> None:
     superlinearity lived. The reads happen once, after the last write."""
     body = _code("renderWbObjects")
     last_write = body.rindex("wbPaintMapNode(")
-    exits = body.index("objectSelection.exit().remove()")
+    exits = body.index("objectSelection.exit()")
     measure = body.index("this.offsetHeight")
     assert last_write < exits < measure
     # And the same reads fill the size cache, because `wbRenderMapEdges` runs
@@ -169,5 +174,5 @@ def test_the_fit_reads_the_boxes_the_render_just_measured() -> None:
     boxes the render had measured in one pass moments earlier."""
     body = _code("wbItemBBox")
     cache_at = body.index("wbMapNodeSizeCache")
-    query_at = body.index('document.querySelector(`.wb-object')
+    query_at = body.index('wbItemElement("object"')
     assert cache_at < query_at, "the cache has to be consulted before the DOM"

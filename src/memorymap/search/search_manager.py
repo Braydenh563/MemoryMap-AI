@@ -10,8 +10,9 @@ fallback, so asking a question always returns *something* (plan §4).
 
 from __future__ import annotations
 
-import logging
 import difflib
+import importlib
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, time
@@ -301,64 +302,25 @@ def semantic_search(
     if query_vector is None:
         return None
 
-    records = session.execute(
-        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
-            # Vectors from other backends live in a different space, 
-            # comparing them would give nonsense (plan §6.5).
-            EmbeddingRecord.model_version
-            == embeddings.backend_id()
-        )
-    ).all()
-
-    if not records:
-        return []
-
     query_norm = float(np.linalg.norm(query_vector))
     if query_norm == 0:
         return []
 
-    # One matrix multiply instead of a Python loop of dot products, the scan
-    # is still brute-force, but NumPy does it at memory speed.
-    #
-    # Only over the rows whose vector is the same width as the query, though.
-    # `model_version` narrows this to one backend, and a backend is not a
-    # dimension: swapping the embedding *model* inside the same backend (which
-    # Settings → Embedding models offers as a button) leaves the old rows in
-    # place at their old width. Stacking those into one array raises on the
-    # ragged list and took the whole search down with it, every query
-    # returning nothing, until a reindex that the error gave no hint to run.
-    # Mismatched rows are skipped instead; they get their real scores back as
-    # the reindex refills them.
-    by_width: dict[int, list[tuple[int, np.ndarray]]] = {}
-    for entry_id, blob in records:
-        vector = bytes_to_vector(blob)
-        by_width.setdefault(vector.shape[0], []).append((entry_id, vector))
-
-    usable = by_width.get(query_vector.shape[0], [])
-    if not usable:
-        logger.warning(
-            "no stored vectors match the query's %d dimensions (widths present: %s) "
-            ", reindex to score these notes again",
-            query_vector.shape[0],
-            sorted(by_width),
-        )
+    # **The engine's matrix first** (WORLD_CLASS_PLAN row 1, F3). This used to
+    # select every stored vector and parse it on every Ask and chat turn:
+    # 24.5 ms median at 5,000 notes, most of a search, for data the process
+    # already held in one array for the "see also" panel. The matrix is kept
+    # in step by the writes and checks the table's fingerprint before it
+    # answers, so a note edited, deleted or reindexed a moment ago scores on
+    # what is stored now. The table scan below stays as the fallback, for a
+    # query at a width the matrix does not hold (the minority side of a
+    # half-finished reindex) or a matrix that cannot be had at all.
+    scored = _score_from_matrix(session, query_vector, query_norm, embeddings.backend_id())
+    if scored is None:
+        scored = _score_from_table(session, query_vector, query_norm, embeddings.backend_id())
+    if scored is None:
         return []
-    if len(usable) < len(records):
-        logger.info(
-            "%d of %d vectors are a different width and were skipped, reindex to include them",
-            len(records) - len(usable),
-            len(records),
-        )
-
-    entry_ids = [entry_id for entry_id, _ in usable]
-    vectors = np.stack([vector for _, vector in usable])
-
-    norms = np.linalg.norm(vectors, axis=1)
-    valid = norms > 0
-
-    scores = np.zeros(len(vectors), dtype="float32")
-    if np.any(valid):
-        scores[valid] = np.dot(vectors[valid], query_vector) / (norms[valid] * query_norm)
+    entry_ids, scores, valid = scored
 
     # MIN_SIMILARITY alone assumes "0.25" means the same thing regardless of
     # which embedding model produced the vectors, it does not. A BGE-family
@@ -387,19 +349,21 @@ def semantic_search(
     else:
         relative_floor = float("-inf")
 
-    scored_ids = [
-        (entry_ids[i], float(scores[i]))
-        for i in range(len(entry_ids))
-        if scores[i] >= min_similarity and scores[i] >= relative_floor
-    ]
-    scored_ids.sort(key=lambda pair: pair[1], reverse=True)
-    if not scored_ids:
+    # Vectorised rather than a Python loop over every row: at 5,000 notes the
+    # loop was a millisecond of its own once the read above stopped
+    # dominating. A stable sort on the negated scores keeps equal scores in
+    # row order, which is what the `list.sort(reverse=True)` here did.
+    # `valid` is in the mask too: a forgotten row in the matrix is all zeros,
+    # and a zero score clears a floor a person has set to 0.
+    keep = np.nonzero(valid & (scores >= min_similarity) & (scores >= relative_floor))[0]
+    if keep.size == 0:
         return []
+    ranked = keep[np.argsort(-scores[keep], kind="stable")]
 
     # A generous pool before the is_deleted filter below: a deleted note's
     # embedding can still be sitting in the table (nothing prunes it), and
     # over-fetching candidates is cheap next to under-returning matches.
-    candidates = scored_ids[: max(limit * 4, 40)]
+    candidates = [(entry_ids[i], float(scores[i])) for i in ranked[: max(limit * 4, 40)]]
     entries_by_id = {
         e.id: e
         for e in session.scalars(
@@ -413,6 +377,105 @@ def semantic_search(
         (entries_by_id[eid], score) for eid, score in candidates if eid in entries_by_id
     ]
     return result[:limit]
+
+
+def _score_from_matrix(session: Session, query_vector, query_norm: float, backend_id: str):
+    """`(entry_ids, scores, valid)` from the engine's matrix, or None to scan.
+
+    None when the matrix cannot be had (the engine raised: never a failed
+    search) or holds another width than the query's: after a model swap
+    inside one backend the matrix follows the majority, and the rows at the
+    query's width are the table scan's to find.
+    """
+    import numpy as np
+
+    try:
+        # `importlib`, not an `import` statement: `search/engine.py` imports
+        # this module, so naming it here is the cycle
+        # `tests/test_no_import_cycles.py` counts wherever the statement sits.
+        engine = importlib.import_module("memorymap.search.engine")
+        view = engine.vector_view(session, backend_id)
+    except Exception:  # noqa: BLE001  # the scan below answers instead
+        logger.warning("the retrieval matrix is unavailable; scanning the table", exc_info=True)
+        return None
+    if view is None:
+        return None
+    ids, rows, live = view
+    if not ids or rows.shape[1] != query_vector.shape[0]:
+        return None
+    # `einsum`, not `@`: a matrix-vector product this size is memory-bound,
+    # and `@` hands it to the BLAS thread pool, whose wake-up dominated on a
+    # busy machine (measured at 5,000 x 384: 12 ms median through `@` with
+    # other work running, 0.45 ms through `einsum`, 0.3 ms either way on one
+    # thread). One core at memory speed is all this needs.
+    scores = np.einsum("ij,j->i", rows, np.asarray(query_vector, dtype="float32") / np.float32(query_norm))
+    return ids, scores, live
+
+
+def _score_from_table(session: Session, query_vector, query_norm: float, backend_id: str):
+    """The table scan `semantic_search` did on every request until 2026-09-24.
+
+    Kept as the fallback, with the width handling it grew: see the comment
+    inside. Returns `(entry_ids, scores, valid)`, or None for "nothing to
+    score".
+    """
+    import numpy as np
+
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
+            # Vectors from other backends live in a different space,
+            # comparing them would give nonsense (plan §6.5).
+            EmbeddingRecord.model_version
+            == backend_id
+        )
+    ).all()
+
+    if not records:
+        return None
+
+    # One matrix multiply instead of a Python loop of dot products, the scan
+    # is still brute-force, but NumPy does it at memory speed.
+    #
+    # Only over the rows whose vector is the same width as the query, though.
+    # `model_version` narrows this to one backend, and a backend is not a
+    # dimension: swapping the embedding *model* inside the same backend (which
+    # Settings → Embedding models offers as a button) leaves the old rows in
+    # place at their old width. Stacking those into one array raises on the
+    # ragged list and took the whole search down with it, every query
+    # returning nothing, until a reindex that the error gave no hint to run.
+    # Mismatched rows are skipped instead; they get their real scores back as
+    # the reindex refills them.
+    by_width: dict[int, list[tuple[int, np.ndarray]]] = {}
+    for entry_id, blob in records:
+        vector = bytes_to_vector(blob)
+        by_width.setdefault(vector.shape[0], []).append((entry_id, vector))
+
+    usable = by_width.get(query_vector.shape[0], [])
+    if not usable:
+        logger.warning(
+            "no stored vectors match the query's %d dimensions (widths present: %s) "
+            ", reindex to score these notes again",
+            query_vector.shape[0],
+            sorted(by_width),
+        )
+        return None
+    if len(usable) < len(records):
+        logger.info(
+            "%d of %d vectors are a different width and were skipped, reindex to include them",
+            len(records) - len(usable),
+            len(records),
+        )
+
+    entry_ids = [entry_id for entry_id, _ in usable]
+    vectors = np.stack([vector for _, vector in usable])
+
+    norms = np.linalg.norm(vectors, axis=1)
+    valid = norms > 0
+
+    scores = np.zeros(len(vectors), dtype="float32")
+    if np.any(valid):
+        scores[valid] = np.dot(vectors[valid], query_vector) / (norms[valid] * query_norm)
+    return entry_ids, scores, valid
 
 
 # --- fusing the two searches ---------------------------------------------------

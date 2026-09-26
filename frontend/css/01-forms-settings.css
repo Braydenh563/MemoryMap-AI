@@ -53,7 +53,7 @@
 .card h2 {
   margin: 0 0 var(--space-5);
   font-size: var(--text-body);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.005em;
 }
 
@@ -387,7 +387,12 @@ button {
      `calc(var(--radius) * 0.7)`, which is why buttons measured at 9.8px
      beside 8.4px quick links and 11.2px stat tiles on one page. */
   border-radius: var(--radius-md);
-  background: var(--accent-surface);
+  /* Through a custom property so the hover below reaches only the buttons
+     that kept this ground: a class that paints its own (`.ghost`, a chip,
+     a menu row) sets `background` and never reads `--button-ground`, so it
+     cannot be handed the accent on hover. */
+  --button-ground: var(--accent-surface);
+  background: var(--button-ground);
   color: var(--on-accent);
   font: inherit;
   font-weight: 600;
@@ -411,8 +416,10 @@ button {
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-button:hover {
-  filter: brightness(1.07);
+/* One step deeper, not brighter (INBOX 405): see `--accent-surface-hover`
+   (05-sidebars-themes.css) for why a hover is never a `filter`. */
+button:hover:not(:disabled) {
+  --button-ground: var(--accent-surface-hover);
 }
 
 /* Subtle press feedback across every button, a small, consistent tactile
@@ -443,8 +450,8 @@ button:hover {
    the centring is unnecessary, and its `scale(0.985)` would have multiplied
    with this rule's. */
 button {
-  transition: translate var(--motion-fast) ease, scale var(--motion-fast) ease,
-    filter var(--motion-fast) ease;
+  transition: translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
 }
 
 button:active:not(:disabled) {
@@ -653,7 +660,7 @@ input[type="checkbox"] {
 }
 
 .update-dialog-link:hover {
-  filter: brightness(1.07);
+  background: var(--accent-surface-hover);
 }
 
 .row {
@@ -957,7 +964,7 @@ progress {
 }
 
 .answer a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* --- rich markdown blocks (tables, quotes, rules, task lists) ------------- */
@@ -1098,7 +1105,7 @@ progress {
 }
 
 .bubble-answer a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* margin-left:auto pushes the buttons to the right edge of the heading. They no
@@ -1455,7 +1462,7 @@ progress {
 .entry-title {
   margin: 0 0 var(--space-2);
   font-size: var(--text-lg);
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -1485,10 +1492,10 @@ progress {
   align-items: center;
   gap: 0.3em;
   padding: 0.1rem 0.6rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1565,7 +1572,7 @@ progress {
    and it replaces the category chip for the second or two it lasts. */
 .chip.filing {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .chip.filing .ph {
@@ -1595,7 +1602,7 @@ progress {
 }
 
 .chip-interactive:hover {
-  filter: brightness(1.05);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 
 .chip-interactive:focus-visible {
@@ -1630,7 +1637,7 @@ progress {
    instead of needing its own. */
 .chip.chip-busy {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 @keyframes chip-spin {
@@ -1672,7 +1679,7 @@ progress {
      centre, and a `transform-origin` set on an ancestor for a different
      purpose must not reach it. */
   transform-origin: 50% 50%;
-  color: var(--accent);
+  color: var(--accent-text);
   vertical-align: -0.15em;
   animation: chip-spin 0.7s linear infinite;
 }
@@ -1928,6 +1935,21 @@ progress {
   text-align: center;
 }
 
+/* The same card asking for the password for one action (app.js
+   `askPasswordPrompt`: unlocking private notes, turning sign-in off). It can
+   be asked from inside Settings, a modal at 1010, so it sits above the
+   dialogs and below the toast box's 1050. "Not now" spans the card under
+   the submit button, the way the submit spans the field. */
+.lock-overlay.lock-prompt {
+  z-index: 1045;
+}
+
+.lock-card #lock-cancel {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
 /* The setup note (index.html, `#lock-setup-note`): the length rule, what the
    password unlocks and what a reset costs, said before the field is filled.
    Left-aligned inside a centred card on purpose, it is three lines of prose
@@ -2060,7 +2082,7 @@ progress {
   height: 1.75rem;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-md);
 }
 
@@ -2089,7 +2111,7 @@ progress {
 
 .bookmark-title:hover,
 .bookmark-title:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -2111,7 +2133,7 @@ progress {
 /* Pinned is a state, so the control that holds it is coloured by it rather
    than only by its glyph. */
 .bookmark-pinned {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **Deleted deliberately, and this comment is the reason.**
@@ -2283,7 +2305,7 @@ progress {
 
 .contents-caret {
   flex: 0 0 auto;
-  transition: transform var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .contents-section.is-folded .contents-caret {
@@ -2333,7 +2355,7 @@ progress {
 .contents-list li a:hover,
 .contents-list li a:focus-visible {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .contents-more {
@@ -2452,6 +2474,32 @@ progress {
   color: var(--ink);
 }
 
+/* A connection is its chip and one quiet menu (INBOX 319). The menu's
+   opener is the recipe's own `.icon-only` small button, shown on approach
+   like the rest of a card's actions and always on touch. */
+.link-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+#entry-list .link-connection > .menu-wrap {
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+#entry-list li:hover .link-connection > .menu-wrap,
+#entry-list li:focus-within .link-connection > .menu-wrap {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  #entry-list .link-connection > .menu-wrap {
+    opacity: 1;
+  }
+}
+
 .chip.link .unlink {
   cursor: pointer;
   margin-left: 0.25rem;
@@ -2463,7 +2511,7 @@ progress {
    covers a tabbed-to chip, and on touch because there is no hover there. */
 #entry-list .chip.link .unlink {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #entry-list li:hover .chip.link .unlink,
@@ -2529,7 +2577,7 @@ li.link-source {
 }
 
 .recent .chip:hover {
-  filter: brightness(1.08);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 
 /* The Capture form's pre-save tag-suggestion row (app.js's
@@ -2620,7 +2668,7 @@ li.link-source {
   border-radius: var(--radius-md);
   background: var(--card-bg);
   cursor: pointer;
-  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background-color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
 }
 
 .ask-history-item:hover,
@@ -2674,7 +2722,7 @@ li.link-source {
 }
 
 .icon-btn.active {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .ask-history-meta {
@@ -2758,6 +2806,31 @@ li.link-source {
   max-width: 340px;
   box-shadow: var(--glass-shadow);
   font-size: 0.92rem;
+  /* Arrives and leaves: a fade and 4px of travel, the menus' own entrance
+     distance, on `translate` so no transform the toast carries is replaced.
+     `dismissToast` (status.js) adds `.is-leaving` and removes the toast when
+     the animation ends. Under reduced motion the blanket rules cut both to
+     nothing, and the toast simply appears and goes. */
+  animation: toast-in var(--motion-slow) var(--ease-out);
+}
+
+.toast.is-leaving {
+  animation: toast-out var(--motion-base) var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 0 4px;
+  }
 }
 
 /* Ctrl+F on any tab except Documents (app.js). Docked under the header
@@ -2873,8 +2946,13 @@ mark.global-find-hit.global-find-current {
 /* Same highlight, for a jump-to-setting target outside the entry list, 
    e.g. openSettingsModal's scrollToId (Search relevance, jumped to from the
    Dashboard/Ask/Chat quick-access links) landing on a group buried in a long
-   settings section, not just the top of it. */
-.flash-target.flash {
+   settings section, not just the top of it. `.feature-reveal` is the same
+   ring on the control a Tools and features, palette or Find anything row
+   names (`flashRevealed`, app.js): a class of its own because `.flash-target`
+   also spaces a Settings group's sub-heading, and a ring must not move what
+   it rings. */
+.flash-target.flash,
+.feature-reveal {
   outline: 3px solid transparent;
   outline-offset: 2px;
   border-radius: var(--radius);
@@ -2884,7 +2962,8 @@ mark.global-find-hit.global-find-current {
 /* Reduced motion still gets the highlight, it just doesn't animate away. */
 @media (prefers-reduced-motion: reduce) {
   .entry-list li.flash,
-  .flash-target.flash {
+  .flash-target.flash,
+  .feature-reveal {
     animation: none;
     outline-color: var(--accent);
     background: var(--accent-soft);
@@ -2971,6 +3050,10 @@ mark.global-find-hit.global-find-current {
    4% see-through was never legible over the blurred app anyway. */
 #settings-modal .modal-card {
   background: var(--modal-bg-opaque);
+  /* Wider than a plain dialog: a two-column pane whose fields (a backend
+     picker beside its address and Connect) were clipping their own values
+     ("http://127.0.0.1:!") at the shared 880px. */
+  width: min(64rem, 96vw);
 }
 
 .modal-body {
@@ -2981,7 +3064,10 @@ mark.global-find-hit.global-find-current {
      lines at 61px tall beside 37px neighbours, so the nav read as a ragged
      list. 13rem holds the longest at --text-lg with the button's own
      padding; the guard below keeps a future longer label on one line. */
-  grid-template-columns: 13rem 1fr;
+  /* 14.5rem: "Profile & preferences" (since split into Profile and General,
+     INBOX 424 l) was cut to "Profile & preferenc" at 13rem, and the longest
+     labels left ("What it remembers", "Keyboard shortcuts") want the room. */
+  grid-template-columns: 14.5rem 1fr;
   /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
      grew past the dialog and .modal-body's overflow:hidden simply clipped it
      - every settings screen lost its last inch and nothing scrolled. Pinning
@@ -3347,7 +3433,7 @@ html.modal-open body {
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .dash-wordmark span {
@@ -3387,7 +3473,7 @@ html.modal-open body {
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .dash-clock-date {
@@ -3419,6 +3505,7 @@ html.modal-open body {
 .dash-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-4);
   /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
   padding: 0 0 var(--space-3);
@@ -3431,6 +3518,59 @@ html.modal-open body {
    one group, pinned to the end. */
 #dash-hint-spacer {
   flex: 1 1 auto;
+}
+
+/* Edit mode's hint: one line, never the reason the bar wraps. The items wrap
+   onto a second line that the fixed height hides, so a narrower bar drops
+   the last gestures instead of growing (INBOX 425). */
+.dash-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+  height: 1.75rem;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.dash-hint.hidden {
+  display: none;
+}
+
+.dash-hint:not(.hidden) + #dash-hint-spacer {
+  display: none;
+}
+
+/* The mode's name as words, not a tinted pill (the owner: "didnt you remove
+   pills like that because they are a vibecoded sign??"). Ink weight beside
+   the muted bar label, then a hairline, then the gestures in the muted
+   voice: the hierarchy is carried by weight and a rule, the way the rest of
+   the bar is. */
+.dash-hint-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--divider);
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dash-hint-item {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .dash-toolbar {
+    flex-wrap: nowrap;
+  }
 }
 
 .dash-toolbar-actions {
@@ -3612,7 +3752,7 @@ html.modal-open body {
 }
 
 .entry-list li.priority-high .reminder-text {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .entry-list li.priority-low .reminder-text {
@@ -3686,7 +3826,7 @@ html.modal-open body {
 
 .reminder-cal-today {
   border-color: var(--accent);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .reminder-cal-has-items {
@@ -3891,7 +4031,7 @@ html.modal-open body {
 }
 
 /* The animated indicator and the sentence that says what it is doing, on one
-   baseline. See `progressLine` (app.js): the label is what carries the
+   baseline. See `progressLine` (chat.js): the label is what carries the
    signal when the OS has asked for reduced motion and the dots are gone. */
 /* **Two rows, not one line that happens to wrap.** The musing belongs *under*
    the status, indented to the status's own column: a second sentence beside
@@ -3985,7 +4125,7 @@ html.modal-open body {
 }
 
 /* **The stepped variant: a word, not three dots (INBOX 36).**
-   Built by `typingDots` (app.js) when progress motion is off. The previous
+   Built by `typingDots` (chat.js) when progress motion is off. The previous
    version of this kept the three constellation nodes and moved a `.is-on`
    class between them once a second, a colour swap with no size or position
    change, reasoned to read as "alive" and reported, unchanged, as not: "the
@@ -4103,7 +4243,7 @@ html.modal-open body {
 }
 
 .sampling-source-user {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -4329,7 +4469,7 @@ html.modal-open body {
 }
 
 .setting-hint-toggle[aria-expanded="true"] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **Narrow: the section list becomes a strip, not a column.**
@@ -4522,7 +4662,7 @@ select {
 
 /* The "worth rebuilding now" line in Settings → Search index. An accent
    ground rather than a warning colour: nothing is broken, there is simply
-   something useful to do. See `renderReindex` in app.js. */
+   something useful to do. See `renderReindex` in ai-tools.js. */
 /* The box itself is `.notice.notice-warn` now (08-consistency.css, the recipe
    index): this was the app's only one-line "something is worth knowing here"
    box and it was built inline, which is what made the second one go looking
@@ -4621,7 +4761,7 @@ select {
      `.is-shown` is what the class swap turns on. */
   opacity: 0;
   transform: translateY(2px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
   /* Long enough for a sentence, short enough that it never becomes a
      paragraph competing with the answer it sits above. */
   max-width: 46ch;
@@ -4637,7 +4777,7 @@ select {
    actually watching. */
 .progress-line-label {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .progress-line-label.is-shown {
@@ -4700,7 +4840,7 @@ select {
   opacity: 0;
   /* Not interactive, and never a pointer target while invisible. */
   pointer-events: none;
-  transition: opacity var(--motion-slow) ease;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .typing-dots[data-phase="writing"] .ai-writing-trace {
@@ -4723,7 +4863,7 @@ select {
 }
 
 .typing-dots span {
-  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
 }
 
 /* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's
@@ -4871,14 +5011,59 @@ select {
   white-space: nowrap;
 }
 
+/* **A fold's summary is a sentence, so its height is a floor, not a pin.**
+   07-whiteboard-misc.css lets `.settings-fold summary` wrap, because "Tools
+   this skill may use (optional)" ran 26px past the column at 390px; the pin
+   above then held that wrapped sentence, and the '?' beside it, in a 44px
+   box. Measured at 390 (`scratchpad/ui-sweeps/help-popovers.js`): the head
+   inside the summary was 100px tall, the '?' sat at y=572 to 616 against a
+   summary ending at 588, and it could not be pressed at all ("div.help-head
+   intercepts pointer events"). The summary grows with its sentence now, and
+   the '?' keeps the end of the row while the words wrap beside it. */
+#settings-modal .settings-section .settings-fold > summary {
+  height: auto;
+  min-height: var(--settings-control-h);
+}
+
+#settings-modal .settings-section .settings-fold > summary > .help-head {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* A summary carrying a '?' lost its own padding to nothing: the 32px help
+   button plus the 6.4px padding above and below made those rows 47px in a
+   column of 36px ones (Appearance, Shortcuts, Extras, measured at 1440). The
+   button is already the row's height, so such a summary drops the block
+   padding and every fold head reads as the same row. */
+#settings-modal .settings-section .settings-fold > summary:has(> .help-head) {
+  padding-block: 0;
+}
+
+#settings-modal .settings-section .settings-fold > summary > .help-head > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* And nothing inside a card wraps by that rule either. Reported: "the palette
    ui is still broken and text overflows". `nowrap` was added to stop a
    two-word *control* label breaking onto a second line inside a fixed-height
    box; a palette card is a paragraph, so the same declaration ran its
    description off the side of the card and straight through the two cards
-   beside it. A card's text wraps -- that is what a card is. */
-#settings-modal .settings-section [class*="card"],
-#settings-modal .settings-section [class*="card"] * {
+   beside it. A card's text wraps -- that is what a card is.
+
+   **On the card, and inherited from there; never `[class*="card"] *`.** The
+   descendant form was here, and a substring match on `class` followed by a
+   descendant `*` is one of the few selectors a browser cannot scope: every
+   class change on any element anywhere in the app had to restyle that
+   element's whole subtree, in case it had just become a card. Measured on a
+   500-topic mind map (MINDMAP_PLAN 13a-view), toggling one unrelated class
+   on the board restyled 13,662 elements in 218ms, and 0.1ms without the
+   rule. `white-space` inherits, so the card alone reaches its contents:
+   walking all eighteen sections at 1440 and 390, the 96 elements inside a
+   card compute the same value and the same height either way
+   (`tests/test_css_invalidation.py` keeps the form out). */
+#settings-modal .settings-section [class*="card"] {
   white-space: normal;
 }
 
@@ -4921,11 +5106,11 @@ select {
    x=372 on the two rows of this block, which is the ragged edge in the
    report's screenshot. */
 #search-relevance-group .row > label {
-  flex: 0 0 var(--form-label-col-wide);
+  flex: 1 1 var(--form-label-col-wide);
 }
 
 #search-relevance-group .row > input {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -5103,6 +5288,28 @@ select {
   flex: 1 1 auto;
 }
 
+/* **The disclosure mark hangs in the gutter.** "Advanced response settings"
+   stood 20.8px right of the other 54 Settings headings (566.8 against 546,
+   measured at 1440), the summary's inline padding plus the chevron plus the
+   gap before the text. Hiding the chevron would buy the alignment with the
+   affordance, which OPEN.md said to decide rather than do; hanging it keeps
+   both, the way a list marker hangs: the summary starts that far left of the
+   column, so the heading lands on the column's edge and the chevron sits in
+   the margin beside it. Only a `.settings-group` summary, the one kind whose
+   text is a section heading; a fold's summary is a sentence inside a group
+   and keeps its indent. */
+#settings-modal .settings-group > summary:not(.icon-only):not(.icon-button) {
+  position: relative;
+  padding-inline-start: 0;
+}
+
+#settings-modal .settings-group > summary:not(.icon-only):not(.icon-button)::before {
+  position: absolute;
+  inset-inline-start: calc(-1 * (0.32rem + var(--space-2)));
+  /* Centred on the row by its own half height (the 0.24rem borders above). */
+  top: calc(50% - 0.24rem);
+}
+
 /* The heading gives its own vertical margins up to the row, so the row is one
    box in the flow and the flex centring has nothing asymmetric to centre
    (DESIGN.md, "And zero the margins, not just the heights"). The Settings
@@ -5184,7 +5391,7 @@ select {
    drawn at a size of their own and the label around them is the hit area.
    That is why the label recipes are named here instead: raising the row is
    what makes the switch reachable. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   :root {
     --settings-control-h: var(--target-min);
@@ -5296,7 +5503,7 @@ select {
    list's only job is to make the overridden rows findable among the inherited
    ones. */
 .feature-model-row[data-overridden="1"] .feature-model-state {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* `enhanceSelect` wraps every select in a `.select-shell` at boot and the

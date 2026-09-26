@@ -60,7 +60,8 @@ const { boot } = require('./lib.js');
   );
   check(
     'focus goes back to the opener, which says it is shut',
-    String(afterEsc.focus).includes('sidebar-collapse-toggle') && afterEsc.expanded === 'false',
+    // The rail's toggle, or below 600 the head's opener that stands for it.
+    /sidebar-collapse-toggle|phone-sidebar-opener/.test(String(afterEsc.focus)) && afterEsc.expanded === 'false',
     JSON.stringify(afterEsc)
   );
 
@@ -79,7 +80,9 @@ const { boot } = require('./lib.js');
     const btn = document.getElementById('phone-more-btn');
     if (!btn) return { skipped: 'no More button at this width' };
     btn.click();
-    const overlay = document.querySelector('.sheet-overlay');
+    // The More sheet by name: the press-outside step above can land on a
+    // note row, which opens the note page, a sheet of its own.
+    const overlay = document.querySelector('.sheet-overlay[data-sheet="more"]');
     return {
       open: !!overlay,
       inside: overlay ? overlay.contains(document.activeElement) : null,
@@ -90,7 +93,7 @@ const { boot } = require('./lib.js');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   const moreAfter = await page.evaluate(() => ({
-    open: !!document.querySelector('.sheet-overlay'),
+    open: !!document.querySelector('.sheet-overlay[data-sheet="more"]'),
     focus: document.activeElement && document.activeElement.id,
   }));
   check(

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -76,7 +77,7 @@ QUALIFIERS = re.compile(
 )
 
 COPY = [
-    ROOT / "frontend" / "app.js",
+    *app_js_files(),
     ROOT / "frontend" / "dashboard.js",
     ROOT / "frontend" / "index.html",
     ROOT / "src" / "memorymap" / "api" / "routes_websearch.py",

@@ -1,0 +1,15 @@
+/* The companion simulator's own styles (tools/companion-sim.html). */
+body { background: var(--bg); color: var(--ink); font: 13px/1.45 system-ui, sans-serif; margin: 0; }
+.sim-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--p); border-bottom: 1px solid var(--line); }
+.sim-foot { position: fixed; bottom: 0; left: 0; right: 0; top: auto; border-top: 1px solid var(--line); border-bottom: 0; }
+.sim-page { padding: 18px 18px 80px; min-height: 240vh; }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; align-items: start; }
+.sim-grid .card { min-height: var(--h, 140px); transition: min-height 0.3s; }
+.sim-grid .card h3 { margin: 0 0 6px; font-size: 13px; }
+.sim-grid .card p { margin: 0; color: var(--muted); font-size: 12px; }
+.sim-grid .card.wide { grid-column: span 2; }
+#trace-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2; }
+#seed { width: 90px; padding: 3px 6px; }
+.sim-menu { position: fixed; z-index: 5; margin: 0; padding: 6px; list-style: none; background: var(--p); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.sim-menu li { padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.sim-menu li:hover { background: var(--p2); }

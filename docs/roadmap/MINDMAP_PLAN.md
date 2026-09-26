@@ -717,7 +717,11 @@ promoted layer holding every topic on the board, the browser re-rasters it, and
 no amount of making the render cheaper touches a frame that runs no render. The prediction is confirmed: a zoom
 changes the scale of one promoted layer holding every topic, the browser
 re-rasters it, and no amount of making the render cheaper touches it, because
-no script runs on those frames. That is 13a-view.
+no script runs on those frames. That is 13a-view. **Corrected 2026-09-23 by
+a trace:** the worst frames were not rasterising but a restyle of every
+element on the board on the press and the release (an inherited `:active`
+cursor on the container, and a Settings rule that made any class change
+restyle a whole subtree); the record is 13a-view's in HISTORY.md.
 
 **One edge of the zoom control, found while measuring it.** d3-zoom multiplies
 a wheel delta by ten when ctrl is held, because that is how a browser reports
@@ -956,6 +960,13 @@ topic: a control that wide has nowhere to go.
    are two kinds nobody can tell apart, which is the report this section
    exists for. The colour stays on the row, so an ordinary board still draws
    it and a map turned back into a board gets it back.
+   **Revised by the owner 2026-09-23**: "these links I drew using the
+   cross-link tools are different from the ones between the other mind map
+   nodes ... I want them to be the same". A cross-link between two topics is
+   now drawn by the map (`wbMapCrossLinkLook`): the branch's shape, facing
+   anchors, weight and taper, in the source branch's colour (the target's
+   for a root, the accent failing both). Still no colour of its own, and the
+   pen's colour still stays on the row for an ordinary board.
 7. **The ring's middle slot promotes a cross-link to a branch** (taken
    2026-09-21, building 13c). The gesture that makes one or the other decides
    from whether the far end is already in the tree, which nothing on screen
@@ -1066,22 +1077,13 @@ topic: a control that wide has nowhere to go.
   The drag and pan figures are no worse. **What the row also predicted is not
   built and is now 13a-view below**: drawing only what is on screen. The open
   turned out not to need it.
-- **13a-view. Draw the topics that are on screen.** The pan and the zoom are
-  what is left of 13.1 reading 1, and 13a-open did not touch them: measured on
-  `mapperf.js` after it, a 500-topic map pans at a 16.7ms median with a worst
-  frame of 150.0ms and zooms at a 16.7ms median with a worst frame of 166.7ms
-  (six ctrl-wheel steps out and six back in, the probe's new `zoom` column,
-  and the first measurement of a zoom in this repository), against 133.4 and
-  133.4 on the head before the render pass: the same numbers within this
-  machine's spread, from a render eleven times cheaper. Both are the
-  browser re-rasterising one promoted layer that holds every topic on the
-  board, which is why neither moved when the render stopped rebuilding: no
-  script runs on those frames at all. Gate: `mapperf.js` at 500 topics with
-  the worst pan and zoom frames under 50ms, and `mapbranchdrag.js`,
-  `maplayouts.js` and `mapstrip.js` unchanged, since a culled board must not
-  lose the topic a gesture is reaching for. The open of a very large map is
-  the second prize (a board that draws 80 topics instead of 500 opens in the
-  time it takes to draw 80).
+- ~~**13a-view. Draw the topics that are on screen.**~~ **Built 2026-09-23**,
+  and the record is in HISTORY.md ("Moved from the plans, 2026-09-23", "From
+  MINDMAP_PLAN.md section 13a-view"). The worst pan frame at 500 topics
+  **166.6 to 16.8ms** and the zoom 33.3 (gate 50): it was a whole-board
+  restyle on press and release, not rasterising. Off-screen items are culled,
+  and a dragged branch's lines no longer trail it by a frame (77 of 81 frames
+  up to 12px behind, now 0, `mapedgelag.js`).
 
 - **13g. The middle-button pan on the owner's own machine.** He reports, with
   13.1's own gesture: "the whiteboard and mindmap goes haywire and moves to

@@ -39,15 +39,17 @@ writing a second one.
 from __future__ import annotations
 
 import importlib
+import itertools
 import logging
 import math
+import threading
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 from memorymap.search import search_manager
@@ -143,6 +145,47 @@ class _Matrix:
     ids: list[int]
     rows: np.ndarray
     position: dict[int, int]
+    #: Rows forgotten in place (zeroed, id -1) and not yet compacted away.
+    dead: int = 0
+    #: The embedding backend these vectors came from ("" for a hand-built
+    #: matrix in a test): a vector the hook sees from any other is not
+    #: comparable and never joins.
+    backend: str = ""
+    #: `{entry_id: embeddings.id}` for every row of the table this matrix has
+    #: *considered*, including the ones it holds no vector for (another
+    #: backend, another width). What `current_matrix` diffs the table against
+    #: to find the writes the flush hook never saw, without reading a blob.
+    seen: dict[int, int] = field(default_factory=dict)
+    #: The table's `(count, max(id), total(entry_id))` when `seen` last
+    #: matched it; None when the hook has changed the matrix since, which
+    #: forces the next `current_matrix` to diff once (a rollback after a flush
+    #: would otherwise leave a vector the table never kept).
+    fingerprint: tuple | None = None
+    #: Entries of this backend at another width: a model swapped inside one
+    #: backend. Counted so the matrix moves to the new width once the reindex
+    #: has put most rows there.
+    off_width: set[int] = field(default_factory=set)
+    #: Bumped on every change to `rows`, unique across rebuilds (a global
+    #: counter), so a cache over "the vector set" (`similar_pairs` for link
+    #: suggestions and tensions) can key on `(key, version)` and nothing else.
+    version: int = 0
+    #: Which rows are real vectors (not dead, not zero), cached until a change.
+    _live: np.ndarray | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.version:
+            self.version = next(_versions)
+
+    def changed(self) -> None:
+        self.version = next(_versions)
+        self._live = None
+
+    def live(self) -> np.ndarray:
+        if self._live is None or self._live.shape[0] != self.rows.shape[0]:
+            import numpy as np
+
+            self._live = np.any(self.rows != 0, axis=1) if self.rows.size else np.zeros(0, dtype=bool)
+        return self._live
 
     def top_k(self, vector: np.ndarray, k: int, exclude: int | None = None) -> list[tuple[int, float]]:
         if not self.ids:
@@ -156,9 +199,18 @@ class _Matrix:
         # `argpartition` rather than a full sort: at 50k vectors the sort is
         # most of the cost of the whole call, and only the top k is wanted.
         take = min(k + (1 if exclude is not None else 0), len(self.ids))
+        # Widened by the dead rows, and the dead rows dropped: a zeroed row
+        # scores 0, which outranks every negative cosine, so with few live
+        # vectors pointing away from the query `top_k` used to hand back the
+        # id -1 as an answer.
+        take = min(take + self.dead, len(self.ids))
         best = np.argpartition(-scores, take - 1)[:take]
         ordered = best[np.argsort(-scores[best])]
-        out = [(self.ids[i], float(scores[i])) for i in ordered if self.ids[i] != exclude]
+        out = [
+            (self.ids[i], float(scores[i]))
+            for i in ordered
+            if self.ids[i] != exclude and self.ids[i] >= 0
+        ]
         return out[:k]
 
     def scores_for(self, vector: np.ndarray, wanted: list[int]) -> dict[int, float]:
@@ -177,13 +229,44 @@ class _Matrix:
         return {entry_id: float(score) for (entry_id, _p), score in zip(rows, scores)}
 
 
+_versions = itertools.count(1)
 _matrix: _Matrix | None = None
+#: Guards the matrix's arrays while they change and while a reader copies its
+#: view of them. Never held across a database read: the hook that takes it
+#: runs inside another session's flush, and a lock held while waiting on
+#: SQLite is the shape a deadlock is made of.
+_matrix_lock = threading.RLock()
 
 
 def _matrix_key(session: Session, backend_id: str) -> str:
     bind = session.get_bind()
     return f"{getattr(bind, 'url', '')}|{backend_id}"
 
+
+def _table_fingerprint(session: Session) -> tuple:
+    """`(count, max(id), total(entry_id))` of the embeddings table.
+
+    Answered from the `entry_id` index and the rowid alone, so it never
+    touches a vector: 0.1 ms at 5,000 rows against the 20-odd ms of reading
+    and parsing them. It changes on every insert (a new id) and every delete
+    (the count), which is all a vector write can be here: `store_for_entry`
+    deletes and inserts, nothing updates a row in place.
+    """
+    row = session.execute(
+        text("SELECT count(*), max(id), total(entry_id) FROM embeddings")
+    ).one()
+    return (int(row[0]), row[1], float(row[2] or 0))
+
+
+def _row_ids(session: Session) -> dict[int, int]:
+    """`{entry_id: embeddings.id}` for the whole table, never a vector.
+
+    From the `entry_id` index alone, through the driver's own rows rather
+    than an ORM select: at 5,000 rows SQLAlchemy's row processing was ten of
+    the seventeen milliseconds the first query after a write paid.
+    """
+    rows = session.connection().exec_driver_sql("SELECT entry_id, id FROM embeddings").fetchall()
+    return {int(entry_id): int(row_id) for entry_id, row_id in rows}
 
 def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
     """The one full scan of `embeddings`, run once per process.
@@ -196,11 +279,15 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
     """
     import numpy as np
 
+    # Before the rows, so a write that lands between the two reads leaves the
+    # fingerprint behind the table and the next `current_matrix` diffs it in.
+    fingerprint = _table_fingerprint(session)
+    seen = _row_ids(session)
     records = session.execute(
         select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
             # Vectors from another backend live in a different space; mixing
             # them gives nonsense (plan §6.5), the same filter
-            # `semantic_search` applies.
+            # `semantic_search`'s table scan applies.
             EmbeddingRecord.model_version == backend_id
         )
     ).all()
@@ -212,6 +299,7 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
         widths[vector.shape[0]] = widths.get(vector.shape[0], 0) + 1
         ids.append(int(entry_id))
         vectors.append(vector)
+    off_width: set[int] = set()
     if widths and len(widths) > 1:
         # A model swapped inside one backend leaves rows at the old width, and
         # stacking a ragged list raises and takes every search down with it
@@ -224,6 +312,7 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
             widths[keep],
             keep,
         )
+        off_width = {entry_id for entry_id, vector in zip(ids, vectors) if vector.shape[0] != keep}
         pairs = [(entry_id, vector) for entry_id, vector in zip(ids, vectors) if vector.shape[0] == keep]
         ids = [entry_id for entry_id, _v in pairs]
         vectors = [vector for _id, vector in pairs]
@@ -233,6 +322,10 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
         ids=ids,
         rows=rows,
         position={entry_id: i for i, entry_id in enumerate(ids)},
+        backend=backend_id,
+        seen=seen,
+        fingerprint=fingerprint,
+        off_width=off_width,
     )
 
 
@@ -258,6 +351,112 @@ def warm_vectors(session: Session, backend_id: str | None = None) -> int:
         return len(_matrix.ids)
     _matrix = _load_all_vectors(session, backend)
     return len(_matrix.ids)
+
+
+#: Past this many changed rows, one full rebuild is cheaper than fetching
+#: them by id (and a reindex is exactly the case that gets here).
+RECONCILE_MAX_ROWS = 500
+
+
+def current_matrix(session: Session, backend_id: str) -> _Matrix | None:
+    """The matrix for this notebook and backend, brought up to date with the table.
+
+    What `semantic_search` scores against (WORLD_CLASS_PLAN row 1, F3). The
+    flush hook below keeps the matrix in step with every ORM write; what it
+    cannot see is a bulk `delete()` statement (the purge, a category
+    re-embed, a re-embed that then failed) or a flush that was rolled back.
+    So this asks the table one cheap question first, its fingerprint, and
+    only when that has moved does it diff the table's `(entry_id, id)` pairs
+    against what the matrix has seen and fetch the handful of rows that
+    differ. A request that finds the table as the matrix left it reads no
+    vector at all.
+
+    Builds a cold matrix, once: the table scan this replaces cost the same,
+    per request.
+    """
+    global _matrix
+    key = _matrix_key(session, backend_id)
+    fingerprint = _table_fingerprint(session)
+    matrix = _matrix
+    if matrix is None or matrix.key != key:
+        built = _load_all_vectors(session, backend_id)
+        with _matrix_lock:
+            _matrix = built
+        return built
+    if matrix.fingerprint == fingerprint:
+        return matrix
+    if not _reconcile(session, matrix, backend_id, fingerprint):
+        built = _load_all_vectors(session, backend_id)
+        with _matrix_lock:
+            _matrix = built
+        return built
+    return matrix
+
+
+def _reconcile(session: Session, matrix: _Matrix, backend_id: str, fingerprint: tuple) -> bool:
+    """Apply the writes the hook missed. False means "rebuild instead"."""
+    import numpy as np
+
+    table = _row_ids(session)
+    seen = dict(matrix.seen)
+    gone = [entry_id for entry_id in seen if entry_id not in table]
+    changed = {entry_id: row_id for entry_id, row_id in table.items() if seen.get(entry_id) != row_id}
+    if len(changed) > RECONCILE_MAX_ROWS:
+        return False
+    fetched: dict[int, tuple[str, bytes]] = {}
+    wanted = list(changed.values())
+    for start in range(0, len(wanted), 400):  # under SQLite's variable limit
+        for entry_id, model_version, blob in session.execute(
+            select(EmbeddingRecord.entry_id, EmbeddingRecord.model_version, EmbeddingRecord.embedding).where(
+                EmbeddingRecord.id.in_(wanted[start : start + 400])
+            )
+        ).all():
+            fetched[int(entry_id)] = (model_version, blob)
+    with _matrix_lock:
+        for entry_id in gone:
+            _forget_from(matrix, entry_id)
+            matrix.seen.pop(entry_id, None)
+            matrix.off_width.discard(entry_id)
+        for entry_id, row_id in changed.items():
+            if entry_id not in fetched:
+                # Deleted between the two reads: gone, and the fingerprint
+                # left as it was so the next request looks again.
+                _forget_from(matrix, entry_id)
+                matrix.seen.pop(entry_id, None)
+                continue
+            model_version, blob = fetched[entry_id]
+            matrix.seen[entry_id] = row_id
+            if model_version != backend_id:
+                _forget_from(matrix, entry_id)
+                matrix.off_width.discard(entry_id)
+                continue
+            _put(matrix, entry_id, _unit(np.frombuffer(blob, dtype="float32")))
+        if len(fetched) == len(changed):
+            matrix.fingerprint = fingerprint
+    live = len(matrix.ids) - matrix.dead
+    # Most of this backend's rows are now at a width the matrix is not: the
+    # reindex after a model swap has passed half way, so the new width wins.
+    return len(matrix.off_width) <= live
+
+
+def vector_view(session: Session, backend_id: str) -> tuple[list[int], np.ndarray, np.ndarray] | None:
+    """`(ids, unit rows, live mask)` for `semantic_search`, or None.
+
+    A copy of the id list and references to the arrays, taken under the lock
+    so a write in another thread cannot hand back ids and rows of different
+    lengths. None when the matrix cannot be had, which sends the caller back
+    to its table scan rather than failing a search.
+    """
+    matrix = current_matrix(session, backend_id)
+    if matrix is None:
+        return None
+    with _matrix_lock:
+        rows = matrix.rows
+        ids = list(matrix.ids)
+        live = matrix.live()
+    if len(ids) != rows.shape[0]:
+        return None
+    return ids, rows, live
 
 
 def _backend_id() -> str | None:
@@ -303,7 +502,8 @@ def _keep_matrix_in_step(session: Session, flush_context) -> None:  # noqa: ANN0
 
     The same reasoning as the index's own hook (`search/index.py`): every
     writer participates by construction. A bulk `DELETE FROM embeddings`
-    through `session.execute` is the one shape this cannot see. Of the three
+    through `session.execute` is the one shape this cannot see, and
+    `current_matrix` catches it from the table's fingerprint. Of the three
     that exist, two (`routes_entries.py`, re-embedding after an edit) store a
     fresh vector immediately afterwards, so the row is replaced rather than
     left stale; the third (`manager.set_private`) stores nothing, because a
@@ -320,23 +520,54 @@ def _keep_matrix_in_step(session: Session, flush_context) -> None:  # noqa: ANN0
 
 
 def _remember(record: EmbeddingRecord) -> None:
-    global _matrix
-    if _matrix is None:
+    matrix = _matrix
+    if matrix is None:
         return
     import numpy as np
 
-    vector = _unit(np.frombuffer(record.embedding, dtype="float32"))
-    if _matrix.rows.size and vector.shape[0] != _matrix.rows.shape[1]:
-        return  # a different width: the reindex that follows a model switch rebuilds
     entry_id = int(record.entry_id)
-    existing = _matrix.position.get(entry_id)
-    if existing is not None:
-        _matrix.rows[existing] = vector
+    with _matrix_lock:
+        # Unseen until the next `current_matrix` confirms it against the
+        # table: this runs at flush, and a flush can still be rolled back.
+        matrix.fingerprint = None
+        if record.id is not None:
+            matrix.seen[entry_id] = int(record.id)
+        if matrix.backend and record.model_version != matrix.backend:
+            _forget_from(matrix, entry_id)
+            return
+        _put(matrix, entry_id, _unit(np.frombuffer(record.embedding, dtype="float32")))
+
+
+def _put(matrix: _Matrix, entry_id: int, vector: np.ndarray) -> None:
+    """Set one entry's row, or record it as another width. Caller holds the lock."""
+    import numpy as np
+
+    live = len(matrix.ids) - matrix.dead
+    if live > 0 and vector.shape[0] != matrix.rows.shape[1]:
+        # A different width: a model swapped inside one backend. The row it
+        # replaces is stale either way, so it goes; the matrix moves to the
+        # new width once the reindex has put most rows there (`_reconcile`).
+        _forget_from(matrix, entry_id)
+        matrix.off_width.add(entry_id)
         return
-    rows = np.vstack([_matrix.rows, vector]) if _matrix.rows.size else vector.reshape(1, -1)
-    _matrix.ids.append(entry_id)
-    _matrix.position[entry_id] = len(_matrix.ids) - 1
-    _matrix.rows = rows
+    matrix.off_width.discard(entry_id)
+    if vector.shape[0] != matrix.rows.shape[1]:
+        # Nothing live at the old width (a fresh notebook's empty matrix is
+        # `(0, 1)`): start again at this one.
+        matrix.rows = np.zeros((0, vector.shape[0]), dtype="float32")
+        matrix.ids = []
+        matrix.position = {}
+        matrix.dead = 0
+    existing = matrix.position.get(entry_id)
+    if existing is not None:
+        matrix.rows[existing] = vector
+        matrix.changed()
+        return
+    rows = np.vstack([matrix.rows, vector]) if matrix.rows.size else vector.reshape(1, -1)
+    matrix.ids.append(entry_id)
+    matrix.position[entry_id] = len(matrix.ids) - 1
+    matrix.rows = rows
+    matrix.changed()
 
 
 def forget_vector(entry_id: int) -> None:
@@ -348,24 +579,57 @@ def forget_vector(entry_id: int) -> None:
     its place, because a private note is never embedded. Without this the
     matrix would go on holding a vector *derived from the text the
     encryption exists to hide*, and every similarity query would keep
-    answering questions about it.
+    answering questions about it until the next `current_matrix` noticed.
     """
     _forget(int(entry_id))
 
 
 def _forget(entry_id: int) -> None:
-    global _matrix
-    if _matrix is None:
+    matrix = _matrix
+    if matrix is None:
         return
-    position = _matrix.position.pop(entry_id, None)
+    with _matrix_lock:
+        matrix.fingerprint = None
+        _forget_from(matrix, entry_id)
+
+
+def _forget_from(matrix: _Matrix, entry_id: int) -> None:
+    """Zero one row out of `matrix`. Caller holds the lock (or owns `matrix`)."""
+    matrix.off_width.discard(entry_id)
+    position = matrix.position.pop(entry_id, None)
     if position is None:
         return
     # The row is zeroed rather than removed: deleting from the middle of the
     # array would renumber every position after it. A zero row scores zero
-    # against every query, which is exactly "not a match", and the next
-    # `warm_vectors` on a fresh process rebuilds without it.
-    _matrix.rows[position] = 0.0
-    _matrix.ids[position] = -1
+    # against every query, and `top_k` skips it by its id.
+    matrix.rows[position] = 0.0
+    matrix.ids[position] = -1
+    matrix.dead += 1
+    matrix.changed()
+    # **Compacted once the dead rows are a quarter of the array** (the
+    # `search-matrix-compaction` row: "counted rather than guessed"). Before,
+    # a dead row stayed for the life of the process, so a long session of
+    # deleting and privatising carried all of it in memory and in every
+    # `top_k` scan. A quarter because the rebuild is one copy of the live
+    # rows, O(n), so paying it after n/4 forgets costs at most four row
+    # copies per forget, amortised; the floor keeps a small notebook from
+    # rebuilding on every second delete.
+    if matrix.dead >= max(COMPACT_MIN_DEAD, len(matrix.ids) // 4):
+        _compact(matrix)
+
+
+#: The fewest dead rows worth a rebuild, whatever the fraction says.
+COMPACT_MIN_DEAD = 8
+
+
+def _compact(matrix: _Matrix) -> None:
+    """Rebuild the matrix without its dead rows, in place."""
+    keep = [position for position, entry_id in enumerate(matrix.ids) if entry_id >= 0]
+    matrix.rows = matrix.rows[keep] if keep else matrix.rows[:0]
+    matrix.ids = [matrix.ids[position] for position in keep]
+    matrix.position = {entry_id: n for n, entry_id in enumerate(matrix.ids)}
+    matrix.dead = 0
+    matrix.changed()
 
 
 # --- the search ---------------------------------------------------------------
@@ -668,6 +932,76 @@ def _has_attachment_ids(session: Session, entry_ids: list[int]) -> set[int]:
     )
 
 
+#: What each `has:` word is answered from (the decision the retrieval brief
+#: left open: "decide each one's source ... and answer them over the
+#: candidates, never with a join on every save"). `file` and `image` read the
+#: attachment table, `link` a connection either way round, `reminder` a
+#: reminder pointing at the note. A word not in this table matches nothing,
+#: which is what an unknown `is:` does too: a filter nobody can satisfy must
+#: not silently become no filter.
+HAS_WORDS = ("file", "image", "link", "reminder")
+
+#: Extensions a `/media/...` upload or an attachment name is a picture by,
+#: for a row whose mime was never recorded.
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".heic", ".avif")
+
+
+def _has_ids(session: Session, want: str, entry_ids: list[int]) -> set[int]:
+    """Which of these notes carry `want`. One query per word, candidates only."""
+    if not entry_ids:
+        return set()
+    if want == "file":
+        return _has_attachment_ids(session, entry_ids)
+    if want == "image":
+        rows = session.execute(
+            select(Attachment.entry_id, Attachment.mime, Attachment.filename).where(
+                Attachment.entry_id.in_(entry_ids)
+            )
+        )
+        return {
+            entry_id
+            for entry_id, mime, name in rows
+            if str(mime or "").startswith("image/")
+            or str(name or "").lower().endswith(_IMAGE_SUFFIXES)
+        }
+    if want == "link":
+        rows = session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+                or_(
+                    EntryLink.source_entry_id.in_(entry_ids),
+                    EntryLink.target_entry_id.in_(entry_ids),
+                )
+            )
+        )
+        wanted = set(entry_ids)
+        return {end for pair in rows for end in pair if end in wanted}
+    if want == "reminder":
+        return set(
+            session.scalars(select(Reminder.entry_id).where(Reminder.entry_id.in_(entry_ids)))
+        )
+    return set()
+
+
+def _row_has(row, want: str, carriers: dict[str, set[int]]) -> bool:  # noqa: ANN001
+    """Does one index row satisfy one `has:` word."""
+    kind = row["kind"]
+    if want == "file":
+        return kind == "file" or row["ref_id"] in carriers["file"]
+    if want == "image":
+        # A picture written into the text counts wherever the text is: a
+        # note, a board or a document. `![` is the markdown for one.
+        if "![" in (row["body"] or ""):
+            return True
+        if kind == "file":
+            return str(row["title"] or "").lower().endswith(_IMAGE_SUFFIXES)
+        return row["ref_id"] in carriers["image"]
+    if want == "reminder":
+        return kind == "reminder" or row["ref_id"] in carriers["reminder"]
+    if want in carriers:
+        return row["ref_id"] in carriers[want]
+    return want in (row["flags"] or "").split()
+
+
 def search(
     session: Session,
     q: str,
@@ -737,19 +1071,9 @@ def search(
     if wanted_is:
         rows = [row for row in rows if all(flag in (row["flags"] or "").split() for flag in wanted_is)]
     if wanted_has:
-        note_ids = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
-        with_file = _has_attachment_ids(session, note_ids) if "file" in wanted_has else set()
-        kept = []
-        for row in rows:
-            ok = True
-            for want in wanted_has:
-                if want == "file":
-                    ok = ok and (row["kind"] == "file" or row["ref_id"] in with_file)
-                else:
-                    ok = ok and want in (row["flags"] or "").split()
-            if ok:
-                kept.append(row)
-        rows = kept
+        note_ids = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
+        carriers = {want: _has_ids(session, want, note_ids) for want in HAS_WORDS if want in wanted_has}
+        rows = [row for row in rows if all(_row_has(row, want, carriers) for want in wanted_has)]
     wanted_tags = [tag.lower() for tag in asked.filters["tag"]]
     if wanted_tags:
         # Substring rather than word equality: the tags column is a space-
@@ -769,16 +1093,16 @@ def search(
     hops: dict[int, int] = {}
     open_entry = context.get("entry_id")
     if open_entry:
-        note_ids = {row["ref_id"] for row in rows if row["kind"] in ("note", "board")}
+        note_ids = {row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS}
         if note_ids:
             hops = _hops_from(session, int(open_entry), note_ids)
 
     hits: list[Hit] = []
     for row in rows:
-        hop = hops.get(row["ref_id"]) if row["kind"] in ("note", "board") else None
+        hop = hops.get(row["ref_id"]) if row["kind"] in search_index.ENTRY_KINDS else None
         scores = {
             "bm25": _normalised_bm25(row["score"], best_raw),
-            "cosine": max(0.0, cosines.get(row["ref_id"], 0.0)) if row["kind"] in ("note", "board") else 0.0,
+            "cosine": max(0.0, cosines.get(row["ref_id"], 0.0)) if row["kind"] in search_index.ENTRY_KINDS else 0.0,
             "graph": (1.0 / (1 + hop)) if hop else 0.0,
         }
         blended = sum(WEIGHTS[name] * value for name, value in scores.items())
@@ -841,7 +1165,7 @@ def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int
         return {}
     import numpy as np
 
-    wanted = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
+    wanted = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
     return matrix.scores_for(np.asarray(vector, dtype="float32"), wanted)
 
 
@@ -892,15 +1216,16 @@ def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "
     Rows are unit-normalised, which is what `embeddings.similar_pairs` does to
     them first thing anyway.
     """
-    matrix = _live_matrix(session)
+    backend = _backend_id()
+    if backend is None:
+        return {}
+    # `current_matrix`, not `_live_matrix`: these compare every pair and the
+    # two in `routes_entries` are cached on the matrix's version, so a vector
+    # a bulk delete took out of the table has to leave here too, or the cache
+    # would go on suggesting a link from a note's old text.
+    matrix = current_matrix(session, backend)
     if matrix is None:
-        backend = _backend_id()
-        if backend is None:
-            return {}
-        warm_vectors(session, backend)
-        matrix = _live_matrix(session)
-        if matrix is None:
-            return {}
+        return {}
     return {
         entry_id: matrix.rows[position]
         for entry_id, position in matrix.position.items()
@@ -908,12 +1233,69 @@ def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "
     }
 
 
+#: `{threshold: ((matrix key, matrix version), pairs)}`. One slot per
+#: threshold, not an LRU, for the reason `routes_graph._cached` gives: only the
+#: current vector set is ever asked for. Two thresholds are in use (link
+#: suggestions at 0.55, tensions at 0.45), so this holds two lists.
+_pairs_cache: dict[float, tuple[tuple[str, int], list[tuple[int, int, float]]]] = {}
+_pairs_lock = threading.Lock()
+
+
+def cached_similar_pairs(
+    session: Session, threshold: float, only: set[int] | None = None
+) -> list[tuple[int, int, float]]:
+    """`embeddings.similar_pairs` over the matrix, computed once per vector set.
+
+    WORLD_CLASS_PLAN row 9 (§16). The all-pairs comparison is O(n²) and link
+    suggestions and tensions ran it on every request; the graph had cached its
+    own since 2026-09-08. The key is the matrix's `(key, version)`: the
+    version moves on every change to a row, whether the flush hook made it or
+    `current_matrix` caught up with a bulk delete, so there is no fingerprint
+    here to forget to widen.
+
+    Computed over every vector the matrix holds, and `only` applied to the
+    result: a pair among a subset is exactly a pair of the whole whose two
+    ends are both in the subset (the matrix is one width, so `similar_pairs`'
+    majority-width rule picks the same rows either way). That is what lets
+    the two callers, which want different notes (tensions leave boards out),
+    share one comparison per threshold. Best first, as `similar_pairs` is.
+    """
+    backend = _backend_id()
+    if backend is None:
+        return []
+    matrix = current_matrix(session, backend)
+    if matrix is None:
+        return []
+    with _matrix_lock:
+        version = (matrix.key, matrix.version)
+        with _pairs_lock:
+            hit = _pairs_cache.get(float(threshold))
+        pairs = hit[1] if hit is not None and hit[0] == version else None
+        if pairs is None:
+            vectors = {
+                entry_id: matrix.rows[position].copy() for entry_id, position in matrix.position.items()
+            }
+    if pairs is None:
+        # Looked up on the module at call time, not imported by name, so a
+        # test counting the comparisons sees this call.
+        embeddings_module = importlib.import_module("memorymap.ai.embeddings")
+        pairs = embeddings_module.similar_pairs(vectors, threshold)
+        with _pairs_lock:
+            _pairs_cache[float(threshold)] = (version, pairs)
+    if only is None:
+        return list(pairs)
+    return [pair for pair in pairs if pair[0] in only and pair[1] in only]
+
+
 def stats(session: Session) -> dict:
     """What the engine has to work with, for `/search/stats` and for a report."""
     matrix = _live_matrix(session)
     return {
         "index": index_counts(session),
-        "vectors": len(matrix.ids) if matrix else 0,
+        "vectors": (len(matrix.ids) - matrix.dead) if matrix else 0,
         "vectors_warm": matrix is not None,
         "weights": dict(WEIGHTS),
+        #: `{at, rows}` from the last full rebuild in this process, or None.
+        #: Beside `index` so a drift is readable: rows now against rows then.
+        "last_rebuild": search_index.last_rebuild(),
     }

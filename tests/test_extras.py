@@ -453,6 +453,9 @@ def test_find_system_python_frozen_uses_path_lookup(monkeypatch):
     monkeypatch.setattr(
         extras.shutil, "which", lambda name: "/usr/bin/python3" if name == "python3" else None
     )
+    # Each candidate is also run, to tell a Python from the Store's alias
+    # (tests/test_frozen_extras.py); here every candidate is a real one.
+    monkeypatch.setattr(extras, "_interpreter_behind", lambda command: command[0])
     assert extras.find_system_python() == "/usr/bin/python3"
 
 
@@ -470,6 +473,7 @@ def test_pip_base_command_finds_a_system_python_when_frozen(monkeypatch):
     monkeypatch.setattr(
         extras.shutil, "which", lambda name: r"C:\Python312\python.exe" if name == "python" else None
     )
+    monkeypatch.setattr(extras, "_interpreter_behind", lambda command: command[0])
     assert extras._pip_base_command() == [r"C:\Python312\python.exe", "-m", "pip"]
 
 
@@ -503,20 +507,24 @@ def test_install_gives_an_actionable_message_instead_of_the_argparse_crash(
     assert not state.running
 
 
-def test_uninstall_gives_the_same_actionable_message(client, monkeypatch):
+def test_uninstall_on_a_packaged_build_needs_no_python(client, monkeypatch):
+    """Was "gives the same actionable message". A packaged build's extras
+    live in its own folder, which `pip uninstall` cannot reach (it has no
+    `--target`), so removal reads that folder's own metadata instead and no
+    Python is asked for at all (tests/test_frozen_extras.py)."""
     monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
     monkeypatch.setattr(extras.shutil, "which", lambda name: None)
 
     def _unexpected_popen(*args, **kwargs):
-        raise AssertionError("pip must not be invoked when no interpreter was found")
+        raise AssertionError("pip must not be invoked to remove a packaged extra")
 
     monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
 
     extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
 
     state = extras.current()
-    assert state.outcome == "failed"
-    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+    assert state.outcome == "completed"
+    assert state.step != extras.NO_PYTHON_FOUND_MESSAGE
 
 
 class _SucceedingPip:
@@ -629,3 +637,63 @@ def test_the_word_export_501_points_at_the_settings_button(client):
     assert response.status_code == 501
     detail = response.json()["detail"]
     assert "Settings" in detail and "extras" in detail.lower(), detail
+
+
+# --- a packaged (frozen) build installs where it can import from ------------------
+
+
+def test_a_frozen_build_installs_extras_into_its_own_folder(monkeypatch, tmp_path):
+    """Owner's packaged-app log: `No module named 'sentence_transformers'`
+    after an install that reported success. pip had installed into the system
+    Python's site-packages, which a PyInstaller build never reads. A frozen
+    build targets a folder in the data directory instead, with wheels for its
+    own interpreter, and puts that folder on `sys.path`."""
+    import sys
+
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    target = extras.frozen_extras_dir()
+    assert target == (tmp_path / "python-extras" / f"cp{sys.version_info.major}{sys.version_info.minor}").resolve()
+
+    args = extras._frozen_target_args()
+    assert args[args.index("--target") + 1] == str(target)
+    assert "--only-binary=:all:" in args
+    assert args[args.index("--python-version") + 1] == f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    extras.activate_frozen_extras()
+    assert sys.path[-1] == str(target)
+    extras.activate_frozen_extras()
+    assert sys.path.count(str(target)) == 1
+
+
+def test_a_source_install_is_untouched(monkeypatch):
+    import sys
+
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert extras.frozen_extras_dir() is None
+    assert extras._frozen_target_args() == []
+
+
+def test_the_installer_page_runs_the_apps_own_installer():
+    """The wizard's optional-packages page and Settings > Packages are one
+    code path: installer.iss calls the exe with extras ids, never a separate
+    script that installs somewhere else."""
+    from pathlib import Path
+
+    iss = (Path(__file__).resolve().parents[1] / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
+    assert "--install-extras {code:GetSelectedExtras}" in iss
+    assert "install-extras.ps1" not in iss
+    import re
+
+    #: Every id the page can hand over, whether a box sends one or several
+    #: ("documents,pdfpages,docx," since 2026-09-24), is a real extra.
+    sent = [
+        extra_id
+        for group in re.findall(r"Packages \+ '([a-z,]+)'", iss)
+        for extra_id in group.split(",")
+        if extra_id
+    ]
+    assert {"semantic", "voice", "documents", "pdfpages", "docx"} <= set(sent)
+    for extra_id in sent:
+        assert extra_id in extras.EXTRAS_BY_ID

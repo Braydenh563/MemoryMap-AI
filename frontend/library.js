@@ -587,6 +587,7 @@ function renderLibrary(options) {
       columns[i % columns.length].appendChild(card);
       return document.createDocumentFragment();
     }, {
+      budgetMs: 6,
       afterChunk: () => {
         renderLibraryContextBars();
         //: **The thumbnail column is only reserved when a thumbnail exists.**
@@ -993,6 +994,9 @@ function renderLibraryContextBars() {
   const bar = $("library-selectbar");
   const chosen = [...librarySelection];
   bar.classList.toggle("hidden", chosen.length === 0);
+  //: Every tick shows while anything is ticked; see `.is-choosing` in
+  //: 08-consistency.css for why this is a class and not a `:has()`.
+  $("library-grid").classList.toggle("is-choosing", chosen.length > 0);
   if (!chosen.length) return;
   $("library-selected-count").textContent =
     `${chosen.length} selected`;
@@ -8406,6 +8410,7 @@ function syncSelectbarCount(idPrefix, n) {
   if (!bar || !count) return;
   bar.classList.toggle("hidden", n === 0);
   count.textContent = `${n} selected`;
+  document.getElementById(`${idPrefix}-grid`)?.classList.toggle("is-choosing", n > 0);
 }
 
 //: Builds one `.library-contextbar`, the same element `#library-docs-selectbar`

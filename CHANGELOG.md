@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Library and the Timeline scroll smoothly through a thousand notes: the worst frame while scrolling went from 100ms to 33ms on both, and the frames over 32ms from 7 to 5 (Library), 12 to 2 (Timeline) and 10 to 4 (its table), because new cards no longer restyle every card already shown and both lists build their next rows a few milliseconds at a time.
 - The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
 - Three listener leaks the new `scratchpad/ui-sweeps/listenerrounds.js` measures per rebuild, against a control that measures 0: every help '?' put four listeners on the page (fifty at boot, four more each time the chat welcome was rebuilt for a new chat, each holding the old welcome), the chat's Skills dropdown two on the page and one on the Settings checkbox its pace pill mirrors on every rebuild (+35 a skill saved), and an emblem whose holder left the page kept its p5 sketch and the sketch's window listeners (+23 a new chat). The help popovers share one set of page listeners now, the dropdown's go with its build, and a render releases any sketch whose holder is gone. 0 listeners a round after the fix, `leaks.js` still 0/0 across the seven tabs.
 - The feminine Atlas's hip sash sways on the compositor, as the tail and the breathing do, rather than repainting its layer every frame while the companion walks (176 paints a second down to 118, the same as the masculine look).

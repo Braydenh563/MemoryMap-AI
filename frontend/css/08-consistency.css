@@ -3021,9 +3021,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     transition: opacity var(--motion-fast) var(--ease-out);
   }
 
+  /* `.is-choosing` rather than a `:has()` on a checked tick
+     (libtl-0926): with the `:has()`, every card that landed while scrolling
+     inserted a tick, and inserting a tick re-asked the question for the whole
+     grid, which restyled every card already there (10 cards restyled 1,270
+     elements; a chunk mid-scroll took 45 to 88ms). The selection code says
+     when something is ticked; library.js toggles the class. */
   .library-card:is(:hover, :focus-within) .library-card-tick,
   .library-card .library-card-tick:checked,
-  :is(.library-grid, .library-list):has(.library-card-tick:checked) .library-card-tick {
+  .library-grid.is-choosing .library-card-tick {
     opacity: 1;
   }
 }

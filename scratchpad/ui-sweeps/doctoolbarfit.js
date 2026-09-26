@@ -78,7 +78,9 @@ function check(label, m) {
 (async () => {
   for (const mode of MODES) {
     for (const width of WIDTHS) {
-      const { browser, page, ctx } = await boot({ viewport: { width, height: 800 } });
+      // TOUCH=1: a coarse pointer (hasTouch + isMobile), for the touch floor.
+      const touch = Boolean(process.env.TOUCH);
+      const { browser, page, ctx } = await boot({ viewport: { width, height: 800 }, hasTouch: touch, isMobile: touch });
       await page.evaluate((m) => {
         localStorage.setItem('doc-toolbar-mode', m);
         localStorage.setItem('doc-toolbar-mode-migrated-2026-09-09', '1');
@@ -185,6 +187,19 @@ function check(label, m) {
       } else {
         failures++;
         console.log(`FAIL ${mode} ${width} focus: no Suggestions on the floating dock`);
+      }
+      if (touch) {
+        // The touch floor on this round's controls: the floating dock's
+        // toggles, More, and the suggestions head (open here in focus mode).
+        const small = await page.evaluate(() => {
+          const sel = '#doc-focus-bar button, #doc-toolbar .doc-toolbar-tools button, #doc-prose-panel .doc-prose-tools button';
+          return [...document.querySelectorAll(sel)].filter((b) => b.checkVisibility()).map((b) => {
+            const r = b.getBoundingClientRect();
+            return [(b.getAttribute('aria-label') || b.textContent).trim().slice(0, 20), Math.round(r.width), Math.round(r.height)];
+          }).filter(([, w, h]) => Math.min(w, h) < 43.5);
+        });
+        if (small.length) failures++;
+        console.log(`${small.length ? 'FAIL' : 'ok  '} ${mode} ${width} touch floor`, JSON.stringify(small));
       }
       await browser.close();
     }

@@ -11666,6 +11666,14 @@ input[type="file"] {
   .graph-popup input:is([type="text"], :not([type])) {
     min-height: var(--target-min);
   }
+
+  /* The formatting strip's own group (More, layout, line numbers, collapse)
+     took the floor's height and kept a 36px width, 36x44 under a coarse
+     pointer (`doctoolbarfit.js` TOUCH=1): the square is the floor on both
+     sides, as in a dialog. */
+  .doc-toolbar .doc-toolbar-tools > button.icon-only {
+    min-width: var(--target-min);
+  }
 }
 
 /* --- 2. the safe area ----------------------------------------------------

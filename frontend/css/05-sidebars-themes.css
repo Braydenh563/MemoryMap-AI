@@ -5448,8 +5448,10 @@ textarea.autogrow {
      group does not fit beside it, the whole group moves to the next line,
      at the right, still one row. */
   .doc-prose-tools {
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
     margin-inline-start: auto;
   }
 

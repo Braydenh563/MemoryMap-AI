@@ -55,6 +55,13 @@ async function boot(opts={}) {
       if (look) localStorage.setItem('themePreset', look);
     } catch (e) {}
   }, process.env.LOOK || '');
+  // GLASS=off (or on) sets the glass preference over whatever the look says,
+  // for a sweep that has to hold with the glass-off list applied.
+  await ctx.addInitScript((glass) => {
+    try {
+      if (glass) localStorage.setItem('glass', glass);
+    } catch (e) {}
+  }, process.env.GLASS || '');
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);

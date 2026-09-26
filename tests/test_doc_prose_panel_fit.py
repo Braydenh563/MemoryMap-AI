@@ -98,5 +98,5 @@ def test_a_narrow_panels_head_buttons_are_one_icon_group() -> None:
     block = block[: block.index("\n}\n")]
     assert ".doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text" in block
     assert "clip-path: inset(50%)" in block
-    assert "flex-wrap: nowrap" in block
+    assert "justify-content: flex-end" in block
     assert "flex-basis: 100%" not in block

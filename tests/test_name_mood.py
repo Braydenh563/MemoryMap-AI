@@ -197,13 +197,11 @@ def test_one_hat_per_head(tmp_path: Path) -> None:
 
 
 def test_hands_and_the_things_they_hold(tmp_path: Path) -> None:
-    # The owner: "could we add some hand gestures like a thumbs up, middle
-    # finger, drink bottles, wine glasses, someone ripping a table in half".
+    # The owner: "could we add some hand gestures like a thumbs up, drink
+    # bottles, wine glasses, someone ripping a table in half".
     cases = {
         "Nice one": "thumbsup",
         "\U0001F44D": "thumbsup",
-        "Rude dude": "middlefinger",
-        "\U0001F595": "middlefinger",
         "Peace out": "peace",
         "Hi there": "wave",
         "Beer o clock": "beer",
@@ -676,3 +674,24 @@ def test_a_glued_word_is_read_only_where_a_word_could_start(tmp_path: Path) -> N
     # And a keyword typed as two words is still one.
     (rage,) = _moods(["rage quit"], tmp_path)
     assert rage["hand"] == "tableflip"
+
+
+def test_no_rude_gesture_and_every_named_gesture_is_drawn() -> None:
+    # INBOX 426 j, the owner: "it did say it was flipping me off at one point
+    # but it wasnt visually doing that". The rude gesture is gone from the
+    # lexicon, the words and the drawing; and every hand a tooltip can name
+    # has a case of its own in `nameCharacterHeld`, so no line promises a
+    # gesture or a thing held that is not drawn.
+    assert "middlefinger" not in APP and "flipping you off" not in APP
+    words = APP[APP.index("const NAME_MARK_HAND_WORDS = {") :]
+    words = words[: words.index("};")]
+    named = re.findall(r"(\w+): \"", words)
+    held = APP[APP.index("function nameCharacterHeld(") :]
+    held = held[: held.index("\n}\n")]
+    drawn = set(re.findall(r'case "(\w+)":', held))
+    missing = [k for k in named if k not in drawn]
+    assert named and not missing, f"gestures named but not drawn: {missing}"
+    lexicon = APP[APP.index("  hands: {") :]
+    lexicon = lexicon[: lexicon.index("  },")]
+    for key in re.findall(r"^\s+(\w+): \"", lexicon, re.M):
+        assert key in drawn, f"{key} can be read from a name but has no drawing"

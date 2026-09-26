@@ -65,6 +65,18 @@ unless told otherwise and refuses the actor `user`. Tests:
 `tests/test_events_undo.py`, 8. **Left:** the Settings surface and the skill
 run's Undo (OPEN.md).
 
+**Found building it, fixed the same day: the auto-filer's moves were not
+events.** Capture's background filing set `category_id` with no event at
+all; adding context and re-evaluation wrote an `edited` event with no values,
+in the person's name. So "undo auto-filing" had nothing to find, and a note's
+History could not rebuild the category it had between capture and now.
+`manager.record_filing` (a `record_` write, so `tests/test_events.py`'s
+enumeration covers it, with a driver) files a note as `system:filing` with
+`before`/`after` of `category_id`, and writes nothing when the category does
+not change; the three paths call it. `POST /events/undo {"actor":
+"system:filing"}` now undoes auto-filing. Three more tests in the same file;
+711 tests across every file that reads the audit log pass.
+
 ### From WORLD_CLASS_PLAN.md row 5 (I1): night runs and `GET /night/latest`
 
 **Built 2026-09-26.** OPEN.md's row: "`POST /night/run` returns the counts a

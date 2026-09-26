@@ -160,3 +160,74 @@ def test_the_route_is_a_dry_run_unless_told(client, session):
 def test_the_person_is_not_an_actor_to_undo(client):
     response = client.post("/events/undo", json={"actor": "user", "since": 0})
     assert response.status_code == 400
+
+
+# --- the auto-filer's own moves are events it owns ---------------------------------
+#
+# Found while building the above: the three places the AI files a note
+# (capture's background filing, adding context, re-evaluation) either wrote no
+# event at all or an `edited` event with no values, attributed to the person.
+# So "undo auto-filing" had nothing to find, and a note's History could not
+# rebuild the category it had between capture and now.
+
+
+def _pick(category: str, method: str = "llm"):
+    def categorise(*_args, **_kwargs):
+        return category, 90, method
+
+    return categorise
+
+
+def test_capture_filing_is_an_event_the_filer_owns_and_undo_reverses(client, session, monkeypatch):
+    from memorymap.ai import janitor
+    from memorymap.api import routes_entries
+
+    entry = manager.create_entry(session, "Repot the fig before it gets root bound")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    routes_entries._file_entry_in_background(entry.id, "default")
+    session.expire_all()
+    row = session.scalars(
+        select(AuditLog).where(AuditLog.entity_id == entry.id, AuditLog.id > mark)
+    ).one()
+    assert row.actor == manager.FILING_ACTOR
+    assert set(row.payload["after"]) == {"category_id"}
+    done = client.post(
+        "/events/undo", json={"actor": manager.FILING_ACTOR, "since": mark, "dry_run": False}
+    ).json()
+    assert done["undone"] == 1
+    session.expire_all()
+    assert manager.category_name_for(session, session.get(Entry, entry.id)) == manager.UNCATEGORISED
+
+
+def test_a_filing_that_changes_nothing_writes_nothing(session, monkeypatch):
+    from memorymap.ai import janitor
+    from memorymap.api import routes_entries
+
+    entry = manager.create_entry(session, "Repot the fig", category_name="Garden")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    routes_entries._file_entry_in_background(entry.id, "default")
+    session.expire_all()
+    assert _last_event_id(session) == mark
+
+
+def test_reevaluation_files_as_the_filer_with_values(client, session, monkeypatch):
+    from memorymap.ai import janitor
+
+    entry = manager.create_entry(session, "Repot the fig before it gets root bound")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    assert client.post(f"/entries/{entry.id}/reevaluate").status_code == 200
+    session.expire_all()
+    moves = session.scalars(
+        select(AuditLog).where(
+            AuditLog.entity_id == entry.id,
+            AuditLog.id > mark,
+            AuditLog.actor == manager.FILING_ACTOR,
+        )
+    ).all()
+    assert len(moves) == 1 and "category_id" in moves[0].payload["before"]

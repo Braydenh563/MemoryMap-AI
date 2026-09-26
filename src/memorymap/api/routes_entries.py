@@ -286,9 +286,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 category, confidence, filed_by = _file_entry_now(
                     session, manager.readable_content(entry)
                 )
-                entry.category_id = manager.get_or_create_category(
-                    session, category
-                ).id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # Ordered deliberately: the vector has to exist before the
                 # near-duplicate search has anything to compare against, and
@@ -722,12 +720,7 @@ def add_context(
                 exclude_entry_id=entry.id,  # don't let it anchor to itself
             )
             if filed_by != "none":
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"recategorised -> {category}"
-                    )
-                entry.category_id = category_row.id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # The same two lines as the create paths: a category the AI
                 # chose here is one a later move by hand corrects, and without
@@ -782,13 +775,8 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         if filed_by != "none":
             entry.ai_confidence = confidence
             if not entry.user_filed:
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
+                if manager.record_filing(session, entry, category):
                     recategorised_to = category
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"re-evaluated -> {category}"
-                    )
-                entry.category_id = category_row.id
                 # As on adding context: the AI owns this category now, so a
                 # move by hand is a correction the filing loop should read.
                 if janitor.is_ai_method(filed_by):

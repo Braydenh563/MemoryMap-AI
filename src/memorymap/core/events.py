@@ -927,6 +927,11 @@ def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
     manager.unarchive_entry(session, archived)
 
 
+def _drive_record_filing(session: Session, entry: Entry) -> None:
+    manager = importlib.import_module("memorymap.entry.manager")
+    manager.record_filing(session, _scratch_entry(session), "Filed by the driver")
+
+
 def _drive_update_entry(session: Session, entry: Entry) -> None:
     manager = importlib.import_module("memorymap.entry.manager")
     manager.update_entry(session, _scratch_entry(session), content="edited by the driver")
@@ -940,6 +945,7 @@ _DRIVERS = {
     "purge_entries": _drive_purge_entries,
     "purge_expired_deleted": _drive_purge_expired_deleted,
     "record_dates": _drive_record_dates,
+    "record_filing": _drive_record_filing,
     "record_revision": _drive_record_revision,
     "restore_entry": _drive_restore_entry,
     "soft_delete_entry": _drive_soft_delete_entry,

@@ -35327,4 +35327,235 @@ with an unselected note moving 1.7 and no pins written.
     board and the list are rung instead). Found on the way: Settings
     deep links rang nothing unless the target already carried `flash-target`
     (only Search relevance did); `openSettingsModal` now uses the same ring.
+## INBOX resolved, 2026-09-26
 
+426. **The owner, 2026-09-25 (after the usage reset), with screenshots
+    (session images 43 to 71 and the Gemini chat PDF).** Verbatim, condensed
+    to the asks: (a) "in the documents full screen mode, I cant access the
+    formatting toolbar or any of the other key tools or controls"; (b) "the
+    suggestions panel doesnt adapt properly to the sidebar and it also needs
+    to be accessible in full screen mode"; (c) "the character hand gestures
+    and props and stuff dont properly show anymore"; (d) "I changed my name
+    but the companion which was me didnt update"; (e) "add the ability to
+    make a custom companion that isnt based off your name"; (f) "improve the
+    characters more as they still look bland and are missing a lot of the
+    flare they used to have"; (g) "they still telleport and move suddenly as
+    well and it is jarring"; (h) "all of the animated logos arent rotating
+    and the one form the new chat interface is missing"; (i) "maybe the
+    atlas guide can have the atlas avatar?? same witht he popup agent and
+    find anything search??"; (j) "it did say it was flipping me off at one
+    point but it wasnt visually doing that"; (k) "the companion just went off
+    the screen and I cant get it back now ... there needs to be some way to
+    reset the position and recall the companion. also the arms get cut off
+    on the sides"; (l) "when I press the option to stay in the same spot
+    across pages for the companion, it still moves sometimes and it still
+    isnt smooth"; (m) "atlas needs to move and work on its own time not
+    based off how fast the user is switching tabs ot scrolling. if it is
+    sitting on a pannel and I scroll or that panel moves it might fall or
+    move with the panel. it needs to be smooth, unintrusive. present and
+    lifelike but not too much"; (n) "it keeps disappearing and reappearing on
+    different parts of the page as I scroll"; (o) "the companion doesnt
+    scroll or move if it is on widgets when the ui moves or it is really slow
+    to"; (p) "the right click companion dropdown menu doesnt appear where the
+    companion is"; (q) Atlas: "looks fat and still needs a lot of improving
+    - do a mix of the versions I like and the sprite like ones", "work from
+    how it is now ... slightly more flowy and voluptuous hair, fluffy ears
+    and a very fluffy celestial tail, surrounded by a clustorous string or
+    stream ... the face is fine, the star on the chest could be improved",
+    then "I prefered the tails like this. not as furry ... like a stream of
+    cosmic water or a ribbon like pokemon tail"; the male sprite grid is the
+    main version, the flowing-hair ribbon-tail figures are the feminine
+    version; "I need you to LOCK IN for the atlas aesthetic"; (r) "update all
+    the docs and the readme file as well ... update the screenshots and
+    expand them ... include an atlas avatar ... only after all the ui
+    improvements"; (s) "upgrade this pr to a new version like 0.3.3". Placed:
+    (a, b, h) the UI agent; (c to g, j to p) the companion agent; (q, i) the
+    Atlas agent; (r, s) the orchestrator at the end.
+    **Second batch, 2026-09-25 evening (images 72 to 96), condensed:**
+    (u) Settings: Appearance's theme and colour section scroll-jumps; the
+    page scrolls slowly; it jumps between sections; the dashboard and other
+    pages scroll-jump too; many settings controls sit mid-row instead of at
+    the right (85); an empty card reading "Stays on this computer like
+    everything else" (88). (v) Atlas: hands and feet look inverted; head and
+    body look like a doll or puppet, not organic; a longer, more ribbon-like
+    tail; a better nebulous stream; a redesigned chest star; the feminine
+    look is nearly the masculine one and must follow 60 to 64 and 74 to 83;
+    refine the body and limbs. (w) Faces: the Holding dropdown shows empty
+    (73); the profile picture cannot be enlarged like the companion; the
+    stored avatar_style still carries hand "middlefinger" (90). (x)
+    Companion: heavy and glitchy, makes everything slower; a fast scroll
+    leaves it floating then vanishing (it should leave with its panel);
+    one expression only, wants more behaviour and slight expression changes;
+    a light or dark variant; size options; a better teleport animation; the
+    right-click menu still opens away from it or off screen (84). (y) The
+    guided tour breaks after "Next to Notes" (87, log: tour-spot asked for
+    336,275 drew at 1128,4); its companion step covers its own target until
+    Next then Back (95, 96); what the mind map step does with no map. (z)
+    Library Activity renders as vertical letter columns and shows raw keys
+    like notificationsmutedexcept_reminders (89, 90); selection boxes touch
+    the kebab (91); the docked Suggestions header buttons wrap badly (92);
+    Documents' "Fill the whole screen" does nothing (93, 94); place Atlas
+    better in the guide panel (86). (aa) Optional sign-in: a toggle so the
+    app need not ask for a password (the owner's brother). Recommendation,
+    taken: a "Ask for a password when the app opens" switch, on by default,
+    turning it off needs the current password; private notes stay encrypted
+    and still ask for it when opened. (bb) avatar-lab.html (tools/, the
+    owner's first pass): refine it into a light, correct bench for judging
+    Atlas and the characters, with temporary changes previewed live. (cc)
+    frontend/app.js is 50,858 lines: split it. Placed: v, bb the Atlas
+    agent; w, x the companion agent; u, y, z the UI agent; aa and cc after
+    those land (app.js is touched by all three).
+    **Resolved 2026-09-26, in 0.3.3.** Built: (a, b, h, u, y, z) by the UI
+    agent, (c to g, j to p, w, x) by the companion agent, (i, q, v, bb) by
+    the Atlas agent, (aa) optional sign-in, (cc) the app.js split into 23
+    files, (r) the docs, README and 25 screenshots, (s) the version. Each
+    agent's record is in `archive/agent-remaining/` (`ui-426.md`,
+    `companion-426.md`, `atlas-fable.md`, `auth-optional.md`,
+    `appjs-split.md`); their smaller leftovers are in `OPEN.md`, "Left by
+    the 0.3.3 agents"; the two calls only the owner can make are INBOX 427.
+
+## Moved from HANDOVER, 2026-09-26
+
+**Now (2026-09-21 late morning, Fable orchestrating, the owner at work): the
+app says true things about itself now, which it did not this morning.**
+
+The session's theme turned out to be the gap between what this app *does* and
+what it *says it does*. The behaviour was consistently better than the copy.
+
+**The privacy promise was wrong in eight places.** Four said web search is
+"the ONE feature that goes online"; the update check is a second, calling
+`api.github.com`, and its own comment sat two lines below one of them.
+Settings, About said "Nothing ever leaves this computer", unqualified, in the
+panel offering both switches. The Ask panel said "nothing leaves this
+machine" flatly, on the surface where a person types what they would least
+like sent anywhere. `docs/PRIVACY.md` carried an explicitly exhaustive table,
+"Three things do touch the network", listing three, under a heading promising
+precision. And the one genuine route by which notes CAN leave, a
+user-configured remote provider, was documented nowhere at all. None of this
+was a leak: `llm_provider` defaults to `ollama`, the OpenAI-compatible client
+to `localhost:1234`, both network features default to `False`. The code was
+right and every sentence describing it was wrong, which for a privacy-first
+app is its own bug. All corrected, and held by
+`tests/test_offline_promise.py`, whose rule is "never say it without saying
+what it depends on" rather than "never say it": several of those sentences
+are true of one feature and those are what a cautious reader wants.
+
+**CodeQL had never scanned this branch.** PR #150's base is PR #149's branch,
+so it is stacked, and `codeql.yml` filtered on `pull_request: branches:
+[main]`, which matches the *base*. 0 runs against several hundred commits,
+while `ci.yml`, carrying no such filter, ran on every push. Filter removed;
+first run green. **The merge order this implies matters: #150 lands on #149's
+branch, and #149 carries it to main.**
+
+**The first screen asked for a password in 26 words** that never said what
+the app is, never said it runs on this machine, never gave the four-character
+rule until after a failed attempt, and never mentioned that `/auth/setup`
+derives an encryption key from it on the spot. All four are on it now, before
+the field is filled. Measured on five fresh data directories.
+
+**The security audit otherwise came back clean** and that is worth recording
+so nobody re-runs it: no `shell=True`, no `os.system`, every `Popen` a fixed
+argument list, no interpolation into SQL, uploads keeping only an allowlisted
+suffix, bcrypt with a per-password salt, a 256-bit token looked up rather
+than compared, every router behind the unlock with two documented exceptions,
+bound to 127.0.0.1 with a global unlock throttle. The AI context story is
+sound too: ~900-token base prompts, a `ContextBudget` trimming notes and
+history to the measured window, the tool guide shrinking for small windows.
+
+**Two traps for whoever is next.**
+
+*Conflict markers reached the branch again.* Merging `worktree-agent-mapux2`
+conflicted in `scripts/gate.sh` AND both changelogs; the resolver handled the
+first and `git add -A` staged the rest with markers in. Exactly the 2026-09-09
+failure the lint's own docstring records, committed by someone who had just
+read it. **Resolve every conflicted path, then grep for markers before
+committing.** The lint also had to be narrowed: it walked
+`.claude/worktrees/`, so with two agents running the real finding arrived
+buried under eleven lines about theirs.
+
+*Do not pass `-c commit.gpgsign=false`.* Fifteen commits earlier in the
+session are unverified on GitHub because of it. Every agent's commits were
+signed; only the orchestrator's were not. Worth one clean re-sign once the
+agents have all merged.
+
+
+**Now (2026-09-21, Opus orchestrating, the owner at work): the guided tour
+is fixed for the third time, and this time the probe can see it.** The owner:
+"the whole tour is completely and utterly broken", after two reports of an
+undimmed band at the right edge that two fixes had aimed at and missed.
+
+Why it survived two fixes and a green suite: the dim was not what anyone was
+measuring. `.tour-spot` cast it as one `box-shadow` spread 100vmax, so its
+reach depended on the window's shape and on its own corner radius inflated by
+the spread; the four `.tour-block-panel` rectangles that `tourdim.js` checked,
+and that `test_ui_recipes.py` pinned, were transparent and existed only to
+swallow presses. Two green gates over a surface that was visibly broken. The
+dim now lives on those four panels, which already tile the window around the
+hole and are already sized from `max(clientWidth, innerWidth)`, so the sweep's
+arithmetic and the paint are the same thing; the sweep walks
+`elementsFromPoint` (14,328 points, 0 uncovered, 0 with the page in front) and
+fails against the old stylesheet. The recipe lint was re-pointed at the
+invariant rather than the mechanism, and is narrower than before.
+
+The second fault was in the same screenshots and nobody had named it: the step
+card was a translucent `.card`, so the dashboard clock read through the step's
+own text. It now uses the opaque-dialog recipe.
+
+**A trap found the same morning, and it changes standing order 5a's
+arithmetic.** CI *is* running on this branch (`ci.yml`, 73 runs), and almost
+none of them finish. `ci.yml` sets `concurrency: cancel-in-progress: true`, so
+each push cancels the run the previous push started. Five consecutive pushes
+this morning produced five runs with conclusion `cancelled` and not one pass.
+
+**And the gap needed is bigger than it first looked.** This block first said
+a run takes about eight minutes, read off one run that had itself been
+cancelled at eight. Timed properly against run 1538: started 07:31:28,
+cancelled 07:49:43, still unfinished at eighteen minutes. So a push has to be
+followed by roughly twenty quiet minutes for CI to reach a conclusion, not
+eight, and the session that wrote this rule then broke it within the hour by
+pushing at the eighteen-minute mark. Which is the argument for the local
+full gate being the real one and CI the second opinion, rather than the other
+way round. Standing order 5a's rule for not
+running the suite locally ("CI runs it on every push") is therefore only true
+at a slow push cadence: at the cadence an agent session actually pushes, the
+only full run of the suite is the local one. Two things follow, neither of
+them a change to the order: run `scripts/gate.sh --full` before the last push
+of a batch rather than only at the end of a session, and leave a gap after
+that last push so the run survives to a conclusion. The alternative, taking
+`cancel-in-progress` off, is the owner's call and is not taken here: it would
+queue eight-minute runs behind every push instead, which is its own cost.
+
+**Fifteen commits on this branch are unsigned, and it was my doing.** The
+repo has `commit.gpgsign=true` with `gpg.format=ssh` and a key at
+`~/.ssh/commit_signing_key.pub`, and every commit I made this session used
+`git -c commit.gpgsign=false commit`, a habit carried in from a sandbox with
+no key. GitHub shows those fifteen as Unverified. Every agent's commits are
+signed; only the orchestrator's were not. **Do not pass that flag.** The five
+that had not been pushed yet were re-signed in place
+(`git rebase --exec "git commit --amend --no-edit --reset-author"`, content
+identical, verified with a `git diff` against the pre-rebase tip); the
+fifteen already on GitHub were deliberately left, because rewriting them
+means a force-push on a branch two agents have live worktrees cut from, and
+their merge bases would stop matching mid-flight. Worth one clean re-sign
+after both have merged, if the owner wants the green ticks; the content is
+not in question either way.
+
+**The other thing to know about this repo's CI**: `github-advanced-security`
+has been red on every SHA for days, including SHAs from before this session,
+with `CAPIError: 400 The requested model is not supported`. That is GitHub's
+own scanning agent failing to start a session; it is not this PR's, it has its
+stand-down comment, and it gets no further comments.
+
+**The lesson worth keeping, because it is the third time this shape has cost a
+session:** a probe that passes against a broken surface is worse than no probe.
+When a report survives a fix, the first question is not "what else could cause
+it" but "what is my probe actually reading". Here the answer was: four
+rectangles that were not the dim.
+
+Merged this session: `worktree-agent-maprender` (the mind map drag freeze,
+worst frame 1,650 to 66.8ms at 500 topics) and `worktree-agent-anim` (the
+cheap-animation conversion and `tests/test_cheap_animations.py`, boot splash
+121 layouts to 0). Running: `worktree-agent-noteobj` (INBOX 309, a board or a
+map as an object in a note, and reminders linked to notes) and
+`worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
+the two kinds of connection, customisation, and the pan re-rasterisation).

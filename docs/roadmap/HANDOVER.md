@@ -359,150 +359,26 @@ this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
 
-**Now (2026-09-21 late morning, Fable orchestrating, the owner at work): the
-app says true things about itself now, which it did not this morning.**
+**Now (2026-09-26, 0.3.3 released on the branch, Opus orchestrating): INBOX
+426 is built and closed, and the docs say so.** The round: Atlas redrawn to
+the owner's reference sheets in two looks with moods and poses, the corner
+companion (it perches on any panel, rides with it, reacts, and can be a
+character of your own), a face for every person, optional sign-in on this
+computer, the Documents toolbar and focus-mode fixes, Library Activity, the
+tour's per-frame follow, the `--accent-text` token, and the app.js split
+into 23 files (warm boot about 28ms slower, cold the same, 3.6% more bytes on
+the wire). The README has Atlas at its title and 25 screenshots retaken on
+this head (`readmeshots.js`, `atlasreadme.js`, `pngshrink.py`).
 
-The session's theme turned out to be the gap between what this app *does* and
-what it *says it does*. The behaviour was consistently better than the copy.
+**Next:** INBOX 427, the owner's two calls (Atlas's anatomy after rounds 3
+and 4; the companion's pin near an edge). Then `agent-remaining/OPEN.md`,
+"Left by the 0.3.3 agents", first the two found by the README pass: the
+popup agent's Atlas head overflowing its 28px slot, and the writing
+suggestions' heading-case rule contradicting the app's own sentence case.
 
-**The privacy promise was wrong in eight places.** Four said web search is
-"the ONE feature that goes online"; the update check is a second, calling
-`api.github.com`, and its own comment sat two lines below one of them.
-Settings, About said "Nothing ever leaves this computer", unqualified, in the
-panel offering both switches. The Ask panel said "nothing leaves this
-machine" flatly, on the surface where a person types what they would least
-like sent anywhere. `docs/PRIVACY.md` carried an explicitly exhaustive table,
-"Three things do touch the network", listing three, under a heading promising
-precision. And the one genuine route by which notes CAN leave, a
-user-configured remote provider, was documented nowhere at all. None of this
-was a leak: `llm_provider` defaults to `ollama`, the OpenAI-compatible client
-to `localhost:1234`, both network features default to `False`. The code was
-right and every sentence describing it was wrong, which for a privacy-first
-app is its own bug. All corrected, and held by
-`tests/test_offline_promise.py`, whose rule is "never say it without saying
-what it depends on" rather than "never say it": several of those sentences
-are true of one feature and those are what a cautious reader wants.
-
-**CodeQL had never scanned this branch.** PR #150's base is PR #149's branch,
-so it is stacked, and `codeql.yml` filtered on `pull_request: branches:
-[main]`, which matches the *base*. 0 runs against several hundred commits,
-while `ci.yml`, carrying no such filter, ran on every push. Filter removed;
-first run green. **The merge order this implies matters: #150 lands on #149's
-branch, and #149 carries it to main.**
-
-**The first screen asked for a password in 26 words** that never said what
-the app is, never said it runs on this machine, never gave the four-character
-rule until after a failed attempt, and never mentioned that `/auth/setup`
-derives an encryption key from it on the spot. All four are on it now, before
-the field is filled. Measured on five fresh data directories.
-
-**The security audit otherwise came back clean** and that is worth recording
-so nobody re-runs it: no `shell=True`, no `os.system`, every `Popen` a fixed
-argument list, no interpolation into SQL, uploads keeping only an allowlisted
-suffix, bcrypt with a per-password salt, a 256-bit token looked up rather
-than compared, every router behind the unlock with two documented exceptions,
-bound to 127.0.0.1 with a global unlock throttle. The AI context story is
-sound too: ~900-token base prompts, a `ContextBudget` trimming notes and
-history to the measured window, the tool guide shrinking for small windows.
-
-**Two traps for whoever is next.**
-
-*Conflict markers reached the branch again.* Merging `worktree-agent-mapux2`
-conflicted in `scripts/gate.sh` AND both changelogs; the resolver handled the
-first and `git add -A` staged the rest with markers in. Exactly the 2026-09-09
-failure the lint's own docstring records, committed by someone who had just
-read it. **Resolve every conflicted path, then grep for markers before
-committing.** The lint also had to be narrowed: it walked
-`.claude/worktrees/`, so with two agents running the real finding arrived
-buried under eleven lines about theirs.
-
-*Do not pass `-c commit.gpgsign=false`.* Fifteen commits earlier in the
-session are unverified on GitHub because of it. Every agent's commits were
-signed; only the orchestrator's were not. Worth one clean re-sign once the
-agents have all merged.
-
-
-**Now (2026-09-21, Opus orchestrating, the owner at work): the guided tour
-is fixed for the third time, and this time the probe can see it.** The owner:
-"the whole tour is completely and utterly broken", after two reports of an
-undimmed band at the right edge that two fixes had aimed at and missed.
-
-Why it survived two fixes and a green suite: the dim was not what anyone was
-measuring. `.tour-spot` cast it as one `box-shadow` spread 100vmax, so its
-reach depended on the window's shape and on its own corner radius inflated by
-the spread; the four `.tour-block-panel` rectangles that `tourdim.js` checked,
-and that `test_ui_recipes.py` pinned, were transparent and existed only to
-swallow presses. Two green gates over a surface that was visibly broken. The
-dim now lives on those four panels, which already tile the window around the
-hole and are already sized from `max(clientWidth, innerWidth)`, so the sweep's
-arithmetic and the paint are the same thing; the sweep walks
-`elementsFromPoint` (14,328 points, 0 uncovered, 0 with the page in front) and
-fails against the old stylesheet. The recipe lint was re-pointed at the
-invariant rather than the mechanism, and is narrower than before.
-
-The second fault was in the same screenshots and nobody had named it: the step
-card was a translucent `.card`, so the dashboard clock read through the step's
-own text. It now uses the opaque-dialog recipe.
-
-**A trap found the same morning, and it changes standing order 5a's
-arithmetic.** CI *is* running on this branch (`ci.yml`, 73 runs), and almost
-none of them finish. `ci.yml` sets `concurrency: cancel-in-progress: true`, so
-each push cancels the run the previous push started. Five consecutive pushes
-this morning produced five runs with conclusion `cancelled` and not one pass.
-
-**And the gap needed is bigger than it first looked.** This block first said
-a run takes about eight minutes, read off one run that had itself been
-cancelled at eight. Timed properly against run 1538: started 07:31:28,
-cancelled 07:49:43, still unfinished at eighteen minutes. So a push has to be
-followed by roughly twenty quiet minutes for CI to reach a conclusion, not
-eight, and the session that wrote this rule then broke it within the hour by
-pushing at the eighteen-minute mark. Which is the argument for the local
-full gate being the real one and CI the second opinion, rather than the other
-way round. Standing order 5a's rule for not
-running the suite locally ("CI runs it on every push") is therefore only true
-at a slow push cadence: at the cadence an agent session actually pushes, the
-only full run of the suite is the local one. Two things follow, neither of
-them a change to the order: run `scripts/gate.sh --full` before the last push
-of a batch rather than only at the end of a session, and leave a gap after
-that last push so the run survives to a conclusion. The alternative, taking
-`cancel-in-progress` off, is the owner's call and is not taken here: it would
-queue eight-minute runs behind every push instead, which is its own cost.
-
-**Fifteen commits on this branch are unsigned, and it was my doing.** The
-repo has `commit.gpgsign=true` with `gpg.format=ssh` and a key at
-`~/.ssh/commit_signing_key.pub`, and every commit I made this session used
-`git -c commit.gpgsign=false commit`, a habit carried in from a sandbox with
-no key. GitHub shows those fifteen as Unverified. Every agent's commits are
-signed; only the orchestrator's were not. **Do not pass that flag.** The five
-that had not been pushed yet were re-signed in place
-(`git rebase --exec "git commit --amend --no-edit --reset-author"`, content
-identical, verified with a `git diff` against the pre-rebase tip); the
-fifteen already on GitHub were deliberately left, because rewriting them
-means a force-push on a branch two agents have live worktrees cut from, and
-their merge bases would stop matching mid-flight. Worth one clean re-sign
-after both have merged, if the owner wants the green ticks; the content is
-not in question either way.
-
-**The other thing to know about this repo's CI**: `github-advanced-security`
-has been red on every SHA for days, including SHAs from before this session,
-with `CAPIError: 400 The requested model is not supported`. That is GitHub's
-own scanning agent failing to start a session; it is not this PR's, it has its
-stand-down comment, and it gets no further comments.
-
-**The lesson worth keeping, because it is the third time this shape has cost a
-session:** a probe that passes against a broken surface is worse than no probe.
-When a report survives a fix, the first question is not "what else could cause
-it" but "what is my probe actually reading". Here the answer was: four
-rectangles that were not the dim.
-
-Merged this session: `worktree-agent-maprender` (the mind map drag freeze,
-worst frame 1,650 to 66.8ms at 500 topics) and `worktree-agent-anim` (the
-cheap-animation conversion and `tests/test_cheap_animations.py`, boot splash
-121 layouts to 0). Running: `worktree-agent-noteobj` (INBOX 309, a board or a
-map as an object in a note, and reminders linked to notes) and
-`worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
-the two kinds of connection, customisation, and the pan re-rasterisation).
-
+**The 2026-09-21 Now blocks** (the app saying true things about itself; the
+guided tour's third fix, CI's cancel-in-progress, the unsigned commits) are
+in HISTORY.md, "Moved from HANDOVER, 2026-09-26".
 
 **Previously (2026-09-19 night):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-21 (third pass)".
 

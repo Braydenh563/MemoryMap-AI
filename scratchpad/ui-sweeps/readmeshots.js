@@ -37,6 +37,14 @@ const SHOTS = [
   { file: 'agent', tab: 'notes', sub: 'agent' },
   { file: 'palette', tab: 'dashboard', sub: 'palette' },
   { file: 'appearance', tab: 'dashboard', sub: 'appearance' },
+  //: 0.3.3 (INBOX 426 r and s, the owner: "maybe update the screenshots and
+  //: expand them as well"). Each is a surface the set above did not show.
+  { file: 'companion', tab: 'notes', sub: 'companion' },
+  { file: 'your-look', tab: 'dashboard', sub: 'your-look' },
+  { file: 'custom-companion', tab: 'dashboard', sub: 'custom-companion' },
+  { file: 'focus', tab: 'library', sub: 'focus' },
+  { file: 'activity', tab: 'library', sub: 'activity' },
+  { file: 'dashboard-dark', tab: 'dashboard', sub: 'dark' },
 ];
 
 (async () => {
@@ -101,12 +109,20 @@ const SHOTS = [
   //: same call the Appearance panel's own buttons make, and every shot in the
   //: set is the same theme rather than whichever one the data dir happened to
   //: hold.
-  await page.evaluate(() => applyThemeChoice('dark', true));
+  //: THEME (default `system`, which a headless browser answers as light):
+  //: the look a person gets on a first launch, Quiet utilitarian on System.
+  //: The one dark shot is its own entry below, not the whole set.
+  const THEME = process.env.THEME || 'system';
+  await page.evaluate((t) => applyThemeChoice(t, true), THEME);
   await page.waitForTimeout(900);
 
   const done = [];
   //: ONLY=graph retakes one file, for a re-seed that only that shot needs.
-  for (const shot of SHOTS.filter((s) => !process.env.ONLY || s.file === process.env.ONLY)) {
+  //: SKIP=ocr leaves a file alone: the OCR shot needs `seed-ocr.js`, which
+  //: needs a Tesseract binary a machine may not have, and a retake without
+  //: it photographs an empty workspace over a good picture.
+  const skip = new Set((process.env.SKIP || '').split(',').filter(Boolean));
+  for (const shot of SHOTS.filter((s) => (!process.env.ONLY || s.file === process.env.ONLY) && !skip.has(s.file))) {
     await page.click(`[data-tab="${shot.tab}"]`).catch(() => {});
     await page.waitForTimeout(2500);
     if (shot.sub === 'board') {
@@ -142,6 +158,91 @@ const SHOTS = [
       //: any of it existed.
       await page.evaluate(() => openSettingsModal('appearance'));
       await page.waitForTimeout(2500);
+    }
+    if (shot.sub === 'companion' || shot.sub === 'custom-companion') {
+      //: The corner companion, chosen the way a person chooses it: Settings,
+      //: Appearance, Corner companion. It then finds its own free spot on the
+      //: page; nothing here places it.
+      await page.evaluate(() => openSettingsModal('appearance'));
+      await page.waitForTimeout(1200);
+      const choice = shot.sub === 'companion' ? 'atlas' : 'custom';
+      await page.evaluate((v) => {
+        const select = document.getElementById('avatar-buddy');
+        select.value = v;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }, choice);
+      //: Large, from the same panel's Companion size, so the character reads
+      //: at the README's 850px.
+      await page.evaluate(() => {
+        const size = document.getElementById('avatar-buddy-size');
+        size.value = '1.3';
+        size.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(800);
+      if (shot.sub === 'custom-companion') {
+        //: A name of its own; every part left on From its name.
+        await page.evaluate(() => {
+          const name = document.getElementById('avatar-buddy-name');
+          name.value = 'Pip';
+          name.dispatchEvent(new Event('input', { bubbles: true }));
+          name.dispatchEvent(new Event('change', { bubbles: true }));
+          //: Its rows sit in a folded group of the panel; unfolded the way
+          //: a click on its summary does, then brought into view.
+          const custom = document.getElementById('avatar-buddy-custom');
+          for (let d = custom?.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
+          document.getElementById('avatar-buddy-row')?.scrollIntoView({ block: 'start' });
+        });
+        await page.waitForTimeout(1500);
+      } else {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(600);
+        await page.click('[data-tab="notes"]').catch(() => {});
+        //: It walks to its spot and settles; the shot is of it at rest.
+        await page.waitForTimeout(6000);
+      }
+    }
+    if (shot.sub === 'your-look') {
+      await page.evaluate(() => openSettingsModal('preferences'));
+      await page.waitForTimeout(1000);
+      //: The parts, unfolded: "Choose parts yourself" is what the section is.
+      //: A name typed in, as a person does on their first visit: the mark is
+      //: drawn from it, and a blank name draws the generic one.
+      await page.evaluate(() => {
+        const fold = document.querySelector('#profile-look details');
+        if (fold) fold.open = true;
+        const name = document.getElementById('pref-display-name');
+        name.value = 'Maya';
+        name.dispatchEvent(new Event('input', { bubbles: true }));
+        name.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(1200);
+    }
+    if (shot.sub === 'focus') {
+      //: A document in focus mode with the writing suggestions open: the
+      //: page alone, and the checks beside it.
+      await page.evaluate(async () => {
+        const r = await api('/documents');
+        const list = await r.json();
+        switchTab('documents');
+        const doc = list.filter((d) => /offline/i.test(d.title || '')).sort((a, b) => b.id - a.id)[0] || list[0];
+        await openDocument(doc.id);
+      });
+      await page.waitForSelector('#doc-editor .cm-content', { state: 'visible', timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      await page.evaluate(() => toggleDocFocus(true));
+      await page.waitForTimeout(800);
+      await page.evaluate(() => document.getElementById('doc-focus-prose')?.click());
+      await page.waitForTimeout(2500);
+    }
+    if (shot.sub === 'activity') {
+      await page.click('[data-target="library-view-documents"]').catch(() => {});
+      await page.waitForTimeout(1200);
+      await page.click('.library-chip[data-kind="activity"]').catch(() => {});
+      await page.waitForTimeout(2000);
+    }
+    if (shot.sub === 'dark') {
+      await page.evaluate(() => applyThemeChoice('dark', true));
+      await page.waitForTimeout(1500);
     }
     if (shot.file === 'graph' && process.env.GRAPH_LABELS === 'off') {
       //: The map as a constellation: labels off is the graph's own View
@@ -189,8 +290,11 @@ const SHOTS = [
         const list = await r.json();
         if (!list.length) return 'no documents';
         switchTab('documents');
-        await openDocument(list[0].id);
-        return 'opened ' + list[0].id;
+        //: The draft `seed-readme.js` writes when there is one: a page of
+        //: prose shows the editor, a two-line stub shows an empty window.
+        const doc = list.filter((d) => /offline/i.test(d.title || '')).sort((x, y) => y.id - x.id)[0] || list[0];
+        await openDocument(doc.id);
+        return 'opened ' + doc.id;
       });
       await page
         .waitForSelector('#doc-editor .cm-content', { state: 'visible', timeout: 15000 })
@@ -214,6 +318,47 @@ const SHOTS = [
     //: left up (the reader, the palette) would be in every picture after it.
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(500);
+    if (shot.sub === 'dark') await page.evaluate((t) => applyThemeChoice(t, true), THEME);
+    if (shot.sub === 'focus') await page.evaluate(() => toggleDocFocus(false));
+    if (shot.sub === 'companion' || shot.sub === 'custom-companion') {
+      await page.evaluate(() => {
+        openSettingsModal('appearance');
+        const select = document.getElementById('avatar-buddy');
+        select.value = 'off';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(500);
+    }
+  }
+  //: One phone-width shot: the Notes tab at 390x844, the width the phone
+  //: layout (bottom tab bar, one column) is measured at. Its own context,
+  //: since a viewport is fixed per context. Two device pixels a CSS pixel,
+  //: as a phone draws it.
+  if (!process.env.ONLY || process.env.ONLY === 'phone') {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await phone.addInitScript(() => { try { localStorage.setItem('onboardingDone', '1'); } catch (e) {} });
+    const tab = await phone.newPage();
+    await tab.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await tab.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
+    await tab.fill('#lock-password', PW);
+    await tab.click('#lock-submit');
+    await tab.waitForTimeout(3500);
+    await tab.evaluate(() => { document.getElementById('onboarding-overlay')?.classList.add('hidden'); });
+    await tab.evaluate((t) => applyThemeChoice(t, true), process.env.THEME || 'system');
+    await tab.evaluate(() => switchTab('notes'));
+    await tab.waitForTimeout(3000);
+    await tab.evaluate(() => {
+      for (const el of document.querySelectorAll('.ai-status-wrap')) el.style.visibility = 'hidden';
+      document.getElementById('agent-monitor')?.classList.add('hidden');
+      document.getElementById('toast-box')?.replaceChildren();
+      document.activeElement && document.activeElement.blur();
+    });
+    await tab.waitForTimeout(600);
+    const path = `${OUT}/phone.png`;
+    await tab.screenshot({ path });
+    done.push({ file: 'phone', bytes: fs.statSync(path).size });
+    await phone.close();
   }
   console.log(JSON.stringify(done, null, 1));
   await browser.close();

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/favicon.svg" alt="" width="96" height="96">
+<img src="docs/screenshots/atlas.png" alt="Atlas, the notebook's guide: a small glowing star spirit with swept-back ears, two rings of stars and a tail of starlight" width="130">
 
 # MemoryMap AI
 
@@ -35,7 +35,7 @@ capture a thought
 </p>
 
 <details>
-<summary><b>Thirteen more screenshots</b>: Notes, Chat, Graph, Library, the OCR workspace, boards, concept maps, Documents, Timeline, Reminders, the features browser, the command palette and Appearance</summary>
+<summary><b>Twenty-one more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, the dark theme, a phone and the avatar lab</summary>
 <br>
 
 <p align="center">
@@ -44,7 +44,7 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/chat.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and four suggested questions" width="850">
+  <img src="docs/screenshots/chat.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and suggested questions" width="850">
   <br><sub><b>Chat</b>: ask in plain English, with skills, web search and agent mode beside the box</sub>
 </p>
 
@@ -56,6 +56,11 @@ capture a thought
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
   <br><sub><b>Library</b>: everything you have made, in one place</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/activity.png" alt="Library, Activity: one line per record, newest first: when, what was done, and the detail" width="850">
+  <br><sub><b>Activity</b>: a record of what you did, one line each, in the Library beside what you made</sub>
 </p>
 
 <p align="center">
@@ -74,8 +79,13 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor with a formatting toolbar, a document list, live word count and writing suggestions" width="850">
+  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor on a draft, with its outline, word count and six writing suggestions underlined in place" width="850">
   <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it listing a spelling slip, a repeated word and four heading checks" width="850">
+  <br><sub><b>Focus mode</b>: the page and nothing else, with the suggestions beside it when you want them</sub>
 </p>
 
 <p align="center">
@@ -99,8 +109,38 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: ten themes as swatches, with typography, density, corners and background below" width="850">
-  <br><sub><b>Appearance</b>: ten themes, your own accent, type, density and corners</sub>
+  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: thirteen themes as swatches, Quiet utilitarian chosen, with saved looks below" width="850">
+  <br><sub><b>Appearance</b>: thirteen themes, your own accent, type, density and corners</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/your-look.png" alt="Settings, Profile, Your look: the face drawn from your name, Shuffle, and a picker for each part: look, mood, hair, hair colour, skin, clothes, headwear, eyewear and what you hold" width="850">
+  <br><sub><b>Your look</b>: a face drawn from your name, and every part of it yours to choose</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/companion.png" alt="The Notes tab with Atlas as the corner companion, perched on the top edge of the notes panel" width="850">
+  <br><sub><b>The corner companion</b>: Atlas, you, a persona or a character of your own, perched on a panel and poked for a reaction</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/custom-companion.png" alt="Settings, Appearance, Corner companion set to Your own character named Pip, large, with its part pickers, and the character itself at the top right of the page" width="850">
+  <br><sub><b>A companion of your own</b>: any name, and the same parts as Your look</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-dark.png" alt="The dashboard in the dark theme" width="850">
+  <br><sub><b>Dark</b>: every theme has a light and a dark side, or follows your system</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/phone.png" alt="The Notes tab at phone width: one column of note cards, a New note button and the tab bar along the bottom" width="390">
+  <br><sub><b>On a phone</b>: one column, the tabs at your thumb</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/avatar-lab.png" alt="The avatar lab: Atlas in both looks side by side, with the lab's mood, pose and tuning controls on the left" width="850">
+  <br><sub><b>The avatar lab</b> (<code>tools/avatar-lab.html</code>): the app's own renderers on one page, for tuning Atlas and the generated faces</sub>
 </p>
 
 </details>
@@ -193,11 +233,45 @@ the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
 duplicates on a schedule you set. It never deletes anything.
 
-Also: a command palette (`Ctrl`/`Cmd`+`K`), read-aloud, opt-in web search,
-themes over several colour palettes, interface zoom, daily local backups,
-and Atlas, an in-app guide reachable from the status bar on every tab, which
-answers "how do I" questions from the app's own documentation without ever
-reading your notes.
+**Meet Atlas.** The notebook's guide is a character: a small star spirit
+with two rings of stars about it and a tail of starlight, in a masculine or
+a feminine look (or the classic glowing globe it started as). Atlas files
+your notes, answers "how do I" questions from the app's own documentation
+without ever reading your notes, and has moods: pleased when you save,
+thinking while an answer is written, sleepy late at night.
+
+<p align="center">
+  <img src="docs/screenshots/atlas-hero.png" alt="Atlas in both looks side by side on a night-blue ground: the masculine look with a short swept crest and two ears, the feminine look with a long flowing crest, lashes and a star clip" width="760">
+</p>
+
+**A companion in the corner.** Atlas, your own face, the chat's persona or
+a character you name yourself can live in the corner of every page. It finds
+a free spot on its own, sits, stands, hangs or leans on any panel, toolbar or
+card, and reacts to what happens: a saved note, an answer, a bell, a poke.
+Drop it on a panel and that page keeps it there; small, medium, large or any
+size from the handle at its corner.
+
+<p align="center">
+  <img src="docs/screenshots/atlas-poses.png" alt="Ten of the companion's poses: standing, sitting, hanging from a ledge, floating, leaning, asleep, drowsy with headphones, under a moon at night, reading a book, and cheering" width="760">
+</p>
+
+**Faces for everyone.** Every person and persona gets a small drawn
+character read from their name (a mood word, an animal, a costume), and
+Settings, Profile, Your look lets you shuffle yours or choose every part:
+hair, skin, clothes, headwear, eyewear, what you hold. The avatar lab
+(`tools/avatar-lab.html`, served at `/tools` when the app runs from a
+source checkout) puts the app's own renderers
+on one page, every mood, pose and size, for tuning them by eye.
+
+**Sign in, or don't.** The notebook asks for its password when it opens, by
+default. On a computer only you use, Settings, Account and security can turn
+that off: the app opens straight in on this computer, another device on your
+network still needs the password, and private notes stay encrypted until you
+unlock them.
+
+Also: a command palette (`Ctrl`/`Cmd`+`K`), a popup agent, read-aloud,
+opt-in web search, thirteen themes, each in light or dark,
+interface zoom, a guided tour of the real controls, and daily local backups.
 
 ## The AI, and life without it
 
@@ -265,8 +339,14 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 pytest                          # 4,600+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
-node --check frontend/app.js    # the frontend has no build step
+node --check frontend/app.js    # the frontend has no build step: check each file you touch
 ```
+
+The frontend is about 45 plain scripts that share one global scope, loaded
+in the order `frontend/index.html` lists them; the app's own code is
+`app.js` and the 22 files after it, one 50,000-line file until 0.3.3.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) says how load order and the
+lazily loaded tabs work.
 
 Tests use a throwaway database and fake every AI call, so they need no
 GPU, no model and no network. They also cannot see the interface, so a
@@ -281,7 +361,8 @@ src/memorymap/
   ai/             model clients, filing, the agent and its tools, skills, embeddings, voice
   search/         full-text and semantic search, opt-in web search
   api/            the FastAPI app, one router per feature
-frontend/         plain HTML, CSS and JavaScript, served as-is
+frontend/         plain HTML, CSS and JavaScript, served as-is, no bundler
+tools/            the avatar lab and the companion simulator (source checkouts only)
 tests/            pytest, every AI call faked
 docs/             user documentation, architecture, design system, roadmap
 ```
@@ -295,9 +376,11 @@ Python 3.11 to 3.13 on every push.
 
 Version 0.3.3. The core is built and stable: capture, chat with checkable
 answers, the graph, documents, boards and mind maps, the OCR workspace,
-private notes, themes, desktop packaging for Windows and Linux. The
-interface was rebuilt on one design system in this release, measured
-rather than eyeballed, and the in-app guide has a name. What comes next,
+private notes, themes, desktop packaging for Windows and Linux. This
+release gives Atlas a body and a second look, puts a companion in the
+corner of every page, draws a face for every person, makes signing in
+optional on your own computer, and splits the frontend's one large script
+into files you can find your way around. What comes next,
 in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
 [CHANGELOG.md](CHANGELOG.md).
 

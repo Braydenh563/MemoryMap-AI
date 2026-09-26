@@ -3231,7 +3231,74 @@ function nameMarkBuddyObstacles(tab) {
 //: The parts of the character that are actually drawn, as boxes: the head
 //: and the body (down to its seat when its legs are tucked), and the hands
 //: above the head when it hangs.
+//: **Its size** (INBOX 426 x: "size options"): small, medium or large
+//: from its menu or Appearance, or any size between 0.7 and 1.6 from the
+//: handle at its corner, kept on this computer. The figure is scaled about
+//: the point it touches its perch (its hands hanging, its seat sitting, its
+//: soles standing), so every perch stays where it was; its shape and the
+//: points sampled for what it covers are scaled the same way, so a large
+//: companion is kept off controls as a medium one is.
+const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };
+function nameMarkBuddyScaleSaved() {
+  let v = 1;
+  try {
+    v = Number(localStorage.getItem("avatar-buddy-size")) || 1;
+  } catch (e) {
+    // Medium.
+  }
+  return Math.min(1.6, Math.max(0.7, v));
+}
+function nameMarkBuddySetSize(scale, keep = true) {
+  const size = Math.round(Math.min(1.6, Math.max(0.7, Number(scale) || 1)) * 100) / 100;
+  nmb.scale = size;
+  document.getElementById("nm-buddy")?.style.setProperty("--nmb-scale", String(size));
+  if (!keep) return;
+  try {
+    localStorage.setItem("avatar-buddy-size", String(size));
+  } catch (e) {
+    // This session only.
+  }
+  nameMarkBuddySizeSelect();
+  queueNameMarkBuddyCheck();
+}
+//: Appearance's select: the three sizes, and "As you sized it" for a size
+//: the handle gave it.
+function nameMarkBuddySizeSelect() {
+  const select = document.getElementById("avatar-buddy-size");
+  if (!select) return;
+  const size = nameMarkBuddyScaleSaved();
+  let own = select.querySelector("option[data-own]");
+  const preset = Object.values(NMB_SIZES).includes(size);
+  if (!preset) {
+    if (!own) {
+      own = document.createElement("option");
+      own.dataset.own = "1";
+      select.appendChild(own);
+    }
+    own.value = String(size);
+    own.textContent = `As you sized it (${Math.round(size * 100)}%)`;
+  } else {
+    own?.remove();
+  }
+  select.value = String(size);
+  const off = (document.getElementById("avatar-buddy")?.value || "off") === "off";
+  document.getElementById("avatar-buddy-size-row")?.classList.toggle("hidden", off);
+}
+function nameMarkBuddyOrigin(x, y, pose) {
+  const line = pose === "hang" ? NMB_GRIP : pose === "float" ? NMB_H / 2 : pose === "sit" ? NMB_SEAT : NMB_FEET - 1;
+  return [x + NMB_W / 2, y + line];
+}
+function nameMarkBuddyScaled(boxes, x, y, pose) {
+  const size = nmb.scale || 1;
+  if (size === 1) return boxes;
+  const [ox, oy] = nameMarkBuddyOrigin(x, y, pose);
+  return boxes.map((b) => ({ left: ox + (b.left - ox) * size, right: ox + (b.right - ox) * size, top: oy + (b.top - oy) * size, bottom: oy + (b.bottom - oy) * size }));
+}
+
 function nameMarkBuddyShape(x, y, pose, legs = "") {
+  return nameMarkBuddyScaled(nameMarkBuddyShapeAt1(x, y, pose, legs), x, y, pose);
+}
+function nameMarkBuddyShapeAt1(x, y, pose, legs = "") {
   if (legs === "peek") return [{ left: x + 8, top: y + NMB_SEAT - 36, right: x + 56, bottom: y + NMB_SEAT }];
   const drop = pose === "hang" ? NMB_DROP : 0;
   let bottom = y + drop + NMB_FEET;
@@ -3274,7 +3341,11 @@ function nameMarkBuddyCovers(x, y, pose, legs = "") {
     for (const fx of [10, 24, 40, 54]) for (const fy of [NMB_SEAT - 30, NMB_SEAT - 14]) points.push([x + fx, y + fy]);
   }
   let covered = 0;
-  for (const [px, py] of points) {
+  const size = nmb.scale || 1;
+  const [ox, oy] = nameMarkBuddyOrigin(x, y, pose);
+  for (const [qx, qy] of points) {
+    const px = size === 1 ? qx : ox + (qx - ox) * size;
+    const py = size === 1 ? qy : oy + (qy - oy) * size;
     if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue;
     //: One hit test per point per choice: perches along an edge share
     //: most of their points (`nmbCoverCache`, emptied by each choice).
@@ -5263,7 +5334,12 @@ function nameMarkBuddyMenu(buddy) {
     } });
   }
   items.push({ label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
-  items.push({ label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
+  const size = nmb.scale || 1;
+  for (const [name, value] of Object.entries(NMB_SIZES)) {
+    const label = `${name[0].toUpperCase()}${name.slice(1)}`;
+    items.push({ group: "size", label: `${size === value ? "ph:check" : "ph:dot-outline"} ${label}`, title: `Make it ${name}`, run: () => nameMarkBuddySetSize(value) });
+  }
+  items.push({ group: "hide", label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
   const box = face.getBoundingClientRect();
   openMenuAtPoint(items, "Companion", box.left, box.top);
   const menu = [...document.querySelectorAll(".pointer-menu-host .action-menu, .action-menu.action-menu-escaped")]
@@ -5318,6 +5394,36 @@ function nameMarkBuddyBuild() {
   //: No x on it (the owner: "the x button being on the companion the whole
   //: time is kinda annoying. keep it in the right click or hold popup
   //: menu"): Hide is in its menu, which the keyboard reaches too.
+  //: The size handle: at its corner, shown on hover, dragged away from or
+  //: towards the point it stands on to make it bigger or smaller. A mouse
+  //: thing; the menu and Appearance size it from the keyboard or a touch.
+  const grip = document.createElement("span");
+  grip.className = "nmb-size-grip";
+  grip.setAttribute("aria-hidden", "true");
+  grip.title = "Drag to resize";
+  face.appendChild(grip);
+  grip.addEventListener("click", (event) => event.stopPropagation());
+  grip.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    event.preventDefault();
+    const [ox, oy] = nameMarkBuddyOrigin(nmb.x, nmb.y, nmb.pose);
+    const from = Math.max(8, Math.hypot(event.clientX - ox, event.clientY - oy));
+    const was = nmb.scale || 1;
+    grip.setPointerCapture(event.pointerId);
+    buddy.classList.add("nmb-sizing");
+    const move = (e) => nameMarkBuddySetSize(was * Math.hypot(e.clientX - ox, e.clientY - oy) / from, false);
+    const end = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", end);
+      grip.removeEventListener("pointercancel", end);
+      buddy.classList.remove("nmb-sizing");
+      nameMarkBuddySetSize(nmb.scale, true);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+  });
   buddy.append(face);
   //: **A band and a rider** (INBOX 426 x, `nameMarkBuddyRide`): the band
   //: is the window, or the visible box of the panel's scroll area it rides
@@ -5332,6 +5438,7 @@ function nameMarkBuddyBuild() {
   rider.appendChild(buddy);
   band.appendChild(rider);
   document.body.appendChild(band);
+  nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
   if (typeof IntersectionObserver === "function") {
     nmb.seenObserver?.disconnect();
     nmb.seenObserver = new IntersectionObserver((entries) => nameMarkBuddySeen(entries[entries.length - 1].isIntersecting), { threshold: 0 });

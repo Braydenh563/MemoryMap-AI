@@ -263,3 +263,23 @@ def test_its_face_changes_with_what_happens() -> None:
     assert "nameMarkBuddyPrewarm(seed);" in AV
     # Back after a long idle: a wave.
     assert 'nameMarkBuddyAct("wave")' in _fn("nameMarkBuddyAwake")
+
+
+def test_light_and_dark_and_its_size() -> None:
+    # INBOX 426 x: "a light or dark variant", "size options". A soft
+    # shadow on a light page, a light of the accent behind it on a dark
+    # one, both still gradients (no filter).
+    dark = CSS08[CSS08.index(':root[data-theme="dark"] #nm-buddy::after {') :]
+    dark = dark[: dark.index("}")]
+    assert "radial-gradient" in dark and "filter" not in dark
+    # Small, medium, large in its menu and Appearance; any size from the
+    # handle; kept; scaled about the point it touches its perch, and its
+    # shape and sampled points with it (companionlife.js measures it).
+    assert "const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };" in AV
+    assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
+    assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
+    assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
+    assert 'group: "size"' in _fn("nameMarkBuddyMenu")
+    assert 'id="avatar-buddy-size"' in HTML
+    assert '"avatar-buddy-size"' in SETTINGS
+    assert "#nm-buddy .nm-buddy-face {\n  scale: var(--nmb-scale);\n  transform-origin: 50% var(--nmb-edge);" in CSS08

@@ -68,6 +68,48 @@ const { boot } = require('./lib.js');
   });
   if (cost.events > 4) fails.push(`cost: ${JSON.stringify(cost)}`);
   console.log(JSON.stringify({ hello, back, cheer, err, think, rest, away, drift, cost }));
+  // Its size: Large from its menu (the figure 1.3 times, its contact line
+  // where it was), then the corner handle dragged outward (kept, and shown
+  // in Appearance as its own size), then Medium again.
+  const size = {};
+  await page.evaluate(() => {
+    const buddy = document.getElementById('nm-buddy');
+    nameMarkBuddyMoveTo(buddy, { kind: 'air', pose: 'stand', x: 700, y: 400 }, true);
+    clearTimeout(nmb.timer);
+  });
+  await page.waitForTimeout(200);
+  const rect = () => page.evaluate(() => { const r = document.querySelector('#nm-buddy .nm-buddy-face').getBoundingClientRect(); return { h: +r.height.toFixed(1), bottom: +r.bottom.toFixed(1), top: +r.top.toFixed(1), right: +r.right.toFixed(1), left: +r.left.toFixed(1) }; });
+  size.medium = await rect();
+  const fc = [size.medium.left + 32, size.medium.top + 40];
+  await page.mouse.click(fc[0], fc[1], { button: 'right' });
+  await page.waitForTimeout(250);
+  await page.evaluate(() => { [...nmb.menu.querySelectorAll('button')].find((b) => /Large/.test(b.textContent)).click(); });
+  await page.waitForTimeout(250);
+  size.large = await rect();
+  size.largeSaved = await page.evaluate(() => localStorage.getItem('avatar-buddy-size'));
+  if (Math.abs(size.large.h / size.medium.h - 1.3) > 0.02 || Math.abs(size.large.bottom - size.medium.bottom) > 3.5) fails.push(`size large: ${JSON.stringify(size)}`);
+  // The handle, dragged out from its corner.
+  await page.mouse.move(size.large.left + 30, size.large.top + 40);
+  await page.waitForTimeout(200);
+  const grip = await page.evaluate(() => { const g = document.querySelector('#nm-buddy .nmb-size-grip').getBoundingClientRect(); return { x: g.left + g.width / 2, y: g.top + g.height / 2, shown: getComputedStyle(document.querySelector('#nm-buddy .nmb-size-grip')).opacity }; });
+  if (process.env.SCRATCH) await page.screenshot({ path: `${process.env.SCRATCH}/companion-size-grip.png`, clip: { x: size.large.left - 40, y: size.large.top - 30, width: 180, height: 180 } });
+  await page.mouse.move(grip.x, grip.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i += 1) { await page.mouse.move(grip.x + i * 5, grip.y - i * 5); await page.waitForTimeout(16); }
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  size.dragged = await rect();
+  size.draggedSaved = await page.evaluate(() => localStorage.getItem('avatar-buddy-size'));
+  size.gripShown = grip.shown;
+  await page.evaluate(() => openSettingsModal('appearance'));
+  await page.waitForTimeout(500);
+  size.select = await page.evaluate(() => { const s = document.getElementById('avatar-buddy-size'); return s.options[s.selectedIndex]?.textContent || ''; });
+  await page.evaluate(() => { const s = document.getElementById('avatar-buddy-size'); s.value = '1'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  size.back = await rect();
+  if (!(Number(size.draggedSaved) > 1.3) || !/As you sized it/.test(size.select) || Math.abs(size.back.h - size.medium.h) > 1) fails.push(`size drag: ${JSON.stringify(size)}`);
+  console.log('size', JSON.stringify(size));
   if (process.env.SCRATCH) {
     // A strip of its faces, as drawn on the companion.
     const seed = await page.evaluate(() => document.getElementById('nm-buddy').dataset.seed);

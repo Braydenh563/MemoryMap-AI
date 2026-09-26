@@ -1389,7 +1389,7 @@ const APPEARANCE_DEFAULTS = {
   //: its visible rows cost. On hover and Off remain one click away.
   "avatar-motion": "always", // always | hover | off
   "avatar-follow": "on", // on | off
-  "avatar-buddy": "off", // off | me | persona | atlas
+  "avatar-buddy": "off", // off | me | persona | atlas | custom
   //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
   //: globe the owner asked to keep as a choice.
   "atlas-style": "character", // character | classic
@@ -2323,6 +2323,7 @@ function renderAppearance() {
   $("avatar-motion").value = appearancePref("avatar-motion");
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
+  if (typeof mountBuddyCustom === "function") mountBuddyCustom();
   $("atlas-style").value = appearancePref("atlas-style");
   $("atlas-look").value = appearancePref("atlas-look");
   $("face-look").value = appearancePref("face-look");
@@ -2870,8 +2871,10 @@ $("avatar-follow").addEventListener("change", (e) => {
 });
 $("avatar-buddy").addEventListener("change", (e) => {
   localStorage.setItem("avatar-buddy", e.target.value);
+  mountBuddyCustom();
   syncNameMarkBuddy();
 });
+$("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);
   if (typeof atlasRepaint === "function") atlasRepaint();

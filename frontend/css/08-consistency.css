@@ -5273,6 +5273,12 @@ main,
 #nm-buddy:is([data-pose="hang"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer) .nmb-hold { opacity: 1; }
 #nm-buddy:is([data-pose="hang"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer) .nmb-arm { opacity: 0; }
 
+/* Hanging with something in its hand (INBOX 426 c: "the character hand
+   gestures and props and stuff dont properly show anymore"): it hangs by
+   its left hand and keeps the right one, and what it holds, on show. */
+#nm-buddy[data-pose="hang"] .nm-figure > [data-nm-held] .nmb-hold-r { opacity: 0; }
+#nm-buddy[data-pose="hang"] .nm-figure > [data-nm-held] .nmb-arm-r { opacity: 1; }
+
 /* Sitting on an edge: legs over it, a little apart and shorter from the
    front, hands resting at its sides. */
 #nm-buddy[data-pose="sit"] .nmb-leg-l { transform: rotate(6deg) scaleY(0.9); }
@@ -7046,7 +7052,14 @@ main,
   padding-top: var(--space-2);
 }
 
-#profile-look .profile-look-part {
+/* Your own companion's name: a field about as wide as the select above it,
+   beside its label rather than a line across the row. */
+#avatar-buddy-name {
+  width: 14rem;
+  margin-bottom: 0;
+}
+
+:is(#profile-look, #avatar-buddy-custom) .profile-look-part {
   display: grid;
   justify-items: start;
   gap: var(--space-1);

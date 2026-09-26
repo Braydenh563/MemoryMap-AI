@@ -9278,14 +9278,16 @@ Link to another note with [[its first few words]]."></textarea>
               <textarea id="pref-profile" aria-label="About me" rows="3" maxlength="600" aria-describedby="pref-profile-count"
                 placeholder="e.g. I'm in Leeds. I teach maths and keep bees."></textarea>
               <p class="muted text-sm" id="pref-profile-count" aria-live="polite"></p>
-            </div>
-            <div class="settings-group">
-              <div class="row align-center">
+              <!-- The autosave's status, under what it saves. It had a group
+                   of its own, which since the Save button went (autosave)
+                   was a card holding one line, "Stays on this computer like
+                   everything else" (INBOX 426 u, image 88). The row takes no
+                   room while it has nothing to say (`.prefs-save-row`). -->
+              <div class="row align-center prefs-save-row">
                 <button id="prefs-save" class="small ghost hidden">Save preferences</button>
                 <span id="prefs-status" class="status" role="status"></span>
                 <span id="prefs-unsaved" class="muted hidden" role="status">Saving…</span>
               </div>
-              <p class="muted">Stays on this computer like everything else.</p>
             </div>
 
             <!-- Asked for (INBOX 74): the destructive action in its own group,

@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 - Settings and every tab: after picking a Settings section or a tab with the mouse, the arrow keys, Page Down, Space, Home and End scroll the page you opened. In Settings they used to jump to the next section and back to its top; on a tab, Home and End switched tabs.
+- Settings: a setting's field sits at the right end of its row, as in Appearance, and Profile no longer ends with an empty card.
 - Settings scrolls smoothly with glass on: it no longer blurs the page behind it, which was redrawn on every scrolled frame (about 100ms a frame in a software-drawn window, 17ms now).
 - Settings, Skills, Templates and Personas: each row is its name and one line of what it does, 66px instead of 78px; the graph's node sheet on a phone meets the 44px tap size.
 - Documents: the formatting toolbar refits when its tools change, not only when its width does; on a narrow toolbar the layout toggle goes behind More first; in focus mode the suggestions panel keeps the width you dragged it to.

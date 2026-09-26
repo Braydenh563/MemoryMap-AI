@@ -7173,3 +7173,12 @@ input[type="file"]::file-selector-button:hover {
 #settings-modal .modal-content:focus:not(:focus-visible) {
   outline: none;
 }
+
+/* The profile autosave's status row (index.html, `.prefs-save-row`) takes
+   no room while it has nothing to say: its button is hidden and its two
+   status lines are empty until a save runs. Collapsed by its margin only,
+   never `display: none`, so its live regions stay in the tree and are read
+   out when they fill. */
+#settings-modal .settings-section .prefs-save-row:not(:has(> :not(.hidden):not(:empty))) {
+  margin-top: 0;
+}

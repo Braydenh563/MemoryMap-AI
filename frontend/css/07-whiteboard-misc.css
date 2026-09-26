@@ -9474,9 +9474,17 @@ header#top-bar > #tab-bar {
    `--form-label-col` (9rem) for the settings-row shape; the plain `.row >
    label` form rows had no column at all. 16rem is the longest of those
    labels plus its gap, so every field on the page starts on one edge. Rows
-   whose label *is* the control (a check row) are excluded. */
+   whose label *is* the control (a check row) are excluded.
+
+   **And the fields end at the row's right edge** (INBOX 426 u, image 85:
+   "many settings controls sit mid-row instead of at the right"). The
+   16rem column left every field 236 to 308px short of the group's edge
+   at 1440, where every `.setting-row` in Appearance ends its control. The
+   label keeps 16rem as its floor and takes the slack, so the fields of
+   one pane still line up, on the right edge now, the settings-row
+   shape. */
 #settings-modal .settings-section .row > label:first-child:not(.setting-check):not(.check-row):not(.checkbox-label) {
-  flex: 0 0 16rem;
+  flex: 1 1 16rem;
   min-width: 0;
 }
 

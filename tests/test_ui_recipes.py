@@ -1618,15 +1618,27 @@ def test_the_tour_card_is_placed_by_the_measure_and_correct_rule() -> None:
     from the nearest ancestor carrying a `filter`, and `.card` carries one
     whenever the background art is on, which is how a word menu asked for
     `left: 952` and drew at 1245.
+
+    **The check moved from one frame after the write to every frame the tour
+    is up, and this test moved with it** (INBOX 426 y). A single read-back a
+    frame later caught a tab switch mid-settle and left its own nudge in
+    ("tour-spot asked for 336,275, drew at 1128,4"). `tourPlaceFixed` now
+    records the box it asked for, and `tourWatchFrame` measures what was
+    drawn on every frame and places again, from a fresh origin, when the two
+    differ: the same set, measure, correct, held for as long as it takes.
     """
     js = TOUR_JS.read_text(encoding="utf-8")
     body = _function_body(js, "tourPlaceFixed")
     wrote = body.index(".style.left")
-    assert "getBoundingClientRect()" in body[wrote:], (
-        "tourPlaceFixed sets a position and never checks it landed there: "
-        "measure the rect after writing and correct by the difference "
-        "(DESIGN.md, the recipe index)"
+    assert "_tourWant" in body[wrote:], (
+        "tourPlaceFixed must record the box it asked for, so what was drawn "
+        "can be checked against it (DESIGN.md, the recipe index)"
     )
+    watch = _function_body(js, "tourWatchFrame")
+    assert "getBoundingClientRect()" in watch and "_tourWant" in watch, (
+        "tourWatchFrame must measure what was drawn against what was asked for"
+    )
+    assert "tourPosition()" in watch, "and place the step again when they differ"
     for name in ("tourPosition", "tourSpotlight"):
         assert "tourPlaceFixed(" in _function_body(js, name), (
             f"{name} must place through tourPlaceFixed, or the correction is "

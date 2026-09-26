@@ -7229,3 +7229,28 @@ input[type="file"]::file-selector-button:hover {
     padding-right: calc(1.5rem + var(--space-2));
   }
 }
+
+/* **Atlas in the guide's head is an avatar, sized to the title beside it**
+   (INBOX 426 z, image 86). The head clones the Help page's 32px mark, and
+   the bust atlas.js draws in it paints past its own box (the rings and the
+   body below the shoulders, 47 by 62px from a 32px box, measured), so the
+   figure hung 28px below the head and its middle sat 15px under the
+   middle of the two lines it belongs to. Here the mark is a disc the height
+   of those two lines, the drawing kept inside it the way a profile picture
+   is, head and shoulders in the round, on the mark's own accent-soft
+   ground, and centred on the words by the head's own `align-items`. */
+.sheet-card-corner .sheet-title > .atlas-mark {
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+/* A step smaller than the disc and dropped a little, so the ears' tips,
+   which reach the viewBox's top corners, land inside the round and the
+   shoulders run out of its foot, the way a portrait is framed. */
+.sheet-card-corner .sheet-title > .atlas-mark > .nm-atlas {
+  width: 86%;
+  height: 86%;
+  translate: 0 8%;
+}

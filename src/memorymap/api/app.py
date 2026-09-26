@@ -915,6 +915,13 @@ def create_app() -> FastAPI:
             # worth a 500: the About panel just doesn't offer them.
             return {"markdown": ""}
 
+    # The owner's benches (tools/avatar-lab.html, tools/companion-sim.html)
+    # are served beside the app so they can load its own renderers from
+    # "/"; plain static files, no data behind them.
+    tools_dir = FRONTEND_DIR.parent / "tools"
+    if tools_dir.is_dir():
+        app.mount("/tools", StaticFiles(directory=tools_dir), name="tools")
+
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.
     if FRONTEND_DIR.is_dir():

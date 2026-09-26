@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-mode="dark" data-avatar-motion="always">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Companion simulator</title>
+<!--
+  **The companion simulator** (INBOX 426 bb): the real companion
+  (avatars.js, the corner companion with Atlas or a character in it) let
+  loose on a mock page of panels, so its perching, travelling, scrolling
+  and menu can be watched without the app around it. The page has the
+  ids the companion looks for (top-bar, status-bar, tab-notes) and cards
+  for it to perch on; the controls scroll the page fast, move and resize
+  the panels, open its menu and draw a trace of where it went. Served by
+  the app at /tools/companion-sim.html or opened as a file beside
+  avatar-lab.html; the script loads the renderers either way.
+-->
+<link rel="stylesheet" href="avatar-lab.css">
+<link rel="stylesheet" href="companion-sim.css">
+</head>
+<body>
+<header id="top-bar" class="sim-bar">
+  <strong>Companion simulator</strong>
+  <span class="tag" id="status">loading</span>
+  <span class="tag" id="where"></span>
+  <i class="push"></i>
+  <label class="tag">Seed <input id="seed" value="Atlas" size="10"></label>
+  <button id="scroll">Scroll fast</button>
+  <button id="shuffle">Move panels</button>
+  <button id="travel">Travel</button>
+  <button id="menu">Open menu</button>
+  <button id="trace" class="on">Trace: on</button>
+  <button id="wipe">Wipe trace</button>
+</header>
+<main id="tab-notes" class="tab sim-page" data-tab="notes">
+  <div class="sim-grid" id="panels"></div>
+</main>
+<footer id="status-bar" class="sim-bar sim-foot"><span class="tag">status bar</span></footer>
+<canvas id="trace-canvas"></canvas>
+<script src="companion-sim.js"></script>
+</body>
+</html>

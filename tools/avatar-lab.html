@@ -1,25 +1,119 @@
 <!doctype html>
-<html lang="en" data-mode="dark" data-avatar-motion="off"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avatar Lab</title><base href="file:///C:/Projects/MemoryMap-AI/tools/">
-<link rel="stylesheet" href="../frontend/css/08-consistency.css">
-<style>
-:root{--accent:#6d5dfc;--bg:#10111b;--p:#191b2a;--p2:#23263b;--ink:#eef0ff;--muted:#99a1c0;--line:#343953;font:13px/1.45 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:var(--font)}.lab{min-height:100vh;display:grid;grid-template-columns:285px minmax(0,1fr);grid-template-rows:auto 1fr}.top{grid-column:1/-1;position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:9px;padding:10px 16px;background:var(--p);border-bottom:1px solid var(--line)}h1{font-size:15px;margin:0}.push{margin-left:auto}.tag,.sub,.detail{color:var(--muted);font-size:11px}.side{padding:12px;border-right:1px solid var(--line);background:var(--p);overflow:auto}.sec{padding:12px 0;border-bottom:1px solid var(--line)}.sec:first-child{padding-top:0}.sec h2{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}.field{display:grid;gap:4px;margin:7px 0;color:var(--muted);font-size:11px}.row,.moods{display:flex;gap:6px;align-items:center;flex-wrap:wrap}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;background:#0d0f18;border:1px solid var(--line);border-radius:7px;color:var(--ink);padding:7px}input[type=color]{height:32px;padding:2px}textarea{min-height:58px;resize:vertical}button{border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:var(--p2);color:var(--ink);cursor:pointer}button:hover,button.on{border-color:var(--accent)}button.main{background:var(--accent);border-color:var(--accent);color:white}.moods button{font-size:10px;padding:3px 6px}.canvas{padding:18px;overflow:auto}.empty{max-width:500px;margin:12vh auto;text-align:center;color:var(--muted)}.card{content-visibility:auto;contain-intrinsic-size:230px;background:var(--p);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}.head{display:flex;gap:8px;align-items:baseline;margin-bottom:10px}.head strong{font-size:14px}.close{margin-left:auto;padding:2px 7px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:10px}.spec{display:grid;place-items:center;align-content:center;gap:5px;min-width:0;min-height:105px;padding:10px 6px;background:#11131f;border:1px solid transparent;border-radius:8px}.spec:hover{border-color:var(--accent)}.stage{height:94px;width:100%;display:flex;align-items:center;justify-content:center;isolation:isolate}.stage.figure{height:145px;padding:16px 24px}.stage svg{display:block;max-width:100%;overflow:visible}.label{max-width:100%;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hero{display:grid;grid-template-columns:minmax(190px,280px) 1fr;gap:14px}.hero .stage{height:240px;background:#11131f;border-radius:8px}.info{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-content:start}.info dt{color:var(--muted)}.info dd{margin:0;overflow-wrap:anywhere}.experiment svg{transform:scale(var(--lab-scale,1));transform-box:fill-box;transform-origin:center}.experiment .stage{overflow:visible}.toast{position:fixed;left:50%;bottom:18px;opacity:0;transform:translate(-50%,60px);padding:7px 12px;border:1px solid var(--line);border-radius:20px;background:var(--p2);transition:.18s}.toast.on{opacity:1;transform:translate(-50%,0)}@media(max-width:760px){.lab{display:block}.top{position:static;flex-wrap:wrap}.side{border-right:0;border-bottom:1px solid var(--line)}.canvas{padding:12px}.hero{grid-template-columns:1fr}}
-</style><style>
-.moods+.row{margin-top:10px}.stage:has(svg[height="200"]){height:242px}.stage:has(svg[height="120"]){height:150px}.stage:has(svg[height="96"]){height:120px}.stage.figure .nm-figure,.stage.figure .atl-classic-box{position:relative!important;display:block!important;width:64px!important;height:92px!important}.stage.figure .nm-figure>svg,.stage.figure .atl-classic-box>svg{position:static!important;inset:auto!important;display:block!important}.lab .name-mark,.lab .nm-figure{pointer-events:none!important}.nm-viewer{display:none!important}#motion{font-size:0}#motion::after{font-size:13px}html[data-avatar-motion="off"] #motion::after{content:"Motion: off"}html[data-avatar-motion="always"] #motion::after{content:"Motion: on"}html[data-avatar-motion="off"] .name-mark *,html[data-avatar-motion="off"] .nm-figure *,html[data-avatar-motion="off"] .atl *{animation:none!important;transition:none!important}
-</style><style id="user-css"></style></head><body>
-<div class="lab"><header class="top"><h1>Avatar Lab</h1><span class="tag">isolated preview bench</span><span class="tag" id="status"></span><i class="push"></i><button id="motion">Motion</button><button id="clear">Clear</button></header><aside class="side">
-<section class="sec"><h2>Atlas</h2><label class="field">Look<select id="look"><option>masculine</option><option>feminine</option></select></label><label class="field">Style<select id="style"><option>character</option><option>classic</option></select></label><div id="moods" class="moods"></div><div class="row"><button class="main" data-do="atlas">Preview</button><button data-do="moods">All moods</button><button data-do="sizes">All sizes</button><button data-do="compare">Compare</button></div></section>
-<section class="sec"><h2>Generated avatar</h2><label class="field">Name / seed<input id="seed" value="Brayden"></label><div class="row"><button class="main" data-do="avatar">Preview</button><button data-do="figure">Figure</button><button data-do="avatar-sizes">All sizes</button></div></section>
-<section class="sec"><h2>Fixtures</h2><div class="row"><button data-fixture="names">Names</button><button data-fixture="animals">Animals</button><button data-fixture="costumes">Costumes</button><button data-fixture="edge">Edge cases</button></div></section>
-<section class="sec"><h2>Temporary experiment</h2><label class="field">Accent<input type="color" id="accent" value="#6d5dfc"></label><label class="field">Scale<input type="range" id="scale" min="70" max="150" value="100"></label><label class="field">CSS override<textarea id="css" spellcheck="false" placeholder=".atl-aura { opacity: .4; }"></textarea></label><div class="row"><button class="main" id="apply">Apply locally</button><button id="save">Save preset</button><button id="reset">Reset</button></div><p class="tag">Changes live only in this browser. They never edit the app files.</p></section>
-<section class="sec"><h2>Notes</h2><textarea id="notes" placeholder="What changed, what to fix, what you like..."></textarea><div class="row"><button id="copy">Copy</button><button id="download">Download session</button></div></section></aside>
-<main class="canvas" id="canvas"><div class="empty"><h2>Start with a specimen.</h2><p>This calls the app’s real renderers while keeping experiments and preferences separate.</p></div></main></div><div class="toast" id="toast"></div>
-<script>const K="avatar-lab:",S={mood:"calm",look:"masculine",style:"character",accent:"#6d5dfc",motion:false};function userMarkSeed(){return""}function aiNameNow(){return"Atlas"}function currentAccentHex(){return S.accent}function appearancePref(k,f){return k==="atlas-look"?S.look:k==="atlas-style"?S.style:f}function nameMarkBuddyCue(){}function nameMarkBuddyAct(){}function syncNameMarkBuddy(){}function paintDashEmblem(){}function repaintOwnFace(){}</script>
-<script src="../frontend/avatars.js"></script><script src="../frontend/atlas.js"></script>
-<script>
-/* The product normally decomposes each SVG into measured raster layers for
-   animated chat surfaces. The lab needs faithful geometry, not that cost. */
-window.nameMarkCompose=function(key,build,opts={}){const svg=build(),size=opts.size||20,height=opts.height||size;svg.setAttribute("width",size);svg.setAttribute("height",height);svg.dataset.nmSize=String(size);svg.dataset.nmKb="1";svg.classList.add("name-mark");return svg};
-window.watchNameMark=function(svg){if(svg)svg.dataset.nmKb="1"};
-</script>
-<script>(()=>{const $=x=>document.getElementById(x),M=["calm","happy","delighted","laughing","thinking","curious","surprised","confused","sleepy","sad","proud","shy","determined","love","worried"],F={names:["Brayden","Alice","Charlie","Luna","Max","Zoe","Kai","Nova","Sage","Finn"],animals:["panda","cat","fox","wolf","bunny","frog","owl","dragon","axolotl","capybara"],costumes:["wizardMage","pirateKing","ninjaAssassin","cowboyHero","astronautPilot","chefCook","robotAndroid","knightWarrior"],edge:["","A","veryVeryVeryLongNameForACompanion","(╯°□°)╯︵ ┻━┻","123456","???","aaaaaaa","Atlas"]};let token=0;const say=x=>{let t=$("toast");t.textContent=x;t.classList.add("on");clearTimeout(t.t);t.t=setTimeout(()=>t.classList.remove("on"),1500)},store=()=>localStorage.setItem(K+"state",JSON.stringify({...S,css:$("css").value,notes:$("notes").value}));function apply(){S.accent=$("accent").value;S.scale=$("scale").value;document.documentElement.style.setProperty("--accent",S.accent);document.documentElement.style.setProperty("--lab-scale",S.scale/100);$("user-css").textContent=$("css").value;store()}function load(){try{Object.assign(S,JSON.parse(localStorage.getItem(K+"state"))||{})}catch{}$("look").value=S.look;$("style").value=S.style;$("accent").value=S.accent;$("scale").value=S.scale||100;$("css").value=S.css||"";$("notes").value=S.notes||"";apply()}function card(title,sub=""){let c=document.createElement("section");c.className="card experiment";c.innerHTML='<div class="head"><strong></strong><span class="sub"></span><button class="close">×</button></div>';c.querySelector("strong").textContent=title;c.querySelector(".sub").textContent=sub;c.querySelector(".close").onclick=()=>c.remove();$("canvas").querySelector(".empty")?.remove();$("canvas").prepend(c);return c}function spec(n,l,d="",fig=false){let s=document.createElement("article"),st=document.createElement("div"),x=document.createElement("div");s.className="spec";st.className="stage"+(fig?" figure":"");x.className="label";x.textContent=l;st.append(n);s.append(st,x);if(d){let z=document.createElement("div");z.className="detail";z.textContent=d;s.append(z)}return s}function grid(c){let g=document.createElement("div");g.className="grid";c.append(g);return g}function batch(p,a){let i=0,t=++token;function n(){if(t!==token)return;let f=document.createDocumentFragment(),e=Math.min(i+6,a.length);for(;i<e;i++)f.append(a[i]());p.append(f);if(i<a.length)requestAnimationFrame(n)}n()}const A=(n,m=S.mood,l)=>atlasDraw(n,m,l),V=(s,n)=>nameMark(s||"Buddy",n);function setMood(m){S.mood=m;document.querySelectorAll("#moods button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));store()}function atlas(){let c=card("Atlas","hero preview · "+S.style+" · "+S.look),h=document.createElement("div");h.className="hero";h.append(spec(A(190),"Atlas "+S.mood,"full character"));let r=ATLAS_MOODS[S.mood]||{},d=document.createElement("dl");d.className="info";[["Mood",S.mood],["Cue",r.cue||"—"],["Words",r.words||"—"],["Look",S.style==="classic"?"classic":S.look]].forEach(q=>{let a=document.createElement("dt"),b=document.createElement("dd");a.textContent=q[0];b.textContent=q[1];d.append(a,b)});h.append(d);c.append(h)}function allMoods(){let g=grid(card("Atlas moods",S.style+" · "+S.look));batch(g,M.map(m=>()=>{let x=spec(A(72,m),m,(ATLAS_MOODS[m]||{}).words||"");x.onclick=()=>setMood(m);return x}))}function sizes(){let g=grid(card("Atlas at every size",S.mood));batch(g,[200,120,96,80,64,48,32,28,24,20,16].map(n=>()=>spec(A(n),n+" px")));g.append(spec(atlasFigure(),"Figure 64×92","actual companion box",true),spec(atlasAvatar(80,S.mood),"Bust 80 px","cropped figure",true))}function compare(){let o=S.look,g=grid(card("Atlas look comparison",S.mood));["masculine","feminine"].forEach(x=>{S.look=x;g.append(spec(A(160),x,"full character",true))});S.look=o}function read(s){try{return nameMood(s)}catch{return{}}}function avatar(){let s=$("seed").value.trim()||"Buddy",r=read(s),c=card("Avatar · "+s,"actual generated mark"),h=document.createElement("div");h.className="hero";h.append(spec(V(s,128),s,"128 px"));let d=document.createElement("dl");d.className="info";[["Mood",r.mood||"seeded"],["Source",r.source||"—"],["Animal",r.animal||"—"],["Props",r.props?.join(", ")||"—"],["Look",r.look||"neutral"],["Cues",r.cues?.map(x=>x.kind+": "+x.key).join(", ")||"—"]].forEach(q=>{let a=document.createElement("dt"),b=document.createElement("dd");a.textContent=q[0];b.textContent=q[1];d.append(a,b)});h.append(d);c.append(h)}function figure(){let s=$("seed").value.trim()||"Buddy",g=grid(card("Figure · "+s)),f;try{f=drawCharacter(s,100,"figure")}catch{f=V(s,128)}g.append(spec(f,s,"full companion body",true));[64,32,20].forEach(n=>g.append(spec(V(s,n),n+" px")))}function avatarSizes(){let s=$("seed").value.trim()||"Buddy",g=grid(card("Avatar sizes · "+s));batch(g,[128,96,80,64,48,32,28,24,20,16].map(n=>()=>spec(V(s,n),n+" px")))}function gallery(k){let g=grid(card("Fixture gallery · "+k));batch(g,(F[k]||F.names).map(s=>()=>{let r=read(s),x=spec(s==="Atlas"?A(48):V(s,48),s||"empty",[r.mood,r.animal].filter(Boolean).join(" · "));x.onclick=()=>{$("seed").value=s;avatar()};return x}))}M.forEach(m=>{let b=document.createElement("button");b.dataset.m=m;b.textContent=m;b.onclick=()=>{setMood(m);atlas()};$("moods").append(b)});document.addEventListener("click",e=>{let a=e.target.dataset.do;if(a==="atlas")atlas();if(a==="moods")allMoods();if(a==="sizes")sizes();if(a==="compare")compare();if(a==="avatar")avatar();if(a==="figure")figure();if(a==="avatar-sizes")avatarSizes();if(e.target.dataset.fixture)gallery(e.target.dataset.fixture)});$("look").onchange=e=>{S.look=e.target.value;store()};$("style").onchange=e=>{S.style=e.target.value;store()};$("seed").onkeydown=e=>e.key==="Enter"&&avatar();$("apply").onclick=()=>{apply();say("Local experiment applied")};$("save").onclick=()=>{store();say("Preset saved in this browser")};$("reset").onclick=()=>{$("accent").value="#6d5dfc";$("scale").value=100;$("css").value="";apply()};$("clear").onclick=()=>{token++;$("canvas").innerHTML='<div class="empty"><h2>Canvas cleared.</h2><p>Choose a specimen to continue.</p></div>'};$("motion").onclick=()=>{S.motion=!S.motion;document.documentElement.dataset.avatarMotion=S.motion?"always":"off";store();say(S.motion?"Motion on":"Motion off")};$("copy").onclick=async()=>{await navigator.clipboard.writeText($("notes").value);say("Notes copied")};$("download").onclick=()=>{let o={exportedAt:new Date().toISOString(),state:S,notes:$("notes").value,css:$("css").value},a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,2)],{type:"application/json"}));a.download="avatar-lab-session.json";a.click();URL.revokeObjectURL(a.href)};$("notes").oninput=store;load();setMood(S.mood);$("status").textContent="renderer ready"})()</script></body></html>
+<html lang="en" data-mode="dark" data-avatar-motion="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avatar lab</title>
+<!--
+  **The avatar lab** (INBOX 426 bb; the owner's bench, reworked): a page
+  that calls the app's real renderers (avatars.js, atlas.js) and nothing
+  else of the app, for judging Atlas and the generated characters and for
+  trying changes live without editing the files.
+
+  It works from two places: served by the app at /tools/avatar-lab.html
+  (the scripts then load from "/"), or opened as a file from the tools/
+  folder (they load from ../frontend/). The loader below picks the root.
+
+  What it shows: Atlas in both looks side by side, every mood, every size
+  from 16 to 200px, every pose the companion can take, on a light or a
+  dark ground; a reference image from disk onion-skinned over the hero at
+  any opacity; the generated characters by seed with the Your look
+  pickers; and a companion simulator (companion-sim.html) with a mock page
+  of panels.
+
+  What it changes, live and only here: the Tune panel writes
+  `window.ATLAS_TUNE` and calls `atlasRetune` (atlas.js documents the
+  keys), the CSS box is a stylesheet on this page, the colours are custom
+  properties on each drawing. Snapshots A and B keep two tunes to compare,
+  and Export writes the whole session as JSON so the chosen values can be
+  put into atlas.js by hand.
+
+  Cheap on purpose: specimens render in batches of six per frame, and a
+  card that scrolls out of view has its animations paused.
+
+  Three files (this page, avatar-lab.css, avatar-lab.js) because the app's
+  Content Security Policy allows no inline script or style; the CSS box
+  on the page becomes a constructed stylesheet, which the policy permits.
+
+  Pose cards each wrap the figure in a host with the companion's id
+  (`nm-buddy`), because the pose CSS keys on it; duplicate ids are fine
+  for a bench nothing else scripts.
+-->
+<link rel="stylesheet" href="avatar-lab.css">
+</head>
+<body>
+<div class="lab">
+  <header class="top">
+    <h1>Avatar lab</h1>
+    <span class="tag">the app's own renderers, nothing saved to the app</span>
+    <span class="tag" id="status">loading</span>
+    <i class="push"></i>
+    <button id="ground">Ground: dark</button>
+    <button id="motion">Motion: off</button>
+    <button id="clear">Clear</button>
+    <a class="tag" id="sim-link" href="companion-sim.html" target="_blank">Companion simulator</a>
+  </header>
+  <aside class="side">
+    <section class="sec">
+      <h2>Atlas</h2>
+      <label class="field inline">Look<select id="look"><option>masculine</option><option>feminine</option></select></label>
+      <label class="field inline">Style<select id="style"><option>character</option><option>classic</option></select></label>
+      <div id="moods" class="moods"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="main" data-do="hero">Hero</button>
+        <button data-do="compare">Both looks</button>
+        <button data-do="moods">All moods</button>
+        <button data-do="sizes">All sizes</button>
+        <button data-do="poses">All poses</button>
+      </div>
+    </section>
+    <section class="sec">
+      <h2>Reference overlay</h2>
+      <input type="file" id="ref-file" accept="image/*">
+      <div class="knob"><span>Opacity</span><input type="range" id="ref-op" min="0" max="100" value="50"><output>0.50</output></div>
+      <div class="knob"><span>Scale</span><input type="range" id="ref-scale" min="10" max="300" value="100"><output>1.00</output></div>
+      <div class="knob"><span>Shift x</span><input type="range" id="ref-x" min="-200" max="200" value="0"><output>0</output></div>
+      <div class="knob"><span>Shift y</span><input type="range" id="ref-y" min="-200" max="200" value="0"><output>0</output></div>
+      <p class="hint">Lies over the hero and the Both looks stages.</p>
+    </section>
+    <section class="sec">
+      <h2>Character</h2>
+      <label class="field">Name or seed<input id="seed" value="Brayden"></label>
+      <div class="row">
+        <button class="main" data-do="avatar">Preview</button>
+        <button data-do="avatar-sizes">All sizes</button>
+        <button data-do="figure">Figure</button>
+        <button data-do="gallery">Gallery</button>
+      </div>
+      <p class="hint" style="margin:8px 0 2px">Your look (the parts you choose; the seed above wears them)</p>
+      <div id="own-parts"></div>
+    </section>
+    <section class="sec">
+      <h2>Tune, live</h2>
+      <div id="knobs"></div>
+      <label class="field inline">Star rays<select id="tune-starRays"><option>4</option><option>8</option></select></label>
+      <div class="colours" id="colours"></div>
+      <label class="field">CSS on this page<textarea id="css" spellcheck="false" placeholder=".nm-atlas .atl-aura { opacity: 0.4; }"></textarea></label>
+      <div class="row">
+        <button data-do="snap-a">Keep as A</button>
+        <button data-do="snap-b">Keep as B</button>
+        <button data-do="ab">Show A and B</button>
+        <button data-do="reset-tune">Reset</button>
+      </div>
+      <p class="hint" id="snaps">A: none. B: none.</p>
+    </section>
+    <section class="sec">
+      <h2>Session</h2>
+      <textarea id="notes" placeholder="What changed, what to fix, what you like"></textarea>
+      <div class="row">
+        <button class="main" id="export">Export JSON</button>
+        <label class="field" style="margin:0"><input type="file" id="import" accept="application/json"></label>
+      </div>
+    </section>
+  </aside>
+  <main class="canvas" id="canvas"><div class="empty"><h2>Start with a specimen.</h2><p>Hero, both looks, moods, sizes or poses on the left.</p></div></main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="avatar-lab.js"></script>
+</body>
+</html>

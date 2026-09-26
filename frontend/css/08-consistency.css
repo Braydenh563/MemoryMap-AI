@@ -5823,6 +5823,10 @@ main,
   --atl-px: 0px;
   --atl-py: 0px;
   --atl-lean: 0deg;
+  /* The avatar lab's tune (atlas.js, ATLAS_TUNE) rides on these. */
+  --atl-tune-head: 1;
+  --atl-tune-star: 1;
+  --atl-tune-strand: 1;
   --atl-ps: 1;
   --atl-open: 1;
   --atl-happy: 0;
@@ -6103,6 +6107,8 @@ main,
 .nm-atlas .atl-tip-core { fill: white; }
 /* The nebula strand (atlas.js, `atlasBand`): deep navy with violet and
    pink clouds, a pale glowing edge, star dots; lighter than the body. */
+.nm-atlas .atl-band { opacity: var(--atl-tune-strand); }
+.nm-atlas .nmp-coil .atl-band-fill { opacity: calc(0.92 * var(--atl-tune-strand)); }
 .nm-atlas .atl-band-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.4; opacity: 0.28; }
 .nm-atlas .atl-band-fill { fill: var(--atl-bandg); opacity: 0.92; }
 .nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.3; }
@@ -6142,7 +6148,7 @@ main,
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
-.nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)); }
+.nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); }
 .nm-atlas .atl-pose { transform: rotate(var(--atl-lean)) scale(var(--atl-sx), var(--atl-sy)); }
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its
@@ -6150,7 +6156,7 @@ main,
 /* The rings dim with a low mood and in sleep. */
 .nm-atlas :is(.atl-tail-core, .atl-ring) { opacity: var(--atl-halo-o); }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
-.nm-atlas .atl-star { transform: scale(clamp(0.85, var(--atl-star), 1.2)); }
+.nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }

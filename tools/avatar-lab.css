@@ -1,0 +1,67 @@
+/* The avatar lab's own styles (tools/avatar-lab.html). */
+:root { --accent: #6d5dfc; --bg: #10111b; --p: #191b2a; --p2: #23263b; --ink: #eef0ff; --muted: #99a1c0; --line: #343953; --ground: #1d1d38; }
+html[data-mode="light"] { --bg: #f1f1f7; --p: #ffffff; --p2: #ecedf5; --ink: #22223a; --muted: #6a6f8a; --line: #d8dae6; --ground: #ffffff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 system-ui, sans-serif; }
+.lab { min-height: 100vh; display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto 1fr; }
+.top { grid-column: 1 / -1; position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 9px; padding: 10px 16px; background: var(--p); border-bottom: 1px solid var(--line); }
+h1 { font-size: 15px; margin: 0; }
+.push { margin-left: auto; }
+.tag, .sub, .detail, .hint { color: var(--muted); font-size: 11px; }
+.side { padding: 12px; border-right: 1px solid var(--line); background: var(--p); overflow: auto; max-height: calc(100vh - 44px); position: sticky; top: 44px; }
+.sec { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.sec:first-child { padding-top: 0; }
+.sec h2 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.field { display: grid; gap: 4px; margin: 7px 0; color: var(--muted); font-size: 11px; }
+.field.inline { grid-template-columns: 1fr auto; align-items: center; }
+.row, .moods { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+input, select, textarea, button { font: inherit; }
+input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; color: var(--ink); padding: 6px; }
+input[type="range"] { padding: 0; }
+input[type="color"] { height: 30px; padding: 2px; }
+textarea { min-height: 58px; resize: vertical; }
+button { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; background: var(--p2); color: var(--ink); cursor: pointer; }
+button:hover, button.on { border-color: var(--accent); }
+button.main { background: var(--accent); border-color: var(--accent); color: white; }
+.moods button { font-size: 10px; padding: 3px 6px; }
+.knob { display: grid; grid-template-columns: 92px 1fr 46px; gap: 6px; align-items: center; margin: 5px 0; font-size: 11px; color: var(--muted); }
+.knob output { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.colours { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.colours label { display: grid; gap: 2px; font-size: 10px; color: var(--muted); }
+.canvas { padding: 18px; overflow: auto; }
+.empty { max-width: 500px; margin: 12vh auto; text-align: center; color: var(--muted); }
+.card { background: var(--p); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+.card.off svg * { animation-play-state: paused !important; }
+.head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 10px; }
+.head strong { font-size: 14px; }
+.close { margin-left: auto; padding: 2px 7px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.spec { display: grid; place-items: center; align-content: start; gap: 5px; min-width: 0; padding: 10px 6px; background: var(--ground); border: 1px solid transparent; border-radius: 8px; }
+.spec:hover { border-color: var(--accent); }
+.stage { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.stage > svg { display: block; max-width: 100%; }
+.label { max-width: 100%; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero { display: grid; grid-template-columns: minmax(220px, 340px) 1fr; gap: 14px; }
+.hero .stage { height: 380px; background: var(--ground); border-radius: 8px; }
+.hero .stage > svg { height: 340px; width: auto; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pair .stage { height: 380px; background: var(--ground); border-radius: 8px; }
+.pair .stage > svg { height: 340px; width: auto; }
+.ref { position: absolute; left: 50%; top: 50%; pointer-events: none; opacity: var(--ref-op, 0.5); transform: translate(calc(-50% + var(--ref-x, 0px)), calc(-50% + var(--ref-y, 0px))) scale(var(--ref-scale, 1)); transform-origin: center; max-width: none; }
+.info { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-content: start; font-size: 12px; }
+.info dt { color: var(--muted); }
+.info dd { margin: 0; overflow-wrap: anywhere; }
+/* The companion's figure, at rest in a card: the app positions it fixed
+   and moves it by a transform; here it is a block in a box. */
+.lab #nm-buddy { position: relative !important; left: auto !important; top: auto !important; transform: none !important; translate: none !important; width: 64px; height: 92px; zoom: var(--fig-zoom, 1.6); }
+.lab #nm-buddy .nm-figure, .lab .nm-figure { position: relative !important; display: block !important; width: 64px !important; height: 92px !important; }
+.lab .nm-figure > svg { position: absolute !important; left: 0 !important; top: 0 !important; overflow: visible; }
+.lab .stage.figure { height: 190px; overflow: visible; }
+.lab .name-mark, .lab .nm-figure { pointer-events: none !important; }
+.nm-viewer { display: none !important; }
+html[data-avatar-motion="off"] .name-mark *, html[data-avatar-motion="off"] .nm-figure *, html[data-avatar-motion="off"] .atl * { animation: none !important; transition: none !important; }
+.profile-look-part { display: grid; grid-template-columns: 78px 1fr; gap: 6px; align-items: center; margin: 4px 0; font-size: 11px; }
+.toast { position: fixed; left: 50%; bottom: 18px; opacity: 0; transform: translate(-50%, 60px); padding: 7px 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--p2); transition: 0.18s; z-index: 9; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 760px) { .lab { display: block; } .top { position: static; flex-wrap: wrap; } .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); } .hero, .pair { grid-template-columns: 1fr; } }

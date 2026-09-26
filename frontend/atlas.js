@@ -433,21 +433,101 @@ const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]]
 //: weave from side to side across it out of phase, so the ribbon reads as
 //: twisted silk and water; the mane's locks; and, for both, the small
 //: tuft of wisps on the crown.
-for (const spec of Object.values(ATLAS_LOOKS)) {
-  spec.tailPath = atlasStem(spec.tail, spec.tailWidth, { samples: 14 });
-  spec.streamPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.26, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.22 * Math.sin(Math.PI * 2.6 * t) });
-  spec.silkPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.24, { samples: 14, shift: (t) => -spec.tailWidth(t) * 0.3 * Math.sin(Math.PI * 2.6 * t + 1.1) });
-  const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
-  spec.lockPaths = spec.locks.map(lock);
-  spec.headPaths = spec.head.map(lock);
-  if (spec.lower) {
-    spec.lowerPath = atlasStem(spec.lower, spec.lowerWidth, { samples: 12 });
-    spec.lowerStream = atlasStem(spec.lower, (t) => spec.lowerWidth(t) * 0.28, { samples: 12, shift: (t) => spec.lowerWidth(t) * 0.22 * Math.sin(Math.PI * 2.2 * t) });
+//: **Tuning** (the avatar lab, `tools/avatar-lab.html`): a page may set
+//: `window.ATLAS_TUNE` before atlas.js loads, or call `atlasRetune(next)`
+//: afterwards, to try values without editing this file. Every key is
+//: optional; the defaults are the drawing as designed:
+//:
+//:   bodyWidth      1     the torso's width about its centre line
+//:   headSize       1     the head, ears and mane about the neck
+//:   tailLength     1     the tail's reach from its root
+//:   tailCurl       0     degrees the tail's last sweep turns (+ is up)
+//:   strandOpacity  1     the galaxy strand and its coil
+//:   starSize       1     the heart star and its rays
+//:   starRays       4     4 or 8 rays on the heart star
+//:   lockCount      0     the mane's locks (0 is the look's own count)
+//:   colours        {}    CSS palette overrides on the drawing:
+//:                        hi, lt, md, dp, rim, navy, glow, line, blush
+//:
+//: The geometry that depends on these is built by `atlasBuild`, once at
+//: load and again on every retune; the rest are custom properties set on
+//: each drawing (`atlasDraw`). `atlasRetune` returns the tune in force.
+const ATLAS_TUNE_DEFAULTS = { bodyWidth: 1, headSize: 1, tailLength: 1, tailCurl: 0, strandOpacity: 1, starSize: 1, starRays: 4, lockCount: 0, colours: {} };
+const ATLAS_TUNE_COLOURS = ["hi", "lt", "md", "dp", "rim", "navy", "glow", "line", "blush"];
+
+function atlasTune() {
+  const given = (typeof window !== "undefined" && window.ATLAS_TUNE && typeof window.ATLAS_TUNE === "object") ? window.ATLAS_TUNE : {};
+  const tune = { ...ATLAS_TUNE_DEFAULTS };
+  for (const key of Object.keys(ATLAS_TUNE_DEFAULTS)) {
+    if (key === "colours") continue;
+    const v = Number(given[key]);
+    if (given[key] !== undefined && Number.isFinite(v)) tune[key] = v;
   }
-  if (spec.arm) {
-    spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbWidth(3.9, 1.3), { samples: 12 })], ["r", atlasStem(spec.arm, atlasLimbWidth(3.9, 1.3), { samples: 12 })]];
-  }
+  tune.colours = {};
+  for (const key of ATLAS_TUNE_COLOURS) if (typeof given.colours?.[key] === "string") tune.colours[key] = given.colours[key];
+  return tune;
 }
+
+//: A run of cubic segments scaled about a root and, from `from` on, turned
+//: about that segment's start: the tail's length and curl.
+function atlasTuneSegs(segs, root, k, curlDeg, from) {
+  const [rx, ry] = root;
+  const out = segs.map((seg) => seg.map((v, i) => (i % 2 ? ry + (v - ry) * k : rx + (v - rx) * k)));
+  if (curlDeg && out.length > from) {
+    const a = (-curlDeg * Math.PI) / 180;
+    const [px, py] = [out[from][0], out[from][1]];
+    const turn = (x, y) => [px + (x - px) * Math.cos(a) - (y - py) * Math.sin(a), py + (x - px) * Math.sin(a) + (y - py) * Math.cos(a)];
+    for (let i = from; i < out.length; i += 1) {
+      for (let j = i === from ? 2 : 0; j < 8; j += 2) [out[i][j], out[i][j + 1]] = turn(out[i][j], out[i][j + 1]);
+    }
+  }
+  return out.map((seg) => seg.map((v) => +v.toFixed(2)));
+}
+
+function atlasBuild() {
+  const tune = atlasTune();
+  const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
+  for (const spec of Object.values(ATLAS_LOOKS)) {
+    const root = [spec.tail[0][0], spec.tail[0][1]];
+    const tail = atlasTuneSegs(spec.tail, root, tune.tailLength, tune.tailCurl, spec.tail.length - 1);
+    spec.tailPath = atlasStem(tail, spec.tailWidth, { samples: 14 });
+    spec.streamPath = atlasStem(tail, (t) => spec.tailWidth(t) * 0.26, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.22 * Math.sin(Math.PI * 2.6 * t) });
+    spec.silkPath = atlasStem(tail, (t) => spec.tailWidth(t) * 0.24, { samples: 14, shift: (t) => -spec.tailWidth(t) * 0.3 * Math.sin(Math.PI * 2.6 * t + 1.1) });
+    //: The stars ride the tail's scale; the tip is the tuned tail's end.
+    spec.tailStarsNow = spec.tailStars.map(([x, y, r]) => [+(root[0] + (x - root[0]) * tune.tailLength).toFixed(2), +(root[1] + (y - root[1]) * tune.tailLength).toFixed(2), r]);
+    const last = tail[tail.length - 1];
+    spec.tailTipNow = [last[6], last[7]];
+    const n = tune.lockCount > 0 ? Math.round(tune.lockCount) : spec.locks.length;
+    spec.lockPaths = spec.locks.slice(0, n).map(lock);
+    spec.headPaths = spec.head.slice(0, n).map(lock);
+    spec.torsoNow = atlasScalePathX(spec.torso || ATLAS_TORSO_PATH, tune.bodyWidth, 31);
+    if (spec.lower) {
+      spec.lowerPath = atlasStem(spec.lower, spec.lowerWidth, { samples: 12 });
+      spec.lowerStream = atlasStem(spec.lower, (t) => spec.lowerWidth(t) * 0.28, { samples: 12, shift: (t) => spec.lowerWidth(t) * 0.22 * Math.sin(Math.PI * 2.2 * t) });
+    }
+    if (spec.arm) {
+      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbWidth(3.9, 1.3), { samples: 12 })], ["r", atlasStem(spec.arm, atlasLimbWidth(3.9, 1.3), { samples: 12 })]];
+    }
+  }
+  return tune;
+}
+
+//: Scales a hand-drawn path's x about a centre line (the torso's width).
+function atlasScalePathX(d, k, cx) {
+  return d.replace(/([MCLQ])([^MCLQZ]*)/g, (m, cmd, body) => {
+    const n = body.trim().split(/[\s,]+/).map(Number);
+    return cmd + n.map((v, i) => +(i % 2 ? v : cx + (v - cx) * k).toFixed(2)).join(" ");
+  });
+}
+
+function atlasRetune(next) {
+  if (typeof window !== "undefined") window.ATLAS_TUNE = { ...(window.ATLAS_TUNE || {}), ...(next || {}), colours: { ...(window.ATLAS_TUNE?.colours || {}), ...(next?.colours || {}) } };
+  const tune = atlasBuild();
+  if (typeof atlasRepaint === "function") atlasRepaint();
+  return tune;
+}
+
+atlasBuild();
 const ATLAS_WISPS = ATLAS_GEO.wisps.map(([seg, w0, w1]) => atlasStem([seg], atlasTaper(w0, w1), { samples: 8, cap: false }));
 
 //: **The galaxy strand** (the reference's nebula swirl): a ribbon of deep
@@ -695,8 +775,8 @@ function atlasTail(layer, edge, look) {
   atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath }, swish);
   atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath }, swish);
   const stars = atlasGroup(swish, "atl-tail-core");
-  for (const [x, y, r] of spec.tailStars) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, stars);
-  const [tx, ty] = spec.tailTip;
+  for (const [x, y, r] of spec.tailStarsNow) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, stars);
+  const [tx, ty] = spec.tailTipNow;
   atlasMake("circle", { class: "atl-tip-glow", cx: tx, cy: ty, r: 8 }, stars);
   atlasMake("circle", { class: "atl-tip-core", cx: tx, cy: ty, r: 2.4 }, stars);
   atlasSpark(stars, tx, ty, 2.4, "atl-glint");
@@ -1000,7 +1080,7 @@ function atlasBody(parent, id, props, look) {
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, hold);
     }
     const torso = atlasGroup(layer, "nmb-torso");
-    const torsoPath = spec.torso || ATLAS_TORSO_PATH;
+    const torsoPath = spec.torsoNow;
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: torsoPath }, torso);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
@@ -1025,6 +1105,9 @@ function atlasBody(parent, id, props, look) {
       });
       const star = atlasGroup(core, "atl-star", [hx, hy]);
       atlasMake("path", { class: "atl-core-rays", d: `M${hx} ${hy - 9}L${hx + 0.9} ${hy}L${hx} ${hy + 8}L${hx - 0.9} ${hy}ZM${hx - 7} ${hy}L${hx} ${hy - 0.8}L${hx + 7} ${hy}L${hx} ${hy + 0.8}Z` }, star);
+      if (atlasTune().starRays >= 8) {
+        atlasMake("path", { class: "atl-core-rays atl-core-rays-x", d: `M${hx - 4.6} ${hy - 4.6}L${hx} ${hy - 0.6}L${hx + 4.6} ${hy + 4.6}L${hx} ${hy + 0.6}ZM${hx + 4.6} ${hy - 4.6}L${hx} ${hy - 0.6}L${hx - 4.6} ${hy + 4.6}L${hx} ${hy + 0.6}Z` }, star);
+      }
       atlasSpark(star, hx, hy, 3.8, "atl-chest-star");
       atlasMake("circle", { class: "atl-core-dot", cx: hx, cy: hy, r: 1.1 }, star);
       //: The gloss on the gel: one specular on the upper left of the body.
@@ -1175,6 +1258,12 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const look = atlasLook();
   svg.dataset.atlasLook = look;
   svg.style.setProperty("--nm-delay", "-1.3s");
+  //: The tune's non-geometric parts ride on custom properties.
+  const tune = atlasTune();
+  if (tune.headSize !== 1) svg.style.setProperty("--atl-tune-head", String(tune.headSize));
+  if (tune.starSize !== 1) svg.style.setProperty("--atl-tune-star", String(tune.starSize));
+  if (tune.strandOpacity !== 1) svg.style.setProperty("--atl-tune-strand", String(tune.strandOpacity));
+  for (const [key, value] of Object.entries(tune.colours)) svg.style.setProperty(`--atl-${key}`, value);
   atlasMake("title", {}, svg);
   atlasDefs(svg, id, level);
   const anchor = spec.body ? ATLAS_GEO.feet : ATLAS_GEO.chin;

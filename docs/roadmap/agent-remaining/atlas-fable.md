@@ -1,54 +1,65 @@
-# Atlas character, remaining (agent: the Atlas illustrator, 2026-09-25)
+# Atlas character, remaining (agent: the Atlas illustrator, 2026-09-26)
 
 Branch `fix/gemini-fixes-5`, worktree commits merged in order. Files:
-`frontend/atlas.js` (the drawing), `frontend/css/08-consistency.css` (the
-Atlas block: palette, paint, moods, poses, life; the avatar hosts near
-`.atlas-mark`), `frontend/index.html` (the guide's and the popup agent's
-avatar hosts, `data-atlas-avatar`), `frontend/app.js` (Find anything's
-Atlas rows carry `mark: "atlas"`). Proof scripts in `scratchpad/ui-sweeps/`:
-`atlastrace.js` (reference, onion skin, render at one scale; REF, REF_ORIGIN,
-REF_SCALE), `atlasfable.js` (the poses, expressions and icon sheet),
-`atlasfaces.js` (expressions beside the grid), `atlasavatar.js` (the avatar
-in its three surfaces). The proofs the owner sees are in the main repo's
-`scratchpad/shots/` (gitignored): `atlas-trace-<look>-light-a2.png`,
-`atlas-fable-masculine-light-b1.png`, `atlas-fable-feminine-dark-a2.png`,
-`atlas-avatar-<surface>-light.png`.
+`frontend/atlas.js` (the drawing; `ATLAS_TUNE`, `atlasBuild`, `atlasRetune`
+for the lab), `frontend/css/08-consistency.css` (the Atlas block: palette,
+paint, poses, moods, life, the avatar hosts, the tune tokens),
+`frontend/index.html` and `frontend/app.js` (the avatar hosts and Find
+anything's Atlas rows), `src/memorymap/api/app.py` (the `/tools` mount),
+`tools/avatar-lab.{html,css,js}` and `tools/companion-sim.{html,css,js}`
+(the owner's benches). Proof scripts in `scratchpad/ui-sweeps/`:
+`atlastrace.js` (reference, onion skin, render), `atlasgrid.js` (every pose
+beside its cell of the sprite grid; ZOOM and POSES), `atlasfable.js` (the
+sheet), `atlasavatar.js` (the avatar in its three surfaces), `atlastune.js`
+(the tune reaches the drawing), `atlaslab.js` and `atlassim.js` (the
+benches run without errors), `atlasprobe.js` (where the companion is). The
+proofs the owner sees are in the main repo's `scratchpad/shots/`
+(gitignored), prefixed `atlas-r3-` (`trace`, `grid`, `sheet-feminine-dark`,
+`tune`, `lab-<view>`, `sim-<step>`).
 
-## Where it stands (the owner's "LOCK IN" direction, 2026-09-25)
+## Where it stands (round 3, the owner's second batch, INBOX 426 v and bb)
 
-Built and committed, in order: slim light body and small limbs, fluffier
-ear tufts, a fuller mane, the cosmic-water ribbon tail (one tapered stem,
-two streams weaving inside it, no tongues), the pulsar heart, the strand
-curving round the body, Atlas following Face looks (its own Atlas look
-setting still wins when stored); the feminine look with long flowing hair
-threaded with a constellation and a longer, lighter mermaid ribbon tail;
-the reading book of light under the figure, the tail curled asleep and
-coiled while drowsy; the head-and-shoulders avatar (`atlasAvatar`,
-`atlasDressMarks`) in the Atlas guide's head, the popup agent's head and
-Find anything's Atlas rows.
+Built and committed: a silhouette per pose (round 2) with three new acts
+the companion can call (`nmb-act-meditate`, `nmb-act-juggle`,
+`nmb-act-map`); the anatomy (tapered limbs with small rounded paws, a
+slight contrapposto, no drawn outline but a soft glow); the tail longer
+with a swoosh; the strand as a galaxy ribbon (gradient, lit edge, clouds,
+twist, a pale stream); the heart star as the logo's hub with linked
+minor stars; the feminine look after the female sheets (fins, long
+constellation hair, slender, a mermaid lower body in two ribbons, the
+galaxy-seed gesture, lilac skin); the face-led icon under 28px;
+`window.ATLAS_TUNE` with `atlasRetune`; the avatar lab reworked (served
+at /tools/avatar-lab.html or as a file; both looks, moods, sizes, poses,
+light and dark grounds, a reference overlay, characters by seed with the
+Your look pickers, live tune knobs and CSS, A and B snapshots, JSON
+export and import); the companion simulator with the real companion on a
+mock page, a trace, fast scroll, moving panels and a stand-in menu.
 
 ## Remaining, in order
 
-1. Poses the owner picked that need the companion's behaviour side
-   (avatars.js, the other agent's file; the drawing answers `data-pose`
-   and `nmb-*` classes): hang with both arms up and the strand spiralling
-   round the body (a second band path for the hang pose), sleep curled
-   inside the tail beside a galaxy panel (a panel prop), wake or stretch,
-   meditate (legs crossed, rings lifted), juggling stars (three orbiting
-   glints over the raised hands), starry map (a table of constellations
-   under the hands). Each is a prop slot (`nmp-*`) plus a CSS pose block.
-2. The bust's crop: the face is 45% of the box because the rings are in
-   it; the owner may prefer a tighter head crop for the 20px Find anything
-   row (a `bust` box of [7, -6, 48, 48] and a `head` fallback under 24px).
-3. The four accent checks and the dark checks of the final sheets; the
-   24px icon read at 20 and 16px (the sheet's icon row is the check).
+1. The companion simulator's travel: `placeNameMarkBuddy` keeps the
+   companion at its corner spot on the mock page; its trips are driven by
+   app.js's tab changes and idle beats, which the sim does not have. A
+   "beat" control that calls the companion's own scheduler entry, once the
+   companion agent names it, would show the motion the owner wants to
+   judge. The stand-in menu lists the real items but says nothing about
+   where app.js's menu lands.
+2. The owner's read of round 3 will name the next round: the trace
+   proofs put the masculine at 88% of the sprite's height and the
+   feminine's hair a third shorter than the definitive stand's.
+3. Three CSP "inline style" warnings on the lab's console come from a
+   `style` attribute set somewhere in avatars.js's generated faces (not
+   the lab's code); harmless there, worth a grep by the companion agent.
 4. Settings, Appearance, Atlas look shows "masculine" while nothing is
    stored even when Face looks is feminine (Atlas then follows Face looks):
    an "auto (follow Face looks)" option in that select would say so.
-5. `tests/test_name_mood.py` still asserts `oklch(from var(--accent)` in
+5. The feminine look has no legs, so the companion's leg animations
+   (walk, kick, dangle) move nothing on it; a ribbon sway on
+   `.atl-lower` under the same classes would answer them.
+6. `tests/test_name_mood.py` still asserts `oklch(from var(--accent)` in
    the CSS: it holds (the accent tints the glow); a test for the fixed
    palette would be the honest replacement.
-6. vtracer of the reference cells gave pixel-step contours (stacked colour
-   blobs, 15k nodes from a 175px cell), unusable as rig parts; the onion
-   skin at one scale is the contour check instead. Say so in HANDOVER if
-   the method is asked for again.
+7. A `--changed` gate on this branch selects 338 test files (most of the
+   suite) because the diff against origin/main is the whole branch; each
+   run is 40 minutes and more. Gating against the branch's own base would
+   make the per-step gate what standing order 5a means.

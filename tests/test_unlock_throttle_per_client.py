@@ -10,6 +10,8 @@ still slow down together.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -55,6 +57,12 @@ def test_the_guesser_is_still_throttled_after_the_owner_unlocks(app):
     guesser = _from(app, "192.168.1.50")
     for _ in range(routes_auth._FAILURE_ALLOWANCE + 1):
         guesser.post("/auth/unlock", json={"password": "wrong guess"})
+    # Six real misses earn a two-second wait, and the owner's bcrypt unlock
+    # between them took longer than that once on a loaded four-worker run, so
+    # the wait expired and the test read the clock instead of the property.
+    # A longer earned wait (the same list, more entries) keeps it about the
+    # property: the owner's unlock leaves the guesser's own bucket alone.
+    routes_auth._failed_by_client["192.168.1.50"].extend([time.time()] * 5)
     _from(app, "127.0.0.1").post("/auth/unlock", json={"password": "the owner"})
     assert guesser.post("/auth/unlock", json={"password": "wrong again"}).status_code == 429
 

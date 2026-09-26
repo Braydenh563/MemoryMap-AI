@@ -85,3 +85,18 @@ def test_the_grip_width_lives_on_the_tab_page() -> None:
     assert re.search(r"#tab-documents\s*\{\s*--doc-prose-w:", css)
     assert not re.search(r"\.doc-prose-panel\s*\{[^}]*--doc-prose-w:", css)
     assert re.search(r"--doc-focus-prose-w:\s*min\(var\(--doc-prose-w\)", css)
+
+
+def test_a_narrow_panels_head_buttons_are_one_icon_group() -> None:
+    """Image 92: worded, the head's buttons took two rows of their own in the
+    right dock, the close alone on the second. Below 26rem their words are
+    visually hidden (never dropped) and they sit as one row of squares;
+    Fix N keeps its number."""
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    block = css[css.index("@container doc-prose (max-width: 26rem)"):]
+    block = block[: block.index("\n}\n")]
+    assert ".doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text" in block
+    assert "clip-path: inset(50%)" in block
+    assert "flex-wrap: nowrap" in block
+    assert "flex-basis: 100%" not in block

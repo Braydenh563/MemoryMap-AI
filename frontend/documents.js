@@ -11641,7 +11641,9 @@ function toggleDocFocus(force) {
   } else {
     docFocusWatch(false);
     clearTimeout(docFocusIdleTimer);
-    if (docFocusOwnsFullscreen && document.fullscreenElement) {
+    if (docFocusOwnsFullscreen && docDesktopFs().full) {
+      docDesktopFullscreenToggle().then(docFocusSyncFullscreen);
+    } else if (docFocusOwnsFullscreen && document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {});
     }
     docFocusOwnsFullscreen = false;
@@ -11664,8 +11666,21 @@ function docFocusFill() {
   docSetStatusText($("doc-focus-saved"), $("doc-saved")?.textContent || "");
   renderDocCounts();
   const full = $("doc-focus-fullscreen");
-  if (full) full.hidden = !document.fullscreenEnabled;
+  if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
   docFocusSyncFullscreen();
+  //: Asked once, then kept: whether this page is in the desktop window,
+  //: whose own full screen is the one that fills the monitor.
+  if (!docDesktopFs().asked) {
+    docDesktopFs().asked = true;
+    apiJson("/desktop/fullscreen")
+      .then((state) => {
+        docDesktopFs().available = !!state?.available;
+        docDesktopFs().full = !!state?.fullscreen;
+        if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
+        docFocusSyncFullscreen();
+      })
+      .catch(() => {});
+  }
 }
 
 function docFocusWatch(on) {
@@ -11739,10 +11754,37 @@ function docFocusKey(event) {
 //: browser's or the desktop window's frame as well. A refusal (an iframe
 //: without permission, a webview that does not implement it) changes
 //: nothing but a toast.
+//:
+//: **In the desktop window it is the window that fills the screen** (INBOX
+//: 426 z, images 93 and 94: "Fill the whole screen" did nothing there). The
+//: web view granted the page its full screen, the button turned to "Leave
+//: full screen", and the window did not move: a web view's full screen fills
+//: the web view, and resizing the window around it is the host's job, which
+//: pywebview does not do. So where the server says there is a window
+//: (`GET /desktop/fullscreen`, core/window_hook.py) the window is asked, and
+//: the browser's API is used everywhere else. The state hangs off a hoisted
+//: function rather than a `let`: `docFocusFill` can run before this part of
+//: the file has, and a `let` would be in its temporal dead zone then.
+function docDesktopFs() {
+  docDesktopFs.state ||= { asked: false, available: false, full: false };
+  return docDesktopFs.state;
+}
+
+async function docDesktopFullscreenToggle() {
+  try {
+    const state = await apiJson("/desktop/fullscreen", { method: "POST" });
+    docDesktopFs().available = !!state?.available;
+    docDesktopFs().full = !!state?.fullscreen;
+    return docDesktopFs().available;
+  } catch {
+    return false;
+  }
+}
+
 function docFocusSyncFullscreen() {
   const button = $("doc-focus-fullscreen");
   if (!button) return;
-  const full = !!document.fullscreenElement;
+  const full = docDesktopFs().available ? docDesktopFs().full : !!document.fullscreenElement;
   button.setAttribute("aria-pressed", String(full));
   button.title = full ? "Leave full screen" : "Fill the whole screen";
   button.setAttribute("aria-label", button.title);
@@ -11751,6 +11793,16 @@ function docFocusSyncFullscreen() {
 }
 
 async function docFocusToggleFullscreen() {
+  if (docDesktopFs().available) {
+    if (await docDesktopFullscreenToggle()) {
+      docFocusOwnsFullscreen = docDesktopFs().full;
+    } else {
+      toast("Full screen is not available in this window.", true);
+    }
+    docFocusSyncFullscreen();
+    docSurface()?.focus();
+    return;
+  }
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen();

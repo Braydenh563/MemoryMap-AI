@@ -155,6 +155,9 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
         try:
             service.embed_text("warm up")
         except Exception:
+            # The flag drives the "search is keyword-only" notice; the reason
+            # is what somebody reading the log needs, and it was dropped.
+            logger.warning("embedding warm-up failed", exc_info=True)
             _warmup["error"] = True
         finally:
             _warmup["running"] = False

@@ -155,7 +155,7 @@ def audit_vague_links(
             reply = librarian.generate_link_reason(source.content, target.content, model, ollama)
         except Exception as exc:
             _failed_attempts[link.id] = _failed_attempts.get(link.id, 0) + 1
-            logger.warning("Failed to audit link reason for link %s: %s", link.id, exc)
+            logger.warning("Failed to audit link reason for link %s: %s", link.id, exc, exc_info=True)
             continue
 
         reason = _clean_reason(reply)

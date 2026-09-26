@@ -6163,6 +6163,20 @@ main,
 /* An act that moves the head (a look, a yawn, the music bob) would leave
    a blink a few px off it; the lids sit the act out. */
 #nm-buddy:is(.nmb-act-look, .nmb-act-yawn, .nmb-act-turn, .nmb-act-glance, .nmb-music, .nmb-act-nap) .atl-layer-lids { scale: 0; }
+/* Covering its eyes (the companion's `hide`, a private note opened): the
+   generic act squashes `.nm-eyes` with `scale`, which on Atlas's eye group
+   (transform-box view-box) flattened the eyes to a line at the top of the
+   head, 21px above where they sit; Atlas shuts its eyes with its lids
+   layer instead, over the act's middle. Its arms come up as the act has
+   them, and stay behind its head, where the drawing puts them (the rule
+   matches the generic one's specificity, `:root ... #nm-buddy`, six
+   classes, and comes later). */
+:root #nm-buddy.nmb-act-hide .nm-atlas.atl-figure .name-mark .nm-eyes { animation: none; }
+#nm-buddy.nmb-act-hide .atl-layer-lids { animation: atl-lids-hide 2.4s ease-in-out; }
+@keyframes atl-lids-hide {
+  0%, 100% { opacity: 0; }
+  18%, 82% { opacity: 1; }
+}
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }
@@ -6192,8 +6206,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    higher and narrower, so they are named here, one step more specific. */
 #nm-buddy .atl-figure .nmb-arm-l { transform-origin: 24.6px 41px; }
 #nm-buddy .atl-figure .nmb-arm-r { transform-origin: 37.4px 41px; }
-#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 27.4px 63px; }
-#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 34.6px 63px; }
+/* The legs are the roots of their own layers (atlas.js `atlasDrawFigure`),
+   so a leg rule names `.atl-figure.nmb-leg-*`, the root, and the origin is
+   in the layer's own 64x92 px frame; turned on the compositor, a step
+   costs no paint (atlaswalk.js). */
+#nm-buddy .atl-figure.nmb-leg-l { transform-origin: 27.4px 63px; will-change: transform; }
+#nm-buddy .atl-figure.nmb-leg-r { transform-origin: 34.6px 63px; will-change: transform; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -6215,14 +6233,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    half up under the arc of stars. Starry map: leaning on the panel. */
 #nm-buddy .atl-figure .nmb-hold-l { transform-origin: 24.6px 41px; }
 #nm-buddy .atl-figure .nmb-hold-r { transform-origin: 37.4px 41px; }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .atl-band-front { opacity: 0; }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure.nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-40deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
@@ -6232,8 +6250,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-act-wake .atl-figure .nmb-hold-l { transform: rotate(-52deg); }
 #nm-buddy.nmb-act-wake .atl-figure .nmb-hold-r { transform: rotate(52deg); }
 #nm-buddy.nmb-act-wake .nm-atlas { --atl-sy: 1.04; --atl-tail: -20deg; }
-#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-l { transform: rotate(100deg) scaleY(0.5); }
-#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-r { transform: rotate(-100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure.nmb-leg-l { transform: rotate(100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure.nmb-leg-r { transform: rotate(-100deg) scaleY(0.5); }
 #nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-l { transform: rotate(34deg) scaleY(0.8); }
 #nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-r { transform: rotate(-34deg) scaleY(0.8); }
 #nm-buddy.nmb-act-meditate .atl-figure .atl-ring { transform: scaleY(0.42); }

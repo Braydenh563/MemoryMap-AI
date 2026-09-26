@@ -400,6 +400,7 @@ def _optimization_pass(started: float) -> None:
                     provider=deps.get_ollama(),
                     model=deps.get_model_manager().utility_model(),
                     config=config,
+                    trigger="scheduled",
                 )
                 session.commit()
             if outcome.get("derived"):

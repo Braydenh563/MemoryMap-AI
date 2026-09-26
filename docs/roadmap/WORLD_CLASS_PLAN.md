@@ -798,16 +798,16 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer, S6's receipt half (row 35) | S | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); `tests/test_lan_mode.py`, the switch's route and the launcher's bind built 2026-09-26; left: the Settings toggle over `GET`/`POST /auth/lan-access` | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
-| 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
+| 5 | I1, H1 | the morning card on the Dashboard (its API, `night_runs` and `GET /night/latest`, built 2026-09-26), the tension and answered-question passes | M + M | `dashboard.js`; `ai/facts.py` |
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
-| 11 | §17 | review queue, filing style, explain this note, `.ics` export, most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
+| 11 | §17 | review queue, filing style, explain this note, the `.ics` buttons (the export routes built 2026-09-26), most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
 | 13 | §1, D14 | the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette | S | `tests/` |
 | 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
@@ -825,13 +825,13 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
-| 29 | §10 | F1 a `prefs` module, F4 BLE001 enabled, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7 the `Thread(` lint, F10 a `readings` table, F12 a store | S to L | §10 |
+| 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
 | 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
-| 35 | §2 | the two unbuilt standouts: a privacy receipt page and the offline studio | M to L | new |
+| 35 | §2 | the privacy receipt's page (its record and `GET /privacy/receipt` built 2026-09-26, HISTORY) and the offline studio | S + L | a Settings page; new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
 | 38 | §20 | three open questions, each the owner's decision | none | §20 |
@@ -887,13 +887,14 @@ in `docks.js`).
 - F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
   the frontend's paging are not built (`/files/gallery`'s half was built
   2026-09-24). M.
-- F4 (b) `# noqa: BLE001` sits at dozens of sites but the rule is not enabled
-  (`pyproject.toml` selects E4, E7, E9 and F only). S to M.
+- F4 built 2026-09-26: BLE001 is enabled (HISTORY.md, "Moved from the
+  plans, 2026-09-26").
 - F5 (b) every bare `fetch` must carry the auth header
   (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and
   the no-bare-fetch lint are not built. S.
-- F7 (b) the pool is built (A3); the lint that allows `Thread(` only in
-  `core/jobs.py` is not. S.
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13
+  modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them
+  onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
 - F10 (c) no `readings` table (`page_reads` is document pages only). M.
 - F11 (d) GRAPH_PLAN section 3 owns it.
 - F12 (c) no store. L.
@@ -919,14 +920,16 @@ S1 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved
 from the plans, 2026-09-24": S1 (the media cookie), S2 (the per-client
 throttle), S3 (imports confined to home and the data folder), the rest of S5
 (the fetch lint sees every way out) and S6's redirect half were built that
-day. What is left: S6's other half, the configured model address shown in the
-privacy receipt on LAN mode (neither exists yet; the receipt is row 35), and
-the rest of Brief 15 below.
+day. S6's other half, the configured model address on the privacy receipt,
+was built 2026-09-26 with the receipt's API (HISTORY.md, "Moved from the
+plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
-**Brief 15, what is left (the rest built 2026-09-24, in HISTORY.md):** a
-`tests/test_lan_mode.py` that starts the app bound to 0.0.0.0 in a
-subprocess and asserts each behaviour end to end; only after it passes does
-Settings offer "Allow other devices on this network".
+**Brief 15, what is left (the rest built 2026-09-24 and 2026-09-26, in
+HISTORY.md):** `tests/test_lan_mode.py` passes against the real launcher
+bound to 0.0.0.0, so Settings may now offer "Allow other devices on this
+network": a switch in Account and security over `GET /auth/lan-access`
+(state, addresses, whether a restart is needed) and `POST /auth/lan-access`
+(`{enabled, current_password}`; on needs the password). Frontend only.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1713,8 +1716,11 @@ S. 2 tidy categories (b): the agent has `merge_categories`
 widget lists the notes opened or matched most, all time
 (`/entries/most-accessed`); "this month" needs an open log, S (its picker
 line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7
-calendar (b): the month view is built (`#reminder-calendar`); `.ics` export
-is not, S.
+calendar (b): the month view is built (`#reminder-calendar`); the `.ics`
+export routes were built 2026-09-26 (HISTORY.md, "Moved from the plans,
+2026-09-26"); left is the frontend: an "Add to calendar" item on a reminder's
+menu and "Export all to calendar" on the Reminders dock, each fetching with
+the auth header and saving the blob (a plain link cannot send it). S.
 
 ## Placed from INBOX, 2026-09-13
 

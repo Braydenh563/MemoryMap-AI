@@ -570,8 +570,11 @@ names the session, not an HMAC token in the URL, because a ticket in the URL
 is still a credential in history, logs and pasted text and `mediaSrc` is
 synchronous at fifty call sites; S3 confines `import_directory` to home and
 the data folder (with symlink escapes checked) rather than refusing it off
-loopback, which holds on loopback too. Left: `tests/test_lan_mode.py` and the
-Settings toggle.
+loopback, which holds on loopback too. **2026-09-26:** `tests/test_lan_mode.py`
+passes (the real launcher on 0.0.0.0, reached over this machine's network
+address), with the switch's route, the launcher's bind and a Host guard
+against DNS rebinding (HISTORY.md, "Moved from the plans, 2026-09-26"). Left:
+the Settings toggle.
 
 ---
 

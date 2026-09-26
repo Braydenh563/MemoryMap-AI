@@ -7,13 +7,31 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- The privacy receipt's record and its API: `GET /privacy/receipt` answers, from the interpreter's own audit hook on every `socket.connect` and name lookup this process makes, whether anything left this computer since launch and since the ledger began (`egress-ledger.json` in the data folder), which destinations and which feature asked, where the configured model server is and what that means for your notes, and which switches can reach out. The page that shows it is not built yet.
+- LAN mode's backend: "Allow other devices on this network" is a switch behind `POST /auth/lan-access` that needs the current password to turn on, and the launcher binds every network address at the next launch only when it is on. A device on the network always needs the password, and a request whose Host names another domain (DNS rebinding) is refused while the app listens beyond this computer. `tests/test_lan_mode.py` runs the real launcher on 0.0.0.0 and checks each safeguard over this machine's own network address. The Settings switch that uses it is not built yet.
+- The night shift keeps a record of each pass: `GET /night/latest` answers what the last pass read and found (still-visible facts by kind, a few of each with the sentence they came from, and the last pass that found anything when the latest found nothing), and `GET /night/runs/{id}/facts` pages through one pass's findings. The Dashboard card that shows it is not built yet.
+- Undo what the AI did since a point in the log: `POST /events/undo` puts back, field by field, every note one actor (the librarian, a skill, a tool) changed after a given event, sends a note it created to the recycle bin, leaves alone any note you changed since (and says so), and answers with the plan first unless told to act. The Settings surface that offers it is not built yet.
+- Reminders export as a calendar file: `GET /reminders/export.ics` for every upcoming reminder and `GET /reminders/{id}/export.ics` for one, with repeats, priority and an alarm at the due time, and never the words of a private note. The buttons that offer it are not built yet.
+
+### Security
+
+- Private notes open only for the sessions that gave the password. The data key was process-wide, so once a device on the network unlocked, this computer's session without a password (sign-in off) read private notes too. The key is now granted per session (setup, unlock, "unlock private notes", and the two account routes that ask for the password again), every other session sees the vault as locked, and the key is forgotten when the last session that gave the password ends, even while one without it is still open.
+
 ### Fixed
 
 - The Library and the Timeline scroll smoothly through a thousand notes: the worst frame while scrolling went from 100ms to 33ms on both, and the frames over 32ms from 7 to 5 (Library), 12 to 2 (Timeline) and 10 to 4 (its table), because new cards no longer restyle every card already shown and both lists build their next rows a few milliseconds at a time.
 - The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
+- Twelve places that swallowed an error without a trace now write the reason to the log: the embedding warm-up, a failed re-index, files skipped by a folder import, filing a note on capture, the near-duplicate check, tag suggestions, re-evaluation, re-filing after new context and the meeting summary. The ruff rule that finds such handlers (BLE001) is now on, so a new one fails the build.
 - Three listener leaks the new `scratchpad/ui-sweeps/listenerrounds.js` measures per rebuild, against a control that measures 0: every help '?' put four listeners on the page (fifty at boot, four more each time the chat welcome was rebuilt for a new chat, each holding the old welcome), the chat's Skills dropdown two on the page and one on the Settings checkbox its pace pill mirrors on every rebuild (+35 a skill saved), and an emblem whose holder left the page kept its p5 sketch and the sketch's window listeners (+23 a new chat). The help popovers share one set of page listeners now, the dropdown's go with its build, and a render releases any sketch whose holder is gone. 0 listeners a round after the fix, `leaks.js` still 0/0 across the seven tabs.
+- Atlas's legs are two layers of their own, so the companion's steps, kicks and poses turn a compositor root: a walk paints and lays out nothing where it painted 119 times and laid out 59 times a second before (39 and 20 with the companion's pacing).
+- Atlas shuts its eyes with its lids when the companion covers its eyes for a private note; the generic act had flattened them to a line at the top of its head.
+- Changing the graph's layout on the Graph tab before its code has arrived no longer throws "setGraphPhysicsEnabled is not defined" and lose the change: the call loads the graph first, as the tab's other entry points do.
 - The feminine Atlas's hip sash sways on the compositor, as the tail and the breathing do, rather than repainting its layer every frame while the companion walks (176 paints a second down to 118, the same as the masculine look).
 - The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
+- When the AI files a note (on capture, after new context, on re-evaluation) the move is now recorded in the note's history as the filer's, with the category it came from, so History shows where a note was filed and the filing can be undone; before, capture's filing left no record and the other two were recorded as yours with no values.
+- The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
 
 ## [0.3.3] - 2026-09-26
 

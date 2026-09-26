@@ -116,7 +116,7 @@ class BufferHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = record.getMessage()
-        except Exception:  # a bad %-format must never kill logging
+        except Exception:  # noqa: BLE001  # a bad %-format must never kill logging (and cannot log itself)
             message = str(record.msg)
         # An exception logged with exc_info carries the traceback separately;
         # keeping it is the difference between "something failed" and knowing
@@ -125,7 +125,7 @@ class BufferHandler(logging.Handler):
         if record.exc_info:
             try:
                 trace = self.format(record).split("\n", 1)[-1]
-            except Exception:  # formatting must never kill logging either
+            except Exception:  # noqa: BLE001  # formatting must never kill logging either
                 trace = ""
         global _dropped, _dropped_since
         with _lock:

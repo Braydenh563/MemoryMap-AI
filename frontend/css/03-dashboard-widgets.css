@@ -4373,3 +4373,65 @@ p.graph-help-panel {
   line-clamp: 2;
   overflow: hidden;
 }
+
+/* While you were away (`renderNightWidget`, dashboard.js). One line per kind
+   of finding, a ghost disclosure whose caret turns when its review list is
+   open; the list is the dashboard's own `.dash-list`, each row the finding
+   over its facts line with two icon-only actions at the end. A finding is
+   read, not opened, so its row is not a button and keeps the default
+   cursor. */
+.night-summary {
+  margin: 0 0 var(--space-2);
+}
+
+.night-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* `minmax(0, 1fr)`, not the implicit `auto`: an auto track is at least as
+     wide as its longest unbroken line, and a finding's title is one, so the
+     rows ran past the card and pushed their actions out of it (measured by
+     nightcard.js before this line). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.night-kind {
+  min-width: 0;
+}
+
+.night-kind-toggle > .ph {
+  transition: rotate var(--motion-fast) var(--ease-out);
+}
+
+.night-kind-toggle[aria-expanded="true"] > .ph {
+  rotate: 90deg;
+}
+
+.dash-list.night-facts > li.night-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.night-fact > .dash-list-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dash-list .night-fact-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.night-fact-actions {
+  flex: none;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.night-more {
+  margin-top: var(--space-1);
+}

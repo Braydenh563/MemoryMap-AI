@@ -1,0 +1,233 @@
+"""Undo what one actor did (OPEN.md, "Global undo of an AI action", `events-undo`).
+
+"`replay` and `restore` cover one note; 'undo auto-filing' means selecting
+the events of one actor in one window and applying each `before` in
+reverse. Next step: `events.undo(session, actor, since_id)` ... It has to
+refuse an event whose values are gone (`events.is_compacted`)."
+
+What must hold:
+
+- only the named actor's changes, only after `since_id`, are undone;
+- a note the person changed after the AI did is left alone and said so,
+  unless the caller forces it (the person's edit wins by default);
+- undoing twice does nothing the second time;
+- a note the AI created goes to the recycle bin (recoverable), not away;
+- a compacted event, a board item, and a privacy change are refused by name;
+- the dry run changes nothing and returns the same plan the real run acts on.
+"""
+
+from __future__ import annotations
+
+import json
+
+from sqlalchemy import select
+
+from memorymap.core import events
+from memorymap.core.database import AuditLog, Entry
+from memorymap.entry import manager
+
+AI = "system:librarian"
+
+
+def _note(session, content="The pond needs a pump before spring", tags=("garden",)) -> Entry:
+    entry = manager.create_entry(session, content, category_name="Garden", tags=list(tags))
+    session.commit()
+    return entry
+
+
+def _as_ai(session, entry: Entry, **changes) -> None:
+    with events.acting_as(AI):
+        manager.update_entry(session, entry, **changes)
+    session.commit()
+
+
+def _last_event_id(session) -> int:
+    return session.scalar(select(AuditLog.id).order_by(AuditLog.id.desc()).limit(1)) or 0
+
+
+def test_an_ai_refile_and_retag_is_put_back(session):
+    entry = _note(session)
+    mark = _last_event_id(session)
+    _as_ai(session, entry, category_name="Hobbies", tags=["pond", "pump"])
+    assert manager.category_name_for(session, entry) == "Hobbies"
+
+    plan = events.undo(session, AI, since_id=mark, apply=False)
+    assert [(item["entity_id"], item["status"]) for item in plan["items"]] == [(entry.id, "undo")]
+    assert manager.category_name_for(session, entry) == "Hobbies"  # a dry run changes nothing
+
+    done = events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    session.refresh(entry)
+    assert done["undone"] == 1
+    assert manager.category_name_for(session, entry) == "Garden"
+    assert json.loads(entry.tags) == ["garden"]
+    restored = session.scalars(
+        select(AuditLog).where(AuditLog.entity_id == entry.id, AuditLog.action == "restored")
+    ).all()
+    assert len(restored) == 1 and restored[0].actor == events.ACTOR_USER
+    assert AI in (restored[0].detail or "")
+
+
+def test_undoing_twice_does_nothing_the_second_time(session):
+    entry = _note(session)
+    mark = _last_event_id(session)
+    _as_ai(session, entry, category_name="Hobbies")
+    events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    again = events.undo(session, AI, since_id=mark, apply=True)
+    assert again["undone"] == 0
+    assert [item["status"] for item in again["items"]] == ["already undone"]
+
+
+def test_the_persons_later_edit_wins_unless_forced(session):
+    entry = _note(session)
+    mark = _last_event_id(session)
+    _as_ai(session, entry, category_name="Hobbies")
+    manager.update_entry(session, entry, content="The pond needs a pump and a net")
+    session.commit()
+    plan = events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    assert [item["status"] for item in plan["items"]] == ["changed since"]
+    assert manager.category_name_for(session, entry) == "Hobbies"
+    forced = events.undo(session, AI, since_id=mark, apply=True, force=True)
+    session.commit()
+    session.refresh(entry)
+    assert forced["undone"] == 1
+    assert manager.category_name_for(session, entry) == "Garden"
+    # Only the fields the AI changed go back: the person's text stays.
+    assert entry.content == "The pond needs a pump and a net"
+
+
+def test_only_the_named_actor_and_only_after_the_mark(session):
+    entry = _note(session)
+    _as_ai(session, entry, category_name="Hobbies")  # before the mark
+    mark = _last_event_id(session)
+    _as_ai(session, entry, tags=["pond"])
+    other = _note(session, "Buy a new bike chain", tags=())
+    with events.acting_as("ai:tidy"):
+        manager.update_entry(session, other, category_name="Errands")
+    session.commit()
+    events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    session.refresh(entry)
+    session.refresh(other)
+    assert json.loads(entry.tags) == ["garden"]
+    assert manager.category_name_for(session, entry) == "Hobbies"  # before the mark: kept
+    assert manager.category_name_for(session, other) == "Errands"  # another actor: kept
+
+
+def test_a_note_the_ai_made_goes_to_the_bin(session):
+    mark = _last_event_id(session)
+    with events.acting_as(AI):
+        made = manager.create_entry(session, "A draft the librarian captured from chat")
+    session.commit()
+    done = events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    session.refresh(made)
+    assert done["undone"] == 1
+    assert made.is_deleted is True  # recoverable from the bin, not purged
+
+
+def test_what_cannot_be_undone_is_named(session):
+    entry = _note(session)
+    mark = _last_event_id(session)
+    _as_ai(session, entry, category_name="Hobbies")
+    row = session.scalars(
+        select(AuditLog).where(AuditLog.actor == AI, AuditLog.entity_id == entry.id)
+    ).first()
+    row.payload = {events.COMPACTED: True}
+    events.record(session, "edited", "node", 7, payload={"before": {"x": 1}, "after": {"x": 2}}, actor=AI)
+    session.commit()
+    plan = events.undo(session, AI, since_id=mark, apply=False)
+    by_type = {item["entity_type"]: item["status"] for item in plan["items"]}
+    assert by_type == {"entry": "too old", "node": "not undoable"}
+
+
+def test_the_route_is_a_dry_run_unless_told(client, session):
+    entry = _note(session)
+    mark = _last_event_id(session)
+    _as_ai(session, entry, category_name="Hobbies")
+    preview = client.post("/events/undo", json={"actor": AI, "since": mark}).json()
+    assert preview["dry_run"] is True and preview["items"][0]["status"] == "undo"
+    session.refresh(entry)
+    assert manager.category_name_for(session, entry) == "Hobbies"
+    applied = client.post("/events/undo", json={"actor": AI, "since": mark, "dry_run": False}).json()
+    assert applied["undone"] == 1
+    session.expire_all()
+    assert manager.category_name_for(session, session.get(Entry, entry.id)) == "Garden"
+
+
+def test_the_person_is_not_an_actor_to_undo(client):
+    response = client.post("/events/undo", json={"actor": "user", "since": 0})
+    assert response.status_code == 400
+
+
+# --- the auto-filer's own moves are events it owns ---------------------------------
+#
+# Found while building the above: the three places the AI files a note
+# (capture's background filing, adding context, re-evaluation) either wrote no
+# event at all or an `edited` event with no values, attributed to the person.
+# So "undo auto-filing" had nothing to find, and a note's History could not
+# rebuild the category it had between capture and now.
+
+
+def _pick(category: str, method: str = "llm"):
+    def categorise(*_args, **_kwargs):
+        return category, 90, method
+
+    return categorise
+
+
+def test_capture_filing_is_an_event_the_filer_owns_and_undo_reverses(client, session, monkeypatch):
+    from memorymap.ai import janitor
+    from memorymap.api import routes_entries
+
+    entry = manager.create_entry(session, "Repot the fig before it gets root bound")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    routes_entries._file_entry_in_background(entry.id, "default")
+    session.expire_all()
+    row = session.scalars(
+        select(AuditLog).where(AuditLog.entity_id == entry.id, AuditLog.id > mark)
+    ).one()
+    assert row.actor == manager.FILING_ACTOR
+    assert set(row.payload["after"]) == {"category_id"}
+    done = client.post(
+        "/events/undo", json={"actor": manager.FILING_ACTOR, "since": mark, "dry_run": False}
+    ).json()
+    assert done["undone"] == 1
+    session.expire_all()
+    assert manager.category_name_for(session, session.get(Entry, entry.id)) == manager.UNCATEGORISED
+
+
+def test_a_filing_that_changes_nothing_writes_nothing(session, monkeypatch):
+    from memorymap.ai import janitor
+    from memorymap.api import routes_entries
+
+    entry = manager.create_entry(session, "Repot the fig", category_name="Garden")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    routes_entries._file_entry_in_background(entry.id, "default")
+    session.expire_all()
+    assert _last_event_id(session) == mark
+
+
+def test_reevaluation_files_as_the_filer_with_values(client, session, monkeypatch):
+    from memorymap.ai import janitor
+
+    entry = manager.create_entry(session, "Repot the fig before it gets root bound")
+    session.commit()
+    mark = _last_event_id(session)
+    monkeypatch.setattr(janitor, "categorise", _pick("Garden"))
+    assert client.post(f"/entries/{entry.id}/reevaluate").status_code == 200
+    session.expire_all()
+    moves = session.scalars(
+        select(AuditLog).where(
+            AuditLog.entity_id == entry.id,
+            AuditLog.id > mark,
+            AuditLog.actor == manager.FILING_ACTOR,
+        )
+    ).all()
+    assert len(moves) == 1 and "category_id" in moves[0].payload["before"]

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -68,3 +68,28 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
     )
     session.commit()
     return result
+
+
+@router.get("/latest")
+def latest(session: Session = Depends(get_session)) -> dict:
+    """The morning card: the latest pass, what it found that is still
+    visible, a few of each kind, and the last pass that found anything when
+    the latest found nothing. `{"run": null}` before the first pass."""
+    return facts.latest_card(session)
+
+
+@router.get("/runs/{run_id}/facts")
+def run_facts(
+    run_id: int,
+    kind: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> dict:
+    """The review list behind one line of the card, paged."""
+    from memorymap.core.database import NightRun
+
+    if session.get(NightRun, run_id) is None:
+        raise HTTPException(status_code=404, detail="No such night run")
+    rows, total = facts.run_facts(session, run_id, kind=kind, limit=limit, offset=offset)
+    return {"items": [facts.as_json(row) for row in rows], "total": total}

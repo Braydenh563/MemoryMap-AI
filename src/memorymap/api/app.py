@@ -45,6 +45,7 @@ from memorymap.api import (
     routes_drafts,
     routes_learned,
     routes_night,
+    routes_privacy,
     routes_resurface,
     routes_entries,
     routes_files,
@@ -71,6 +72,7 @@ from memorymap.core import (
     bgtasks,
     deps,
     diskspace,
+    egress,
     events,
     jobs,
     logbuffer,
@@ -530,7 +532,7 @@ def out_of_space_body(wanted: int | None = None) -> dict:
     data_dir = None
     try:
         data_dir = str(deps.get_config().data_dir)
-    except Exception:  # pragma: no cover - only before the config exists
+    except Exception:  # noqa: BLE001  # pragma: no cover - only before the config exists
         pass
     free = diskspace.free_bytes(data_dir) if data_dir else None
     where = f" Your notebook is in {data_dir}." if data_dir else ""
@@ -593,7 +595,7 @@ class SpaceGuard:
         if wanted is not None and wanted > self.SMALL_BODY_BYTES:
             try:
                 config = deps.get_config()
-            except Exception:  # pragma: no cover - before the config exists
+            except Exception:  # noqa: BLE001  # pragma: no cover - before the config exists
                 config = None
             if config is not None and not diskspace.has_room_for(config.data_dir, wanted):
                 logging.getLogger("memorymap.errors").error(
@@ -648,12 +650,17 @@ def create_app() -> FastAPI:
     deps.refuse_multiple_workers()
     pin_static_mime_types()
     logbuffer.install()  # start capturing logs for the Settings viewer
+    # The privacy receipt's record (core/egress.py): before anything below
+    # can open a socket, so a startup download or a warmup that phones home
+    # is on the receipt too. Idempotent, and permanent by design.
+    egress.install()
     # Coarse phase markers for the desktop launcher's loading window
     # (core/startup_status.py): the only reader, and a no-op for every
     # other way this app runs (the web build, tests, `python -m memorymap`
     # without `--desktop`), since nothing else ever calls get_phase().
     startup_status.set_phase("Setting up your notebook…")
     init_app_state()
+    ledger_path = deps.get_config().data_dir / egress.LEDGER_NAME
     _purge_expired_bin_entries()
     _compact_event_log()
     _backup_if_due()
@@ -694,6 +701,10 @@ def create_app() -> FastAPI:
         # call that cannot be interrupted and the workers are daemons: see
         # `jobs.Pool.shutdown`.
         jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
+        # The receipt's ledger keeps what this launch saw; the route flushes
+        # on every read, and this catches a launch nobody opened it in.
+        # The path was taken at startup: by now the app state may be gone.
+        egress.flush(ledger_path)
 
     # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
     # the second is the one that matters. The Swagger and ReDoc pages load
@@ -773,6 +784,10 @@ def create_app() -> FastAPI:
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)
+    # Who is asking, for the vault's per-session grants (routes_auth.VaultScope).
+    app.add_middleware(routes_auth.VaultScope)
+    # LAN mode's rebinding guard: a no-op on loopback (core/netbind.py).
+    app.add_middleware(security.HostCheckMiddleware)
     app.add_middleware(SpaceGuard)
     app.add_middleware(RequestPulse)
     app.add_middleware(
@@ -833,6 +848,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
+    app.include_router(routes_privacy.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:

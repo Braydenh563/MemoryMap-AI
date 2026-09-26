@@ -59,7 +59,11 @@ extend-exclude = [".claude/skills"]
 # is what CI enforces and the code is already clean under it. Line-length (E501)
 # is intentionally left out — long strings/URLs in tests would flag noisily; run
 # `ruff format` locally if you want wrapping.
-select = ["E4", "E7", "E9", "F"]
+# BLE001 (WORLD_CLASS_PLAN section 10, F4): a broad `except Exception` must
+# re-raise, log with `exc_info`, or carry `# noqa: BLE001  # <reason>`,
+# because a handler that says nothing turns a fault into silence (the
+# "feature that never ran once" shape). Enabled 2026-09-26 at zero findings.
+select = ["E4", "E7", "E9", "F", "BLE001"]
 
 [tool.ruff.lint.per-file-ignores]
 # `__all__` lists names this module resolves lazily through a PEP 562

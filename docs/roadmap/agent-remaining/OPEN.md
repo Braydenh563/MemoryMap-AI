@@ -30,10 +30,8 @@ two decisions only the owner can take are INBOX 427.
   restored backup's `preferences.json` brings the setting back (a sweep
   can now boot such a data dir: `lib.js` `boot()` returns `signIn: 'app'`).
   [auth-optional]
-- **The vault key is process-wide** (`core/vault.py`): after a LAN device
-  unlocks, a loopback session without a password reads private notes too
-  until a lock or restart. Pre-existing; per-session keys are a design
-  change. [auth-optional]
+- ~~**The vault key is process-wide**~~ built 2026-09-26: the key is granted
+  per session (HISTORY.md, "Moved from the plans, 2026-09-26").
 - **The dashboard scroll jump (426 u)** was not reproduced by wheel, idle or
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
@@ -1089,14 +1087,11 @@ being written by running agents stay beside this one.
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
-- **Global undo of an AI action.** `file: src/memorymap/core/events.py`, `id:
-  events-undo`. `replay` and `restore` cover one note; "undo auto-filing"
-  means selecting the events of one actor in one window and applying each
-  `before` in reverse. Next step: `events.undo(session, actor, since_id)` plus
-  the Settings surface that offers it (Brief 13 expects it for a skill run's
-  Undo). It has to refuse an event whose values are gone
-  (`events.is_compacted`); a deleted board item is the one case with nothing
-  to put back, since the whiteboard tables have no soft delete.
+- **Global undo of an AI action: the surface.** `events.undo` and `POST
+  /events/undo` are built 2026-09-26 (HISTORY.md, "Moved from the plans,
+  2026-09-26"). Left: the Settings surface that offers it (a dry run shown as
+  a list, then Undo), and a skill run's Undo calling it with the run's actor
+  and first event id (Brief 13). Board items stay "not undoable".
   [brief7-event-log.md]
 - ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
   built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
@@ -1156,10 +1151,12 @@ being written by running agents stay beside this one.
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and
   a `DerivedFact` row, not a second pipeline. [learning-loop.md]
-- **`GET /night/latest` and the morning card** (I1's own surface). `POST
-  /night/run` returns the counts a card would need; nothing stores a run, so
-  grouping facts by run needs the `night_runs` table the plan names.
-  [learning-loop.md]
+- **The morning card** (I1's own surface). Its backend is built
+  2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"): `GET
+  /night/latest` returns `{run, counts, samples, previous}` and `GET
+  /night/runs/{id}/facts?kind=&limit=&offset=` pages the review list; the
+  Dashboard card over them (opt-in, like the Recent activity widget) is the
+  frontend half. [learning-loop.md]
 - **The four switches with no runner yet** (`margin_reader`,
   `open_questions`, `evidence_checks`, `model_bench`) are stored and reported
   but gate nothing, because their features are not built. Each of those briefs

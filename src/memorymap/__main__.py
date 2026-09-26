@@ -467,8 +467,21 @@ def _run_server() -> None:
     import uvicorn
 
     from memorymap.api.app import create_app
+    from memorymap.core import deps, netbind
 
-    uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
+    app = create_app()
+    # LAN mode (core/netbind.py): 0.0.0.0 only when "Allow other devices on
+    # this network" was turned on with the password; 127.0.0.1 otherwise.
+    # Everything else in this file keeps talking to the server on HOST, which
+    # a 0.0.0.0 bind answers too.
+    bind = netbind.bind_host(deps.get_config())
+    netbind.set_current(bind)
+    if bind != HOST:
+        logger.warning(
+            "Other devices on this network can reach this notebook (with the password): %s",
+            ", ".join(f"http://{a}:{PORT}" for a in netbind.lan_addresses()) or bind,
+        )
+    uvicorn.run(app, host=bind, port=PORT, log_level="info")
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run
@@ -690,7 +703,7 @@ def _push_status_to_window(window, text: str) -> None:
     try:
         window.evaluate_js(f"window.__mmSetStatus && window.__mmSetStatus({json.dumps(text)}, {pct})")
     except Exception as exc:
-        logger.debug("couldn't update the loading window: %s", exc)
+        logger.debug("couldn't update the loading window: %s", exc, exc_info=True)
 
 
 def _mark_start_step_done(window) -> None:
@@ -706,7 +719,7 @@ def _mark_start_step_done(window) -> None:
             "window.__mmSetDone && window.__mmSetDone('Ready')"
         )
     except Exception as exc:
-        logger.debug("couldn't tick the last step in the loading window: %s", exc)
+        logger.debug("couldn't tick the last step in the loading window: %s", exc, exc_info=True)
 
 
 def _port_holder(port: int) -> str:
@@ -856,7 +869,7 @@ def _boot_and_swap(window) -> None:
                 "'The server did not start. Check the logs and try restarting.')"
             )
         except Exception as exc:
-            logger.warning("server never came up, and couldn't show that in the window: %s", exc)
+            logger.warning("server never came up, and couldn't show that in the window: %s", exc, exc_info=True)
 
 
 def _focus_window(window) -> None:
@@ -884,11 +897,11 @@ def _focus_window(window) -> None:
     try:
         window.show()
     except Exception as exc:
-        logger.debug("window.show() during focus handoff didn't work: %s", exc)
+        logger.debug("window.show() during focus handoff didn't work: %s", exc, exc_info=True)
     try:
         window.evaluate_js("window.focus()")
     except Exception as exc:
-        logger.debug("couldn't ask the page to focus its own window: %s", exc)
+        logger.debug("couldn't ask the page to focus its own window: %s", exc, exc_info=True)
 
 
 def _get_console_hwnd() -> int | None:
@@ -905,7 +918,7 @@ def _get_console_hwnd() -> int | None:
 
         return ctypes.windll.kernel32.GetConsoleWindow() or None
     except Exception as exc:
-        logger.warning("couldn't look up the console window: %s", exc)
+        logger.warning("couldn't look up the console window: %s", exc, exc_info=True)
         return None
 
 
@@ -984,7 +997,7 @@ def _spawn_desktop(hidden: bool):
             cwd=os.getcwd(),
         )
     except Exception as exc:
-        logger.warning("couldn't relaunch in %s console mode: %s", "hidden" if hidden else "visible", exc)
+        logger.warning("couldn't relaunch in %s console mode: %s", "hidden" if hidden else "visible", exc, exc_info=True)
         return None
 
 
@@ -1140,7 +1153,7 @@ def _ancestor_console_hwnds(own_hwnd: int | None) -> list[int]:
         user32.EnumWindows(WNDENUMPROC(_each_window), 0)
         hwnds = found
     except Exception as exc:
-        logger.warning("couldn't walk the parent process chain for console windows: %s", exc)
+        logger.warning("couldn't walk the parent process chain for console windows: %s", exc, exc_info=True)
     return hwnds
 
 
@@ -1156,7 +1169,7 @@ def _window_class_name(hwnd: int) -> str:
         buf = ctypes.create_unicode_buffer(256)
         ctypes.windll.user32.GetClassNameW(hwnd, buf, 256)
         return buf.value or "?"
-    except Exception:
+    except Exception:  # noqa: BLE001  # a diagnostic label for a log line; "?" is the answer
         return "?"
 
 
@@ -1207,6 +1220,7 @@ def _apply_console_visibility(targets: dict[int, str], hidden: bool) -> None:
             logger.warning(
                 "couldn't %s hwnd=%s class=%r: %s",
                 "hide" if hidden else "show", hwnd, class_name, exc,
+                exc_info=True,
             )
 
 
@@ -1614,7 +1628,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
             # shape (a Windows build this wasn't tested against) would fail
             # every time with no way to tell a cosmetic no-op from a bug.
             # Logged, not swallowed.
-            logger.warning("could not set the Windows AppUserModelID: %s", exc)
+            logger.warning("could not set the Windows AppUserModelID: %s", exc, exc_info=True)
 
     # Asked for directly, alongside the installer: a way to manage the app
     # without a terminal window sitting open, and a place for "close" to go
@@ -1770,7 +1784,7 @@ def _start_tray(
         # Linux box with no X server. A missing tray icon is cosmetic; the
         # window is not, so this must degrade the same way a genuinely
         # missing package does rather than take the whole launcher down.
-        logger.warning("system tray unavailable, continuing without one: %s", exc)
+        logger.warning("system tray unavailable, continuing without one: %s", exc, exc_info=True)
         return None
 
     image = None
@@ -1840,7 +1854,7 @@ def _start_tray(
             # Remembering the choice is a nicety on top of the live toggle,
             # which has already happened above, never let a failure here
             # make the menu item look like it did nothing.
-            logger.warning("couldn't save the console visibility preference: %s", exc)
+            logger.warning("couldn't save the console visibility preference: %s", exc, exc_info=True)
 
         # The reliable half: relaunch into the correct mode from scratch
         # rather than trust the ShowWindow attempt just above actually

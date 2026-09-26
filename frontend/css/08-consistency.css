@@ -6157,6 +6157,20 @@ main,
 /* An act that moves the head (a look, a yawn, the music bob) would leave
    a blink a few px off it; the lids sit the act out. */
 #nm-buddy:is(.nmb-act-look, .nmb-act-yawn, .nmb-act-turn, .nmb-act-glance, .nmb-music, .nmb-act-nap) .atl-layer-lids { scale: 0; }
+/* Covering its eyes (the companion's `hide`, a private note opened): the
+   generic act squashes `.nm-eyes` with `scale`, which on Atlas's eye group
+   (transform-box view-box) flattened the eyes to a line at the top of the
+   head, 21px above where they sit; Atlas shuts its eyes with its lids
+   layer instead, over the act's middle. Its arms come up as the act has
+   them, and stay behind its head, where the drawing puts them (the rule
+   matches the generic one's specificity, `:root ... #nm-buddy`, six
+   classes, and comes later). */
+:root #nm-buddy.nmb-act-hide .nm-atlas.atl-figure .name-mark .nm-eyes { animation: none; }
+#nm-buddy.nmb-act-hide .atl-layer-lids { animation: atl-lids-hide 2.4s ease-in-out; }
+@keyframes atl-lids-hide {
+  0%, 100% { opacity: 0; }
+  18%, 82% { opacity: 1; }
+}
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }

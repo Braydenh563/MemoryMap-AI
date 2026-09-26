@@ -815,6 +815,40 @@ being written by running agents stay beside this one.
 
 ## App wide: shell, phone and the shared recipes
 
+- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
+  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
+  and the CSP. Fixed in files nobody was in: the layout picker's
+  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
+  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
+  Graph tab before the bundle has arrived loads it rather than throwing
+  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
+  act (below). Read and found sound: the toss (the drag class is removed
+  before the toss returns, the flight and the spin are Web Animations on
+  translate/rotate, no CSS transform to fight), the pet timer (cleared on
+  leave and pointerdown, mouse only), the six reactions' cooldowns and the
+  6s gap, the note-opened capture listener (one, at boot), the menu-flake
+  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
+  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
+  soon as a night yawn fires, so that tick's drift and the rest of its
+  night handling are skipped once in thirty minutes (avatars.js, the
+  `late` block); (b) with the legs and sash on compositor roots the walk
+  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
+  layouts, atlaswalk.js): a per-frame write of a custom property or class
+  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
+  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
+  runs before graph.js has declared that `let` when the bundle is cold: a
+  sloppy-mode global write that the later declaration shadows, lost but
+  harmless (graph.js starts it false).
+- **Atlas's `hide` act shows shut eyes and nothing of its hands.** The
+  companion's new act (a private note opened) raises both arms over the
+  face; Atlas draws its arms under its head in the body layer, so at the
+  act's middle both arms sit inside the head's box (armL 1227..1244 x
+  77..98 against the head's 1209..1266 x 46..95, `hidecheck.js`) and are
+  not seen. Its eyes shut with the lids layer over the act's middle (the
+  generic `.nm-eyes` squash flattened them to a 1.3px line 21px above their
+  place, transform-box view-box; fixed 2026-09-26, `atl-lids-hide`). Paws
+  over the face would need the arms drawn in the front layer for this act,
+  a drawing change for the owner's call (atlas-r6-hide-mid.png).
 - ~~**A filled button is 2px shorter than every tonal button beside it, app
   wide.**~~ **Measured and closed, 2026-09-21, and the proposed fix was worse
   than the defect.** The cause was real: `button` carries `border: none`

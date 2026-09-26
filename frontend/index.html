@@ -2134,7 +2134,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="chat-compress" class="ghost small icon-only"
                 aria-label="Compress the earlier messages"
                 title="Compress: summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
-              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
+              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" aria-hidden="true" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
               <!-- The saved-chat list has its own Delete, and deleting a
                    conversation's last turn deletes the conversation with it,
                    but the chat you're looking at right now, including a
@@ -2143,11 +2143,13 @@ Link to another note with [[its first few words]]."></textarea>
                    covers both: a fresh, empty pane resets silently (nothing
                    was ever saved to lose), and a saved one asks first, same
                    as the sidebar's Delete does. -->
-              <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+              <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" aria-hidden="true" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
               <!-- Last, and marked `dock-more`: the kebab is the grammar's
                    final utility and the two buttons above it are
                    `visually-hidden` proxies the menu rows click, not controls
-                   anyone sees. In DOM order they were sitting after it, so the
+                   anyone sees, and `aria-hidden` for the same reason: a
+                   screen reader heard "Export" and "Delete" twice, once for
+                   each proxy and once for the menu row that is the control. In DOM order they were sitting after it, so the
                    row's last *tabbable* thing was not the one the eye ends
                    on. -->
               <span id="chat-actions-menu" class="chat-actions-menu dock-more"></span>

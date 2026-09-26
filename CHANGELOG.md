@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Exporting the graph as a picture from the SVG renderer no longer fills the browser console with thousands of "Refused to apply inline style" errors; the picture was always right, the noise is gone.
 - A big graph names its landmarks. Zoomed out, the best-connected notes in view carry their names instead of none at all; zoomed in, a name that has no room under its dot tries above it, then beside it, so more than twice as many notes are named, and the hubs in the busy middle of the map are among them. Names still never overlap.
 - A graph whose notes are all filtered out (every legend entry off, a group hidden, notes hidden from the node menu, or Hide unlinked on a notebook with no links) no longer says "Nothing to map yet" over a full notebook. It says every note is hidden, names what is hiding them, and has one button, Show every note, that brings them back.
 - Panning and zooming a busy whiteboard is smooth again: the resize and rotate grips every card carries are left out of the page until a card is hovered or selected, instead of sitting there invisible, which had split a 250-object board into 256 compositor layers. On a slowed-down machine a pan went from 33 long frames to 2.

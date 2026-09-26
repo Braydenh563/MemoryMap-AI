@@ -1,7 +1,7 @@
 """Where the app's own code lives, now that app.js is being split.
 
 `frontend/app.js` was one file of 50,000 lines. The split (INBOX 426 cc,
-`docs/roadmap/agent-remaining/appjs-split.md`) cuts it into classic scripts
+`docs/roadmap/archive/agent-remaining/appjs-split.md`) cuts it into classic scripts
 loaded in its own order, each a contiguous range of the old file, so
 concatenating them in index.html's order reproduces the old app.js (less
 the two blocks the plan moves on purpose). A test that read app.js to find a

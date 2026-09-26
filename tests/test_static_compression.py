@@ -48,7 +48,7 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: flush per chunk, which is not what `gzip -6` on the file gives):
 #:
 #: - `APP_JS_CAP`, app.js alone. Lowered at every step of the split
-#:   (`docs/roadmap/agent-remaining/appjs-split.md`) to the new size plus 2%,
+#:   (`docs/roadmap/archive/agent-remaining/appjs-split.md`) to the new size plus 2%,
 #:   so the file cannot quietly grow back into what it was.
 #: - `PIECE_CAP`, every other piece. 64 KB is the plan's per-file bound: the
 #:   largest range in the split table measures well under it.

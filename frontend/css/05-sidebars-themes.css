@@ -3981,8 +3981,14 @@ button.is-on {
   /* One row on a phone, as the one-row mode is: what does not fit is
      behind More (`fitDocToolbarRow`), never behind a scrollbar that is not
      even drawn (INBOX 426 a: it was `overflow-x: auto` with the bar hidden,
-     so two thirds of the strip at 360px could only be found by accident). */
-  .doc-toolbar {
+     so two thirds of the strip at 360px could only be found by accident).
+     **Only a strip the fit has been mounted on** (round 2, errors.js at
+     390): documents.js is loaded lazily, so on the Notes tab before the
+     Library has ever been opened the capture strip has no More and no
+     fit, and a one-row strip there was cut at the card's edge with
+     Bulleted list, Task, Link and Preview past it. Without its group it
+     wraps, which loses nothing. */
+  .doc-toolbar:has(> .doc-toolbar-tools) {
     flex-wrap: nowrap;
   }
 

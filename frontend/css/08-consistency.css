@@ -6974,6 +6974,24 @@ main,
   }
 }
 
+/* **And between 600 and 1100, the same decision** (round 2 hole-poking,
+   `touch.js` at 820 and 1024 with a coarse pointer): the band still took
+   its toasts from the top, full width under the header, and a due
+   reminder's toast sat over all four Notes sub-tabs (every tab's centre
+   answered the toast, not the tab). Off Chat the toast goes back to the
+   corner a desktop gives it, above the status bar; on Chat, whose foot is
+   the composer and its mode switch (the reason the band went to the top),
+   it stays up. */
+@media (min-width: 600px) and (max-width: 1099.98px) {
+  body:not(:has(#tab-chat:not(.hidden))) #toast-box {
+    top: auto;
+    left: auto;
+    right: var(--space-4);
+    bottom: calc(var(--status-bar-h) + var(--space-3));
+    align-items: flex-end;
+  }
+}
+
 /* **A view toggle's resting half is empty** (the owner, 2026-09-24: the list
    and cards toggles in Notes and the Library "dont have a clear active
    state on the default view"). Measured: the resting button carried

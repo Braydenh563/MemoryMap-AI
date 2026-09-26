@@ -44,6 +44,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Undoing what Atlas did to a private note no longer writes back text sealed under a key the vault has since rotated away from; the other fields still go back and the plan names the text as kept.
 - The corner companion can be petted (rest the pointer on it for a moment: a happy wiggle), tossed (let it go while moving fast and it flies on, slowing, to a perch near where it comes down) and watches a near pointer with its eyes, as Faces follow the pointer allows (round 5).
 - The corner companion notices what happens in the app, quietly and rarely: it puts on its reading glasses and reads along when you open a long note, peeks over when the graph lays itself out again, cheers once when your capture streak grows, yawns now and then at night, covers its eyes when you open a private note and looks towards a new toast; never two within six seconds, and none under Reduce motion.
 - The avatar lab and the companion simulator, for anyone working on how the app draws people: `tools/avatar-lab.html` puts the app's own renderers on one page (Atlas in both looks, every mood, pose and size, a reference picture laid over it, the generated faces with Your look's parts), with changes previewed live and nothing saved to the app; `tools/companion-sim.html` runs the real corner companion on a stand-in page. Both are served at `/tools` when the app runs from a source checkout.

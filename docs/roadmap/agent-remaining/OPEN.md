@@ -1059,15 +1059,6 @@ being written by running agents stay beside this one.
   run by default), the receipt (behind the lock), `.ics` (private notes'
   words absent, folding at octets, UID stable, no workspace scoping to
   leak across since reminders have none).
-- **Undoing a `content` change on a private note after a vault re-key
-  writes the old ciphertext back** (`events.undo`, `_UNDOABLE_ENTRY_FIELDS`):
-  the audit payload keeps the column as it was, which for a private note is
-  ciphertext under the key of that day; after `POST /auth/rotate-vault-key`
-  the restored text cannot be decrypted. Narrow (an AI actor changing a
-  private note's content is what the filer never does), and the revision
-  the undo keeps still holds the current text. Refusing `content` on a
-  private entry in `undo`, or re-wrapping through the current key, are the
-  two shapes; not changed in the review.
 - **`netbind.host_allowed("localhost.")` and a trailing-dot own name are
   refused** (fail closed, as intended; noted so nobody reads a 421 on
   `localhost.` as a bug). `_own_names()` calls `gethostname` per request

@@ -231,3 +231,46 @@ def test_reevaluation_files_as_the_filer_with_values(client, session, monkeypatc
         )
     ).all()
     assert len(moves) == 1 and "category_id" in moves[0].payload["before"]
+
+
+def test_private_text_under_a_rotated_key_is_not_written_back(session, monkeypatch):
+    """A payload keeps a private note's column as it was: ciphertext under the
+    key of that day. After `rotate-vault-key` that text reads under nothing,
+    so writing it back would leave a note nobody can open. The other fields
+    still go back; the text stays, and the plan says so."""
+    from memorymap.core import crypto, vault
+
+    old_key, new_key = crypto.new_dek(), crypto.new_dek()
+    entry = _note(session)
+    entry.content = crypto.encrypt(old_key, "before the AI")
+    session.commit()
+    mark = _last_event_id(session)
+    _as_ai(session, entry, tags=["pond"], content=crypto.encrypt(old_key, "after the AI"))
+    entry.content = crypto.encrypt(new_key, "after the AI")  # what the rotation writes
+    session.commit()
+    monkeypatch.setattr(vault, "key", lambda: new_key)
+
+    plan = events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    session.refresh(entry)
+    assert plan["items"][0]["kept"] == ["content"]
+    assert "content" not in plan["items"][0]["fields"]
+    assert crypto.decrypt(new_key, entry.content) == "after the AI"
+    assert json.loads(entry.tags) == ["garden"]
+
+
+def test_private_text_under_the_current_key_is_put_back(session, monkeypatch):
+    from memorymap.core import crypto, vault
+
+    key = crypto.new_dek()
+    entry = _note(session)
+    entry.content = crypto.encrypt(key, "before the AI")
+    session.commit()
+    mark = _last_event_id(session)
+    _as_ai(session, entry, content=crypto.encrypt(key, "after the AI"))
+    monkeypatch.setattr(vault, "key", lambda: key)
+
+    events.undo(session, AI, since_id=mark, apply=True)
+    session.commit()
+    session.refresh(entry)
+    assert crypto.decrypt(key, entry.content) == "before the AI"

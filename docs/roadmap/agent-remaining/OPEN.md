@@ -7,9 +7,6 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
-- **The feminine look has no legs**, so the companion's walk, kick and
-  dangle move nothing on it; a ribbon sway on `.atl-lower` under the same
-  classes would answer them. [atlas-fable]
 - **Three CSP "inline style" warnings on the avatar lab's console** come
   from a `style` attribute in avatars.js's generated faces; harmless there,
   worth a grep. [atlas-fable]

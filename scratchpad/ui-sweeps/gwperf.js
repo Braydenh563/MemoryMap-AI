@@ -173,7 +173,7 @@ async function buildBoard(page) {
     });
     await page.waitForTimeout(7000);
     const g = await page.evaluate(() => {
-      const c = document.querySelector('#graph-container canvas') || document.querySelector('canvas.graph-canvas') || document.querySelector('#graph-canvas');
+      const c = document.getElementById('graph-canvas');
       const r = (c || document.getElementById('graph-container')).getBoundingClientRect();
       return { x: r.left + 40, y: r.top + r.height - 60, cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height };
     });

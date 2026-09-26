@@ -31,9 +31,6 @@ two decisions only the owner can take are INBOX 427.
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]
-- **A `--changed` gate on a long branch selects most of the suite** (338
-  files, 40 minutes): gating against the branch's own base would make the
-  per-step gate what standing order 5a means. [atlas-fable]
 
 ## The owner's requests on fix/gemini-fixes-5 (PR 157), 2026-09-23: the ledger
 

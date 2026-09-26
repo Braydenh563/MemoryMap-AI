@@ -60,3 +60,16 @@ before and after, expressions, size handle, light and dark, Holding).
    `companionmenu.js` covers the menu at 390 and from the keyboard.
 6. 84.png did not reproduce as a placement bug; the fix is to the one path
    that did reproduce (moving while its menu was open).
+
+Round 4 (`f4f5044`, `e7a57e3`, `7249215`, `a6104d7`): a pin keeps its place
+through resizes and is made where it is drawn (`companionpin.js`); the menu
+opens at the pointer and stops a move under way (the one 84.png shape that
+reproduced: mid-walk and mid-poof, 38 to 142px off); the size handle only
+on hover, focus or sizing; the pacer's SVGSVGElement filter kept.
+
+7. `companionmenu.js` once found no menu for a right-click at the bottom
+   left at 1440 (1 run in 3, the first after a server restart); not
+   reproduced in two more runs.
+8. A pin within 160px of the right or bottom edge keeps its distance from
+   that edge on a resize; one further in keeps its place. Whether the owner
+   reads the first as "moving" is not known.

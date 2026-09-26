@@ -1393,9 +1393,11 @@ const APPEARANCE_DEFAULTS = {
   //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
   //: globe the owner asked to keep as a choice.
   "atlas-style": "character", // character | classic
-  //: Atlas's look (atlas.js, `atlasLook`), and the look a generated face
-  //: takes when its name says nothing either way (`nameMarkLookLean`).
-  "atlas-look": "", // "" (Auto: follows face-look) | masculine | feminine
+  //: Atlas's look (atlas.js, `atlasLook`). Auto, the default, follows Face
+  //: looks (feminine there is a feminine Atlas, anything else masculine), and
+  //: the select says so: it used to read Masculine while nothing was stored
+  //: and Atlas was following Face looks anyway (OPEN.md, 0.3.3).
+  "atlas-look": "auto", // auto | masculine | feminine
   "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
   "dash-mark": "logo", // logo | me | persona
   // Half strength (was 90): a professional product has a quiet page
@@ -2883,14 +2885,14 @@ $("atlas-style").addEventListener("change", (e) => {
   if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("atlas-look").addEventListener("change", (e) => {
-  //: Auto is nothing stored: atlas.js then follows Face looks.
-  if (e.target.value) localStorage.setItem("atlas-look", e.target.value);
-  else localStorage.removeItem("atlas-look");
+  localStorage.setItem("atlas-look", e.target.value);
   if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("face-look").addEventListener("change", (e) => {
   localStorage.setItem("face-look", e.target.value);
   if (typeof nameMarkRepaintAll === "function") nameMarkRepaintAll();
+  //: An Atlas on Auto takes its look from here (`atlasLook`).
+  if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("dash-mark").addEventListener("change", (e) => {
   localStorage.setItem("dash-mark", e.target.value);

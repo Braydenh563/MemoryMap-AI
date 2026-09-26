@@ -18,7 +18,7 @@ import pytest
 
 from memorymap.api import routes_auth
 from memorymap.core import security, vault
-from tests._app_js import frontend_text
+from tests._app_js import FRONTEND_DIR, frontend_text
 
 
 # --- session expiry ---------------------------------------------------------
@@ -327,6 +327,16 @@ def test_the_frontend_has_no_inline_style_attributes():
         assert 'style="' not in source and "style='" not in source, (
             f"{name} carries an inline style attribute. The CSP refuses it, so it "
             "renders as no styling at all, move it into style.css as a class."
+        )
+    #: The owner's benches in tools/ are served by the app at /tools under the
+    #: same CSP: three `style` attributes in the avatar lab were three console
+    #: warnings on every load and three spacings silently lost (OPEN.md,
+    #: 0.3.3). Every page there is held to the same rule.
+    for page in sorted((FRONTEND_DIR.parent / "tools").glob("*.html")):
+        source = page.read_text(encoding="utf-8")
+        assert 'style="' not in source and "style='" not in source, (
+            f"tools/{page.name} carries an inline style attribute, which the CSP "
+            "refuses at /tools: give it a class in the page's own stylesheet."
         )
 
 

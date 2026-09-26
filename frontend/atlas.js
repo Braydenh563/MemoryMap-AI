@@ -380,9 +380,10 @@ const ATLAS_LOOKS = {
   },
 };
 
-//: Which look: Atlas's own setting when one is stored (Settings,
-//: Appearance, Atlas look), otherwise it follows Face looks (the owner:
-//: the male version is the main one; the feminine one is its own look).
+//: Which look: Atlas's own setting when it is Masculine or Feminine
+//: (Settings, Appearance, Atlas look), otherwise, on Auto (the default) or
+//: with nothing stored, it follows Face looks (the owner: the male version
+//: is the main one; the feminine one is its own look).
 function atlasLook() {
   let own = null;
   try {
@@ -1081,8 +1082,12 @@ function atlasBody(parent, id, props, look, route = null) {
     //: hips sweeping down to the left and curling, in the tail's paint,
     //: before the torso so it grows out of it. It is not a leg: the
     //: companion's leg groups stay, empty, so its behaviours find them.
+    //: Its pivot is the ribbon's root at the hips (the first point of
+    //: `spec.lower`), so the companion's walk, kick and dangle sway it
+    //: about where it grows from (08-consistency.css, "the ribbon answers
+    //: the legs"); the same point in every layer keeps edge and fill as one.
     if (spec.lower) {
-      const lower = atlasGroup(lowerAt[kind], "atl-lower");
+      const lower = atlasGroup(lowerAt[kind], "atl-lower", [spec.lower[0][0], spec.lower[0][1]]);
       if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.lowerPath }, lower);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.lowerPath }, lower);
       if (!edge) {

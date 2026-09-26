@@ -1778,7 +1778,11 @@ $("graph-layout").addEventListener("change", async (event) => {
   localStorage.setItem("graph-layout", event.target.value);
   //: The picker is drawn at boot and graph.js is not (`switchTab`'s `inert`
   //: covers a person's press; this covers a change made from script, a saved
-  //: view or the palette, before the first visit).
+  //: view or the palette, before the first visit). `setGraphPhysicsEnabled`
+  //: and `renderGraph` are stand-ins that would load it anyway; the await is
+  //: for `graphAutoFitDone`, a `let` in graph.js, which a bare assignment on a
+  //: cold bundle would write to a stray global that graph.js's own binding
+  //: then shadows, so the re-frame asked for here would be lost.
   await ensureModule("graph");
   setGraphPhysicsEnabled(event.target.value);
   // A different layout is a different shape (a radial ring is nothing like

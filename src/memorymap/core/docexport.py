@@ -236,7 +236,7 @@ def _stem(title: str) -> str:
 def docx_available() -> bool:
     try:
         import docx  # noqa: F401
-    except Exception:
+    except Exception:  # noqa: BLE001  # a broken optional package is "not available", whatever it raises
         return False
     return True
 

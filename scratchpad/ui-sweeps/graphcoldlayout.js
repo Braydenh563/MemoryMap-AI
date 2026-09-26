@@ -66,7 +66,7 @@ async function coldPage(browser) {
 
   {
     const { ctx, page, errors } = await coldPage(browser);
-    const before = await page.evaluate(() => typeof setGraphPhysicsEnabled);
+    const before = await page.evaluate(() => typeof graphSimulation);
     await page.evaluate(() => {
       switchTab('graph');
       const radio = document.querySelector('input[name="graph-layout"][value="tree"]');
@@ -80,7 +80,7 @@ async function coldPage(browser) {
       dimmed: document.getElementById('graph-physics')?.classList.contains('is-disabled'),
       nodes: typeof gcTab !== 'undefined' ? gcTab.nodes.length : -1,
     }));
-    check('the change was made before graph.js arrived', before === 'undefined', `typeof setGraphPhysicsEnabled was ${before}`);
+    check('the change was made before graph.js arrived', before === 'undefined', `typeof graphSimulation (a graph.js let) was ${before}`);
     check('changing the layout on a cold load throws nothing', errors.length === 0, errors.slice(0, 2).join(' | '));
     check('and the change took once the code landed', after.stored === 'tree' && after.checked && after.dimmed && after.nodes > 0, JSON.stringify(after));
     await ctx.close();

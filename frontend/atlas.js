@@ -1059,8 +1059,11 @@ function atlasRing(parent, id, ring, k, front) {
 //: own (`.atl-tendril`, pivoted at the hip) so the tip can drift.
 //: `route`, for the companion's layered figure (`atlasDrawFigure`), names
 //: the groups the strand's back sweep and the props (`back`), the tail
-//: (`tail`) and the bubble (`front`) go to; without it everything is drawn
-//: into `parent`, in the same order.
+//: (`tail`), the sash (`lower`), each leg (`legs.l`, `legs.r`) and the
+//: bubble (`front`) go to; without it everything is drawn into `parent`, in
+//: the same order. A routed leg's group carries no `nmb-leg` class: its
+//: layer's root does, so the companion's steps, kicks and poses turn the
+//: root (the compositor) and not a group inside the svg (a repaint).
 function atlasBody(parent, id, props, look, route = null) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const pair = (host) => ({ edge: atlasGroup(host, "atl-edges"), fill: atlasGroup(host, "atl-fills") });
@@ -1068,6 +1071,7 @@ function atlasBody(parent, id, props, look, route = null) {
   const back = route ? pair(route.back) : layers;
   const tailAt = route ? pair(route.tail) : layers;
   const lowerAt = route && route.lower ? pair(route.lower) : layers;
+  const legAt = route && route.legs ? { l: pair(route.legs.l), r: pair(route.legs.r) } : null;
   const frontAt = route ? { fill: route.front } : layers;
   const arms = {};
   atlasBand(back.edge, false, id);
@@ -1100,7 +1104,7 @@ function atlasBody(parent, id, props, look, route = null) {
       }
     }
     (spec.legPaths || ATLAS_LIMBS.legs).forEach(([side, d], i) => {
-      const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
+      const leg = atlasGroup(legAt ? legAt[side][kind] : layer, legAt ? "atl-leg" : `nmb-leg nmb-leg-${side} atl-leg`);
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, tendril);
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, tendril);
@@ -1327,8 +1331,15 @@ function atlasDrawFigure(mood) {
   const frag = document.createDocumentFragment();
   const layers = {};
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
-  for (const name of spec.lower ? ["back", "tail", "lower", "body", "lids", "front"] : ["back", "tail", "body", "lids", "front"]) {
-    const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}`, "aria-hidden": "true", focusable: "false" });
+  //: The legs are two layers of their own, under the body as the drawing
+  //: has them, and each root wears the companion's `nmb-leg-<side>` class:
+  //: every step, kick, dangle and pose rule written for a leg group turns
+  //: the root instead, on the compositor. Before this the walk's steps
+  //: repainted the body layer every frame (atlaswalk.js, 2026-09-26).
+  const names = ["back", "tail", ...(spec.lower ? ["lower"] : []), "leg-l", "leg-r", "body", "lids", "front"];
+  for (const name of names) {
+    const legSide = name.startsWith("leg-") ? name.slice(4) : "";
+    const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
     svg.dataset.nmSeed = "Atlas";
     svg.dataset.atlasLook = look;
     svg.dataset.atlasLayer = name;
@@ -1343,7 +1354,7 @@ function atlasDrawFigure(mood) {
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false));
-  atlasBody(layers.body.rig, id, true, look, { back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, front: layers.front.rig });
+  atlasBody(layers.body.rig, id, true, look, { back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: { l: layers["leg-l"].rig, r: layers["leg-r"].rig }, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);

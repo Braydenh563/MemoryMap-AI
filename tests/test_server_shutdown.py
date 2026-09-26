@@ -88,7 +88,7 @@ def _serve_one_sync_request_then_shut_down(app) -> None:
             try:
                 urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1)
                 break
-            except Exception:
+            except OSError:  # not listening yet (URLError is an OSError)
                 time.sleep(0.05)
         time.sleep(0.3)
         server.should_exit = True

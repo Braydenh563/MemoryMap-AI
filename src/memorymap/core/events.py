@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 from memorymap.core.database import (
     AuditLog,
     Entry,
+    EntryRevision,
     WhiteboardNode,
     WhiteboardObject,
     WhiteboardSketch,
@@ -667,6 +668,150 @@ def changed(before: dict, after: dict) -> dict:
     }
 
 
+# --- undo what one actor did ---------------------------------------------------
+
+#: The entry fields an undo may put back. Not `is_private`: taking a note out
+#: of the vault is decrypting it, which needs the key and the person, and no
+#: bulk undo should do it on their behalf.
+_UNDOABLE_ENTRY_FIELDS = ("content", "tags", "category_id", "is_deleted", "deleted_at", "archived_at")
+
+
+def _undone_ids(session: Session, since_id: int) -> set[int]:
+    """Events an earlier undo already reversed (named in its `undid`)."""
+    done: set[int] = set()
+    for payload in session.scalars(
+        select(AuditLog.payload).where(AuditLog.id > since_id, AuditLog.action == "restored")
+    ):
+        if isinstance(payload, dict) and isinstance(payload.get("undid"), list):
+            done.update(int(i) for i in payload["undid"] if isinstance(i, int))
+    return done
+
+
+def undo(
+    session: Session,
+    actor: str,
+    since_id: int,
+    *,
+    apply: bool = False,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Reverse what `actor` changed after event `since_id` (OPEN.md `events-undo`).
+
+    For each entity the actor touched, its events after the mark are walked
+    newest first and each one's `before` is applied, which lands on exactly
+    the values the entity had before the actor's first change, field by
+    field: a field the actor never touched keeps whatever it has now. A note
+    the actor *created* goes to the recycle bin rather than away.
+
+    Refused, each by name in the plan: an entity somebody else changed after
+    the actor did ("changed since", unless `force`, and then only the actor's
+    fields go back), an event whose values the compactor dropped ("too old"),
+    anything that is not a note ("not undoable": board items have no soft
+    delete to fall back on), and events already reversed by an earlier undo
+    ("already undone", so running it twice is harmless).
+
+    `apply=False` is the dry run: the same plan, nothing written. With
+    `apply=True` each entity gets one `restored` event, by the person, naming
+    the events it reversed in `undid`. The caller commits.
+    """
+    rows = list(
+        session.scalars(
+            select(AuditLog)
+            .where(AuditLog.id > since_id, AuditLog.actor == actor, AuditLog.entity_id.is_not(None))
+            .order_by(AuditLog.id.asc())
+        )
+    )
+    already = _undone_ids(session, since_id)
+    touched: dict[tuple[str, int], list[AuditLog]] = {}
+    for row in rows:
+        touched.setdefault((row.entity_type, int(row.entity_id)), []).append(row)
+
+    items: list[dict[str, Any]] = []
+    undone = 0
+    for (entity_type, entity_id), mine in touched.items():
+        item: dict[str, Any] = {
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "events": [row.id for row in mine],
+        }
+        items.append(item)
+        live = [row for row in mine if row.id not in already]
+        if not live:
+            item["status"] = "already undone"
+            continue
+        if entity_type != "entry":
+            item["status"] = "not undoable"
+            continue
+        if any(is_compacted(row) for row in live):
+            item["status"] = "too old"
+            continue
+        created = any(row.action == "created" for row in live)
+        changes = [
+            row for row in live
+            if isinstance((row.payload or {}).get("before"), dict)
+        ]
+        if not created and not changes:
+            item["status"] = "no values recorded"
+            continue
+        first = live[0].id
+        later_by_others = session.scalar(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(
+                AuditLog.entity_type == entity_type,
+                AuditLog.entity_id == entity_id,
+                AuditLog.id > first,
+                AuditLog.actor != actor,
+                AuditLog.action.notin_(sorted(QUIET_ACTIONS)),
+            )
+        )
+        if later_by_others and not force:
+            item["status"] = "changed since"
+            continue
+        entry = session.get(Entry, entity_id)
+        if entry is None:
+            item["status"] = "gone"
+            continue
+        target: dict[str, Any] = {}
+        for row in reversed(changes):
+            for key, value in row.payload["before"].items():
+                if key in _UNDOABLE_ENTRY_FIELDS:
+                    target[key] = value
+        if created:
+            target = {"is_deleted": True, "deleted_at": utcnow().isoformat()}
+        item["status"] = "undo"
+        item["fields"] = sorted(target)
+        if not apply:
+            continue
+        was = entry_state(entry)
+        if "content" in target and target["content"] != entry.content:
+            # The text about to be replaced is kept, as every restore keeps
+            # it: undoing an undo has to be possible.
+            session.add(EntryRevision(entry_id=entry.id, content=entry.content, tags=entry.tags or "[]"))
+        for key, value in target.items():
+            if key == "tags":
+                entry.tags = json.dumps(value if isinstance(value, list) else [])
+            elif key in ("deleted_at", "archived_at"):
+                setattr(entry, key, datetime.fromisoformat(value) if value else None)
+            elif key == "is_deleted":
+                entry.is_deleted = bool(value)
+            else:
+                setattr(entry, key, value)
+        with acting_as(ACTOR_USER):
+            record(
+                session,
+                "restored",
+                "entry",
+                entry.id,
+                detail=f"undid {len(live)} change(s) by {actor}",
+                payload={**changed(was, entry_state(entry)), "undid": [row.id for row in live]},
+            )
+        undone += 1
+    if apply:
+        session.flush()
+    return {"actor": actor, "since": since_id, "dry_run": not apply, "undone": undone, "items": items}
+
+
 # --- the spec's driver -------------------------------------------------------
 #
 # `tests/test_events.py` enumerates every public write function in
@@ -782,6 +927,11 @@ def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
     manager.unarchive_entry(session, archived)
 
 
+def _drive_record_filing(session: Session, entry: Entry) -> None:
+    manager = importlib.import_module("memorymap.entry.manager")
+    manager.record_filing(session, _scratch_entry(session), "Filed by the driver")
+
+
 def _drive_update_entry(session: Session, entry: Entry) -> None:
     manager = importlib.import_module("memorymap.entry.manager")
     manager.update_entry(session, _scratch_entry(session), content="edited by the driver")
@@ -795,6 +945,7 @@ _DRIVERS = {
     "purge_entries": _drive_purge_entries,
     "purge_expired_deleted": _drive_purge_expired_deleted,
     "record_dates": _drive_record_dates,
+    "record_filing": _drive_record_filing,
     "record_revision": _drive_record_revision,
     "restore_entry": _drive_restore_entry,
     "soft_delete_entry": _drive_soft_delete_entry,

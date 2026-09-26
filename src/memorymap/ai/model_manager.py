@@ -863,6 +863,9 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
             duration_ms=(time.monotonic() - started) * 1000,
         )
     except Exception as exc:  # a failed job must report, never crash the app
+        # The job row and the task history carry `str(exc)`, one line; the
+        # traceback is what says where a re-index died, and it went nowhere.
+        logging.getLogger("memorymap.search").warning("re-index failed", exc_info=True)
         job.status = "error"
         job.error = str(exc)
         # The ending that mattered most and was hardest to see: a re-index that

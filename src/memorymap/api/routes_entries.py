@@ -191,6 +191,7 @@ def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa:
             session, entry.content, deps.get_embeddings(), limit=3
         )
     except Exception:
+        logger.warning("the near-duplicate check failed; the note is saved", exc_info=True)
         return None
     for other, score in results or []:
         if other.id != entry.id and score >= 0.9:
@@ -232,6 +233,10 @@ def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
             deps.get_ollama(),
         )
     except Exception:
+        # `categorise` handles a model that is down on its own (a keyword
+        # fallback), so this is a fault in it: logged, or every note filed
+        # "Uncategorised" is the only sign.
+        logger.warning("filing failed; the note is saved uncategorised", exc_info=True)
         return manager.UNCATEGORISED, 0, "none"
 
 
@@ -281,9 +286,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 category, confidence, filed_by = _file_entry_now(
                     session, manager.readable_content(entry)
                 )
-                entry.category_id = manager.get_or_create_category(
-                    session, category
-                ).id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # Ordered deliberately: the vector has to exist before the
                 # near-duplicate search has anything to compare against, and
@@ -674,6 +677,7 @@ def suggest_tags_for_draft(
             vocabulary=_tag_vocabulary(session),
         )
     except Exception:
+        logger.warning("tag suggestions failed", exc_info=True)
         suggested = []
     return {"suggested_tags": suggested}
 
@@ -716,12 +720,7 @@ def add_context(
                 exclude_entry_id=entry.id,  # don't let it anchor to itself
             )
             if filed_by != "none":
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"recategorised -> {category}"
-                    )
-                entry.category_id = category_row.id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # The same two lines as the create paths: a category the AI
                 # chose here is one a later move by hand corrects, and without
@@ -730,6 +729,7 @@ def add_context(
                     entry.filing_state = manager.AUTO_FILED
                 session.commit()
         except Exception:
+            logger.warning("re-filing after new context failed", exc_info=True)
             filed_by = None  # AI down, the note keeps its old category
 
     return _to_out(session, entry, filed_by=filed_by)
@@ -775,19 +775,15 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         if filed_by != "none":
             entry.ai_confidence = confidence
             if not entry.user_filed:
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
+                if manager.record_filing(session, entry, category):
                     recategorised_to = category
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"re-evaluated -> {category}"
-                    )
-                entry.category_id = category_row.id
                 # As on adding context: the AI owns this category now, so a
                 # move by hand is a correction the filing loop should read.
                 if janitor.is_ai_method(filed_by):
                     entry.filing_state = manager.AUTO_FILED
             session.commit()
     except Exception:
+        logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
@@ -801,6 +797,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             vocabulary=_tag_vocabulary(session),
         )
     except Exception:
+        logger.warning("re-evaluation's tag step failed", exc_info=True)
         suggested_tags = []
 
     # 3. Suggest links: semantic neighbours that aren't connected yet.
@@ -819,6 +816,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             if len(suggested_links) >= 4:
                 break
     except Exception:
+        logger.warning("re-evaluation's link step failed", exc_info=True)
         suggested_links = []
 
     return {
@@ -1179,7 +1177,7 @@ def link_suggestion_reasons(
                 deps.get_model_manager(),
                 deps.get_ollama(),
             )
-        except Exception as exc:  # model offline, or no model configured
+        except Exception as exc:  # noqa: BLE001  # model offline is the expected case, once per pair; the message is logged
             logger.info("link suggestion reason skipped: %s", exc)
             ai_unavailable = True
             continue
@@ -1234,7 +1232,7 @@ def backfill_link_reasons(
         result["rewritten"] = links.audit_vague_links(
             session, deps.get_model_manager(), deps.get_ollama(), limit=options.limit
         )
-    except Exception as exc:  # model offline, or no model configured
+    except Exception as exc:  # noqa: BLE001  # model offline is the expected case; the message is logged
         # Not an error the caller should see as a failure: the cheap pass
         # succeeded and its work is committed.
         logger.info("link reason audit skipped: %s", exc)

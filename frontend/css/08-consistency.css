@@ -5722,6 +5722,13 @@ main,
     &.nmb-act-dangle .nmb-leg-l { animation: nmb-dangle 1.5s ease-in-out 4 alternate; }
     &.nmb-act-dangle .nmb-leg-r { animation: nmb-dangle 1.5s ease-in-out -1.5s 4 alternate; }
     &.nmb-act-scratch .nmb-arm-r { animation: nmb-scratch 2.6s ease-in-out; }
+    /* Round 5. Covers its eyes (a private note opened): both arms up over
+       its face and the eyes shut behind them. Petted: a happy wiggle. */
+    /* Hanging, its hands hold on: only its eyes shut. */
+    &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-l { animation: nmb-hide-l 2.4s ease-in-out; }
+    &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-r { animation: nmb-hide-r 2.4s ease-in-out; }
+    &.nmb-act-hide .name-mark .nm-eyes { animation: nmb-hide-eyes 2.4s ease-in-out; }
+    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 0.9s ease-in-out; }
     &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
     &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
     &.nmb-act-feet .nm-buddy-char { animation: nmb-feet 7s ease-in-out; }
@@ -5782,6 +5789,30 @@ main,
 @keyframes nmb-dangle {
   from { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.9); }
   to { transform: rotate(calc(var(--nmb-side) * -10deg)) scaleY(0.8); }
+}
+/* Its hands over its face, so drawn over its head (the figure keeps its
+   drawing's order, arms under the head, and raised they were hidden). */
+#nm-buddy.nmb-act-hide:not([data-pose="hang"]) :is(.nmb-arm-l, .nmb-arm-r) {
+  z-index: 3;
+}
+
+@keyframes nmb-hide-l {
+  0%, 100% { transform: none; }
+  18%, 82% { transform: rotate(-152deg); }
+}
+@keyframes nmb-hide-r {
+  0%, 100% { transform: none; }
+  18%, 82% { transform: rotate(152deg); }
+}
+@keyframes nmb-hide-eyes {
+  0%, 100% { scale: 1 1; }
+  18%, 82% { scale: 1 0.12; }
+}
+@keyframes nmb-wiggle {
+  0%, 100% { transform: none; }
+  20% { transform: rotate(-6deg) scale(1.03, 0.97); }
+  45% { transform: rotate(5deg); }
+  70% { transform: rotate(-3deg); }
 }
 @keyframes nmb-scratch {
   0%, 100% { transform: rotate(0deg); }

@@ -26,11 +26,14 @@ below). Versioning is `0.x` while the app stabilises.
 - The feminine Atlas's hip sash sways on the compositor, as the tail and the breathing do, rather than repainting its layer every frame while the companion walks (176 paints a second down to 118, the same as the masculine look).
 - The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
 - When the AI files a note (on capture, after new context, on re-evaluation) the move is now recorded in the note's history as the filer's, with the category it came from, so History shows where a note was filed and the filing can be undone; before, capture's filing left no record and the other two were recorded as yours with no values.
+- The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
 
 ## [0.3.3] - 2026-09-26
 
 ### Added
 
+- The corner companion can be petted (rest the pointer on it for a moment: a happy wiggle), tossed (let it go while moving fast and it flies on, slowing, to a perch near where it comes down) and watches a near pointer with its eyes, as Faces follow the pointer allows (round 5).
+- The corner companion notices what happens in the app, quietly and rarely: it puts on its reading glasses and reads along when you open a long note, peeks over when the graph lays itself out again, cheers once when your capture streak grows, yawns now and then at night, covers its eyes when you open a private note and looks towards a new toast; never two within six seconds, and none under Reduce motion.
 - The avatar lab and the companion simulator, for anyone working on how the app draws people: `tools/avatar-lab.html` puts the app's own renderers on one page (Atlas in both looks, every mood, pose and size, a reference picture laid over it, the generated faces with Your look's parts), with changes previewed live and nothing saved to the app; `tools/companion-sim.html` runs the real corner companion on a stand-in page. Both are served at `/tools` when the app runs from a source checkout.
 - Optional sign-in: Settings, Account and security has "Ask for a password when the app opens", on by default. Turned off (it asks for your current password), the app opens on this computer without the lock screen; another device on your network still needs the password, and private notes stay encrypted and ask for it when you open one ("Unlock private notes"). Lock and Lock everywhere still end the session and drop the key. Recorded in the audit log.
 - The corner companion has a size: small, medium or large from its menu or Appearance's Companion size, or any size from the handle at its corner, kept on this computer; it grows and shrinks about the point it touches its perch and is kept off controls at any size. On a dark page a faint light of the accent sits behind it so a dark figure does not sink into the page; on a light one it stands on a soft shadow (INBOX 426 x).
@@ -279,6 +282,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A menu opened while a scroll is still settling (a right-click during a trackpad's momentum, a smooth scroll) no longer closes itself a moment later: the scroll that closed it had started before it opened.
+- The avatar lab opens without the three inline-style warnings the app's content policy logged (its three style attributes are classes now).
 - The corner companion's size handle shows only while the pointer is over it, it has the keyboard's focus or it is being sized, never at rest and not while it is carried (round 4).
 - The corner companion's menu opens at the pointer when you right-click or hold it, and beside it from the keyboard; a walk or a poof under way stops where it is when the menu opens, so the menu is never left behind (it had been, 38 to 142px away, when the companion was clicked while moving) (INBOX 426 x, 84.png).
 - Stay here on every page means it: a companion pinned away from the window's edges keeps its place when the window is resized or the app opens at another size (it jumped by the whole change in size, 200px for a 900 to 700px window), one pinned by the bottom bar or a corner keeps its distance from that edge, and pinning it while it walks pins it where it is, not where it was going (INBOX 426 l).

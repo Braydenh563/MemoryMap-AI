@@ -359,3 +359,79 @@ def test_the_size_handle_shows_only_when_asked_for() -> None:
     assert "#nm-buddy:not(.nm-buddy-dragging) .nm-buddy-face:is(:hover, :focus-visible) .nmb-size-grip," in CSS08
     # Atlas round 4's filter stays: its svg roots are composited, not paced.
     assert "!(a.effect.target instanceof SVGSVGElement)" in _fn("nameMarkBuddyTempo")
+
+
+def test_the_benches_carry_no_inline_style() -> None:
+    # Round 5: the avatar lab logged three "Refused to apply inline style"
+    # warnings (the app's policy is style-src 'self'); they were three
+    # style attributes in tools/avatar-lab.html, now classes in its CSS.
+    for page in (ROOT / "tools").glob("*.html"):
+        assert not re.search(r"\sstyle=\"", page.read_text(encoding="utf-8")), page.name
+
+
+def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> None:
+    # Round 5: reads along with a long note, peeks at the graph laid out
+    # again, cheers once for a longer streak, yawns at night, covers its
+    # eyes for a private note, looks at a new toast (companionreact.js, each
+    # from its real event). Each has a cooldown, none within 6s of another,
+    # none under Reduce motion or Avatar animation Off.
+    react = _fn("nameMarkBuddyReact")
+    assert "nameMarkBuddyStill()" in react and "NMB_REACT_GAP" in react
+    for kind in ("read", "graph", "streak", "yawn", "private", "toast"):
+        assert f"{kind}: {{ cool:" in AV, kind
+    # The streak: once, and only for a count longer than the last seen.
+    assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
+    dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
+    assert "nameMarkBuddyStreak(streak)" in dashboard
+    # Night: a tick yawns.
+    assert 'nameMarkBuddyReact("yawn")' in _fn("nameMarkBuddyTick")
+    # A toast goes through the same limits.
+    assert 'nameMarkBuddyReact("toast", added)' in AV
+    # Covering its eyes: its hands over its head, not under it.
+    assert '#nm-buddy.nmb-act-hide:not([data-pose="hang"]) :is(.nmb-arm-l, .nmb-arm-r) {\n  z-index: 3;' in CSS08
+
+
+def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
+    # Round 5 (companioninteract.js): the pointer resting on it gets a happy
+    # wiggle, once in 15s; let go at speed it flies on and lands on a perch
+    # near where it comes down (measured 19px), a slow let-go is a drop;
+    # its eyes stay on a near pointer, and with Faces follow the pointer off
+    # a pointer passing is not followed.
+    build = _fn("nameMarkBuddyBuild")
+    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyToss(buddy, vx, vy);" in build
+    assert "Math.hypot(vx, vy) > NMB_TOSS_SPEED" in build
+    pet = _fn("nameMarkBuddyPet")
+    assert "nameMarkBuddyStill()" in pet and "15000" in pet
+    toss = _fn("nameMarkBuddyToss")
+    assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
+    assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
+    assert "if (spot.tossed) {" in _fn("nameMarkBuddyMoveTo")
+    notice = _fn("nameMarkBuddyNotice")
+    assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
+    assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
+
+
+def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
+    # Round 5, the companionmenu.js flake: a scroll's event comes with the
+    # next frame, so a right-click in the frame of a scroll (a trackpad's
+    # momentum, a smooth scroll) opened a menu that closeActionMenusOnScroll
+    # shut a moment later: 17 of 20 such right-clicks showed no menu, 0 of
+    # 80 after this.
+    menus = (ROOT / "frontend" / "menus.js").read_text(encoding="utf-8")
+    on_scroll = menus[menus.index("function closeActionMenusOnScroll(") :]
+    on_scroll = on_scroll[: on_scroll.index("\n}\n")]
+    assert "performance.now() - (window._menuOpenedAt || 0) < 200" in on_scroll
+    opener = menus[menus.index("function openActionMenu(") :]
+    assert "window._menuOpenedAt = performance.now();" in opener[:400]
+
+
+def test_a_walk_is_paced_too() -> None:
+    # Round 5 review (atlaswalk.js): while it walked, Atlas's leg steps
+    # (animations on groups inside its svg) laid out and repainted it every
+    # frame, 60 layouts and 120 paints a second, because the pacer let a
+    # walk run at full rate. Paced from its first step: 20 and 39.
+    tempo = _fn("nameMarkBuddyTempo")
+    assert 'const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    move = _fn("nameMarkBuddyMoveTo")
+    walk = move[move.index('buddy.classList.add("nmb-walking");') :]
+    assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]

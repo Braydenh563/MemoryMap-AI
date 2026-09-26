@@ -469,6 +469,31 @@ def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
     assert "function atlasRepaint()" in atlas and "atlasRepaint()" in settings
 
 
+def test_atlas_look_says_when_it_follows_face_looks() -> None:
+    # OPEN.md, "Left by the 0.3.3 agents": the select read "Masculine" while
+    # nothing was stored, and Atlas then followed Face looks, so a person
+    # with Face looks on Feminine saw a feminine Atlas under a select that
+    # said otherwise. "Auto (follows Face looks)" is the first option and the
+    # default; picking it, or changing Face looks while it is picked, redraws
+    # every Atlas on the page.
+    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    select = index[index.index('<select id="atlas-look"') :]
+    select = select[: select.index("</select>")]
+    options = re.findall(r'<option value="(\w+)">([^<]+)</option>', select)
+    assert options[0] == ("auto", "Auto (follows Face looks)"), options
+    assert {value for value, _ in options} == {"auto", "masculine", "feminine"}
+    assert '"atlas-look": "auto"' in settings
+    look = atlas[atlas.index("function atlasLook()") :]
+    look = look[: look.index("\n}\n")]
+    assert 'if (own === "feminine" || own === "masculine") return own;' in look
+    assert 'appearancePref("face-look", "mixed") === "feminine"' in look
+    face = settings[settings.index('$("face-look").addEventListener') :]
+    face = face[: face.index("});")]
+    assert "atlasRepaint()" in face, "a Face looks change leaves an Auto Atlas in the old look"
+
+
 def test_atlas_hears_a_saved_note_and_a_streak() -> None:
     # A saved note makes Atlas proud while the companion holds up a tiny
     # note (its "carry" errand, which counts as a cheer), and the

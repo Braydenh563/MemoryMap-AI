@@ -375,9 +375,10 @@ const ATLAS_LOOKS = {
   },
 };
 
-//: Which look: Atlas's own setting when one is stored (Settings,
-//: Appearance, Atlas look), otherwise it follows Face looks (the owner:
-//: the male version is the main one; the feminine one is its own look).
+//: Which look: Atlas's own setting when it is Masculine or Feminine
+//: (Settings, Appearance, Atlas look), otherwise, on Auto (the default) or
+//: with nothing stored, it follows Face looks (the owner: the male version
+//: is the main one; the feminine one is its own look).
 function atlasLook() {
   let own = null;
   try {

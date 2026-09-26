@@ -10,9 +10,6 @@ two decisions only the owner can take are INBOX 427.
 - **The feminine look has no legs**, so the companion's walk, kick and
   dangle move nothing on it; a ribbon sway on `.atl-lower` under the same
   classes would answer them. [atlas-fable]
-- **Settings, Appearance, Atlas look reads "masculine" when nothing is
-  stored**, while Atlas then follows Face looks; an "Auto (follows Face
-  looks)" option would say what happens. [atlas-fable]
 - **Three CSP "inline style" warnings on the avatar lab's console** come
   from a `style` attribute in avatars.js's generated faces; harmless there,
   worth a grep. [atlas-fable]

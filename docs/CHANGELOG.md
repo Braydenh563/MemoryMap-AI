@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Right-clicking the round grip in the middle of a selected link (or either end's grip) opens the link's menu, the same one a right-click on the line opens; on a mind map, the cross-link's ring. It did nothing before.
 - Changing the graph's layout, or leaving the Graph tab, in the moment after opening it for the first time no longer throws "setGraphPhysicsEnabled is not defined" or "graphSimulation is not defined". The Graph, Library and Documents pages ignore presses until their code has arrived, which on a first visit is a fraction of a second.
 - Exporting the graph as a picture from the SVG renderer no longer fills the browser console with thousands of "Refused to apply inline style" errors; the picture was always right, the noise is gone.
 - A big graph names its landmarks. Zoomed out, the best-connected notes in view carry their names instead of none at all; zoomed in, a name that has no room under its dot tries above it, then beside it, so more than twice as many notes are named, and the hubs in the busy middle of the map are among them. Names still never overlap.

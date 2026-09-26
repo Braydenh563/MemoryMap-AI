@@ -231,6 +231,28 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     `${crossRing.label}: ${crossRing.slots.join(", ")}`);
   await page.evaluate(() => wbCloseMapLinkRadial());
 
+  //: MINDMAP_PLAN 13c's leftover: the selected cross-link's bend grip sits on
+  //: its mid-point, in the overlay layer rather than inside the link's own
+  //: group, so a right-click there reached neither the link's menu nor the
+  //: canvas's and did nothing. It is the most natural place on the line to
+  //: right-click, being the thing that is drawn to be grabbed.
+  await page.waitForTimeout(300);
+  const grip = await page.evaluate(() => {
+    const el = document.querySelector("circle.wb-link-bend-handle");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  if (grip) await page.mouse.click(grip.x, grip.y, { button: "right" });
+  await page.waitForTimeout(600);
+  const gripRing = await page.evaluate(() => {
+    const ring = document.getElementById("wb-map-link-radial");
+    return { visible: !ring.classList.contains("hidden"), label: ring.getAttribute("aria-label") || "" };
+  });
+  check("right-clicking the cross-link's bend grip opens the same ring", Boolean(grip) && gripRing.visible && gripRing.label.includes("cross-link"),
+    grip ? `ring ${gripRing.visible}, ${gripRing.label}` : "no bend grip drawn");
+  await page.evaluate(() => wbCloseMapLinkRadial());
+
   // The same ring on the other kind says the other thing.
   const branchRing = await page.evaluate(async (childId) => {
     wbOpenMapLinkRadial(childId, 600, 400);

@@ -40,11 +40,13 @@ function measure(sel) {
   }
   const over = bar.querySelectorAll('.doc-toolbar-over').length;
   const more = bar.querySelector('.doc-toolbar-more');
+  const layout = bar.querySelector('.doc-toolbar-layout');
   return {
     controls: rects.length, outside, overlaps,
     sideways: bar.scrollWidth - bar.clientWidth,
     h: Math.round(br.height), w: Math.round(br.width),
     folded: over, more: more ? !more.hidden : null,
+    layout: layout ? (layout.checkVisibility() ? 'shown' : 'folded') : null,
   };
 }
 
@@ -76,7 +78,9 @@ function check(label, m) {
 (async () => {
   for (const mode of MODES) {
     for (const width of WIDTHS) {
-      const { browser, page, ctx } = await boot({ viewport: { width, height: 800 } });
+      // TOUCH=1: a coarse pointer (hasTouch + isMobile), for the touch floor.
+      const touch = Boolean(process.env.TOUCH);
+      const { browser, page, ctx } = await boot({ viewport: { width, height: 800 }, hasTouch: touch, isMobile: touch });
       await page.evaluate((m) => {
         localStorage.setItem('doc-toolbar-mode', m);
         localStorage.setItem('doc-toolbar-mode-migrated-2026-09-09', '1');
@@ -97,7 +101,41 @@ function check(label, m) {
       });
       await page.evaluate(() => setDocView('live'));
       await page.waitForTimeout(600);
-      check(`${mode} ${width} normal`, await page.evaluate(measure, '#doc-toolbar'));
+      const m0 = await page.evaluate(measure, '#doc-toolbar');
+      check(`${mode} ${width} normal`, m0);
+      if (mode === 'row' && m0.more) {
+        // The layout toggle: folded behind More only on a strip under 600px,
+        // and back when More is open.
+        const wantFolded = m0.w < 600;
+        const openLayout = await page.evaluate(() => {
+          const bar = document.getElementById('doc-toolbar');
+          bar.querySelector('.doc-toolbar-more').click();
+          const shown = bar.querySelector('.doc-toolbar-layout').checkVisibility();
+          bar.querySelector('.doc-toolbar-more').click();
+          return shown;
+        });
+        const lbad = (m0.layout === 'folded') !== wantFolded || !openLayout;
+        if (lbad) failures++;
+        console.log(`${lbad ? 'FAIL' : 'ok  '} ${mode} ${width} layout toggle`, JSON.stringify({ w: m0.w, layout: m0.layout, withMoreOpen: openLayout ? 'shown' : 'missing' }));
+        // A content change at a constant width: hide the first three tools,
+        // and the row must take back tools it had folded, then fold them again.
+        const cc = await page.evaluate(async () => {
+          const bar = document.getElementById('doc-toolbar');
+          const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const count = () => bar.querySelectorAll('.doc-toolbar-over').length;
+          const before = count();
+          const first = [...bar.querySelectorAll(':scope > button')].slice(0, 3);
+          for (const b of first) b.hidden = true;
+          await frames();
+          const hiddenThree = count();
+          for (const b of first) b.hidden = false;
+          await frames();
+          return { before, hiddenThree, after: count(), w: Math.round(bar.getBoundingClientRect().width) };
+        });
+        const cbad = !(cc.hiddenThree < cc.before && cc.after === cc.before);
+        if (cbad) failures++;
+        console.log(`${cbad ? 'FAIL' : 'ok  '} ${mode} ${width} refit on content change`, JSON.stringify(cc));
+      }
       if (width < 600) check(`${mode} ${width} phone bar`, await page.evaluate(measure, '#doc-phone-bar'));
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/tb-${mode}-${width}-normal.png`, clip: { x: 0, y: 0, width, height: 320 } });
 
@@ -126,16 +164,42 @@ function check(label, m) {
       }
       const fp = await page.$('#doc-focus-prose');
       if (fp) {
+        // The grip's width, set on the page, carries into focus mode.
+        const gripW = await page.evaluate(() => docProseApplyWidth(400));
         await fp.click();
         await page.waitForTimeout(500);
         const p2 = await page.evaluate(prose);
-        const bad = p2.hidden || p2.sideways > 0 || p2.cut.length;
+        const geo = await page.evaluate(() => {
+          const panel = document.getElementById('doc-prose-panel').getBoundingClientRect();
+          const bar = document.getElementById('doc-toolbar');
+          const barR = bar.checkVisibility() ? bar.getBoundingClientRect().right : 0;
+          return { panelLeft: Math.round(panel.left), barRight: Math.round(barR) };
+        });
+        // Above 720 the grip width, held to half the window; on a phone the
+        // window less its two --space-4 gutters.
+        const want = width > 720 ? Math.min(gripW, width / 2) : width - 2 * 9.6;
+        p2.gripW = gripW; p2.want = Math.round(want); Object.assign(p2, geo);
+        const under = width > 720 && geo.barRight > geo.panelLeft + 0.5;
+        const bad = p2.hidden || p2.sideways > 0 || p2.cut.length || Math.abs(p2.w - want) > 1.5 || under;
         if (bad) failures++;
         console.log(`${bad ? 'FAIL' : 'ok  '} ${mode} ${width} focus suggestions`, JSON.stringify(p2));
         if (SHOTS && mode === MODES[0]) await page.screenshot({ path: `${SHOTS}/prose-${width}-focus.png` });
       } else {
         failures++;
         console.log(`FAIL ${mode} ${width} focus: no Suggestions on the floating dock`);
+      }
+      if (touch) {
+        // The touch floor on this round's controls: the floating dock's
+        // toggles, More, and the suggestions head (open here in focus mode).
+        const small = await page.evaluate(() => {
+          const sel = '#doc-focus-bar button, #doc-toolbar .doc-toolbar-tools button, #doc-prose-panel .doc-prose-tools button';
+          return [...document.querySelectorAll(sel)].filter((b) => b.checkVisibility()).map((b) => {
+            const r = b.getBoundingClientRect();
+            return [(b.getAttribute('aria-label') || b.textContent).trim().slice(0, 20), Math.round(r.width), Math.round(r.height)];
+          }).filter(([, w, h]) => Math.min(w, h) < 43.5);
+        });
+        if (small.length) failures++;
+        console.log(`${small.length ? 'FAIL' : 'ok  '} ${mode} ${width} touch floor`, JSON.stringify(small));
       }
       await browser.close();
     }

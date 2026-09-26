@@ -3611,6 +3611,21 @@ function wbUpdateSelectionBar() {
     bar.dataset.wbAnchor = "top";
     left = rect.left - hostRect.left + 8;
     y = floor;
+    //: **Pinned to the other edge when the top band is where the selection
+    //: is** (uipolish-0924 item C, `#wb-context`). The cost recorded above
+    //: was still paid: 3 of the sweep's 10 selections, the ones high on the
+    //: board, sat under the band that edits them (6080, 6719 and 319px2).
+    //: Such a selection gets the band at the foot of the canvas instead,
+    //: just above the rail, which is still one of two fixed places and
+    //: never on the tools; a selection tall enough to meet both keeps the
+    //: top, as before.
+    const rail = document.getElementById("wb-tool-group")?.getBoundingClientRect();
+    const foot = (rail && rail.height ? rail.top - hostRect.top : rect.bottom - hostRect.top) - h - gapBelow;
+    const under = (at) => top < at + h && bottom > at;
+    if (under(y) && foot > y && !under(foot)) {
+      bar.dataset.wbAnchor = "bottom";
+      y = foot;
+    }
   } else {
     //: **And the bar stays on the canvas.** `left` has been clamped to the
     //: host since this bar was built; `y` never was, so a selection low on

@@ -70,3 +70,33 @@ def test_the_suggestions_panel_fits_its_own_width() -> None:
     assert "words.title" in line and "why.title" in line, (
         "an ellipsised finding row does not carry its whole text in a title"
     )
+
+
+def test_the_grip_width_lives_on_the_tab_page() -> None:
+    """Focus mode's side panel and the page's padding beside it read the width
+    the grip set; only a property on their common ancestor gives both one
+    number (on the panel, the padding's `var()` computed to 0)."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    assert '($("tab-documents") || panel).style.setProperty("--doc-prose-w"' in docs
+    css = "".join(
+        re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S)
+        for p in sorted((ROOT / "frontend" / "css").glob("*.css"))
+    )
+    assert re.search(r"#tab-documents\s*\{\s*--doc-prose-w:", css)
+    assert not re.search(r"\.doc-prose-panel\s*\{[^}]*--doc-prose-w:", css)
+    assert re.search(r"--doc-focus-prose-w:\s*min\(var\(--doc-prose-w\)", css)
+
+
+def test_a_narrow_panels_head_buttons_are_one_icon_group() -> None:
+    """Image 92: worded, the head's buttons took two rows of their own in the
+    right dock, the close alone on the second. Below 26rem their words are
+    visually hidden (never dropped) and they sit as one row of squares;
+    Fix N keeps its number."""
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    block = css[css.index("@container doc-prose (max-width: 26rem)"):]
+    block = block[: block.index("\n}\n")]
+    assert ".doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text" in block
+    assert "clip-path: inset(50%)" in block
+    assert "justify-content: flex-end" in block
+    assert "flex-basis: 100%" not in block

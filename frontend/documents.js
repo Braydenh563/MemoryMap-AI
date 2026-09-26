@@ -11641,7 +11641,9 @@ function toggleDocFocus(force) {
   } else {
     docFocusWatch(false);
     clearTimeout(docFocusIdleTimer);
-    if (docFocusOwnsFullscreen && document.fullscreenElement) {
+    if (docFocusOwnsFullscreen && docDesktopFs().full) {
+      docDesktopFullscreenToggle().then(docFocusSyncFullscreen);
+    } else if (docFocusOwnsFullscreen && document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {});
     }
     docFocusOwnsFullscreen = false;
@@ -11664,8 +11666,21 @@ function docFocusFill() {
   docSetStatusText($("doc-focus-saved"), $("doc-saved")?.textContent || "");
   renderDocCounts();
   const full = $("doc-focus-fullscreen");
-  if (full) full.hidden = !document.fullscreenEnabled;
+  if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
   docFocusSyncFullscreen();
+  //: Asked once, then kept: whether this page is in the desktop window,
+  //: whose own full screen is the one that fills the monitor.
+  if (!docDesktopFs().asked) {
+    docDesktopFs().asked = true;
+    apiJson("/desktop/fullscreen")
+      .then((state) => {
+        docDesktopFs().available = !!state?.available;
+        docDesktopFs().full = !!state?.fullscreen;
+        if (full) full.hidden = !document.fullscreenEnabled && !docDesktopFs().available;
+        docFocusSyncFullscreen();
+      })
+      .catch(() => {});
+  }
 }
 
 function docFocusWatch(on) {
@@ -11739,10 +11754,37 @@ function docFocusKey(event) {
 //: browser's or the desktop window's frame as well. A refusal (an iframe
 //: without permission, a webview that does not implement it) changes
 //: nothing but a toast.
+//:
+//: **In the desktop window it is the window that fills the screen** (INBOX
+//: 426 z, images 93 and 94: "Fill the whole screen" did nothing there). The
+//: web view granted the page its full screen, the button turned to "Leave
+//: full screen", and the window did not move: a web view's full screen fills
+//: the web view, and resizing the window around it is the host's job, which
+//: pywebview does not do. So where the server says there is a window
+//: (`GET /desktop/fullscreen`, core/window_hook.py) the window is asked, and
+//: the browser's API is used everywhere else. The state hangs off a hoisted
+//: function rather than a `let`: `docFocusFill` can run before this part of
+//: the file has, and a `let` would be in its temporal dead zone then.
+function docDesktopFs() {
+  docDesktopFs.state ||= { asked: false, available: false, full: false };
+  return docDesktopFs.state;
+}
+
+async function docDesktopFullscreenToggle() {
+  try {
+    const state = await apiJson("/desktop/fullscreen", { method: "POST" });
+    docDesktopFs().available = !!state?.available;
+    docDesktopFs().full = !!state?.fullscreen;
+    return docDesktopFs().available;
+  } catch {
+    return false;
+  }
+}
+
 function docFocusSyncFullscreen() {
   const button = $("doc-focus-fullscreen");
   if (!button) return;
-  const full = !!document.fullscreenElement;
+  const full = docDesktopFs().available ? docDesktopFs().full : !!document.fullscreenElement;
   button.setAttribute("aria-pressed", String(full));
   button.title = full ? "Leave full screen" : "Fill the whole screen";
   button.setAttribute("aria-label", button.title);
@@ -11751,6 +11793,16 @@ function docFocusSyncFullscreen() {
 }
 
 async function docFocusToggleFullscreen() {
+  if (docDesktopFs().available) {
+    if (await docDesktopFullscreenToggle()) {
+      docFocusOwnsFullscreen = docDesktopFs().full;
+    } else {
+      toast("Full screen is not available in this window.", true);
+    }
+    docFocusSyncFullscreen();
+    docSurface()?.focus();
+    return;
+  }
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen();
@@ -12301,7 +12353,7 @@ function fitDocToolbarRow(bar) {
   const open = bar.classList.contains("is-more-open");
   //: Measured as the closed row, whatever the reader has open: what fits is
   //: a fact about the row, and the open state is put back afterwards.
-  bar.classList.remove("is-more-open");
+  bar.classList.remove("is-more-open", "is-layout-folded");
   for (const el of items) el.classList.remove("doc-toolbar-over");
   more.hidden = true;
   const style = getComputedStyle(bar);
@@ -12309,11 +12361,21 @@ function fitDocToolbarRow(bar) {
     !bar.classList.contains("is-collapsed") &&
     style.flexWrap === "nowrap";
   if (measurable) {
-    const edge = bar.getBoundingClientRect().right -
+    const box = bar.getBoundingClientRect();
+    const edge = box.right -
       parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
     const fits = () => tools.getBoundingClientRect().right <= edge + 0.5;
     if (!fits()) {
       more.hidden = false;
+      //: **On a narrow strip the layout toggle is the first thing folded**
+      //: (INBOX 426 a, round 2). At 360 the strip's own group (More,
+      //: layout, line numbers, collapse) took 176 of a 300px row and left
+      //: room for two tools. The layout toggle is the one of the four a
+      //: reader sets once, so under 600px it goes behind More with the
+      //: tools, and comes back on the open strip's last row. Only when
+      //: something is folded anyway: a strip whose tools all fit keeps it,
+      //: so it is never out of reach.
+      if (box.width < 600) bar.classList.add("is-layout-folded");
       for (let i = items.length - 1; i >= 0 && !fits(); i--) {
         items[i].classList.add("doc-toolbar-over");
         //: A menu folded while open would stay open with nothing to anchor
@@ -12336,7 +12398,8 @@ function syncDocToolbarMore(bar) {
   const more = bar.querySelector(".doc-toolbar-more");
   if (!more) return;
   const open = bar.classList.contains("is-more-open");
-  const count = bar.querySelectorAll(".doc-toolbar-over:not(.doc-toolbar-sep)").length;
+  const count = bar.querySelectorAll(".doc-toolbar-over:not(.doc-toolbar-sep)").length +
+    (bar.classList.contains("is-layout-folded") ? 1 : 0);
   more.setAttribute("aria-expanded", String(open));
   more.setAttribute("aria-pressed", String(open));
   more.title = open
@@ -12367,6 +12430,61 @@ function watchDocToolbarWidth(bar) {
   });
   delete bar.dataset.fitWidth;
   watchDocToolbarWidth.observer.observe(bar);
+  watchDocToolbarContents(bar);
+}
+
+//: **Refitted when the row's contents change, too** (INBOX 426 a, round 2).
+//: A width is not the only thing that decides what fits: the extras
+//: (`mountEditorToolbarExtras`) are appended after the strip is first
+//: measured, and a control shown or hidden at a constant width (by file
+//: type, by a setting) moves the end of the row without resizing the strip,
+//: so the row stayed folded for tools that had gone, or ran under the end
+//: group for tools that had come, until the next resize.
+//:
+//: The observer sees every attribute change in the strip, and most of them
+//: are no reason to measure: the bold button gains `active` on every cursor
+//: move, and the fit itself folds tools with a class. So each change is
+//: reduced to a signature of what the row lays out (which direct children
+//: exist and whether each is hidden by the page, not by the fit) and the
+//: strip is refitted only when that signature moved, once per frame at most.
+function docToolbarLayoutSignature(bar) {
+  let sig = "";
+  for (const el of bar.children) {
+    if (el.classList.contains("doc-toolbar-tools")) continue;
+    const gone = el.hidden || el.classList.contains("hidden") || el.style.display === "none";
+    sig += `${el.tagName[0]}${gone ? 0 : 1}${el.textContent.length},`;
+  }
+  return sig;
+}
+
+function watchDocToolbarContents(bar) {
+  if (typeof MutationObserver !== "function") return;
+  //: Kept in a set, not marked on the element: the note edit form's strip is
+  //: a clone of the capture strip and a data attribute would arrive with it,
+  //: so the clone would think it was already watched. A property of this
+  //: function, for the same hoisting reason as the width observer's.
+  watchDocToolbarContents.seen ||= new WeakSet();
+  if (watchDocToolbarContents.seen.has(bar)) return;
+  watchDocToolbarContents.seen.add(bar);
+  let sig = docToolbarLayoutSignature(bar);
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const next = docToolbarLayoutSignature(bar);
+      if (next === sig) return;
+      sig = next;
+      fitDocToolbarRow(bar);
+    });
+  }).observe(bar, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["hidden", "class", "style"],
+  });
 }
 
 function fitDocToolbars() {
@@ -14840,7 +14958,9 @@ function docProseApplyWidth(width) {
   const room = panes.getBoundingClientRect().width || window.innerWidth;
   const max = Math.max(DOC_PROSE_WIDTH_MIN, Math.round(room * 0.5));
   const clamped = Math.min(Math.max(Math.round(width), DOC_PROSE_WIDTH_MIN), max);
-  panel.style.setProperty("--doc-prose-w", `${clamped}px`);
+  //: On the tab page, not the panel: focus mode's side panel and the page's
+  //: padding beside it read the same property (07-whiteboard-misc.css).
+  ($("tab-documents") || panel).style.setProperty("--doc-prose-w", `${clamped}px`);
   try {
     localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
   } catch {

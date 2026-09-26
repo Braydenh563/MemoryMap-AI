@@ -3003,13 +3003,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      "a card's menu" step judged the button covered. The title keeps room for
      both, reserved rather than taken. */
   .library-card .library-card-top {
-    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-1));
+    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-2));
   }
 
   .library-card .library-card-tick {
     position: absolute;
     top: var(--space-3);
-    right: calc(var(--space-3) + var(--target-min) + var(--space-1));
+    right: calc(var(--space-3) + var(--target-min) + var(--space-2));
     margin: 0;
     z-index: 1;
     opacity: 0;
@@ -3512,6 +3512,34 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 :is(.persona-row, .skill-row) > :is(.persona-preview, .skill-blurb) {
   order: 10;
+}
+
+/* **A named item is two lines, not two lines and their margins**
+   (uipolish-0924, item 5: "the Skills list rows are ~78px each", twenty
+   built-ins, a 1,806px list). Measured at 1440: a 24px title line and a 20px
+   description inside 78px, because the description sat 13px under the
+   title (the row's 6.4px gap plus its own 6.4px margin), each row carried
+   the generic entry card's 9.6px padding, and a custom item's Edit and
+   Delete (36px buttons, hidden until pointed at) made its title line 36px
+   tall for controls nobody could see. The name and what it does belong
+   together: 4px between them, the card's inset one step in, and the
+   actions laid over the inset instead of growing the line they sit on.
+   Personas share the row, so they get the same. */
+.entry-list > li:has(> :is(.skill-row, .persona-row)) {
+  padding-block: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+:is(.persona-row, .skill-row) {
+  row-gap: var(--space-1);
+}
+
+.skill-row > .skill-blurb {
+  margin-top: 0;
+}
+
+:is(.persona-row, .skill-row) > .entry-actions {
+  margin-block: calc(var(--space-2) * -1);
 }
 
 /* A group label that sits straight in the pane (Personas' "Dashboard
@@ -7211,6 +7239,24 @@ main,
   }
 }
 
+/* **And between 600 and 1100, the same decision** (round 2 hole-poking,
+   `touch.js` at 820 and 1024 with a coarse pointer): the band still took
+   its toasts from the top, full width under the header, and a due
+   reminder's toast sat over all four Notes sub-tabs (every tab's centre
+   answered the toast, not the tab). Off Chat the toast goes back to the
+   corner a desktop gives it, above the status bar; on Chat, whose foot is
+   the composer and its mode switch (the reason the band went to the top),
+   it stays up. */
+@media (min-width: 600px) and (max-width: 1099.98px) {
+  body:not(:has(#tab-chat:not(.hidden))) #toast-box {
+    top: auto;
+    left: auto;
+    right: var(--space-4);
+    bottom: calc(var(--status-bar-h) + var(--space-3));
+    align-items: flex-end;
+  }
+}
+
 /* **A view toggle's resting half is empty** (the owner, 2026-09-24: the list
    and cards toggles in Notes and the Library "dont have a clear active
    state on the default view"). Measured: the resting button carried
@@ -7378,4 +7424,116 @@ input[type="file"]::file-selector-button:hover {
 .entry-links > .entry-links-more {
   color: var(--muted);
   font-size: var(--text-sm);
+}
+
+/* **Settings does not blur what it scrolls over** (INBOX 426 u: "scrolling
+   up and down on the settings page is slow and laggy"). The dialog is two
+   blur passes the size of the window, the overlay's 4px over the page and
+   the card's own `--glass-blur` over that, and both are redrawn on every
+   frame the pane scrolls, because the scrolling text is inside both of
+   their surfaces. Measured with glass on, wheeling Appearance in headless
+   Chromium (`scrolljump.js`, its frame p50): 83 to 100ms a frame with both,
+   50 with either one alone, 16.7 with neither (a blur moved to a static
+   pseudo-element behind the text measured the same 50 to 117, so there is
+   no layer trick). DESIGN.md's rule is the one this applies: blur belongs
+   where something scrolls under a surface, and a window-sized surface whose
+   own contents scroll is the case it names as the cost. The overlay keeps
+   its dim, the card takes the solid modal ground. */
+#settings-modal.modal-overlay {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#settings-modal > .modal-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--modal-bg-opaque);
+}
+
+/* The pane takes the focus when a section is picked with the pointer
+   (`focusSettingsPane`, settings.js) so the reading keys scroll it; that
+   focus is not a place to draw a ring. */
+#settings-modal .modal-content:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* The profile autosave's status row (index.html, `.prefs-save-row`) takes
+   no room while it has nothing to say: its button is hidden and its two
+   status lines are empty until a save runs. Collapsed by its margin only,
+   never `display: none`, so its live regions stay in the tree and are read
+   out when they fill. */
+#settings-modal .settings-section .prefs-save-row:not(:has(> :not(.hidden):not(:empty))) {
+  margin-top: 0;
+}
+
+/* --- Library Activity, one line per record (INBOX 426 z, images 89, 90) -----
+   when, what, the detail, on three tracks that are the same on every row.
+   In Rows the generic list tracks applied as well: the meta's
+   `margin-left: auto` (there to push a row's date to its right edge) sat
+   on the time, which is drawn first here, so on every row without a detail
+   the time and the title slid across to the right, x 1227 against 173 on
+   the row above. The time keeps its 7rem at the start in both views, the
+   title a fixed track, and the detail takes the rest. */
+@media (min-width: 721px) {
+  .library-grid .library-card.library-activity > .library-card-meta {
+    order: -1;
+    flex: 0 0 7rem;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  /* No room kept for a tick: a record of the past has none to offer. */
+  .library-grid .library-card.library-activity > .library-card-top {
+    flex: 0 0 16rem;
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .library-grid .library-card.library-activity .library-card-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* --- the selection tick in Rows (INBOX 426 z, image 91) ---------------------
+   The tick's corner (top right, one ⋯ in from the edge) is the grid card's
+   corner. In Rows the ⋯ sits in the flow at the row's end and the date
+   right-aligned before it, so the tick landed on "2 weeks ago" and against
+   the ⋯ with no gap. In Rows it is centred on the row, a `--space-2` gap
+   before the ⋯, and the date track leaves it the room. */
+@media (hover: hover) {
+  .library-list .library-card .library-card-tick {
+    top: 50%;
+    translate: 0 -50%;
+    right: calc(var(--space-5) + var(--target-min) + var(--space-2));
+  }
+
+  .library-list .library-card:has(.library-card-tick) > .library-card-meta {
+    padding-right: calc(1.5rem + var(--space-2));
+  }
+}
+
+/* **Atlas in the guide's head is an avatar, sized to the title beside it**
+   (INBOX 426 z, image 86). The head clones the Help page's 32px mark, and
+   the bust atlas.js draws in it paints past its own box (the rings and the
+   body below the shoulders, 47 by 62px from a 32px box, measured), so the
+   figure hung 28px below the head and its middle sat 15px under the
+   middle of the two lines it belongs to. Here the mark is a disc the height
+   of those two lines, the drawing kept inside it the way a profile picture
+   is, head and shoulders in the round, on the mark's own accent-soft
+   ground, and centred on the words by the head's own `align-items`. */
+.sheet-card-corner .sheet-title > .atlas-mark {
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+/* A step smaller than the disc and dropped a little, so the ears' tips,
+   which reach the viewBox's top corners, land inside the round and the
+   shoulders run out of its foot, the way a portrait is framed. */
+.sheet-card-corner .sheet-title > .atlas-mark > .nm-atlas {
+  width: 86%;
+  height: 86%;
+  translate: 0 8%;
 }

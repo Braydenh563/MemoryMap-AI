@@ -385,6 +385,30 @@ def clear_history() -> dict:
     return {"cleared": True}
 
 
+# --- the desktop window's full screen ------------------------------------------
+
+
+@router.get("/desktop/fullscreen")
+def desktop_fullscreen_state() -> dict:
+    """Whether this app runs in a window that can fill the screen itself.
+
+    `available` is false in a browser tab, where the page uses the browser's
+    own Fullscreen API (see `core.window_hook` for why the desktop window
+    cannot)."""
+    from memorymap.core import window_hook
+
+    return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
+
+
+@router.post("/desktop/fullscreen")
+def desktop_fullscreen_toggle() -> dict:
+    """Put the desktop window into full screen, or take it out."""
+    from memorymap.core import window_hook
+
+    state = window_hook.toggle()
+    return {"available": state is not None, "fullscreen": bool(state)}
+
+
 # --- shutting the app down cleanly -------------------------------------------
 
 

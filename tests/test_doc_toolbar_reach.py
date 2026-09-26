@@ -102,3 +102,35 @@ def test_focus_mode_keeps_a_way_to_the_tools() -> None:
     assert any("#doc-toolbar" in s for s in shows) and any(".doc-dock" in s for s in shows), (
         "the focus mode's Tools does not bring back the dock and the formatting strip"
     )
+
+
+def test_a_strip_is_refitted_when_its_contents_change() -> None:
+    """A control shown or hidden at a constant width moves the end of the row
+    without resizing the strip; the width observer alone missed it, so the
+    strip also watches its children, and refits only when what it lays out
+    changed (the bold button's `active` class is not a reason)."""
+    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    watch = docs[docs.index("function watchDocToolbarWidth"):]
+    watch = watch[: watch.index("\nfunction fitDocToolbars")]
+    assert "watchDocToolbarContents(bar)" in watch
+    assert "new MutationObserver(" in watch
+    assert "docToolbarLayoutSignature(bar)" in watch
+    assert "if (next === sig) return;" in watch
+
+
+def test_a_narrow_strip_folds_its_layout_toggle_first() -> None:
+    """At 360 the strip's own group took 176 of a 300px row. Under 600px the
+    layout toggle goes behind More, but only when something is folded
+    anyway, so a strip whose tools all fit keeps it in reach."""
+    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    fit = docs[docs.index("function fitDocToolbarRow"):]
+    fit = fit[: fit.index("\nfunction syncDocToolbarMore")]
+    folded = fit.index('bar.classList.add("is-layout-folded")')
+    assert fit.index("if (!fits()) {") < folded, "the toggle folds only when More is needed"
+    assert "box.width < 600" in fit
+    hides = [
+        selector
+        for _name, selector, body in _rules()
+        if ".is-layout-folded" in selector and _props(body).get("display") == "none"
+    ]
+    assert hides and all(":not(.is-more-open)" in s for s in hides), hides

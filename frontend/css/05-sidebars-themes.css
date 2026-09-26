@@ -1847,6 +1847,12 @@ body.resizing-sidebar {
   flex-wrap: wrap;
 }
 
+/* A narrow strip folds its layout toggle behind More before any tool
+   (`fitDocToolbarRow`); pressed, More brings it back with the rest. */
+.doc-toolbar.is-layout-folded:not(.is-more-open) .doc-toolbar-layout {
+  display: none;
+}
+
 /* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
 .doc-toolbar .doc-toolbar-more[hidden] {
   display: none;
@@ -3975,8 +3981,14 @@ button.is-on {
   /* One row on a phone, as the one-row mode is: what does not fit is
      behind More (`fitDocToolbarRow`), never behind a scrollbar that is not
      even drawn (INBOX 426 a: it was `overflow-x: auto` with the bar hidden,
-     so two thirds of the strip at 360px could only be found by accident). */
-  .doc-toolbar {
+     so two thirds of the strip at 360px could only be found by accident).
+     **Only a strip the fit has been mounted on** (round 2, errors.js at
+     390): documents.js is loaded lazily, so on the Notes tab before the
+     Library has ever been opened the capture strip has no More and no
+     fit, and a one-row strip there was cut at the card's edge with
+     Bulleted list, Task, Link and Preview past it. Without its group it
+     wraps, which loses nothing. */
+  .doc-toolbar:has(> .doc-toolbar-tools) {
     flex-wrap: nowrap;
   }
 
@@ -4626,9 +4638,15 @@ textarea.autogrow {
 
 /* The findings themselves. A list, under the bar that counts them, so opening
    it does not cover the document it is about. */
-.doc-prose-panel {
-  /* The right dock's width (`applyDocProseDock`); the grip writes it inline. */
+/* The right dock's width (`applyDocProseDock`). Declared on the tab page,
+   not the panel, and the grip writes it there too: focus mode's side panel
+   and the page's padding beside it both read it, and only an ancestor of
+   both can give them one number. */
+#tab-documents {
   --doc-prose-w: 20rem;
+}
+
+.doc-prose-panel {
   /* **Sized by its own width, not the window's** (INBOX 426 b: "the
      suggestions panel doesnt adapt properly to the sidebar"). The same panel
      is a 20rem column on the right, a band the width of the editor at the
@@ -5422,10 +5440,48 @@ textarea.autogrow {
 /* A narrow panel (the right dock, a phone, focus mode's side panel): the
    count has the first line to itself and the buttons start under it at the
    same left edge, rather than a ragged right-aligned block beside a word. */
+/* **A narrow panel's head is one row: the count, then a group of icon
+   buttons** (INBOX 426 z, image 92: "the docked Suggestions header buttons
+   wrap badly"). Worded, the four buttons took two rows of their own under
+   the count in the 320px right dock, the close alone on the second. Below
+   26rem their words go, the `.toolbar-word` recipe's way (hidden, not
+   dropped: each button's title and aria-label name it, and the word is
+   still read out), and each takes the icon-only square, so Check with AI,
+   Dictionary, the dock and the close sit beside the count in one group.
+   Fix N keeps its words: its number is the thing it says. */
 @container doc-prose (max-width: 26rem) {
+  /* The count is never cut ("7 sugg…" beside Fix 2 was measured): when the
+     group does not fit beside it, the whole group moves to the next line,
+     at the right, still one row. */
   .doc-prose-tools {
-    flex-basis: 100%;
-    justify-content: flex-start;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-inline-start: auto;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all):has(.ph-text) {
+    aspect-ratio: 1;
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .doc-prose-tools > button:not(.doc-prose-fix-all) > .ph-lead {
+    margin-inline-end: 0;
   }
 }
 

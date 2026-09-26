@@ -42031,7 +42031,45 @@ watchMirroredUiKeys();
 
 // Tabs (Wave A): switch pages, restore the last one used.
 for (const button of document.querySelectorAll("#tab-bar button")) {
-  button.addEventListener("click", () => switchTab(button.dataset.tab));
+  button.addEventListener("click", (event) => {
+    switchTab(button.dataset.tab);
+    if (event.detail > 0) focusTabPage(button);
+  });
+}
+
+//: **A tab chosen with the pointer hands the reading keys to its page**
+//: (INBOX 426 u, "a lot of pages keep auto scrolling or jumping"). The click
+//: left the focus on the tab button, so the keys a person then pressed to
+//: read the page went to the tab strip: measured on the dashboard, ArrowDown,
+//: PageDown and Space moved nothing, and Home and End (the keys for the top
+//: and the bottom of a page) switched to the first and last tab. The page's
+//: own scroller takes the focus instead, without scrolling, and only when
+//: the switch left it on the button: a tab that focuses its own field on
+//: arrival (Chat's composer) keeps that. From the keyboard (`detail` 0) the
+//: focus stays in the strip, where its arrows are expected.
+function focusTabPage(button) {
+  if (document.activeElement !== button) return;
+  const page = document.getElementById(`tab-${button.dataset.tab}`);
+  if (!page || !page.getClientRects().length) return;
+  const scrolls = (el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY) &&
+    el.scrollHeight > el.clientHeight + 1;
+  let target = scrolls(page) ? page : null;
+  if (!target) {
+    //: The page's biggest scrolling region: a tab whose own box does not
+    //: scroll (Notes, the Library) scrolls a list inside it.
+    let best = 0;
+    for (const el of page.querySelectorAll("*")) {
+      if (!el.getClientRects().length || !scrolls(el)) continue;
+      const area = el.clientWidth * el.clientHeight;
+      if (area > best) {
+        best = area;
+        target = el;
+      }
+    }
+  }
+  target ||= page;
+  if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) target.tabIndex = -1;
+  target.focus({ preventScroll: true });
 }
 // Arrow keys walk the tablist; Home/End jump to the ends (Wave L).
 //

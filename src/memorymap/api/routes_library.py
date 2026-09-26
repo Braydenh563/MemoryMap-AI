@@ -112,6 +112,19 @@ def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _clip_plain(text: str, limit: int) -> str:
+    """A log line's detail, clipped but never read as markdown.
+
+    INBOX 426 (z): a settings record is ``key=value`` in Python's spelling,
+    and `_clip` above strips emphasis, so the ``_find_`` in
+    ``disabled_tools=['find_contradictions']`` went as italics and the
+    Library printed "disabledtools=['findcontradictions']". Whitespace is
+    still folded, so a multi-line detail stays one line of the feed.
+    """
+    text = " ".join((text or "").split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 #: A pasted or dropped image lives as inline markdown in a note's own
 #: content (`![alt](url)`), never as an Attachment, only a sketch's drawing
 #: is stored that way. `thumb_by_entry` below only ever looks at Attachment
@@ -742,7 +755,7 @@ def _activity(session: Session) -> list[dict]:
                 "kind": "activity",
                 "id": row.id,
                 "title": f"{word} {thing}",
-                "preview": _clip(row.detail or "", ACTIVITY_DETAIL_CHARS),
+                "preview": _clip_plain(row.detail or "", ACTIVITY_DETAIL_CHARS),
                 "updated_at": row.created_at.isoformat(),
                 "detail": thing,
                 # An event has no size. Its recency is the only ordering that

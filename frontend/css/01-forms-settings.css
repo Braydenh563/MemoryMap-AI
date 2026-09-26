@@ -5106,11 +5106,11 @@ select {
    x=372 on the two rows of this block, which is the ragged edge in the
    report's screenshot. */
 #search-relevance-group .row > label {
-  flex: 0 0 var(--form-label-col-wide);
+  flex: 1 1 var(--form-label-col-wide);
 }
 
 #search-relevance-group .row > input {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 

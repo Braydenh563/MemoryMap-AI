@@ -22,23 +22,23 @@ Port 8811, data dir /tmp/mm-polish (86 notes, 30 images, 3 reminders).
 
 ## Left, in order
 
-1. Item C, rest of the sweep: the graph node panel, the whiteboard context
-   bar (`#wb-context`), sheets at 390, toasts. Scratch probes that did the
-   first half: `popups.js`, `deadbtn.js`, `kebab2.js` in the session
-   scratchpad (not committed); rewrite into `scratchpad/ui-sweeps/` if kept.
+1. Item C, rest of the sweep: sheets at 390 and toasts. The graph node
+   panel and `#wb-context` were done by the UI agent's round 2
+   (`scratchpad/ui-sweeps/popaudit.js`, clean at 1440, 820 and 390; see
+   `ui-426.md`), and the 600 to 1100 band's toast no longer covers the
+   Notes sub-tabs.
 2. `deadbtn.js` findings not yet triaged: Chat `#chat-export` and
    `#chat-delete` report another element (an `i.ph`) at their centre;
    Library cards near the window bottom are under the status bar footer
    (`FOOTER.edge-fade`), likely scroll-padding rather than a bug; check each.
-3. Icon-only buttons in dialogs stay 36px under a coarse pointer (widget
-   picker's move/remove, 390): the touch floor rule in 07-whiteboard-misc.css
-   excludes `.icon-only`; decide an icon-only floor app-wide.
+3. Icon-only buttons stay 36px under a coarse pointer outside dialogs, the
+   graph node sheet and the formatting strip (which have the floor now);
+   decide an icon-only floor app-wide.
 4. Item D, surface-by-surface pass (Notes list and capture, Chat, Library,
    Timeline, Reminders, Graph panels, Whiteboard bars, Settings sections):
    not started.
-5. Settings: the folded summaries with a '?' are 47px, the rest 36px; the
-   Skills list rows are ~78px each (20+ built-ins); Packages rows leave a
-   16px gap between the title row and the description.
+5. Settings: Packages rows leave a 16px gap between the title row and the
+   description. (The Skills rows are 66px now, `skillrows.js`.)
 
 ## Not verified
 

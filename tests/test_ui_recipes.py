@@ -1459,7 +1459,8 @@ FAILING_SURFACES = {
 
 def test_every_wired_surface_still_reports_its_own_failures() -> None:
     for name, whats in FAILING_SURFACES.items():
-        js = (ROOT / name).read_text(encoding="utf-8")
+        #: "frontend/app.js" is the app's code, every piece of it.
+        js = app_js_text() if name == "frontend/app.js" else (ROOT / name).read_text(encoding="utf-8")
         for what in whats:
             assert f'"{what}"' in js and "surfaceFailed(" in js, (
                 f"{name} no longer reports a failed read for {what!r}: a surface "

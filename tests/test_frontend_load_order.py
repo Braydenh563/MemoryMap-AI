@@ -37,6 +37,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import app_js_files, app_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 INDEX = FRONTEND / "index.html"
@@ -199,14 +201,18 @@ def test_every_lazy_name_app_js_reads_at_load_has_a_stand_in():
         for function in re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", source, re.M):
             lazy_functions.setdefault(function, name)
 
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    #: "app.js" is the app's code, every piece of it (tests/_app_js.py): the
+    #: split into files did not change which names are read at load, only
+    #: where, so every piece's top level is read here.
+    app = app_js_text()
     #: app.js's own declarations win: a name it defines is its, and the install
     #: loop skips it for exactly that reason.
     own = set(re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", app, re.M))
     stand_ins = _stand_ins()
 
     missing: list[str] = []
-    for line in _top_level(app).split("\n"):
+    top = "\n".join(_top_level(path.read_text(encoding="utf-8")) for path in app_js_files())
+    for line in top.split("\n"):
         code = re.sub(r'"[^"]*"|\'[^\']*\'|`[^`]*`', '""', line).split("//")[0]
         for match in re.finditer(r"[A-Za-z_$][\w$]*", code):
             function = match.group(0)
@@ -277,20 +283,32 @@ def test_app_js_does_not_read_a_later_scripts_constant_at_load():
     app.js's top-level lines and, one level down, the bodies of the functions
     those lines call as statements. A read inside a function that only runs
     later (a click handler, a renderer) is fine, and `typeof X` is the guard."""
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    #: Since the app.js split, per piece: each piece of the app's code
+    #: (tests/_app_js.py) against the constants of every script after it,
+    #: the later pieces included, which is the split's own TDZ hazard
+    #: (appjs-split.md hazard 2). Bodies are looked up in the whole of the
+    #: app's code, since a piece may call a function an earlier one declared.
+    app = app_js_text()
     order = _script_order()
-    later: set[str] = set()
-    for name in order[order.index("app.js") + 1 :]:
-        later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
-    top = _top_level(app)
-    at_load = top
-    for function in {m.group(1) for m in STATEMENT_CALL.finditer(top)} - NOT_CALLS:
-        at_load += "\n" + _function_body(app, function)
-    hits = [
-        line.strip()[:80]
-        for line in at_load.split("\n")
-        for name in later
-        if re.search(r"(?<![\w$.])" + re.escape(name) + r"(?![\w$])", line.split("//")[0])
-        and "typeof " + name not in line
-    ]
+    hits: list[str] = []
+    for path in app_js_files():
+        later: set[str] = set()
+        for name in order[order.index(path.name) + 1 :]:
+            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+        top = _top_level(path.read_text(encoding="utf-8"))
+        at_load = top
+        for function in {m.group(1) for m in STATEMENT_CALL.finditer(top)} - NOT_CALLS:
+            at_load += "\n" + _function_body(app, function)
+        if not later:
+            continue
+        #: One pattern for all of them: a search per name per line was 200
+        #: seconds across 23 pieces, this is under two.
+        names = "|".join(sorted(map(re.escape, later), key=len, reverse=True))
+        read = re.compile(r"(?<![\w$.])(" + names + r")(?![\w$])")
+        hits += [
+            f"{path.name}: {line.strip()[:80]}"
+            for line in at_load.split("\n")
+            for name in {m.group(1) for m in read.finditer(line.split("//")[0])}
+            if "typeof " + name not in line
+        ]
     assert not hits, "app.js reads a later script's constant at load: " + "; ".join(hits)

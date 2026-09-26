@@ -3806,9 +3806,10 @@ function nameMarkBuddyUnheld() {
 //: **Following, only while something moves.** A frame loop runs for a
 //: second and a half after anything that can move a panel (a scroll, a
 //: resize, a click, a key, a transition or an animation starting, the tab
-//: page changing size) and stops when the page is still, so an idle page
-//: runs nothing. A slow look every two seconds catches what changes on its
-//: own (content arriving), eased rather than jumped.
+//: page changing size), and for as long as its panel is animating, and
+//: stops when the page is still, so an idle page runs nothing. A slow look
+//: every two seconds catches only what changes with nothing announcing it
+//: (content arriving above the panel), eased rather than jumped.
 const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0 };
 function nameMarkBuddyKeepUp(ms = 1500) {
   if (!nmb.glue) return;
@@ -3818,7 +3819,52 @@ function nameMarkBuddyKeepUp(ms = 1500) {
 function nameMarkBuddyFollowFrame(now) {
   nmbFollow.frame = 0;
   nameMarkBuddyFollow();
-  if (nmb.glue && now < nmbFollow.until) nmbFollow.frame = requestAnimationFrame(nameMarkBuddyFollowFrame);
+  if (nmb.glue && (now < nmbFollow.until || nameMarkBuddyPanelMoving(nmb.glue.el))) nmbFollow.frame = requestAnimationFrame(nameMarkBuddyFollowFrame);
+}
+
+//: **Followed for as long as its panel is animating** (INBOX 426, round
+//: 2). A panel moved by a transform (a card that slides in, a dock that
+//: eases open, a widget lifted while dragged) moves with no scroll and no
+//: resize to announce it, and a transition longer than the loop's second
+//: and a half used to be finished by the two-second look, eased, a beat
+//: late. So the loop runs on while anything that can move the panel is
+//: still animating: a transition or an animation of a property that places
+//: a box, on the panel or any of its ancestors, or a finite one that
+//: changes layout anywhere on the page (a sidebar easing its width moves
+//: every panel beside it). An endless one on an ancestor is followed while
+//: it runs, since the panel really does move every frame; an endless one
+//: elsewhere (a spinner, a shimmer) is not, so an idle page stays idle.
+const NMB_PLACES = /^(transform|translate|scale|rotate|offset|inset|top|left|right|bottom|margin|padding|width|height|min-|max-|flex|grid|gap|border-width|font-size|all)/;
+const NMB_LAYOUT = /^(inset|top|left|right|bottom|margin|padding|width|height|min-|max-|flex|grid|gap|border-width|font-size|all)/;
+function nameMarkBuddyAnimProps(anim) {
+  if (anim.transitionProperty) return [anim.transitionProperty];
+  try {
+    const keys = new Set();
+    for (const frame of anim.effect?.getKeyframes?.() || []) {
+      for (const k of Object.keys(frame)) {
+        if (!["offset", "computedOffset", "easing", "composite"].includes(k)) keys.add(k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`));
+      }
+    }
+    return [...keys];
+  } catch (e) {
+    return ["all"];
+  }
+}
+function nameMarkBuddyPanelMoving(el) {
+  if (!el?.isConnected || typeof document.getAnimations !== "function") return false;
+  const buddy = document.getElementById("nm-buddy");
+  for (const anim of document.getAnimations()) {
+    if (anim.playState !== "running") continue;
+    const target = anim.effect?.target;
+    if (!target || !target.isConnected || buddy?.contains(target)) continue;
+    const props = nameMarkBuddyAnimProps(anim);
+    if (target.contains(el)) {
+      if (props.some((p) => NMB_PLACES.test(p))) return true;
+    } else if (props.some((p) => NMB_LAYOUT.test(p)) && Number.isFinite(anim.effect.getComputedTiming?.().endTime)) {
+      return true;
+    }
+  }
+  return false;
 }
 function nameMarkBuddyWatch() {
   const g = nmb.glue;
@@ -3847,7 +3893,11 @@ document.addEventListener("scroll", (event) => {
   nameMarkBuddyFollow();
   nameMarkBuddyKeepUp(400);
 }, { passive: true, capture: true });
-for (const type of ["pointerdown", "pointerup", "keydown", "transitionstart", "animationstart"]) {
+//: `transitionrun` rather than `transitionstart`, so a transition with a
+//: delay is caught when it is set going; `transitionend`,
+//: `transitioncancel` and `animationend` put it at its panel's resting
+//: place in that frame.
+for (const type of ["pointerdown", "pointerup", "keydown", "transitionrun", "animationstart", "transitionend", "transitioncancel", "animationend"]) {
   document.addEventListener(type, (event) => {
     if (nmb.glue && !event.target?.closest?.("#nm-buddy")) nameMarkBuddyKeepUp();
   }, { passive: true, capture: true });

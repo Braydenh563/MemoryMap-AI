@@ -1,13 +1,19 @@
 // INBOX 426 g/m/n/o: a scroll trace. The companion is put on a note card,
 // the notes list is scrolled with the wheel down and back, and every frame
-// records the companion's box, its card's box and its opacity.
+// records the companion's box, its card's box and its opacity. First the
+// card itself is moved by a 2.4s transform transition (longer than the
+// follow loop's own 1.5s window) and back, which is the transform case.
+// Every frame is read after that frame's callbacks have all run (a task
+// queued from the frame), so the trace sees what was painted, whichever
+// callback happened to be registered first.
 // Env: TAB (notes), CARD (selector of the panels to perch on), KIND (me,
-// atlas), OUT (json path), SHOT (png prefix). Exits 1 when the companion
+// atlas), OUT (json path), SHOT (png prefix), OLD=1 (turn the per-frame
+// follow of an animating panel off, for a before). Exits 1 when the companion
 // leaves its panel by more than 2px, jumps more than 45px in a frame beyond
 // what its panel moved, or is ever drawn at less than full opacity.
 const fs = require('fs');
 const { boot } = require('./lib.js');
-const OUT = process.env.OUT || `${process.env.SCRATCH || '.'}/shots/companion-scroll-trace.json`;
+const OUT = process.env.OUT || `${process.env.SCRATCH || require('os').tmpdir()}/companion-scroll-trace.json`;
 const SHOT = process.env.SHOT || '';
 (async () => {
   const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
@@ -58,15 +64,35 @@ const SHOT = process.env.SHOT || '';
     const buddy = document.getElementById('nm-buddy');
     const face = buddy.querySelector('.nm-buddy-face');
     const loop = (t) => {
+      if (!window.__stop) requestAnimationFrame(loop);
+      setTimeout(() => record(t), 0);
+    };
+    const record = (t) => {
       const b = face.getBoundingClientRect();
       const el = nmb.glue ? nmb.glue.el : card;
       const c = el.isConnected ? el.getBoundingClientRect() : null;
       const op = Math.min(Number(getComputedStyle(buddy).opacity), Number(getComputedStyle(buddy.querySelector('.nm-buddy-char')).opacity));
       window.__trace.push({ t: Math.round(t), x: b.left, y: b.top, cx: c ? c.left : null, cy: c ? c.top : null, op, pose: buddy.dataset.pose, gid: nmb.glue ? (nmb.glue.el.dataset.gid || (nmb.glue.el.dataset.gid = String(Math.random()).slice(2, 7))) : '', held: !!nmb.glue?.held, anim: !!(nmb.anim && nmb.anim.playState === 'running'), glued: !!nmb.glue, lost: !!nmb.glue?.lost });
-      if (!window.__stop) requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   });
+  if (process.env.OLD === '1') await page.evaluate(() => { window.nameMarkBuddyPanelMoving = () => false; });
+  // The transform case: the card slides 160px down over 2.4s and back over
+  // 0.6s, as a panel eased open or lifted would.
+  await page.evaluate(() => {
+    const card = document.querySelector('[data-probe-card]');
+    card.style.transition = 'transform 2.4s ease-in-out';
+    card.style.transform = 'translateY(160px)';
+  });
+  await page.waitForTimeout(2700);
+  await page.evaluate(() => {
+    const card = document.querySelector('[data-probe-card]');
+    card.style.transition = 'transform 0.6s ease-in';
+    card.style.transform = '';
+  });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { document.querySelector('[data-probe-card]').style.transition = ''; });
+  const transformEnd = await page.evaluate(() => Math.round(performance.now()));
   await page.mouse.move(700, 600);
   for (let i = 0; i < 8; i += 1) { await page.mouse.wheel(0, 40); await page.waitForTimeout(40); }
   await page.waitForTimeout(500);
@@ -86,7 +112,7 @@ const SHOT = process.env.SHOT || '';
   // companion's offset from its card against the offset it started with,
   // over the frames before its first move of its own.
   const firstMove = moves.length ? moves[0].t : Infinity;
-  let maxJump = 0; let jumpAt = 0; let maxGlue = 0; let glueFrames = 0; let minOp = 1; let heldFrames = 0;
+  let maxJump = 0; let jumpAt = 0; let maxGlue = 0; let glueFrames = 0; let minOp = 1; let heldFrames = 0; let tfGlue = 0;
   const bases = { [trace[0].gid]: { dx: trace[0].x - trace[0].cx, dy: trace[0].y - trace[0].cy } };
   for (let i = 1; i < trace.length; i += 1) {
     const a = trace[i - 1]; const b = trace[i];
@@ -101,10 +127,11 @@ const SHOT = process.env.SHOT || '';
     if (b.held) heldFrames += 1;
     if (withCard && !(b.anim)) {
       maxGlue = Math.max(maxGlue, Math.hypot(b.x - b.cx - base.dx, b.y - b.cy - base.dy));
+      if (b.t < transformEnd) tfGlue = Math.max(tfGlue, Math.hypot(b.x - b.cx - base.dx, b.y - b.cy - base.dy));
       glueFrames += 1;
     }
   }
-  const summary = { frames: trace.length, maxJumpPx: +maxJump.toFixed(1), jumpFrames: [trace[jumpAt - 1], trace[jumpAt]], glueErrorPx: +maxGlue.toFixed(1), glueFrames, heldFrames, minOpacity: minOp, moves: moves.length, end: trace[trace.length - 1] };
+  const summary = { frames: trace.length, maxJumpPx: +maxJump.toFixed(1), jumpFrames: [trace[jumpAt - 1], trace[jumpAt]], glueErrorPx: +maxGlue.toFixed(1), transformGlueErrorPx: +tfGlue.toFixed(1), glueFrames, heldFrames, minOpacity: minOp, moves: moves.length, end: trace[trace.length - 1] };
   fs.writeFileSync(OUT, JSON.stringify({ setup, summary, moves, trace }));
   console.log(JSON.stringify(summary));
   await browser.close();

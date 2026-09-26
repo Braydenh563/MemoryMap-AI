@@ -137,3 +137,20 @@ def test_what_a_face_holds_shows_in_its_head_mark() -> None:
     assert "if (!full && !mini && reading.hand) {" in draw
     block = draw[draw.index("if (!full && !mini && reading.hand) {") :]
     assert "nameCharacterHeld(reading.hand, hand," in block[: block.index("\n  }\n")]
+
+
+def test_a_panel_moved_by_a_transform_is_followed_every_frame() -> None:
+    # Round 2: the loop runs on while the panel or an ancestor animates a
+    # property that places it, not only for its fixed second and a half,
+    # and the events that set a transition going and end it start it.
+    frame = _fn("nameMarkBuddyFollowFrame")
+    assert "nameMarkBuddyPanelMoving(nmb.glue.el)" in frame
+    moving = _fn("nameMarkBuddyPanelMoving")
+    assert "document.getAnimations()" in moving and "target.contains(el)" in moving
+    # An endless animation elsewhere (a spinner) must not keep an idle page busy.
+    assert "Number.isFinite(" in moving
+    for event in ("transitionrun", "transitionend", "transitioncancel", "animationend"):
+        assert f'"{event}"' in AV
+    # Both motion sweeps run in the gate's sweep list.
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionscroll companionbeats" in gate

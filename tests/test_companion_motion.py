@@ -423,3 +423,15 @@ def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
     assert "performance.now() - (window._menuOpenedAt || 0) < 200" in on_scroll
     opener = menus[menus.index("function openActionMenu(") :]
     assert "window._menuOpenedAt = performance.now();" in opener[:400]
+
+
+def test_a_walk_is_paced_too() -> None:
+    # Round 5 review (atlaswalk.js): while it walked, Atlas's leg steps
+    # (animations on groups inside its svg) laid out and repainted it every
+    # frame, 60 layouts and 120 paints a second, because the pacer let a
+    # walk run at full rate. Paced from its first step: 20 and 39.
+    tempo = _fn("nameMarkBuddyTempo")
+    assert 'const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    move = _fn("nameMarkBuddyMoveTo")
+    walk = move[move.index('buddy.classList.add("nmb-walking");') :]
+    assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]

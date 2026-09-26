@@ -4220,7 +4220,12 @@ function nameMarkBuddyTempo() {
     //: thread, so only what animates inside a drawing is paced.
     nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && a.playState !== "finished");
   }
-  const busy = !!nmb.act || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nm-buddy-dragging");
+  //: A walk is paced too (round 5 review): its steps inside a drawing's
+  //: svg (Atlas's legs) laid out and repainted the figure every frame, 60
+  //: layouts and 120 paints a second, while the walk itself (the host's
+  //: translate) is the compositor's. An act or a drag still runs at full
+  //: rate: those are short and are the moment it is being looked at.
+  const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");
   const still = now - nmbFollow.scrollAt < 300;
   const step = Math.min(now - (nmbTempo.at || now), 250);
   //: Every read first, then every write: reading an animation's state
@@ -4395,6 +4400,11 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
   buddy.dataset.turn = dx > 0 ? "l" : "r";
   buddy.classList.add("nmb-walking");
+  //: The walk's own animations are paced from its first step, not when
+  //: the pacer next looks (a second later, longer than most walks).
+  nmbTempo.seen = 0;
+  clearTimeout(nmbTempo.timer);
+  nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
   nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
   //: This walk's own end only (see `nameMarkBuddyPoof`): a walk cut short
   //: by the next reports its `cancel` after the next has begun.

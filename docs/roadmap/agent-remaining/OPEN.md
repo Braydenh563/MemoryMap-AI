@@ -1202,13 +1202,23 @@ being written by running agents stay beside this one.
   "undefined"); it now runs on `DOMContentLoaded`, which is after tour.js,
   and `tests/test_frontend_load_order.py` holds the shape. `TOUR_ENABLED` is
   true on the branch, so the disabled state itself was not seen in a browser.
-- **The feminine sash sways on an inner `<g>`** (`.atl-lower`,
-  08-consistency.css): a transform animation inside an svg repaints that
-  layer's svg each frame while the companion walks, kicks or dangles, which
-  is not the compositor-only path the layer roots take. Idle is unaffected
-  (companionperf.js: 0 layouts, +9 ms/s with everything); the walking cost
-  was not measured. Moving the animation to `.atl-layer-lower` with the
-  pivot as its transform-origin would put it on the compositor.
+- ~~**The feminine sash sways on an inner `<g>`**~~ **Fixed, 2026-09-26.**
+  The sway is on the layer root (`.atl-layer-lower`, origin 27px 62px, the
+  hip) as the tail's swish is. `scratchpad/ui-sweeps/atlaswalk.js` (the walk
+  held for 4s, per look): paints 176.5/s feminine against 119/s masculine
+  before, 117.5/s against 119/s after; the hip end moves 0.3px across the
+  sway and the free end 6.8px (`sashpivot.js`, in the review's scratchpad).
+  Main-thread ms/s was too noisy between runs to quote (the sandbox was
+  loaded by four agents; 168 to 270 ms/s for the same masculine walk).
+- **The companion's walk itself lays out and recalculates style 59 times a
+  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
+  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
+  happening). The idle figure is 0 layouts (companionperf.js), so this is the
+  walk's own per-frame work in avatars.js (the position written each frame,
+  or a read of the page beside it), not Atlas's drawing. Not opened in the
+  review because avatars.js was the companion agent's file that night; the
+  first look is whether the walk writes `style.transform` from a
+  requestAnimationFrame loop that also reads a rect.
 - **Every provider test runs against a fake transport** (CLAUDE.md section 4),
   and that covers more open work than any other single line here: no real
   model has run a skill, the night pass, the Guide's tab context, the paging

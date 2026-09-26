@@ -3866,6 +3866,62 @@ function nameMarkBuddyPanelMoving(el) {
   }
   return false;
 }
+
+//: **Its idle motion at a companion's pace** (INBOX 426 x, the owner: "the
+//: companion showing makes everything noticeably slower", "heavy and
+//: glitchy"). A figure drawn in SVG that breathes, sways and twinkles by CSS
+//: animations inside the drawing (Atlas: twenty of them on a 455-node
+//: drawing) cannot be moved by the compositor: every frame the page
+//: restyles, lays out and repaints the whole drawing. Measured at 1440 with
+//: the page's own frame loop running: 165ms a second of main thread, 2.7ms a
+//: frame, for a 64 by 92 figure; paused, nothing. So while it is idle its
+//: drawing's animations are held and stepped on by hand twenty times a
+//: second, which a figure this small reads as the same motion, and held
+//: still while the page scrolls (its motion then competes with the one the
+//: reader is watching). A walk, a drag, or anything it is doing (a wave, a
+//: stretch, a landing) runs at full rate. Animations on the page's own
+//: boxes (the figure drawn in HTML, its host) are the compositor's and are
+//: left alone.
+const NMB_TEMPO_MS = 50;
+const nmbTempo = { timer: 0, anims: [], at: 0, seen: 0, clock: new WeakMap() };
+function nameMarkBuddyTempo() {
+  nmbTempo.timer = 0;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || typeof buddy.getAnimations !== "function") {
+    nmbTempo.anims = [];
+    return;
+  }
+  const now = performance.now();
+  if (now - nmbTempo.seen > 1000) {
+    nmbTempo.seen = now;
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && a.playState !== "finished");
+  }
+  const busy = !!nmb.act || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nm-buddy-dragging");
+  const still = now - nmbFollow.scrollAt < 300;
+  const step = Math.min(now - (nmbTempo.at || now), 250);
+  //: Every read first, then every write: reading an animation's state
+  //: after one has been stepped makes the page lay itself out again, once
+  //: per animation (measured: 354 layouts a second, interleaved).
+  const states = nmbTempo.anims.map((anim) => anim.playState);
+  nmbTempo.anims.forEach((anim, i) => {
+    if (busy) {
+      if (states[i] === "paused") anim.play();
+      nmbTempo.clock.delete(anim);
+    } else if (states[i] !== "paused") {
+      anim.pause();
+      nmbTempo.clock.set(anim, anim.currentTime || 0);
+    } else if (!still && step > 0) {
+      const t = (nmbTempo.clock.get(anim) ?? 0) + step;
+      nmbTempo.clock.set(anim, t);
+      anim.currentTime = t;
+    }
+  });
+  nmbTempo.at = now;
+  if (!document.hidden) nmbTempo.timer = setTimeout(nameMarkBuddyTempo, nmbTempo.anims.length ? NMB_TEMPO_MS : 1000);
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !nmbTempo.timer) nameMarkBuddyTempo();
+});
 function nameMarkBuddyWatch() {
   const g = nmb.glue;
   if (typeof ResizeObserver === "function") {
@@ -3883,6 +3939,9 @@ function nameMarkBuddyWatch() {
   }, 2000) : 0;
 }
 document.addEventListener("scroll", (event) => {
+  //: Any scroll, glued or not: the checks and its idle motion wait for the
+  //: page to be still (`nameMarkBuddyCheck`, `nameMarkBuddyTempo`).
+  nmbFollow.scrollAt = performance.now();
   const g = nmb.glue;
   if (!g) return;
   const target = event.target;
@@ -4037,8 +4096,10 @@ function nameMarkBuddyCheck() {
   //: chooses one.
   if (nmb.glue && (nmb.glue.held || nmb.glue.lost)) return;
   //: Not while the page is moving under it: once it has been still a
-  //: moment, looked at again.
-  if (nmb.glue && performance.now() - nmbFollow.scrollAt < 400) {
+  //: moment, looked at again. Whatever it is on: this was the glued case
+  //: only, and hanging from the top bar every `scrollend` (one per wheel
+  //: step) ran the whole obstacle sweep, 139ms over a 3s scroll.
+  if (performance.now() - nmbFollow.scrollAt < 400) {
     clearTimeout(nmbFollow.recheck);
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 450);
     return;
@@ -5054,6 +5115,9 @@ function syncNameMarkBuddy() {
     const char = buddy.querySelector(".nm-buddy-char");
     char.querySelector(".nm-figure")?.remove();
     char.prepend(characterFor(seed).figure());
+    //: A new drawing has new animations: looked for again at once.
+    nmbTempo.seen = 0;
+    if (!nmbTempo.timer) nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
     buddy.querySelector(".nm-buddy-face").setAttribute(
       "aria-label",
       `${seed}, your companion. Click to say hello, double-click to enlarge, drag to move, Shift+F10 for its menu.`,

@@ -5112,6 +5112,9 @@ main,
   width: 64px;
   height: 92px;
   pointer-events: none;
+  /* Its own layer: moving it is a compositor change, and its figure's
+     repaints stay inside it rather than re-layering the page. */
+  will-change: transform;
 }
 
 #nm-buddy .nm-buddy-face {
@@ -5145,11 +5148,33 @@ main,
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
 
+/* **No filter on the figure** (INBOX 426 x, the owner: "the companion
+   showing makes everything noticeably slower"). A `drop-shadow` over a
+   figure that moves inside itself is run again every frame, and it made
+   the page re-layer every frame too: measured with the companion as you,
+   27ms a second of layerizing, 0.3 with the filter gone. The shadow is a
+   still, soft ellipse on the line it stands or sits on (`--nmb-edge`),
+   drawn once. */
 .nm-buddy-char {
   position: absolute;
   inset: 0;
   transform-origin: 50% 100%;
-  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.2));
+}
+
+#nm-buddy::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: calc(var(--nmb-edge) - 4px);
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.24), transparent);
+  pointer-events: none;
+}
+
+#nm-buddy:is([data-pose="hang"], [data-pose="float"], .nm-buddy-dragging)::before {
+  opacity: 0;
 }
 
 /* Hanging, it drops below the ledge by its arms' reach (avatars.js's

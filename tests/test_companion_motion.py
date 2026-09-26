@@ -44,7 +44,7 @@ def test_it_is_drawn_through_a_transform_not_left_and_top() -> None:
 
 
 def test_a_scroll_moves_it_with_its_panel_in_the_same_frame() -> None:
-    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  const g = nmb.glue;') :]
+    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  //: Any scroll') :]
     listener = listener[: listener.index("}, { passive: true, capture: true });")]
     assert "nameMarkBuddyFollow();" in listener
     follow = _fn("nameMarkBuddyFollow")
@@ -154,3 +154,25 @@ def test_a_panel_moved_by_a_transform_is_followed_every_frame() -> None:
     # Both motion sweeps run in the gate's sweep list.
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert "companionscroll companionbeats" in gate
+
+
+CSS08 = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+
+
+def test_the_companion_is_light_on_the_page() -> None:
+    # INBOX 426 x: "the companion showing makes everything noticeably
+    # slower". Measured by scratchpad/ui-sweeps/companionperf.js (in the
+    # gate's sweeps): Atlas idle +190ms/s of main thread before, +63 after.
+    # No filter on the moving figure (it re-layered the page every frame).
+    char = CSS08[CSS08.index(".nm-buddy-char {") : CSS08.index("}", CSS08.index(".nm-buddy-char {"))]
+    assert "filter" not in char
+    # Its drawing's idle animations are paced by hand, reads before writes.
+    tempo = _fn("nameMarkBuddyTempo")
+    assert "anim.pause()" in tempo and "anim.currentTime = t" in tempo
+    assert tempo.index("const states = nmbTempo.anims.map") < tempo.index("anim.currentTime = t")
+    assert "SVGElement" in tempo
+    # The obstacle sweep waits for any scroll to settle, glued or not.
+    check = _fn("nameMarkBuddyCheck")
+    assert "if (performance.now() - nmbFollow.scrollAt < 400) {" in check
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionperf" in gate

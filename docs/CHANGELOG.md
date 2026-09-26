@@ -233,6 +233,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The corner companion is far lighter on the page: no filter on its moving figure, its drawing's idle motion paced at twenty steps a second and held while you scroll, and no obstacle sweep per scroll step. Atlas idle went from +190ms to +63ms a second of main thread, and the companion's scripting while scrolling from +0.46ms to +0.06ms a frame (INBOX 426 x).
 - The corner companion stays on a panel that moves by a transform (a card sliding, a dock easing open) every frame for as long as it animates, rather than catching up a beat later; it was 32px adrift over a 2.4s slide, now under 1px (INBOX 426).
 - The companion rides with the panel it is on: a scroll or a moving panel carries it in the same frame (0px off its panel over a measured scroll, it used to stay put 240px away), a panel that leaves the view is let go at the edge and it walks to the nearest free perch once the page is still, a tab switch only asks for a look on its own beat, nothing fades it out and in elsewhere, Stay here on every page never moves on its own, Call back (its menu, Appearance, the command palette) brings it back from anywhere, its menu opens beside it, and a new profile name redraws it (INBOX 426 d, g, k, l, m, n, o, p).
 - The companion's arms and held things are no longer cut off at the sides (each drawn part is framed with room for its outline), a hanging companion keeps hold of its prop, and the rude hand gesture is gone; a test checks every gesture a line names is drawn (INBOX 426 c, j, k).

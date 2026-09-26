@@ -1853,6 +1853,13 @@ body.resizing-sidebar {
   display: none;
 }
 
+/* The document strip's group, trimmed when it would sit alone on a row
+   (`trimDocToolbarGroup`): the layout and collapse buttons are rows of the
+   document's own ⋯ menu, and line numbers stays on the strip. */
+.doc-toolbar.is-group-trimmed > .doc-toolbar-tools > :is(.doc-toolbar-layout, .doc-toolbar-collapse) {
+  display: none;
+}
+
 /* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
 .doc-toolbar .doc-toolbar-more[hidden] {
   display: none;

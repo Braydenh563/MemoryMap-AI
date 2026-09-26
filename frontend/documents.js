@@ -12390,6 +12390,64 @@ function fitDocToolbarRow(bar) {
   }
   if (open && !more.hidden) bar.classList.add("is-more-open");
   syncDocToolbarMore(bar);
+  trimDocToolbarGroup(bar, style);
+}
+
+//: **The strip's own group never takes a row to itself** (INBOX 426, round 4,
+//: A3). Expanded at 1024, the document strip's two rows of tools filled to
+//: 657 and 685 of 726px and its own three buttons (layout, line numbers,
+//: collapse) went down to a third row alone: a row of chrome under the tools
+//: it is chrome for. Two of the three have a row of their own in the
+//: document's ⋯ menu ("Use one row", "Always show formatting"), so on the
+//: document strip, when the group would be alone, those two are left to the
+//: menu and line numbers stays, which fits the second row's tail. Only the
+//: document strip: a note's strip has no menu holding the other two. Put
+//: back first and measured again on every fit, so a wider window gets them
+//: back.
+//:
+//: Where it goes then: the end of the first row, if that row has the room
+//: (the window-controls corner, and measured at 1024 the first row had 69px
+//: free where the trimmed group needs 48), else the end of the last. The
+//: group is put back at the end of the strip before every fit, so the
+//: one-row mode, which measures it there, always finds it there.
+function trimDocToolbarGroup(bar, style = getComputedStyle(bar)) {
+  const tools = bar.querySelector(":scope > .doc-toolbar-tools");
+  if (!tools) return;
+  bar.classList.remove("is-group-trimmed");
+  if (bar.lastElementChild !== tools) bar.appendChild(tools);
+  if (bar.id !== "doc-toolbar" || style.flexWrap === "nowrap") return;
+  if (!bar.getClientRects().length || bar.classList.contains("is-collapsed")) return;
+  const shown = () => [...bar.children].filter((el) => el !== tools && el.getClientRects().length);
+  //: Rows counted by the bottom of each item's line: the tallest item sets
+  //: it, and items centred on one row share it to within a pixel or two.
+  const rowTops = () => {
+    const bottoms = [...bar.children].filter((el) => el.getClientRects().length)
+      .map((el) => el.getBoundingClientRect().bottom).sort((a, b) => a - b);
+    let count = 0;
+    let edge = -Infinity;
+    for (const bottom of bottoms) if (bottom > edge + 12) { count += 1; edge = bottom; }
+    return { size: count };
+  };
+  const alone = () => {
+    const items = shown();
+    const last = items[items.length - 1];
+    return Boolean(last) && tools.getBoundingClientRect().top >= last.getBoundingClientRect().bottom - 1;
+  };
+  if (!alone()) return;
+  const rowsBefore = rowTops().size;
+  bar.classList.add("is-group-trimmed");
+  //: Rows are told apart by where an item's middle falls, not by its top:
+  //: the strip centres items of different heights, so two on one row can
+  //: have tops a few pixels apart.
+  const items = shown();
+  const first = items[0]?.getBoundingClientRect();
+  if (!first) return;
+  const middle = (el) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+  const secondRow = items.find((el) => middle(el) > first.bottom);
+  if (!secondRow) return;
+  bar.insertBefore(tools, secondRow);
+  const onFirst = middle(tools) < first.bottom;
+  if (!onFirst || rowTops().size >= rowsBefore) bar.appendChild(tools);
 }
 
 //: More says what pressing it does and how many tools it holds, and carries

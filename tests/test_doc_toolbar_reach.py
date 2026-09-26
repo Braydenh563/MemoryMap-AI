@@ -134,3 +134,21 @@ def test_a_narrow_strip_folds_its_layout_toggle_first() -> None:
         if ".is-layout-folded" in selector and _props(body).get("display") == "none"
     ]
     assert hides and all(":not(.is-more-open)" in s for s in hides), hides
+
+
+def test_the_document_strips_group_never_takes_a_row_alone() -> None:
+    """Round 4, A3: expanded at 1024 the strip's own three buttons sat alone
+    on a third row (`stripwrap.js`). The document strip leaves layout and
+    collapse to its ⋯ menu then, and puts line numbers at the first row's
+    end when there is room; the group is back at the end before every fit."""
+    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    body = docs[docs.index("function trimDocToolbarGroup"):]
+    body = body[: body.index("\n}\n")]
+    assert 'bar.id !== "doc-toolbar"' in body, "only the strip whose menu holds the other two"
+    assert "bar.appendChild(tools)" in body
+    assert 'bar.classList.add("is-group-trimmed")' in body
+    fit = docs[docs.index("function fitDocToolbarRow"):]
+    fit = fit[: fit.index("\n}\n")]
+    assert "trimDocToolbarGroup(bar" in fit
+    css = "".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".doc-toolbar.is-group-trimmed > .doc-toolbar-tools > :is(.doc-toolbar-layout, .doc-toolbar-collapse)" in css

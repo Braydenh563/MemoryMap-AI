@@ -435,3 +435,14 @@ def test_a_walk_is_paced_too() -> None:
     move = _fn("nameMarkBuddyMoveTo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
+
+
+def test_every_way_to_a_note_counts_as_opening_it() -> None:
+    # Round 6: search, a link, the palette, the Library, the timeline, the
+    # graph and chat all go to a note through flashEntry (capture-ask.js);
+    # the companion reads along from there too (companionreact.js: the
+    # palette's jump to a long note reads along).
+    ask = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    flash = ask[ask.index("function flashEntry(") :]
+    flash = flash[: flash.index("\n}\n")]
+    assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash

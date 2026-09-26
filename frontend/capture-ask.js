@@ -847,6 +847,10 @@ function flashEntry(id) {
     announce(`Showing note: ${body.trim().slice(0, 80)}`);
     clearTimeout(flashEntry.timer);
     flashEntry.timer = setTimeout(() => card.classList.remove("flash"), 2700);
+    //: Every way to a note comes here (search, a link, the palette, the
+    //: Library, the timeline, the graph, chat): the companion reads along
+    //: with a long one, or covers its eyes for a private one (avatars.js).
+    if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);
   });
 }
 

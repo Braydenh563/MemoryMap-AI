@@ -68,6 +68,13 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(400);
   const toastKind = await reacted();
   if (toastKind !== 'toast') fails.push(`toast: ${toastKind}`);
+  // Every other way to a note goes through flashEntry (search, a link, the
+  // palette, the Library, the timeline): the palette's jump reads along.
+  await reset();
+  await page.evaluate((i) => { expandedNotes.delete(i); expandedNotes.delete(Number(i)); cmdPaletteGoToNote(Number(i)); }, ids[0]);
+  await page.waitForTimeout(600);
+  const jumped = await reacted();
+  if (jumped !== 'read') fails.push(`palette jump to a long note: ${jumped}`);
   // The graph laid out again.
   await reset();
   await page.evaluate(() => revealTab('graph'));
@@ -112,7 +119,7 @@ const { boot } = require('./lib.js');
     return r.some(Boolean);
   });
   if (still) fails.push('a reaction under Reduce motion');
-  console.log(JSON.stringify({ read, priv, toastKind, graph, streak, night, still }));
+  console.log(JSON.stringify({ read, priv, toastKind, jumped, graph, streak, night, still }));
   await page.evaluate((list) => Promise.all(list.map((i) => apiJson(`/entries/${i}`, { method: 'DELETE' }).catch(() => {}))), ids);
   await browser.close();
   for (const f of fails) console.log(f);

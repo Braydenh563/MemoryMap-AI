@@ -669,6 +669,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The corner companion reads along (or covers its eyes) however a note is opened: from search, a link, the command palette, the Library, the timeline, the graph or chat, not only from its row.
 - What a face holds (a wand, a mug, sushi, a book, a thumbs up) shows in its head mark again, in a small raised hand at the lower right as the first faces drew it, not only on the companion; the small mark keeps its one cue (INBOX 426 f).
 - The packaged app's startup splash is a still card without the progress bar it
   could never move; a status line under it says what is loading.

@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 
 from tests._css_paths import FRONTEND_DIR
-from tests._app_js import frontend_text
+from tests._app_js import app_js_family, frontend_text
 
 
 def _strip_comments(text: str) -> str:
@@ -298,7 +298,9 @@ def test_no_loop_reads_layout_after_writing_style():
         for at, body in _loop_bodies(src):
             write = _WRITE.search(body)
             if write and _READ.search(body, write.end()):
-                key = (path.name, _enclosing_function(src, at))
+                #: The pieces of the old app.js answer to app.js's allowances.
+                owner = "app.js" if app_js_family(path) else path.name
+                key = (owner, _enclosing_function(src, at))
                 if key not in LAYOUT_READ_AFTER_WRITE_LOOPS:
                     offenders.append(f"{path.name}:{src.count(chr(10), 0, at) + 1} in {key[1]}")
     assert not offenders, (

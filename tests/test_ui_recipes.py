@@ -22,8 +22,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
-from tests._app_js import app_js_text
-from tests._app_js import app_js_family
+from tests._app_js import app_js_family, app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
@@ -239,7 +238,8 @@ def test_only_the_recipe_stamps_a_sheet_variant() -> None:
     for path in JS:
         js = path.read_text(encoding="utf-8")
         for match in re.findall(r'"sheet-(?:card-)?[a-z]+"', js):
-            assert path.name == "app.js", f"{path.name} writes {match} by hand"
+            #: "app.js" is the app's code, every piece of it (tests/_app_js.py).
+            assert app_js_family(path), f"{path.name} writes {match} by hand"
     app = app_js_text()
     assert app.count("sheet-${variant}") == 1
     assert app.count("sheet-card-${variant}") == 1
@@ -2153,7 +2153,7 @@ def test_every_right_click_menu_has_a_long_press_twin():
     #: whiteboard-map.js since the mind map layer was split out of
     #: whiteboard.js (2026-09-24); its node and edge menus came with it.
     for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
-        text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        text = frontend_text(name)
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition

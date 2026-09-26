@@ -6402,21 +6402,29 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    and dangle move through `.nmb-leg-*`; a sash that hung still while the
    legs swung read as pinned on. It sways about its root at the hip on the
    same classes and the same timings as the legs; transforms only, like
-   every other companion act, and still under Off and Reduce motion. */
+   every other companion act, and still under Off and Reduce motion.
+   **On the layer's root, as the tail's swish and the body's breath are**
+   (`.atl-layer-tail` above): a transform animated on the `.atl-lower` group
+   inside the svg repainted that svg on the main thread every frame, 57
+   paints a second and 15 ms/s over the masculine look while walking
+   (atlaswalk.js, 2026-09-26); the root is its own compositor layer, so the
+   same sway costs no paint. The origin is the sash's root at the hip
+   (`spec.lower[0]`), in the layer's own 64x92 px frame. */
+.nm-atlas.atl-layer-lower { transform-origin: 27px 62px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
-    &.nmb-walking .atl-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
-    &.nm-buddy-dragging .atl-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
-    &.nmb-act-kick .atl-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
-    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
-    &.nmb-act-dangle .atl-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
+    &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
+    &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-layer-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .atl-layer-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
   }
 }
 /* The system's reduced motion: slowed right down, as the legs are (the
    companion's own reduced-motion block above; `!important` for the same
    reason, the rules above out-rank this one). */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-lower { animation-duration: 6s !important; }
+  #nm-buddy .atl-layer-lower { animation-duration: 6s !important; }
 }
 @keyframes atl-lower-sway {
   from { transform: rotate(-5deg); }

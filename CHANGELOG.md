@@ -33,6 +33,7 @@ below). Versioning is `0.x` while the app stabilises.
 - The app's own code, one 50,000-line app.js, is now 23 files loaded in its old order (app.js, note-cards.js to spaces-find.js), each under 51 KB gzipped against 740 KB for the one file. Nothing a person sees changes; a warm reload measured about 30 ms slower and a cold load the same, for 22 more requests and 3.6% more bytes on the wire.
 
 ### Fixed
+- Documents: the writing suggestions no longer ask for title case in headings. The grammar checker's rule wanted every heading in title case, the opposite of the sentence case the app writes in, and it was most of the suggestions on a document written that way (four of six on the README's draft).
 - Documents: the expanded formatting toolbar's own buttons no longer take a row to themselves; when they would, layout and collapse are left to the document's ⋯ menu and line numbers moves to the end of the first row.
 - The graph's empty state shows the app's turning logo, as the chat's does, instead of a generic network icon.
 - Links and accent-coloured words use a text-safe shade of the accent in every palette and mode, so a bright accent (rose on paper, a picked yellow) no longer turns them unreadable; fills keep the accent itself.

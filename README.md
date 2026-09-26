@@ -79,12 +79,12 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor on a draft, with its outline, word count and six writing suggestions underlined in place" width="850">
+  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor on a draft, with its outline, word count and two writing suggestions underlined in place" width="850">
   <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it listing a spelling slip, a repeated word and four heading checks" width="850">
+  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it listing a spelling slip and a repeated word" width="850">
   <br><sub><b>Focus mode</b>: the page and nothing else, with the suggestions beside it when you want them</sub>
 </p>
 

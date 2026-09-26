@@ -106,6 +106,60 @@ def test_the_note_boxes_get_the_grammar_plugin() -> None:
     assert "noteGrammarPlugin(CM)" in _body("noteSurfaceExtensions")
 
 
+#: The real worker, run in node on the vendored binary: a stand-in `self` for
+#: the worker's message port, and `fetch` answering the `file:` URL the binary
+#: is loaded from (node's own fetch refuses that scheme).
+HARPER_DRIVER = r"""
+import { readFile } from "node:fs/promises";
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, init) => {
+  const href = String(url && url.href ? url.href : url);
+  if (href.startsWith("file:")) {
+    return new Response(await readFile(new URL(href)), { headers: { "Content-Type": "application/wasm" } });
+  }
+  return realFetch(url, init);
+};
+let handler = null;
+const replies = [];
+globalThis.self = {
+  addEventListener: (type, fn) => { if (type === "message") handler = fn; },
+  postMessage: (message) => replies.push(message),
+};
+await import(process.argv[2]);
+const text = process.argv[3];
+for (const dialect of ["uk", "us"]) {
+  await handler({ data: { id: dialect, dialect, text } });
+}
+process.stdout.write(JSON.stringify(replies));
+"""
+
+
+def test_a_sentence_case_heading_is_not_a_finding(tmp_path) -> None:
+    """The app writes headings in sentence case (CLAUDE.md standing order 6),
+    and Harper's `UseTitleCase` asked for title case on every one of them:
+    four of the six suggestions on the README's focus-mode shot, 2026-09-26.
+    Run through the worker itself, so the rule is off where the page gets its
+    findings, not only in a list; the repeated word proves the checker ran."""
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "harper.mjs"
+    script.write_text(HARPER_DRIVER, encoding="utf-8")
+    text = "# Why we moved the notebook offline\n\n## What changed\n\nThe the search index moved.\n"
+    out = subprocess.run(
+        [node, str(script), (FRONTEND / "harper-worker.js").as_uri(), text],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert out.returncode == 0, out.stderr
+    replies = json.loads(out.stdout)
+    assert [r["id"] for r in replies] == ["uk", "us"]
+    for reply in replies:
+        assert reply["ok"], reply
+        messages = [lint["message"] for lint in reply["lints"]]
+        assert not [m for m in messages if "title case" in m.lower()], messages
+        assert any(lint["problem"] == "The the" for lint in reply["lints"]), messages
+
+
 # --- suggestion mode -----------------------------------------------------------
 #
 # The model between DOC-SUGGEST-BEGIN and DOC-SUGGEST-END is pure string work,

@@ -5105,16 +5105,96 @@ main,
   --nmb-ex: 0;
   --nmb-ey: 0;
   --nmb-hx: 0;
-  position: fixed;
+  position: absolute;
   left: 0;
   top: 0;
-  z-index: 50;
   width: 64px;
   height: 92px;
   pointer-events: none;
   /* Its own layer: moving it is a compositor change, and its figure's
      repaints stay inside it rather than re-layering the page. */
   will-change: transform;
+}
+
+/* The band it is drawn in (avatars.js, `nameMarkBuddyRide`): the window,
+   a point at its corner with nothing clipped; riding a scroll area, that
+   area's visible box, clipped, so it goes out of sight with its panel.
+   `overflow: clip`, not `hidden`: a box that hides its overflow can itself
+   be scrolled (by a focus, a find), and this one must never move but by
+   its rider. The rider is what the area's scroll moves. */
+#nm-buddy-band {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+#nm-buddy-band.nmb-riding {
+  overflow: clip;
+}
+
+#nm-buddy-band .nm-buddy-rider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The poof when it must jump (avatars.js, `nameMarkBuddyPoof`): a soft
+   ring and eight four-point stars flung out from the figure's middle, on
+   transforms and opacity only, 240ms. */
+.nmb-burst {
+  /* Set per burst and per star from avatars.js; these are the defaults. */
+  --nmb-burst-delay: 0ms;
+  --nmb-burst-a: 0deg;
+  --nmb-burst-r: 30px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 92px;
+  pointer-events: none;
+}
+
+.nmb-burst::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, transparent 55%, color-mix(in srgb, var(--accent) 45%, transparent) 72%, transparent);
+  opacity: 0;
+  animation: nmb-burst-ring 240ms var(--nmb-burst-delay) ease-out;
+}
+
+.nmb-burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px;
+  background: var(--accent);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: nmb-burst-star 240ms var(--nmb-burst-delay) cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@keyframes nmb-burst-star {
+  0% { opacity: 1; transform: rotate(var(--nmb-burst-a)) translateY(-6px) scale(1.2); }
+  100% { opacity: 0; transform: rotate(var(--nmb-burst-a)) translateY(calc(var(--nmb-burst-r) * -1)) scale(0.4); }
+}
+
+@keyframes nmb-burst-ring {
+  0% { opacity: 1; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1.25); }
 }
 
 #nm-buddy .nm-buddy-face {

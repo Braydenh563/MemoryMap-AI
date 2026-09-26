@@ -38,7 +38,7 @@ def _fn(name: str, src: str = AV) -> str:
 
 def test_it_is_drawn_through_a_transform_not_left_and_top() -> None:
     # Following a panel every frame must never be a layout.
-    assert "buddy.style.transform = `translate(${x}px, ${y}px)`" in _fn("nameMarkBuddyPut")
+    assert "buddy.style.transform = `translate(${nmb.lx}px, ${nmb.ly}px)`" in _fn("nameMarkBuddyPut")
     region = AV[AV.index("function nameMarkBuddyPut(") : AV.index("// --- being found")]
     assert not re.search(r"buddy\.style\.(left|top) =", region)
 
@@ -176,3 +176,56 @@ def test_the_companion_is_light_on_the_page() -> None:
     assert "if (performance.now() - nmbFollow.scrollAt < 400) {" in check
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert "companionperf" in gate
+
+
+def test_it_rides_its_panels_scroll_and_leaves_with_it() -> None:
+    # INBOX 426 x: "if I scroll really fast the companion will just float in
+    # the corner ... then it will disappear". On a panel in a scroll area it
+    # rides that area's scroll through a ScrollTimeline (the compositor moves
+    # it, however fast), clipped to the area's visible box. Measured in
+    # composited frames by scratchpad/ui-sweeps/companionsmooth.js.
+    ride = _fn("nameMarkBuddyRide")
+    assert "new ScrollTimeline({ source: want" in ride
+    assert 'rangeEnd: `${NMB_RIDE_PX}px`' in ride and 'rangeStart: "0px"' in ride
+    # It stays in the body, in its own band: the app's scroll boxes are
+    # never given a child.
+    build = _fn("nameMarkBuddyBuild")
+    assert 'band.id = "nm-buddy-band"' in build and "document.body.appendChild(band)" in build
+    assert "#nm-buddy-band.nmb-riding {\n  overflow: clip;" in CSS08
+    # A scroll of the area it rides reads no box and moves nothing.
+    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  //: Any scroll') :]
+    listener = listener[: listener.index("}, { passive: true, capture: true });")]
+    riding = listener[listener.index("if (nmb.ride && target === nmb.ride.el) {") :]
+    riding = riding[: riding.index("return;")]
+    assert "getBoundingClientRect" not in riding and "nameMarkBuddyPut" not in riding
+    # Not on a bar that sticks: it ignores the scroll the rider follows.
+    assert 'pos === "sticky" || pos === "fixed"' in _fn("nameMarkBuddyScrollsWith")
+    # Out of sight, it waits for the page to be still and then its own beat.
+    seen = _fn("nameMarkBuddySeen")
+    assert "nameMarkBuddyQueuePlace()" in seen and "nmbFollow.scrollAt" in seen
+
+
+def test_a_jump_it_must_make_is_a_poof_under_400ms() -> None:
+    # INBOX 426 x: "a better teleport". Out of sight, or further than a walk
+    # should go, it dissolves in stars and appears in another burst.
+    assert "const NMB_POOF_OUT_MS = 150;" in AV and "const NMB_POOF_IN_MS = 220;" in AV
+    move = _fn("nameMarkBuddyMoveTo")
+    assert "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)" in move
+    poof = _fn("nameMarkBuddyPoof")
+    # The shrink is on the character: a `scale` on the host scaled the
+    # translate that places it (measured: swept 600px across the page).
+    host_frames = poof[poof.index("nmb.anim = buddy.animate(") : poof.index("const char =")]
+    assert "scale" not in host_frames
+    # Only its own end takes its class off (a cancelled move's late event).
+    assert "if (nmb.anim === anim) buddy.classList.remove(\"nmb-poofing\")" in poof
+    assert "if (nmb.anim !== walk) return;" in move
+
+
+def test_choosing_a_perch_is_cheap() -> None:
+    # The choice with `near` hit-tested every point of up to 120 perches
+    # (176ms, a stall before every move); a perch that cannot beat the best
+    # so far is no longer sampled, and each point is tested once (5.7ms).
+    choose = _fn("nameMarkBuddyChoose")
+    assert "if (best && ceiling <= best.score) {" in choose
+    assert "nmbCoverCache = new Map();" in choose
+    assert "nmbCoverCache?.get(key)" in _fn("nameMarkBuddyCovers")

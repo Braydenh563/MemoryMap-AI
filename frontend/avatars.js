@@ -3264,26 +3264,38 @@ function nameMarkBuddyCovers(x, y, pose, legs = "") {
   let covered = 0;
   for (const [px, py] of points) {
     if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue;
-    const el = document.elementsFromPoint(px, py).find((node) => !node.closest("#nm-buddy"));
-    if (!el || el === document.body || el === document.documentElement) continue;
-    //: A picture counts; a canvas or a drawing the size of a pane (the
-    //: graph, a board) is a ground, not a picture, or every perch over it
-    //: would lose to one over the chrome.
-    if (el.matches("img, picture, video")) {
-      covered += 1;
+    //: One hit test per point per choice: perches along an edge share
+    //: most of their points (`nmbCoverCache`, emptied by each choice).
+    const key = `${Math.round(px)},${Math.round(py)}`;
+    const known = nmbCoverCache?.get(key);
+    if (known !== undefined) {
+      covered += known;
       continue;
     }
-    if (el.matches("svg, canvas")) {
-      const box = el.getBoundingClientRect();
-      if (box.width < 200 && box.height < 200) covered += 1;
-      continue;
-    }
-    //: Words, measured as the boxes their lines actually take: a heading is
-    //: a block the width of its card, and only its first few hundred pixels
-    //: have anything in them.
-    if (nameMarkBuddyTextBoxes(el).some((box) => px >= box.left - 3 && px <= box.right + 3 && py >= box.top - 3 && py <= box.bottom + 3)) covered += 1;
+    const hit = nameMarkBuddyCoverPoint(px, py);
+    nmbCoverCache?.set(key, hit);
+    covered += hit;
   }
   return covered / points.length;
+}
+let nmbCoverCache = null;
+
+//: Whether one point of the figure would be over something to read: 1 or 0.
+function nameMarkBuddyCoverPoint(px, py) {
+  const el = document.elementsFromPoint(px, py).find((node) => !node.closest("#nm-buddy"));
+  if (!el || el === document.body || el === document.documentElement) return 0;
+  //: A picture counts; a canvas or a drawing the size of a pane (the
+  //: graph, a board) is a ground, not a picture, or every perch over it
+  //: would lose to one over the chrome.
+  if (el.matches("img, picture, video")) return 1;
+  if (el.matches("svg, canvas")) {
+    const box = el.getBoundingClientRect();
+    return box.width < 200 && box.height < 200 ? 1 : 0;
+  }
+  //: Words, measured as the boxes their lines actually take: a heading is
+  //: a block the width of its card, and only its first few hundred pixels
+  //: have anything in them.
+  return nameMarkBuddyTextBoxes(el).some((box) => px >= box.left - 3 && px <= box.right + 3 && py >= box.top - 3 && py <= box.bottom + 3) ? 1 : 0;
 }
 
 //: The line boxes of an element's own words, kept for one placement (the
@@ -3455,21 +3467,32 @@ function nameMarkBuddyPerches(tab) {
 function nameMarkBuddyChoose(tab, obstacles, near = null) {
   let best = null;
   let scored = 0;
+  nmbCoverCache = new Map();
   for (const perch of nameMarkBuddyPerches(tab)) {
     if (perch.x < 0 || perch.y < 0 || perch.y + NMB_H > innerHeight + 2) continue;
-    if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles, perch.legs)) continue;
-    const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose, perch.legs);
     const here = perch.kind === nmb.perch && perch.pose === nmb.pose && Math.abs(perch.x - nmb.x) < 24 && Math.abs(perch.y - nmb.y) < 24;
-    //: Any words under it at all cost more than a step along the ledge:
-    //: sampling is sparse, and one hit is usually a word half hidden.
     //: Near (a panel scrolled away, a new tab): every 12px of the way costs
     //: a point, so a perch a screen away has to be much better to be chosen.
     const way = near ? Math.hypot(perch.x - near[0], perch.y - near[1]) / 12 : 0;
-    perch.score = 100 - (covers ? 25 + covers * 120 : 0) - perch.rank * 9 - perch.i * 0.2 - (perch.alt || 0) * 3 + (here ? 4 : 0) - way;
+    const ceiling = 100 - perch.rank * 9 - perch.i * 0.2 - (perch.alt || 0) * 3 + (here ? 4 : 0) - way;
+    //: Its best score is with nothing under it; when even that cannot beat
+    //: the best so far, it is not sampled at all (INBOX 426 x: the sampling
+    //: is a hit test a point, and a choice with `near` took 176ms).
+    if (best && ceiling <= best.score) {
+      scored += 1;
+      if (scored >= (near ? 120 : 36)) break;
+      continue;
+    }
+    if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles, perch.legs)) continue;
+    const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose, perch.legs);
+    //: Any words under it at all cost more than a step along the ledge:
+    //: sampling is sparse, and one hit is usually a word half hidden.
+    perch.score = ceiling - (covers ? 25 + covers * 120 : 0);
     if (!best || perch.score > best.score) best = perch;
     scored += 1;
     if ((!near && covers === 0 && perch.rank === 0) || scored >= (near ? 120 : 36)) break;
   }
+  nmbCoverCache = null;
   if (best) return best;
   //: Nothing is free (a small window full of controls): the bottom corner,
   //: standing clear of the bar.
@@ -3643,10 +3666,104 @@ function nameMarkBuddyDrop(x, y) {
 //: `top` stay 0, so following a panel every frame is a compositor change and
 //: never a layout; a walk, a hop and a drag ride on top through `translate`,
 //: which adds to it.
+//: `x` and `y` are always where it is in the window, which is what every
+//: choice here reasons in; riding a scroll area, it is drawn at that point
+//: in the area's own content, which the browser then scrolls.
 function nameMarkBuddyPut(buddy, x, y) {
   nmb.x = x;
   nmb.y = y;
-  buddy.style.transform = `translate(${x}px, ${y}px)`;
+  const r = nmb.ride;
+  nmb.lx = r ? x - r.left : x;
+  nmb.ly = r ? y - r.top + r.el.scrollTop : y;
+  buddy.style.transform = `translate(${nmb.lx}px, ${nmb.ly}px)`;
+}
+
+//: **Leaves with its panel, like the page does** (INBOX 426 x, the owner:
+//: "if I scroll really fast the companion will just float in the corner
+//: ... then it will disappear"). On a panel inside a scroll area it rides
+//: that area's scroll: the rider is moved by a scroll-driven animation
+//: (a `ScrollTimeline` on the area, one pixel of travel per pixel
+//: scrolled), which the browser runs with the scroll itself, however fast,
+//: with no script in the way. The band clips it to the area's visible
+//: box, below the top bar and any bar that sticks, so it goes out of sight
+//: with its panel and is still there when the panel comes back. It moves
+//: to a new perch only on its own beat (`nameMarkBuddySeen`). Where there
+//: is no `ScrollTimeline` (an older WebKit) it keeps being followed by
+//: script, held at the edge (`nameMarkBuddyFollow`).
+const NMB_RIDE_PX = 1e6;
+function nameMarkBuddyRide(scroller, x = nmb.x, y = nmb.y) {
+  const buddy = document.getElementById("nm-buddy");
+  const band = document.getElementById("nm-buddy-band");
+  if (!buddy || !band) return;
+  const want = scroller && typeof ScrollTimeline === "function" && typeof band.firstElementChild?.animate === "function" ? scroller : null;
+  if ((nmb.ride?.el || null) !== want) {
+    nmb.rideAnim?.cancel();
+    nmb.rideAnim = null;
+    nmb.ride = want ? { el: want } : null;
+    band.classList.toggle("nmb-riding", !!want);
+    if (want) {
+      nmb.rideAnim = band.firstElementChild.animate(
+        [{ transform: "translateY(0px)" }, { transform: `translateY(-${NMB_RIDE_PX}px)` }],
+        { timeline: new ScrollTimeline({ source: want, axis: "block" }), fill: "both", easing: "linear", rangeStart: "0px", rangeEnd: `${NMB_RIDE_PX}px` },
+      );
+    } else {
+      for (const k of ["left", "top", "width", "height"]) band.style[k] = "";
+    }
+  }
+  if (nmb.ride) nameMarkBuddyRideBox(x, y, true);
+  if (Number.isFinite(x) && Number.isFinite(y)) nameMarkBuddyPut(buddy, x, y);
+}
+
+//: The band's box: the area's visible box, from under the top bar (or a
+//: bar that sticks in it) to over the bottom one, widened to take in where
+//: it was put, so a perch with its head a little over a sticking bar is
+//: not clipped where it stands. `fresh` measures the bars again (a
+//: placement); otherwise the insets found then are kept and only the
+//: area's own box is read.
+function nameMarkBuddyRideBox(x = nmb.x, y = nmb.y, fresh = false) {
+  const r = nmb.ride;
+  const band = document.getElementById("nm-buddy-band");
+  if (!r || !band) return;
+  const box = r.el.getBoundingClientRect();
+  if (fresh || r.insetTop === undefined) {
+    const { lo, hi } = nameMarkBuddyBand(r.el, nmb.glue?.el);
+    r.insetTop = Math.min(lo, y) - box.top;
+    r.insetBottom = box.bottom - Math.max(hi, y + NMB_H);
+    r.insetLeft = Math.min(box.left + r.el.clientLeft, x) - box.left;
+    r.insetRight = box.right - Math.max(box.left + r.el.clientLeft + r.el.clientWidth, x + NMB_W);
+  }
+  const left = Math.round(box.left + r.insetLeft);
+  const top = Math.round(box.top + r.insetTop);
+  const width = Math.max(0, Math.round(box.right - r.insetRight) - left);
+  const height = Math.max(0, Math.round(box.bottom - r.insetBottom) - top);
+  if (left !== r.left || top !== r.top || width !== r.width || height !== r.height) {
+    Object.assign(r, { left, top, width, height });
+    band.style.left = `${left}px`;
+    band.style.top = `${top}px`;
+    band.style.width = `${width}px`;
+    band.style.height = `${height}px`;
+  }
+}
+
+//: Out of sight with its panel: it stays put, and once the page has been
+//: still a moment it asks for a place on its own beat. Back in sight
+//: before then, nothing happens at all.
+function nameMarkBuddySeen(seen) {
+  nmb.outOfSight = !seen;
+  clearTimeout(nmb.awayTimer);
+  nmb.awayTimer = 0;
+  if (seen || !nmb.ride) return;
+  const wait = () => {
+    nmb.awayTimer = 0;
+    if (!nmb.outOfSight || !nmb.ride) return;
+    const since = performance.now() - nmbFollow.scrollAt;
+    if (since < 1500) {
+      nmb.awayTimer = setTimeout(wait, 1600 - since);
+      return;
+    }
+    nameMarkBuddyQueuePlace();
+  };
+  nmb.awayTimer = setTimeout(wait, 1600);
 }
 
 //: The box a panel scrolls in: its nearest ancestor that scrolls, or the
@@ -3701,6 +3818,7 @@ function nameMarkBuddyGlue(spot, x, y) {
   const box = el?.isConnected ? el.getBoundingClientRect() : null;
   if (!box || (!box.width && !box.height)) {
     nmb.glue = null;
+    nameMarkBuddyRide(null, x, y);
     return;
   }
   const scroller = nameMarkBuddyScroller(el);
@@ -3709,7 +3827,22 @@ function nameMarkBuddyGlue(spot, x, y) {
     scroller, band: null, pose: spot.pose, legs: spot.legs || "", lost: false, held: false,
   };
   nameMarkBuddyGlueBand(nmb.glue, y);
+  nameMarkBuddyRide(nameMarkBuddyScrollsWith(el, scroller) ? scroller : null, x, y);
   nameMarkBuddyWatch();
+}
+
+//: Whether a panel really moves with its area's scroll: not a bar that
+//: sticks in it (the Notes sub-tabs, a chat toolbar) or anything inside
+//: one, and nothing fixed. Riding one of those, the companion was carried
+//: off by a scroll its panel ignored (measured: 120px off its sticking
+//: panel for two frames).
+function nameMarkBuddyScrollsWith(el, scroller) {
+  if (!scroller) return false;
+  for (let node = el; node && node !== scroller; node = node.parentElement) {
+    const pos = getComputedStyle(node).position;
+    if (pos === "sticky" || pos === "fixed") return false;
+  }
+  return true;
 }
 
 //: The band its whole figure may be carried through, widened to take in
@@ -3742,6 +3875,9 @@ function nameMarkBuddyFollow(eased = false) {
   }
   const box = g.el.isConnected ? g.el.getBoundingClientRect() : null;
   if (!box || (!box.width && !box.height)) {
+    //: Its area gone with its panel (another tab): it lets go of the
+    //: scroll where it is in the window, so it does not vanish with the tab.
+    if (nmb.ride) nameMarkBuddyRide(null);
     if (!g.lost) {
       g.lost = true;
       buddy.dataset.pose = nmb.pose = "float";
@@ -3754,6 +3890,33 @@ function nameMarkBuddyFollow(eased = false) {
     g.lost = false;
     buddy.dataset.pose = nmb.pose = g.pose;
     buddy.dataset.legs = nmb.legs = g.legs;
+    if (g.scroller && !nmb.ride) nameMarkBuddyRide(g.scroller, Math.round(box.left + g.dx), Math.round(box.top + g.dy));
+  }
+  //: Riding its area's scroll, a scroll needs nothing from here; this
+  //: puts it back only when the panel moved inside the area (a transform,
+  //: content above it growing), and never holds it at an edge: it goes
+  //: where its panel goes, clipped with it.
+  if (nmb.ride) {
+    if (g.held) {
+      g.held = false;
+      buddy.dataset.pose = nmb.pose = g.pose;
+      buddy.dataset.legs = nmb.legs = g.legs;
+    }
+    nameMarkBuddyRideBox();
+    //: Where it is drawn now, with the band where it is now.
+    nmb.x = nmb.ride.left + nmb.lx;
+    nmb.y = nmb.ride.top + nmb.ly - nmb.ride.el.scrollTop;
+    const rx = Math.round(box.left + g.dx);
+    const ry = Math.round(box.top + g.dy);
+    const ddx = nmb.x - rx;
+    const ddy = nmb.y - ry;
+    if (Math.abs(ddx) >= 0.5 || Math.abs(ddy) >= 0.5) {
+      nameMarkBuddyPut(buddy, rx, ry);
+      if (eased && Math.hypot(ddx, ddy) > 24 && typeof buddy.animate === "function" && !nameMarkBuddyNoTravel() && !(nmb.anim && nmb.anim.playState === "running")) {
+        nmb.anim = buddy.animate([{ translate: `${ddx}px ${ddy}px` }, { translate: "0px 0px" }], { duration: 300, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+      }
+    }
+    return;
   }
   let y = box.top + g.dy;
   const band = g.band || nameMarkBuddyGlueBand(g, y);
@@ -3946,6 +4109,13 @@ document.addEventListener("scroll", (event) => {
   if (!g) return;
   const target = event.target;
   if (target !== document && !(target instanceof Node && target.contains(g.el))) return;
+  //: Riding this very area: the browser has already moved it; only where
+  //: it now is in the window is written down, with no read of any box.
+  if (nmb.ride && target === nmb.ride.el) {
+    nmb.x = nmb.ride.left + nmb.lx;
+    nmb.y = nmb.ride.top + nmb.ly - target.scrollTop;
+    return;
+  }
   //: In the scroll's own frame, so it rides with the panel rather than a
   //: frame behind it.
   nmbFollow.scrollAt = performance.now();
@@ -4000,6 +4170,9 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   if (!Number.isFinite(dx) || !Number.isFinite(dy) || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) return;
   nmb.anim?.cancel();
   nmb.hopAnim?.cancel();
+  //: A move cut short leaves nothing of itself behind (its own end no
+  //: longer takes these off: see `nameMarkBuddyPoof`).
+  buddy.classList.remove("nmb-poofing", "nmb-walking");
   if (instant || typeof buddy.animate !== "function") return;
   nmb.movedAt = Date.now();
   const distance = Math.hypot(dx, dy);
@@ -4020,6 +4193,16 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
     ], { duration: 360, easing: "ease-in-out" });
     return;
   }
+  //: **A poof when it must jump** (INBOX 426 x, the owner: "a better
+  //: teleport"). Out of sight with its panel, or further than a walk
+  //: should go, it does not stride in from off the page: it dissolves in a
+  //: burst of stars where it was (when that could be seen) and appears in
+  //: another where it is going, 370ms in all.
+  const seenFrom = !nmb.outOfSight && was.x > -NMB_W && was.y > -NMB_H && was.x < innerWidth && was.y < innerHeight;
+  if (!spot.falls && (!seenFrom || distance > NMB_POOF_PX)) {
+    nameMarkBuddyPoof(buddy, dx, dy, seenFrom);
+    return;
+  }
   //: Let go over open space, it falls: gravity's curve, straight down,
   //: and a squash where it lands.
   if (spot.falls) {
@@ -4033,12 +4216,16 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   buddy.dataset.turn = dx > 0 ? "l" : "r";
   buddy.classList.add("nmb-walking");
   nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+  //: This walk's own end only (see `nameMarkBuddyPoof`): a walk cut short
+  //: by the next reports its `cancel` after the next has begun.
+  const walk = nmb.anim;
   const done = () => {
+    if (nmb.anim !== walk) return;
     buddy.classList.remove("nmb-walking");
     delete buddy.dataset.turn;
   };
-  nmb.anim.onfinish = done;
-  nmb.anim.oncancel = done;
+  walk.onfinish = done;
+  walk.oncancel = done;
   const arc = Math.abs(dy) > 36 || poseChanged ? Math.min(80, 24 + Math.abs(dy) * 0.12) : 0;
   if (arc && char) {
     nmb.hopAnim = char.animate(
@@ -4046,6 +4233,63 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
       { duration },
     );
   }
+}
+
+const NMB_POOF_PX = 480;
+const NMB_POOF_OUT_MS = 150;
+const NMB_POOF_IN_MS = 220;
+function nameMarkBuddyPoof(buddy, dx, dy, fromSeen) {
+  const out = fromSeen ? NMB_POOF_OUT_MS : 0;
+  const total = out + NMB_POOF_IN_MS;
+  const at = out / total;
+  buddy.classList.add("nmb-poofing");
+  //: The shrink is the character's, not the host's: an individual `scale`
+  //: on the host is applied before its `transform`, so it scaled the
+  //: translate that places it and swept it across the page.
+  nmb.anim = buddy.animate(fromSeen ? [
+    { translate: `${dx}px ${dy}px`, opacity: 1 },
+    { translate: `${dx}px ${dy}px`, opacity: 0, offset: at },
+    { translate: "0px 0px", opacity: 0, offset: Math.min(1, at + 0.001) },
+    { translate: "0px 0px", opacity: 1 },
+  ] : [
+    { opacity: 0 },
+    { opacity: 1 },
+  ], { duration: total, easing: "ease-out" });
+  const char = buddy.querySelector(".nm-buddy-char");
+  nmb.hopAnim = char?.animate(fromSeen ? [
+    { scale: "1" }, { scale: "0.55", offset: at }, { scale: "0.55", offset: Math.min(1, at + 0.001) }, { scale: "1" },
+  ] : [{ scale: "0.55" }, { scale: "1" }], { duration: total, easing: "ease-out" }) || null;
+  //: Only this poof's own end takes the class off: a cancelled earlier
+  //: move reports its `cancel` a moment later, after this one began.
+  const anim = nmb.anim;
+  const done = () => {
+    if (nmb.anim === anim) buddy.classList.remove("nmb-poofing");
+  };
+  anim.onfinish = done;
+  anim.oncancel = done;
+  if (fromSeen) nameMarkBuddyBurst(buddy, dx, dy, 0);
+  nameMarkBuddyBurst(buddy, 0, 0, out);
+}
+
+//: The stars: beside the figure in its rider, not inside it, so they are
+//: not faded with it; eight of them flung out on transforms, gone with
+//: their element 240ms after they start.
+function nameMarkBuddyBurst(buddy, dx, dy, delay) {
+  const host = buddy.parentElement;
+  if (!host) return;
+  const burst = document.createElement("span");
+  burst.className = "nmb-burst";
+  burst.setAttribute("aria-hidden", "true");
+  burst.style.transform = `translate(${nmb.lx + dx}px, ${nmb.ly + dy}px)`;
+  burst.style.setProperty("--nmb-burst-delay", `${delay}ms`);
+  for (let i = 0; i < 8; i += 1) {
+    const star = document.createElement("i");
+    star.style.setProperty("--nmb-burst-a", `${i * 45 + Math.round(Math.random() * 20 - 10)}deg`);
+    star.style.setProperty("--nmb-burst-r", `${26 + Math.round(Math.random() * 12)}px`);
+    burst.appendChild(star);
+  }
+  host.appendChild(burst);
+  setTimeout(() => burst.remove(), delay + 260);
 }
 
 //: Chooses where it belongs on this tab now and goes there: your spot on
@@ -4072,7 +4316,7 @@ function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant
 //: Where it is now still does: on screen, not lost, not held off its
 //: panel, and not over a control.
 function nameMarkBuddyStillGood(obstacles) {
-  if (!Number.isFinite(nmb.x) || nmb.perch === "errand") return false;
+  if (!Number.isFinite(nmb.x) || nmb.perch === "errand" || nmb.outOfSight) return false;
   if (nmb.glue && (nmb.glue.lost || nmb.glue.held)) return false;
   if (nmb.x < 0 || nmb.y < 0 || nmb.x > innerWidth - NMB_W || nmb.y > innerHeight - NMB_H) return false;
   return !nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, obstacles, nmb.legs);
@@ -4213,9 +4457,9 @@ function nameMarkBuddyCallBack() {
   nmb.anim?.cancel();
   nmb.hopAnim?.cancel();
   buddy.style.translate = "";
-  buddy.classList.remove("nm-buddy-dragging");
+  buddy.classList.remove("nm-buddy-dragging", "nmb-poofing", "nmb-walking");
   const box = buddy.getBoundingClientRect();
-  const seen = box.right > 0 && box.left < innerWidth && box.bottom > 0 && box.top < innerHeight;
+  const seen = !nmb.outOfSight && box.right > 0 && box.left < innerWidth && box.bottom > 0 && box.top < innerHeight;
   nameMarkBuddyIndexReset();
   placeNameMarkBuddy(buddy, !seen);
   if (!seen && !nameMarkBuddyNoTravel()) {
@@ -4305,7 +4549,7 @@ function nameMarkBuddyHalt(buddy) {
   clearTimeout(nmb.timer);
   clearTimeout(nmb.shyTimer);
   nmb.timer = nmb.shyTimer = 0;
-  buddy.classList.remove("nmb-walking", "nmb-sleep", "nmb-drowsy", "nmb-duck", "nmb-stir", "nmb-arrive");
+  buddy.classList.remove("nmb-walking", "nmb-poofing", "nmb-sleep", "nmb-drowsy", "nmb-duck", "nmb-stir", "nmb-arrive");
   delete buddy.dataset.turn;
   if (buddy.dataset.legs === "peek") buddy.dataset.legs = nmb.legs = "";
 }
@@ -4829,6 +5073,11 @@ function nameMarkBuddyGone() {
   nmb.timer = nmb.placeTimer = nmb.heldTimer = 0;
   nmb.glue = null;
   nmb.pinned = false;
+  nmb.rideAnim?.cancel();
+  nmb.rideAnim = nmb.ride = null;
+  nmb.seenObserver?.disconnect();
+  nmb.seenObserver = null;
+  document.getElementById("nm-buddy-band")?.remove();
   nameMarkBuddyWatch();
   nmb.x = nmb.y = NaN;
 }
@@ -4934,7 +5183,24 @@ function nameMarkBuddyBuild() {
   //: time is kinda annoying. keep it in the right click or hold popup
   //: menu"): Hide is in its menu, which the keyboard reaches too.
   buddy.append(face);
-  document.body.appendChild(buddy);
+  //: **A band and a rider** (INBOX 426 x, `nameMarkBuddyRide`): the band
+  //: is the window, or the visible box of the panel's scroll area it rides
+  //: in, and clips it there; the rider inside it is moved by the browser
+  //: with that scroll. It stays in the body: the app's own scroll boxes
+  //: (the dashboard's flex page, the notes list) are never given a child
+  //: they did not make.
+  const band = document.createElement("div");
+  band.id = "nm-buddy-band";
+  const rider = document.createElement("div");
+  rider.className = "nm-buddy-rider";
+  rider.appendChild(buddy);
+  band.appendChild(rider);
+  document.body.appendChild(band);
+  if (typeof IntersectionObserver === "function") {
+    nmb.seenObserver?.disconnect();
+    nmb.seenObserver = new IntersectionObserver((entries) => nameMarkBuddySeen(entries[entries.length - 1].isIntersecting), { threshold: 0 });
+    nmb.seenObserver.observe(buddy);
+  }
 
   //: **A smooth drag** (the owner: "dragging the corner companion is jerky
   //: and kinda like a grid snap"): a `translate` applied once a frame from
@@ -4981,6 +5247,9 @@ function nameMarkBuddyBuild() {
     if (!drag.moved && Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 4) return;
     if (!drag.moved) {
       drag.moved = true;
+      //: Carried in the window, not in a scroll area: where it lands
+      //: decides what it rides next.
+      nameMarkBuddyRide(null);
       nameMarkBuddyAct("");
       buddy.classList.remove("nmb-sleep", "nmb-drowsy");
       nameMarkBuddyRelease();

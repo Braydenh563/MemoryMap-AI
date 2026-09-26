@@ -461,7 +461,7 @@ def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
     settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '"atlas-style": "character"' in settings
-    assert "\"avatar-buddy\", \"atlas-style\", \"atlas-look\", \"face-look\", \"dash-mark\"" in settings, "Reset forgets the choice"
+    assert "\"avatar-buddy\", \"avatar-buddy-size\", \"atlas-style\", \"atlas-look\", \"face-look\", \"dash-mark\"" in settings, "Reset forgets the choice"
     assert 'id="atlas-style"' in index and '<option value="classic">Classic globe</option>' in index
     assert 'atlasStyle() === "classic") return atlasClassicMark(size, mood);' in atlas
     assert 'if (atlasStyle() === "classic") return atlasClassicFigure();' in atlas

@@ -283,3 +283,26 @@ def test_light_and_dark_and_its_size() -> None:
     assert 'id="avatar-buddy-size"' in HTML
     assert '"avatar-buddy-size"' in SETTINGS
     assert "#nm-buddy .nm-buddy-face {\n  scale: var(--nmb-scale);\n  transform-origin: 50% var(--nmb-edge);" in CSS08
+
+
+def test_a_saved_face_is_read_as_it_may_be_drawn_now() -> None:
+    # INBOX 426 w (73.png, 90.png): a saved hand "middlefinger" left the
+    # Holding select empty. Every saved style is read through the pickers'
+    # own option lists (profilelook.js: Holding reads "From your name", a
+    # saved hair is kept). The server drops retired parts too
+    # (tests/test_preferences_api.py).
+    clean = _fn("nameMarkStyleClean")
+    assert "options().includes(value)" in clean
+    assert "return nameMarkStyleClean(" in _fn("ownNameMarkStyle")
+    assert "style: nameMarkStyleClean(saved.style)" in _fn("nameMarkBuddyCustom")
+
+
+def test_your_picture_enlarges_on_a_double_click() -> None:
+    # INBOX 426 w: "the profile picture cannot be enlarged like the
+    # companion". A double-click on any of your own pictures opens it large,
+    # and the second click of it no longer closes what the first opened.
+    listener = AV[AV.index('document.addEventListener("dblclick", (event) => {') :]
+    assert 'closest?.("[data-user-mark]")' in listener[:400]
+    viewer = _fn("openNameMarkViewer")
+    assert "performance.now() - openedAt > 400" in viewer
+    assert 'if (document.querySelector(".nm-viewer")) return;' in viewer

@@ -70,6 +70,42 @@ class AvatarStyle(BaseModel):
     # empty leaves it to the name and to Appearance, Face looks.
     look: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
 
+    @field_validator("hand", "mood", "hair", "outfit", "hat", "eyewear", "skin", "hairtone", "look")
+    @classmethod
+    def _not_retired(cls, value: str, info) -> str:
+        """A part taken out of the drawing is left to the name, not kept."""
+        return "" if value in RETIRED_AVATAR_PARTS.get(info.field_name, ()) else value
+
+
+#: **Parts taken out of the drawing** (INBOX 426 w, 90.png). A style saved
+#: before a part was removed keeps naming it: the rude gesture came out of
+#: the held things (INBOX 426 j) and a saved `hand: "middlefinger"` left
+#: Your look's Holding select empty, a value none of its options has. The
+#: frontend owns the lists of parts (avatars.js); the server knows only
+#: what has been retired, and drops it both ways: on save (the validator
+#: above) and on read (`_clean_avatar_style`), for a style saved before.
+RETIRED_AVATAR_PARTS: dict[str, frozenset[str]] = {"hand": frozenset({"middlefinger"})}
+
+
+def _clean_avatar_style(raw: object) -> dict:
+    """A saved style as it may be drawn now: only the parts, each a valid
+    word and not retired. A key that is no part, or a value that fails the
+    part's own rule, is dropped, not the whole style."""
+    if not isinstance(raw, dict):
+        return {}
+    clean: dict = {}
+    for name in AvatarStyle.model_fields:
+        if name not in raw:
+            continue
+        try:
+            value = getattr(AvatarStyle(**{name: raw[name]}), name)
+        except ValueError:
+            continue
+        if value == "" and raw[name] != "":
+            continue
+        clean[name] = value
+    return clean
+
 
 class TemplateItem(BaseModel):
     name: str = Field(min_length=1, max_length=40)
@@ -612,7 +648,7 @@ def get_preferences() -> dict:
         "close_to_tray": config.get_preference("close_to_tray", True),
         # Default False, matching `_run_desktop` in __main__.py.
         "new_window_on_launch": config.get_preference("new_window_on_launch", False),
-        "avatar_style": config.get_preference("avatar_style", {}),
+        "avatar_style": _clean_avatar_style(config.get_preference("avatar_style", {})),
         "status_bar_hidden": config.get_preference("status_bar_hidden", []),
         "status_bar_clock": config.get_preference("status_bar_clock", False),
     }

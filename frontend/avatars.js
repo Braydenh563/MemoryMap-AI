@@ -295,8 +295,37 @@ function setOwnNameMarkStyle(style) {
   nameMarkOwn = style && typeof style === "object" ? { ...style } : {};
 }
 
+//: **A saved style as it may be drawn now** (INBOX 426 w, 73.png and
+//: 90.png): each part only if it is one of the part's options today (or
+//: "none", or an old hair name the drawing still reads), so a part since
+//: taken out (the rude gesture) is left to the name instead of leaving its
+//: picker empty. The server drops retired parts too (`_clean_avatar_style`
+//: in routes_settings.py); this is the same for anything kept on this
+//: computer, and for a list that changes before the server's does.
+function nameMarkStyleClean(style) {
+  const out = {};
+  if (!style || typeof style !== "object") return out;
+  const variant = Number(style.variant);
+  if (Number.isFinite(variant) && variant > 0) out.variant = Math.floor(variant) % 10000;
+  let parts;
+  try {
+    parts = PROFILE_LOOK_PARTS;
+  } catch (e) {
+    //: Read before the part lists are defined (a face drawn while this
+    //: file is still loading): as it was saved.
+    return { ...style };
+  }
+  for (const [key, , options] of parts) {
+    const value = style[key];
+    if (typeof value !== "string" || !value) continue;
+    const allowed = (value === "none" && key !== "skin" && key !== "hairtone") || options().includes(value) || (key === "hair" && NAME_MARK_HAIR_ALIASES[value]);
+    if (allowed) out[key] = value;
+  }
+  return out;
+}
+
 function ownNameMarkStyle() {
-  return { ...(nameMarkOwn ?? ((typeof prefsCache !== "undefined" && prefsCache?.avatar_style) || {})) };
+  return nameMarkStyleClean(nameMarkOwn ?? ((typeof prefsCache !== "undefined" && prefsCache?.avatar_style) || {}));
 }
 
 function nameMarkOwnFor(name) {
@@ -329,7 +358,7 @@ function nameMarkBuddyCustom() {
     saved = {};
   }
   const name = String(saved.name || "").trim().slice(0, 40) || "Buddy";
-  nameMarkBuddyCustomCache = { name, style: saved.style && typeof saved.style === "object" ? { ...saved.style } : {} };
+  nameMarkBuddyCustomCache = { name, style: nameMarkStyleClean(saved.style) };
   return nameMarkBuddyCustomCache;
 }
 
@@ -2637,7 +2666,10 @@ function nameMarkSay(anchor, text) {
 //: opens it big, animated, with what it was read as, so the joke can be
 //: seen at a size where it lands.
 function openNameMarkViewer(seed) {
+  //: One at a time: a double-click opens it once.
+  if (document.querySelector(".nm-viewer")) return;
   const opener = document.activeElement;
+  const openedAt = performance.now();
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay nm-viewer";
   overlay.setAttribute("role", "dialog");
@@ -2682,8 +2714,10 @@ function openNameMarkViewer(seed) {
     nameMarkSay(stage, nameMarkLine(seed));
   });
   close.addEventListener("click", shut);
+  //: Not closed by the second click of the double-click that opened it:
+  //: a click on the ground within 400ms of opening is that click.
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) shut();
+    if (event.target === overlay && performance.now() - openedAt > 400) shut();
   });
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
@@ -2699,6 +2733,17 @@ document.addEventListener("click", (event) => {
   nameMarkReact(svg);
   if (svg.closest("button, a, [role='button'], label, select, summary")) return;
   openNameMarkViewer(svg.dataset.nmSeed || "");
+});
+
+//: **Your own picture, enlarged by a double-click** (INBOX 426 w, the
+//: owner: the profile picture "cannot be enlarged like the companion"),
+//: wherever it is drawn: the profile's head, and the Settings head's
+//: button (whose single click still goes to your profile).
+document.addEventListener("dblclick", (event) => {
+  const holder = event.target.closest?.("[data-user-mark]");
+  if (!holder) return;
+  event.preventDefault();
+  openNameMarkViewer(typeof userMarkSeed === "function" ? userMarkSeed() : "You");
 });
 
 //: **Eyes that follow the pointer**, when Appearance says so. One listener,

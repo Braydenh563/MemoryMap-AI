@@ -109,6 +109,11 @@ capture a thought
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/agent.png" alt="The popup agent over the Notes tab: Atlas's head beside the title, starter questions, and the composer with its wand" width="850">
+  <br><sub><b>Popup agent</b>: ask about your notes from any tab, with Atlas at the head of it</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: thirteen themes as swatches, Quiet utilitarian chosen, with saved looks below" width="850">
   <br><sub><b>Appearance</b>: thirteen themes, your own accent, type, density and corners</sub>
 </p>

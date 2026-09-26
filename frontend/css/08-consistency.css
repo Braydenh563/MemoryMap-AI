@@ -1913,12 +1913,17 @@ summary > .ph-lead,
    Atlas row wears it in line with its words. */
 .atlas-mark:has(> .nm-atlas) {
   background: none;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.atlas-mark > .nm-atlas {
+/* Clipped to its box: the bust is the whole figure cropped by its viewBox,
+   and a mark's svg is otherwise allowed to overflow, which put the agent
+   head's Atlas over the input's wand (docs/screenshots/agent.png). */
+.atlas-mark > .nm-atlas,
+#palette-list li > .nm-atlas {
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .help-head .atlas-mark-agent {

@@ -80,6 +80,18 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(200);
   const rect = () => page.evaluate(() => { const r = document.querySelector('#nm-buddy .nm-buddy-face').getBoundingClientRect(); return { h: +r.height.toFixed(1), bottom: +r.bottom.toFixed(1), top: +r.top.toFixed(1), right: +r.right.toFixed(1), left: +r.left.toFixed(1) }; });
   size.medium = await rect();
+  // The handle: hidden at rest (the pointer away), shown on hover and on
+  // the keyboard's focus.
+  const gripState = () => page.evaluate(() => { const cs = getComputedStyle(document.querySelector('#nm-buddy .nmb-size-grip')); return `${cs.visibility}/${cs.opacity}`; });
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(300);
+  size.gripAtRest = await gripState();
+  await page.evaluate(() => document.querySelector('#nm-buddy .nm-buddy-face').focus({ focusVisible: true }));
+  await page.keyboard.press('Shift');
+  await page.waitForTimeout(250);
+  size.gripOnFocus = await gripState();
+  await page.evaluate(() => document.activeElement?.blur());
+  if (size.gripAtRest !== 'hidden/0') fails.push(`grip at rest: ${size.gripAtRest}`);
   const fc = [size.medium.left + 32, size.medium.top + 40];
   await page.mouse.click(fc[0], fc[1], { button: 'right' });
   await page.waitForTimeout(250);
@@ -101,6 +113,7 @@ const { boot } = require('./lib.js');
   size.dragged = await rect();
   size.draggedSaved = await page.evaluate(() => localStorage.getItem('avatar-buddy-size'));
   size.gripShown = grip.shown;
+  if (grip.shown !== '1') fails.push(`grip on hover: ${grip.shown}`);
   await page.evaluate(() => openSettingsModal('appearance'));
   await page.waitForTimeout(500);
   size.select = await page.evaluate(() => { const s = document.getElementById('avatar-buddy-size'); return s.options[s.selectedIndex]?.textContent || ''; });

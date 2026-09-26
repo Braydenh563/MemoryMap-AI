@@ -345,3 +345,16 @@ def test_its_menu_opens_at_the_pointer_and_stops_a_move() -> None:
     build = _fn("nameMarkBuddyBuild")
     assert "if (event.button === 2) rightDown = " in build
     assert "nameMarkBuddyMenu(buddy, at);" in build
+
+
+def test_the_size_handle_shows_only_when_asked_for() -> None:
+    # Round 4: the handle was reported visible at rest. Hidden by opacity
+    # and visibility; shown on hover or the keyboard's focus, or while it
+    # is sized, and not while it is carried (companionlife.js: hidden/0 at
+    # rest, visible/1 on focus, 1 on hover).
+    grip = CSS08[CSS08.index("#nm-buddy .nmb-size-grip {") :]
+    grip = grip[: grip.index("}")]
+    assert "opacity: 0;" in grip and "visibility: hidden;" in grip
+    assert "#nm-buddy:not(.nm-buddy-dragging) .nm-buddy-face:is(:hover, :focus-visible) .nmb-size-grip," in CSS08
+    # Atlas round 4's filter stays: its svg roots are composited, not paced.
+    assert "!(a.effect.target instanceof SVGSVGElement)" in _fn("nameMarkBuddyTempo")

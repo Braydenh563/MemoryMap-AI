@@ -5285,15 +5285,22 @@ main,
   background: var(--card);
   cursor: nesw-resize;
   opacity: 0;
+  visibility: hidden;
   scale: calc(1 / var(--nmb-scale));
   /* Over the face's own wider handle (its ::after), which is drawn later. */
   z-index: 1;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--motion-fast) var(--ease-out), visibility 0s linear var(--motion-fast);
 }
 
-#nm-buddy .nm-buddy-face:hover .nmb-size-grip,
+/* Only while the pointer is over it, it has the keyboard's focus, or it is
+   being sized; never at rest, and not while it is carried (round 4: seen
+   at rest). Hidden by visibility too, so no opacity rule elsewhere can
+   show it. */
+#nm-buddy:not(.nm-buddy-dragging) .nm-buddy-face:is(:hover, :focus-visible) .nmb-size-grip,
 #nm-buddy.nmb-sizing .nmb-size-grip {
   opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 @media (hover: none) {

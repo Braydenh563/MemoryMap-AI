@@ -38,12 +38,14 @@ two decisions only the owner can take are INBOX 427.
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
 - **uipolish-0924 leftovers**: the surface-by-surface pass (its item D);
-  the icon-only floor is done and measured by `iconfloor.js`. `deadbtn.js` (now in
-  `scratchpad/ui-sweeps/`) has three findings left at 1440, all controls
-  whose centre is under the status bar's `FOOTER.edge-fade` mid-scroll (two
-  dashboard board cards, a Notes tag chip); scrolled to its end the
-  dashboard clears the footer (lowest control 549px, footer at 863px), and
-  Notes, whose list scrolls in its own box, was not settled. [ui-426]
+  the icon-only floor is done and measured by `iconfloor.js`. The footer
+  overlap `deadbtn.js` reported was the sweep's, settled 2026-09-26: no tab's
+  scroller runs under the status bar (each ends at or above its top, at 1440
+  and 390), and the three were controls half scrolled out of their own box,
+  whose centre the point test found the bar under; the sweep now checks the
+  centre against each scrolling ancestor first, 0 findings at 1440. At 390
+  one is left, the graph's `#graph-fullscreen` under a `button.small` (the
+  graph agent's). [ui-426]
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]

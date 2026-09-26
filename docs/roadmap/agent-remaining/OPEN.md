@@ -7,21 +7,12 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
-- **Atlas repaints its 455-node figure twenty times a second at rest**
-  (about 32ms of paint a second). Fewer or cheaper animated groups in
-  `atlas.js` are the next saving; the companion's pacer cannot make a paint
-  cheaper. [companion-426]
 - **The feminine look has no legs**, so the companion's walk, kick and
   dangle move nothing on it; a ribbon sway on `.atl-lower` under the same
   classes would answer them. [atlas-fable]
 - **Settings, Appearance, Atlas look reads "masculine" when nothing is
   stored**, while Atlas then follows Face looks; an "Auto (follows Face
   looks)" option would say what happens. [atlas-fable]
-- **The popup agent's Atlas head overflows its 28px slot** and paints over
-  the input's wand icon (measured 2026-09-26: the `svg.atl-bust` box is
-  28x28 at the head, the drawing reaches about 60px down). Seen in the
-  README capture, which is why the agent shot is not in the README.
-  [docs-0.3.3]
 - **Three CSP "inline style" warnings on the avatar lab's console** come
   from a `style` attribute in avatars.js's generated faces; harmless there,
   worth a grep. [atlas-fable]

@@ -91,15 +91,31 @@ async function boot(opts={}) {
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });
   await page.goto(BASE + '/', {waitUntil:'domcontentloaded'});
-  await page.waitForSelector('#lock-password', {state:'visible', timeout:20000});
-  await page.fill('#lock-password', PW);
-  await page.click('#lock-submit');
+  //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
+  //: when the app opens" turned off never shows `#lock-password` on this
+  //: computer, and waiting for it timed out every sweep on such a data dir.
+  //: So wait for whichever comes first: the lock field, or the app itself
+  //: (the boot splash down, the lock overlay hidden, a token stored).
+  const way = await (await page.waitForFunction(() => {
+    const field = document.getElementById('lock-password');
+    const overlay = document.getElementById('lock-overlay');
+    const splash = document.getElementById('boot-splash');
+    if (field && overlay && !overlay.classList.contains('hidden') && field.offsetParent !== null) return 'lock';
+    const settled = !splash || splash.classList.contains('hidden');
+    if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
+    return false;
+  }, null, {timeout:20000, polling:100})).jsonValue();
+  if (way === 'lock') {
+    await page.fill('#lock-password', PW);
+    await page.click('#lock-submit');
+  }
   await page.waitForTimeout(3000);
-  if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
+  if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }
   await page.evaluate(()=>{ const o=document.getElementById('onboarding-overlay'); if(o) o.classList.add('hidden'); });
   await page.waitForTimeout(800);
-  return {browser, ctx, page, OUT};
+  //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
+  return {browser, ctx, page, OUT, signIn: way};
 }
 module.exports = {boot, OUT, PW, BASE};

@@ -15,6 +15,12 @@ h1 { font-size: 15px; margin: 0; }
 .field { display: grid; gap: 4px; margin: 7px 0; color: var(--muted); font-size: 11px; }
 .field.inline { grid-template-columns: 1fr auto; align-items: center; }
 .row, .moods { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* Three spacings that were `style` attributes in the markup, which the
+   app's CSP (`style-src 'self'`, served at /tools) refuses: three console
+   warnings on every load of the lab, and the spacing silently lost. */
+.row-gap { margin-top: 8px; }
+.hint-head { margin: 8px 0 2px; }
+.field.field-flush { margin: 0; }
 input, select, textarea, button { font: inherit; }
 input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; color: var(--ink); padding: 6px; }
 input[type="range"] { padding: 0; }

@@ -1106,6 +1106,12 @@ empty, capture a thought to begin": three tones for one situation.
 --target-min: 1.75rem   /* 28px, the floor under every interactive thing */
 ```
 
+**Icon-only buttons are measured, not listed** (0.3.3): a button with an
+icon and no words is only recognisable in a browser, so
+`scratchpad/ui-sweeps/iconfloor.js` (in `gate.sh --sweeps`) walks every tab,
+a document, a board and Settings in a touch context and fails on any under
+44px: 296 measured at 1024, 106 at 390, none under.
+
 Distinct from `--control-h`, and the difference matters: `--control-h` is a
 **strip's** declared height, scoped per toolbar, and exists so a row reads as
 one strip. `--target-min` is a **global floor** that applies to a control

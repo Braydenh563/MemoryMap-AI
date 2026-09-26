@@ -372,9 +372,8 @@ this head (`readmeshots.js`, `atlasreadme.js`, `pngshrink.py`).
 
 **Next:** INBOX 427, the owner's two calls (Atlas's anatomy after rounds 3
 and 4; the companion's pin near an edge). Then `agent-remaining/OPEN.md`,
-"Left by the 0.3.3 agents", first the two found by the README pass: the
-popup agent's Atlas head overflowing its 28px slot (the writing
-suggestions' heading-case rule, the other, is off since 0.3.3).
+"Left by the 0.3.3 agents", top down (the two the README pass found, the
+agent's Atlas head and the heading-case rule, are both fixed).
 
 **The 2026-09-21 Now blocks** (the app saying true things about itself; the
 guided tour's third fix, CI's cancel-in-progress, the unsigned commits) are

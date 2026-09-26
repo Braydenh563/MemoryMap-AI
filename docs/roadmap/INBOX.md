@@ -34,82 +34,25 @@ with its owner named in the entry.
 
 ## Open items
 
-426. **The owner, 2026-09-25 (after the usage reset), with screenshots
-    (session images 43 to 71 and the Gemini chat PDF).** Verbatim, condensed
-    to the asks: (a) "in the documents full screen mode, I cant access the
-    formatting toolbar or any of the other key tools or controls"; (b) "the
-    suggestions panel doesnt adapt properly to the sidebar and it also needs
-    to be accessible in full screen mode"; (c) "the character hand gestures
-    and props and stuff dont properly show anymore"; (d) "I changed my name
-    but the companion which was me didnt update"; (e) "add the ability to
-    make a custom companion that isnt based off your name"; (f) "improve the
-    characters more as they still look bland and are missing a lot of the
-    flare they used to have"; (g) "they still telleport and move suddenly as
-    well and it is jarring"; (h) "all of the animated logos arent rotating
-    and the one form the new chat interface is missing"; (i) "maybe the
-    atlas guide can have the atlas avatar?? same witht he popup agent and
-    find anything search??"; (j) "it did say it was flipping me off at one
-    point but it wasnt visually doing that"; (k) "the companion just went off
-    the screen and I cant get it back now ... there needs to be some way to
-    reset the position and recall the companion. also the arms get cut off
-    on the sides"; (l) "when I press the option to stay in the same spot
-    across pages for the companion, it still moves sometimes and it still
-    isnt smooth"; (m) "atlas needs to move and work on its own time not
-    based off how fast the user is switching tabs ot scrolling. if it is
-    sitting on a pannel and I scroll or that panel moves it might fall or
-    move with the panel. it needs to be smooth, unintrusive. present and
-    lifelike but not too much"; (n) "it keeps disappearing and reappearing on
-    different parts of the page as I scroll"; (o) "the companion doesnt
-    scroll or move if it is on widgets when the ui moves or it is really slow
-    to"; (p) "the right click companion dropdown menu doesnt appear where the
-    companion is"; (q) Atlas: "looks fat and still needs a lot of improving
-    - do a mix of the versions I like and the sprite like ones", "work from
-    how it is now ... slightly more flowy and voluptuous hair, fluffy ears
-    and a very fluffy celestial tail, surrounded by a clustorous string or
-    stream ... the face is fine, the star on the chest could be improved",
-    then "I prefered the tails like this. not as furry ... like a stream of
-    cosmic water or a ribbon like pokemon tail"; the male sprite grid is the
-    main version, the flowing-hair ribbon-tail figures are the feminine
-    version; "I need you to LOCK IN for the atlas aesthetic"; (r) "update all
-    the docs and the readme file as well ... update the screenshots and
-    expand them ... include an atlas avatar ... only after all the ui
-    improvements"; (s) "upgrade this pr to a new version like 0.3.3". Placed:
-    (a, b, h) the UI agent; (c to g, j to p) the companion agent; (q, i) the
-    Atlas agent; (r, s) the orchestrator at the end.
-    **Second batch, 2026-09-25 evening (images 72 to 96), condensed:**
-    (u) Settings: Appearance's theme and colour section scroll-jumps; the
-    page scrolls slowly; it jumps between sections; the dashboard and other
-    pages scroll-jump too; many settings controls sit mid-row instead of at
-    the right (85); an empty card reading "Stays on this computer like
-    everything else" (88). (v) Atlas: hands and feet look inverted; head and
-    body look like a doll or puppet, not organic; a longer, more ribbon-like
-    tail; a better nebulous stream; a redesigned chest star; the feminine
-    look is nearly the masculine one and must follow 60 to 64 and 74 to 83;
-    refine the body and limbs. (w) Faces: the Holding dropdown shows empty
-    (73); the profile picture cannot be enlarged like the companion; the
-    stored avatar_style still carries hand "middlefinger" (90). (x)
-    Companion: heavy and glitchy, makes everything slower; a fast scroll
-    leaves it floating then vanishing (it should leave with its panel);
-    one expression only, wants more behaviour and slight expression changes;
-    a light or dark variant; size options; a better teleport animation; the
-    right-click menu still opens away from it or off screen (84). (y) The
-    guided tour breaks after "Next to Notes" (87, log: tour-spot asked for
-    336,275 drew at 1128,4); its companion step covers its own target until
-    Next then Back (95, 96); what the mind map step does with no map. (z)
-    Library Activity renders as vertical letter columns and shows raw keys
-    like notificationsmutedexcept_reminders (89, 90); selection boxes touch
-    the kebab (91); the docked Suggestions header buttons wrap badly (92);
-    Documents' "Fill the whole screen" does nothing (93, 94); place Atlas
-    better in the guide panel (86). (aa) Optional sign-in: a toggle so the
-    app need not ask for a password (the owner's brother). Recommendation,
-    taken: a "Ask for a password when the app opens" switch, on by default,
-    turning it off needs the current password; private notes stay encrypted
-    and still ask for it when opened. (bb) avatar-lab.html (tools/, the
-    owner's first pass): refine it into a light, correct bench for judging
-    Atlas and the characters, with temporary changes previewed live. (cc)
-    frontend/app.js is 50,858 lines: split it. Placed: v, bb the Atlas
-    agent; w, x the companion agent; u, y, z the UI agent; aa and cc after
-    those land (app.js is touched by all three).
+427. **Open from INBOX 426, 2026-09-26: two calls only the owner can make.**
+    Everything else in 426 (a to cc) is built and in HISTORY, "INBOX
+    resolved, 2026-09-26"; the agents' smaller leftovers are in
+    `agent-remaining/OPEN.md`, "Left by the 0.3.3 agents".
+    (1) **Atlas's anatomy, the owner's read of rounds 3 and 4.** The trace
+    proofs put the masculine look at 88% of the reference sprite's height
+    and the feminine look's hair a third shorter than the definitive stand's;
+    the owner's review names the next round (hands and feet, the head to body
+    join, the tail's ribbon, the chest star). Judge it in the avatar lab
+    (`tools/avatar-lab.html`, Both looks, All poses) or the README's
+    `docs/screenshots/atlas-hero.png` and `atlas-poses.png`.
+    Recommendation: none to take on the owner's behalf; this is taste.
+    (2) **The companion's pin near an edge.** A companion pinned within 160px
+    of the window's right or bottom edge keeps its distance from that edge
+    when the window is resized (so it moves with the edge); one pinned further
+    in keeps its place. Whether the owner reads the first as "it still
+    moves" (426 l) is not known. Recommendation, taken unless the owner says
+    otherwise: keep it, since a pin by the edge that stayed put would end up
+    off screen or under the scroll bar on a narrower window, which is 426 k.
 
 425. **The owner, 2026-09-24 (after the usage reset), with screenshots.**
     Avatars: (a) "the avatar shows even when the app is on the lock screen.

@@ -6093,12 +6093,29 @@ main,
 }
 
 /* The companion's box holds the drawing at 1:1; the glow and the halo may
-   reach past it. */
+   reach past it. The figure is five layers stacked in the box (atlas.js,
+   `atlasDrawFigure`); each idle loop runs on one layer's root, on the
+   compositor, with its pivot in the box: the body breathes from the feet,
+   the tail sways from its root, the lids blink and follow the head's tilt
+   and the companion's head turn, the front shimmers. */
 .atl-figure-box > svg {
   position: absolute;
   left: 0;
   top: 0;
+  overflow: visible;
 }
+.nm-atlas.atl-layer-body { transform-origin: 31px 90px; will-change: transform; }
+.nm-atlas.atl-layer-tail { transform-origin: 34px 60px; will-change: transform; }
+.nm-atlas.atl-layer-front { will-change: opacity; }
+.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
+.nm-atlas.atl-layer-lids .atl-head { transform: none; }
+.nm-atlas .atl-lid-shut { opacity: 1; }
+#nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
+/* Off screen or on a hidden tab, every loop stops. */
+.atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }
+/* The shared defs (atlas.js, `atlasDefs`): present, unseen. */
+svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* Parts that turn or slide do it about a point atlas.js puts on the part
    (`atlasPivot`), in the drawing's units. */
@@ -6602,6 +6619,18 @@ main,
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    /* The layered figure: the same loops on the layer roots, and none of
+       them inside (each would lay the drawing out every frame). */
+    &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
+    &.atl-layer-tail { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
+    &.atl-layer-front { animation: atl-shimmer 2.8s ease-in-out infinite; }
+    &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.5s ease-in-out infinite alternate; }
+    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow) { animation: none; }
+    &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
+    #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
+    #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
+    #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-2 { animation: atl-juggle 1.8s linear -1.2s infinite; }
     & .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
     & .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
     & .atl-juggle-2 { animation: atl-juggle 1.8s linear -1.2s infinite; }
@@ -6674,9 +6703,18 @@ main,
   .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
+  /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
+  .nm-atlas {
+    &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+  }
 }
 
 @keyframes atl-breathe { 50% { transform: scale(0.99, 1.018); } }
+@keyframes atl-shimmer { 50% { opacity: 0.82; } }
+@keyframes atl-blink-lids {
+  0%, 36.4%, 39.6%, 90.4%, 92%, 92.8%, 94.4%, 100% { opacity: 0; }
+  37.4%, 38.6%, 91%, 91.4%, 93.4%, 93.8% { opacity: 1; }
+}
 @keyframes atl-blink {
   0%, 36%, 40%, 90%, 92.4%, 93.6%, 96%, 100% { transform: scaleY(1); }
   38%, 91.2%, 94.8% { transform: scaleY(0.08); }

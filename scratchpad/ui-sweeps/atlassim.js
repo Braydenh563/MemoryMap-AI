@@ -26,6 +26,25 @@ require("fs").mkdirSync(OUT, { recursive: true });
   await tab.click("#shuffle");
   await tab.waitForTimeout(1800);
   console.log("after move:", JSON.stringify(await read()));
+  //: Beats: the companion's own behaviour runner, three times, a trip or
+  //: an act each; where it stands after each one.
+  const trail = [];
+  for (let i = 0; i < 3; i += 1) {
+    await tab.click("#beat");
+    await tab.waitForTimeout(2600);
+    trail.push((await read()).where);
+  }
+  console.log("after beats:", JSON.stringify(trail));
+  //: Trips: the placement asked to look near a random panel, three times.
+  const trips = [];
+  for (let i = 0; i < 3; i += 1) {
+    await tab.click("#trip");
+    await tab.waitForTimeout(2600);
+    trips.push((await read()).where);
+  }
+  console.log("after trips:", JSON.stringify(trips));
+  await tab.screenshot({ path: `${OUT}/atlas-r4-sim-trips.png` });
+  await tab.screenshot({ path: `${OUT}/atlas-r4-sim-beats.png` });
   await tab.click("#menu");
   await tab.waitForTimeout(700);
   const menu = await tab.evaluate(() => { const m = document.querySelector(".action-menu"); if (!m) return null; const r = m.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; });

@@ -3071,6 +3071,8 @@ const NAME_MARK_BUDDY_ACTS = {
   bell: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   carry: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  hide: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
 //: How a character's mood leans its choices (multipliers on the weights).
@@ -4816,6 +4818,10 @@ function nameMarkBuddyTick() {
   }
   buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
   if (!buddy.classList.contains("nmb-think")) nameMarkBuddyHold(idle > NMB_DROWSY_MS ? "sleepy" : "");
+  //: At night it yawns now and then, whatever you are doing (once in half
+  //: an hour at most, `NMB_REACTIONS.yawn`).
+  const late = new Date().getHours();
+  if ((late >= 22 || late < 6) && nameMarkBuddyReact("yawn")) return;
   if (Math.random() < 0.35) nameMarkBuddyDrift();
   const hour = new Date().getHours();
   const night = hour >= 22 || hour < 6;
@@ -4907,6 +4913,122 @@ function nameMarkBuddyDrift() {
   const near = NMB_EXPR_NEAR[nmb.reading?.mood || ""] || NMB_EXPR_NEAR[""];
   nameMarkBuddyExpress(near[Math.floor(Math.random() * near.length)], ms);
 }
+
+//: **What it notices in the app** (round 5: "more contextual reactions that
+//: tie into real app events", "subtle and never intrusive"). Each is a real
+//: event, each has its own cooldown and none comes within 6s of another, and
+//: none runs under Reduce motion, Avatar animation Off, a hidden page, while
+//: it is carried, asleep or its menu is open:
+//:   read     a long note opened (Show more, or the phone's note page): it
+//:            puts its reading glasses on and follows along for a while;
+//:   graph    the graph laid out again: it peeks over at it;
+//:   streak   the capture streak grew (the dashboard's count): one cheer;
+//:   yawn     at night, now and then: a yawn;
+//:   private  a private note opened: it covers its eyes;
+//:   toast    something new said in a toast: it looks towards it.
+//: Called from the page's own events (`nameMarkBuddyNoticeApp` below) and
+//: from one line in dashboard.js (`nameMarkBuddyStreak`).
+const NMB_REACTIONS = {
+  read: { cool: 3 * 60 * 1000, ms: 7000 },
+  graph: { cool: 60 * 1000, ms: 2600 },
+  streak: { cool: 20 * 60 * 60 * 1000, ms: 1300 },
+  yawn: { cool: 30 * 60 * 1000, ms: 2200 },
+  private: { cool: 45 * 1000, ms: 2400 },
+  toast: { cool: 8000, ms: 2000 },
+};
+const NMB_REACT_GAP = 6000;
+function nameMarkBuddyReact(kind, target = null) {
+  const buddy = document.getElementById("nm-buddy");
+  const spec = NMB_REACTIONS[kind];
+  if (!buddy || !spec || nameMarkBuddyStill() || document.hidden || nameMarkBuddyMenuOpen()) return false;
+  if (buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-sleep")) return false;
+  const now = Date.now();
+  nmb.reactCool = nmb.reactCool || {};
+  if ((nmb.reactCool[kind] || 0) > now || now - (nmb.reactAt || 0) < NMB_REACT_GAP) return false;
+  nmb.reactCool[kind] = now + spec.cool;
+  nmb.reactAt = now;
+  nmb.reacted = kind;
+  const look = () => {
+    const box = target?.isConnected ? target.getBoundingClientRect() : null;
+    if (box && box.width) nameMarkBuddyAim([box.left + box.width / 2, box.top + Math.min(box.height / 2, 120)]);
+  };
+  if (kind === "toast") {
+    look();
+    clearTimeout(nmb.releaseTimer);
+    nmb.releaseTimer = setTimeout(nameMarkBuddyRelease, spec.ms);
+  } else if (kind === "read") {
+    look();
+    buddy.classList.add("nmb-reading");
+    nameMarkBuddyExpress("serious", spec.ms);
+    clearTimeout(nmb.readTimer);
+    nmb.readTimer = setTimeout(() => {
+      buddy.classList.remove("nmb-reading");
+      nameMarkBuddyRelease();
+    }, spec.ms);
+  } else if (kind === "graph") {
+    look();
+    const side = target?.isConnected && target.getBoundingClientRect().left + target.getBoundingClientRect().width / 2 < nmb.x + NMB_W / 2 ? "l" : "r";
+    buddy.dataset.turn = side;
+    nameMarkBuddyExpress("surprised", 900);
+    nameMarkBuddyAct(NAME_MARK_BUDDY_ACTS.peek.poses.includes(nmb.pose) && nmb.edgeType === "top" ? "look" : "glance", spec.ms);
+  } else if (kind === "streak") {
+    nameMarkBuddyExpress("excited", 2400);
+    nameMarkBuddyAct("cheer");
+  } else if (kind === "yawn") {
+    nameMarkBuddyExpress("sleepy", spec.ms);
+    nameMarkBuddyAct("yawn");
+  } else if (kind === "private") {
+    nameMarkBuddyAct("hide", spec.ms);
+  }
+  return true;
+}
+
+//: The capture streak, from the dashboard each time it counts: a cheer the
+//: first time it is seen longer than before (kept on this computer), never
+//: for the count the page merely loads with.
+function nameMarkBuddyStreak(days) {
+  if (!(days >= 2)) return;
+  let seen = 0;
+  try {
+    seen = Number(localStorage.getItem("nm-buddy-streak")) || 0;
+    localStorage.setItem("nm-buddy-streak", String(days));
+  } catch (e) {
+    return;
+  }
+  if (seen && days > seen) nameMarkBuddyReact("streak");
+}
+
+//: The page's own events, watched here rather than hooked into each
+//: surface: a note opened (by its Show more, its row in the rows view, or
+//: the phone's note page), the graph's layout changed.
+function nameMarkBuddyNoteOpened(id) {
+  const entry = typeof allEntries !== "undefined" ? allEntries.find((e) => String(e.id) === String(id)) : null;
+  if (!entry) return;
+  const row = document.querySelector(`.note-page-list li[data-id="${CSS.escape(String(id))}"], li[data-id="${CSS.escape(String(id))}"]`);
+  if (entry.is_private) nameMarkBuddyReact("private", row);
+  else if (String(entry.content || "").length > 1200) nameMarkBuddyReact("read", row);
+}
+function nameMarkBuddyNoteOpen(id) {
+  const inSet = (set) => set && (set.has(id) || set.has(Number(id)) || set.has(String(id)));
+  return (typeof expandedNotes !== "undefined" && inSet(expandedNotes)) || (typeof expandedRows !== "undefined" && inSet(expandedRows))
+    || (typeof notePageOpenId !== "undefined" && String(notePageOpenId) === String(id));
+}
+document.addEventListener("click", (event) => {
+  if (!document.getElementById("nm-buddy")) return;
+  const li = event.target.closest?.("li[data-id]");
+  if (!li || event.target.closest("#nm-buddy")) return;
+  const id = li.dataset.id;
+  const was = nameMarkBuddyNoteOpen(id);
+  //: After the page's own handler has opened it (or not).
+  setTimeout(() => {
+    if (!was && nameMarkBuddyNoteOpen(id)) nameMarkBuddyNoteOpened(id);
+  }, 0);
+}, true);
+document.addEventListener("change", (event) => {
+  if (event.target?.closest?.("#graph-layout")) {
+    setTimeout(() => nameMarkBuddyReact("graph", document.querySelector("#tab-graph svg, #tab-graph canvas")), 400);
+  }
+});
 
 //: The app's own events, for the companion to react to: `think` while a
 //: chat turn runs, `cheer` when a note is saved or an answer lands,
@@ -5772,9 +5894,10 @@ if (typeof MutationObserver === "function") {
   if (toasts) {
     new MutationObserver((records) => {
       queueNameMarkBuddyCheck();
-      //: Something new on screen: it looks at it.
+      //: Something new on screen: it looks at it (rate-limited with the
+      //: other things it notices, `nameMarkBuddyReact`).
       const added = records.flatMap((r) => [...r.addedNodes]).find((n) => n instanceof Element);
-      if (added) nameMarkBuddyGlanceAt(added);
+      if (added) requestAnimationFrame(() => nameMarkBuddyReact("toast", added));
     }).observe(toasts, { childList: true });
   }
 }

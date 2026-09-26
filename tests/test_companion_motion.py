@@ -367,3 +367,25 @@ def test_the_benches_carry_no_inline_style() -> None:
     # style attributes in tools/avatar-lab.html, now classes in its CSS.
     for page in (ROOT / "tools").glob("*.html"):
         assert not re.search(r"\sstyle=\"", page.read_text(encoding="utf-8")), page.name
+
+
+def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> None:
+    # Round 5: reads along with a long note, peeks at the graph laid out
+    # again, cheers once for a longer streak, yawns at night, covers its
+    # eyes for a private note, looks at a new toast (companionreact.js, each
+    # from its real event). Each has a cooldown, none within 6s of another,
+    # none under Reduce motion or Avatar animation Off.
+    react = _fn("nameMarkBuddyReact")
+    assert "nameMarkBuddyStill()" in react and "NMB_REACT_GAP" in react
+    for kind in ("read", "graph", "streak", "yawn", "private", "toast"):
+        assert f"{kind}: {{ cool:" in AV, kind
+    # The streak: once, and only for a count longer than the last seen.
+    assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
+    dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
+    assert "nameMarkBuddyStreak(streak)" in dashboard
+    # Night: a tick yawns.
+    assert 'nameMarkBuddyReact("yawn")' in _fn("nameMarkBuddyTick")
+    # A toast goes through the same limits.
+    assert 'nameMarkBuddyReact("toast", added)' in AV
+    # Covering its eyes: its hands over its head, not under it.
+    assert '#nm-buddy.nmb-act-hide:not([data-pose="hang"]) :is(.nmb-arm-l, .nmb-arm-r) {\n  z-index: 3;' in CSS08

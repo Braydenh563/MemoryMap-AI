@@ -25,8 +25,8 @@ two decisions only the owner can take are INBOX 427.
 - **The dashboard scroll jump (426 u)** was not reproduced by wheel, idle or
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
-- **uipolish-0924 leftovers**: the icon-only touch floor app-wide, and the
-  surface-by-surface pass (its item D). `deadbtn.js` (now in
+- **uipolish-0924 leftovers**: the surface-by-surface pass (its item D);
+  the icon-only floor is done and measured by `iconfloor.js`. `deadbtn.js` (now in
   `scratchpad/ui-sweeps/`) has three findings left at 1440, all controls
   whose centre is under the status bar's `FOOTER.edge-fade` mid-scroll (two
   dashboard board cards, a Notes tag chip); scrolled to its end the

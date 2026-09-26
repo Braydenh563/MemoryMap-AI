@@ -2650,6 +2650,21 @@ kbd {
   opacity: 1;
 }
 
+/* Under a finger it meets the floor every icon button has (DESIGN.md, "Hit
+   targets"): a bare `button`, not `.small` or `.icon-only`, so no floor
+   reached it, and `iconfloor.js` measured it at 20x20 in a touch context,
+   the one icon-only button under 44px of 296 across the tabs, a document,
+   a board and Settings. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .toast-close {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 .toast {
   display: flex;
   align-items: center;

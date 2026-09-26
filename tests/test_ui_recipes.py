@@ -2614,6 +2614,29 @@ def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
     )
 
 
+def test_every_icon_only_button_meets_the_touch_floor() -> None:
+    """The icon-only floor, app-wide (uipolish-0924 item 3, OPEN.md 0.3.3).
+
+    A button with an icon and no words is only recognisable in a browser (its
+    words are an aria-label, its markup an `<i>` beside text nodes a selector
+    cannot see), so the measurement is `scratchpad/ui-sweeps/iconfloor.js`,
+    in `gate.sh --sweeps`: every icon-only button on every tab, a document, a
+    board and Settings, in a touch context, none under 44px (296 measured at
+    1024, 106 at 390, 0 under). What this holds statically is that the sweep
+    stays in the gate, and the one it found: the toast's close, a bare
+    `button` that no class floor reached (20x20 before)."""
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    sweeps = re.search(r"for s in ([^;]+); do step \"sweep-\$s\"", gate)
+    assert sweeps and "iconfloor" in sweeps.group(1).split(), "iconfloor.js left the --sweeps list"
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    block = re.search(
+        r"@media \(max-width: 819\.98px\), \(pointer: coarse\) \{\s*\.toast-close \{([^}]*)\}", css
+    )
+    assert block, "the toast's close lost its touch floor"
+    assert "min-width: var(--target-min)" in block.group(1)
+    assert "min-height: var(--target-min)" in block.group(1)
+
+
 def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
     """A syntax error in a code document is the recipe DESIGN.md names (INBOX
     392): CodeMirror's linter and completion list, restyled in `docCmTheme`

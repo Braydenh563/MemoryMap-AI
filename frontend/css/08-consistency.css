@@ -5794,11 +5794,15 @@ main,
   --atl-sheen: white;
   --atl-aura: none;
   --atl-core: none;
+  --atl-rays: white;
   --atl-iris: var(--atl-ink);
   --atl-galaxy: var(--atl-navy);
   --atl-hneb: none;
   --atl-earin: var(--atl-navy);
   --atl-bneb: none;
+  --atl-bandg: none;
+  --atl-cloudp: none;
+  --atl-cloudb: none;
   --atl-belly: none;
   --atl-tip: none;
   --atl-aura-a: 0.2;
@@ -5989,6 +5993,11 @@ main,
 .nm-atlas .atl-st-iris0 { stop-color: var(--atl-ink); }
 .nm-atlas .atl-st-iris1 { stop-color: var(--atl-iris-c); }
 .nm-atlas .atl-st-iris2 { stop-color: var(--atl-glow-c); }
+.nm-atlas .atl-st-band0 { stop-color: #262a6a; }
+.nm-atlas .atl-st-band1 { stop-color: #6d52b8; }
+.nm-atlas .atl-st-band2 { stop-color: #4a3c96; }
+.nm-atlas .atl-st-cloud-pink { stop-color: #e39ad8; }
+.nm-atlas .atl-st-cloud-blue { stop-color: #6fb4ee; }
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }
 .nm-atlas .atl-st-neb1 { stop-color: var(--atl-neb-c); stop-opacity: 0; }
 .nm-atlas .atl-st-neb20 { stop-color: var(--atl-violet); stop-opacity: 0.9; }
@@ -6006,7 +6015,7 @@ main,
 /* One outline rule for every part: drawn under the fills, twice as wide as
    it shows, so where parts overlap the fills close the seam (atlas.js,
    the design note's "Construction"). */
-.nm-atlas .atl-edge { fill: none; stroke: var(--atl-dp); stroke-width: 1.1; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
+.nm-atlas .atl-edge { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; opacity: 0.32; }
 .nm-atlas.atl-tiny .atl-edge { stroke: var(--atl-line); stroke-width: 2.6; opacity: 0.8; }
 .nm-atlas .atl-belly { fill: var(--atl-belly); }
 .nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
@@ -6060,9 +6069,10 @@ main,
 .nm-atlas .atl-thread { fill: none; stroke: white; stroke-width: 0.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
 .nm-atlas .atl-node-dot { fill: white; }
 .nm-atlas .atl-chest-star { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
-.nm-atlas .atl-core-rays { fill: white; opacity: 0.8; }
-.nm-atlas .atl-core-rays-x { opacity: 0.45; }
+.nm-atlas .atl-core-rays { fill: var(--atl-rays); opacity: 0.9; }
 .nm-atlas .atl-core-dot { fill: white; }
+.nm-atlas .atl-minor-star { fill: white; opacity: 0.95; }
+.nm-atlas .atl-node-glow { fill: var(--atl-core); opacity: 0.8; }
 .nm-atlas .atl-hair-thread { opacity: 0.85; stroke-width: 0.6; }
 .nm-atlas .atl-core-glow { fill: var(--atl-core); }
 /* The tail (atlas.js, `atlasTail`): a flame, the body's blue into navy
@@ -6070,17 +6080,22 @@ main,
    comet glow at the tip. */
 .nm-atlas .atl-tail-galaxy { fill: var(--atl-galaxy); }
 .nm-atlas[data-atlas-look="feminine"] .atl-tail-galaxy { opacity: 0.62; }
-.nm-atlas .atl-tail-stream { fill: white; opacity: 0.34; }
+.nm-atlas .atl-tail-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; stroke-linejoin: round; opacity: 0.28; }
+.nm-atlas .atl-tail-stream { fill: white; opacity: 0.5; }
 .nm-atlas .atl-tail-silk { fill: var(--atl-bneb); opacity: 0.5; }
 .nm-atlas .atl-tail-edge { fill: none; stroke: white; stroke-width: 0.7; stroke-linejoin: round; opacity: 0.32; }
 .nm-atlas .atl-tip-glow { fill: var(--atl-tip); opacity: 0.95; }
 .nm-atlas .atl-tip-core { fill: white; }
 /* The nebula strand (atlas.js, `atlasBand`): deep navy with violet and
    pink clouds, a pale glowing edge, star dots; lighter than the body. */
-.nm-atlas .atl-band-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.6; opacity: 0.3; }
-.nm-atlas .atl-band-fill { fill: var(--atl-navy); opacity: 0.66; }
-.nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.72; }
-.nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; opacity: 0.4; }
+.nm-atlas .atl-band-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.4; opacity: 0.28; }
+.nm-atlas .atl-band-fill { fill: var(--atl-bandg); opacity: 0.92; }
+.nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.3; }
+.nm-atlas .atl-band-cloud { opacity: 0.55; }
+.nm-atlas .atl-band-cloud-pink { fill: var(--atl-cloudp); }
+.nm-atlas .atl-band-cloud-blue { fill: var(--atl-cloudb); }
+.nm-atlas .atl-band-stream { fill: white; opacity: 0.16; }
+.nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; stroke-linecap: round; opacity: 0.55; }
 /* Reading: the open book of light under the figure. */
 .nm-atlas .atl-prop-page { fill: white; opacity: 0.82; }
 .nm-atlas .atl-prop-page-edge { fill: none; stroke: var(--atl-dp); stroke-width: 0.8; stroke-linecap: round; opacity: 0.7; }
@@ -6362,8 +6377,6 @@ main,
     & .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
     & .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
     & .atl-juggle-2 { animation: atl-juggle 1.8s linear -1.2s infinite; }
-    & .atl-tendril-l { animation: atl-drift-l 5.2s ease-in-out var(--nm-delay) infinite; }
-    & .atl-tendril-r { animation: atl-drift-r 5.8s ease-in-out calc(var(--nm-delay) - 1.1s) infinite; }
     /* The dust drifts: slowly at rest, a touch faster when pleased or
        busy; the inner ring turns the other way. */
     & .atl-ring-drift { animation: atl-drift 56s linear infinite; }
@@ -6430,7 +6443,7 @@ main,
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-tendril-l, .atl-tendril-r, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
 }
@@ -6451,8 +6464,6 @@ main,
 }
 @keyframes atl-drift { to { transform: rotate(360deg); } }
 @keyframes atl-juggle { to { transform: rotate(360deg); } }
-@keyframes atl-drift-l { 50% { transform: rotate(3deg); } }
-@keyframes atl-drift-r { 50% { transform: rotate(-2.6deg); } }
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-5deg); }

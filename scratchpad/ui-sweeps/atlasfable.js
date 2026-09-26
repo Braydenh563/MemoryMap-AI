@@ -47,8 +47,10 @@ const POSES = [
       buddy.className = "";
       for (const c of classes) buddy.classList.add(c);
       buddy.dataset.pose = pose;
-      buddy.style.left = "660px";
-      buddy.style.top = "400px";
+      //: The companion is placed by one transform on its host (avatars.js).
+      buddy.style.left = "0px";
+      buddy.style.top = "0px";
+      buddy.style.transform = "translate(660px, 400px)";
       buddy.style.translate = "";
     }, [pose, classes]);
     await page.waitForTimeout(300);

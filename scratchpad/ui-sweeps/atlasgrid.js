@@ -48,9 +48,11 @@ const POSES = [
       buddy.className = "";
       for (const c of classes) buddy.classList.add(c);
       buddy.dataset.pose = pose;
+      //: The companion is placed by one transform on its host (avatars.js);
       //: CSS zoom scales the offsets too, so the box is placed in zoomed px.
-      buddy.style.left = `${660 / zoom}px`;
-      buddy.style.top = `${400 / zoom}px`;
+      buddy.style.left = "0px";
+      buddy.style.top = "0px";
+      buddy.style.transform = `translate(${660 / zoom}px, ${400 / zoom}px)`;
       buddy.style.translate = "";
       buddy.style.zoom = String(zoom);
     }, [pose, classes, zoom]);

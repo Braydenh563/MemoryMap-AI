@@ -34,10 +34,11 @@
 //:   and soft at the tip, its root well inside the body. All outlines are
 //:   drawn first as one layer (`atl-edges`) and every fill on top
 //:   (`atl-fills`), so where parts overlap the fills close the seams and
-//:   the figure has one outer contour; the outline is thin, lighter than
-//:   the fill's shade and low in contrast, so the gradients do the
-//:   modelling, and the head's outline stops at the cheeks so there is no
-//:   chin line: the head runs into the body. Each limb is in both layers
+//:   the figure has one outer contour; the "outline" is a soft, wide
+//:   glow in the sky-blue light colour at low opacity (the owner: "not
+//:   organic and more like a doll or puppet"), a subsurface light round
+//:   the whole silhouette rather than a drawn line, so the gradients do
+//:   the modelling; only the tiny icon keeps a real line. Each limb is in both layers
 //:   under the same companion class, so a pose turns outline and fill
 //:   together about a joint inside the body.
 //: - **The ears, the wisps and the mane.** Two soft flame tufts, one each
@@ -257,12 +258,12 @@ const ATLAS_GEO = {
   ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -5 },
   //: The constellation inside the body: the heart star first, then the
   //: linked points down the belly.
-  constellation: [[31, 45.6], [28.2, 50.2], [33.2, 53.6], [28.8, 57.4], [33, 60.6]],
+  constellation: [[31, 45.6], [25.4, 51.4], [37, 53], [30.2, 58.6]],
   neck: [31, 37],
   feet: [31, 90],
   chin: [31, 30],
   shoulders: [[24.6, 41], [37.4, 41]],
-  hips: [[27.4, 63], [34.6, 63]],
+  hips: [[27.2, 63], [34.8, 63]],
   tail: [34, 60],
 };
 
@@ -318,10 +319,10 @@ const ATLAS_LOOKS = {
     ],
     brow: "straight",
     lashes: false,
-    tail: [[33, 60, 44, 59.6, 52.4, 65.6, 50.4, 73.4], [50.4, 73.4, 48.2, 81, 52.4, 88.4, 62, 86]],
-    tailWidth: (t) => 2.6 + 6 * Math.sin(Math.PI * Math.min(1, t * 1.08)) - 2 * t * t,
-    tailStars: [[45.6, 63.6, 0.45], [51, 70.6, 0.35], [49.4, 79.4, 0.5], [53.2, 87, 0.35], [57.8, 88, 0.45]],
-    tailTip: [62.4, 85.4],
+    tail: [[33, 60, 45, 57.6, 56, 62.6, 53.6, 71], [53.6, 71, 50.6, 80, 53, 89, 62, 90.4], [62, 90.4, 69.6, 91.4, 72.4, 84.4, 66.6, 80.4]],
+    tailWidth: (t) => 3.6 + 5.8 * Math.sin(Math.PI * Math.min(1, t * 1.06)) - 1.8 * t * t,
+    tailStars: [[46.6, 61.4, 0.45], [54.2, 68.6, 0.35], [51.4, 78.4, 0.5], [55.6, 88.4, 0.35], [65.4, 89.4, 0.45]],
+    tailTip: [67, 80.2],
   },
   feminine: {
     ear: "M19.2 17C15.6 15.8 12.6 13.8 10.8 11.4C9.8 10.2 8.2 9.8 8.4 8.8C8.6 8 10 8.2 10.6 7.6C9.6 5.8 8.4 3.6 9.2 1.6C9.6 0.7 10.8 1 11.4 0.4C11.8 -1.2 12.6 -2.8 13.9 -2.9C15.2 -3 16.2 -0.8 17.2 1.4C19.4 6 22.8 9 27.2 11.2C24 11.8 21 13.8 19.2 17Z",
@@ -345,10 +346,10 @@ const ATLAS_LOOKS = {
     hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]],
     brow: "arch",
     lashes: true,
-    tail: [[33, 60, 46, 59.4, 55.4, 66.4, 52, 75], [52, 75, 47.8, 84, 52.6, 92.6, 63, 91], [63, 91, 69.6, 90, 71.6, 85.4, 69.6, 81.6]],
-    tailWidth: (t) => 2.6 + 6.2 * Math.sin(Math.PI * Math.min(1, t * 1.12)) - 2.2 * t * t,
-    tailStars: [[46.4, 63.2, 0.45], [53.4, 70.8, 0.35], [50, 80.6, 0.5], [53.6, 90, 0.35], [60.4, 92.4, 0.45], [67.6, 88.6, 0.35]],
-    tailTip: [70, 82],
+    tail: [[33, 60, 46, 58.4, 57, 64.4, 53, 74], [53, 74, 48.6, 83.4, 52.4, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
+    tailWidth: (t) => 3.4 + 6 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 2 * t * t,
+    tailStars: [[46.4, 62.4, 0.45], [54.4, 70, 0.35], [50.4, 80.6, 0.5], [54, 90, 0.35], [62.4, 92, 0.45], [69, 87.6, 0.35]],
+    tailTip: [67, 82.4],
   },
 };
 
@@ -387,21 +388,29 @@ const atlasPaw = (t, from, by) => (t <= from ? 0 : by * (1 - Math.cos(Math.PI * 
 //: and drifting, curling a little at the tip. Arms: from the shoulder,
 //: curving out and down to a rounded tip. The raised arms reach the
 //: companion's hand line (-7) for hanging and cheering.
-const ATLAS_LEG_R = atlasStem([[34.6, 61, 35.6, 69, 38, 77, 35.8, 84.6], [35.8, 84.6, 34.4, 88.4, 36.6, 90.6, 39.6, 88.8]], (t) => 6.4 - 5.2 * Math.min(1, t * 1.05) ** 1.1 + 0.2, { samples: 8 });
-const ATLAS_ARM_R = atlasStem([[37.6, 40.6, 42.6, 43, 46, 48.6, 45.6, 55.6], [45.6, 55.6, 45.4, 58.4, 47, 60, 49, 59]], (t) => 4.8 - 3.4 * Math.min(1, t * 1.05) ** 1.2 + 0.2, { samples: 8 });
-const ATLAS_HOLD_R = atlasStem([[37.8, 41.4, 47, 34, 54, 16, 53.6, -4.6]], (t) => 4.8 - 2.6 * t + atlasPaw(t, 0.8, 0.7), { samples: 16 });
+//: A limb's width: a taper from the root to a narrow ankle or wrist, then
+//: the small rounded paw (the owner, of the curled tendril tips: "the
+//: feet and hands are inverted weird").
+const atlasLimbWidth = (root, paw) => (t) => root - (root - 1.4) * Math.min(1, t * 1.15) ** 0.9 + atlasPaw(t, 0.72, paw);
+//: The legs differ: the left carries the weight, straight, the right
+//: rests a little out and forward (a slight contrapposto), so the stance
+//: is not a doll's.
+const ATLAS_LEG_L = atlasStem([[27.2, 61, 26.4, 69, 25.8, 78, 26.2, 88]], atlasLimbWidth(6.2, 1.9), { samples: 12 });
+const ATLAS_LEG_R = atlasStem([[34.8, 61, 36.4, 69, 38.4, 78, 38.6, 87.4]], atlasLimbWidth(6.2, 1.9), { samples: 12 });
+const ATLAS_ARM_R = atlasStem([[37.6, 40.6, 42.4, 43.4, 45, 49.2, 44.6, 56.6]], atlasLimbWidth(4.8, 1.5), { samples: 12 });
+const ATLAS_HOLD_R = atlasStem([[37.8, 41.4, 47, 34, 54, 16, 53.6, -4.6]], atlasLimbWidth(4.8, 1.4), { samples: 16 });
 const ATLAS_LIMBS = {
-  legs: [["l", atlasMirror(ATLAS_LEG_R)], ["r", ATLAS_LEG_R]],
+  legs: [["l", ATLAS_LEG_L], ["r", ATLAS_LEG_R]],
   arms: [["l", atlasMirror(ATLAS_ARM_R)], ["r", ATLAS_ARM_R]],
   holds: [["l", atlasMirror(ATLAS_HOLD_R)], ["r", ATLAS_HOLD_R]],
 };
 //: The body: one soft outline from under the chin, out round the belly,
 //: in at the waist and flaring just enough at the hips for the tendril
 //: legs to grow out of it.
-const ATLAS_TORSO_PATH = "M25.4 35.6C22.2 41 21 47.4 21.4 53.4C21.8 59 23.4 63.2 26.2 65.8C28.8 68 33.2 68 35.8 65.8C38.6 63.2 40.2 59 40.6 53.4C41 47.4 39.8 41 36.6 35.6Z";
+const ATLAS_TORSO_PATH = "M25.4 35.6C22 41 20.8 47.4 21.6 53.4C22.4 59 24 63.2 26.8 65.8C29.4 68 33.8 68 36.4 65.8C39.2 63.2 40.8 59 41 53.4C41.2 47.4 39.8 41 36.6 35.6Z";
 //: Thinking, a hand at the chin (the reference sheet): the right arm bent
 //: up, drawn over the face in the head's own group.
-const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]], (t) => 4.8 - 2.6 * t + atlasPaw(t, 0.7, 0.5), { samples: 14 });
+const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]], atlasLimbWidth(4.8, 1.3), { samples: 14 });
 
 //: The paths generated per look: the tail's ribbon (the owner: "a stream
 //: of cosmic water or a ribbon like pokemon tail ... not as furry but
@@ -412,7 +421,7 @@ const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]]
 //: tuft of wisps on the crown.
 for (const spec of Object.values(ATLAS_LOOKS)) {
   spec.tailPath = atlasStem(spec.tail, spec.tailWidth, { samples: 14 });
-  spec.streamPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.34, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.28 * Math.sin(Math.PI * 2.6 * t) });
+  spec.streamPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.26, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.22 * Math.sin(Math.PI * 2.6 * t) });
   spec.silkPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.24, { samples: 14, shift: (t) => -spec.tailWidth(t) * 0.3 * Math.sin(Math.PI * 2.6 * t + 1.1) });
   const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
   spec.lockPaths = spec.locks.map(lock);
@@ -420,14 +429,29 @@ for (const spec of Object.values(ATLAS_LOOKS)) {
 }
 const ATLAS_WISPS = ATLAS_GEO.wisps.map(([seg, w0, w1]) => atlasStem([seg], atlasTaper(w0, w1), { samples: 8, cap: false }));
 
-//: **The galaxy band** (the reference's nebula swirl; light and secondary):
-//: a broad band of deep navy with violet and pink clouds and star dots
-//: that sweeps diagonally behind the body from the upper right to the
-//: lower left, and one short front segment of it crossing in front of the
-//: thighs. One gradient path each.
-const ATLAS_BAND_BACK = atlasStem([[64, 14, 64, 28, 46, 38, 26, 44], [26, 44, 8, 49, -4, 56, -4, 68]], (t) => 1.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.02)), { samples: 12, cap: false });
-const ATLAS_BAND_FRONT = atlasStem([[-4, 66, 2, 78, 26, 84, 54, 74]], (t) => 4.4 * Math.sin(Math.PI * Math.min(1, t)) + 0.8, { samples: 12, cap: false });
-const ATLAS_BAND_STARS = [[62, 22, 0.5], [56, 32.6, 0.35], [40, 40.6, 0.55], [22, 45.6, 0.4], [4, 54, 0.35], [6, 73.6, 0.4], [22, 81, 0.5], [42, 79.2, 0.35]];
+//: **The galaxy strand** (the reference's nebula swirl): a ribbon of deep
+//: indigo running to violet along its length, with a lit edge, star
+//: specks and pink and blue nebula clouds inside, that sweeps behind the
+//: body from the upper right round to the lower left and crosses once in
+//: front of the legs. Its width swells and thins along the way
+//: (`atlasTwist`), so it turns edge-on and reads as a ribbon rather than
+//: a stripe, and a pale stream weaves inside it as in the tail. `atlasBandPaths`
+//: makes the fill, the lit edge and the stream for one sweep.
+const atlasTwist = (base) => (t) => base(t) * (0.36 + 0.64 * Math.abs(Math.cos(Math.PI * 1.35 * t + 0.55)));
+function atlasBandPaths(segs, base) {
+  const width = atlasTwist(base);
+  return {
+    fill: atlasStem(segs, width, { samples: 12, cap: false }),
+    edge: atlasStemEdge(segs, width, 12),
+    stream: atlasStem(segs, (t) => width(t) * 0.3, { samples: 12, cap: false, shift: (t) => width(t) * 0.24 * Math.sin(Math.PI * 2.2 * t) }),
+  };
+}
+const ATLAS_BAND_BACK = atlasBandPaths([[64, 14, 64, 28, 46, 38, 26, 44], [26, 44, 8, 49, -4, 56, -4, 68]], (t) => 1.8 + 6.6 * Math.sin(Math.PI * Math.min(1, t * 1.02)));
+const ATLAS_BAND_FRONT = atlasBandPaths([[-4, 66, 2, 78, 22, 84, 44, 76]], (t) => 5.2 * Math.sin(Math.PI * Math.min(1, t)) + 0.8);
+const ATLAS_BAND_STARS = [[62, 22, 0.5], [56, 32.6, 0.35], [40, 40.6, 0.55], [22, 45.6, 0.4], [4, 54, 0.35], [6, 73.6, 0.4], [20, 81.4, 0.5], [36, 79.6, 0.35]];
+//: The nebula clouds inside the strand: [cx, cy, rx, ry, colour], clipped
+//: to the sweep they lie on.
+const ATLAS_BAND_CLOUDS = { back: [[58, 26, 9, 6, "pink"], [34, 42, 10, 5, "blue"], [8, 54, 8, 5, "pink"]], front: [[12, 78, 9, 4, "blue"], [32, 80, 8, 4, "pink"]] };
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -640,6 +664,7 @@ function atlasTail(layer, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
   const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
+  if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.tailPath }, swish);
   atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.tailPath }, swish);
   if (edge) return tail;
   atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.tailPath }, swish);
@@ -661,13 +686,20 @@ function atlasTail(layer, edge, look) {
 //: secondary): the back sweep under everything, the short front crossing
 //: over the legs, each one gradient path with a pale glowing edge and a
 //: few star dots.
-function atlasBand(layer, front) {
-  const g = atlasGroup(layer, `atl-band atl-band-${front ? "front" : "back"}`);
-  const d = front ? ATLAS_BAND_FRONT : ATLAS_BAND_BACK;
-  atlasMake("path", { class: "atl-band-glow", d }, g);
-  atlasMake("path", { class: "atl-band-fill", d }, g);
-  atlasMake("path", { class: "atl-overlay atl-band-neb", d }, g);
-  atlasMake("path", { class: "atl-band-edge", d }, g);
+function atlasBand(layer, front, id) {
+  const side = front ? "front" : "back";
+  const g = atlasGroup(layer, `atl-band atl-band-${side}`);
+  const paths = front ? ATLAS_BAND_FRONT : ATLAS_BAND_BACK;
+  atlasMake("path", { class: "atl-band-glow", d: paths.fill }, g);
+  atlasMake("path", { class: "atl-band-fill", d: paths.fill }, g);
+  atlasMake("path", { class: "atl-overlay atl-band-neb", d: paths.fill }, g);
+  //: The clouds, clipped to the ribbon so they never leave it.
+  const clip = atlasMake("clipPath", { id: `${id}-band-${side}` }, g);
+  atlasMake("path", { d: paths.fill }, clip);
+  const clouds = atlasMake("g", { "clip-path": `url(#${id}-band-${side})` }, g);
+  for (const [cx, cy, rx, ry, colour] of ATLAS_BAND_CLOUDS[side]) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, clouds);
+  atlasMake("path", { class: "atl-band-stream", d: paths.stream }, g);
+  atlasMake("path", { class: "atl-band-edge", d: paths.edge }, g);
   for (const [x, y, r] of ATLAS_BAND_STARS) {
     if ((y >= 62) === front) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, g);
   }
@@ -760,6 +792,7 @@ function atlasCoilProp(layer) {
   atlasMake("path", { class: "atl-band-glow", d }, coil);
   atlasMake("path", { class: "atl-band-fill", d }, coil);
   atlasMake("path", { class: "atl-overlay atl-band-neb", d }, coil);
+  atlasMake("path", { class: "atl-band-stream", d: atlasStem(segs, (t) => width(t) * 0.3, { samples: 8, cap: false, shift: (t) => width(t) * 0.24 * Math.sin(Math.PI * 3 * t) }) }, coil);
   atlasMake("path", { class: "atl-band-edge", d: atlasStemEdge(segs, width, 8) }, coil);
   for (const [x, y, r] of [[8, 74, 0.45], [20, 78.6, 0.35], [44, 78, 0.5], [54, 72, 0.35], [36, 65.6, 0.3]]) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, coil);
   return coil;
@@ -906,7 +939,7 @@ function atlasRing(parent, id, ring, k, front) {
 function atlasBody(parent, id, props, look) {
   const layers = { edge: atlasGroup(parent, "atl-edges"), fill: atlasGroup(parent, "atl-fills") };
   const arms = {};
-  atlasBand(layers.edge, false);
+  atlasBand(layers.edge, false, id);
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge, look);
@@ -921,7 +954,7 @@ function atlasBody(parent, id, props, look) {
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, tendril);
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, tendril);
     });
-    if (!edge) atlasBand(layer, true);
+    if (!edge) atlasBand(layer, true, id);
     for (const [side, d] of ATLAS_LIMBS.holds) {
       const hold = atlasGroup(layer, `nmb-hold nmb-hold-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, hold);
@@ -934,21 +967,26 @@ function atlasBody(parent, id, props, look) {
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: ATLAS_TORSO_PATH }, torso);
       //: The constellation: the heart star in its glow, then the linked
       //: points down the belly, threads of light between them.
-      const core = atlasGroup(torso, "atl-core", ATLAS_GEO.constellation[0]);
+      //: **The heart star, redesigned** (the owner: "the stars on atlas's
+      //: chest need improving and redesigning"): the logo's hub worn
+      //: inside. A soft glow, four long rays that fade out from the
+      //: centre (a radial gradient, so they thin into the skin rather
+      //: than end), the four-point star with a bright core, and three
+      //: minor stars round it, each linked to the hub by a thread of
+      //: light: the notebook's linked notes.
       const [hx, hy] = ATLAS_GEO.constellation[0];
-      atlasMake("ellipse", { class: "atl-core-glow", cx: hx, cy: hy + 0.6, rx: 8.2, ry: 8.8 }, core);
-      atlasMake("path", { class: "atl-thread", d: ATLAS_GEO.constellation.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join("") }, core);
-      ATLAS_GEO.constellation.slice(1).forEach(([x, y], i) => {
-        atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: 0.75 }, core).style.setProperty("--atl-k", String(i));
+      const core = atlasGroup(torso, "atl-core", [hx, hy]);
+      atlasMake("ellipse", { class: "atl-core-glow", cx: hx, cy: hy + 0.6, rx: 8.6, ry: 9.2 }, core);
+      const minor = ATLAS_GEO.constellation.slice(1);
+      atlasMake("path", { class: "atl-thread", d: minor.map(([x, y]) => `M${hx} ${hy}L${x} ${y}`).join("") }, core);
+      minor.forEach(([x, y], i) => {
+        atlasMake("circle", { class: "atl-node-glow", cx: x, cy: y, r: 2 }, core);
+        atlasSpark(core, x, y, 1.1, "atl-minor-star").style.setProperty("--atl-k", String(i));
       });
-      //: The pulsar heart (the reference's Pulsar Heart cell): four long
-      //: thin rays, four short ones between, the four-point star over
-      //: them and a bright core.
       const star = atlasGroup(core, "atl-star", [hx, hy]);
-      atlasMake("path", { class: "atl-core-rays", d: `M${hx} ${hy - 7.6}L${hx + 0.8} ${hy}L${hx} ${hy + 6.4}L${hx - 0.8} ${hy}ZM${hx - 6} ${hy}L${hx} ${hy - 0.7}L${hx + 6} ${hy}L${hx} ${hy + 0.7}Z` }, star);
-      atlasMake("path", { class: "atl-core-rays atl-core-rays-x", d: `M${hx - 3.2} ${hy - 3.2}L${hx} ${hy - 0.5}L${hx + 3.2} ${hy + 3.2}L${hx} ${hy + 0.5}ZM${hx + 3.2} ${hy - 3.2}L${hx} ${hy - 0.5}L${hx - 3.2} ${hy + 3.2}L${hx} ${hy + 0.5}Z` }, star);
-      atlasSpark(star, hx, hy, 3.6, "atl-chest-star");
-      atlasMake("circle", { class: "atl-core-dot", cx: hx, cy: hy, r: 1 }, star);
+      atlasMake("path", { class: "atl-core-rays", d: `M${hx} ${hy - 9}L${hx + 0.9} ${hy}L${hx} ${hy + 8}L${hx - 0.9} ${hy}ZM${hx - 7} ${hy}L${hx} ${hy - 0.8}L${hx + 7} ${hy}L${hx} ${hy + 0.8}Z` }, star);
+      atlasSpark(star, hx, hy, 3.8, "atl-chest-star");
+      atlasMake("circle", { class: "atl-core-dot", cx: hx, cy: hy, r: 1.1 }, star);
       //: The gloss on the gel: one specular on the upper left of the body.
       atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 25.6, cy: 42.6, rx: 1.1, ry: 2.8, transform: "rotate(14 25.6 42.6)" }, torso);
     }
@@ -1002,6 +1040,9 @@ function atlasDefs(svg, id, level) {
   stops(aura, [[0, "atl-st-aura0"], [0.5, "atl-st-aura1"], [1, "atl-st-aura2"]]);
   const core = atlasMake("radialGradient", { id: `${id}-core` }, defs);
   stops(core, [[0, "atl-st-core0"], [1, "atl-st-core1"]]);
+  //: The heart's rays fade from the centre out.
+  const rays = atlasMake("radialGradient", { id: `${id}-rays`, gradientUnits: "userSpaceOnUse", cx: ATLAS_GEO.constellation[0][0], cy: ATLAS_GEO.constellation[0][1], r: 9 }, defs);
+  stops(rays, [[0.2, "atl-st-white"], [1, "atl-st-white-0"]]);
   const iris = atlasMake("linearGradient", { id: `${id}-iris`, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
   stops(iris, [[0, "atl-st-iris0"], [0.7, "atl-st-iris1"], [1, "atl-st-iris2"]]);
   //: The tail: the body's blue into navy galaxy along its length, with a
@@ -1016,6 +1057,14 @@ function atlasDefs(svg, id, level) {
   //: The nebula strand: pink and violet clouds along the band.
   const bandNeb = atlasMake("radialGradient", { id: `${id}-bneb`, gradientUnits: "userSpaceOnUse", cx: 28, cy: 50, r: 34 }, defs);
   stops(bandNeb, [[0, "atl-st-neb0"], [0.5, "atl-st-neb20"], [1, "atl-st-neb1"]]);
+  //: The strand's own run: indigo to violet and back along its sweep,
+  //: from the upper right to the lower left.
+  const bandRun = atlasMake("linearGradient", { id: `${id}-bandg`, gradientUnits: "userSpaceOnUse", x1: 64, y1: 14, x2: -4, y2: 80 }, defs);
+  stops(bandRun, [[0, "atl-st-band0"], [0.38, "atl-st-band1"], [0.66, "atl-st-band0"], [1, "atl-st-band2"]]);
+  for (const [name, cls] of [["cloudp", "atl-st-cloud-pink"], ["cloudb", "atl-st-cloud-blue"]]) {
+    const cloud = atlasMake("radialGradient", { id: `${id}-${name}` }, defs);
+    stops(cloud, [[0, cls], [1, "atl-st-clear"]]);
+  }
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   if (level !== "tiny") {
@@ -1029,7 +1078,7 @@ function atlasDefs(svg, id, level) {
   atlasMake("rect", { x: -50, y: 0, width: 100, height: 50 }, front);
   //: The paints name their gradients through custom properties, so the CSS
   //: can say "skin" without knowing this drawing's id.
-  for (const name of ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "tip"]) {
+  for (const name of ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "rays", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip"]) {
     svg.style.setProperty(`--atl-${name}`, `url(#${id}-${name})`);
   }
 }

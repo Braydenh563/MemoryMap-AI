@@ -15,9 +15,9 @@ two decisions only the owner can take are INBOX 427.
   window. [companion-426]
 - **Sign-in off, not driven**: the desktop window's persistent profile, a
   real second device on the LAN, the prompt card in dark, and whether a
-  restored backup's `preferences.json` brings the setting back.
-  `scratchpad/ui-sweeps/lib.js` `boot()` waits for `#lock-password`, so a
-  sweep data dir with sign-in off would time out. [auth-optional]
+  restored backup's `preferences.json` brings the setting back (a sweep
+  can now boot such a data dir: `lib.js` `boot()` returns `signIn: 'app'`).
+  [auth-optional]
 - **The vault key is process-wide** (`core/vault.py`): after a LAN device
   unlocks, a loopback session without a password reads private notes too
   until a lock or restart. Pre-existing; per-session keys are a design

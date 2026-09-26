@@ -39,8 +39,18 @@ function probe(id) {
       if (!turns) bad++;
       console.log(`${turns ? 'ok  ' : 'FAIL'} ${reduced} ${id}: ${JSON.stringify({ visible: a.visible, size: a.size, anim: a.anim, moved: t1 !== a.t0 })}`);
     }
-    const g = await page.evaluate(() => ({ slot: !!document.getElementById('graph-empty-emblem'), emptyIcon: !!document.querySelector('#graph-empty .empty-icon') }));
-    console.log(`note ${reduced} graph empty state: emblem element ${g.slot ? 'present' : 'absent'} (EMBLEM_SLOTS names graph-empty-emblem), icon ${g.emptyIcon ? 'present' : 'absent'}`);
+    // The graph's empty state, shown as the renderer shows it for a notebook
+    // with no notes (this data dir has notes, so it is shown by hand).
+    await page.evaluate(() => { closeOnboarding(); switchTab('graph'); });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { const e = document.getElementById('graph-empty'); e.classList.remove('hidden'); e.style.display = 'grid'; });
+    await page.waitForTimeout(300);
+    const g0 = await page.evaluate(probe, 'graph-empty-emblem');
+    await page.waitForTimeout(500);
+    const g1 = g0.present ? await page.evaluate((id) => { const el = document.getElementById(id); const m = [...el.querySelectorAll('*')].find((n) => getComputedStyle(n).animationName !== 'none') || el; return getComputedStyle(m).transform; }, 'graph-empty-emblem') : null;
+    const gTurns = g0.present && g0.visible && g0.anim !== 'none' && g1 !== g0.t0;
+    if (!gTurns) bad++;
+    console.log(`${gTurns ? 'ok  ' : 'FAIL'} ${reduced} graph-empty-emblem: ${JSON.stringify({ present: g0.present, visible: g0.visible, size: g0.size, anim: g0.anim, moved: g1 !== g0.t0 })}`);
     await browser.close();
   }
   console.log(bad ? `${bad} failing` : 'the logos turn');

@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- The privacy receipt's record and its API: `GET /privacy/receipt` answers, from the interpreter's own audit hook on every `socket.connect` and name lookup this process makes, whether anything left this computer since launch and since the ledger began (`egress-ledger.json` in the data folder), which destinations and which feature asked, where the configured model server is and what that means for your notes, and which switches can reach out. The page that shows it is not built yet.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

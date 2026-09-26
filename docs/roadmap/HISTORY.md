@@ -7,6 +7,38 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-26
+
+The backend agent's night (WORLD_CLASS_PLAN section 8's open rows, in order).
+
+### From WORLD_CLASS_PLAN.md row 35 and §12 S6: the privacy receipt's record and API
+
+**Built 2026-09-26.** Standout 5 of §2 ("a page that proves, from the app's
+own logs, that nothing left the machine") needed a log nothing could skip,
+so the record is not a logger the fetch sites call: `core/egress.py` is a
+Python audit hook (PEP 578) installed first thing in `create_app`, which the
+interpreter calls on every `socket.connect` and `socket.getaddrinfo` in the
+process, whatever library makes it. Loopback is counted; anything else is
+tabled by destination with its scope (this computer, the local network, the
+internet: a name nobody can place counts as the internet), the module on the
+stack that asked, named as a feature (`FEATURES`), and the name a connect was
+probably for. The hook never raises (an exception in a hook aborts the
+caller's connect), returns on one set lookup for every other event, and does
+no I/O; `flush` adds only the difference since the last flush to
+`<data>/egress-ledger.json`, from the route and at shutdown, so the receipt
+reads both "since launch" and "since the ledger began". Bounded at 256
+destinations and 100 recent events; totals count every connection.
+`GET /privacy/receipt` (behind the unlock) returns the verdict, totals,
+destinations with the model server labelled as one, the recent list, the
+ledger, the configured model server with its scope and a sentence on what
+that means for the notes (S6's receipt half), the listening address
+(`core/netbind.py`), the switches that can reach out, and what the record
+cannot see (the model server and SearXNG are other programs). Measured on a
+fresh app: verdict "stayed on this computer", two loopback connections after
+one `/models/status`. Tests: `tests/test_privacy_receipt.py`, 17, one of them
+a real loopback connect so the event shape is the interpreter's own. **Left:**
+the Settings page that shows it (row 35).
+
 ## Moved from the plans, 2026-09-24
 
 INBOX 399 ("what is left in the world class plan??"): every row of

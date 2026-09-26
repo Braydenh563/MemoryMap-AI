@@ -798,7 +798,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer, S6's receipt half (row 35) | S | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer (S6's receipt half built 2026-09-26) | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
 | 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
@@ -831,7 +831,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
 | 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
-| 35 | §2 | the two unbuilt standouts: a privacy receipt page and the offline studio | M to L | new |
+| 35 | §2 | the privacy receipt's page (its record and `GET /privacy/receipt` built 2026-09-26, HISTORY) and the offline studio | S + L | a Settings page; new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
 | 38 | §20 | three open questions, each the owner's decision | none | §20 |
@@ -919,9 +919,9 @@ S1 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved
 from the plans, 2026-09-24": S1 (the media cookie), S2 (the per-client
 throttle), S3 (imports confined to home and the data folder), the rest of S5
 (the fetch lint sees every way out) and S6's redirect half were built that
-day. What is left: S6's other half, the configured model address shown in the
-privacy receipt on LAN mode (neither exists yet; the receipt is row 35), and
-the rest of Brief 15 below.
+day. S6's other half, the configured model address on the privacy receipt,
+was built 2026-09-26 with the receipt's API (HISTORY.md, "Moved from the
+plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
 **Brief 15, what is left (the rest built 2026-09-24, in HISTORY.md):** a
 `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0 in a

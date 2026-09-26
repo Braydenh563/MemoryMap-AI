@@ -8,7 +8,7 @@
 const { boot } = require("./lib.js");
 const fs = require("fs");
 
-const MOODS = ["calm", "happy", "delighted", "laughing", "thinking", "surprised", "sleepy", "sad", "proud", "shy"];
+const MOODS = (process.env.MOODS || "calm,happy,delighted,laughing,thinking,curious,surprised,confused,sleepy,sad,proud,shy,determined,love,worried").split(",");
 
 (async () => {
   const theme = process.env.THEME || "light";
@@ -28,13 +28,13 @@ const MOODS = ["calm", "happy", "delighted", "laughing", "thinking", "surprised"
         return svg.outerHTML;
       });
     }
-    return { rows, css: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href), attrs: [...document.documentElement.attributes].map((a) => [a.name, a.value]) };
+    return { rows, defs: [...document.querySelectorAll("svg.atl-defs")].map((d) => d.outerHTML).join(""), css: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href), attrs: [...document.documentElement.attributes].map((a) => [a.name, a.value]) };
   }, [MOODS, cell]);
-  const sheet = await browser.newPage({ viewport: { width: cell * 2 * MOODS.length + 40, height: cell * 2 * 3 + 80 }, deviceScaleFactor: 1 });
+  const sheet = await browser.newPage({ viewport: { width: cell * 2 * MOODS.length + 40, height: 1200 }, deviceScaleFactor: 1 });
   const row = (svgs, label) => `<div style="display:flex;gap:0;align-items:flex-start"><div style="width:0;overflow:visible;position:relative"><span style="position:absolute;left:4px;top:4px;font:12px sans-serif;color:#333">${label}</span></div>${svgs.map((s) => `<div style="width:${cell * 2}px;height:${cell * 2}px;display:grid;place-items:center">${s}</div>`).join("")}</div>`;
   await sheet.setContent(`<!doctype html><html ${stage.attrs.map(([k, v]) => `${k}="${v}"`).join(" ")} data-mode="${theme}" data-theme="${theme}" data-avatar-motion="off"><head>${stage.css.map((h) => `<link rel="stylesheet" href="${h}">`).join("")}
   <style>body{margin:0!important;padding:20px!important;display:block!important;background:${theme === "dark" ? "#141427" : "#eef0f6"}}</style></head><body>
-  <img src="data:image/png;base64,${ref}" style="display:block;height:${cell * 2}px;width:auto;margin-bottom:8px">
+  ${stage.defs}<img src="data:image/png;base64,${ref}" style="display:block;max-width:${cell * 2 * MOODS.length}px;height:auto;margin-bottom:8px">
   ${row(stage.rows.masculine, "masculine")}${row(stage.rows.feminine, "feminine")}</body></html>`);
   await sheet.waitForTimeout(600);
   const out = `${OUT}/atlas-faces-${theme}${process.env.TAG ? "-" + process.env.TAG : ""}.png`;

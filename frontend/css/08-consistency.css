@@ -6123,6 +6123,11 @@ main,
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
+/* An act that moves the head (a look, a yawn, the music bob) would leave
+   a blink a few px off it; the lids sit the act out. */
+#nm-buddy:is(.nmb-act-look, .nmb-act-yawn, .nmb-act-turn, .nmb-act-glance, .nmb-music, .nmb-act-nap) .atl-layer-lids { scale: 0; }
+/* The feminine sash, on its own layer, sways from the hip with the legs. */
+.nm-atlas.atl-layer-lower { transform-origin: 27px 62px; will-change: transform; }
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }
@@ -6637,6 +6642,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-tail { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 2.8s ease-in-out infinite; }
+    #nm-buddy.nmb-walking &.atl-layer-lower { animation: atl-sash 0.68s ease-in-out infinite alternate; }
+    #nm-buddy.nmb-act-kick &.atl-layer-lower { animation: atl-sash 0.6s ease-in-out 4 alternate; }
+    #nm-buddy.nmb-act-dangle &.atl-layer-lower { animation: atl-sash 1.5s ease-in-out 4 alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.5s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow) { animation: none; }
     &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
@@ -6717,12 +6725,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .nm-atlas {
-    &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &.atl-layer-lower, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
   }
 }
 
 @keyframes atl-breathe { 50% { transform: scale(0.99, 1.018); } }
 @keyframes atl-shimmer { 50% { opacity: 0.82; } }
+@keyframes atl-sash { from { transform: rotate(-5deg); } to { transform: rotate(6deg); } }
 @keyframes atl-blink-lids {
   0%, 36.4%, 39.6%, 90.4%, 92%, 92.8%, 94.4%, 100% { opacity: 0; }
   37.4%, 38.6%, 91%, 91.4%, 93.4%, 93.8% { opacity: 1; }

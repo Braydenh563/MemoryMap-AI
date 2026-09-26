@@ -1395,7 +1395,7 @@ const APPEARANCE_DEFAULTS = {
   "atlas-style": "character", // character | classic
   //: Atlas's look (atlas.js, `atlasLook`), and the look a generated face
   //: takes when its name says nothing either way (`nameMarkLookLean`).
-  "atlas-look": "masculine", // masculine | feminine
+  "atlas-look": "", // "" (Auto: follows face-look) | masculine | feminine
   "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
   "dash-mark": "logo", // logo | me | persona
   // Half strength (was 90): a professional product has a quiet page
@@ -2883,7 +2883,9 @@ $("atlas-style").addEventListener("change", (e) => {
   if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("atlas-look").addEventListener("change", (e) => {
-  localStorage.setItem("atlas-look", e.target.value);
+  //: Auto is nothing stored: atlas.js then follows Face looks.
+  if (e.target.value) localStorage.setItem("atlas-look", e.target.value);
+  else localStorage.removeItem("atlas-look");
   if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("face-look").addEventListener("change", (e) => {

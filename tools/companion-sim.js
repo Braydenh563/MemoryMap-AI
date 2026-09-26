@@ -38,6 +38,9 @@ function openMenuAtPoint(items, x, y) {
 function openNameMarkViewer() {}
 function nameMarkBuddyKeepCustom() {}
 const prefsCache = { dashboard_persona: "Atlas" };
+//: The app's tab list: the companion reads the visible `#tab-<name>` page
+//: for its surfaces, and without a list it sees no page at all.
+const TABS = ["notes"];
 
 const ROOT = location.protocol === "file:" ? "../frontend/" : "/";
 (function load() {
@@ -134,6 +137,47 @@ function boot() {
     }
   }
   $("travel").onclick = travel;
+  //: A beat: the companion's own behaviour runner, which decides a trip, a
+  //: stretch, a glance or nothing, as its timer would every 20 to 60
+  //: seconds; "Auto beats" calls it every 5 seconds so a trip comes soon.
+  function beat() {
+    try {
+      nmb.lastInput = Date.now();
+      if (typeof nameMarkBuddyTick === "function") nameMarkBuddyTick();
+    } catch (e) {
+      $("status").textContent = `beat failed: ${e.message}`;
+    }
+  }
+  $("beat").onclick = beat;
+  //: A trip: the companion's own placement, asked to look near a panel
+  //: chosen at random, as a page change would ask it to look near where
+  //: it was; it walks there on the compositor, legs stepping.
+  function trip() {
+    const cards = [...document.querySelectorAll(".sim-grid .card")].filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > 60 && r.top < innerHeight - 60; });
+    const card = cards[Math.floor(Math.random() * cards.length)];
+    if (!card || typeof placeNameMarkBuddy !== "function") return;
+    const r = card.getBoundingClientRect();
+    try {
+      nmb.spot = null;
+      placeNameMarkBuddy(undefined, false, [r.left + r.width / 2, r.top + r.height / 2]);
+    } catch (e) {
+      $("status").textContent = `trip failed: ${e.message}`;
+    }
+  }
+  $("trip").onclick = trip;
+  let auto = 0;
+  let beats = 0;
+  $("auto").onclick = () => {
+    if (auto) {
+      clearInterval(auto);
+      auto = 0;
+    } else {
+      trip();
+      auto = setInterval(() => { beats += 1; if (beats % 2) beat(); else trip(); }, 5000);
+    }
+    $("auto").textContent = `Auto beats: ${auto ? "on" : "off"}`;
+    $("auto").classList.toggle("on", !!auto);
+  };
   $("menu").onclick = () => {
     const buddy = document.getElementById("nm-buddy");
     if (!buddy) return;

@@ -69,6 +69,7 @@ const POSES = [
       icon: draw(24, "calm"),
       iconBig: draw(64, "calm"),
       inline: draw(20, "calm"),
+      defs: [...document.querySelectorAll("svg.atl-defs")].map((d) => d.outerHTML).join(""),
       css: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href),
       attrs: [...document.documentElement.attributes].map((a) => [a.name, a.value]),
       accent: getComputedStyle(document.documentElement).getPropertyValue("--accent"),
@@ -87,7 +88,7 @@ const POSES = [
   figure{margin:0;text-align:center}
   .ar-faces figure{background:${bg};border-radius:10px;padding:6px 4px 2px}
   h3{margin:0 0 8px;font-size:14px}</style></head><body>
-  <div class="ar-grid">
+  ${stage.defs}<div class="ar-grid">
     <div class="ar-hero">${stage.hero}<div>Atlas, ${look}${accent ? ", " + accent : ""}</div></div>
     <div>
       <div class="ar-panel"><h3>Poses</h3><div class="ar-row">${poses.map(([l, b]) => `<figure><img src="data:image/png;base64,${b}" width="132"><figcaption>${l}</figcaption></figure>`).join("")}</div></div>

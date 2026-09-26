@@ -23,9 +23,10 @@ const fs = require("fs");
     localStorage.setItem("atlas-look", look);
     clearTimeout(atlasMoodTimer);
     atlasApply = ((apply) => (svg, mood) => apply(svg, svg.dataset.keep || mood))(atlasApply);
-    const svg = atlasDraw(92, "calm", "figure");
-    svg.dataset.keep = "calm";
-    return { svg: svg.outerHTML, css: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href), attrs: [...document.documentElement.attributes].map((a) => [a.name, a.value]) };
+    const box = atlasFigure();
+    for (const svg of box.querySelectorAll("svg")) svg.dataset.keep = "calm";
+    const defs = [...document.querySelectorAll("svg.atl-defs")].map((d) => d.outerHTML).join("");
+    return { svg: defs + box.innerHTML, css: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href), attrs: [...document.documentElement.attributes].map((a) => [a.name, a.value]) };
   }, [look, ref, ox, oy, unitsPerPx, k]);
   const sheet = await browser.newPage({ viewport: { width: 64 * k * 3 + 120, height: 120 * k }, deviceScaleFactor: 1 });
   //: The reference scaled so one of its px is `unitsPerPx` units, placed so

@@ -13,6 +13,8 @@ below). Versioning is `0.x` while the app stabilises.
 - A big graph names its landmarks. Zoomed out, the best-connected notes in view carry their names instead of none at all; zoomed in, a name that has no room under its dot tries above it, then beside it, so more than twice as many notes are named, and the hubs in the busy middle of the map are among them. Names still never overlap.
 - A graph whose notes are all filtered out (every legend entry off, a group hidden, notes hidden from the node menu, or Hide unlinked on a notebook with no links) no longer says "Nothing to map yet" over a full notebook. It says every note is hidden, names what is hiding them, and has one button, Show every note, that brings them back.
 - Panning and zooming a busy whiteboard is smooth again: the resize and rotate grips every card carries are left out of the page until a card is hovered or selected, instead of sitting there invisible, which had split a 250-object board into 256 compositor layers. On a slowed-down machine a pan went from 33 long frames to 2.
+- Three listener leaks the new `scratchpad/ui-sweeps/listenerrounds.js` measures per rebuild, against a control that measures 0: every help '?' put four listeners on the page (fifty at boot, four more each time the chat welcome was rebuilt for a new chat, each holding the old welcome), the chat's Skills dropdown two on the page and one on the Settings checkbox its pace pill mirrors on every rebuild (+35 a skill saved), and an emblem whose holder left the page kept its p5 sketch and the sketch's window listeners (+23 a new chat). The help popovers share one set of page listeners now, the dropdown's go with its build, and a render releases any sketch whose holder is gone. 0 listeners a round after the fix, `leaks.js` still 0/0 across the seven tabs.
+- The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
 
 ## [0.3.3] - 2026-09-26
 
@@ -40,6 +42,9 @@ below). Versioning is `0.x` while the app stabilises.
 - The app's own code, one 50,000-line app.js, is now 23 files loaded in its old order (app.js, note-cards.js to spaces-find.js), each under 51 KB gzipped against 740 KB for the one file. Nothing a person sees changes; a warm reload measured about 30 ms slower and a cold load the same, for 22 more requests and 3.6% more bytes on the wire.
 
 ### Fixed
+- On a touch screen the toast's close button is a 44px target like every other icon button (it was 20px), and screen readers no longer hear the chat's Export and Delete twice.
+- The corner companion's walk, kick and dangle move Atlas's feminine look too: its ribbon lower body sways from the hips where the masculine look moves its legs (it had no legs, so those moved nothing).
+- Settings, Appearance, Atlas look has Auto (follows Face looks), the default: the select used to read Masculine while nothing was stored and Atlas followed Face looks anyway. A Face looks change redraws an Atlas on Auto at once.
 - Documents: the writing suggestions no longer ask for title case in headings. The grammar checker's rule wanted every heading in title case, the opposite of the sentence case the app writes in, and it was most of the suggestions on a document written that way (four of six on the README's draft).
 - Documents: the expanded formatting toolbar's own buttons no longer take a row to themselves; when they would, layout and collapse are left to the document's ⋯ menu and line numbers moves to the end of the first row.
 - The graph's empty state shows the app's turning logo, as the chat's does, instead of a generic network icon.

@@ -1303,14 +1303,22 @@ $("show-guide-btn")?.addEventListener("click", () => {
 //: The third door into the tour, and it was the one left open (the owner,
 //: 2026-09-21: "the take the tour again button in the about settings page
 //: isnt disabled"). Same flag, same words as the replay strip's buttons.
-if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) {
-  const aboutTour = $("about-take-tour");
-  if (aboutTour) {
-    aboutTour.disabled = true;
-    aboutTour.title = "The guided tour is being fixed and is turned off for now.";
-    aboutTour.setAttribute("aria-label", aboutTour.title);
+//: **After the page has loaded, not now.** `TOUR_ENABLED` is a `const` in
+//: tour.js, the last script on the page; at this line that binding does not
+//: exist yet, `typeof` says "undefined", and the block below never ran once
+//: while it sat here bare: the button stayed live with the flag off, and
+//: nothing threw to say so (`tests/test_frontend_load_order.py`, the typeof
+//: guard test). `DOMContentLoaded` fires after every classic script has run.
+onDomReady(() => {
+  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) {
+    const aboutTour = $("about-take-tour");
+    if (aboutTour) {
+      aboutTour.disabled = true;
+      aboutTour.title = "The guided tour is being fixed and is turned off for now.";
+      aboutTour.setAttribute("aria-label", aboutTour.title);
+    }
   }
-}
+});
 
 $("about-take-tour")?.addEventListener("click", () => {
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;

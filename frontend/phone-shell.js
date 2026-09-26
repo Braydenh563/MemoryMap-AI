@@ -79,6 +79,32 @@ function ensureP5() {
 
 // --- generated faces: moved to avatars.js (2026-09-24) ---
 
+//: A sketch and its observer go together: the observer holds the instance
+//: it was told to pause, so left behind it would call `loop()` on a removed
+//: sketch the next time its holder came into view.
+function releaseEmblem(holder) {
+  const instance = emblemInstances.get(holder);
+  if (!instance) return;
+  instance.remove();
+  emblemInstances.delete(holder);
+  emblemObservers.get(holder)?.disconnect();
+  emblemObservers.delete(holder);
+}
+
+//: **Holders that left the page take their sketch with them.** A p5 instance
+//: puts its own listeners on `window` (resize, the keyboard, the pointer),
+//: and `emblemInstances` keys on the holder, so an emblem whose holder was
+//: thrown away with its subtree (the chat welcome's, rebuilt on every new
+//: chat) kept its instance, and the instance kept the subtree: +23 listeners
+//: and a detached welcome per new chat, measured by listenerrounds.js, for
+//: the life of the page. Swept on every render rather than watched: the
+//: page has a handful of emblems, and any render releases every stray one.
+function releaseDetachedEmblems() {
+  for (const holder of [...emblemInstances.keys()]) {
+    if (!holder.isConnected) releaseEmblem(holder);
+  }
+}
+
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
   if (!holder) return;
   if (typeof p5 === "undefined") {
@@ -87,16 +113,8 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     });
     return;
   }
-  const existing = emblemInstances.get(holder);
-  if (existing) {
-    existing.remove();
-    emblemInstances.delete(holder);
-    // The observer holds the instance it was told to pause, so it has to go
-    // with it: left behind, it would call `loop()` on a removed sketch the
-    // next time its holder came into view.
-    emblemObservers.get(holder)?.disconnect();
-    emblemObservers.delete(holder);
-  }
+  releaseDetachedEmblems();
+  releaseEmblem(holder);
   //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
   //: not the accent picker's stored name: a look's palette sets the accent
   //: too, and the emblem stayed the old indigo on the Quiet default.

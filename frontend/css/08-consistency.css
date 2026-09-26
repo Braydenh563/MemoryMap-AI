@@ -6123,6 +6123,9 @@ main,
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
+/* An act that moves the head (a look, a yawn, the music bob) would leave
+   a blink a few px off it; the lids sit the act out. */
+#nm-buddy:is(.nmb-act-look, .nmb-act-yawn, .nmb-act-turn, .nmb-act-glance, .nmb-music, .nmb-act-nap) .atl-layer-lids { scale: 0; }
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }
@@ -6394,6 +6397,35 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
+/* The feminine look's hip sash (atlas.js `atl-lower`, in its own layer
+   of the companion's figure) hangs beside its legs, which the walk, kick
+   and dangle move through `.nmb-leg-*`; a sash that hung still while the
+   legs swung read as pinned on. It sways about its root at the hip on the
+   same classes and the same timings as the legs; transforms only, like
+   every other companion act, and still under Off and Reduce motion. */
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+    &.nmb-walking .atl-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .atl-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
+    &.nmb-act-kick .atl-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .atl-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
+  }
+}
+/* The system's reduced motion: slowed right down, as the legs are (the
+   companion's own reduced-motion block above; `!important` for the same
+   reason, the rules above out-rank this one). */
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy .atl-lower { animation-duration: 6s !important; }
+}
+@keyframes atl-lower-sway {
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(7deg); }
+}
+@keyframes atl-lower-flick {
+  from { transform: rotate(-3deg) scaleY(1); }
+  to { transform: rotate(13deg) scaleY(0.94); }
+}
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
 .nm-atlas .atl-e-shut { opacity: var(--atl-shut); }
@@ -6465,9 +6497,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-crest: -5deg;
   --atl-bl-y: -2.4px; --atl-br-y: -0.6px; --atl-bl-r: -6deg; --atl-lid: 0; --atl-eye-s: 1.06;
   --atl-px: -0.6px; --atl-ps: 1.1;
-  --atl-m-smile: 0; --atl-m-tinyo: 1; --atl-cheek: 0.4;
+  --atl-m-smile: 1; --atl-m-tinyo: 0; --atl-cheek: 0.4; --atl-fx-sparkle: 1;
   --atl-tilt: -10deg; --atl-sx: 0.98; --atl-sy: 1.02;
 }
+/* Curious is the reference grids' Inspired (Intrigued) and Winking cells:
+   one eye closed happily, a sparkle, a small smile. The right eye reads
+   its own open and happy values. */
+.nm-atlas[data-atlas-mood="curious"] .atl-eye-r { --atl-open: 0; --atl-happy: 1; }
 .nm-atlas[data-atlas-mood="surprised"] {
   --atl-tail: -24deg; --atl-star: 1.2;
   --atl-crest: -10deg;

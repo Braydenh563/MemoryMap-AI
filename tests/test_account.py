@@ -303,11 +303,12 @@ def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
 
 def test_full_auth_flow(client):
     # Fresh app: setup required, API open (nothing to protect yet).
-    assert client.get("/auth/status").json() == {"setup_required": True}
+    # `auto_session` is False: sign-in is on by default (INBOX 426 aa).
+    assert client.get("/auth/status").json() == {"setup_required": True, "auto_session": False}
     assert client.post("/entries", json={"content": "pre-password note"}).status_code == 201
 
     token = client.post("/auth/setup", json={"password": "hunter2"}).json()["token"]
-    assert client.get("/auth/status").json() == {"setup_required": False}
+    assert client.get("/auth/status").json() == {"setup_required": False, "auto_session": False}
 
     # Once a password exists the data routes lock without a token…
     assert client.get("/entries").status_code == 401

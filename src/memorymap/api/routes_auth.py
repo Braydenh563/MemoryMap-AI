@@ -12,6 +12,7 @@ setup screen first.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets
 import time
@@ -130,6 +131,77 @@ def _cookie_secure(request: Request) -> bool:
 
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# **Optional sign-in** (INBOX 426 aa, the owner's brother: "some people might
+# not care about it and find it annoying"). One switch in Settings, Account
+# and security: "Ask for a password when the app opens", on by default. Off,
+# this computer is handed a session without the password; nothing else is.
+#
+# Kept in preferences.json but deliberately **not** declared on
+# `PreferencesBody` (routes_settings.py): `PUT /preferences` writes only the
+# fields it declares, so the one way to turn this off is the route below that
+# asks for the current password. tests/test_optional_sign_in.py holds that.
+PASSWORD_ON_OPEN_KEY = "ask_password_on_open"
+
+#: Headers a proxy or tunnel adds. Their presence on a loopback connection
+#: means the person asking is somewhere else, whatever address they claim, so
+#: a request carrying any of them is never given a password-free session.
+#: They are only ever *looked for*, never believed: the address used is
+#: `request.client.host`, the one uvicorn resolved for the connection.
+_FORWARDING_HEADERS = (
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+)
+
+
+def password_on_open(config: ConfigManager) -> bool:
+    """Whether the app asks for the password when it opens (default: yes)."""
+    return config.get_preference(PASSWORD_ON_OPEN_KEY, True) is not False
+
+
+def _is_loopback_address(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return bool(address.is_loopback or (mapped is not None and mapped.is_loopback))
+
+
+def _from_this_computer(request: Request) -> bool:
+    """Is this request from a person at this machine's own keyboard?
+
+    Three conditions, each closing a different door:
+
+    - the connection's own address is loopback (`request.client.host`, which
+      is what uvicorn resolved; a LAN device is never let in without the
+      password, whatever it sends);
+    - no forwarding header at all, because a tunnel or reverse proxy on this
+      machine connects from 127.0.0.1 on somebody else's behalf;
+    - the Host the browser named is a loopback name. A DNS-rebinding page
+      (evil.example re-pointed at 127.0.0.1) reaches this server from
+      loopback and is same-origin with itself, so the Origin check in
+      core/security.py passes it; the Host it sends is still its own name.
+    """
+    client = request.client.host if request.client else ""
+    if not _is_loopback_address(client or ""):
+        return False
+    if any(name in request.headers for name in _FORWARDING_HEADERS):
+        return False
+    return (request.url.hostname or "") in _LOOPBACK_HOSTS
+
+
+def _auto_session_allowed(request: Request, session: Session, config: ConfigManager) -> bool:
+    if _get_user(session) is None:
+        return False  # setup still makes a password: the vault needs one
+    if password_on_open(config):
+        return False
+    return _from_this_computer(request)
 
 
 def _grant_media(request: Request, response: Response, token: str) -> None:
@@ -325,8 +397,18 @@ def _issue_token() -> str:
 
 
 @router.get("/status")
-def status(session: Session = Depends(get_session)) -> dict:
-    return {"setup_required": _get_user(session) is None}
+def status(
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    # `auto_session` answers for this caller only: whether *this* request
+    # would be given a session without a password. A LAN device is told
+    # False, which is all it needs to draw the lock screen.
+    return {
+        "setup_required": _get_user(session) is None,
+        "auto_session": _auto_session_allowed(request, session, config),
+    }
 
 
 @router.post("/setup")
@@ -413,14 +495,141 @@ def media_session(request: Request, response: Response, x_auth_token: str | None
     return {"ok": True}
 
 
+@router.post("/auto-session")
+def auto_session(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """A session without a password, for this computer, when sign-in is off.
+
+    Refused (403) unless `_from_this_computer` holds and the switch is off.
+    The vault is not touched: private notes stay locked until
+    `/auth/unlock-vault` is given the password. A token the caller already
+    holds and that is still live is kept rather than replaced, because the
+    boot path asks on every load and one tab must not mint a session per
+    reload.
+    """
+    if not _auto_session_allowed(request, session, config):
+        raise HTTPException(status_code=403, detail="Enter your password to unlock")
+    idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
+    if x_auth_token and _token_valid(x_auth_token, idle_ttl):
+        token = x_auth_token
+    else:
+        token = _issue_token()
+        user = _get_user(session)
+        try:
+            log_action(session, "unlocked", "user", user.id, "without a password (sign-in is off)")
+            session.commit()
+        except Exception as exc:
+            # A full disk must not lock anyone out (see `unlock`).
+            if not diskspace.out_of_space(exc):
+                raise
+            session.rollback()
+    _grant_media(request, response, token)
+    return {"token": token, "vault_open": vault.is_open()}
+
+
+@router.post("/unlock-vault", dependencies=[Depends(require_unlock)])
+def unlock_vault(
+    body: PasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Open private notes for a session that started without the password.
+
+    The same password check as `/auth/unlock` and the same throttle, so a
+    session without a password is not a second, unthrottled place to guess
+    it. The session's token is kept; only the key is loaded.
+    """
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+    if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="Wrong password")
+    _unlock_succeeded(client)
+    vault_open = vault.open_with(session, body.password)
+    try:
+        session.commit()  # the vault row, when open_with had to create one
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+        # Never hold a key in memory that is not on disk (see `unlock`).
+        vault.close()
+        vault_open = False
+    try:
+        log_action(session, "unlocked", "vault", detail="private notes opened")
+        session.commit()
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+    return {"vault_open": vault_open}
+
+
+class PasswordOnOpenBody(BaseModel):
+    enabled: bool
+    current_password: str | None = None
+
+
+@router.post("/password-on-open", dependencies=[Depends(require_unlock)])
+def set_password_on_open(
+    body: PasswordOnOpenBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Turn "Ask for a password when the app opens" on or off.
+
+    Off needs the current password, checked and throttled exactly like an
+    unlock: an unlocked screen is not proof of knowing it (the same reason
+    `/auth/change-password` asks), and this is the switch that lets the next
+    person at this keyboard in without it. On needs nothing, since it only
+    ever asks for more.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+    if not body.enabled:
+        client = _client_key(request)
+        _refuse_if_throttled(client)
+        if not body.current_password or not bcrypt.checkpw(
+            body.current_password.encode(), user.password_hash.encode()
+        ):
+            if body.current_password:
+                _unlock_failed(client)
+            raise HTTPException(status_code=401, detail="That isn't your current password")
+        _unlock_succeeded(client)
+    config.set_preference(PASSWORD_ON_OPEN_KEY, body.enabled)
+    log_action(
+        session, "edited", "user", user.id,
+        f"ask for a password when the app opens: {'on' if body.enabled else 'off'}",
+    )
+    session.commit()
+    return {"password_on_open": body.enabled}
+
+
 @router.post("/lock")
-def lock(request: Request, response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+def lock(
+    request: Request,
+    response: Response,
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
     """Log out: the token stops working immediately, and its media ticket too."""
     _active_tokens.pop(x_auth_token or "", None)
     _forget_dead_tickets()
     _revoke_media(request, response)
     # Forget the data key too, or "lock" would leave private notes readable.
-    if not _active_tokens:
+    # With sign-in off, always: the next load starts a session without a
+    # password, and it must not find the key another session left loaded.
+    if not _active_tokens or not password_on_open(config):
         vault.close()
     return {"locked": True}
 
@@ -450,6 +659,7 @@ def account(
         "vault_open": vault.is_open(),
         "vault_exists": vault.exists(session),
         "active_sessions": len(_active_tokens),
+        "password_on_open": password_on_open(config),
     }
 
 
@@ -480,6 +690,11 @@ def change_password(
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="That's already your password")
 
+    if vault.exists(session) and not vault.is_open():
+        # A session started without a password (sign-in off) has the vault
+        # locked, and the current password just checked above is exactly
+        # what opens it.
+        vault.open_with(session, body.current_password)
     if vault.exists(session) and not vault.is_open():
         # Without the data key in hand the vault cannot be re-wrapped, and
         # changing the password anyway would strand every private note.
@@ -553,6 +768,8 @@ def rotate_vault_key(
 
     if not vault.exists(session):
         raise HTTPException(status_code=400, detail="There's no vault to rotate yet")
+    if not vault.is_open():
+        vault.open_with(session, body.current_password)  # see change-password
     old_key = vault.key()
     if old_key is None:
         raise HTTPException(

@@ -35,6 +35,12 @@ OPEN = {
     "/auth/unlock",
     "/auth/setup",
     "/auth/lock",
+    # The password-free session for this computer when "Ask for a password
+    # when the app opens" is off (INBOX 426 aa). It decides for itself, from
+    # the connection's own address and never a header, and answers 403 to
+    # everyone else; `test_sign_in_off_opens_no_route_by_itself` below and
+    # tests/test_optional_sign_in.py hold that.
+    "/auth/auto-session",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
     # A second desktop launch asking this one to bring its window forward.
@@ -161,3 +167,25 @@ def test_the_lock_screen_itself_is_still_served(locked_client):
     page = locked_client.get("/")
     assert page.status_code == 200
     assert "lock-password" in page.text
+
+
+@pytest.mark.parametrize("address", ["127.0.0.1", "192.168.1.50"])
+def test_sign_in_off_opens_no_route_by_itself(locked_client, address):
+    """Sign-in off hands this computer a session through one route,
+    `/auth/auto-session`; it never makes the gate itself wave a tokenless
+    caller through, from loopback or from anywhere else. A gate that did
+    would open every route to any page that can reach the port."""
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("ask_password_on_open", False)
+    caller = TestClient(
+        locked_client.app, base_url="http://127.0.0.1:8795", client=(address, 50000)
+    )
+    open_now = []
+    for method, path in _routes(locked_client.app):
+        if path in OPEN or path.startswith(OPEN_PREFIXES):
+            continue
+        response = caller.request(method, _fill(path))
+        if response.status_code != 401:
+            open_now.append(f"{method} {path} -> {response.status_code}")
+    assert not open_now, "open with sign-in off: " + "; ".join(open_now)

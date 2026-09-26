@@ -825,7 +825,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
-| 29 | §10 | F1 a `prefs` module, F4 BLE001 enabled, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7 the `Thread(` lint, F10 a `readings` table, F12 a store | S to L | §10 |
+| 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
@@ -887,13 +887,14 @@ in `docks.js`).
 - F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
   the frontend's paging are not built (`/files/gallery`'s half was built
   2026-09-24). M.
-- F4 (b) `# noqa: BLE001` sits at dozens of sites but the rule is not enabled
-  (`pyproject.toml` selects E4, E7, E9 and F only). S to M.
+- F4 built 2026-09-26: BLE001 is enabled (HISTORY.md, "Moved from the
+  plans, 2026-09-26").
 - F5 (b) every bare `fetch` must carry the auth header
   (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and
   the no-bare-fetch lint are not built. S.
-- F7 (b) the pool is built (A3); the lint that allows `Thread(` only in
-  `core/jobs.py` is not. S.
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13
+  modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them
+  onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
 - F10 (c) no `readings` table (`page_reads` is document pages only). M.
 - F11 (d) GRAPH_PLAN section 3 owns it.
 - F12 (c) no store. L.

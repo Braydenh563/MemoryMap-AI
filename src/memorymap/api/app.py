@@ -532,7 +532,7 @@ def out_of_space_body(wanted: int | None = None) -> dict:
     data_dir = None
     try:
         data_dir = str(deps.get_config().data_dir)
-    except Exception:  # pragma: no cover - only before the config exists
+    except Exception:  # noqa: BLE001  # pragma: no cover - only before the config exists
         pass
     free = diskspace.free_bytes(data_dir) if data_dir else None
     where = f" Your notebook is in {data_dir}." if data_dir else ""
@@ -595,7 +595,7 @@ class SpaceGuard:
         if wanted is not None and wanted > self.SMALL_BODY_BYTES:
             try:
                 config = deps.get_config()
-            except Exception:  # pragma: no cover - before the config exists
+            except Exception:  # noqa: BLE001  # pragma: no cover - before the config exists
                 config = None
             if config is not None and not diskspace.has_room_for(config.data_dir, wanted):
                 logging.getLogger("memorymap.errors").error(

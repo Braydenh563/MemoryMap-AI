@@ -2103,6 +2103,11 @@ def _run_directory_import(directory_path: str):
                 if imported % 50 == 0:
                     session.commit()
             except Exception:
+                # Counted on the activity line below, and now said: which
+                # file, and why. A skip used to be a number with no reason.
+                logging.getLogger("memorymap.import").warning(
+                    "skipped %s while importing a folder", f.name, exc_info=True
+                )
                 skipped += 1
         #: The importer runs as a background task (202 Accepted, no
         #: synchronous response), so a skipped file has nowhere to be

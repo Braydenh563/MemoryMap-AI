@@ -16,6 +16,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Private notes open only for the sessions that gave the password. The data key was process-wide, so once a device on the network unlocked, this computer's session without a password (sign-in off) read private notes too. The key is now granted per session (setup, unlock, "unlock private notes", and the two account routes that ask for the password again), every other session sees the vault as locked, and the key is forgotten when the last session that gave the password ends, even while one without it is still open.
 
+### Fixed
+
+- Twelve places that swallowed an error without a trace now write the reason to the log: the embedding warm-up, a failed re-index, files skipped by a folder import, filing a note on capture, the near-duplicate check, tag suggestions, re-evaluation, re-filing after new context and the meeting summary. The ruff rule that finds such handlers (BLE001) is now on, so a new one fails the build.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

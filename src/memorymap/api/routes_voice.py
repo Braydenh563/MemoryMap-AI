@@ -4,6 +4,7 @@ transcribes with local Whisper, nothing is sent anywhere.
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 
@@ -118,5 +119,6 @@ def summarize(body: SummarizeBody) -> dict:
             text, deps.get_model_manager(), deps.get_ollama()
         )
     except Exception:
+        logging.getLogger("memorymap.voice").warning("meeting summary failed", exc_info=True)
         summary = ""
     return {"summary": summary}

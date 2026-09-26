@@ -45,6 +45,29 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### From WORLD_CLASS_PLAN.md section 10: F4 (BLE001 enabled) and F7's ratchet
+
+**Built 2026-09-26.** F4 measured first: `ruff check src --select BLE001`
+found 33 broad handlers with no traceback, one in `tests/`. Triaged one by
+one. Twelve were silent in a way that hid a fault and now log with
+`exc_info`: the embedding warm-up's failure (the flag was set, the reason
+dropped), the re-index job's failure (one line of `str(exc)` on the job, no
+traceback anywhere), the directory import's skipped files (a count with no
+file name and no reason), filing on capture and on the agent's `create_note`
+(`janitor.categorise` handles a model that is down itself, so reaching the
+handler is a fault that read as "Uncategorised" forever), the near-duplicate
+check, tag suggestions, the three steps of re-evaluation, re-filing after new
+context, and the meeting summary. The launcher's Windows and window calls
+already said what failed and now carry the traceback. Seven carry
+`# noqa: BLE001  # <reason>` (before the config exists, a broken optional
+package, inside the log handler itself, the two expected "model offline"
+paths that already log the message). The test site narrowed to `OSError`.
+`pyproject.toml` selects BLE001; `tests/test_flaw_class_lints.py` holds it
+on. `scratchpad/probe_excepts.py`: silent 55 to 43 (its count includes the
+reasoned `noqa` sites). F7: the same file holds `threading.Thread(` to the 13
+modules and counts of 2026-09-26, so a new module fails and a count may only
+go down as threads move onto `core/jobs.py`.
+
 ### From OPEN.md (auth-optional): the vault key granted per session
 
 **Built 2026-09-26.** The row: "The vault key is process-wide

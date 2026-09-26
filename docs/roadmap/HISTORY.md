@@ -35604,3 +35604,29 @@ website. Every inline mark is a note today (the grounding rows carry a
 `note_id` only), so a `referencePopover(kind, id)` over five kinds would be
 four branches that never run; the peek takes a kind when a mark can carry
 one. The matched-terms line INBOX 76 asks the popover to show is 76's.
+
+### Checked built: INBOX 90, the user's bubble, 2026-09-26
+
+The placed item, as it stood:
+
+90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
+    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
+    a quieter bubble (accent-soft fill, no avatar, the label as a small
+    muted "You" above, radius from tokens, max-width 70%).
+
+**Built across three passes, and one line of it overtaken.** Measured at 1440
+on a saved chat (the chat pass's `userbubble.js`): the fill is the tint
+`color-mix(in srgb, var(--accent) 14%, var(--card))` with a 22% accent
+hairline (08-consistency.css, "the person's own turn is a tinted surface in
+the page's own ink"), ink on it 13.93:1 light and 10.96:1 dark
+(`chatphase2.js`); the corners are `--radius` with the `--radius-sm` tail;
+the "You" label is kept for screen readers and not drawn, on the reasoning
+recorded there (on your own side of your own conversation it said nothing
+the alignment did not), which replaces the item's "small muted You above".
+The "no avatar" line was overtaken by the owner's own request of 2026-09-24
+for generated avatars: the bubble carries the person's mark (INBOX 409,
+`.msg-user-mark`), a badge on its corner that changes neither its box nor
+its text (`chatmarks.js`). The 70% became the shared cap every bubble has,
+`min(82%, var(--measure))` (02-chat-graph.css, a reading measure on a wide
+window rather than a share of it); a one-line question takes its text's
+width, 47% of the column at 1440.

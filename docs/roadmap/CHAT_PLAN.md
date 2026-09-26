@@ -399,10 +399,8 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     is visible.
 ~~80. Citation hover/click preview.~~ **Built 2026-09-26.** Moved to
     HISTORY.md, "Moved from the plans, 2026-09-26".
-90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
-    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
-    a quieter bubble (accent-soft fill, no avatar, the label as a small
-    muted "You" above, radius from tokens, max-width 70%).
+~~90. User chat bubbles.~~ **Built; checked 2026-09-26.** Moved to
+    HISTORY.md, "Moved from the plans, 2026-09-26".
 63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
     screenshots, 01:12; the owner: "modernise them and bring them up to
     standard with features, function and ui ux"). Owner: Opus, next slot,

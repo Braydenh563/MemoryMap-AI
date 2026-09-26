@@ -726,13 +726,64 @@ function atlasBookProp(layer) {
   return book;
 }
 
-//: The hand slots. The companion raises the right arm (-100deg at the
+//: Juggling (the grid's `Juggling Stars` cell): three stars on an arc over
+//: the raised hands, drawn over the head so the arc passes in front of
+//: the ears; the CSS shows them and, with motion on, sends them round.
+function atlasStarsProp(parent) {
+  const stars = atlasGroup(parent, "nmp nmp-stars");
+  atlasMake("path", { class: "atl-thread atl-juggle-arc", d: "M10 17Q31 -9 52 17" }, stars);
+  [[10, 17, 2], [31, 4, 2.4], [52, 17, 2]].forEach(([x, y, r], k) => {
+    const star = atlasGroup(stars, `atl-juggle atl-juggle-${k}`, [31, 17]);
+    atlasMake("circle", { class: "atl-prop-moon-glow", cx: x, cy: y, r: r * 2.2 }, star);
+    atlasSpark(star, x, y, r, "atl-juggle-star");
+  });
+  return stars;
+}
+
+//: Sitting (the grid's `Sit` cell): the strand coils under the figure and
+//: Atlas sits inside it. One turn of the ribbon round the hips, drawn as a
+//: stem along an ellipse whose width swells and thins twice on the way
+//: round, so the coil turns edge-on at its sides; the same paint as the
+//: strand. The companion's `data-pose="sit"` shows it.
+function atlasCoilProp(layer) {
+  const coil = atlasGroup(layer, "nmp nmp-coil");
+  const k = 0.5523;
+  const [cx, cy, rx, ry] = [31, 72, 27, 7.5];
+  const segs = [
+    [cx, cy + ry, cx - rx * k, cy + ry, cx - rx, cy + ry * k, cx - rx, cy],
+    [cx - rx, cy, cx - rx, cy - ry * k, cx - rx * k, cy - ry, cx, cy - ry],
+    [cx, cy - ry, cx + rx * k, cy - ry, cx + rx, cy - ry * k, cx + rx, cy],
+    [cx + rx, cy, cx + rx, cy + ry * k, cx + rx * k, cy + ry, cx, cy + ry],
+  ];
+  const width = (t) => 2.2 + 4.2 * Math.abs(Math.sin(Math.PI * 2 * t + 0.5));
+  const d = atlasStem(segs, width, { samples: 8, cap: false });
+  atlasMake("path", { class: "atl-band-glow", d }, coil);
+  atlasMake("path", { class: "atl-band-fill", d }, coil);
+  atlasMake("path", { class: "atl-overlay atl-band-neb", d }, coil);
+  atlasMake("path", { class: "atl-band-edge", d: atlasStemEdge(segs, width, 8) }, coil);
+  for (const [x, y, r] of [[8, 74, 0.45], [20, 78.6, 0.35], [44, 78, 0.5], [54, 72, 0.35], [36, 65.6, 0.3]]) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, coil);
+  return coil;
+}
+
+//: The starry map (the grid's `Starry Map` cell): a small panel of night
+//: sky with a constellation on it, at Atlas's right, that it leans on. The
+//: companion's `nmb-act-map` shows it and turns the arm onto it.
+function atlasMapProp(layer) {
+  const map = atlasGroup(layer, "nmp nmp-map");
+  atlasMake("ellipse", { class: "atl-prop-moon-glow", cx: 57, cy: 74, rx: 20, ry: 16 }, map);
+  atlasMake("path", { class: "atl-prop-map", d: "M43 62.4Q42.6 60.4 44.6 60L70 54.4Q72 54 72 56L70.6 86Q70.5 88 68.5 88.4L44 92.4Q42 92.8 42 90.8Z" }, map);
+  atlasMake("path", { class: "atl-thread", d: "M47.4 70L53.6 64.4L59.4 71.8L65.4 62.6M50 82L56.6 78.4L62.4 84" }, map);
+  for (const [x, y] of [[47.4, 70], [53.6, 64.4], [59.4, 71.8], [65.4, 62.6], [50, 82], [56.6, 78.4], [62.4, 84]]) atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: 0.6 }, map);
+  return map;
+}
+
+//: The hand slots. The companion holds the right arm out (-70deg at the
 //: shoulder, set in the CSS for Atlas's short arm) to hold a bell or a
-//: lantern up, so each is drawn turned the other way about the hand and
-//: comes out upright once the arm is up.
+//: lantern, so each is drawn turned the other way about the hand and
+//: comes out upright once the arm is out.
 function atlasHandProps(armR, armL) {
   const hand = [48.2, 60];
-  const upright = atlasMake("g", { transform: `rotate(100 ${hand[0]} ${hand[1]})` }, armR);
+  const upright = atlasMake("g", { transform: `rotate(70 ${hand[0]} ${hand[1]})` }, armR);
   const bell = atlasGroup(upright, "nmp nmp-bell");
   atlasMake("circle", { class: "atl-prop-moon-glow", cx: 48.2, cy: 66.2, r: 6.5 }, bell);
   atlasMake("path", { class: "atl-prop-bell", d: "M44.2 68C44.2 61.6 52.2 61.6 52.2 68L53.6 69.8H42.8Z" }, bell);
@@ -859,7 +910,11 @@ function atlasBody(parent, id, props, look) {
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge, look);
-    if (!edge && props) atlasBookProp(layer);
+    if (!edge && props) {
+      atlasBookProp(layer);
+      atlasCoilProp(layer);
+      atlasMapProp(layer);
+    }
     ATLAS_LIMBS.legs.forEach(([side, d], i) => {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
@@ -1043,6 +1098,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   }
   atlasHead(host, id, level, look);
   if (spec.body) ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, true));
+  if (figure) atlasStarsProp(rig);
   atlasApply(svg, mood);
   if (!figure) watchNameMark(svg);
   return svg;

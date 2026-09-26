@@ -5812,6 +5812,7 @@ main,
   --atl-eye-s: 1;
   --atl-px: 0px;
   --atl-py: 0px;
+  --atl-lean: 0deg;
   --atl-ps: 1;
   --atl-open: 1;
   --atl-happy: 0;
@@ -5907,10 +5908,59 @@ main,
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
    head, and the wave swings about the same point. */
-#nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .atl-figure .nmb-arm-r { transform: rotate(-100deg); }
-#nm-buddy.nmb-act-wave .atl-figure .nmb-arm-r { animation-name: atl-buddy-wave; }
+#nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .atl-figure .nmb-arm-r { transform: rotate(-70deg); }
+#nm-buddy.nmb-act-wave .atl-figure .nmb-arm-r { transform: rotate(-120deg); animation-name: atl-buddy-wave; }
 #nm-buddy.nmb-act-scratch .atl-figure .nmb-arm-r { animation-name: atl-buddy-scratch; }
 .nm-atlas .nmb-hold { opacity: 0; }
+/* **A silhouette per pose** (the owner's sprite grid; the coordinator:
+   "the poses are nearly one pose"). The companion's `data-pose` and its
+   act classes drive these; three acts the grid adds, `meditate`, `juggle`
+   and `map`, are answered here and need only `nmb-act-<name>` on
+   `#nm-buddy` (the companion's act runner puts it there). Sit: legs folded
+   forward, seated in the strand's coil. Float: legs together and
+   trailing, the body tilted, the tail streaming below. Hang: arms straight
+   up, the body stretched, the tail hanging. Startle: arms up inside the
+   bubble. Wake: a stretch, the arms out. Meditate: cross-legged, eyes
+   closed, the rings level. Lantern and bell: the arm out. Juggling: arms
+   half up under the arc of stars. Starry map: leaning on the panel. */
+#nm-buddy .atl-figure .nmb-hold-l { transform-origin: 24.6px 41px; }
+#nm-buddy .atl-figure .nmb-hold-r { transform-origin: 37.4px 41px; }
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
+#nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
+#nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .atl-band-front { opacity: 0; }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-40deg); }
+#nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
+#nm-buddy[data-pose="hang"] .nm-atlas { --atl-sy: 1.05; --atl-sx: 0.97; }
+#nm-buddy.nmb-act-startle .nmb-hold { opacity: 1; }
+#nm-buddy.nmb-act-startle .nmb-arm { opacity: 0; }
+#nm-buddy.nmb-act-wake .atl-figure .nmb-hold-l { transform: rotate(-52deg); }
+#nm-buddy.nmb-act-wake .atl-figure .nmb-hold-r { transform: rotate(52deg); }
+#nm-buddy.nmb-act-wake .nm-atlas { --atl-sy: 1.04; --atl-tail: -20deg; }
+#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-l { transform: rotate(100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-r { transform: rotate(-100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-l { transform: rotate(34deg) scaleY(0.8); }
+#nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-r { transform: rotate(-34deg) scaleY(0.8); }
+#nm-buddy.nmb-act-meditate .atl-figure .atl-ring { transform: scaleY(0.42); }
+#nm-buddy.nmb-act-meditate .nm-atlas {
+  --atl-open: 0; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 1; --atl-lid: 0;
+  --atl-m-smile: 1; --atl-m-tinyo: 0; --atl-m-o: 0; --atl-tail: 34deg; --atl-star: 1.3; --atl-glow: 1.2;
+}
+#nm-buddy.nmb-act-juggle .atl-figure .nmb-arm-l { transform: rotate(64deg); }
+#nm-buddy.nmb-act-juggle .atl-figure .nmb-arm-r { transform: rotate(-64deg); }
+#nm-buddy.nmb-act-juggle .atl-figure .nmp-stars { opacity: 1; }
+#nm-buddy.nmb-act-juggle .nm-atlas { --atl-py: -1.6px; --atl-brow-y: -1px; }
+#nm-buddy.nmb-act-map .atl-figure .nmb-arm-r { transform: rotate(-58deg); }
+#nm-buddy.nmb-act-map .atl-figure .nmp-map { opacity: 1; }
+#nm-buddy.nmb-act-map .nm-atlas { --atl-lean: 5deg; --atl-px: 1.4px; --atl-py: 1.2px; --atl-tail: -8deg; }
+.nm-atlas .atl-juggle-arc { opacity: 0.45; stroke-dasharray: 0.8 1.6; }
+.nm-atlas .atl-juggle-star { fill: white; stroke: var(--atl-amber); stroke-width: 0.4; }
+.nm-atlas .atl-prop-map { fill: var(--atl-navy); opacity: 0.92; }
 
 /* Paint. The gel (atlas.js, the design note's "Material"): one skin
    gradient over the whole figure, a rim shade per part, a soft specular,
@@ -6057,7 +6107,7 @@ main,
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
 .nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)); }
-.nm-atlas .atl-pose { transform: scale(var(--atl-sx), var(--atl-sy)); }
+.nm-atlas .atl-pose { transform: rotate(var(--atl-lean)) scale(var(--atl-sx), var(--atl-sy)); }
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its
    mood about the root behind the hip (`--atl-tail`). */
@@ -6303,6 +6353,9 @@ main,
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    & .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
+    & .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
+    & .atl-juggle-2 { animation: atl-juggle 1.8s linear -1.2s infinite; }
     & .atl-tendril-l { animation: atl-drift-l 5.2s ease-in-out var(--nm-delay) infinite; }
     & .atl-tendril-r { animation: atl-drift-r 5.8s ease-in-out calc(var(--nm-delay) - 1.1s) infinite; }
     /* The dust drifts: slowly at rest, a touch faster when pleased or
@@ -6371,7 +6424,7 @@ main,
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-tendril-l, .atl-tendril-r, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-tendril-l, .atl-tendril-r, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
 }
@@ -6391,6 +6444,7 @@ main,
   60%, 100% { transform: rotate(90deg); }
 }
 @keyframes atl-drift { to { transform: rotate(360deg); } }
+@keyframes atl-juggle { to { transform: rotate(360deg); } }
 @keyframes atl-drift-l { 50% { transform: rotate(3deg); } }
 @keyframes atl-drift-r { 50% { transform: rotate(-2.6deg); } }
 @keyframes atl-swish {

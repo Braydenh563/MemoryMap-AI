@@ -7,9 +7,6 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
-- **Three CSP "inline style" warnings on the avatar lab's console** come
-  from a `style` attribute in avatars.js's generated faces; harmless there,
-  worth a grep. [atlas-fable]
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]

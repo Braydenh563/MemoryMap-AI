@@ -52,6 +52,24 @@ def test_one_reminder_is_a_valid_calendar(client):
     assert "BEGIN:VALARM" in lines and "ACTION:DISPLAY" in lines
 
 
+def test_a_title_cannot_write_its_own_lines_into_the_file(client):
+    """A calendar file is lines, so a title carrying line ends is the
+    injection to check (the review, 2026-09-26): "Buy milk\\r\\nEND:VEVENT..."
+    must arrive as one SUMMARY with the breaks escaped, never as an event
+    boundary of its own. Whatever the reminder API keeps of the breaks, the
+    file has one event, and the escaper itself is held to the letter."""
+    from memorymap.api.routes_reminders import _ics_text
+
+    assert _ics_text("a\r\nb\nc\rd;e,f\\g") == "a\\nb\\nc\\nd\\;e\\,f\\\\g"
+    made = _add(client, "Buy milk\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nSUMMARY:forged")
+    body = client.get(f"/reminders/{made['id']}/export.ics").text
+    lines = _unfold(body)
+    assert lines.count("BEGIN:VEVENT") == 1 and lines.count("END:VEVENT") == 1
+    assert "SUMMARY:forged" not in lines
+    assert sum(1 for line in lines if line.startswith("SUMMARY:")) == 1
+    assert "\n" not in body.replace("\r\n", "") and "\r" not in body.replace("\r\n", "")
+
+
 def test_every_line_is_folded_to_75_octets(client):
     made = _add(client, "é" * 200)  # two octets each: folding counts bytes, not characters
     body = client.get(f"/reminders/{made['id']}/export.ics").text

@@ -51,6 +51,19 @@ _granted: set[str] = set()
 _OUTSIDE = object()
 _request_token: ContextVar[object] = ContextVar("vault_request_token", default=_OUTSIDE)
 
+#: Whether the key now loaded was loaded outside any request: a script's or
+#: a test's direct `create`/`open_with`/`set_key`, with no session to grant.
+#: Such a key is the process key for every request until the first grant,
+#: as it always was. A key loaded *inside* a request (`unlock`, `setup`,
+#: `unlock-vault`, the two account routes) is nobody's until granted, so the
+#: lines between loading it and granting the caller answer no other request.
+_process_key = False
+
+
+def _loaded() -> None:
+    global _process_key
+    _process_key = _request_token.get() is _OUTSIDE
+
 
 def is_open() -> bool:
     """Whether the key is loaded at all, for anyone. The process's answer:
@@ -59,11 +72,30 @@ def is_open() -> bool:
 
 
 def key() -> bytes | None:
-    """The key, if the caller may use it (see `_granted`)."""
-    if _dek is None or not _granted:
-        return _dek
+    """The key, if the caller may use it (see `_granted`).
+
+    Inside a request (`request_scope`), only a granted session's, whatever
+    the grant set holds: an empty set means nobody, never everybody. The
+    first version read an empty set as "the rule has not started" and gave
+    every request the key, and the app has two gaps where the key is loaded
+    with no grant yet (`unlock` loads then grants; `change-password` and
+    `rotate-vault-key` clear every grant, then grant the new session), each
+    wide enough for a sync route in the threadpool beside it (the review,
+    2026-09-26; tests/test_vault_sessions). A key loaded outside any request
+    (`_process_key`: a script, a test's direct call) is still every
+    request's until the first grant. Outside a request (a background
+    thread) the process key is answered until the first grant, and nothing
+    after it: the background has no business with a private note once a
+    person is reading them.
+    """
+    if _dek is None:
+        return None
     token = _request_token.get()
-    return _dek if isinstance(token, str) and token in _granted else None
+    if token is _OUTSIDE:
+        return None if _granted else _dek
+    if isinstance(token, str) and token in _granted:
+        return _dek
+    return _dek if _process_key and not _granted else None
 
 
 def grant(token: str | None) -> None:
@@ -132,6 +164,7 @@ def create(session: Session, password: str) -> None:
     session.add(Vault(kdf_salt=salt, wrapped_dek=crypto.wrap_dek(dek, password, salt)))
     session.flush()
     _dek = dek
+    _loaded()
 
 
 def open_with(session: Session, password: str) -> bool:
@@ -148,6 +181,7 @@ def open_with(session: Session, password: str) -> bool:
         return True
     try:
         _dek = crypto.unwrap_dek(bytes(row.wrapped_dek), password, bytes(row.kdf_salt))
+        _loaded()
     except crypto.DecryptionError:
         _dek = None
         return False
@@ -164,6 +198,7 @@ def set_key(dek: bytes) -> None:
     """
     global _dek
     _dek = dek
+    _loaded()
 
 
 def rewrap(session: Session, new_password: str) -> bool:

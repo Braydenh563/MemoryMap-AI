@@ -233,6 +233,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The corner companion's menu stays at it: nothing the companion does on its own moves it while its menu is open (it used to wander 338px off and leave the menu behind), and a panel that carries it carries the menu; the menu still flips to its left at the right edge and stays inside the window, measured at four sizes and scales, by right-click and by Shift+F10 (INBOX 426 x).
 - The corner companion leaves with its panel like the page does: on a panel in a scroll area it rides that area's scroll (the browser moves it, however fast you scroll) and is clipped with it, is still there when the panel comes back, and only goes elsewhere on its own beat once the page is still. A jump it must make (out of sight, or too far to walk) is a star-burst poof, 370ms. Choosing a perch went from 176ms to 6ms (INBOX 426 x).
 - The corner companion is far lighter on the page: no filter on its moving figure, its drawing's idle motion paced at twenty steps a second and held while you scroll, and no obstacle sweep per scroll step. Atlas idle went from +190ms to +63ms a second of main thread, and the companion's scripting while scrolling from +0.46ms to +0.06ms a frame (INBOX 426 x).
 - The corner companion stays on a panel that moves by a transform (a card sliding, a dock easing open) every frame for as long as it animates, rather than catching up a beat later; it was 32px adrift over a 2.4s slide, now under 1px (INBOX 426).

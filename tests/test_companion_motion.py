@@ -229,3 +229,20 @@ def test_choosing_a_perch_is_cheap() -> None:
     assert "if (best && ceiling <= best.score) {" in choose
     assert "nmbCoverCache = new Map();" in choose
     assert "nmbCoverCache?.get(key)" in _fn("nameMarkBuddyCovers")
+
+
+def test_its_menu_holds_it_where_it_is() -> None:
+    # INBOX 426 x, 84.png: the menu open in one corner, the companion in
+    # another. Measured (companionmenu.js): with the menu open, its own
+    # behaviours moved it 338px away before; now nothing moves it until the
+    # menu closes, and a panel carrying it carries the menu.
+    for name in ("nameMarkBuddyBeat", "nameMarkBuddyErrand", "nameMarkBuddyUnheld", "nameMarkBuddyCheck", "nameMarkBuddyTick"):
+        assert "nameMarkBuddyMenuOpen()" in _fn(name), name
+    assert "if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();" in _fn("nameMarkBuddyPut")
+    menu = _fn("nameMarkBuddyMenu")
+    place = menu[menu.index("const place = () => {") :]
+    assert "const box = face.getBoundingClientRect();" in place[: place.index("};")]
+    # Flipped to its left at the right edge and kept inside the window.
+    assert "if (left + now.width > innerWidth - margin) left = box.left - gap - now.width;" in place
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionmenu" in gate

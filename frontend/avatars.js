@@ -3676,6 +3676,7 @@ function nameMarkBuddyPut(buddy, x, y) {
   nmb.lx = r ? x - r.left : x;
   nmb.ly = r ? y - r.top + r.el.scrollTop : y;
   buddy.style.transform = `translate(${nmb.lx}px, ${nmb.ly}px)`;
+  if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();
 }
 
 //: **Leaves with its panel, like the page does** (INBOX 426 x, the owner:
@@ -3961,6 +3962,10 @@ function nameMarkBuddyUnheld() {
   nmb.heldTimer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || !nmb.glue?.held || nmb.pinned || buddy.classList.contains("nm-buddy-dragging")) return;
+  if (nameMarkBuddyMenuOpen()) {
+    nmb.heldTimer = setTimeout(nameMarkBuddyUnheld, 600);
+    return;
+  }
   nameMarkBuddyIndexReset();
   const tab = nameMarkBuddyTab();
   nameMarkBuddyMoveTo(buddy, nameMarkBuddyChoose(tab, nameMarkBuddyObstacles(tab), [nmb.x, nmb.y]));
@@ -4330,6 +4335,11 @@ function nameMarkBuddyStillGood(obstacles) {
 function nameMarkBuddyCheck() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || nmb.pinned || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
+  if (nameMarkBuddyMenuOpen()) {
+    clearTimeout(nmbFollow.recheck);
+    nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 600);
+    return;
+  }
   const tab = nameMarkBuddyTab();
   if (tab !== nmb.tab) {
     nameMarkBuddyQueuePlace();
@@ -4381,12 +4391,21 @@ function nameMarkBuddyQueuePlace() {
   nmb.placeTimer = setTimeout(nameMarkBuddyBeat, Math.max(1200 + Math.random() * 1300, 5000 - since));
 }
 
+//: **Its menu holds it where it is** (INBOX 426 x, 84.png: the menu open
+//: in one corner and the companion in another). The menu is placed at it
+//: when it opens; nothing it does on its own (a behaviour, an errand,
+//: stepping aside, leaving an edge, its beat) moves it until the menu
+//: closes, so the menu is never left behind.
+function nameMarkBuddyMenuOpen() {
+  return !!(nmb.menu && nmb.menu.isConnected && !nmb.menu.classList.contains("hidden"));
+}
+
 function nameMarkBuddyBeat() {
   nmb.placeTimer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || nmb.pinned) return;
   const busy = buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")
-    || (nmb.menu && nmb.menu.isConnected && !nmb.menu.classList.contains("hidden"));
+    || nameMarkBuddyMenuOpen();
   if (busy || document.hidden) {
     nameMarkBuddyQueuePlace();
     return;
@@ -4636,7 +4655,7 @@ function nameMarkBuddyTick() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || document.hidden || nameMarkBuddyStill()) return;
   const locked = document.getElementById("lock-overlay") && !document.getElementById("lock-overlay").classList.contains("hidden");
-  if (locked || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nmb-think")) {
+  if (locked || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nmb-think")) {
     nameMarkBuddySchedule();
     return;
   }
@@ -4816,7 +4835,7 @@ document.addEventListener("scroll", () => {
 //: companion you put somewhere in the last thirty seconds.
 function nameMarkBuddyErrand(spot, act, forMs, look) {
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nmb.pinned || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging")) return false;
+  if (!buddy || nmb.pinned || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging") || nameMarkBuddyMenuOpen()) return false;
   if (Date.now() - (nmb.placedAt || 0) < 30000) return false;
   const obstacles = nameMarkBuddyObstacles(nameMarkBuddyTab());
   const free = nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs) ? nameMarkBuddyStepAside({ ...spot }, obstacles) : spot;
@@ -5138,7 +5157,10 @@ function nameMarkBuddyMenu(buddy) {
     .find((el) => !el.classList.contains("hidden") && el.getBoundingClientRect().width);
   nmb.menu = menu || null;
   if (!menu) return;
+  //: Placed from the companion's box as it is each time: a panel moving
+  //: under it while the menu is open (a transform) carries both.
   const place = () => {
+    const box = face.getBoundingClientRect();
     menu.style.translate = "";
     const now = menu.getBoundingClientRect();
     const gap = 6;
@@ -5153,6 +5175,7 @@ function nameMarkBuddyMenu(buddy) {
   //: settles its box a frame later, which measured as the menu landing 13px
   //: above the companion's top when placed only once.
   place();
+  nmb.menuPlace = place;
   requestAnimationFrame(() => {
     if (menu.isConnected && !menu.classList.contains("hidden")) place();
   });

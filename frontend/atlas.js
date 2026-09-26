@@ -1084,9 +1084,11 @@ function atlasBody(parent, id, props, look, route = null) {
     //: before the torso so it grows out of it. It is not a leg: the
     //: companion's leg groups stay, empty, so its behaviours find them.
     //: Its pivot is the ribbon's root at the hips (the first point of
-    //: `spec.lower`), so the companion's walk, kick and dangle sway it
-    //: about where it grows from (08-consistency.css, "the ribbon answers
-    //: the legs"); the same point in every layer keeps edge and fill as one.
+    //: `spec.lower`). In the companion the sway is on the layer's root
+    //: (`.atl-layer-lower`, 08-consistency.css) with the same point as its
+    //: origin, so the group's own pivot is for the lab and the avatar
+    //: levels, where there is no layer; the same point in every layer
+    //: keeps edge and fill as one.
     if (spec.lower) {
       const lower = atlasGroup(lowerAt[kind], "atl-lower", [spec.lower[0][0], spec.lower[0][1]]);
       if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.lowerPath }, lower);

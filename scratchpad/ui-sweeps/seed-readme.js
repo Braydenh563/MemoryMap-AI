@@ -57,6 +57,33 @@ const NOTES = [
   ],
 ];
 
+//: A draft for the focus-mode shot (0.3.3): a document long enough to fill
+//: the page, written the way a first draft is, so the writing suggestions
+//: beside it have something real to say. Nothing is planted for a checker:
+//: the wordy phrases and the passive turns are the ones a draft has.
+const DRAFT = {
+  title: 'Why we moved the notebook offline',
+  content: [
+    '# Why we moved the notebook offline',
+    '',
+    'For a long time the notes lived on a server we did not own. It was convenient, and it was very easy to forget that every thought we wrote down was being stored somewhere else, by someone else, under terms that could change at any time.',
+    '',
+    '## What changed',
+    '',
+    'In order to make the app work on a plane, the the whole search index was rebuilt so that it runs on the laptop. The model that files each note was moved onto the same machine. It turned out that nothing we actually used needed the network at all.',
+    '',
+    'The first week was slower than we expected. Filing took a second or two longer, and the graph took a moment to settle on older hardware. Then the numbers came back down, because a local model that is always warm is faster than a remote one that has to wake up.',
+    '',
+    '## What we gave up',
+    '',
+    'Sync between devices is now a seperate step you set up yourself, with a folder you already trust. That is a real cost, and it is the one people ask about first. We think it is the right trade: a notebook is the one place where you should not have to wonder who else is reading.',
+    '',
+    '## What is next',
+    '',
+    'Basically, the plan is to make the offline path the only path, and to write down clearly what the app does with each note, so that anyone can check it.',
+  ].join('\n'),
+};
+
 (async () => {
   const { browser, page } = await boot();
   const made = await page.evaluate(async (notes) => {
@@ -75,5 +102,10 @@ const NOTES = [
     return out;
   }, NOTES);
   console.log('seeded', JSON.stringify(made));
+  const doc = await page.evaluate(async (draft) => {
+    const r = await api('/documents', { method: 'POST', body: JSON.stringify(draft) });
+    return r.status;
+  }, DRAFT);
+  console.log('draft', doc);
   await browser.close();
 })();

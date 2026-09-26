@@ -1175,6 +1175,15 @@ function reminderItem(reminder, label) {
       },
       group: "go",
     },
+    //: One reminder as a calendar event (`GET /reminders/{id}/export.ics`,
+    //: WORLD_CLASS_PLAN section 17 row 7): the way it reaches a phone's
+    //: calendar without a server in the middle. Imported twice, it updates
+    //: rather than duplicates, since the file's UID is the reminder's own.
+    {
+      label: "ph:calendar-plus Add to calendar (.ics)",
+      run: () => downloadFromApi(`/reminders/${reminder.id}/export.ics`, `reminder-${reminder.id}.ics`),
+      group: "go",
+    },
     { label: "ph:trash Delete", run: deleteReminder, group: "remove", danger: true }
   );
   actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`));
@@ -1560,3 +1569,11 @@ function defaultDueValue() {
   due.setMinutes(Math.ceil((due.getMinutes() + 1) / 5) * 5);
   return toLocalInputValue(due.toISOString());
 }
+
+//: "Add all to calendar (.ics)" in the Reminders dock's More menu: every open
+//: reminder in this space, one file. The menu closes first so the save
+//: dialog (or the desktop's saved-to toast) is not drawn under it.
+document.getElementById("reminders-export-ics")?.addEventListener("click", () => {
+  document.getElementById("reminders-more-menu")?.removeAttribute("open");
+  downloadFromApi("/reminders/export.ics", "memorymap-reminders.ics");
+});

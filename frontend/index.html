@@ -4539,6 +4539,12 @@ Link to another note with [[its first few words]]."></textarea>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">
+              <!-- Every open reminder as one .ics file (`GET /reminders/export.ics`),
+                   fetched with the auth header by `downloadFromApi`: a plain link
+                   cannot send it. -->
+              <button type="button" class="doc-dock-menu-item" id="reminders-export-ics"
+                title="Every open reminder as a calendar file your phone or calendar app can import">
+                <i class="ph ph-calendar-plus ph-lead" aria-hidden="true"></i> Add all to calendar (.ics)</button>
               <div class="dock-menu-section">
                 <label class="muted dock-menu-label" for="reminders-page-size">Completed per page</label>
                 <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">

@@ -60,3 +60,27 @@ def test_escape_stops_the_answer_and_the_stop_button_holds_the_keyboard() -> Non
     assert "event.defaultPrevented" in esc, "an Escape a menu or dialog already used must be left alone"
     send = _function(app, "sendChatMessage")
     assert '$("chat-stop").focus(' in send, "the Stop button no longer takes the focus while the answer streams"
+
+
+def test_a_grounding_chip_fits_its_answer_and_says_its_sentences_in_characters() -> None:
+    """At 390 an answer is 288px wide and the chips were 352px, running 79px
+    past the bubble; and the chip's tooltip printed the answer's Markdown
+    (6 of 9 tooltips in the seeded chats showed `**`, 0 after)."""
+    chip = re.search(r"\n\.result-reason-chip \{([^}]*)\}", CSS)
+    assert chip, "the chip rule is gone"
+    assert "max-width: min(22rem, 100%)" in chip.group(1), "the chip may be wider than the answer holding it again"
+    grounding = _function(app_js_text(), "renderAnswerGrounding")
+    assert 'chip.title = plainText(forSentences.join(" "))' in grounding, "the tooltip prints raw Markdown again"
+
+
+def test_a_touch_action_row_has_room_of_its_own_under_its_message() -> None:
+    """Under `(hover: none)` the action row is always shown, positioned below
+    its bubble; with no room kept for it, a question's Copy, Edit and Delete
+    lay 31px over the answer beneath (0 after, chataudit.js at 390)."""
+    sheet = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    touch = sheet[sheet.index("@media (hover: none)") :]
+    touch = touch[: touch.index("\n}\n")]
+    assert re.search(
+        r"#chat-messages > \.msg:has\(> \.msg-actions\) \{\s*margin-bottom: calc\(var\(--target-min\) \+ var\(--space-2\)\);",
+        touch,
+    ), "the always-shown touch row has no room of its own and sits on the next message"

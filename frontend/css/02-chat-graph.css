@@ -313,6 +313,17 @@
     opacity: 1;
     pointer-events: auto;
   }
+
+  /* **And give the row the room it hangs in.** Shown for good, a row
+     positioned below its bubble sits on whatever comes next: measured at 390
+     in a touch context, a question's Copy, Edit and Delete lay 31px over the
+     answer under it. The bubble keeps a margin the height of the row (a
+     44px target plus its padding and the 2px gap), so the row lands in space
+     that is its own; on a mouse the row only shows on hover and the margin
+     would be a gap between every message, so it stays under this query. */
+  #chat-messages > .msg:has(> .msg-actions) {
+    margin-bottom: calc(var(--target-min) + var(--space-2));
+  }
 }
 
 /* Welcome shown in an empty chat so the page isn't a blank rectangle. */

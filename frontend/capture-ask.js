@@ -1458,7 +1458,12 @@ function renderAnswerGrounding(
     // note's own Markdown, and the number is app-written, so they cannot go
     // through the renderer as one string (`1. ` is an ordered-list marker).
     setNoteLabel(chip, `ph:file-text ${n}.`, entry?.content || labelFor.get(noteId) || "", 30);
-    chip.title = forSentences.join(" ");
+    // The sentences are the answer's own Markdown; a tooltip prints
+    // characters, so `**Kyoto**` showed its asterisks (the chat pass,
+    // 2026-09-26). `plainText` is the app's one route from Markdown to
+    // characters; it lives in chat-attach.js, which loads after this file,
+    // and that is safe because this runs when an answer renders, not at load.
+    chip.title = plainText(forSentences.join(" "));
     chip.addEventListener("click", () => {
       if (question) {
         apiJson("/learned/corrections", {

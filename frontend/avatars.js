@@ -3683,6 +3683,7 @@ function nameMarkBuddySpotFor(spot) {
 
 //: A kept spot, for the page as it is now; null when its panel is gone,
 //: and the tab's own best perch is used instead.
+const NMB_EDGE_NEAR = 160;
 function nameMarkBuddyRestore(spot) {
   const clampX = (x) => Math.min(Math.max(0, x), innerWidth - NMB_W);
   const clampY = (y) => Math.min(Math.max(0, y), innerHeight - NMB_H);
@@ -3703,10 +3704,23 @@ function nameMarkBuddyRestore(spot) {
     else x = spot.side === "left" ? box.left - NMB_W + 6 : box.right - 6;
     return { kind: "yours", pose: spot.pose, legs: spot.legs || "", side: spot.side || "", x: clampX(x), y: clampY(y), edge, anchor: el };
   }
+  //: **A place on the window stays where it is** (INBOX 426 l, the owner:
+  //: "when I press the option to stay in the same spot across pages ... it
+  //: still moves sometimes"). It used to keep its distance from whichever
+  //: half of the window it was in, so one pinned near the middle jumped by
+  //: the whole change in size whenever the window was resized or the app
+  //: opened at another size (measured: 200px for a 900 to 700px window).
+  //: Now it keeps its place, and only a place close to the right or bottom
+  //: edge (on the bottom bar, in a corner, within 160px) keeps its distance
+  //: from that edge, so it stays on the bar. Inside the window either way.
   const w = Number(spot.w) || innerWidth;
   const h = Number(spot.h) || innerHeight;
-  const x = Number(spot.x) + NMB_W / 2 > w / 2 ? innerWidth - (w - Number(spot.x)) : Number(spot.x);
-  const y = Number(spot.y) + NMB_H / 2 > h / 2 ? innerHeight - (h - Number(spot.y)) : Number(spot.y);
+  const sx = Number(spot.x);
+  const sy = Number(spot.y);
+  const toRight = w - sx - NMB_W;
+  const toBottom = h - sy - NMB_H;
+  const x = toRight < NMB_EDGE_NEAR && toRight < sx ? innerWidth - (w - sx) : sx;
+  const y = toBottom < NMB_EDGE_NEAR && toBottom < sy ? innerHeight - (h - sy) : sy;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   //: A place pinned on every page keeps its pose; a spot dropped in open
   //: air floats.
@@ -5365,9 +5379,15 @@ function nameMarkBuddyMenu(buddy) {
     //: it again (no perch, no errand, no beat) until you drag it or call it
     //: back.
     { label: "ph:push-pin Stay here on every page", run: () => {
-      nameMarkBuddyKeepSpots({ "*": { x: nmb.x, y: nmb.y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "", w: innerWidth, h: innerHeight, keep: 1 } });
+      //: Where it is drawn now: mid-walk, `nmb.x` is where it was going,
+      //: and pinning there made it jump at the moment it was told to stay.
+      const box = buddy.getBoundingClientRect();
+      const x = Math.round(box.left);
+      const y = Math.round(box.top);
       nmb.anim?.cancel();
-      nameMarkBuddyMoveTo(buddy, { kind: "pinned", x: nmb.x, y: nmb.y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "" }, true);
+      nmb.hopAnim?.cancel();
+      nameMarkBuddyKeepSpots({ "*": { x, y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "", w: innerWidth, h: innerHeight, keep: 1 } });
+      nameMarkBuddyMoveTo(buddy, { kind: "pinned", x, y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "" }, true);
     } },
   ];
   if (spots[tab]) {

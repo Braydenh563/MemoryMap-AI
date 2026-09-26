@@ -306,3 +306,25 @@ def test_your_picture_enlarges_on_a_double_click() -> None:
     viewer = _fn("openNameMarkViewer")
     assert "performance.now() - openedAt > 400" in viewer
     assert 'if (document.querySelector(".nm-viewer")) return;' in viewer
+
+
+def test_pinned_stays_put_through_resizes_and_a_pin_mid_walk() -> None:
+    # INBOX 426 (l): "when I press the option to stay in the same spot
+    # across pages ... it still moves sometimes". Measured by
+    # companionpin.js (six tab switches, scroll, a panel collapsing and its
+    # own panel removed, three minutes of simulated idle, resize, reload):
+    # before, a pin near the middle jumped 200px when the window went from
+    # 900 to 700px high, and a pin made mid-walk jumped 202px to where it
+    # was going. A place keeps its place; only one within NMB_EDGE_NEAR of
+    # the right or bottom edge keeps its distance from that edge.
+    restore = _fn("nameMarkBuddyRestore")
+    assert "toRight < NMB_EDGE_NEAR && toRight < sx ? innerWidth - (w - sx) : sx" in restore
+    assert "toBottom < NMB_EDGE_NEAR && toBottom < sy ? innerHeight - (h - sy) : sy" in restore
+    assert "w / 2" not in restore and "h / 2" not in restore
+    menu = _fn("nameMarkBuddyMenu")
+    stay = menu[menu.index("Stay here on every page") :]
+    stay = stay[: stay.index("} },")]
+    assert "const box = buddy.getBoundingClientRect();" in stay
+    assert "{ x, y, pose: nmb.pose" in stay
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionpin" in gate

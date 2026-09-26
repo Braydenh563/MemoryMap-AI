@@ -1,38 +1,62 @@
-# Agent: the companion and the faces, INBOX 426 c to g and j to p
+# Agent: the companion and the faces, INBOX 426 c to g, j to p, w and x
 
 Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
-`origin/fix/gemini-fixes-5` at `feb28bc`. Port 8805, data dir
+`origin/fix/gemini-fixes-5` at `9825ee4`. Port 8805, data dir
 `/tmp/mm-companion` (`bash scratchpad/ui-sweeps/serve.sh 8805 /tmp/mm-companion`).
 
 ## Done
 
-- `7698576` c, j, k (arms): parts framed 7 units wider (an SVG group's box
-  leaves out its stroke), the holding arm kept while hanging, the rude
-  gesture removed, a test that every named gesture is drawn.
-- `4ec5ded` d, g, k, l, m, n, o, p: the companion rides with its panel,
-  moves on its own beat, never fades elsewhere, pinned never moves, Call
-  back in its menu, Appearance and the palette, its menu opens beside it,
-  a new profile name redraws it.
-- `2c529d7` e: Your own character as the companion.
-- `de3c2db` f: what a face holds shows in its head mark again.
+Round 1 (merged at `3165d64`): `7698576` c, j, k (arms, the rude gesture
+out); `4ec5ded` d, g, k to p (rides its panel, its own beat, Call back,
+menu at it, a new name redraws it); `2c529d7` e (your own character);
+`de3c2db` f (what a face holds in its head mark).
 
-Sweeps: `scratchpad/ui-sweeps/companionscroll.js` (exits 1 on a glue error
-over 2px, a frame step over 45px beyond its panel, or any opacity under 1;
-PASS at 1440x900 on Notes and on a dashboard widget) and
-`companionbeats.js` (fast tab switching, pin, resize, menu, call back, idle
-loop). Proof in the main checkout's `scratchpad/shots/companion-426/`.
+Round 2 and 3:
+
+- `54edf3b` followed every frame while its panel animates (transitionrun
+  to transitionend), 32.4px adrift over a 2.4s slide before, 0.5 after.
+- `05363c9` performance: no filter on the figure, Atlas's SVG animations
+  paced at 20 steps a second and held while scrolling, no obstacle sweep
+  per wheel step. Atlas idle +190 -> +63ms/s of main thread, scrolling
+  +0.46 -> +0.06ms/frame of scripting (later +45ms/s, +0.05).
+- `3f3f75c` rides its panel's scroll through a ScrollTimeline (clipped in
+  a fixed band, never a child of the app's scroll boxes), leaves with its
+  panel, re-perches only on its beat; the poof (370ms) for a jump it must
+  make; choosing a perch 176 -> 6ms.
+- `6d39201` its menu holds it where it is (84.png: its own behaviours had
+  moved it 338px from its open menu).
+- `49187cc` expressions (hello, pokes, saved note, error, bell, thinking,
+  away, a drift), drawn ahead in idle time; a wave when you are back.
+- `22e151e` size (menu, Appearance, a corner handle), light and dark.
+- `84810a2` a retired part dropped on read and save (73.png, 90.png); your
+  picture enlarges on a double-click.
+- `15f7115` namemarks.js under Face looks: Jade/Maya not reproduced under
+  15% in any setting (lowest pair anywhere 16.8%).
+
+Sweeps, all in `scripts/gate.sh --sweeps`: `companionscroll.js`,
+`companionbeats.js`, `companionperf.js` (CDP metrics, trace, profile),
+`companionsmooth.js` (composited frames by screencast), `companionmenu.js`
+(58 menus), `companionlife.js`, `profilelook.js`. Proof in the main
+checkout's `scratchpad/shots/companion-r3/` (perf before and after, smooth
+before and after, expressions, size handle, light and dark, Holding).
 
 ## Remaining
 
-1. Not measured on real smooth scrolling: headless wheel steps are 40 to
-   120px jumps, so the one-frame main-thread lag behind a compositor scroll
-   on the owner's machine is reasoned, not observed.
-2. The desktop window (pywebview) was not driven; the menu offset in 59.png
-   did not reproduce at any scroll here, and the fix anchors to the
-   companion's own box whatever the cause.
-3. A panel that moves by a transform (not a scroll, a resize or a layout
-   change) is caught by the 2s look, eased over 300ms, not per frame.
-4. Neither sweep is in `scripts/gate.sh`'s sweep list yet.
-5. `gate.sh --changed` runs most of the suite on this branch (everything
-   differs from `origin/main`) and was stopped at 79% with no failures;
-   the targeted tests and `--staged` pass for every commit.
+1. Atlas still repaints its 455-node SVG twenty times a second at rest
+   (paint about 32ms/s, 1.6ms a paint). The drawing is atlas.js's (the
+   Atlas agent's); fewer or cheaper animated groups there are the next
+   saving. The governor paces it but cannot make a paint cheaper.
+2. Riding needs `ScrollTimeline` (Chromium 115+, so WebView2 on Windows);
+   WebKitGTK falls back to the script follow, held at the edge. Not driven
+   in the desktop window.
+3. In composited frames a single frame at a gesture's start or reversal is
+   still one frame late (1 to 5% of wheel frames); the rest are exact, and
+   the same with the main thread 30ms busy.
+4. The size handle is mouse-only by design; keyboard and touch size it
+   from the menu and Appearance. A large companion near the window's edge
+   can reach past it by the extra 30%.
+5. Round 2's hole hunt (touch drag at 390, Call back at every width,
+   reduced motion, hidden then shown) was not run as its own pass;
+   `companionmenu.js` covers the menu at 390 and from the keyboard.
+6. 84.png did not reproduce as a placement bug; the fix is to the one path
+   that did reproduce (moving while its menu was open).

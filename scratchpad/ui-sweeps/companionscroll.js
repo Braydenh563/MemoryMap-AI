@@ -166,7 +166,11 @@ const SHOT = process.env.SHOT || '';
       if (b.poof) { poofSpan = poofSpan || [b.t, b.t]; poofSpan[1] = b.t; }
       continue;
     }
-    if (j > maxJump) { maxJump = j; jumpAt = i; }
+    // Per frame's worth of time: a frame the browser dropped (a loaded
+    // machine) is not a jump in the motion, and 45px is a speed, 2700px/s.
+    const dt = b.t - a.t;
+    const step = dt > 20 ? j * (16.7 / dt) : j;
+    if (step > maxJump) { maxJump = step; jumpAt = i; }
     minOp = Math.min(minOp, b.op);
     if (b.held) heldFrames += 1;
     if (withCard && !(b.anim)) {

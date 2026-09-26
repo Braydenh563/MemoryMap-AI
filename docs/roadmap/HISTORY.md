@@ -45,6 +45,22 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### From WORLD_CLASS_PLAN.md section 17 row 7: reminders as `.ics`
+
+**Built 2026-09-26.** `GET /reminders/export.ics` (this space's reminders,
+upcoming only unless `include_done=true`) and `GET
+/reminders/{id}/export.ics`, `text/calendar` as an attachment. Written by hand
+to RFC 5545: CRLF line ends, lines folded at 75 octets counted in bytes (a
+fold never splits a UTF-8 character), backslash, `;`, `,` and newlines
+escaped, `DTSTART`/`DTEND` in UTC with `Z`, `UID:reminder-<id>@memorymap.local`
+so a second import updates rather than duplicates, `RRULE:FREQ=` for daily,
+weekly and monthly, `PRIORITY` 1/5/9, `STATUS:COMPLETED` for a ticked one, and
+a display alarm at the due time. A linked note's opening is the
+`DESCRIPTION` unless the note is private: a private note's words never leave
+in the file. Tests: `tests/test_reminders_ics.py`, 9. **Left:** the two
+buttons (WORLD_CLASS_PLAN §17 row 7). Not verified: an import into a real
+calendar app.
+
 ### From OPEN.md (brief7-event-log): global undo of an AI action, the backend
 
 **Built 2026-09-26.** `events.undo(session, actor, since_id, apply=, force=)`

@@ -161,6 +161,118 @@ def reminder_counts(
     return {"counts": counts}
 
 
+# --- .ics export (WORLD_CLASS_PLAN section 17, row 7) --------------------------
+#
+# The one way a reminder reaches a phone's calendar without a server in the
+# middle: a file. Written by hand rather than with a library, because the
+# format is small and the rules a calendar app is strict about are few and
+# all here: CRLF line ends, lines folded at 75 octets (bytes, so a folded
+# line never splits a UTF-8 character), backslash, `;`, `,` and newlines escaped, times
+# in UTC with a `Z`, and a UID that stays the same across exports so a second
+# import updates the event instead of duplicating it.
+
+_ICS_PRIORITY = {"high": 1, "normal": 5, "low": 9}
+_ICS_RRULE = {"daily": "DAILY", "weekly": "WEEKLY", "monthly": "MONTHLY"}
+
+
+def _ics_text(value: str) -> str:
+    return (
+        value.replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+        .replace("\r", "\\n")
+    )
+
+
+def _ics_fold(line: str) -> str:
+    """One content line, folded at 75 octets with CRLF + space."""
+    out: list[str] = []
+    current = ""
+    size = 0
+    for char in line:
+        width = len(char.encode("utf-8"))
+        # 75 on the first line; continuation lines start with a space, which
+        # counts, so their text gets 74.
+        if size + width > (75 if not out else 74):
+            out.append(current)
+            current, size = "", 0
+        current += char
+        size += width
+    out.append(current)
+    return "\r\n ".join(out) + "\r\n"
+
+
+def _ics_time(value: datetime) -> str:
+    moment = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _ics_event(session: Session, reminder: Reminder, stamp: str) -> list[str]:
+    lines = [
+        "BEGIN:VEVENT",
+        f"UID:reminder-{reminder.id}@memorymap.local",
+        f"DTSTAMP:{stamp}",
+        f"DTSTART:{_ics_time(reminder.due_at)}",
+        f"DTEND:{_ics_time(reminder.due_at + timedelta(minutes=15))}",
+        f"SUMMARY:{_ics_text(reminder.text)}",
+        f"PRIORITY:{_ICS_PRIORITY.get(reminder.priority, 5)}",
+    ]
+    if reminder.entry_id is not None:
+        entry = session.get(Entry, reminder.entry_id)
+        # A private note's words never leave in a file: the calendar gets the
+        # reminder's own text and nothing of the note behind it.
+        if entry is not None and not entry.is_deleted and not entry.is_private:
+            opening = " ".join(readable_content(entry).split())[:280]
+            if opening:
+                lines.append(f"DESCRIPTION:{_ics_text(opening)}")
+    rule = _ICS_RRULE.get(reminder.recurring)
+    if rule:
+        lines.append(f"RRULE:FREQ={rule}")
+    if reminder.done:
+        lines.append("STATUS:COMPLETED")
+    lines += [
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        f"DESCRIPTION:{_ics_text(reminder.text)}",
+        "TRIGGER:PT0M",
+        "END:VALARM",
+        "END:VEVENT",
+    ]
+    return lines
+
+
+def _ics_response(session: Session, reminders: list[Reminder], filename: str) -> Response:
+    stamp = _ics_time(utcnow())
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MemoryMap AI//Reminders//EN", "CALSCALE:GREGORIAN"]
+    for reminder in reminders:
+        lines += _ics_event(session, reminder, stamp)
+    lines.append("END:VCALENDAR")
+    body = "".join(_ics_fold(line) for line in lines)
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export.ics")
+def export_ics(include_done: bool = False, session: Session = Depends(get_session)) -> Response:
+    """Every reminder in this space as one calendar file; ticked-off ones
+    only when asked, since a calendar is for what is coming."""
+    filters = [] if include_done else [Reminder.done.is_(False)]
+    rows = list(session.scalars(select(Reminder).where(*filters).order_by(Reminder.due_at, Reminder.id)))
+    return _ics_response(session, rows, "memorymap-reminders.ics")
+
+
+@router.get("/{reminder_id}/export.ics")
+def export_one_ics(reminder_id: int, session: Session = Depends(get_session)) -> Response:
+    """One reminder as a calendar file."""
+    reminder = _existing(session, reminder_id)
+    return _ics_response(session, [reminder], f"reminder-{reminder.id}.ics")
+
+
 @router.get("")
 def list_reminders(
     response: Response,

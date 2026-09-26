@@ -807,7 +807,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
-| 11 | §17 | review queue, filing style, explain this note, `.ics` export, most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
+| 11 | §17 | review queue, filing style, explain this note, the `.ics` buttons (the export routes built 2026-09-26), most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
 | 13 | §1, D14 | the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette | S | `tests/` |
 | 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
@@ -1716,8 +1716,11 @@ S. 2 tidy categories (b): the agent has `merge_categories`
 widget lists the notes opened or matched most, all time
 (`/entries/most-accessed`); "this month" needs an open log, S (its picker
 line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7
-calendar (b): the month view is built (`#reminder-calendar`); `.ics` export
-is not, S.
+calendar (b): the month view is built (`#reminder-calendar`); the `.ics`
+export routes were built 2026-09-26 (HISTORY.md, "Moved from the plans,
+2026-09-26"); left is the frontend: an "Add to calendar" item on a reminder's
+menu and "Export all to calendar" on the Reminders dock, each fetching with
+the auth header and saving the blob (a plain link cannot send it). S.
 
 ## Placed from INBOX, 2026-09-13
 

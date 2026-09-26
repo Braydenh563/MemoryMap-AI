@@ -335,9 +335,10 @@ const ATLAS_LOOKS = {
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
   //: temple; long hair streaming back and down with a constellation
-  //: threaded through it; a slender figure whose body flows into a
-  //: mermaid lower body that splits into two ribbons (no legs); the right
-  //: hand held out sowing star seeds; a paler, lilac skin (the CSS).
+  //: threaded through it; a slender figure on slender legs (the
+  //: definitive stand, 63.png; the first draft was a mermaid lower body
+  //: with no legs) with a ribbon sash streaming from the left hip; the
+  //: right hand held out sowing star seeds; a paler, lilac skin (the CSS).
   feminine: {
     ear: "M20.4 16.6C17.6 15.6 15.2 13.6 14 10.6C13.6 9.6 12.4 9.2 12.6 8.4C15.4 10.2 18.6 11.4 22.8 11.6C21.2 13 20.4 14.6 20.4 16.6Z",
     earIn: "",

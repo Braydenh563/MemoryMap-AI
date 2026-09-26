@@ -6397,12 +6397,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
-/* The ribbon answers the legs (the feminine look's lower body, atlas.js
-   `atl-lower`): that look has no legs, so the companion's walk, kick and
-   dangle, which act on `.nmb-leg-*`, moved nothing on it. The ribbon sways
-   about its root at the hips instead, on the same classes and the same
-   timings as the legs they stand in for; transforms only, like every other
-   companion act, and still under Off and Reduce motion. */
+/* The feminine look's hip sash (atlas.js `atl-lower`, in its own layer
+   of the companion's figure) hangs beside its legs, which the walk, kick
+   and dangle move through `.nmb-leg-*`; a sash that hung still while the
+   legs swung read as pinned on. It sways about its root at the hip on the
+   same classes and the same timings as the legs; transforms only, like
+   every other companion act, and still under Off and Reduce motion. */
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
     &.nmb-walking .atl-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }

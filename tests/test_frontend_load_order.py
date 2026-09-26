@@ -312,3 +312,33 @@ def test_app_js_does_not_read_a_later_scripts_constant_at_load():
             if "typeof " + name not in line
         ]
     assert not hits, "app.js reads a later script's constant at load: " + "; ".join(hits)
+
+
+def test_a_typeof_guard_at_load_cannot_see_a_later_scripts_constant():
+    """`typeof X !== "undefined"` is the guard the test above accepts, and it
+    is the right one inside a function that runs later. Written in a script's
+    own top-level code against a constant of a *later* script, it is a
+    different thing: the later script has not run, the binding does not exist
+    yet, `typeof` says "undefined", and the guarded block never runs at all,
+    in any build, for any value of the constant. Nothing throws, so no sweep
+    sees it. settings-wiring.js did exactly this with `TOUR_ENABLED` (tour.js,
+    the page's last script) around the code that greys out the About pane's
+    "Take tour again" button while the tour is off: the fix the owner asked
+    for on 2026-09-21 was on the branch and had never once executed. Work
+    gated on a later script's constant waits for `DOMContentLoaded`
+    (`onDomReady`), which fires after every classic script has run."""
+    order = _script_order()
+    guard = re.compile(r'typeof ([A-Z][A-Z0-9_]+) (?:!==|===) "undefined"')
+    hits: list[str] = []
+    for path in app_js_files():
+        later: set[str] = set()
+        for name in order[order.index(path.name) + 1 :]:
+            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+        for line in _top_level(path.read_text(encoding="utf-8")).split("\n"):
+            for name in {m.group(1) for m in guard.finditer(line.split("//")[0])}:
+                if name in later:
+                    hits.append(f"{path.name}: {line.strip()[:90]}")
+    assert not hits, (
+        "a top-level typeof guard names a later script's constant, so the block "
+        "it guards can never run: " + "; ".join(hits)
+    )

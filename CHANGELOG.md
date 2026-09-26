@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Three listener leaks the new `scratchpad/ui-sweeps/listenerrounds.js` measures per rebuild, against a control that measures 0: every help '?' put four listeners on the page (fifty at boot, four more each time the chat welcome was rebuilt for a new chat, each holding the old welcome), the chat's Skills dropdown two on the page and one on the Settings checkbox its pace pill mirrors on every rebuild (+35 a skill saved), and an emblem whose holder left the page kept its p5 sketch and the sketch's window listeners (+23 a new chat). The help popovers share one set of page listeners now, the dropdown's go with its build, and a render releases any sketch whose holder is gone. 0 listeners a round after the fix, `leaks.js` still 0/0 across the seven tabs.
+- The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

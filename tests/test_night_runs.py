@@ -82,7 +82,8 @@ def test_a_deleted_fact_leaves_the_card_and_the_list(ai_client, fake_ollama):
     listed = ai_client.get(f"/night/runs/{run_id}/facts?kind=question").json()
     assert listed["total"] == 2
     gone = listed["items"][0]["id"]
-    assert ai_client.delete(f"/learned/{gone}").status_code in (200, 204)
+    deleted = ai_client.delete(f"/learned/{gone}")
+    assert deleted.status_code in (200, 204)
     assert ai_client.get("/night/latest").json()["counts"]["question"] == 1
     after = ai_client.get(f"/night/runs/{run_id}/facts?kind=question").json()
     assert after["total"] == 1 and gone not in {item["id"] for item in after["items"]}

@@ -115,7 +115,7 @@ def lan_addresses() -> list[str]:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             add(info[4][0])
     except OSError:
-        pass
+        pass  # no resolvable hostname: the interface scan below still runs
     if sys.platform.startswith("linux"):
         try:
             import fcntl
@@ -130,7 +130,7 @@ def lan_addresses() -> list[str]:
                         continue  # an interface with no IPv4 address
                     add(socket.inet_ntoa(packed[20:24]))
         except (OSError, ImportError):
-            pass
+            pass  # no ioctl here: the hostname addresses above are all we can offer
     return found
 
 

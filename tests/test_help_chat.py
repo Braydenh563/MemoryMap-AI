@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from memorymap.ai import help_chat
+from tests._app_js import app_js_text
 
 
 def test_ask_without_ai_answers_from_the_help_text_never_5xx(client):
@@ -144,11 +145,8 @@ def test_every_help_topic_has_a_non_empty_body_and_badge():
 # which is the failure mode a duplicated constant always eventually has. The
 # whole point of this lint is that Python cannot see `switchTab`; reading its
 # actual `TABS` line is as close as it gets.
-APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
-
 def _real_top_level_tabs() -> set[str]:
-    match = re.search(r"^const TABS = \[(.*?)\];", APP_JS.read_text(encoding="utf-8"), re.M)
+    match = re.search(r"^const TABS = \[(.*?)\];", app_js_text(), re.M)
     assert match, "app.js no longer declares `const TABS = [...]` on one line"
     return set(re.findall(r'"([a-z-]+)"', match.group(1)))
 
@@ -270,7 +268,7 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
-    app_js = (frontend / "app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
@@ -358,7 +356,7 @@ def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
-    app = (frontend / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     table = app[app.index("const ATLAS_PROMPTS = {") :]
@@ -377,11 +375,8 @@ def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
 def test_the_palette_offers_a_typed_question_to_atlas():
     """A jump list has no answer for "how do I turn off web search?", so the
     box went empty, which reads as "this app has no answer"."""
-    from pathlib import Path
 
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     start = app.index("function paletteMatches(")
     body = app[start : app.index("\n}\n", start)]
     assert 'endsWith("?")' in body and "askAtlasAbout" in body
@@ -394,11 +389,8 @@ def test_the_palette_offers_a_typed_question_to_atlas():
 def test_atlas_has_a_shortcut_and_it_is_in_the_registry():
     """In `DEFAULT_SHORTCUTS`, which is what puts it in the shortcuts sheet and
     in the collision check, rather than bound in a listener of its own."""
-    from pathlib import Path
 
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     start = app.index("const DEFAULT_SHORTCUTS = {")
     table = app[start : app.index("\n};", start)]
     assert "askAtlas: {" in table
@@ -809,9 +801,7 @@ def test_a_plural_question_finds_what_the_singular_finds():
 def _atlas_questions() -> list[str]:
     """Every question the app itself offers to ask Atlas: the three starters
     under the transcript, and the line at the foot of a help popover."""
-    app = (
-        Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-    ).read_text(encoding="utf-8")
+    app = app_js_text()
     starters = app[app.index("const ATLAS_STARTERS = [") :]
     starters = starters[: starters.index("\n];")]
     per_tab = app[app.index("const ATLAS_TAB_STARTERS = {") :]

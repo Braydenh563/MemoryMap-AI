@@ -25,9 +25,10 @@ from pathlib import Path
 
 from memorymap.core import deps
 from memorymap.core.database import PageRead
+from tests._app_js import app_js_text
 
 LIBRARY = Path("frontend/library.js").read_text(encoding="utf-8")
-APP = Path("frontend/app.js").read_text(encoding="utf-8")
+APP = app_js_text()
 CSS = Path("frontend/css/07-whiteboard-misc.css").read_text(encoding="utf-8")
 
 

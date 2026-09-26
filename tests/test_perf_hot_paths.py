@@ -21,13 +21,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import frontend_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 
 
 def _source(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return frontend_text(name)
 
 
 def _body(source: str, name: str) -> str:

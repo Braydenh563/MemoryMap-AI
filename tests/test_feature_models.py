@@ -24,6 +24,7 @@ import pytest
 
 from memorymap.ai import model_manager as mm
 from memorymap.core import deps
+from tests._app_js import app_js_text
 
 
 def _manager(app_state):
@@ -414,7 +415,7 @@ def test_every_in_surface_picker_names_a_real_feature_and_a_real_control():
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
-    app = (root / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
     block = re.search(r"const FEATURE_MODEL_SELECTS = \[(.*?)\];", app, re.S)
     assert block, "FEATURE_MODEL_SELECTS is gone from app.js"

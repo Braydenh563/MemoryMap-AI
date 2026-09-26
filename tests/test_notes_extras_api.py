@@ -12,6 +12,7 @@ import io
 import pytest
 
 from memorymap.core import deps
+from tests._app_js import app_js_text
 
 
 def _save(client, content, **extra):
@@ -366,13 +367,10 @@ def test_builtin_template_names_match_the_frontend():
     `BUILTIN_TEMPLATES` in app.js. Checked here instead, so a template added
     to one side without the other fails the build."""
     import re
-    from pathlib import Path
 
     from memorymap.api.routes_settings import BUILTIN_TEMPLATE_NAMES
 
-    app_js = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app_js = app_js_text()
     block = app_js[app_js.index("const BUILTIN_TEMPLATES = [") :]
     block = block[: block.index("];")]
     assert set(re.findall(r'name: "([^"]+)"', block)) == BUILTIN_TEMPLATE_NAMES

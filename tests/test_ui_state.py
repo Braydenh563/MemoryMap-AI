@@ -18,6 +18,7 @@ server half; the frontend half is `watchMirroredUiKeys` and
 from __future__ import annotations
 
 import pytest
+from tests._app_js import app_js_text
 
 
 def test_ui_state_round_trips(client):
@@ -70,11 +71,8 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     of making a new setting persistent, and the reported two are the reason
     this exists."""
     import re
-    from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    source = app_js_text()
     # The watched list is the look's own keys plus these extras, derived, not
     # a second hand-written copy. The first draft *was* a copy and guessed two
     # key names wrong, which would have left the background art as the one

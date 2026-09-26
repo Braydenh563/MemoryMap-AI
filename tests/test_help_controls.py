@@ -115,6 +115,7 @@ def test_controls_entries_follow_the_copy_rules():
 # never a looser match here.
 
 from pathlib import Path  # noqa: E402
+from tests._app_js import app_js_text  # noqa: E402
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 _ENTRY = re.compile(r'^\s*(\w+):\s*\{\s*keys:\s*"([^"]+)"', re.MULTILINE)
@@ -142,7 +143,7 @@ def _named(key: str, body: str) -> bool:
 
 
 def test_every_global_shortcut_is_in_the_shortcuts_entry():
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     table = dict(_ENTRY.findall(_table(app, "const DEFAULT_SHORTCUTS")))
     assert len(table) > 15, "DEFAULT_SHORTCUTS has moved; this test cannot read it"
     body = _body("shortcuts")
@@ -151,7 +152,7 @@ def test_every_global_shortcut_is_in_the_shortcuts_entry():
 
 
 def test_every_m_chord_letter_is_in_the_hidden_features_entry():
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     tabs = dict(re.findall(r'^\s*(\w): "(\w+)"', _table(app, "const TAB_JUMP_KEYS"), re.MULTILINE))
     actions = dict(
         re.findall(r'^\s*(\w): \{ label: "([^"]+)"', _table(app, "const CHORD_ACTIONS"), re.MULTILINE)

@@ -22,12 +22,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARY_JS = ROOT / "frontend" / "library.js"
-APP_JS = ROOT / "frontend" / "app.js"
-
-
 def _function_source(text: str, name: str) -> str:
     start = text.find(f"function {name}(")
     assert start != -1, f"{name} is missing"
@@ -100,12 +98,12 @@ def test_the_card_grid_measures_before_it_empties():
 
 
 def test_every_kebab_carries_its_items_for_the_right_click():
-    body = _function_source(APP_JS.read_text(encoding="utf-8"), "kebabMenu")
+    body = _function_source(app_js_text(), "kebabMenu")
     assert "wrap.rowMenu = { items, ariaLabel }" in body
 
 
 def test_the_row_menu_has_a_long_press_twin():
-    text = APP_JS.read_text(encoding="utf-8")
+    text = app_js_text()
     assert "const ROW_MENU_HOSTS" in text
     block = text[text.index("const ROW_MENU_HOSTS") : text.index("function arrowNavTarget")]
     assert 'addEventListener("contextmenu"' in block
@@ -115,7 +113,7 @@ def test_the_row_menu_has_a_long_press_twin():
 def test_selection_keys_stand_down_inside_a_field():
     """Escape, Ctrl+A and Delete already mean something in a text field; the
     selection keys must never take them from one."""
-    text = APP_JS.read_text(encoding="utf-8")
+    text = app_js_text()
     block = text[text.index("function openSelectionScope") :]
     block = block[: block.index("function renderMarkdown")]
     assert "textarea" in block and "contenteditable" in block
@@ -141,6 +139,6 @@ def test_the_caret_readout_rewrites_its_text_in_place():
 
 
 def test_the_back_to_top_check_never_matches_the_whole_document():
-    text = APP_JS.read_text(encoding="utf-8")
+    text = app_js_text()
     body = _function_source(text, "formPrimaryButtons")
     assert "document.querySelectorAll" not in body

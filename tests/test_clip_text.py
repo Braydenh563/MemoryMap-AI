@@ -8,15 +8,12 @@ import json
 import re
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
-
-APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 def _clip(text: str, limit: int) -> str:
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     match = re.search(r"^function clipText\(text, limit\) \{.*?^\}", source, re.S | re.M)
     assert match, "clipText is gone from app.js"
     script = match.group(0) + f"\nprocess.stdout.write(clipText({json.dumps(text)}, {limit}));"

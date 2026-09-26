@@ -6,6 +6,7 @@ persona be Atlas acting as the librarian. A notebook that saved
 """
 
 from memorymap.ai import librarian
+from tests._app_js import app_js_text
 
 
 class _Config:
@@ -38,9 +39,8 @@ def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
     the model was told "You are Atlas, this notebook's librarian" (the owner,
     2026-09-14: "atlas's librarian persona should be You are Atlas...")."""
     import re
-    from pathlib import Path
 
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     match = re.search(r"^    \[name\]: `([^`]+)`,", app, re.M)
     assert match, "app.js's builtinPersonas() has no templated librarian row"
     from memorymap.ai import AI_NAME
@@ -61,6 +61,6 @@ def test_the_placeholder_is_explained_beside_the_prompt_box_and_filled_in_the_pr
 
     root = Path(__file__).resolve().parents[1]
     html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
-    app = (root / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'id="persona-placeholder-hint"' in html and "{ai_name}" in html
     assert 'replaceAll("{ai_name}", aiNameNow())' in app

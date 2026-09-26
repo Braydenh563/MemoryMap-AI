@@ -33,13 +33,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "frontend" / "app.js"
-
-
 def unlatex_source() -> str:
-    text = APP.read_text(encoding="utf-8")
+    text = app_js_text()
     start = text.index("const LATEX_SYMBOLS = {")
     fn_start = text.index("function unlatex(text) {", start)
     end = text.index("\n}\n", fn_start) + 3
@@ -165,7 +163,7 @@ def test_render_inline_markdown_draws_inline_maths_through_the_shared_renderer()
     """`renderInlineMarkdown` must build inline maths the same way `mdMathElement`
     (the `$$` block renderer) does, through `docMathRender`, not a second
     implementation, or the two forms of the same formula can drift apart."""
-    text = APP.read_text(encoding="utf-8")
+    text = app_js_text()
     assert "function mdInlineMathElement(tex)" in text
     # Once in unlatex (deciding what to preserve), once in renderInlineMarkdown
     # (cutting maths out before the rest of the grammar runs): the same rule,

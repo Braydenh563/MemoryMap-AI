@@ -255,7 +255,7 @@ agent-activity.js moves from straight after app.js to after spaces-find.js,
 which is where app.js ends today; nothing calls into it at load (its own
 header says so). The lazy bundles (`LAZY_MODULES`) still load after all of
 these. Twenty-two more requests at boot on a local server with HTTP/1.1
-keep-alive and revalidation: to be measured in step 0 (`boottime.js`), and if
+keep-alive and revalidation: to be measured in step 0 (`scratchpad/ui-sweeps/bootbench.js`), and if
 the parse-to-first-paint time moves by more than the noise, the answer is
 fewer, larger files (the table merges cleanly in pairs), not a bundler.
 
@@ -302,8 +302,8 @@ fewer, larger files (the table merges cleanly in pairs), not a bundler.
 5. **Tests that slice app.js by string.** 105 test files read app.js, most
    as `(FRONTEND / "app.js").read_text()` followed by an `index` of a
    function name or a regex over the whole text; each breaks the moment its
-   function leaves. **Step 0** adds `tests/frontend_sources.py` with
-   `app_source()`, the concatenation of the app files in index.html order
+   function leaves. **Step 0** adds `tests/_app_js.py` with
+   `app_js_text()`, the concatenation of the app files in index.html order
    (read from the markup, so a new file is included without editing the
    helper), and converts every reader that means "the app's code" to it;
    the readers that mean app.js itself keep the path: the two lazy tables
@@ -381,8 +381,8 @@ test_wiki_link_labels test_writing_dictionary_persists
 Each step is one commit, rebased on the branch head first, since the
 companion and Atlas agents also edit app.js:
 
-- **Step 0, no code moves.** `tests/frontend_sources.py` and the readers
-  converted (hazard 5); the ratchet rewritten (hazard 7); `boottime.js` run
+- **Step 0, no code moves.** `tests/_app_js.py` and the readers
+  converted (hazard 5); the ratchet rewritten (hazard 7); `scratchpad/ui-sweeps/bootbench.js` run
   three times for a baseline. Gate: `scripts/gate.sh --changed` plus every
   converted test.
 - **Step 1: the lazy loader into place.** Lines 41,506 to 41,791 move up to
@@ -403,7 +403,7 @@ companion and Atlas agents also edit app.js:
      its tag to index.html after the previous file.
   3. `node --check` on both files; `scripts/gate.sh --staged` (the pair).
   4. Boot: `serve.sh` on the worktree's port, `errors.js` at 1440 and 390
-     (0 page errors, 0 console errors); `boottime.js` once.
+     (0 page errors, 0 console errors); `scratchpad/ui-sweeps/bootbench.js` once.
   5. The tests that read the app's code (step 0's list) and
      `test_frontend_load_order.py`, `test_packaging_spec.py`,
      `test_static_compression.py`, `test_asset_cache_busting.py`.
@@ -411,6 +411,13 @@ companion and Atlas agents also edit app.js:
 - **Step 24:** the comment sweep (hazard 10) and CLAUDE.md, ARCHITECTURE.md
   and DESIGN.md's references to "app.js" as one file; the full suite once
   (standing order 5a: a change the targeted tests cannot all see).
+
+**Progress.** Step 0 done 2026-09-26. Baseline, `bootbench.js` with
+`RUNS=9`, three runs: warm median ready 219, 198 and 200 ms (the frame the
+boot splash hides), DOMContentLoaded 216, 193 and 197; cold ready 611 to 641
+ms; 14 script requests, 1,242 KB cold. Gzipped as served: app.js 740,482,
+agent-activity.js 10,651, 751,133 together. The converted readers: 1,612
+tests green.
 
 What is measured at the end: app.js and 22 files, each 14 to 48 KB gzipped;
 0 page errors at 1440 and 390; boot time within the step 0 baseline's

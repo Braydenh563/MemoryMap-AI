@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -42,7 +43,7 @@ def test_a_pointer_picked_settings_section_hands_the_keys_to_the_pane() -> None:
 
 
 def test_a_pointer_picked_tab_hands_the_keys_to_its_page() -> None:
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "if (event.detail > 0) focusTabPage(button);" in app
     body = app[app.index("function focusTabPage"):]
     body = body[: body.index("\n}\n")]

@@ -10,12 +10,13 @@ through, so that is where it has to stop.
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def _switch_tab_body() -> str:
-    src = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    src = app_js_text()
     start = src.index("async function switchTab(name) {")
     end = src.index("\n}\n", start)
     return src[start:end]

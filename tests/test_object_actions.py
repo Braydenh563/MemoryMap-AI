@@ -8,9 +8,10 @@ without it fails here rather than quietly losing the route.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-APP = (FRONTEND / "app.js").read_text(encoding="utf-8")
+APP = app_js_text()
 LIBRARY = (FRONTEND / "library.js").read_text(encoding="utf-8")
 BOARDS = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
 

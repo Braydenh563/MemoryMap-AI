@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -303,7 +304,7 @@ def test_the_scanner_still_sees_the_whole_file():
     two things that would hide a real hit are checked directly: the line
     count has to survive, and a declaration late in the largest file has to
     still be visible after stripping."""
-    raw = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    raw = app_js_text()
     stripped = _strip(raw)
     assert stripped.count("\n") == raw.count("\n")
     assert "function round2" in stripped  # app.js, past a thousand templates

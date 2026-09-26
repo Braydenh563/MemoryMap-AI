@@ -9,6 +9,7 @@ click by fitting the box to its text.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 WB = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
@@ -133,7 +134,7 @@ def test_the_board_owns_undo_while_it_is_open() -> None:
     """Reported: "ctrl z undo and redo cont trigger in the whiteboard/mind
     map". Two listeners matched the chord and whichever stack was non-empty
     answered. The board's own binding is gone and app.js hands it over."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "await window.wbUndo();" in app
     assert "window.wbUndo = wbUndo;" in WB
     assert "wbUndo();\n      return;" not in WB
@@ -144,7 +145,7 @@ def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
     buttons in the bottom bar should work across the whole application". The
     status bar's buttons, the Ctrl+Z chord and the palette all go through
     performUndo/performRedo, which is where the handoff lives."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "function boardHistoryActive()" in app
     assert app.count("if (boardHistoryActive()) {") >= 2
     assert "window.wbCanUndo?.()" in app and "window.wbCanRedo?.()" in app

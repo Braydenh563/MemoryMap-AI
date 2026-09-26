@@ -21,13 +21,10 @@ being read as the text.
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
-APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 def _source() -> str:
-    return APP_JS.read_text(encoding="utf-8")
+    return app_js_text()
 
 
 def _inline_md() -> str:

@@ -24,6 +24,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
@@ -390,7 +391,7 @@ def test_atlas_has_a_face_of_its_own() -> None:
     assert "registerCharacter({" in atlas
     # And its moods follow the app: thinking while a turn runs, happy or
     # surprised when it ends, and the rest of the fifteen from events.
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'setAtlasMood("thinking")' in app
     assert 'endState === "done" ? "happy"' in app
     moods = ("calm", "happy", "delighted", "laughing", "thinking", "curious", "surprised",
@@ -473,7 +474,7 @@ def test_atlas_hears_a_saved_note_and_a_streak() -> None:
     # note (its "carry" errand, which counts as a cheer), and the
     # dashboard's streak count reaches Atlas, which celebrates it at most
     # once a day.
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
     atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
     saved = app[app.index('if (path === "/entries" && options.method === "POST") {') :][:260]

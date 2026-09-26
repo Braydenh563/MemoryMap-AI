@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import frontend_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 INDEX = FRONTEND / "index.html"
@@ -60,7 +61,7 @@ SCRIPTS = (
 
 
 def _read(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return frontend_text(name)
 
 
 def _strip_comments(text: str) -> str:

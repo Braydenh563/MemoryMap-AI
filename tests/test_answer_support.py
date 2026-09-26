@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 from memorymap.ai import grounding
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -155,7 +156,7 @@ def test_a_reopened_ask_turn_carries_its_support(client, session):
 
 def test_both_replay_paths_hand_the_support_to_the_renderer():
     """The frontend's two replay calls pass the stored support through."""
-    source = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "turn.support || null" in source, "the Ask history replay drops support"
     assert "message.support || null" in source, "the conversation replay drops support"
 
@@ -165,7 +166,7 @@ def test_the_frontend_takes_the_backends_judgement_rather_than_its_own():
 
     A number written into app.js is a second threshold, and the two drift.
     """
-    source = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     body = re.search(r"function renderAnswerSupport\(.*?\n\}", source, re.S)
     assert body, "renderAnswerSupport not found"
     assert "support.low" in body.group(0), "the notice must key off the backend's own `low`"

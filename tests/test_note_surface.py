@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
@@ -146,7 +147,7 @@ def test_app_js_mirrors_the_table_for_the_boot_time_door():
     and fetches the bundle on the first focus of one of them; a box added to
     one list and not the other is a bare textarea until the Library tab has
     been visited, which is invisible to every other test here."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("const NOTE_SURFACE_IDS = new Set([")
     block = app[start : app.index("]);", start)]
     ids = set(re.findall(r'"([a-z0-9-]+)"', block))

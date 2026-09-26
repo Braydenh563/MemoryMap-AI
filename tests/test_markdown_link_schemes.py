@@ -6,13 +6,11 @@ the CSP blocks it today, and this pins the second lock so a loosened CSP
 never quietly reopens it. Static, because the suite cannot run the DOM.
 """
 from pathlib import Path
+from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-APP = FRONTEND / "app.js"
-
-
 def test_markdown_links_go_through_the_scheme_allow_list():
-    src = APP.read_text(encoding="utf-8")
+    src = app_js_text()
     assert "function safeHref(" in src
     # The `**bold**`/`code`/link/image grammar itself lives in appendInlineRun,
     # run once per gap between inline maths spans; renderInlineMarkdown only
@@ -24,7 +22,7 @@ def test_markdown_links_go_through_the_scheme_allow_list():
 
 
 def test_the_allow_list_is_what_it_says():
-    src = APP.read_text(encoding="utf-8")
+    src = app_js_text()
     fn = src[src.index("function safeHref(") :]
     fn = fn[: fn.index("\n}\n") + 3]
     assert "https?:" in fn and "mailto:" in fn

@@ -15,7 +15,7 @@ does not send.
 
 from __future__ import annotations
 
-from pathlib import Path
+from tests._app_js import app_js_text
 
 
 def _conversation_with(client, **turn):
@@ -155,7 +155,7 @@ def test_the_bubble_renders_the_strip_on_both_paths():
     """A live send and a reopen have to draw the same thing, and they used to
     draw nothing and nothing. Asserted against the source because there is no
     DOM here: the same reason test_frontend_ids.py exists."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "function chatAttachmentStrip(" in source
     # The reopen path.
     assert 'addBubble("user", message.content, message.attachments)' in source
@@ -166,7 +166,7 @@ def test_the_bubble_renders_the_strip_on_both_paths():
 
 
 def test_the_strip_offers_a_preview_and_a_way_back():
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     strip = source.split("function chatAttachmentStrip(")[1].split("\nfunction addBubble(")[0]
     assert "openLightbox(" in strip, "the thumbnail must open the full-size view"
     assert "figcaption" in strip, "the caption has to be visible under the card"
@@ -181,7 +181,7 @@ def test_the_strip_offers_a_preview_and_a_way_back():
 
 
 def test_the_ids_are_persisted_by_the_send_path():
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert source.count("document_ids: sentDocuments") == 2, (
         "both save paths: the partial written mid-stream and the final one"
     )

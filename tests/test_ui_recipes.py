@@ -22,6 +22,8 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
+from tests._app_js import app_js_text
+from tests._app_js import app_js_family
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
@@ -104,7 +106,10 @@ def test_hand_built_menus_do_not_multiply() -> None:
     for path in JS:
         n = path.read_text(encoding="utf-8").count('setAttribute("role", "menu")')
         if n:
-            counts[path.name] = n
+            #: The pieces of the old app.js count as app.js (tests/_app_js.py):
+            #: a menu moving between them is not a new menu.
+            name = "app.js" if app_js_family(path) else path.name
+            counts[name] = counts.get(name, 0) + n
     for name, n in counts.items():
         assert n <= HAND_BUILT_MENUS.get(name, 0), (
             f"{name} builds {n} menus by hand; the recipe is kebabMenu(items, label) "
@@ -152,7 +157,7 @@ def test_a_long_kebab_menu_is_grouped() -> None:
     assert len(set(g for _, g in rows)) > 1, "one group over the whole menu groups nothing"
     #: And the recipe has to be able to draw it, which is two lines away in
     #: another file: the separator element and the stylesheet rule for it.
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'rule.className = "menu-sep"' in app and 'role", "separator"' in app, (
         "kebabMenu no longer draws a separator between groups"
     )
@@ -172,15 +177,16 @@ def test_a_pointer_anchored_menu_is_the_recipe() -> None:
     rule. The recipe lives in app.js and every `.pointer-menu-host` in the
     frontend comes from it.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "function openMenuAtPoint(" in app, (
         "the pointer-anchored menu recipe has gone from app.js; DESIGN.md's "
         "recipe index still points at openMenuAtPoint"
     )
-    builders = {
-        path.name: path.read_text(encoding="utf-8").count('className = "pointer-menu-host"')
-        for path in JS
-    }
+    builders: dict[str, int] = {}
+    for path in JS:
+        name = "app.js" if app_js_family(path) else path.name
+        n = path.read_text(encoding="utf-8").count('className = "pointer-menu-host"')
+        builders[name] = builders.get(name, 0) + n
     offenders = {name: n for name, n in builders.items() if n and name != "app.js"}
     assert not offenders, (
         f"{offenders} build a pointer-menu host of their own; the recipe is "
@@ -234,7 +240,7 @@ def test_only_the_recipe_stamps_a_sheet_variant() -> None:
         js = path.read_text(encoding="utf-8")
         for match in re.findall(r'"sheet-(?:card-)?[a-z]+"', js):
             assert path.name == "app.js", f"{path.name} writes {match} by hand"
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert app.count("sheet-${variant}") == 1
     assert app.count("sheet-card-${variant}") == 1
 
@@ -260,7 +266,7 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     every phone with one, which is the only surface in the app that cannot be
     checked in this sandbox at all.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     opener = app[app.index("function openSheet("):]
     opener = opener[: opener.index("\n}\n")]
     for needed in ('"role", "dialog"', '"aria-modal", "true"', '"Escape"', "wireBackdropClose"):
@@ -324,7 +330,7 @@ def test_the_corner_sheet_variant_floats_rather_than_leaning_on_an_edge() -> Non
 # sheet has always got wrong, and the half that can be shared without moving a
 # live subtree in and out of a dialog.
 def test_an_in_place_sheet_shares_the_recipe_dismissal() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function wireInPlaceSheetDismissal(")
     body = app[start : app.index("\n}\n", start)]
     for needed in ('"keydown"', '"pointerdown"', "true)", "stopPropagation"):
@@ -447,7 +453,7 @@ def test_a_thumb_bar_rides_the_keyboard_inset_it_did_not_measure() -> None:
         for match in re.finditer(r"visualViewport", text):
             line = text.count("\n", 0, match.start()) + 1
             listeners.append(f"{path.name}:{line}")
-    owner = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    owner = app_js_text()
     body = owner[owner.index("function initKeyboardInset("):]
     body = body[: body.index("\n}\n")]
     assert body.count("visualViewport") == len(listeners), (
@@ -1328,7 +1334,7 @@ def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
        containing block is covered the day it ships.
     """
     js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
 
     lifts = {
         "openDocSuggest": "docLiftToViewport(",
@@ -1470,7 +1476,7 @@ def test_every_wired_surface_still_reports_its_own_failures() -> None:
 
 
 def test_the_failed_state_is_built_in_exactly_one_place() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert app.count('classList.add("is-failed")') == 1, (
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
@@ -1493,7 +1499,7 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
     below it. With them: 0, 75, 0, 0, 0, and the 75 is the editor landing 21px
     short of where the probe asked it to scroll, not the map.
     """
-    app_js = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
     assert "dataset.srcLine = String(" in app_js, (
         "renderMarkdown must stamp each block with the source line it came "
@@ -1967,7 +1973,7 @@ def test_the_tour_is_switched_on_and_its_doors_are_live() -> None:
     its own (the About button was the door that got left open last time)."""
     js = TOUR_JS.read_text(encoding="utf-8")
     assert re.search(r"^const TOUR_ENABLED = true;$", js, re.M), "TOUR_ENABLED must be true"
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert re.search(r"aboutTour\.disabled = true", app), "About's door is still guarded by the flag"
     guard = app[: app.index("aboutTour.disabled = true")].rsplit("\nif (", 1)[1]
     assert "TOUR_ENABLED" in guard, "About's button is disabled only when the flag is off"
@@ -2075,7 +2081,7 @@ def test_the_tour_never_makes_a_board_or_a_map() -> None:
 # is dropped rather than moved.
 
 def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function initPhoneHeaderMore()")
     body = app[start : app.index("initPhoneHeaderMore();", start)]
     assert "kebabMenu(" in body, "the phone header menu must be the kebabMenu recipe"
@@ -2097,7 +2103,7 @@ def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
     `mountPhoneSidebarOpeners` for every id in `SIDEBAR_IDS`. A fourth
     sidebar added without a row here would keep a rail on the phone that
     the other three no longer have."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     ids = re.search(r"const SIDEBAR_IDS = \[([^\]]*)\]", app)
     assert ids, "SIDEBAR_IDS is not where this lint expects it"
     sidebars = set(re.findall(r'"([^"]+)"', ids.group(1)))
@@ -2117,7 +2123,7 @@ def test_the_row_swipe_presses_the_rows_own_actions():
     function the row menu's own item calls; a swipe that grew an action of
     its own would be the third copy of a verb, and the first one nobody can
     see."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function initRowSwipe(list, actions)")
     body = app[start : app.index("// --- the note page", start)]
     assert '".favourite-btn"' in body
@@ -2400,7 +2406,7 @@ def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() ->
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     board = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
 
     menus = re.findall(r'<div id="(wb-[a-z-]+-menu)" class="wb-board-menu', html)
     assert len(menus) >= 5, (
@@ -2489,7 +2495,7 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     board's title, and a reference that resolves to nothing draws a tombstone
     saying what was there.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     editor = (ROOT / "frontend" / "editor.js").read_text(encoding="utf-8")
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
 
@@ -2534,7 +2540,7 @@ def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
     palette hint, hidden below 720 by the bar's own band, and the clock, a
     desktop opt-in, are the named exceptions."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     footer = re.search(r'<footer[^>]*id="status-bar".*?</footer>', html, flags=re.S)
     assert footer, "the status bar is gone from index.html"
     ids = set(re.findall(r'<button[^>]*\bid="([^"]+)"', footer.group(0)))
@@ -2576,7 +2582,7 @@ def test_a_menu_behind_a_button_is_an_action_sheet_on_a_phone() -> None:
     sheet recipe through `openKebabSheet` (INBOX 392: "a bottom sheet instead
     of a popover"). A third builder, or one of these two losing the branch,
     would put a popover back on a phone for that one menu."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     for builder in ("function kebabMenu(", "function entryOverflowMenu("):
         body = app.split(builder, 1)[1][:3000]
         assert "PHONE_ACTION_SHEET" in body and "openKebabSheet(" in body, (
@@ -2659,7 +2665,7 @@ def test_an_icon_picker_keeps_its_name_and_hides_its_word_by_clipping() -> None:
     never `display: none`, and the opener's name is the select's own
     aria-label. The worded buttons follow the same rule where they go
     icon-only."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     enhance = app.split("function enhanceSelect(select) {", 1)[1].split("\nfunction ", 1)[0]
     assert "select.dataset.selectIcon" in enhance and "select-opener-icon" in enhance, (
         "enhanceSelect no longer draws the icon face data-select-icon asks for"
@@ -2890,7 +2896,7 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
     surface back on a generic glyph is how they would come to disagree after
     a rename.
     """
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     #: The builder is avatars.js's since the faces were split out of app.js.
     avatars = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")

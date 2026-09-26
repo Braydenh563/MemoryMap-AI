@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+APP = app_js_text()
 SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
 BOARD = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
 

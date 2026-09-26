@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from pathlib import Path
+from tests._app_js import app_js_text
 
 APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
@@ -93,7 +94,7 @@ def _source() -> str:
     docstring would otherwise be quoted back at it.
     """
     combined = (
-        APP.read_text(encoding="utf-8")
+        app_js_text()
         + "\n"
         + WHITEBOARD.read_text(encoding="utf-8")
         + "\n"
@@ -244,7 +245,7 @@ def test_graph_fullscreen_escape_asks_rather_than_relies_on_order():
     check) instead of asking. Measured before/after with
     `scratchpad/ui-sweeps/graphfslightbox.js`.
     """
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     match = re.search(
         r'(?ms)\$\("graph-fullscreen"\)\?\.addEventListener\("click", toggleGraphFullscreen\);'
         r".*?document\.addEventListener\(\"keydown\", \(event\) => \{.*?\n\}\);",

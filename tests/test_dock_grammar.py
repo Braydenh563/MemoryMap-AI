@@ -42,6 +42,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+from tests._app_js import frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "frontend" / "index.html"
@@ -251,7 +252,7 @@ def test_segments_in_a_zone_carry_an_icon_per_option(seg):
         #: app.js and timeline.js joined: the Timeline tab, whose kind filter
         #: is the case above, was split out of app.js into timeline.js.
         app = "\n".join(
-            (ROOT / "frontend" / name).read_text(encoding="utf-8")
+            frontend_text(name)
             for name in ("app.js", "timeline.js")
         )
         assert seg.id and f'"{seg.id}"' in app, (

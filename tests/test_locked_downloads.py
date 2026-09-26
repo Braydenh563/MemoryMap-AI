@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -31,7 +32,7 @@ def test_no_window_open_points_at_an_app_route() -> None:
 
 
 def test_the_download_helper_exists_and_sends_the_header() -> None:
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("async function downloadFromApi(")
     body = app[start : app.index("\n}\n", start)]
     assert "await api(" in body and "saveFile(" in body

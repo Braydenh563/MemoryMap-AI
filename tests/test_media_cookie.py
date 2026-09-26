@@ -22,6 +22,7 @@ import pytest
 
 from memorymap.api import routes_auth
 from memorymap.core import deps
+from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 COOKIE = routes_auth.MEDIA_COOKIE
@@ -140,7 +141,7 @@ def test_changing_the_password_moves_the_cookie_to_the_new_session(client, pictu
 
 
 def test_media_src_puts_no_credential_in_the_url():
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     start = app.index("function mediaSrc(url)")
     body = app[start : app.index("\n}\n", start)]
     code = "\n".join(line.split("//", 1)[0] for line in body.splitlines())
@@ -158,7 +159,7 @@ def test_no_frontend_file_builds_a_token_query():
 
 
 def test_the_boot_path_asks_for_the_media_cookie_before_the_app_starts():
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "/auth/media-session" in app
     # The stored-token path. The password-free path above it (sign-in off,
     # INBOX 426 aa) needs no second ask: `/auth/auto-session` sets the cookie

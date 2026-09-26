@@ -25,6 +25,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_JS = ROOT / "frontend" / "app.js"
@@ -32,7 +33,8 @@ EDITOR_JS = ROOT / "frontend" / "editor.js"
 
 
 def region(path: Path, name: str) -> str:
-    text = path.read_text(encoding="utf-8")
+    #: app.js means the app's code, every piece of it (tests/_app_js.py).
+    text = app_js_text() if path == APP_JS else path.read_text(encoding="utf-8")
     begin, end = f"// {name}-BEGIN", f"// {name}-END"
     start, stop = text.find(begin), text.find(end)
     assert start != -1, f"{begin} is missing from {path.name}"

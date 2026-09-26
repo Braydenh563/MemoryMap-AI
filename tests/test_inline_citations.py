@@ -17,16 +17,13 @@ produced none, and the chips renumbered to match.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
-
-SOURCE = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 @pytest.fixture(scope="module")
 def app_js() -> str:
-    return SOURCE.read_text(encoding="utf-8")
+    return app_js_text()
 
 
 def test_the_function_exists(app_js):
@@ -197,7 +194,7 @@ def test_the_chips_are_numbered_to_match_the_markers(app_js):
 #: called is a marker race waiting to happen, in whichever surface adds one
 #: next.
 def test_every_live_markdown_renderer_is_stopped_somewhere() -> None:
-    source = SOURCE.read_text(encoding="utf-8")
+    source = app_js_text()
     #: `const x = liveMarkdownRenderer(...)` and `render: liveMarkdownRenderer(...)`
     #: are the two shapes in use; the second is a step field, stopped as
     #: `step.render?.stop?.()`, so the name to look for is the key either way.

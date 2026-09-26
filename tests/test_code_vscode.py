@@ -19,6 +19,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 #: documents.js and the two files split out of it on 2026-09-24, joined:
@@ -192,7 +193,7 @@ def test_ctrl_slash_has_one_owner_per_surface():
     The editor's keymap commented the line and selected it, then the global
     registry's `editorMenu` wrote "/" over the selection. In a document the
     comment owns the chord; in a note box the blocks menu does."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'if (id === "editorMenu" && e.defaultPrevented) continue;' in app
     notes = _function("noteSurfaceKeymap")
     # A note binds Ctrl+/ itself now, ahead of the engine's defaultKeymap,
@@ -216,7 +217,7 @@ def test_block_comment_is_in_the_palette_on_a_free_key():
     source = _source()
     table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
     assert 'keys: "Shift+Alt+A",\n    code: true' in table
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert '"Shift+Alt+A"' not in app and '"Alt+Shift+A"' not in app, "Shift+Alt+A is taken in the registry"
 
 
@@ -340,7 +341,7 @@ def test_the_outline_reads_symbols_for_code_and_never_moves_them():
     source = _source()
     table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
     assert 'label: "Go to a symbol in this file", keys: "",\n    code: true, run: () => docOpenSymbols() }' in table
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'newChat: { keys: "Ctrl+Shift+O"' in app, "if the chord is free again, give it to the symbols"
 
 
@@ -356,7 +357,7 @@ def test_wrap_and_whitespace_are_code_preferences_in_the_wrap_compartment():
     assert "docCmParts.wrap.of(docCmDrawFor(CM, type))" in source
     assert "docCmParts.wrap.reconfigure(docCmDrawFor(CM, type))" in source
     assert '{ key: "Alt-z", run: () => { docToggleCodeDraw("codeWrap"); return true; } }' in _function("docCodeEditing")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert '"Alt+Z"' not in app, "Alt+Z is taken in the registry"
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for row in ("doc-code-wrap-row", "doc-whitespace-row"):
@@ -517,13 +518,13 @@ def test_python_runs_in_its_own_runner_once_the_extra_is_installed():
     assert "if (data.runner !== wanted) return;" in listener
     assert "frame.src = runner;" in _function("docRunPanel")
     #: The row id the button looks for is the one Settings draws.
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'li.id = `extra-row-${extra.id}`;' in app
 
 
 def test_run_is_on_a_free_chord_and_in_the_dock_for_code():
     assert '{ key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } }' in _function("docCodeEditing")
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert '"Ctrl+Shift+Enter"' not in app
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '<button id="doc-code-run" class="ghost small hidden" type="button"' in html
@@ -609,7 +610,7 @@ def test_definition_keys_and_find_in_documents():
     assert '{ key: "Mod-Shift-f", run: () => docFindInDocuments() }' in _function("docCmKeymap")
     find = _function("docFindInDocuments")
     assert 'finderKind = "document"' in find and "openFinder(query)" in find
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     for chord in ('"F12"', '"Shift+F12"', '"Ctrl+Shift+F"'):
         assert f"keys: {chord}" not in app, f"{chord} is taken in the registry"
     assert '{ key: "document", icon: "ph:file-text"' in app

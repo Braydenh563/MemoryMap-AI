@@ -14,6 +14,7 @@ the whole of their existence.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 
 def _turn(client, question="q", answer="a"):
@@ -104,7 +105,7 @@ def test_the_list_is_bounded(client):
 def test_one_renderer_serves_the_live_path_and_the_reopen():
     """Two renderers would be two chances for a restored chip to look unlike a
     fresh one."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "function renderFollowups(" in source
     assert source.count("renderFollowups(") >= 3  # the definition plus both callers
     assert "if (message.followups) {" in source
@@ -113,7 +114,7 @@ def test_one_renderer_serves_the_live_path_and_the_reopen():
 def test_saving_them_never_puts_an_error_on_screen():
     """Bookkeeping behind a suggestion. A failed save must not show an error
     over an answer that is fine, the same rule the request itself follows."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     block = source.split("async function saveFollowups(")[1].split("\n}")[0]
     assert "silent: true" in block
     assert ".catch(() => {})" in block
@@ -126,7 +127,7 @@ def test_the_chat_timer_starts_with_the_turn_and_stops_with_it():
     """Asked for directly: "can there be an active timer on responses in chatg
     messages as well??", the *live* one; the finished time was already in the
     metadata line."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "function startChatTimer()" in source and "function stopChatTimer()" in source
     assert "startChatTimer();" in source
     # Stopped where the controller is cleared, which is the one place every
@@ -139,7 +140,7 @@ def test_the_timer_ticks_on_a_clock_not_on_stream_events():
     """The seconds have to keep moving while the model is thinking and sending
     nothing, which is exactly the stretch that makes someone wonder if it has
     hung."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     block = source.split("function startChatTimer()")[1].split("\nfunction stopChatTimer")[0]
     assert "setInterval(paintChatTimer, 1000)" in block
 
@@ -148,7 +149,7 @@ def test_switching_chats_mid_stream_hides_the_timer():
     """It belongs to the composer, which has just been handed to a different
     conversation: leaving it ticking would time this chat's turn against the
     next chat's empty box."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     block = source.split("function releaseChatComposer(")[1].split("\n}")[0]
     assert 'chat-elapsed' in block
 
@@ -179,7 +180,7 @@ def test_the_live_timer_is_mounted_in_the_bubble_and_removed_with_it():
     responding until the response is finished." Both halves are the same
     mistake: the counter lived in the composer, which is not where the answer
     is written and is not unmounted when the answer ends."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "function mountChatTimer(bubble)" in source
     assert "mountChatTimer(bubble);" in source
     stop = source.split("function stopChatTimer()")[1].split("\n}")[0]
@@ -193,7 +194,7 @@ def test_only_the_last_answer_keeps_its_followup_chips():
     away from the suggestion. Deleting the newest turn brings the previous
     turn's saved chips back, which is why they are stashed on the bubble
     rather than discarded."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     assert "function refreshFollowupVisibility()" in source
     render = source.split("function renderFollowups(bubble, picks)")[1].split("\n}")[0]
     assert "bubble.dataset.followups" in render

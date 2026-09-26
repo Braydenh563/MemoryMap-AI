@@ -18,6 +18,7 @@ from collections import Counter
 from pathlib import Path
 
 from tests._css_paths import css_text
+from tests._app_js import app_js_text
 
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 
@@ -65,7 +66,7 @@ def _frontend_js() -> str:
     app.js would go on passing while silently covering none of the moved
     files' own $("...") lookups.
     """
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
     graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
     documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
@@ -199,7 +200,7 @@ def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
 
 def test_a_widget_does_not_stack_class_names_on_every_render():
     """`className += " muted"` appends again each time the dashboard redraws."""
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'className += " muted"' not in app
 
 
@@ -229,7 +230,7 @@ def test_every_appearance_setting_has_a_default():
     # startup closure's theme/palette restore), so a key read only from
     # app.js has to be checked against the same table or this test would
     # miss exactly the class of bug it exists for.
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
     block = DEFAULTS_BLOCK.search(settings)
     assert block, "APPEARANCE_DEFAULTS wasn't found in settings.js, has it moved?"

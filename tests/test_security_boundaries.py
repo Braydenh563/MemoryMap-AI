@@ -18,6 +18,7 @@ import pytest
 
 from memorymap.api import routes_auth
 from memorymap.core import security, vault
+from tests._app_js import frontend_text
 
 
 # --- session expiry ---------------------------------------------------------
@@ -314,7 +315,6 @@ def test_the_frontend_has_no_inline_style_attributes():
     Setting `el.style.someProperty` from JS is fine and is not what this
     matches: the CSP blocks the *attribute*, not the CSSOM.
     """
-    from memorymap.api.app import FRONTEND_DIR
 
     # whiteboard.js carries the board/card CRUD, sketch drawing, export and
     # move/resize code that used to be the back half of app.js (ROADMAP.md
@@ -323,7 +323,7 @@ def test_the_frontend_has_no_inline_style_attributes():
     # after whiteboard): the same innerHTML-template-literal risk applies
     # there as anywhere else in the frontend, so both are checked too.
     for name in ("index.html", "app.js", "whiteboard.js", "graph.js"):
-        source = (FRONTEND_DIR / name).read_text(encoding="utf-8")
+        source = frontend_text(name)
         assert 'style="' not in source and "style='" not in source, (
             f"{name} carries an inline style attribute. The CSP refuses it, so it "
             "renders as no styling at all, move it into style.css as a class."

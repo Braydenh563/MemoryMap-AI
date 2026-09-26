@@ -26,6 +26,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -286,7 +287,7 @@ def test_the_art_needs_no_p5():
 
 
 def test_the_emblem_turns_by_css_not_by_redrawing():
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     body = app[app.index("function renderEmblem(") :]
     body = body[: body.index("\n}\n")]
     assert "frameRate(" not in body, "the emblem must draw once, not loop"

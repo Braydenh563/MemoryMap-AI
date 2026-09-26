@@ -17,6 +17,8 @@ import re
 from pathlib import Path
 
 from memorymap.ai import AI_NAME, agent, help_chat, librarian
+from tests._app_js import app_js_text
+from tests._app_js import frontend_text
 
 CLAUSE = f"You are {AI_NAME},"
 
@@ -235,7 +237,7 @@ def test_the_frontend_spells_the_name_once():
     anywhere else could read it. Moving it forward is what let the swept copy
     be checked against the backend's own constant below.
     """
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
     assert f'const AI_NAME = "{AI_NAME}"' in app
     assert "const AI_NAME" not in settings
@@ -256,7 +258,7 @@ def test_the_copy_scanner_still_sees_the_whole_file():
         ("whiteboard.js", "wb-expanded-nodes"),
         ("documents.js", "Applied Atlas's edit."),
     ):
-        source = (FRONTEND / name).read_text(encoding="utf-8")
+        source = frontend_text(name)
         bodies = _js_string_bodies(source)
         assert any(needle in body for _, body in bodies), f"{name}: lost {needle!r}"
         #: And it got to the bottom: the last literal it found is near the end

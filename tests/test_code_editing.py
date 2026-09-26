@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 #: documents.js and the two files split out of it on 2026-09-24, joined:
@@ -451,7 +452,7 @@ def test_quick_fixes_are_recomputed_when_chosen_and_opened_by_the_recipe():
     editing = _function("docCodeEditing")
     assert '{ key: "Alt-Enter", run: () => docOpenCodeFixes() }' in editing
     assert "Mod-." not in editing and "Ctrl-." not in editing
-    assert 'stopAI: { keys: "Ctrl+."' in (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'stopAI: { keys: "Ctrl+."' in app_js_text()
     #: Python's colon fix matches the server's capitalised message.
     assert "/expected ':'/i.test(d.message)" in _function("docCodeLintSource")
     table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]

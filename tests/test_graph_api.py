@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from tests._app_js import app_js_text
 
 
 def _save(client, content, **extra):
@@ -360,7 +361,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     # test_frontend_ids.py/test_frontend_handlers.py read app.js +
     # whiteboard.js + graph.js together rather than any one file alone.
     graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
-    app_source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    app_source = app_js_text()
     start = graph_source.index("function setGraphPhysicsEnabled(")
     body = graph_source[start : start + 1400]
     assert 'layoutKind === "force"' in body

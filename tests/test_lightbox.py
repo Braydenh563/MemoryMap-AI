@@ -25,8 +25,9 @@ from __future__ import annotations
 import re
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
-JS = Path("frontend/app.js").read_text(encoding="utf-8")
+JS = app_js_text()
 CSS = Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
 LIGHTBOX = JS.split("function openLightbox(")[1].split("\n// ")[0]
 

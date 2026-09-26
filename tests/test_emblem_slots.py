@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 
 
 def test_every_emblem_slot_has_an_element() -> None:
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     block = app[app.index("const EMBLEM_SLOTS = ["):]
     block = block[: block.index("];")]
     ids = re.findall(r'\["([a-z-]+)",\s*\d+', block)

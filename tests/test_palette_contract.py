@@ -17,13 +17,10 @@ to keep existing, and the palette has to keep reading those names.
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
-APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 def _palette_matches_source() -> str:
-    text = APP_JS.read_text(encoding="utf-8")
+    text = app_js_text()
     start = text.index("function paletteMatches(")
     end = text.index("\nfunction ", start + 1)
     return text[start:end]

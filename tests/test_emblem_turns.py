@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -115,7 +116,7 @@ def test_every_drawn_emblem_is_asked_to_turn() -> None:
                 continue
             still.append(f"{path.name}: renderEmblem({args})")
     assert not still, f"an emblem is drawn still: {still}"
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     slots = app.split("const EMBLEM_SLOTS = [", 1)[1].split("];", 1)[0]
     entries = re.findall(r"\[\"[\w-]+\",\s*\d+,\s*(\w+)\]", slots)
     assert entries and set(entries) == {"true"}, f"an emblem slot is still: {slots}"

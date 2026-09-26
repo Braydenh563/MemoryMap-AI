@@ -21,6 +21,7 @@ import pytest
 
 from memorymap.api import routes_settings
 from memorymap.core import deps, logbuffer
+from tests._app_js import app_js_text
 
 
 @pytest.fixture(autouse=True)
@@ -305,9 +306,8 @@ def test_leaving_the_screen_closes_the_stream():
 
 
 def _app_js() -> str:
-    from memorymap.api.app import FRONTEND_DIR
 
-    return (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    return app_js_text()
 
 
 def _settings_js() -> str:

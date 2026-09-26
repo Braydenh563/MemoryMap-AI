@@ -23,6 +23,7 @@ from __future__ import annotations
 import pytest
 
 from memorymap.ai import help_chat
+from tests._app_js import app_js_text
 
 #: (question, the id that must be in the top three). One id, not a set: if two
 #: topics would both be right the question is too vague to be a fair test, and
@@ -121,9 +122,8 @@ def test_every_suggested_question_is_one_the_guide_can_answer() -> None:
     so a starter added tomorrow is checked tomorrow.
     """
     import re
-    from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     generic = re.search(r"const ATLAS_STARTERS = \[(.*?)\];", source, re.S)
     per_tab = re.search(r"const ATLAS_TAB_STARTERS = \{(.*?)\n\};", source, re.S)
     assert generic and per_tab, "the starter tables have moved; this test cannot find them"

@@ -27,6 +27,7 @@ from __future__ import annotations
 import re
 
 from tests._css_paths import FRONTEND_DIR
+from tests._app_js import frontend_text
 
 
 def _strip_comments(text: str) -> str:
@@ -124,7 +125,7 @@ def test_no_class_attribute_selector_in_an_ancestor_position():
 
 
 def _js(name: str) -> str:
-    return (FRONTEND_DIR / name).read_text(encoding="utf-8")
+    return frontend_text(name)
 
 
 def _function_body(src: str, signature: str) -> str:

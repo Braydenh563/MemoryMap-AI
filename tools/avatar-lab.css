@@ -64,4 +64,8 @@ html[data-avatar-motion="off"] .name-mark *, html[data-avatar-motion="off"] .nm-
 .profile-look-part { display: grid; grid-template-columns: 78px 1fr; gap: 6px; align-items: center; margin: 4px 0; font-size: 11px; }
 .toast { position: fixed; left: 50%; bottom: 18px; opacity: 0; transform: translate(-50%, 60px); padding: 7px 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--p2); transition: 0.18s; z-index: 9; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+/* Once inline style attributes, which the app's policy (style-src 'self') refused with a console warning each. */
+.gap-above { margin-top: 8px; }
+.hint.hint-head { margin: 8px 0 2px; }
+.field.flush { margin: 0; }
 @media (max-width: 760px) { .lab { display: block; } .top { position: static; flex-wrap: wrap; } .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); } .hero, .pair { grid-template-columns: 1fr; } }

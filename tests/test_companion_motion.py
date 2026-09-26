@@ -359,3 +359,11 @@ def test_the_size_handle_shows_only_when_asked_for() -> None:
     assert "#nm-buddy:not(.nm-buddy-dragging) .nm-buddy-face:is(:hover, :focus-visible) .nmb-size-grip," in CSS08
     # Atlas round 4's filter stays: its svg roots are composited, not paced.
     assert "!(a.effect.target instanceof SVGSVGElement)" in _fn("nameMarkBuddyTempo")
+
+
+def test_the_benches_carry_no_inline_style() -> None:
+    # Round 5: the avatar lab logged three "Refused to apply inline style"
+    # warnings (the app's policy is style-src 'self'); they were three
+    # style attributes in tools/avatar-lab.html, now classes in its CSS.
+    for page in (ROOT / "tools").glob("*.html"):
+        assert not re.search(r"\sstyle=\"", page.read_text(encoding="utf-8")), page.name

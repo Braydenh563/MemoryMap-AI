@@ -59,7 +59,7 @@
       <label class="field inline">Look<select id="look"><option>masculine</option><option>feminine</option></select></label>
       <label class="field inline">Style<select id="style"><option>character</option><option>classic</option></select></label>
       <div id="moods" class="moods"></div>
-      <div class="row" style="margin-top:8px">
+      <div class="row gap-above">
         <button class="main" data-do="hero">Hero</button>
         <button data-do="compare">Both looks</button>
         <button data-do="moods">All moods</button>
@@ -85,7 +85,7 @@
         <button data-do="figure">Figure</button>
         <button data-do="gallery">Gallery</button>
       </div>
-      <p class="hint" style="margin:8px 0 2px">Your look (the parts you choose; the seed above wears them)</p>
+      <p class="hint hint-head">Your look (the parts you choose; the seed above wears them)</p>
       <div id="own-parts"></div>
     </section>
     <section class="sec">
@@ -107,7 +107,7 @@
       <textarea id="notes" placeholder="What changed, what to fix, what you like"></textarea>
       <div class="row">
         <button class="main" id="export">Export JSON</button>
-        <label class="field" style="margin:0"><input type="file" id="import" accept="application/json"></label>
+        <label class="field flush"><input type="file" id="import" accept="application/json"></label>
       </div>
     </section>
   </aside>

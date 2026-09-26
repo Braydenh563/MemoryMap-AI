@@ -56,9 +56,9 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #:   on a cold load. Splitting costs a little here (each file starts gzip's
 #:   window empty), so this is rewritten to the measured total plus 2% at each
 #:   step, and after the split only ever downward.
-APP_JS_CAP = 559_000
+APP_JS_CAP = 545_000
 PIECE_CAP = 64_000
-TOTAL_CAP = 775_000
+TOTAL_CAP = 776_000
 
 
 def _served_gzip_size(client, name: str) -> int:

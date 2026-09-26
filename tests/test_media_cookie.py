@@ -160,7 +160,11 @@ def test_no_frontend_file_builds_a_token_query():
 def test_the_boot_path_asks_for_the_media_cookie_before_the_app_starts():
     app = (FRONTEND / "app.js").read_text(encoding="utf-8")
     assert "/auth/media-session" in app
-    boot = app[app.index("  $(\"lock-btn\").classList.remove(\"hidden\");\n  if (!authToken()) {"):]
+    # The stored-token path. The password-free path above it (sign-in off,
+    # INBOX 426 aa) needs no second ask: `/auth/auto-session` sets the cookie
+    # in its own response, as unlock does.
+    init = app[app.index("async function initAuth("):]
+    boot = init[init.index("  if (!authToken()) {"):]
     boot = boot[: boot.index("startApp();") + len("startApp();")]
     assert "refreshMediaSession" in boot
 

@@ -124,3 +124,15 @@ def test_a_prompt_is_not_mistaken_for_the_lock_screen():
     start = source.index('addEventListener("storage"')
     handler = source[start : source.index("\n});", start)]
     assert 'dataset.mode !== "prompt"' in handler
+
+
+def test_no_second_password_form():
+    """DESIGN.md's recipe for asking the password for one action is the lock
+    card in prompt mode. A password field built anywhere else is a second
+    form to keep in step with the throttle, the error line and the purge."""
+    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    assert html.count('type="password"') == 4, "lock card plus Change password's three"
+    for path in sorted(APP_JS.parent.glob("*.js")):
+        source = path.read_text(encoding="utf-8")
+        assert 'type = "password"' not in source, path.name
+        assert "type=\"password\"" not in source, path.name

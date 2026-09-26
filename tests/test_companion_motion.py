@@ -383,8 +383,11 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
     assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
     dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
     assert "nameMarkBuddyStreak(streak)" in dashboard
-    # Night: a tick yawns.
-    assert 'nameMarkBuddyReact("yawn")' in _fn("nameMarkBuddyTick")
+    # Night: a tick yawns, and the yawn's early return comes after the mood
+    # has moved, so a tick that yawns still tires it at night (review, round 6).
+    tick = _fn("nameMarkBuddyTick")
+    assert 'nameMarkBuddyReact("yawn")' in tick
+    assert tick.index("nmb.mood.energy = drift(") < tick.index('nameMarkBuddyReact("yawn")')
     # A toast goes through the same limits.
     assert 'nameMarkBuddyReact("toast", added)' in AV
     # Covering its eyes: its hands over its head, not under it.

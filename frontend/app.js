@@ -41955,7 +41955,12 @@ $("account-idle-ttl").addEventListener("change", (e) => {
   setPreference("session_idle_ttl_minutes", Number(e.target.value));
 });
 $("account-lock-all").addEventListener("click", async () => {
-  if (!(await confirmDialog("End every session, including this one? You'll need your password to get back in."))) return;
+  //: With "Ask for a password when the app opens" off, this computer gets
+  //: back in without one (only other devices and private notes need it).
+  const back = autoSessionOffered
+    ? "Other devices will need your password to get back in, and private notes will lock."
+    : "You'll need your password to get back in.";
+  if (!(await confirmDialog(`End every session, including this one? ${back}`))) return;
   await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
   localStorage.removeItem("token");
   location.reload();

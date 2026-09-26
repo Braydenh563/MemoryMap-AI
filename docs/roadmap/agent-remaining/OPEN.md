@@ -1087,12 +1087,11 @@ being written by running agents stay beside this one.
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
-- **Global undo of an AI action: the surface.** `events.undo` and `POST
-  /events/undo` are built 2026-09-26 (HISTORY.md, "Moved from the plans,
-  2026-09-26"). Left: the Settings surface that offers it (a dry run shown as
-  a list, then Undo), and a skill run's Undo calling it with the run's actor
-  and first event id (Brief 13). Board items stay "not undoable".
-  [brief7-event-log.md]
+- **Global undo of an AI action: a skill run's Undo.** `events.undo`, `POST
+  /events/undo` and the Recent activity widget's "Undo what Atlas did" are
+  built 2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"). Left: a
+  skill run's own Undo calling it with the run's actor and first event id
+  (Brief 13). Board items stay "not undoable". [brief7-event-log.md]
 - ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
   built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
   existing dashboards do not grow a widget), reading `/events?tail=8` once
@@ -1151,12 +1150,8 @@ being written by running agents stay beside this one.
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and
   a `DerivedFact` row, not a second pipeline. [learning-loop.md]
-- **The morning card** (I1's own surface). Its backend is built
-  2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"): `GET
-  /night/latest` returns `{run, counts, samples, previous}` and `GET
-  /night/runs/{id}/facts?kind=&limit=&offset=` pages the review list; the
-  Dashboard card over them (opt-in, like the Recent activity widget) is the
-  frontend half. [learning-loop.md]
+- ~~**The morning card**~~ built 2026-09-26: the "While you were away"
+  Dashboard widget (HISTORY.md, "Moved from the plans, 2026-09-26").
 - **The four switches with no runner yet** (`margin_reader`,
   `open_questions`, `evidence_checks`, `model_bench`) are stored and reported
   but gate nothing, because their features are not built. Each of those briefs

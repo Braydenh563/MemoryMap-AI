@@ -45,6 +45,43 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### The frontend halves of the night's backend rows (2026-09-26)
+
+**Built 2026-09-26**, each from DESIGN.md's recipe index and each with its
+own sweep under `scratchpad/ui-sweeps/`, driven at 1440 and 390; `errors.js`
+(Privacy and What it learned added to its sections) clean at both.
+
+- **Settings, Privacy: "Where your data went"** (row 35). A new pane over
+  `GET /privacy/receipt` (`renderPrivacyReceipt`, settings-panes.js): the
+  verdict as a `.notice` (the warn edge when anything reached the internet),
+  destinations since launch or all time on a `.seg`, each an entry row with
+  its address, a scope chip and one `.library-file-meta` line (feature, how
+  often, when), a lookup folded into the connect it led to; the model
+  server's sentence; who can open the app; the switches that can reach out
+  as Account's facts shape. In the palette and Tools and features.
+  `privacyreceipt.js`: 7 of 7, nothing overflows the pane.
+- **Account and security: "Allow other devices on this network"** (row 2).
+  A `label.setting-check` over `/auth/lan-access`; on asks for the password
+  through `askPasswordPrompt` (a wrong one is said beside the field and
+  changes nothing), off asks nothing, and a `.notice` says a restart is
+  needed and which IPv4 address to open. `lanaccess.js`: 6 of 6.
+- **Dashboard: "While you were away"** (row 5). An opt-in widget over
+  `GET /night/latest`: the pass's summary, one disclosure per kind, each
+  opening its review list in place (five at a time, Show more), a finding
+  with Open the note and Dismiss (`DELETE /learned/{id}`) as icon-only
+  actions; a quiet pass shows the last one that found anything; no pass yet
+  is an empty state with Read my notes now. `nightcard.js`: 6 of 6; its first
+  run caught the rows overflowing the card through an `auto` grid track,
+  fixed with `minmax(0, 1fr)`.
+- **Reminders: "Add to calendar (.ics)"** (§17 row 7). On a reminder's menu
+  and, for all, in the Reminders dock's More menu, both through
+  `downloadFromApi`. `remindersics.js`: 4 of 4, each a real download.
+- **Recent activity: "Undo what Atlas did"** (OPEN.md events-undo). One
+  ghost button per non-person actor under the list (a `kebabMenu` for
+  several); the dry run is the confirm dialog's body, then the same plan is
+  applied. `activityundo.js` over `seed_ai_edits.py` (a skill re-files two
+  notes through the real write path): both go back to Garden.
+
 ### From WORLD_CLASS_PLAN.md section 17 row 7: reminders as `.ics`
 
 **Built 2026-09-26.** `GET /reminders/export.ics` (this space's reminders,

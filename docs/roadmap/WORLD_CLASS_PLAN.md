@@ -798,16 +798,16 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); `tests/test_lan_mode.py`, the switch's route and the launcher's bind built 2026-09-26; left: the Settings toggle over `GET`/`POST /auth/lan-access` | S | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
-| 5 | I1, H1 | the morning card on the Dashboard (its API, `night_runs` and `GET /night/latest`, built 2026-09-26), the tension and answered-question passes | M + M | `dashboard.js`; `ai/facts.py` |
+| 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
-| 11 | §17 | review queue, filing style, explain this note, the `.ics` buttons (the export routes built 2026-09-26), most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
+| 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
 | 13 | §1, D14 | the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette | S | `tests/` |
 | 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
@@ -831,7 +831,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
 | 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
-| 35 | §2 | the privacy receipt's page (its record and `GET /privacy/receipt` built 2026-09-26, HISTORY) and the offline studio | S + L | a Settings page; new |
+| 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
 | 38 | §20 | three open questions, each the owner's decision | none | §20 |
@@ -924,12 +924,9 @@ day. S6's other half, the configured model address on the privacy receipt,
 was built 2026-09-26 with the receipt's API (HISTORY.md, "Moved from the
 plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
-**Brief 15, what is left (the rest built 2026-09-24 and 2026-09-26, in
-HISTORY.md):** `tests/test_lan_mode.py` passes against the real launcher
-bound to 0.0.0.0, so Settings may now offer "Allow other devices on this
-network": a switch in Account and security over `GET /auth/lan-access`
-(state, addresses, whether a restart is needed) and `POST /auth/lan-access`
-(`{enabled, current_password}`; on needs the password). Frontend only.
+**Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
+hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
+and the switch in Settings, Account and security. Left: IPv6 addresses.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1716,11 +1713,9 @@ S. 2 tidy categories (b): the agent has `merge_categories`
 widget lists the notes opened or matched most, all time
 (`/entries/most-accessed`); "this month" needs an open log, S (its picker
 line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7
-calendar (b): the month view is built (`#reminder-calendar`); the `.ics`
-export routes were built 2026-09-26 (HISTORY.md, "Moved from the plans,
-2026-09-26"); left is the frontend: an "Add to calendar" item on a reminder's
-menu and "Export all to calendar" on the Reminders dock, each fetching with
-the auth header and saving the blob (a plain link cannot send it). S.
+calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
+`.ics` export with its two buttons (HISTORY.md, "Moved from the plans,
+2026-09-26").
 
 ## Placed from INBOX, 2026-09-13
 

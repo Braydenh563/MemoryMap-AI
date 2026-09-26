@@ -2932,7 +2932,13 @@ header#top-bar select,
   padding-left: 1.25rem;
 }
 
-.msg.assistant .bubble-answer code {
+/* Inline code only. Written as `.bubble-answer code` it also matched the code
+   inside a code block and out-ranked that block's own reset (`.code-block pre
+   code`, 0,1,2 against this rule's 0,3,1), so every line of a fenced block
+   wore its own chip: a tinted strip behind each line and a 4px step before
+   the first word only (the chat pass, 2026-09-26: the computed style of a
+   block's `code` was this fill and `0.8px 4px` of padding, inline). */
+.msg.assistant .bubble-answer :not(pre) > code {
   background: var(--chip-bg);
   padding: 0.05rem 0.25rem;
   border-radius: var(--radius-sm);

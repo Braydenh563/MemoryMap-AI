@@ -7,11 +7,13 @@ shape that produced them, so a later change cannot quietly undo it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
+CSS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "css").glob("*.css")))
 
 
 def _function(source: str, name: str) -> str:
@@ -34,3 +36,11 @@ def test_a_reply_label_copies_the_emblem_rather_than_starting_a_sketch() -> None
     for part in ("size", "currentAccentHex", 'appearancePref("motion")'):
         assert part in key, f"the copy is not keyed on {part}: a stale mark would be copied"
 
+
+def test_a_code_block_in_an_answer_is_not_a_run_of_inline_chips() -> None:
+    """`.msg.assistant .bubble-answer code` matched a fenced block's `code`
+    too and out-ranked its reset, so every line wore an inline chip."""
+    rules = re.findall(r"\.msg\.assistant \.bubble-answer ([^{]*)code \{", CSS)
+    assert rules, "the answer's inline code rule is gone"
+    for prefix in rules:
+        assert ":not(pre) >" in prefix, "inline code styling reaches the code inside a <pre> again"

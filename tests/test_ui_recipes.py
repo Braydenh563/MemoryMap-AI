@@ -3001,3 +3001,27 @@ def test_a_whole_window_mode_leaves_one_fading_dock_with_a_way_out() -> None:
     assert "docFocusOn()" in body and "activeOverlay()" in body, (
         "focus mode's Escape no longer asks whether a dialog is open over the page"
     )
+
+
+def test_a_citation_mark_previews_its_source_on_the_help_popover_recipe() -> None:
+    """DESIGN.md, "A preview of a cited source" (INBOX 80). A mark's press
+    used to call `flashEntry` and leave the chat; it now opens a peek, built
+    as a `.help-popover` placed by `placeHelpPopover`, so the peek cannot
+    grow a shell, caret or tier of its own. Measured by
+    `scratchpad/ui-sweeps/citepeek.js` at 1440 and 390."""
+    source = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    marker = source[source.index("function citationMarker(") :]
+    marker = marker[: marker.index("\n}\n")]
+    assert "flashEntry(" not in marker, "a citation mark navigates on its own press again"
+    assert "openCitationPeek(link" in marker
+    peek = source[source.index("function openCitationPeek(") :]
+    peek = peek[: peek.index("\n}\n")]
+    assert '"help-popover citation-peek"' in peek, "the peek is not a help popover"
+    assert "placeHelpPopover(panel, link)" in peek, "the peek places itself instead of through the popover's placement"
+    assert "document.body.appendChild(panel)" in peek, "the peek must leave for <body>, or a card's filter clips it"
+    assert "flashEntry(source.noteId)" in peek, "the peek has no way to the note"
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if "citation-peek" in selector:
+                for prop in ("z-index", "box-shadow", "backdrop-filter", "position"):
+                    assert f"{prop}:" not in body, f"{selector} sets its own {prop}: the shell is the help popover's"

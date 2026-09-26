@@ -397,12 +397,8 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     note pairs, precision and recall reported by `tests/test_grounding.py`,
     and the popover (INBOX 80) shows the matched terms so a wrong number
     is visible.
-80. **Citation hover/click preview**: hovering or clicking a numbered
-    reference shows a popover with a preview of the thing (note, document,
-    mind map, file, website) and a button to go to it; clicking the
-    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
-    session): one `referencePopover(kind, id)` for every kind, reusing the
-    Library's previews.
+~~80. Citation hover/click preview.~~ **Built 2026-09-26.** Moved to
+    HISTORY.md, "Moved from the plans, 2026-09-26".
 90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
     with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
     a quieter bubble (accent-soft fill, no avatar, the label as a small

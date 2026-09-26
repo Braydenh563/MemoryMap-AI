@@ -1188,11 +1188,30 @@ function citationMarker(g, byId, numberFor) {
   // sends its opening words on the entry itself for exactly this case.
   const name = noteLabel({ content: entry?.content || g.label || "" }, 40);
   link.textContent = String(numberFor.get(g.note_id));
-  link.title = `Open the note this came from: ${name}`;
+  //: No `title`: the peek below is what a hover shows now, and a native
+  //: tooltip would draw a second, plainer box over it a moment later.
   link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
+  link.setAttribute("aria-haspopup", "dialog");
+  link.setAttribute("aria-expanded", "false");
+  //: **A mark previews its note where it is; going there is a second,
+  //: deliberate step** (INBOX 80, CHAT_PLAN). A press used to call
+  //: `flashEntry`, which leaves the chat for the Notes tab: a reader checking
+  //: one claim lost the conversation to do it, and on a phone, where a mark
+  //: is the only way to see a source, every check cost a trip. Hover or focus
+  //: shows the peek for as long as the pointer or the focus stays; a press
+  //: keeps it open, and on touch a press is the only way to open it.
+  const describe = () => ({
+    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
+  });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
-    flashEntry(g.note_id);
+    openCitationPeek(link, describe(), { pinned: true });
+  });
+  link.addEventListener("mouseenter", () => scheduleCitationPeek(link, describe));
+  link.addEventListener("mouseleave", () => scheduleCitationPeekClose());
+  link.addEventListener("focus", () => openCitationPeek(link, describe(), { pinned: false }));
+  link.addEventListener("blur", (event) => {
+    if (!citationPeekState.panel?.contains(event.relatedTarget)) scheduleCitationPeekClose();
   });
   //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
   //: 2, the last step of `archive/agent-remaining/chat-timeline-skills.md` item
@@ -1216,6 +1235,181 @@ function citationMarker(g, byId, numberFor) {
   marker.appendChild(link);
   return marker;
 }
+
+//: **The citation peek** (INBOX 80): what a numbered mark stands for, next
+//: to the mark. A `.help-popover` in everything but its content: lifted to
+//: `<body>`, placed and flipped by `placeHelpPopover`, the shared popover
+//: shell, caret and tier (DESIGN.md, "A preview of a cited source"). One at a
+//: time, so moving along a line of marks swaps the preview rather than
+//: stacking them.
+//:
+//: The body is the passage the sentence was grounded on, marked, with a
+//: little of the note either side so it reads as part of something; a mark
+//: with no passage (a note a tool read mid-turn) shows the note's opening
+//: words. Characters, never rendered Markdown: the slice is taken at
+//: character offsets and can begin mid-emphasis.
+const citationPeekState = { panel: null, link: null, pinned: false, openTimer: 0, closeTimer: 0 };
+const CITATION_PEEK_CONTEXT = 90;
+
+function scheduleCitationPeek(link, describe) {
+  clearTimeout(citationPeekState.closeTimer);
+  clearTimeout(citationPeekState.openTimer);
+  if (citationPeekState.link === link && citationPeekState.panel) return;
+  //: A short wait, so a pointer crossing an answer on its way somewhere else
+  //: does not flash a card at every digit it passes; none once a peek is
+  //: showing, so moving from one mark to the next is immediate.
+  const wait = citationPeekState.panel ? 0 : 140;
+  citationPeekState.openTimer = setTimeout(() => openCitationPeek(link, describe(), { pinned: false }), wait);
+}
+
+function scheduleCitationPeekClose() {
+  clearTimeout(citationPeekState.openTimer);
+  clearTimeout(citationPeekState.closeTimer);
+  if (citationPeekState.pinned) return;
+  //: Long enough to cross the 10px between the mark and the card.
+  citationPeekState.closeTimer = setTimeout(() => closeCitationPeek(), 220);
+}
+
+function citationPeekText(content, start, end) {
+  const text = String(content || "");
+  const hasPassage = Number.isInteger(start) && Number.isInteger(end) && end > start && end <= text.length;
+  if (!hasPassage) {
+    const opening = plainText(text);
+    return { before: "", passage: "", after: opening.length > 280 ? `${opening.slice(0, 279)}…` : opening };
+  }
+  const from = Math.max(0, start - CITATION_PEEK_CONTEXT);
+  const to = Math.min(text.length, end + CITATION_PEEK_CONTEXT);
+  //: `plainText` trims, so the spacing at each join is put back from the
+  //: note itself: a space where the note had one, none where the passage
+  //: ends against its own full stop.
+  const before = plainText(text.slice(from, start));
+  const after = plainText(text.slice(end, to));
+  const gapBefore = /\s/.test(text[start - 1] || "") ? " " : "";
+  const gapAfter = /\s/.test(text[end] || "") ? " " : "";
+  return {
+    before: before ? `${from > 0 ? "…" : ""}${before}${gapBefore}` : "",
+    passage: plainText(text.slice(start, end)),
+    after: after ? `${gapAfter}${after}${to < text.length ? "…" : ""}` : "",
+  };
+}
+
+function openCitationPeek(link, source, { pinned }) {
+  clearTimeout(citationPeekState.openTimer);
+  clearTimeout(citationPeekState.closeTimer);
+  if (!link.isConnected) return;
+  if (citationPeekState.link === link && citationPeekState.panel) {
+    citationPeekState.pinned ||= pinned;
+    return;
+  }
+  closeCitationPeek();
+  const entry = source.entry || allEntries.find((e) => e.id === source.noteId) || null;
+  const content = entry?.content || source.label || "";
+  const panel = document.createElement("div");
+  panel.className = "help-popover citation-peek";
+  panel.id = "citation-peek";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", `Source ${source.number}`);
+  const go = () => {
+    closeCitationPeek();
+    flashEntry(source.noteId);
+  };
+  //: The whole preview is the way in (INBOX 80: "clicking the preview panel
+  //: itself goes there"), as one button: one tab stop and one target, not a
+  //: card with a click handler a keyboard cannot reach.
+  const preview = document.createElement("button");
+  preview.type = "button";
+  preview.className = "citation-peek-preview";
+  const head = document.createElement("span");
+  head.className = "citation-peek-head";
+  const number = document.createElement("span");
+  number.className = "citation-peek-number";
+  number.textContent = String(source.number);
+  const title = document.createElement("span");
+  title.className = "citation-peek-title";
+  title.textContent = noteLabel({ content }, 80);
+  head.append(number, title);
+  const body = document.createElement("span");
+  body.className = "citation-peek-body";
+  const { before, passage, after } = citationPeekText(content, source.start, source.end);
+  const mark = document.createElement("mark");
+  mark.textContent = passage;
+  body.append(before, ...(passage ? [mark] : []), after);
+  preview.append(head, body);
+  preview.addEventListener("click", go);
+  const foot = document.createElement("div");
+  foot.className = "citation-peek-foot";
+  const meta = document.createElement("span");
+  meta.className = "library-file-meta citation-peek-meta";
+  const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
+  meta.textContent = facts.join(" · ");
+  foot.append(meta, smallButton("ph:arrow-square-out Open note", "Open this note in Notes", go));
+  panel.append(preview, foot);
+  panel.addEventListener("mouseenter", () => clearTimeout(citationPeekState.closeTimer));
+  panel.addEventListener("mouseleave", () => scheduleCitationPeekClose());
+  panel.addEventListener("focusout", (event) => {
+    if (!panel.contains(event.relatedTarget) && event.relatedTarget !== link) scheduleCitationPeekClose();
+  });
+  document.body.appendChild(panel);
+  Object.assign(citationPeekState, { panel, link, pinned });
+  link.setAttribute("aria-expanded", "true");
+  link.setAttribute("aria-controls", panel.id);
+  placeHelpPopover(panel, link);
+}
+
+function closeCitationPeek({ restoreFocus = false } = {}) {
+  clearTimeout(citationPeekState.openTimer);
+  clearTimeout(citationPeekState.closeTimer);
+  const { panel, link } = citationPeekState;
+  if (!panel) return;
+  const hadFocus = panel.contains(document.activeElement);
+  panel.remove();
+  link?.setAttribute("aria-expanded", "false");
+  link?.removeAttribute("aria-controls");
+  Object.assign(citationPeekState, { panel: null, link: null, pinned: false });
+  if ((restoreFocus || hadFocus) && link?.isConnected) link.focus({ preventScroll: true });
+}
+
+//: Escape and a press anywhere else close a peek. Captured, and the Escape
+//: spent (`preventDefault`), because the chat's own Escape stops a streaming
+//: answer, and a reader closing a preview mid-answer did not ask for that.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape" || !citationPeekState.panel) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeCitationPeek({ restoreFocus: true });
+  },
+  true
+);
+document.addEventListener("pointerdown", (event) => {
+  const { panel, link } = citationPeekState;
+  if (!panel || panel.contains(event.target) || link?.contains(event.target)) return;
+  closeCitationPeek();
+});
+//: The peek is placed in window coordinates beside a digit inside a
+//: scrolling transcript. When the transcript moves the card follows the
+//: digit, and once the digit has left the scroller's visible box it closes,
+//: rather than pointing at nothing. Followed, not closed on the first
+//: event: focusing a mark by Tab scrolls it into view, which would
+//: otherwise close the peek the focus had just opened.
+document.addEventListener(
+  "scroll",
+  (event) => {
+    const { panel, link } = citationPeekState;
+    if (!panel || panel.contains(event.target)) return;
+    requestAnimationFrame(() => {
+      if (citationPeekState.panel !== panel) return;
+      const at = link.getBoundingClientRect();
+      const box = event.target instanceof Element ? event.target.getBoundingClientRect() : null;
+      const gone = !link.isConnected || !at.height || at.bottom < 0 || at.top > window.innerHeight
+        || (box && (at.bottom < box.top || at.top > box.bottom));
+      if (gone) closeCitationPeek();
+      else placeHelpPopover(panel, link);
+    });
+  },
+  true
+);
 
 //: The passage a citation came from, shown on its own card while the mark is
 //: hovered or focused. Focus as well as hover, because a person moving

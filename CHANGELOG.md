@@ -261,6 +261,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A menu opened while a scroll is still settling (a right-click during a trackpad's momentum, a smooth scroll) no longer closes itself a moment later: the scroll that closed it had started before it opened.
 - The avatar lab opens without the three inline-style warnings the app's content policy logged (its three style attributes are classes now).
 - The corner companion's size handle shows only while the pointer is over it, it has the keyboard's focus or it is being sized, never at rest and not while it is carried (round 4).
 - The corner companion's menu opens at the pointer when you right-click or hold it, and beside it from the keyboard; a walk or a poof under way stops where it is when the menu opens, so the menu is never left behind (it had been, 38 to 142px away, when the companion was clicked while moving) (INBOX 426 x, 84.png).

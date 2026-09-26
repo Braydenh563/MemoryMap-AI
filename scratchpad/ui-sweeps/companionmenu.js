@@ -110,6 +110,15 @@ const SIZES = (process.env.SIZES || '1440x900@1,1024x700@1.25,800x600@1.5,390x84
     await page.evaluate(() => revealTab('dashboard'));
     await page.waitForTimeout(3000);
     const cdp = await page.context().newCDPSession(page);
+    await page.evaluate(() => {
+      window.__menuCloses = [];
+      const orig = window.closeActionMenus;
+      window.closeActionMenus = function (...a) {
+        window.__menuCloses.push(`${Math.round(performance.now())} ${new Error().stack.split('\n').slice(2, 4).map((l) => l.trim().split(' ')[1]).join('<')}`);
+        if (window.__menuCloses.length > 6) window.__menuCloses.shift();
+        return orig.apply(this, a);
+      };
+    });
     // On a dashboard panel that scrolls, the page scrolled a little.
     const ride = async () => page.evaluate(() => {
       const page = document.getElementById('tab-dashboard');
@@ -133,7 +142,7 @@ const SIZES = (process.env.SIZES || '1440x900@1,1024x700@1.25,800x600@1.5,390x84
         return { W: innerWidth, H: innerHeight, face: [f.left, f.top, f.right, f.bottom].map(Math.round), menu: menu ? [menu.left, menu.top, menu.right, menu.bottom].map(Math.round) : null };
       });
       count += 1;
-      if (!m.menu) { fails.push(`${size} ${tag}: no menu`); return; }
+      if (!m.menu) { fails.push(`${size} ${tag}: no menu; closed by ${await page.evaluate(() => JSON.stringify(window.__menuCloses || []))}`); return; }
       const [ml, mt, mr, mb] = m.menu;
       const [fl, ft, fr, fb] = m.face;
       const gap = Math.max(ml > fr ? ml - fr : fl > mr ? fl - mr : 0, mt > fb ? mt - fb : ft > mb ? ft - mb : 0);

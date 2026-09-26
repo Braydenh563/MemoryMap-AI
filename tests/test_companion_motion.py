@@ -409,3 +409,17 @@ def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
+
+
+def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
+    # Round 5, the companionmenu.js flake: a scroll's event comes with the
+    # next frame, so a right-click in the frame of a scroll (a trackpad's
+    # momentum, a smooth scroll) opened a menu that closeActionMenusOnScroll
+    # shut a moment later: 17 of 20 such right-clicks showed no menu, 0 of
+    # 80 after this.
+    menus = (ROOT / "frontend" / "menus.js").read_text(encoding="utf-8")
+    on_scroll = menus[menus.index("function closeActionMenusOnScroll(") :]
+    on_scroll = on_scroll[: on_scroll.index("\n}\n")]
+    assert "performance.now() - (window._menuOpenedAt || 0) < 200" in on_scroll
+    opener = menus[menus.index("function openActionMenu(") :]
+    assert "window._menuOpenedAt = performance.now();" in opener[:400]

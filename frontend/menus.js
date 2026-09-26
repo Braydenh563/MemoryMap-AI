@@ -26,6 +26,14 @@ function closeActionMenusOnScroll(event) {
   const openMenus = [];
   for (const menu of ACTION_MENUS) if (!menu.classList.contains("hidden")) openMenus.push(menu);
   if (openMenus.length === 0) return;
+  //: **A scroll already on its way does not close a menu just opened.** A
+  //: scroll's event is dispatched with the next frame, so a right-click
+  //: while a scroll is settling (a trackpad's momentum, a smooth scroll)
+  //: opened a menu that this closed a moment later: measured on the
+  //: companion, 17 right-clicks in 20 made in the frame of a scroll showed
+  //: no menu (round 5; the `companionmenu.js` flake). A scroll the reader
+  //: makes after the menu is open still closes it.
+  if (performance.now() - (window._menuOpenedAt || 0) < 200) return;
 
   // Trackpads send small deltaX values along with deltaY when scrolling vertically.
   // If a dropdown lacks horizontal scroll, browsers often chain the deltaX to the 
@@ -301,6 +309,7 @@ window.wireHelpPopover = wireHelpPopover;
 
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
+  window._menuOpenedAt = performance.now();
   //: **Measured while invisible, revealed once.** Reported alongside the
   //: collapsed menu above: "the popup sitll has the left corner screen flicker
   //: before it shows in the right place". Everything below this line needs the

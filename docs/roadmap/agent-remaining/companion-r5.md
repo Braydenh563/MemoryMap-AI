@@ -18,6 +18,10 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
   late and closed a menu opened in that frame (menus.js); 17 of 20 provoked,
   0 of 80 after.
 - The edge pin is kept as decided (round 4).
+- `18b32a6` the review finding: a walk laid out and repainted Atlas every
+  frame (its leg steps inside the svg, unpaced while walking); paced from
+  its first step, paints 120 -> 39/s and layouts 60 -> 20/s
+  (`atlaswalk.js`).
 
 ## Remaining
 
@@ -27,3 +31,9 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
    palette) does not yet count as "opened" for reading along.
 3. The toss is mouse and touch alike; on a phone a quick swipe on the
    companion tosses it, which was not tried on a device.
+4. The rest of the walk's cost is Atlas's legs repainting their svg twenty
+   times a second; legs in a layered svg root of their own (as round 4 did
+   for its idle loops) would make it the compositor's. That is atlas.js.
+5. The full suite once failed
+   `test_unlock_throttle_per_client.py::test_the_guesser_is_still_throttled_after_the_owner_unlocks`
+   under load (average 7); it passes alone. Not the companion's.

@@ -7,24 +7,6 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
-- **Atlas repaints its 455-node figure twenty times a second at rest**
-  (about 32ms of paint a second). Fewer or cheaper animated groups in
-  `atlas.js` are the next saving; the companion's pacer cannot make a paint
-  cheaper. [companion-426]
-- **The feminine look has no legs**, so the companion's walk, kick and
-  dangle move nothing on it; a ribbon sway on `.atl-lower` under the same
-  classes would answer them. [atlas-fable]
-- **Settings, Appearance, Atlas look reads "masculine" when nothing is
-  stored**, while Atlas then follows Face looks; an "Auto (follows Face
-  looks)" option would say what happens. [atlas-fable]
-- **The popup agent's Atlas head overflows its 28px slot** and paints over
-  the input's wand icon (measured 2026-09-26: the `svg.atl-bust` box is
-  28x28 at the head, the drawing reaches about 60px down). Seen in the
-  README capture, which is why the agent shot is not in the README.
-  [docs-0.3.3]
-- **Three CSP "inline style" warnings on the avatar lab's console** come
-  from a `style` attribute in avatars.js's generated faces; harmless there,
-  worth a grep. [atlas-fable]
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]
@@ -33,9 +15,9 @@ two decisions only the owner can take are INBOX 427.
   window. [companion-426]
 - **Sign-in off, not driven**: the desktop window's persistent profile, a
   real second device on the LAN, the prompt card in dark, and whether a
-  restored backup's `preferences.json` brings the setting back.
-  `scratchpad/ui-sweeps/lib.js` `boot()` waits for `#lock-password`, so a
-  sweep data dir with sign-in off would time out. [auth-optional]
+  restored backup's `preferences.json` brings the setting back (a sweep
+  can now boot such a data dir: `lib.js` `boot()` returns `signIn: 'app'`).
+  [auth-optional]
 - **The vault key is process-wide** (`core/vault.py`): after a LAN device
   unlocks, a loopback session without a password reads private notes too
   until a lock or restart. Pre-existing; per-session keys are a design
@@ -43,15 +25,16 @@ two decisions only the owner can take are INBOX 427.
 - **The dashboard scroll jump (426 u)** was not reproduced by wheel, idle or
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
-- **uipolish-0924 leftovers**: `deadbtn.js`'s Chat export and delete
-  findings, the icon-only touch floor app-wide, the surface-by-surface pass
-  (its item D). [ui-426]
+- **uipolish-0924 leftovers**: the surface-by-surface pass (its item D);
+  the icon-only floor is done and measured by `iconfloor.js`. `deadbtn.js` (now in
+  `scratchpad/ui-sweeps/`) has three findings left at 1440, all controls
+  whose centre is under the status bar's `FOOTER.edge-fade` mid-scroll (two
+  dashboard board cards, a Notes tag chip); scrolled to its end the
+  dashboard clears the footer (lowest control 549px, footer at 863px), and
+  Notes, whose list scrolls in its own box, was not settled. [ui-426]
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]
-- **A `--changed` gate on a long branch selects most of the suite** (338
-  files, 40 minutes): gating against the branch's own base would make the
-  per-step gate what standing order 5a means. [atlas-fable]
 
 ## The owner's requests on fix/gemini-fixes-5 (PR 157), 2026-09-23: the ledger
 

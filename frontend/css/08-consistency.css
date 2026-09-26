@@ -6425,6 +6425,35 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
+/* The ribbon answers the legs (the feminine look's lower body, atlas.js
+   `atl-lower`): that look has no legs, so the companion's walk, kick and
+   dangle, which act on `.nmb-leg-*`, moved nothing on it. The ribbon sways
+   about its root at the hips instead, on the same classes and the same
+   timings as the legs they stand in for; transforms only, like every other
+   companion act, and still under Off and Reduce motion. */
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+    &.nmb-walking .atl-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .atl-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
+    &.nmb-act-kick .atl-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .atl-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
+  }
+}
+/* The system's reduced motion: slowed right down, as the legs are (the
+   companion's own reduced-motion block above; `!important` for the same
+   reason, the rules above out-rank this one). */
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy .atl-lower { animation-duration: 6s !important; }
+}
+@keyframes atl-lower-sway {
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(7deg); }
+}
+@keyframes atl-lower-flick {
+  from { transform: rotate(-3deg) scaleY(1); }
+  to { transform: rotate(13deg) scaleY(0.94); }
+}
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
 .nm-atlas .atl-e-shut { opacity: var(--atl-shut); }

@@ -3,7 +3,8 @@
 #
 #   scripts/gate.sh            # lint set + node --check + ruff (about 40 s)
 #   scripts/gate.sh --changed  # plus the tests that name files changed since
-#                              # origin/main (the routine local gate)
+#                              # the last push (the routine local gate;
+#                              # GATE_BASE=<ref> compares with another)
 #   scripts/gate.sh --full     # plus the whole suite (10 to 15 minutes: CI runs
 #                              # it on push; locally once before the PR closes)
 #   scripts/gate.sh --staged   # the lint set against what is STAGED, not the
@@ -176,26 +177,44 @@ step ruff "$RUFF" check .
 # since the last push (the branch's upstream; GATE_BASE overrides) plus the
 # working tree. Not since origin/main: on a long branch that is the whole
 # suite again. It prints the list it picked so a miss is visible.
-changed_tests() {
-  # **A worktree has no upstream, and the old fallback was silent.** An agent
-  # branch cut with `git worktree add -b` tracks nothing, so this fell through
-  # to HEAD~1: on a fresh worktree that is the base commit itself, the diff is
-  # empty, no test file is selected, and the gate still prints green. Two
-  # agents ran a gate that measured nothing tonight and could not tell. So the
-  # fallback walks out to the branch this was cut from before it gives up, and
-  # whichever base is used is printed, because a gate that will not say what
-  # it compared against cannot be trusted by the person reading its five lines.
-  local base
-  base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)}"
-  if [ -z "$base" ]; then
-    for candidate in claude/open-sections-a-b origin/main main; do
-      if git rev-parse --verify --quiet "$candidate" >/dev/null &&
-         [ "$(git rev-parse HEAD)" != "$(git rev-parse "$candidate")" ]; then
-        base="$candidate"; break
-      fi
-    done
+# What `--changed` compares against. Printed by `changed_tests`, because a
+# gate that will not say what it compared against cannot be trusted by the
+# person reading its five lines. In order:
+#
+# 1. `GATE_BASE`, when set: `GATE_BASE=origin/main` still gives the old,
+#    whole-branch comparison, on purpose.
+# 2. The merge-base with the upstream, for a branch that tracks one: what
+#    this branch has that its remote does not, and never the remote's own
+#    newer commits.
+# 3. The last pushed commit: the parent of the oldest commit here that no
+#    remote branch has. An agent worktree tracks nothing (`git worktree add
+#    -b`), and this is where its own work starts.
+# 4. `HEAD~1`, when nothing is on any remote.
+#
+# **Why not origin/main.** It was the fallback for a worktree with no
+# upstream, and on a long branch that is the whole branch: 338 test files,
+# forty minutes and more, for what standing order 5a calls the per-step gate
+# (OPEN.md, 0.3.3). And before that fallback existed, a worktree fell through
+# to HEAD~1 on its base commit, diffed nothing and printed green, which is
+# why step 3 walks to the first unpushed commit rather than guessing.
+# `tests/test_gate_changed_base.py` builds each case in a scratch repo.
+changed_base() {
+  if [ -n "${GATE_BASE:-}" ]; then echo "$GATE_BASE"; return; fi
+  local upstream first
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+  if [ -n "$upstream" ]; then
+    git merge-base HEAD "$upstream" 2>/dev/null && return
   fi
-  [ -n "$base" ] || base="HEAD~1"
+  first="$(git rev-list --reverse --topo-order HEAD --not --remotes 2>/dev/null | head -n 1)"
+  if [ -z "$first" ]; then echo HEAD; return; fi
+  if git rev-parse --verify --quiet "$first^" >/dev/null && [ -n "$(git branch -r --contains "$first^" 2>/dev/null)" ]; then
+    echo "$first^"; return
+  fi
+  echo "HEAD~1"
+}
+changed_tests() {
+  local base
+  base="$(changed_base)"
   # To stderr, not stdout: this function *returns* the test list on stdout,
   # so a friendly line printed here becomes a file name pytest then cannot
   # find. Caught by the gate itself one minute after it was written.
@@ -254,7 +273,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu touchticks companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin companionreact; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu touchticks companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin iconfloor companionreact; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

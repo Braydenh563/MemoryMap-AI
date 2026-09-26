@@ -704,8 +704,14 @@ def _exit_once_launched() -> None:
     long-lived background loop: it exits itself the moment this attempt
     resolves either way.
     """
+    # Bound when the watcher starts, not when it fires: a test that mocks
+    # `os._exit` for one apply keeps its mock here even after its teardown
+    # reverts the module attribute, so a watcher still asleep cannot fire the
+    # real exit into a later test (CI, 2026-09-26: an xdist worker died two
+    # seconds into an unrelated test after a "launched" apply elsewhere).
+    exit_now = os._exit
     while _state.running:
         time.sleep(0.5)
     if _state.outcome == "launched":
         time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
-        os._exit(0)
+        exit_now(0)

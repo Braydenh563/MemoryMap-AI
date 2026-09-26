@@ -917,3 +917,36 @@ def test_error_field_never_carries_a_raw_local_path_from_an_os_error(
     assert state["outcome"] == "failed"
     assert secret_path not in state["error"]
     assert "definitely-not-meant-to-leak" not in state["error"]
+
+
+def test_a_sleeping_exit_watcher_keeps_the_exit_it_started_with(client, app_state, monkeypatch):
+    """CI, 2026-09-26: a "launched" apply whose test did not wait for the
+    exit watcher left it asleep; the test's teardown reverted `os._exit`,
+    and the watcher then called the real one two seconds into an unrelated
+    test, killing the xdist worker. The watcher binds the exit it was
+    started with, so undoing the mock mid-sleep changes nothing."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    def _fake_get(url, **kwargs):
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        return _FakeResponse(content=b"x", headers={"Content-Length": "1"})
+
+    exit_calls = []
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: None)
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0.4)
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: exit_calls.append(code))
+
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+    # What a finished test's teardown does while the watcher still sleeps:
+    # `os._exit` is swapped for something else. The watcher must not see it.
+    replaced = []
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: replaced.append(code))
+    _wait_until_exit_called(exit_calls)
+    assert exit_calls == [0]
+    assert replaced == []

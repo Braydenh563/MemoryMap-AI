@@ -61,6 +61,29 @@ with its owner named in the entry.
      feminine chest, the test pages, per-feature toggles, cost: the two Opus
      agents on atlas.js and avatars.js; (d) the devibecode programme,
      WORLD_CLASS_PLAN 22.4, after.
+     Addenda the same afternoon, verbatim where quoted, all placed with the
+     two companion agents: the top-bar peek; locomotion by distance (walk,
+     hop or fly near, portal far: "It is a companion, not a fake soulless
+     construct"); a smoother bust; a slight body tilt left or right; the
+     sleepy face in both looks, "z" emotes and a night cap; close-range
+     pointer following; hover and click reactions that ease in and decay
+     ("more natural and gradual, unless it is startled"); boredom
+     wandering; lying down to sleep and masculine and feminine body
+     language; rotating per-persona thinking words beside the typing dots
+     (the Sonnet agent, lists written by the orchestrator).
+     (e) Categories: "there needs to be a better, easier and more accessible
+     and learnable way to edit categories like with merging them, splitting
+     them, moving notes between them etc. accessible from the notes tab, and
+     settings. maybe an access menu or panel cna be used from the your notes
+     subtab and/or sidebar??" Exists today: rename (onto an existing name it
+     merges) and delete, from the sidebar menu (`renameCategory`,
+     routes_categories.py PUT/DELETE). Missing: an explicit merge, a split,
+     moving notes between categories, and one place to do all of it.
+     Recommendation, taken: one "Manage categories" panel (the sheet recipe),
+     opened from the sidebar head, each category's menu and Settings; a
+     row per category with count, rename, merge into, split (pick notes or
+     let the AI propose), delete with a destination; notes dragged or
+     multi-selected across; every action undoable. Next free Opus slot.
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

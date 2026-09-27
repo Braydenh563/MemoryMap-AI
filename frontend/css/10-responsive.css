@@ -2544,3 +2544,18 @@ header#top-bar,
     gap: var(--space-1);
   }
 }
+
+/* --- the graph's floating controls clear its New note (INBOX 430) -----------
+   "The controls overlap the legend and the New note FAB": measured at 390x844
+   with `graphphone.js`, the legend ran 38px under the floating New note and
+   the zoom strip 23px into it. Below 600 the New note floats at the page's
+   foot (`.dock-fab`, 07-whiteboard-misc.css), so the legend and the zoom
+   strip stand on a line one target and a step above the map's bottom edge,
+   where the button is, and the legend stops short of the zoom strip's column
+   as before. */
+@media (max-width: 599.98px) {
+  #tab-graph:has(.dock-fab) .graph-legend-row,
+  #tab-graph:has(.dock-fab) .graph-zoom {
+    bottom: calc(var(--target-min) + var(--space-5));
+  }
+}

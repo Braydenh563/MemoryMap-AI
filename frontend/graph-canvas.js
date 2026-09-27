@@ -1268,7 +1268,7 @@ function gcDraw(s = gcTab) {
     // arc labels are centred under the node here rather than rotated onto the
     // spoke, which is the one place this renderer is visibly plainer than the
     // SVG one: recorded in GRAPH_PLAN.md's "Built" section.)
-    const beside = Boolean(s.tree) && !s.tree.radial && !s.tree.arc;
+    const beside = Boolean(s.tree) && !s.tree.radial && (!s.tree.arc || s.tree.vertical);
     ctx.textAlign = beside ? "left" : "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -2584,6 +2584,9 @@ function gcWorldFor(count, width, height) {
     top: (height - side) / 2,
     right: (width - side) / 2 + side,
     bottom: (height - side) / 2 + side,
+    //: The map's shape, for the worker's centring pull (`tuning`): a portrait
+    //: map gets a portrait layout (INBOX 430).
+    aspect: width > 0 && height > 0 ? height / width : 1,
   };
 }
 
@@ -2889,7 +2892,7 @@ async function renderGraphCanvas(s = gcTab) {
     s.settledSig = null;
     if (!gcAutoFitDone(s)) {
       gcSetAutoFitDone(s, true);
-      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
+      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial, s.tree.arc);
     }
   } else {
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {

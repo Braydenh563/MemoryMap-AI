@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import librarian
+from memorymap.ai import fence, librarian
 
 
 def _events(client, question, **body):
@@ -128,7 +128,7 @@ def test_an_untooled_turn_gets_far_more_of_each_note():
     plain = librarian.note_for_prompt(
         long_note, librarian.UNTOOLED_NOTE_CHARS, can_fetch=False
     )
-    assert plain == "x" * 2_000  # not cut at all at this length
+    assert fence.unfence(plain) == "x" * 2_000  # not cut at all at this length (fenced, INBOX 430)
     assert "[cut" in librarian.note_for_prompt(long_note)  # the agent's limit still cuts
 
 

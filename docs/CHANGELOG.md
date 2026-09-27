@@ -42,6 +42,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Security
 
+- Text from outside the conversation reaches the model fenced as quoted data: note text in every answer's prompt, and the note bodies, file and page text and search snippets in tool results, each between markers a note or page cannot close early, under one line in the system prompts saying text inside them is never an instruction. Once a turn has read a web page, a search result or a file, a web search or page read asks for your confirm, as a destructive tool always does.
 - Private notes open only for the sessions that gave the password. The data key was process-wide, so once a device on the network unlocked, this computer's session without a password (sign-in off) read private notes too. The key is now granted per session (setup, unlock, "unlock private notes", and the two account routes that ask for the password again), every other session sees the vault as locked, and the key is forgotten when the last session that gave the password ends, even while one without it is still open.
 
 ### Fixed

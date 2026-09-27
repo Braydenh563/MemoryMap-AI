@@ -169,15 +169,15 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   second poke pouts, a third is grumpy and comes down through a pout; a
   click near it only stirs it; a calm budget (one sudden act in 60 to 90s,
   none while typing or scrolling). atlassleepinput.js COMPANION_ONLY=1 and
-  companionsleeptab.js pass. **Open, atlas.js** (the Atlas agent): its
-  global pointerdown/keydown listener still sets every Atlas "surprised"
-  for 700ms and snaps back; atlassleepinput.js without COMPANION_ONLY
-  measures it (Ctrl held: 40 of 40 frames off "sleepy").
+  companionsleeptab.js pass. atlas.js's startle is fixed (afd8fb3), and a
+  poke on the companion now wakes Atlas's face too (it stayed shut: the
+  click lands on the face's box, not `.nm-atlas`); atlassleepinput.js in
+  full: 0 frames off "sleepy" for Ctrl held, clicks near and a tab click,
+  eyes open 1255ms after a poke, awake 20s later.
 - [x] Sleep across moves and tabs: carried asleep by a fade, in by a fade,
   lying or curled on arrival; companionsleeptab.js 0 awake frames of 466
   (83 walking asleep before).
-- [ ] Ctrl held: the companion side holds (0 awake frames); the frozen
-  face is atlas.js's listener above, with the Atlas agent.
+- [x] Ctrl held: 40 of 40 frames still asleep, no startle (atlassleepinput.js).
 - [x] Perch rules (the Weekly digest report): see "Covers content".
 
 ## App (Sonnet)
@@ -195,14 +195,17 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   leak. Fixed at the cause: the three real dots now get their own
   `.typing-dot` class (chat.js) and every dot rule (both files) is scoped
   to it, so a future span in this row can't be caught the same way. Also
-  bold, a static text-shadow glow instead of a fade-to-invisible crossfade
-  (resting opacity 0.5, not 0), and an explicit writing-phase fade for the
-  word (it no longer rides the dots' own rule). Measured: dots, word, no
-  line, rotation still swaps text every ~2.5-3.5s with a dim/bright
-  crossfade, light and dark (`scratchpad/ui-sweeps/thinkingwords.js`
-  reproduces it standalone via `progressLine`, no model needed). Same fix
-  covers chat, Ask (capture-ask.js) and the popup agent (palette.js): all
-  three call the same `typingDots`/`startThinkingWordRotation`.
+  bold, with a static text-shadow glow, added on top of (not replacing)
+  the crossfade `tests/test_thinking_words_rotation.py` already tests
+  (opacity 0/0.85, a 2px rise): that transition was never the reported
+  bug, only the leak was, so it stays exactly as tested. An explicit
+  writing-phase fade replaces the one the word used to borrow from the
+  dots' own rule. Measured: dots, word, no line, rotation still swaps
+  text every ~2.5-3.5s, light and dark
+  (`scratchpad/ui-sweeps/thinkingwords.js` reproduces it standalone via
+  `progressLine`, no model needed). Same fix covers chat, Ask
+  (capture-ask.js) and the popup agent (palette.js): all three call the
+  same `typingDots`/`startThinkingWordRotation`.
 - [ ] Atlas guide panel: its '?' button does nothing; wire it. **Not
   reproduced.** Opened the panel from the status bar (1093, >=680px) and
   from the phone's More sheet (390), light and dark: clicking
@@ -214,10 +217,26 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   this in and to give the owner's next report something to run first. If it
   recurs, it needs the exact steps (which entry point, what was open
   already, mobile or desktop) since nothing in the obvious paths breaks it.
-- [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
-  the new recipes (dialog head, quiet segmented tabs, search with icon,
-  compact rows with check, name and category chip that never wraps,
-  sticky footer).
+- [x] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
+  the new recipes. Two of the six were already met (the source tabs are
+  already the shared `.seg` every sub-tab strip uses; the footer is a flex
+  sibling outside the list's own scroller, so it never scrolled away).
+  Added: a `.dialog-head` (a note icon, "Attach", a `.dialog-head-btn`
+  Close, where there was only Escape/click-away/Done before), a
+  `.search-field` well with a leading magnifying-glass glyph (generalised
+  from the Web panel's own `.web-search-field`, now a reusable class pair
+  rather than a second copy keyed to new ids), and `flex: none` on the
+  row's chip so a long name can never squeeze it onto a second line. Rows
+  already had the check, the name and the chip; only the wrap guard was
+  missing. Measured at 1093, light and dark: dialog head, close works,
+  search icon shows, chips hold one line
+  (`scratchpad/ui-sweeps/chatattach.js`). **Found, not fixed**: at 390
+  (phone), the panel opens (correct size and position, measured) but the
+  Chat tab's own empty-state content paints over it at that width,
+  `elementFromPoint` inside the panel's own rect returns the empty state's
+  starter chip, not the panel; pre-existing (nothing this change touched
+  sits between them), not reproduced at 1093, needs its own look at the
+  two components' stacking contexts on a phone.
 - [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
   Already landed (index.html's `#settings-close` carries `dialog-head-btn`
   inside a `.dialog-head-actions` wrapper); verified against
@@ -230,14 +249,43 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   button's `inline-flex` (the button base recipe) sitting in an anonymous
   block wrapper whose strut takes the *inherited* line-height, not its own
   smaller one; scoped override to `display: block` for the card view.
+- [ ] Status bar under 680px: one row, extras in a "more" menu. **Measured,
+  not a bug**: at 819, 700, 680, 660, 620 and 600 the bar is one row with no
+  horizontal overflow (`scrollWidth === clientWidth` at every width; the
+  `state` zone's own shrink rule already absorbs the space, DESIGN.md's
+  status-bar row). The touch-bar tier already at 600-819.98 (10-responsive
+  .css) hides `#status-notes`, `#status-command` and the doorway words, so
+  "extras in a more menu" would be recovering access to those rather than
+  fixing an overflow, and needs a decision the phone's `PHONE_STATUS_ROWS` /
+  `#header-more` pattern cannot just be reused for (widening `PHONE_TABS`
+  itself to 680 turns the tab bar, touch gestures and every other
+  `PHONE_TABS`-gated behaviour into phone mode too, far past this one bar).
+  Left for a design pass: a `#status-bar`-scoped kebab, its own media query,
+  and which of the two hidden controls actually count as "extras."
+- [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Clean:
+  `WIDTHS=1093 errors.js` found 0 errors, 0 layout findings across every
+  tab and Settings section; `docks.js` (its own 1440, unparametrised) found
+  every dock's controls at one consistent height each, nothing to fix.
+- [x] Verify the rotating thinking words render and rotate (chat, capture
+  ask, palette) with no row jump; the backend half exists. Covered by the
+  thinking-word fix above: rotation measured swapping text every ~2.5-3.5s
+  with no width jump (`thinkingWordMinWidth`) and, now the dot-style leak is
+  gone, no row-height jump either. All three surfaces share
+  `startThinkingWordRotation`.
+- [x] Ask citation missing after a heading on a reopened answer: not
+  reproduced; regression test added. Already true on this head
+  (`tests/test_citation_after_heading.py`, passing): reproduction attempted
+  through the real pipeline and not found; the test holds the shape as a
+  regression guard. Needs the owner's real answer if seen again.
+
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
-- [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
-- [ ] Verify the rotating thinking words render and rotate (chat, capture
+- [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Final
+  pass: errors 0 at 1093, 1440 and 390 in both themes; contrast 0 but one
+  at 390 light (a settings row's hover stuck on a phone, fixed); touch 0 at
+  390 both themes; docks one height per row.
   ask, palette) with no row jump; the backend half exists.
-- [ ] Ask citation missing after a heading on a reopened answer: not
   reproduced; regression test added. Needs the owner's real answer if seen
-  again.
-- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
+  again.- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
   affordance and alignment (a coordinator drop, not in the original list).
   Icon was a couple of px off the text's optical centre (`.notice`'s own
   `align-items: flex-start`, there for a *wrapping* notice, scoped fixed to
@@ -266,6 +314,16 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
 - Mood and act cross-fades beyond what exists; the remaining 22.x items.
 
 ## Before calling it done
+
+- [x] Final pass, first half: a bug scan of the branch's frontend since
+  91056d6 (fixed: lightbox zoom left on the other viewer; a split sent
+  twice and a textless note breaking the split sheet; Back declined at
+  Leave without saving left the address and stack on the old tab,
+  unsavedback.js; Compare drawn twice; a companion shown again born
+  mid-nap), `tests/test_final_pass_bugs.py`. Found, not changed (a
+  decision, not a bug): the capture box's draft counts as unsaved work,
+  so every tab switch with a draft asks "Leave without saving?" though
+  the draft is kept and the tab switch loses nothing.
 
 - [ ] App-wide consistency pass after the button, select and stepper
   restyle: every surface uses the same recipes (buttons, selects, dialog

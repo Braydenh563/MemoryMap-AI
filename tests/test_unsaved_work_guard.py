@@ -33,7 +33,10 @@ def test_has_unsaved_work_reads_the_three_existing_flags() -> None:
     assert "docDirty" in body
     assert "noteFormDirty" in body
     assert 'editingId !== null' in body
-    assert '$("entry-content")' in body
+    # The capture box is deliberately not asked about: its text survives a
+    # tab switch and a reload (its localStorage draft), so leaving loses
+    # nothing (decided 2026-09-27, after a prompt on every switch).
+    assert '$("entry-content")' not in body
     # The document flag belongs to a lazy tab (documents.js), so it must be
     # read through a typeof guard, the same pattern switchTab's own
     # graphSimulation check already uses for a lazy module that may not

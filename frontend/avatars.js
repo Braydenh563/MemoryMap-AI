@@ -6952,6 +6952,11 @@ function nameMarkBuddyWake(gently = false, startled = false) {
   if (slept) nameMarkBuddyEase(buddy, 7000);
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (slept) nameMarkBuddyGetUp(buddy);
+  //: Atlas's face is its own mood (atlas.js): woken here, it wakes there
+  //: too, slowly. A click on the companion lands on its face's box, not
+  //: on `.nm-atlas`, so atlas.js's own poke never saw it, and the
+  //: companion stood up with its eyes still shut (atlassleepinput.js).
+  if (slept && nameMarkBuddyHasAtlas(buddy) && typeof atlasWake === "function") atlasWake();
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;
@@ -7387,6 +7392,21 @@ function nameMarkBuddyGone() {
   document.getElementById("nm-buddy-band")?.remove();
   nameMarkBuddyWatch();
   nmb.x = nmb.y = NaN;
+  //: What it was in the middle of goes with it: a companion shown again
+  //: (or another one chosen) is not born mid-nap, mid-pout or mid-frame.
+  //: With `nmb.act` left at "lie", the new one counted as asleep
+  //: (`nameMarkBuddyAsleep`) and was carried in by the sleeping fade.
+  for (const t of nmb.poseSteps || []) clearTimeout(t);
+  nmb.poseSteps = [];
+  for (const t of nmb.wakeSteps || []) clearTimeout(t);
+  nmb.wakeSteps = [];
+  clearTimeout(nmb.easeTimer);
+  clearTimeout(nmb.poutTimer);
+  clearTimeout(nmb.fitTimer);
+  clearTimeout(nmb.cueTimer);
+  nmb.act = "";
+  nmb.wokeAt = 0;
+  nmb.easeUntil = 0;
 }
 
 function nameMarkBuddyHide(buddy) {
@@ -7876,7 +7896,9 @@ function nameMarkBuddyBuild() {
       nameMarkBuddyExpress("unimpressed", 30000);
       buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
       setTimeout(() => {
-        //: And it comes down through a pout, not straight back.
+        //: And it comes down through a pout, not straight back (unless it
+        //: has gone meanwhile: the pout would land on its successor).
+        if (!buddy.isConnected) return;
         buddy.classList.remove("nmb-grumpy");
         nameMarkBuddyPout(buddy, 5000);
         if (buddy.dataset.turn && !buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;

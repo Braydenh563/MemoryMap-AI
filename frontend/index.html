@@ -2353,6 +2353,17 @@ Link to another note with [[its first few words]]."></textarea>
                 aria-label="Attach existing notes, documents, files or images"><i class="ph ph-note" aria-hidden="true"></i></button>
               <div id="note-picker-panel" class="note-picker-panel hidden"
                 role="dialog" aria-label="Choose what to reference">
+                <!-- The dialog-head recipe (DESIGN.md, the doc-ai reference):
+                     title, then icon actions, Close last. This panel had
+                     neither a name nor a way out of its own, only Escape,
+                     click-away, or Done three controls later. -->
+                <div class="dialog-head">
+                  <h2 class="dialog-head-title"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Attach</h2>
+                  <span class="dialog-head-actions">
+                    <button id="note-picker-close" class="icon-only ghost small dialog-head-btn" type="button"
+                      title="Close" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+                  </span>
+                </div>
                 <!-- Asked for directly: "I want to be able to attach not just
                      existing notes to a chat for context, but also already
                      uploaded files, documents, and images." The paperclip
@@ -2372,8 +2383,17 @@ Link to another note with [[its first few words]]."></textarea>
                        title. -->
                   <button type="button" role="tab" data-picker-source="maps" aria-selected="false">Maps</button>
                 </div>
-                <input id="note-picker-search" type="search"
-                  placeholder="Search your notes…" aria-label="Search what to attach">
+                <!-- The Web panel's "the bar is the field" well (DESIGN.md,
+                     `.web-search-field`), generalised to a plain class
+                     rather than that panel's own ids, so this picker's
+                     search gets the same leading glyph and one-box field
+                     instead of a bare `<input type="search">` with nothing
+                     to say it searches. -->
+                <div class="search-field">
+                  <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                  <input id="note-picker-search" type="search" class="search-field-input"
+                    placeholder="Search your notes…" aria-label="Search what to attach">
+                </div>
                 <ul id="note-picker-list" class="note-picker-list"></ul>
                 <div class="row space-between note-picker-foot">
                   <span id="note-picker-count" class="muted"></span>

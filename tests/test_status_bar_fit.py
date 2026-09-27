@@ -35,3 +35,12 @@ def test_a_job_label_is_sized_from_nothing_and_grows_into_the_room():
 def test_the_notebook_count_gives_way_from_820_to_959():
     block = RESPONSIVE[RESPONSIVE.index("@media (min-width: 820px) and (max-width: 959.98px) {") :][:200]
     assert "#status-notes {\n    display: none;" in block
+
+
+def test_a_tool_row_fills_its_grid_cell_and_keeps_its_lines_packed():
+    # Settings, Tools it can use, is two columns; a row only as tall as its
+    # own text ended 27.6px above its neighbour's (toolgrid.js, at display
+    # scale 1, 1.25 and 1.5), read as offset dividers.
+    widgets = (CSS / "03-dashboard-widgets.css").read_text(encoding="utf-8")
+    assert "display: grid;" in _rule(widgets, "#tool-list li")
+    assert "align-content: start;" in _rule(widgets, ".tool-row.setting-check")

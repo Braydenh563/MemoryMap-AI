@@ -726,6 +726,16 @@ header#top-bar select,
   border: 0;
   background: none;
   border-radius: 0;
+  /* **The row fills its grid cell** (libtl-0926). The list is two columns
+     (`#tool-list` below) and a grid row is as tall as its taller cell, but
+     the row inside each `li` was only as tall as its own text, so beside a
+     tool with a two-line description a one-line one ended 27.6px higher:
+     its fill (on, hovered) and its edge stopped short of its neighbour's,
+     read as the two columns' dividers being offset. Measured the same at
+     display scale 1, 1.25 and 1.5 (`scratchpad/ui-sweeps/toolgrid.js`); how
+     far apart depends on the text, which is why the owner's larger text
+     size saw it as 14px. A grid `li` stretches its one row to the cell. */
+  display: grid;
 }
 
 /* **`.tool-row` is `.setting-check` now, and carries both classes**, which is
@@ -4208,6 +4218,11 @@ p.graph-help-panel {
    `.tool-row` ties on specificity and loses on source order. */
 .tool-row.setting-check {
   align-items: start;
+  /* Stretched to its cell (`#tool-list li`), a row's lines stay packed at
+     the top and the spare height is left under them: with the grid's default
+     `align-content` it went into the rows, and the gap under a name grew
+     from 13px to 27px. */
+  align-content: start;
 }
 
 /* `align-self`, not the container's `align-items`: `.setting-check > input`

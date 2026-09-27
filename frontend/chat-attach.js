@@ -2287,8 +2287,14 @@ async function sendChatMessage(preset, opts = {}) {
     if (viewing()) {
       input.disabled = false;
       show("chat-send");
+      //: The focus goes back to the box only from the Stop button (which
+      //: took it when the answer began, `sendChatMessage`) or from nowhere:
+      //: a reader who moved to the search box or the sidebar while the
+      //: answer streamed keeps their place, rather than having the box take
+      //: it as the answer ends (the review, 2026-09-27).
+      const fromStop = document.activeElement === $("chat-stop") || document.activeElement === document.body;
       hide("chat-stop");
-      input.focus();
+      if (fromStop) input.focus();
     }
   }
 

@@ -62,6 +62,43 @@ def test_escape_stops_the_answer_and_the_stop_button_holds_the_keyboard() -> Non
     assert '$("chat-stop").focus(' in send, "the Stop button no longer takes the focus while the answer streams"
 
 
+def test_the_streams_end_gives_the_box_the_focus_only_from_the_stop_button() -> None:
+    """The review of the chat pass (2026-09-27): the stream's end called
+    `input.focus()` whenever the chat was on screen, so a reader who had
+    moved to the search box or the sidebar while the answer streamed had
+    the box take the focus from them as it ended. Only from the Stop button
+    (which took it when the answer began) or from nowhere."""
+    app = app_js_text()
+    end = app[app.index("// The composer belongs to whatever conversation is on screen.") :]
+    end = end[: end.index("clearPending();")]
+    assert 'document.activeElement === $("chat-stop")' in end
+    assert "if (fromStop) input.focus();" in end
+    assert "\n      input.focus();\n" not in end, "the box takes the focus unconditionally again"
+
+
+def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
+    """The peek is lifted to <body>, so Tab from a mark reaches the next mark,
+    never the peek: its preview and Open note were unreachable in sequence
+    (peekkeys.js, the review of 2026-09-27: Enter, then Tab, both left the
+    keyboard on the marks). A click with no pointer (`detail` 0) moves the
+    focus onto the preview; Escape brings it back."""
+    app = app_js_text()
+    marker = _function(app, "citationMarker")
+    click = marker[marker.index('link.addEventListener("click"') :]
+    click = click[: click.index("\n  });\n")]
+    assert "event.detail === 0" in click
+    assert '.citation-peek-preview")?.focus(' in click
+    close = _function(app, "closeCitationPeek")
+    assert "link.focus({ preventScroll: true })" in close
+    #: And that focus must not open the peek again: the mark opens its peek
+    #: on focus, so the focus a closing peek handed back reopened it (Escape
+    #: from inside the peek left it on the page, measured by peekkeys.js).
+    assert "citationPeekState.restoring = true" in close
+    focus = marker[marker.index('link.addEventListener("focus"') :]
+    focus = focus[: focus.index("\n  });\n")]
+    assert "if (citationPeekState.restoring) return;" in focus
+
+
 def test_a_grounding_chip_fits_its_answer_and_says_its_sentences_in_characters() -> None:
     """At 390 an answer is 288px wide and the chips were 352px, running 79px
     past the bubble; and the chip's tooltip printed the answer's Markdown

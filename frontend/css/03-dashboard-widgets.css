@@ -2559,7 +2559,9 @@ header#top-bar select,
    two columns; the rest wrap as whole controls. */
 .reminder-form {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  /* auto-fit, not auto-fill: auto-fill kept empty tracks at the end, so the
+     six controls stopped short of the row's right edge (release). */
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
   gap: 0.5rem;
   align-items: center;
 }

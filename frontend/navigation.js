@@ -1674,12 +1674,10 @@ const lazyTabsReady = new Set();
 function hasUnsavedWork() {
   if (typeof docDirty !== "undefined" && docDirty) return true;
   if (typeof noteFormDirty !== "undefined" && noteFormDirty && editingId !== null) return true;
-  //: The capture box keeps its own draft in localStorage already (a reload
-  //: recovers it), but a person switching tabs mid-thought should still be
-  //: asked, the same as any other surface: an unsaved note is unsaved
-  //: whether or not there happens to be a safety net under it.
-  const capture = $("entry-content");
-  if (capture && capture.value.trim()) return true;
+  //: Not the capture box: its text survives a tab switch (the box stays in
+  //: the page) and a reload (the draft in localStorage), so leaving loses
+  //: nothing, and asking "Leave without saving?" on every tab switch while a
+  //: thought sat in the box was a question with no stakes, asked constantly.
   return false;
 }
 

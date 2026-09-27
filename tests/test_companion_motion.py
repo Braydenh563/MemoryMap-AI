@@ -21,9 +21,14 @@ put the old behaviour back.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 
 from pathlib import Path
+
+import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -765,3 +770,50 @@ def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> 
     assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
     for key in ('"emotes"', '"nightcap"'):
         assert key in AV[AV.index("const NMB_ACTIVITIES = [") :][:3000]
+
+
+def _run_pure(names: list[str], body: str):
+    # The interaction model's choices are pure functions: run them as they
+    # are written, in node, against the cases below.
+    src = "\n".join(_fn(n) for n in names)
+    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_interaction_model_moves_between_states_as_the_owner_asked() -> None:
+    # The owner: "if I click it, it will change expressions for a sec then
+    # instantly go back to doing what it was doing like sleeping, it needs to
+    # be more natural and gradual, unless it is startled".
+    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000]].map((a) => nameMarkBuddyClickReaction(...a))")
+    assert click == ["wake", "startle", "pleased", "playful", "playful", "grumpy"]
+    hover = _run_pure(["nameMarkBuddyHoverReaction"], "[[true,0,0,false],[true,1800,0,false],[false,0,0,false],[false,0,-0.5,false],[false,0,0.5,true]].map((a) => nameMarkBuddyHoverReaction(...a))")
+    assert hover == ["stir", "wake", "brighten", "none", "none"]
+    # Warmth relaxes by half in four minutes, and not at all at once.
+    warm = _run_pure(["nameMarkBuddyWarmthAt"], "[nameMarkBuddyWarmthAt({v: 0.8, at: 0}, 0), nameMarkBuddyWarmthAt({v: 0.8, at: 0}, 240000), nameMarkBuddyWarmthAt(null, 5)]")
+    assert warm[0] == 0.8 and abs(warm[1] - 0.4) < 1e-9 and warm[2] == 0
+    # Boredom grows with time on a perch, less for a tired, shy or sleepy one.
+    bored = _run_pure(["nameMarkBuddyBoredom"], "[nameMarkBuddyBoredom(0, 0.7, 0.7, ''), nameMarkBuddyBoredom(240000, 0.7, 0.7, ''), nameMarkBuddyBoredom(240000, 0.2, 0.7, ''), nameMarkBuddyBoredom(240000, 0.7, 0.7, 'sleepy')]")
+    assert bored[0] == 0 and bored[1] > 1 and bored[2] < bored[1] and bored[3] < bored[1]
+
+
+def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
+    # Woken slowly (a yawn, a stretch, a look), awake 45s at least; hover and
+    # click answered through the model; boredom drives a few steps over or a
+    # wander and back, never while you type or read near it, pinned, on an
+    # errand, with Reduce actions off or with it switched off.
+    wake = _fn("nameMarkBuddyWake")
+    assert 'nameMarkBuddyAct("yawn", 1700);' in wake and 'setTimeout(() => nameMarkBuddyAct("wake"), 1800)' in wake
+    assert "nmb.awakeUntil = Date.now() + NMB_AWAKE_MS;" in wake
+    tick = _fn("nameMarkBuddyTick")
+    assert "if (idle > NMB_SLEEP_MS && !awake) {" in tick and "if (nameMarkBuddyWander(Date.now())) {" in tick
+    build = _fn("nameMarkBuddyBuild")
+    assert "const how = nameMarkBuddyClickReaction(wasAsleep, nmb.pokes.length, sinceLast);" in build
+    assert "nameMarkBuddyHover(0);" in build
+    wander = _fn("nameMarkBuddyWander")
+    for guard in ("nmb.pinned", 'nmb.perch === "errand"', 'nameMarkBuddyActions() === "off"', 'nameMarkBuddyActOff("wander")',
+                  "now - (nmb.keyAt || 0) < 20000", "nameMarkBuddyMenuOpen()"):
+        assert guard in wander, guard
+    assert "now - nmb.home.at > 30000" in wander
+    assert "nameMarkBuddyWarmthAt(nmb.feel, now)" in _fn("nameMarkBuddyDecide")

@@ -3254,6 +3254,7 @@ const NMB_ACTIVITIES = [
   ["tilt", "Lean to one side now and then", ["tilt"]],
   ["emotes", "Little emotes (a question mark, a sparkle, a sweat drop)", ["emote"]],
   ["nightcap", "A night cap when it naps", ["nightcap"]],
+  ["wander", "Wander off now and then, and come back", ["wander"]],
 ];
 function nameMarkBuddyActivitiesOff() {
   try {
@@ -4091,6 +4092,8 @@ function nameMarkBuddyStepAside(spot, obstacles) {
 //: first top edge under it; with nothing under it at all it floats where it
 //: was let go.
 function nameMarkBuddyDrop(x, y) {
+  //: Put somewhere by you: no wander to come back from.
+  nmb.home = null;
   const tab = nameMarkBuddyTab();
   const obstacles = nameMarkBuddyObstacles(tab);
   const edges = nameMarkBuddyEdges(tab);
@@ -4714,6 +4717,8 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.glideAnim?.cancel();
   nmb.glideAnim = null;
   nameMarkBuddyPut(buddy, x, y);
+  //: A new place: nothing to be bored of yet (a wander sets its own).
+  if (spot.kind !== nmb.perch || Math.abs(was.x - x) > 8 || Math.abs(was.y - y) > 8) nmb.perchAt = Date.now();
   nmb.perch = spot.kind || "";
   nmb.spot = spot;
   nmb.pinned = spot.kind === "pinned";
@@ -4933,6 +4938,7 @@ const NMB_PET_MS = 1100;
 //: for a quarter of a second, and the best perch near that, kept as your
 //: spot on this tab (a toss is a drop, thrown).
 function nameMarkBuddyToss(buddy, vx, vy) {
+  nmb.home = null;
   const glide = 260;
   const aimX = Math.min(Math.max(0, nmb.x + vx * glide), innerWidth - NMB_W);
   const aimY = Math.min(Math.max(0, nmb.y + vy * glide), innerHeight - NMB_H);
@@ -4948,6 +4954,27 @@ function nameMarkBuddyToss(buddy, vx, vy) {
   nameMarkBuddyKeepSpots(spots);
 }
 
+//: The pointer on it (`dwellMs` how long): awake, a look, a small lean, a
+//: blink and a brighter face at once; asleep, a stir, and a wake if you stay.
+function nameMarkBuddyHover(dwellMs) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging")) return;
+  const asleep = buddy.classList.contains("nmb-sleep") || nmb.act === "nap" || nmb.act === "lie";
+  const how = nameMarkBuddyHoverReaction(asleep, dwellMs, nameMarkBuddyWarmthAt(nmb.feel, Date.now()), Date.now() < nmb.grumpyUntil);
+  if (how === "stir") {
+    buddy.classList.add("nmb-stir", "nmb-groggy");
+    setTimeout(() => buddy.classList.remove("nmb-stir"), 700);
+    setTimeout(() => buddy.classList.remove("nmb-groggy"), 2400);
+  } else if (how === "wake") {
+    if (nmb.act === "lie") nameMarkBuddyAct("");
+    nameMarkBuddyWake(true);
+  } else if (how === "brighten") {
+    if (nmb.pointer) nameMarkBuddyAim(nmb.pointer, true);
+    if (!nmb.act) nameMarkBuddyAct("blink");
+    if (!nmb.expr || nmb.expr === "calm") nameMarkBuddyExpress("happy", 1800);
+  }
+}
+
 function nameMarkBuddyPet() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || nameMarkBuddyStill() || document.hidden || nameMarkBuddyMenuOpen()) return;
@@ -4955,6 +4982,7 @@ function nameMarkBuddyPet() {
   const now = Date.now();
   if (now - (nmb.pettedAt || 0) < 15000 || now < nmb.grumpyUntil) return;
   nmb.pettedAt = now;
+  nameMarkBuddyFeel(0.15);
   nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
   nameMarkBuddyExpress("happy", 1800);
   nameMarkBuddyAct("wiggle");
@@ -5427,6 +5455,7 @@ function nameMarkBuddyRefit() {
 //: can be seen, arriving there when it could not. With no companion on, it
 //: opens the setting that turns one on.
 function nameMarkBuddyCallBack() {
+  nmb.home = null;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) {
     if (typeof revealFeature === "function") revealFeature("set-companion");
@@ -5676,6 +5705,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (["wave", "glance"].includes(act)) w *= 0.4 + sociability;
     if (["peek", "peekdown", "turn"].includes(act)) w *= 1.4 - sociability;
     if (now < nmb.grumpyUntil && ["wave", "glance", "hop", "cheer"].includes(act)) w = 0;
+    const warm = nameMarkBuddyWarmthAt(nmb.feel, now);
+    if (["wave", "hop", "tilt", "shrug", "read", "glance"].includes(act)) w *= Math.max(0.2, 1 + warm * 0.8);
+    if (["peek", "peekdown"].includes(act)) w *= Math.max(0.2, 1 - warm * 0.5);
     //: Ignored for twenty minutes while you are busy: it tries for your
     //: attention with a wave.
     if (act === "wave" && now - nmb.lastPoke > 20 * 60 * 1000 && idle < 30000) w *= 4;
@@ -5718,14 +5750,20 @@ function nameMarkBuddyTick() {
   nameMarkBuddyCheck();
   const idle = Date.now() - nmb.lastInput;
   nameMarkBuddyContext(buddy);
-  if (idle > NMB_SLEEP_MS) {
+  const awake = Date.now() < (nmb.awakeUntil || 0);
+  if (idle > NMB_SLEEP_MS && !awake) {
     buddy.classList.remove("nmb-drowsy");
     buddy.classList.add("nmb-sleep");
     nameMarkBuddyHold("sleepy");
     nameMarkBuddyRelease();
     return;
   }
-  buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
+  buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS && !awake);
+  //: Bored of this perch: a few steps over, or a wander and back.
+  if (nameMarkBuddyWander(Date.now())) {
+    nameMarkBuddySchedule();
+    return;
+  }
   if (!buddy.classList.contains("nmb-think")) nameMarkBuddyHold(idle > NMB_DROWSY_MS ? "sleepy" : "");
   const hour = new Date().getHours();
   const night = hour >= 22 || hour < 6;
@@ -6038,21 +6076,137 @@ function nameMarkBuddyAwake() {
   }
 }
 
-function nameMarkBuddyWake(gently = false) {
+//: **How it takes what you do: onset, hold, decay** (the owner: "the on
+//: hover move of atlas doesnt really do anything and if I click it, it will
+//: change expressions for a sec then instantly go back to doing what it was
+//: doing like sleeping, it needs to be more natural and gradual, unless it
+//: is startled or smth. it has moods and needs organic interactions"). The
+//: choices are these pure functions, so each transition is tested on its own
+//: (tests/test_companion_motion.py); the doing is in the handlers, and every
+//: face they put on comes down gradually (`nameMarkBuddyExpress`).
+//:
+//: Warmth (-1 to 1) is what you have been to it lately: a pet or a hello
+//: raises it, being poked too often lowers it, and it relaxes towards 0 with
+//: a half-life of four minutes, read when needed (no timer). A warm
+//: companion picks friendlier acts; a cold one hides more.
+const NMB_WARMTH_HALF_MS = 4 * 60 * 1000;
+function nameMarkBuddyWarmthAt(feel, now) {
+  if (!feel) return 0;
+  return feel.v * Math.pow(0.5, Math.max(0, now - feel.at) / NMB_WARMTH_HALF_MS);
+}
+function nameMarkBuddyFeel(delta, now = Date.now()) {
+  nmb.feel = { v: Math.max(-1, Math.min(1, nameMarkBuddyWarmthAt(nmb.feel, now) + delta)), at: now };
+}
+//: A click: asleep, it wakes slowly, or with a start if the clicks come
+//: fast (two within 1.5s); awake, the first is a hello, the next two play,
+//: and a fourth within twenty seconds is too many.
+function nameMarkBuddyClickReaction(asleep, pokes, sinceLast) {
+  if (asleep) return sinceLast < 1500 ? "startle" : "wake";
+  if (pokes >= 4) return "grumpy";
+  return pokes >= 2 ? "playful" : "pleased";
+}
+//: The pointer resting on it, by how long: awake, it brightens at once
+//: (unless it is sulking or you have been unkind); asleep, it stirs, and
+//: after 1.8s of you staying it wakes.
+function nameMarkBuddyHoverReaction(asleep, dwellMs, warmth, grumpy) {
+  if (asleep) return dwellMs >= 1800 ? "wake" : "stir";
+  if (grumpy || warmth < -0.3) return "none";
+  return "brighten";
+}
+//: Bored of a perch: how long it has been on it, over four minutes, less
+//: for a tired or unsociable companion and for a shy or sleepy face.
+const NMB_BORED_MS = 4 * 60 * 1000;
+function nameMarkBuddyBoredom(msOnPerch, energy, sociability, mood) {
+  let b = (msOnPerch / NMB_BORED_MS) * (0.4 + energy) * (0.6 + sociability * 0.6);
+  if (["nervous", "sad", "sleepy", "uwu"].includes(mood)) b *= 0.6;
+  return b;
+}
+
+//: **Bored of one spot** (the owner: "maybe it might get bored of one
+//: specific spot and move a little over or wander off then come back"). At
+//: its tick, bored enough, and one time in three: a few steps along the
+//: same edge, or off to a nearby perch for half a minute and back (on foot,
+//: or by a poof if far: `nameMarkBuddyGo`). Never while you type or read
+//: near it, never pinned, on an errand or with its menu open, never with
+//: Reduce actions off, and never when switched off (What it does).
+function nameMarkBuddyWander(now) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || nmb.pinned || nmb.away || nmb.perch === "errand" || nmb.act || nameMarkBuddyMenuOpen()) return false;
+  if (nameMarkBuddyActions() === "off" || nameMarkBuddyActOff("wander")) return false;
+  if (now - (nmb.keyAt || 0) < 20000 || nmb.readingErrand) return false;
+  const near = nmb.pointer && Math.hypot(nmb.pointer[0] - (nmb.x + NMB_W / 2), nmb.pointer[1] - (nmb.y + NMB_H / 2)) < 260;
+  if (near && now - nmb.lastInput < 20000) return false;
+  //: Back from a wander after half a minute: home again, if still free.
+  if (nmb.home && now - nmb.home.at > 30000) {
+    const home = nmb.home;
+    nmb.home = null;
+    const tab = nameMarkBuddyTab();
+    nameMarkBuddyIndexReset();
+    if (home.tab === tab && !nameMarkBuddyHits(home.x, home.y, home.pose, nameMarkBuddyObstacles(tab), home.legs)) {
+      nmb.moveWhy = "back from a wander";
+      nameMarkBuddyMoveTo(buddy, home);
+      return true;
+    }
+  }
+  if (nmb.home) return false;
+  const { energy, sociability } = nmb.mood;
+  if (nameMarkBuddyBoredom(now - (nmb.perchAt || now), energy, sociability, nmb.reading?.mood || "") < 1 || Math.random() > 0.35) return false;
+  const tab = nameMarkBuddyTab();
+  nameMarkBuddyIndexReset();
+  const obstacles = nameMarkBuddyObstacles(tab);
+  const spot = nmb.spot || {};
+  if (Math.random() < 0.65) {
+    //: A few steps over, along the same edge, staying on what it stands on.
+    const size = NMB_W * Math.max(0.7, nmb.scale || 1);
+    const dx = (Math.random() < 0.5 ? -1 : 1) * Math.round(size * (0.4 + Math.random() * 0.5));
+    const x = Math.round(nmb.x + dx);
+    const on = spot.anchor?.isConnected ? spot.anchor.getBoundingClientRect() : null;
+    const inside = x >= 0 && x <= innerWidth - NMB_W && (!on || (x + NMB_W / 2 > on.left && x + NMB_W / 2 < on.right));
+    if (inside && !nameMarkBuddyHits(x, nmb.y, nmb.pose, obstacles, nmb.legs)) {
+      nmb.moveWhy = "bored: a few steps over";
+      nameMarkBuddyMoveTo(buddy, { ...spot, x, y: nmb.y, pose: nmb.pose, legs: nmb.legs });
+      return true;
+    }
+  }
+  const away = nameMarkBuddyChoose(tab, obstacles, [nmb.x, nmb.y], 4);
+  if (!away || (Math.abs(away.x - nmb.x) < 24 && Math.abs(away.y - nmb.y) < 24)) return false;
+  nmb.home = { ...spot, x: nmb.x, y: nmb.y, pose: nmb.pose, legs: nmb.legs, tab, at: now };
+  nmb.moveWhy = "bored: wandering off";
+  nameMarkBuddyMoveTo(buddy, away);
+  return true;
+}
+
+//: Woken: slowly (a yawn, then a stretch, then a look at you) unless
+//: startled, and awake for the next 45s at least: drowsiness comes back only
+//: after that, never at once.
+const NMB_AWAKE_MS = 45000;
+function nameMarkBuddyWake(gently = false, startled = false) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   const slept = gently || buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
   //: Awake now, so its next quiet spell starts from here.
   if (gently) nmb.lastInput = Date.now();
+  nmb.awakeUntil = Date.now() + NMB_AWAKE_MS;
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;
   nmb.exprHold = "";
-  nameMarkBuddyExpress("sleepy", 4000);
   buddy.classList.add("nmb-groggy");
   setTimeout(() => buddy.classList.remove("nmb-groggy"), 5000);
-  if (!nameMarkBuddyStill() && !document.hidden) nameMarkBuddyAct("wake");
+  if (nameMarkBuddyStill() || document.hidden) return;
+  if (startled) {
+    nameMarkBuddyExpress("surprised", 1400);
+    nameMarkBuddyAct("startle");
+    return;
+  }
+  nameMarkBuddyExpress("sleepy", 4200);
+  nameMarkBuddyAct("yawn", 1700);
+  for (const t of nmb.wakeSteps || []) clearTimeout(t);
+  nmb.wakeSteps = [
+    setTimeout(() => nameMarkBuddyAct("wake"), 1800),
+    setTimeout(() => nmb.pointer && nameMarkBuddyAim(nmb.pointer), 3300),
+  ];
 }
 
 //: **Stirred in its sleep** by a fast flick or a click close by: most of the
@@ -6776,15 +6930,12 @@ function nameMarkBuddyBuild() {
     if (event.button !== 0) return;
     //: **Movable at all times** (the owner: "it needs to be movable at all
     //: times"): mid-walk, mid-hop, peeking, hanging or asleep, it is taken
-    //: from where it is drawn this instant and everything it was doing
-    //: stops.
-    const box = buddy.getBoundingClientRect();
-    nmb.anim?.cancel();
-    nmb.hopAnim?.cancel();
-    nameMarkBuddyHalt(buddy);
-    buddy.style.translate = "";
-    nameMarkBuddyPut(buddy, Math.round(box.left), Math.round(box.top));
-    drag = { box: buddy.getBoundingClientRect(), sx: event.clientX, sy: event.clientY, x: event.clientX, y: event.clientY, moved: false };
+    //: from where it is drawn and everything it was doing stops, once the
+    //: press becomes a pull (below). A press that is a click stops nothing:
+    //: halting on the press woke it before its click could see it asleep,
+    //: so a sleeping companion answered a click as if awake, at once
+    //: (companionfeel.js: "wave" 200ms after clicking it asleep).
+    drag = { box: null, sx: event.clientX, sy: event.clientY, x: event.clientX, y: event.clientY, moved: false };
     face.setPointerCapture(event.pointerId);
   });
   face.addEventListener("pointermove", (event) => {
@@ -6799,6 +6950,16 @@ function nameMarkBuddyBuild() {
     if (!drag.moved && Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 4) return;
     if (!drag.moved) {
       drag.moved = true;
+      const box = buddy.getBoundingClientRect();
+      nmb.anim?.cancel();
+      nmb.hopAnim?.cancel();
+      nmb.glideAnim?.cancel();
+      nameMarkBuddyHalt(buddy);
+      buddy.style.translate = "";
+      nameMarkBuddyPut(buddy, Math.round(box.left), Math.round(box.top));
+      drag.box = buddy.getBoundingClientRect();
+      drag.sx = drag.x;
+      drag.sy = drag.y;
       //: Carried in the window, not in a scroll area: where it lands
       //: decides what it rides next.
       nameMarkBuddyRide(null);
@@ -6865,17 +7026,22 @@ function nameMarkBuddyBuild() {
       return;
     }
     const now = Date.now();
-    const wasAsleep = buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
+    const wasAsleep = buddy.classList.contains("nmb-sleep") || nmb.act === "nap" || nmb.act === "lie";
+    const sinceLast = now - (nmb.lastPoke || 0);
     nmb.lastPoke = now;
     nmb.pokes = [...nmb.pokes.filter((at) => now - at < 20000), now];
     nameMarkReact(face.querySelector(".name-mark"));
-    if (wasAsleep) {
-      nameMarkBuddyWake();
+    const how = nameMarkBuddyClickReaction(wasAsleep, nmb.pokes.length, sinceLast);
+    if (how === "wake" || how === "startle") {
+      if (nmb.act === "lie") nameMarkBuddyAct("");
+      nameMarkBuddyFeel(how === "startle" ? -0.1 : 0);
+      nameMarkBuddyWake(true, how === "startle");
       return;
     }
     //: **Poked too often** (four times in twenty seconds): grumpy for half
     //: a minute. It turns away, says so, and will not look at you.
-    if (nmb.pokes.length >= 4) {
+    if (how === "grumpy") {
+      nameMarkBuddyFeel(-0.4);
       nmb.grumpyUntil = now + 30000;
       nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.25);
       nameMarkBuddyRelease();
@@ -6891,8 +7057,11 @@ function nameMarkBuddyBuild() {
     }
     nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
     nmb.mood.curiosity = Math.min(1, nmb.mood.curiosity + 0.05);
-    nameMarkBuddyExpress(nmb.pokes.length >= 3 ? "laughing" : "happy", 2600);
-    if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : "wave");
+    nameMarkBuddyFeel(how === "playful" ? 0.08 : 0.12);
+    //: Pleased, then playful: the face holds a few seconds and comes down
+    //: through a smaller one (`NMB_EXPR_SOFTEN`), never straight back.
+    nameMarkBuddyExpress(how === "playful" ? "laughing" : "happy", 3200);
+    if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : how === "playful" ? "wiggle" : "wave");
     nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
   });
   face.addEventListener("dblclick", () => openNameMarkViewer(buddy.dataset.seed || ""));
@@ -6906,9 +7075,16 @@ function nameMarkBuddyBuild() {
   face.addEventListener("pointerenter", (event) => {
     if (event.pointerType !== "mouse" || drag) return;
     unpet();
+    nameMarkBuddyHover(0);
     pet = setTimeout(() => {
       pet = 0;
-      if (face.matches(":hover")) nameMarkBuddyPet();
+      if (!face.matches(":hover")) return;
+      nameMarkBuddyPet();
+      //: Still there: a dozing companion wakes for you.
+      pet = setTimeout(() => {
+        pet = 0;
+        if (face.matches(":hover")) nameMarkBuddyHover(1800);
+      }, 1800 - NMB_PET_MS);
     }, NMB_PET_MS);
   });
   face.addEventListener("pointerleave", unpet);

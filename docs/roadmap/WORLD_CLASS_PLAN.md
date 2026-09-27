@@ -2494,3 +2494,37 @@ not too fast; the rule is simply one number per published release.
   design (B6) made real, extensions (B8).
 - **1.0.0:** a stable API (B7), a screen-reader-audited UI, the installer
   and update path proven on clean Windows machines, and the docs complete.
+
+## Placed from INBOX, 2026-09-27 (399)
+
+399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
+    class plan?? can you poke more holes in the application for bugs,
+    security, poor learnaility/utility/usability/accessibility and more??
+    make sure everything works on the windows packaged installer and the
+    version it installs. make sure all the update features in the about
+    settings page as well as the auto updates in the bat and sh files work.
+    keep design consistent, expand professional and modern design. maximise
+    usability and learnability. poke holes in the application as in find
+    bugs, security flaws places where there is unintuitive design, poor
+    information architecture, poor design, poor ui and ux, poor
+    learnability/usability/heirarchy/spacing and more. hit the open items and
+    plans in open.md. finish all unfinished work. majorly optimise at the
+    level of professional applications. make everything feel like it is a
+    professional application and not just a demo. maximise use of affordances
+    and semiotics. look at websites like motion.dev for ui and component
+    refinement, bklit.ui, kokonut ui etc so make sure none of the ui elements
+    are unprofessionally designed or act in a wierd way. ... dont let my
+    additions distract you, add them to the list and continue, never leave
+    anything half finished, not properly done, or untouched."
+    Placed as four agent briefs, run as slots free: (1) WORLD_CLASS_PLAN
+    rows not built, grepped first, with the list reported back; (2) a hole
+    poke (bugs, security, a11y, IA, spacing) with a finding table and fixes;
+    (3) the Windows installer, the installed version and the update paths
+    (About's updater, `start-*.bat`/`.sh` auto-update), tested in a scratch
+    copy per CLAUDE.md's trap; (4) component refinement against motion.dev,
+    kokonut and bklit patterns (motion, hover, focus, press states).
+    Part (4) built c3bbefc: every transition on `--motion-*` and `--ease-*`
+    (`tests/test_motion_tokens.py`), a hover is a colour never a filter
+    (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
+    toasts fade out, skeletons in the Library and Timeline. Menus' exit left
+    to the menu agent (agent-remaining/perfpolish.md).

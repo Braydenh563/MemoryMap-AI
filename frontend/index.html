@@ -983,6 +983,8 @@
       <aside class="card sidebar-panel" id="sidebar">
         <div class="row space-between sidebar-head">
           <h2>Categories</h2>
+          <!-- INBOX 431 (e): the Manage categories panel (notes-list.js). -->
+          <button type="button" id="manage-categories-btn" class="ghost small icon-only" title="Manage categories: rename, merge, split, delete" aria-label="Manage categories"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
         </div>
         <ul id="category-list"></ul>
         <div id="most-used-box" class="hidden">
@@ -9785,6 +9787,16 @@ Link to another note with [[its first few words]]."></textarea>
                    front; the model still decides anything they decline, so
                    this trades accuracy for speed rather than turning the AI
                    off. -->
+              <!-- INBOX 431 (e): the same panel as the notes sidebar's
+                   Categories head, for the person who looks for it here,
+                   beside the settings for how notes are filed. -->
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Categories</span>
+                  <small class="muted">Rename, merge, split or delete categories, and move notes between them.</small>
+                </div>
+                <button type="button" id="settings-manage-categories" class="ghost small setting-control">Manage categories</button>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Categories can be managed by hand: a Manage categories panel (from the Categories head in the notes sidebar, each category's menu, and Settings) renames, merges, splits (pick the notes, or review a split suggested from their tags) and deletes categories, asking where the notes go; notes move by ticking them and choosing Move to, or by dragging a note's category label onto another category. Every change can be undone.
 - Atlas can lie down to sleep on its own nebula stream, which gathers under it as a bed: sprawled with an arm behind his head (masculine) or curled on her side with her hands under her cheek (feminine), either way round, through in-between frames from sitting, and can also curl up where it sits.
 - Atlas's arms match its mood, differently for each look and in up to three variations: open or raised when happy, a hand to the mouth when laughing, at the chin or folded when thinking, up when surprised, scratching its head when confused, rubbing an eye when sleepy, hanging when sad, on the hips when proud, clasped when shy or worried, and to the chest in love.
 - Atlas can lean to the left or right while still facing forward: the body turns a few degrees about the feet, the head follows a little further with the face turning that way, and the tail and the nebula catch up a beat later and settle, all eased over about a third of a second.

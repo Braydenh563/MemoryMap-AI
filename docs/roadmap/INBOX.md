@@ -99,6 +99,11 @@ with its owner named in the entry.
      and delete tag; documents; whiteboard cards and links; mind map nodes)
      gets an audited, discoverable manual path, each gap fixed, and a lint
      that fails when a new write tool has no named UI entry point.
+     **Built 2026-09-27** (e): the Manage categories panel and routes
+     (create, merge, split, proposed split, move, delete into), and the
+     parity lint, `tests/test_manual_parity.py`, naming the manual path of
+     every write tool. Left: the proposed split groups by tags; an AI
+     proposal would need the model.
      (f) The owner, with a screenshot of the Documents AI assistant dialog:
      "I actually reallly like the design of the document editor's ai
      assistant popup panel. especially with the design of the close,

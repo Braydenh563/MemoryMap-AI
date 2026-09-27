@@ -1403,6 +1403,16 @@ function entryItem(entry, options = {}) {
     //: notes" as accent pills too.
     const categoryEl = chip(entry.category, "category");
     categoryEl.style.setProperty("--category-dot", categoryDotColour(entry.category));
+    //: The drag handle for moving this note to another category (INBOX 431
+    //: (e), `wireCategoryDropTarget`): only in a list with actions.
+    if (options.actions && !entry.is_board) {
+      categoryEl.draggable = true;
+      categoryEl.title = `${entry.category}: drag onto a category in the sidebar to move this note`;
+      categoryEl.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData("text/x-memorymap-note", String(entry.id));
+        event.dataTransfer.effectAllowed = "move";
+      });
+    }
     meta.appendChild(categoryEl);
   }
   //: `hashtag` marks a real tag: `tag` alone is also the quiet look the

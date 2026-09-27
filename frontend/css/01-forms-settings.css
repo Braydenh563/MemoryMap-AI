@@ -2324,8 +2324,10 @@ progress {
   /* 24rem, not 20: measured at 1440px the narrower track gave four columns
      and truncated half the category names in the right-hand meta column to
      "U…". Three wider columns fit the same rows with the meta intact, which
-     is the whole point of having it. */
-  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+     is the whole point of having it. `min(24rem, 100%)`, because a phone's
+     list is narrower than one track: at 390 the 384px column ran past the
+     card and put every row's date off the right edge (INBOX 430). */
+  grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr));
   gap: var(--space-1) var(--space-5);
 }
 

@@ -62,3 +62,12 @@ def test_a_declined_leave_puts_the_history_step_back() -> None:
     assert "if (tabSwitchDeclined) return;" in _fn(NAV, "openHistoryEntry")
     walk = _fn(NAV, "goToTabHistory")
     assert "tabHistory.index = from;" in walk and "history.go(from - next);" in walk
+
+
+CONFLICT = (ROOT / "frontend" / "edit-conflict.js").read_text(encoding="utf-8")
+
+
+def test_compare_is_drawn_once_however_often_it_is_pressed() -> None:
+    # Compare awaits the library bundle before drawing; a second press in
+    # that wait drew the comparison twice.
+    assert "if (drawing) return;" in CONFLICT and "drawing = false;" in CONFLICT

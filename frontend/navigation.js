@@ -1645,7 +1645,62 @@ document.addEventListener("click", (event) => {
 //: `switchTab`).
 const lazyTabsReady = new Set();
 
+// --- leaving with unsaved work (WORLD_CLASS_PLAN 22.1 item 4) ---------------
+//
+// Reported gap: "No beforeunload guard anywhere; the drafts cover the
+// capture box, but a document mid-save, a board mid-drag and a chat
+// mid-stream are not checked." This covers the three surfaces whose "has
+// this been saved yet" is a plain flag rather than something that needs
+// asking a server: the note edit form, the Capture box, and a document
+// mid-autosave. Each surface keeps the one flag its own Save button already
+// reads (`docDirty` in documents.js, `noteFormDirty` below), so this is a
+// second reader of each, never a second writer: no parallel dirty state to
+// fall out of step with the original.
+//
+// `typeof` guards a lazy surface's flag (`docDirty`): the Documents tab's
+// own file may not have loaded yet, in which case there is nothing open
+// there to lose, the same reasoning `switchTab`'s own `graphSimulation`
+// check below already uses for a lazy tab that was never visited.
+function hasUnsavedWork() {
+  if (typeof docDirty !== "undefined" && docDirty) return true;
+  if (typeof noteFormDirty !== "undefined" && noteFormDirty && editingId !== null) return true;
+  //: The capture box keeps its own draft in localStorage already (a reload
+  //: recovers it), but a person switching tabs mid-thought should still be
+  //: asked, the same as any other surface: an unsaved note is unsaved
+  //: whether or not there happens to be a safety net under it.
+  const capture = $("entry-content");
+  if (capture && capture.value.trim()) return true;
+  return false;
+}
+
+//: The one `beforeunload` guard for all three surfaces above (the narrower,
+//: `docDirty`-only listener that used to live in documents.js is folded into
+//: this one, so there is one place that decides "would leaving lose
+//: something", not one per surface). Native browsers ignore the string and
+//: show their own wording; `returnValue` is set for the ones that still read
+//: it.
+window.addEventListener("beforeunload", (event) => {
+  if (!hasUnsavedWork()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+//: The same question, asked in the app's own confirm dialog, for a
+//: navigation that stays inside the app (a tab press, a back-stack replay,
+//: a deep link) rather than one that leaves it. Only when the destination is
+//: actually a different tab: re-pressing the tab already on screen is not a
+//: departure. Declining leaves `switchTab` before it touches the DOM, so the
+//: page in progress is exactly as the person left it.
+async function confirmLeavingUnsavedWork(name) {
+  if (localStorage.getItem("activeTab") === name) return true;
+  if (!hasUnsavedWork()) return true;
+  return confirmDialog(
+    "Leave without saving?\n\nWhat you were working on here hasn't been saved yet."
+  );
+}
+
 async function switchTab(name) {
+  if (!(await confirmLeavingUnsavedWork(name))) return;
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   //, it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
   // on navigating away: so its tick handler kept costing real main-thread

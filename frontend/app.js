@@ -439,10 +439,24 @@ async function api(path, options = {}) {
         `[Network] ${fetchOptions.method || 'GET'} ${path}: ${networkErr.message}`
       ]);
     }
+    //: **The backend is not there to answer, not just this one request.**
+    //: A `TimeoutError` is a slow answer (see the comment above), not proof
+    //: the server is down, so it does not raise the banner; every other
+    //: `fetch()` throw here (connection refused, DNS failure, offline) does.
+    //: `noteServerDown` (status.js) is idempotent, so the dozen requests a
+    //: busy tab fires while the server is stopped raise one banner, not
+    //: twelve.
+    if (networkErr?.name !== "AbortError" && networkErr?.name !== "TimeoutError") {
+      noteServerDown();
+    }
     throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
   }
+  //: `fetch()` returned at all, so whatever HTTP status came back, the
+  //: server answered: the fastest sign it is back after being down, ahead of
+  //: the retry poll's own backoff.
+  noteServerUp();
   if (response.status === 401 && !ownsAuthErrors) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     const locked = new Error("Locked");

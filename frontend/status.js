@@ -943,6 +943,105 @@ function toastAction(message, actionLabel, onAction) {
   box.appendChild(note);
 }
 
+// --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
+//
+// Reported gap: "the server can go away. Only the log view says
+// 'reconnecting'... everywhere else a stopped backend shows as buttons that
+// do nothing." `api()` (app.js) already tells a real network failure (the
+// backend is not there to answer) apart from every other kind of error, it
+// used to just log one and rethrow; now it calls `noteServerDown` there and
+// `noteServerUp` on its next success, so this file never polls a fetch of
+// its own except while there is a failure to recover from.
+//
+// This reuses the toast recipe rather than inventing a banner: same node,
+// same `.toast`/`.toast-action` classes and close button, the one thing
+// different is that it never starts the usual timeout, because the message
+// it carries stays true until the retry says otherwise. `noteServerDown`
+// is idempotent (a second failed request while the banner is already up is
+// a no-op, no stacked banners, no restarted backoff), and there is exactly
+// one retry loop, cancelled and restarted from one place
+// (`scheduleServerDownRetry`) so a manual Retry press and the poll it
+// interrupts can never both be running at once.
+let serverUnreachable = false;
+let serverDownNote = null; // the persistent toast's own node, or null
+let serverDownRetryTimer = null;
+const SERVER_DOWN_RETRY_MIN_MS = 3000;
+const SERVER_DOWN_RETRY_MAX_MS = 30000;
+let serverDownRetryDelay = SERVER_DOWN_RETRY_MIN_MS;
+
+function showServerDownBanner() {
+  if (serverDownNote && serverDownNote.isConnected) return; // already up
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = "toast error server-down-toast";
+  const text = document.createElement("span");
+  text.textContent = "Can't reach MemoryMap. Retrying…";
+  const button = document.createElement("button");
+  button.className = "small toast-action";
+  button.textContent = "Retry";
+  button.addEventListener("click", () => retryServerNow());
+  note.append(text, button, toastCloseButton(note, null));
+  box.appendChild(note);
+  serverDownNote = note;
+}
+
+function noteServerDown() {
+  serverUnreachable = true;
+  showServerDownBanner();
+  scheduleServerDownRetry();
+}
+
+//: Cheap to call on every successful request, not just from the retry poll:
+//: an ordinary request succeeding is the fastest possible sign the server is
+//: back, no reason to make someone wait out the backoff for it.
+function noteServerUp() {
+  if (!serverUnreachable) return;
+  serverUnreachable = false;
+  serverDownRetryDelay = SERVER_DOWN_RETRY_MIN_MS;
+  if (serverDownRetryTimer) {
+    clearTimeout(serverDownRetryTimer);
+    serverDownRetryTimer = null;
+  }
+  if (serverDownNote) {
+    dismissToast(serverDownNote);
+    serverDownNote = null;
+  }
+}
+
+function scheduleServerDownRetry() {
+  if (serverDownRetryTimer) return; // one loop at a time
+  serverDownRetryTimer = setTimeout(async () => {
+    serverDownRetryTimer = null;
+    await pollServerHealth();
+  }, serverDownRetryDelay);
+  serverDownRetryDelay = Math.min(serverDownRetryDelay * 2, SERVER_DOWN_RETRY_MAX_MS);
+}
+
+//: `/health` takes no auth and answers before the lock screen, the same
+//: reason the startup probe uses it: it is the cheapest possible "is
+//: anything listening" question, and does not confuse "the server is up but
+//: this endpoint needs a token" with "there is no server".
+async function pollServerHealth() {
+  try {
+    const response = await fetch("/health", { signal: AbortSignal.timeout(4000) });
+    if (response.ok) {
+      noteServerUp();
+      return;
+    }
+  } catch {
+    // still down; fall through to reschedule
+  }
+  if (serverUnreachable) scheduleServerDownRetry();
+}
+
+function retryServerNow() {
+  if (serverDownRetryTimer) {
+    clearTimeout(serverDownRetryTimer);
+    serverDownRetryTimer = null;
+  }
+  pollServerHealth();
+}
+
 // --- global undo/redo (status bar) ------------------------------------------------
 //
 // The app already had per-action undo scattered across it, a toast's Undo

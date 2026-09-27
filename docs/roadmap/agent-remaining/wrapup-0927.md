@@ -112,64 +112,59 @@ written.
 
 ## Companion (avatars.js)
 
-- [ ] Emotes and acts on click must ease back to the prior state, never
-  cut back after a few seconds.
-- [ ] Covers content again (sat over the Weekly digest text): size and
-  proportion depend on the perch; it scales down where space is small
-  and never overlaps text.
-- [ ] Tab switch: it stayed visible on the new tab for a split second,
-  vanished, then came back with barely an entrance; it must hide on
-  leave and arrive with a real entrance, with no startle.
-- [ ] Chat switch: it was left floating mid-panel for seconds after its
-  perch (a button on an empty chat) went away; re-perch at once.
-- [ ] Tab switch: the companion must arrive (walk, hop, climb or portal),
-  never just appear. Reproduce with motion auto and reduced.
-- [ ] Never perch inside a text block (it sat in the Weekly digest
-  paragraph); resolve the final perch before the entrance, no post-appear
-  blink. Sweep: settled rect never overlaps a text node in a card.
-- [ ] Lean jitter: hysteresis (enter 0.7, leave 0.3), 1.2 to 1.5s dwell,
-  smoothed gaze, no lean on flicks. At most 2 lean changes in a 5s 2Hz sweep.
-- [ ] Perf auto must not stop companion travel; reduced motion fades instead
-  of popping; a "Companion movement" setting (follow, always animate, fades
-  only) whose hint names the reason (OS, setting, perf).
-- [ ] Avatar lab: a picked motion stays pinned, "Live behaviour" toggle off
-  by default; no standing sleep; night cap only when lying or curled.
-  Check companion-sim for the same.
-- [ ] Settings > Personas: Atlas clipped to its circle (and every persona
-  and profile circle).
-- [ ] No silent random custom face; "Create your avatar" with a link to
-  Settings > Profile where "you" is offered, and in the companion menu.
-- [ ] Saved companion presets, on the custom-themes pattern.
-- [ ] Small toolbar buttons: perching never blocks the click.
-- [ ] Wire the Atlas hooks: `data-lean`, `data-atlas-variant`, `data-pose`
-  lie-1, lie-2, lie, curl-1, curl.
-- [ ] Deferred unless small: an arm rig that can cross in front of the body.
-- [ ] The owner, high priority: "when atlas is sleeping and i click it, it
-  opens its eyes and mouth for a sec like it is startled but then falls
-  back asleep a second later making it feel like the sleep is fake. it
-  needs ot be a gradual fall back asleep. maybe a pout or getting a
-  temporarily a little mad if it happens multiple times consecutively or in
-  a short time span etc. make sure that random sudden movements dont happen
-  too frequently or randomly. it cant be distracting for the user". A click
-  asleep wakes it gradually (slow lids, a yawn, a stretch), awake at least
-  20 to 30s, drowsiness back over time before sleep over several seconds;
-  repeated clicks go sleepy-annoyed (pout, huff), then grumpy, then decay;
-  no instant revert. A calm budget: at most one attention-grabbing act
-  every 60 to 90s, never while typing or scrolling nearby. Tests: the state
-  transitions and the rate cap.
-- [ ] The owner: "the companion was sleeping but then when I clicked a
-  different tab, for a split second I saw it shoot back up look alive
-  suddenly and look surprised". Sleep persists across moves: carried asleep
-  (fades or poofs, arrives lying or curled) or woken gradually before a
-  walk; no reset to an awake or surprised pose on reposition, remount or
-  tab change. Test: sleep plus a tab switch never shows an awake frame.
-- [ ] The owner: "the companion gets frozen in its animation and with the
-  exact same half lidded half mouth open expression every time when I hold
-  down ctrl". Holding Ctrl keeps its live face and animation.
-- [ ] The owner, again: Atlas sat over the Weekly digest paragraph, and
-  scrolled, looked perched on the status bar. Top edges only, never inside
-  a card's content below its heading; every settle validated against text
-  rects; on scroll it stays on its edge or hops to a valid one.
+Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
+
+- [x] Emotes and acts on click ease back: an act's face lets go over 1.8s
+  (`nmb-easing`); companionactease.js, a cheer's eyes 104ms before, 1307ms.
+  Atlas's own poke moods (atlas.js `ATLAS_POKES`) still snap back after
+  1.8s: the Atlas agent's, with `atlasEase`.
+- [x] Covers content: top edges only, rows inside a card are not ledges,
+  every perch it would take is measured for words (`nameMarkBuddyWordsUnder`),
+  0.75 of its size to fit a small clean perch, else tucked behind the bar.
+  perchwords.js, four tabs by six scroll positions, chosen and settled:
+  15 of 38 bad before, 0 after; 1440x900 0 of 38.
+- [x] Tab switch: gone in the same frame as its tab (11 frames on the new
+  tab before, 0); the materialise drifts onto its perch; out of sight no
+  longer cancels the follow (it stayed away until the next switch).
+- [x] Chat switch: a perch that goes is replaced in 250ms (perchgone.js,
+  floated 2241ms before, 257ms).
+- [x] Tab switch arrives by a walk, climb or materialise; a fade under
+  reduced motion or Fades only; companiontabswitch.js passes with motion
+  auto, reduced, Performance mode on and auto, Fades only, Always.
+- [x] Never over text; perchtext.js 0 square px on every arrival, no poof
+  after arriving (and perchwords.js above).
+- [x] Lean: leanflick.js, 0 changes in a 5s 2Hz sweep, a held pointer
+  leans once (a face by `--nmb-tilt`, Atlas by `data-lean`).
+- [x] Perf auto keeps travel; Companion movement hint names the reason,
+  now also what Always overrides (OS, app).
+- [x] Avatar lab pin: labpin.js, the pick stays, no cap standing.
+  companion-sim has no mood picker; its auto beats are off by default.
+- [x] Persona and profile circles: personaclip.js, every face `circle(50%)`.
+- [x] Create your avatar: makeavatar.js, the hint, the Profile maker and the
+  companion menu row.
+- [x] Saved companions: buddypresets.js, apply, rename, delete.
+- [x] Small buttons: perchbuttons.js, every button still takes its click
+  under it (middle and top).
+- [x] Atlas hooks wired: `data-lean`, `data-atlas-variant` (per new place;
+  a lie-down's side), lie-1 > lie-2 > lie and back, sit > curl-1 > curl and
+  back, kept across a carry (companionlie.js).
+- [ ] Deferred: an arm rig that can cross in front of the body (not small:
+  the arms are separate svg roots behind the body in every look).
+- [x] Sleep and clicks (companion side): a poke wakes it over seconds
+  (eyes open over 1.25s, was 122ms), awake 45s, drowsy before sleep, a
+  second poke pouts, a third is grumpy and comes down through a pout; a
+  click near it only stirs it; a calm budget (one sudden act in 60 to 90s,
+  none while typing or scrolling). atlassleepinput.js COMPANION_ONLY=1 and
+  companionsleeptab.js pass. **Open, atlas.js** (the Atlas agent): its
+  global pointerdown/keydown listener still sets every Atlas "surprised"
+  for 700ms and snaps back; atlassleepinput.js without COMPANION_ONLY
+  measures it (Ctrl held: 40 of 40 frames off "sleepy").
+- [x] Sleep across moves and tabs: carried asleep by a fade, in by a fade,
+  lying or curled on arrival; companionsleeptab.js 0 awake frames of 466
+  (83 walking asleep before).
+- [ ] Ctrl held: the companion side holds (0 awake frames); the frozen
+  face is atlas.js's listener above, with the Atlas agent.
+- [x] Perch rules (the Weekly digest report): see "Covers content".
 
 ## App (Sonnet)
 

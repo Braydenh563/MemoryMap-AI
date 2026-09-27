@@ -7,8 +7,8 @@
 // the Library. Exits 1 when it shows on a tab it has not followed to, when
 // a flick makes it disappear for longer than the flick, or when it arrives
 // with no entrance animation.
-// Leaving is a 200ms fade (`--motion-slow`; the owner asked for a fade
-// rather than a cut, 2026-09-27), so "hidden" is read 250ms after a switch.
+// Leaving is in the same frame as its tab (the owner, 2026-09-27: a fade
+// left it "visible on the new tab for a split second"); read 50ms after.
 // MOTION=reduce boots with the system's reduced motion (the entrance must
 // then be a fade where it is, never a pop or a walk); PERF=auto leaves
 // Performance mode on Auto, which on this small sandbox turns it on (the
@@ -50,7 +50,7 @@ const { boot } = require("./lib.js");
   console.log("start:", JSON.stringify(before));
   // 1. A flick away and straight back.
   await page.evaluate(() => switchTab("notes"));
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(50);
   const onNotes = await state();
   await page.waitForTimeout(230);
   await page.evaluate(() => switchTab("dashboard"));
@@ -62,7 +62,7 @@ const { boot } = require("./lib.js");
   let shownWhileAway = 0;
   for (const tab of ["notes", "chat", "graph", "timeline", "reminders"]) {
     await page.evaluate((t) => switchTab(t), tab);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(50);
     for (let i = 0; i < 3; i += 1) {
       await page.waitForTimeout(100);
       const s = await state();

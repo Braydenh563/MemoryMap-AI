@@ -1518,7 +1518,7 @@ function atlasBody(parent, id, props, look, route = null) {
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
-      if (spec.bust) atlasMake("path", { class: "atl-bust", d: atlasScalePathX(spec.bust, atlasTune().bodyWidth, 31) }, torso);
+      if (spec.bust) atlasMake("path", { class: "atl-chest", d: atlasScalePathX(spec.bust, atlasTune().bodyWidth, 31) }, torso);
       //: **The constellation, faded** (round 6). The owner's screenshot:
       //: "a bright four-point star with lines" on the chest, read as a
       //: badge. It was a white four-point star 7.6 units across with four

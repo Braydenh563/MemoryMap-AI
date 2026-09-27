@@ -209,5 +209,5 @@ def test_the_feminine_chest_is_a_subtle_contour():
     assert "bust" not in _look("masculine")
     torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
     assert torso.count("C") == 5  # two per flank and the hem: atlasTorsoEdge counts on it
-    rule = re.search(r"\.nm-atlas \.atl-bust \{[^}]*opacity: ([0-9.]+)", CSS)
+    rule = re.search(r"\.nm-atlas \.atl-chest \{[^}]*opacity: ([0-9.]+)", CSS)
     assert rule and float(rule.group(1)) <= 0.25

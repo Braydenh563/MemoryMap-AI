@@ -7931,7 +7931,7 @@ const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
   { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
-  { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+  { kind: "link", label: "Bookmarks", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your bookmarks…" },
   {
     kind: "board",
     label: "Boards and maps",
@@ -9406,7 +9406,7 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
   const attachButton = document.createElement("button");
   attachButton.type = "button";
   attachButton.className = "ghost small";
-  setLabel(attachButton, "ph:link Attach a link");
+  setLabel(attachButton, "ph:link Attach a bookmark");
   attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
 
   async function refresh() {
@@ -9459,13 +9459,13 @@ async function openBookmarkAttachPicker(entry, panel) {
     return;
   }
   if (!all.length) {
-    toast("No saved links yet, add one in Library → Links first.");
+    toast("No saved bookmarks yet, add one in Library → Bookmarks first.");
     return;
   }
   const select = document.createElement("select");
   select.className = "bookmark-attach-picker";
   const placeholder = document.createElement("option");
-  placeholder.textContent = "Pick a saved link…";
+  placeholder.textContent = "Pick a saved bookmark…";
   placeholder.value = "";
   select.appendChild(placeholder);
   for (const bookmark of all) {
@@ -33349,7 +33349,7 @@ function paletteCommands() {
       },
     },
     {
-      label: "ph:link Browse links",
+      label: "ph:link Browse bookmarks",
       run: () => {
         switchTab("library");
         document.querySelector('#library-subtabs button[data-target="library-view-links"]')?.click();
@@ -49042,7 +49042,7 @@ const FINDER_KINDS = [
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
   { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
-  { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
+  { key: "bookmark", icon: "ph:bookmark-simple", one: "bookmark", many: "bookmarks" },
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
   { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
 ];

@@ -3453,7 +3453,7 @@
           <div id="doc-bookmarks-wrap" class="doc-outline-wrap">
             <h3>References</h3>
             <ul id="doc-bookmarks" class="doc-outline"></ul>
-            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a link</button>
+            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a bookmark</button>
           </div>
 
           <!-- "Where are they stored?" was asked outright, and the app had no
@@ -4295,7 +4295,7 @@
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="images">Images</button>
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="files">Files</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI skills</button>
-      <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
+      <button role="tab" aria-selected="false" data-target="library-view-links">Bookmarks</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
     </div>
 
@@ -6131,19 +6131,19 @@
            button, so it needs no listener of its own and cannot drift from
            what that button does: it puts the cursor in the URL field. -->
       <div class="dock" data-dock-name="library-links" role="toolbar"
-        aria-label="Saved link controls">
+        aria-label="Saved bookmark controls">
         <div class="dock-identity">
-          <h2>Links</h2>
+          <h2>Bookmarks</h2>
         </div>
         <div class="dock-group dock-find">
           <input id="bookmark-search" type="search" class="library-search"
-            placeholder="Search saved links…" aria-label="Search saved links">
+            placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
         </div>
         <div class="dock-group dock-arrange">
           <!-- Same shape and same place as the Notes and Files sort controls.
                The Library sub-tabs were reported as "missing sorting and
                filtering options", and this is the third of them to get one. -->
-          <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
+          <select id="bookmark-sort" aria-label="Sort bookmarks" title="Sort bookmarks">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
             <option value="az">Title A → Z</option>
@@ -6153,8 +6153,8 @@
         </div>
         <div class="dock-actions">
           <button id="bookmark-add" class="small" type="button"
-            data-empty-action="add-link" title="Save a new link">
-            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add link</button>
+            data-empty-action="add-link" title="Save a new bookmark">
+            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
           <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">
@@ -6186,11 +6186,11 @@
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
-        <p class="empty-title">No links saved yet</p>
+        <p class="empty-title">No bookmarks saved yet</p>
         <p>Add a website to keep it a click away.</p>
-        <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a link</button>
+        <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a bookmark</button>
       </div>
-      <p id="bookmark-no-match" class="muted hidden">No links match your search.</p>
+      <p id="bookmark-no-match" class="muted hidden">No bookmarks match your search.</p>
     </section>
   </div>
 

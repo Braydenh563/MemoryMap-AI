@@ -7554,7 +7554,7 @@ onDomReady(() => {
       groupInput.value = "";
       urlInput.focus();
       if (created.duplicate_of) {
-        toast(`Saved: you already had this link (${created.title || created.url}).`);
+        toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
       }
       renderBookmarks();
     } catch (error) {
@@ -7807,7 +7807,7 @@ onDomReady(() => {
 
   const linksList = document.getElementById("bookmark-list");
   if (linksList && !document.getElementById("library-links-selectbar")) {
-    const bar = createLibrarySelectbar("library-links", "Actions for the selected links");
+    const bar = createLibrarySelectbar("library-links", "Actions for the selected bookmarks");
     linksList.parentNode.insertBefore(bar, linksList);
     document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
@@ -7864,7 +7864,7 @@ async function bulkDeleteLibraryLinks() {
   const links = [...libraryLinksSelection.values()];
   if (!links.length) return;
   if (
-    !(await confirmDialog(`Delete ${links.length} selected link${links.length === 1 ? "" : "s"}?`))
+    !(await confirmDialog(`Delete ${links.length} selected bookmark${links.length === 1 ? "" : "s"}?`))
   ) {
     return;
   }
@@ -7878,9 +7878,9 @@ async function bulkDeleteLibraryLinks() {
     }
   }
   libraryLinksSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} link${deleted === 1 ? "" : "s"}.`);
+  if (deleted) toast(`Deleted ${deleted} bookmark${deleted === 1 ? "" : "s"}.`);
   const failed = links.length - deleted;
-  if (failed) toast(`${failed} link${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  if (failed) toast(`${failed} bookmark${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
   renderBookmarks();
 }
 
@@ -7945,7 +7945,7 @@ async function renameBookmarkGroup(from, to) {
       });
       moved++;
     } catch (error) {
-      toast(error.message || "Couldn't move that link.", true);
+      toast(error.message || "Couldn't move that bookmark.", true);
     }
   }
   const empties = emptyBookmarkGroups().filter((g) => g !== from);
@@ -7973,13 +7973,13 @@ async function newBookmarkGroup() {
     return;
   }
   setEmptyBookmarkGroups([...emptyBookmarkGroups(), name]);
-  // Pre-fill the Add form so the obvious next move, saving a link into the
-  // group you just made, needs no second trip to the group field.
+  // Pre-fill the Add form so the obvious next move, saving a bookmark into
+  // the group you just made, needs no second trip to the group field.
   const groupInput = $("bookmark-group-input");
   if (groupInput) groupInput.value = name;
   bookmarkGroupFilter = name;
   renderBookmarks();
-  toast(`Group "${name}" created. Add a link to it, or it'll be forgotten on the next device.`);
+  toast(`Group "${name}" created. Add a bookmark to it, or it'll be forgotten on the next device.`);
 }
 
 //: The manage dialog. Built by hand rather than reusing confirmDialog because
@@ -7990,7 +7990,7 @@ function manageBookmarkGroups() {
   overlay.className = "modal-overlay confirm-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Manage link groups");
+  overlay.setAttribute("aria-label", "Manage bookmark groups");
 
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card bookmark-groups-card";
@@ -7999,7 +7999,7 @@ function manageBookmarkGroups() {
   const blurb = document.createElement("p");
   blurb.className = "muted text-sm";
   blurb.textContent =
-    "Renaming a group moves every link in it. Deleting one keeps the links and just ungroups them.";
+    "Renaming a group moves every bookmark in it. Deleting one keeps the bookmarks and just ungroups them.";
   const list = document.createElement("div");
   list.className = "bookmark-groups-list";
 
@@ -8026,7 +8026,7 @@ function manageBookmarkGroups() {
     if (!groups.length) {
       const none = document.createElement("p");
       none.className = "muted";
-      none.textContent = "No groups yet. Use “New group”, or type a group name when you add a link.";
+      none.textContent = "No groups yet. Use “New group”, or type a group name when you add a bookmark.";
       list.appendChild(none);
       return;
     }
@@ -8041,7 +8041,7 @@ function manageBookmarkGroups() {
       name.textContent = group.split("/").join(" / ");
       const meta = document.createElement("span");
       meta.className = "muted text-sm";
-      meta.textContent = count === 0 ? "Empty" : `${count} link${count === 1 ? "" : "s"}`;
+      meta.textContent = count === 0 ? "Empty" : `${count} bookmark${count === 1 ? "" : "s"}`;
       label.append(name, meta);
 
       const actions = document.createElement("div");
@@ -8053,13 +8053,13 @@ function manageBookmarkGroups() {
           const moved = await renameBookmarkGroup(group, next);
           await renderBookmarks();
           paint();
-          toast(moved ? `Moved ${moved} link${moved === 1 ? "" : "s"} to "${next}".` : `Renamed to "${next}".`);
+          toast(moved ? `Moved ${moved} bookmark${moved === 1 ? "" : "s"} to "${next}".` : `Renamed to "${next}".`);
         }),
         smallButton("ph:trash", `Delete "${group}"`, async () => {
           const ok = await confirmDialog(
             count === 0
               ? `Delete the empty group "${group}"?`
-              : `Delete the group "${group}"? Its ${count} link${count === 1 ? "" : "s"} stay: they just stop being grouped.`
+              : `Delete the group "${group}"? Its ${count} bookmark${count === 1 ? "" : "s"} stay: they just stop being grouped.`
           );
           if (!ok) return;
           await deleteBookmarkGroup(group);
@@ -8368,7 +8368,7 @@ function bookmarkRow(bookmark) {
       event.preventDefault();
       const url = urlInput.value.trim();
       if (!url) {
-        toast("A link needs a URL.", true);
+        toast("A bookmark needs a URL.", true);
         urlInput.focus();
         return;
       }
@@ -8385,7 +8385,7 @@ function bookmarkRow(bookmark) {
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
-        toast(error.message || "Couldn't save that link.", true);
+        toast(error.message || "Couldn't save that bookmark.", true);
       }
     });
 
@@ -8432,15 +8432,15 @@ function bookmarkRow(bookmark) {
   //: Library could get a URL back out of the notebook.
   const menu = kebabMenu(
     [
-      makeMenuItem("ph:pencil-simple Edit this link", "Change the title, address or group", startEditing),
-      makeMenuItem("ph:folder-simple Move to group", "Move this link to a group", moveToGroup),
-      makeMenuItem("ph:copy Copy link", "Copy the address to the clipboard", async () => {
+      makeMenuItem("ph:pencil-simple Edit this bookmark", "Change the title, address or group", startEditing),
+      makeMenuItem("ph:folder-simple Move to group", "Move this bookmark to a group", moveToGroup),
+      makeMenuItem("ph:copy Copy address", "Copy the address to the clipboard", async () => {
         //: `copyToClipboard` flashes the button it is given, and a menu row is
         //: gone by the time it would: it says so in a toast instead, the same
         //: way every other copy in a menu does.
-        if (await copyToClipboard(bookmark.url)) toast("Link copied.");
+        if (await copyToClipboard(bookmark.url)) toast("Address copied.");
       }),
-      { ...makeMenuItem("ph:trash Delete", "Delete this link", removeBookmark), danger: true },
+      { ...makeMenuItem("ph:trash Delete", "Delete this bookmark", removeBookmark), danger: true },
     ],
     `Actions for ${bookmark.title || bookmark.url}`,
   );

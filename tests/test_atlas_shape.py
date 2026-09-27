@@ -111,7 +111,8 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert "pts.map(([fwd, side]) => [fwd, -side]).reverse()" in ATLAS  # the other foot joins its leg
     assert "ATLAS_SCALP_PARTS" not in ATLAS  # no fringe
     assert "stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; opacity: 0.26;" in CSS
-    assert 'if (spec.scalp && !tiny) atlasScalp(sway, id);' in ATLAS
+    # Round 9: the scalp became the hair's cap, drawn for both looks.
+    assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
     widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
@@ -266,3 +267,110 @@ def test_the_feminine_silhouette_is_one_body_arms_and_hair_grown_from_it():
         for x, y in roots:
             assert (float(x) - 31) ** 2 + (float(y) - 23) ** 2 < 13 ** 2, (block, x, y)
     assert 'class: "atl-overlay atl-hair-root"' in ATLAS and ".nm-atlas .atl-hair-root { fill: var(--atl-hroot); }" in CSS
+
+
+
+def test_drowsy_droops_softly_rather_than_staring():
+    # Round 9 (the owner: "the half lidded eyes look a little creepy"): the
+    # lid's edge droops in an arc, the pupils are small and look down, the
+    # mouth relaxes whatever the mood, and a blink lingers closed.
+    start = CSS.index("#nm-buddy.nmb-drowsy .nm-atlas {")
+    drowsy = CSS[start : CSS.index("}", start)]
+    assert "--atl-softlid: 1" in drowsy and "--atl-m-rest: 1" in drowsy and "--atl-m-grin: 0" in drowsy
+    assert "--atl-ps: 0.8" in drowsy and "--atl-py: 1.6px" in drowsy
+    assert '"atl-skin atl-lid-soft"' in ATLAS and ".nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }" in CSS
+    assert "#nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s" in CSS
+    body = _keyframes("atl-blink-heavy").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"opacity"}
+
+
+
+def test_the_lean_hook_turns_the_body_and_the_head_follows_with_lag():
+    # Round 9 (the owner: "tilt their body that way while still mostly
+    # facing forward"): `data-lean="l"|"r"` on #nm-buddy, a figure box or a
+    # drawing. The body turns about the feet, the head follows further, the
+    # pupils slide, and the tail and the nebula lag and settle. Its own
+    # variable, `--atl-lean-dir`, because `--atl-lean` is the pose's lean
+    # in degrees and a shared name silently zeroed every part but the box.
+    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }' in CSS
+    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }' in CSS
+    assert "rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);" in CSS
+    assert "rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg))" in CSS
+    assert "translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py))" in CSS
+    assert ".nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5)" in CSS
+    # Its default is the root's alone: declared on a drawing, an ancestor's
+    # value would never reach the layers.
+    assert len(re.findall(r"--atl-lean-dir:\s*0", CSS)) == 1
+
+
+
+def test_every_mood_places_the_arms_per_look_in_three_variants():
+    # Round 9 (the owner: "the positions of the limbs ... actually match the
+    # mood", then "state variations, not the exact same ... each time").
+    for look in ("masculine", "feminine"):
+        for mood in ATLAS_MOOD_NAMES:
+            if mood == "calm":
+                continue
+            rule = re.search(rf'\.nm-atlas\[data-atlas-look="{look}"\]\[data-atlas-mood="{mood}"\] \{{([^}}]*)\}}', CSS)
+            assert rule, (look, mood)
+            for k in range(3):
+                assert f"--atl-ar{k}:" in rule.group(1) and f"--atl-al{k}:" in rule.group(1), (look, mood, k)
+    # The variant hook inherits from any host, defaulting at the root only.
+    assert '[data-atlas-variant="1"] { --atl-v1: 1; --atl-v2: 0; }' in CSS
+    assert '[data-atlas-variant="2"] { --atl-v1: 0; --atl-v2: 1; }' in CSS
+    assert ".nm-atlas .nmb-arm-r { transform: rotate(calc(var(--atl-ar0) * (1 - var(--atl-v1) - var(--atl-v2))" in CSS
+    # The chin hand is a variant's choice, not thinking's alone.
+    assert "#nm-buddy:not([data-pose=\"hang\"], [data-pose=\"sit\"]) .nm-atlas .atl-chin-hand { opacity: var(--atl-chin); }" in CSS
+
+
+ATLAS_MOOD_NAMES = re.findall(r"^  (\w+): \{ words:", ATLAS[ATLAS.index("const ATLAS_MOODS = {"):], re.M)
+
+
+
+def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
+    # Round 9 (the owner: "when it sleeps can it lay down", "use the nebular
+    # stream as ... a bed to lay on ... and transitions to and from that
+    # state"): frames the companion plays in order, each eased.
+    for pose in ("lie-1", "lie-2", "lie", "curl-1", "curl"):
+        assert f'#nm-buddy[data-pose="{pose}"] .nm-figure {{ --nmb-lean-pose:' in CSS, pose
+    # The stream turns back upright and flattens under the body.
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale:' in CSS
+    # Per look: sprawled with an arm behind the head, or curled with hands
+    # under the cheek and the skirt drawn up.
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
+    # Variant 1 lies the other way round; the Zs and the rings stay upright.
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
+
+
+
+def test_the_masculine_look_is_a_star_being_not_an_animatronic():
+    # Round 9 (the owner: "it still looks like a fnaf character"): no pillar
+    # legs, a torso tapering into nebula wisps, slim bent arms with small
+    # mittens, softer eyes and a gentle idle sway.
+    masculine = _look("masculine")
+    assert "legs: false," in masculine and "lowers: [" in masculine and "skirt:" in masculine
+    assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
+    arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
+    assert arms, "the arm bends: two segments"
+    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }' in CSS
+    assert "&.atl-layer-body[data-atlas-look=\"masculine\"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway" in CSS
+    body = _keyframes("atl-idle-sway").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}
+
+
+
+def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
+    # Round 9 (the owner: "have the hair start a little on the head, not
+    # have it look like a bald head with lots of hair coming from the back").
+    for look in ("masculine", "feminine"):
+        assert "cap: \"M" in _look(look), look
+    assert "capPart: \"M" in _look("feminine")
+    assert "function atlasHairCap(parent, spec)" in ATLAS
+    # Over the head, under the ears, so the ears rise out of it.
+    head = ATLAS[ATLAS.index("function atlasHead("):]
+    assert head.index("atlasHairCap(sway, spec)") < head.index("const ears = atlasEars(sway, level, false, look);")
+    # Round 8's fading scalp is gone with it.
+    assert "function atlasScalp(" not in ATLAS and 'fade("scalp"' not in ATLAS

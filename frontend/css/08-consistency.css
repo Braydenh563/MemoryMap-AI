@@ -5566,14 +5566,90 @@ main,
    crossed. `data-side` is the panel edge it leans on. */
 #nm-buddy .nm-figure {
   transform-origin: 50% 100%;
-  transition: transform var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+  rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);
+  transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out);
 }
-#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { rotate: 8deg; }
-#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { rotate: -8deg; }
+#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { --nmb-lean-pose: 8deg; }
+#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { --nmb-lean-pose: -8deg; }
 #nm-buddy[data-pose="lean"][data-side="left"] .nmb-arm-r { transform: rotate(-75deg); }
 #nm-buddy[data-pose="lean"][data-side="right"] .nmb-arm-l { transform: rotate(75deg); }
 #nm-buddy[data-pose="lean"] .nmb-leg-l { transform: rotate(-12deg); }
 #nm-buddy[data-pose="lean"] .nmb-leg-r { transform: rotate(12deg); }
+
+/* **Lying down on the nebula, and curling up** (round 9, the owner: "when
+   it sleeps can it lay down?? ... masculine and feminine ways", then "use
+   the nebular stream as comfort or a pillow or bed to lay on ... and
+   transitions to and from that state"). Poses for the companion, played
+   as frames in order, each easing into the next (the limbs' transition,
+   the figure's `rotate` and `translate`, the nebula's own slower ease):
+     stand or sit -> `lie-1` (sitting back, the stream starting to gather)
+     -> `lie-2` (half down, propped) -> `lie` (lying on the stream);
+     waking plays them backwards to `sit` or `stand`;
+     sit -> `curl-1` (hunched) -> `curl` (curled up in the stream).
+   The figure turns about its feet and slides back over its own box, so it
+   lies where it sat; the two nebula layers turn back upright and flatten
+   under it into a cushion, and the fx roots (the Zs) turn upright so they
+   still rise. Masculine lies sprawled on his back, an arm behind his head
+   and a knee up; feminine lies curled on her side, hands under her cheek
+   and her skirt drawn up. `data-atlas-variant="1"` lies the other way
+   round (head to the right), for variety. Held transforms at rest. */
+#nm-buddy .nm-figure { translate: var(--nmb-lie-shift); transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out), translate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy :is(.atl-layer-neb, .atl-layer-neb-front) {
+  transition: rotate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast), scale calc(var(--motion-slow) * 4) var(--ease-in-out), translate calc(var(--motion-slow) * 4) var(--ease-in-out);
+}
+#nm-buddy :is(.atl-layer-fx-1, .atl-layer-fx-2) { transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-1"] .nm-figure { --nmb-lean-pose: calc(-24deg + 48deg * var(--atl-v1)); --nmb-lie-shift: 0 0; }
+#nm-buddy[data-pose="lie-2"] .nm-figure { --nmb-lean-pose: calc(-58deg + 116deg * var(--atl-v1)); --nmb-lie-shift: calc(28px - 56px * var(--atl-v1)) -4px; }
+#nm-buddy[data-pose="lie"] .nm-figure { --nmb-lean-pose: calc(-84deg + 168deg * var(--atl-v1)); --nmb-lie-shift: calc(58px - 116px * var(--atl-v1)) -9px; }
+#nm-buddy[data-pose="lie-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(20deg - 40deg * var(--atl-v1)); scale: 0.95 0.8; }
+#nm-buddy[data-pose="lie-2"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(52deg - 104deg * var(--atl-v1)); scale: 1.1 0.6; translate: -4px 0; }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale: 1.12 0.6; translate: calc(-9px + 18px * var(--atl-v1)) 0; }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+/* The rings stay level about the head as it lies, a halo rather than a
+   hoop stood on end; the stream's haze thins so its bed reads. */
+#nm-buddy :is(.atl-layer-back, .atl-layer-front) { transform-origin: 31px 31px; transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-2"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(40deg - 80deg * var(--atl-v1)); }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+#nm-buddy .atl-figure-box > .atl-orbits { transform-origin: 31px 31px; transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-2"] .atl-figure-box > .atl-orbits { rotate: calc(40deg - 80deg * var(--atl-v1)); }
+#nm-buddy[data-pose="lie"] .atl-figure-box > .atl-orbits { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+/* The ground shadow and the dark theme's glow follow the body down. */
+#nm-buddy[data-pose="lie"]::before { left: calc(-6px + 52px * var(--atl-v1)); right: calc(-46px + 52px * var(--atl-v1)); }
+:root[data-theme="dark"] #nm-buddy[data-pose="lie"]::after { top: 26px; height: 56px; left: calc(-8px + 52px * var(--atl-v1)); right: calc(-48px + 52px * var(--atl-v1)); }
+#nm-buddy:is([data-pose="lie-2"], [data-pose="lie"]) .atl-band-haze { opacity: 0.35; }
+/* The near half of the stream lies under the body as its bed, not over it. */
+#nm-buddy[data-pose="lie"] .atl-layer-neb-front { opacity: 0.35; }
+/* Settling: sitting back with the legs out. */
+#nm-buddy:is([data-pose="lie-1"], [data-pose="lie-2"]) .nmb-leg-l { transform: rotate(10deg) scaleY(0.9); }
+#nm-buddy:is([data-pose="lie-1"], [data-pose="lie-2"]) .nmb-leg-r { transform: rotate(-4deg) scaleY(0.9); }
+#nm-buddy[data-pose="lie-1"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
+#nm-buddy[data-pose="lie-1"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
+#nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
+#nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-r { transform: rotate(-60deg); }
+/* Masculine, sprawled: an arm behind the head, the other loose, a knee up. */
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-l { transform: rotate(20deg); }
+#nm-buddy[data-pose="lie"] .nmb-leg-l { transform: rotate(8deg); }
+#nm-buddy[data-pose="lie"] .nmb-leg-r { transform: rotate(-34deg) scaleY(0.84); }
+/* Feminine, curled on her side: hands under her cheek, the skirt drawn up. */
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(132deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(150deg); }
+#nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
+#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
+#nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
+/* Curling up where it sits: hunched forward, arms round the knees, the
+   stream drawn in close about it. */
+#nm-buddy[data-pose="curl-1"] .nm-figure { --nmb-lean-pose: 6deg; }
+#nm-buddy[data-pose="curl"] .nm-figure { --nmb-lean-pose: 10deg; --nmb-lie-shift: 0 2px; }
+#nm-buddy:is([data-pose="curl-1"], [data-pose="curl"]) .nmb-leg-l { transform: rotate(34deg) scaleY(0.6); }
+#nm-buddy:is([data-pose="curl-1"], [data-pose="curl"]) .nmb-leg-r { transform: rotate(-34deg) scaleY(0.6); }
+#nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-l { transform: rotate(-30deg); }
+#nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-r { transform: rotate(30deg); }
+#nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-l { transform: rotate(-58deg); }
+#nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-r { transform: rotate(58deg); }
+#nm-buddy[data-pose="curl"] .atl-layer-lower { rotate: -24deg; }
+#nm-buddy[data-pose="curl-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.9; }
+#nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; translate: 0 8px; }
 
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
@@ -6371,6 +6447,7 @@ main,
   --atl-happy: 0;
   --atl-shut: 0;
   --atl-doze: 0;
+  --atl-softlid: 0;
   --atl-squeeze: 0;
   --atl-hearteye: 0;
   --atl-m-smile: 1;
@@ -6446,13 +6523,34 @@ main,
    figure out (companionperf.js, 2026-09-27: 20 layouts a second at rest
    in any mood but calm). The mood is on the box from `atlasApply`. */
 .atl-figure-box { transform-origin: 50% 98%; will-change: transform; }
+/* **The lean** (round 9, the owner: "tilt their body that way while still
+   mostly facing forward"): `data-lean="l"` or `"r"` on `#nm-buddy`, on a
+   figure box or on a drawing turns the body a few degrees about the feet,
+   the head follows a little further with the face's features sliding
+   toward that side, and the tail and the nebula lag behind and settle
+   (an overshooting ease, a beat late). Every part eases over about 360ms
+   and nothing snaps; at rest it costs nothing, being a held transform.
+   `--atl-lean-dir` is -1, 0 or 1 (`--atl-lean` is the pose's own lean in
+   degrees); declared at the root and never again on `.nm-atlas` itself,
+   so an ancestor's value reaches every layer. */
+:root {
+  --atl-lean-dir: 0;
+  --nmb-lean-pose: 0deg;
+  --nmb-lie-shift: 0 0;
+}
+:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }
+:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }
+.atl-figure-box { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+.nm-atlas:not(.atl-layer) .atl-pose { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+.nm-atlas:is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(var(--atl-lean-dir) * -1.6deg); transition: rotate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast); }
+.nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast); }
 /* The Zs and the hearts rise on their own two roots, about where they sit. */
 .nm-atlas.atl-layer-fx-1 { transform-origin: 51px 20px; will-change: transform; }
 .nm-atlas.atl-layer-fx-2 { transform-origin: 40px 14px; will-change: transform; }
 .nm-atlas.atl-layer-body { transform-origin: 31px 90px; will-change: transform; }
 .nm-atlas.atl-layer-tail { transform-origin: 34px 60px; will-change: transform; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
-.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
+.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
@@ -6564,10 +6662,79 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: opacity var(--motion-base) var(--ease-out); }
 }
-.nm-atlas.atl-full[data-atlas-mood="thinking"] .atl-chin-hand,
-#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .atl-chin-hand { opacity: 1; }
-.nm-atlas.atl-full[data-atlas-mood="thinking"] .nmb-arm-r,
-#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .nmb-arm-r { opacity: 0; }
+/* Round 9: the chin hand is a variant's choice (`--atl-chin`, below):
+   thinking's first and third, laughing's second (a hand to the mouth). */
+.nm-atlas.atl-full .atl-chin-hand,
+#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas .atl-chin-hand { opacity: var(--atl-chin); }
+.nm-atlas.atl-full .nmb-arm-r,
+#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas .nmb-arm-r { opacity: calc(1 - var(--atl-chin)); }
+/* **The arms match the mood** (round 9, the owner: "make sure that the
+   positions of the limbs like the arm ... actually match the mood as well",
+   then "state variations, not the exact same animation or mood animation
+   each time"). Each mood gives each look's arms an angle about the
+   shoulder, in up to three drawn variants: open arms or one raised when
+   happy, a hand to the mouth when laughing, the chin hand or folded arms
+   when thinking, hands up when surprised, a scratch at the head when
+   confused, an eye rubbed when sleepy, hanging arms when sad, hands on the
+   hips when proud, clasped when shy or worried, to the chest in love. The
+   masculine arms hang and swing wide; the feminine right arm is held out
+   and her gestures come in closer and higher.
+   **The hooks**: the mood is `data-atlas-mood` (as before); the variant is
+   `data-atlas-variant="0"|"1"|"2"` on `#nm-buddy`, a figure box or a
+   drawing (it inherits, so one attribute on the host reaches every
+   layer). The arms ease between moods and variants with the limbs' own
+   transition; a pose or an act that places the arms (sit, float, hang,
+   wave, the stances) outranks the mood, being more specific. */
+:root {
+  --atl-v1: 0;
+  --atl-v2: 0;
+}
+[data-atlas-variant="1"] { --atl-v1: 1; --atl-v2: 0; }
+[data-atlas-variant="2"] { --atl-v1: 0; --atl-v2: 1; }
+.nm-atlas {
+  --atl-ar0: 0deg;
+  --atl-ar1: 0deg;
+  --atl-ar2: 0deg;
+  --atl-al0: 0deg;
+  --atl-al1: 0deg;
+  --atl-al2: 0deg;
+  --atl-chin0: 0;
+  --atl-chin1: 0;
+  --atl-chin2: 0;
+  --atl-chin: calc(var(--atl-chin0) * (1 - var(--atl-v1) - var(--atl-v2)) + var(--atl-chin1) * var(--atl-v1) + var(--atl-chin2) * var(--atl-v2));
+}
+.nm-atlas .nmb-arm-r { transform: rotate(calc(var(--atl-ar0) * (1 - var(--atl-v1) - var(--atl-v2)) + var(--atl-ar1) * var(--atl-v1) + var(--atl-ar2) * var(--atl-v2))); }
+.nm-atlas .nmb-arm-l { transform: rotate(calc(var(--atl-al0) * (1 - var(--atl-v1) - var(--atl-v2)) + var(--atl-al1) * var(--atl-v1) + var(--atl-al2) * var(--atl-v2))); }
+.nm-atlas.atl-full :is(.nmb-arm-l, .nmb-arm-r) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring), opacity var(--motion-base) var(--ease-out); }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="happy"] { --atl-ar0: -28deg; --atl-al0: 28deg; --atl-chin0: 0; --atl-ar1: -120deg; --atl-al1: 18deg; --atl-chin1: 0; --atl-ar2: -40deg; --atl-al2: 40deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="delighted"] { --atl-ar0: -70deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -130deg; --atl-al1: 130deg; --atl-chin1: 0; --atl-ar2: -50deg; --atl-al2: 50deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="laughing"] { --atl-ar0: -38deg; --atl-al0: 38deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 16deg; --atl-chin1: 1; --atl-ar2: 50deg; --atl-al2: -50deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -10deg; --atl-chin0: 1; --atl-ar1: 66deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -30deg; --atl-chin2: 1; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="curious"] { --atl-ar0: -40deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 40deg; --atl-chin1: 0; --atl-ar2: -60deg; --atl-al2: 10deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="surprised"] { --atl-ar0: -120deg; --atl-al0: 120deg; --atl-chin0: 0; --atl-ar1: -95deg; --atl-al1: 95deg; --atl-chin1: 0; --atl-ar2: -140deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 103deg; --atl-chin0: 0; --atl-ar1: -103deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: -20deg; --atl-al2: 103deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="sleepy"] { --atl-ar0: 4deg; --atl-al0: 128deg; --atl-chin0: 0; --atl-ar1: 8deg; --atl-al1: -8deg; --atl-chin1: 0; --atl-ar2: 128deg; --atl-al2: -4deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="sad"] { --atl-ar0: 8deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: 6deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="proud"] { --atl-ar0: -24deg; --atl-al0: 24deg; --atl-chin0: 0; --atl-ar1: -28deg; --atl-al1: 28deg; --atl-chin1: 0; --atl-ar2: -24deg; --atl-al2: 24deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="shy"] { --atl-ar0: 46deg; --atl-al0: -46deg; --atl-chin0: 0; --atl-ar1: 60deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: 118deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="determined"] { --atl-ar0: -14deg; --atl-al0: 14deg; --atl-chin0: 0; --atl-ar1: -18deg; --atl-al1: 18deg; --atl-chin1: 0; --atl-ar2: 40deg; --atl-al2: -40deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="love"] { --atl-ar0: 60deg; --atl-al0: -60deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -66deg; --atl-chin1: 0; --atl-ar2: -120deg; --atl-al2: 0deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="worried"] { --atl-ar0: 70deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -58deg; --atl-chin1: 0; --atl-ar2: 76deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="happy"] { --atl-ar0: -15deg; --atl-al0: 25deg; --atl-chin0: 0; --atl-ar1: -60deg; --atl-al1: 20deg; --atl-chin1: 0; --atl-ar2: 10deg; --atl-al2: 30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="delighted"] { --atl-ar0: -40deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -70deg; --atl-al1: 110deg; --atl-chin1: 0; --atl-ar2: -20deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="laughing"] { --atl-ar0: -20deg; --atl-al0: 30deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 20deg; --atl-chin1: 1; --atl-ar2: 60deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -12deg; --atl-chin0: 1; --atl-ar1: 100deg; --atl-al1: -50deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -24deg; --atl-chin2: 1; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -25deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -40deg; --atl-al2: 10deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -70deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -50deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -90deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 108deg; --atl-chin0: 0; --atl-ar1: -63deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: 20deg; --atl-al2: 108deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: 60deg; --atl-al0: 128deg; --atl-chin0: 0; --atl-ar1: 75deg; --atl-al1: -5deg; --atl-chin1: 0; --atl-ar2: 60deg; --atl-al2: 120deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: 75deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: 80deg; --atl-al2: -4deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: 62deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: 66deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 95deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 60deg; --atl-al1: 118deg; --atl-chin1: 0; --atl-ar2: 90deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="determined"] { --atl-ar0: 40deg; --atl-al0: 10deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: 15deg; --atl-chin1: 0; --atl-ar2: 55deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="love"] { --atl-ar0: 115deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 100deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: -60deg; --atl-al2: 20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="worried"] { --atl-ar0: 120deg; --atl-al0: -75deg; --atl-chin0: 0; --atl-ar1: 110deg; --atl-al1: -65deg; --atl-chin1: 0; --atl-ar2: 100deg; --atl-al2: -20deg; --atl-chin2: 0; }
+
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
 #nm-buddy .atl-figure .nmb-arm-l { transform-origin: 24.6px 41px; }
@@ -6787,6 +6954,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-hroot { stop-color: var(--atl-rim); stop-opacity: 0.42; }
 .nm-atlas .atl-st-hroot-mid { stop-color: var(--atl-rim); stop-opacity: 0.16; }
 .nm-atlas .atl-hair-root { fill: var(--atl-hroot); }
+/* Round 9: the hair's cap (atlas.js, `atlasHairCap`), fuller than a lock
+   so the crown reads as hair, not skin under a veil, and a faint parting. */
+.nm-atlas .atl-hair-cap .atl-cap-fill { opacity: 0.94; }
+.nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
+.nm-atlas .atl-cap-part { fill: none; stroke: var(--atl-rim); stroke-width: 0.6; stroke-linecap: round; opacity: 0.35; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
 .nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.48; }
@@ -6857,8 +7029,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-eye-l { --atl-side: 1; }
 .nm-atlas .atl-eye-r { --atl-side: -1; }
 .nm-atlas .atl-eye { transform: scale(var(--atl-eye-s)); }
-.nm-atlas .atl-pupil { transform: translate(var(--atl-px), var(--atl-py)) scale(var(--atl-ps)); }
+/* Round 9 (the owner, of the masculine look: "it still looks like a fnaf
+   character"): softer eyes, a size smaller, the upper lid resting a little
+   lower so the look is relaxed rather than a wide stare. Individual
+   properties, so every mood's own scale and lid still apply over them. */
+.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }
+.nm-atlas[data-atlas-look="masculine"] .atl-lid { translate: 0 0.8px; }
+.nm-atlas .atl-pupil { transform: translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
+.nm-atlas .atl-lid-flat { opacity: calc(1 - var(--atl-softlid)); }
+.nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }
 .nm-atlas .atl-lid-low { transform: translateY(calc(var(--atl-low) * -10px)); }
 /* The ears and the hair perk and droop together: the hair and the right
    ear one way, the left ear mirrored. */
@@ -6866,7 +7046,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
-.nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); }
+.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); }
 .nm-atlas .atl-pose { transform: rotate(var(--atl-lean)) scale(var(--atl-sx), var(--atl-sy)); }
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its
@@ -7165,7 +7345,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-music .nm-atlas { --atl-tail: 26deg; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-tail: 18deg; }
 #nm-buddy.nm-buddy-dragging .nm-atlas { --atl-tail: -30deg; }
-#nm-buddy.nmb-drowsy .nm-atlas { --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg; --atl-lid: 0.3; }
+/* Drowsy (round 9, the owner: "the half lidded eyes look a little
+   creepy"): the lids droop in soft arcs (`--atl-softlid`), the pupils are
+   small and look down and away, the brows soften with their inner ends a
+   little raised, the mouth relaxes whatever the mood was, and a blink is
+   slow and lingers closed (`atl-blink-heavy`). Its occasional yawn is the
+   companion's own `yawn` act. */
+#nm-buddy.nmb-drowsy .nm-atlas {
+  --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg;
+  --atl-open: 1; --atl-happy: 0; --atl-squeeze: 0; --atl-hearteye: 0;
+  --atl-lid: 0.3; --atl-lid-r: 0deg; --atl-softlid: 1; --atl-low: 0.08;
+  --atl-px: -0.6px; --atl-py: 1.6px; --atl-ps: 0.8;
+  --atl-brow-y: -0.3px; --atl-knit: -7deg; --atl-bl-y: 0px; --atl-br-y: 0px; --atl-bl-r: 0deg; --atl-br-r: 0deg;
+  --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
+  --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 0; --atl-m-rest: 1;
+  --atl-cheek: 0.3;
+}
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s ease-in-out var(--nm-delay) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation-duration: 12s; }
+}
+@keyframes atl-blink-heavy {
+  0%, 30%, 52%, 100% { opacity: 0; }
+  35%, 45% { opacity: 1; }
+}
 #nm-buddy.nmb-night .nm-atlas { --atl-crest: 8deg; --atl-lid: 0.28; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-py: 1.4px; --atl-lid: 0.18; --atl-brow-y: -0.6px; }
 #nm-buddy.nmb-offline .nm-atlas { --atl-knit: -11deg; --atl-brow-y: -1px; --atl-ps: 0.86; }
@@ -7212,6 +7415,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9: the masculine body also sways a degree on a slower clock
+       (the `rotate` property, beside the breath's transform), so he never
+       stands rigid; the wisps under him drift on their own. */
+    &.atl-layer-body[data-atlas-look="masculine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway 7.2s ease-in-out infinite alternate; }
     /* Round 9: a second, slower sway on the tail's root on a period that
        never lines up with the swish, so its flow does not repeat; the
        `rotate` property adds to the swish's transform, both compositor. */
@@ -7327,6 +7534,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    &.atl-layer-body[data-atlas-look="masculine"] { animation-duration: 9s, 14s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second
@@ -7394,6 +7602,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @keyframes atl-think { 0%, 60%, 100% { transform: scale(1); } 25% { transform: scale(1.55); } }
 @keyframes atl-dots { 0%, 100% { opacity: 0.35; } 40% { opacity: 1; } }
 @keyframes atl-twinkle { 50% { transform: scale(0.4) rotate(45deg); opacity: 0.5; } }
+@keyframes atl-idle-sway {
+  from { rotate: -0.9deg; }
+  to { rotate: 0.9deg; }
+}
 /* Round 9: a Z's breath: up, a sway one way and back, growing a little,
    fading in and out. Transform and opacity only. */
 @keyframes atl-z-drift {
@@ -8173,4 +8385,101 @@ input[type="file"]::file-selector-button:hover {
   width: 86%;
   height: 86%;
   translate: 0 8%;
+}
+
+/* --- A dialog's head: title, its '?', icon-only actions, Close last -------
+   DESIGN.md, "A dialog's head" (INBOX 431 f). The owner named the Documents
+   AI assistant panel's head as the one they like ("I actually really like
+   the design of the document editor's ai assistant popup panel, especially
+   with the design of the close, history, and tooltip buttons") and then
+   asked for it everywhere: every '?', every close (x), every similar
+   icon-only utility button (history, expand, more) app-wide, one shared
+   class set, no per-surface fork.
+
+   `.doc-ai-head` etc. used to live in 04-chat-dock-appearance.css, scoped to
+   `.doc-ai-card` alone; that scoping is exactly the fork this recipe ends.
+   Rolled out here to the panel itself plus the seven other modal-card heads
+   that carried a full-word "Close" button instead of the recipe's icon:
+   Notifications, Earlier versions, Connections, the bin, Keyboard shortcuts,
+   Tools & features and Meeting notes (eight surfaces in all, measured before
+   and after in both themes at 1093x614 with
+   scratchpad/ui-sweeps/dialoghead.js).
+
+   `--dialog-head-btn-size` is its own token, not a reuse of `--target-min`:
+   that token drives layout math (paddings, gutters, dock and row heights) in
+   roughly 150 other rules across the app, so raising its 28px default to
+   clear this recipe's 32px floor would move all of them, most of which this
+   task never touched or measured. This recipe's buttons get their own floor
+   instead, at the same touch breakpoint every other 44px target in the app
+   already steps at. */
+:root {
+  --dialog-head-btn-size: 2rem;
+}
+
+@media (max-width: 819.98px), (pointer: coarse) {
+  :root {
+    --dialog-head-btn-size: 2.75rem;
+  }
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+}
+
+/* On whichever element carries the visible title (`<h2>`, `<h3>`, or a
+   `<strong>` where the surface predates a heading tag, e.g. Notifications):
+   the recipe resets its margin and line-height, not its tag. */
+.dialog-head-title {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.dialog-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+/* Ancestor-scoped to three classes deep on purpose, matching the specificity
+   `.doc-ai-card .doc-ai-head-btn.ghost` held before this moved: a flat
+   `.dialog-head-btn.ghost` (two classes) loses the padding-inline battle to
+   `button.small.icon-only` (00-tokens-shell.css, one type plus two classes,
+   which outranks two classes alone) and comes out squashed. The help button
+   sits directly in `.dialog-head`; History/Close sit in
+   `.dialog-head-actions`; both are covered. */
+.dialog-head-actions > .dialog-head-btn.ghost,
+.dialog-head > .dialog-head-btn.ghost {
+  width: var(--dialog-head-btn-size);
+  height: var(--dialog-head-btn-size);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.dialog-head-actions > .dialog-head-btn.ghost:hover,
+.dialog-head-actions > .dialog-head-btn.ghost[aria-expanded="true"],
+.dialog-head > .dialog-head-btn.ghost:hover,
+.dialog-head > .dialog-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+/* A visible ring, not the hover background alone: several of this app's
+   other icon-only buttons rely on a background swap for focus (e.g.
+   `.entry-actions > button.ghost:focus-visible`), which a low-contrast theme
+   can render nearly invisible. This recipe's own buttons keep the ring. */
+.dialog-head-actions > .dialog-head-btn.ghost:focus-visible,
+.dialog-head > .dialog-head-btn.ghost:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

@@ -215,15 +215,17 @@
                activity picker is a preference, so they moved to their own
                bar below, and the head keeps only the title and the two
                icon-only toggles every panel in this app ends with. -->
-          <div class="row space-between notif-head">
-            <span class="notif-heading">
+          <div class="notif-head dialog-head">
+            <span class="notif-heading dialog-head-title">
               <strong>Notifications</strong>
               <span id="notif-unread" class="notif-unread-chip hidden"></span>
             </span>
-            <span class="row notif-head-actions">
-              <button id="notif-mute-toggle" class="ghost small icon-only" aria-pressed="false"
-                title="Mute notifications except reminders. Nothing fires while MemoryMap is closed, it has no background service, by design."><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
-              <button id="notif-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <span class="notif-head-actions dialog-head-actions">
+              <button id="notif-mute-toggle" class="ghost small icon-only dialog-head-btn" aria-pressed="false" type="button"
+                title="Mute notifications except reminders. Nothing fires while MemoryMap is closed, it has no background service, by design."
+                aria-label="Mute notifications except reminders"><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
+              <button id="notif-close" class="ghost small icon-only dialog-head-btn" type="button"
+                title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
             </span>
           </div>
           <ul id="notif-list" class="notif-list"></ul>
@@ -983,6 +985,8 @@
       <aside class="card sidebar-panel" id="sidebar">
         <div class="row space-between sidebar-head">
           <h2>Categories</h2>
+          <!-- INBOX 431 (e): the Manage categories panel (notes-list.js). -->
+          <button type="button" id="manage-categories-btn" class="ghost small icon-only" title="Manage categories: rename, merge, split, delete" aria-label="Manage categories"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
         </div>
         <ul id="category-list"></ul>
         <div id="most-used-box" class="hidden">
@@ -4376,23 +4380,23 @@ Link to another note with [[its first few words]]."></textarea>
              heights in one row. The title and its help sit together on the
              left; History and Close are the same 28px quiet icon button on
              the right, History's words in its tooltip and its label. -->
-        <div class="doc-ai-head">
-          <h2 id="doc-ai-title">AI assistant</h2>
+        <div class="dialog-head">
+          <h2 id="doc-ai-title" class="dialog-head-title">AI assistant</h2>
           <!-- One line of description under the verbs, the rest behind the
                '?' (DESIGN.md's help recipe): what each of the three does to
                the document is three sentences, and three sentences above a
                text field is a wall. -->
-          <button type="button" class="icon-only ghost small doc-ai-head-btn"
+          <button type="button" class="icon-only ghost small dialog-head-btn"
             data-help-for="doc-ai-verb-help" aria-controls="doc-ai-verb-help"
             aria-expanded="false" title="About the three verbs"
             aria-label="About the three verbs">
             <i class="ph ph-question" aria-hidden="true"></i>
           </button>
-          <span class="doc-ai-head-actions">
-            <button id="doc-ai-history" class="icon-only ghost small doc-ai-head-btn" type="button"
+          <span class="dialog-head-actions">
+            <button id="doc-ai-history" class="icon-only ghost small dialog-head-btn" type="button"
               title="History: see and undo past AI edits to this document"
               aria-label="History: see and undo past AI edits to this document"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
-            <button id="doc-ai-close" class="icon-only ghost small doc-ai-head-btn" type="button"
+            <button id="doc-ai-close" class="icon-only ghost small dialog-head-btn" type="button"
               title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </span>
         </div>
@@ -8898,6 +8902,15 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="still">Still</option>
                 </select>
               </div>
+              <!-- The rotating word beside the dots: the same indicator
+                   Progress indicators (above) governs the movement of, so its
+                   own on/off sits right under it rather than in a section
+                   this control has no other reason to be in. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-show-thinking-words" checked>
+                <span>Show thinking words</span>
+              </label>
+              <p class="muted">A word beside the dots, like "Pondering" or "Sifting", that changes while it thinks. Set per persona in Personas.</p>
 
               <label class="setting-check" id="reduce-motion-row">
                 <input type="checkbox" id="reduce-motion-toggle">
@@ -9815,6 +9828,16 @@ Link to another note with [[its first few words]]."></textarea>
                    front; the model still decides anything they decline, so
                    this trades accuracy for speed rather than turning the AI
                    off. -->
+              <!-- INBOX 431 (e): the same panel as the notes sidebar's
+                   Categories head, for the person who looks for it here,
+                   beside the settings for how notes are filed. -->
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Categories</span>
+                  <small class="muted">Rename, merge, split or delete categories, and move notes between them.</small>
+                </div>
+                <button type="button" id="settings-manage-categories" class="ghost small setting-control">Manage categories</button>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>
@@ -10999,9 +11022,12 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="history-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Note history">
     <div class="card modal-card" id="history-card">
-      <div class="row space-between">
-        <h2><i class="ph ph-clock ph-lead" aria-hidden="true"></i> Earlier versions</h2>
-        <button id="history-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-clock ph-lead" aria-hidden="true"></i> Earlier versions</h2>
+        <span class="dialog-head-actions">
+          <button id="history-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <p id="history-status" class="status" role="status"></p>
       <div id="history-list"></div>
@@ -11024,9 +11050,12 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="connections-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-labelledby="connections-title">
     <div class="card modal-card" id="connections-card">
-      <div class="row space-between">
-        <h2 id="connections-title"><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Connections</h2>
-        <button id="connections-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 id="connections-title" class="dialog-head-title"><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Connections</h2>
+        <span class="dialog-head-actions">
+          <button id="connections-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <p id="connections-subject" class="muted"></p>
       <p id="connections-status" class="status" role="status"></p>
@@ -11049,9 +11078,12 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="binned-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="A note in the bin">
     <div class="card modal-card" id="binned-card">
-      <div class="row space-between">
-        <h2><i class="ph ph-trash ph-lead" aria-hidden="true"></i> In the bin</h2>
-        <button id="binned-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> In the bin</h2>
+        <span class="dialog-head-actions">
+          <button id="binned-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <p id="binned-meta" class="muted"></p>
       <div id="binned-body" class="binned-body"></div>
@@ -11083,9 +11115,12 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="card modal-card" id="shortcuts-card">
-      <div class="row space-between">
-        <h2><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</h2>
-        <button id="shortcuts-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</h2>
+        <span class="dialog-head-actions">
+          <button id="shortcuts-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
       <ul class="shortcut-list" id="shortcut-list"></ul>
@@ -11136,9 +11171,12 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- AI improve-writing: before/after, user approves -->
   <div id="improve-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Improve writing">
     <div class="card" id="improve-card">
-      <div class="row space-between">
-        <h2>Improve writing</h2>
-        <button id="improve-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title">Improve writing</h2>
+        <span class="dialog-head-actions">
+          <button id="improve-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <div class="row" id="improve-modes">
         <button class="ghost small improve-mode active" data-mode="proofread">Proofread</button>
@@ -11200,9 +11238,12 @@ Link to another note with [[its first few words]]."></textarea>
        size. -->
   <div id="sketch-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Sketch pad">
     <div class="card glass" id="sketch-card">
-      <div class="row space-between">
-        <h2><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Quick sketch</h2>
-        <button id="sketch-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Quick sketch</h2>
+        <span class="dialog-head-actions">
+          <button id="sketch-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <div id="sketch-toolbar" class="sketch-toolbar" role="toolbar" aria-label="Sketch tools">
         <div class="wb-tool-section" role="group" aria-label="Draw">
@@ -11317,16 +11358,17 @@ Link to another note with [[its first few words]]."></textarea>
            already late to start recording. The '?' is the app's own
            `data-help-for` pair, markup only: `initHelpToggles` wires every one
            of them at load. -->
-      <div class="row space-between">
-        <div class="row help-head">
-          <h2><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Meeting notes</h2>
-          <button type="button" class="icon-only ghost small graph-help-toggle"
-            data-help-for="meeting-help" aria-controls="meeting-help" aria-expanded="false"
-            title="About meeting notes" aria-label="About meeting notes">
-            <i class="ph ph-question" aria-hidden="true"></i>
-          </button>
-        </div>
-        <button id="meeting-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Meeting notes</h2>
+        <button type="button" class="icon-only ghost small dialog-head-btn"
+          data-help-for="meeting-help" aria-controls="meeting-help" aria-expanded="false"
+          title="About meeting notes" aria-label="About meeting notes">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <span class="dialog-head-actions">
+          <button id="meeting-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <p class="muted">Record anything longer than a quick note, transcribed on this machine.</p>
       <div class="help-body hidden" id="meeting-help" role="dialog" aria-label="About meeting notes">
@@ -11408,9 +11450,12 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="features-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Tools and features">
     <div class="card modal-card" id="features-card">
-      <div class="row space-between">
-        <h2><i class="ph ph-toolbox ph-lead" aria-hidden="true"></i> Tools &amp; features</h2>
-        <button id="features-close" class="ghost small">Close</button>
+      <div class="dialog-head">
+        <h2 class="dialog-head-title"><i class="ph ph-toolbox ph-lead" aria-hidden="true"></i> Tools &amp; features</h2>
+        <span class="dialog-head-actions">
+          <button id="features-close" class="icon-only ghost small dialog-head-btn" type="button"
+            title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
       <input id="features-search" type="text" autocomplete="off"
         placeholder="Search everything MemoryMap can do…" aria-label="Search features">

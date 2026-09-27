@@ -350,10 +350,14 @@ select {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
-  background-position: right 1.05rem center, right 0.85rem center;
+  /* A stroked chevron (`--select-chevron`, per theme), the same "v" the
+     menus draw, replacing a filled wedge built from two gradients: the
+     wedge was the one heavy mark left on a field that is otherwise a
+     hairline and a tint (the owner, 2026-09-27, the dropdowns with the
+     buttons). */
+  background-image: var(--select-chevron);
+  background-size: 0.75rem 0.75rem;
+  background-position: right 0.75rem center;
   background-repeat: no-repeat;
 }
 
@@ -515,8 +519,17 @@ button:disabled {
    by high-contrast mode". They are read here again, at the same values.
    `tests/test_ui_recipes.py` pins the pair so a fourth pass cannot quietly
    flatten them again. */
+/* **Quiet, not silver** (the owner, 2026-09-27, five screenshots of the
+   default buttons: "grey, bordered, raised boxes"; redesign them to the
+   Documents assistant's look). The 12% ink fill under a 22% edge was the
+   silver: a grey slab with a rim. Now the button rests on `--btn-quiet-bg`
+   (the field's white in light, a breath of white in dark), behind a
+   hairline measured to 3:1 against
+   its ground (`--ghost-btn-border`), and the grey arrives only as state:
+   `--ghost-btn-bg` under the pointer, `--ghost-btn-bg-hover` pressed. The
+   edge stays, which is what the three reports below were about. */
 button.ghost {
-  background: var(--ghost-btn-bg);
+  background: var(--btn-quiet-bg);
   border: 1px solid var(--ghost-btn-border);
   color: var(--ink);
   font-weight: 500;
@@ -544,8 +557,35 @@ button.ghost {
 }
 
 button.ghost:hover {
-  background: var(--ghost-btn-bg-hover);
+  background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
+}
+
+button.ghost:active:not(:disabled) {
+  background: var(--ghost-btn-bg-hover);
+}
+
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* **An icon standing alone is a ghost** (the same report: the pin and ⋯
+   squares on a note). The reference is the Documents assistant's head
+   (`.doc-ai-head-btn`): no fill, no edge, the glyph in the muted ink, a
+   tint and the body ink under the pointer. A glyph is its own boundary, and
+   `--muted` clears 3:1 as one on every ground (btnshots.js). On, it is the
+   filled recipe as before. */
+:is(button, summary).ghost:is(.icon-only, .icon-button):not(.active):not([aria-pressed="true"]):not([aria-expanded="true"]) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+:is(button, summary).ghost:is(.icon-only, .icon-button):not(.active):not([aria-pressed="true"]):not(:disabled):is(:hover, [aria-expanded="true"]) {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 button.small {
@@ -566,9 +606,46 @@ button.small {
      fullscreen." A `<button>` already centres its own content vertically,
      so the floor works without touching display at all, and nothing that
      hides one has to fight this rule to do it. */
-  min-height: var(--target-min);
+  /* 32px, not the 28px hit floor (the same report): a standing button is a
+     control, not a glyph, and 28 was what made a run of them read as a row
+     of tags. Touch keeps its 44: the larger of the two wins. */
+  min-height: max(var(--target-min), var(--button-min-h));
   padding: 0 0.8rem;
   font-size: 0.85rem;
+}
+
+/* **Steppers on one value are one joined group** (`.btn-group`; the owner,
+   2026-09-27: Reminders' -15m/+15m/-1d/+1d, four loose boxes that wrapped
+   one at a time). One outer edge and corner, the inner corners squared, the
+   neighbouring hairlines overlapped into one, and the group wraps as a unit.
+   A hovered or focused segment is lifted above its neighbours so its whole
+   edge shows. */
+.btn-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.btn-group > button {
+  position: relative;
+  border-radius: 0;
+}
+
+.btn-group > button + button {
+  margin-inline-start: -1px;
+}
+
+.btn-group > button:first-child {
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+}
+
+.btn-group > button:last-child {
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+
+.btn-group > button:is(:hover, :focus-visible) {
+  z-index: 1;
 }
 
 /* A checkbox or switch is a hit target too, and these were the smallest in

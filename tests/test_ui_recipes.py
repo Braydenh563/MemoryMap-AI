@@ -475,6 +475,29 @@ def test_no_inline_style_attributes_in_the_page() -> None:
     assert re.search(r"<[^>]+\sstyle=", html) is None
 
 
+def test_the_quiet_button_recipe_holds() -> None:
+    """The default buttons are quiet, not silver (the owner, 2026-09-27).
+
+    Five screenshots of "grey, bordered, raised boxes": the tonal button's
+    12% ink fill under a faint rim. The rest face is `--btn-quiet-bg` and
+    the grey is state only; an icon standing alone is a ghost; the stepper
+    group is a recipe with its role and name.
+    """
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    rules = dict((sel.strip(), body) for sel, body in _rules(css))
+    assert "background: var(--btn-quiet-bg)" in rules.get("button.ghost", ""), (
+        "button.ghost rests on --btn-quiet-bg; --ghost-btn-bg at rest is the silver slab"
+    )
+    ghost_icon = next((b for s, b in rules.items() if s.startswith(":is(button, summary).ghost:is(.icon-only, .icon-button)") and ":hover" not in s), "")
+    assert "background: transparent" in ghost_icon and "border-color: transparent" in ghost_icon
+    assert ".btn-group > button + button" in rules, "the stepper group's joined edge is gone"
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    groups = re.findall(r'<div class="btn-group"[^>]*>', html)
+    assert groups, "no .btn-group in the page: Reminders' nudges were the first"
+    for tag in groups:
+        assert 'role="group"' in tag and "aria-label=" in tag, tag
+
+
 def test_the_tonal_button_keeps_its_edge_and_its_lift() -> None:
     """`button.ghost` draws a real border and a real shadow.
 

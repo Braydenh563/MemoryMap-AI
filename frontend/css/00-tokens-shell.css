@@ -326,9 +326,23 @@ select optgroup {
      its fill alone, and the fill went up a step (0.11→0.12 light,
      0.14→0.16 dark) to pay for the edge it no longer draws. */
   --ghost-btn-bg: rgba(31, 36, 48, 0.12);
-  --ghost-btn-border: rgba(31, 36, 48, 0.22);
   --ghost-btn-bg-hover: rgba(31, 36, 48, 0.18);
-  --ghost-btn-border-hover: rgba(31, 36, 48, 0.32);
+  /* **The quiet button's edge is the whole of its affordance, so it is
+     measured, not tasted** (the owner, 2026-09-27, five screenshots of "grey,
+     bordered, raised boxes": redesign the default buttons to the Documents
+     assistant's look, "more modern, professional and fit the app"). The grey
+     fill went (`button.ghost` rests on `--surface-2`); what is left to say
+     "press me" is this hairline, so it clears WCAG 1.4.11's 3:1 against the
+     ground it stands on: 3.2:1 on a light card, 3.0:1 on the grey well of a
+     settings group or the reminder form (btnshots.js). */
+  --ghost-btn-border: rgba(31, 36, 48, 0.52);
+  /* Where a quiet button rests: the field's own white in light, so a
+     button on a grey well reads as lifted rather than as a grey slab. */
+  --btn-quiet-bg: rgba(255, 255, 255, 0.72);
+  --ghost-btn-border-hover: rgba(31, 36, 48, 0.68);
+  /* A select's chevron: a stroked "v" in the muted ink, as an image because
+     a select has no pseudo-elements to draw one in. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%235b6472' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   /* The inner top edge that makes a text field read as recessed, against a
      button's raised --shadow-sm. Deliberately lighter than it would be on
      an opaque field: --input-bg is translucent and sits over a busy
@@ -464,6 +478,9 @@ select optgroup {
      two-line control still grows. Not a spacing token, for the reason
      DESIGN.md already gives: a hit target must not move with density. */
   --target-min: 1.75rem;
+  /* A standing button's floor, 32px; `button.small` takes the larger of
+     this and `--target-min` (44 under touch). */
+  --button-min-h: 2rem;
   /* The comfortable control height, as opposed to `--target-min`'s floor.
      This is what a text input, a button and a dropdown opener standing side
      by side on one row all take, so that a row of mixed control *types* is
@@ -865,9 +882,11 @@ select,
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
   --ghost-btn-bg: rgba(255, 255, 255, 0.16);
-  --ghost-btn-border: rgba(255, 255, 255, 0.22);
+  --ghost-btn-border: rgba(255, 255, 255, 0.4);
+  --btn-quiet-bg: rgba(255, 255, 255, 0.045);
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
-  --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
+  --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --field-inset: rgba(0, 0, 0, 0.28);
   --surface-1: var(--card);
   --surface-2: rgba(255, 255, 255, 0.045);
@@ -940,9 +959,11 @@ select,
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);
     --ghost-btn-bg: rgba(255, 255, 255, 0.16);
-    --ghost-btn-border: rgba(255, 255, 255, 0.22);
+    --ghost-btn-border: rgba(255, 255, 255, 0.4);
+    --btn-quiet-bg: rgba(255, 255, 255, 0.045);
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
-    --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
+    --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --field-inset: rgba(0, 0, 0, 0.28);
     --surface-1: var(--card);
     --surface-2: rgba(255, 255, 255, 0.045);

@@ -2493,15 +2493,25 @@ header#top-bar select,
 }
 
 /* The add form as a grid, so the fields line up instead of drifting. */
+/* Columns that fill the width they are given rather than six fixed ones:
+   the form lives in a ~32rem sheet, where six `auto` columns overflowed it,
+   the two selects squeezed to a 20px sliver and Add clipped at the edge
+   (measured 2026-09-27, 1093x614, with the button pass). The text takes
+   two columns; the rest wrap as whole controls. */
 .reminder-form {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) auto auto auto auto auto;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
   gap: 0.5rem;
   align-items: center;
 }
 
 .reminder-form>* {
   margin: 0;
+  min-width: 0;
+}
+
+.reminder-form #reminder-text {
+  grid-column: span 2;
 }
 
 /* The row mixes a text input, two date/time inputs, two selects and a button,

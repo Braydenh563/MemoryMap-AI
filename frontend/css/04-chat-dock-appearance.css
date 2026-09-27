@@ -3925,8 +3925,25 @@ span > .chip {
      be the height it has. */
   align-self: flex-start;
   overflow: hidden;
-  padding-right: 0.5rem;
-  padding-left: 0.5rem;
+  /* **A little more room than the exact fit** (INBOX 430: "the gutter's
+     numbers are crushed (clipped) in the Capture editor"). This column has
+     no `width` of its own -- `flex: 0 0 auto` sizes it to exactly fit
+     `gutter.textContent` (documents.js, `renderDocGutter`) -- so on the
+     frame it is measured the numbers already sit flush against the content
+     box's own edge, with only this padding between them and the
+     `overflow: hidden` boundary that clips at the *padding* edge, not the
+     content edge. Not reproduced in this sandbox across widths, zoom and
+     device-pixel ratios (the intrinsic fit and the clip boundary come from
+     the one layout pass, so headless Chromium never disagreed with itself);
+     widened here anyway because the fit is otherwise exact by construction,
+     which is zero margin for whatever the report's own browser did
+     differently, and because 0.5rem read tight beside `min-width` giving a
+     one-digit note (line 1 to line 9) the same comfortable column a
+     three-digit one gets, rather than a sliver that grows only once the
+     count needs it to. */
+  padding-right: 0.6rem;
+  padding-left: 0.6rem;
+  min-width: calc(2ch + 1.2rem);
   border: 1px solid var(--glass-border);
   border-right: 0;
   border-radius: var(--radius) 0 0 var(--radius);

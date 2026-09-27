@@ -94,6 +94,15 @@ function wbZoomFilter(event) {
   //: drawn with two.
   if (event.type.startsWith("touch")) {
     if (event.touches && event.touches.length > 1) return true;
+    //: **And one finger on bare canvas pans with Select too** (INBOX 430,
+    //: the owner: "the whiteboard doesn't pan by touch drag", with Select,
+    //: the tool a board opens on: measured with `wbtouchpan.js`, a finger
+    //: dragged 80px over empty canvas moved it 0px at 390 and 768). On a
+    //: touch screen a drag across nothing is how every canvas app moves the
+    //: view; a finger that starts on a card still moves the card, and the
+    //: area select stays with a mouse or a pen, where a drag across nothing
+    //: has always meant it. Drawing tools keep the finger for the stroke.
+    if (window.currentTool === "select") return wbIsBareCanvas(event.target);
     return window.currentTool === "pan";
   }
   // Left button: Pan tool, or space held down.
@@ -101,6 +110,17 @@ function wbZoomFilter(event) {
     return window.currentTool === "pan" || wbSpaceHeld;
   }
   return false;
+}
+
+//: Nothing on the board under this point: not a card, a drawn shape (a link
+//: is not one, its hit band is canvas), an object or a handle. One test for
+//: the touch pan above and the area select in initWhiteboard, which must
+//: agree about what a press on nothing is.
+function wbIsBareCanvas(target) {
+  return !target?.closest?.(
+    ".node-card, .sketch-group:not(.wb-link-sketch), .wb-object,"
+    + " .wb-sketch-handle-group, .wb-resize-handle",
+  );
 }
 
 let wbZoom = d3
@@ -9107,10 +9127,7 @@ async function initWhiteboard() {
     // sketch render. A drawn shape claims the gesture (it can be moved by its
     // body); a link cannot be, and its 20px hit band was swallowing the
     // marquee wherever a connector crossed the canvas.
-    return !target.closest?.(
-      ".node-card, .sketch-group:not(.wb-link-sketch), .wb-object,"
-      + " .wb-sketch-handle-group, .wb-resize-handle",
-    );
+    return wbIsBareCanvas(target);
   }
   function rectsIntersect(ax, ay, aw, ah, bx, by, bw, bh) {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
@@ -9154,6 +9171,9 @@ async function initWhiteboard() {
     //: begins.
     const place = window.currentTool === "text" || window.currentTool === "sticky" ? window.currentTool : null;
     if ((window.currentTool !== "select" && !place) || !wbIsEmptyCanvasTarget(e.target)) return;
+    //: A finger on bare canvas with Select pans (`wbZoomFilter`), so it is
+    //: not also the start of an area select.
+    if (!place && e.pointerType === "touch") return;
     // Primary button only. A right-click opens the context menu and a middle
     // click pans; neither ends with the pointerup this drag is waiting for,
     // so both used to start a rectangle that nothing would ever remove.

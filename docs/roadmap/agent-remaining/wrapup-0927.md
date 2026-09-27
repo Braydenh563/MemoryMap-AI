@@ -17,12 +17,18 @@ written.
 
 - [ ] Sleeping arms: no arm resting on the orbit rings; doze standing,
   sleep on the perch floor, hanging, half tucked away, or lying down.
-- [ ] Base "silver" button and select restyle, app-wide, at the base rules
-  (default button, `.secondary`, `.small`, `.icon-only`, `select`): quiet
-  fills, ghost icon buttons, joined steppers (reminder -15m/+15m/-1d/+1d),
-  custom select chevron, 32px (44px touch), contrast in both themes.
-  A WIP commit exists (DESIGN.md, 01-forms-settings.css, the recipe test);
-  finish and measure 10 surfaces, light and dark.
+- [x] Base "silver" button and select restyle, app-wide, at the base rules
+  (default button, `.small`, `.icon-only`, `select`; there is no
+  `.secondary` class): quiet fills, ghost icon buttons, custom select
+  chevron, 32px (44px touch). `btnquiet.js`, 10 surfaces light and dark at
+  1093: icon ghosts filled at rest 5-14 per surface to 0, small under 32px
+  1-4 to 0, standing edges under 3:1 1-6 to 0 (3 left are the dashboard
+  toolbar and chat dock, quiet tier by design). Light "Add" no longer reads
+  as a field: accent-tinted face, weight 600, accent icon. Settings group
+  rows pad the chevron inside the highlight. The reminder nudges are two
+  `.stepper` pills ("− 15 min +", "− 1 day +"), 32px (44 at 390), arrow
+  keys nudge, Shift a day, the readout fades (`stepper.js`). Found, not
+  fixed: the magic-add placeholder wraps and clips at one row.
 - [ ] Manage categories panel redesign: the dialog head recipe, search plus
   "New category" in one row, quiet rows (dot, name, count pill, hover
   kebab), multi-select bulk bar, no double scrollbar, listbox keyboard.

@@ -662,6 +662,10 @@ summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
 }
 
 .stepper > .stepper-btn {
+  /* The button floor, not the 28px an icon-only small button takes: these
+     are the whole control, not a glyph beside a label. */
+  width: max(var(--target-min), var(--button-min-h));
+  height: max(var(--target-min), var(--button-min-h));
   border-radius: var(--radius-pill);
 }
 

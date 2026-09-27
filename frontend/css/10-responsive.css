@@ -175,6 +175,30 @@
   }
 }
 
+/* The agent's run count on a phone's More (INBOX 430, `syncPhoneMoreRuns`):
+   on the corner of the glyph like a tab's count, and in the accent rather
+   than the error red a due reminder wears, because a run is news rather than
+   a thing overdue. The same count ends More's "Agent activity" row. */
+.phone-tab-more {
+  position: relative;
+}
+
+.phone-tab-more > .tab-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-2);
+  margin-left: 0;
+}
+
+:is(.phone-tab-more, .sheet-row) > .tab-badge {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.sheet-row > .tab-badge {
+  margin-left: auto;
+}
+
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
 
    DESIGN.md, "Taken from Liquid Glass and the HIG", rule 2: "Optimize for
@@ -1073,6 +1097,14 @@ header#top-bar,
     height: calc(var(--target-min) + env(safe-area-inset-bottom, 0px));
   }
 
+  /* The status bar follows the bar down (INBOX 430: a gap between the tab bar
+     and the status bar at the end of a page). Its reservation stays put, for
+     the reason above, so it is moved rather than resized: a transform, which
+     changes nothing the scroll that receded the bar can see. */
+  :root:has(#phone-tab-dock[data-receded]) #status-bar {
+    transform: translateY(calc(var(--bottom-tabs-h) - var(--target-min)));
+  }
+
   #phone-tab-dock[data-receded] #tab-bar button .tab-label,
   #phone-tab-dock[data-receded] .phone-tab-more .tab-label {
     display: none;
@@ -1520,15 +1552,20 @@ header#top-bar,
     --status-h: var(--target-min);
   }
 
-  #status-bar [data-status-zone] > :not(#status-task, #status-activity, #offline-indicator, #power-saver-indicator) {
+  /* **Not the agent's runs** (INBOX 430, the owner: "hide the agent-runs bar
+     on phones and fold its count into More"). A finished run kept the bar up
+     for the rest of the session, a second bar over the tab bar for a thing
+     nobody has to see without asking; the count is a badge on More and the
+     runs are a row in its sheet (`syncPhoneMoreRuns`, phone-shell.js). */
+  #status-bar [data-status-zone] > :not(#status-task, #offline-indicator, #power-saver-indicator) {
     display: none;
   }
 
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
     --status-bar-h: 0px;
   }
 
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
     visibility: hidden;
     overflow: hidden;
     padding-block: 0;

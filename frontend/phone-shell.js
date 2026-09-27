@@ -1412,6 +1412,20 @@ function openPhoneMoreSheet() {
         //: settings.js owns the Guide sheet and loads beside this file.
         if (typeof openHelpChat === "function") openHelpChat();
       }));
+      //: The agent's runs, which the status bar holds above 600 and a phone
+      //: does not show (INBOX 430): a row with the count, opening the panel.
+      const runs = phoneMoreRunCount();
+      if (runs) {
+        const row = sheetRow("ph ph-robot tab-icon", "Agent activity", () => {
+          close();
+          $("status-activity")?.click();
+        });
+        const count = document.createElement("span");
+        count.className = "tab-badge";
+        count.textContent = String(runs);
+        row.appendChild(count);
+        list.appendChild(row);
+      }
       list.appendChild(sheetRow("ph ph-gear tab-icon", "Settings", () => {
         close();
         //: settings.js owns the modal and loads beside this file; `typeof` so
@@ -1424,6 +1438,35 @@ function openPhoneMoreSheet() {
 }
 
 $("phone-more-btn")?.addEventListener("click", openPhoneMoreSheet);
+
+//: The status bar's run count, for More: running runs, else every run this
+//: session, the same number `renderActivityStatusItem` paints.
+function phoneMoreRunCount() {
+  if (typeof agentRuns === "undefined" || !agentRuns.length) return 0;
+  return agentRuns.filter((run) => run.state === "running").length || agentRuns.length;
+}
+
+//: **The agent's runs, folded into More on a phone** (INBOX 430). The status
+//: bar's activity item stays hidden below 600 (10-responsive.css), so its
+//: count rides on More as the badge a tab's count already is, and the runs
+//: are a row in More's sheet. Called whenever the status item repaints.
+function syncPhoneMoreRuns() {
+  const more = document.getElementById("phone-more-btn");
+  if (!more) return;
+  const runs = phoneMoreRunCount();
+  let badge = more.querySelector(".tab-badge");
+  if (!runs) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "tab-badge";
+    more.appendChild(badge);
+  }
+  badge.textContent = String(runs);
+  badge.title = `${runs} agent run${runs === 1 ? "" : "s"}`;
+}
 
 // The bar has to say where you are on all seven tabs, not on the four it
 // shows. While one of the three behind More is the tab in hand, More is the lit

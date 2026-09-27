@@ -2563,12 +2563,17 @@ def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
     # The transient ones bring the bar itself back while they show.
     responsive_css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
     transient = {name for name in ids if f"#{name}:not(.hidden" in responsive_css}
-    assert {"status-task", "status-activity"} <= transient, (
-        "a running job or an activity no longer brings the phone's status bar back"
+    assert "status-task" in transient, "a running job no longer brings the phone's status bar back"
+    # The agent's runs do not (INBOX 430, the owner: "hide the agent-runs bar
+    # on phones and fold its count into More"): their count is More's badge
+    # and their way in is More's "Agent activity" row.
+    assert "status-activity" not in transient, "the agent's runs bring the phone's status bar back again"
+    # Four are rows of the tab bar's More sheet already, which is their way in.
+    more = app.split("function openPhoneMoreSheet", 1)[1][:5000]
+    in_more = {"status-reminders", "status-agent", "status-guide", "status-activity"}
+    assert '"Agent activity"' in more and '$("status-activity")?.click()' in more, (
+        "More no longer holds the agent's runs, their only way in on a phone"
     )
-    # Three are rows of the tab bar's More sheet already, which is their way in.
-    more = app.split("function openPhoneMoreSheet", 1)[1][:4000]
-    in_more = {"status-reminders", "status-agent", "status-guide"}
     assert '"reminders"' in app.split("const PHONE_MORE_TABS", 1)[1][:200], (
         "Reminders left the More sheet, and the status bar's count was its phone way in"
     )

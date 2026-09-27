@@ -6540,9 +6540,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-band-edge-soft { stroke-width: 0.5; opacity: 0.2; }
 .nm-atlas .atl-band > .atl-band-fill { opacity: 0.58; }
 .nm-atlas .atl-band-haze .atl-band-cloud { opacity: 0.42; }
+/* Round 9: the orbit's depth. The far half (under the figure) is quieter,
+   the near half (over the mane and the rings) a little brighter, its lit
+   edge and its stream stronger; they meet where the ribbon turns edge-on,
+   so the step is never seen. */
+.nm-atlas .atl-band-back > .atl-band-fill { opacity: 0.5; }
+.nm-atlas .atl-band-back > .atl-band-stream { opacity: 0.12; }
+.nm-atlas .atl-band-front > .atl-band-fill { opacity: 0.66; }
+.nm-atlas .atl-band-front > .atl-band-stream { opacity: 0.24; }
+.nm-atlas .atl-band-front > .atl-band-edge-soft { opacity: 0.34; }
 /* The drift, on the nebula's own layer in the companion: a slow turn
    about the chest and a breath of opacity, compositor only. */
-.nm-atlas.atl-layer-neb { transform-origin: 31px 52px; will-change: transform, opacity; }
+.nm-atlas:is(.atl-layer-neb, .atl-layer-neb-front) { transform-origin: 31px 52px; will-change: transform, opacity; }
 @keyframes atl-neb-drift {
   from { transform: rotate(-1.6deg) translate(-0.6px, 0.4px) scale(0.99); opacity: 0.86; }
   to { transform: rotate(1.8deg) translate(0.8px, -0.6px) scale(1.02); opacity: 1; }
@@ -6902,7 +6911,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        companion's walk, carry and kick out-rank the skirt's with their own
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
-    &.atl-layer-neb { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
+    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
@@ -7000,7 +7009,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
-    &.atl-layer-neb { animation: none !important; }
+    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: none !important; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }

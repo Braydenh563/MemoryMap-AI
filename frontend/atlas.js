@@ -784,45 +784,119 @@ const ATLAS_WISPS = ATLAS_GEO.wisps.map(([seg, w0, w1]) => atlasStem([seg], atla
 
 //: **The galaxy strand** (the reference's nebula swirl): a ribbon of deep
 //: indigo running to violet along its length, with a lit edge, star
-//: specks and pink and blue nebula clouds inside, that sweeps behind the
-//: body from the upper right round to the lower left and curls under it
-//: (`ATLAS_BAND`, below). Its width swells and thins along the way
-//: (`atlasTwist`), so it turns edge-on and reads as a ribbon rather than
-//: a stripe, and a pale stream weaves inside it as in the tail. `atlasBandPaths`
-//: makes the fill, the lit edge and the stream for one sweep.
-const atlasTwist = (base) => (t) => base(t) * (0.36 + 0.64 * Math.abs(Math.cos(Math.PI * 1.35 * t + 0.55)));
-function atlasBandPaths(segs, base) {
-  const width = atlasTwist(base);
+//: specks and pink and blue nebula clouds inside and a haze of larger
+//: clouds round it (`ATLAS_BAND`, below). Its width swells and thins
+//: along the way, so it turns edge-on and reads as a ribbon rather than a
+//: stripe, and a pale stream weaves inside it as in the tail.
+//: **One orbit round the whole figure** (the owner, round 9: "can the
+//: nebular stream ... go around the whole figure including the hair and
+//: not be mostly hidden by the hair and cosmic rings"). Rounds 6 to 8 drew
+//: it all behind, so on the feminine look the mane and the rings covered
+//: its upper half and it read as a loop round the legs. Now it is a helix
+//: of one and a third turns about the figure's axis (x 31), seen from a
+//: little above: it starts thin at the lower right, passes in front under
+//: the feet, rises up the left side, goes behind the body and the head,
+//: comes out at the right over the mane, crosses in front over the crown
+//: and trails off thin past the left ear. `atlasHelixAt` is the centre
+//: line at an angle round the axis (90 is nearest the viewer, 270 the far
+//: side), so which half is near is a fact of the geometry, not a guess:
+//: the near spans are one path drawn over the figure, the hair and the
+//: rings (`part` "front" in `atlasBand`), the far span one path under
+//: everything, and the two meet end to end where the orbit turns at the
+//: sides (seams under a speck each). The near half is wider and carries a
+//: brighter stream, the far half narrower and quieter, so it has depth.
+//: Round 6's objection to a front crossing ("cut across the legs") is
+//: kept: the near spans pass under the feet and over the crown, clear of
+//: the face, the torso and the legs.
+//: Y at each quarter turn from 0 to 540 degrees (Catmull-Rom between), and
+//: the tilt `e` that lowers the near side, fading from 8 to 3 up the turn.
+const ATLAS_HELIX_Y = [92, 87, 77, 56, 16, -7, -12];
+const ATLAS_HELIX = { from: 38, to: 505, r: 37, near: [196, 334] };
+function atlasHelixAt(deg) {
+  const u = Math.max(0, Math.min(5.999, deg / 90));
+  const k = Math.floor(u);
+  const f = u - k;
+  const Y = ATLAS_HELIX_Y;
+  const p0 = Y[Math.max(0, k - 1)], p1 = Y[k], p2 = Y[k + 1], p3 = Y[Math.min(Y.length - 1, k + 2)];
+  const y = 0.5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (3 * p1 - p0 - 3 * p2 + p3) * f * f * f);
+  const rad = (deg * Math.PI) / 180;
+  const e = 8 - 5 * (deg / 540);
+  return [31 + ATLAS_HELIX.r * Math.cos(rad), y + e * Math.sin(rad)];
+}
+//: The helix from `a` to `b` degrees as cubics a quarter of a right angle
+//: apart (Hermite tangents by a central difference), in `atlasStem`'s form.
+function atlasHelixSegs(a, b) {
+  const n = Math.max(1, Math.round((b - a) / 22.5));
+  const h = (b - a) / n;
+  const tan = (d) => {
+    const [x0, y0] = atlasHelixAt(d - 0.5);
+    const [x1, y1] = atlasHelixAt(d + 0.5);
+    return [(x1 - x0) * (h / 3), (y1 - y0) * (h / 3)];
+  };
+  const segs = [];
+  for (let i = 0; i < n; i += 1) {
+    const d0 = a + i * h;
+    const d1 = d0 + h;
+    const [x0, y0] = atlasHelixAt(d0);
+    const [x1, y1] = atlasHelixAt(d1);
+    const [tx0, ty0] = tan(d0);
+    const [tx1, ty1] = tan(d1);
+    segs.push([x0, y0, x0 + tx0, y0 + ty0, x1 - tx1, y1 - ty1, x1, y1]);
+  }
+  return segs;
+}
+//: Width at an angle: a taper from a thin start to a thin end; depth, the
+//: near side (sin > 0) a third wider than the far; and a twist that turns
+//: the ribbon edge-on exactly where the halves meet, so neither seam is a
+//: square end: the near half comes out of the mane as a ribbon turning
+//: towards the viewer, not a cut (the first draft's, measured on the
+//: feminine look). A gentler turn between keeps it reading as a ribbon.
+function atlasHelixWidth(deg) {
+  const t = (deg - ATLAS_HELIX.from) / (ATLAS_HELIX.to - ATLAS_HELIX.from);
+  const base = 0.5 + 8.4 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.7;
+  const near = (1 + Math.sin((deg * Math.PI) / 180)) / 2;
+  const pinch = ATLAS_HELIX.near.reduce((w, at) => w - 0.86 * Math.exp(-(((deg - at) / 20) ** 2)), 1);
+  const twist = 0.78 + 0.22 * Math.abs(Math.cos(Math.PI * 2.4 * t + 0.35));
+  return base * pinch * twist * (0.66 + 0.34 * near);
+}
+//: One span's fill, lit edge and stream. The stream is the near side's
+//: light: a third of the ribbon at the front, a sliver at the back.
+function atlasHelixSpan(a, b) {
+  const segs = atlasHelixSegs(a, b);
+  const at = (t) => a + (b - a) * t;
+  const width = (t) => atlasHelixWidth(at(t));
+  const near = (t) => (1 + Math.sin((at(t) * Math.PI) / 180)) / 2;
   return {
-    fill: atlasStem(segs, width, { samples: 12, cap: false }),
-    edge: atlasStemEdge(segs, width, 12),
-    stream: atlasStem(segs, (t) => width(t) * 0.3, { samples: 12, cap: false, shift: (t) => width(t) * 0.24 * Math.sin(Math.PI * 2.2 * t) }),
+    fill: atlasStem(segs, width, { samples: 5, cap: false }),
+    edge: atlasStemEdge(segs, width, 5),
+    stream: atlasStem(segs, (t) => width(t) * (0.12 + 0.24 * near(t)), { samples: 5, cap: false, shift: (t) => width(t) * 0.22 * Math.sin(Math.PI * 0.011 * at(t)) }),
   };
 }
-//: **One ribbon, all of it behind** (round 6, the owner: "improve the
-//: nebular flow around the characters"). It was two pieces, a back sweep
-//: and a short front crossing, each with a hard white edge line at 0.55,
-//: which read as separate bits and cut across the legs (and, on the
-//: feminine look, across the skirt). Now it is one continuous ribbon that
-//: leaves the upper right behind the hair, sweeps down behind the body,
-//: curls round the lower left and trails away under the figure, with its
-//: edge a faint lit line, and a haze of soft clouds along it, not clipped
-//: to it, so the ribbon sits in a drift of light rather than on the page.
-//: In the companion it is a layer of its own that drifts on the
-//: compositor (`atlasDrawFigure`, `.atl-layer-neb`).
-//: Round 7 (INBOX 430, the owner: "a taller nebula stream"): it rises from
-//: above the crown now, at -7, a thin tip over the right ear that swells as
-//: it comes down, where it began at the ear's height.
-const ATLAS_BAND = atlasBandPaths([[45, -7, 55, -7.6, 57.6, 9, 60, 16], [60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.8 + 8 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
-const ATLAS_BAND_STARS = [[50, -5.4, 0.3], [57, 3, 0.36], [60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
-//: The colour inside the ribbon, clipped to it: [cx, cy, rx, ry, colour].
-const ATLAS_BAND_CLOUDS = [[55, 0, 9, 9, "blue"], [58, 26, 12, 8, "pink"], [32, 43, 13, 7, "blue"], [2, 58, 11, 9, "pink"], [0, 80, 9, 11, "blue"], [22, 90, 12, 5, "pink"]];
+function atlasBandPaths() {
+  const { from, to, near } = ATLAS_HELIX;
+  const spans = { back: [[near[0], near[1]]], front: [[from, near[0]], [near[1], to]] };
+  const out = {};
+  for (const [part, list] of Object.entries(spans)) {
+    const paths = list.map(([a, b]) => atlasHelixSpan(a, b));
+    out[part] = { fill: paths.map((p) => p.fill).join(""), edge: paths.map((p) => p.edge).join(""), stream: paths.map((p) => p.stream).join("") };
+  }
+  return out;
+}
+const ATLAS_BAND = atlasBandPaths();
+//: Specks, clouds and haze, placed by angle round the orbit so they stay on
+//: it: [angle, radius] for a speck, [angle, rx, ry, colour] for a cloud;
+//: `atlasBandSplit` turns them into points and sorts them into the half
+//: their angle is in. The seams get a speck each.
+const ATLAS_BAND_STARS = [[50, 0.3], [72, 0.42], [110, 0.34], [150, 0.4], [196, 0.5], [214, 0.34], [240, 0.3], [300, 0.36], [334, 0.5], [352, 0.4], [378, 0.34], [404, 0.42], [428, 0.3], [452, 0.36], [476, 0.3], [496, 0.24]];
+const ATLAS_BAND_CLOUDS = [[68, 12, 5, "pink"], [132, 11, 7, "blue"], [210, 8, 10, "pink"], [300, 10, 7, "blue"], [372, 9, 9, "pink"], [420, 11, 6, "blue"], [470, 9, 5, "pink"]];
 //: The haze round it, unclipped and faint: larger clouds that the ribbon
-//: runs through, so its edges dissolve into light.
-//: Round 8 (the owner: "widen the nebulous stream around both looks"):
-//: the ribbon swells to 8.8 across where it swelled to 6.2, and its haze
-//: reaches a third further round it.
-const ATLAS_BAND_HAZE = [[54, 2, 16, 14, "pink"], [56, 26, 20, 15, "blue"], [34, 42, 22, 11, "pink"], [4, 60, 15, 20, "blue"], [4, 84, 19, 12, "pink"], [28, 90, 19, 7, "blue"]];
+//: runs through, so its edges dissolve into light. Round 8 widened the
+//: ribbon to 8.8 and the haze a third; the near half keeps both.
+const ATLAS_BAND_HAZE = [[80, 18, 5, "blue"], [160, 6, 14, "pink"], [220, 10, 16, "blue"], [300, 14, 11, "pink"], [376, 7, 13, "blue"], [436, 16, 6, "pink"]];
+function atlasBandSplit(list, part) {
+  const [n0, n1] = ATLAS_HELIX.near;
+  return list.filter(([deg]) => (deg >= n0 && deg <= n1) === (part === "back")).map(([deg, ...rest]) => [...atlasHelixAt(deg), ...rest]);
+}
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -1076,18 +1150,20 @@ function atlasTail(layer, edge, look) {
 //: **The nebula** (the reference's galaxy band; light and secondary): the
 //: haze first, then the ribbon through it, with its nebula, the clouds
 //: clipped to it, a pale stream, a faint lit edge and a few star dots.
-//: All of it behind the figure.
-function atlasBand(layer, id) {
-  const g = atlasGroup(layer, "atl-band", [31, 52]);
+//: `part` is the orbit's half (`ATLAS_BAND`): "back" under the whole
+//: figure, "front" over the hair and the rings' near halves.
+function atlasBand(layer, id, part = "back") {
+  const band = ATLAS_BAND[part];
+  const g = atlasGroup(layer, `atl-band atl-band-${part}`, [31, 52]);
   const haze = atlasGroup(g, "atl-band-haze");
-  for (const [cx, cy, rx, ry, colour] of ATLAS_BAND_HAZE) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, haze);
-  atlasMake("path", { class: "atl-band-fill", d: ATLAS_BAND.fill }, g);
-  atlasMake("path", { class: "atl-overlay atl-band-neb", d: ATLAS_BAND.fill }, g);
-  const clouds = atlasMake("g", { "clip-path": `url(#${id}-band)` }, g);
-  for (const [cx, cy, rx, ry, colour] of ATLAS_BAND_CLOUDS) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, clouds);
-  atlasMake("path", { class: "atl-band-stream", d: ATLAS_BAND.stream }, g);
-  atlasMake("path", { class: "atl-band-edge atl-band-edge-soft", d: ATLAS_BAND.edge }, g);
-  atlasSpecks(g, ATLAS_BAND_STARS);
+  for (const [cx, cy, rx, ry, colour] of atlasBandSplit(ATLAS_BAND_HAZE, part)) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, haze);
+  atlasMake("path", { class: "atl-band-fill", d: band.fill }, g);
+  atlasMake("path", { class: "atl-overlay atl-band-neb", d: band.fill }, g);
+  const clouds = atlasMake("g", { "clip-path": `url(#${id}-band${part === "front" ? "f" : ""})` }, g);
+  for (const [cx, cy, rx, ry, colour] of atlasBandSplit(ATLAS_BAND_CLOUDS, part)) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, clouds);
+  atlasMake("path", { class: "atl-band-stream", d: band.stream }, g);
+  atlasMake("path", { class: "atl-band-edge atl-band-edge-soft", d: band.edge }, g);
+  atlasSpecks(g, atlasBandSplit(ATLAS_BAND_STARS, part));
   return g;
 }
 
@@ -1550,13 +1626,13 @@ function atlasBuildDefs(svg, id) {
   //: The nebula strand: pink and violet clouds along the band.
   const bandNeb = atlasMake("radialGradient", { id: `${id}-bneb`, gradientUnits: "userSpaceOnUse", cx: 28, cy: 50, r: 34 }, defs);
   stops(bandNeb, [[0, "atl-st-neb0"], [0.5, "atl-st-neb20"], [1, "atl-st-neb1"]]);
-  //: The strand's own run: indigo to violet and back along its sweep,
-  //: from the upper right to the lower left.
-  //: Round 7: the run starts above the crown with the ribbon's new tip,
-  //: which fades in from nothing (`band-fade`) through violet, so the tip
-  //: reads as nebula thinning out, not a dark whip over the hair.
-  const bandRun = atlasMake("linearGradient", { id: `${id}-bandg`, gradientUnits: "userSpaceOnUse", x1: 50, y1: -8, x2: -4, y2: 80 }, defs);
-  stops(bandRun, [[0, "atl-st-band-fade"], [0.16, "atl-st-band1"], [0.3, "atl-st-band0"], [0.52, "atl-st-band1"], [0.74, "atl-st-band0"], [1, "atl-st-band2"]]);
+  //: The strand's own run: indigo to violet and back up its orbit, from
+  //: the feet to above the crown (round 9, where it ran from the upper
+  //: right to the lower left). The top fades in from nothing
+  //: (`band-fade`) through violet, so the ribbon's upper tip reads as
+  //: nebula thinning out, not a dark whip over the hair.
+  const bandRun = atlasMake("linearGradient", { id: `${id}-bandg`, gradientUnits: "userSpaceOnUse", x1: 31, y1: -11, x2: 31, y2: 99 }, defs);
+  stops(bandRun, [[0, "atl-st-band-fade"], [0.1, "atl-st-band1"], [0.3, "atl-st-band0"], [0.52, "atl-st-band1"], [0.74, "atl-st-band0"], [1, "atl-st-band2"]]);
   for (const [name, cls] of [["cloudp", "atl-st-cloud-pink"], ["cloudb", "atl-st-cloud-blue"]]) {
     const cloud = atlasMake("radialGradient", { id: `${id}-${name}` }, defs);
     stops(cloud, [[0, cls], [1, "atl-st-clear"]]);
@@ -1592,7 +1668,9 @@ function atlasBuildDefs(svg, id) {
   atlasMake("rect", { x: -50, y: 0, width: 100, height: 50 }, front);
   //: The nebula's clouds, clipped to its ribbon.
   const bandClip = atlasMake("clipPath", { id: `${id}-band` }, defs);
-  atlasMake("path", { d: ATLAS_BAND.fill }, bandClip);
+  atlasMake("path", { d: ATLAS_BAND.back.fill }, bandClip);
+  const bandClipFront = atlasMake("clipPath", { id: `${id}-bandf` }, defs);
+  atlasMake("path", { d: ATLAS_BAND.front.fill }, bandClipFront);
 }
 
 //: What each level shows, and the box it is drawn in. `full` keeps margins
@@ -1664,7 +1742,9 @@ function atlasDrawFigure(mood) {
   //: `neb` (round 6) is the nebula alone, under everything, so it can
   //: drift on its own root: a slow turn and a breath of opacity on the
   //: compositor, no layout and no paint (`.atl-layer-neb`, the CSS).
-  const names = ["neb", "back", "tail", ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "fx-1", "fx-2"];
+  //: `neb-front` (round 9) is the orbit's near half, over the rings, on
+  //: the same drift so the two halves move as one ribbon.
+  const names = ["neb", "back", "tail", ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "neb-front", "fx-1", "fx-2"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
@@ -1687,6 +1767,7 @@ function atlasDrawFigure(mood) {
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true, true));
+  atlasBand(layers["neb-front"].rig, id, "front");
   //: The head drew its extras in the body layer; the two that rise (the
   //: Zs, the hearts) move to their roots, each pair under the wrappers the
   //: mood shows and hides (`.atl-fx-hearts`, `.atl-fx-zz`).
@@ -1822,7 +1903,10 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
     host = atlasGroup(host, "name-mark atl-face");
   }
   atlasHead(host, id, level, look);
-  if (spec.body) ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, true));
+  if (spec.body) {
+    ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, true));
+    atlasBand(rig, id, "front");
+  }
   if (figure) atlasStarsProp(rig);
   atlasApply(svg, mood);
   if (!figure) watchNameMark(svg);

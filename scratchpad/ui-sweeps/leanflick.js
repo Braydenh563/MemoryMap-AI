@@ -21,14 +21,17 @@ const { boot } = require('./lib.js');
     await new Promise((r) => setTimeout(r, 800));
     window.__lean = { tilt: [], turn: [] };
     const sign = (v) => Math.sign(Math.round(Number(v || 0) * 10));
-    let lastTilt = sign(buddy.style.getPropertyValue('--nmb-tilt'));
+    //: Atlas leans with its own drawing (`data-lean`, l or r); anything
+    //: else by `--nmb-tilt`. Either is its lean.
+    const leanOf = () => buddy.dataset.lean ? (buddy.dataset.lean === 'l' ? -1 : 1) : sign(buddy.style.getPropertyValue('--nmb-tilt'));
+    let lastTilt = leanOf();
     let lastTurn = buddy.dataset.turn || '';
     new MutationObserver(() => {
-      const t = sign(buddy.style.getPropertyValue('--nmb-tilt'));
+      const t = leanOf();
       if (t !== lastTilt) { window.__lean.tilt.push(t); lastTilt = t; }
       const u = buddy.dataset.turn || '';
       if (u !== lastTurn) { window.__lean.turn.push(u); lastTurn = u; }
-    }).observe(buddy, { attributes: true, attributeFilter: ['style', 'data-turn'] });
+    }).observe(buddy, { attributes: true, attributeFilter: ['style', 'data-turn', 'data-lean'] });
     return [nmb.x + NMB_W / 2, nmb.y + NMB_HEAD / 2];
   });
   await page.mouse.move(head[0], head[1] - 10);
@@ -41,7 +44,7 @@ const { boot } = require('./lib.js');
   const sweep = await page.evaluate(() => ({ tilt: window.__lean.tilt.length, turn: window.__lean.turn.length }));
   await page.mouse.move(head[0] + 130, head[1] - 10, { steps: 6 });
   await page.waitForTimeout(2500);
-  const held = await page.evaluate(() => ({ tilt: Number(document.getElementById('nm-buddy').style.getPropertyValue('--nmb-tilt') || 0), turn: document.getElementById('nm-buddy').dataset.turn || '' }));
+  const held = await page.evaluate(() => { const b = document.getElementById('nm-buddy'); return { tilt: b.dataset.lean ? (b.dataset.lean === 'r' ? 1 : -1) : Number(b.style.getPropertyValue('--nmb-tilt') || 0), lean: b.dataset.lean || '', turn: b.dataset.turn || '' }; });
   console.log(JSON.stringify({ sweepChanges: sweep, held }));
   await browser.close();
   process.exit(sweep.tilt > 2 || sweep.turn > 2 || held.tilt <= 0 ? 1 : 0);

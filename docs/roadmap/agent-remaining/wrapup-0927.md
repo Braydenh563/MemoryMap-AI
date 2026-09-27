@@ -121,79 +121,110 @@ written.
 
 ## Companion (avatars.js)
 
-- [ ] Emotes and acts on click must ease back to the prior state, never
-  cut back after a few seconds.
-- [ ] Covers content again (sat over the Weekly digest text): size and
-  proportion depend on the perch; it scales down where space is small
-  and never overlaps text.
-- [ ] Tab switch: it stayed visible on the new tab for a split second,
-  vanished, then came back with barely an entrance; it must hide on
-  leave and arrive with a real entrance, with no startle.
-- [ ] Chat switch: it was left floating mid-panel for seconds after its
-  perch (a button on an empty chat) went away; re-perch at once.
-- [ ] Tab switch: the companion must arrive (walk, hop, climb or portal),
-  never just appear. Reproduce with motion auto and reduced.
-- [ ] Never perch inside a text block (it sat in the Weekly digest
-  paragraph); resolve the final perch before the entrance, no post-appear
-  blink. Sweep: settled rect never overlaps a text node in a card.
-- [ ] Lean jitter: hysteresis (enter 0.7, leave 0.3), 1.2 to 1.5s dwell,
-  smoothed gaze, no lean on flicks. At most 2 lean changes in a 5s 2Hz sweep.
-- [ ] Perf auto must not stop companion travel; reduced motion fades instead
-  of popping; a "Companion movement" setting (follow, always animate, fades
-  only) whose hint names the reason (OS, setting, perf).
-- [ ] Avatar lab: a picked motion stays pinned, "Live behaviour" toggle off
-  by default; no standing sleep; night cap only when lying or curled.
-  Check companion-sim for the same.
-- [ ] Settings > Personas: Atlas clipped to its circle (and every persona
-  and profile circle).
-- [ ] No silent random custom face; "Create your avatar" with a link to
-  Settings > Profile where "you" is offered, and in the companion menu.
-- [ ] Saved companion presets, on the custom-themes pattern.
-- [ ] Small toolbar buttons: perching never blocks the click.
-- [ ] Wire the Atlas hooks: `data-lean`, `data-atlas-variant`, `data-pose`
-  lie-1, lie-2, lie, curl-1, curl.
-- [ ] Deferred unless small: an arm rig that can cross in front of the body.
-- [ ] The owner, high priority: "when atlas is sleeping and i click it, it
-  opens its eyes and mouth for a sec like it is startled but then falls
-  back asleep a second later making it feel like the sleep is fake. it
-  needs ot be a gradual fall back asleep. maybe a pout or getting a
-  temporarily a little mad if it happens multiple times consecutively or in
-  a short time span etc. make sure that random sudden movements dont happen
-  too frequently or randomly. it cant be distracting for the user". A click
-  asleep wakes it gradually (slow lids, a yawn, a stretch), awake at least
-  20 to 30s, drowsiness back over time before sleep over several seconds;
-  repeated clicks go sleepy-annoyed (pout, huff), then grumpy, then decay;
-  no instant revert. A calm budget: at most one attention-grabbing act
-  every 60 to 90s, never while typing or scrolling nearby. Tests: the state
-  transitions and the rate cap.
-- [ ] The owner: "the companion was sleeping but then when I clicked a
-  different tab, for a split second I saw it shoot back up look alive
-  suddenly and look surprised". Sleep persists across moves: carried asleep
-  (fades or poofs, arrives lying or curled) or woken gradually before a
-  walk; no reset to an awake or surprised pose on reposition, remount or
-  tab change. Test: sleep plus a tab switch never shows an awake frame.
-- [ ] The owner: "the companion gets frozen in its animation and with the
-  exact same half lidded half mouth open expression every time when I hold
-  down ctrl". Holding Ctrl keeps its live face and animation.
-- [ ] The owner, again: Atlas sat over the Weekly digest paragraph, and
-  scrolled, looked perched on the status bar. Top edges only, never inside
-  a card's content below its heading; every settle validated against text
-  rects; on scroll it stays on its edge or hops to a valid one.
+Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
+
+- [x] Emotes and acts on click ease back: an act's face lets go over 1.8s
+  (`nmb-easing`); companionactease.js, a cheer's eyes 104ms before, 1307ms.
+  Atlas's own poke moods (atlas.js `ATLAS_POKES`) still snap back after
+  1.8s: the Atlas agent's, with `atlasEase`.
+- [x] Covers content: top edges only, rows inside a card are not ledges,
+  every perch it would take is measured for words (`nameMarkBuddyWordsUnder`),
+  0.75 of its size to fit a small clean perch, else tucked behind the bar.
+  perchwords.js, four tabs by six scroll positions, chosen and settled:
+  15 of 38 bad before, 0 after; 1440x900 0 of 38.
+- [x] Tab switch: gone in the same frame as its tab (11 frames on the new
+  tab before, 0); the materialise drifts onto its perch; out of sight no
+  longer cancels the follow (it stayed away until the next switch).
+- [x] Chat switch: a perch that goes is replaced in 250ms (perchgone.js,
+  floated 2241ms before, 257ms).
+- [x] Tab switch arrives by a walk, climb or materialise; a fade under
+  reduced motion or Fades only; companiontabswitch.js passes with motion
+  auto, reduced, Performance mode on and auto, Fades only, Always.
+- [x] Never over text; perchtext.js 0 square px on every arrival, no poof
+  after arriving (and perchwords.js above).
+- [x] Lean: leanflick.js, 0 changes in a 5s 2Hz sweep, a held pointer
+  leans once (a face by `--nmb-tilt`, Atlas by `data-lean`).
+- [x] Perf auto keeps travel; Companion movement hint names the reason,
+  now also what Always overrides (OS, app).
+- [x] Avatar lab pin: labpin.js, the pick stays, no cap standing.
+  companion-sim has no mood picker; its auto beats are off by default.
+- [x] Persona and profile circles: personaclip.js, every face `circle(50%)`.
+- [x] Create your avatar: makeavatar.js, the hint, the Profile maker and the
+  companion menu row.
+- [x] Saved companions: buddypresets.js, apply, rename, delete.
+- [x] Small buttons: perchbuttons.js, every button still takes its click
+  under it (middle and top).
+- [x] Atlas hooks wired: `data-lean`, `data-atlas-variant` (per new place;
+  a lie-down's side), lie-1 > lie-2 > lie and back, sit > curl-1 > curl and
+  back, kept across a carry (companionlie.js).
+- [ ] Deferred: an arm rig that can cross in front of the body (not small:
+  the arms are separate svg roots behind the body in every look).
+- [x] Sleep and clicks (companion side): a poke wakes it over seconds
+  (eyes open over 1.25s, was 122ms), awake 45s, drowsy before sleep, a
+  second poke pouts, a third is grumpy and comes down through a pout; a
+  click near it only stirs it; a calm budget (one sudden act in 60 to 90s,
+  none while typing or scrolling). atlassleepinput.js COMPANION_ONLY=1 and
+  companionsleeptab.js pass. **Open, atlas.js** (the Atlas agent): its
+  global pointerdown/keydown listener still sets every Atlas "surprised"
+  for 700ms and snaps back; atlassleepinput.js without COMPANION_ONLY
+  measures it (Ctrl held: 40 of 40 frames off "sleepy").
+- [x] Sleep across moves and tabs: carried asleep by a fade, in by a fade,
+  lying or curled on arrival; companionsleeptab.js 0 awake frames of 466
+  (83 walking asleep before).
+- [ ] Ctrl held: the companion side holds (0 awake frames); the frozen
+  face is atlas.js's listener above, with the Atlas agent.
+- [x] Perch rules (the Weekly digest report): see "Covers content".
 
 ## App (Sonnet)
 
-- [ ] Thinking words UI is broken (owner screenshots): the dots, a long
+- [x] Thinking words UI is broken (owner screenshots): the dots, a long
   line, then the phrase far right and off-centre, with an annoying pulse.
-  Redesign: dots, then the phrase right beside them, bold, a subtle
-  glow or shimmer, no pulsing; no stray line; one row, vertically
-  centred, same in chat, Ask and the popup agent.
-- [ ] Atlas guide panel: its '?' button does nothing; wire it.
+  Root cause found by isolating the element (element-scoped screenshots,
+  yellow/lime background probes): `.typing-dots span` (three rules plus two
+  `!important` "always motion" ones) matched the rotating word too, since
+  it is just a fourth `<span>` in the same row appended by
+  `startThinkingWordRotation`. The word inherited a dot's 0.45rem circle
+  stretched to its own 233px `min-width` (a flattened `border-radius: 50%`
+  pill — the "line"), `background: var(--muted)` painted solid across it,
+  and `dot-bounce` running on it (the "pulse") — all three symptoms, one
+  leak. Fixed at the cause: the three real dots now get their own
+  `.typing-dot` class (chat.js) and every dot rule (both files) is scoped
+  to it, so a future span in this row can't be caught the same way. Also
+  bold, a static text-shadow glow instead of a fade-to-invisible crossfade
+  (resting opacity 0.5, not 0), and an explicit writing-phase fade for the
+  word (it no longer rides the dots' own rule). Measured: dots, word, no
+  line, rotation still swaps text every ~2.5-3.5s with a dim/bright
+  crossfade, light and dark (`scratchpad/ui-sweeps/thinkingwords.js`
+  reproduces it standalone via `progressLine`, no model needed). Same fix
+  covers chat, Ask (capture-ask.js) and the popup agent (palette.js): all
+  three call the same `typingDots`/`startThinkingWordRotation`.
+- [ ] Atlas guide panel: its '?' button does nothing; wire it. **Not
+  reproduced.** Opened the panel from the status bar (1093, >=680px) and
+  from the phone's More sheet (390), light and dark: clicking
+  `[data-help-for="help-chat-help"]` (moved into the sheet head by
+  `openHelpChat`) opens `#help-chat-help` correctly every time, through the
+  same `wireHelpPopover` (menus.js) every other help toggle uses; measured
+  the popover's box each time (416x249 desktop, 366x298 phone), never
+  hidden or zero-sized. Added `scratchpad/ui-sweeps/guidehelp.js` to lock
+  this in and to give the owner's next report something to run first. If it
+  recurs, it needs the exact steps (which entry point, what was open
+  already, mobile or desktop) since nothing in the obvious paths breaks it.
 - [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
   the new recipes (dialog head, quiet segmented tabs, search with icon,
   compact rows with check, name and category chip that never wraps,
   sticky footer).
-- [ ] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
-- [ ] At least 4 realistic multi-line notes above the fold at 1093x614.
+- [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
+  Already landed (index.html's `#settings-close` carries `dialog-head-btn`
+  inside a `.dialog-head-actions` wrapper); verified against
+  `tests/test_ui_recipes.py -k dialog_head` (passes) rather than rebuilt.
+  DESIGN.md's own row still called it "the named holdout"; corrected.
+- [x] At least 4 realistic multi-line notes above the fold at 1093x614.
+  Measured with `scratchpad/ui-sweeps/notesdensity.js`: was 3 whole cards
+  plus one partial (113px/card) after the merged WIP; now 4 whole (91px/
+  card), light and dark. The last ~13px/card came from the "Show more"
+  button's `inline-flex` (the button base recipe) sitting in an anonymous
+  block wrapper whose strut takes the *inherited* line-height, not its own
+  smaller one; scoped override to `display: block` for the card view.
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
 - [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
 - [ ] Verify the rotating thinking words render and rotate (chat, capture
@@ -201,6 +232,17 @@ written.
 - [ ] Ask citation missing after a heading on a reopened answer: not
   reproduced; regression test added. Needs the owner's real answer if seen
   again.
+- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
+  affordance and alignment (a coordinator drop, not in the original list).
+  Icon was a couple of px off the text's optical centre (`.notice`'s own
+  `align-items: flex-start`, there for a *wrapping* notice, scoped fixed to
+  `center` for this one-line status); added a `.linklike` "See the full
+  list" wired to `openSettingsModal`'s own deep-link scroll+ring, so the
+  status now leads somewhere. Not done, flagged for an owner decision: no
+  border (it is `.notice`'s documented shared shape, "two tones and no
+  more") and a filled icon (no `-fill` glyph anywhere in the vendored
+  Phosphor set, regular weight only) both need a recipe change, not a
+  one-line fix.
 - [ ] README: showcase data (clusters, webs, loose notes, reasoned and plain
   links), dark shots of every main feature, one dark/light split, the Atlas
   section (title, headline, short intro, a mood image), the rest polished.

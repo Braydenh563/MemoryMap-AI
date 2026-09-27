@@ -8,6 +8,13 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Changed
+- A sleeping companion stays asleep: a click near it is only a twitch, a tab switch or a move carries it asleep and it arrives lying or curled, and the app's news no longer pulls it upright. Poked, it wakes over a few seconds with a yawn and stays up; poked again while still waking it pouts, and a third time it is grumpy for half a minute before coming down through a pout.
+- The companion does something sudden or large (a wave, a hop, a cheer, a wander) at most once a minute or so, and never while you type or scroll.
+- A face the companion puts on for an act eases back over a couple of seconds instead of cutting back.
+- The companion only rests on the top edges of panels, never on a row inside a card or hanging under one, checks each place it would take for words under it, takes a smaller size to fit a small clean place, and otherwise tucks behind the bottom bar with only its eyes showing.
+- On a tab switch the companion goes with its tab in the same frame and always follows you to the new tab (it could stay away after a switch from a scrolled page); a place it was resting on that goes away is replaced at once rather than after seconds.
+- Atlas as the companion leans with its own body, holds its arms a different way at each new place, and lies down on its nebula or curls up in it, and back, through its own poses.
+- Appearance > Companion movement says what Always animate is overriding, when it is.
 
 - Companions can be saved like looks: Appearance > Saved companions keeps who it is, its look, size, what it does and how it moves under a name, to apply, rename or delete.
 - When the companion is you or your own character and you have not made that face yet, Appearance says it is read from a name and offers Create your avatar; the companion's menu offers it too, and choosing Your own character there opens its maker instead of quietly making one up.

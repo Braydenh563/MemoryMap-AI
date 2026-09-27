@@ -44,7 +44,7 @@ def app_js_files() -> list[Path]:
 #: (app.js, `LAZY_MODULES`). Still the app's code for every test that reads
 #: it, so `app_js_text` includes them; not in `app_js_files`, which is what
 #: loads at boot and what the gzip budget counts.
-LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js")
+LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js", "categories-panel.js")
 
 
 @lru_cache(maxsize=1)
@@ -69,4 +69,5 @@ def frontend_text(name: str) -> str:
 def app_js_family(path: Path) -> bool:
     """Whether a frontend file is one of the pieces of the old app.js, for
     the lints that count or allow things per file."""
-    return path.resolve() in {p.resolve() for p in app_js_files()}
+    pieces = [*app_js_files(), *(FRONTEND_DIR / name for name in LAZY_PIECES)]
+    return path.resolve() in {p.resolve() for p in pieces}

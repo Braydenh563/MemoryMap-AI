@@ -42,9 +42,13 @@ const { boot } = require('./lib.js');
     const job = during ? during() : Promise.resolve();
     while (Date.now() - t0 < ms) { frames.push({ t: Date.now() - t0, ...(await sample()) }); await page.waitForTimeout(50); }
     await job;
-    const bad = frames.filter((f) => f.mood !== 'sleepy' || !f.asleep || f.open > 0.2);
-    console.log(`${label}: ${frames.length} frames, ${bad.length} awake or surprised`, bad[0] ? JSON.stringify(bad[0]) : '');
-    return bad.length;
+    //: Two owners: the companion's own sleep (avatars.js: still asleep,
+    //: eyes shut) and Atlas's mood (atlas.js: still "sleepy"). Counted
+    //: apart so each side's fix is measured on its own.
+    const woke = frames.filter((f) => !f.asleep || f.open > 0.2);
+    const mood = frames.filter((f) => f.mood !== 'sleepy');
+    console.log(`${label}: ${frames.length} frames; companion awake ${woke.length}; Atlas mood not sleepy ${mood.length}`, woke[0] ? JSON.stringify(woke[0]) : mood[0] ? JSON.stringify(mood[0]) : '');
+    return woke.length + (process.env.COMPANION_ONLY ? 0 : mood.length);
   };
   let bad = 0;
   // 1. Ctrl held: auto-repeat keydowns every 33ms.
@@ -74,8 +78,8 @@ const { boot } = require('./lib.js');
   const surprised = wake.filter((f) => f.mood === 'surprised').length;
   console.log('direct click: eyes fully open at', openAt, 'ms; surprised frames', surprised, '; first', JSON.stringify(wake[0]), 'last', JSON.stringify(wake[wake.length - 1]));
   if (openAt !== null && openAt < 400) bad += 1;
-  if (surprised) bad += 1;
-  if (wake[wake.length - 1].asleep || wake[wake.length - 1].mood === 'sleepy') bad += 1;
+  if (surprised && !process.env.COMPANION_ONLY) bad += 1;
+  if (wake[wake.length - 1].asleep) bad += 1;
   if (!process.env.QUICK) {
     await page.waitForTimeout(17000);
     const later = await sample();

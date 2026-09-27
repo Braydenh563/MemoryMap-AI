@@ -50,10 +50,10 @@ MANUAL = {
     "create_mindmap": ("whiteboard.js", 'const board = await apiJson("/whiteboard/boards", {', "Boards, New mind map"),
     "add_map_node": ("whiteboard-map.js", "const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {", "a mind map, Add child"),
     "link_map_nodes": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a mind map, draw a cross-link"),
-    "create_category": ("notes-list.js", "async function createCategoryFromPanel()", "Manage categories, New category"),
+    "create_category": ("categories-panel.js", "async function createCategoryFromPanel()", "Manage categories, New category"),
     "rename_category": ("notes-list.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
-    "merge_categories": ("notes-list.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
-    "delete_category": ("notes-list.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
+    "merge_categories": ("categories-panel.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
+    "delete_category": ("categories-panel.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
 }
 
 
@@ -77,7 +77,8 @@ def test_every_named_manual_path_still_exists():
 def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_settings():
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     wiring = (FRONTEND / "wiring.js").read_text(encoding="utf-8")
-    notes = (FRONTEND / "notes-list.js").read_text(encoding="utf-8")
+    # The panel moved to its own lazy piece (categories-panel.js).
+    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'id="manage-categories-btn"' in html and 'id="settings-manage-categories"' in html
     assert '$("manage-categories-btn").addEventListener("click", () => openManageCategories());' in wiring
     assert '$("settings-manage-categories").addEventListener("click", () => openManageCategories());' in wiring
@@ -93,7 +94,8 @@ def test_the_category_tools_count_as_writes():
 
 def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     # The owner: "needs some ui redesign ... like the ai assistant panel".
-    notes = (FRONTEND / "notes-list.js").read_text(encoding="utf-8")
+    # The panel moved to its own lazy piece (categories-panel.js).
+    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'head.classList.add("dialog-head");' in notes
     assert 'list.setAttribute("role", "listbox");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes

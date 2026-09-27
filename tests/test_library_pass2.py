@@ -67,9 +67,12 @@ def test_a_long_first_sentence_keeps_the_cut_and_carries_on():
     text = " ".join(f"w{i}" for i in range(60)) + ". Second sentence here."
     cut = text[:60]
     (split,) = _run_split([(cut, text, True)])
-    assert split["title"] == cut
-    # The preview carries on from exactly where the title stopped.
-    assert split["preview"] == "…" + text[len(cut.strip()) :].strip()
+    # The preview carries on from where the title stopped, and both stop and
+    # start on a whole word: this cut lands inside "w17", and a preview that
+    # opened "…7 w18" (on the Library, "…ke \"what's in") read as a glitch.
+    at = cut.rstrip().rfind(" ")
+    assert split["title"] == cut[:at].strip() + "…"
+    assert split["preview"] == "…" + text[at:].strip()
 
 
 def test_a_document_snippet_drops_its_own_title():

@@ -1113,8 +1113,18 @@ function libraryTitleAndPreview(title, preview, mayBeClipped = true) {
   if (sentenceEnd <= LIBRARY_TITLE_SENTENCE_MAX) {
     return { title: text.slice(0, sentenceEnd).trim(), preview: text.slice(sentenceEnd).trim() };
   }
-  const rest = text.slice(bare.length).trim();
-  return { title, preview: rest ? `…${rest}` : "" };
+  //: The server's cut can land mid-word ("...something l" / "ike"), and the
+  //: preview then opened on half a word ("…ke \"what's in my notebook"; the
+  //: devibe pass, a 1440 still of the Library). Both halves move back to the
+  //: last space in the title, so each ends and starts on a whole word.
+  let at = bare.length;
+  if (/\w/.test(text[at] || "") && /\w/.test(text[at - 1] || "")) {
+    const space = bare.lastIndexOf(" ");
+    if (space > 20) at = space;
+  }
+  const rest = text.slice(at).trim();
+  const shownTitle = at === bare.length ? title : `${bare.slice(0, at).trim()}…`;
+  return { title: shownTitle, preview: rest ? `…${rest}` : "" };
 }
 
 //: **A settings change, said in words.** The log records a preference edit

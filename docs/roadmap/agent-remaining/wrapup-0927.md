@@ -85,7 +85,9 @@ written.
 - [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
   look.
 - [ ] Masculine prop hand offset (bell, lantern about 6 units off).
-- [ ] Category tools added to `WRITE_TOOLS`, with a test.
+- [x] Category tools added to `WRITE_TOOLS`, with a test. They were in
+  already (create, rename, merge, delete); the test added pins every
+  registered tool named for categories other than `list_categories`.
 - [ ] Split suggestion: an "Ask AI" option on the utility model.
 - [ ] Arm variants 1 and 2 per mood checked; feminine arms legible small.
 - [x] A sleepy Atlas startled by any click or held Ctrl (three reports): the

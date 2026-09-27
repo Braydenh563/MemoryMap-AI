@@ -466,6 +466,19 @@ def test_find_similar_notes_is_a_read_not_a_write():
     assert "find_similar_notes" not in tools.WRITE_TOOLS
 
 
+def test_every_category_tool_that_changes_something_is_a_write():
+    """The category tools (INBOX 431 (e)) change the notebook: left out of
+    WRITE_TOOLS, a turn that merged two categories counted as having written
+    nothing, so the claimed-a-save net could fire on it, and a skill that only
+    tidied categories was labelled as answering. Every registered tool with
+    "category" in its name is a write except the one that lists them, so a
+    category tool added later cannot be forgotten here."""
+    category_tools = {name for name in tools.TOOLS if "categor" in name}
+    assert {"create_category", "rename_category", "merge_categories", "delete_category"} <= category_tools
+    assert category_tools - {"list_categories"} <= tools.WRITE_TOOLS
+    assert "list_categories" not in tools.WRITE_TOOLS
+
+
 def test_there_is_only_one_skill_writing_tool():
     """`generate_skill` wrote raw AI-authored dicts straight into preferences,
     skipping `save_skill`'s schema check, its built-in-name guard, its

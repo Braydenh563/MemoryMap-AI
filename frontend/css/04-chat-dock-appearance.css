@@ -5666,6 +5666,15 @@ input.doc-title-input::placeholder {
   overflow-y: auto;
 }
 
+.manage-split-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-width: 0;
+}
+
 .manage-split-suggestions {
   display: flex;
   flex-wrap: wrap;

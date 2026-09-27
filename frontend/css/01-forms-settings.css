@@ -312,6 +312,17 @@ input[type="datetime-local"] {
   opacity: 0.85;
 }
 
+/* A one-row box that grows with what is typed (`rows="1"`: chat, the
+   palette's agent line, magic add) keeps its hint on that one row: the
+   hint is not typed text, so the box does not grow for it, and a wrapping
+   hint was cut in half by the box's bottom edge ("high priority" in the
+   reminder sheet, measured 61px of hint in a 42px box). */
+textarea[rows="1"]::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Every `<select>` in the app, not just the chat dock's: the same fix
    `.chat-dock-controls select` needed, applied at the base rule instead of
    copied to every screen that has one. Reported: *"the dropdown combo boxes

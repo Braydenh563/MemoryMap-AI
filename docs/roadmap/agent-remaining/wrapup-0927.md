@@ -34,8 +34,9 @@ written.
   as a field: accent-tinted face, weight 600, accent icon. Settings group
   rows pad the chevron inside the highlight. The reminder nudges are two
   `.stepper` pills ("− 15 min +", "− 1 day +"), 32px (44 at 390), arrow
-  keys nudge, Shift a day, the readout fades (`stepper.js`). Found, not
-  fixed: the magic-add placeholder wraps and clips at one row.
+  keys nudge, Shift a day, the readout fades (`stepper.js`). The magic-add
+  hint no longer wraps and clips: every `textarea[rows="1"]` keeps its hint
+  on one row (`onerowhint.js`: 61/42 before, 42/42 at 1093 and 390).
 - [x] Manage categories panel redesign: the dialog head recipe, search plus
   "New category" in one row, quiet rows (dot, name, count pill, hover
   kebab), multi-select bulk bar, no double scrollbar, listbox keyboard.
@@ -105,8 +106,9 @@ written.
   there (`?ai=true`, `utility_model()`, tested with the tags as fallback);
   now the button is disabled and `aria-busy` while it asks, and the answer
   is one `--text-sm` line (it was two body paragraphs, 120px). `catsplit.js`.
-  Found, not fixed: the split's note rows are toggle pills whose text is
-  cut at two lines.
+  The split's note rows showed an 80-character slice cut mid-sentence;
+  now the note's plain words clamped to two lines with an ellipsis and the
+  whole text as the row's title.
 - [x] Arm variants 1 and 2 per mood checked; feminine arms legible small.
   `atlasarms.js` over every mood and variant, `atlasmoodgrid.js` for the
   sheet. Fixed: the head scratch (confused) left the hand out at shoulder

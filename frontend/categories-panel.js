@@ -416,8 +416,13 @@ function splitCategoryFromPanel(meta) {
         const box = document.createElement("input");
         box.type = "checkbox";
         boxes.set(entry.id, box);
+        //: The note's words, markdown stripped, clamped to two lines with an
+        //: ellipsis by the CSS: an 80-character slice cut each row off
+        //: mid-sentence with nothing to say it went on ("...Timeline and").
         const text = document.createElement("span");
-        text.textContent = entry.title || entry.content.slice(0, 80);
+        text.className = "manage-split-text";
+        text.textContent = entry.title || stripMarkdownPreview(entry.content.slice(0, 240)).replace(/\s+/g, " ").trim();
+        label.title = text.textContent;
         label.append(box, text);
         list.appendChild(label);
       }

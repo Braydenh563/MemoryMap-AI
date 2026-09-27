@@ -10,6 +10,8 @@ const {boot}=require('./lib.js');
   await page.waitForTimeout(900);
   const buttons=await page.evaluate(()=>[...document.querySelectorAll('.manage-split .confirm-actions button')].map(b=>`${b.textContent.trim()} [${b.getBoundingClientRect().height}px]`));
   console.log('buttons:', buttons.join(' | '));
+  const rows=await page.evaluate(()=>[...document.querySelectorAll('.manage-split-note')].map(l=>{const t=l.querySelector('.manage-split-text')||l.querySelector('span'); const c=getComputedStyle(t); return `${Math.round(l.getBoundingClientRect().height)}px clamp=${c.webkitLineClamp} lines=${Math.round(t.clientHeight/parseFloat(c.lineHeight))} chars=${t.textContent.length}`;}));
+  console.log('rows:', rows.join(' | '));
   await page.route('**/split/propose*', async (route)=>{ await new Promise(r=>setTimeout(r,600)); await route.continue(); });
   const ask=await page.$('.manage-split .confirm-actions button:nth-child(2)');
   await ask.click();

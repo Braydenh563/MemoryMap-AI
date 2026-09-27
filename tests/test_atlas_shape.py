@@ -242,7 +242,8 @@ def test_the_doze_is_restful_with_drifting_zs_and_a_night_cap():
     # Lying down to sleep (the companion's `lie`) wears it too, and Appearance can take it off.
     # Lying or asleep sitting only; never upright (the owner: "goes to
     # sleep standing with a night cap").
-    assert '#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nm-atlas,' in CSS
+    # Curled up asleep (`data-pose` curl-1, curl, avatars.js `nameMarkBuddyCurlUp`) wears the cap as sitting did.
+    assert '#nm-buddy:is(.nmb-act-lie, :is([data-pose="sit"], [data-pose^="curl"]):is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nm-atlas,' in CSS
     # Reduced motion: the Zs hold still.
     assert '& .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }' in CSS
 

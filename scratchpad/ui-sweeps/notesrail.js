@@ -14,6 +14,13 @@
 // At 1024 and 390: a note open, and no rail drawn; the note's own menu still
 // opens the Connections sheet.
 //
+// SIDEBAR=collapsed or SIDEBAR=wide first collapses the categories sidebar or
+// drags it to its widest (applySidebarWidth at SIDEBAR_MAX, which the app then
+// caps at 24% of the window), because the rail's third track is sized against
+// whatever the sidebar leaves. THEME=dark (lib.js) runs it dark, where the
+// text contrast of the rail's head, subject, headings and cues is measured
+// (4.5:1 against the colour actually behind each, walked up the tree).
+//
 // Every browser is closed before the next width, and one browser at a time
 // (the sandbox has run out of memory before).
 //
@@ -54,6 +61,44 @@ const overlaps = (a, b) => a && b && a.l < b.r && a.r > b.l && a.t < b.b && a.b 
 async function openNotes(page) {
   await page.evaluate(() => { try { localStorage.removeItem('notes-rail'); } catch (e) {} switchTab('notes'); showNotesSection('browse'); });
   await page.waitForTimeout(2500);
+  const mode = process.env.SIDEBAR;
+  if (mode) {
+    await page.evaluate((m) => {
+      const aside = document.getElementById('sidebar');
+      if (m === 'collapsed') {
+        if (!aside.classList.contains('sidebar-collapsed')) aside.querySelector('.sidebar-collapse-toggle').click();
+      } else if (m === 'wide') {
+        applySidebarWidth(aside, 520);
+      }
+    }, mode);
+    await page.waitForTimeout(600);
+  }
+}
+
+// Contrast of the rail's own text against the first opaque background up the
+// tree (a rough WCAG check: enough to catch a token that does not flip).
+async function railContrast(page) {
+  return page.evaluate(() => {
+    const parse = (c) => { const m = c.match(/[\d.]+/g); return m ? m.map(Number) : [0, 0, 0, 0]; };
+    const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+    const bgOf = (el) => {
+      for (let n = el; n; n = n.parentElement) {
+        const c = parse(getComputedStyle(n).backgroundColor);
+        if (c.length < 4 || c[3] > 0.9) return c;
+      }
+      return [255, 255, 255];
+    };
+    const worst = [];
+    for (const el of document.querySelectorAll('#notes-rail .notes-rail-title, #notes-rail .notes-rail-subject, #notes-rail .connection-heading, #notes-rail button.connection-row, #notes-rail .connection-row-cue, #notes-rail .notes-rail-why')) {
+      if (!el.getBoundingClientRect().width) continue;
+      const fg = lum(parse(getComputedStyle(el).color));
+      const bg = lum(bgOf(el));
+      const ratio = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+      worst.push([Math.round(ratio * 100) / 100, el.className.split(' ')[0] || el.tagName]);
+    }
+    worst.sort((a, b) => a[0] - b[0]);
+    return worst.slice(0, 3);
+  });
 }
 
 // A note with links, so the rail has rows to measure: the fixture's notes
@@ -99,6 +144,18 @@ async function focusLinkedNote(page) {
         if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/notesrail-${width}.png` });
         continue;
       }
+      //: A sidebar dragged wide can leave too little room: then the rail must
+      //: give way (to the sheet) rather than squeeze the list under 600px.
+      const cramped = await page.evaluate(() => document.getElementById('notes-rail').dataset.cramped === '1');
+      if (cramped) {
+        check(`${width}: with too little room the rail gives way, and the list keeps its width`, !s1.shown && s1.list && s1.list.w >= 600, `list ${s1.list && s1.list.w}px, rail shown ${s1.shown}`);
+        check(`${width}: nothing scrolls sideways`, !s1.sideways);
+        await page.evaluate(() => applySidebarWidth(document.getElementById('sidebar'), 260));
+        await page.waitForTimeout(1200);
+        const s1b = await state(page);
+        check(`${width}: narrowing the sidebar again brings the rail back`, s1b.shown && s1b.list.w >= 600, `list ${s1b.list && s1b.list.w}px, rail shown ${s1b.shown}`);
+        continue;
+      }
       check(`${width}: selecting a linked note brings the rail`, s1.shown && s1.railId === id && s1.rows >= 2,
         `note ${id}, rail ${s1.shown}, ${s1.rows} rows, groups ${s1.groups.join(' | ')}, chip "${s1.count}"`);
       check(`${width}: the rail sits beside the list, overlapping neither it nor the sidebar`,
@@ -106,7 +163,38 @@ async function focusLinkedNote(page) {
         `rail ${JSON.stringify(s1.rail)} list ${JSON.stringify(s1.list)}`);
       check(`${width}: the reading column keeps at least 600px`, s1.list && s1.list.w >= 600, `${s1.list && s1.list.w}px`);
       check(`${width}: nothing scrolls sideways`, !s1.sideways);
-      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/notesrail-${width}.png` });
+      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/notesrail-${width}${process.env.SIDEBAR ? '-' + process.env.SIDEBAR : ''}${process.env.THEME === 'dark' ? '-dark' : ''}.png` });
+
+      // Two rows with the same title carry different cues (connectionRowCues).
+      const dupes = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('#notes-rail .connection-group:not(.notes-rail-near) button.connection-row')];
+        const byTitle = new Map();
+        for (const r of rows) {
+          const cue = r.querySelector('.connection-row-cue')?.textContent || '';
+          const title = r.textContent.replace(cue, '').trim();
+          if (!byTitle.has(title)) byTitle.set(title, []);
+          byTitle.get(title).push({ id: r.title, cue });
+        }
+        const clashes = [...byTitle.entries()].filter(([, v]) => v.length > 1);
+        const bad = clashes.filter(([, v]) => new Set(v.map((x) => x.cue)).size < v.length || v.some((x) => !x.cue));
+        return { clashes: clashes.map(([t, v]) => `${t}: ${v.map((x) => x.cue).join(' / ')}`), bad: bad.length };
+      });
+      check(`${width}: rows with the same title can be told apart`, dupes.bad === 0, dupes.clashes.join('; ') || 'no same-title rows here');
+
+      const fit = await page.evaluate(() => {
+        const head = document.querySelector('#notes-rail .notes-rail-head');
+        const title = head.querySelector('.notes-rail-title').getBoundingClientRect();
+        const close = document.getElementById('notes-rail-close').getBoundingClientRect();
+        const spill = [...document.querySelectorAll('#notes-rail .connection-row-cue')].filter((c) => {
+          const row = c.closest('button').getBoundingClientRect();
+          return c.getBoundingClientRect().right > row.right + 0.5;
+        }).length;
+        return { oneRow: Math.abs(title.top + title.height / 2 - (close.top + close.height / 2)) < 4, spill };
+      });
+      check(`${width}: the rail's head is one row and no cue runs past its row`, fit.oneRow && fit.spill === 0, JSON.stringify(fit));
+
+      const contrast = await railContrast(page);
+      check(`${width}: the rail's text is at least 4.5:1 against what is behind it`, contrast.length && contrast[0][0] >= 4.5, JSON.stringify(contrast));
 
       // Keys: into the rail, down one row, Escape back to the note.
       const keys = await page.evaluate(async () => {

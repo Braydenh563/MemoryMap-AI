@@ -6053,6 +6053,23 @@ body:has(#library-media-selectbar:not(.hidden))
   gap: var(--space-1);
 }
 
+/* The second cue a row carries only when its title collides with another
+   note's (`connectionRowCues`, menus.js): after the title, quieter, and the
+   part of the row that gives way last. */
+button.connection-row > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-row-cue {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
 button.connection-row {
   justify-content: flex-start;
   text-align: left;

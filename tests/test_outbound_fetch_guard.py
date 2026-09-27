@@ -56,6 +56,10 @@ REACHES_THE_NETWORK = {
     # `core.security.public_addresses`, every redirect hop re-checked, and the
     # connection pinned to the address that passed.
     "search/websearch.py": "untrusted",
+    # Untrusted: a page the person asked to clip (WORLD_CLASS_PLAN D9), only
+    # while the web opt-in is on. The same guard on every hop, the same
+    # pinning, and a cap on the whole fetch's size and time.
+    "core/webclip.py": "untrusted",
     # Configured: the local model, at the address the person set. Private is
     # the normal case here and refusing it would break the product; what is
     # refused is the cloud metadata address, by `security.check_backend_url`.

@@ -212,8 +212,46 @@ const EMBLEM_SLOTS = [
 function renderBrandLogo() {
   for (const [id, size, animate] of EMBLEM_SLOTS) {
     const holder = document.getElementById(id);
-    if (holder) renderEmblem(holder, size, { animate });
+    if (holder) renderEmblemWhenShown(holder, size, animate);
   }
+}
+
+//: **An emblem nobody can see is drawn when it can be** (the performance
+//: pass, 2026-09-27). `renderBrandLogo` runs at boot and on every colour
+//: change, and five of its six slots are on surfaces that are hidden then:
+//: the lock card after the unlock, the welcome, the chat's and the map's
+//: empty states, Settings' About. Each is a p5 instance (a canvas, a setup,
+//: a draw): measured with `scratchpad/ui-sweeps/bootprofile.js`, 61ms of
+//: the first second after the unlock went to emblems, in the same tasks that
+//: draw the notes list. A slot with no box now waits for its first
+//: intersection, and a colour change repaints the visible ones and marks the
+//: rest to repaint when they are shown, so none is drawn in an old colour.
+const emblemPending = new Map();
+let emblemLazyObserver = null;
+
+function renderEmblemWhenShown(holder, size, animate) {
+  if (holder.getClientRects().length || typeof IntersectionObserver === "undefined") {
+    emblemPending.delete(holder);
+    emblemLazyObserver?.unobserve(holder);
+    renderEmblem(holder, size, { animate });
+    return;
+  }
+  if (!emblemLazyObserver) {
+    emblemLazyObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const want = emblemPending.get(entry.target);
+        emblemLazyObserver.unobserve(entry.target);
+        emblemPending.delete(entry.target);
+        if (want && entry.target.isConnected) {
+          const { size, animate } = want;
+          renderEmblem(entry.target, size, { animate });
+        }
+      }
+    });
+  }
+  emblemPending.set(holder, { size, animate });
+  emblemLazyObserver.observe(holder);
 }
 
 // --- wiring --------------------------------------------------------------------

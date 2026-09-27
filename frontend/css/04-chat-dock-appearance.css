@@ -364,7 +364,10 @@ body.scroll-top-visible #tab-notes .layout > main {
   display: none;
 }
 
-.notes-rail-head {
+/* `h3.panel-head` is written later in the cascade (07-whiteboard-misc.css)
+   with `flex-wrap: wrap`, so this names the element as well: at 1280 the
+   head wrapped its '?' and close onto a second row under the title. */
+#notes-rail h3.notes-rail-head {
   margin: 0;
   flex-wrap: nowrap;
 }

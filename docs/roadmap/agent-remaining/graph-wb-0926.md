@@ -78,3 +78,82 @@ Open, found and not fixed:
   rows; the rows carry no date to tell them apart. Same in the sheet.
 - Not verified: dark theme, and the rail with the sidebar collapsed or
   dragged wide (the implicit track should hold; not measured).
+
+## Paused, 2026-09-27: WORLD_CLASS_PLAN D9, the web clipper (backend built)
+
+Paused at the coordinator's word for the performance pass. Built and tested:
+`POST /links/clip` (`api/routes_webclip.py`, locked), refused with a sentence
+while `web_search_enabled` is off; `core/webclip.py` fetches through S5's
+`public_addresses` on every hop, pinned to the checked address (the web
+reader's `_pin_url` and `_PinnedAdapter`), with 3 MB and 15 s caps on the
+whole fetch, and extracts the main content to markdown with the standard
+library's HTML parser (no attributes kept, http(s) links only, absolute,
+tracking stripped); the note goes through `create_entry` with `source_url`,
+so it is filed, embedded and indexed. The privacy receipt names it "Web
+clipper"; `test_outbound_fetch_guard.py` lists it as untrusted.
+`tests/test_webclip.py`: 33 tests (6 schemes, 8 private ranges, mixed
+answers, redirects to a private name, a private literal and another scheme,
+the redirect cap, pinning, size by body and by header, time, non-page
+content, three fixture pages, the note shape, and the route: off, on,
+private, scheme), all passing.
+
+Left, in order:
+
+1. The intake: a bookmarklet can't POST to the app from another site (the
+   Origin check refuses it, rightly), so it opens `<origin>/?clip=<url>` and
+   the app, once unlocked, asks "Clip this page?" and POSTs itself. One line
+   in `startApp` (app.js), beside `takeSharedIntake`, plus a new
+   `frontend/webclip.js`.
+2. The Settings row in Web search: the bookmarklet's code, built from
+   `location.origin`, in a read-only field with a Copy button, and one line
+   saying it uses the same opt-in.
+3. The PWA share target: `share_url` alone could go to the same "Clip this
+   page?" prompt, but that is more than one line (the share also carries a
+   title and text that Capture takes today), so it is left alone as briefed.
+4. A sweep (clip intake with the web off and on, against a local fixture
+   server is impossible by design since local addresses are refused; so the
+   route is stubbed in the page) and errors.js; the CHANGELOG line; D9's
+   state line in WORLD_CLASS_PLAN.
+
+## The performance pass, 2026-09-27
+
+`scratchpad/ui-sweeps/perfpass.js` (idle per tab with the companion off and
+as Atlas at Medium, tab switches cold and warm, typing, Settings) at 1x CPU on
+the 418-note fixture; `graphsettle.js`, `cpuprofile.js`, `typeprofile.js`,
+`idletrace.js`, `graphrevisit.js` and `bootprofile.js` to find causes. Three
+fixes, one commit each:
+
+| Fix | Before | After |
+| --- | --- | --- |
+| Graph canvas `desynchronized` (64b89c5) | first visit: 937 to 1,091ms of main thread in each of the first 5s; idle window 540 ms/s; cold switch 5 long tasks (100ms), warm 6 (111ms) | 97 to 163ms a second; 72 ms/s; cold 0 to 1 (53ms), warm 0 to 1 |
+| autoGrow fast path (62e97fb) | chat composer, 40 keys: dispatch 456ms, 221 style recalcs, 124 layouts, 82 forced by autoGrow | 239ms, 137, 42, 0 |
+| Emblems drawn when shown (3e3a631) | 6 p5 canvases after the unlock, renderEmblem 45 to 83ms | 3, 18 to 20ms |
+
+Found and left, with the reason:
+
+- **The companion (avatars.js, the companion agent's).** Atlas at Medium adds
+  3 to 30 ms/s idle: 31 on the Dashboard and 29 on Graph, mostly style and
+  layout (15.7 and 17.4 ms/s), with its figure's layers restyled by their
+  animations about seven times a second (`idletrace.js COMPANION=atlas`),
+  and one 77ms long task on Notes in one run. Named for its owner.
+- **Typing in the Notes capture box: about 21ms of event dispatch per key**,
+  of which CodeMirror's own `scrollIntoView` forces one style and layout per
+  key (40 of 40) and the mirror back to the textarea (`noteSurfaceMirror`,
+  documents.js) about 2ms. The engine's cost, recorded before (HISTORY's
+  performance table); not changed.
+- **Event Timing still reads 32ms per key in the chat composer** after its
+  dispatch halved: this sandbox paints on a fixed 16.7ms beat, so an input
+  that misses one frame's deadline reads as two frames whatever it costs.
+  The CPU figures are the ones that moved.
+- **Library, cold switch 252 to 286ms**: parsing its 1.7 MB bundle on first
+  use (WORLD_CLASS_PLAN A1's lazy loading), after which a switch is 30 to
+  37ms. Prefetching at idle would move the parse to a moment nobody chose.
+- **Graph pan at 4x**: 34 long tasks, 6.7s over 40 moves, now mostly the
+  canvas redraw rasterised in software (`gwperf.js graph`). Redrawing a
+  pan from a cached bitmap is the next step, and a design change.
+- **The reminder chime's AudioContext is made inside the first click**
+  (`primeReminderAudio`, status.js, 23ms on the unlock). Could be made after
+  the gesture instead; status.js is shared, so named rather than changed.
+- Settings opens in 130 to 172ms at 1x (331ms with a 118ms task at 4x) and
+  scrolls at a steady frame: not a finding.
+- Idle with the companion off is 1 to 2 ms/s on every tab but Graph.

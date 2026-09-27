@@ -3287,6 +3287,9 @@ function nudgeUntaggedNotes() {
 //:     a column somebody has closed is a preference, and the More menu brings
 //:     it back.
 const NOTES_RAIL_MIN_WIDTH = 1280;
+//: The narrowest the list may be with the rail beside it (WORLD_CLASS_PLAN
+//: D2's gate: "the reading column keeps at least 600px").
+const NOTES_RAIL_MIN_READING = 600;
 const NOTES_RAIL_KEY = "notes-rail";
 const notesRailWide = window.matchMedia(`(min-width: ${NOTES_RAIL_MIN_WIDTH}px)`);
 let notesRailId = null;
@@ -3356,6 +3359,20 @@ async function renderNotesRail() {
     return;
   }
   rail.hidden = false;
+  //: **The reading column comes first.** The rail's width is set against the
+  //: default sidebar; a sidebar dragged to its widest (24% of the window,
+  //: `applySidebarWidth`) left the list 573px at 1280 with the rail beside
+  //: it (`notesrail.js` with SIDEBAR=wide). So the rail measures the list
+  //: once it is in, in the same task and so before anything is painted, and
+  //: gives way to the note's Connections sheet when the list would be
+  //: narrower than NOTES_RAIL_MIN_READING, exactly as it does below 1280.
+  const list = $("entry-list");
+  if (list && list.getBoundingClientRect().width < NOTES_RAIL_MIN_READING) {
+    rail.hidden = true;
+    rail.dataset.cramped = "1";
+    return;
+  }
+  delete rail.dataset.cramped;
   const subject = $("notes-rail-subject");
   subject.textContent = entry.is_private ? "Private note" : entry.title || notePreviewText(entry.content);
   subject.title = subject.textContent;
@@ -3501,5 +3518,18 @@ function setNotesRailHidden(hidden) {
     next?.focus();
   });
   notesRailWide.addEventListener("change", renderNotesRail);
+  //: A sidebar dragged wider or narrower, or collapsed, changes the room the
+  //: list has, which is what decides whether the rail fits. Observed on the
+  //: sidebar itself rather than on the window, because the window does not
+  //: change when the sidebar is dragged.
+  if (typeof ResizeObserver === "function" && $("sidebar")) {
+    let last = 0;
+    new ResizeObserver((entries) => {
+      const w = Math.round(entries[0].contentRect.width);
+      if (w === last) return;
+      last = w;
+      scheduleNotesRail();
+    }).observe($("sidebar"));
+  }
   syncNotesRailToggle();
 })();

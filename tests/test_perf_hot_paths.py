@@ -190,3 +190,19 @@ def test_a_tab_switch_grows_only_the_boxes_that_could_be_wrong() -> None:
     assert "autoGrowVisible();" in _body(app, "revealTab")
     grow = _body(app, "autoGrow")
     assert "el._autoGrownFor = autoGrowInputs(el);" in grow
+
+
+def test_a_keystroke_that_changes_no_height_writes_nothing() -> None:
+    """The performance pass, 2026-09-27: every key in the chat composer ran
+    autoGrow's full path (height to auto, measure, write, measure, then the
+    dock fit), 82 forced style recalcs and 82 layouts for 40 keys, and 11ms
+    of event dispatch per key. Text that only grew at its end and still fits
+    the height already set changes nothing, so it is answered with one read
+    before anything is written (`scratchpad/ui-sweeps/autogrowfast.js` holds
+    the heights equal to the full path's)."""
+    app = _source("app.js")
+    grow = _body(app, "autoGrow")
+    assert grow.index("autoGrowStillFits(el)") < grow.index('el.style.height = "auto"')
+    fits = _body(app, "autoGrowStillFits")
+    assert "now.startsWith(before)" in fits and "el.dataset.maxPx" in fits
+    assert "el.style.height =" not in fits, "the fast path only reads"

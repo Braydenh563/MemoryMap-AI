@@ -548,7 +548,20 @@ function gcEnsureCanvas(s = gcTab) {
   if (s.canvas) return s.canvas;
   s.canvas = document.getElementById(s.canvasId);
   if (!s.canvas) return null;
-  s.ctx = s.canvas.getContext("2d");
+  //: **`desynchronized`: the frame is handed to the screen, not copied into
+  //: the page's next commit** (the performance pass, 2026-09-27). Measured on
+  //: a first visit to a 418-note map (`scratchpad/ui-sweeps/graphsettle.js`):
+  //: for the five seconds the layout settles, the main thread was busy 937 to
+  //: 1,091ms of every second, with the map's own script about 30 of it; the
+  //: rest was the browser copying the whole canvas bitmap into a new
+  //: compositor resource on every draw (`ProduceCanvasResource`, the profiler's
+  //: "(program)"), which a software-rendered window (no GPU, or a blocked
+  //: driver) pays in full. Desynchronized, the same five seconds cost 97 to
+  //: 163ms a second, draws per second unchanged, so the tab answers clicks
+  //: while its map settles. On a GPU the copy was cheap already and nothing
+  //: is lost. What it could cost is a torn frame while the map moves, and a
+  //: map in motion is the one picture where a torn frame cannot be seen.
+  s.ctx = s.canvas.getContext("2d", { desynchronized: true });
   s.transform = d3.zoomIdentity;
   gcResize(s);
   // The card resizes for reasons no `resize` event fires for: the sidebar

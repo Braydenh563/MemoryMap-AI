@@ -28,7 +28,7 @@ router = APIRouter(prefix="/privacy", tags=["privacy"])
 #: order Settings shows them. `on` is read live; `reaches` is what a person
 #: would want to know before turning one on.
 _SWITCHES = (
-    ("web_search_enabled", "Web search", "The search engine you chose, with the words you searched for."),
+    ("web_search_enabled", "Web search", "The search engine you chose, with the words you searched for, and a page you clip, when you clip it."),
     ("update_check_enabled", "Check for updates", "GitHub's releases page, with nothing about your notebook."),
     ("auto_update_enabled", "Install updates", "GitHub, to download a new version."),
     ("searxng_autostart", "Start SearXNG with the app", "Only this computer, until a search is made."),

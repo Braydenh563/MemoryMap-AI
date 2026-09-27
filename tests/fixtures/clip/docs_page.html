@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head><title>Configuring the scheduler - Docs</title></head>
+<body>
+  <nav class="toc"><ul><li><a href="#intro">Intro</a></li><li><a href="#config">Config</a></li></ul></nav>
+  <main id="content">
+    <h1 id="intro">Configuring the scheduler</h1>
+    <p>The scheduler reads <code>jobs.toml</code> at start-up. Each job has a name and a cron line.</p>
+    <h2 id="config">Example</h2>
+    <pre><code>[job.backup]
+cron = "0 3 * * *"
+command = "backup --all"</code></pre>
+    <ol>
+      <li>Write the file.</li>
+      <li>Restart with <em>sched reload</em>.</li>
+    </ol>
+    <p>See the <a href="../reference/cron.html">cron reference</a> and <a href="javascript:alert(1)">this bad link</a>.</p>
+    <table><tr><th>Field</th><th>Meaning</th></tr><tr><td>cron</td><td>When it runs</td></tr></table>
+  </main>
+  <footer>Docs built with a generator</footer>
+</body>
+</html>

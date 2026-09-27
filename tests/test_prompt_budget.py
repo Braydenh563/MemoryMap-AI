@@ -263,9 +263,13 @@ def test_a_very_long_note_is_cut_short_with_a_way_to_read_the_rest():
 
 
 def test_an_ordinary_note_is_left_exactly_as_it_is():
-    """Most notes are a line or two; nothing should touch them."""
+    """Most notes are a line or two; nothing should touch them but the fence
+    that marks them as quoted data (INBOX 430, `ai/fence.py`)."""
+    from memorymap.ai import fence
+
     note = {"id": 7, "category": "Work", "content": "the ferry leaves at 8"}
-    assert librarian.note_for_prompt(note) == "the ferry leaves at 8"
+    assert librarian.note_for_prompt(note) == fence.fence("note", "the ferry leaves at 8")
+    assert fence.unfence(librarian.note_for_prompt(note)) == "the ferry leaves at 8"
 
 
 def test_a_long_note_does_not_blow_the_prompt_budget():

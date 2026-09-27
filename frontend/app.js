@@ -3916,7 +3916,20 @@ function wireHelpPopover(trigger, panel) {
   }, { passive: true });
   // A popover is anchored to a rect that scrolls away underneath it; every
   // other floating thing in this app closes rather than chasing it.
-  window.addEventListener("scroll", () => entry.close(), true);
+  //
+  // But the popover's own body scrolls too (CLAUDE.md item 3, INBOX 430):
+  // it is `overflow-y: auto`, and a `scroll` event fired on it still runs
+  // this capturing listener, because capture reaches every ancestor on the
+  // way down to the target regardless of whether the event itself bubbles.
+  // With no guard, the first frame of a two-finger scroll on the popover's
+  // own text closed it instead of scrolling it, so the gesture looked dead
+  // rather than merely closing the thing it was scrolling. `event.target` is
+  // the element that actually scrolled; only close for the page moving
+  // under the anchor, never for the panel scrolling itself.
+  window.addEventListener("scroll", (event) => {
+    if (panel.contains(event.target)) return;
+    entry.close();
+  }, true);
 }
 window.wireHelpPopover = wireHelpPopover;
 

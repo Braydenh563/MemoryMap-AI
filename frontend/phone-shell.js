@@ -1275,6 +1275,19 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
+  //: **Above whatever it was opened from.** A sheet is a `.modal-overlay`
+  //: (1010), and a surface drawn higher than that opened its sheet behind
+  //: itself: the lightbox (1020) on a phone, whose ⋯ "does nothing (no
+  //: popup)" (INBOX 430, measured with `lightboxphone.js`: the sheet was
+  //: open, and the point at its first row was the lightbox's). The opener's
+  //: highest layer is read off its ancestors and the sheet takes the next
+  //: one up, through the CSSOM, which the CSP allows.
+  let layer = 0;
+  for (let el = returnFocus instanceof Element ? returnFocus : null; el && el !== document.body; el = el.parentElement) {
+    const z = Number.parseInt(getComputedStyle(el).zIndex, 10);
+    if (Number.isFinite(z)) layer = Math.max(layer, z);
+  }
+  if (layer >= 1010) overlay.style.zIndex = String(layer + 1);
 
   const card = document.createElement("div");
   card.className = `card modal-card sheet-card${variant ? ` sheet-card-${variant}` : ""}`;

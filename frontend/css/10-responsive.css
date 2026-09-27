@@ -2527,3 +2527,20 @@ header#top-bar,
   }
 }
 
+
+/* --- the lightbox on a phone (INBOX 430) ------------------------------------
+   "The lightbox on phone needs a better layout": at 390 the action row
+   wrapped, five controls on one line and the image's ⋯ alone on a second.
+   The zoom readout is the one control that is only a number (the buttons
+   either side of it say what they do, and the picture shows the zoom), so it
+   goes below 600 and the row takes the tighter step: one line of 44px
+   targets under the picture. */
+@media (max-width: 599.98px) {
+  .lightbox .lightbox-zoom-label {
+    display: none;
+  }
+
+  .lightbox .lightbox-actions {
+    gap: var(--space-1);
+  }
+}

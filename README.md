@@ -35,7 +35,7 @@ capture a thought
 </p>
 
 <details>
-<summary><b>Twenty-one more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, the dark theme, and a phone</summary>
+<summary><b>Twenty-nine more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, eight main features in the dark theme, and a phone</summary>
 <br>
 
 <p align="center">
@@ -134,8 +134,48 @@ capture a thought
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/theme-split.png" alt="The dashboard, half in the light theme and half in the dark theme, split down the middle" width="850">
+  <br><sub><b>Light or dark</b>: every theme comes in both, or follows your system</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/dashboard-dark.png" alt="The dashboard in the dark theme" width="850">
-  <br><sub><b>Dark</b>: every theme has a light and a dark side, or follows your system</sub>
+  <br><sub><b>Dashboard</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/notes-dark.png" alt="Notes in the dark theme" width="850">
+  <br><sub><b>Notes</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/chat-dark.png" alt="Chat in the dark theme" width="850">
+  <br><sub><b>Chat</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/graph-dark.png" alt="The Graph in the dark theme" width="850">
+  <br><sub><b>Graph</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/library-dark.png" alt="Library in the dark theme" width="850">
+  <br><sub><b>Library</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/documents-dark.png" alt="Documents in the dark theme" width="850">
+  <br><sub><b>Documents</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/timeline-dark.png" alt="Timeline in the dark theme" width="850">
+  <br><sub><b>Timeline</b>, dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/reminders-dark.png" alt="Reminders in the dark theme" width="850">
+  <br><sub><b>Reminders</b>, dark</sub>
 </p>
 
 <p align="center">
@@ -150,6 +190,7 @@ capture a thought
 
 - [Get started](#get-started)
 - [What it does](#what-it-does)
+- [Meet Atlas](#meet-atlas)
 - [The AI, and life without it](#the-ai-and-life-without-it)
 - [Your data](#your-data)
 - [Documentation](#documentation)
@@ -234,10 +275,9 @@ the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
 duplicates on a schedule you set. It never deletes anything.
 
-**Meet Atlas.** The notebook's guide is a small star spirit with rings of
-stars about it and a ribbon of starlight for a tail. Atlas files your notes,
-answers "how do I" questions from the app's own documentation, and can keep
-you company in the corner of any page, with moods that follow what you do.
+**Meet Atlas.** The notebook's own guide, who files your notes, answers
+"how do I" questions from the app's own documentation, and can keep you
+company in the corner of any page. More below.
 
 **Faces for everyone.** Every person and persona gets a small drawn
 character read from their name (a mood word, an animal, a costume), and
@@ -253,6 +293,21 @@ unlock them.
 Also: a command palette (`Ctrl`/`Cmd`+`K`), a popup agent, read-aloud,
 opt-in web search, thirteen themes, each in light or dark,
 interface zoom, a guided tour of the real controls, and daily local backups.
+
+## Meet Atlas
+
+**The star spirit who keeps your notebook.**
+
+<p align="center">
+  <img src="docs/screenshots/atlas-mood.png" alt="Atlas, MemoryMap's star spirit: a small astral figure with a ring of orbiting stars, flowing starlit hair and a warm expression" width="280">
+</p>
+
+Atlas is the one who reads what you write and works out where it goes: a
+category, a set of tags, the notes it relates to. Ask a question and Atlas
+answers from your own notebook, sentence by sentence, with the note behind
+each one beside it. Settle Atlas in the corner of any page as a companion
+that reacts to what you do, or draw a character of your own the same way,
+from a name.
 
 ## The AI, and life without it
 

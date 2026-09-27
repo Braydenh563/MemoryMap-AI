@@ -82,6 +82,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Dashboard: right-click (or hold) the mark to switch it between the app's logo, Atlas, your face and the greeting's persona; a face in the mark stays inside its circle while it reacts to a click.
 - Settings, Tools it can use: each switch now sits level with its tool's name at any text size.
 - Appearance, Dashboard mark: Atlas is a choice beside the logo, your face and the greeting persona.
 - Undoing what Atlas did to a private note no longer writes back text sealed under a key the vault has since rotated away from; the other fields still go back and the plan names the text as kept.

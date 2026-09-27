@@ -3418,6 +3418,18 @@ html.modal-open body {
   flex: 0 0 auto;
 }
 
+/* **A face in the mark stays inside its disc.** Reported with a screenshot:
+   "on the dashboard widget, the atlas animations when clicking on it can go
+   outside the black circle". A poke's reaction (a giggle, a hop, sparkles)
+   moves the drawing inside an svg whose overflow is visible, so its ears
+   and sparkles crossed the ring. Clipped to the circle the svg is drawn as
+   (`.name-mark`'s pill radius), by `clip-path`, which clips the painted
+   overflow too, where `overflow: hidden` on an outer svg does not follow
+   the radius. */
+.dash-hero-emblem .name-mark {
+  clip-path: circle(50%);
+}
+
 /* The emblem and the greeting are one unit, so the clock still pushes to the
    far end. */
 .dash-hero-text {

@@ -21,6 +21,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Library's grid is one stop for the Tab key: the card you were last on, then its tick and its menu, with the arrow keys between cards. Tab used to walk every card three times over (400 presses on a thousand-note notebook without leaving the grid), so nothing after it could be reached from the keyboard. The All view's sort is kept across a reload, as the Documents and Images sorts already were.
 - The Library and the Timeline scroll smoothly through a thousand notes: the worst frame while scrolling went from 100ms to 33ms on both, and the frames over 32ms from 7 to 5 (Library), 12 to 2 (Timeline) and 10 to 4 (its table), because new cards no longer restyle every card already shown and both lists build their next rows a few milliseconds at a time.
 - The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
 - Twelve places that swallowed an error without a trace now write the reason to the log: the embedding warm-up, a failed re-index, files skipped by a folder import, filing a note on capture, the near-duplicate check, tag suggestions, re-evaluation, re-filing after new context and the meeting summary. The ruff rule that finds such handlers (BLE001) is now on, so a new one fails the build.

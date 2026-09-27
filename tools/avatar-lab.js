@@ -228,7 +228,7 @@ function boot() {
         refOverlay(stage);
         h.append(stage);
         const t = tuneNow();
-        info(h, [["Mood", LAB.mood], ["Cue", ATLAS_MOODS[LAB.mood]?.cue || ""], ["Tune", KNOBS.map(([k]) => `${k} ${t[k]}`).join(", ")], ["Rays", String(t.starRays)], ["Colours", Object.entries(t.colours).map(([k, v]) => `${k} ${v}`).join(", ") || "as designed"]]);
+        info(h, [["Mood", LAB.mood], ["Cue", ATLAS_MOODS[LAB.mood]?.cue || ""], ["Tune", KNOBS.map(([k]) => `${k} ${t[k]}`).join(", ")], ["Colours", Object.entries(t.colours).map(([k, v]) => `${k} ${v}`).join(", ") || "as designed"]]);
         body.append(h);
       });
     },
@@ -430,7 +430,6 @@ function boot() {
       input.value = t[key];
       input.nextElementSibling.value = key === "tailCurl" || key === "lockCount" ? String(t[key]) : Number(t[key]).toFixed(2);
     }
-    $("tune-starRays").value = String(t.starRays);
     for (const [key] of COLOURS) $(`colour-${key}`).value = t.colours[key] || "";
   }
   for (const [key, label, min, max, step] of KNOBS) {
@@ -453,7 +452,6 @@ function boot() {
     k.append(span, input, output);
     $("knobs").append(k);
   }
-  $("tune-starRays").addEventListener("change", (e) => retune({ starRays: Number(e.target.value) }));
   for (const [key, label] of COLOURS) {
     const l = document.createElement("label");
     l.textContent = label;

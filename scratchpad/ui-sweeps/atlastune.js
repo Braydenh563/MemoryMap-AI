@@ -17,13 +17,14 @@ const { boot } = require("./lib.js");
     document.body.appendChild(host);
     const before = atlasDraw(300, "calm", "full");
     host.appendChild(before);
-    const tune = atlasRetune({ bodyWidth: 1.3, headSize: 1.12, tailLength: 1.25, tailCurl: 25, strandOpacity: 0.5, starSize: 1.4, starRays: 8, lockCount: 2, colours: { hi: "#ffffff", md: "#b8c8ff" } });
+    const tune = atlasRetune({ bodyWidth: 1.3, headSize: 1.12, tailLength: 1.25, tailCurl: 25, strandOpacity: 0.5, starSize: 1.4, lockCount: 2, colours: { hi: "#ffffff", md: "#b8c8ff" } });
     const after = atlasDraw(300, "calm", "full");
     host.appendChild(after);
     const same = { torso: torsoOf(before) === torsoOf(after), tail: tailOf(before) === tailOf(after), locks: before.querySelectorAll(".atl-mane .atl-lock").length + " vs " + after.querySelectorAll(".atl-mane .atl-lock").length };
-    const rays = after.querySelectorAll(".atl-core-rays").length;
+    // The chest has no rays since round 6: its constellation's stars instead.
+    const rays = after.querySelectorAll(".atl-core .atl-const-dot").length;
     const vars = ["--atl-tune-head", "--atl-tune-star", "--atl-tune-strand", "--atl-hi"].map((k) => [k, after.style.getPropertyValue(k)]);
-    const reset = atlasRetune({ bodyWidth: 1, headSize: 1, tailLength: 1, tailCurl: 0, strandOpacity: 1, starSize: 1, starRays: 4, lockCount: 0, colours: { hi: "", md: "" } });
+    const reset = atlasRetune({ bodyWidth: 1, headSize: 1, tailLength: 1, tailCurl: 0, strandOpacity: 1, starSize: 1, lockCount: 0, colours: { hi: "", md: "" } });
     const again = atlasDraw(300, "calm", "full");
     return { errors, tune, same, rays, vars, restored: torsoOf(before) === torsoOf(again) && tailOf(before) === tailOf(again), resetHi: reset.colours.hi };
   });

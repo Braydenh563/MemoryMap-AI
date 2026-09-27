@@ -4378,7 +4378,9 @@ function nameMarkBuddyTempo() {
     //: Atlas's layer roots (atlas.js, `atlasDrawFigure`) animate on the
     //: compositor; stepping them here would put them back on the main
     //: thread, so only what animates inside a drawing is paced.
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && a.playState !== "finished");
+    //: Nor a transition (round 7: a limb easing into a new pose, 420ms,
+    //: which stepped at 10Hz juddered; it is over before it costs much).
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.playState !== "finished");
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a
@@ -4584,7 +4586,17 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmbTempo.seen = 0;
   clearTimeout(nmbTempo.timer);
   nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
-  nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+  //: **A body that sets off and arrives** (round 7, INBOX 430, the owner:
+  //: "far more lifelike, organic motion and transitions ... like a AAA
+  //: game character"). The figure slid off at once and stopped dead. Now it
+  //: gathers itself first (a crouch, `NMB_SET_OFF_MS`, the travel held
+  //: back that long), springs up out of it, and on arriving squashes into
+  //: the landing and rebounds once before it is still: anticipation and
+  //: follow-through, on the character's own `scale` about its feet, the
+  //: compositor's. The limbs meanwhile ease into the new pose (the CSS,
+  //: `transition` on the limb roots) rather than snapping to it.
+  nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.45, 0, 0.2, 1)" });
+  nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
   //: This walk's own end only (see `nameMarkBuddyPoof`): a walk cut short
   //: by the next reports its `cancel` after the next has begun.
   const walk = nmb.anim;
@@ -4605,6 +4617,30 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
 }
 
 const NMB_POOF_PX = 480;
+const NMB_SET_OFF_MS = 90;
+const NMB_SETTLE_MS = 260;
+
+//: The crouch before a move and the landing after it, over `travel` ms of
+//: setting off and going plus `NMB_SETTLE_MS` of settling. The easing is
+//: each keyframe's own: given to the whole animation it eased the whole
+//: second, and the crouch came 140ms late, after it had set off
+//: (companionmotion.js).
+function nameMarkBuddySquash(char, travel) {
+  nmb.squashAnim?.cancel();
+  nmb.squashAnim = null;
+  if (!char || typeof char.animate !== "function") return;
+  const total = travel + NMB_SETTLE_MS;
+  const at = (ms) => Math.min(1, Math.max(0, ms / total));
+  nmb.squashAnim = char.animate([
+    { scale: "1 1" },
+    { scale: "1.06 0.92", offset: at(NMB_SET_OFF_MS) },
+    { scale: "0.97 1.04", offset: at(NMB_SET_OFF_MS + 140) },
+    { scale: "1 1", offset: at(Math.max(NMB_SET_OFF_MS + 200, travel - 110)) },
+    { scale: "1.07 0.91", offset: at(travel + 50) },
+    { scale: "0.98 1.02", offset: at(travel + 160) },
+    { scale: "1 1" },
+  ].map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });
+}
 const NMB_TOSS_SPEED = 0.8;
 const NMB_PET_MS = 1100;
 

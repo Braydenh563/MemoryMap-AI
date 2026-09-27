@@ -537,3 +537,16 @@ def test_it_perches_on_the_pages_panels_first_on_every_tab():
     assert "child.checkVisibility({ opacityProperty: true, visibilityProperty: true })" in AV
     assert "child.matches(\"textarea, input, select, [contenteditable='true'], .cm-editor\")" in AV
     assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV
+
+
+def test_it_sets_off_and_lands_and_eases_between_poses():
+    # INBOX 430: "far more lifelike, organic motion and transitions". A walk
+    # is held back for a crouch and ends in a squash and a rebound, eased per
+    # keyframe (an easing over the whole animation made the crouch late);
+    # the limbs ease into a new pose; the pacer leaves those transitions be.
+    assert "delay: NMB_SET_OFF_MS, fill: \"backwards\"" in AV
+    assert "nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);" in AV
+    squash = _fn("nameMarkBuddySquash")
+    assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
+    assert "a instanceof CSSTransition" in AV
+    assert "#nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring)" in CSS08

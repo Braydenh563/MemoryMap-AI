@@ -15,6 +15,7 @@ action attached.
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 
 from memorymap.api.routes_insights import digest_structure_note
@@ -226,8 +227,12 @@ def test_the_digest_prompt_dates_each_note_and_names_today(ai_client, fake_ollam
     written = _backdate(saved["id"], 1)
     ai_client.post("/insights/digest")
     prompt = fake_ollama.chat_calls[-1][-1]["content"]
-    note_line = next(line for line in prompt.splitlines() if "work tonight" in line)
-    assert f"written {_long_date(written)}" in note_line
+    # The note's header line carries the date; its text follows inside a
+    # <<<data>>> fence (prompt-injection fencing), so read the whole block.
+    lines = prompt.splitlines()
+    at = next(i for i, line in enumerate(lines) if "work tonight" in line)
+    header = next(line for line in reversed(lines[:at + 1]) if re.match(r"\d+\. \[", line))
+    assert f"written {_long_date(written)}" in header
     assert f"Today is {_long_date(user_now(deps.get_config()))}" in prompt
 
 

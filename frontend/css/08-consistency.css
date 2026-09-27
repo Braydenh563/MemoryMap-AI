@@ -6533,6 +6533,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    lighter rim, the nebula gathering toward the ends, each lock of the
    mane translucent with a lighter leading edge, a star at each tip. */
 .nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.55; }
+/* Round 9: the feminine ears are small wings (atlas.js, `earFeathers`,
+   `earGlow`): pale feather lines inside, a soft glow behind. */
+.nm-atlas .atl-ear-feather { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.6; }
+.nm-atlas .atl-ear-glow { fill: var(--atl-cloudb); opacity: 0.7; }
+/* Round 9: the feminine icon's hair (`tinyHair`), a violet lilac deeper
+   than her skin so the face reads as framed by hair at 16 to 24px. */
+.nm-atlas .atl-tiny-lock { fill: color-mix(in oklab, var(--atl-dp) 70%, var(--atl-violet)); opacity: 1; }
 .nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
 .nm-atlas .atl-lock { opacity: 0.86; }
 /* The hair's soft body under the locks: quieter than they are, so the
@@ -6586,6 +6593,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-dp: #a49fdd;
   --atl-rim: #7d74c2;
 }
+/* Round 9: the feminine chest's shade (atlas.js, `bust`), barely there;
+   `atl-chest`, not `atl-bust`, which names the bust-level drawing. */
+.nm-atlas .atl-chest { fill: none; stroke: var(--atl-rim); stroke-width: 0.7; stroke-linecap: round; opacity: 0.18; }
 .nm-atlas .atl-seed { fill: white; opacity: 0.9; }
 .nm-atlas .atl-seed-star { opacity: 0.95; }
 .nm-atlas .atl-tail-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; stroke-linejoin: round; opacity: 0.28; }
@@ -6612,9 +6622,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-band-edge-soft { stroke-width: 0.5; opacity: 0.2; }
 .nm-atlas .atl-band > .atl-band-fill { opacity: 0.58; }
 .nm-atlas .atl-band-haze .atl-band-cloud { opacity: 0.42; }
+/* Round 9: the orbit's depth. The far half (under the figure) is quieter,
+   the near half (over the mane and the rings) a little brighter, its lit
+   edge and its stream stronger; they meet where the ribbon turns edge-on,
+   so the step is never seen. */
+.nm-atlas .atl-band-back > .atl-band-fill { opacity: 0.5; }
+.nm-atlas .atl-band-back > .atl-band-stream { opacity: 0.12; }
+.nm-atlas .atl-band-front > .atl-band-fill { opacity: 0.66; }
+.nm-atlas .atl-band-front > .atl-band-stream { opacity: 0.24; }
+.nm-atlas .atl-band-front > .atl-band-edge-soft { opacity: 0.34; }
 /* The drift, on the nebula's own layer in the companion: a slow turn
    about the chest and a breath of opacity, compositor only. */
-.nm-atlas.atl-layer-neb { transform-origin: 31px 52px; will-change: transform, opacity; }
+.nm-atlas:is(.atl-layer-neb, .atl-layer-neb-front) { transform-origin: 31px 52px; will-change: transform, opacity; }
 @keyframes atl-neb-drift {
   from { transform: rotate(-1.6deg) translate(-0.6px, 0.4px) scale(0.99); opacity: 0.86; }
   to { transform: rotate(1.8deg) translate(0.8px, -0.6px) scale(1.02); opacity: 1; }
@@ -6963,10 +6982,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9 (the owner: "secondary motion", the hair flowing): in the
+       whole drawing (the welcome, the large marks) the mane sways about
+       its roots on a period of its own, out of step with the head's. */
+    &.atl-full .atl-mane { animation: atl-hair-flow 7.3s ease-in-out var(--nm-delay) infinite alternate; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
-    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9: a second, slower sway on the tail's root on a period that
+       never lines up with the swish, so its flow does not repeat; the
+       `rotate` property adds to the swish's transform, both compositor. */
+    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow 8.3s ease-in-out infinite alternate; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 5.6s ease-in-out infinite; }
     /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
@@ -6974,9 +7000,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        companion's walk, carry and kick out-rank the skirt's with their own
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
-    &.atl-layer-neb { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
+    /* Round 9: the orbit's drift and a slower lift and settle (the
+       `translate` property) out of step with it, on both halves alike. */
+    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow 7.7s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
-    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
+    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
     &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
@@ -7072,7 +7100,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
-    &.atl-layer-neb { animation: none !important; }
+    /* Round 9: the hair's flow holds still with it; the tail's second
+       sway slows to 9s with its swish, as every other loop here. */
+    &:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }
@@ -7102,6 +7132,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 @keyframes atl-drift { to { transform: rotate(360deg); } }
 @keyframes atl-juggle { to { transform: rotate(360deg); } }
+@keyframes atl-hair-flow {
+  from { rotate: -1.2deg; }
+  to { rotate: 1.6deg; }
+}
+@keyframes atl-tail-flow {
+  from { rotate: -1.6deg; }
+  to { rotate: 1.2deg; }
+}
+@keyframes atl-neb-flow {
+  from { translate: -0.5px 0.7px; }
+  to { translate: 0.6px -0.8px; }
+}
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-3.6deg); }

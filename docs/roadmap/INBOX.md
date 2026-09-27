@@ -34,6 +34,34 @@ with its owner named in the entry.
 
 ## Open items
 
+431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
+     appear in the command palate search / Also is there a way to customise
+     the colour the fill of mind map nodes?? Also for the mindmap export to
+     customise the colour of the background / Or just to be able to customise
+     the mind map background colour in general / Also can there be some more
+     animations and states of the companions?? Like lying down and sleeping or
+     doing other things like reading, sitting on a beanbag, pulling out a
+     chair and sitting on it, face palming, other gestures and props etc. But
+     focus on the smooth transitions and movement adjustment transitions and
+     other similar organic movement as that is the current worst thing. Maybe
+     also giving like the hair , tails, nebular streams some flow and swaying
+     or smth to make the atlas characters really attractive, well designed,
+     well animated and more. The female atlas main body could potentially
+     have a bit more of a femine chest but don't overdo it just really
+     subtle. Round out polish and finish the whole companion and avatar
+     feature. Polish the testing tool html pages for them as well. Then make
+     sure it is all optimised and cheap to run and everything is togglable in
+     settings. And continue. Polish the app, devibecode it. Fix bugs. Fix
+     ui/ux learnability, utility, accessibility, usability and information
+     architecture"
+     Placed: (a) palette notes (verify: notes should appear; if not, bug) and
+     (b) mind map node fill, canvas and export background colour: one Sonnet
+     agent; (c) companion motion first (transitions, glide, secondary motion
+     on hair, tails and nebula), then new states and props, the subtle
+     feminine chest, the test pages, per-feature toggles, cost: the two Opus
+     agents on atlas.js and avatars.js; (d) the devibecode programme,
+     WORLD_CLASS_PLAN 22.4, after.
+
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn
     "Invalid format string" on Windows (**fixed** 180e522); chat citation
@@ -541,38 +569,6 @@ with its owner named in the entry.
     carry it). Named: the connection pill's x inset, orchestrator; menus
     (widths, spacing, alignment), a sweep of every menu for width, padding
     and row alignment.
-
-399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
-    class plan?? can you poke more holes in the application for bugs,
-    security, poor learnaility/utility/usability/accessibility and more??
-    make sure everything works on the windows packaged installer and the
-    version it installs. make sure all the update features in the about
-    settings page as well as the auto updates in the bat and sh files work.
-    keep design consistent, expand professional and modern design. maximise
-    usability and learnability. poke holes in the application as in find
-    bugs, security flaws places where there is unintuitive design, poor
-    information architecture, poor design, poor ui and ux, poor
-    learnability/usability/heirarchy/spacing and more. hit the open items and
-    plans in open.md. finish all unfinished work. majorly optimise at the
-    level of professional applications. make everything feel like it is a
-    professional application and not just a demo. maximise use of affordances
-    and semiotics. look at websites like motion.dev for ui and component
-    refinement, bklit.ui, kokonut ui etc so make sure none of the ui elements
-    are unprofessionally designed or act in a wierd way. ... dont let my
-    additions distract you, add them to the list and continue, never leave
-    anything half finished, not properly done, or untouched."
-    Placed as four agent briefs, run as slots free: (1) WORLD_CLASS_PLAN
-    rows not built, grepped first, with the list reported back; (2) a hole
-    poke (bugs, security, a11y, IA, spacing) with a finding table and fixes;
-    (3) the Windows installer, the installed version and the update paths
-    (About's updater, `start-*.bat`/`.sh` auto-update), tested in a scratch
-    copy per CLAUDE.md's trap; (4) component refinement against motion.dev,
-    kokonut and bklit patterns (motion, hover, focus, press states).
-    Part (4) built c3bbefc: every transition on `--motion-*` and `--ease-*`
-    (`tests/test_motion_tokens.py`), a hover is a colour never a filter
-    (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
-    toasts fade out, skeletons in the Library and Timeline. Menus' exit left
-    to the menu agent (agent-remaining/perfpolish.md).
 
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and

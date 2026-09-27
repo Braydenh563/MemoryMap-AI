@@ -73,6 +73,19 @@ def test_the_palette_resolves_every_kind_of_thing_the_app_holds():
         assert f'"{group}"' in source, f"the palette no longer resolves {group}"
 
 
+def test_notes_match_by_body_not_just_title():
+    """Owner report: "I think notes appear in the command palette search."
+    Verified live in Chromium (Ctrl+K, a query matching only a note's body):
+    they do, grouped under "Notes", opening the note through `flashEntry`.
+    Kept here so a future rewrite of `paletteMatches` cannot drop the body
+    half and pass only on a title match."""
+    source = _palette_matches_source()
+    notes_block = source[source.index('group: "Notes"') - 400 : source.index('group: "Notes"') + 400]
+    assert "e.content" in notes_block
+    assert "e.title" in notes_block
+    assert "flashEntry(e.id)" in notes_block
+
+
 def test_the_palette_returns_every_group_it_builds():
     """A group that is built and then left out of the return is dead code that
     looks alive: the "never ran once" shape again. Every `*Matches` list the

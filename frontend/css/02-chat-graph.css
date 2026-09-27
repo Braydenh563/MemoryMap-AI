@@ -4008,6 +4008,12 @@ mark.lightbox-hit {
   cursor: grab;
 }
 
+/* A zoomed picture pans by translate (lightbox-view.js `setZoom`), so the
+   stage must not also scroll it: two pan mechanisms would fight. */
+.lightbox-stage.zoomed-img {
+  overflow: hidden;
+}
+
 /* A PDF's own page column, zoomed the same way a single image is, 
    `transform: scale()`, which Chromium/Firefox both already factor into a
    `overflow: auto` ancestor's scrollable bounds, so the parent

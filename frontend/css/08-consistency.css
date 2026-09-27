@@ -7172,6 +7172,19 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
   transition: opacity var(--motion-base) var(--ease-out);
 }
+/* A wake or a doze is seen happening (the owner, 2026-09-27: "it opens its
+   eyes and mouth for a sec like it is startled but then falls back asleep
+   a second later making it feel like the sleep is fake. it needs ot be a
+   gradual fall back asleep"). While `.atl-easing` is on an Atlas (atlas.js,
+   a mood eased over seconds) or `nmb-easing` on the companion (avatars.js,
+   its own sleep and wake), eyes, mouth and brows cross over 1.8s, not
+   0.16s. Measured by scratchpad/ui-sweeps/atlassleepinput.js. */
+:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-m, .atl-cheek) {
+  transition: opacity calc(var(--motion-slow) * 9) var(--ease-in-out);
+}
+:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-lid, .atl-lid-low, .atl-brow) {
+  transition: transform calc(var(--motion-slow) * 9) var(--ease-in-out);
+}
 
 /* The fifteen moods. Calm is the rest state above. Round 9's review of
    all fifteen in both looks at full and companion size: happy read as

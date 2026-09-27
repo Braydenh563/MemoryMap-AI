@@ -15,6 +15,8 @@ written.
 
 ## Atlas (atlas.js)
 
+- [ ] Sleeping arms: no arm resting on the orbit rings; doze standing,
+  sleep on the perch floor, hanging, half tucked away, or lying down.
 - [ ] Base "silver" button and select restyle, app-wide, at the base rules
   (default button, `.secondary`, `.small`, `.icon-only`, `select`): quiet
   fills, ghost icon buttons, joined steppers (reminder -15m/+15m/-1d/+1d),
@@ -54,6 +56,16 @@ written.
 
 ## Companion (avatars.js)
 
+- [ ] Emotes and acts on click must ease back to the prior state, never
+  cut back after a few seconds.
+- [ ] Covers content again (sat over the Weekly digest text): size and
+  proportion depend on the perch; it scales down where space is small
+  and never overlaps text.
+- [ ] Tab switch: it stayed visible on the new tab for a split second,
+  vanished, then came back with barely an entrance; it must hide on
+  leave and arrive with a real entrance, with no startle.
+- [ ] Chat switch: it was left floating mid-panel for seconds after its
+  perch (a button on an empty chat) went away; re-perch at once.
 - [ ] Tab switch: the companion must arrive (walk, hop, climb or portal),
   never just appear. Reproduce with motion auto and reduced.
 - [ ] Never perch inside a text block (it sat in the Weekly digest
@@ -76,9 +88,45 @@ written.
 - [ ] Wire the Atlas hooks: `data-lean`, `data-atlas-variant`, `data-pose`
   lie-1, lie-2, lie, curl-1, curl.
 - [ ] Deferred unless small: an arm rig that can cross in front of the body.
+- [ ] The owner, high priority: "when atlas is sleeping and i click it, it
+  opens its eyes and mouth for a sec like it is startled but then falls
+  back asleep a second later making it feel like the sleep is fake. it
+  needs ot be a gradual fall back asleep. maybe a pout or getting a
+  temporarily a little mad if it happens multiple times consecutively or in
+  a short time span etc. make sure that random sudden movements dont happen
+  too frequently or randomly. it cant be distracting for the user". A click
+  asleep wakes it gradually (slow lids, a yawn, a stretch), awake at least
+  20 to 30s, drowsiness back over time before sleep over several seconds;
+  repeated clicks go sleepy-annoyed (pout, huff), then grumpy, then decay;
+  no instant revert. A calm budget: at most one attention-grabbing act
+  every 60 to 90s, never while typing or scrolling nearby. Tests: the state
+  transitions and the rate cap.
+- [ ] The owner: "the companion was sleeping but then when I clicked a
+  different tab, for a split second I saw it shoot back up look alive
+  suddenly and look surprised". Sleep persists across moves: carried asleep
+  (fades or poofs, arrives lying or curled) or woken gradually before a
+  walk; no reset to an awake or surprised pose on reposition, remount or
+  tab change. Test: sleep plus a tab switch never shows an awake frame.
+- [ ] The owner: "the companion gets frozen in its animation and with the
+  exact same half lidded half mouth open expression every time when I hold
+  down ctrl". Holding Ctrl keeps its live face and animation.
+- [ ] The owner, again: Atlas sat over the Weekly digest paragraph, and
+  scrolled, looked perched on the status bar. Top edges only, never inside
+  a card's content below its heading; every settle validated against text
+  rects; on scroll it stays on its edge or hops to a valid one.
 
 ## App (Sonnet)
 
+- [ ] Thinking words UI is broken (owner screenshots): the dots, a long
+  line, then the phrase far right and off-centre, with an annoying pulse.
+  Redesign: dots, then the phrase right beside them, bold, a subtle
+  glow or shimmer, no pulsing; no stray line; one row, vertically
+  centred, same in chat, Ask and the popup agent.
+- [ ] Atlas guide panel: its '?' button does nothing; wire it.
+- [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
+  the new recipes (dialog head, quiet segmented tabs, search with icon,
+  compact rows with check, name and category chip that never wraps,
+  sticky footer).
 - [ ] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
 - [ ] At least 4 realistic multi-line notes above the fold at 1093x614.
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
@@ -107,6 +155,11 @@ written.
 
 ## Before calling it done
 
+- [ ] App-wide consistency pass after the button, select and stepper
+  restyle: every surface uses the same recipes (buttons, selects, dialog
+  heads, menus, notices, chips, spacing and radius tokens); a sweep lists
+  every hand-built control and each is moved onto its recipe or its
+  ratchet in tests/test_ui_recipes.py. Light and dark, 1093, 1440, 390.
 - [ ] `scripts/gate.sh --full` green; CI green on the head.
 - [ ] INBOX 431 resolved to HISTORY; CHANGELOG lines present; README fresh.
 - [ ] PR 157's title and description updated to cover the whole branch.

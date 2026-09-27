@@ -153,14 +153,16 @@ def test_fit_scrolls_only_a_scroller_that_is_away_from_its_origin() -> None:
     the answer, so asking costs no layout read."""
     app = _source("app.js")
     start = app.index("const applyZoom = () => {")
-    block = app[start : app.index("const setZoom = (next) => {", start)]
+    block = app[start : app.index("const setZoom = (next, anchor = null) => {", start)]
     assert "scrolledAway.has(scroller)" in block
     assert "scrollTarget().scrollTo(" not in block
     assert "trackScrolledAway(stage);" in block
     assert "trackScrolledAway(doc);" in app
     # A pan marks it at once, not a frame later at its scroll event.
     pan = app[app.index("const movePan = (e) => {") :]
-    assert "scrolledAway.add(scroller);" in pan[: pan.index("};")]
+    # The picture pans by translate (no scroller involved) and returns early;
+    # the scroll-based pan below it, for PDF pages, still marks its scroller.
+    assert "scrolledAway.add(scroller);" in pan[: pan.index("\n  };")]
 
 
 # --- 424h and 424i: autogrow on a tab switch and while typing ------------------

@@ -5301,12 +5301,20 @@ main,
    button it stood on (perchbuttons.js: a Start something tile's top edge
    answered the companion, not the tile). The box itself lets the pointer
    through; the margin above the soles is the handle. */
-#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }
+#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nm-buddy-face { pointer-events: none; }
 #nm-buddy[data-pose="stand"] .nm-buddy-face::after {
   bottom: 3px;
   pointer-events: auto;
 }
-#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }
+/* Sitting, the handle ends at its seat: its legs over the edge, and any
+   drawing that reaches below it (Atlas's nebula), let the pointer through
+   to what is under them (perchbuttons.js: sat on a toolbar over a 75px
+   button, the button's middle answered the companion). */
+#nm-buddy[data-pose="sit"] .nm-buddy-face::after {
+  bottom: 20px;
+  pointer-events: auto;
+}
+#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
 
@@ -5723,8 +5731,9 @@ main,
    palm): the act plays over the mood's pose and, when it ends, the arm goes
    back to the mood's pose, not to hanging straight. Atlas's arms are its
    own drawing's (atlas.js). */
-/* Only outward turns: the arms are drawn behind the body, so an arm turned
-   in across it (hands on hips, clasped) measured as hidden. */
+/* The arms are drawn over the body (after it, outlined), so they turn in
+   across it as well as out: hips, clasped hands, hands at the chest
+   (armmood.js shots at 3x). */
 /* open arms */
 :where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }
 :where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-l { transform: rotate(35deg); }
@@ -5746,17 +5755,18 @@ main,
 /* arms hanging */
 :where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-r { transform: rotate(3deg); }
 :where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-l { transform: rotate(-3deg); }
-/* arms out a little, at ease */
-:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-r { transform: rotate(-18deg); }
-:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-l { transform: rotate(18deg); }
-/* arms a little out, bashful */
-:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-r { transform: rotate(-22deg); }
-:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(22deg); }
-/* arms stiff at its sides */
+/* hands on its hips */
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-r { transform: rotate(36deg); }
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-l { transform: rotate(-36deg); }
+/* hands clasped in front, bashful */
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-r { transform: rotate(62deg); }
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }
+/* fists stiff at its sides */
 :where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-r { transform: rotate(-8deg); }
 :where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-l { transform: rotate(8deg); }
-/* a hand up at its mouth, worried */
-:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(-98deg); }
+/* hands at its chest, worried */
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-l { transform: rotate(-100deg); }
 
 /* Peeking from behind its panel: everything below the panel's top edge is
    cut away (`--nmb-edge`, where the edge crosses it), and it sinks behind

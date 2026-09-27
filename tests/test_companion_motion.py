@@ -859,6 +859,11 @@ def test_its_arms_rest_in_its_mood_and_come_back_to_it_after_an_act() -> None:
         assert f'[data-feel="{mood}"]' in CSS08, mood
     # Lighter than any act's arm, so an act plays over it and hands it back.
     assert ':where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }' in CSS08
+    # Arms are drawn over the body, so they also turn in across it: hands
+    # on hips, clasped, at the chest (the first reading, that inward arms
+    # were hidden, was a 1x screenshot; at 3x they are in front).
+    assert ':where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }' in CSS08
+    assert ':where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }' in CSS08
 
 
 def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> None:
@@ -873,8 +878,11 @@ def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> 
     for fn in ("nameMarkBuddyDrop", "nameMarkBuddyCheck", "nameMarkBuddyStillGood", "nameMarkBuddyNextSpot"):
         assert "nameMarkBuddyYoursObstacles(" in _fn(fn), fn
     assert "const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));" in _fn("nameMarkBuddySurfaceWalk")
-    assert '#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }' in CSS08
-    assert '#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }' in CSS08
+    # Standing or sitting, only the part above its soles or seat is the
+    # handle: a 75px button it sat above (legs and nebula over it) clicks.
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nm-buddy-face { pointer-events: none; }' in CSS08
+    assert '#nm-buddy[data-pose="sit"] .nm-buddy-face::after {\n  bottom: 20px;' in CSS08
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }' in CSS08
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")

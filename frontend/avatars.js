@@ -2662,7 +2662,7 @@ function nameCharacterHeld(kind, arm, t) {
 const NAME_MARK_LINES = {
   happy: ["Hi there.", "Good to see you."], excited: ["Let's go.", "Ooh, what are we doing?"],
   sad: ["It's fine. I'm fine.", "..."], angry: ["Hmph.", "What now?"], dramatic: ["Alas.", "The drama of it all."],
-  surprised: ["Oh.", "You startled me."], sleepy: ["Five more minutes.", "zzz..."], nervous: ["Is it the deadline?", "Um. Hi."],
+  surprised: ["Oh.", "You startled me."], sleepy: ["Five more minutes.", "zzz…"], nervous: ["Is it the deadline?", "Um. Hi."],
   sly: ["I know things.", "Heh."], calm: ["Breathe.", "All is well."], serious: ["Focus.", "Back to work."],
   confused: ["Wait, what?", "Which tab was I on?"], hungry: ["Is it lunch yet?", "Snack break?"], cool: ["Sup.", "Stay cool."],
   love: ["You're doing great.", "Proud of you."], laughing: ["Ha. Good one.", "Stop, I can't."], unimpressed: ["Meh.", "Sure."],

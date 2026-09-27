@@ -1714,6 +1714,12 @@ async function switchTab(name) {
     if (savedColour && colourSelect && [...colourSelect.options].some((o) => o.value === savedColour)) {
       colourSelect.value = savedColour;
     }
+    //: And what the sizes mean (INBOX 430), the same way.
+    const savedSize = localStorage.getItem("graph-size");
+    const sizeSelect = document.getElementById("graph-size");
+    if (savedSize && sizeSelect && [...sizeSelect.options].some((o) => o.value === savedSize)) {
+      sizeSelect.value = savedSize;
+    }
     // Match the saved layout on arrival, not only on change, otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());

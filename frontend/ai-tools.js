@@ -1986,6 +1986,7 @@ const MIRRORED_UI_EXTRAS = [
   "activeTab",
   "graph-layout",
   "graph-colour",
+  "graph-size",
   "graph-options-open",
   "graph-trace-open",
   // The options panel's three folds, keyed `graph-fold-<the section's id>` by

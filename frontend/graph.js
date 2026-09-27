@@ -1440,6 +1440,34 @@ let graphStructure = null;
 //: for a rule that no longer exists.
 const GRAPH_COLOUR_RULES = ["category", "cluster", "kind", "age", "space", "tag", "file"];
 
+//: INBOX 430, View > Size: what a node's size says. Connections (the default)
+//: is `4 + 2*sqrt(degree)`, GRAPH_PLAN §5 Phase 1; length is the note's words,
+//: on a log scale so a 3,000-word note is not a moon beside a 30-word one;
+//: recency halves every 30 days since it was last edited; none is one size.
+//: Every rule stays in the same [4, 18] band, so the labels, the hit test and
+//: the fit's padding need no second case.
+const GRAPH_SIZE_RULES = ["connections", "length", "recency", "none"];
+
+function graphSizeMode() {
+  const value = document.getElementById("graph-size")?.value;
+  return GRAPH_SIZE_RULES.includes(value) ? value : "connections";
+}
+
+function graphSizeRadius(node, degree, low = 4, high = 18) {
+  const mode = graphSizeMode();
+  if (mode === "none") return 7;
+  if (mode === "length") {
+    const words = Math.max(0, Number(node.words) || 0);
+    return low + (high - low) * Math.min(1, Math.log1p(words) / Math.log1p(2000));
+  }
+  if (mode === "recency") {
+    const at = Date.parse(node.updated_at || node.created_at || "");
+    const days = Number.isFinite(at) ? Math.max(0, (Date.now() - at) / 86400000) : Infinity;
+    return low + (high - low) * Math.pow(0.5, days / 30);
+  }
+  return Math.max(low, Math.min(high, low + 2 * Math.sqrt(degree || 0)));
+}
+
 function graphColourMode() {
   const value = document.getElementById("graph-colour")?.value;
   return GRAPH_COLOUR_RULES.includes(value) ? value : "category";
@@ -5042,6 +5070,7 @@ function graphSyncSimilarityRow() {
 const GRAPH_DEFAULTS = {
   layout: "force",
   "graph-colour": "category",
+  "graph-size": "connections",
   "graph-gravity": "50",
   "graph-spread": "50",
   "graph-similarity": false,

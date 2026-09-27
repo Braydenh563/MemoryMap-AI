@@ -1426,6 +1426,11 @@ $("graph-colour").addEventListener("change", (event) => {
   localStorage.setItem("graph-colour", event.target.value);
   renderGraph();
 });
+// What the sizes mean (INBOX 430), remembered the same way.
+$("graph-size").addEventListener("change", (event) => {
+  localStorage.setItem("graph-size", event.target.value);
+  renderGraph();
+});
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class, no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {

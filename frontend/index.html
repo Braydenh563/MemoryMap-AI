@@ -3061,6 +3061,20 @@ Link to another note with [[its first few words]]."></textarea>
                     <option value="file">Has a file</option>
                   </select>
                 </div>
+                <div class="dock-menu-section">
+                  <span class="muted dock-menu-label" id="graph-size-label">Size</span>
+                  <!-- INBOX 430: what a dot's size means. Connections is the
+                       default (a node's lines, the one thing a map shows by
+                       itself); length is the note's words, recency how lately
+                       it was edited, none one size for every note. -->
+                  <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
+                    title="What a note's size means">
+                    <option value="connections">Connections</option>
+                    <option value="length">Length</option>
+                    <option value="recency">Recency</option>
+                    <option value="none">None</option>
+                  </select>
+                </div>
               <!-- **Moved out of the find zone for the seven-control
                    ceiling** (docks.md section 2, which names this move and the
                    decision behind it). Trace is a mode, and this menu already

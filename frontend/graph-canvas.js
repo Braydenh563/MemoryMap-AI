@@ -236,8 +236,9 @@ const GC_MIN_RADIUS = 4;
 const GC_MAX_RADIUS = 18;
 function gcRadius(node, degree) {
   if (node.isGroup) return node.id === "root" ? 14 : 11;
-  const d = degree || 0;
-  return Math.max(GC_MIN_RADIUS, Math.min(GC_MAX_RADIUS, 4 + 2 * Math.sqrt(d)));
+  //: By the View menu's Size rule (`graphSizeRadius`, graph.js): connections
+  //: by default, the rule this function always drew.
+  return graphSizeRadius(node, degree, GC_MIN_RADIUS, GC_MAX_RADIUS);
 }
 
 //: Zoom at which labels come on by themselves (§5 Phase 1). Below it a label

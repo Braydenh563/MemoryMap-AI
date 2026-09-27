@@ -2034,6 +2034,90 @@ function personaDisplayName(name) {
   return !name || name === "Librarian" ? aiNameNow() : name;
 }
 
+// --- thinking words (rotating words beside the thinking dots) --------------
+//
+// Asked for directly: rotating "thinking words" next to the three-dot
+// indicator, like Claude Code's ("Pondering…", "Spelunking…"), customisable
+// per persona. The app's own default, and Atlas's (the built-in persona
+// most worth a voice of its own); Coach's and Analyst's are the other two
+// built-ins. `PersonaItem.thinking_words` (routes_settings.py) is where a
+// custom override for any of these, or for a person's own persona, lives:
+// this file only supplies what a persona gets when it has never set one.
+const DEFAULT_THINKING_WORDS = [
+  "Thinking", "Pondering", "Leafing through your notes", "Connecting the dots",
+  "Following a thread", "Mulling it over", "Cross-referencing", "Gathering thoughts",
+  "Tracing the links", "Sifting", "Weighing it up", "Piecing it together",
+  "Reading between the lines", "Consulting the margins", "Untangling", "Distilling",
+];
+const ATLAS_THINKING_WORDS = [
+  "Stargazing", "Charting constellations", "Consulting the stars", "Drifting through the nebula",
+  "Orbiting the question", "Tracing starlight", "Aligning the planets", "Catching a comet",
+  "Listening between the stars", "Counting moons", "Weaving stardust", "Following a meteor",
+  "Spinning up a galaxy", "Reading the night sky", "Gathering starlight", "Mapping your cosmos",
+];
+const COACH_THINKING_WORDS = [
+  "Cheering you on", "Spotting your wins", "Tracking your progress", "Finding your next step",
+  "Celebrating the small stuff", "Looking for momentum", "Noticing what is working", "Building on your streak",
+  "Coaching it through", "Setting the pace", "Looking for a breakthrough", "Weighing your options",
+  "Finding the encouraging angle", "Charting your growth", "Rooting for you", "Keeping score of progress",
+];
+const ANALYST_THINKING_WORDS = [
+  "Crunching the numbers", "Extracting the facts", "Spotting the pattern", "Cross-checking the data",
+  "Organising the findings", "Running the figures", "Verifying the details", "Mapping the variables",
+  "Isolating the signal", "Tabulating the results", "Auditing the notes", "Correlating the evidence",
+  "Drawing the trend line", "Parsing the record", "Weighing the evidence", "Compiling the summary",
+];
+
+//: Which built-in list belongs to which built-in name. A function, like
+//: `builtinPersonas()` beside it, since the app's own persona's key is
+//: `aiNameNow()`, not a literal "Atlas": Atlas's own words apply only while
+//: the AI is still actually named that, the same test `chatHeadIsAtlas`
+//: (chat-agent.js) already makes for the avatar.
+function builtinThinkingWords() {
+  const name = aiNameNow();
+  return {
+    [name]: name === "Atlas" ? ATLAS_THINKING_WORDS : DEFAULT_THINKING_WORDS,
+    Coach: COACH_THINKING_WORDS,
+    Analyst: ANALYST_THINKING_WORDS,
+  };
+}
+
+//: **What rotates beside the thinking dots for a given persona.** A custom
+//: override (`PersonaItem.thinking_words`, saved through the persona editor
+//: or "Suggest with AI") wins; a built-in persona's own list is next; the
+//: app's default list is what everyone else, including a person's own
+//: from-scratch persona, gets. `personaName` is whatever `typingDots`/
+//: `progressLine` were handed, the same value `personaDisplayName` already
+//: normalises everywhere else (`null`, `"Librarian"`, a real name).
+function thinkingWordsFor(personaName) {
+  const writer = personaDisplayName(personaName);
+  const overrides = (prefsCache && prefsCache.personas) || [];
+  const custom = overrides.find((p) => p.name === writer || p.name === personaName);
+  if (custom && Array.isArray(custom.thinking_words) && custom.thinking_words.length) {
+    return custom.thinking_words;
+  }
+  const builtin = builtinThinkingWords();
+  return builtin[writer] || DEFAULT_THINKING_WORDS;
+}
+
+//: **The feature's own switch, stored the way its nearest sibling control
+//: is.** `progress-motion` (chat.js's `progressMotionWanted`, settings.js's
+//: Appearance section) governs the same indicator and is a per-browser
+//: `localStorage` setting, never sent to the server: this matches it rather
+//: than round-tripping `/preferences` for a display toggle, and reads
+//: `localStorage` directly rather than through `appearancePref` (settings.js,
+//: a lazily-fetched-feeling name but actually boot-loaded; direct is simpler
+//: and asks nothing of load order either way). Missing (never set) or "on"
+//: means shown, matching this app's other on-by-default switches
+//: ("avatar-follow", "grammar_check").
+function wantsThinkingWords() {
+  try {
+    return localStorage.getItem("show-thinking-words") !== "off";
+  } catch {
+    return true; // no localStorage (private mode, a blocked origin): default on
+  }
+}
+
 //: A function, not a table: the librarian is named after the app's AI
 //: (`AI_NAME`, settings.js), so its key and its prompt are built from that
 //: name when asked for, the same way `librarian.DEFAULT_PERSONA` is built
@@ -2089,10 +2173,16 @@ async function renderPersonas() {
       builtin: true,
       overridden: overrides.has(name),
       prompt: overrides.has(name) ? overrides.get(name).prompt : builtinPersonas()[name],
+      //: Pre-filled from the built-in's own list, the same way `prompt`
+      //: above is: editing and saving turns that pre-fill into a real
+      //: override, exactly as editing the pre-filled prompt already does.
+      thinkingWords: overrides.has(name)
+        ? overrides.get(name).thinking_words || []
+        : builtinThinkingWords()[name] || DEFAULT_THINKING_WORDS,
     })),
     ...custom
       .filter((p) => !(p.name in builtinPersonas()))
-      .map((p) => ({ ...p, builtin: false, overridden: false })),
+      .map((p) => ({ ...p, builtin: false, overridden: false, thinkingWords: p.thinking_words || [] })),
   ];
 
   renderDashboardPersonaSelect(rows.map((p) => p.name));
@@ -2101,10 +2191,57 @@ async function renderPersonas() {
     const li = document.createElement("li");
 
     if (personaEditing === persona.name) {
-      // Inline editor: textarea + save/cancel.
+      // Inline editor: prompt, thinking words, save/cancel.
       const textarea = document.createElement("textarea");
       textarea.rows = 3;
       textarea.value = persona.prompt;
+
+      //: **Thinking words: one per line, the plain-text shape the backend
+      //: itself stores them in** (`PersonaItem.thinking_words`), rather than
+      //: comma-separated, since a phrase can itself contain a comma
+      //: ("Reading, then re-reading" is a fine thinking word). Left empty
+      //: means "use the default list, or this built-in's own", named in
+      //: the hint below rather than guessed at from a blank box.
+      const wordsLabel = document.createElement("label");
+      wordsLabel.className = "persona-words-label";
+      wordsLabel.textContent = "Thinking words (one per line, 8 to 40)";
+      const wordsHint = document.createElement("p");
+      wordsHint.className = "muted persona-words-hint";
+      wordsHint.textContent =
+        "Shown beside the thinking dots while this persona answers. Leave empty to use the default list.";
+      const wordsBox = document.createElement("textarea");
+      wordsBox.className = "persona-words-box";
+      wordsBox.rows = 6;
+      wordsBox.value = (persona.thinkingWords || []).join("\n");
+      const wordsStatus = document.createElement("p");
+      wordsStatus.className = "muted persona-words-status";
+
+      const suggestBtn = smallButton(
+        "Suggest with AI",
+        "Ask the local model for about sixteen, in this persona's voice",
+        async () => {
+          suggestBtn.disabled = true;
+          wordsStatus.textContent = "Asking the model…";
+          try {
+            const promptNow = textarea.value.trim() || persona.prompt;
+            const reply = await apiJson("/personas/suggest-thinking-words", {
+              method: "POST",
+              body: JSON.stringify({ name: persona.name, prompt: promptNow }),
+            });
+            if (reply.thinking_words && reply.thinking_words.length) {
+              wordsBox.value = reply.thinking_words.join("\n");
+              wordsStatus.textContent = `${reply.thinking_words.length} suggested. Edit any of them, then Save.`;
+            } else {
+              wordsStatus.textContent = "The model didn't suggest any this time. Try again, or write your own.";
+            }
+          } catch (error) {
+            wordsStatus.textContent = error.message || "Couldn't reach the model.";
+          } finally {
+            suggestBtn.disabled = false;
+          }
+        }
+      );
+
       const row = document.createElement("div");
       row.className = "row";
       row.appendChild(
@@ -2114,10 +2251,49 @@ async function renderPersonas() {
           async () => {
             const prompt = textarea.value.trim();
             if (!prompt) return;
+            const thinkingWords = wordsBox.value
+              .split("\n")
+              .map((w) => w.trim())
+              .filter(Boolean);
+            //: The backend's own rule (`PersonaItem._bounded_thinking_words`),
+            //: checked here too so a mistake reads as one clear sentence
+            //: beside the box instead of a raw 422 from a save that has
+            //: already closed the editor.
+            if (thinkingWords.length && (thinkingWords.length < 8 || thinkingWords.length > 40)) {
+              wordsStatus.textContent = `${thinkingWords.length} words: use 8 to 40, or leave it empty for the default list.`;
+              return;
+            }
+            const tooLong = thinkingWords.find((w) => w.length > 40);
+            if (tooLong) {
+              wordsStatus.textContent = `"${tooLong}" is longer than 40 characters.`;
+              return;
+            }
+            //: Built from its code point, not typed literally: this file is
+            //: itself swept for the character by `tests/test_no_em_dashes.py`.
+            const emDash = String.fromCharCode(8212);
+            const badWord = thinkingWords.find((w) => w.includes("!") || w.includes(emDash));
+            if (badWord) {
+              wordsStatus.textContent = `"${badWord}": no exclamation marks or em dashes.`;
+              return;
+            }
             const updated = custom.filter((p) => p.name !== persona.name);
-            updated.push({ name: persona.name, prompt });
-            personaEditing = null;
-            await savePersonaList(updated);
+            updated.push({ name: persona.name, prompt, thinking_words: thinkingWords });
+            try {
+              await savePersonaList(updated);
+              personaEditing = null;
+            } catch (error) {
+              //: **Neither field is touched, and the editor stays open.**
+              //: `renderPersonas()` (what `savePersonaList` calls on success)
+              //: rebuilds this whole `<li>` from scratch, so calling it here
+              //: too, on a failure, would throw away `textarea`/`wordsBox`
+              //: and everything just typed into them along with the error
+              //: it was meant to explain: a validation mistake would both
+              //: fail to save and lose the edit. `personaEditing` was never
+              //: cleared (only after `savePersonaList` succeeds, above), so
+              //: nothing else that might re-render meanwhile mistakes this
+              //: for a closed editor either.
+              wordsStatus.textContent = error.message || "Couldn't save.";
+            }
           },
           false
         )
@@ -2128,7 +2304,7 @@ async function renderPersonas() {
           renderPersonas();
         })
       );
-      li.append(chip(persona.name), textarea, row);
+      li.append(chip(persona.name), textarea, wordsLabel, wordsBox, wordsHint, suggestBtn, wordsStatus, row);
       list.appendChild(li);
       setTimeout(() => textarea.focus(), 0);
       continue;

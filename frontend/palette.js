@@ -1035,7 +1035,7 @@ async function cmdPaletteAsk(text) {
   //: first delta, not before the request).
   const answerBox = document.createElement("div");
   answerBox.className = "bubble-answer";
-  answerBox.appendChild(typingDots());
+  answerBox.appendChild(typingDots(undefined, { persona: askedPersona, words: true }));
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
   paintPersonaAvatar(agentAvatar, askedWriter, 20); // now attached, so p5 can measure and draw

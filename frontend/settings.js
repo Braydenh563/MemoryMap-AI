@@ -1386,6 +1386,11 @@ const APPEARANCE_DEFAULTS = {
   //: still obeyed (see `progressMotionWanted` in chat.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
+  //: The rotating word beside those same dots (chat.js's `wantsThinkingWords`,
+  //: sheets-selects.js): on by default, since it is the feature being asked
+  //: for. This table is only read for the Settings checkbox's own render;
+  //: `wantsThinkingWords` reads `localStorage` directly.
+  "show-thinking-words": "on", // on | off
   //: Generated faces (`nameMark`, avatars.js) blink and emote. Always by
   //: default (the owner: "I want the avatars animated by default"); only
   //: the faces on screen move (`watchNameMark`), so a long list costs what
@@ -2345,6 +2350,7 @@ function renderAppearance() {
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
+  $("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";
   $("avatar-motion").value = appearancePref("avatar-motion");
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
@@ -2943,6 +2949,9 @@ $("progress-motion").addEventListener("change", (e) => {
   localStorage.setItem("progress-motion", e.target.value);
   document.documentElement.dataset.progressMotion = e.target.value;
   renderProgressMotionHint();
+});
+$("pref-show-thinking-words")?.addEventListener("change", (e) => {
+  localStorage.setItem("show-thinking-words", e.target.checked ? "on" : "off");
 });
 $("bg-motion").addEventListener("change", (e) => {
   localStorage.setItem("bg-motion", e.target.value);

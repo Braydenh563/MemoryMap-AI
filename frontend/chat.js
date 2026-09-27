@@ -2599,7 +2599,92 @@ function wireHorizontalWheelScrolling() {
 }
 window.wireHorizontalWheelScrolling = wireHorizontalWheelScrolling;
 
-function typingDots(label = "Thinking…") {
+//: **The row's own width is reserved, never left to jump.** Asked for
+//: directly: rotating "thinking words" beside the dots, "a clean,
+//: professional, bug-free UI", and the risk that phrase names is a row that
+//: visibly widens and narrows as "Sifting" becomes "Piecing it together"
+//: and back. `ch` is not pixel-exact in a proportional font, but it moves
+//: with the word list rather than a guessed constant, and the +1 margin
+//: covers what was measured off (`scratchpad/ui-sweeps/thinkingwords.js`).
+function thinkingWordMinWidth(list) {
+  const longest = Math.max(0, ...list.map((w) => w.length));
+  return `${longest + 1}ch`;
+}
+
+//: **Recursive, not `livingInterval`.** That helper (this file, above) fixes
+//: one period for the whole life of the timer; a jittered 2.5-to-3.5s gap
+//: needs a new random delay every tick, so this reimplements its one other
+//: idea by hand: a node re-parented for a frame (this app re-parents a live
+//: turn's own elements on purpose, see `livingInterval`'s comment) is not a
+//: node that is gone, so a handful of short rechecks are given before the
+//: timer actually stops, rather than the leak the naive
+//: `if (!node.isConnected) return` guard used to be.
+const THINKING_WORD_MIN_MS = 2500;
+const THINKING_WORD_JITTER_MS = 1000;
+const THINKING_WORD_RECHECK_MS = 500;
+const THINKING_WORD_GRACE_TICKS = 4;
+
+function scheduleThinkingWordTick(dots, wordEl, list, index, missingTicks) {
+  dots._thinkingWordTimer = setTimeout(() => {
+    //: **Stop on phase "writing"**, checked here rather than only in
+    //: `setPhase`, so the one tick already in flight when the phase flips
+    //: mid-wait cannot still land a rotation moments after the answer has
+    //: started.
+    if (dots.dataset.phase === "writing") return;
+    if (!dots.isConnected) {
+      if (missingTicks + 1 >= THINKING_WORD_GRACE_TICKS) return; // gone for good
+      scheduleThinkingWordTick(dots, wordEl, list, index, missingTicks + 1);
+      return;
+    }
+    const next = (index + 1) % list.length;
+    //: The exact crossfade `.progress-musing` uses (this file, `progressLine`):
+    //: remove the class, force a reflow, add it back, so the transition
+    //: restarts on an element already on screen rather than coalescing into
+    //: nothing.
+    wordEl.classList.remove("is-shown");
+    void wordEl.offsetWidth;
+    wordEl.textContent = list[next];
+    wordEl.classList.add("is-shown");
+    scheduleThinkingWordTick(dots, wordEl, list, next, 0);
+  }, missingTicks > 0 ? THINKING_WORD_RECHECK_MS : THINKING_WORD_MIN_MS + Math.random() * THINKING_WORD_JITTER_MS);
+}
+
+//: Only for the enhanced-motion indicator (dots + the writing trace): under
+//: reduced motion `typingDots` never reaches this, and its own single word
+//: already satisfies "show one word, no rotation" without help.
+function startThinkingWordRotation(dots, persona) {
+  const list = thinkingWordsFor(persona);
+  const wordEl = document.createElement("span");
+  wordEl.className = "typing-thinking-word";
+  //: **Not announced per word.** The row's own `aria-label` (set once, by
+  //: the caller) is what a screen reader reads, "Thinking"; a value that
+  //: changes several times a minute read aloud each time would be noise, not
+  //: help, so the word is decorative.
+  wordEl.setAttribute("aria-hidden", "true");
+  wordEl.style.minWidth = thinkingWordMinWidth(list);
+  wordEl.textContent = list[0];
+  dots.appendChild(wordEl);
+  //: The first word arrives the same way every later one does (a frame after
+  //: attach, so the transition has something to animate from) rather than
+  //: starting already shown, which is one fewer rule for this word to answer
+  //: to differently from every other rotation it does.
+  requestAnimationFrame(() => wordEl.classList.add("is-shown"));
+  scheduleThinkingWordTick(dots, wordEl, list, 0, 0);
+}
+
+function stopThinkingWordRotation(dots) {
+  clearTimeout(dots._thinkingWordTimer);
+  dots._thinkingWordTimer = null;
+}
+
+//: `words`: opt in, not automatic. Most callers (an OCR read, a caption, a
+//: generic "Loading…") are not "the AI is thinking about your question",
+//: and a persona's voice rotating beside them would be decoration with
+//: nothing behind it. `persona`: whoever is answering, resolved once by the
+//: caller (the same value the request itself was sent with, `chat-attach.js`'s
+//: own `sentPersona`, `palette.js`'s `askedPersona`), never read back off a
+//: live picker here.
+function typingDots(label = "Thinking…", { persona = null, words = false } = {}) {
   const dots = document.createElement("span");
   //: `typing-dots` is kept as the class even though this is now two
   //: indicators: existing CSS keys off it, and so does the code that removes
@@ -2621,8 +2706,14 @@ function typingDots(label = "Thinking…") {
     //: cross-fade or the line would stutter on each token.
     dots.setPhase = (phase) => {
       const next = phase === "writing" ? "writing" : "thinking";
-      if (dots.dataset.phase !== next) dots.dataset.phase = next;
+      if (dots.dataset.phase !== next) {
+        dots.dataset.phase = next;
+        if (next === "writing") stopThinkingWordRotation(dots);
+      }
     };
+    if (words && typeof wantsThinkingWords === "function" && wantsThinkingWords()) {
+      startThinkingWordRotation(dots, persona);
+    }
     return dots;
   }
 
@@ -2717,10 +2808,10 @@ const MUSING_DELAY_MS = 2500;
 //: minute-long wait is not one sentence.
 const MUSING_ROTATE_MS = 7000;
 
-function progressLine(initial = "Thinking…") {
+function progressLine(initial = "Thinking…", opts = {}) {
   const wrap = document.createElement("span");
   wrap.className = "progress-line";
-  const indicator = typingDots(initial);
+  const indicator = typingDots(initial, opts);
   wrap.appendChild(indicator);
   //: Forwarded rather than reached for: callers hold the `progressLine`, not
   //: the dots inside it, and a caller poking at `.querySelector(".typing-dots")`

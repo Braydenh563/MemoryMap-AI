@@ -3339,6 +3339,13 @@ const NAME_MARK_BUDDY_ACTS = {
   wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
+//: The sudden or large acts the calm budget holds back
+//: (`nameMarkBuddyCalmAllows`), and the acts with no face of their own
+//: (`nameMarkBuddyAct` eases a face back only after the others).
+const NMB_LOUD_ACTS = ["hop", "wave", "cheer", "startle", "wiggle", "kick", "swing", "stretch", "facepalm", "shrug", "scratch", "peekdown", "onehand", "feet", "carry", "lantern"];
+const NMB_LOUD_GAP_MS = 75000;
+const NMB_FACELESS_ACTS = ["blink", "look", "glance", "turn", "land", "shift", "emerge"];
+
 //: **At rest, a stance of its own** (INBOX 430, the owner: "more stances,
 //: with Atlas's masculine and feminine looks each getting their own (e.g.
 //: arms folded or a hand on the hip for masculine, a sway or clasped hands
@@ -5984,6 +5991,13 @@ function nameMarkBuddyAct(act, ms) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   const was = nmb.act;
+  //: **Back the way it came** (the owner, 2026-09-27: emotes and acts on
+  //: a click "must ease back to the prior state, never cut back after a
+  //: few seconds"): an act that put a face on (a cheer's grin, a yawn, a
+  //: startle, a lie-down's closed eyes) lets it go over 1.8s
+  //: (`nmb-easing`), not in the frame its class comes off. The small ones
+  //: (a blink, a look) have no face of their own.
+  if (was && was !== act && !NMB_FACELESS_ACTS.includes(was)) nameMarkBuddyEase(buddy, 1800);
   if (was) buddy.classList.remove(`nmb-act-${was}`);
   if (act !== "emerge") buddy.classList.remove("nmb-duck");
   if (was === "turn" || was === "glance") delete buddy.dataset.turn;
@@ -6714,8 +6728,6 @@ function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false) {
 //: plays at most once in `gap` (60 to 90s, drawn each time), and never
 //: within 4s of a key typed in a field or 2s of a scroll. Pure, for the
 //: tests; `nameMarkBuddyLoud` stamps it.
-const NMB_LOUD_ACTS = ["hop", "wave", "cheer", "startle", "wiggle", "kick", "swing", "stretch", "facepalm", "shrug", "scratch", "peekdown", "onehand", "feet", "carry", "lantern"];
-const NMB_LOUD_GAP_MS = 75000;
 function nameMarkBuddyCalmAllows(now, loudAt, gap, keyAt, scrollAgoMs) {
   if (now - loudAt < gap) return false;
   if (now - keyAt < 4000) return false;
@@ -6735,6 +6747,10 @@ function nameMarkBuddyAsleep(buddy) {
 //: Its face eased for `ms` (the CSS's `nmb-easing`: eyes, lids and mouth
 //: cross over 1.8s), so a wake or a doze is seen happening.
 function nameMarkBuddyEase(buddy, ms) {
+  const until = Date.now() + ms;
+  //: A longer ease already running (a wake's) is not cut short.
+  if (until <= (nmb.easeUntil || 0) && buddy.classList.contains("nmb-easing")) return;
+  nmb.easeUntil = until;
   buddy.classList.add("nmb-easing");
   clearTimeout(nmb.easeTimer);
   nmb.easeTimer = setTimeout(() => buddy.classList.remove("nmb-easing"), ms);

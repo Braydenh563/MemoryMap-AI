@@ -1122,3 +1122,17 @@ def test_a_perch_that_goes_is_replaced_at_once() -> None:
     lost = follow[follow.index("if (!g.lost) {") :]
     lost = lost[: lost.index("return;")]
     assert "nmb.placeTimer = setTimeout(nameMarkBuddyBeat, 250);" in lost and "nameMarkBuddyQueuePlace()" not in lost
+
+
+def test_an_act_lets_its_face_go_slowly() -> None:
+    # The owner: emotes and acts on a click "must ease back to the prior
+    # state, never cut back after a few seconds". Measured
+    # (companionactease.js, Atlas, a cheer): its happy eyes went back in
+    # 104ms when the act ended, now over 1307ms.
+    act = _fn("nameMarkBuddyAct")
+    assert "if (was && was !== act && !NMB_FACELESS_ACTS.includes(was)) nameMarkBuddyEase(buddy, 1800);" in act
+    assert act.index("nameMarkBuddyEase(buddy, 1800)") < act.index("buddy.classList.remove(`nmb-act-${was}`)")
+    # A shorter ease never cuts a longer one (a wake's 7s) short.
+    assert "if (until <= (nmb.easeUntil || 0) && buddy.classList.contains(\"nmb-easing\")) return;" in _fn("nameMarkBuddyEase")
+    # Declared before the first function that reads them at load.
+    assert AV.index("const NMB_LOUD_ACTS") < AV.index("function nameMarkBuddyAct(")

@@ -84,7 +84,7 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
     # Held still under reduced motion.
-    assert "&:is(.atl-layer-neb, .atl-layer-neb-front) { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
     # The halves meet where the ribbon turns edge-on (the pinch).
     assert "ATLAS_HELIX.near.reduce(" in ATLAS
 
@@ -183,3 +183,18 @@ def test_the_feminine_ears_are_small_wings_and_her_icon_has_hair():
     assert "earFeathers" not in masculine and "tinyHair" not in masculine
     assert 'if (!spec.tinyHair) return null;' in ATLAS
     assert ".nm-atlas .atl-ear-feather {" in CSS and ".nm-atlas .atl-tiny-lock {" in CSS
+
+
+
+def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
+    # Round 9 (the owner: "secondary motion"): the tail and the orbit take a
+    # second sway on a period of their own, on their layer roots; the mane
+    # sways in the whole drawing only, never inside a companion layer.
+    for name in ("atl-hair-flow", "atl-tail-flow", "atl-neb-flow"):
+        body = _keyframes(name).split("{", 1)[1]
+        assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate", "translate"}, name
+    assert "atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow" in CSS
+    assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow" in CSS
+    assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
+    assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS

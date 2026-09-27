@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas moves with secondary motion: the tail and the nebula each take a second, slower sway out of step with the first, so their flow never repeats, and in the large drawings the hair sways about its roots; all of it on the compositor (0 layouts a second measured at rest) and still under Reduce motion.
 - Atlas's feminine ears are small feathered wings with a soft glow, where thin fins read as horns, and her icon (16 to 28px) wears her hair: a lilac silhouette behind the head and a fringe over the crown, so it reads as her rather than a pale blob with two points.
 - Atlas's nebula stream goes round the whole figure, both looks: one orbit from under the feet, up the left side, behind the body, out over the hair and across above the crown, so the mane and the rings no longer hide its upper half. The near half is drawn over the hair and rings, wider and brighter, the far half under the figure and quieter, and the ribbon turns edge-on where they meet; both drift together and hold still under Reduce motion.
 - The companion lives on the tab it is on: switching away hides it with that tab, coming straight back shows it where it was, and it only follows after you have stayed on a new tab for about two seconds, walking on from the nearest edge, climbing down from the top bar or up over the bottom bar, or gathering out of starlight, never popping in. Hiding it dissolves it.

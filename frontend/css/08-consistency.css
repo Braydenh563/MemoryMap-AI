@@ -6907,10 +6907,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9 (the owner: "secondary motion", the hair flowing): in the
+       whole drawing (the welcome, the large marks) the mane sways about
+       its roots on a period of its own, out of step with the head's. */
+    &.atl-full .atl-mane { animation: atl-hair-flow 7.3s ease-in-out var(--nm-delay) infinite alternate; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
-    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9: a second, slower sway on the tail's root on a period that
+       never lines up with the swish, so its flow does not repeat; the
+       `rotate` property adds to the swish's transform, both compositor. */
+    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow 8.3s ease-in-out infinite alternate; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 5.6s ease-in-out infinite; }
     /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
@@ -6918,9 +6925,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        companion's walk, carry and kick out-rank the skirt's with their own
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
-    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
+    /* Round 9: the orbit's drift and a slower lift and settle (the
+       `translate` property) out of step with it, on both halves alike. */
+    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow 7.7s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
-    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
+    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
     &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
@@ -7016,7 +7025,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
-    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: none !important; }
+    /* Round 9: the hair's flow holds still with it; the tail's second
+       sway slows to 9s with its swish, as every other loop here. */
+    &:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }
@@ -7046,6 +7057,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 @keyframes atl-drift { to { transform: rotate(360deg); } }
 @keyframes atl-juggle { to { transform: rotate(360deg); } }
+@keyframes atl-hair-flow {
+  from { rotate: -1.2deg; }
+  to { rotate: 1.6deg; }
+}
+@keyframes atl-tail-flow {
+  from { rotate: -1.6deg; }
+  to { rotate: 1.2deg; }
+}
+@keyframes atl-neb-flow {
+  from { translate: -0.5px 0.7px; }
+  to { translate: 0.6px -0.8px; }
+}
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-3.6deg); }

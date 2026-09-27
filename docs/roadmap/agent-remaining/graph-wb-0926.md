@@ -162,7 +162,7 @@ Found and left, with the reason:
 
 The "/" menu's rows as a recipe (`frontend/rich-picker.js`, DESIGN.md's
 recipe index, `test_ui_recipes.py`), drawn by the "/" and "[[" menu, the
-command palette, the note box's `[[` list and the Library's Create picker.
+command palette and the Library's Create picker; the note box's `[[` is the editor menu now, at the caret.
 Sweep `richpicker.js` (1440 and 390, light and dark); shots in
 `scratchpad/shots/rich-picker/` (`before-*`, `after-*`).
 

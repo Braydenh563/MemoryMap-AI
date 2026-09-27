@@ -3406,13 +3406,6 @@ dialog::backdrop {
   padding: 0 var(--space-4) var(--space-3);
 }
 
-/* The `[[wiki link]]` list is a popup in flow: inside the surface it keeps
-   its own edge, and takes the side padding so it does not run to the two
-   borders it sits between. */
-.note-composer > .wiki-suggest {
-  margin: 0 var(--space-4) var(--space-3);
-}
-
 /* Notes tab → Ask: the question input, the answer-length select and the Ask
    button had the same three-heights-on-one-row mismatch as
    `.capture-field-row` above, same fix. */

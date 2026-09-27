@@ -3052,7 +3052,6 @@ RICH_PICKER_PARTS = ("row", "tile", "keys", "group", "label", "about", "text", "
 RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("settings-panes.js", "renderPalette"),
-    ("wiring.js", "renderWikiSuggest"),
     ("library.js", "openLibraryCreatePicker"),
 ]
 

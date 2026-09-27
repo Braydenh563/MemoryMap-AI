@@ -58,13 +58,12 @@ written.
   (the texture), dust at the roots, a circlet of stars on a thread with a
   larger middle star. `atlasportrait.js` (HEAD=1 for the 200px head),
   light and dark: full 240, head 200 and 64, companion 64x92, icon 24.
-- [ ] The lie pose's nebula cushion reads as a bed, not a thin band.
-  Written, not yet seen in place: under lie, lie-2 and curl the host's
-  ground shadow becomes an 18px lilac nebula pillow with three stars
-  (08-consistency.css, `#nm-buddy:has(.atl-figure)` only). Not verified on
-  the real companion: since it rides inside `#nm-buddy-rider` and
-  `#nm-buddy-band`, `atlasposes.js` can no longer place it for a still
-  frame (the clip lands off the page); fix that sweep, then look.
+- [x] The lie pose's nebula cushion reads as a bed, not a thin band.
+  Under lie, lie-2 and curl the host's ground shadow becomes an 18px lilac
+  nebula pillow with three stars (`#nm-buddy:has(.atl-figure)` only), and
+  lying flat it sits under the body (the torso spans 69 to 90 of the
+  host's 92px; the bed 78 to 96). Seen on the real companion with
+  `atlasbed.js` (it places `#nm-buddy` inside its rider), light and dark.
 - [x] Masculine lower-body wisps read more masculine: fewer, broader,
   straighter-falling streams with a firmer taper (not the feminine
   flowing tendrils), heavier and slower in the sway. Three near-straight

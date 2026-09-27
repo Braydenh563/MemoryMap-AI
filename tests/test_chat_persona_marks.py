@@ -40,9 +40,15 @@ def test_the_assistant_bubble_takes_the_persona_that_wrote_it() -> None:
 
 def test_the_default_assistant_keeps_the_live_emblem() -> None:
     """Atlas is the app's own voice and keeps the app's emblem, as today; any
-    other persona gets its generated face."""
+    other persona gets its generated face.
+
+    One call down since the long-chat fix (the chat pass, 2026-09-26): the
+    app's voice goes through `paintChatEmblem`, which draws the live emblem
+    once per size, accent and motion and copies that canvas for the rest, so
+    a 150-turn chat no longer starts 150 sketches. Still the live emblem."""
     painter = _function("paintPersonaAvatar")
-    assert "renderEmblem(holder" in painter
+    assert "paintChatEmblem(holder" in painter, "the app's own voice no longer wears the emblem"
+    assert "renderEmblem(holder" in _function("paintChatEmblem"), "the emblem is no longer the live one"
     assert "nameMark(" in painter or "fillPersonaMark(" in painter
     assert "aiNameNow()" in painter
 

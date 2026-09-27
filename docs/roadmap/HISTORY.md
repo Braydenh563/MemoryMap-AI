@@ -35795,3 +35795,75 @@ the two kinds of connection, customisation, and the pan re-rasterisation).
     live mark, 0 page errors). Also asked: three agents at a time at most,
     taken as a standing order for this run.
 
+
+
+## Moved from the plans, 2026-09-26 (the Chat pass)
+
+### From CHAT_PLAN.md
+
+### Built: INBOX 80, a citation mark previews its source where it is, 2026-09-26
+
+The placed item, as it stood:
+
+80. **Citation hover/click preview**: hovering or clicking a numbered
+    reference shows a popover with a preview of the thing (note, document,
+    mind map, file, website) and a button to go to it; clicking the
+    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
+    session): one `referencePopover(kind, id)` for every kind, reusing the
+    Library's previews.
+
+**What was built.** `openCitationPeek` (capture-ask.js), on DESIGN.md's new
+row "A preview of a cited source". A press on a mark used to call
+`flashEntry`, which leaves the chat for the Notes tab, so checking one claim
+cost the conversation; it now opens a peek beside the mark: the number, the
+note's title, the grounded passage marked inside ninety characters of its
+own context (characters, never rendered Markdown), and a foot with the
+note's category and age and a worded Open note. The whole preview is one
+button that opens the note (the item's "clicking the preview panel itself
+goes there"). It is a `.help-popover` placed by `placeHelpPopover`, so the
+shell, caret, tier and flip are the help popover's. Hover and focus show it
+while they last (140ms before the first, none between marks), a press keeps
+it and is the only way in on touch, Escape is captured and spent so a
+streaming answer is not also stopped, and the card follows its mark when
+the transcript scrolls and closes once the mark has left it. The hover
+passage on the source cards (decision 2) is unchanged.
+
+**Measured** (`scratchpad/ui-sweeps/citepeek.js`, 16 checks at 1440 and 12
+at 390 on touch, all passing): 384 by 176px at 1440 and 366px wide at 390,
+inside the window and on top, 10px from its mark, numbered as the mark is,
+no Markdown, the passage marked, the chat still showing after a press, Open
+44px on a phone; `citepassage.js` and `askgrounding.js` still pass. The
+recipe's lint is `tests/test_ui_recipes.py`
+`test_a_citation_mark_previews_its_source_on_the_help_popover_recipe`.
+
+**Not built from the item:** previews for a document, mind map, file or
+website. Every inline mark is a note today (the grounding rows carry a
+`note_id` only), so a `referencePopover(kind, id)` over five kinds would be
+four branches that never run; the peek takes a kind when a mark can carry
+one. The matched-terms line INBOX 76 asks the popover to show is 76's.
+
+### Checked built: INBOX 90, the user's bubble, 2026-09-26
+
+The placed item, as it stood:
+
+90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
+    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
+    a quieter bubble (accent-soft fill, no avatar, the label as a small
+    muted "You" above, radius from tokens, max-width 70%).
+
+**Built across three passes, and one line of it overtaken.** Measured at 1440
+on a saved chat (the chat pass's `userbubble.js`): the fill is the tint
+`color-mix(in srgb, var(--accent) 14%, var(--card))` with a 22% accent
+hairline (08-consistency.css, "the person's own turn is a tinted surface in
+the page's own ink"), ink on it 13.93:1 light and 10.96:1 dark
+(`chatphase2.js`); the corners are `--radius` with the `--radius-sm` tail;
+the "You" label is kept for screen readers and not drawn, on the reasoning
+recorded there (on your own side of your own conversation it said nothing
+the alignment did not), which replaces the item's "small muted You above".
+The "no avatar" line was overtaken by the owner's own request of 2026-09-24
+for generated avatars: the bubble carries the person's mark (INBOX 409,
+`.msg-user-mark`), a badge on its corner that changes neither its box nor
+its text (`chatmarks.js`). The 70% became the shared cap every bubble has,
+`min(82%, var(--measure))` (02-chat-graph.css, a reading measure on a wide
+window rather than a share of it); a one-line question takes its text's
+width, 47% of the column at 1440.

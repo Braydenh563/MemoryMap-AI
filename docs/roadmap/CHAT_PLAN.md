@@ -397,16 +397,10 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     note pairs, precision and recall reported by `tests/test_grounding.py`,
     and the popover (INBOX 80) shows the matched terms so a wrong number
     is visible.
-80. **Citation hover/click preview**: hovering or clicking a numbered
-    reference shows a popover with a preview of the thing (note, document,
-    mind map, file, website) and a button to go to it; clicking the
-    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
-    session): one `referencePopover(kind, id)` for every kind, reusing the
-    Library's previews.
-90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
-    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
-    a quieter bubble (accent-soft fill, no avatar, the label as a small
-    muted "You" above, radius from tokens, max-width 70%).
+~~80. Citation hover/click preview.~~ **Built 2026-09-26.** Moved to
+    HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
+~~90. User chat bubbles.~~ **Built; checked 2026-09-26.** Moved to
+    HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
 63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
     screenshots, 01:12; the owner: "modernise them and bring them up to
     standard with features, function and ui ux"). Owner: Opus, next slot,

@@ -20,6 +20,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Appearance, Atlas and faces, Reduce actions: Off (only blinks, looks and resting stances), Fewer (the default, a third as many unprompted waves and hops) or Normal. At rest Atlas takes stances of its own look: arms folded or a hand on the hip (masculine), hands clasped or a slow sway (feminine).
 - The companion's menu has sections: Companion (Atlas, you, the chat's persona or your own character), Atlas look (masculine, feminine or auto), Size, and Settings (Appearance, Profile, Personas), each a flyout with the current choice ticked. Any menu row can now be a flyout of its own.
 - Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.
 - The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the note box's `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.

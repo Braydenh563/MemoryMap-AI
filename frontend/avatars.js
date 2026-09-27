@@ -3136,6 +3136,34 @@ const NAME_MARK_BUDDY_ACTS = {
   wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
+//: **At rest, a stance of its own** (INBOX 430, the owner: "more stances,
+//: with Atlas's masculine and feminine looks each getting their own (e.g.
+//: arms folded or a hand on the hip for masculine, a sway or clasped hands
+//: for feminine), used at rest"). Long, quiet acts, only standing or
+//: floating, only for Atlas and only in the look named: the arms ease into
+//: them (the pose transition) and out again when the act ends, and the sway
+//: is the figure's box on the compositor.
+const NMB_STANCES = {
+  fold: { ms: 16000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "masculine" },
+  hip: { ms: 14000, w: 1.4, cool: 40000, poses: ["stand"], look: "masculine" },
+  clasp: { ms: 16000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "feminine" },
+  sway: { ms: 14000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "feminine" },
+};
+Object.assign(NAME_MARK_BUDDY_ACTS, NMB_STANCES);
+
+//: **Reduce actions** (INBOX 430): Off keeps it to blinks, looks and its
+//: stances, Fewer (the default) makes the unprompted gestures a third as
+//: likely, Normal as they were. What you start (a poke, a cheer at a
+//: streak, a reaction) is never reduced: those have no weight here.
+const NMB_QUIET_ACTS = ["blink", "look", "glance", "turn", "yawn", "nap", "dangle", "shift", ...Object.keys(NMB_STANCES)];
+function nameMarkBuddyActions() {
+  try {
+    return localStorage.getItem("avatar-buddy-actions") || "fewer";
+  } catch (e) {
+    return "fewer";
+  }
+}
+
 //: How a character's mood leans its choices (multipliers on the weights).
 const NAME_MARK_BUDDY_MOODS = {
   sleepy: { yawn: 3, nap: 3, sloth: 3, hop: 0.3 },
@@ -5171,6 +5199,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
   const reading = nmb.reading || {};
   const byMood = NAME_MARK_BUDDY_MOODS[reading.mood] || {};
   const byKind = NAME_MARK_BUDDY_KINDS[reading.animal] || {};
+  const actions = nameMarkBuddyActions();
+  //: Which Atlas it is, for its stances (none for any other companion).
+  nmb.atlasLook = document.querySelector("#nm-buddy svg.atl-layer")?.dataset.atlasLook || "";
   const pool = [];
   let total = 0;
   for (const [act, spec] of Object.entries(NAME_MARK_BUDDY_ACTS)) {
@@ -5199,6 +5230,10 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (night && ["hop", "wave", "kick"].includes(act)) w *= 0.5;
     if (now - nmb.lastCheer < 60000 && ["hop", "wave", "kick", "dangle"].includes(act)) w *= 2;
     if (now - nmb.lastPoke < 20000 && ["glance", "wave", "look"].includes(act)) w *= 2;
+    //: A stance is Atlas's, in the look it was drawn for.
+    const stance = NMB_STANCES[act];
+    if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;
+    if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;
     if (w > 0) {
       pool.push([act, w]);
       total += w;

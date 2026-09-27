@@ -5151,6 +5151,23 @@ main,
    it steps aside and fades back. Opacity only: the compositor's. */
 #nm-buddy { transition: opacity var(--motion-base) var(--ease-out); }
 #nm-buddy.nmb-dodge { opacity: 0.12; }
+/* Atlas's stances at rest (avatars.js, `NMB_STANCES`), eased in and out
+   by the limbs' own transition. The arms turn about the shoulder: folded
+   across the chest, a hand brought to the hip, the hands clasped low in
+   front; the feminine sway is the figure's box, on the compositor. */
+#nm-buddy.nmb-act-fold .atl-figure .nmb-arm-r { transform: rotate(66deg); }
+#nm-buddy.nmb-act-fold .atl-figure .nmb-arm-l { transform: rotate(-60deg); }
+#nm-buddy.nmb-act-hip .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
+#nm-buddy.nmb-act-clasp .atl-figure .nmb-arm-r { transform: rotate(46deg); }
+#nm-buddy.nmb-act-clasp .atl-figure .nmb-arm-l { transform: rotate(-46deg); }
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-act-sway .atl-figure-box { animation: atl-stance-sway 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy.nmb-act-sway .atl-figure-box { animation: none; }
+}
+@keyframes atl-stance-sway {
+  0%, 100% { transform: rotate(-1.6deg); }
+  50% { transform: rotate(1.6deg); }
+}
 /* Away with the tab it lives on (avatars.js, `nameMarkBuddyTabChanged`):
    gone with the tab, at once, and not in the way of anything. */
 #nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }

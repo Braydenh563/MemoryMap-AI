@@ -2588,7 +2588,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2880,6 +2880,18 @@ $("avatar-buddy").addEventListener("change", (e) => {
   nameMarkBuddySizeSelect();
 });
 $("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
+$("avatar-buddy-actions").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem("avatar-buddy-actions", e.target.value);
+  } catch (err) {
+    // This visit only.
+  }
+});
+try {
+  $("avatar-buddy-actions").value = localStorage.getItem("avatar-buddy-actions") || "fewer";
+} catch (err) {
+  $("avatar-buddy-actions").value = "fewer";
+}
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);

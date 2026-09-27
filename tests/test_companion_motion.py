@@ -557,6 +557,20 @@ def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
     assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden;" in CSS08
 
 
+def test_reduce_actions_and_atlas_stances_at_rest():
+    # INBOX 430: "a Reduce actions setting (Appearance > Companion) ... Off,
+    # Fewer (the default) and Normal", and stances of each look's own.
+    assert 'id="avatar-buddy-actions"' in HTML
+    for value in ('value="off"', 'value="fewer"', 'value="normal"'):
+        assert value in HTML[HTML.index('id="avatar-buddy-actions"') :][:400]
+    decide = _fn("nameMarkBuddyDecide")
+    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;" in decide
+    assert "if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;" in decide
+    for stance, look in (("fold", "masculine"), ("hip", "masculine"), ("clasp", "feminine"), ("sway", "feminine")):
+        assert f'{stance}: {{ ms:' in AV and f'look: "{look}" }}' in AV
+        assert f"#nm-buddy.nmb-act-{stance} " in CSS08
+
+
 def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     # The owner: "extend this menu a bit maybe with sub-sections ... a quick
     # link to the profile/personas/appearences tab, toggling ... masculine/

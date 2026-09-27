@@ -5773,6 +5773,41 @@ main,
 }
 
 #nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie) .nm-buddy-z { display: block; }
+/* The three z's (avatars.js), each its own drift; the second and third
+   smaller and larger, so they read as a trail. */
+.nm-buddy-z i {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-style: normal;
+  opacity: 0;
+}
+.nm-buddy-z i:nth-child(2) { font-size: var(--text-xs); }
+/* A night cap while it naps (`.nmp-nightcap`, the figure's own), eased on
+   and off; Appearance can turn it off (`nmb-cap-off`). */
+#nm-buddy .nm-figure .nmp-nightcap { transition: opacity calc(var(--motion-slow) * 3) var(--ease-in-out); }
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }
+/* Its emotes (avatars.js, `nameMarkBuddyEmote`): by its head, hidden until
+   one is played. */
+#nm-buddy .nmb-emote {
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  width: 14px;
+  height: 16px;
+  pointer-events: none;
+}
+#nm-buddy .nmb-emote > * {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+#nm-buddy .nmb-emote-q {
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+}
 
 /* Hanging, its speech comes from under it: above would be the top bar. */
 #nm-buddy[data-pose="hang"] > .nm-say {
@@ -5819,7 +5854,9 @@ main,
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
-    &:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie) .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+    &:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie) .nm-buddy-z i { animation: nmb-z 2.6s ease-out infinite; }
+    &:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie) .nm-buddy-z i:nth-child(2) { animation-delay: 0.87s; }
+    &:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie) .nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }
     &.nmb-act-dangle .nmb-leg-l { animation: nmb-dangle 1.5s ease-in-out 4 alternate; }
     &.nmb-act-dangle .nmb-leg-r { animation: nmb-dangle 1.5s ease-in-out -1.5s 4 alternate; }
     &.nmb-act-scratch .nmb-arm-r { animation: nmb-scratch 2.6s ease-in-out; }
@@ -5865,7 +5902,7 @@ main,
    02-chat-graph.css used to hide that by freezing everything first, and
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
+  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
     animation-duration: 6s !important;
   }
 }

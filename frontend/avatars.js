@@ -3252,6 +3252,8 @@ const NMB_ACTIVITIES = [
   ["facepalm", "Face palm", ["facepalm"]],
   ["shrug", "Shrug", ["shrug"]],
   ["tilt", "Lean to one side now and then", ["tilt"]],
+  ["emotes", "Little emotes (a question mark, a sparkle, a sweat drop)", ["emote"]],
+  ["nightcap", "A night cap when it naps", ["nightcap"]],
 ];
 function nameMarkBuddyActivitiesOff() {
   try {
@@ -3263,6 +3265,27 @@ function nameMarkBuddyActivitiesOff() {
 function nameMarkBuddyActOff(act, off = nameMarkBuddyActivitiesOff()) {
   return NMB_ACTIVITIES.some(([key, , acts]) => off.has(key) && acts.includes(act));
 }
+//: What the CSS needs to know of the switches (the night cap is a style).
+function nameMarkBuddyToggles(buddy) {
+  buddy.classList.toggle("nmb-cap-off", nameMarkBuddyActOff("nightcap"));
+}
+//: Plays one emote by its head: popped up, drifted and faded, the
+//: compositor's. Not for Atlas (its own are its drawing's), not when still,
+//: not when switched off.
+function nameMarkBuddyEmote(kind) {
+  const buddy = document.getElementById("nm-buddy");
+  const el = buddy?.querySelector(`.nmb-emote-${kind}`);
+  if (!el || typeof el.animate !== "function" || nameMarkBuddyStill() || nameMarkBuddyActOff("emote")) return;
+  if (isAtlasSeed(buddy.dataset.seed || "") || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+  el.animate([
+    { opacity: 0, transform: "translate(0, 4px) scale(0.6)" },
+    { opacity: 1, transform: "translate(0, 0) scale(1.1)", offset: 0.18 },
+    { opacity: 1, transform: "translate(1px, -3px) scale(1)", offset: 0.4 },
+    { opacity: 1, transform: "translate(2px, -7px) scale(1)", offset: 0.8 },
+    { opacity: 0, transform: "translate(3px, -10px) scale(0.95)" },
+  ], { duration: 1600, easing: "ease-out" });
+}
+
 function mountBuddyActivities() {
   const host = document.getElementById("avatar-buddy-activities");
   if (!host || host.childElementCount) return;
@@ -3292,6 +3315,8 @@ function mountBuddyActivities() {
     }
     //: Turned off while it is doing it: it stops, the way it always does.
     if (nmb.act && nameMarkBuddyActOff(nmb.act, now)) nameMarkBuddyAct("");
+    const buddy = document.getElementById("nm-buddy");
+    if (buddy) nameMarkBuddyToggles(buddy);
   });
 }
 
@@ -5752,15 +5777,30 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
   }
   if (typeof characterRendererFor === "function" && characterRendererFor(seed)) return;
   clearTimeout(nmb.exprTimer);
-  nmb.exprTimer = ms ? setTimeout(() => nameMarkBuddyExpress(nmb.exprHold || ""), ms) : 0;
   const want = NAME_MARK_FACES[expr] ? expr : "";
+  //: **Back down gradually** (the owner: it "will change expressions for a
+  //: sec then instantly go back ... it needs to be more natural and
+  //: gradual"): a big face comes down through a smaller one for a while
+  //: before its own, and every change is a crossfade.
+  const softer = NMB_EXPR_SOFTEN[want];
+  nmb.exprTimer = ms
+    ? setTimeout(() => (softer && softer !== (nmb.exprHold || "") ? nameMarkBuddyExpress(softer, 2400) : nameMarkBuddyExpress(nmb.exprHold || "")), ms)
+    : 0;
   if ((nmb.expr || "") === want) return;
   const char = buddy.querySelector(".nm-buddy-char");
-  const old = char?.querySelector(".nm-figure");
+  const old = char?.querySelector(".nm-figure:not(.nmb-fig-leaving)");
   if (!char) return;
   nmb.expr = want;
   const next = nameCharacterFigure(seed, want);
-  if (old) old.replaceWith(next);
+  //: An emote with a face that has one (a lingering one, not a drift).
+  const emote = ms && !drift ? NMB_EXPR_EMOTE[want] : "";
+  if (emote) nameMarkBuddyEmote(emote);
+  if (old && typeof next.animate === "function" && !nameMarkBuddyNoTravel()) {
+    //: The new face over the old, faded in; the old goes when it is covered.
+    old.classList.add("nmb-fig-leaving");
+    old.after(next);
+    next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: "ease-in-out" }).finished.then(() => old.remove(), () => old.remove());
+  } else if (old) old.replaceWith(next);
   else char.prepend(next);
   buddy.dataset.expr = want;
   nmbTempo.seen = 0;
@@ -5769,6 +5809,10 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
 //: is a 57ms task (drawn, cut up, turned into pictures), which would be a
 //: stall at the very moment it reacts; drawn in idle time, a swap is a
 //: cached picture (0.3ms).
+//: The smaller face a big one eases down through, and the emote each
+//: lingering face brings.
+const NMB_EXPR_SOFTEN = { laughing: "happy", excited: "happy", starstruck: "happy", surprised: "calm", angry: "unimpressed" };
+const NMB_EXPR_EMOTE = { confused: "q", happy: "spark", excited: "spark", laughing: "spark", love: "spark", starstruck: "spark", nervous: "sweat" };
 const NMB_EXPR_EVENTS = ["happy", "laughing", "excited", "surprised", "serious", "sleepy", "unimpressed"];
 function nameMarkBuddyPrewarm(seed) {
   if (!seed || isAtlasSeed(seed) || (typeof characterRendererFor === "function" && characterRendererFor(seed))) return;
@@ -6614,11 +6658,43 @@ function nameMarkBuddyBuild() {
   const sleep = document.createElement("span");
   sleep.className = "nm-buddy-z";
   sleep.setAttribute("aria-hidden", "true");
-  sleep.textContent = "z";
+  //: Three z's that drift up one after another (the CSS delays each).
+  for (let i = 0; i < 3; i += 1) {
+    const z = document.createElement("i");
+    z.textContent = "z";
+    sleep.appendChild(z);
+  }
   //: The figure itself (`characterFor(seed).figure()`) goes in first, when
   //: `syncNameMarkBuddy` knows whose it is.
   char.append(think, sleep);
   face.appendChild(char);
+  //: **Its little emotes** (the owner: "should there be more emotes like
+  //: zzzz coming off it for sleeping"): a question mark, a sparkle, a sweat
+  //: drop by its head, each played once by `nameMarkBuddyEmote`.
+  const emote = document.createElement("span");
+  emote.className = "nmb-emote";
+  emote.setAttribute("aria-hidden", "true");
+  const q = document.createElement("b");
+  q.className = "nmb-emote-q";
+  q.textContent = "?";
+  const svg = (cls, d, fill) => {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    el.setAttribute("class", cls);
+    el.setAttribute("viewBox", "0 0 12 12");
+    el.setAttribute("width", "12");
+    el.setAttribute("height", "12");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    path.setAttribute("fill", fill);
+    el.appendChild(path);
+    return el;
+  };
+  emote.append(
+    q,
+    svg("nmb-emote-spark", "M6 0 L7.3 4.7 L12 6 L7.3 7.3 L6 12 L4.7 7.3 L0 6 L4.7 4.7 Z", "#ffd84a"),
+    svg("nmb-emote-sweat", "M6 0 C8 4 10 6 10 8 A4 4 0 0 1 2 8 C2 6 4 4 6 0 Z", "#7cc4ff"),
+  );
+  face.appendChild(emote);
   //: No x on it (the owner: "the x button being on the companion the whole
   //: time is kinda annoying. keep it in the right click or hold popup
   //: menu"): Hide is in its menu, which the keyboard reaches too.
@@ -6667,6 +6743,7 @@ function nameMarkBuddyBuild() {
   band.appendChild(rider);
   document.body.appendChild(band);
   nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
+  nameMarkBuddyToggles(buddy);
   if (typeof IntersectionObserver === "function") {
     nmb.seenObserver?.disconnect();
     nmb.seenObserver = new IntersectionObserver((entries) => nameMarkBuddySeen(entries[entries.length - 1].isIntersecting), { threshold: 0 });

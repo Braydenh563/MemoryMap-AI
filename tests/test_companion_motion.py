@@ -746,3 +746,22 @@ def test_it_leans_its_body_a_little_while_still_facing_you() -> None:
     assert "nameMarkBuddyTilt(lx * 0.5);" in _fn("nameMarkBuddyAim")
     assert "nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8," in _fn("nameMarkBuddyGo")
     assert 'if (act === "tilt") nameMarkBuddyTilt(' in _fn("nameMarkBuddyAct")
+
+
+def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> None:
+    # The owner: "should there be more emotes like zzzz coming off it for
+    # sleeping, wearing a night cap etc.", and a face that "will change
+    # expressions for a sec then instantly go back". Measured
+    # (companionemotes.js): three z's at different points of their drift,
+    # the cap on asleep (1) and off awake (0), two figures for a moment in a
+    # change of face then one, the "?" and the sparkle shown, and a laugh
+    # coming down through a smile.
+    build = _fn("nameMarkBuddyBuild")
+    assert 'emote.className = "nmb-emote";' in build and "for (let i = 0; i < 3; i += 1) {" in build
+    assert ".nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }" in CSS08
+    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }" in CSS08
+    express = _fn("nameMarkBuddyExpress")
+    assert 'old.classList.add("nmb-fig-leaving");' in express and "nameMarkBuddyExpress(softer, 2400)" in express
+    assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
+    for key in ('"emotes"', '"nightcap"'):
+        assert key in AV[AV.index("const NMB_ACTIVITIES = [") :][:3000]

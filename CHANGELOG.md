@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion's faces crossfade instead of swapping, and a big reaction comes down through a smaller one before its own face returns; asleep it trails three drifting z's and wears a night cap, and a confused, happy or nervous moment brings a small "?", sparkle or sweat drop. Both can be switched off in What it does on its own.
 - The companion leans its body a few degrees toward what it looks at, the way it is about to go, and now and then at rest, still facing you, eased in and out.
 - Close by, the companion keeps its eyes and head on your pointer as it moves (Atlas's irises too), and a pointer held near a sleeping companion wakes it gently: groggy, a stretch, then a look your way. Faces follow the pointer in Appearance still turns this off.
 - The companion has things of its own now: it lies down for a nap on a pillow, reads a book, sinks into a beanbag, pulls up a chair, face palms and shrugs, each easing in with its prop first and out with the body getting up first. Appearance > Companion > What it does on its own has a switch for each of its doings, old and new, and the long restful ones are paced like rest, so they cost nothing while it sits.

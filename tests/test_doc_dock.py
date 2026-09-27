@@ -97,7 +97,10 @@ def test_the_name_and_the_type_share_a_row():
     """They are the same statement about the document. Moving the select off
     the action row is also what let that row fit on one line, measured at
     1018px, it was 20px too wide with the select still in it."""
-    identity = HTML.split('class="doc-dock-identity"')[1].split("</span>")[0]
+    #: Cut at the next dock section, not the first `</span>`: the Back
+    #: button's own label is a span inside the identity (the laptop pass,
+    #: 2026-09-27), and the first close tag was that label's.
+    identity = HTML.split('class="doc-dock-identity"')[1].split('class="row doc-actions"')[0]
     assert 'id="doc-title"' in identity
     # DOCUMENTS Phase 1 moved the file type off the identity row into the
     # dock's ⋯ menu (its "File type" section): the row is the title alone and

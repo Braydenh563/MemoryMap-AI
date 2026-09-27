@@ -6096,6 +6096,7 @@ main,
   --atl-cloudp: none;
   --atl-cloudb: none;
   --atl-chestglow: none;
+  --atl-hroot: none;
   --atl-chestshade: none;
   --atl-belly: none;
   --atl-tip: none;
@@ -6530,9 +6531,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    `chestLight`), no stroke: a soft glow over each side and a softer shade
    under it, both radial fades to nothing. */
 .nm-atlas .atl-st-chest-glow { stop-color: white; stop-opacity: 0.55; }
+/* Round 9: the feminine hair's roots, deeper at the scalp (atlas.js,
+   `atl-hair-root`), fading out by the ends. */
+.nm-atlas .atl-st-hroot { stop-color: var(--atl-rim); stop-opacity: 0.42; }
+.nm-atlas .atl-st-hroot-mid { stop-color: var(--atl-rim); stop-opacity: 0.16; }
+.nm-atlas .atl-hair-root { fill: var(--atl-hroot); }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
-.nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.6; }
+.nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.48; }
 .nm-atlas .atl-chest-shade { fill: var(--atl-chestshade); opacity: 0.45; }
 .nm-atlas .atl-seed { fill: white; opacity: 0.9; }
 .nm-atlas .atl-seed-star { opacity: 0.95; }

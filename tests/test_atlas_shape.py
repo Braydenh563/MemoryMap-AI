@@ -241,3 +241,25 @@ def test_the_doze_is_restful_with_drifting_zs_and_a_night_cap():
     assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }" in CSS
     # Reduced motion: the Zs hold still.
     assert '& .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }' in CSS
+
+
+
+def test_the_feminine_silhouette_is_one_body_arms_and_hair_grown_from_it():
+    # Round 9 (the owner: "the part at where the arms of feminine atlas
+    # attach to her main body look disconnected"; "there's a little gap
+    # between the large hair and the ears ... not look like a separate
+    # shape"). The torso's paint over each arm root under a soft mask, with
+    # the torso's light above the joins; every feminine lock rooted inside
+    # the head outline (centre 31, 23, radius about 13), so no flat root end
+    # shows; and the locks shaded darker at the scalp.
+    assert 'mask: `url(#${id}-shoulders)`' in ATLAS and 'id: `${id}-shoulders`' in ATLAS
+    assert '"atl-torso-light"' in ATLAS
+    feminine = _look("feminine")
+    for block in ("locks: [", "head: ["):
+        part = feminine[feminine.index(block):]
+        part = part[: part.index("],\n")]
+        roots = re.findall(r"seg: \[\[(-?[0-9.]+), (-?[0-9.]+),", part)
+        assert roots
+        for x, y in roots:
+            assert (float(x) - 31) ** 2 + (float(y) - 23) ** 2 < 13 ** 2, (block, x, y)
+    assert 'class: "atl-overlay atl-hair-root"' in ATLAS and ".nm-atlas .atl-hair-root { fill: var(--atl-hroot); }" in CSS

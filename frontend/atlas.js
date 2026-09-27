@@ -532,22 +532,31 @@ const ATLAS_LOOKS = {
     //: mass behind them fills what is left; the eighth falls forward past
     //: the left cheek to the shoulder. Nothing streams past x 78, so the
     //: companion's 64px box is overrun by the same margin as the tail.
+    //: Round 9 (the owner: "there's a little gap between the large hair
+    //: and the ears ... should the hair on the edge there be better
+    //: connected to the head and not look like a separate shape"): every
+    //: lock's root now starts inside the head, under its outline, so no
+    //: lock's flat root end shows as a straight edge beside a wing; the
+    //: mass grows from the middle of the head, up over the crown; and each
+    //: lock is shaded darker at the scalp fading to its light ends
+    //: (`atl-hair-root`), so the whole reads as one mass growing from the
+    //: head rather than a slab laid behind it.
     locks: [
-      { seg: [[24, 10, 30, -5, 50, -9, 62, 2], [62, 2, 72, 10, 74, 22, 66, 28]], w: [9, 1] },
-      { seg: [[28, 8, 36, -7, 56, -3, 66, 10], [66, 10, 77, 22, 77, 38, 68, 46]], w: [10, 1.2] },
-      { seg: [[33, 9, 43, 0, 60, 5, 69, 20], [69, 20, 78, 38, 75, 54, 64, 60]], w: [10.5, 1.2] },
-      { seg: [[37, 11, 45, 6, 58, 13, 63, 28], [63, 28, 69, 46, 66, 60, 56, 68]], w: [9, 1] },
-      { seg: [[40, 14, 45, 15, 52, 24, 54, 38], [54, 38, 56, 52, 52, 62, 44, 68]], w: [7, 0.8] },
-      { seg: [[22, 14, 16, 20, 14, 32, 17, 44], [17, 44, 19, 52, 15, 58, 11, 62]], w: [6.5, 0.8] },
-      { seg: [[26, 10, 38, -8, 58, -6, 68, 16]], w: [18, 3], mass: true },
+      { seg: [[27, 14, 30, -5, 50, -9, 62, 2], [62, 2, 72, 10, 74, 22, 66, 28]], w: [9, 1] },
+      { seg: [[28.6, 12, 36, -7, 56, -3, 66, 10], [66, 10, 77, 22, 77, 38, 68, 46]], w: [10, 1.2] },
+      { seg: [[33, 12, 43, 0, 60, 5, 69, 20], [69, 20, 78, 38, 75, 54, 64, 60]], w: [10.5, 1.2] },
+      { seg: [[36.4, 13.4, 45, 6, 58, 13, 63, 28], [63, 28, 69, 46, 66, 60, 56, 68]], w: [9, 1] },
+      { seg: [[38.6, 16, 45, 15, 52, 24, 54, 38], [54, 38, 56, 52, 52, 62, 44, 68]], w: [7, 0.8] },
+      { seg: [[24.6, 17, 18.4, 20, 14, 32, 17, 44], [17, 44, 19, 52, 15, 58, 11, 62]], w: [6.5, 0.8] },
+      { seg: [[31, 21, 28.8, 4, 42, -4.6, 56, -2.2], [56, -2.2, 65, 0.8, 69.4, 9, 67.4, 17]], w: [20, 3], mass: true },
     ],
     head: [
-      { seg: [[22, 12, 26, 2, 44, -1, 54, 6], [54, 6, 59, 10, 60, 16, 56, 19.6]], w: [8, 0.8] },
-      { seg: [[26, 10, 32, -1, 49, 0, 56, 10], [56, 10, 61, 15.6, 61, 22, 57, 26]], w: [8.8, 0.9] },
-      { seg: [[31, 9.6, 38, -2, 53, 1, 58, 14], [58, 14, 62, 22, 61, 30, 56, 35]], w: [9.4, 1] },
-      { seg: [[36, 10.4, 43, 2.6, 55, 6.4, 58, 20], [58, 20, 61, 28, 59.6, 36, 54, 41]], w: [8.6, 0.9] },
-      { seg: [[22, 14, 17, 20, 15, 30, 18, 40]], w: [6, 0.8] },
-      { seg: [[27, 10, 38, -6, 54, -4, 59, 12]], w: [16, 3], mass: true },
+      { seg: [[25.4, 15, 26, 2, 44, -1, 54, 6], [54, 6, 59, 10, 60, 16, 56, 19.6]], w: [8, 0.8] },
+      { seg: [[26.6, 12.4, 32, -1, 49, 0, 56, 10], [56, 10, 61, 15.6, 61, 22, 57, 26]], w: [8.8, 0.9] },
+      { seg: [[31, 11.4, 38, -2, 53, 1, 58, 14], [58, 14, 62, 22, 61, 30, 56, 35]], w: [9.4, 1] },
+      { seg: [[35.6, 12.6, 43, 2.6, 55, 6.4, 58, 20], [58, 20, 61, 28, 59.6, 36, 54, 41]], w: [8.6, 0.9] },
+      { seg: [[24.6, 17, 18.6, 20, 15, 30, 18, 40]], w: [6, 0.8] },
+      { seg: [[31, 20, 29, 2, 42, -6.8, 53, -3.6], [53, -3.6, 58.6, -1.4, 60.6, 5, 59, 12]], w: [18, 3], mass: true },
     ],
     hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
     //: Round 9 (the owner: "a bit more of a feminine chest but don't
@@ -1129,6 +1138,7 @@ function atlasMane(parent, level, edge, look) {
     atlasMake("path", { class: edge ? "atl-edge" : `atl-skin atl-lock${lock.mass ? " atl-hair-mass" : ""}`, d: lock.fill }, mane);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-hair-neb", d: lock.fill }, mane);
+      if (spec.hairStars) atlasMake("path", { class: "atl-overlay atl-hair-root", d: lock.fill }, mane);
       if (!lock.mass) atlasMake("path", { class: "atl-hair-light", d: lock.light }, mane);
     }
   });
@@ -1613,6 +1623,29 @@ function atlasBody(parent, id, props, look, route = null) {
         }
       }
     }
+    //: **The shoulders belong to the body** (round 9, the owner: "the part
+    //: where the arms of feminine atlas attach to her main body look
+    //: disconnected"). The arms are drawn over the torso, and the part of
+    //: each arm's root that lies inside the torso wore the arm's paint,
+    //: without the belly's light or the chest's glow the torso has there,
+    //: so every root read as a darker patch with an edge. The torso's own
+    //: paint is laid again over the two joints, faded out from each
+    //: shoulder by a soft radial mask (`shoulders`), so an arm grows out of
+    //: the body's surface with no line across the join, in every pose (the
+    //: roots pivot there) and both looks.
+    if (!edge) {
+      const cap = atlasMake("g", { class: "atl-shoulders", mask: `url(#${id}-shoulders)` }, layer);
+      const torsoPath = spec.torsoNow;
+      atlasMake("path", { class: "atl-skin", d: torsoPath }, cap);
+      atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, cap);
+      atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, cap);
+      //: The torso's light (the constellation's glow, the chest's light,
+      //: the gloss) moves above the joins, so the patch never covers it
+      //: and the arms' roots lie under the same light as the body.
+      const light = atlasGroup(layer, "atl-torso-light");
+      if (spec.lowers) light.setAttribute("mask", `url(#${id}-waist)`);
+      for (const el of [...torso.querySelectorAll(":scope > :is(.atl-core, .atl-sheen-body, .atl-chest-glow, .atl-chest-shade)")]) light.appendChild(el);
+    }
   }
   if (props) {
     atlasHandProps(arms.r, arms.l);
@@ -1654,7 +1687,7 @@ function atlasDefs(svg, look) {
   return id;
 }
 
-const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt", "chestglow", "chestshade"];
+const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt", "chestglow", "chestshade", "hroot"];
 
 function atlasBuildDefs(svg, id) {
   const defs = atlasMake("defs", {}, svg);
@@ -1729,6 +1762,11 @@ function atlasBuildDefs(svg, id) {
   //: The feminine chest's light (round 9, `chestLight`): a glow lit from
   //: above and a shade, each fading to nothing at its rim, so neither has
   //: an edge to read as a line.
+  //: The hair's roots (round 9, `atl-hair-root`): deeper at the scalp,
+  //: gone by the ends, in the drawing's space, so every lock shades as one
+  //: mass growing from the head.
+  const hairRoot = atlasMake("radialGradient", { id: `${id}-hroot`, gradientUnits: "userSpaceOnUse", cx: 31, cy: 16, r: 30 }, defs);
+  stops(hairRoot, [[0, "atl-st-hroot"], [0.35, "atl-st-hroot-mid"], [1, "atl-st-clear"]]);
   const chestGlow = atlasMake("radialGradient", { id: `${id}-chestglow`, cx: 0.45, cy: 0.35, r: 0.6 }, defs);
   stops(chestGlow, [[0, "atl-st-chest-glow"], [1, "atl-st-chest-clear"]]);
   const chestShade = atlasMake("radialGradient", { id: `${id}-chestshade`, cx: 0.5, cy: 0.4, r: 0.6 }, defs);
@@ -1753,6 +1791,13 @@ function atlasBuildDefs(svg, id) {
   fade("scalp", 8.5, 15);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
+  //: The shoulder joins (round 9, `atl-shoulders` in `atlasBody`): the
+  //: torso's paint over each arm root, full at the joint and gone by the
+  //: ellipse's rim. One placing fits both looks' roots (35.2 and 35.6).
+  const shoulderFade = atlasMake("radialGradient", { id: `${id}-shoulderg` }, defs);
+  stops(shoulderFade, [[0, "atl-st-white"], [0.55, "atl-st-white"], [1, "atl-st-white-0"]]);
+  const shoulders = atlasMake("mask", { id: `${id}-shoulders`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+  for (const cx of [24.6, 37.4]) atlasMake("ellipse", { cx, cy: 40.8, rx: 4.4, ry: 5, fill: `url(#${id}-shoulderg)` }, shoulders);
   for (const [cx, cy, side] of ATLAS_GEO.eyes) {
     const clip = atlasMake("clipPath", { id: `${id}-e${side > 0 ? "l" : "r"}` }, defs);
     atlasMake("path", { d: atlasAlmond(cx, cy, side).d }, clip);

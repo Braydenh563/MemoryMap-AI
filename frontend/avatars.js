@@ -3884,13 +3884,16 @@ function nameMarkBuddySurfaceWalk(page) {
   const found = [];
   if (!page) return found;
   let looked = 0;
+  const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));
   const walk = (el, depth) => {
     for (const child of el.children) {
       if (looked >= 600 || found.length >= NMB_SURFACE_CAP) return;
       looked += 1;
       if (child.id === "nm-buddy") continue;
       const box = child.getBoundingClientRect();
-      if (box.width < 96 || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
+      //: As wide as the companion is enough to stand on (a toolbar button,
+      //: a chip row, a tile): it was 96px, which left most buttons out.
+      if (box.width < minW || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
       //: A closed menu keeps its box while faded out (the timeline's
       //: Options list, `visibility: hidden` at opacity 0): with panels
       //: preferred on every tab (round 7) it was chosen, and the companion
@@ -3899,7 +3902,7 @@ function nameMarkBuddySurfaceWalk(page) {
       //: Nor a field you type into: sitting on a document's editor its
       //: tail hung over the first line of what you were writing.
       if (child.matches("textarea, input, select, [contenteditable='true'], .cm-editor")) continue;
-      let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= 96);
+      let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= minW);
       if (!surface) {
         const cs = getComputedStyle(child);
         surface = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none";
@@ -4179,6 +4182,27 @@ function nameMarkBuddyStepAside(spot, obstacles) {
 //: soles, its hands, its side). With nothing that close it falls to the
 //: first top edge under it; with nothing under it at all it floats where it
 //: was let go.
+//: **Where you put it, it may rest** (the owner: "atlas or the companion
+//: wont let me rest it on the start something buttons on the dashboard").
+//: Measured (perchbuttons.js): let go above a Start something tile it fell
+//: 172 to 238px to another edge, for two reasons: the dashboard's find
+//: field runs the whole width 42px above the tiles, so no figure standing
+//: on a tile could miss it, and Atlas's tail reaches 5px into the tile it
+//: stands on. For a place you chose, what it stands on is its floor, not
+//: something it covers, and a control much wider than it (a find field, a
+//: long bar) is still usable round it, so neither stops it there; a control
+//: its own size (a button, a chip) still does. The tile it sits on keeps its
+//: click (measured at its middle and its top).
+function nameMarkBuddyYoursObstacles(obstacles, spot) {
+  //: Its floor only when nothing of it hangs over the front: sitting with
+  //: its legs over the edge they would cover the button (measured on a 75px
+  //: toolbar button: sat on, it took the button's click).
+  const overFront = spot?.pose === "sit" && spot?.legs !== "tuck";
+  const floor = overFront ? null : spot?.anchor?.isConnected ? spot.anchor.getBoundingClientRect() : spot?.edge ? spot.edge : null;
+  const wide = NMB_W * Math.max(0.7, nmb.scale || 1) * 4;
+  return obstacles.filter((b) => b.right - b.left < wide
+    && !(floor && Math.abs(b.left - floor.left) < 2 && Math.abs(b.top - floor.top) < 2 && Math.abs(b.right - floor.right) < 2));
+}
 function nameMarkBuddyDrop(x, y) {
   //: Put somewhere by you: no wander to come back from.
   nmb.home = null;
@@ -4187,12 +4211,12 @@ function nameMarkBuddyDrop(x, y) {
   const edges = nameMarkBuddyEdges(tab);
   const cx = x + NMB_W / 2;
   const fits = (spot) => spot.x >= 0 && spot.x <= innerWidth - NMB_W && spot.y >= 0 && spot.y <= innerHeight - NMB_H + 8
-    && !nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs);
+    && !nameMarkBuddyHits(spot.x, spot.y, spot.pose, nameMarkBuddyYoursObstacles(obstacles, spot), spot.legs);
   const touch = { sit: NMB_SEAT, stand: NMB_FEET, hang: NMB_GRIP };
   let best = null;
   const consider = (spot, d) => {
     if (d > 80 || (best && d >= best.d)) return;
-    const free = fits(spot) ? spot : nameMarkBuddyStepAside({ ...spot }, obstacles);
+    const free = fits(spot) ? spot : nameMarkBuddyStepAside({ ...spot }, nameMarkBuddyYoursObstacles(obstacles, spot));
     if (fits(free) && Math.abs(free.x - spot.x) <= 48) best = { ...free, d: d + Math.abs(free.x - spot.x) / 4 };
   };
   for (const edge of edges) {
@@ -4223,7 +4247,7 @@ function nameMarkBuddyDrop(x, y) {
       const d = stance.y - y + (stance.alt || 0) * 10;
       //: A little along the edge is still "below": the nearest free place
       //: within 96px of where it was let go.
-      const spot = fits(stance) ? stance : nameMarkBuddyStepAside({ ...stance }, obstacles);
+      const spot = fits(stance) ? stance : nameMarkBuddyStepAside({ ...stance }, nameMarkBuddyYoursObstacles(obstacles, { ...stance, edge }));
       if (Math.abs(spot.x - sx) > 96 || !fits(spot)) continue;
       if (!fall || d < fall.d) fall = { kind: "yours", ...spot, edge, d, falls: true };
     }
@@ -5163,7 +5187,7 @@ function nameMarkBuddyStillGood(obstacles) {
   if (!Number.isFinite(nmb.x) || nmb.perch === "errand" || nmb.outOfSight) return false;
   if (nmb.glue && (nmb.glue.lost || nmb.glue.held)) return false;
   if (nmb.x < 0 || nmb.y < 0 || nmb.x > innerWidth - NMB_W || nmb.y > innerHeight - NMB_H) return false;
-  return !nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, obstacles, nmb.legs);
+  return !nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nmb.perch === "yours" ? nameMarkBuddyYoursObstacles(obstacles, nmb.spot) : obstacles, nmb.legs);
 }
 
 //: The cheap check (a placement's worth of rects, no sampling unless it
@@ -5197,7 +5221,8 @@ function nameMarkBuddyCheck() {
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 450);
     return;
   }
-  const obstacles = nameMarkBuddyObstacles(tab);
+  const all = nameMarkBuddyObstacles(tab);
+  const obstacles = nmb.perch === "yours" ? nameMarkBuddyYoursObstacles(all, nmb.spot) : all;
   if (!nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, obstacles, nmb.legs)) return;
   const here = { ...(nmb.spot || {}), x: nmb.x, y: nmb.y, pose: nmb.pose, legs: nmb.legs };
   const aside = nameMarkBuddyStepAside(here, obstacles);
@@ -5313,7 +5338,7 @@ function nameMarkBuddyNextSpot(tab, near = null) {
     if (pinned) return { ...pinned, kind: "pinned" };
   }
   const restored = spots[tab] ? nameMarkBuddyRestore(spots[tab]) : null;
-  return restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles, near);
+  return restored ? nameMarkBuddyStepAside(restored, nameMarkBuddyYoursObstacles(obstacles, restored)) : nameMarkBuddyChoose(tab, obstacles, near);
 }
 
 //: The person has stayed: it takes its place on this tab out of sight and

@@ -859,3 +859,19 @@ def test_its_arms_rest_in_its_mood_and_come_back_to_it_after_an_act() -> None:
         assert f'[data-feel="{mood}"]' in CSS08, mood
     # Lighter than any act's arm, so an act plays over it and hands it back.
     assert ':where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }' in CSS08
+
+
+def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> None:
+    # The owner: "atlas or the companion wont let me rest it on the start
+    # something buttons on the dashboard". Measured (perchbuttons.js): let go
+    # above a tile it fell 172 to 238px (the find field above the tiles, and
+    # Atlas's tail reaching into the tile); now it stands on each tile, and
+    # the tile takes a click at its middle and at its top edge under it.
+    yours = _fn("nameMarkBuddyYoursObstacles")
+    assert "const wide = NMB_W * Math.max(0.7, nmb.scale || 1) * 4;" in yours
+    assert 'const overFront = spot?.pose === "sit" && spot?.legs !== "tuck";' in yours
+    for fn in ("nameMarkBuddyDrop", "nameMarkBuddyCheck", "nameMarkBuddyStillGood", "nameMarkBuddyNextSpot"):
+        assert "nameMarkBuddyYoursObstacles(" in _fn(fn), fn
+    assert "const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));" in _fn("nameMarkBuddySurfaceWalk")
+    assert '#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }' in CSS08
+    assert '#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }' in CSS08

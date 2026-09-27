@@ -5296,6 +5296,17 @@ main,
 #nm-buddy[data-pose="hang"] .nm-buddy-face::after {
   bottom: -18px;
 }
+/* Standing on something, its handle ends at its soles: the face's own box
+   runs 3px past them and its margin 6px more, which took the top of a
+   button it stood on (perchbuttons.js: a Start something tile's top edge
+   answered the companion, not the tile). The box itself lets the pointer
+   through; the margin above the soles is the handle. */
+#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }
+#nm-buddy[data-pose="stand"] .nm-buddy-face::after {
+  bottom: 3px;
+  pointer-events: auto;
+}
+#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
 

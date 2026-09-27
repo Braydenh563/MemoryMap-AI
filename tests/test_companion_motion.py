@@ -873,8 +873,11 @@ def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> 
     for fn in ("nameMarkBuddyDrop", "nameMarkBuddyCheck", "nameMarkBuddyStillGood", "nameMarkBuddyNextSpot"):
         assert "nameMarkBuddyYoursObstacles(" in _fn(fn), fn
     assert "const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));" in _fn("nameMarkBuddySurfaceWalk")
-    assert '#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }' in CSS08
-    assert '#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }' in CSS08
+    # Standing or sitting, only the part above its soles or seat is the
+    # handle: a 75px button it sat above (legs and nebula over it) clicks.
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nm-buddy-face { pointer-events: none; }' in CSS08
+    assert '#nm-buddy[data-pose="sit"] .nm-buddy-face::after {\n  bottom: 20px;' in CSS08
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }' in CSS08
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")

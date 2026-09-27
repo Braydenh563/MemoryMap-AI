@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Sitting, the companion lets clicks through its legs and anything drawn below its seat, so a small button under it (the dashboard's Full) still works.
 - Asleep, the companion lies down on its pillow when there is room and dozes where it is when there is not, and it moves by its look: a masculine companion walks and floats slower with heavier steps, a feminine one quicker and lighter with a sway (Atlas by its own look, a face drawn from a name by Face look).
 - The companion never does a thing exactly the same way twice running: a wave may be one hand, both or with a hop, a hop may be a skip or a spin, a nap curled or tipped over, a glad moment a bounce, a sway or a spin, and each play runs a little faster or slower.
 - The companion can be rested on a button: dropped on a Start something tile or a toolbar button at least as wide as it, it stands there, and the button still takes its click under its feet. A wide control nearby (the dashboard's find field) no longer throws it off a place you chose.

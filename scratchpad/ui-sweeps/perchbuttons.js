@@ -44,5 +44,7 @@ const VH = Number(process.env.VH || 900);
   }
   console.log(JSON.stringify(rows));
   await browser.close();
-  process.exit(rows.filter((r) => r.target.includes('launch')).some((r) => !r.on || !r.clickMiddle) ? 1 : 0);
+  // Every control it was dropped on still takes its click; the tiles are
+  // stood on.
+  process.exit(rows.some((r) => !r.clickMiddle || !r.clickTop) || rows.filter((r) => r.target.includes('launch')).some((r) => !r.on) ? 1 : 0);
 })();

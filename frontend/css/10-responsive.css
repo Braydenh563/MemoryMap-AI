@@ -71,38 +71,25 @@
 
 }
 
-/* --- band 2 (820 to 1100): the tabs are icons, and the header is one row --
+/* --- band 2 (820 to 1200): the tabs keep their names, set small ----------
 
-   The measurement that made this worth doing (`tabfit.js`, 1440x900 down to
-   600): between 600 and 1100 the tab strip cannot fit beside the wordmark
-   and the header controls, so `syncTabOverflowFade` gives it a row of its
-   own. That costs 52px of every screen in the band: the header is 108px at
-   1024 and 1099 against 56px at 1440, on a laptop, above every page.
+   **The tabs keep their names on a laptop** (WORLD_CLASS_PLAN 22.1.3 as the
+   owner re-scoped it, INBOX 430: "the desktop that matters is a small uni
+   laptop, 1366x768 at 125% = 1093x614 CSS px"). This band used to draw six
+   of the seven tabs as bare glyphs, which is what a 1366 laptop at 125%
+   gets: measured with `tabnames.js`, 1 name of 7 at 1093x614, at 1024 and
+   at 820. The reason was arithmetic at full size (696px of captions beside
+   the wordmark's 521px at 1024), and the tabs are the one control that
+   says what the app has, so a word beats a glyph wherever the word fits.
 
-   At 1024 the strip needs 696px of captions and the row beside the wordmark
-   has 521px. No amount of tightening closes 175px with seven words in it.
-   Seven *icons* need about 280px, which fits with room to spare, and the
-   selected tab keeps its caption so the strip still says where you are: the
-   HIG's own tab-bar guidance, and the shape the phone band already uses
-   (icon over caption) turned on its side.
-
-   Deliberately not applied below 820. There the space beside the wordmark is
-   376px at 819 and 171px at 600, which even icons do not fit, so band 3
-   keeps its own row and the smaller captions above. And not above 1100,
-   where the captions fit and a word beats a glyph. */
-@media (min-width: 820px) and (max-width: 1099.98px) {
-
-  .tab-icon {
-    display: inline-flex;
-  }
-
-  /* The accessible name is on the button (`aria-label` in the markup), so
-     hiding the caption costs a screen reader nothing. `title` is what a
-     pointer gets, and app.js already sets neither, so the label element
-     stays in the DOM as the tooltip's source rather than being removed. */
-  #tab-bar button:not(.active) .tab-label {
-    display: none;
-  }
+   So the captions stay, at the band's small step (`--text-xs`, the
+   padding a step tighter), and the strip is placed the way every width
+   places it (`syncTabOverflowFade`): centred on the window, else centred in
+   the gap between the two groups, else on a row of its own, still named.
+   Up to 1200, not 1100: at full size the captions took a row of their own
+   from 1100 to about 1190 as well (108px of header at 1100 and 1152).
+   Measured after: see `tabnames.js` in the commit that made this. */
+@media (min-width: 820px) and (max-width: 1199.98px) {
 
   #tab-bar button {
     gap: var(--space-2);
@@ -146,7 +133,7 @@
   #tab-bar button {
     min-height: var(--target-min);
     min-width: var(--target-min);
-    padding-inline: var(--space-4);
+    padding-inline: var(--space-3);
     justify-content: center;
   }
 

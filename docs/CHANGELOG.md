@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A category's split can be suggested by Atlas (the utility model reads the notes and proposes named groups to review), with the tag-based suggestion kept for when the model is off.
 - Atlas's hair now starts on the head: a short swept cap (masculine) or a soft parted cap (feminine) covers the crown down to a soft hairline, so the hair grows from the scalp instead of rising behind a bald dome.
 - A generated companion rests its hands on its hips when cool, clasps them when bashful and holds them to its chest when worried.
 - Sitting, the companion lets clicks through its legs and anything drawn below its seat, so a small button under it (the dashboard's Full) still works.

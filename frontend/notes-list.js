@@ -3017,7 +3017,7 @@ async function openManageCategories(focusName = null) {
       helpBody.setAttribute("aria-label", "About managing categories");
       for (const line of [
         "Merge into folds one category into another: all its notes move across.",
-        "Split moves some of a category's notes into a new one. Pick them yourself, or press Suggest a split to group them by their tags and review the groups first.",
+        `Split moves some of a category's notes into a new one. Pick them yourself, or have groups suggested, by their tags or by ${aiNameNow()}, and review them first.`,
         "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
         "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
       ]) {
@@ -3211,10 +3211,19 @@ function splitCategoryFromPanel(meta) {
       suggestions.className = "manage-split-suggestions";
       const row = document.createElement("div");
       row.className = "row confirm-actions";
-      const suggest = smallButton("ph:sparkle Suggest a split", "Group these notes by their tags, to review before anything moves", async () => {
-        const proposal = await apiJson(`/categories/${meta.id}/split/propose`, { method: "POST" }).catch((e) => { toast(e.message, true); return null; });
+      //: Two ways to a suggestion (INBOX 431 (e)): by the notes' tags, which
+      //: needs nothing, or Ask AI, which has the utility model read the
+      //: notes; with the model off the tags answer, and the line says so.
+      const propose = async (ai) => {
+        const proposal = await apiJson(`/categories/${meta.id}/split/propose${ai ? "?ai=true" : ""}`, { method: "POST" }).catch((e) => { toast(e.message, true); return null; });
         if (!proposal) return;
         suggestions.replaceChildren();
+        if (proposal.ai_unavailable) {
+          const why = document.createElement("p");
+          why.className = "muted";
+          why.textContent = `${aiNameNow()} couldn't suggest a split just now, so these are grouped by tags.`;
+          suggestions.appendChild(why);
+        }
         if (!proposal.groups.length) {
           const none = document.createElement("p");
           none.className = "muted";
@@ -3231,14 +3240,17 @@ function splitCategoryFromPanel(meta) {
           pick.type = "button";
           suggestions.appendChild(pick);
         }
-      });
+      };
+      const suggest = smallButton("ph:tag Suggest by tags", "Group these notes by their tags, to review before anything moves", () => propose(false));
+      const askAi = smallButton(`ph:sparkle Ask ${aiNameNow()}`, `Have ${aiNameNow()} read these notes and suggest groups, to review before anything moves`, () => propose(true));
+      askAi.type = "button";
       //: Inside a form every button submits unless told otherwise.
       suggest.type = "button";
       const apply = document.createElement("button");
       apply.type = "submit";
       apply.className = "small";
       apply.textContent = "Move to new category";
-      row.append(suggest, apply);
+      row.append(suggest, askAi, apply);
       form.append(nameInput, suggestions, list, row);
       form.addEventListener("submit", async (event) => {
         event.preventDefault();

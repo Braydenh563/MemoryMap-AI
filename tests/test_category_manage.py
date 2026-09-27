@@ -97,3 +97,28 @@ def test_delete_with_a_destination_keeps_every_note(client):
     plain = client.delete(f"/categories/{temp}").json()
     assert plain["moved_ids"] == [b]
     assert client.get(f"/entries/{b}").json()["category"] != "Temp"
+
+
+def test_the_ai_can_propose_a_split_and_the_tags_are_the_fallback(client, fake_ollama):
+    ids = []
+    for text in ("Tax return", "Invoice", "Passport", "Visa", "Dentist"):
+        entry = client.post("/entries", json={"content": text}).json()
+        client.put(f"/entries/{entry['id']}", json={"category": "Admin"})
+        ids.append(entry["id"])
+    admin = _cats(client)["Admin"]["id"]
+    fake_ollama.librarian_reply = (
+        'Sure: {"groups": [{"name": "Money", "notes": [%d, %d, 99999]}, '
+        '{"name": "Travel", "notes": [%d, %d]}, {"name": "Lonely", "notes": [%d]}]}'
+        % (ids[0], ids[1], ids[2], ids[3], ids[4])
+    )
+    proposal = client.post(f"/categories/{admin}/split/propose", params={"ai": "true"}).json()
+    assert proposal["basis"] == "ai"
+    assert proposal["groups"] == [{"name": "Money", "entry_ids": ids[:2]}, {"name": "Travel", "entry_ids": ids[2:4]}]
+    assert proposal["rest"] == 1
+    assert fake_ollama.chat_models, "asked the model"
+    # Nonsense from the model: the tags answer instead, and say so.
+    fake_ollama.librarian_reply = "I cannot help with that."
+    fallback = client.post(f"/categories/{admin}/split/propose", params={"ai": "true"}).json()
+    assert fallback["basis"] == "tags" and fallback["ai_unavailable"] is True
+    # Nothing moved either way.
+    assert _cats(client)["Admin"]["count"] == 5

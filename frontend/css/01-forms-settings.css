@@ -1238,7 +1238,7 @@ progress {
    below) that an id selector would otherwise outrank and override. */
 #entry-list:not(.is-rows) li {
   padding: 0.15rem 0.8rem;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.15rem;
 }
 
 /* ---- Rows: the default way a list of notes is shown --------------------

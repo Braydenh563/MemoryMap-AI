@@ -1,13 +1,10 @@
-// Atlas for the README (0.3.3, INBOX 426 r and s; the owner: "maybe include
-// an atlas avatar??"). Every picture is the app's own renderer, drawn by the
-// avatar lab (tools/avatar-lab.html) the app serves, cropped to the element:
-//
-//   atlas.png          Atlas whole and happy on a night tile, for the
-//                      title of the README
-//   atlas-hero.png     both looks side by side (the lab's Both looks)
-//   atlas-poses.png    ten of the companion's poses (the lab's All poses,
-//                      its first two rows)
-//   avatar-lab.png     the lab itself at 1440x900, on Both looks
+// Atlas for the README: atlas.png, Atlas whole and happy in the masculine
+// look (the main one) on a night tile, the one picture of the README's
+// "Meet Atlas" paragraph. The owner, 2026-09-27: the top image is the app's
+// icon again, no avatar lab anywhere in the README, and the Atlas section
+// "just an image of the masculine avatar and a small intro paragraph", so
+// the hero, poses and lab captures this made are gone. Drawn by the app's
+// own renderer through the lab page the app serves, cropped to the element:
 //
 //   BASE=http://127.0.0.1:8810 OUT=docs/screenshots \
 //     PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/atlasreadme.js
@@ -45,17 +42,8 @@ const OUT = process.env.OUT || 'docs/screenshots';
   // sizes.
   {
     const { ctx, tab } = await open(1400, 1100, 2);
-    await view(tab, 'compare');
-    await shot(tab.locator('#canvas .card .pair').first(), 'atlas-hero.png');
-    await view(tab, 'poses');
-    await tab.waitForTimeout(1500);
-    const box = await tab.evaluate(() => {
-      const specs = [...document.querySelectorAll('#canvas .spec')].slice(0, 10).map((s) => s.getBoundingClientRect());
-      const x = Math.min(...specs.map((r) => r.left));
-      const y = Math.min(...specs.map((r) => r.top));
-      return { x, y, width: Math.max(...specs.map((r) => r.right)) - x, height: Math.max(...specs.map((r) => r.bottom)) - y };
-    });
-    await shot(tab, 'atlas-poses.png', { clip: box });
+    //: The masculine look by name, whatever Auto would pick here.
+    await tab.evaluate(() => { try { localStorage.setItem('atlas-look', 'masculine'); } catch (e) {} });
     //: Atlas whole, happy (`atlasDraw`, atlas.js, the lab's own renderer),
     //: on a night tile with rounded corners, the ground the character is
     //: drawn for: its body is pale light, which vanishes on GitHub's white
@@ -81,14 +69,6 @@ const OUT = process.env.OUT || 'docs/screenshots';
       }
     });
     await shot(tab.locator('#readme-avatar'), 'atlas.png', { omitBackground: true });
-    await ctx.close();
-  }
-  // The lab as a person sees it.
-  {
-    const { ctx, tab } = await open(1440, 900, 1);
-    await view(tab, 'compare');
-    await tab.mouse.move(1439, 899);
-    await shot(tab, 'avatar-lab.png');
     await ctx.close();
   }
   console.log(JSON.stringify({ done, errors }, null, 1));

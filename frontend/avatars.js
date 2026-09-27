@@ -3310,6 +3310,11 @@ function nameMarkBuddySetSize(scale, keep = true) {
     // This session only.
   }
   nameMarkBuddySizeSelect();
+  //: A new size is a new overhang (`nameMarkBuddyOverhang`): the band it
+  //: rides in is measured again now, not at its next placement, or a
+  //: companion made Large where it stands keeps the smaller band and loses
+  //: its rings to it. Once per chosen size, not per frame of a handle drag.
+  if (nmb.ride) nameMarkBuddyRideBox(nmb.x, nmb.y, true);
   queueNameMarkBuddyCheck();
 }
 //: Appearance's select: the three sizes, and "As you sized it" for a size
@@ -3885,10 +3890,11 @@ function nameMarkBuddyRideBox(x = nmb.x, y = nmb.y, fresh = false) {
   const box = r.el.getBoundingClientRect();
   if (fresh || r.insetTop === undefined) {
     const { lo, hi } = nameMarkBuddyBand(r.el, nmb.glue?.el);
-    r.insetTop = Math.min(lo, y) - box.top;
-    r.insetBottom = box.bottom - Math.max(hi, y + NMB_H);
-    r.insetLeft = Math.min(box.left + r.el.clientLeft, x) - box.left;
-    r.insetRight = box.right - Math.max(box.left + r.el.clientLeft + r.el.clientWidth, x + NMB_W);
+    const over = nameMarkBuddyOverhang();
+    r.insetTop = Math.min(lo, y - over.top) - box.top;
+    r.insetBottom = box.bottom - Math.max(hi, y + NMB_H + over.bottom);
+    r.insetLeft = Math.min(box.left + r.el.clientLeft, x - over.left) - box.left;
+    r.insetRight = box.right - Math.max(box.left + r.el.clientLeft + r.el.clientWidth, x + NMB_W + over.right);
   }
   const left = Math.round(box.left + r.insetLeft);
   const top = Math.round(box.top + r.insetTop);
@@ -3901,6 +3907,30 @@ function nameMarkBuddyRideBox(x = nmb.x, y = nmb.y, fresh = false) {
     band.style.width = `${width}px`;
     band.style.height = `${height}px`;
   }
+}
+
+//: How far the drawing reaches past its 64 by 92 box, per side, in px.
+//: The band above was widened to the box, but the box is not the drawing:
+//: at the Large size the figure is scaled up about the point it touches its
+//: perch, and Atlas's rings and tail reach past the box as drawn, so on a
+//: perch at the very top of a panel the band cut its rings off (the owner,
+//: with the README's companion shot: "the atlas avatar gets cut off at the
+//: top"; measured, the figure's top at y=55 against the band's at 77).
+//: Worked out from the size and the pose's pivot (the same origins as the
+//: CSS in 08-consistency.css, `.nm-buddy-face`), not measured: a placement
+//: often lands while the figure is mid-way through its appear, and a rect
+//: read then is the small one. `ART_REACH` is the drawing's own reach past
+//: its box at size 1, rings and glow included.
+function nameMarkBuddyOverhang() {
+  const buddy = document.getElementById("nm-buddy");
+  const ART_REACH = 10;
+  const s = Math.max(0.7, nmb.scale || 1);
+  const pose = buddy?.dataset.pose;
+  const edge = buddy ? parseFloat(getComputedStyle(buddy).getPropertyValue("--nmb-edge")) : NaN;
+  const oy = pose === "hang" ? 5 : pose === "float" ? NMB_H / 2 : Number.isFinite(edge) ? edge : NMB_H - 20;
+  const reach = ART_REACH * s;
+  const grow = (n) => Math.ceil(Math.max(0, n) + reach);
+  return { top: grow(oy * (s - 1)), bottom: grow((NMB_H - oy) * (s - 1)), left: grow((NMB_W / 2) * (s - 1)), right: grow((NMB_W / 2) * (s - 1)) };
 }
 
 //: Out of sight with its panel: it stays put, and once the page has been
@@ -4335,6 +4365,11 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   buddy.dataset.side = spot.side || "";
   nmb.pose = spot.pose;
   nmb.legs = spot.legs || "";
+  //: The band was sized by the glue above, before this spot's pose and
+  //: pivot were set, so for the pose it had before (arriving hanging, it
+  //: was measured with the hang's pivot and a standing figure lost its
+  //: rings to it). Once more, now they are this spot's.
+  if (nmb.ride && poseChanged) nameMarkBuddyRideBox(x, y, true);
   const dx = was.x - x;
   const dy = was.y - y;
   if (!Number.isFinite(dx) || !Number.isFinite(dy) || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) return;

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/screenshots/atlas.png" alt="Atlas, the notebook's guide: a small glowing star spirit with swept-back ears, two rings of stars and a tail of starlight" width="130">
+<img src="frontend/icon-512.png" alt="MemoryMap AI" width="120">
 
 # MemoryMap AI
 
@@ -35,7 +35,7 @@ capture a thought
 </p>
 
 <details>
-<summary><b>Twenty-one more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, the dark theme, a phone and the avatar lab</summary>
+<summary><b>Twenty-one more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, the dark theme, and a phone</summary>
 <br>
 
 <p align="center">
@@ -143,10 +143,6 @@ capture a thought
   <br><sub><b>On a phone</b>: one column, the tabs at your thumb</sub>
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/avatar-lab.png" alt="The avatar lab: Atlas in both looks side by side, with the lab's mood, pose and tuning controls on the left" width="850">
-  <br><sub><b>The avatar lab</b> (<code>tools/avatar-lab.html</code>): the app's own renderers on one page, for tuning Atlas and the generated faces</sub>
-</p>
 
 </details>
 
@@ -238,35 +234,19 @@ the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
 duplicates on a schedule you set. It never deletes anything.
 
-**Meet Atlas.** The notebook's guide is a character: a small star spirit
-with two rings of stars about it and a tail of starlight, in a masculine or
-a feminine look (or the classic glowing globe it started as). Atlas files
-your notes, answers "how do I" questions from the app's own documentation
-without ever reading your notes, and has moods: pleased when you save,
-thinking while an answer is written, sleepy late at night.
+**Meet Atlas.** The notebook's guide is a small star spirit with rings of
+stars about it and a ribbon of starlight for a tail. Atlas files your notes,
+answers "how do I" questions from the app's own documentation, and can keep
+you company in the corner of any page, with moods that follow what you do.
 
 <p align="center">
-  <img src="docs/screenshots/atlas-hero.png" alt="Atlas in both looks side by side on a night-blue ground: the masculine look with a short swept crest and two ears, the feminine look with a long flowing crest, lashes and a star clip" width="760">
-</p>
-
-**A companion in the corner.** Atlas, your own face, the chat's persona or
-a character you name yourself can live in the corner of every page. It finds
-a free spot on its own, sits, stands, hangs or leans on any panel, toolbar or
-card, and reacts to what happens: a saved note, an answer, a bell, a poke.
-Drop it on a panel and that page keeps it there; small, medium, large or any
-size from the handle at its corner.
-
-<p align="center">
-  <img src="docs/screenshots/atlas-poses.png" alt="Ten of the companion's poses: standing, sitting, hanging from a ledge, floating, leaning, asleep, drowsy with headphones, under a moon at night, reading a book, and cheering" width="760">
+  <img src="docs/screenshots/atlas.png" alt="Atlas, the notebook's guide, in the masculine look: a small glowing star spirit with swept-back ears, rings of stars and a ribbon tail of starlight" width="220">
 </p>
 
 **Faces for everyone.** Every person and persona gets a small drawn
 character read from their name (a mood word, an animal, a costume), and
 Settings, Profile, Your look lets you shuffle yours or choose every part:
-hair, skin, clothes, headwear, eyewear, what you hold. The avatar lab
-(`tools/avatar-lab.html`, served at `/tools` when the app runs from a
-source checkout) puts the app's own renderers
-on one page, every mood, pose and size, for tuning them by eye.
+hair, skin, clothes, headwear, eyewear, what you hold.
 
 **Sign in, or don't.** The notebook asks for its password when it opens, by
 default. On a computer only you use, Settings, Account and security can turn
@@ -367,7 +347,7 @@ src/memorymap/
   search/         full-text and semantic search, opt-in web search
   api/            the FastAPI app, one router per feature
 frontend/         plain HTML, CSS and JavaScript, served as-is, no bundler
-tools/            the avatar lab and the companion simulator (source checkouts only)
+tools/            developer tools for tuning the characters (source checkouts only)
 tests/            pytest, every AI call faked
 docs/             user documentation, architecture, design system, roadmap
 ```

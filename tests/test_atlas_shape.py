@@ -278,3 +278,22 @@ def test_drowsy_droops_softly_rather_than_staring():
     assert "#nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s" in CSS
     body = _keyframes("atl-blink-heavy").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"opacity"}
+
+
+
+def test_the_lean_hook_turns_the_body_and_the_head_follows_with_lag():
+    # Round 9 (the owner: "tilt their body that way while still mostly
+    # facing forward"): `data-lean="l"|"r"` on #nm-buddy, a figure box or a
+    # drawing. The body turns about the feet, the head follows further, the
+    # pupils slide, and the tail and the nebula lag and settle. Its own
+    # variable, `--atl-lean-dir`, because `--atl-lean` is the pose's lean
+    # in degrees and a shared name silently zeroed every part but the box.
+    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }' in CSS
+    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }' in CSS
+    assert "rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);" in CSS
+    assert "rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg))" in CSS
+    assert "translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py))" in CSS
+    assert ".nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5)" in CSS
+    # Its default is the root's alone: declared on a drawing, an ancestor's
+    # value would never reach the layers.
+    assert len(re.findall(r"--atl-lean-dir:\s*0", CSS)) == 1

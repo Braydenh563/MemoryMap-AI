@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas can lean to the left or right while still facing forward: the body turns a few degrees about the feet, the head follows a little further with the face turning that way, and the tail and the nebula catch up a beat later and settle, all eased over about a third of a second.
 - A drowsy Atlas looks sleepy rather than creepy: the lids droop in soft curves over small pupils that look down, the brows and mouth relax, and blinks are slow and linger closed.
 - Atlas's feminine silhouette reads as one body: the arms grow out of the shoulders with no seam, and the hair grows from the head, darker at the roots, with no gap or hard edge beside the wings.
 - Two of Atlas's moods read as something else and are redrawn: happy (it looked calm) now smiles with its eyes, and determined (it looked bored) looks focused rather than half asleep.

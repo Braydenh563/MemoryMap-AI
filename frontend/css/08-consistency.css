@@ -5536,10 +5536,11 @@ main,
    crossed. `data-side` is the panel edge it leans on. */
 #nm-buddy .nm-figure {
   transform-origin: 50% 100%;
-  transition: transform var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+  rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);
+  transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out);
 }
-#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { rotate: 8deg; }
-#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { rotate: -8deg; }
+#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { --nmb-lean-pose: 8deg; }
+#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { --nmb-lean-pose: -8deg; }
 #nm-buddy[data-pose="lean"][data-side="left"] .nmb-arm-r { transform: rotate(-75deg); }
 #nm-buddy[data-pose="lean"][data-side="right"] .nmb-arm-l { transform: rotate(75deg); }
 #nm-buddy[data-pose="lean"] .nmb-leg-l { transform: rotate(-12deg); }
@@ -6203,13 +6204,33 @@ main,
    figure out (companionperf.js, 2026-09-27: 20 layouts a second at rest
    in any mood but calm). The mood is on the box from `atlasApply`. */
 .atl-figure-box { transform-origin: 50% 98%; will-change: transform; }
+/* **The lean** (round 9, the owner: "tilt their body that way while still
+   mostly facing forward"): `data-lean="l"` or `"r"` on `#nm-buddy`, on a
+   figure box or on a drawing turns the body a few degrees about the feet,
+   the head follows a little further with the face's features sliding
+   toward that side, and the tail and the nebula lag behind and settle
+   (an overshooting ease, a beat late). Every part eases over about 360ms
+   and nothing snaps; at rest it costs nothing, being a held transform.
+   `--atl-lean-dir` is -1, 0 or 1 (`--atl-lean` is the pose's own lean in
+   degrees); declared at the root and never again on `.nm-atlas` itself,
+   so an ancestor's value reaches every layer. */
+:root {
+  --atl-lean-dir: 0;
+  --nmb-lean-pose: 0deg;
+}
+:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }
+:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }
+.atl-figure-box { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+.nm-atlas:not(.atl-layer) .atl-pose { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+.nm-atlas:is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(var(--atl-lean-dir) * -1.6deg); transition: rotate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast); }
+.nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast); }
 /* The Zs and the hearts rise on their own two roots, about where they sit. */
 .nm-atlas.atl-layer-fx-1 { transform-origin: 51px 20px; will-change: transform; }
 .nm-atlas.atl-layer-fx-2 { transform-origin: 40px 14px; will-change: transform; }
 .nm-atlas.atl-layer-body { transform-origin: 31px 90px; will-change: transform; }
 .nm-atlas.atl-layer-tail { transform-origin: 34px 60px; will-change: transform; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
-.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
+.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
@@ -6607,7 +6628,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-eye-l { --atl-side: 1; }
 .nm-atlas .atl-eye-r { --atl-side: -1; }
 .nm-atlas .atl-eye { transform: scale(var(--atl-eye-s)); }
-.nm-atlas .atl-pupil { transform: translate(var(--atl-px), var(--atl-py)) scale(var(--atl-ps)); }
+.nm-atlas .atl-pupil { transform: translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
 .nm-atlas .atl-lid-flat { opacity: calc(1 - var(--atl-softlid)); }
 .nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }
@@ -6618,7 +6639,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
-.nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)) scale(var(--atl-tune-head)); }
+.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); }
 .nm-atlas .atl-pose { transform: rotate(var(--atl-lean)) scale(var(--atl-sx), var(--atl-sy)); }
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its

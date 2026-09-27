@@ -54,13 +54,20 @@ with its owner named in the entry.
      settings. And continue. Polish the app, devibecode it. Fix bugs. Fix
      ui/ux learnability, utility, accessibility, usability and information
      architecture"
-     Placed: (a) palette notes (verify: notes should appear; if not, bug) and
-     (b) mind map node fill, canvas and export background colour: one Sonnet
-     agent; (c) companion motion first (transitions, glide, secondary motion
-     on hair, tails and nebula), then new states and props, the subtle
-     feminine chest, the test pages, per-feature toggles, cost: the two Opus
-     agents on atlas.js and avatars.js; (d) the devibecode programme,
-     WORLD_CLASS_PLAN 22.4, after.
+     Placed: ~~(a) palette notes (verify: notes should appear; if not, bug)
+     and (b) mind map node fill, canvas and export background colour: one
+     Sonnet agent~~ **done 2026-09-27**: both already existed and worked
+     (verified live in Chromium against a real palette search and a real
+     mind map), no feature code changed; regression tests added
+     (`tests/test_palette_contract.py`, `tests/test_export_paint.py`).
+     Left, from the same report: (b)'s discoverability (the owner asked
+     without knowing they exist, so the controls need better labels/help,
+     placed below as its own item) and companion motion. (c) companion
+     motion first (transitions, glide, secondary motion on hair, tails and
+     nebula), then new states and props, the subtle feminine chest, the
+     test pages, per-feature toggles, cost: the two Opus agents on atlas.js
+     and avatars.js; (d) the devibecode programme, WORLD_CLASS_PLAN 22.4,
+     after.
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

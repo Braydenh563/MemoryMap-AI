@@ -338,6 +338,10 @@ $("attach-note").addEventListener("click", () => {
   if (notePickerOpen()) closeNotePicker();
   else openNotePicker();
 });
+$("note-picker-close").addEventListener("click", () => {
+  closeNotePicker();
+  $("attach-note").focus();
+});
 
 // --- image attachment wiring (vision-capable models) ---
 $("attach-image").addEventListener("click", () => $("chat-image-input").click());

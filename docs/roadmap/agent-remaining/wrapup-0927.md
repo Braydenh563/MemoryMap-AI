@@ -193,14 +193,17 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   leak. Fixed at the cause: the three real dots now get their own
   `.typing-dot` class (chat.js) and every dot rule (both files) is scoped
   to it, so a future span in this row can't be caught the same way. Also
-  bold, a static text-shadow glow instead of a fade-to-invisible crossfade
-  (resting opacity 0.5, not 0), and an explicit writing-phase fade for the
-  word (it no longer rides the dots' own rule). Measured: dots, word, no
-  line, rotation still swaps text every ~2.5-3.5s with a dim/bright
-  crossfade, light and dark (`scratchpad/ui-sweeps/thinkingwords.js`
-  reproduces it standalone via `progressLine`, no model needed). Same fix
-  covers chat, Ask (capture-ask.js) and the popup agent (palette.js): all
-  three call the same `typingDots`/`startThinkingWordRotation`.
+  bold, with a static text-shadow glow, added on top of (not replacing)
+  the crossfade `tests/test_thinking_words_rotation.py` already tests
+  (opacity 0/0.85, a 2px rise): that transition was never the reported
+  bug, only the leak was, so it stays exactly as tested. An explicit
+  writing-phase fade replaces the one the word used to borrow from the
+  dots' own rule. Measured: dots, word, no line, rotation still swaps
+  text every ~2.5-3.5s, light and dark
+  (`scratchpad/ui-sweeps/thinkingwords.js` reproduces it standalone via
+  `progressLine`, no model needed). Same fix covers chat, Ask
+  (capture-ask.js) and the popup agent (palette.js): all three call the
+  same `typingDots`/`startThinkingWordRotation`.
 - [ ] Atlas guide panel: its '?' button does nothing; wire it. **Not
   reproduced.** Opened the panel from the status bar (1093, >=680px) and
   from the phone's More sheet (390), light and dark: clicking
@@ -212,10 +215,26 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   this in and to give the owner's next report something to run first. If it
   recurs, it needs the exact steps (which entry point, what was open
   already, mobile or desktop) since nothing in the obvious paths breaks it.
-- [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
-  the new recipes (dialog head, quiet segmented tabs, search with icon,
-  compact rows with check, name and category chip that never wraps,
-  sticky footer).
+- [x] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
+  the new recipes. Two of the six were already met (the source tabs are
+  already the shared `.seg` every sub-tab strip uses; the footer is a flex
+  sibling outside the list's own scroller, so it never scrolled away).
+  Added: a `.dialog-head` (a note icon, "Attach", a `.dialog-head-btn`
+  Close, where there was only Escape/click-away/Done before), a
+  `.search-field` well with a leading magnifying-glass glyph (generalised
+  from the Web panel's own `.web-search-field`, now a reusable class pair
+  rather than a second copy keyed to new ids), and `flex: none` on the
+  row's chip so a long name can never squeeze it onto a second line. Rows
+  already had the check, the name and the chip; only the wrap guard was
+  missing. Measured at 1093, light and dark: dialog head, close works,
+  search icon shows, chips hold one line
+  (`scratchpad/ui-sweeps/chatattach.js`). **Found, not fixed**: at 390
+  (phone), the panel opens (correct size and position, measured) but the
+  Chat tab's own empty-state content paints over it at that width,
+  `elementFromPoint` inside the panel's own rect returns the empty state's
+  starter chip, not the panel; pre-existing (nothing this change touched
+  sits between them), not reproduced at 1093, needs its own look at the
+  two components' stacking contexts on a phone.
 - [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
   Already landed (index.html's `#settings-close` carries `dialog-head-btn`
   inside a `.dialog-head-actions` wrapper); verified against
@@ -228,13 +247,34 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   button's `inline-flex` (the button base recipe) sitting in an anonymous
   block wrapper whose strut takes the *inherited* line-height, not its own
   smaller one; scoped override to `display: block` for the card view.
-- [ ] Status bar under 680px: one row, extras in a "more" menu.
-- [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
-- [ ] Verify the rotating thinking words render and rotate (chat, capture
-  ask, palette) with no row jump; the backend half exists.
-- [ ] Ask citation missing after a heading on a reopened answer: not
-  reproduced; regression test added. Needs the owner's real answer if seen
-  again.
+- [ ] Status bar under 680px: one row, extras in a "more" menu. **Measured,
+  not a bug**: at 819, 700, 680, 660, 620 and 600 the bar is one row with no
+  horizontal overflow (`scrollWidth === clientWidth` at every width; the
+  `state` zone's own shrink rule already absorbs the space, DESIGN.md's
+  status-bar row). The touch-bar tier already at 600-819.98 (10-responsive
+  .css) hides `#status-notes`, `#status-command` and the doorway words, so
+  "extras in a more menu" would be recovering access to those rather than
+  fixing an overflow, and needs a decision the phone's `PHONE_STATUS_ROWS` /
+  `#header-more` pattern cannot just be reused for (widening `PHONE_TABS`
+  itself to 680 turns the tab bar, touch gestures and every other
+  `PHONE_TABS`-gated behaviour into phone mode too, far past this one bar).
+  Left for a design pass: a `#status-bar`-scoped kebab, its own media query,
+  and which of the two hidden controls actually count as "extras."
+- [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Clean:
+  `WIDTHS=1093 errors.js` found 0 errors, 0 layout findings across every
+  tab and Settings section; `docks.js` (its own 1440, unparametrised) found
+  every dock's controls at one consistent height each, nothing to fix.
+- [x] Verify the rotating thinking words render and rotate (chat, capture
+  ask, palette) with no row jump; the backend half exists. Covered by the
+  thinking-word fix above: rotation measured swapping text every ~2.5-3.5s
+  with no width jump (`thinkingWordMinWidth`) and, now the dot-style leak is
+  gone, no row-height jump either. All three surfaces share
+  `startThinkingWordRotation`.
+- [x] Ask citation missing after a heading on a reopened answer: not
+  reproduced; regression test added. Already true on this head
+  (`tests/test_citation_after_heading.py`, passing): reproduction attempted
+  through the real pipeline and not found; the test holds the shape as a
+  regression guard. Needs the owner's real answer if seen again.
 - [x] Settings > Privacy verdict notice ("Nothing left this computer."):
   affordance and alignment (a coordinator drop, not in the original list).
   Icon was a couple of px off the text's optical centre (`.notice`'s own

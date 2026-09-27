@@ -2699,17 +2699,10 @@ function typingDots(label = "Thinking…", { persona = null, words = false } = {
     dots.setAttribute("aria-label", next);
   };
   if (progressMotionWanted()) {
-    //: `.typing-dot`, not a bare `<span>`: `startThinkingWordRotation`
-    //: (below) appends a *fourth* span into this same row, and every dot
-    //: rule keyed off `.typing-dots span` matched it too, a plain
-    //: descendant selector being no pickier than that. The thinking word
-    //: inherited a dot's 0.45rem circle stretched to its own 233px
-    //: `min-width` (a flattened pill, `border-radius: 50%` on a wide, short
-    //: box), `background: var(--muted)` painted solid across it, and the
-    //: bouncing `dot-bounce` animation running on top -- the owner's "a
-    //: long line... with an annoying pulse" report, all three symptoms
-    //: from the one leaked rule (measured element-scoped screenshots,
-    //: `scratchpad/ui-sweeps/thinkingwords.js`).
+    //: `.typing-dot`, not a bare `<span>`: the thinking word appended below
+    //: is a *fourth* span in this row, and `.typing-dots span` (01-forms
+    //: -settings.css) matched it too, leaking a dot's circle, fill and
+    //: bounce onto it (the owner's "a long line... an annoying pulse").
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement("span");
       dot.className = "typing-dot";

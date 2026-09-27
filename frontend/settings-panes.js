@@ -720,14 +720,10 @@ function renderPrivacyRange() {
   const verdict = $("privacy-verdict");
   verdict.classList.toggle("notice-warn", warn);
   setLabel(verdict, `${icon} ${words}`);
-  //: A status line that only ever says one of three fixed sentences reads
-  //: as inert, and the record it is describing is one scroll away with no
-  //: sign of it (the owner, INBOX 431: "affordance and element alignment").
-  //: `.linklike` is the recipe for a word made clickable inside prose
-  //: (DESIGN.md; doc-storage-toggle, the avatar and help "Related:" links);
-  //: this is not a second recipe, just this notice's first use of it. It
-  //: jumps to the Destinations list rather than duplicating its facts here,
-  //: `privacy-range-note` right below already states them once.
+  //: `.linklike` (DESIGN.md's recipe for a word made clickable in prose):
+  //: the status named a record with no way to it (INBOX 431). Jumps to the
+  //: list rather than repeating its facts; `privacy-range-note` states
+  //: those once already.
   const jump = document.createElement("button");
   jump.type = "button";
   jump.className = "linklike";

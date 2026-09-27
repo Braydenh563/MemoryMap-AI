@@ -2340,3 +2340,155 @@ State 2026-09-24, what the survey left open:
   detected" for both. S, `api/routes_models.py` status route.
 - Row 13: whether the About page shows `candidate.size` before the update
   button is pressed was never traced in the frontend. S, `settings.js`.
+
+## 22. The professional baseline and the devibecode programme (2026-09-27)
+
+The owner, verbatim: "poke holes in the app. find issues, both really large
+scale, not necessarily bugs, and small. things that every professional app
+has and people expect to just be there ... Identify areas where the design
+isnt up to the standard it should be. make a plan to further devibecode each
+interface and panel and make full use of multiple and all of your available
+ui/ux and web design skills". Decided the same day: **desktop first, and the
+desktop that matters is a small uni laptop** (1366x768 at 125% scaling, which
+leaves 1093x614 CSS px, and 1280x720), then tablets; CSS is still written
+mobile first, as the owner's web design class teaches. Measured with
+`scratchpad/proprobe.js` (session scratchpad) at 1093x614@1.25, 1280x720 and
+1536x864@1.25.
+
+### 22.1 Large gaps (what every professional app has)
+
+1. **No URLs.** Every view is `/`. Reload always lands on the Dashboard,
+   the browser's Back leaves the app, a note or chat cannot be linked or
+   bookmarked, and `document.title` never names the view ("(1) MemoryMap
+   AI" everywhere). navigation.js keeps its own back stack on purpose (its
+   comment explains why pushState was refused), which was the right call
+   without a router and is the wrong end state. Target: a hash router
+   (`#/notes/123`, `#/chat/45`, `#/docs/7`, `#/library/images`), the in-app
+   back and forward buttons driven by `popstate`, reload restoring the view,
+   and the title naming it ("Half marathon, week 4 - Notes"). L, Opus.
+2. **The laptop screen is mostly chrome.** At 1093x614 the top bar (72px),
+   sub-tabs (55), the list toolbar (55) and the status bar (37) take about
+   36% of the height: the Notes list shows 2.3 cards and the Dashboard's
+   widgets start below the fold. Target: a height-aware density (Compact
+   applied by default under 700px of height, with the setting still in
+   Appearance), sub-tabs merged into the list toolbar where a surface has
+   both, and the status bar folding into the top bar under 680px. Gate: 4
+   note cards and the first dashboard widget above the fold at 1093x614. M,
+   Opus.
+3. **Tabs lose their names on a laptop.** Under about 1100px the tab strip
+   is icons only with the active tab labelled, so six of seven tabs are
+   guesses. Target: short labels kept down to 1024px (the strip has room once
+   the spaces picker shrinks to an icon), tooltips with the shortcut below
+   it, and the strip centred (INBOX 430). S, Sonnet.
+4. **Leaving with unsaved work.** No `beforeunload` guard anywhere; the
+   drafts cover the capture box, but a document mid-save, a board mid-drag
+   and a chat mid-stream are not checked. Target: one registry of "dirty"
+   surfaces, a guard on close, and a flush on `pagehide`. S, Sonnet.
+5. **Two windows, one note.** The desktop window plus a browser tab, or two
+   LAN devices, can edit the same note; the last save wins silently.
+   Target: saves carry the `updated_at` they started from, a stale save
+   gets 409 (the pattern documents already use), and the editor offers
+   "keep mine / take theirs / compare". M, Opus.
+6. **The server can go away.** Only the log view says "reconnecting";
+   everywhere else a stopped backend shows as buttons that do nothing.
+   Target: one banner ("Can't reach MemoryMap. Retrying...") driven by the
+   same health poll, every write queued or refused with that message. S,
+   Sonnet.
+7. **No screen-reader pass, ever.** Landmarks exist (1 header, 3 main, 5
+   nav: three `main`s is itself a fault), but no session has driven the
+   app with a screen reader or checked the custom widgets' roles (the rich
+   picker's `aria-activedescendant`, the seg controls, the graph canvas).
+   Target: one `main`, an axe-core sweep in `scratchpad/ui-sweeps`, and the
+   ARIA patterns for listbox, menu and tabs checked against the APG. M,
+   Opus.
+8. **Data safety is there but hidden.** Backups exist
+   (`routes_backups.py`), revisions exist (`EntryRevision`), export exists,
+   but none is on the Dashboard or in the note menu as "Version history",
+   "Export", "Back up now". Target: version history in every note and
+   document menu with a diff, a "Last backup" line in Settings and on the
+   About page, and a first-run prompt to choose a backup folder. M, Opus.
+9. **Offline promise, visible.** The Privacy receipt now exists; the top
+   bar should say "Local" with the same verdict, one click to the receipt.
+   S, Sonnet.
+
+### 22.2 Small things people expect (each S, Sonnet unless noted)
+
+- The window title names the view and the open item (22.1.1).
+- Ctrl+S, Ctrl+Z and Escape behave the same in every editor and dialog
+  (the key contract, 1.6, has no lint for Escape yet).
+- Search highlights the match inside the note it opens, and remembers the
+  last few queries.
+- Every destructive action has an Undo toast, not only deletes of notes.
+- Every date and time follows one setting (12 or 24 hour, the locale's
+  order); the status bar clock, the timeline and the reminders do not agree
+  today on whether seconds show.
+- Drag and drop of files onto any page imports them (Library only today).
+- Every list with more than 20 rows can be filtered by typing.
+- Right-click works on every card and row, with a hold as its twin on touch.
+- A "Copy diagnostics" button on the About page (versions, model, recent
+  errors) for bug reports from test users.
+- The status bar's "!" dot says what it means on hover and click.
+- The "Default Space" chip is hidden when only one space exists (it is on
+  every card today and says nothing).
+
+### 22.3 Where the design is below standard (measured or seen, 2026-09-27)
+
+- **Density and rhythm.** Cards carry 24px of padding and 17px body text at
+  every width; on a laptop the list reads like a phone app scaled up.
+- **Hierarchy in Settings.** Section heads are the same weight as labels
+  (in the Sonnet batch).
+- **Icon consistency.** Mixed stroke weights between Phosphor regular and
+  the bold ones on the status bar; one weight app-wide.
+- **Empty states.** The Chats sidebar's empty text is body size and grey on
+  grey; empty states should use one recipe (icon, one line, one action).
+- **Toasts** overlap content (the reminder toast covers the dashboard head
+  at 1093x614); they belong in a reserved corner above the status bar.
+- **Glass** is still on some surfaces the performance plan listed for
+  removal; the glass-off list lint should cover every blurred surface.
+
+### 22.4 The devibecode programme: one surface at a time, every skill
+
+Each pass takes one surface through the same seven steps, so no surface is
+"done" by a different standard:
+
+1. **Audit** with `unslop-ui` (the AI-tells checklist) and
+   `web-design-guidelines` (Vercel's interface guidelines), writing each
+   finding with its selector.
+2. **Research** the surface type in the vendored `ui-ux-pro-max` corpus
+   (`python .claude/skills/ui-ux-pro-max/scripts/search.py "<surface>" --domain ux`
+   and `--domain style`), and in `apple-design` for its motion and sheets.
+3. **Tokens** through `design-system`: every value on the surface resolves
+   to a token; new ones are added to DESIGN.md with their lint.
+4. **Design** with `frontend-design` for the direction, inside DESIGN.md's
+   recipes (standing order 11).
+5. **Measure** at the laptop matrix (1093x614@1.25, 1280x720, 1366x768,
+   1536x864@1.25, 1920x1080) and tablets (1024x768, 820x1180), light and
+   dark, reduced motion on and off, with errors.js, contrast.js, touch.js
+   and a surface sweep.
+6. **Shots** before and after, in the report, for the owner to judge.
+7. **Owner review**, then the next surface.
+
+Order, by how often the owner is on it: the shell (D15, with 22.1.1 to 3),
+Notes (D2), the Dashboard (D1), Chat (D3), Settings (D13), Library (D4),
+Documents (D10), the Graph (D12), the Whiteboard and maps (D11), the
+Timeline (D7), Reminders (D8), Help and the palette (D14), the companion
+and Atlas (continuous). Opus for each design pass; Sonnet for the
+measured follow-ups it lists.
+
+### 22.5 Where the app goes next (release path)
+
+Versions follow semantic versioning before 1.0: a patch (0.3.x) for fixes,
+a minor (0.x.0) for a set of new features, and a number changes only when a
+release is published, however many commits land between. So the pace is
+not too fast; the rule is simply one number per published release.
+
+- **0.3.x (now):** finish INBOX 430, green CI, the full suite, then publish.
+- **0.4.0, "laptop perfect":** 22.1 items 1 to 6, and the devibecode
+  programme through the shell, Notes, Dashboard, Chat and Settings.
+- **0.5.0, "the notebook that thinks":** the night shift's review UI, the
+  margin reader (I2), open questions (I3), resurfacing (I4), the web
+  clipper's frontend, AI templates everywhere.
+- **0.6.0, "many devices":** LAN polish for tablets, local-first sync
+  design (B6) made real, extensions (B8).
+- **1.0.0:** a stable API (B7), a screen-reader-audited UI, the installer
+  and update path proven on clean Windows machines, and the docs complete.

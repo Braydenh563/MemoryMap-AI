@@ -473,8 +473,9 @@ def test_atlas_look_says_when_it_follows_face_looks() -> None:
     # OPEN.md, "Left by the 0.3.3 agents": the select read "Masculine" while
     # nothing was stored, and Atlas then followed Face looks, so a person
     # with Face looks on Feminine saw a feminine Atlas under a select that
-    # said otherwise. "Auto (follows Face looks)" is the first option and the
-    # default; picking it, or changing Face looks while it is picked, redraws
+    # said otherwise. "Auto (matches your faces)" is the first option and the
+    # default (renamed 2026-09-27, INBOX 429 (d): Auto follows your own face
+    # too, not only Face looks, and the owner asked what it meant); picking it, or changing Face looks while it is picked, redraws
     # every Atlas on the page.
     atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
     settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
@@ -482,7 +483,7 @@ def test_atlas_look_says_when_it_follows_face_looks() -> None:
     select = index[index.index('<select id="atlas-look"') :]
     select = select[: select.index("</select>")]
     options = re.findall(r'<option value="(\w+)">([^<]+)</option>', select)
-    assert options[0] == ("auto", "Auto (follows Face looks)"), options
+    assert options[0] == ("auto", "Auto (matches your faces)"), options
     assert {value for value, _ in options} == {"auto", "masculine", "feminine"}
     assert '"atlas-look": "auto"' in settings
     #: Round 5: the decision lives in `atlasLookReason`, which also says

@@ -2386,7 +2386,7 @@ body.resizing-sidebar {
 .persona-prompt {
   margin: 0 0 0.6rem;
   padding: 0.6rem 0.8rem;
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   border-left: 3px solid var(--accent);
   font-size: 0.85rem;
@@ -2402,7 +2402,7 @@ body.resizing-sidebar {
 .code-block {
   margin: 0.6rem 0;
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--chip-bg);
 }

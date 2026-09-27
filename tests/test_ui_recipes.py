@@ -3220,3 +3220,24 @@ def test_every_dialog_head_action_carries_the_recipe_class() -> None:
             assert "dialog-head-btn" in btn.group(0), (
                 f"a button in a .dialog-head-actions group is missing dialog-head-btn: {btn.group(0)[:80]}"
             )
+
+
+def test_a_field_is_the_button_s_shape():
+    """Fields, selects and the custom select's opener take the button's corner.
+
+    The consistency pass (scratchpad/ui-sweeps/consistency.js, 1093, 1440 and
+    390): fields came out at two radii, 6.4px (`--radius-lg`, the base rule)
+    and 5.6px (`calc(var(--radius) * 0.7)`, on no tier, from a later global
+    rule), beside 4.8px buttons, so a filter and its New button, or magic add
+    and Add, were two shapes; the header's icon buttons sat at 2px, the
+    concentric corner of a shell that no longer exists. Now every control
+    outside a bar is on a tier and fields match buttons.
+    """
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert "calc(var(--radius) * 0.7)" not in re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    base = next(body for sel, body in _rules(forms) if 'input[type="datetime-local"]' in sel and "box-sizing: border-box" in body)
+    assert "border-radius: var(--radius-md)" in base
+    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    opener = next(body for sel, body in _rules(misc) if sel.strip() == ".select-opener")
+    assert "border-radius: var(--radius-md)" in opener

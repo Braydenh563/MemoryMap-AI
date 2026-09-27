@@ -1909,15 +1909,6 @@ body.scroll-top-visible #tab-notes .layout > main {
   border-radius: var(--radius);
 }
 
-textarea,
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="datetime-local"],
-select {
-  border-radius: calc(var(--radius) * 0.7);
-}
-
 /* The track itself is the radius table's choice-control row
    (`--radius-choice`, 03-dashboard-widgets.css) and its segments keep the
    same corner. A chip is not a segment: it is a label with a small radius
@@ -2464,7 +2455,7 @@ label.setting-check,
 
 .searxng-host {
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: var(--radius-md);
   padding: 0.8rem 0.8rem;
   margin-bottom: 0.6rem;
 }

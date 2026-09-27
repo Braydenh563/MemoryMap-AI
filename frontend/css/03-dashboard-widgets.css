@@ -2589,7 +2589,7 @@ header#top-bar select,
   width: auto;
   padding-inline: 0.6rem;
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: var(--radius-md);
   background: var(--input-bg);
   color: var(--ink);
   font: inherit;

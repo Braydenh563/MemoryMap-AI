@@ -262,7 +262,12 @@ input[type="datetime-local"] {
      once. Mixing in `--ink` keeps the outline legible at any glass setting,
      in every theme, without a second border token to keep in sync. */
   border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
-  border-radius: var(--radius-lg);
+  /* The button's corner, `--radius-md`, so a field and the button beside
+     it (a filter and New, magic add and Add) are one shape. It was
+     `--radius-lg` here and `calc(var(--radius) * 0.7)` in a later global
+     rule for five of the types, so fields came out at two radii, one of
+     them on no tier (consistency.js: 5.6px against 4.8px buttons). */
+  border-radius: var(--radius-md);
   font: inherit;
   background: var(--input-bg);
   color: var(--ink);

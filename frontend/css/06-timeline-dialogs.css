@@ -1494,8 +1494,9 @@
   margin-bottom: var(--space-4);
   font-size: var(--text-md);
   /* It is the first thing in the panel and the thing you aim at, so it says so
-     - the nav's buttons are borderless and this is not one of them. */
-  border-radius: var(--radius-pill);
+     - the nav's buttons are borderless and this is not one of them. A
+     field's corner, like every field: the pill written here never applied
+     (the base field rule out-ranks one class) and pills are rare. */
   padding-inline: var(--space-5);
 }
 
@@ -2119,7 +2120,9 @@
 .header-cluster > .notif-wrap > button,
 .header-cluster > .menu-wrap > button {
   border: 0;
-  border-radius: var(--radius-inner);
+  /* The button's corner: `--radius-inner` was the concentric corner for
+     the shell these sat in, which is gone, and came out at 2px. */
+  border-radius: var(--radius-md);
   background: transparent;
   box-shadow: none;
   /* The tab strip's own height token, so the two sets of controls in the

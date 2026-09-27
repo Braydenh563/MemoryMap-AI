@@ -327,6 +327,11 @@ select optgroup {
      0.14→0.16 dark) to pay for the edge it no longer draws. */
   --ghost-btn-bg: rgba(31, 36, 48, 0.12);
   --ghost-btn-bg-hover: rgba(31, 36, 48, 0.18);
+  /* A hovered row (a settings switch row, a radio option): "you are
+     pointing at this", lighter than a pressed button, because a row
+     carries muted hint text and the pressed tone (0.18) put that hint at
+     3.85:1 (rowhover.js). At 0.07 the hint holds 4.5:1 on the grey well. */
+  --row-hover-bg: rgba(31, 36, 48, 0.07);
   /* **The quiet button's edge is the whole of its affordance, so it is
      measured, not tasted** (the owner, 2026-09-27, five screenshots of "grey,
      bordered, raised boxes": redesign the default buttons to the Documents
@@ -888,6 +893,7 @@ select,
   --ghost-btn-border: rgba(255, 255, 255, 0.4);
   --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
+  --row-hover-bg: rgba(255, 255, 255, 0.08);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --field-inset: rgba(0, 0, 0, 0.28);
@@ -965,6 +971,7 @@ select,
     --ghost-btn-border: rgba(255, 255, 255, 0.4);
     --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
+    --row-hover-bg: rgba(255, 255, 255, 0.08);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --field-inset: rgba(0, 0, 0, 0.28);

@@ -2137,7 +2137,7 @@ label.setting-check,
    at 3.83:1). */
 @media (hover: hover) {
   .setting-check:hover {
-    background: var(--ghost-btn-bg-hover);
+    background: var(--row-hover-bg);
   }
 }
 

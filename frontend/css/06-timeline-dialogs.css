@@ -1393,7 +1393,7 @@
    being noticed at all. */
 @media (hover: hover) {
   .check-row:hover {
-    background: var(--ghost-btn-bg-hover);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -1404,8 +1404,11 @@
 }
 
 @media (hover: hover) {
+  /* The chosen row answers the pointer with an edge rather than a deeper
+     fill: at 20% accent its muted hint fell to 4.12:1 (rowhover.js). */
   .check-row:has(input:checked):hover {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
   }
 }
 

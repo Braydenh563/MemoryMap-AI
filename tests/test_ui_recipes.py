@@ -3251,3 +3251,17 @@ def test_a_dialog_head_title_out_ranks_the_card_heading_margin():
     consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     rule = next(body for sel, body in _rules(consistency) if ".dialog-head > .dialog-head-title" in sel)
     assert "margin: 0" in rule
+
+
+def test_a_hovered_row_keeps_its_hint_readable():
+    """A settings row's hover is `--row-hover-bg`, never the pressed button
+    tone: `--ghost-btn-bg-hover` put the row's muted hint at 3.85:1 in light
+    and 3.23:1 in dark (scratchpad/ui-sweeps/rowhover.js); the chosen row's
+    20% accent hover put it at 4.12:1. Now 4.77:1 and 5.29:1 at worst."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert tokens.count("--row-hover-bg:") == 3, "light, dark and the system-dark block"
+    for selector in ('.setting-check:has(input[type="checkbox"]:checked):hover', "  .check-row:hover", "  .setting-check:hover"):
+        at = text.index(selector + " {")
+        body = text[at : text.index("}", at)]
+        assert "var(--row-hover-bg)" in body and "--ghost-btn-bg-hover" not in body, selector

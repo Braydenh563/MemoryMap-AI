@@ -827,7 +827,7 @@
 
 .check-row:has(input[type="checkbox"]:checked):hover,
 .setting-check:has(input[type="checkbox"]:checked):hover {
-  background: var(--ghost-btn-bg-hover);
+  background: var(--row-hover-bg);
 }
 
 /* One stack, one line between its rows. The negative margin that used to

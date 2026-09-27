@@ -935,7 +935,36 @@ button.map-chip:focus-visible {
   background: var(--accent-soft);
 }
 
-.rich-picker-row.active .rich-picker-tile {
+/* A row that is a button (a dialog of choices walked by Tab): the browser's
+   own button paint taken off so it is the same row, and the fill follows the
+   pointer and the keyboard's focus, since there is no `.active` to move. */
+button.rich-picker-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.rich-picker-row:hover,
+button.rich-picker-row:focus-visible {
+  background: var(--accent-soft);
+}
+
+/* Still one row lit: while the pointer is over a row, the focused one gives
+   its fill up (measured: the pointer resting on a third row lit two). */
+.rich-picker-list:has(button.rich-picker-row:hover) button.rich-picker-row:focus-visible:not(:hover) {
+  background: none;
+}
+
+.rich-picker-list:has(button.rich-picker-row:hover) button.rich-picker-row:focus-visible:not(:hover) .rich-picker-tile {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.rich-picker-row.active .rich-picker-tile,
+button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent-text);
 }

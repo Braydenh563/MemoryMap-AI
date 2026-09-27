@@ -3048,6 +3048,7 @@ RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("settings-panes.js", "renderPalette"),
     ("wiring.js", "renderWikiSuggest"),
+    ("library.js", "openLibraryCreatePicker"),
 ]
 
 #: Lists that still build their own `role="option"` rows. May only fall:

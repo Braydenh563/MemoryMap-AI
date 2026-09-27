@@ -112,12 +112,17 @@ function richPickerGroup(text, { tag = "li", className = "" } = {}) {
 //: `query` marks the letters that matched; `className` keeps a list's own
 //: hook (its sweeps and its keyboard code find rows by it). The row is an
 //: option of a listbox: the list owns `aria-activedescendant`, the row only
-//: says whether it is the chosen one.
-function richPickerRow({ icon, tint, face, label, about, keys, query, tag = "li", id, className = "" }) {
+//: says whether it is the chosen one. `role: null` with `tag: "button"` is
+//: the same row as a plain button, for a dialog whose choices are walked by
+//: Tab rather than by arrows (the Library's Create picker).
+function richPickerRow({ icon, tint, face, label, about, keys, query, tag = "li", id, className = "", role = "option" }) {
   const row = document.createElement(tag);
   row.className = `rich-picker-row${className ? ` ${className}` : ""}`;
-  row.setAttribute("role", "option");
-  row.setAttribute("aria-selected", "false");
+  if (tag === "button") row.type = "button";
+  if (role) {
+    row.setAttribute("role", role);
+    row.setAttribute("aria-selected", "false");
+  }
   if (id) row.id = id;
   row.appendChild(richPickerTile({ icon, tint, face }));
 

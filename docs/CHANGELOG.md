@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the note box's `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
 - `POST /links/clip`, the web clipper's backend: a page you choose is fetched once (only while web search is allowed in Settings, and never from an address on this computer or your network, redirects included), reduced to its title, its address and its main text, and kept as a note that search finds by its words. The bookmarklet and its Settings row are not built yet.
 - Two notes with the same title in a note's connections (the Connections sheet and the Notes column) can be told apart: each row carries a quiet second cue, the category, or the date written, or the time, whichever separates them. The Connections column also steps aside for the note's sheet when a wide categories sidebar would leave the notes list narrower than 600px, and comes back when there is room.
 - In a window 1280 wide or more, the note you open or select in Notes has a Connections column beside the list: the notes it links to, the notes that link to it, the documents, boards and maps it is in, the files it shows, and the forgotten notes close to it. Its close button hides it for good; the notes list's More menu brings it back. In a narrower window the note's own Connections sheet is the way in, as before.
@@ -31,6 +32,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The note box's `[[` link list answers its keys again: with the note editor loaded, the arrows moved the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.
 - Atlas, both looks: the arms grow out of the chest rather than off its edge, fuller at the shoulder and tapering to a wrist, with hands that read as hands (the fingertips' notch made them look like claws), resting at easier angles when sitting and floating; the chest's bright four-point star is now a faded constellation of a few dim stars and hairlines; and the nebula is one soft ribbon behind the figure in a haze of light, drifting slowly, instead of two pieces with one crossing in front. The feminine look has no legs or feet: from the waist down it is a translucent skirt of flowing ribbons that end in wisps and sway, and it glides when it walks.
 - Any small effect drawn inside one of Atlas's layers now moves ten times a second rather than twenty, which halves its cost (40 to 20 repaints and 20 to 10 layouts a second for one effect). Atlas's mood effects are currently drawn on their own layers and cost nothing either way.

@@ -2385,11 +2385,11 @@ mobile first, as the owner's web design class teaches. Measured with
    plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"). Left:
    a board mid-drag and a chat mid-stream, which have no such flag yet. S,
    Sonnet.
-5. **Two windows, one note.** The desktop window plus a browser tab, or two
-   LAN devices, can edit the same note; the last save wins silently.
-   Target: saves carry the `updated_at` they started from, a stale save
-   gets 409 (the pattern documents already use), and the editor offers
-   "keep mine / take theirs / compare". M, Opus.
+5. **Two windows, one note.** Built 2026-09-27 for the note edit form and
+   the document editor (HISTORY.md, "Moved from the plans, 2026-09-27").
+   Left: the other note writers (a card's checkbox, the graph's tag edit,
+   the lightbox caption) send no `base_hash` yet and stay unchecked. S,
+   Sonnet.
 6. **The server can go away.** Built 2026-09-27: a persistent banner
    ("Can't reach MemoryMap. Retrying...") with a Retry action, raised by
    `api()`'s own network-error catch and cleared by the next successful

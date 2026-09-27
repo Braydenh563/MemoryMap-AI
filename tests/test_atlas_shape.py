@@ -84,7 +84,7 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
     # Held still under reduced motion.
-    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
     # The halves meet where the ribbon turns edge-on (the pinch).
     assert "ATLAS_HELIX.near.reduce(" in ATLAS
 
@@ -197,17 +197,69 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow" in CSS
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
     assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
-    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
 
 
 
-def test_the_feminine_chest_is_a_subtle_contour():
+def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():
     # Round 9 (the owner: "a bit more of a feminine chest but don't overdo
-    # it just really subtle"): half a unit of swell and two faint arcs.
+    # it just really subtle", then of two drawn arcs: "less ... like atlas is
+    # wearing cup bikinis ... make it attractive and smooth"): a continuous
+    # swell in the outline and radial light, never a stroke.
     feminine = _look("feminine")
-    assert "22.7 45.4" in feminine and "39.3 45.4" in feminine and "bust:" in feminine
-    assert "bust" not in _look("masculine")
+    assert "22.6 45" in feminine and "39.4 45" in feminine and "chestLight:" in feminine
+    assert "bust:" not in feminine and "atl-chest {" not in CSS and "atl-bust" not in CSS
+    assert "chestLight" not in _look("masculine")
     torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
     assert torso.count("C") == 5  # two per flank and the hem: atlasTorsoEdge counts on it
-    rule = re.search(r"\.nm-atlas \.atl-chest \{[^}]*opacity: ([0-9.]+)", CSS)
-    assert rule and float(rule.group(1)) <= 0.25
+    for part in ("glow", "shade"):
+        rule = re.search(rf"\.nm-atlas \.atl-chest-{part} \{{([^}}]*)\}}", CSS)
+        assert rule and "stroke" not in rule.group(1) and "fill: var(--atl-chest" in rule.group(1)
+
+
+
+
+def _mood(name: str) -> str:
+    start = CSS.index(f'.nm-atlas[data-atlas-mood="{name}"] {{')
+    return CSS[start : CSS.index("}", start)]
+
+
+def test_the_doze_is_restful_with_drifting_zs_and_a_night_cap():
+    # Round 9 (the owner, of the sleepy face: "also what is this face", then
+    # "more emotes like zzzz coming off it for sleeping, wearing a night
+    # cap"): a soft lid at rest where a heavy shut arc was, a relaxed
+    # mouth where a pursed "o" read as a kiss, less blush, three Zs that
+    # drift on a slow loop, and a night cap that fades in with the doze.
+    sleepy = _mood("sleepy")
+    assert "--atl-doze: 1" in sleepy and "--atl-shut: 1" not in sleepy
+    assert "--atl-m-rest: 1" in sleepy and "--atl-m-tinyo: 1" not in sleepy
+    assert float(re.search(r"--atl-cheek: ([0-9.]+)", sleepy).group(1)) <= 0.2
+    assert "--atl-nightcap: 1" in sleepy and "--atl-fx-zz: 1" in sleepy
+    assert "function atlasNightcap(" in ATLAS and "atl-zf-${k}" in ATLAS
+    body = _keyframes("atl-z-drift").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"transform", "opacity"}
+    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }" in CSS
+    # Reduced motion: the Zs hold still.
+    assert '& .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }' in CSS
+
+
+
+def test_the_feminine_silhouette_is_one_body_arms_and_hair_grown_from_it():
+    # Round 9 (the owner: "the part at where the arms of feminine atlas
+    # attach to her main body look disconnected"; "there's a little gap
+    # between the large hair and the ears ... not look like a separate
+    # shape"). The torso's paint over each arm root under a soft mask, with
+    # the torso's light above the joins; every feminine lock rooted inside
+    # the head outline (centre 31, 23, radius about 13), so no flat root end
+    # shows; and the locks shaded darker at the scalp.
+    assert 'mask: `url(#${id}-shoulders)`' in ATLAS and 'id: `${id}-shoulders`' in ATLAS
+    assert '"atl-torso-light"' in ATLAS
+    feminine = _look("feminine")
+    for block in ("locks: [", "head: ["):
+        part = feminine[feminine.index(block):]
+        part = part[: part.index("],\n")]
+        roots = re.findall(r"seg: \[\[(-?[0-9.]+), (-?[0-9.]+),", part)
+        assert roots
+        for x, y in roots:
+            assert (float(x) - 31) ** 2 + (float(y) - 23) ** 2 < 13 ** 2, (block, x, y)
+    assert 'class: "atl-overlay atl-hair-root"' in ATLAS and ".nm-atlas .atl-hair-root { fill: var(--atl-hroot); }" in CSS

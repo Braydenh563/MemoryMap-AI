@@ -186,6 +186,12 @@ function boot() {
     LAB.look = look;
     try { return fn(); } finally { LAB.look = was; }
   };
+  //: A pose card's second line: what the card is made of beyond its name.
+  //: The base pose only when it differs from the label (a plain "stand"
+  //: card read "stand / stand"), then the companion classes that make it.
+  function poseDetail(label, pose, classes) {
+    return [...(pose === label ? [] : [pose]), ...classes].join(" · ");
+  }
   //: The companion's figure in a state: the pose CSS keys on `#nm-buddy`.
   function posed(pose, classes, look) {
     const host = document.createElement("div");
@@ -316,7 +322,7 @@ function boot() {
     poses() {
       card("Every pose", `${LAB.look} · the companion's states`, (body) => {
         const g = grid(body, true);
-        batch(g, POSES.map(([label, pose, classes]) => () => spec(posed(pose, classes), label, `${pose}${classes.length ? " · " + classes.join(" ") : ""}`, true)));
+        batch(g, POSES.map(([label, pose, classes]) => () => spec(posed(pose, classes), label, poseDetail(label, pose, classes), true)));
       });
     },
     avatar() {

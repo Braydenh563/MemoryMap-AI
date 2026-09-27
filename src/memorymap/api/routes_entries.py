@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links
 from memorymap.ai.ollama_client import OllamaError
+from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
 from memorymap.api.schemas import (
     AttachmentOut,
     ContextBody,
@@ -104,6 +105,7 @@ def _to_out(
     return EntryOut(
         id=entry.id,
         content=content,
+        content_hash=content_hash(content),
         title=manager.extract_title(content),
         category=(
             manager.category_name_for(session, entry) if category_name is None else category_name
@@ -1615,6 +1617,18 @@ def update_entry(
     """Manual override: the user can correct anything the AI decided
     (plan §4: the AI is a servant, not a gatekeeper)."""
     entry = _existing_entry(session, entry_id)
+    #: Two windows, one note (WORLD_CLASS_PLAN 22.1 item 5): a save that
+    #: started from text another window has since replaced is refused, with
+    #: that text, before anything is written. Compared as the reader sees it
+    #: (decrypted), which is what the editor's hash was taken from.
+    if body.base_hash and body.content is not None:
+        refuse_if_stale(
+            base_hash=body.base_hash,
+            current_text=manager.readable_content(entry),
+            new_text=body.content,
+            current=lambda: _to_out(session, entry),
+            noun="note",
+        )
     content_changed = body.content is not None and body.content != entry.content
     tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
     # Snapshot BEFORE the change, so the newest revision is always the version

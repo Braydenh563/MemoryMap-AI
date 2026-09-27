@@ -417,7 +417,9 @@ function splitCategoryFromPanel(meta) {
         box.type = "checkbox";
         boxes.set(entry.id, box);
         const text = document.createElement("span");
-        text.textContent = entry.title || entry.content.slice(0, 80);
+        //: A note with no text of its own (an image, a voice note) has no
+        //: `content` to cut: it threw here and the sheet never opened.
+        text.textContent = entry.title || String(entry.content || "").slice(0, 80) || "Untitled note";
         label.append(box, text);
         list.appendChild(label);
       }
@@ -481,6 +483,11 @@ function splitCategoryFromPanel(meta) {
         const ids = [...boxes].filter(([, box]) => box.checked).map(([id]) => id);
         if (!name) { toast("Name the new category first.", true); nameInput.focus(); return; }
         if (!ids.length) { toast("Tick the notes to move first.", true); return; }
+        //: One split per press: a second Enter or click while the first is
+        //: on its way asked the server to split notes already moved.
+        if (apply.disabled) return;
+        apply.disabled = true;
+        apply.setAttribute("aria-busy", "true");
         try {
           const result = await apiJson(`/categories/${meta.id}/split`, { method: "POST", body: JSON.stringify({ name, entry_ids: ids }) });
           close();
@@ -493,6 +500,9 @@ function splitCategoryFromPanel(meta) {
           await refreshAfterCategoryChange();
         } catch (error) {
           toast(error.message, true);
+        } finally {
+          apply.disabled = false;
+          apply.removeAttribute("aria-busy");
         }
       });
       card.appendChild(form);

@@ -167,15 +167,15 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   second poke pouts, a third is grumpy and comes down through a pout; a
   click near it only stirs it; a calm budget (one sudden act in 60 to 90s,
   none while typing or scrolling). atlassleepinput.js COMPANION_ONLY=1 and
-  companionsleeptab.js pass. **Open, atlas.js** (the Atlas agent): its
-  global pointerdown/keydown listener still sets every Atlas "surprised"
-  for 700ms and snaps back; atlassleepinput.js without COMPANION_ONLY
-  measures it (Ctrl held: 40 of 40 frames off "sleepy").
+  companionsleeptab.js pass. atlas.js's startle is fixed (afd8fb3), and a
+  poke on the companion now wakes Atlas's face too (it stayed shut: the
+  click lands on the face's box, not `.nm-atlas`); atlassleepinput.js in
+  full: 0 frames off "sleepy" for Ctrl held, clicks near and a tab click,
+  eyes open 1255ms after a poke, awake 20s later.
 - [x] Sleep across moves and tabs: carried asleep by a fade, in by a fade,
   lying or curled on arrival; companionsleeptab.js 0 awake frames of 466
   (83 walking asleep before).
-- [ ] Ctrl held: the companion side holds (0 awake frames); the frozen
-  face is atlas.js's listener above, with the Atlas agent.
+- [x] Ctrl held: 40 of 40 frames still asleep, no startle (atlassleepinput.js).
 - [x] Perch rules (the Weekly digest report): see "Covers content".
 
 ## App (Sonnet)
@@ -285,7 +285,15 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   (`tests/test_citation_after_heading.py`, passing): reproduction attempted
   through the real pipeline and not found; the test holds the shape as a
   regression guard. Needs the owner's real answer if seen again.
-- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
+
+- [ ] Status bar under 680px: one row, extras in a "more" menu.
+- [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Final
+  pass: errors 0 at 1093, 1440 and 390 in both themes; contrast 0 but one
+  at 390 light (a settings row's hover stuck on a phone, fixed); touch 0 at
+  390 both themes; docks one height per row.
+  ask, palette) with no row jump; the backend half exists.
+  reproduced; regression test added. Needs the owner's real answer if seen
+  again.- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
   affordance and alignment (a coordinator drop, not in the original list).
   Icon was a couple of px off the text's optical centre (`.notice`'s own
   `align-items: flex-start`, there for a *wrapping* notice, scoped fixed to
@@ -314,6 +322,16 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
 - Mood and act cross-fades beyond what exists; the remaining 22.x items.
 
 ## Before calling it done
+
+- [x] Final pass, first half: a bug scan of the branch's frontend since
+  91056d6 (fixed: lightbox zoom left on the other viewer; a split sent
+  twice and a textless note breaking the split sheet; Back declined at
+  Leave without saving left the address and stack on the old tab,
+  unsavedback.js; Compare drawn twice; a companion shown again born
+  mid-nap), `tests/test_final_pass_bugs.py`. Found, not changed (a
+  decision, not a bug): the capture box's draft counts as unsaved work,
+  so every tab switch with a draft asks "Leave without saving?" though
+  the draft is kept and the tab switch loses nothing.
 
 - [ ] App-wide consistency pass after the button, select and stepper
   restyle: every surface uses the same recipes (buttons, selects, dialog

@@ -213,10 +213,13 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     # dropped for being in "Ask again" already, so the row keeps its length
     # instead of losing a chip to the row below it.
     candidates = [f"What have I saved about {name.lower()}?" for name in categories[:2]]
-    candidates.append(f"Summarise my {categories[0].lower()}.")
+    # "my notes in General", not "my general": a category is a filing place,
+    # and read as a noun after "my" it made starters like "Summarise my
+    # general." on the seeded notebook.
+    candidates.append(f"Summarise my notes in {categories[0]}.")
     candidates.append("What have I saved recently?")
     candidates += [f"What have I saved about {name.lower()}?" for name in categories[2:6]]
-    candidates += [f"Summarise my {name.lower()}." for name in categories[1:3]]
+    candidates += [f"Summarise my notes in {name}." for name in categories[1:3]]
     candidates.append("What are my most common topics?")
     return _fill(candidates, asked)
 

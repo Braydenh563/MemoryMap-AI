@@ -501,3 +501,14 @@ def test_the_companion_shows_and_hides_from_anywhere() -> None:
     toggle = _fn("nameMarkBuddyToggle")
     assert 'localStorage.getItem("nm-buddy-last")' in toggle
     assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
+
+
+def test_it_gets_out_of_a_popups_way() -> None:
+    # INBOX 430: "the notifications panel was blocked by it". A popup is an
+    # obstacle as a whole box; over one it fades at once and steps aside.
+    assert '"#notif-panel:not(.hidden)' in AV
+    assert "const boxes = nameMarkBuddyPopups();" in _fn("nameMarkBuddyObstacles")
+    dodge = _fn("nameMarkBuddyDodge")
+    assert 'buddy.classList.toggle("nmb-dodge", over)' in dodge
+    assert "queueNameMarkBuddyCheck()" in dodge
+    assert "#nm-buddy.nmb-dodge { opacity: 0.12; }" in CSS08

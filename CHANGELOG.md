@@ -32,6 +32,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The corner companion gets out of the way of a popup: when the notifications panel, a menu, a list or a help popover opens over it, it fades at once and then steps aside, and fades back once it is clear.
 - Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
 - In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.

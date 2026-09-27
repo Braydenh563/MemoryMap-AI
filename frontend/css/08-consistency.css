@@ -5162,6 +5162,13 @@ main,
    `overflow: clip`, not `hidden`: a box that hides its overflow can itself
    be scrolled (by a focus, a find), and this one must never move but by
    its rider. The rider is what the area's scroll moves. */
+/* Over a popup (avatars.js, `nameMarkBuddyDodge`): faded out at once and
+   kept from the pointer, so the popup is readable and usable that frame;
+   it steps aside and fades back. Opacity only: the compositor's. */
+#nm-buddy { transition: opacity var(--motion-base) var(--ease-out); }
+#nm-buddy.nmb-dodge { opacity: 0.12; }
+#nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
+
 #nm-buddy-band {
   position: fixed;
   left: 0;

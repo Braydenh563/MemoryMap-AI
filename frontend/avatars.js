@@ -3266,7 +3266,10 @@ function nameMarkBuddyObstacles(tab) {
     document.getElementById("phone-tab-dock"), document.getElementById("toast-box"), document.querySelector(".pointer-menu-host"),
     ...document.querySelectorAll(".modal-overlay:not(.hidden), .dock-fab, #scroll-top, .chat-jump-latest"),
   ];
-  const boxes = [];
+  //: A popup's whole box, not only the controls in it (INBOX 430: the
+  //: notifications panel was blocked by it): it is where the reader is
+  //: looking the moment it opens.
+  const boxes = nameMarkBuddyPopups();
   for (const root of roots) {
     if (!root) continue;
     const found = root.matches(NAME_MARK_BUDDY_NEVER_COVER) ? [root] : [];
@@ -3277,6 +3280,48 @@ function nameMarkBuddyObstacles(tab) {
     }
   }
   return boxes;
+}
+
+//: **Out of the way of a popup** (INBOX 430, the owner: "move out of the
+//: way of popups (the notifications panel was blocked by it)"). Every
+//: surface that opens over the page and can land where it sits: the
+//: notifications panel, a menu, a select's list, a '?' popover. Its own
+//: menu is not one: that opens at it on purpose.
+const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden)";
+function nameMarkBuddyPopups() {
+  const boxes = [];
+  for (const el of document.querySelectorAll(NMB_POPUPS)) {
+    if (el === nmb.menu || el.closest("#nm-buddy, .nm-viewer")) continue;
+    const box = nameMarkBuddyShown(el);
+    if (box) boxes.push(box);
+  }
+  return boxes;
+}
+//: Checked a moment after any press or key (the way a popup opens), from
+//: boxes only. Over one, it fades at once, so the popup is readable that
+//: frame, and then steps aside on the check it already has; once nothing
+//: is over it any more, it fades back.
+function nameMarkBuddyDodge() {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const face = buddy.querySelector(".nm-buddy-face") || buddy;
+  const me = face.getBoundingClientRect();
+  const over = nameMarkBuddyPopups().some((b) => b.left < me.right && b.right > me.left && b.top < me.bottom && b.bottom > me.top);
+  buddy.classList.toggle("nmb-dodge", over);
+  if (!over) return;
+  if (!nmb.pinned) queueNameMarkBuddyCheck();
+  //: Looked at again while it is faded, so it fades back as soon as it has
+  //: stepped out from under (or the popup has gone), not at the next press.
+  clearTimeout(nmbDodgeTimer);
+  nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 500);
+}
+let nmbDodgeTimer = 0;
+for (const type of ["click", "keyup"]) {
+  document.addEventListener(type, () => {
+    if (!document.getElementById("nm-buddy")) return;
+    clearTimeout(nmbDodgeTimer);
+    nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 80);
+  }, { passive: true, capture: true });
 }
 
 //: The parts of the character that are actually drawn, as boxes: the head

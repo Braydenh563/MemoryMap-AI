@@ -1924,10 +1924,19 @@ function openLibraryCreatePicker() {
 
   const card = document.createElement("div");
   card.className = "card modal-card space-dialog library-create-picker";
-  const title = document.createElement("h3");
+  //: **The dialog-head recipe** (DESIGN.md, "A dialog's head"): the title
+  //: at a dialog's size with the icon X beside it. It was a 13px `<h3>`,
+  //: smaller than the 16px sentence under it, with the way out as a Cancel
+  //: at the foot (the devibe pass, devibe-document.png).
+  const head = document.createElement("div");
+  head.className = "dialog-head";
+  const title = document.createElement("h2");
+  title.className = "dialog-head-title";
   title.textContent = "Create";
+  const headActions = document.createElement("span");
+  headActions.className = "dialog-head-actions";
   const text = document.createElement("p");
-  text.className = "muted";
+  text.className = "muted library-create-sub";
   text.textContent = "Pick what to make, or bring a file in. It opens ready to use.";
   const list = document.createElement("ul");
   list.className = "rich-picker-list library-create-list";
@@ -1974,11 +1983,13 @@ function openLibraryCreatePicker() {
     li.appendChild(button);
     list.appendChild(li);
   }
-  const actions = document.createElement("div");
-  actions.className = "row right space-dialog-actions";
-  actions.appendChild(smallButton("Cancel", "Cancel", close));
+  const closeButton = smallButton("ph:x", "Close", close);
+  closeButton.classList.add("icon-only", "dialog-head-btn");
+  closeButton.setAttribute("aria-label", "Close");
+  headActions.appendChild(closeButton);
+  head.append(title, headActions);
 
-  card.append(title, text, list, actions);
+  card.append(head, text, list);
   overlay.appendChild(card);
   wireBackdropClose(overlay, () => close());
   document.addEventListener("keydown", onKey, true);

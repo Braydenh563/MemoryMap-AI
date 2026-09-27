@@ -46,6 +46,16 @@ const W=+(process.env.W||1440);
   await tab('library'); all.push(...await scan('library'));
   await sub('#library-subtabs button:nth-child(2)'); all.push(...await scan('library-2'));
   await tab('reminders'); all.push(...await scan('reminders'));
+  // A document, a board and a mind map, each made fresh (EXTRA=1: this
+  // writes to the data dir).
+  if(process.env.EXTRA){
+    await tab('library'); await sub('[data-target="library-view-docs"], [data-target="library-view-documents"]');
+    await sub('#library-new-doc'); await page.waitForTimeout(1500); all.push(...await scan('document')); await page.screenshot({path:`${process.env.SCRATCH||'.'}/shots/devibe-document.png`});
+    await tab('library'); await sub('[data-target="library-view-whiteboard"]');
+    await sub('#wb-new-board'); await page.waitForTimeout(1500); all.push(...await scan('whiteboard')); await page.screenshot({path:`${process.env.SCRATCH||'.'}/shots/devibe-whiteboard.png`});
+    await tab('library'); await sub('[data-target="library-view-whiteboard"]');
+    await sub('#wb-boards-new-map'); await page.waitForTimeout(1500); all.push(...await scan('mindmap')); await page.screenshot({path:`${process.env.SCRATCH||'.'}/shots/devibe-mindmap.png`});
+  }
   await page.evaluate(()=>document.getElementById('settings-btn')?.click()); await page.waitForTimeout(900);
   const sections=await page.evaluate(()=>[...document.querySelectorAll('#settings-modal [data-section]')].map(b=>b.dataset.section));
   for(const s of sections){ await page.evaluate((s)=>document.querySelector(`#settings-modal [data-section="${s}"]`)?.click(),s); await page.waitForTimeout(250); all.push(...await scan('settings/'+s)); }

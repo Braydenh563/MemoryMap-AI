@@ -8659,3 +8659,9 @@ input[type="file"]::file-selector-button:hover {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* A small gap between a note card's text and its metadata row (reported at
+   release: the chips sat flush under the last line of text). */
+#entry-list > li > .entry-meta {
+  margin-top: var(--space-2);
+}

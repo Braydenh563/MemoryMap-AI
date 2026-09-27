@@ -62,6 +62,7 @@ _LOOPBACK_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhos
 #: reached from anywhere else shows its module name, which is itself a finding.
 FEATURES = {
     "memorymap.search.websearch": "Web search",
+    "memorymap.core.webclip": "Web clipper",
     "memorymap.ai.ollama_client": "Model server",
     "memorymap.ai.openai_client": "Model server",
     "memorymap.ai.provider_http": "Model server",

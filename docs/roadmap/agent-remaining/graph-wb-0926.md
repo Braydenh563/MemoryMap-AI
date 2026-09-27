@@ -78,3 +78,39 @@ Open, found and not fixed:
   rows; the rows carry no date to tell them apart. Same in the sheet.
 - Not verified: dark theme, and the rail with the sidebar collapsed or
   dragged wide (the implicit track should hold; not measured).
+
+## Paused, 2026-09-27: WORLD_CLASS_PLAN D9, the web clipper (backend built)
+
+Paused at the coordinator's word for the performance pass. Built and tested:
+`POST /links/clip` (`api/routes_webclip.py`, locked), refused with a sentence
+while `web_search_enabled` is off; `core/webclip.py` fetches through S5's
+`public_addresses` on every hop, pinned to the checked address (the web
+reader's `_pin_url` and `_PinnedAdapter`), with 3 MB and 15 s caps on the
+whole fetch, and extracts the main content to markdown with the standard
+library's HTML parser (no attributes kept, http(s) links only, absolute,
+tracking stripped); the note goes through `create_entry` with `source_url`,
+so it is filed, embedded and indexed. The privacy receipt names it "Web
+clipper"; `test_outbound_fetch_guard.py` lists it as untrusted.
+`tests/test_webclip.py`: 33 tests (6 schemes, 8 private ranges, mixed
+answers, redirects to a private name, a private literal and another scheme,
+the redirect cap, pinning, size by body and by header, time, non-page
+content, three fixture pages, the note shape, and the route: off, on,
+private, scheme), all passing.
+
+Left, in order:
+
+1. The intake: a bookmarklet can't POST to the app from another site (the
+   Origin check refuses it, rightly), so it opens `<origin>/?clip=<url>` and
+   the app, once unlocked, asks "Clip this page?" and POSTs itself. One line
+   in `startApp` (app.js), beside `takeSharedIntake`, plus a new
+   `frontend/webclip.js`.
+2. The Settings row in Web search: the bookmarklet's code, built from
+   `location.origin`, in a read-only field with a Copy button, and one line
+   saying it uses the same opt-in.
+3. The PWA share target: `share_url` alone could go to the same "Clip this
+   page?" prompt, but that is more than one line (the share also carries a
+   title and text that Capture takes today), so it is left alone as briefed.
+4. A sweep (clip intake with the web off and on, against a local fixture
+   server is impossible by design since local addresses are refused; so the
+   route is stubbed in the page) and errors.js; the CHANGELOG line; D9's
+   state line in WORLD_CLASS_PLAN.

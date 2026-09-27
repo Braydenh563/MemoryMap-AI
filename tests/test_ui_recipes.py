@@ -3046,6 +3046,7 @@ RICH_PICKER_PARTS = ("row", "tile", "keys", "group", "label", "about", "text", "
 #: The pickers that draw through the recipe: (file, function).
 RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
+    ("settings-panes.js", "renderPalette"),
 ]
 
 #: Lists that still build their own `role="option"` rows. May only fall:
@@ -3077,6 +3078,21 @@ def test_every_rich_picker_draws_its_rows_through_the_recipe() -> None:
     for name, function in RICH_PICKERS:
         body = _function_body(frontend_text(name), function)
         assert "richPickerRow(" in body, f"{name} {function} no longer draws its rows with richPickerRow"
+
+
+def test_a_palette_keycap_names_a_real_shortcut() -> None:
+    """A palette row's keycap is read from the shortcut registry by name
+    (`chord`), so a row naming a chord that does not exist draws no key at
+    all, silently. Every name has to be in `DEFAULT_SHORTCUTS`."""
+    app = app_js_text()
+    table = app[app.index("const DEFAULT_SHORTCUTS = {") :]
+    table = table[: table.index("\n};")]
+    registry = set(re.findall(r"^\s{2}(\w+): \{ keys:", table, re.M))
+    commands = _function_body(app, "paletteCommands")
+    chords = re.findall(r'chord: "(\w+)"', commands)
+    assert len(chords) >= 10, f"only {len(chords)} palette rows say their chord"
+    missing = sorted(set(chords) - registry)
+    assert not missing, f"palette rows name chords the registry does not have: {missing}"
 
 
 def test_hand_built_option_rows_do_not_multiply() -> None:

@@ -1788,7 +1788,7 @@ button.ghost.danger {
 }
 
 #palette-card {
-  width: min(560px, 92vw);
+  width: min(44rem, 92vw);
   padding: 0.8rem;
   background: var(--modal-bg);
 }
@@ -1805,57 +1805,38 @@ button.ghost.danger {
   font-size: 1rem;
 }
 
-#palette-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 46vh;
-  overflow-y: auto;
-}
-
-#palette-list li {
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 0.92rem;
-}
-
-#palette-list li:hover,
-#palette-list li.active {
-  background: var(--accent-soft);
-}
-
-/* **The chord, at the far end of the row it belongs to**
-   (DOCUMENTS_PLAN Phase 4 item 4). A row is a flex line so the key can be
-   pushed right with `margin-left: auto` rather than by padding that would
-   have to know how long the label is; `flex: none` so a two-part chord never
-   squeezes the words it labels. The `<kbd>` itself takes the app's own key
-   paint from `01-forms-settings.css`, which is what makes it read as the same
-   object as the one in the shortcut sheet. */
-#palette-list li:has(> kbd.palette-keys) {
+/* A rich picker (rich-picker.js, DESIGN.md's recipe index): the list and,
+   from 44rem, the chosen row beside it. The rows, the group headings, the
+   keycaps, the lit row and the pane are the recipe's, drawn by the same
+   builders as the "/" menu; only the frame and the height are the
+   palette's. */
+.palette-body {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  align-items: stretch;
+  min-height: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
-#palette-list kbd.palette-keys {
-  flex: none;
-  margin-left: auto;
-  font-size: var(--text-xs);
+#palette-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 46vh;
 }
 
-/* Group headers inserted between Commands / Notes / Documents result sections.
-   Non-interactive, so cursor:default and no hover background. */
-#palette-list li.palette-group-header {
-  padding: var(--space-3) var(--space-4) var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: default;
-  pointer-events: none;
-  background: none !important;
+#palette-preview {
+  width: 16rem;
+  max-height: 46vh;
+}
+
+@media (max-width: 43.99rem) {
+  #palette-preview {
+    display: none;
+  }
+}
+
+#palette-list li.palette-empty {
+  padding: var(--space-2) var(--space-3);
 }
 
 .palette-hint {

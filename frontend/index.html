@@ -10893,8 +10893,11 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="palette-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette">
     <div class="card" id="palette-card">
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
-        autocomplete="off" aria-label="Command or search">
-      <ul id="palette-list"></ul>
+        autocomplete="off" aria-label="Command or search" aria-controls="palette-list">
+      <div class="palette-body">
+        <ul id="palette-list" class="rich-picker-list" role="listbox" aria-label="Commands and results"></ul>
+        <div id="palette-preview" class="rich-picker-preview hidden" aria-hidden="true"></div>
+      </div>
       <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close · ? for shortcuts</p>
     </div>
   </div>

@@ -1920,7 +1920,7 @@ summary > .ph-lead,
    and a mark's svg is otherwise allowed to overflow, which put the agent
    head's Atlas over the input's wand (docs/screenshots/agent.png). */
 .atlas-mark > .nm-atlas,
-#palette-list li > .nm-atlas {
+.rich-picker-tile-face > .nm-atlas {
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -1930,14 +1930,6 @@ summary > .ph-lead,
   width: 1.75rem;
   height: 1.75rem;
   font-size: var(--text-base);
-}
-
-#palette-list li > .nm-atlas {
-  display: inline-block;
-  width: 1.5em;
-  height: 1.5em;
-  vertical-align: -0.45em;
-  margin-right: 0.4em;
 }
 
 .atlas-intro-words {
@@ -3601,14 +3593,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #finder-sort + .select-shell,
 .finder-card .select-shell {
   font-size: var(--text-sm);
-}
-
-/* The palette painted a hovered row with the same ground as the row the
-   keyboard has chosen (02-chat-graph.css), so with the mouse resting over
-   the list two rows looked selected and Enter's target was a guess. The
-   chosen row keeps the ground; a hovered one gets the lighter hover wash. */
-#palette-list li:hover:not(.active) {
-  background: var(--chip-bg);
 }
 
 /* --- notifications -------------------------------------------------------------

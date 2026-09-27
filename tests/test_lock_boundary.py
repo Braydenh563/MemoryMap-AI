@@ -35,6 +35,7 @@ USER_CONTENT_IDS = [
     "reminder-list-card",
     "graph-svg",
     "palette-list",
+    "palette-preview",
 ]
 
 

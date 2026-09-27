@@ -38,7 +38,7 @@ written.
   and one radius; a magnifier and a clear; one focus ring; the
   description 10px under the head (was 5); arrows and Space select, the
   bulk bar shows; no inner scroller at 1093.
-- [ ] Feminine hair, the owner after 0bcfd1a: "I want to add a bit more
+- [x] Feminine hair, the owner after 0bcfd1a: "I want to add a bit more
   texture to the start of the long hair on the feminine atlas, also I dont
   like the forehead hair part. it gives off school girl vibes and not astral
   cosmic beauty vibes". Replace the centre-parted fringe (two rounded
@@ -46,6 +46,11 @@ written.
   mass, a luminous hairline, fine flowing strands and star-dust glints at
   the roots (texture), perhaps a circlet of tiny stars or a crescent;
   elegant, ethereal, not cute. Check full size, companion size, the icon.
+  Done: no parting, one high hairline arc lit as a soft band and a fine
+  line, five hair-fine strands swept up and back with a light line each
+  (the texture), dust at the roots, a circlet of stars on a thread with a
+  larger middle star. `atlasportrait.js` (HEAD=1 for the 200px head),
+  light and dark: full 240, head 200 and 64, companion 64x92, icon 24.
 - [ ] The lie pose's nebula cushion reads as a bed, not a thin band.
 - [ ] Masculine lower-body wisps read more masculine: fewer, broader,
   straighter-falling streams with a firmer taper (not the feminine

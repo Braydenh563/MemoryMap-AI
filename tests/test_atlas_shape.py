@@ -367,7 +367,9 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
     # have it look like a bald head with lots of hair coming from the back").
     for look in ("masculine", "feminine"):
         assert "cap: \"M" in _look(look), look
-    assert "capPart: \"M" in _look("feminine")
+    # The feminine parting went with the owner's "school girl vibes": the
+    # hairline is one arc with no parting (see the astral crown test).
+    assert "capPart" not in _look("feminine") and "atl-cap-part" not in ATLAS
     assert "function atlasHairCap(parent, spec)" in ATLAS
     # Over the head, under the ears, so the ears rise out of it.
     head = ATLAS[ATLAS.index("function atlasHead("):]
@@ -384,3 +386,24 @@ def test_the_feminine_front_locks_are_soft_and_seamless():
     assert "atlasStem(seg, (t) => 0.35 + w * Math.sin(Math.PI * Math.min(1, t * 1.02)) ** 0.8, { samples: 10, cap: true })" in ATLAS
     assert 'class: "atl-skin atl-lock atl-front-lock"' in ATLAS
     assert "frontLocks" not in _look("masculine")
+
+
+def test_the_feminine_crown_is_astral_not_a_fringe():
+    # The owner after 0bcfd1a: "I dont like the forehead hair part. it gives
+    # off school girl vibes and not astral cosmic beauty vibes", and "a bit
+    # more texture to the start of the long hair". The strands are fine and
+    # swept up and back, the hairline
+    # is lit, dust glints at the roots and a circlet of stars sits above it.
+    feminine = _look("feminine")
+    for key in ("hairline: \"M", "rootDust: [", "circlet: ["):
+        assert key in feminine, key
+    locks = feminine[feminine.index("frontLocks: ["):]
+    locks = locks[: locks.index("],\n    lowers")]
+    for w in re.findall(r"w: ([0-9.]+)", locks):
+        assert float(w) <= 1.5, "a front strand wider than 1.5 is a lock, the curtains again"
+    for seg in re.findall(r"seg: \[\[([^\]]+)\]\]", locks):
+        nums = [float(n) for n in seg.split(",")]
+        # Swept back toward the mass, which streams off to her left (+x),
+        # and never falling over the brow: the curtains ended at y 17 to 19.
+        assert nums[-2] > nums[0] and nums[-1] < 16, "a swept strand runs back toward the mass, above the brow"
+    assert 'class: "atl-thread atl-circlet"' in ATLAS and '"atl-strand-light"' in ATLAS

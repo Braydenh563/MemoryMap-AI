@@ -470,7 +470,6 @@ const ATLAS_LOOKS = {
     //: crown, its hairline cut into two small points; the crest and the
     //: ears rise from it (`atlasHairCap`).
     cap: "M18.4 20.6C17.8 12.6 23.4 6.8 31 6.8C38.6 6.8 44.2 12.6 43.8 20C42.6 16.2 40.2 13.4 37 12.2C36.4 13.6 35 14.6 33.6 14.8C33.8 13.8 33.6 13 33 12.4C31.6 14 29.6 15 27.6 15.2C28 14.4 28 13.6 27.6 13C25 14.4 22 16.8 18.4 20.6Z",
-    capPart: "",
     legs: false,
     lowerPivot: [31, 58],
     skirt: "M25.2 52C24.4 60 25.6 68 27.4 75C28.8 81 29.4 87 28.6 93C30.4 90.4 31.4 87.6 31.8 85C32.8 88.4 34 91 35.8 93.6C35 87.4 35.2 81.2 36.2 75C37.8 68 38.8 60 37 52Z",
@@ -546,23 +545,33 @@ const ATLAS_LOOKS = {
     //: 5.8) and run on 5 to 6 units further down, the centre one longest,
     //: so the skirt tapers to a trail below the figure. The outer two are
     //: unchanged.
-    //: Round 9: a soft cap parted a little right of centre, each side
-    //: sweeping down to the temple where her locks and wings take over, in
-    //: place of round 8's scalp, which faded to skin by the brow and left
-    //: the crown reading bald (`atlasHairCap`).
-    cap: "M17.8 21.4C17.6 12.6 23.4 6.8 31 6.6C38.8 6.6 44.6 12.6 44.4 21.4C43 17.6 40.6 14.6 37.2 13.2C36.2 12.8 35 12.4 34 11.6C33 12.6 31.4 13.2 29.6 13.6C25.6 14.6 21.2 16.8 17.8 21.4Z",
-    capPart: "M34 11.6C34.6 9.6 35.4 8.2 36.6 7.2",
-    //: **The front locks** (round 9, the owner: "this front part of the
-    //: feminine atlas hair needs a fix and smoothen"): the crown's three
-    //: wisps read as flat blades with square-cut roots floating on the cap.
-    //: In their place, three soft locks curving out of the parting and lying
-    //: over the cap, each thin at the parting, swelling and tapering to a
-    //: rounded tip (`atlasFrontLock`), in the cap's own paint and root
-    //: shade and with no outline, so they merge into it with no seam.
+    //: **An astral crown, not a fringe** (the owner after 0bcfd1a: "I dont
+    //: like the forehead hair part. it gives off school girl vibes and not
+    //: astral cosmic beauty vibes", and "a bit more texture to the start of
+    //: the long hair"). Round 9's cap was parted right of centre with three
+    //: soft locks curving down out of the parting over the brow: a centre
+    //: parting and two rounded curtains, which is the schoolgirl. Now the
+    //: hair is swept back off the brow: the cap's lower edge is one high,
+    //: smooth arc (the hairline, no parting), fine strands rise from it up
+    //: and back over the crown into the mass that streams behind, the
+    //: hairline itself is lit (`hairline`, a soft band and a fine bright
+    //: line), star dust glints at the roots (`rootDust`), and a circlet of
+    //: tiny stars on a hair-fine thread sits just above it (`circlet`), its
+    //: middle star the largest.
+    cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C42.2 15.4 37.6 12.4 31.6 12.2C25.6 12 20.6 15 17.8 21Z",
+    hairline: "M18.6 19.6C21.2 15 25.8 12.5 31.4 12.4C36.8 12.5 41.2 14.8 43.6 18.6",
+    rootDust: [[20.4, 16.8, 0.3], [23.6, 14, 0.24], [27.6, 12.6, 0.28], [35.4, 12.8, 0.24], [39.4, 14.2, 0.3], [42.4, 16.6, 0.22]],
+    circlet: [[20.8, 15], [25, 11.4], [31, 10.2], [37, 11.2], [41.4, 14.2]],
+    //: The swept strands (drawn by the front-lock builder: thin at the
+    //: root, swelling, a rounded tip), fine enough to read as texture
+    //: rather than as locks: hair-fine at the hairline, rising up and back
+    //: over the crown toward the mass, each a different length.
     frontLocks: [
-      { seg: [[34, 11.8, 30.4, 9.8, 25.4, 10.8, 21.6, 14.4], [21.6, 14.4, 20.2, 15.8, 19.6, 17.4, 19.8, 19]], w: 3.2 },
-      { seg: [[33.8, 11.6, 31.2, 8.6, 28, 7.8, 25.4, 9]], w: 2.2 },
-      { seg: [[34.4, 11.8, 38, 10.4, 41.6, 11.8, 43.6, 15.2]], w: 2.6 },
+      { seg: [[19.2, 19.2, 19.4, 13, 24.6, 8.4, 32, 6.8]], w: 1.1 },
+      { seg: [[21, 17, 23, 11.4, 29.6, 8, 37.4, 7.2]], w: 1.4 },
+      { seg: [[24.6, 14.2, 27.4, 9.8, 33.6, 7.8, 41.2, 8.6]], w: 1.3 },
+      { seg: [[28.8, 12.8, 32, 9.8, 37.6, 9.2, 43, 11.8]], w: 1.2 },
+      { seg: [[33.4, 12.6, 36.8, 11.2, 40.8, 12.2, 43.8, 15.4]], w: 1 },
     ],
     lowers: [
       { seg: [[26.4, 55, 22.6, 62.4, 19.6, 69, 17.8, 76], [17.8, 76, 16, 83, 19.4, 87.4, 13.6, 90.4], [13.6, 90.4, 11.8, 91.4, 10.4, 92.6, 9.2, 94.4]], w: 6.4, specks: [[20.4, 68.4, 0.32], [16.6, 84, 0.28]], edge: true },
@@ -1236,7 +1245,6 @@ function atlasHairCap(parent, spec) {
   atlasMake("path", { class: "atl-skin atl-lock atl-cap-fill", d: spec.cap }, g);
   atlasMake("path", { class: "atl-overlay atl-hair-neb", d: spec.cap }, g);
   atlasMake("path", { class: "atl-overlay atl-hair-root", d: spec.cap }, g);
-  if (spec.capPart) atlasMake("path", { class: "atl-cap-part", d: spec.capPart }, g);
   return g;
 }
 
@@ -1276,6 +1284,33 @@ function atlasEars(parent, level, edge, look) {
         atlasMake("path", { class: "atl-skin atl-lock atl-front-lock", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-neb", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-root", d }, wisps);
+      }
+      //: A fine light line down each swept strand: the texture the owner
+      //: asked for at the start of the long hair.
+      if (spec.hairline && spec.frontLocks) {
+        const d = spec.frontLocks.map(({ seg }) => seg.map(([x0, y0, ...c], i) => `${i ? "" : `M${x0} ${y0}`}C${c.join(" ")}`).join("")).join("");
+        atlasMake("path", { class: "atl-strand-light", d }, wisps);
+      }
+      //: The astral crown over the strands: the lit hairline, the dust at
+      //: its roots, the circlet of stars.
+      if (spec.hairline) {
+        atlasMake("path", { class: "atl-hairline-glow", d: spec.hairline }, wisps);
+        atlasMake("path", { class: "atl-hairline", d: spec.hairline }, wisps);
+      }
+      if (spec.rootDust) atlasSpecks(wisps, spec.rootDust, "atl-speck atl-root-dust");
+      if (spec.circlet) {
+        const pts = spec.circlet;
+        let d = `M${pts[0][0]} ${pts[0][1]}`;
+        for (let i = 1; i < pts.length; i++) {
+          const [px, py] = pts[i - 1];
+          const [x, y] = pts[i];
+          d += `Q${(px + x) / 2} ${Math.min(py, y) - 0.5} ${x} ${y}`;
+        }
+        atlasMake("path", { class: "atl-thread atl-circlet", d }, wisps);
+        pts.forEach(([x, y], i) => {
+          if (i === (pts.length - 1) / 2) atlasSpark(wisps, x, y, 1.1, "atl-glint atl-circlet-star");
+          else atlasMake("circle", { class: "atl-node-dot atl-circlet-dot", cx: x, cy: y, r: i === 0 || i === pts.length - 1 ? 0.34 : 0.46 }, wisps);
+        });
       }
     }
     out.wisps = wisps;

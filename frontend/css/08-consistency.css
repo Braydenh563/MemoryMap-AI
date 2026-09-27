@@ -6962,7 +6962,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-front-lock { opacity: 0.9; }
 .nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
 .nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
-.nm-atlas .atl-cap-part { fill: none; stroke: var(--atl-rim); stroke-width: 0.6; stroke-linecap: round; opacity: 0.35; }
+/* The feminine astral crown (atlas.js, `hairline`, `rootDust`, `circlet`):
+   the hairline lit as a soft band under a fine bright line, star dust at the
+   roots, and a circlet of tiny stars on a hair-fine thread. It replaces the
+   parting (`.atl-cap-part`), the owner's "school girl vibes". */
+.nm-atlas .atl-hairline-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.8; stroke-linecap: round; opacity: 0.28; }
+.nm-atlas .atl-hairline { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.7; }
+.nm-atlas .atl-root-dust { opacity: 0.85; }
+.nm-atlas .atl-strand-light { fill: none; stroke: white; stroke-width: 0.3; stroke-linecap: round; opacity: 0.5; }
+.nm-atlas .atl-circlet { stroke-width: 0.3; opacity: 0.55; }
+.nm-atlas .atl-circlet-dot { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
 .nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.48; }

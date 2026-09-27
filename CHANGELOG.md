@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion perches on the page's own panels first on every tab (a card, a toolbar, the underside of a panel) and rides them as they scroll, where every tab used to leave it on a window bar; it skips menus that are faded out and fields you type into, and Atlas's tail counts as part of what may not cover a control.
 - Generated faces wear a mood each in their own way: per mood, each character favours its own eyes, brows and mouth from a few near neighbours (one happy face grins with sparkling eyes, another smiles a cat's smile), always the same for the same name, colours unchanged.
 - Atlas reads as one figure rather than parts: the masculine legs root deep in the body with a calf and a slim ankle, smaller soft feet, fuller shoulders with a forearm's swell and a smaller mitten; the body and limbs share one shade, the torso's glow no longer outlines its hem over the legs, and the nebula's new tip fades in from nothing.
 - Atlas's rings tilt a little further and the planets on them slowly go round, on the compositor (no layout, no repaint), fading as they pass behind the head; the nebula stream now rises from above the crown.

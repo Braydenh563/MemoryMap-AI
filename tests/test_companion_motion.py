@@ -521,3 +521,19 @@ def test_it_keeps_out_of_the_tours_ring() -> None:
     assert "#tour-spot:not(.hidden), #tour-card:not(.hidden)" in AV
     assert "nmbDodgeLate = setTimeout(nameMarkBuddyDodge, 700);" in AV
     assert 'buddy.querySelector(".nm-figure")' in _fn("nameMarkBuddyDodge")
+
+
+def test_it_perches_on_the_pages_panels_first_on_every_tab():
+    # INBOX 430: "perch and ride on UI elements on every tab and scroll with
+    # them, as it does on the Dashboard". Every tab put it on a window bar
+    # (companiontabs.js, before); now each tab's first choice is a panel.
+    start = AV.index("const NAME_MARK_BUDDY_ORDER = {")
+    table = AV[start : AV.index("};", start)]
+    rows = dict(re.findall(r"(\w+): \[\"(\w+)\"", table))
+    assert set(rows) >= {"dashboard", "notes", "chat", "graph", "library", "documents", "timeline", "reminders"}
+    assert all(first in ("card", "dock", "under") for first in rows.values()), rows
+    # Never a menu faded out or a field you type into, and Atlas's tail is
+    # part of what must not cover a control.
+    assert "child.checkVisibility({ opacityProperty: true, visibilityProperty: true })" in AV
+    assert "child.matches(\"textarea, input, select, [contenteditable='true'], .cm-editor\")" in AV
+    assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV

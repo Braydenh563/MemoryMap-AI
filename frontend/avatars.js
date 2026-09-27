@@ -3070,19 +3070,26 @@ const NAME_MARK_BUDDY_NEVER_COVER = [
   ".toast", ".modal-card", ".action-menu", "video", "iframe",
 ].join(", ");
 
-//: The order each tab prefers its perches in. Hanging from the top bar
-//: suits a page whose top is quiet; sitting on the bottom bar a page that
-//: fills the screen (the graph, the timeline); standing on a dock a page
-//: whose toolbar has room at its end.
+//: The order each tab prefers its perches in. **The page's own panels
+//: first, on every tab** (round 7, INBOX 430, the owner: "perch and ride
+//: on UI elements on every tab and scroll with them, as it does on the
+//: Dashboard"). Measured before (companiontabs.js, 1440 by 900, a fresh
+//: visit): every tab put it on a window bar, hanging from the top one on
+//: the dashboard, notes and chat, standing on the bottom one on the other
+//: five, where it never moved with the page. A card, a dock or the
+//: underside of a panel is something to ride; the window's bars are the
+//: fallback when every panel is full of controls or words. The toolbar
+//: (`dock`) leads where the page is one big canvas (the graph) or a list
+//: under a toolbar (notes, the library, documents).
 const NAME_MARK_BUDDY_ORDER = {
-  dashboard: ["hang", "card", "bar", "under", "dock"],
-  notes: ["dock", "under", "bar", "hang", "card"],
-  chat: ["hang", "bar", "dock", "card", "under"],
-  graph: ["bar", "hang", "dock"],
-  library: ["dock", "under", "bar", "hang", "card"],
-  documents: ["dock", "bar", "hang", "card", "under"],
-  timeline: ["bar", "hang", "dock", "card", "under"],
-  reminders: ["card", "under", "hang", "bar", "dock"],
+  dashboard: ["card", "dock", "under", "hang", "bar"],
+  notes: ["dock", "card", "under", "hang", "bar"],
+  chat: ["card", "dock", "under", "hang", "bar"],
+  graph: ["dock", "card", "bar", "hang"],
+  library: ["dock", "card", "under", "hang", "bar"],
+  documents: ["dock", "card", "under", "bar", "hang"],
+  timeline: ["card", "dock", "under", "bar", "hang"],
+  reminders: ["card", "under", "dock", "hang", "bar"],
 };
 
 //: **Its behaviours, as a small game AI** (the owner: "more diverse
@@ -3476,6 +3483,10 @@ function nameMarkBuddyShapeAt1(x, y, pose, legs = "") {
   ];
   //: The arms that hold on, from just under the ledge.
   if (pose === "hang") shape.push({ left: x - 4, top: y + NMB_GRIP + 1, right: x + 68, bottom: y + drop + 30 });
+  //: Atlas's tail curls out past the box to the lower right, to x + 80
+  //: sitting (atlasreach.js); with panels preferred on every tab (round 7)
+  //: it sat on the chat's composer row with its tail over Send.
+  if (legs !== "tuck" && document.querySelector("#nm-buddy .atl-figure-box")) shape.push({ left: x + 44, top: y + drop + 50, right: x + 82, bottom: y + drop + NMB_FEET + 4 });
   return shape;
 }
 
@@ -3599,6 +3610,14 @@ function nameMarkBuddySurfaceWalk(page) {
       if (child.id === "nm-buddy") continue;
       const box = child.getBoundingClientRect();
       if (box.width < 96 || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
+      //: A closed menu keeps its box while faded out (the timeline's
+      //: Options list, `visibility: hidden` at opacity 0): with panels
+      //: preferred on every tab (round 7) it was chosen, and the companion
+      //: hung in mid-air over a row from a menu nobody could see.
+      if (typeof child.checkVisibility === "function" && !child.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+      //: Nor a field you type into: sitting on a document's editor its
+      //: tail hung over the first line of what you were writing.
+      if (child.matches("textarea, input, select, [contenteditable='true'], .cm-editor")) continue;
       let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= 96);
       if (!surface) {
         const cs = getComputedStyle(child);

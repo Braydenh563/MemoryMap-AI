@@ -3172,6 +3172,16 @@ const NAME_MARK_BUDDY_ACTS = {
   onehand: { ms: 4200, w: 2, cool: 20000, poses: ["hang"] },
   feet: { ms: 7000, w: 1, cool: 45000, poses: ["hang"] },
   emerge: { ms: 800, w: 0, cool: 0, poses: ["sit", "stand"] },
+  //: **Peeking down from under a bar** (the owner: "is there a peak half
+  //: hidden animation for the companion like with the bottom bar for the top
+  //: bar as well?"). The mirror of `peek`: hanging from the top bar (or a
+  //: panel's underside), it pulls itself up out of sight behind the edge,
+  //: turns over there, and lets its head down under the edge upside down,
+  //: eyes first, and stays so; `peekback` takes it up and down again to hang.
+  //: Everything above the edge is clipped (the CSS, `nmb-act-peekdown`), so
+  //: what is hidden is behind the bar, not over it.
+  peekdown: { ms: 9000, w: 1.5, cool: 60000, poses: ["hang"] },
+  peekback: { ms: 1500, w: 0, cool: 0, poses: ["hang"] },
   cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
@@ -3220,13 +3230,13 @@ const NAME_MARK_BUDDY_MOODS = {
   excited: { hop: 2.5, wave: 2, kick: 2 },
   happy: { hop: 1.5, wave: 1.5, dangle: 1.5 },
   laughing: { hop: 2, kick: 2 },
-  cute: { wave: 2, peek: 1.5, dangle: 1.5 },
+  cute: { wave: 2, peek: 1.5, peekdown: 1.5, dangle: 1.5 },
   uwu: { wave: 2, peek: 2 },
   love: { wave: 2, glance: 2 },
-  nervous: { peek: 3, look: 2, hop: 0.5 },
+  nervous: { peek: 3, peekdown: 2.5, look: 2, hop: 0.5 },
   sad: { peek: 2, nap: 1.5, hop: 0.3 },
   confused: { look: 2, scratch: 3 },
-  sly: { peek: 2.5, feet: 2, onehand: 2 },
+  sly: { peek: 2.5, peekdown: 2, feet: 2, onehand: 2 },
   evil: { peek: 2, feet: 2.5 },
   cool: { onehand: 2.5, feet: 1.5, turn: 2 },
   dramatic: { stretch: 2.5, wave: 2 },
@@ -5267,6 +5277,7 @@ function nameMarkBuddyAct(act, ms) {
   nmb.timer = 0;
   //: Out from behind the panel before anything else.
   if (was === "peek" && act !== "emerge" && !nameMarkBuddyStill()) act = act || "emerge";
+  if (was === "peekdown" && act !== "peekback" && !nameMarkBuddyStill()) act = act || "peekback";
   if (!act) {
     nameMarkBuddySchedule();
     return;
@@ -5392,9 +5403,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     const { energy, curiosity, sociability } = nmb.mood;
     if (["hop", "kick", "dangle", "wave", "stretch", "swing", "onehand", "feet"].includes(act)) w *= 0.4 + energy;
     if (["yawn", "nap", "sloth"].includes(act)) w *= 1.6 - energy;
-    if (["look", "glance", "peek", "scratch"].includes(act)) w *= 0.5 + curiosity;
+    if (["look", "glance", "peek", "peekdown", "scratch"].includes(act)) w *= 0.5 + curiosity;
     if (["wave", "glance"].includes(act)) w *= 0.4 + sociability;
-    if (["peek", "turn"].includes(act)) w *= 1.4 - sociability;
+    if (["peek", "peekdown", "turn"].includes(act)) w *= 1.4 - sociability;
     if (now < nmb.grumpyUntil && ["wave", "glance", "hop", "cheer"].includes(act)) w = 0;
     //: Ignored for twenty minutes while you are busy: it tries for your
     //: attention with a wave.

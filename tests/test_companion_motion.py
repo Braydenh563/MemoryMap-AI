@@ -648,3 +648,18 @@ def test_its_enlarged_view_keeps_the_drawing_clear_of_its_name() -> None:
     fit = _fn("nameMarkViewerFit")
     assert 'grow("marginBottom", bottom - box.bottom);' in fit and 'grow("marginTop", box.top - top);' in fit
     assert "if (px > was)" in fit
+
+
+def test_it_peeks_down_from_under_the_top_bar() -> None:
+    # The owner: "is there a peak half hidden animation for the companion
+    # like with the bottom bar for the top bar as well?" Hanging, it pulls up
+    # behind the edge, turns over out of sight and lets its head down under
+    # it; ending it always goes through `peekback` (never a pop to hanging).
+    # Measured (peekdown.js): 25px of head shown under the bar, frames within
+    # 12px, back to hanging with no clip.
+    assert 'peekdown: { ms: 9000, w: 1.5, cool: 60000, poses: ["hang"] },' in AV
+    act = _fn("nameMarkBuddyAct")
+    assert 'if (was === "peekdown" && act !== "peekback" && !nameMarkBuddyStill()) act = act || "peekback";' in act
+    assert "&:is(.nmb-act-peekdown, .nmb-act-peekback) .nm-buddy-face { clip-path: inset(5px -80px -80px -80px); }" in CSS08
+    for name in ("nmb-peekdown", "nmb-peekback"):
+        assert f"@keyframes {name} {{" in CSS08

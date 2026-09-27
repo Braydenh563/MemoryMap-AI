@@ -3286,8 +3286,13 @@ function nameMarkBuddyObstacles(tab) {
 //: way of popups (the notifications panel was blocked by it)"). Every
 //: surface that opens over the page and can land where it sits: the
 //: notifications panel, a menu, a select's list, a '?' popover. Its own
-//: menu is not one: that opens at it on purpose.
-const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden)";
+//: menu is not one: that opens at it on purpose. The guided tour's ring
+//: and card are two more (INBOX 430, "Atlas spills out of its ring in the
+//: tour"): the ring is a hole in the tour's dim, and a companion perched by
+//: the control it rings showed through the hole and ran out under the dim
+//: (tourspill.js: 86 to 90px past the ring on Library's "Make something
+//: new" and the status bar's "Find").
+const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden), #tour-spot:not(.hidden), #tour-card:not(.hidden)";
 function nameMarkBuddyPopups() {
   const boxes = [];
   for (const el of document.querySelectorAll(NMB_POPUPS)) {
@@ -3304,7 +3309,9 @@ function nameMarkBuddyPopups() {
 function nameMarkBuddyDodge() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  const face = buddy.querySelector(".nm-buddy-face") || buddy;
+  //: The drawn figure's box, not the face button's: the tail and the
+  //: skirt hang below the button, and a tour ring under them was missed.
+  const face = buddy.querySelector(".nm-figure") || buddy.querySelector(".nm-buddy-face") || buddy;
   const me = face.getBoundingClientRect();
   const over = nameMarkBuddyPopups().some((b) => b.left < me.right && b.right > me.left && b.top < me.bottom && b.bottom > me.top);
   buddy.classList.toggle("nmb-dodge", over);
@@ -3316,11 +3323,16 @@ function nameMarkBuddyDodge() {
   nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 500);
 }
 let nmbDodgeTimer = 0;
+let nmbDodgeLate = 0;
 for (const type of ["click", "keyup"]) {
   document.addEventListener(type, () => {
     if (!document.getElementById("nm-buddy")) return;
     clearTimeout(nmbDodgeTimer);
+    clearTimeout(nmbDodgeLate);
     nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 80);
+    //: And once the page has settled: a tour step that changes tab, or a
+    //: panel that slides in, lands its box after the first look.
+    nmbDodgeLate = setTimeout(nameMarkBuddyDodge, 700);
   }, { passive: true, capture: true });
 }
 

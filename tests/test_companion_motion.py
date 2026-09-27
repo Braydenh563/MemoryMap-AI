@@ -512,3 +512,12 @@ def test_it_gets_out_of_a_popups_way() -> None:
     assert 'buddy.classList.toggle("nmb-dodge", over)' in dodge
     assert "queueNameMarkBuddyCheck()" in dodge
     assert "#nm-buddy.nmb-dodge { opacity: 0.12; }" in CSS08
+
+
+def test_it_keeps_out_of_the_tours_ring() -> None:
+    # INBOX 430: "Atlas spills out of its ring in the tour". The tour's ring
+    # and card are popups it gets out of the way of, looked at again once a
+    # step has settled, measured by the drawn figure's box.
+    assert "#tour-spot:not(.hidden), #tour-card:not(.hidden)" in AV
+    assert "nmbDodgeLate = setTimeout(nameMarkBuddyDodge, 700);" in AV
+    assert 'buddy.querySelector(".nm-figure")' in _fn("nameMarkBuddyDodge")

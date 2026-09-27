@@ -331,6 +331,99 @@ body.scroll-top-visible #tab-notes .layout > main {
   padding-bottom: var(--scroll-top-clearance);
 }
 
+/* --- the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) ----------
+   The Notes layout's third column. **An implicit track, not a third entry in
+   the template**: a resizable sidebar writes the layout's
+   `grid-template-columns` inline (`applySidebarWidth`, sheets-selects.js),
+   and an inline style beats every rule here, so a template with three tracks
+   would be overwritten with two on the first resize. Placing the rail on
+   column 3 of row 1 makes the grid add that track itself, sized by
+   `grid-auto-columns`, and only while the rail is drawn: a `hidden` rail is
+   `display: none` and creates no track at all.
+
+   Width: measured with the default sidebar, the list's column is 974px at
+   1280, so a rail of 17rem leaves the reading column at about 620 there and
+   about 750 at 1440 (`scratchpad/ui-sweeps/notesrail.js`). */
+#tab-notes .layout {
+  grid-auto-columns: clamp(17rem, 21vw, 20rem);
+}
+
+#notes-rail {
+  grid-column: 3;
+  grid-row: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+#notes-rail[hidden] {
+  display: none;
+}
+
+.notes-rail-head {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+.notes-rail-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-rail-actions {
+  margin-left: auto;
+  gap: var(--space-1);
+  flex: none;
+}
+
+/* The note the column is about, one line: the head says what the column is,
+   this says which note, so a reader who has walked the list with the arrows
+   can see the column has followed. */
+.notes-rail-subject {
+  margin: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-rail-body[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.notes-rail-body .connection-group + .connection-group {
+  margin-top: var(--space-5);
+}
+
+.notes-rail-note {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* The route's own sentence for why a forgotten note was chosen, under its
+   row and indented to the row's text. */
+.notes-rail-why {
+  font-size: var(--text-xs);
+  padding-left: var(--space-3);
+  margin-top: calc(-1 * var(--space-1));
+}
+
+/* Below the width the script draws it at, never: see NOTES_RAIL_MIN_WIDTH in
+   notes-list.js, which has to name the same number. The note's own
+   Connections sheet is the way in there. */
+@media (max-width: 1279.98px) {
+  #notes-rail {
+    display: none;
+  }
+}
+
 #graph-card {
   display: flex;
   flex-direction: column;

@@ -987,6 +987,27 @@ async function openConnections(kind, id, subject) {
   }
   status.textContent = "";
 
+  const shown = buildConnectionGroups(list, kind, data, () => overlay.classList.add("hidden"));
+  if (!shown) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent =
+      kind === "entries"
+        ? "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard."
+        : "Nothing is joined to this document yet. Attach a note or a reference to it.";
+    list.appendChild(empty);
+  }
+}
+
+//: **The groups and their rows, for the sheet above and for the Notes tab's
+//: connections rail** (WORLD_CLASS_PLAN D2, notes-list.js `renderNotesRail`).
+//: One builder, so the rail and the sheet cannot disagree about what a
+//: connection is called or how one opens: the rail is the same answer drawn
+//: in a column that stays, the sheet the same answer drawn where a column does
+//: not fit. `beforeOpen` is what leaving the surface means (the sheet closes;
+//: the rail stays where it is). Appends to `list` and returns how many rows it
+//: drew, so each caller words its own empty state.
+function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
   // Each group is [heading, rows, how to open one]. Built as data rather
   // than five near-identical blocks of DOM code: the groups differ only in
   // their label field and their click target, and writing that out five
@@ -1008,7 +1029,7 @@ async function openConnections(kind, id, subject) {
 
   function row(label, title, onOpen) {
     const item = smallButton(label, title, () => {
-      overlay.classList.add("hidden");
+      beforeOpen();
       onOpen();
     });
     item.classList.add("connection-row");
@@ -1068,15 +1089,7 @@ async function openConnections(kind, id, subject) {
     section.appendChild(holder);
     list.appendChild(section);
   }
-  if (!shown) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent =
-      kind === "entries"
-        ? "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard."
-        : "Nothing is joined to this document yet. Attach a note or a reference to it.";
-    list.appendChild(empty);
-  }
+  return shown;
 }
 
 $("connections-close")?.addEventListener("click", () =>

@@ -2456,8 +2456,16 @@ function setNotesViewMode(mode) {
 const expandedRows = new Set();
 
 function toggleRowExpanded(id) {
-  if (expandedRows.has(id)) expandedRows.delete(id);
-  else expandedRows.add(id);
+  if (expandedRows.has(id)) {
+    expandedRows.delete(id);
+    //: Closing the note the rail is about closes the rail's subject with it:
+    //: a column describing a note nobody has open is the chrome-with-nothing
+    //: the local map already learned not to be.
+    if (notesRailId === id) notesRailId = null;
+  } else {
+    expandedRows.add(id);
+    notesRailId = id;
+  }
   renderEntries();
 }
 
@@ -2484,6 +2492,7 @@ function libraryVisibleRows() {
 
 function renderEntries() {
   closeNotePageIfGone();
+  notesRailSync();
   // A cleared box clears its reasons here rather than at each of the five
   // places that can clear the box: a reason for a query nobody typed is
   // worse than no reason at all.
@@ -3220,3 +3229,246 @@ function nudgeUntaggedNotes() {
     action: { tab: "notes", filter: "is:untagged" },
   });
 }
+
+// --- the connections rail (WORLD_CLASS_PLAN D2) --------------------------------
+//: **What the open note is joined to, beside it, on a desktop.** The same
+//: answer the card menu's Connections sheet gives (`openConnections`,
+//: menus.js, which draws with the same `buildConnectionGroups`), kept in a
+//: column that stays while you read, plus the one ranking that had nowhere to
+//: be read beside a note: the forgotten notes close to it
+//: (`GET /resurface/near`, INBOX 261).
+//:
+//: **When it is on screen.** Four things, all of them:
+//:   - the window is at least NOTES_RAIL_MIN_WIDTH wide. Measured before it
+//:     was built (1440x900, the default sidebar): the list's column is 1132px
+//:     at 1440, 974 at 1280 and 795 at 1024, so a rail of about 17rem leaves
+//:     the reading column above 600px from 1280 up and would take it to about
+//:     500 at 1024. Below the number the note's own Connections sheet is the
+//:     way in, as it has always been, and the stylesheet takes the column away
+//:     at the same width so no frame drawn before this runs can show it;
+//:   - the Notes tab is showing its list (Browse): the other three sections
+//:     have no note open;
+//:   - a note is open or selected: the one being edited, the row expanded
+//:     last, the note a link or a search jumped to (`flashEntry`, which is
+//:     what `lastOpenedEntryId` records), or the row the keyboard or a click
+//:     is on (focus inside the list). Whichever of those happened last;
+//:   - it has not been hidden. Hiding is remembered (NOTES_RAIL_KEY), because
+//:     a column somebody has closed is a preference, and the More menu brings
+//:     it back.
+const NOTES_RAIL_MIN_WIDTH = 1280;
+const NOTES_RAIL_KEY = "notes-rail";
+const notesRailWide = window.matchMedia(`(min-width: ${NOTES_RAIL_MIN_WIDTH}px)`);
+let notesRailId = null;
+let notesRailSeenEditing = null;
+let notesRailSeenOpened = null;
+let notesRailTimer = 0;
+let notesRailSeq = 0;
+//: Answers kept per note and per load of the notebook, so walking the list
+//: with the arrow keys and back again asks the server once per note, and a
+//: save (which bumps the generation) is never answered from before it.
+const notesRailCache = new Map();
+
+function notesRailHiddenByChoice() {
+  try {
+    return localStorage.getItem(NOTES_RAIL_KEY) === "off";
+  } catch {
+    return false;
+  }
+}
+
+//: Called at the top of every list render: an edit that has just begun and a
+//: jump that has just landed are both things the render is the first to know
+//: about, and neither has a hook of its own in this file.
+function notesRailSync() {
+  if (editingId != null && editingId !== notesRailSeenEditing) notesRailId = editingId;
+  notesRailSeenEditing = editingId;
+  const opened = typeof lastOpenedEntryId === "number" ? lastOpenedEntryId : null;
+  if (opened != null && opened !== notesRailSeenOpened) notesRailId = opened;
+  notesRailSeenOpened = opened;
+  scheduleNotesRail();
+}
+
+//: A short wait, not a frame: arrow keys walk the list a row a keypress, and
+//: the column should follow where the walk stops rather than fetch every row
+//: it passes.
+function scheduleNotesRail() {
+  clearTimeout(notesRailTimer);
+  notesRailTimer = setTimeout(renderNotesRail, 120);
+}
+
+function notesRailWanted() {
+  if (!notesRailWide.matches || notesRailHiddenByChoice()) return null;
+  if ((localStorage.getItem("activeTab") || "dashboard") !== "notes") return null;
+  if ($("browse")?.classList.contains("hidden")) return null;
+  if (notesRailId == null) return null;
+  return allEntries.find((entry) => entry.id === notesRailId && !entry.is_draft) || null;
+}
+
+function syncNotesRailToggle() {
+  const toggle = $("notes-rail-toggle");
+  if (!toggle) return;
+  toggle.classList.toggle("hidden", !notesRailWide.matches);
+  setLabel(
+    toggle,
+    notesRailHiddenByChoice() ? "ph:sidebar-simple Show connections" : "ph:sidebar-simple Hide connections"
+  );
+}
+
+async function renderNotesRail() {
+  const rail = $("notes-rail");
+  if (!rail) return;
+  syncNotesRailToggle();
+  const entry = notesRailWanted();
+  if (!entry) {
+    if (rail.contains(document.activeElement)) notesRailFocusSubject();
+    rail.hidden = true;
+    return;
+  }
+  rail.hidden = false;
+  const subject = $("notes-rail-subject");
+  subject.textContent = entry.is_private ? "Private note" : entry.title || notePreviewText(entry.content);
+  subject.title = subject.textContent;
+  const body = $("notes-rail-body");
+  const key = `${entry.id}:${_entriesLoadGeneration}`;
+  if (body.dataset.key === key) return;
+  const seq = ++notesRailSeq;
+  body.setAttribute("aria-busy", "true");
+  let answer = notesRailCache.get(key);
+  if (!answer) {
+    const [links, near] = await Promise.all([
+      apiJson(`/entries/${entry.id}/connections`, { silent: true }).catch(() => null),
+      apiJson(`/resurface/near/${entry.id}`, { silent: true }).catch(() => null),
+    ]);
+    answer = { links, near };
+    if (links) notesRailCache.set(key, answer);
+  }
+  if (seq !== notesRailSeq) return;
+  body.removeAttribute("aria-busy");
+  body.dataset.key = answer.links ? key : "";
+  body.replaceChildren();
+  const count = $("notes-rail-count");
+  if (!answer.links) {
+    const failed = document.createElement("p");
+    failed.className = "muted notes-rail-note";
+    failed.textContent = "Couldn't read this note's connections.";
+    body.appendChild(failed);
+    count.textContent = "";
+    count.hidden = true;
+    return;
+  }
+  const shown = buildConnectionGroups(body, "entries", answer.links);
+  const nearItems = (answer.near && answer.near.items) || [];
+  if (nearItems.length) body.appendChild(notesRailNearGroup(nearItems));
+  //: One chip, the panel head's one fact: how many things this note is
+  //: joined to. The forgotten notes are suggestions, not connections, so they
+  //: are not counted in it.
+  count.hidden = false;
+  count.textContent = shown === 1 ? "1 link" : `${shown} links`;
+  if (!shown && !nearItems.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted notes-rail-note";
+    empty.textContent =
+      "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard.";
+    body.appendChild(empty);
+  }
+  //: "We could not ask" is a different fact from "nothing is faded near
+  //: this", and only the first is worth a line: a notebook too small to rank
+  //: (`resurface.MIN_NOTEBOOK`) answers an empty list by design.
+  if (!answer.near) {
+    const failed = document.createElement("p");
+    failed.className = "muted notes-rail-note";
+    failed.textContent = "Couldn't look for forgotten notes near this one.";
+    body.appendChild(failed);
+  }
+}
+
+//: The forgotten notes, drawn as one more connection group so the column reads
+//: as one list with one row recipe. Each row carries the route's own sentence
+//: for why it was chosen ("120 days old, no links, never opened"), which is
+//: checkable where a score would not be.
+function notesRailNearGroup(items) {
+  const section = document.createElement("div");
+  section.className = "connection-group notes-rail-near";
+  const head = document.createElement("p");
+  head.className = "muted connection-heading";
+  setLabel(head, `ph:hourglass-medium Forgotten, and close to this (${items.length})`);
+  section.appendChild(head);
+  const holder = document.createElement("div");
+  holder.className = "connection-rows";
+  for (const item of items) {
+    const row = smallButton(`ph:note ${item.title}`, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", () =>
+      flashEntry(item.id)
+    );
+    row.classList.add("connection-row");
+    holder.appendChild(row);
+    if (item.reason) {
+      const why = document.createElement("span");
+      why.className = "muted notes-rail-why";
+      why.textContent = item.reason;
+      holder.appendChild(why);
+    }
+  }
+  section.appendChild(holder);
+  return section;
+}
+
+//: Back to the note the column is about, in the list: where Escape and hiding
+//: the column put the keyboard, so focus is never left on something that has
+//: just gone.
+function notesRailFocusSubject() {
+  const li = document.querySelector(`#entry-list li[data-id="${notesRailId}"]`);
+  if (li) li.focus({ preventScroll: true });
+}
+
+function setNotesRailHidden(hidden) {
+  try {
+    localStorage.setItem(NOTES_RAIL_KEY, hidden ? "off" : "on");
+  } catch {
+    /* private mode: the choice lasts this visit */
+  }
+  renderNotesRail();
+}
+
+(function wireNotesRail() {
+  const rail = $("notes-rail");
+  const list = $("entry-list");
+  if (!rail || !list) return;
+  //: Selecting a row is focusing it: a click on a card's body focuses its
+  //: `<li>` (the list's roving tabindex), and so does every arrow key.
+  list.addEventListener("focusin", (event) => {
+    const li = event.target.closest?.("li[data-id]");
+    if (!li || li.parentElement !== list) return;
+    const id = Number(li.dataset.id);
+    if (!Number.isFinite(id) || id === notesRailId) return;
+    notesRailId = id;
+    scheduleNotesRail();
+  });
+  $("notes-rail-close")?.addEventListener("click", () => {
+    notesRailFocusSubject();
+    setNotesRailHidden(true);
+    toast("Connections hidden. The notes list's More menu brings them back.");
+  });
+  $("notes-rail-toggle")?.addEventListener("click", () => {
+    setNotesRailHidden(!notesRailHiddenByChoice());
+    $("notes-more-menu")?.removeAttribute("open");
+  });
+  //: The keys every list here keeps (WORLD_CLASS_PLAN 1.6): arrows walk the
+  //: rows, Enter opens one (they are buttons), Escape goes back to the list.
+  rail.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      notesRailFocusSubject();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const rows = [...rail.querySelectorAll("button.connection-row")];
+    const at = rows.indexOf(document.activeElement);
+    if (at < 0) return;
+    event.preventDefault();
+    const next = rows[Math.min(rows.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
+    next?.focus();
+  });
+  notesRailWide.addEventListener("change", renderNotesRail);
+  syncNotesRailToggle();
+})();

@@ -148,7 +148,11 @@ async function settings(page) {
   await page.waitForTimeout(800);
   const openLong = await page.evaluate(() => window.__long.slice());
   const box = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('#settings-modal *')].find((n) => n.scrollHeight > n.clientHeight + 50 && /(auto|scroll)/.test(getComputedStyle(n).overflowY));
+    // The pane with the most to scroll, not the first scroller in the tree
+    // (which is the section list).
+    const el = [...document.querySelectorAll('#settings-modal *')]
+      .filter((n) => n.scrollHeight > n.clientHeight + 50 && /(auto|scroll)/.test(getComputedStyle(n).overflowY))
+      .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0];
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: el.id || el.className };

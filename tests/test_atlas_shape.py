@@ -60,7 +60,8 @@ def test_the_arms_grow_from_inside_the_chest_and_end_in_a_mitten():
     arm = re.search(r"const ATLAS_ARM_R = atlasStem\(\[\[([0-9.]+), ([0-9.]+),", ATLAS)
     # Inside the torso's edge at the shoulder (the torso is 25.4 to 36.6 wide there).
     assert arm and float(arm.group(1)) < 36.6
-    assert "atlasLimbTo(5.8, 2.6)" in ATLAS
+    # Round 7: fuller at the shoulder, a forearm's swell, a slimmer wrist.
+    assert "atlasLimbShaped(6.6, 2.3, 0.62, 0.4)" in ATLAS
     hand = ATLAS[ATLAS.index("const ATLAS_HAND_POINTS = [") :][:400]
     # No notch at the fingertips: the side values run one way round the end.
     tips = [float(v) for v in re.findall(r"\[4\.[0-9]+, (-?[0-9.]+)\]", hand)]
@@ -83,3 +84,49 @@ def test_the_skirt_and_the_nebula_move_in_the_large_view_too():
     for loop in ("&.atl-layer-lower { animation: atl-skirt-idle", "&.atl-layer-neb { animation: atl-neb-drift"):
         assert loop in CSS
     assert "#nm-buddy .atl-layer-neb" not in CSS
+
+
+def _keyframes(name: str) -> str:
+    start = CSS.index(f"@keyframes {name} {{")
+    depth, i = 0, CSS.index("{", start)
+    while True:
+        depth += {"{": 1, "}": -1}.get(CSS[i], 0)
+        if depth == 0:
+            return CSS[start : i + 1]
+        i += 1
+
+
+def test_the_planets_orbit_on_the_compositor():
+    # Round 7 (INBOX 430): "tilt the celestial rings a little; the bodies on
+    # them slowly orbit, cheaply". A planet inside a layer's svg could only
+    # move by repainting it; each is its own element over the figure, and
+    # nothing its animations touch lays anything out.
+    assert "ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 }" in ATLAS
+    assert "frag.appendChild(atlasOrbits());" in ATLAS
+    assert "atlasRing(layers.front.rig, id, ring, k, true, true)" in ATLAS
+    assert "if (orbit) return;" in ATLAS
+    for name in ("atl-orbit", "atl-orbit-back", "atl-orbit-depth"):
+        body = _keyframes(name).split("{", 1)[1]
+        props = set(re.findall(r"([a-z-]+)\s*:", body))
+        assert props <= {"rotate", "opacity"}, (name, props)
+    # Off screen, on a hidden tab and under Reduce motion they stop.
+    assert ":root[data-atlas-hidden] .atl-orbits *" in CSS
+    assert ".nm-live > .atl-orbits :is(.atl-orbit-arm, .atl-orbiter) { animation: none !important; }" in CSS
+
+
+def test_the_nebula_rises_above_the_crown():
+    # Round 7: "a taller nebula stream"; it began at the ear's height (16).
+    assert "const ATLAS_BAND = atlasBandPaths([[45, -7," in ATLAS
+
+
+def test_the_body_and_its_limbs_read_as_one_figure():
+    # Round 7 (INBOX 430): "less obviously built from separate shapes";
+    # "redesign the masculine limbs". The legs root deep in the torso with a
+    # calf, the body and every limb share one shade in the drawing's space,
+    # and the torso's glow edge leaves out the hem the legs cover.
+    for side in ("L", "R"):
+        leg = re.search(rf"const ATLAS_LEG_{side} = atlasStem\(\[\[[0-9.]+, ([0-9.]+),.*?atlasLimbShaped\(([0-9.]+),", ATLAS)
+        assert leg and float(leg.group(1)) <= 54 and float(leg.group(2)) >= 7
+    assert ATLAS.count('class: "atl-overlay atl-rim-body", d }') == 3
+    assert 'gradientTransform: "translate(30.5 50) scale(1 2.6) translate(-30.5 -50)"' in ATLAS
+    assert "spec.torsoEdgeNow || torsoPath" in ATLAS

@@ -7,11 +7,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- The companion moves like a body: it crouches before it sets off, springs up, squashes into the landing and rebounds once; its limbs ease into a new pose instead of snapping; and it is quieter at rest (the rings' shimmer half as deep and slow, a smaller, slower tail swish and wag, a shallower float).
+- The companion perches on the page's own panels first on every tab (a card, a toolbar, the underside of a panel) and rides them as they scroll, where every tab used to leave it on a window bar; it skips menus that are faded out and fields you type into, and Atlas's tail counts as part of what may not cover a control.
+- Generated faces wear a mood each in their own way: per mood, each character favours its own eyes, brows and mouth from a few near neighbours (one happy face grins with sparkling eyes, another smiles a cat's smile), always the same for the same name, colours unchanged.
+- Atlas reads as one figure rather than parts: the masculine legs root deep in the body with a calf and a slim ankle, smaller soft feet, fuller shoulders with a forearm's swell and a smaller mitten; the body and limbs share one shade, the torso's glow no longer outlines its hem over the legs, and the nebula's new tip fades in from nothing.
+- Atlas's rings tilt a little further and the planets on them slowly go round, on the compositor (no layout, no repaint), fading as they pass behind the head; the nebula stream now rises from above the crown.
+
 ### Added
 
 - The graph's View menu has a Size rule: connections (the default), length, recency or none.
 - On a phone the graph takes the screen's shape: a portrait force layout, the arc running down the screen, the radial and the arc framed whole, and a tall tree framed on its root.
 - The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
+- Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.
+- The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the note box's `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
 - `POST /links/clip`, the web clipper's backend: a page you choose is fetched once (only while web search is allowed in Settings, and never from an address on this computer or your network, redirects included), reduced to its title, its address and its main text, and kept as a note that search finds by its words. The bookmarklet and its Settings row are not built yet.
 - Two notes with the same title in a note's connections (the Connections sheet and the Notes column) can be told apart: each row carries a quiet second cue, the category, or the date written, or the time, whichever separates them. The Connections column also steps aside for the note's sheet when a wide categories sidebar would leave the notes list narrower than 600px, and comes back when there is room.
 - In a window 1280 wide or more, the note you open or select in Notes has a Connections column beside the list: the notes it links to, the notes that link to it, the documents, boards and maps it is in, the files it shows, and the forgotten notes close to it. Its close button hides it for good; the notes list's More menu brings it back. In a narrower window the note's own Connections sheet is the way in, as before.
@@ -37,6 +47,9 @@ below). Versioning is `0.x` while the app stabilises.
 - The top bar's tabs are centred at every width that holds them, not left beside the space switcher.
 - On a phone: the agent's runs are a badge and a row in More instead of a second bar; the status bar meets the tab bar at the end of a page; Library Contents rows fit the card; the lightbox's menu opens on top of it (the page reader was one of its rows) and its actions are one row; one finger on bare canvas pans a board with Select; the graph's legend and zoom stand clear of New note; the Documents editor gives the page most of the screen, and its formatting bar sits above the tab bar instead of over it and is gone while reading.
 - The note box's `[[` link list opens at the line being written, in the same panel as the "/" menu, instead of under the whole box, and answers its keys: with the note editor loaded the arrows used to move the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
+- During the guided tour the corner companion no longer shows through the ring around the control a step points at: it fades and steps away from the ring and the tour's card.
+- The corner companion gets out of the way of a popup: when the notifications panel, a menu, a list or a help popover opens over it, it fades at once and then steps aside, and fades back once it is clear.
+- The note box's `[[` link list answers its keys again: with the note editor loaded, the arrows moved the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
 - Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
 - In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.

@@ -489,3 +489,64 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
     body = atlas[start : atlas.index("\n}\n", start)]
     loop = body[: body.index("svg.replaceWith(")]
     assert "atl-defs" in loop, "atlasRepaint redraws the shared defs as a head"
+
+
+def test_the_companion_shows_and_hides_from_anywhere() -> None:
+    # INBOX 430: a hotkey, a palette action, and so a Find anything action.
+    wiring = (ROOT / "frontend" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert 'toggleCompanion: { keys: "Ctrl+Shift+Y"' in wiring
+    assert "nameMarkBuddyToggle()" in wiring
+    panes = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
+    assert "Show or hide the companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
+    toggle = _fn("nameMarkBuddyToggle")
+    assert 'localStorage.getItem("nm-buddy-last")' in toggle
+    assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
+
+
+def test_it_gets_out_of_a_popups_way() -> None:
+    # INBOX 430: "the notifications panel was blocked by it". A popup is an
+    # obstacle as a whole box; over one it fades at once and steps aside.
+    assert '"#notif-panel:not(.hidden)' in AV
+    assert "const boxes = nameMarkBuddyPopups();" in _fn("nameMarkBuddyObstacles")
+    dodge = _fn("nameMarkBuddyDodge")
+    assert 'buddy.classList.toggle("nmb-dodge", over)' in dodge
+    assert "queueNameMarkBuddyCheck()" in dodge
+    assert "#nm-buddy.nmb-dodge { opacity: 0.12; }" in CSS08
+
+
+def test_it_keeps_out_of_the_tours_ring() -> None:
+    # INBOX 430: "Atlas spills out of its ring in the tour". The tour's ring
+    # and card are popups it gets out of the way of, looked at again once a
+    # step has settled, measured by the drawn figure's box.
+    assert "#tour-spot:not(.hidden), #tour-card:not(.hidden)" in AV
+    assert "nmbDodgeLate = setTimeout(nameMarkBuddyDodge, 700);" in AV
+    assert 'buddy.querySelector(".nm-figure")' in _fn("nameMarkBuddyDodge")
+
+
+def test_it_perches_on_the_pages_panels_first_on_every_tab():
+    # INBOX 430: "perch and ride on UI elements on every tab and scroll with
+    # them, as it does on the Dashboard". Every tab put it on a window bar
+    # (companiontabs.js, before); now each tab's first choice is a panel.
+    start = AV.index("const NAME_MARK_BUDDY_ORDER = {")
+    table = AV[start : AV.index("};", start)]
+    rows = dict(re.findall(r"(\w+): \[\"(\w+)\"", table))
+    assert set(rows) >= {"dashboard", "notes", "chat", "graph", "library", "documents", "timeline", "reminders"}
+    assert all(first in ("card", "dock", "under") for first in rows.values()), rows
+    # Never a menu faded out or a field you type into, and Atlas's tail is
+    # part of what must not cover a control.
+    assert "child.checkVisibility({ opacityProperty: true, visibilityProperty: true })" in AV
+    assert "child.matches(\"textarea, input, select, [contenteditable='true'], .cm-editor\")" in AV
+    assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV
+
+
+def test_it_sets_off_and_lands_and_eases_between_poses():
+    # INBOX 430: "far more lifelike, organic motion and transitions". A walk
+    # is held back for a crouch and ends in a squash and a rebound, eased per
+    # keyframe (an easing over the whole animation made the crouch late);
+    # the limbs ease into a new pose; the pacer leaves those transitions be.
+    assert "delay: NMB_SET_OFF_MS, fill: \"backwards\"" in AV
+    assert "nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);" in AV
+    squash = _fn("nameMarkBuddySquash")
+    assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
+    assert "a instanceof CSSTransition" in AV
+    assert "#nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring)" in CSS08

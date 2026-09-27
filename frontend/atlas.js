@@ -279,8 +279,14 @@ const ATLAS_HAND_POINTS = [
   [0.7, 1.45], [1.9, 1.75], [3.1, 1.6], [4.05, 1.0], [4.45, 0.15], [4.2, -0.75], [3.5, -1.3],
   [2.7, -1.45], [2.45, -2.45], [1.95, -3.0], [1.35, -2.85], [1.0, -2.1], [0.55, -1.35],
 ];
+//: Round 7 (INBOX 430, the owner: "redesign the masculine limbs"): the
+//: foot was a flat paddle, a sole three units deep with the toes five out
+//: to the side, which read as a dark oval stuck under a stick. Now it is a
+//: small soft foot that leaves the ankle with no step: the instep slopes
+//: down and out to a rounded toe a little past the ankle, the sole is
+//: shallow and the heel only a rounding of the ankle's back.
 const ATLAS_FOOT_POINTS = [
-  [0.5, 2.6], [1.1, 4.3], [1.9, 5.3], [2.7, 4.9], [3.0, 3.2], [2.9, 0.2], [2.6, -1.6], [1.7, -2.0], [0.7, -1.5],
+  [0.7, 1.9], [1.5, 3.3], [2.1, 4.35], [2.55, 4.25], [2.65, 3.1], [2.5, 1.0], [2.45, -0.8], [2.0, -1.55], [1.1, -1.4],
 ];
 const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]);
 const atlasHand = (thumb, k = 1) => atlasTipShape(thumb < 0 ? ATLAS_HAND_POINTS : atlasMirrorPoints(ATLAS_HAND_POINTS), k);
@@ -288,6 +294,11 @@ const atlasFoot = (toe, k = 1) => atlasTipShape(toe > 0 ? ATLAS_FOOT_POINTS : at
 //: A limb that ends in a hand or a foot tapers to the wrist or ankle and
 //: stops there; the shape takes over. No paw swell.
 const atlasLimbTo = (root, end) => (t) => root - (root - end) * Math.min(1, t * 1.15) ** 0.9;
+//: **A shaped limb** (round 7): the taper with a muscle's swell on it, a
+//: calf or a forearm, `swell` units at `at` of the way down and gone either
+//: side of it, so the limb narrows to a knee or an elbow and fills again
+//: before the ankle or the wrist. A straight taper read as a tube.
+const atlasLimbShaped = (root, end, at, swell) => (t) => root - (root - end) * t ** 0.8 + swell * Math.exp(-(((t - at) / 0.16) ** 2));
 
 //: The stem's upper side alone, as an open path: the lighter leading edge
 //: of a lock of the mane.
@@ -330,7 +341,9 @@ const ATLAS_GEO = {
     { r: 29, glints: [[158, 1.7, "amber"], [349, 1, "pale"]] },
     { r: 36, glints: [[190, 1.45, "lilac"], [300, 1.15, "teal"], [96, 0.75, "star"]] },
   ],
-  ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -5 },
+  //: Tilted a little further (round 7, the owner: "tilt the celestial
+  //: rings a little"): -11 degrees, where -5 read as level.
+  ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 },
   //: The constellation inside the body (round 6, the owner: "refine the
   //: atlas character chest stars, they should be faded constelations"): a
   //: small asterism across the chest and down the belly, the heart first
@@ -555,8 +568,17 @@ const atlasLimbWidth = (root, paw) => (t) => root - (root - 1.4) * Math.min(1, t
 //: at 87 with the foot's sole on the soles' line: a third of the height
 //: is leg, as the sprite sheet's Stand has it (the torso used to run to 68
 //: over legs that began at 61, so a fifth of the height showed as leg).
-const ATLAS_LEG_L = atlasStem([[27.2, 58, 26.4, 68, 25.8, 78, 26.2, 87]], atlasLimbTo(6.2, 2.6), { samples: 12, tip: atlasFoot(1, 1.05) });
-const ATLAS_LEG_R = atlasStem([[34.8, 58, 36.4, 68, 38.4, 78, 38.6, 86.6]], atlasLimbTo(6.2, 2.6), { samples: 12, tip: atlasFoot(-1, 1.05) });
+//: **Round 7, the legs redrawn** (the owner: "redesign the masculine limbs
+//: (arms, hands, legs, feet)"; "less obviously built from separate
+//: shapes"). They were two straight tubes, 6.2 wide at the hip and 2.6 at
+//: the ankle, rooted at 58 just inside the torso's hem, whose round bottom
+//: then sat across their tops like a lid. Now each leaves the hip higher,
+//: at 54, deep in the torso, fuller (7), so the hip is one slope out of the
+//: body; runs in a slight S, the knee a touch inward, the calf filling
+//: again below it (`atlasLimbShaped`), to a slim 2.2 ankle; and ends in the
+//: smaller foot above.
+const ATLAS_LEG_L = atlasStem([[27.3, 54, 26, 66.4, 27.4, 76.4, 26.5, 87]], atlasLimbShaped(7, 2.2, 0.66, 0.55), { samples: 16, tip: atlasFoot(1, 1) });
+const ATLAS_LEG_R = atlasStem([[34.7, 54, 36.8, 66.4, 37.4, 77, 38.3, 86.6]], atlasLimbShaped(7, 2.2, 0.66, 0.55), { samples: 16, tip: atlasFoot(-1, 1) });
 //: The right arm hangs with its inner side toward the body, the viewer's
 //: left, which is the stem's left normal: the thumb is on +1. The left
 //: arm is this one mirrored, thumb and all.
@@ -570,9 +592,13 @@ const ATLAS_LEG_R = atlasStem([[34.8, 58, 36.4, 68, 38.4, 78, 38.6, 86.6]], atla
 //: along a gentle outward curve with the elbow's bend in it, so it hangs a
 //: little away from the belly rather than stuck to it; and the hand is 15%
 //: larger, enough to read as a hand in the 64px companion.
-const ATLAS_ARM_R = atlasStem([[35.8, 40.2, 40.6, 41.4, 44.2, 46.2, 45.2, 54.2]], atlasLimbTo(5.8, 2.6), { samples: 14, tip: atlasHand(1, 1.15) });
+//: Round 7: the shoulder fuller still (6.6) and deeper in the chest, so
+//: no seam shows where it leaves the body; a forearm's swell below the
+//: elbow and a slimmer wrist (2.3); the hand a little smaller (1.05), the
+//: mitten in proportion to the wrist rather than a paddle on a stick.
+const ATLAS_ARM_R = atlasStem([[35.2, 40.6, 40.6, 41.4, 44, 46.4, 45, 54]], atlasLimbShaped(6.6, 2.3, 0.62, 0.4), { samples: 16, tip: atlasHand(1, 1.05) });
 //: Raised, the inner side is the right normal.
-const ATLAS_HOLD_R = atlasStem([[36, 41, 46.4, 34.4, 53, 16.6, 53, -2.2]], atlasLimbTo(5.8, 2.6), { samples: 16, tip: atlasHand(-1, 1.15) });
+const ATLAS_HOLD_R = atlasStem([[35.6, 41, 46.4, 34.4, 53, 16.6, 53, -2.2]], atlasLimbShaped(6.6, 2.3, 0.62, 0.4), { samples: 18, tip: atlasHand(-1, 1.05) });
 const ATLAS_LIMBS = {
   legs: [["l", ATLAS_LEG_L], ["r", ATLAS_LEG_R]],
   arms: [["l", atlasMirror(ATLAS_ARM_R)], ["r", ATLAS_ARM_R]],
@@ -582,6 +608,17 @@ const ATLAS_LIMBS = {
 //: in at the waist and flaring just enough at the hips for the tendril
 //: legs to grow out of it.
 const ATLAS_TORSO_PATH = "M25.4 35.6C22 41 20.8 47.4 21.6 53.4C22.4 57.4 24 60.6 26.8 62.6C29.4 64.4 33.8 64.4 36.4 62.6C39.2 60.6 40.8 57.4 41 53.4C41.2 47.4 39.8 41 36.6 35.6Z";
+//: The torso's outline without its hem: the path's first two curves (down
+//: the left flank to the hem's corner) and its last two (from the other
+//: corner up the right flank), as two open strokes. Both torsos are drawn
+//: the same way, five curves from the left shoulder round to the right.
+function atlasTorsoEdge(d) {
+  const start = d.match(/^M[^C]+/)[0];
+  const curves = d.match(/C[^CZ]+/g);
+  const at = (c) => c.trim().split(/[\s,]+/).slice(-2).join(" ");
+  return `${start}${curves[0]}${curves[1]}M${at(curves[curves.length - 3])}${curves[curves.length - 2]}${curves[curves.length - 1]}`;
+}
+
 //: Thinking, a hand at the chin (the reference sheet): the right arm bent
 //: up, drawn over the face in the head's own group.
 const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]], atlasLimbWidth(4.8, 1.3), { samples: 14 });
@@ -660,6 +697,7 @@ function atlasBuild() {
     spec.lockPaths = spec.locks.slice(0, n).map(lock);
     spec.headPaths = spec.head.slice(0, n).map(lock);
     spec.torsoNow = atlasScalePathX(spec.torso || ATLAS_TORSO_PATH, tune.bodyWidth, 31);
+    spec.torsoEdgeNow = atlasScalePathX(atlasTorsoEdge(spec.torso || ATLAS_TORSO_PATH), tune.bodyWidth, 31);
     if (spec.lowers) {
       //: A ribbon's width: full at the waist, a slight swell as it leaves
       //: the body, then a long taper to a hair-fine wisp, no round end.
@@ -734,13 +772,16 @@ function atlasBandPaths(segs, base) {
 //: to it, so the ribbon sits in a drift of light rather than on the page.
 //: In the companion it is a layer of its own that drifts on the
 //: compositor (`atlasDrawFigure`, `.atl-layer-neb`).
-const ATLAS_BAND = atlasBandPaths([[60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
-const ATLAS_BAND_STARS = [[60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
+//: Round 7 (INBOX 430, the owner: "a taller nebula stream"): it rises from
+//: above the crown now, at -7, a thin tip over the right ear that swells as
+//: it comes down, where it began at the ear's height.
+const ATLAS_BAND = atlasBandPaths([[45, -7, 55, -7.6, 57.6, 9, 60, 16], [60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
+const ATLAS_BAND_STARS = [[50, -5.4, 0.3], [57, 3, 0.36], [60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
 //: The colour inside the ribbon, clipped to it: [cx, cy, rx, ry, colour].
-const ATLAS_BAND_CLOUDS = [[58, 26, 9, 6, "pink"], [32, 43, 10, 5, "blue"], [2, 58, 8, 7, "pink"], [0, 80, 7, 8, "blue"], [22, 90, 9, 3, "pink"]];
+const ATLAS_BAND_CLOUDS = [[55, 0, 7, 7, "blue"], [58, 26, 9, 6, "pink"], [32, 43, 10, 5, "blue"], [2, 58, 8, 7, "pink"], [0, 80, 7, 8, "blue"], [22, 90, 9, 3, "pink"]];
 //: The haze round it, unclipped and faint: larger clouds that the ribbon
 //: runs through, so its edges dissolve into light.
-const ATLAS_BAND_HAZE = [[56, 26, 15, 11, "blue"], [34, 42, 17, 8, "pink"], [4, 60, 11, 15, "blue"], [4, 84, 14, 9, "pink"], [28, 90, 14, 5, "blue"]];
+const ATLAS_BAND_HAZE = [[54, 2, 12, 11, "pink"], [56, 26, 15, 11, "blue"], [34, 42, 17, 8, "pink"], [4, 60, 11, 15, "blue"], [4, 84, 14, 9, "pink"], [28, 90, 14, 5, "blue"]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -1180,7 +1221,9 @@ function atlasHead(parent, id, level, look) {
   return head;
 }
 
-function atlasRing(parent, id, ring, k, front) {
+//: `orbit` (the companion's layered figure) leaves the planets out: they
+//: are drawn outside the svg by `atlasOrbits`, which moves them round.
+function atlasRing(parent, id, ring, k, front, orbit = false) {
   const { cx, cy, flat, tilt } = ATLAS_GEO.ringFrame;
   const { r, glints } = ring;
   const g = atlasGroup(parent, `atl-ring atl-ring-${k} atl-ring-${front ? "front" : "back"}`, [cx, cy]);
@@ -1202,6 +1245,7 @@ function atlasRing(parent, id, ring, k, front) {
       atlasSpark(g, x, y, size * 1.6, "atl-ring-glint").style.setProperty("--atl-k", String(i + k * 3));
       return;
     }
+    if (orbit) return;
     atlasMake("circle", { class: `atl-planet atl-planet-${kind}`, cx: x, cy: y, r: size }, g);
     atlasMake("circle", { class: "atl-planet-light", cx: x - size * 0.3, cy: y - size * 0.32, r: size * 0.36 }, g);
   });
@@ -1282,16 +1326,21 @@ function atlasBody(parent, id, props, look, route = null) {
       const leg = atlasGroup(legAt ? legAt[side][kind] : layer, legAt ? "atl-leg" : `nmb-leg nmb-leg-${side} atl-leg`);
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, tendril);
-      if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, tendril);
+      if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-body", d }, tendril);
     });
     for (const [side, d] of ATLAS_LIMBS.holds) {
       const hold = atlasGroup(layer, `nmb-hold nmb-hold-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, hold);
-      if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, hold);
+      if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-body", d }, hold);
     }
     const torso = atlasGroup(layer, "nmb-torso");
     const torsoPath = spec.torsoNow;
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: torsoPath }, torso);
+    //: The torso's glow edge is its flanks and shoulders only (round 7).
+    //: In the companion the legs and the skirt are layers under the body's,
+    //: so a full outline drew its hem over them: a pale line across the
+    //: tops of the legs, the lid of an egg sitting on two tubes. The hem is
+    //: inside the legs or the skirt, so it needs no edge.
+    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: edge ? spec.torsoEdgeNow || torsoPath : torsoPath }, torso);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
@@ -1326,7 +1375,7 @@ function atlasBody(parent, id, props, look, route = null) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
       if (!edge) {
-        atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, arm);
+        atlasMake("path", { class: "atl-overlay atl-rim-body", d }, arm);
         arms[side] = arm;
         //: The galaxy-seed gesture (the female sheets' Seed Sower): star
         //: seeds drifting up from the open hand.
@@ -1390,7 +1439,14 @@ function atlasBuildDefs(svg, id) {
   };
   const skin = atlasMake("radialGradient", { id: `${id}-skin`, gradientUnits: "userSpaceOnUse", cx: 26, cy: 16, r: 74, fx: 25, fy: 13 }, defs);
   stops(skin, [[0, "atl-st-hi"], [0.16, "atl-st-lt"], [0.42, "atl-st-md"], [0.78, "atl-st-dp"], [1, "atl-st-rim"]]);
-  const belly = atlasMake("radialGradient", { id: `${id}-belly`, gradientUnits: "userSpaceOnUse", cx: 30, cy: 56, r: 14 }, defs);
+  //: Round 7: the belly's light and the body's rim shade are shaped so
+  //: that neither reaches the torso's hem, where the legs leave it: the
+  //: light is higher and smaller (it was at 56, radius 14, and lit the hem
+  //: paler than the legs under it), the shade an upright ellipse (radius
+  //: 12.5 across, twice that down), so it rounds the flanks and leaves the
+  //: hips the skin's own colour, the same as the legs' tops. The seam where
+  //: the egg of the body sat on two tubes was that difference in colour.
+  const belly = atlasMake("radialGradient", { id: `${id}-belly`, gradientUnits: "userSpaceOnUse", cx: 30, cy: 51, r: 12 }, defs);
   stops(belly, [[0, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   //: Rim shades: clear in the middle, violet at the edge. The head's and
   //: the body's are in the drawing's space (their light is where the
@@ -1398,8 +1454,19 @@ function atlasBuildDefs(svg, id) {
   //: the joint stays clear and the tip rounds off.
   const rimHead = atlasMake("radialGradient", { id: `${id}-rimh`, gradientUnits: "userSpaceOnUse", cx: 27.5, cy: 19, r: 20 }, defs);
   stops(rimHead, [[0.62, "atl-st-clear"], [1, "atl-st-shade"]]);
-  const rimBody = atlasMake("radialGradient", { id: `${id}-rimb`, gradientUnits: "userSpaceOnUse", cx: 29.5, cy: 50, r: 18 }, defs);
-  stops(rimBody, [[0.5, "atl-st-clear"], [1, "atl-st-shade"]]);
+  //: **One shade for the body and the limbs** (round 7, the owner: "less
+  //: obviously built from separate shapes"). Each limb had its own rim, in
+  //: its own box, and the body another about its middle, so where a limb
+  //: overlapped the body the two shades differed and drew the join: the
+  //: egg of the torso sat on two tubes with a tube at each shoulder. Now
+  //: the body and every limb take the same shade, in the drawing's space:
+  //: an upright ellipse about the belly (15 across, 2.6 times that down),
+  //: clear in the middle and deepening toward the hands and the feet, so a
+  //: point has one colour whichever part it belongs to and only the
+  //: outline of the whole figure shows.
+  //: (The ears and the thinking hand keep a rim of their own, `riml`.)
+  const rimBody = atlasMake("radialGradient", { id: `${id}-rimb`, gradientUnits: "userSpaceOnUse", cx: 30.5, cy: 50, r: 15, gradientTransform: "translate(30.5 50) scale(1 2.6) translate(-30.5 -50)" }, defs);
+  stops(rimBody, [[0.4, "atl-st-clear"], [1, "atl-st-shade"]]);
   const rimLimb = atlasMake("radialGradient", { id: `${id}-riml`, cx: 0.5, cy: 0.15, r: 0.95 }, defs);
   stops(rimLimb, [[0.55, "atl-st-clear"], [1, "atl-st-shade"]]);
   const sheen = atlasMake("radialGradient", { id: `${id}-sheen` }, defs);
@@ -1424,8 +1491,11 @@ function atlasBuildDefs(svg, id) {
   stops(bandNeb, [[0, "atl-st-neb0"], [0.5, "atl-st-neb20"], [1, "atl-st-neb1"]]);
   //: The strand's own run: indigo to violet and back along its sweep,
   //: from the upper right to the lower left.
-  const bandRun = atlasMake("linearGradient", { id: `${id}-bandg`, gradientUnits: "userSpaceOnUse", x1: 64, y1: 14, x2: -4, y2: 80 }, defs);
-  stops(bandRun, [[0, "atl-st-band0"], [0.38, "atl-st-band1"], [0.66, "atl-st-band0"], [1, "atl-st-band2"]]);
+  //: Round 7: the run starts above the crown with the ribbon's new tip,
+  //: which fades in from nothing (`band-fade`) through violet, so the tip
+  //: reads as nebula thinning out, not a dark whip over the hair.
+  const bandRun = atlasMake("linearGradient", { id: `${id}-bandg`, gradientUnits: "userSpaceOnUse", x1: 50, y1: -8, x2: -4, y2: 80 }, defs);
+  stops(bandRun, [[0, "atl-st-band-fade"], [0.16, "atl-st-band1"], [0.3, "atl-st-band0"], [0.52, "atl-st-band1"], [0.74, "atl-st-band0"], [1, "atl-st-band2"]]);
   for (const [name, cls] of [["cloudp", "atl-st-cloud-pink"], ["cloudb", "atl-st-cloud-blue"]]) {
     const cloud = atlasMake("radialGradient", { id: `${id}-${name}` }, defs);
     stops(cloud, [[0, cls], [1, "atl-st-clear"]]);
@@ -1534,12 +1604,12 @@ function atlasDrawFigure(mood) {
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false));
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
   atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true));
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true, true));
   //: The head drew its extras in the body layer; the two that rise (the
   //: Zs, the hearts) move to their roots, each pair under the wrappers the
   //: mood shows and hides (`.atl-fx-hearts`, `.atl-fx-zz`).
@@ -1557,7 +1627,59 @@ function atlasDrawFigure(mood) {
   }
   atlasStarsProp(layers.front.rig);
   for (const { svg } of Object.values(layers)) atlasApply(svg, mood);
+  frag.appendChild(atlasOrbits());
   return frag;
+}
+
+//: **The planets go round their rings** (round 7, INBOX 430, the owner:
+//: "the bodies on them slowly orbit, cheaply"). A planet drawn in a layer's
+//: svg can only move by a change inside the svg, which lays the drawing
+//: out and repaints it every frame; so each is a small element of its own
+//: over the figure, moved on the compositor by three nested transforms:
+//: the ring's frame (`.atl-orbit`, fixed: to the ring's centre, the ring's
+//: tilt, flattened to its ellipse), an arm that turns (`.atl-orbit-arm`,
+//: a `rotate` animation), and the planet at the arm's end (`translate`
+//: the radius), turned back by the same angle and un-flattened (`scale`),
+//: so it stays a round disc with its light on the upper left while its
+//: centre runs round the ellipse. Behind the head it fades out (an
+//: `opacity` keyframe on the same clock), which stands in for the layer
+//: order a compositor animation cannot change. Every property animated is
+//: one the compositor runs (`rotate`, `opacity`); nothing is laid out.
+//: Each starts where the drawing puts it (`--atl-at`, a fraction of the
+//: turn, as a negative delay), and a static figure shows them there.
+function atlasOrbits() {
+  const { cx, cy, flat, tilt } = ATLAS_GEO.ringFrame;
+  const box = document.createElement("span");
+  box.className = "atl-orbits";
+  box.setAttribute("aria-hidden", "true");
+  ATLAS_GEO.rings.forEach(({ r, glints }, k) => {
+    const frame = document.createElement("span");
+    frame.className = `atl-orbit atl-orbit-${k}`;
+    frame.style.transform = `translate(${cx}px, ${cy}px) rotate(${tilt}deg) scale(1, ${flat})`;
+    for (const [deg, size, kind] of glints) {
+      if (kind === "star") continue;
+      const arm = document.createElement("span");
+      arm.className = "atl-orbit-arm";
+      arm.style.setProperty("--atl-at", String(+(deg / 360).toFixed(4)));
+      arm.style.rotate = `${deg}deg`;
+      const body = document.createElement("span");
+      body.className = `atl-orbiter atl-orbiter-${kind}`;
+      const d = `${+(size * 2).toFixed(2)}px`;
+      body.style.width = d;
+      body.style.height = d;
+      body.style.margin = `${-size}px 0 0 ${-size}px`;
+      body.style.translate = `${r}px 0`;
+      body.style.rotate = `${-deg}deg`;
+      body.style.scale = `1 ${+(1 / flat).toFixed(4)}`;
+      //: Where the animation is off, the same fade behind the head.
+      const t = (deg * Math.PI) / 180;
+      if (Math.sin(t) < 0 && Math.abs(Math.cos(t)) < 0.6) body.style.opacity = "0";
+      arm.appendChild(body);
+      frame.appendChild(arm);
+    }
+    box.appendChild(frame);
+  });
+  return box;
 }
 
 //: (`lower`, the feminine look's skirt of ribbons, sits between the tail

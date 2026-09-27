@@ -913,6 +913,53 @@ const NAME_MARK_FACES = {
   greedy: { eyes: "dollar", mouth: "grin", extras: ["spark"] },
 };
 
+//: **Each character's own way of wearing a mood** (round 7, INBOX 430,
+//: the owner: "generated faces vary expression slightly per character").
+//: Every face in one mood drew the same eyes, brows and mouth, so a room of
+//: happy characters smiled one smile. Now, per mood, a few near neighbours
+//: of each part, and each character favours one of them for good (its
+//: seed and the mood choose, `nameMarkLean`): one is happy with a cat's
+//: mouth and content eyes, another with a grin and sparkling ones. The
+//: first of each list is the table's own; `null` keeps the face's own.
+//: Only the parts listed vary; the extras (a tear, a "zz") stay the mood's.
+const NAME_MARK_FACE_LEANS = {
+  happy: { eyes: ["happy", "content", "sparkle"], mouth: ["smile", "cat", "grin"], brows: [null, null, "raised"] },
+  excited: { eyes: ["sparkle", "star", "wide"], mouth: ["grin", "toothy"] },
+  sad: { eyes: ["glossy", "halflid"], mouth: ["frown", "wavy"] },
+  angry: { eyes: ["narrow", "halflid"], mouth: ["frown", "teeth", "flat"] },
+  surprised: { eyes: ["wide", "round"], mouth: ["o", "gasp"], brows: ["raised", "dramatic"] },
+  sleepy: { eyes: ["closed", "halflid"], mouth: ["yawn", "o"] },
+  nervous: { eyes: ["dot", "wide"], mouth: ["wavy", "flat"], brows: ["sad", "raised"] },
+  sly: { eyes: ["narrow", "halflid"], mouth: ["smirk", "lopsided"], brows: ["sly", "flat"] },
+  calm: { eyes: ["content", "round", "happy"], mouth: ["smile", "cat"] },
+  serious: { eyes: ["dot", "narrow"], brows: ["flat", "angry"] },
+  confused: { mouth: ["wavy", "o", "lopsided"] },
+  love: { eyes: ["heart", "happy"], mouth: ["smile", "cat"] },
+  laughing: { eyes: ["squeeze", "happy"], mouth: ["grin", "toothy"] },
+  unimpressed: { eyes: ["halflid", "dot"], mouth: ["flat", "smirk"] },
+  cute: { eyes: ["sparkle", "happy"], mouth: ["cat", "smile"] },
+};
+//: The face for `mood` as the character with hash `lean` wears it: the
+//: mood's own, with each listed part swapped for the one this character
+//: favours. The pick mixes the name's hash with the mood's and the part's
+//: names (FNV-1a), so a character's choices for one mood say nothing of
+//: its choices for another, and the colour rolls are untouched.
+function nameMarkLean(face, mood, lean) {
+  const options = NAME_MARK_FACE_LEANS[mood];
+  if (!options || !face) return face;
+  const out = { ...face };
+  for (const [part, list] of Object.entries(options)) {
+    let h = lean >>> 0;
+    for (const ch of `${mood}:${part}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x2c1b3c6d) >>> 0;
+    h ^= h >>> 12;
+    const pick = list[h % list.length];
+    if (pick) out[part] = pick;
+  }
+  return out;
+}
+
 //: The creatures a name can ask for. `head` fixes the head's colour where
 //: the animal has one (a panda is white, a fox is orange); the others keep
 //: the name's own colour pair, so two cats still differ.
@@ -1698,6 +1745,8 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   h ^= h >>> 13;
   h = Math.imul(h, 0xc2b2ae35) >>> 0;
   h = (h ^ (h >>> 16)) >>> 0 || 1;
+  //: Taken before the rolls, so the face's leanings never move a colour.
+  const lean = h;
   const rnd = () => {
     h ^= h << 13;
     h >>>= 0;
@@ -1728,7 +1777,8 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   //: The companion's passing expression (`nameMarkBuddyExpress`) is its
   //: face only: the colours stay the ones its name gave it.
   const expr = full && nameCharacterExpression && NAME_MARK_FACES[nameCharacterExpression] ? nameCharacterExpression : "";
-  const face = expr ? NAME_MARK_FACES[expr] : reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
+  const faceMood = expr || reading.mood || "";
+  const face = nameMarkLean(expr ? NAME_MARK_FACES[expr] : reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {}, faceMood, lean);
   const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
   const colourRoll = rnd();
   const pair = NM_CHAR_PAIRS[bias ? bias[Math.floor(colourRoll * bias.length)] : Math.floor(colourRoll * NM_CHAR_PAIRS.length)];
@@ -3020,19 +3070,26 @@ const NAME_MARK_BUDDY_NEVER_COVER = [
   ".toast", ".modal-card", ".action-menu", "video", "iframe",
 ].join(", ");
 
-//: The order each tab prefers its perches in. Hanging from the top bar
-//: suits a page whose top is quiet; sitting on the bottom bar a page that
-//: fills the screen (the graph, the timeline); standing on a dock a page
-//: whose toolbar has room at its end.
+//: The order each tab prefers its perches in. **The page's own panels
+//: first, on every tab** (round 7, INBOX 430, the owner: "perch and ride
+//: on UI elements on every tab and scroll with them, as it does on the
+//: Dashboard"). Measured before (companiontabs.js, 1440 by 900, a fresh
+//: visit): every tab put it on a window bar, hanging from the top one on
+//: the dashboard, notes and chat, standing on the bottom one on the other
+//: five, where it never moved with the page. A card, a dock or the
+//: underside of a panel is something to ride; the window's bars are the
+//: fallback when every panel is full of controls or words. The toolbar
+//: (`dock`) leads where the page is one big canvas (the graph) or a list
+//: under a toolbar (notes, the library, documents).
 const NAME_MARK_BUDDY_ORDER = {
-  dashboard: ["hang", "card", "bar", "under", "dock"],
-  notes: ["dock", "under", "bar", "hang", "card"],
-  chat: ["hang", "bar", "dock", "card", "under"],
-  graph: ["bar", "hang", "dock"],
-  library: ["dock", "under", "bar", "hang", "card"],
-  documents: ["dock", "bar", "hang", "card", "under"],
-  timeline: ["bar", "hang", "dock", "card", "under"],
-  reminders: ["card", "under", "hang", "bar", "dock"],
+  dashboard: ["card", "dock", "under", "hang", "bar"],
+  notes: ["dock", "card", "under", "hang", "bar"],
+  chat: ["card", "dock", "under", "hang", "bar"],
+  graph: ["dock", "card", "bar", "hang"],
+  library: ["dock", "card", "under", "hang", "bar"],
+  documents: ["dock", "card", "under", "bar", "hang"],
+  timeline: ["card", "dock", "under", "bar", "hang"],
+  reminders: ["card", "under", "dock", "hang", "bar"],
 };
 
 //: **Its behaviours, as a small game AI** (the owner: "more diverse
@@ -3266,7 +3323,10 @@ function nameMarkBuddyObstacles(tab) {
     document.getElementById("phone-tab-dock"), document.getElementById("toast-box"), document.querySelector(".pointer-menu-host"),
     ...document.querySelectorAll(".modal-overlay:not(.hidden), .dock-fab, #scroll-top, .chat-jump-latest"),
   ];
-  const boxes = [];
+  //: A popup's whole box, not only the controls in it (INBOX 430: the
+  //: notifications panel was blocked by it): it is where the reader is
+  //: looking the moment it opens.
+  const boxes = nameMarkBuddyPopups();
   for (const root of roots) {
     if (!root) continue;
     const found = root.matches(NAME_MARK_BUDDY_NEVER_COVER) ? [root] : [];
@@ -3277,6 +3337,60 @@ function nameMarkBuddyObstacles(tab) {
     }
   }
   return boxes;
+}
+
+//: **Out of the way of a popup** (INBOX 430, the owner: "move out of the
+//: way of popups (the notifications panel was blocked by it)"). Every
+//: surface that opens over the page and can land where it sits: the
+//: notifications panel, a menu, a select's list, a '?' popover. Its own
+//: menu is not one: that opens at it on purpose. The guided tour's ring
+//: and card are two more (INBOX 430, "Atlas spills out of its ring in the
+//: tour"): the ring is a hole in the tour's dim, and a companion perched by
+//: the control it rings showed through the hole and ran out under the dim
+//: (tourspill.js: 86 to 90px past the ring on Library's "Make something
+//: new" and the status bar's "Find").
+const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden), #tour-spot:not(.hidden), #tour-card:not(.hidden)";
+function nameMarkBuddyPopups() {
+  const boxes = [];
+  for (const el of document.querySelectorAll(NMB_POPUPS)) {
+    if (el === nmb.menu || el.closest("#nm-buddy, .nm-viewer")) continue;
+    const box = nameMarkBuddyShown(el);
+    if (box) boxes.push(box);
+  }
+  return boxes;
+}
+//: Checked a moment after any press or key (the way a popup opens), from
+//: boxes only. Over one, it fades at once, so the popup is readable that
+//: frame, and then steps aside on the check it already has; once nothing
+//: is over it any more, it fades back.
+function nameMarkBuddyDodge() {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  //: The drawn figure's box, not the face button's: the tail and the
+  //: skirt hang below the button, and a tour ring under them was missed.
+  const face = buddy.querySelector(".nm-figure") || buddy.querySelector(".nm-buddy-face") || buddy;
+  const me = face.getBoundingClientRect();
+  const over = nameMarkBuddyPopups().some((b) => b.left < me.right && b.right > me.left && b.top < me.bottom && b.bottom > me.top);
+  buddy.classList.toggle("nmb-dodge", over);
+  if (!over) return;
+  if (!nmb.pinned) queueNameMarkBuddyCheck();
+  //: Looked at again while it is faded, so it fades back as soon as it has
+  //: stepped out from under (or the popup has gone), not at the next press.
+  clearTimeout(nmbDodgeTimer);
+  nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 500);
+}
+let nmbDodgeTimer = 0;
+let nmbDodgeLate = 0;
+for (const type of ["click", "keyup"]) {
+  document.addEventListener(type, () => {
+    if (!document.getElementById("nm-buddy")) return;
+    clearTimeout(nmbDodgeTimer);
+    clearTimeout(nmbDodgeLate);
+    nmbDodgeTimer = setTimeout(nameMarkBuddyDodge, 80);
+    //: And once the page has settled: a tour step that changes tab, or a
+    //: panel that slides in, lands its box after the first look.
+    nmbDodgeLate = setTimeout(nameMarkBuddyDodge, 700);
+  }, { passive: true, capture: true });
 }
 
 //: The parts of the character that are actually drawn, as boxes: the head
@@ -3369,6 +3483,10 @@ function nameMarkBuddyShapeAt1(x, y, pose, legs = "") {
   ];
   //: The arms that hold on, from just under the ledge.
   if (pose === "hang") shape.push({ left: x - 4, top: y + NMB_GRIP + 1, right: x + 68, bottom: y + drop + 30 });
+  //: Atlas's tail curls out past the box to the lower right, to x + 80
+  //: sitting (atlasreach.js); with panels preferred on every tab (round 7)
+  //: it sat on the chat's composer row with its tail over Send.
+  if (legs !== "tuck" && document.querySelector("#nm-buddy .atl-figure-box")) shape.push({ left: x + 44, top: y + drop + 50, right: x + 82, bottom: y + drop + NMB_FEET + 4 });
   return shape;
 }
 
@@ -3492,6 +3610,14 @@ function nameMarkBuddySurfaceWalk(page) {
       if (child.id === "nm-buddy") continue;
       const box = child.getBoundingClientRect();
       if (box.width < 96 || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
+      //: A closed menu keeps its box while faded out (the timeline's
+      //: Options list, `visibility: hidden` at opacity 0): with panels
+      //: preferred on every tab (round 7) it was chosen, and the companion
+      //: hung in mid-air over a row from a menu nobody could see.
+      if (typeof child.checkVisibility === "function" && !child.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+      //: Nor a field you type into: sitting on a document's editor its
+      //: tail hung over the first line of what you were writing.
+      if (child.matches("textarea, input, select, [contenteditable='true'], .cm-editor")) continue;
       let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= 96);
       if (!surface) {
         const cs = getComputedStyle(child);
@@ -4252,7 +4378,9 @@ function nameMarkBuddyTempo() {
     //: Atlas's layer roots (atlas.js, `atlasDrawFigure`) animate on the
     //: compositor; stepping them here would put them back on the main
     //: thread, so only what animates inside a drawing is paced.
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && a.playState !== "finished");
+    //: Nor a transition (round 7: a limb easing into a new pose, 420ms,
+    //: which stepped at 10Hz juddered; it is over before it costs much).
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.playState !== "finished");
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a
@@ -4458,7 +4586,17 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmbTempo.seen = 0;
   clearTimeout(nmbTempo.timer);
   nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
-  nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+  //: **A body that sets off and arrives** (round 7, INBOX 430, the owner:
+  //: "far more lifelike, organic motion and transitions ... like a AAA
+  //: game character"). The figure slid off at once and stopped dead. Now it
+  //: gathers itself first (a crouch, `NMB_SET_OFF_MS`, the travel held
+  //: back that long), springs up out of it, and on arriving squashes into
+  //: the landing and rebounds once before it is still: anticipation and
+  //: follow-through, on the character's own `scale` about its feet, the
+  //: compositor's. The limbs meanwhile ease into the new pose (the CSS,
+  //: `transition` on the limb roots) rather than snapping to it.
+  nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.45, 0, 0.2, 1)" });
+  nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
   //: This walk's own end only (see `nameMarkBuddyPoof`): a walk cut short
   //: by the next reports its `cancel` after the next has begun.
   const walk = nmb.anim;
@@ -4479,6 +4617,30 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
 }
 
 const NMB_POOF_PX = 480;
+const NMB_SET_OFF_MS = 90;
+const NMB_SETTLE_MS = 260;
+
+//: The crouch before a move and the landing after it, over `travel` ms of
+//: setting off and going plus `NMB_SETTLE_MS` of settling. The easing is
+//: each keyframe's own: given to the whole animation it eased the whole
+//: second, and the crouch came 140ms late, after it had set off
+//: (companionmotion.js).
+function nameMarkBuddySquash(char, travel) {
+  nmb.squashAnim?.cancel();
+  nmb.squashAnim = null;
+  if (!char || typeof char.animate !== "function") return;
+  const total = travel + NMB_SETTLE_MS;
+  const at = (ms) => Math.min(1, Math.max(0, ms / total));
+  nmb.squashAnim = char.animate([
+    { scale: "1 1" },
+    { scale: "1.06 0.92", offset: at(NMB_SET_OFF_MS) },
+    { scale: "0.97 1.04", offset: at(NMB_SET_OFF_MS + 140) },
+    { scale: "1 1", offset: at(Math.max(NMB_SET_OFF_MS + 200, travel - 110)) },
+    { scale: "1.07 0.91", offset: at(travel + 50) },
+    { scale: "0.98 1.02", offset: at(travel + 160) },
+    { scale: "1 1" },
+  ].map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });
+}
 const NMB_TOSS_SPEED = 0.8;
 const NMB_PET_MS = 1100;
 
@@ -5609,15 +5771,52 @@ function nameMarkBuddyGone() {
 
 function nameMarkBuddyHide(buddy) {
   try {
+    //: Which companion it was, so the hotkey brings the same one back.
+    const was = localStorage.getItem("avatar-buddy");
+    if (was && was !== "off") localStorage.setItem("nm-buddy-last", was);
     localStorage.setItem("avatar-buddy", "off");
   } catch (e) {
     // Hidden for this session at least.
   }
   const select = document.getElementById("avatar-buddy");
   if (select) select.value = "off";
-  buddy.remove();
+  buddy?.remove();
   nameMarkBuddyGone();
-  if (typeof toast === "function") toast("Companion hidden. Settings, Appearance brings it back.");
+  if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
+}
+
+//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
+//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
+//: in the shortcut registry), the command palette and Find anything. Hidden,
+//: it comes back as whichever companion it was (`nm-buddy-last`), or Atlas.
+function nameMarkBuddyToggle() {
+  const buddy = document.getElementById("nm-buddy");
+  let choice = "off";
+  try {
+    choice = localStorage.getItem("avatar-buddy") || "off";
+  } catch (e) {
+    choice = "off";
+  }
+  if (choice !== "off") {
+    nameMarkBuddyHide(buddy);
+    return;
+  }
+  let back = "atlas";
+  try {
+    back = localStorage.getItem("nm-buddy-last") || "atlas";
+    localStorage.setItem("avatar-buddy", back);
+  } catch (e) {
+    // Shown for this session at least.
+  }
+  //: Through the Appearance select's own change, so a custom companion is
+  //: mounted and the size control follows, as when it is picked there.
+  const select = document.getElementById("avatar-buddy");
+  if (select) {
+    select.value = back;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  } else {
+    syncNameMarkBuddy();
+  }
 }
 
 //: **Its menu opens at it** (INBOX 426 p, the owner: "the right click

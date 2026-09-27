@@ -53,6 +53,25 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
 - `1e16321` the lab's rays knob retired; `atlasr6.js` and `atlaszoom.js`.
   Sheets in `scratchpad/shots/atlas-r6/`.
 
+## Done, round 9 (the companion and Atlas, INBOX 430)
+
+Shots in `scratchpad/shots/atlas-r7/`; walking and idle 0 layouts and 0
+paints a second (atlaswalk.js), companionperf.js PASS, after every step.
+
+- `5d50ca4` show or hide it: Ctrl+Shift+Y, the palette, Find anything.
+- `d6a055a` it fades out from under a popup (companiondodge.js).
+- `65f02e3` it keeps out of the tour's ring (tourspill.js, PUT=1).
+- `377a571` rings tilted to -11 degrees; the planets orbit on the
+  compositor (atlasorbit.js); the nebula rises from above the crown.
+- `d897ae4` one figure, not parts: masculine legs, feet, arms and hands
+  redrawn, one shade for body and limbs, no hem line over the legs.
+- `b2042cc` generated faces: each character wears a mood its own way
+  (facelean.js: 3 to 4 faces over 8 characters per mood).
+- `249e2e3` panels first on every tab, riding their scroll
+  (companiontabs.js: 7 of 8 tabs, the graph keeps the bar).
+- (this step) a crouch before a move, a squash and rebound on landing,
+  limbs easing between poses, calmer idle loops (companionmotion.js).
+
 ## Remaining
 
 1. The Timeline feed lays out about 39 times a second while scrolling. It
@@ -64,14 +83,17 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
 3. "Mind maps" chip at zero offers "New concept map": a naming decision.
 4. The app's poll lands a text change and two paints (about 40ms) in one
    4s window in three or four; not chased.
-5. Atlas: the large view draws the static `full` level (avatars.js,
-   `atlasDraw(size, mood)`), so the skirt's sway and the nebula's drift,
-   which live on the companion's layer roots, do not move there. The hook
-   for the avatars.js owner: draw the large view as the layered figure
-   (`atlasDrawFigure`, scaled), or ask for a `full` variant with its own
-   roots.
-6. Atlas: the feminine right arm (held out, sowing seeds) sits behind the
+5. Atlas: the feminine right arm (held out, sowing seeds) sits behind the
    hair's locks at the full size, as it did before; bringing it in front
    of the hair is a drawing-order change in the body layer.
-7. Atlas: judged against the owner's references 60 to 83 only by their
+6. Atlas: judged against the owner's references 60 to 83 only by their
    written descriptions; the images themselves are not in this sandbox.
+7. INBOX 430, "changing animations": a change of mood or act still swaps
+   one loop for another at once (CSS animations do not blend); poses and
+   moves now ease. A blend would need each loop's phase carried over.
+8. The graph tab keeps the companion on the bottom bar: its canvas has no
+   panel edge free of controls at 1440 by 900.
+9. `atlasRepaint` (atlas.js) replaces every `svg.nm-atlas` outside the
+   companion with a whole drawing, so a look or tune change while the
+   large view is open would put a full figure in place of each of its
+   layers. Not reproduced; seen in the code.

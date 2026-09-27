@@ -2632,6 +2632,8 @@ function paletteCommands() {
     { label: "ph:archive Back up now", about: "Save a copy of the whole notebook, now.", act: () => { openSettingsModal("data"); backupNow(); } },
     { label: "ph:export Export markdown", about: "Every note as a Markdown file, in one download.", act: () => downloadExport("markdown") },
     { label: "ph:circle-half Toggle light/dark", chord: "toggleTheme", act: toggleTheme },
+    //: INBOX 430: also in Find anything, which lists these same commands.
+    { label: "ph:person-simple Show or hide the companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
     { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts", chord: "help" },
     { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);

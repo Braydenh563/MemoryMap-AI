@@ -5146,6 +5146,13 @@ main,
    `overflow: clip`, not `hidden`: a box that hides its overflow can itself
    be scrolled (by a focus, a find), and this one must never move but by
    its rider. The rider is what the area's scroll moves. */
+/* Over a popup (avatars.js, `nameMarkBuddyDodge`): faded out at once and
+   kept from the pointer, so the popup is readable and usable that frame;
+   it steps aside and fades back. Opacity only: the compositor's. */
+#nm-buddy { transition: opacity var(--motion-base) var(--ease-out); }
+#nm-buddy.nmb-dodge { opacity: 0.12; }
+#nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
+
 #nm-buddy-band {
   position: fixed;
   left: 0;
@@ -5696,7 +5703,7 @@ main,
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
     &.nmb-arrive .nm-buddy-char { animation: nmb-arrive 0.55s var(--ease-spring); }
-    &[data-pose="float"] .nm-buddy-char { animation: nmb-float 3.2s ease-in-out infinite; }
+    &[data-pose="float"] .nm-buddy-char { animation: nmb-float 4.2s ease-in-out infinite; }
     &.nmb-walking .nm-buddy-char { animation: nmb-bob 0.34s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nm-buddy-char { animation: none; }
     &.nmb-walking .nmb-leg-l { animation: nmb-step 0.34s ease-in-out infinite alternate; }
@@ -5877,7 +5884,7 @@ main,
   from { transform: scaleY(1); }
   to { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.7); }
 }
-@keyframes nmb-float { 50% { transform: translateY(-4px); } }
+@keyframes nmb-float { 50% { transform: translateY(-3px); } }
 @keyframes nmb-kick {
   from { transform: rotate(calc(var(--nmb-side) * 5deg)) scaleY(0.92); }
   to { transform: rotate(calc(var(--nmb-side) * 12deg)) scaleY(0.5); }
@@ -6012,7 +6019,7 @@ main,
    where relative colours are missing (an unsupported value inside a
    custom property would only fail where it is used, so the modern set is
    behind `@supports`, not layered). */
-.nm-atlas {
+.nm-atlas, .atl-orbits {
   --nm-delay: 0s;
   --atl-hi: #dcedfd;
   --atl-lt: #c2dbf9;
@@ -6128,7 +6135,7 @@ main,
      colour is clipped one way when painted directly and another inside an
      opacity layer, and a ring's front half once came out olive while its
      back half was blue). */
-  .nm-atlas {
+  .nm-atlas, .atl-orbits {
     --atl-glow-c: color-mix(in oklab, oklch(from var(--accent) 0.84 clamp(0.04, calc(c * 0.7), 0.09) h) 35%, #c3d8f8);
     --atl-ring-c: color-mix(in oklab, oklch(from var(--accent) 0.78 clamp(0.04, calc(c * 0.7), 0.1) h) 25%, #c8d6ff);
     --atl-iris-c: color-mix(in oklab, oklch(from var(--accent) 0.6 clamp(0.06, c, 0.17) h) 30%, #4a62b8);
@@ -6189,6 +6196,58 @@ main,
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
+/* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):
+   each one is a small disc outside the drawing's svg, on three nested
+   boxes at the figure's top left, so its turn is the compositor's. The
+   frame's transform (the ring's centre, tilt and flattening) is set
+   inline; each ring has its own slow period, the outer ones slower. */
+.atl-orbits, .atl-orbit, .atl-orbit-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.atl-orbit, .atl-orbit-arm { transform-origin: 0 0; }
+.atl-orbit {
+  --atl-orbit-t: 70s;
+  &.atl-orbit-1 { --atl-orbit-t: 96s; }
+  &.atl-orbit-2 { --atl-orbit-t: 124s; }
+}
+/* Where each planet starts, as a fraction of the turn: set by atlas.js. */
+.atl-orbit-arm {
+  --atl-at: 0;
+}
+.atl-orbiter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  --atl-p: var(--atl-amber);
+  background: radial-gradient(circle at 34% 32%, rgb(255 255 255 / 0.9) 0 16%, var(--atl-p) 46%);
+}
+.atl-orbiter-teal { --atl-p: var(--atl-teal); }
+.atl-orbiter-pink { --atl-p: var(--atl-pink); }
+.atl-orbiter-pale { --atl-p: var(--atl-pale); }
+.atl-orbiter-lilac { --atl-p: var(--atl-lilac); }
+/* A calm-down mood dims the rings (`--atl-halo-o`); the planets with them. */
+.atl-figure-box:is([data-atlas-mood="sleepy"], [data-atlas-mood="sad"]) > .atl-orbits { opacity: 0.6; }
+/* Meditating flattens the rings; the planets step out rather than run on
+   an orbit the ring no longer has. */
+#nm-buddy.nmb-act-meditate .atl-orbits { opacity: 0; }
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live > .atl-orbits {
+  & .atl-orbit-arm { animation: atl-orbit var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
+  & .atl-orbiter { animation: atl-orbit-back var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite, atl-orbit-depth var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
+}
+.atl-figure-box.atl-off .atl-orbits *, :root[data-atlas-hidden] .atl-orbits * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .nm-live > .atl-orbits :is(.atl-orbit-arm, .atl-orbiter) { animation: none !important; }
+}
+@keyframes atl-orbit { from { rotate: 0deg; } to { rotate: 360deg; } }
+@keyframes atl-orbit-back { from { rotate: 0deg; } to { rotate: -360deg; } }
+/* The turn's angle is the keyframe's offset: 25% is the front (nearest),
+   75% the back, where the head hides it. */
+@keyframes atl-orbit-depth {
+  0%, 50%, 100% { opacity: 0.92; }
+  25% { opacity: 1; }
+  59% { opacity: 0.7; }
+  64%, 86% { opacity: 0; }
+  91% { opacity: 0.7; }
+}
 /* The shared defs (atlas.js, `atlasDefs`): present, unseen. */
 svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
@@ -6207,6 +6266,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    hangs, when its arms are busy. */
 .nm-atlas .atl-chin-hand { opacity: 0; transition: opacity var(--motion-base) var(--ease-out); }
 .nm-atlas .nmb-arm-r { transition: opacity var(--motion-base) var(--ease-out); }
+/* Round 7 (INBOX 430, "far more lifelike ... changing poses"): a change of
+   pose eases the limbs into it, with a touch of overshoot, rather than
+   snapping: the leg layers' roots (the compositor), the arms and the
+   generic character's limbs (a short repaint of their layer, only while
+   the pose changes). A walk's steps and an act's moves are animations,
+   which a transition does not touch. */
+#nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring), opacity var(--motion-base) var(--ease-out); }
+:root:is([data-avatar-motion="off"], [data-motion="reduced"]) #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: opacity var(--motion-base) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: opacity var(--motion-base) var(--ease-out); }
+}
 .nm-atlas.atl-full[data-atlas-mood="thinking"] .atl-chin-hand,
 #nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .atl-chin-hand { opacity: 1; }
 .nm-atlas.atl-full[data-atlas-mood="thinking"] .nmb-arm-r,
@@ -6306,6 +6376,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-band0 { stop-color: #262a6a; }
 .nm-atlas .atl-st-band1 { stop-color: #6d52b8; }
 .nm-atlas .atl-st-band2 { stop-color: #4a3c96; }
+.nm-atlas .atl-st-band-fade { stop-color: #6d52b8; stop-opacity: 0; }
 .nm-atlas .atl-st-cloud-pink { stop-color: #e39ad8; }
 .nm-atlas .atl-st-cloud-blue { stop-color: #6fb4ee; }
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }
@@ -6790,16 +6861,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
-    &.atl-layer-tail { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
-    &.atl-layer-front { animation: atl-shimmer 2.8s ease-in-out infinite; }
+    &.atl-layer-front { animation: atl-shimmer 5.6s ease-in-out infinite; }
     /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
        the layered figure is drawn (the companion and the large view); the
        companion's walk, carry and kick out-rank the skirt's with their own
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
     &.atl-layer-neb { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
-    &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.5s ease-in-out infinite alternate; }
+    &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
@@ -6902,7 +6973,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 
 @keyframes atl-breathe { 50% { transform: scale(0.99, 1.018); } }
-@keyframes atl-shimmer { 50% { opacity: 0.82; } }
+/* Round 7 (INBOX 430, "be less visually distracting"): the rings'
+   shimmer half as deep and half as fast (0.82 every 2.8s was a flicker in
+   the corner of the eye), the tail's idle swish smaller and slower, the
+   happy wag slower and narrower, the float's bob shallower. */
+@keyframes atl-shimmer { 50% { opacity: 0.91; } }
 @keyframes atl-blink-lids {
   0%, 36.4%, 39.6%, 90.4%, 92%, 92.8%, 94.4%, 100% { opacity: 0; }
   37.4%, 38.6%, 91%, 91.4%, 93.4%, 93.8% { opacity: 1; }
@@ -6924,12 +6999,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @keyframes atl-juggle { to { transform: rotate(360deg); } }
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
-  40% { transform: rotate(-5deg); }
-  70% { transform: rotate(2.6deg); }
+  40% { transform: rotate(-3.6deg); }
+  70% { transform: rotate(1.8deg); }
 }
 @keyframes atl-wag {
-  from { transform: rotate(-8deg); }
-  to { transform: rotate(6deg); }
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(4deg); }
 }
 @keyframes atl-hop {
   0%, 100% { transform: none; }

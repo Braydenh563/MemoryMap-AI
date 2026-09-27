@@ -1435,17 +1435,28 @@ header#top-bar,
 
   #sidebar:not(.sidebar-sheet-open),
   #chat-sidebar:not(.sidebar-sheet-open),
-  #doc-sidebar:not(.sidebar-sheet-open) {
+  #doc-sidebar:not(.sidebar-sheet-open),
+  #skills-sidebar:not(.sidebar-sheet-open) {
     transform: translateX(-100%);
   }
 
   #sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
   #chat-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
-  #doc-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle {
+  #doc-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
+  #skills-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle {
     display: none;
   }
 
   .sidebar-panel ~ * {
+    padding-left: 0;
+  }
+
+  /* Skill logs is after `main` in the DOM (RIGHT_SIDE_SIDEBARS, app.js), so
+     the rule above cannot reach it; see the matching rule in
+     07-whiteboard-misc.css's 819.98px band for the full reason. Below 600
+     there is no rail at all (`.dock-nav` is the only way in), so this
+     clearance goes back to zero exactly like the rule above. */
+  .skills-split > main:has(+ #skills-sidebar) {
     padding-left: 0;
   }
 

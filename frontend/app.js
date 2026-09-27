@@ -22406,8 +22406,23 @@ const SIDEBAR_MAX = 520;
 // Per-sidebar starting widths. The chat list carries the most text per row, 
 // a title, then a date/turns/tokens line, so it starts wider than a list of
 // one-word category names.
-const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260 };
+const SIDEBAR_DEFAULTS = {
+  "chat-sidebar": 300,
+  sidebar: 260,
+  "doc-sidebar": 260,
+  // Matches .skills-split's own static column (07-whiteboard-misc.css) for
+  // the frame before this runs, so the sidebar does not visibly jump width.
+  "skills-sidebar": 300,
+};
 const sidebarDefault = (id) => SIDEBAR_DEFAULTS[id] || 260;
+
+//: The one sidebar that sits on the right of its row (INBOX 430): a log
+//: panel, not primary navigation, kept on the side it was already on rather
+//: than moved to match the other three. `applySidebarWidth` below always
+//: writes the sidebar's own width into whichever track this set says, and
+//: `.skills-split`'s static columns (07-whiteboard-misc.css) are ordered the
+//: same way for the frame before that first runs.
+const RIGHT_SIDE_SIDEBARS = new Set(["skills-sidebar"]);
 
 function sidebarWidth(id, fallback = 260) {
   const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
@@ -22492,11 +22507,13 @@ function applySidebarWidth(aside, width, { remember = true } = {}) {
     return clamped;
   }
 
-  if (aside.classList.contains("sidebar-collapsed")) {
-    aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
-  } else {
-    aside.parentElement.style.gridTemplateColumns = `${sidebarFittedWidth(clamped)}px minmax(0, 1fr)`;
-  }
+  const onRight = RIGHT_SIDE_SIDEBARS.has(aside.id);
+  const fixedTrack = aside.classList.contains("sidebar-collapsed")
+    ? "48px"
+    : `${sidebarFittedWidth(clamped)}px`;
+  aside.parentElement.style.gridTemplateColumns = onRight
+    ? `minmax(0, 1fr) ${fixedTrack}`
+    : `${fixedTrack} minmax(0, 1fr)`;
   return clamped;
 }
 
@@ -22509,7 +22526,7 @@ let sidebarRefitTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(sidebarRefitTimer);
   sidebarRefitTimer = setTimeout(() => {
-    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar", "skills-sidebar"]) {
       const aside = document.getElementById(id);
       if (aside?.dataset.resizable) {
         applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
@@ -22559,7 +22576,7 @@ for (const query of [STACKED_LAYOUT, SIDEBAR_TABLET_BAND]) {
 // hover-peek. Instead the desktop classes are taken off while stacked and put
 // back on the way out, so none of those rules apply and there is nothing to
 // fight.
-const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar"];
+const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar", "skills-sidebar"];
 
 function eachSidebar(fn) {
   for (const id of SIDEBAR_IDS) {
@@ -22688,14 +22705,12 @@ function makeSidebarResizable(aside) {
     }
     aside.classList.toggle("sidebar-collapsed");
     aside.parentElement.classList.toggle("layout-sidebar-collapsed");
-    
-    // We update the grid column based on whether it is now collapsed or not
-    if (aside.classList.contains("sidebar-collapsed")) {
-      aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
-    } else {
-      const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
-      aside.parentElement.style.gridTemplateColumns = `${saved}px minmax(0, 1fr)`;
-    }
+    // `applySidebarWidth` already knows the collapsed-vs-open track and,
+    // now, which side of the row this sidebar's fixed track belongs on
+    // (`RIGHT_SIDE_SIDEBARS`); writing the grid columns a second, simpler
+    // way here is exactly how this handler used to disagree with it for
+    // Skill logs specifically.
+    applySidebarWidth(aside, sidebarWidth(aside.id, sidebarDefault(aside.id)), { remember: false });
   });
   aside.appendChild(collapseBtn);
 
@@ -22737,7 +22752,7 @@ function makeSidebarResizable(aside) {
 }
 
 function initResizableSidebars() {
-  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar", "skills-sidebar"]) {
     const aside = document.getElementById(id);
     if (aside) makeSidebarResizable(aside);
   }
@@ -40155,6 +40170,7 @@ const PHONE_SIDEBAR_OPENERS = [
   { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories and tags" },
   { aside: "chat-sidebar", dock: '[data-dock-name="chat"]', label: "Conversations" },
   { aside: "doc-sidebar", dock: ".doc-dock", label: "Documents list" },
+  { aside: "skills-sidebar", dock: '[data-dock-name="library-skills"]', label: "Skill logs" },
 ];
 
 function mountPhoneSidebarOpeners() {

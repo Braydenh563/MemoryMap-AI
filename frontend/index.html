@@ -4579,15 +4579,31 @@
           <div id="skills-dashboard-list"></div>
         </section>
 
-      
+
         </main>
-        <aside class="card glass" id="skills-sidebar">
-        <div class="row space-between library-head">
-          <h2>Skill logs</h2>
-          <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
-        </div>
-        <div id="skills-logs-list" class="entry-list"></div>
-      </aside>
+        <!-- Reuses the Notes/Chat/Documents sidebar recipe (INBOX 430:
+             collapse, drag-resize, the hover-peek while collapsed, and the
+             phone sheet), rather than a fourth hand-built column:
+             `initResizableSidebars` and `SIDEBAR_IDS` in app.js pick it up
+             by id, `mountPhoneSidebarOpeners` gives it the same rail opener
+             in this tab's own dock. Plain `.card`, not `.glass`: every
+             other sidebar in the app is a flat tone beside a flat `main`,
+             and `.glass`'s own shadow and rim, drawn along the one edge the
+             two panels share, was the "odd shadow between it and the main
+             panel" report -- the sidebar had a shadow the content beside it
+             did not, which reads as a seam rather than as one page.
+             Last in the DOM, unlike the other three (which lead their row):
+             this is the one sidebar on the *right*, a log panel rather than
+             primary navigation, kept there on purpose rather than moved to
+             match. `RIGHT_SIDE_SIDEBARS` in app.js is the one place that
+             asymmetry is spelled out. -->
+        <aside class="card sidebar-panel" id="skills-sidebar">
+          <div class="row space-between library-head sidebar-head">
+            <h2>Skill logs</h2>
+            <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
+          </div>
+          <div id="skills-logs-list" class="entry-list"></div>
+        </aside>
       </div>
     </div>
 

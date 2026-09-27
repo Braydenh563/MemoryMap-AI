@@ -407,8 +407,13 @@ document.addEventListener("click", (event) => {
   // `.action-menu` for the same reason the notifications panel needs it: a
   // menu this panel owns is reparented to <body> while open, so a click on
   // one of its options is not a descendant of the panel and would otherwise
-  // read as a click away.
-  if (event.target.closest(".note-picker, .action-menu")) return;
+  // read as a click away. `.sheet-overlay` the same, on a phone
+  // (`openNotePicker`'s own sheet path, chat-attach.js): the panel moves
+  // out of `.note-picker` into the sheet's card, and the sheet already
+  // owns its own scrim-click and Escape dismissal, so this listener has
+  // nothing to add there and every click inside it, otherwise, closed the
+  // sheet the instant it was touched.
+  if (event.target.closest(".note-picker, .action-menu, .sheet-overlay")) return;
   closeNotePicker();
 });
 $("note-picker-panel").addEventListener("keydown", (event) => {

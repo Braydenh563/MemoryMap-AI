@@ -3,7 +3,7 @@
 // torso and wisps, plus a luminance profile down the middle (x 31) and at
 // the flanks, so a seam shows as a step rather than as an impression.
 //   BASE=... THEME=dark TAG=after POSES=stand,sit,float,lie SWAY=1 ZOOM=1 SCRATCH=.. node atlaswaist.js
-// ZOOM=1 draws 12x centred on the waist (x 31, y 57). The holder takes the
+// MOOD=sleepy sets every Atlas's mood. ZOOM=1 draws 12x centred on the waist (x 31, y 57). The holder takes the
 // companion's id (the real one is removed) so the pose rules apply; the pose
 // "walk" sets .nmb-walking, the swaying glide.
 const {boot}=require('./lib.js');
@@ -13,7 +13,7 @@ const POSES=(process.env.POSES||'stand').split(',');
   const {browser,page}=await boot({viewport:{width:1093,height:614}});
   for(const look of ['masculine','feminine']){
     for(const pose of POSES){
-      await page.evaluate(({look,pose,zoom})=>{
+      await page.evaluate(({look,pose,zoom,mood})=>{
         document.getElementById('atl-waist')?.remove();
         localStorage.setItem('atlas-look',look);
         const box=document.createElement('div'); box.id='atl-waist'; box.className='card';
@@ -24,12 +24,13 @@ const POSES=(process.env.POSES||'stand').split(',');
         const fig=atlasFigure(); fig.style.position='relative'; fig.style.display='block'; fig.style.width='64px'; fig.style.height='92px';
         if(pose==='walk') holder.classList.add('nmb-walking'); else if(pose!=='stand') holder.dataset.pose=pose;
         holder.append(fig); box.append(holder); document.body.append(box);
-      },{look,pose,zoom:!!process.env.ZOOM});
+        if(mood) setAtlasMood(mood);
+      },{look,pose,zoom:!!process.env.ZOOM,mood:process.env.MOOD||''});
       const frames=process.env.SWAY?3:1;
       for(let f=0;f<frames;f++){
         await page.waitForTimeout(f?350:900);
         const el=await page.$('#atl-waist');
-        await el.screenshot({path:`${process.env.SCRATCH||'.'}/shots/waist${process.env.ZOOM?'zoom':''}-${TAG}-${THEME}-${look}-${pose}${frames>1?'-'+f:''}.png`});
+        await el.screenshot({path:`${process.env.SCRATCH||'.'}/shots/waist${process.env.ZOOM?'zoom':''}${process.env.MOOD?'-'+process.env.MOOD:''}-${TAG}-${THEME}-${look}-${pose}${frames>1?'-'+f:''}.png`});
       }
     }
   }

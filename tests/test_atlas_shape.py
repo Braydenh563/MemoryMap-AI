@@ -426,3 +426,17 @@ def test_the_masculine_wisps_fall_and_the_waist_has_no_seam():
     assert 'fade("lowerin", 60, 52);' in ATLAS and 'fade("waist", 54, 63);' in ATLAS
     assert 'lower.setAttribute("mask", `url(#${id}-lowerin)`);' in ATLAS
     assert "return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];" in ATLAS
+
+
+def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
+    # The owner: "no arm resting on the orbit rings". Measured by
+    # scratchpad/ui-sweeps/atlasarms.js (MOODS=sleepy, and POSE=lie, sit):
+    # the eye-rub turned the arm out over the rings, and her held-out arm
+    # stayed out along them when dozing, sitting or lying.
+    for look, ar2 in (("masculine", "150deg"), ("feminine", "-84deg")):
+        rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="sleepy"\] \{{([^}}]+)\}}', CSS).group(1)
+        assert f"--atl-ar2: {ar2}" in rule, (look, "the eye-rub crosses the body to the face")
+        angles = dict(re.findall(r"--atl-(a[rl]\d): (-?\d+)deg", rule))
+        assert abs(int(angles["al0"])) <= 10 and abs(int(angles["al2"])) <= 10, (look, "the left arm hangs")
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }' in CSS
+    assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }' in CSS

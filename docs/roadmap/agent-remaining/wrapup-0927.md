@@ -15,8 +15,15 @@ written.
 
 ## Atlas (atlas.js)
 
-- [ ] Sleeping arms: no arm resting on the orbit rings; doze standing,
+- [x] Sleeping arms: no arm resting on the orbit rings; doze standing,
   sleep on the perch floor, hanging, half tucked away, or lying down.
+  `atlasarms.js` (the share of each arm on the rings' band, in the rig's
+  units): sleepy arms were up to 67% on the rings (the eye-rub turned
+  outward), her held-out arm 69% when dozing seated and 41% lying. Now
+  every sleepy variant, standing, hanging, curled, seated and lying, is at
+  most 10%: dozing hangs tucked (v0), half tucked away hands together low
+  (v1), a hand across to the eye (v2). The poses' own choice of where to
+  sleep is avatars.js's, not changed here.
 - [x] Base "silver" button and select restyle, app-wide, at the base rules
   (default button, `.small`, `.icon-only`, `select`; there is no
   `.secondary` class): quiet fills, ghost icon buttons, custom select

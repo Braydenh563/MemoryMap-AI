@@ -870,6 +870,9 @@ const LOCK_PURGE_IDS = [
   "reminder-list-card", // reminders
   "graph-svg", // node labels are note titles
   "palette-list", // whatever was last searched for
+  "palette-preview", // and the note it was showing
+  "wiki-suggest-list", // the [[ list's note titles
+  "wiki-suggest-preview",
   "doc-live",
   "doc-preview",
 ];

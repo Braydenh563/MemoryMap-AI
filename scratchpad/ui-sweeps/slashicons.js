@@ -51,8 +51,8 @@ function ok(label, pass, detail) {
     const rows = [...document.querySelectorAll(".editor-menu-item")];
     //: The icon sits in the row's tile since the block menu's redesign
     //: (INBOX 421 b), the name beside it; both are read from the row.
-    const labels = rows.map((r) => r.querySelector(".editor-menu-label"));
-    const tiles = rows.map((r) => r.querySelector(".editor-menu-tile"));
+    const labels = rows.map((r) => r.querySelector(".rich-picker-label"));
+    const tiles = rows.map((r) => r.querySelector(".rich-picker-tile"));
     return {
       rows: rows.length,
       withIcon: tiles.filter((l) => l && l.querySelector("i.ph")).length,

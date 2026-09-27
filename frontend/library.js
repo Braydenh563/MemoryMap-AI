@@ -1911,6 +1911,10 @@ const LIBRARY_CREATE_HINTS = {
 //: added; it names no count now, so it cannot drift from the rows under it.
 const LIBRARY_CREATE_ORDER = ["note", "document", "map", "board", "chat", "meeting", "file"];
 
+//: The kinds that have a chord of their own, by its name in the shortcut
+//: registry: the keycap is read from the live table, so a rebinding shows.
+const LIBRARY_CREATE_CHORDS = { note: "newNote", document: "newDocument", chat: "newChat", meeting: "recordMeeting" };
+
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay confirm-overlay";
@@ -1926,7 +1930,7 @@ function openLibraryCreatePicker() {
   text.className = "muted";
   text.textContent = "Pick what to make, or bring a file in. It opens ready to use.";
   const list = document.createElement("ul");
-  list.className = "doc-ai-history-list";
+  list.className = "rich-picker-list library-create-list";
   list.setAttribute("role", "list");
 
   const returnFocus = document.activeElement;
@@ -1946,21 +1950,23 @@ function openLibraryCreatePicker() {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
     const [icon, hint] = LIBRARY_CREATE_HINTS[kind];
     const li = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ghost doc-template-choice";
+    //: **The rich picker's row** (rich-picker.js, DESIGN.md's recipe index),
+    //: the "/" menu's: a tile, the kind over its one line, and the chord that
+    //: makes one from anywhere. A button still, not an option: this dialog is
+    //: walked by Tab and a kind is made by Enter or a click, as before.
+    //: The picker names its own icon per kind (`LIBRARY_CREATE_HINTS`), more
+    //: specific than the button's shared `ph:plus`, so the label's own
+    //: leading token is dropped in favour of it.
+    const chord = LIBRARY_CREATE_CHORDS[kind];
+    const button = richPickerRow({
+      tag: "button",
+      role: null,
+      icon,
+      label: entry.label.replace(/^ph:\S+\s*/, ""),
+      about: hint,
+      keys: chord && typeof shortcuts !== "undefined" ? shortcuts[chord]?.keys || "" : "",
+    });
     button.dataset.kind = kind;
-    const name = document.createElement("strong");
-    //: The picker names its own icon per kind (`LIBRARY_CREATE_HINTS`),
-    //: which is more specific than the button's shared `ph:plus`, so the
-    //: label's own leading token is dropped in favour of it. It used to be
-    //: a typed "\uff0b" that this line stripped by pattern; both ends are
-    //: `ph:` tokens now, so the strip is a token swap rather than a repair.
-    setLabel(name, `${icon} ${entry.label.replace(/^ph:\S+\s*/, "")}`);
-    const line = document.createElement("span");
-    line.className = "muted text-sm";
-    line.textContent = hint;
-    button.append(name, line);
     button.addEventListener("click", () => {
       close();
       entry.run();

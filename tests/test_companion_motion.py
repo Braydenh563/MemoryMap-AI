@@ -497,7 +497,7 @@ def test_the_companion_shows_and_hides_from_anywhere() -> None:
     assert 'toggleCompanion: { keys: "Ctrl+Shift+Y"' in wiring
     assert "nameMarkBuddyToggle()" in wiring
     panes = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
-    assert "Show or hide the companion\", act: () => nameMarkBuddyToggle()" in panes
+    assert "Show or hide the companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
     assert 'localStorage.getItem("nm-buddy-last")' in toggle
     assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")

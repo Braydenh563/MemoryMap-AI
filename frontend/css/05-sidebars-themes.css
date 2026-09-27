@@ -736,35 +736,39 @@ button.map-chip:focus-visible {
 }
 
 /* --- [[ autocomplete ---------------------------------------------------------- */
+/* A rich picker (rich-picker.js) in the flow under the note box: the list and,
+   from 44rem, the chosen note's first lines beside it. The rows, the lit row
+   and the pane are the recipe's; only the frame and the height are this
+   list's own. */
 .wiki-suggest {
-  list-style: none;
-  margin: 0.25rem 0 0;
-  padding: 0.25rem;
-  max-height: 14rem;
-  overflow-y: auto;
+  display: flex;
+  align-items: stretch;
+  margin: var(--space-1) 0 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));
   box-shadow: var(--glass-shadow);
+  overflow: hidden;
 }
 
 .wiki-suggest.hidden {
   display: none;
 }
 
-.wiki-suggest li {
-  padding: 0.4rem 0.5rem;
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.wiki-suggest > .rich-picker-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 16rem;
 }
 
-.wiki-suggest li.active,
-.wiki-suggest li:hover {
-  background: var(--accent-soft);
+.wiki-suggest > .rich-picker-preview {
+  max-height: 16rem;
+}
+
+@media (max-width: 43.99rem) {
+  .wiki-suggest > .rich-picker-preview {
+    display: none;
+  }
 }
 
 /* --- the "/" menu and block frames -------------------------------------------
@@ -801,18 +805,33 @@ button.map-chip:focus-visible {
   width: 22rem;
   max-width: 100%;
   max-height: min(24rem, 60vh);
+}
+
+.editor-menu-preview {
+  width: 16rem;
+  max-height: min(24rem, 60vh);
+}
+
+/* --- the rich picker (rich-picker.js; DESIGN.md's recipe index) --------------
+   The "/" menu's own rows, group headings, keycaps and preview, lifted out of
+   `.editor-menu-*` under names any list of choices can wear: the owner asked
+   for "more similar design styles elsewhere in the app" of exactly this
+   menu. Only the anatomy lives here; where a picker sits and how wide it is
+   stay with that picker (`.editor-menu-list` above, `#palette-list`). */
+.rich-picker-list {
   margin: 0;
   padding: var(--space-1);
   list-style: none;
   overflow-y: auto;
-  /* Scrolling the menu must not chain to the page behind it, a wheel event
-     that reaches the page moves the caret this menu is anchored to. */
+  scrollbar-width: thin;
+  /* Scrolling the list must not chain to the page behind it: a wheel event
+     that reaches the page moves the caret a menu is anchored to. */
   overscroll-behavior: contain;
 }
 
 /* The heading of a group stays in view while its rows scroll under it, so
    the reader always knows which part of the catalogue they are in. */
-.editor-menu-group {
+.rich-picker-group {
   position: sticky;
   top: calc(var(--space-1) * -1);
   z-index: 1;
@@ -825,7 +844,7 @@ button.map-chip:focus-visible {
   color: var(--muted);
 }
 
-.editor-menu-item {
+.rich-picker-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -838,9 +857,10 @@ button.map-chip:focus-visible {
 
 /* The icon's tile: one size for every row, so the names line up on one edge
    and the kinds read by shape before they are read by word. */
-.editor-menu-tile {
+.rich-picker-tile {
   display: inline-grid;
   place-items: center;
+  flex: none;
   width: 2rem;
   height: 2rem;
   border: 1px solid var(--border);
@@ -850,19 +870,24 @@ button.map-chip:focus-visible {
   font-size: var(--text-lg);
 }
 
-.editor-menu-tile.doc-block-kind {
+/* A face in place of a glyph (Atlas's own row): it fills the tile. */
+.rich-picker-tile-face {
+  overflow: hidden;
+}
+
+.rich-picker-tile.doc-block-kind {
   border-color: color-mix(in srgb, var(--callout-accent) 35%, transparent);
   background: color-mix(in srgb, var(--callout-accent) 14%, transparent);
   color: var(--callout-accent);
 }
 
-.editor-menu-text {
+.rich-picker-text {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.editor-menu-label {
+.rich-picker-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -870,7 +895,7 @@ button.map-chip:focus-visible {
   color: var(--ink);
 }
 
-.editor-menu-about {
+.rich-picker-about {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -878,15 +903,16 @@ button.map-chip:focus-visible {
   color: var(--muted);
 }
 
-.editor-menu-hit {
+.rich-picker-hit {
   background: none;
   color: var(--accent-text);
   font-weight: 700;
 }
 
-/* The markdown the row writes. It teaches the syntax behind the menu, so it
-   stays legible rather than decorative, and never wins space from the name. */
-.editor-menu-keys {
+/* The keycap: the way to do it without the picker (the markdown the row
+   writes, or the chord that runs it). It teaches, so it stays legible rather
+   than decorative, and never wins space from the name. */
+.rich-picker-keys {
   flex: 0 0 auto;
   max-width: 7rem;
   overflow: hidden;
@@ -902,36 +928,65 @@ button.map-chip:focus-visible {
 }
 
 /* One highlighted row, never two: the pointer sets `.active` itself when it
-   moves (`editorSetActive`), so a `:hover` fill here drew a second row lit
-   wherever the pointer happened to rest while the keyboard walked away. */
-.editor-menu-item.active {
+   moves (`editorSetActive`, `richPickerSetActive`), so a `:hover` fill here
+   drew a second row lit wherever the pointer happened to rest while the
+   keyboard walked away. */
+.rich-picker-row.active {
   background: var(--accent-soft);
 }
 
-.editor-menu-item.active .editor-menu-tile {
+/* A row that is a button (a dialog of choices walked by Tab): the browser's
+   own button paint taken off so it is the same row, and the fill follows the
+   pointer and the keyboard's focus, since there is no `.active` to move. */
+button.rich-picker-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.rich-picker-row:hover,
+button.rich-picker-row:focus-visible {
+  background: var(--accent-soft);
+}
+
+/* Still one row lit: while the pointer is over a row, the focused one gives
+   its fill up (measured: the pointer resting on a third row lit two). */
+.rich-picker-list:has(button.rich-picker-row:hover) button.rich-picker-row:focus-visible:not(:hover) {
+  background: none;
+}
+
+.rich-picker-list:has(button.rich-picker-row:hover) button.rich-picker-row:focus-visible:not(:hover) .rich-picker-tile {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.rich-picker-row.active .rich-picker-tile,
+button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent-text);
 }
 
-/* The preview: the chosen row's block, drawn by the page's own renderer, in
-   a column beside the list. Clipped with a fade rather than scrolled, the
-   same rule the template dialog's preview keeps: one scroller per popup. */
-.editor-menu-preview {
+/* The preview: the chosen row, drawn in a column beside the list. Clipped
+   with a fade rather than scrolled, the same rule the template dialog's
+   preview keeps: one scroller per popup. */
+.rich-picker-preview {
   position: relative;
   flex: 0 0 auto;
   width: 16rem;
-  max-height: min(24rem, 60vh);
   padding: var(--space-3) var(--space-4);
   border-left: 1px solid var(--border);
   background: var(--inner);
   overflow: hidden;
 }
 
-.editor-menu-preview.hidden {
+.rich-picker-preview.hidden {
   display: none;
 }
 
-.editor-menu-preview::after {
+.rich-picker-preview::after {
   content: "";
   position: absolute;
   inset: auto 0 0;
@@ -940,7 +995,7 @@ button.map-chip:focus-visible {
   pointer-events: none;
 }
 
-.editor-menu-preview-head {
+.rich-picker-preview-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -949,13 +1004,13 @@ button.map-chip:focus-visible {
   font-size: var(--text-md);
 }
 
-.editor-menu-preview-about {
+.rich-picker-preview-about {
   margin: 0 0 var(--space-3);
   font-size: var(--text-sm);
   color: var(--muted);
 }
 
-.editor-menu-preview-keys {
+.rich-picker-preview-keys {
   margin: var(--space-3) 0 0;
   font-size: var(--text-xs);
   color: var(--muted);
@@ -963,22 +1018,22 @@ button.map-chip:focus-visible {
 
 /* The sample is a real render at a reading size a little under the page's,
    so a callout or two columns fit the pane without being a thumbnail. */
-.editor-menu-sample {
+.rich-picker-sample {
   font-size: var(--text-sm);
   pointer-events: none;
 }
 
-.editor-menu-sample > :first-child {
+.rich-picker-sample > :first-child {
   margin-top: 0;
 }
 
-.editor-menu-sample .callout,
-.editor-menu-sample .md-toc,
-.editor-menu-sample .doc-cols {
+.rich-picker-sample .callout,
+.rich-picker-sample .md-toc,
+.rich-picker-sample .doc-cols {
   margin-block: 0;
 }
 
-.editor-menu-sample .doc-cols {
+.rich-picker-sample .doc-cols {
   gap: var(--space-4);
 }
 

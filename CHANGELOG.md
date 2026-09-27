@@ -18,6 +18,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Added
 
 - Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.
+- The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the note box's `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
 - `POST /links/clip`, the web clipper's backend: a page you choose is fetched once (only while web search is allowed in Settings, and never from an address on this computer or your network, redirects included), reduced to its title, its address and its main text, and kept as a note that search finds by its words. The bookmarklet and its Settings row are not built yet.
 - Two notes with the same title in a note's connections (the Connections sheet and the Notes column) can be told apart: each row carries a quiet second cue, the category, or the date written, or the time, whichever separates them. The Connections column also steps aside for the note's sheet when a wide categories sidebar would leave the notes list narrower than 600px, and comes back when there is room.
 - In a window 1280 wide or more, the note you open or select in Notes has a Connections column beside the list: the notes it links to, the notes that link to it, the documents, boards and maps it is in, the files it shows, and the forgotten notes close to it. Its close button hides it for good; the notes list's More menu brings it back. In a narrower window the note's own Connections sheet is the way in, as before.
@@ -42,6 +43,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - During the guided tour the corner companion no longer shows through the ring around the control a step points at: it fades and steps away from the ring and the tour's card.
 - The corner companion gets out of the way of a popup: when the notifications panel, a menu, a list or a help popover opens over it, it fades at once and then steps aside, and fades back once it is clear.
+- The note box's `[[` link list answers its keys again: with the note editor loaded, the arrows moved the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
 - Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
 - In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.
@@ -97,6 +99,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Graph: the map's background is no longer black on GPU windows (a low-latency canvas mode, turned on for speed earlier today, is off again).
 - Chat: a reopened conversation numbers its citation marks by its Sources panel again (a mark read 1 where its source was 8).
 - Settings: the Privacy page's Since launch / All time pill shows which is chosen; the tools grid draws one divider per row in both columns.
 - Agent turns no longer fail on Windows with "Invalid format string" (the week line used a Linux-only date flag); a lint now refuses such flags.

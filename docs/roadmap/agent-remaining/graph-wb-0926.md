@@ -157,3 +157,19 @@ Found and left, with the reason:
 - Settings opens in 130 to 172ms at 1x (331ms with a 118ms task at 4x) and
   scrolls at a steady frame: not a finding.
 - Idle with the companion off is 1 to 2 ms/s on every tab but Graph.
+
+## The rich picker, 2026-09-27
+
+The "/" menu's rows as a recipe (`frontend/rich-picker.js`, DESIGN.md's
+recipe index, `test_ui_recipes.py`), drawn by the "/" and "[[" menu, the
+command palette, the note box's `[[` list and the Library's Create picker.
+Sweep `richpicker.js` (1440 and 390, light and dark); shots in
+`scratchpad/shots/rich-picker/` (`before-*`, `after-*`).
+
+- **Not converted, on purpose:** Find anything's rows (search results with a
+  rendered two-line snippet and a date, a different shape), the document's
+  word completion (an inline ghost of the next word), the enhanced select
+  (a `<select>`'s own list) and a space's icon grid. The ratchet in
+  `test_ui_recipes.py` holds those three hand-built `role="option"` lists.
+- **Not verified:** a screen reader on the palette's
+  `aria-activedescendant` (now on the input); the desktop window (WebView2).

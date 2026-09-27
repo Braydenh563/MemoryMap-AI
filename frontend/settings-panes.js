@@ -2459,22 +2459,22 @@ function paletteCommands() {
   //: the document already open, so they keep their own.
   return [
     ...editor,
-    { label: "ph:clipboard Go to Dashboard", tab: "dashboard" },
-    { label: "ph:magnifying-glass-plus Zoom in", act: () => nudgeZoom(1) },
-    { label: "ph:magnifying-glass-minus Zoom out", act: () => nudgeZoom(-1) },
-    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", act: () => { setZoom(100); hud("Zoom 100%"); } },
-    { label: "ph:note-pencil Go to Notes", tab: "notes" },
-    { label: "ph:chat-circle Go to Chat", tab: "chat" },
-    { label: "ph:graph Go to Graph", tab: "graph" },
-    { label: "ph:file-text Go to Documents", tab: "documents" },
+    { label: "ph:clipboard Go to Dashboard", tab: "dashboard", about: "Today at a glance: recent notes, reminders and widgets." },
+    { label: "ph:magnifying-glass-plus Zoom in", about: "Make everything in the app a step larger.", act: () => nudgeZoom(1) },
+    { label: "ph:magnifying-glass-minus Zoom out", about: "Make everything in the app a step smaller.", act: () => nudgeZoom(-1) },
+    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", about: "Back to the size the app was drawn at.", act: () => { setZoom(100); hud("Zoom 100%"); } },
+    { label: "ph:note-pencil Go to Notes", tab: "notes", about: "Every note, with capture, filters and the reading pane." },
+    { label: "ph:chat-circle Go to Chat", tab: "chat", about: "A conversation with your notebook, saved as you go." },
+    { label: "ph:graph Go to Graph", tab: "graph", about: "Your notes as a map of what links to what." },
+    { label: "ph:file-text Go to Documents", tab: "documents", about: "Long-form writing, with blocks, an outline and history." },
     //: Two tabs the palette could not reach. The Library holds six sub-tabs of
     //: real surfaces (documents, images, files, links, skills, contents) and
     //: the Timeline is a top-level tab, and neither had a command: a jump list
     //: missing two of the seven places you can be is the one kind of gap that
     //: teaches people not to use it.
-    { label: "ph:books Go to Library", tab: "library" },
-    { label: "ph:clock-counter-clockwise Go to Timeline", tab: "timeline" },
-    { label: "ph:alarm Go to Reminders", tab: "reminders" },
+    { label: "ph:books Go to Library", tab: "library", about: "Documents, images, files, links, skills and boards." },
+    { label: "ph:clock-counter-clockwise Go to Timeline", tab: "timeline", about: "Everything you have written, by the day it happened." },
+    { label: "ph:alarm Go to Reminders", tab: "reminders", about: "What is due, and what you asked to be told about." },
     // Features reachable *only* from inside one surface are exactly the ones a
     // palette has to carry, or they are found by accident or not at all.
     // Tensions lives in a dialog; the board's overview and find bar live on a
@@ -2484,27 +2484,27 @@ function paletteCommands() {
     //: command palette is for (INBOX 224).
     //: The row wears Atlas's own face rather than a glyph (the owner: "find
     //: anything search" should have the avatar too), see `renderPalette`.
-    { label: "Ask Atlas about the app", mark: "atlas", reveal: "atlas-help" },
+    { label: "Ask Atlas about the app", mark: "atlas", reveal: "atlas-help", chord: "askAtlas" },
     //: A companion that went somewhere it cannot be reached (INBOX 426 k).
-    { label: "ph:arrow-counter-clockwise Call the companion back", act: () => nameMarkBuddyCallBack() },
+    { label: "ph:arrow-counter-clockwise Call the companion back", about: "Bring the companion back to its corner of the window.", act: () => nameMarkBuddyCallBack() },
     //: Both did nothing at all unless a board was already on screen: the
     //: palette opens from every tab, and the two functions act on the board
     //: that is open. The reveal opens one first (the newest), and with no
     //: board at all rings the button that makes one.
-    { label: "ph:map-trifold Board overview", reveal: "board-overview" },
-    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find" },
+    { label: "ph:map-trifold Board overview", reveal: "board-overview", about: "The whole board at once, to jump to any part of it." },
+    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find", about: "Search the cards on the open board by their text." },
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
-    { label: "ph:pencil-simple New note", reveal: "notes-capture" },
-    { label: "ph:file-text New document", reveal: "doc-new" },
+    { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },
+    { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
-    { label: "ph:sparkle New chat", reveal: "chat-new" },
+    { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },
     // The popup agent (Ctrl+Shift+A) has real capability, it's the same
     // tool-calling agent as Chat's agent mode, just reachable from anywhere
     //, but was reachable only by already knowing that chord. This palette
     // is the app's own "what can I do here" list; it belongs in it.
-    { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette" },
-    { label: "ph:palette New sketch", reveal: "sketch" },
+    { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
+    { label: "ph:palette New sketch", reveal: "sketch", chord: "quickSketch" },
     {
       // Reachable from anywhere, which is the point. Asked for directly: "I
       // would also like the meeting notes popup to be expanded as a proper
@@ -2514,6 +2514,7 @@ function paletteCommands() {
       // is exactly the friction that means it does not get started at all.
       label: "ph:microphone Record a meeting or lecture",
       reveal: "meeting",
+      chord: "recordMeeting",
     },
     {
       // The same ask about the page reader, in the same words: "I want an
@@ -2534,6 +2535,7 @@ function paletteCommands() {
       // panel, unreachable without already being on that tab.
       label: "ph:folders New whiteboard board",
       reveal: "board-create",
+      about: "A blank board for cards, drawings, images and links.",
     },
     {
       //: A map is a board with a name people recognise (`createConceptMap`,
@@ -2564,6 +2566,7 @@ function paletteCommands() {
       //: called", which is exactly the question the palette is opened with.
       label: "ph:compass Tools and features",
       reveal: "features",
+      about: "Everything the app can do, a line each, and where it is.",
     },
     {
       //: Resurfacing shipped as a sort and a widget and was named in neither
@@ -2584,6 +2587,7 @@ function paletteCommands() {
       //: a person looks for a key they have forgotten.
       label: "ph:magnifying-glass Find on this screen",
       reveal: "global-find",
+      chord: "find",
     },
     {
       //: Workspaces filter every tab in the app from one control in the top
@@ -2600,36 +2604,38 @@ function paletteCommands() {
       ["ph:link Show linked notes", "is:linked"],
     ].map(([label, query]) => ({
       label,
+      about: `The notes list, filtered to ${query}.`,
       act: () => showNotesFilter(query),
     })),
     {
       label: "ph:magnifying-glass What can I type in the filter?",
       reveal: "notes-filter-help",
+      about: "The words the notes filter understands, like is:favourite.",
     },
-    { label: "ph:gear Settings → Models", reveal: "settings:models" },
+    { label: "ph:gear Settings → Models", reveal: "settings:models", about: "Which local model answers, and where it runs." },
     { label: "ph:mask-happy Settings → Personas", reveal: "settings:personas" },
     { label: "ph:lightning Settings → Skills", reveal: "settings:skills" },
     { label: "ph:toolbox Settings → Tools it can use", reveal: "settings:tools" },
-    { label: "ph:palette Settings → Appearance", reveal: "settings:appearance" },
-    { label: "ph:user-circle Settings → Profile", reveal: "settings:preferences" },
-    { label: "ph:sliders Settings → General", reveal: "settings:general" },
-    { label: "ph:floppy-disk Settings → Import & export", reveal: "settings:data" },
+    { label: "ph:palette Settings → Appearance", reveal: "settings:appearance", about: "The look, the accent colour, the glass and the text size." },
+    { label: "ph:user-circle Settings → Profile", reveal: "settings:preferences", about: "Your name, and what the app knows to call you." },
+    { label: "ph:sliders Settings → General", reveal: "settings:general", chord: "settings" },
+    { label: "ph:floppy-disk Settings → Import & export", reveal: "settings:data", about: "Bring notes in, take everything out, and back up." },
     { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
-    { label: "ph:note-blank Settings → Templates", reveal: "settings:templates" },
-    { label: "ph:shield-check Settings → Account & security", reveal: "settings:account" },
-    { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy" },
-    { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks" },
-    { label: "ph:package Settings → Packages", reveal: "settings:extras" },
-    { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs" },
-    { label: "ph:question Settings → Help", reveal: "settings:help" },
-    { label: "ph:info Settings → About & updates", reveal: "settings:about" },
-    { label: "ph:archive Back up now", act: () => { openSettingsModal("data"); backupNow(); } },
-    { label: "ph:export Export markdown", act: () => downloadExport("markdown") },
-    { label: "ph:circle-half Toggle light/dark", act: toggleTheme },
+    { label: "ph:note-blank Settings → Templates", reveal: "settings:templates", about: "The shapes a new note or document can start from." },
+    { label: "ph:shield-check Settings → Account & security", reveal: "settings:account", about: "The password, the lock and when it asks for it." },
+    { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy", about: "The two things that can go online, both off by default." },
+    { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks", about: "What the app is working on while you write." },
+    { label: "ph:package Settings → Packages", reveal: "settings:extras", about: "Optional parts: speech, reading pages, better search." },
+    { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs", about: "What happened, for when something did not work." },
+    { label: "ph:question Settings → Help", reveal: "settings:help", about: "How the app works, a section at a time." },
+    { label: "ph:info Settings → About & updates", reveal: "settings:about", about: "The version you have and whether a newer one exists." },
+    { label: "ph:archive Back up now", about: "Save a copy of the whole notebook, now.", act: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "ph:export Export markdown", about: "Every note as a Markdown file, in one download.", act: () => downloadExport("markdown") },
+    { label: "ph:circle-half Toggle light/dark", chord: "toggleTheme", act: toggleTheme },
     //: INBOX 430: also in Find anything, which lists these same commands.
-    { label: "ph:person-simple Show or hide the companion", act: () => nameMarkBuddyToggle() },
-    { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts" },
-    { label: "ph:lock Lock MemoryMap", act: lockNow },
+    { label: "ph:person-simple Show or hide the companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
+    { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts", chord: "help" },
+    { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);
 }
 
@@ -2728,6 +2734,8 @@ function paletteMatches(query) {
     .map((e) => ({
       group: "Notes",
       label: `ph:file-text ${e.title || e.content.slice(0, 55)}${!e.title && e.content.length > 55 ? "…" : ""}`,
+      about: e.category || "",
+      entry: e,
       run: () => flashEntry(e.id),
     }));
 
@@ -2790,6 +2798,7 @@ function paletteMatches(query) {
     .map((m) => ({
       group: "Files",
       label: `ph:image ${m.original_name || "Untitled file"}`,
+      about: m.caption || "",
       // `focusLibraryFile` picks Images or Files from the url, the media
       // view is two sub-tabs now, and a `[data-target="library-view-media"]`
       // query matches both.
@@ -2819,48 +2828,121 @@ function paletteMatches(query) {
   ];
 }
 
+//: **A row's keycap: the way to run it without the palette.** A chord the
+//: row declares by its registry name (`chord`, read from the live
+//: `shortcuts` table, so a rebinding shows here as it is), the editor's own
+//: rows' `keys`, and for a tab the "m" then a letter jump. A palette that only
+//: performs an action teaches nobody the key for it.
+function paletteKeys(match) {
+  if (match.keys) return match.keys;
+  if (match.chord && typeof shortcuts !== "undefined") return shortcuts[match.chord]?.keys || "";
+  if (match.tab && typeof TAB_JUMP_KEYS !== "undefined") {
+    const letter = Object.keys(TAB_JUMP_KEYS).find((key) => TAB_JUMP_KEYS[key] === match.tab);
+    if (letter) return `M ${letter.toUpperCase()}`;
+  }
+  return "";
+}
+
+//: **A row's one line of what it does.** Its own `about` first; then the
+//: line "Tools and features" already writes for the same place (the rows
+//: share their `reveal` with `featureCatalog`, so the two lists cannot
+//: describe one control two ways); then the shortcut registry's label.
+function paletteAbouts() {
+  const abouts = new Map();
+  const catalog = typeof featureCatalog === "function" ? featureCatalog() : [];
+  for (const group of catalog) {
+    for (const item of group.items || []) {
+      if (item.reveal && item.desc && !abouts.has(item.reveal)) abouts.set(item.reveal, item.desc);
+    }
+  }
+  return abouts;
+}
+
+function paletteRowParts(match, abouts) {
+  const { icon, text } = richPickerSplitLabel(match.label);
+  const chordLabel = match.chord && typeof shortcuts !== "undefined" ? shortcuts[match.chord]?.label : "";
+  return {
+    icon: icon || "ph:dot-outline",
+    //: Atlas's own face stands in its tile (the owner: "find anything
+    //: search" should have the avatar too).
+    face: match.mark === "atlas" && typeof atlasAvatar === "function" ? atlasAvatar(20) : null,
+    label: text,
+    about: match.about || abouts.get(match.reveal) || chordLabel || "",
+    keys: paletteKeys(match),
+  };
+}
+
+//: **The rich picker** (rich-picker.js, DESIGN.md's recipe index): the "/"
+//: menu's rows, group headings and preview, so the palette and the block
+//: menu are one object. The keyboard is unchanged: `paletteKeydown` moves
+//: `paletteIndex` and redraws; the pointer lights the row it is over, so
+//: Enter and a click always mean the same row.
 function renderPalette(query) {
   const list = $("palette-list");
   const matches = paletteMatches(query);
+  const needle = query.trim().toLowerCase();
+  const abouts = paletteAbouts();
   paletteIndex = Math.min(paletteIndex, Math.max(0, matches.length - 1));
   list.replaceChildren();
   let lastGroup = null;
+  const rows = [];
   matches.forEach((match, index) => {
-    // Insert a non-interactive group header when the group changes.
+    // A heading whenever the group changes; not an option, so the keys skip it.
     if (match.group && match.group !== lastGroup) {
-      const header = document.createElement("li");
-      header.className = "palette-group-header";
-      header.textContent = match.group;
-      header.setAttribute("aria-hidden", "true");
-      list.appendChild(header);
+      list.appendChild(richPickerGroup(match.group, { className: "palette-group-header" }));
       lastGroup = match.group;
     }
-    const li = document.createElement("li");
-    setLabel(li, match.label);
-    if (match.mark === "atlas" && typeof atlasAvatar === "function") li.prepend(atlasAvatar(20));
-    //: **The chord, beside the command that runs it.** A palette that only
-    //: performs an action teaches nobody the key for it, and the plan's whole
-    //: reason for this list is features that do not show themselves. Only the
-    //: rows that carry one, which today is the editor's group.
-    if (match.keys) {
-      const keys = document.createElement("kbd");
-      keys.className = "palette-keys";
-      keys.textContent = match.keys;
-      li.appendChild(keys);
-    }
-    if (index === paletteIndex) li.classList.add("active");
-    li.addEventListener("click", () => {
+    const parts = paletteRowParts(match, abouts);
+    const row = richPickerRow({
+      ...parts,
+      //: The letters marked only where the label is what matched: a note
+      //: found by its body would otherwise light letters scattered over a
+      //: title that never contained the query.
+      query: needle && parts.label.toLowerCase().includes(needle) ? needle : "",
+      id: `palette-row-${index}`,
+    });
+    row.addEventListener("click", () => {
       closePalette();
       match.run();
     });
-    list.appendChild(li);
+    row.addEventListener("mousemove", () => {
+      if (paletteIndex === index) return;
+      paletteIndex = index;
+      paletteLight(rows, matches, abouts);
+    });
+    list.appendChild(row);
+    rows.push(row);
   });
   if (!matches.length) {
     const li = document.createElement("li");
-    li.className = "muted";
+    li.className = "muted palette-empty";
     li.textContent = "No matching command, note or document.";
     list.appendChild(li);
   }
+  paletteLight(rows, matches, abouts);
+}
+
+//: Light the chosen row, tell the input which it is (the input keeps the
+//: focus, so it carries `aria-activedescendant`), and show the row in the
+//: pane beside the list: what it does and its key, or a note's first lines.
+//: The pane hides itself below 44rem (the stylesheet).
+function paletteLight(rows, matches, abouts) {
+  const lit = richPickerSetActive($("palette-list"), rows, paletteIndex);
+  const input = $("palette-input");
+  if (lit) input.setAttribute("aria-activedescendant", lit.id);
+  else input.removeAttribute("aria-activedescendant");
+  const pane = $("palette-preview");
+  const match = matches[paletteIndex];
+  pane.classList.toggle("hidden", !match);
+  if (!match) return;
+  const parts = paletteRowParts(match, abouts);
+  richPickerPreview(pane, {
+    ...parts,
+    sample: match.entry ? richPickerLines(match.entry.content) : null,
+    keys: parts.keys.replace(/^M (\w)$/, "M then $1"),
+    keysLead: "Press",
+    keysTail: "to do it without the palette.",
+  });
 }
 
 function paletteKeydown(event) {

@@ -111,7 +111,7 @@ def test_the_streams_end_gives_the_box_the_focus_only_from_the_stop_button() -> 
 def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
     """The peek is lifted to <body>, so Tab from a mark reaches the next mark,
     never the peek: its preview and Open note were unreachable in sequence
-    (peekkeys.js, the review of 2026-09-27: Enter, then Tab, both left the
+    (chatkeys.js, the review of 2026-09-27: Enter, then Tab, both left the
     keyboard on the marks). A click with no pointer (`detail` 0) moves the
     focus onto the preview; Escape brings it back."""
     app = app_js_text()
@@ -124,7 +124,7 @@ def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
     assert "link.focus({ preventScroll: true })" in close
     #: And that focus must not open the peek again: the mark opens its peek
     #: on focus, so the focus a closing peek handed back reopened it (Escape
-    #: from inside the peek left it on the page, measured by peekkeys.js).
+    #: from inside the peek left it on the page, measured by chatkeys.js).
     assert "citationPeekState.restoring = true" in close
     focus = marker[marker.index('link.addEventListener("focus"') :]
     focus = focus[: focus.index("\n  });\n")]

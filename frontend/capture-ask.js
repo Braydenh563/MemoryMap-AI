@@ -1214,7 +1214,7 @@ function citationMarker(g, byId, numberFor) {
     //: peek is lifted to `<body>`, so Tab from a mark reaches the next mark
     //: or the page, never the peek: its preview (the way to the note) and
     //: its Open note were unreachable in sequence (the review, 2026-09-27,
-    //: `peekkeys.js`). Enter or Space is a click with no pointer (`detail`
+    //: `chatkeys.js`). Enter or Space is a click with no pointer (`detail`
     //: 0): the peek is pinned, as by a press, and the focus moves onto its
     //: preview; Escape brings it back to the mark (`closeCitationPeek`).
     if (event.detail === 0) citationPeekState.panel?.querySelector(".citation-peek-preview")?.focus({ preventScroll: true });
@@ -1224,7 +1224,7 @@ function citationMarker(g, byId, numberFor) {
   link.addEventListener("focus", () => {
     //: Not the focus a closing peek hands back to its mark
     //: (`closeCitationPeek`): that focus opened the peek again, so Escape
-    //: from inside the peek left it on the page (peekkeys.js).
+    //: from inside the peek left it on the page (chatkeys.js).
     if (citationPeekState.restoring) return;
     openCitationPeek(link, describe(), { pinned: false });
   });

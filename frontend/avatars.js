@@ -5773,14 +5773,16 @@ function nameMarkBuddyEnter(buddy, spot) {
     return how;
   }
   //: Starlight gathering into it: the stars first, then the figure
-  //: resolving out of them, a touch large, settling to its size.
+  //: resolving out of them, a touch large, settling to its size, and
+  //: drifting down the last few pixels onto its perch (the owner: it "came
+  //: back with barely an entrance"; a fade in place read as a pop).
   nameMarkBuddyBurst(buddy, 0, 0, 0);
-  nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1 }], { duration: 620, easing: "ease-out" });
+  nmb.anim = buddy.animate([{ opacity: 0, translate: "0px -14px" }, { opacity: 0, translate: "0px -14px", offset: 0.18 }, { opacity: 1, offset: 0.6 }, { opacity: 1, translate: "0px 0px" }], { duration: 820, easing: "ease-out" });
   nmb.hopAnim = char?.animate([
     { scale: "0.5", opacity: 0.2 },
     { scale: "1.06", opacity: 1, offset: 0.7 },
     { scale: "1" },
-  ], { duration: 620, easing: "ease-out" }) || null;
+  ], { duration: 820, easing: "ease-out" }) || null;
   return how;
 }
 

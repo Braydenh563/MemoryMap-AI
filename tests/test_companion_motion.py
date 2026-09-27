@@ -637,9 +637,12 @@ def test_it_is_never_drawn_before_its_place_and_never_jumps_after_it() -> None:
     assert follow.count("nameMarkBuddyCatchUp(buddy,") == 2
     # A move that starts mid-glide starts from where it is drawn.
     assert "nmb.glideAnim.playState === \"running\"" in _fn("nameMarkBuddyMoveTo")
-    # Leaving with its tab is a fade, not a cut; coming down or up out of a
-    # bar is clipped at its own edge rather than drawn over the bar.
-    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--motion-slow) var(--ease-in-out), visibility 0s linear var(--motion-slow); }" in CSS08
+    # Leaving with its tab goes in the same frame as the tab (the owner:
+    # "it stayed visible on the new tab for a split second, vanished";
+    # measured at 1093x614, 11 frames shown on the new tab with the 200ms
+    # fade, 0 now); coming down or up out of a bar is clipped at its own
+    # edge rather than drawn over the bar.
+    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }" in CSS08
     assert "clipPath: clip(t)" in _fn("nameMarkBuddyEnter")
     assert "nmb-arrive" not in AV and "nmb-arrive" not in CSS08
 

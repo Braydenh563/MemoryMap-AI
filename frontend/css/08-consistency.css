@@ -5185,13 +5185,15 @@ main,
   50% { transform: rotate(1.6deg); }
 }
 /* Away with the tab it lives on (avatars.js, `nameMarkBuddyTabChanged`):
-   out of the way of the pointer at once, and faded out over a beat rather
-   than cut (the owner, 2026-09-27: "the disappearing and reappearing
-   animation needs to be improved"; measured before, opacity 1 to 0 in one
-   frame on every tab switch). `visibility` goes when the fade is done.
-   Built hidden (`syncNameMarkBuddy`), it starts in this state with no
-   transition, so it is never drawn before its first place is known. */
-#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--motion-slow) var(--ease-in-out), visibility 0s linear var(--motion-slow); }
+   gone in the same frame as its tab. A 200ms fade was tried (the owner,
+   2026-09-27, of the disappearing: "needs to be improved"), but the new tab
+   is drawn at once, so the fade was the companion standing on the new tab
+   for eleven frames before it went: the owner, later that day, "it stayed
+   visible on the new tab for a split second, vanished, then came back".
+   It leaves with its tab; its entrance on the new one is the animation
+   (`nameMarkBuddyEnter`). Built hidden (`syncNameMarkBuddy`), it starts in
+   this state, so it is never drawn before its first place is known. */
+#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 #nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
 
 #nm-buddy-band {

@@ -4596,23 +4596,29 @@ function nameMarkBuddyOverhang() {
 
 //: Out of sight with its panel: it stays put, and once the page has been
 //: still a moment it asks for a place on its own beat. Back in sight
-//: before then, nothing happens at all.
+//: before then, nothing happens at all. Its own timer: it shared the tab
+//: follow's (`nmb.awayTimer`), and a tab switch hides the panel it rode,
+//: so this cleared the timer that was to bring it onto the new tab and it
+//: never came (measured: away for 5s and more after a switch from a
+//: scrolled dashboard, until the next switch). Away with its tab, the
+//: arrival places it; nothing to do here.
 function nameMarkBuddySeen(seen) {
   nmb.outOfSight = !seen;
-  clearTimeout(nmb.awayTimer);
-  nmb.awayTimer = 0;
+  clearTimeout(nmb.sightTimer);
+  if (nmb.away) return;
+  nmb.sightTimer = 0;
   if (seen || !nmb.ride) return;
   const wait = () => {
-    nmb.awayTimer = 0;
+    nmb.sightTimer = 0;
     if (!nmb.outOfSight || !nmb.ride) return;
     const since = performance.now() - nmbFollow.scrollAt;
     if (since < 1500) {
-      nmb.awayTimer = setTimeout(wait, 1600 - since);
+      nmb.sightTimer = setTimeout(wait, 1600 - since);
       return;
     }
     nameMarkBuddyQueuePlace();
   };
-  nmb.awayTimer = setTimeout(wait, 1600);
+  nmb.sightTimer = setTimeout(wait, 1600);
 }
 
 //: The box a panel scrolls in: its nearest ancestor that scrolls, or the
@@ -7145,6 +7151,7 @@ function nameMarkBuddyGone() {
   clearTimeout(nmb.timer);
   clearTimeout(nmb.placeTimer);
   clearTimeout(nmb.awayTimer);
+  clearTimeout(nmb.sightTimer);
   nmb.away = false;
   clearTimeout(nmb.heldTimer);
   nmb.timer = nmb.placeTimer = nmb.heldTimer = 0;

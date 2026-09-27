@@ -1081,3 +1081,14 @@ def test_sleep_holds_through_input_moves_and_tab_switches() -> None:
     assert "#nm-buddy.nmb-pout .nm-atlas {" in css and "#nm-buddy.nmb-grumpy .nm-atlas {" in css
     # Grumpy comes down through a pout.
     assert "nameMarkBuddyPout(buddy, 5000);" in AV
+
+
+def test_out_of_sight_never_cancels_the_tab_follow() -> None:
+    # Found measuring the owner's perch report (probe, 1093x614): from a
+    # dashboard scrolled so its panel was out of sight, a switch to Notes
+    # left it away for 5s and more, because `nameMarkBuddySeen` cleared the
+    # tab follow's timer. After: on Notes 3s later.
+    seen = _fn("nameMarkBuddySeen")
+    assert "awayTimer" not in seen and "nmb.sightTimer = setTimeout(wait, 1600);" in seen
+    assert "if (nmb.away) return;" in seen
+    assert "clearTimeout(nmb.sightTimer);" in _fn("nameMarkBuddyGone")

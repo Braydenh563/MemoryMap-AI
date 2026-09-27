@@ -837,6 +837,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Controls share one shape: fields, dropdowns and buttons take the same corner, dialog and sheet titles sit on their close button's centre line, sidebar heads keep their title and action on one row, and a hovered settings row keeps its hint readable in both themes.
+- Shadows in light mode are cast in the app's own ink rather than a violet tint; the Library's Create picker has a proper dialog head; the dashboard says "1 reminder"; chat starters no longer read "about about"; Library previews start on a whole word; hints in one-line boxes stay on one line.
 - The corner companion reads along (or covers its eyes) however a note is opened: from search, a link, the command palette, the Library, the timeline, the graph or chat, not only from its row.
 - What a face holds (a wand, a mug, sushi, a book, a thumbs up) shows in its head mark again, in a small raised hand at the lower right as the first faces drew it, not only on the companion; the small mark keeps its one cue (INBOX 426 f).
 - The packaged app's startup splash is a still card without the progress bar it

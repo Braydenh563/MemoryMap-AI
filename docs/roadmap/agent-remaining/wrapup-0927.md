@@ -325,11 +325,25 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   so every tab switch with a draft asks "Leave without saving?" though
   the draft is kept and the tab switch loses nothing.
 
-- [ ] App-wide consistency pass after the button, select and stepper
+- [x] App-wide consistency pass after the button, select and stepper
   restyle: every surface uses the same recipes (buttons, selects, dialog
   heads, menus, notices, chips, spacing and radius tokens); a sweep lists
   every hand-built control and each is moved onto its recipe or its
   ratchet in tests/test_ui_recipes.py. Light and dark, 1093, 1440, 390.
+  `consistency.js` (every control on every surface and Settings section
+  against the live tokens): 36 off the radius tiers to 0 at all three
+  widths (fields and selects on the button's corner, header icons off
+  2px); `dialogheads.js` and `sheetheads.js`: every recipe dialog and sheet
+  title 4.8px off its X to 0; `headrows.js`: sidebar heads that wrapped
+  their action (32px) and two Settings headings (3px) to 0; `rowhover.js`:
+  hovered Settings rows' hints 3.85:1 light / 3.23:1 dark to 4.77 / 5.29;
+  `notices.js`: one notice recipe in view. Menus and dialog-head closes
+  were already ratcheted. Ratchets added for fields, dialog titles and row
+  hovers. The devibe pass (`devibe.js`, `surfaceshots.js`): the
+  glassmorphism-violet shadow scale, the Create picker's head, "1
+  reminders", "about about memorymap", a lone 0 on Today, Library previews
+  opening mid-word, phone stat tiles, one "...". Not covered: states the
+  seeded notebook never reaches (errors, long lists, every notice).
 - [ ] `scripts/gate.sh --full` green; CI green on the head.
 - [ ] INBOX 431 resolved to HISTORY; CHANGELOG lines present; README fresh.
 - [ ] PR 157's title and description updated to cover the whole branch.

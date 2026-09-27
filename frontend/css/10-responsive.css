@@ -1135,6 +1135,10 @@ header#top-bar,
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
 }
 
+/* Two classes: `.card h2` (a class and a tag) out-ranked a bare
+   `.sheet-title` and kept its 9.6px bottom margin, so every sheet's title
+   sat 4.8px above its X (sheetheads.js: New reminder, a category split). */
+.sheet-head > .sheet-title,
 .sheet-title {
   margin: 0;
 }
@@ -1143,9 +1147,12 @@ header#top-bar,
    "Its own model: granite4.1:3b"). It belongs to the head, so it sits under
    the title at the head's own step rather than a paragraph's margin below
    it, which read as a second, unrelated block (INBOX 425, the owner:
-   "redesign the top of this popup"). */
+   "redesign the top of this popup"). Its top margin was minus a step, to
+   pull it up under the title's own 9.6px bottom margin; with that margin
+   gone (the title now sits on its X's centre line) it takes the card's gap
+   as it is, where it would otherwise have been 1px under the head. */
 .sheet-sub {
-  margin: calc(-1 * var(--space-2)) 0 var(--space-1);
+  margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
 }
 

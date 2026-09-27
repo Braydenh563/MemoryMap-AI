@@ -5452,7 +5452,6 @@ input.doc-title-input::placeholder {
    6px apart; the focused filter drawing an outline 2px outside an accent
    border, two rings; and no search icon. `managecats.js` measures each. */
 .manage-cat-card .sheet-head > .sheet-title {
-  margin: 0;
   line-height: 1.2;
 }
 

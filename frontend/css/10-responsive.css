@@ -2650,3 +2650,24 @@ header#top-bar,
     display: none;
   }
 }
+
+/* --- the Documents editor on a small laptop (INBOX 430's re-scope) ----------
+   "The desktop that matters is a small uni laptop, 1366x768 at 125% =
+   1093x614 CSS px." Measured there with `docphone.js`: the page took 40% of
+   the 498px between the header and the status bar, because the dock's title
+   asked for 22rem beside 477px of actions in an 809px row, so the actions
+   took a second row, and the keyboard help took 46px more under the status
+   line. From 64rem the title asks for 16rem, which puts the dock on one row
+   at 1093; and on a window under 720px tall the help goes, the same Ctrl
+   chords the `?` and the shortcuts sheet already give. */
+@media (min-width: 64rem) {
+  #tab-documents .doc-dock > .doc-dock-identity {
+    flex-basis: 16rem;
+  }
+}
+
+@media (min-width: 600px) and (max-height: 720px) {
+  #tab-documents .doc-hint {
+    display: none;
+  }
+}

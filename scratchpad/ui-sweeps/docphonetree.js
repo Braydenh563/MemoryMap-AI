@@ -5,8 +5,9 @@
 const { boot } = require("./lib.js");
 const W = Number(process.env.VIEW || 390);
 const H = Number(process.env.HEIGHT || (W > 900 ? 768 : 844));
+const TOUCH = process.env.TOUCH !== "0";
 (async () => {
-  const { page, browser } = await boot({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+  const { page, browser } = await boot({ viewport: { width: W, height: H }, ...(TOUCH ? { hasTouch: true, isMobile: true } : {}) });
   const out = await page.evaluate(async ({ depth, view }) => {
     const headers = { "X-Auth-Token": localStorage.getItem("token") || "", "Content-Type": "application/json" };
     const content = ["# Tree probe", "", ...Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} with some words in it.`)].join("\n\n");

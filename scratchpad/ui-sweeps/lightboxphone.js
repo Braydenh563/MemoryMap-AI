@@ -74,7 +74,11 @@ const SIZES = (process.env.SIZES || "390x844,768x1024,1440x900").split(",").map(
         }).length;
         //: How many lines the action row takes: its buttons' distinct tops.
         const row = box.querySelector(".lightbox-actions");
-        const lines = new Set([...row.children].filter((c) => c.getClientRects().length).map((c) => Math.round(c.getBoundingClientRect().top))).size;
+        //: Rows by the children's vertical centres, 12px apart or more (a
+        //: readout and a button on one line differ by a few pixels).
+        const centres = [...row.children].filter((c) => c.getClientRects().length && c.getBoundingClientRect().height > 4)
+          .map((c) => { const b = c.getBoundingClientRect(); return b.top + b.height / 2; }).sort((a, b) => a - b);
+        const lines = centres.reduce((n, y, i) => (i && y - centres[i - 1] > 12 ? n + 1 : n), centres.length ? 1 : 0);
         return { img: r(img), actions, lines, offscreen, reader: actions.some((a) => /read|text on the page|page reader/i.test(a)) };
       });
       console.log(`     ${w}`, JSON.stringify(m));

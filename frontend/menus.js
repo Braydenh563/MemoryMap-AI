@@ -2097,3 +2097,97 @@ function entryOverflowMenu(entry) {
   wrap.append(opener, menu);
   return wrap;
 }
+
+//: Moved from app.js (its gzip ratchet): called only at save time, never at
+//: load, so any boot piece may hold it.
+//: **Two windows, one note** (WORLD_CLASS_PLAN 22.1 item 5). A save the
+//: server refused because the text changed elsewhere since this editor
+//: opened it (a 409 whose detail has `code: "edit_conflict"`, see
+//: api/edit_conflicts.py) asks what to do instead of losing either side:
+//: **Keep mine** saves this editor's text over the other (the filled
+//: button, the one the person was already doing), **Take theirs** loads
+//: the other window's text into the editor, and **Compare** opens the
+//: difference in place, drawn by the app's one diff builder
+//: (`docRenderDiff`, DESIGN.md; the library bundle is loaded first when a
+//: note's prompt is the first thing to need it), so the choice is made
+//: seeing both.
+//: Escape, the backdrop or "Not now" answer null: nothing is saved and the
+//: editor keeps its text, still unsaved. The dialog is `confirmDialog`'s
+//: own card and overlay, so it has its scrim, its tier and its focus trap.
+//: Answers "mine", "theirs" or null.
+function isEditConflict(error) {
+  return error?.status === 409 && error?.detail?.code === "edit_conflict";
+}
+function editConflictPrompt({ noun = "note", mine = "", theirs = "" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-labelledby", "edit-conflict-title");
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card edit-conflict-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    const title = document.createElement("strong");
+    title.className = "confirm-title";
+    title.id = "edit-conflict-title";
+    title.textContent = `This ${noun} changed in another window`;
+    const body = document.createElement("span");
+    body.textContent = "It was saved somewhere else after you started editing here. Keep your version, take the other one, or compare them first.";
+    text.append(title, document.createElement("br"), body);
+    const compare = document.createElement("div");
+    compare.className = "edit-conflict-compare hidden";
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const returnFocus = document.activeElement;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(null);
+      }
+    };
+    let compareBtn = null;
+    const drawCompare = async () => {
+      if (!compare.classList.contains("hidden")) {
+        compare.classList.add("hidden");
+        setLabel(compareBtn, "Compare");
+        return;
+      }
+      compare.replaceChildren();
+      await ensureModule("library");
+      if (settled) return;
+      const legend = document.createElement("p");
+      legend.className = "muted edit-conflict-legend";
+      legend.textContent = "Removed lines are the other window's, added lines are yours.";
+      const host = document.createElement("div");
+      docRenderDiff(host, docDiffLines(theirs, mine), { emptyText: "The two versions have the same text." });
+      compare.append(legend, host);
+      compare.classList.remove("hidden");
+      setLabel(compareBtn, "Hide comparison");
+    };
+    const later = smallButton("Not now", "Keep editing without saving", () => close(null));
+    compareBtn = smallButton("Compare", "Show what differs between the two versions", drawCompare);
+    const theirsBtn = smallButton("Take theirs", "Load the other window's version into this editor", () => close("theirs"));
+    const mineBtn = smallButton("Keep mine", "Save your version over the other one", () => close("mine"), false);
+    row.append(later, compareBtn, theirsBtn, mineBtn);
+    card.append(text, compare, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(null));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    //: Focus on "Not now": a stray Enter must neither overwrite the other
+    //: window's text nor throw away this one.
+    later.focus();
+  });
+}

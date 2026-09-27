@@ -21,9 +21,14 @@ put the old behaviour back.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 
 from pathlib import Path
+
+import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +67,7 @@ def test_following_stops_when_the_page_is_still() -> None:
 
 
 def test_no_move_is_a_fade_to_somewhere_else() -> None:
-    move = _fn("nameMarkBuddyMoveTo")
+    move = _fn("nameMarkBuddyGo")
     assert "distance > 700" not in move
     # The one fade left is Reduce motion's, in place of the travel.
     assert move.count("opacity: 0") == 2 and "if (nameMarkBuddyNoTravel()) {" in move
@@ -207,11 +212,15 @@ def test_it_rides_its_panels_scroll_and_leaves_with_it() -> None:
     assert "nameMarkBuddyQueuePlace()" in seen and "nmbFollow.scrollAt" in seen
 
 
-def test_a_jump_it_must_make_is_a_poof_under_400ms() -> None:
+def test_a_jump_it_must_make_is_a_poof_under_half_a_second() -> None:
     # INBOX 426 x: "a better teleport". Out of sight, or further than a walk
-    # should go, it dissolves in stars and appears in another burst.
-    assert "const NMB_POOF_OUT_MS = 150;" in AV and "const NMB_POOF_IN_MS = 220;" in AV
-    move = _fn("nameMarkBuddyMoveTo")
+    # should go, it dissolves in stars and appears in another burst. The
+    # owner, 2026-09-27: "the disappearing and reappearing animation needs to
+    # be improved again": two gestures, out easing in and in easing out with
+    # a small overshoot, not one blink.
+    assert "const NMB_POOF_OUT_MS = 180;" in AV and "const NMB_POOF_IN_MS = 300;" in AV
+    assert 'scale: "1.04"' in _fn("nameMarkBuddyPoof")
+    move = _fn("nameMarkBuddyGo")
     assert "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)" in move
     poof = _fn("nameMarkBuddyPoof")
     # The shrink is on the character: a `scale` on the host scaled the
@@ -415,7 +424,7 @@ def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     toss = _fn("nameMarkBuddyToss")
     assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
     assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
-    assert "if (spot.tossed) {" in _fn("nameMarkBuddyMoveTo")
+    assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
@@ -441,8 +450,8 @@ def test_a_walk_is_paced_too() -> None:
     # frame, 60 layouts and 120 paints a second, because the pacer let a
     # walk run at full rate. Paced from its first step: 20 and 39.
     tempo = _fn("nameMarkBuddyTempo")
-    assert 'const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");' in tempo
-    move = _fn("nameMarkBuddyMoveTo")
+    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    move = _fn("nameMarkBuddyGo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
 
@@ -598,3 +607,213 @@ def test_it_sets_off_and_lands_and_eases_between_poses():
     assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
     assert "a instanceof CSSTransition" in AV
     assert "#nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring)" in CSS08
+
+
+def test_it_is_never_drawn_before_its_place_and_never_jumps_after_it() -> None:
+    # The owner, 2026-09-27: it "appeared for a split second at the top right
+    # ... then ... pretty suddenly slightly adjusted its position to perch".
+    # Measured (scratchpad/ui-sweeps/companionentry.js): placed while the
+    # dashboard was filling in, then carried 142px and 18px in single frames.
+    # Built hidden, before its style is first computed ...
+    build = _fn("nameMarkBuddyBuild")
+    assert build.index('buddy.classList.add("nmb-away");') < build.index("nameMarkBuddySetSize(")
+    # ... and brought in the way it comes to a tab, once the page is still.
+    sync = _fn("syncNameMarkBuddy")
+    assert "nameMarkBuddyArrive(buddy);" in sync and "placeNameMarkBuddy(buddy, true)" not in sync
+    assert "nameMarkBuddySettle(tab, (spot) => {" in _fn("nameMarkBuddyArrive")
+    settle = _fn("nameMarkBuddySettle")
+    assert "NMB_SETTLE_QUIET_MS" in settle and "NMB_SETTLE_MAX_MS" in settle
+    assert "if (moved) choose();" in settle
+    # A tab switch while it settles does not show it unplaced.
+    assert "if (!Number.isFinite(nmb.x)) {" in _fn("nameMarkBuddyTabChanged")
+    # A panel that jumps is glided after, added to whatever else moves it;
+    # a scroll and a panel's own animation are still followed exactly.
+    catch_up = _fn("nameMarkBuddyCatchUp")
+    assert 'composite: "add"' in catch_up
+    assert "nmbFollow.scrollAt < 200" in catch_up and "nameMarkBuddyPanelMoving(" in catch_up
+    follow = _fn("nameMarkBuddyFollow")
+    assert follow.count("nameMarkBuddyCatchUp(buddy,") == 2
+    # A move that starts mid-glide starts from where it is drawn.
+    assert "nmb.glideAnim.playState === \"running\"" in _fn("nameMarkBuddyMoveTo")
+    # Leaving with its tab is a fade, not a cut; coming down or up out of a
+    # bar is clipped at its own edge rather than drawn over the bar.
+    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--motion-slow) var(--ease-in-out), visibility 0s linear var(--motion-slow); }" in CSS08
+    assert "clipPath: clip(t)" in _fn("nameMarkBuddyEnter")
+    assert "nmb-arrive" not in AV and "nmb-arrive" not in CSS08
+
+
+def test_its_enlarged_view_keeps_the_drawing_clear_of_its_name() -> None:
+    # The owner, 2026-09-27: "make sure the text doesnt clash with the avatar
+    # in the expanded companion panel". Measured (viewerclash.js): the
+    # drawing ran 4 to 16px into the name for every face; now the figure's
+    # margins take in the drawing's own reach, measured before first paint.
+    viewer = _fn("openNameMarkViewer")
+    assert "nameMarkViewerFit(figure);" in viewer
+    assert 'isAtlasSeed(seed) ? "The app\'s own guide"' in viewer
+    fit = _fn("nameMarkViewerFit")
+    assert 'grow("marginBottom", bottom - box.bottom);' in fit and 'grow("marginTop", box.top - top);' in fit
+    assert "if (px > was)" in fit
+
+
+def test_it_peeks_down_from_under_the_top_bar() -> None:
+    # The owner: "is there a peak half hidden animation for the companion
+    # like with the bottom bar for the top bar as well?" Hanging, it pulls up
+    # behind the edge, turns over out of sight and lets its head down under
+    # it; ending it always goes through `peekback` (never a pop to hanging).
+    # Measured (peekdown.js): 25px of head shown under the bar, frames within
+    # 12px, back to hanging with no clip.
+    assert 'peekdown: { ms: 9000, w: 1.5, cool: 60000, poses: ["hang"] },' in AV
+    act = _fn("nameMarkBuddyAct")
+    assert 'if (was === "peekdown" && act !== "peekback" && !nameMarkBuddyStill()) act = act || "peekback";' in act
+    assert "&:is(.nmb-act-peekdown, .nmb-act-peekback) .nm-buddy-face { clip-path: inset(5px -80px -80px -80px); }" in CSS08
+    for name in ("nmb-peekdown", "nmb-peekback"):
+        assert f"@keyframes {name} {{" in CSS08
+
+
+def test_every_change_of_place_is_travelled_by_its_body() -> None:
+    # The owner, 2026-09-27: "instead the slight position displacements, the
+    # companion instead walks or jumps, fly, to the new position ... if it is
+    # further away then it will teleport". Measured (locomotion.js, 1440 and
+    # 1093, as you and as Atlas): a 22px step is a hop, 160px a walk (Atlas
+    # floats), 640px a poof, its panel jumping 40px a hop; at most 10.8px a
+    # frame, speed changing at most 5.5px a frame, every move ending on its
+    # place.
+    go = _fn("nameMarkBuddyGo")
+    for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
+                "if (nameMarkBuddyFlies(buddy)) {", "if (distance < size * NMB_HOP_SIZES && !poseChanged) {",
+                'buddy.classList.add("nmb-walking");'):
+        assert way in go, way
+    # Distances are in its own size, not pixels.
+    assert "const size = NMB_W * Math.max(0.7, nmb.scale || 1);" in go
+    assert "distance > size * NMB_POOF_SIZES" in go
+    assert "NMB_POOF_PX" not in AV
+    # Atlas and the winged and ghostly faces float.
+    assert "isAtlasSeed(seed)" in _fn("nameMarkBuddyFlies")
+    # Its panel moving under it, and a resize keeping it to its bar, go the
+    # same way when it stands still.
+    assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyCatchUp")
+    assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyRefit")
+    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);" in _fn("nameMarkBuddyMoveTo")
+
+
+def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
+    # The owner, 2026-09-27: "new companion states with simple props ...
+    # lying down and sleeping, reading, sitting on a beanbag, pulling out a
+    # chair and sitting, face palming, and other gestures, each with smooth
+    # transitions in and out", and "Every companion feature must be
+    # togglable in Settings", and it "must stay cheap". Measured
+    # (companionacts.js, as you and as Atlas): each prop shown, at most 2.8px
+    # a frame going in or out, nothing left behind, 0 to 0.3 layouts a second
+    # while it rests in one.
+    for act in ("lie", "read", "beanbag", "chair", "facepalm", "shrug"):
+        assert f"  {act}: {{ ms:" in AV, act
+    for prop in ("beanbag", "chair", "pillow", "book"):
+        assert f'class: "nms nms-{prop}"' in _fn("nameMarkBuddyScene"), prop
+    # Out: the body gets up first, the prop goes after.
+    assert 'buddy.classList.add("nmb-unwind");' in _fn("nameMarkBuddyAct")
+    assert "#nm-buddy .nms {" in CSS08 and ".nmb-unwind) .nm-buddy-char {" in CSS08
+    # Rest is paced as rest: a long settled act does not run the drawing at
+    # full rate.
+    assert "const NMB_RESTING_ACTS = new Set([" in AV
+    # Every doing has a switch, and what is off is never picked.
+    assert 'id="avatar-buddy-activities"' in HTML
+    assert "mountBuddyActivities()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "if (nameMarkBuddyActOff(act, off)) continue;" in _fn("nameMarkBuddyDecide")
+    table = AV[AV.index("const NMB_ACTIVITIES = [") : AV.index("];", AV.index("const NMB_ACTIVITIES = ["))]
+    for act in ("wave", "peek", "peekdown", "lie", "read", "beanbag", "chair", "facepalm", "shrug"):
+        assert f'"{act}"' in table, act
+
+
+def test_close_by_it_keeps_its_eyes_on_you_and_wakes_gently() -> None:
+    # The owner: "atlas doesnt follow my mouse pointer when it is close.
+    # should it??" Measured (companiongaze.js): a slow pass past its head
+    # moved its gaze 15 to 16 times, was 7 (the dead zone and a head wait
+    # that restarted with every move); asleep, a pointer held 50px away for
+    # 1.5s now wakes it (it stayed asleep). Faces follow the pointer (the
+    # Appearance switch) still turns all of it off.
+    aim = _fn("nameMarkBuddyAim")
+    assert "const dead = near ? 0.05 : 0.15;" in aim
+    assert 'if (near && Date.now() >= nmb.groggyUntil) {' in aim
+    notice = _fn("nameMarkBuddyNotice")
+    assert "nameMarkBuddyAim([x, y], near);" in notice
+    assert "nameMarkBuddyWake(true);" in notice and "now - nmb.nearSince > 700" in notice
+    assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
+    assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate:" in CSS08
+
+
+def test_it_leans_its_body_a_little_while_still_facing_you() -> None:
+    # The owner: "tilt their body that way while still mostly facing
+    # forward". One property (`--nmb-tilt`) turns the figure a few degrees
+    # about its feet, eased; used glancing at a close pointer (measured 0.4,
+    # 1.2 and 2 degrees at 20, 60 and 150px, companiongaze.js), before
+    # setting off, and now and then at rest.
+    assert "#nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }" in CSS08
+    assert "nameMarkBuddyTilt(lx * 0.5);" in _fn("nameMarkBuddyAim")
+    assert "nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8," in _fn("nameMarkBuddyGo")
+    assert 'if (act === "tilt") nameMarkBuddyTilt(' in _fn("nameMarkBuddyAct")
+
+
+def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> None:
+    # The owner: "should there be more emotes like zzzz coming off it for
+    # sleeping, wearing a night cap etc.", and a face that "will change
+    # expressions for a sec then instantly go back". Measured
+    # (companionemotes.js): three z's at different points of their drift,
+    # the cap on asleep (1) and off awake (0), two figures for a moment in a
+    # change of face then one, the "?" and the sparkle shown, and a laugh
+    # coming down through a smile.
+    build = _fn("nameMarkBuddyBuild")
+    assert 'emote.className = "nmb-emote";' in build and "for (let i = 0; i < 3; i += 1) {" in build
+    assert ".nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }" in CSS08
+    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }" in CSS08
+    express = _fn("nameMarkBuddyExpress")
+    assert 'old.classList.add("nmb-fig-leaving");' in express and "nameMarkBuddyExpress(softer, 2400)" in express
+    assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
+    for key in ('"emotes"', '"nightcap"'):
+        assert key in AV[AV.index("const NMB_ACTIVITIES = [") :][:3000]
+
+
+def _run_pure(names: list[str], body: str):
+    # The interaction model's choices are pure functions: run them as they
+    # are written, in node, against the cases below.
+    src = "\n".join(_fn(n) for n in names)
+    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_interaction_model_moves_between_states_as_the_owner_asked() -> None:
+    # The owner: "if I click it, it will change expressions for a sec then
+    # instantly go back to doing what it was doing like sleeping, it needs to
+    # be more natural and gradual, unless it is startled".
+    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000]].map((a) => nameMarkBuddyClickReaction(...a))")
+    assert click == ["wake", "startle", "pleased", "playful", "playful", "grumpy"]
+    hover = _run_pure(["nameMarkBuddyHoverReaction"], "[[true,0,0,false],[true,1800,0,false],[false,0,0,false],[false,0,-0.5,false],[false,0,0.5,true]].map((a) => nameMarkBuddyHoverReaction(...a))")
+    assert hover == ["stir", "wake", "brighten", "none", "none"]
+    # Warmth relaxes by half in four minutes, and not at all at once.
+    warm = _run_pure(["nameMarkBuddyWarmthAt"], "[nameMarkBuddyWarmthAt({v: 0.8, at: 0}, 0), nameMarkBuddyWarmthAt({v: 0.8, at: 0}, 240000), nameMarkBuddyWarmthAt(null, 5)]")
+    assert warm[0] == 0.8 and abs(warm[1] - 0.4) < 1e-9 and warm[2] == 0
+    # Boredom grows with time on a perch, less for a tired, shy or sleepy one.
+    bored = _run_pure(["nameMarkBuddyBoredom"], "[nameMarkBuddyBoredom(0, 0.7, 0.7, ''), nameMarkBuddyBoredom(240000, 0.7, 0.7, ''), nameMarkBuddyBoredom(240000, 0.2, 0.7, ''), nameMarkBuddyBoredom(240000, 0.7, 0.7, 'sleepy')]")
+    assert bored[0] == 0 and bored[1] > 1 and bored[2] < bored[1] and bored[3] < bored[1]
+
+
+def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
+    # Woken slowly (a yawn, a stretch, a look), awake 45s at least; hover and
+    # click answered through the model; boredom drives a few steps over or a
+    # wander and back, never while you type or read near it, pinned, on an
+    # errand, with Reduce actions off or with it switched off.
+    wake = _fn("nameMarkBuddyWake")
+    assert 'nameMarkBuddyAct("yawn", 1700);' in wake and 'setTimeout(() => nameMarkBuddyAct("wake"), 1800)' in wake
+    assert "nmb.awakeUntil = Date.now() + NMB_AWAKE_MS;" in wake
+    tick = _fn("nameMarkBuddyTick")
+    assert "if (idle > NMB_SLEEP_MS && !awake) {" in tick and "if (nameMarkBuddyWander(Date.now())) {" in tick
+    build = _fn("nameMarkBuddyBuild")
+    assert "const how = nameMarkBuddyClickReaction(wasAsleep, nmb.pokes.length, sinceLast);" in build
+    assert "nameMarkBuddyHover(0);" in build
+    wander = _fn("nameMarkBuddyWander")
+    for guard in ("nmb.pinned", 'nmb.perch === "errand"', 'nameMarkBuddyActions() === "off"', 'nameMarkBuddyActOff("wander")',
+                  "now - (nmb.keyAt || 0) < 20000", "nameMarkBuddyMenuOpen()"):
+        assert guard in wander, guard
+    assert "now - nmb.home.at > 30000" in wander
+    assert "nameMarkBuddyWarmthAt(nmb.feel, now)" in _fn("nameMarkBuddyDecide")

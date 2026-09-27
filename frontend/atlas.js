@@ -2063,6 +2063,14 @@ function atlasRepaint() {
     //: visible 20px head at the bottom left, one more per change of look
     //: (the owner's "column of four small Atlas heads"; strayheads.js).
     if (svg.closest("#nm-buddy") || !svg.isConnected || svg.classList.contains("atl-defs")) continue;
+    //: A layer of a layered figure (the large view) is not a drawing of its
+    //: own: redrawing it made a whole figure in place of each layer. The
+    //: figure is redrawn once, whole (INBOX 430).
+    if (svg.classList.contains("atl-layer")) {
+      const box = svg.closest(".atl-figure-box");
+      if (box && box.isConnected && typeof atlasFigure === "function") box.replaceWith(atlasFigure());
+      continue;
+    }
     const size = Number(svg.getAttribute("height")) || 20;
     svg.replaceWith(svg.classList.contains("atl-bust") ? atlasAvatar(size) : atlasDraw(size));
   }

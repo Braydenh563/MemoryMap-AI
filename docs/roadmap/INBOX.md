@@ -63,6 +63,16 @@ with its owner named in the entry.
     orbiting bodies, a taller nebula; generated faces vary expression per
     character. Questions: prompt injection, chat header divider. Rules:
     two or three agents, Sonnet where quality holds, concise.
+    **Added 2026-09-27 midday (the owner, verbatim):** "also can you extend
+    this menu a bit maybe with sub-sections if necessary, for things such as
+    a quick link to the profile/personas/appearences tab, toggling various
+    features such as masculine/feminine, which companion is displayed etc."
+    (the companion's right-click menu). Its screenshot also shows that menu
+    opening at the window's top left with the companion at the bottom right:
+    recheck on the current head after a0d957a. Decided the same day: desktop
+    first with small laptops (1366x768 at 125%, 1280x720) and tablets next;
+    Links is renamed Bookmarks; the two map kinds are named separately;
+    releases stay on 0.3.3 for now.
 
 427. **Open from INBOX 426, 2026-09-26: two calls only the owner can make.**
     Everything else in 426 (a to cc) is built and in HISTORY, "INBOX

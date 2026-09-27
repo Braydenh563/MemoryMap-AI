@@ -20,6 +20,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Every view has an address: `#/notes/12`, `#/chat/45`, `#/docs/7`, `#/library/images`, `#/settings/appearance`. Reload keeps the view, a bookmark or pasted link opens it, the browser's Back and Forward walk the app's own history, and the window title names the view and what is open in it.
+- Density has an Auto setting, the new default: Compact on a window 700px tall or less (a 1366x768 laptop at 125%), the look's own spacing on a taller one. A density chosen in Appearance always wins, and the Dashboard follows it.
 - The graph's View menu has a Size rule: connections (the default), length, recency or none.
 - On a phone the graph takes the screen's shape: a portrait force layout, the arc running down the screen, the radial and the arc framed whole, and a tall tree framed on its root.
 - The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
@@ -50,6 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Back to Library > Files opened Images: the history now tells the two apart.
 - The top bar's tabs are centred at every width that holds them, not left beside the space switcher.
 - On a phone: the agent's runs are a badge and a row in More instead of a second bar; the status bar meets the tab bar at the end of a page; Library Contents rows fit the card; the lightbox's menu opens on top of it (the page reader was one of its rows) and its actions are one row; one finger on bare canvas pans a board with Select; the graph's legend and zoom stand clear of New note; the Documents editor gives the page most of the screen, and its formatting bar sits above the tab bar instead of over it and is gone while reading.
 - The note box's `[[` link list opens at the line being written, in the same panel as the "/" menu, instead of under the whole box, and answers its keys: with the note editor loaded the arrows used to move the caret, Enter wrote a new line and Escape did nothing while the list stayed open.

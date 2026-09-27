@@ -197,3 +197,27 @@ caret (`richpicker.js`).
   identity asks for 22rem beside the actions); the arc of a 430-note
   notebook framed whole is a line of dots until zoomed.
 
+## WORLD_CLASS_PLAN 22.1 items 1 and 2, 2026-09-27
+
+- **Built:** the hash router (`frontend/router.js`, `tests/test_router.py`,
+  `routersweep.js`) and height-aware density (`tests/test_density_height.py`,
+  `laptopfold.js`). navigation.js's stack is kept, mirrored rather than
+  replaced: it is what names a step in the history menu and how each kind of
+  step is reopened (`openHistoryEntry`), and parity is proven by
+  `routersweep.js` (browser and in-app Back and Forward walk the same views).
+- **Not done: the sub-tabs merged into the list toolbar.** The Notes list's
+  dock is already at DESIGN.md's seven-control ceiling
+  (`test_dock_grammar.py`), and the four sub-tabs do not fit its row at
+  1093 (about 390px of tabs beside a 160px filter and 290px of actions in
+  800px). Recommendation: on a window 700px tall or less, the Notes sub-tab
+  strip takes the dock's identity slot as a compact seg (the "All notes"
+  title goes, the filter keeps its minimum), which saves the strip's 68px;
+  a decision for the owner or the plan, since it changes the dock grammar.
+- **Not measured with real notes:** the fixture's notes are one line, so
+  the Notes gate (4 cards at 1093x614) passes with room; a notebook of
+  longer notes shows fewer. The status bar folding into the top bar under
+  680px (the plan's third lever) is not built.
+- **Not verified:** the router in the desktop window (WebView2's history),
+  and a reload while locked (the address is kept and opened after unlock,
+  measured only with the sweep's own unlock).
+

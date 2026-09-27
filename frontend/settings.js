@@ -2098,11 +2098,31 @@ function perfModeReason() {
   return "On for this machine: 2 cores or 4 GB of memory or fewer.";
 }
 
+//: **Height-aware density** (WORLD_CLASS_PLAN 22.1 item 2, the owner's
+//: laptop: 1366x768 at 125%, 614px of window). With nothing chosen (Auto),
+//: a window 700px tall or less is Compact and any other takes the look's own
+//: density; a choice in Appearance always wins. theme-boot.js makes the same
+//: call before first paint.
+const DENSITY_SHORT = window.matchMedia("(max-height: 700px)");
+
+function effectiveDensity() {
+  const chosen = localStorage.getItem("density");
+  if (chosen) return chosen;
+  return DENSITY_SHORT.matches ? "compact" : appearancePref("density");
+}
+
+//: A window that crosses 700px tall changes Auto's answer.
+DENSITY_SHORT.addEventListener("change", () => {
+  if (!localStorage.getItem("density")) applyAppearance();
+});
+
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
-  root.dataset.density = appearancePref("density");
+  root.dataset.density = effectiveDensity();
+  //: The dashboard's own level follows the app's Compact (dashboard.js).
+  if (typeof applyDashDensity === "function") applyDashDensity(dashDensity(), { persist: false });
   const perf = perfModeOn();
   root.dataset.perf = perf ? "on" : "off";
   // The preferences themselves are untouched: Performance mode overrides
@@ -2383,7 +2403,7 @@ function renderAppearance() {
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
-  _segActive("density-seg", "density", appearancePref("density"));
+  _segActive("density-seg", "density", localStorage.getItem("density") || "auto");
 }
 
 // A frozen background with no explanation reads as a broken app, which is
@@ -2737,7 +2757,9 @@ for (const b of document.querySelectorAll("#font-seg button")) {
 }
 for (const b of document.querySelectorAll("#density-seg button")) {
   b.addEventListener("click", () => {
-    localStorage.setItem("density", b.dataset.density);
+    //: Auto is no choice at all: the window's height decides.
+    if (b.dataset.density === "auto") localStorage.removeItem("density");
+    else localStorage.setItem("density", b.dataset.density);
     applyAppearance();
     renderAppearance();
   });

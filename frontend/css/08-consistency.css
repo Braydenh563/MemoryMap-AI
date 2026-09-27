@@ -6204,8 +6204,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    so a leg rule names `.atl-figure.nmb-leg-*`, the root, and the origin is
    in the layer's own 64x92 px frame; turned on the compositor, a step
    costs no paint (atlaswalk.js). */
-#nm-buddy .atl-figure.nmb-leg-l { transform-origin: 27.4px 63px; will-change: transform; }
-#nm-buddy .atl-figure.nmb-leg-r { transform-origin: 34.6px 63px; will-change: transform; }
+#nm-buddy .atl-figure.nmb-leg-l { transform-origin: 27.4px 60px; will-change: transform; }
+#nm-buddy .atl-figure.nmb-leg-r { transform-origin: 34.6px 60px; will-change: transform; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -6341,6 +6341,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.55; }
 .nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
 .nm-atlas .atl-lock { opacity: 0.86; }
+/* The hair's soft body under the locks: quieter than they are, so the
+   locks read over it as strands over a mass. */
+.nm-atlas .atl-hair-mass { opacity: 0.62; }
 .nm-atlas .atl-mane .atl-hair-neb { opacity: 0.22; }
 .nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
 .nm-atlas .atl-hair-star { fill: white; }
@@ -6459,7 +6462,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    (atlaswalk.js, 2026-09-26); the root is its own compositor layer, so the
    same sway costs no paint. The origin is the sash's root at the hip
    (`spec.lower[0]`), in the layer's own 64x92 px frame. */
-.nm-atlas.atl-layer-lower { transform-origin: 27px 62px; will-change: transform; }
+.nm-atlas.atl-layer-lower { transform-origin: 27px 60px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
     &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }

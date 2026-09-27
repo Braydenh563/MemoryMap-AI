@@ -212,15 +212,71 @@ function atlasSmooth(pts) {
   return d;
 }
 
-function atlasStem(segs, width, { samples = 10, cap = true, shift = null } = {}) {
+function atlasStem(segs, width, { samples = 10, cap = true, shift = null, tip = null } = {}) {
   const { left, right } = atlasStemSides(segs, width, samples, shift);
   const f = atlasFix;
-  const tip = left[left.length - 1];
+  const tipL = left[left.length - 1];
   const tipR = right[right.length - 1];
-  const r = Math.hypot(tip[0] - tipR[0], tip[1] - tipR[1]) / 2;
-  const end = cap && r > 0.05 ? `A${f(r)} ${f(r)} 0 0 1 ${f(tipR[0])} ${f(tipR[1])}` : `L${f(tipR[0])} ${f(tipR[1])}`;
+  const r = Math.hypot(tipL[0] - tipR[0], tipL[1] - tipR[1]) / 2;
+  let end;
+  if (tip) {
+    //: The stem's direction at its end, from its last two centre points,
+    //: and its left-hand normal (the side `left` is offset to), the frame
+    //: a hand or a foot is drawn in.
+    const n = left.length - 1;
+    const cx = (tipL[0] + tipR[0]) / 2;
+    const cy = (tipL[1] + tipR[1]) / 2;
+    const px = (left[n - 1][0] + right[n - 1][0]) / 2;
+    const py = (left[n - 1][1] + right[n - 1][1]) / 2;
+    const len = Math.hypot(cx - px, cy - py) || 1;
+    const d = [(cx - px) / len, (cy - py) / len];
+    end = tip(tipL, tipR, d, [-d[1], d[0]]);
+  } else {
+    end = cap && r > 0.05 ? `A${f(r)} ${f(r)} 0 0 1 ${f(tipR[0])} ${f(tipR[1])}` : `L${f(tipR[0])} ${f(tipR[1])}`;
+  }
   return `M${f(left[0][0])} ${f(left[0][1])}${atlasSmooth(left)}${end}${atlasSmooth(right.slice().reverse())}Z`;
 }
+
+//: **Hands and feet** (the owner's read of rounds 3 and 4, INBOX 427:
+//: "hands and feet"; the sprite sheet's small mittens with a thumb and its
+//: little turned-out feet). Each is the end of its limb's own path, drawn
+//: in place of the round cap from the stem's left tip round to its right,
+//: so the limb stays one outline with no seam at the wrist or the ankle:
+//: the edge layer strokes it once and the fill fills it once. Points are
+//: in the stem's frame (forward along the limb, sideways along its left
+//: normal), scaled by `k`, and `thumb` or `toe` says which side (+1 the
+//: left normal, -1 the right) the thumb sticks out on, or the toes point
+//: to. The hand: a palm a little wider than the wrist, two soft finger
+//: swells at the end, and a thumb leaving the palm's inner side at a
+//: third of its length. The foot: a sole at ankle height plus three, toes
+//: out to one side and a small heel to the other.
+function atlasTipShape(points, k) {
+  return (tipL, tipR, d, L) => {
+    const hw = Math.hypot(tipL[0] - tipR[0], tipL[1] - tipR[1]) / 2;
+    const mx = (tipL[0] + tipR[0]) / 2;
+    const my = (tipL[1] + tipR[1]) / 2;
+    const at = ([fwd, side]) => {
+      const sd = side > 0 ? hw + (side - 1) * k : side < 0 ? -hw + (side + 1) * k : 0;
+      return [mx + d[0] * fwd * k + L[0] * sd, my + d[1] * fwd * k + L[1] * sd];
+    };
+    return atlasSmooth([tipL, ...points.map(at), tipR]);
+  };
+}
+//: The side values: 1 and -1 are the wrist's own edges, more is out past
+//: them (in units of `k`), and 0 the centre line.
+const ATLAS_HAND_POINTS = [
+  [0.8, 1.4], [2.2, 1.6], [3.4, 1.3], [4.1, 0.5], [3.9, -0.2], [4.2, -0.9], [3.5, -1.5],
+  [2.8, -1.8], [2.4, -2.9], [1.7, -3.3], [1.0, -2.6], [0.5, -1.4],
+];
+const ATLAS_FOOT_POINTS = [
+  [0.5, 2.6], [1.1, 4.3], [1.9, 5.3], [2.7, 4.9], [3.0, 3.2], [2.9, 0.2], [2.6, -1.6], [1.7, -2.0], [0.7, -1.5],
+];
+const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]);
+const atlasHand = (thumb, k = 1) => atlasTipShape(thumb < 0 ? ATLAS_HAND_POINTS : atlasMirrorPoints(ATLAS_HAND_POINTS), k);
+const atlasFoot = (toe, k = 1) => atlasTipShape(toe > 0 ? ATLAS_FOOT_POINTS : atlasMirrorPoints(ATLAS_FOOT_POINTS), k);
+//: A limb that ends in a hand or a foot tapers to the wrist or ankle and
+//: stops there; the shape takes over. No paw swell.
+const atlasLimbTo = (root, end) => (t) => root - (root - end) * Math.min(1, t * 1.15) ** 0.9;
 
 //: The stem's upper side alone, as an open path: the lighter leading edge
 //: of a lock of the mane.
@@ -266,12 +322,12 @@ const ATLAS_GEO = {
   ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -5 },
   //: The constellation inside the body: the heart star first, then the
   //: linked points down the belly.
-  constellation: [[31, 45.6], [25.4, 51.4], [37, 53], [30.2, 58.6]],
+  constellation: [[31, 45.6], [25.4, 51.4], [37, 53], [30.2, 57.4]],
   neck: [31, 37],
   feet: [31, 90],
   chin: [31, 30],
   shoulders: [[24.6, 41], [37.4, 41]],
-  hips: [[27.2, 63], [34.8, 63]],
+  hips: [[27.2, 60], [34.8, 60]],
   tail: [34, 60],
 };
 
@@ -313,17 +369,22 @@ const ATLAS_LOOKS = {
     earIn: ATLAS_EAR_IN_L,
     earTip: ATLAS_EAR_TIP_L,
     strand: "",
+    //: The crest: four locks swept back, a quarter fuller than drawn (the
+    //: owner, round 5: "flowing, voluminous"), over a soft mass that fills
+    //: the gaps between them so the crest reads as hair, not streaks.
     locks: [
-      { seg: [[23, 12, 26, 0, 42, -3, 52, 6], [52, 6, 57, 10.6, 58, 16, 54.6, 19.4]], w: [6.2, 0.6] },
-      { seg: [[28, 10, 36, 0.4, 50, 3, 58, 13], [58, 13, 63, 19.6, 62.6, 26, 58.4, 29]], w: [7, 0.7] },
-      { seg: [[33, 9.6, 40, 3.6, 53, 7, 59, 19], [59, 19, 63.4, 27.4, 61.6, 34, 56.6, 37.4]], w: [6.4, 0.7] },
-      { seg: [[37, 11, 43, 8, 52, 14, 55.6, 24], [55.6, 24, 58.4, 32, 57.2, 39, 52.4, 43]], w: [5, 0.6] },
+      { seg: [[23, 12, 26, 0, 42, -3, 52, 6], [52, 6, 57, 10.6, 58, 16, 54.6, 19.4]], w: [7.8, 0.7] },
+      { seg: [[28, 10, 36, 0.4, 50, 3, 58, 13], [58, 13, 63, 19.6, 62.6, 26, 58.4, 29]], w: [8.8, 0.8] },
+      { seg: [[33, 9.6, 40, 3.6, 53, 7, 59, 19], [59, 19, 63.4, 27.4, 61.6, 34, 56.6, 37.4]], w: [8, 0.8] },
+      { seg: [[37, 11, 43, 8, 52, 14, 55.6, 24], [55.6, 24, 58.4, 32, 57.2, 39, 52.4, 43]], w: [6.2, 0.7] },
+      { seg: [[27, 11, 34, 0, 48, 0, 57, 12]], w: [12, 2.4], mass: true },
     ],
     head: [
-      { seg: [[23, 12, 28, 2, 44, 1, 52, 8], [52, 8, 55.6, 11.4, 56, 15.4, 53.4, 18]], w: [6.2, 0.6] },
-      { seg: [[28, 10, 36, 0.4, 49, 3, 54.4, 12], [54.4, 12, 57.6, 17, 57.4, 22.4, 54, 25.4]], w: [7, 0.7] },
-      { seg: [[33, 9.6, 40, 3.6, 51, 7, 55, 17], [55, 17, 58, 24, 57, 30, 52.6, 33.6]], w: [6.4, 0.7] },
-      { seg: [[37, 11, 43, 8, 51, 13, 53.6, 22], [53.6, 22, 55.6, 29, 54.6, 35, 50.4, 39]], w: [5, 0.6] },
+      { seg: [[23, 12, 28, 2, 44, 1, 52, 8], [52, 8, 55.6, 11.4, 56, 15.4, 53.4, 18]], w: [7.8, 0.7] },
+      { seg: [[28, 10, 36, 0.4, 49, 3, 54.4, 12], [54.4, 12, 57.6, 17, 57.4, 22.4, 54, 25.4]], w: [8.8, 0.8] },
+      { seg: [[33, 9.6, 40, 3.6, 51, 7, 55, 17], [55, 17, 58, 24, 57, 30, 52.6, 33.6]], w: [8, 0.8] },
+      { seg: [[37, 11, 43, 8, 51, 13, 53.6, 22], [53.6, 22, 55.6, 29, 54.6, 35, 50.4, 39]], w: [6.2, 0.7] },
+      { seg: [[27, 11, 34, 0, 47, 0, 54, 11]], w: [12, 2.4], mass: true },
     ],
     brow: "straight",
     lashes: false,
@@ -348,30 +409,48 @@ const ATLAS_LOOKS = {
     //: Slender legs (the definitive stand's), and a ribbon sash from the
     //: left hip that streams down and curls, in the tail's paint: its own
     //: layer in the companion (`atlasDrawFigure`), swaying with a walk.
-    legs: [[27.4, 61, 26.4, 69, 25.8, 78, 26.2, 88], [34.6, 61, 35.8, 69, 37, 78, 37.2, 87.4]],
-    lower: [[27, 62, 25, 70, 20, 77, 16, 84], [16, 84, 12.6, 90, 18, 95, 25, 92.4]],
-    lowerWidth: (t) => 6.4 - 5.2 * Math.min(1, t * 1.02) ** 0.9 + 0.2,
-    arm: [[37.6, 40.6, 42, 41.6, 47.6, 41.4, 52.6, 39.4]],
-    armL: [[24.4, 40.6, 20.4, 43.4, 18.2, 49.2, 19, 56.2]],
-    seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
-    //: The locks as drawn, then stretched a third from the crown (the
-    //: definitive stand's hair streams two thirds of a body's width).
-    locks: [
-      { seg: [[21, 13, 22, 0, 42, -3, 54, 6], [54, 6, 62, 11, 64, 18, 59.6, 22]], w: [6.6, 0.6] },
-      { seg: [[25, 11, 28, -1, 50, 0, 60, 10], [60, 10, 69, 17, 70.6, 27, 64.4, 31]], w: [7.4, 0.7] },
-      { seg: [[30, 9.6, 34, -2, 56, 0.6, 65, 14], [65, 14, 74, 25, 73, 38, 65.6, 43]], w: [8, 0.8] },
-      { seg: [[35, 10.4, 40, 1.6, 59, 5.4, 66, 20], [66, 20, 73, 33, 70, 48, 62, 54]], w: [7.4, 0.7] },
-      { seg: [[39, 12, 44, 6.4, 59, 11, 63, 27], [63, 27, 67.6, 42, 64, 56, 56.6, 63]], w: [6.4, 0.6] },
-      { seg: [[41, 14.6, 45, 11, 55, 18, 57, 32], [57, 32, 59.4, 46, 56.4, 58, 50.4, 65]], w: [5.2, 0.5] },
-    ].map((l) => ({ seg: atlasTuneSegs(l.seg, [30, 11], 1.33, 0, 99), w: [l.w[0] * 1.12, l.w[1]] })),
-    head: [
-      { seg: [[21, 13, 24, 3, 42, 1, 52, 8], [52, 8, 56.4, 11.6, 57.2, 16.6, 54.4, 19.6]], w: [6, 0.6] },
-      { seg: [[25, 11, 30, 0, 47, 1.4, 54, 11], [54, 11, 58.4, 16, 58.6, 22, 55.4, 25.4]], w: [6.6, 0.7] },
-      { seg: [[30, 9.6, 36, -1, 51, 1.6, 56, 14], [56, 14, 60, 21.6, 59.4, 29.6, 54.6, 34]], w: [7.2, 0.8] },
-      { seg: [[35, 10.4, 42, 2.6, 54, 6.4, 57, 20], [57, 20, 60, 28, 58.6, 36, 53, 40.4]], w: [6.6, 0.7] },
+    legs: [[27.4, 58, 26.4, 68, 25.8, 78, 26.2, 87], [34.6, 58, 35.8, 68, 37, 78, 37.2, 86.6]],
+    //: The lower body's ribbons (the definitive stand: the hips wrapped in
+    //: ribbons that stream down either side of the legs), in the tail's
+    //: paint: a wide sash from the left hip curling out and down, a
+    //: narrower one from the right hip streaming down under the tail. Both
+    //: in the swaying layer, which turns about the left hip (`lowerPivot`).
+    lowerPivot: [27, 60],
+    lowers: [
+      { seg: [[27, 60, 24, 69, 19, 77, 15, 84], [15, 84, 11, 90, 17, 96, 25, 93]], width: (t) => 9.2 - 7.4 * Math.min(1, t * 1.02) ** 0.9 + 0.2, specks: [[27.4, 70, 0.4], [22, 78.4, 0.35], [16.4, 88, 0.45], [24, 94, 0.3]] },
+      { seg: [[35, 60, 38, 68, 43, 76, 45, 84], [45, 84, 47, 90, 44, 96, 38, 95]], width: (t) => 7 - 5.6 * Math.min(1, t * 1.02) ** 0.9 + 0.2, specks: [[38.6, 70, 0.35], [44, 80, 0.4], [45.6, 90, 0.3]] },
     ],
-    hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]].map(([x, y]) => [+(30 + (x - 30) * 1.33).toFixed(1), +(11 + (y - 11) * 1.33).toFixed(1)]),
-    torso: "M26 35.6C23.2 40.6 22.4 46 23.2 51.4C23.8 56 25 60 27.4 64C29.2 66.8 32.8 66.8 34.6 64C37 60 38.2 56 38.8 51.4C39.6 46 38.8 40.6 36 35.6Z",
+    arm: [[37.6, 40.6, 42, 41.6, 46.6, 41.4, 50.6, 39.8]],
+    armL: [[24.4, 40.6, 20.4, 43.4, 18.2, 49.2, 19, 54.4]],
+    seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
+    //: **The hair, drawn full** (the owner, round 5: "flowing, voluminous";
+    //: the definitive stand, 63.png, where the hair is a mass the size of
+    //: the head rising from the crown and streaming back in thick wavy
+    //: locks, and one lock falls forward over the shoulder). Seven locks
+    //: fan from the crown, up and back, straight back and down and back,
+    //: each with a wave in it, their roots wide enough to overlap; a soft
+    //: mass behind them fills what is left; the eighth falls forward past
+    //: the left cheek to the shoulder. Nothing streams past x 78, so the
+    //: companion's 64px box is overrun by the same margin as the tail.
+    locks: [
+      { seg: [[24, 10, 30, -5, 50, -9, 62, 2], [62, 2, 72, 10, 74, 22, 66, 28]], w: [9, 1] },
+      { seg: [[28, 8, 36, -7, 56, -3, 66, 10], [66, 10, 77, 22, 77, 38, 68, 46]], w: [10, 1.2] },
+      { seg: [[33, 9, 43, 0, 60, 5, 69, 20], [69, 20, 78, 38, 75, 54, 64, 60]], w: [10.5, 1.2] },
+      { seg: [[37, 11, 45, 6, 58, 13, 63, 28], [63, 28, 69, 46, 66, 60, 56, 68]], w: [9, 1] },
+      { seg: [[40, 14, 45, 15, 52, 24, 54, 38], [54, 38, 56, 52, 52, 62, 44, 68]], w: [7, 0.8] },
+      { seg: [[22, 14, 16, 20, 14, 32, 17, 44], [17, 44, 19, 52, 15, 58, 11, 62]], w: [6.5, 0.8] },
+      { seg: [[26, 10, 38, -8, 58, -6, 68, 16]], w: [18, 3], mass: true },
+    ],
+    head: [
+      { seg: [[22, 12, 26, 2, 44, -1, 54, 6], [54, 6, 59, 10, 60, 16, 56, 19.6]], w: [8, 0.8] },
+      { seg: [[26, 10, 32, -1, 49, 0, 56, 10], [56, 10, 61, 15.6, 61, 22, 57, 26]], w: [8.8, 0.9] },
+      { seg: [[31, 9.6, 38, -2, 53, 1, 58, 14], [58, 14, 62, 22, 61, 30, 56, 35]], w: [9.4, 1] },
+      { seg: [[36, 10.4, 43, 2.6, 55, 6.4, 58, 20], [58, 20, 61, 28, 59.6, 36, 54, 41]], w: [8.6, 0.9] },
+      { seg: [[22, 14, 17, 20, 15, 30, 18, 40]], w: [6, 0.8] },
+      { seg: [[27, 10, 38, -6, 54, -4, 59, 12]], w: [16, 3], mass: true },
+    ],
+    hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
+    torso: "M26 35.6C23.2 40.6 22.4 46 23.2 51.4C23.8 55.4 25 58.6 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C37 58.6 38.2 55.4 38.8 51.4C39.6 46 38.8 40.6 36 35.6Z",
     brow: "arch",
     lashes: true,
     tail: [[32, 61, 45, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
@@ -424,10 +503,18 @@ const atlasLimbWidth = (root, paw) => (t) => root - (root - 1.4) * Math.min(1, t
 //: The legs differ: the left carries the weight, straight, the right
 //: rests a little out and forward (a slight contrapposto), so the stance
 //: is not a doll's.
-const ATLAS_LEG_L = atlasStem([[27.2, 61, 26.4, 69, 25.8, 78, 26.2, 88]], atlasLimbWidth(6.2, 1.9), { samples: 12 });
-const ATLAS_LEG_R = atlasStem([[34.8, 61, 36.4, 69, 38.4, 78, 38.6, 87.4]], atlasLimbWidth(6.2, 1.9), { samples: 12 });
-const ATLAS_ARM_R = atlasStem([[37.6, 40.6, 42.4, 43.4, 45, 49.2, 44.6, 56.6]], atlasLimbWidth(4.8, 1.5), { samples: 12 });
-const ATLAS_HOLD_R = atlasStem([[37.8, 41.4, 47, 34, 54, 16, 53.6, -4.6]], atlasLimbWidth(4.8, 1.4), { samples: 16 });
+//: The legs leave the hips at 58, inside the torso, and reach the ankle
+//: at 87 with the foot's sole on the soles' line: a third of the height
+//: is leg, as the sprite sheet's Stand has it (the torso used to run to 68
+//: over legs that began at 61, so a fifth of the height showed as leg).
+const ATLAS_LEG_L = atlasStem([[27.2, 58, 26.4, 68, 25.8, 78, 26.2, 87]], atlasLimbTo(6.2, 2.6), { samples: 12, tip: atlasFoot(1, 1.05) });
+const ATLAS_LEG_R = atlasStem([[34.8, 58, 36.4, 68, 38.4, 78, 38.6, 86.6]], atlasLimbTo(6.2, 2.6), { samples: 12, tip: atlasFoot(-1, 1.05) });
+//: The right arm hangs with its inner side toward the body, the viewer's
+//: left, which is the stem's left normal: the thumb is on +1. The left
+//: arm is this one mirrored, thumb and all.
+const ATLAS_ARM_R = atlasStem([[37.6, 40.6, 42.4, 43.4, 45, 49.2, 44.6, 54.6]], atlasLimbTo(4.8, 2.2), { samples: 12, tip: atlasHand(1, 1.0) });
+//: Raised, the inner side is the right normal.
+const ATLAS_HOLD_R = atlasStem([[37.8, 41.4, 47, 34, 54, 16, 53.6, -2.6]], atlasLimbTo(4.8, 2.2), { samples: 16, tip: atlasHand(-1, 1.0) });
 const ATLAS_LIMBS = {
   legs: [["l", ATLAS_LEG_L], ["r", ATLAS_LEG_R]],
   arms: [["l", atlasMirror(ATLAS_ARM_R)], ["r", ATLAS_ARM_R]],
@@ -436,7 +523,7 @@ const ATLAS_LIMBS = {
 //: The body: one soft outline from under the chin, out round the belly,
 //: in at the waist and flaring just enough at the hips for the tendril
 //: legs to grow out of it.
-const ATLAS_TORSO_PATH = "M25.4 35.6C22 41 20.8 47.4 21.6 53.4C22.4 59 24 63.2 26.8 65.8C29.4 68 33.8 68 36.4 65.8C39.2 63.2 40.8 59 41 53.4C41.2 47.4 39.8 41 36.6 35.6Z";
+const ATLAS_TORSO_PATH = "M25.4 35.6C22 41 20.8 47.4 21.6 53.4C22.4 57.4 24 60.6 26.8 62.6C29.4 64.4 33.8 64.4 36.4 62.6C39.2 60.6 40.8 57.4 41 53.4C41.2 47.4 39.8 41 36.6 35.6Z";
 //: Thinking, a hand at the chin (the reference sheet): the right arm bent
 //: up, drawn over the face in the head's own group.
 const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]], atlasLimbWidth(4.8, 1.3), { samples: 14 });
@@ -501,7 +588,7 @@ function atlasTuneSegs(segs, root, k, curlDeg, from) {
 
 function atlasBuild() {
   const tune = atlasTune();
-  const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
+  const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10), mass: !!l.mass });
   for (const spec of Object.values(ATLAS_LOOKS)) {
     const root = [spec.tail[0][0], spec.tail[0][1]];
     const tail = atlasTuneSegs(spec.tail, root, tune.tailLength, tune.tailCurl, spec.tail.length - 1);
@@ -516,15 +603,20 @@ function atlasBuild() {
     spec.lockPaths = spec.locks.slice(0, n).map(lock);
     spec.headPaths = spec.head.slice(0, n).map(lock);
     spec.torsoNow = atlasScalePathX(spec.torso || ATLAS_TORSO_PATH, tune.bodyWidth, 31);
-    if (spec.lower) {
-      spec.lowerPath = atlasStem(spec.lower, spec.lowerWidth, { samples: 12 });
-      spec.lowerStream = atlasStem(spec.lower, (t) => spec.lowerWidth(t) * 0.28, { samples: 12, shift: (t) => spec.lowerWidth(t) * 0.22 * Math.sin(Math.PI * 2.2 * t) });
+    if (spec.lowers) {
+      spec.lowerPaths = spec.lowers.map(({ seg, width, specks }) => ({
+        fill: atlasStem(seg, width, { samples: 12 }),
+        stream: atlasStem(seg, (t) => width(t) * 0.28, { samples: 12, shift: (t) => width(t) * 0.22 * Math.sin(Math.PI * 2.2 * t) }),
+        specks,
+      }));
     }
     if (spec.arm) {
-      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbWidth(3.9, 1.3), { samples: 12 })], ["r", atlasStem(spec.arm, atlasLimbWidth(3.9, 1.3), { samples: 12 })]];
+      //: The left arm hangs with the body on its right normal; the right
+      //: arm is held out, palm down, the thumb along its upper edge.
+      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(3.9, 1.9), { samples: 12, tip: atlasHand(-1, 0.95) })], ["r", atlasStem(spec.arm, atlasLimbTo(3.9, 1.9), { samples: 12, tip: atlasHand(-1, 0.95) })]];
     }
     if (Array.isArray(spec.legs)) {
-      spec.legPaths = [["l", atlasStem([spec.legs[0]], atlasLimbWidth(4.8, 1.6), { samples: 12 })], ["r", atlasStem([spec.legs[1]], atlasLimbWidth(4.8, 1.6), { samples: 12 })]];
+      spec.legPaths = [["l", atlasStem([spec.legs[0]], atlasLimbTo(4.8, 2.2), { samples: 12, tip: atlasFoot(1, 0.95) })], ["r", atlasStem([spec.legs[1]], atlasLimbTo(4.8, 2.2), { samples: 12, tip: atlasFoot(-1, 0.95) })]];
     }
   }
   return tune;
@@ -726,12 +818,14 @@ function atlasMane(parent, level, edge, look) {
   if (level === "tiny") return null;
   const locks = level === "head" ? spec.headPaths : spec.lockPaths;
   const mane = atlasGroup(parent, "atl-crest atl-mane", ATLAS_GEO.hair);
-  //: The lower locks first, so the upper ones lie over them.
+  //: The lower locks first, so the upper ones lie over them; a lock
+  //: marked `mass` is the soft body of the hair under all of them, with no
+  //: leading edge of its own.
   locks.slice().reverse().forEach((lock) => {
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin atl-lock", d: lock.fill }, mane);
+    atlasMake("path", { class: edge ? "atl-edge" : `atl-skin atl-lock${lock.mass ? " atl-hair-mass" : ""}`, d: lock.fill }, mane);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-hair-neb", d: lock.fill }, mane);
-      atlasMake("path", { class: "atl-hair-light", d: lock.light }, mane);
+      if (!lock.mass) atlasMake("path", { class: "atl-hair-light", d: lock.light }, mane);
     }
   });
   if (!edge) {
@@ -1093,14 +1187,16 @@ function atlasBody(parent, id, props, look, route = null) {
     //: origin, so the group's own pivot is for the lab and the avatar
     //: levels, where there is no layer; the same point in every layer
     //: keeps edge and fill as one.
-    if (spec.lower) {
-      const lower = atlasGroup(lowerAt[kind], "atl-lower", [spec.lower[0][0], spec.lower[0][1]]);
-      if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.lowerPath }, lower);
-      atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.lowerPath }, lower);
-      if (!edge) {
-        atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.lowerPath }, lower);
-        atlasMake("path", { class: "atl-tail-stream", d: spec.lowerStream }, lower);
-        atlasSpecks(lower, [[28.4, 70, 0.4], [23.6, 78.4, 0.35], [17.6, 88, 0.45], [24.4, 93, 0.3]]);
+    if (spec.lowers) {
+      const lower = atlasGroup(lowerAt[kind], "atl-lower", spec.lowerPivot);
+      for (const part of spec.lowerPaths) {
+        if (!edge) atlasMake("path", { class: "atl-tail-glow", d: part.fill }, lower);
+        atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: part.fill }, lower);
+        if (!edge) {
+          atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: part.fill }, lower);
+          atlasMake("path", { class: "atl-tail-stream", d: part.stream }, lower);
+          atlasSpecks(lower, part.specks);
+        }
       }
     }
     (spec.legPaths || ATLAS_LIMBS.legs).forEach(([side, d], i) => {
@@ -1336,7 +1432,7 @@ function atlasDrawFigure(mood) {
   //: every step, kick, dangle and pose rule written for a leg group turns
   //: the root instead, on the compositor. Before this the walk's steps
   //: repainted the body layer every frame (atlaswalk.js, 2026-09-26).
-  const names = ["back", "tail", ...(spec.lower ? ["lower"] : []), "leg-l", "leg-r", "body", "lids", "front"];
+  const names = ["back", "tail", ...(spec.lowers ? ["lower"] : []), "leg-l", "leg-r", "body", "lids", "front"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });

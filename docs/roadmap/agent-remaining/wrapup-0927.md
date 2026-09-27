@@ -7,10 +7,14 @@ committed. This is the complete list of what they still held, so nothing is
 dropped. Tick an item only when it is measured working, not when it is
 written.
 
-## Carry-over to the next PR (0.3.4)
+## Carry-over to the next PR (0.3.4): top priority, before any new work
 
 Everything the owner asked for that is not finished, not verified, or was
 deferred when usage ran out at release. Pick these up first, in this order.
+The owner, at release: "make sure you log my latest request and everything
+left to be tackled and finished top priority at the start of the next pr".
+Every item below is finished, measured and ticked before any other plan
+work starts.
 
 1. **frontend/js/ move.** Done as a WIP at `50a41d0` on the local branch
    `worktree-agent-a3d063b0e2b8673ac` (paths, lazy modules, tests updated;

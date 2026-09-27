@@ -72,7 +72,10 @@ work starts.
     against the body; give it heading size;
     (h) the documents formatting toolbar: it overflows to a "..." menu by
     design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
-    shows on keyboard focus.
+    shows on keyboard focus;
+    (i) find the ResizeObserver in the Library's Files view that trips the
+    browser's "loop completed with undelivered notifications" notice (now
+    filtered from the error log in app.js) and defer its write a frame.
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

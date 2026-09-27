@@ -70,7 +70,15 @@ for (const level of ["log", "info", "warn", "error"]) {
     original(...parts);
   };
 }
+//: "ResizeObserver loop completed with undelivered notifications" is the
+//: browser saying it deferred a resize callback one frame, not an
+//: exception (no `e.error`, nothing thrown): logged as ERROR it filled the
+//: owner's console from the Library's Files view (release, 2026-09-27).
+//: The observer behind it is in the carry-over list; this only stops the
+//: notice being reported as a failure.
+const BENIGN_BROWSER_NOTICE = /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)/;
 window.addEventListener("error", (e) =>
+  BENIGN_BROWSER_NOTICE.test(e.message || "") ? undefined :
   // e.error.stack, when present, is what actually locates the bug, the
   // message/filename/lineno triple alone has sent more than one session
   // hunting for a null-dereference with no line number to start from.

@@ -2576,14 +2576,24 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* **A divider needs something on both sides of it.** `.dock > * + *` draws
    one before every zone after the first, which is right until the first
-   child is a zone that is not drawn: the Chat header's phone sidebar button
+   child is a zone that is not drawn: the Chat header's phone sidebar opener
    is `display: none` on a desktop, so the rule put a hairline between
    nothing and the thread mark, and it read as a line floating to the left of
-   the chat icon (the owner, 2026-09-21, with a screenshot). Measured: the
-   line is `.dock-identity`'s own `border-left` from that rule. On a phone,
-   where the button is drawn, a divider immediately after it is equally
-   wrong: it is a control, not a zone. */
-.dock > .phone-sidebar-open + * {
+   the chat icon (the owner, 2026-09-21, with a screenshot; reported again,
+   INBOX 430, "the icon tile already separates"). Measured: the line is
+   `.dock-identity`'s own `border-left` from that rule. On a phone, where the
+   opener is drawn, a divider immediately after it is equally wrong: it is a
+   control, not a zone.
+
+   **The regression, and why this needed measuring twice.** The first fix
+   targeted `.phone-sidebar-open`, the opener's class name at the time; the
+   opener was rebuilt since as `mountPhoneSidebarOpeners`'s `.dock-nav`
+   wrapper (DESIGN.md's own recipe index entry for "a sidebar on a phone"),
+   and nothing renamed this selector to match. Grepped rather than guessed:
+   `.phone-sidebar-open` does not appear anywhere else in the frontend, so
+   this rule had matched nothing since the rebuild and the divider had
+   nothing left undoing it. */
+.dock > .dock-nav + * {
   border-left: 0;
   padding-left: 0;
 }

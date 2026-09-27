@@ -113,7 +113,9 @@ async function typing(page) {
   const rows = [];
   const targets = [
     { name: 'notes capture', prep: async () => { await page.evaluate(() => { switchTab('notes'); showNotesSection('capture'); }); await page.waitForTimeout(1500); await page.click('#entry-content').catch(() => {}); await page.waitForTimeout(800); } },
-    { name: 'chat composer', prep: async () => { await page.evaluate(() => switchTab('chat')); await page.waitForTimeout(1500); await page.click('#chat-input'); await page.waitForTimeout(500); } },
+    // With no model the composer is disabled (it says why); typing into it
+    // is what is measured, so the probe switches it on for the run.
+    { name: 'chat composer', prep: async () => { await page.evaluate(() => switchTab('chat')); await page.waitForTimeout(1500); await page.evaluate(() => { document.getElementById('chat-input').disabled = false; }); await page.click('#chat-input'); await page.waitForTimeout(500); } },
   ];
   for (const t of targets) {
     await t.prep();

@@ -72,6 +72,7 @@ function autoGrow(el) {
   }
   delete el.dataset.autogrowPending;
   if (el.dataset.resizing) return; // a grabber drag is in progress; it wins
+  if (autoGrowStillFits(el)) return;
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
@@ -148,6 +149,36 @@ function autoGrow(el) {
   // by the user: the two are indistinguishable to a ResizeObserver otherwise.
   el.dataset.autoHeight = String(next);
   fitComposerToDock(el);
+}
+
+//: **The keystroke that changes nothing costs one read, not two writes and
+//: three layouts** (the performance pass, 2026-09-27). `autoGrow` runs on
+//: every `input`, and its full path resets the height to `auto`, measures,
+//: writes the height back and measures again, then the composer's fit reads
+//: the card: measured on the chat composer, 40 keys forced 82 style recalcs
+//: and 82 layouts, and every key's input-to-paint took two frames (32ms,
+//: `scratchpad/ui-sweeps/perfpass.js typing`).
+//:
+//: Most keys only add a character to the end of what is there. Text that
+//: only grew at its end cannot make the box's natural height smaller, so
+//: if the text still fits the height already set (or the box is already
+//: capped and scrolling), there is nothing to do: one `scrollHeight` read
+//: answers it, and nothing is written. Anything else (a deletion, a paste in
+//: the middle, a width, window, font or drag change since the last measure,
+//: a hand-set height) takes the full path below, exactly as before.
+function autoGrowStillFits(el) {
+  const before = el._autoGrownValue;
+  if (typeof before !== "string" || el.dataset.maxPx) return false;
+  const now = el.value;
+  if (now.length <= before.length || !now.startsWith(before)) return false;
+  const set = parseFloat(el.style.height);
+  if (!Number.isFinite(set) || set <= 0) return false;
+  const natural = el.scrollHeight;
+  if (el._autoGrownFor !== autoGrowInputs(el)) return false;
+  const capped = el.style.overflowY === "auto";
+  if (natural > set && !capped) return false;
+  el._autoGrownValue = now;
+  return true;
 }
 
 //: Everything besides the text that a grown box's height depends on: its

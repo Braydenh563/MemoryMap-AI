@@ -31,6 +31,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Typing in the chat composer does about half the work per key: a key that only adds to the end of what fits no longer resets and re-measures the box twice.
 - Opening the Graph no longer ties the app up while the map settles. On a computer drawing without a graphics card, the first five seconds on a 400-note map kept the page busy for almost all of every second, most of it copying the whole map picture on every frame; they now take about a tenth of that, so the tab answers clicks while its map settles.
 - The Timeline remembers how its rows are grouped (category, tag, thread or none) across a reload, as it already remembered the bucket size, the view and the kinds shown.
 - The Library's Archived filter, when nothing is archived, says "Nothing archived yet." rather than "No archived yet.", and no longer offers a Create button beside it, since nothing you create lands there.

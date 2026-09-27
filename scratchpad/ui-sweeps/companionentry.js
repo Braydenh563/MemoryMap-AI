@@ -103,7 +103,7 @@ const REDUCED = !!process.env.REDUCED;
     // placement jumps measured before the fix were 142px and 234px).
     if (visible && ((d > 2 && !f.moving && !p.moving && Math.abs(f.w - p.w) < 2) || (d > 30 && f.t - p.t < 20))) snaps.push({ t: f.t, d: Math.round(d), from: [p.x, p.y], to: [f.x, f.y], op: f.op });
     // A cut: fully shown to gone (or back) with no frame between.
-    if (Math.abs(f.op - p.op) > 0.5 && Math.max(f.op, p.op) >= 0.9 && (on(f) || on(p))) pops.push({ t: f.t, from: p.op, to: f.op, dt: f.t - p.t });
+    if (Math.abs(f.op - p.op) > 0.5 && Math.max(f.op, p.op) >= 0.9 && (on(f) || on(p)) && f.t - p.t < 40) pops.push({ t: f.t, from: p.op, to: f.op, dt: f.t - p.t });
   }
   // Entries and exits: runs of op rising from ~0 to ~1 and falling back.
   const fades = [];

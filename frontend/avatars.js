@@ -5071,8 +5071,16 @@ function nameMarkBuddySettle(tab, then) {
       moved = true;
     }
     if (now - quiet >= NMB_SETTLE_QUIET_MS || now - start >= NMB_SETTLE_MAX_MS) {
-      if (moved) choose();
-      then(spot);
+      //: And in when the page has a moment to spare: an entrance started
+      //: while the app was still booting ran through 56ms frames and
+      //: stuttered (measured, a walk-in covering 32px in one sampled frame).
+      const go = () => {
+        if (nameMarkBuddyTab() !== tab) return;
+        if (moved) choose();
+        then(spot);
+      };
+      if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 600 });
+      else go();
       return;
     }
     nmb.settleFrame = requestAnimationFrame(look);
@@ -5121,7 +5129,9 @@ function nameMarkBuddyEnter(buddy, spot) {
     nmbTempo.seen = 0;
     clearTimeout(nmbTempo.timer);
     nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
-    nmb.anim = buddy.animate([{ translate: `${dx}px 0px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.3, 0, 0.25, 1)" });
+    //: Faded up over its first third as it comes past the edge: shown by
+    //: the class alone, it went from 0 to 0.95 in two frames.
+    nmb.anim = buddy.animate([{ translate: `${dx}px 0px`, opacity: 0 }, { opacity: 1, offset: 0.35 }, { translate: "0px 0px", opacity: 1 }], { duration, easing: "cubic-bezier(0.3, 0, 0.25, 1)" });
     const walk = nmb.anim;
     const done = () => {
       if (nmb.anim !== walk) return;

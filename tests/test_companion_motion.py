@@ -1112,3 +1112,13 @@ def test_perches_are_top_edges_outside_card_content_and_measured_for_words() -> 
     assert choose.index('legs: "peek"') < choose.index("return soiled || corner;")
     words = _fn("nameMarkBuddyWordsUnder")
     assert "seen < 400" in words and "nameMarkBuddyScroller(root)" in words
+
+
+def test_a_perch_that_goes_is_replaced_at_once() -> None:
+    # The owner: on Chat "it was left floating mid-panel for seconds after its
+    # perch (a button on an empty chat) went away". Measured (perchgone.js,
+    # 1093x614, its chat perch removed): floated 2241ms before, 257ms after.
+    follow = _fn("nameMarkBuddyFollow")
+    lost = follow[follow.index("if (!g.lost) {") :]
+    lost = lost[: lost.index("return;")]
+    assert "nmb.placeTimer = setTimeout(nameMarkBuddyBeat, 250);" in lost and "nameMarkBuddyQueuePlace()" not in lost

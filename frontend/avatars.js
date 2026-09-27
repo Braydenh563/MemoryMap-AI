@@ -4832,7 +4832,15 @@ function nameMarkBuddyFollow(eased = false) {
       g.lost = true;
       buddy.dataset.pose = nmb.pose = "float";
       buddy.dataset.legs = nmb.legs = "";
-      nameMarkBuddyQueuePlace();
+      //: **Its perch went: a new one at once** (the owner, 2026-09-27: "it
+      //: was left floating mid-panel for seconds after its perch (a button
+      //: on an empty chat) went away"). The queued beat waited 1.2 to 5s;
+      //: now a quarter second, for the page to finish drawing what replaced
+      //: it. Hidden with its tab, the arrival places it instead.
+      if (!nmb.away) {
+        clearTimeout(nmb.placeTimer);
+        nmb.placeTimer = setTimeout(nameMarkBuddyBeat, 250);
+      }
     }
     return;
   }

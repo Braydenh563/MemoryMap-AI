@@ -2140,8 +2140,14 @@ label.setting-check,
   margin: 0;
 }
 
-.setting-check:hover {
-  background: var(--ghost-btn-bg-hover);
+/* Hover only where there is a pointer to hover with: on a phone the
+   emulated hover stays on the row last tapped (measured, contrast.js at
+   390: Settings > Learned's first row held the 18% fill, its muted hint
+   at 3.83:1). */
+@media (hover: hover) {
+  .setting-check:hover {
+    background: var(--ghost-btn-bg-hover);
+  }
 }
 
 /* On is the accent fill, hover is a neutral lift, never the same colour, for
@@ -2156,8 +2162,10 @@ label.setting-check,
   background: var(--accent-soft);
 }
 
-.setting-check:has(input:checked):hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+@media (hover: hover) {
+  .setting-check:has(input:checked):hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
 }
 
 /* The whole row is clickable, so its text must not be dragged into a

@@ -43,14 +43,23 @@ function editConflictPrompt({ noun = "note", mine = "", theirs = "" } = {}) {
       }
     };
     let compareBtn = null;
+    //: A second press while the diff builder is still loading drew the
+    //: comparison twice, one under the other.
+    let drawing = false;
     const drawCompare = async () => {
+      if (drawing) return;
       if (!compare.classList.contains("hidden")) {
         compare.classList.add("hidden");
         setLabel(compareBtn, "Compare");
         return;
       }
       compare.replaceChildren();
-      await ensureModule("library");
+      drawing = true;
+      try {
+        await ensureModule("library");
+      } finally {
+        drawing = false;
+      }
       if (settled) return;
       const legend = document.createElement("p");
       legend.className = "muted edit-conflict-legend";

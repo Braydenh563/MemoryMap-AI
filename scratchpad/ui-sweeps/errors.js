@@ -33,7 +33,9 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
     // Written after a run against a seeded four thousand note notebook
     // reported 116 of these at 1440px and 112 at 1024 and no later run
     // reproduced them (INBOX 259).
-    await ctx.addInitScript(()=>{try{localStorage.setItem('theme','light');}catch(e){}
+    //: THEME=dark sweeps the other theme: named before the script below, which reads it.
+    await ctx.addInitScript((t)=>{window.__sweepTheme=t;}, process.env.THEME||'light');
+    await ctx.addInitScript(()=>{try{localStorage.setItem('theme',window.__sweepTheme||'light');}catch(e){}
       window.__nanWrites=[];
       const setAttr=Element.prototype.setAttribute;
       Element.prototype.setAttribute=function(name,value){

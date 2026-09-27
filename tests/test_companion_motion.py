@@ -1166,3 +1166,11 @@ def test_the_atlas_hooks_are_wired() -> None:
     assert "nameMarkBuddyCurlUp(buddy)" in _fn("nameMarkBuddyTick") and "nameMarkBuddyGetUp(buddy)" in _fn("nameMarkBuddyWake")
     assert "if (/^(lie|curl)/.test(buddy.dataset.pose || \"\")) buddy.dataset.pose = nmb.pose;" in _fn("nameMarkBuddyHalt")
     assert "#nm-buddy.nmb-act-lie:has(.atl-figure-box) .nm-buddy-char { transform: none; }" in CSS08
+
+
+def test_a_woken_atlas_companion_wakes_atlas_too() -> None:
+    # atlassleepinput.js after atlas.js's startle fix: a poke woke the
+    # companion but Atlas's mood stayed "sleepy", eyes shut for 3s and
+    # more (the click lands on the face's box, not `.nm-atlas`). Now its
+    # eyes are open 1255ms after the poke.
+    assert 'if (slept && nameMarkBuddyHasAtlas(buddy) && typeof atlasWake === "function") atlasWake();' in _fn("nameMarkBuddyWake")

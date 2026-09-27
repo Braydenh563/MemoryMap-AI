@@ -1305,14 +1305,56 @@ function updateNotePickerCount() {
   $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
 }
 
+// **On a phone the panel is a sheet**, the same fix `openChatDockMore`
+// already uses for the same shape of problem. Measured (INBOX 431, the
+// chat attach redesign): the popover hangs above the composer with
+// `bottom: calc(100% + 0.5rem)`, and at 390 the composer wraps into several
+// rows, tall enough that the popover's own top half lands above where
+// `#tab-chat` (the scrolling ancestor) actually paints -- present in the
+// DOM, `getBoundingClientRect()` reporting a real box, and invisible on
+// screen the whole time, with the chat's own empty state showing through
+// where it should have been.
+let notePickerSheetClose = null;
+
 function openNotePicker() {
-  $("note-picker-panel").classList.remove("hidden");
+  const panel = $("note-picker-panel");
+  panel.classList.remove("hidden");
   $("attach-note").setAttribute("aria-expanded", "true");
   renderNotePickerList();
+  if (window.matchMedia(PHONE_TABS).matches && typeof openSheet === "function") {
+    const home = { parent: panel.parentElement, next: panel.nextSibling };
+    //: The sheet's own head already carries a title and a Close; this
+    //: panel's `.dialog-head` (built for the floating popover) would only
+    //: duplicate both.
+    const head = panel.querySelector(".dialog-head");
+    head?.classList.add("hidden");
+    notePickerSheetClose = openSheet({
+      label: "Attach",
+      name: "attach",
+      returnFocus: $("attach-note"),
+      build: (card) => {
+        card.classList.add("attach-card");
+        card.appendChild(panel);
+      },
+      onClose: () => {
+        notePickerSheetClose = null;
+        head?.classList.remove("hidden");
+        home.parent.insertBefore(panel, home.next);
+        panel.classList.add("hidden");
+        $("attach-note").setAttribute("aria-expanded", "false");
+      },
+    });
+    $("note-picker-search").focus();
+    return;
+  }
   $("note-picker-search").focus();
 }
 
 function closeNotePicker() {
+  if (notePickerSheetClose) {
+    notePickerSheetClose();
+    return;
+  }
   $("note-picker-panel").classList.add("hidden");
   $("attach-note").setAttribute("aria-expanded", "false");
 }

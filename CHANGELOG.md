@@ -76,6 +76,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The README has a "Meet Atlas" section with its own portrait, every screenshot retaken, eight main features shown a second time in the dark theme beside a light/dark split, and a richer showcase notebook (clusters, hubs and loose notes, both AI-reasoned and plain links) behind the graph shot.
 - A word rotates beside the thinking dots in chat, capture Ask and the popup agent ("Pondering", "Leafing through your notes"), in the answering persona's own voice; Atlas gets a starlit set of its own, and every persona can write, or ask the AI to suggest, its own list in Settings, Personas. A new "Show thinking words" switch in Settings, Appearance turns it off.
 - The LAN switch offers a "Restart now" action when a restart is actually needed to take effect, on either direction of the switch, instead of only saying so in text.
 - The popup agent's reply rows wear the persona's own avatar circle, the same as Chat's own bubbles.
@@ -112,6 +113,11 @@ below). Versioning is `0.x` while the app stabilises.
 - Private notes open only for the sessions that gave the password. The data key was process-wide, so once a device on the network unlocked, this computer's session without a password (sign-in off) read private notes too. The key is now granted per session (setup, unlock, "unlock private notes", and the two account routes that ask for the password again), every other session sees the vault as locked, and the key is forgotten when the last session that gave the password ends, even while one without it is still open.
 
 ### Fixed
+
+- The rotating thinking word beside the dots (chat, Ask, the popup agent) no longer draws as a long line with an off-centre, pulsing phrase: it was a fourth `<span>` in the dots' own row, and every dot rule matched it too, stretching a dot's circle into a flattened, filled, bouncing pill. The three real dots now carry their own class, and the word is bold with a static glow instead.
+- The chat attach popup (Notes, Documents, Files, Images, Maps) has a proper dialog head (a title, a Close) and a search field with a leading icon, and its category chip can no longer wrap onto a second line. On a phone it opens as a bottom sheet rather than a popover that could land above where the page's own scroll viewport painted and never show at all.
+- Settings > Privacy's "Nothing left this computer." notice is centred on its icon rather than a couple of pixels off, and now leads to the Destinations list it is about.
+- The Notes list shows four whole cards above the fold at a laptop's height, not three and a partial one.
 
 - Back to Library > Files opened Images: the history now tells the two apart.
 - Changing Atlas's look or tune while the large view is open redraws the figure once, whole, instead of putting a full drawing in place of each of its layers.

@@ -2142,9 +2142,36 @@ header#top-bar select,
    the text; a second 6.4px gap above the meta row on top of that stacked
    two visual breaks where one reads as clearly as two. */
 #entry-list:not(.is-rows) .entry-meta {
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
   gap: 0.4rem;
   align-items: center;
+}
+
+/* Same density ask, measured against notesdensity.js at 1093x614: six
+   realistic notes still left only 3 full cards above the fold plus one
+   partial. The clamped preview's own leading and gap to "Show more" were
+   sized for a relaxed reading paragraph, but a single clamped line reads
+   fine tighter; the "Show more" line no longer needs the negative
+   margin-top trick to sit close once the content above it already carries
+   a small margin, and the button's text needs none of the 1.5 line-height
+   a paragraph does. Scoped to `.entry-clamped`: once a note is opened out
+   (the class comes off), it goes back to the normal reading measure. */
+#entry-list:not(.is-rows) .entry-content.entry-clamped {
+  line-height: 1.3;
+  margin-bottom: 0.1rem;
+}
+
+#entry-list:not(.is-rows) .entry-more {
+  /* `display: block`, not the button base recipe's `inline-flex`: an
+     inline-level box sits inside an anonymous block wrapper that takes
+     its line-box height from the *inherited* font metrics (this button's
+     own smaller line-height only shrinks the box drawn inside that
+     strut), which is what quietly kept a roughly 24px-tall gap here even
+     after every other property below was tightened. */
+  display: block;
+  margin-top: 0;
+  padding: 0.05rem 0;
+  line-height: 1;
 }
 
 /* The compact row view kept its prior gap and alignment unchanged: only
@@ -2160,13 +2187,14 @@ header#top-bar select,
   font-size: 0.75rem;
 }
 
-/* Same ask: the title's own gap to the body below it, tightened alongside
-   the card padding and the clamp, not replacing either. `:not(.is-rows)`
-   for the same reason as the padding rule beside it (01-forms-settings.css):
-   the compact row view has its own tuned title margin and an id selector
-   would outrank it. */
+/* Same ask: the title's own gap to the body below it, and its leading,
+   tightened alongside the card padding and the clamp, not replacing
+   either. `:not(.is-rows)` for the same reason as the padding rule beside
+   it (01-forms-settings.css): the compact row view has its own tuned
+   title margin and an id selector would outrank it. */
 #entry-list:not(.is-rows) .entry-title {
   margin-bottom: 0.15rem;
+  line-height: 1.3;
 }
 
 /* A quieter "check this" flag: informative, not alarming. */

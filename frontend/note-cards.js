@@ -1045,7 +1045,7 @@ const LINK_CHIP_CHARS = 48;
 // clamped to four lines, 214px each, still only 1). A note list is an index
 // you scan to find one, not the place you read it in full, so the preview
 // only needs enough to recognise which note it is; opening the note is one
-// click away. Two lines plus "Show more" keeps that recognisable while
+// click away. One line plus "Show more" keeps that recognisable while
 // giving the list room for more of them.
 const LONG_NOTE_CHARS = 70;
 const LONG_NOTE_LINES = 1;

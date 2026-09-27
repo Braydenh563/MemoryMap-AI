@@ -175,13 +175,34 @@ written.
   button's `inline-flex` (the button base recipe) sitting in an anonymous
   block wrapper whose strut takes the *inherited* line-height, not its own
   smaller one; scoped override to `display: block` for the card view.
-- [ ] Status bar under 680px: one row, extras in a "more" menu.
-- [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
-- [ ] Verify the rotating thinking words render and rotate (chat, capture
-  ask, palette) with no row jump; the backend half exists.
-- [ ] Ask citation missing after a heading on a reopened answer: not
-  reproduced; regression test added. Needs the owner's real answer if seen
-  again.
+- [ ] Status bar under 680px: one row, extras in a "more" menu. **Measured,
+  not a bug**: at 819, 700, 680, 660, 620 and 600 the bar is one row with no
+  horizontal overflow (`scrollWidth === clientWidth` at every width; the
+  `state` zone's own shrink rule already absorbs the space, DESIGN.md's
+  status-bar row). The touch-bar tier already at 600-819.98 (10-responsive
+  .css) hides `#status-notes`, `#status-command` and the doorway words, so
+  "extras in a more menu" would be recovering access to those rather than
+  fixing an overflow, and needs a decision the phone's `PHONE_STATUS_ROWS` /
+  `#header-more` pattern cannot just be reused for (widening `PHONE_TABS`
+  itself to 680 turns the tab bar, touch gestures and every other
+  `PHONE_TABS`-gated behaviour into phone mode too, far past this one bar).
+  Left for a design pass: a `#status-bar`-scoped kebab, its own media query,
+  and which of the two hidden controls actually count as "extras."
+- [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Clean:
+  `WIDTHS=1093 errors.js` found 0 errors, 0 layout findings across every
+  tab and Settings section; `docks.js` (its own 1440, unparametrised) found
+  every dock's controls at one consistent height each, nothing to fix.
+- [x] Verify the rotating thinking words render and rotate (chat, capture
+  ask, palette) with no row jump; the backend half exists. Covered by the
+  thinking-word fix above: rotation measured swapping text every ~2.5-3.5s
+  with no width jump (`thinkingWordMinWidth`) and, now the dot-style leak is
+  gone, no row-height jump either. All three surfaces share
+  `startThinkingWordRotation`.
+- [x] Ask citation missing after a heading on a reopened answer: not
+  reproduced; regression test added. Already true on this head
+  (`tests/test_citation_after_heading.py`, passing): reproduction attempted
+  through the real pipeline and not found; the test holds the shape as a
+  regression guard. Needs the owner's real answer if seen again.
 - [x] Settings > Privacy verdict notice ("Nothing left this computer."):
   affordance and alignment (a coordinator drop, not in the original list).
   Icon was a couple of px off the text's optical centre (`.notice`'s own

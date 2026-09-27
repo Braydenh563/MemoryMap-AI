@@ -1,4 +1,4 @@
-"""The Library's keyboard and its remembered sort (libtl-0926).
+"""The Library's keyboard, its remembered sort, and the Timeline's grouping (libtl-0926).
 
 Measured with the probes in `scratchpad/ui-sweeps/libtlaudit.js` on a
 thousand-note seed: Tab from the search went 400 presses without leaving
@@ -62,3 +62,12 @@ def test_the_archive_and_drafts_empty_states_are_sentences_without_a_false_offer
     says = LIBRARY[LIBRARY.index("const LIBRARY_EMPTY_SAYS = {") :][:400]
     assert 'shelved: "Nothing archived yet."' in says
     assert "LIBRARY_EMPTY_SAYS[libraryKind]" in LIBRARY
+
+
+def test_the_timeline_grouping_is_remembered_and_its_band_filter_is_not():
+    timeline = (ROOT / "frontend" / "timeline.js").read_text(encoding="utf-8")
+    assert 'const TIMELINE_GROUP_KEY = "timeline-group";' in timeline
+    assert "localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value)" in timeline
+    assert "localStorage.getItem(TIMELINE_GROUP_KEY)" in timeline
+    band = timeline[timeline.index('$("timeline-band").addEventListener("change"') :][:300]
+    assert "localStorage" not in band

@@ -1844,7 +1844,21 @@ $("timeline-scale").addEventListener("change", (event) => {
 //: Grouping decides what the band filter offers, so it rebuilds the options
 //: and repaints. It does not refetch either: every row already carries its
 //: category, its tags and the note it continues.
-$("timeline-group").addEventListener("change", () => {
+//:
+//: **Remembered, as the scale is** (libtl-0926): the scale, the view and the
+//: kinds all came back after a reload and the grouping went back to
+//: Category, so a person who reads by tag set it again each visit. The band
+//: filter is not remembered: it hides rows, and a remembered filter shows a
+//: timeline with most of the notebook missing and no obvious reason why.
+const TIMELINE_GROUP_KEY = "timeline-group";
+(() => {
+  const select = $("timeline-group");
+  let stored = null;
+  try { stored = localStorage.getItem(TIMELINE_GROUP_KEY); } catch { /* a private window */ }
+  if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
+})();
+$("timeline-group").addEventListener("change", (event) => {
+  try { localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
   timelineFilter = null;
   fillTimelineBandOptions();
   paintTimeline();

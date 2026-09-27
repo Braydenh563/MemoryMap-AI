@@ -2559,3 +2559,107 @@ header#top-bar,
     bottom: calc(var(--target-min) + var(--space-5));
   }
 }
+
+/* --- the Documents editor on a phone (INBOX 430) -----------------------------
+   "On phone, the Documents editor's lower half is blank or cut off; rework
+   its controls for phone and tablet." Measured at 390x844 with `docphone.js`:
+   the dock took four rows (80 to 275) and the breadcrumb a fifth, the status
+   line two and the keyboard help three, so the page itself was a 236px box
+   (335 to 570) with the rest of the document scrolled inside it; and the
+   formatting bar sat over the tab bar on the whole tab, in Read as well,
+   where every one of its buttons is off. Below 600:
+   - the dock is two rows: the list opener, Back (its glyph) and the title;
+     then the view switch and the actions, AI edit as its wand. The save
+     state leaves the row (it
+     is the one thing in it a person does not act on, and on a phone it was
+     what pushed the actions onto a third line);
+   - the status line is one row, the counts giving way with an ellipsis,
+     without the caret's line and column, a keyboard's number;
+   - the keyboard help goes: it names Ctrl chords to a screen with no Ctrl;
+   - the formatting bar stands above the tab bar rather than over it, rides
+     the keyboard when it is up, and is not drawn while reading. */
+@media (max-width: 599.98px) {
+  #tab-documents .doc-dock > .doc-dock-identity {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #tab-documents .doc-back-label,
+  #tab-documents .doc-ai-label,
+  #tab-documents .doc-dock-status,
+  #tab-documents .doc-actions > .doc-toolbar-sep,
+  #tab-documents .doc-hint,
+  #tab-documents #doc-caret {
+    display: none;
+  }
+
+  #tab-documents .doc-dock-identity > .doc-back {
+    flex: 0 0 var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  #tab-documents .doc-dock-identity > .doc-back > .ph-lead,
+  #tab-documents #doc-ai > .ph-lead {
+    margin: 0;
+  }
+
+  /* AI edit is its wand alone here, a square like the two beside it, which
+     is what brings the actions back onto one line. */
+  #tab-documents #doc-ai {
+    flex: 0 0 var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  #tab-documents .doc-actions,
+  #tab-documents .doc-view-cluster {
+    gap: var(--space-1);
+  }
+
+  #tab-documents #doc-view-seg > button {
+    padding-inline: var(--space-1) var(--space-2);
+  }
+
+  #tab-documents .doc-statusbar {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  #tab-documents .doc-statusbar > * {
+    flex: 0 0 auto;
+  }
+
+  /* The counts give way, with an ellipsis, so the two controls keep their
+     words and their targets. */
+  #tab-documents #doc-counts {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tab-documents .doc-phone-bar {
+    bottom: max(
+      calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px)),
+      env(keyboard-inset-height, 0px),
+      var(--keyboard-inset)
+    );
+    padding-bottom: var(--space-1);
+  }
+
+  #tab-documents:has(#doc-panes.reading) .doc-phone-bar {
+    display: none;
+  }
+}
+
+/* And on a touch-first tablet, the keyboard help too: the same Ctrl chords,
+   on a screen that is held rather than typed at (INBOX 430, "rework its
+   controls for phone and tablet"). A tablet with a keyboard attached reports
+   a fine pointer and keeps it. */
+@media (hover: none) and (pointer: coarse) {
+  #tab-documents .doc-hint {
+    display: none;
+  }
+}

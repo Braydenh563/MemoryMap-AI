@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- Atlas's rings tilt a little further and the planets on them slowly go round, on the compositor (no layout, no repaint), fading as they pass behind the head; the nebula stream now rises from above the crown.
+
 ### Added
 
 - Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.

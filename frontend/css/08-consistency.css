@@ -6035,7 +6035,7 @@ main,
    where relative colours are missing (an unsupported value inside a
    custom property would only fail where it is used, so the modern set is
    behind `@supports`, not layered). */
-.nm-atlas {
+.nm-atlas, .atl-orbits {
   --nm-delay: 0s;
   --atl-hi: #dcedfd;
   --atl-lt: #c2dbf9;
@@ -6151,7 +6151,7 @@ main,
      colour is clipped one way when painted directly and another inside an
      opacity layer, and a ring's front half once came out olive while its
      back half was blue). */
-  .nm-atlas {
+  .nm-atlas, .atl-orbits {
     --atl-glow-c: color-mix(in oklab, oklch(from var(--accent) 0.84 clamp(0.04, calc(c * 0.7), 0.09) h) 35%, #c3d8f8);
     --atl-ring-c: color-mix(in oklab, oklch(from var(--accent) 0.78 clamp(0.04, calc(c * 0.7), 0.1) h) 25%, #c8d6ff);
     --atl-iris-c: color-mix(in oklab, oklch(from var(--accent) 0.6 clamp(0.06, c, 0.17) h) 30%, #4a62b8);
@@ -6212,6 +6212,58 @@ main,
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
+/* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):
+   each one is a small disc outside the drawing's svg, on three nested
+   boxes at the figure's top left, so its turn is the compositor's. The
+   frame's transform (the ring's centre, tilt and flattening) is set
+   inline; each ring has its own slow period, the outer ones slower. */
+.atl-orbits, .atl-orbit, .atl-orbit-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.atl-orbit, .atl-orbit-arm { transform-origin: 0 0; }
+.atl-orbit {
+  --atl-orbit-t: 70s;
+  &.atl-orbit-1 { --atl-orbit-t: 96s; }
+  &.atl-orbit-2 { --atl-orbit-t: 124s; }
+}
+/* Where each planet starts, as a fraction of the turn: set by atlas.js. */
+.atl-orbit-arm {
+  --atl-at: 0;
+}
+.atl-orbiter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  --atl-p: var(--atl-amber);
+  background: radial-gradient(circle at 34% 32%, rgb(255 255 255 / 0.9) 0 16%, var(--atl-p) 46%);
+}
+.atl-orbiter-teal { --atl-p: var(--atl-teal); }
+.atl-orbiter-pink { --atl-p: var(--atl-pink); }
+.atl-orbiter-pale { --atl-p: var(--atl-pale); }
+.atl-orbiter-lilac { --atl-p: var(--atl-lilac); }
+/* A calm-down mood dims the rings (`--atl-halo-o`); the planets with them. */
+.atl-figure-box:is([data-atlas-mood="sleepy"], [data-atlas-mood="sad"]) > .atl-orbits { opacity: 0.6; }
+/* Meditating flattens the rings; the planets step out rather than run on
+   an orbit the ring no longer has. */
+#nm-buddy.nmb-act-meditate .atl-orbits { opacity: 0; }
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live > .atl-orbits {
+  & .atl-orbit-arm { animation: atl-orbit var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
+  & .atl-orbiter { animation: atl-orbit-back var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite, atl-orbit-depth var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
+}
+.atl-figure-box.atl-off .atl-orbits *, :root[data-atlas-hidden] .atl-orbits * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .nm-live > .atl-orbits :is(.atl-orbit-arm, .atl-orbiter) { animation: none !important; }
+}
+@keyframes atl-orbit { from { rotate: 0deg; } to { rotate: 360deg; } }
+@keyframes atl-orbit-back { from { rotate: 0deg; } to { rotate: -360deg; } }
+/* The turn's angle is the keyframe's offset: 25% is the front (nearest),
+   75% the back, where the head hides it. */
+@keyframes atl-orbit-depth {
+  0%, 50%, 100% { opacity: 0.92; }
+  25% { opacity: 1; }
+  59% { opacity: 0.7; }
+  64%, 86% { opacity: 0; }
+  91% { opacity: 0.7; }
+}
 /* The shared defs (atlas.js, `atlasDefs`): present, unseen. */
 svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 

@@ -83,3 +83,36 @@ def test_the_skirt_and_the_nebula_move_in_the_large_view_too():
     for loop in ("&.atl-layer-lower { animation: atl-skirt-idle", "&.atl-layer-neb { animation: atl-neb-drift"):
         assert loop in CSS
     assert "#nm-buddy .atl-layer-neb" not in CSS
+
+
+def _keyframes(name: str) -> str:
+    start = CSS.index(f"@keyframes {name} {{")
+    depth, i = 0, CSS.index("{", start)
+    while True:
+        depth += {"{": 1, "}": -1}.get(CSS[i], 0)
+        if depth == 0:
+            return CSS[start : i + 1]
+        i += 1
+
+
+def test_the_planets_orbit_on_the_compositor():
+    # Round 7 (INBOX 430): "tilt the celestial rings a little; the bodies on
+    # them slowly orbit, cheaply". A planet inside a layer's svg could only
+    # move by repainting it; each is its own element over the figure, and
+    # nothing its animations touch lays anything out.
+    assert "ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 }" in ATLAS
+    assert "frag.appendChild(atlasOrbits());" in ATLAS
+    assert "atlasRing(layers.front.rig, id, ring, k, true, true)" in ATLAS
+    assert "if (orbit) return;" in ATLAS
+    for name in ("atl-orbit", "atl-orbit-back", "atl-orbit-depth"):
+        body = _keyframes(name).split("{", 1)[1]
+        props = set(re.findall(r"([a-z-]+)\s*:", body))
+        assert props <= {"rotate", "opacity"}, (name, props)
+    # Off screen, on a hidden tab and under Reduce motion they stop.
+    assert ":root[data-atlas-hidden] .atl-orbits *" in CSS
+    assert ".nm-live > .atl-orbits :is(.atl-orbit-arm, .atl-orbiter) { animation: none !important; }" in CSS
+
+
+def test_the_nebula_rises_above_the_crown():
+    # Round 7: "a taller nebula stream"; it began at the ear's height (16).
+    assert "const ATLAS_BAND = atlasBandPaths([[45, -7," in ATLAS

@@ -330,7 +330,9 @@ const ATLAS_GEO = {
     { r: 29, glints: [[158, 1.7, "amber"], [349, 1, "pale"]] },
     { r: 36, glints: [[190, 1.45, "lilac"], [300, 1.15, "teal"], [96, 0.75, "star"]] },
   ],
-  ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -5 },
+  //: Tilted a little further (round 7, the owner: "tilt the celestial
+  //: rings a little"): -11 degrees, where -5 read as level.
+  ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 },
   //: The constellation inside the body (round 6, the owner: "refine the
   //: atlas character chest stars, they should be faded constelations"): a
   //: small asterism across the chest and down the belly, the heart first
@@ -734,13 +736,16 @@ function atlasBandPaths(segs, base) {
 //: to it, so the ribbon sits in a drift of light rather than on the page.
 //: In the companion it is a layer of its own that drifts on the
 //: compositor (`atlasDrawFigure`, `.atl-layer-neb`).
-const ATLAS_BAND = atlasBandPaths([[60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
-const ATLAS_BAND_STARS = [[60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
+//: Round 7 (INBOX 430, the owner: "a taller nebula stream"): it rises from
+//: above the crown now, at -7, a thin tip over the right ear that swells as
+//: it comes down, where it began at the ear's height.
+const ATLAS_BAND = atlasBandPaths([[45, -7, 55, -7.6, 57.6, 9, 60, 16], [60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
+const ATLAS_BAND_STARS = [[50, -5.4, 0.3], [57, 3, 0.36], [60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
 //: The colour inside the ribbon, clipped to it: [cx, cy, rx, ry, colour].
-const ATLAS_BAND_CLOUDS = [[58, 26, 9, 6, "pink"], [32, 43, 10, 5, "blue"], [2, 58, 8, 7, "pink"], [0, 80, 7, 8, "blue"], [22, 90, 9, 3, "pink"]];
+const ATLAS_BAND_CLOUDS = [[55, 0, 7, 7, "blue"], [58, 26, 9, 6, "pink"], [32, 43, 10, 5, "blue"], [2, 58, 8, 7, "pink"], [0, 80, 7, 8, "blue"], [22, 90, 9, 3, "pink"]];
 //: The haze round it, unclipped and faint: larger clouds that the ribbon
 //: runs through, so its edges dissolve into light.
-const ATLAS_BAND_HAZE = [[56, 26, 15, 11, "blue"], [34, 42, 17, 8, "pink"], [4, 60, 11, 15, "blue"], [4, 84, 14, 9, "pink"], [28, 90, 14, 5, "blue"]];
+const ATLAS_BAND_HAZE = [[54, 2, 12, 11, "pink"], [56, 26, 15, 11, "blue"], [34, 42, 17, 8, "pink"], [4, 60, 11, 15, "blue"], [4, 84, 14, 9, "pink"], [28, 90, 14, 5, "blue"]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -1180,7 +1185,9 @@ function atlasHead(parent, id, level, look) {
   return head;
 }
 
-function atlasRing(parent, id, ring, k, front) {
+//: `orbit` (the companion's layered figure) leaves the planets out: they
+//: are drawn outside the svg by `atlasOrbits`, which moves them round.
+function atlasRing(parent, id, ring, k, front, orbit = false) {
   const { cx, cy, flat, tilt } = ATLAS_GEO.ringFrame;
   const { r, glints } = ring;
   const g = atlasGroup(parent, `atl-ring atl-ring-${k} atl-ring-${front ? "front" : "back"}`, [cx, cy]);
@@ -1202,6 +1209,7 @@ function atlasRing(parent, id, ring, k, front) {
       atlasSpark(g, x, y, size * 1.6, "atl-ring-glint").style.setProperty("--atl-k", String(i + k * 3));
       return;
     }
+    if (orbit) return;
     atlasMake("circle", { class: `atl-planet atl-planet-${kind}`, cx: x, cy: y, r: size }, g);
     atlasMake("circle", { class: "atl-planet-light", cx: x - size * 0.3, cy: y - size * 0.32, r: size * 0.36 }, g);
   });
@@ -1534,12 +1542,12 @@ function atlasDrawFigure(mood) {
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false));
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
   atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true));
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true, true));
   //: The head drew its extras in the body layer; the two that rise (the
   //: Zs, the hearts) move to their roots, each pair under the wrappers the
   //: mood shows and hides (`.atl-fx-hearts`, `.atl-fx-zz`).
@@ -1557,7 +1565,59 @@ function atlasDrawFigure(mood) {
   }
   atlasStarsProp(layers.front.rig);
   for (const { svg } of Object.values(layers)) atlasApply(svg, mood);
+  frag.appendChild(atlasOrbits());
   return frag;
+}
+
+//: **The planets go round their rings** (round 7, INBOX 430, the owner:
+//: "the bodies on them slowly orbit, cheaply"). A planet drawn in a layer's
+//: svg can only move by a change inside the svg, which lays the drawing
+//: out and repaints it every frame; so each is a small element of its own
+//: over the figure, moved on the compositor by three nested transforms:
+//: the ring's frame (`.atl-orbit`, fixed: to the ring's centre, the ring's
+//: tilt, flattened to its ellipse), an arm that turns (`.atl-orbit-arm`,
+//: a `rotate` animation), and the planet at the arm's end (`translate`
+//: the radius), turned back by the same angle and un-flattened (`scale`),
+//: so it stays a round disc with its light on the upper left while its
+//: centre runs round the ellipse. Behind the head it fades out (an
+//: `opacity` keyframe on the same clock), which stands in for the layer
+//: order a compositor animation cannot change. Every property animated is
+//: one the compositor runs (`rotate`, `opacity`); nothing is laid out.
+//: Each starts where the drawing puts it (`--atl-at`, a fraction of the
+//: turn, as a negative delay), and a static figure shows them there.
+function atlasOrbits() {
+  const { cx, cy, flat, tilt } = ATLAS_GEO.ringFrame;
+  const box = document.createElement("span");
+  box.className = "atl-orbits";
+  box.setAttribute("aria-hidden", "true");
+  ATLAS_GEO.rings.forEach(({ r, glints }, k) => {
+    const frame = document.createElement("span");
+    frame.className = `atl-orbit atl-orbit-${k}`;
+    frame.style.transform = `translate(${cx}px, ${cy}px) rotate(${tilt}deg) scale(1, ${flat})`;
+    for (const [deg, size, kind] of glints) {
+      if (kind === "star") continue;
+      const arm = document.createElement("span");
+      arm.className = "atl-orbit-arm";
+      arm.style.setProperty("--atl-at", String(+(deg / 360).toFixed(4)));
+      arm.style.rotate = `${deg}deg`;
+      const body = document.createElement("span");
+      body.className = `atl-orbiter atl-orbiter-${kind}`;
+      const d = `${+(size * 2).toFixed(2)}px`;
+      body.style.width = d;
+      body.style.height = d;
+      body.style.margin = `${-size}px 0 0 ${-size}px`;
+      body.style.translate = `${r}px 0`;
+      body.style.rotate = `${-deg}deg`;
+      body.style.scale = `1 ${+(1 / flat).toFixed(4)}`;
+      //: Where the animation is off, the same fade behind the head.
+      const t = (deg * Math.PI) / 180;
+      if (Math.sin(t) < 0 && Math.abs(Math.cos(t)) < 0.6) body.style.opacity = "0";
+      arm.appendChild(body);
+      frame.appendChild(arm);
+    }
+    box.appendChild(frame);
+  });
+  return box;
 }
 
 //: (`lower`, the feminine look's skirt of ribbons, sits between the tail

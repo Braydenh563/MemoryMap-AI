@@ -1594,6 +1594,13 @@ header#top-bar select,
     gap: var(--space-2);
   }
 
+  /* Two equal columns: shrink-wrapped, the four tiles wrapped two a row at
+     110 to 135px each and left a third of every row empty (the devibe pass,
+     a 390 still). */
+  .dash-stats > .stat-tile {
+    flex: 1 1 calc(50% - var(--space-2));
+  }
+
   .stat-tile {
     padding: var(--space-2) var(--space-5);
   }

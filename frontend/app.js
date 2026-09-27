@@ -2162,6 +2162,9 @@ function smallButton(label, title, onClick, ghost = true) {
 //: before documents.js would be a different program.
 const LAZY_MODULES = {
   graph: ["/graph.js", "/graph-canvas.js"],
+  //: The image viewer (2026-09-27, the boot-script gzip budget): see
+  //: lightbox-view.js's header.
+  lightbox: ["/lightbox-view.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2362,6 +2365,7 @@ document.addEventListener("keydown", (event) => {
 //:    caption came back. Skipping is the right answer when the Library has
 //:    never been opened; opening it loads and renders it anyway.
 const LAZY_ENTRY_POINTS = {
+  lightbox: ["openLightbox"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

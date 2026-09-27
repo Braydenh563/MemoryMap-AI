@@ -34,28 +34,35 @@ with its owner named in the entry.
 
 ## Open items
 
-429. **Mid-work drops, 2026-09-27, verbatim (the owner), with screenshots.**
-    (a) "the atlas avatar gets cut off at the top in one of the readme
-    screenshots. also I want the top image in the readme to be the
-    memorymapai png icon again not atlas. remove any trace of the avatar
-    lab from the readme file. also cut the section on atlas down to just an
-    image of the masculine avatar and a small intro paragraph." **Done**:
-    the cut was real, not the capture: the companion's riding band
-    (`nameMarkBuddyRideBox`) was sized to the 64 by 92 box, not the drawing,
-    and measured before the spot's pose was set (figure top y=55, band top
-    77; now 42); companion.png retaken, atlas.png redrawn in the masculine
-    look, the icon back at the title, the lab's shot and mentions gone.
-    (b) "also fix the ci and codeql issues": CI and CodeQL green on 1ab2471;
-    the red `github-advanced-security` is GitHub's Copilot scanner failing
-    at its own model call, a repository setting, not a workflow here.
-    (c) "can you optimise further and reduce lag??": the graph agent is on a
-    measured performance pass. (d) "what is auto for follows face look??
-    does the dashboard icon atlas have an option for masculine and
-    feminine??" (e) "when I click on atlas in the larger view window
-    sometimes it shrinks for a sec then expands back to full height after
-    the animation is finished". (f) "the right click companion popup still
-    doesnt appear next to the companion and instead at the top of the
-    screen or somwhwere eles". (d) to (f) in hand now.
+430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
+    session; condensed here, each placed with an agent).** Bugs: agent turn
+    "Invalid format string" on Windows (**fixed** 180e522); chat citation
+    renumbered to 1 on reload while its peek shows source 8; scroll jumps in
+    chat with a sources fold open; layout flickers between two states every
+    second in devtools responsive mode; top bar not centred at small widths;
+    lightbox meatball menu does nothing; OCR workspace not reachable from
+    Images; '?' popover in Capture does not scroll with a touchpad; tools
+    list draws a second divider over column two's first row; Privacy's
+    Since launch / All time pill has no active state; capture preview
+    crushes line numbers; Atlas spills out of its ring in the tour.
+    Phone and tablet: graph controls overlap, Documents editor cut off,
+    whiteboard will not pan by touch, lightbox, skill logs sidebar (gap,
+    shadow, no hover-expand), gap under the bottom bar, the agent-runs bar
+    on phones, Contents dates overflow, a portrait-shaped graph. Asks:
+    links widget and a rename of Library's Links; notice banners carry
+    their action with a confirm; settings section heads; the agent popup's
+    avatar circles; guide: AI/system answer toggle, much more help, cleaner
+    formatting; model per feature offers "same as chat/utility model";
+    note forms use the live view with a source toggle, no Preview; AI
+    templates (generate, edit, regenerate) and every template in Settings;
+    Windows tray menu extended; constellation in the background art and a
+    better constellation; graph node size by a toggle, Arc fit, Tree
+    centred; companion: perches on every tab, dodges popups, less
+    distracting, lifelike motion and transitions, a show/hide hotkey and
+    palette action; Atlas less chunky, masculine limbs, tilted rings with
+    orbiting bodies, a taller nebula; generated faces vary expression per
+    character. Questions: prompt injection, chat header divider. Rules:
+    two or three agents, Sonnet where quality holds, concise.
 
 427. **Open from INBOX 426, 2026-09-26: two calls only the owner can make.**
     Everything else in 426 (a to cc) is built and in HISTORY, "INBOX

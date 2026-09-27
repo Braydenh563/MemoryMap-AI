@@ -3654,11 +3654,14 @@ function nameMarkBuddyMotion() {
     // The default.
   }
   if (root.dataset.avatarMotion === "off") return { mode: "still", reason: "avatar" };
-  if (choice === "always") return { mode: "full", reason: "" };
   if (choice === "fades") return { mode: "fades", reason: "setting" };
   const app = typeof appearancePref === "function" ? appearancePref("motion", "auto") : "auto";
+  const os = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  //: Always: it moves, and the hint still says what it is overriding, so
+  //: a person who forgot choosing it knows why it walks under Reduce.
+  if (choice === "always") return { mode: "full", reason: app === "reduced" ? "app-ignored" : os ? "os-ignored" : root.dataset.perf === "on" ? "perf-ignored" : "" };
   if (app === "reduced") return { mode: "fades", reason: "app" };
-  if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return { mode: "fades", reason: "os" };
+  if (os) return { mode: "fades", reason: "os" };
   return { mode: "full", reason: root.dataset.perf === "on" ? "perf-ignored" : "" };
 }
 const NMB_MOTION_WHY = {
@@ -3667,6 +3670,8 @@ const NMB_MOTION_WHY = {
   app: "Fades only: Motion is set to Reduce in Appearance.",
   os: "Fades only: your system asks for less motion.",
   "perf-ignored": "Performance mode is on, but the companion still moves: it costs very little.",
+  "app-ignored": "Always animates, although Motion is set to Reduce in Appearance.",
+  "os-ignored": "Always animates, although your system asks for less motion.",
   "": "",
 };
 //: The page's own motion switch (`data-motion`) also gates its CSS; when it

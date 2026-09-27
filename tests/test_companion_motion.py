@@ -957,6 +957,19 @@ def test_performance_mode_alone_no_longer_holds_the_companion_still() -> None:
     assert "duration: 260" in _fn("nameMarkBuddyLeave")
 
 
+def test_the_movement_hint_names_what_always_overrides() -> None:
+    # Wrap-up ledger 0927: the Companion movement hint names the reason (OS,
+    # setting, perf). Measured (companiontabswitch.js MOVE=always
+    # MOTION=reduce): it walked in under the system's reduce and the hint
+    # was empty; now it says what it is overriding. Every reason has a line.
+    motion = _fn("nameMarkBuddyMotion")
+    for reason in ("app-ignored", "os-ignored", "perf-ignored"):
+        assert f'"{reason}"' in motion
+    why = re.search(r"const NMB_MOTION_WHY = \{(.*?)\n\};", AV, re.S).group(1)
+    for reason in ("avatar", "setting", "app", "os", "perf-ignored", "app-ignored", "os-ignored"):
+        assert re.search(rf'(^|\s|"){re.escape(reason)}"?:\s*"[A-Z]', why, re.M), reason
+
+
 def test_it_never_perches_in_a_run_of_words() -> None:
     # The owner: "atlas companion just perched in the middle of the weekly
     # digest". Measured (perchtext.js, 1093x614 and 1440x900, boot and six

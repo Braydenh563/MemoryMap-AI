@@ -976,3 +976,11 @@ def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
     assert 'id="live"' in (ROOT / "tools" / "avatar-lab.html").read_text(encoding="utf-8")
     assert "#nm-buddy .nm-atlas { --atl-nightcap: 0; }" in CSS08
     assert '#nm-buddy[data-pose="sit"]:not(.nmb-cap-off) .nm-atlas[data-atlas-mood="sleepy"] { --atl-nightcap: 1; }' in CSS08
+
+
+def test_faces_in_round_holders_stay_inside_their_circle() -> None:
+    # The owner: "in Settings > Personas, the Atlas avatar spills outside its
+    # black circle". Measured (personaclip.js): every persona and profile
+    # face in Settings clipped to circle(50%).
+    css01 = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    assert ":is(.persona-mark, .profile-mark) > :is(.name-mark, .nm-atlas, svg) {\n  clip-path: circle(50%);" in css01

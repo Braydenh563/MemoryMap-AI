@@ -6050,7 +6050,9 @@ main,
   --atl-sheen: white;
   --atl-aura: none;
   --atl-core: none;
-  --atl-rays: white;
+  --atl-skirt: var(--atl-md);
+  /* A chest star's brightness (atlas.js sets it per star). */
+  --atl-b: 0.5;
   --atl-iris: var(--atl-ink);
   --atl-galaxy: var(--atl-navy);
   --atl-hneb: none;
@@ -6245,14 +6247,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy .atl-figure .nmb-hold-r { transform-origin: 37.4px 41px; }
 #nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
 #nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
+/* The arms at rest, per pose (round 6, the owner: "improve the arms"):
+   seated, the hands come to rest on the ledge beside the hips, a little
+   out (they were thrown out at 24deg, as if bracing); floating they drift
+   out and a little up, as a swimmer's do, not flung wide. */
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-l { transform: rotate(13deg); }
+#nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-13deg); }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
-#nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .atl-band-front { opacity: 0; }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-40deg); }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(28deg); }
+#nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-28deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
 #nm-buddy[data-pose="hang"] .nm-atlas { --atl-sy: 1.05; --atl-sx: 0.97; }
 #nm-buddy.nmb-act-startle .nmb-hold { opacity: 1; }
@@ -6379,17 +6384,21 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-planet-lilac { fill: var(--atl-lilac); }
 :root[data-mode="dark"] .nm-atlas .atl-ring-line { stroke: white; opacity: 0.8; }
 .nm-atlas .atl-glint { fill: white; }
-/* The constellation inside the body: threads of light between star
-   points, the heart star in its glow. */
+/* Threads of light between star points (the hair's constellation, the
+   props'). */
 .nm-atlas .atl-thread { fill: none; stroke: white; stroke-width: 0.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
 .nm-atlas .atl-node-dot { fill: white; }
-.nm-atlas .atl-chest-star { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
-.nm-atlas .atl-core-rays { fill: var(--atl-rays); opacity: 0.9; }
-.nm-atlas .atl-core-dot { fill: white; }
-.nm-atlas .atl-minor-star { fill: white; opacity: 0.95; }
-.nm-atlas .atl-node-glow { fill: var(--atl-core); opacity: 0.8; }
 .nm-atlas .atl-hair-thread { opacity: 0.85; stroke-width: 0.6; }
-.nm-atlas .atl-core-glow { fill: var(--atl-core); }
+/* **The chest constellation, faded** (atlas.js, round 6): starlight seen
+   through the skin. Hairlines at 0.14 (the threads they replace were 0.7),
+   stars at their own brightness (`--atl-b`, 0.4 to 0.85), each in a glow
+   under half its own strength, and one faint glow over all of it. In dark
+   the skin is lighter than the page, so the same numbers read the same. */
+.nm-atlas .atl-core-glow { fill: var(--atl-core); opacity: 0.32; }
+.nm-atlas .atl-const-line { fill: none; stroke: white; stroke-width: 0.3; stroke-linecap: round; opacity: 0.14; }
+.nm-atlas .atl-const-dot { fill: white; opacity: var(--atl-b); }
+.nm-atlas .atl-const-glow { fill: var(--atl-core); opacity: calc(var(--atl-b) * 0.45); }
+.nm-atlas .atl-const-heart { --atl-b: 0.85; }
 /* The tail (atlas.js, `atlasTail`): a flame, the body's blue into navy
    galaxy along its length, a pale glowing edge, star dots and a bright
    comet glow at the tip. */
@@ -6424,6 +6433,29 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-band-cloud-blue { fill: var(--atl-cloudb); }
 .nm-atlas .atl-band-stream { fill: white; opacity: 0.16; }
 .nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; stroke-linecap: round; opacity: 0.55; }
+/* The nebula round the figure (round 6): one ribbon in a haze, its edge a
+   faint lit line (the coil keeps the brighter one above), the ribbon
+   itself a little quieter than it was so the haze carries the colour. */
+.nm-atlas .atl-band-edge-soft { stroke-width: 0.5; opacity: 0.2; }
+.nm-atlas .atl-band > .atl-band-fill { opacity: 0.58; }
+.nm-atlas .atl-band-haze .atl-band-cloud { opacity: 0.42; }
+/* The drift, on the nebula's own layer in the companion: a slow turn
+   about the chest and a breath of opacity, compositor only. */
+.nm-atlas.atl-layer-neb { transform-origin: 31px 52px; will-change: transform, opacity; }
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy .atl-layer-neb {
+    animation: atl-neb-drift 13s ease-in-out infinite alternate;
+  }
+}
+/* The system's reduced motion: the nebula holds still (a drift is the
+   kind of motion the setting is for). */
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy .atl-layer-neb { animation: none; }
+}
+@keyframes atl-neb-drift {
+  from { transform: rotate(-1.6deg) translate(-0.6px, 0.4px) scale(0.99); opacity: 0.86; }
+  to { transform: rotate(1.8deg) translate(0.8px, -0.6px) scale(1.02); opacity: 1; }
+}
 /* Reading: the open book of light under the figure. */
 .nm-atlas .atl-prop-page { fill: white; opacity: 0.82; }
 .nm-atlas .atl-prop-page-edge { fill: none; stroke: var(--atl-dp); stroke-width: 0.8; stroke-linecap: round; opacity: 0.7; }
@@ -6465,22 +6497,44 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
-/* The feminine look's hip sash (atlas.js `atl-lower`, in its own layer
-   of the companion's figure) hangs beside its legs, which the walk, kick
-   and dangle move through `.nmb-leg-*`; a sash that hung still while the
-   legs swung read as pinned on. It sways about its root at the hip on the
-   same classes and the same timings as the legs; transforms only, like
-   every other companion act, and still under Off and Reduce motion.
-   **On the layer's root, as the tail's swish and the body's breath are**
-   (`.atl-layer-tail` above): a transform animated on the `.atl-lower` group
-   inside the svg repainted that svg on the main thread every frame, 57
-   paints a second and 15 ms/s over the masculine look while walking
-   (atlaswalk.js, 2026-09-26); the root is its own compositor layer, so the
-   same sway costs no paint. The origin is the sash's root at the hip
-   (`spec.lower[0]`), in the layer's own 64x92 px frame. */
-.nm-atlas.atl-layer-lower { transform-origin: 27px 60px; will-change: transform; }
+/* **The feminine look's skirt of ribbons** (atlas.js `atl-lower`, round 6;
+   the owner: "it still has feet and legs. it shouldnt and its lower body
+   should be the feminie flowing whispy ribbons"). A veil flaring from the
+   waist to a pointed hem and five ribbons over it running on into wisps,
+   all in the skirt's light fading to nothing by the hem (`--atl-skirt`),
+   over a haze of the tail's galaxy, a pale stream, a lit edge on two. */
+.nm-atlas :is(.atl-skirt-veil, .atl-ribbon-veil) { fill: var(--atl-skirt); }
+.nm-atlas .atl-skirt { opacity: 0.72; }
+.nm-atlas .atl-ribbon-galaxy { fill: var(--atl-galaxy); opacity: 0.3; }
+.nm-atlas .atl-st-skirt0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
+.nm-atlas .atl-st-skirt1 { stop-color: var(--atl-md); stop-opacity: 0.62; }
+.nm-atlas .atl-st-skirt2 { stop-color: var(--atl-dp); stop-opacity: 0.05; }
+.nm-atlas .atl-ribbon-stream { fill: white; opacity: 0.2; }
+.nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.42; }
+/* Each pose shapes the skirt from the group inside the layer, about the
+   waist (a static transform, which costs nothing): seated it pools and
+   spreads over the ledge; floating it trails behind the tilted body;
+   hanging it falls straight; leaning it swings the other way; sitting
+   cross-legged it spreads widest. */
+.nm-atlas .atl-lower { transition: transform var(--motion-slow) var(--ease-out); }
+#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scale(1.18, 0.64); }
+#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: rotate(12deg) scaleY(0.96); }
+#nm-buddy[data-pose="hang"] .atl-figure .atl-lower { transform: scaleY(1.04); }
+#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: rotate(-6deg); }
+#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scale(1.32, 0.54); }
+/* The sway is on the layer's root, not the group: a transform animated on
+   a group inside an svg repaints the svg on the main thread every frame
+   (57 paints a second and 15 ms/s for the sash this replaced,
+   atlaswalk.js, 2026-09-26); the root is its own compositor layer, so the
+   same sway costs no paint and no layout. At rest the ribbons drift a
+   little (a slow turn and a lean, one breath of wind); walking, they swing
+   with the glide, the feminine look's walk, since it has no legs to step
+   with; carried, kicked or dangling they flick. Still under Off and
+   Reduce motion. */
+.nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+    & .atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
     &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
     &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
@@ -6494,13 +6548,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-layer-lower { animation-duration: 6s !important; }
 }
+@keyframes atl-skirt-idle {
+  from { transform: rotate(-1.4deg) skewX(1.6deg); }
+  to { transform: rotate(1.6deg) skewX(-1.6deg); }
+}
 @keyframes atl-lower-sway {
-  from { transform: rotate(-5deg); }
-  to { transform: rotate(7deg); }
+  from { transform: rotate(-4deg) skewX(3deg); }
+  to { transform: rotate(5deg) skewX(-3deg); }
 }
 @keyframes atl-lower-flick {
   from { transform: rotate(-3deg) scaleY(1); }
-  to { transform: rotate(13deg) scaleY(0.94); }
+  to { transform: rotate(11deg) scaleY(0.94) skewX(-4deg); }
 }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }

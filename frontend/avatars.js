@@ -4208,7 +4208,7 @@ function nameMarkBuddyPanelMoving(el) {
 //: boxes (the figure drawn in HTML, its host) are the compositor's and are
 //: left alone.
 const NMB_TEMPO_MS = 50;
-const nmbTempo = { timer: 0, anims: [], at: 0, seen: 0, clock: new WeakMap() };
+const nmbTempo = { timer: 0, anims: [], at: 0, seen: 0, clock: new WeakMap(), slow: new WeakSet(), ticks: 0 };
 function nameMarkBuddyTempo() {
   nmbTempo.timer = 0;
   const buddy = document.getElementById("nm-buddy");
@@ -4223,7 +4223,21 @@ function nameMarkBuddyTempo() {
     //: compositor; stepping them here would put them back on the main
     //: thread, so only what animates inside a drawing is paced.
     nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && a.playState !== "finished");
+    //: **What animates inside one of Atlas's layers goes at half that**
+    //: (libtl-0926, from the Atlas agent's report): a mood's small effects
+    //: (sparkles, the thinking dots, a drop), each step of which is a
+    //: layout and a repaint of its layer. Measured with one such effect
+    //: (`atlasmoodfx.js`, INJECT=1): stepped at 20Hz, 40 paints and 20
+    //: layouts a second; left to run free, 119 and 60, since a change
+    //: inside an svg is the main thread's whatever layer it sits in. So they
+    //: are stepped every other beat, 10Hz, which a sparkle this size reads
+    //: as the same twinkle. (Since Atlas round 5 the moods draw their
+    //: effects on layer roots, which are not paced at all; this is for
+    //: whatever animates inside a layer next.)
+    nmbTempo.slow = new WeakSet(nmbTempo.anims.filter((a) => a.effect.target.closest("svg.atl-layer")));
   }
+  nmbTempo.ticks += 1;
+  const beat = nmbTempo.ticks % 2 === 0;
   //: A walk is paced too (round 5 review): its steps inside a drawing's
   //: svg (Atlas's legs) laid out and repainted the figure every frame, 60
   //: layouts and 120 paints a second, while the walk itself (the host's
@@ -4246,7 +4260,7 @@ function nameMarkBuddyTempo() {
     } else if (!still && step > 0) {
       const t = (nmbTempo.clock.get(anim) ?? 0) + step;
       nmbTempo.clock.set(anim, t);
-      anim.currentTime = t;
+      if (beat || !nmbTempo.slow.has(anim)) anim.currentTime = t;
     }
   });
   nmbTempo.at = now;

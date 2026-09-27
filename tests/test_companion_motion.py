@@ -359,6 +359,12 @@ def test_the_size_handle_shows_only_when_asked_for() -> None:
     assert "#nm-buddy:not(.nm-buddy-dragging) .nm-buddy-face:is(:hover, :focus-visible) .nmb-size-grip," in CSS08
     # Atlas round 4's filter stays: its svg roots are composited, not paced.
     assert "!(a.effect.target instanceof SVGSVGElement)" in _fn("nameMarkBuddyTempo")
+    # What animates inside one of Atlas's layers is stepped every other beat
+    # (10Hz): measured 40 paints and 20 layouts a second at 20Hz, 20 and 10
+    # at 10Hz, 119 and 60 left free (atlasmoodfx.js, INJECT=1).
+    tempo = _fn("nameMarkBuddyTempo")
+    assert 'a.effect.target.closest("svg.atl-layer")' in tempo
+    assert "if (beat || !nmbTempo.slow.has(anim)) anim.currentTime = t;" in tempo
 
 
 def test_the_benches_carry_no_inline_style() -> None:

@@ -489,3 +489,15 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
     body = atlas[start : atlas.index("\n}\n", start)]
     loop = body[: body.index("svg.replaceWith(")]
     assert "atl-defs" in loop, "atlasRepaint redraws the shared defs as a head"
+
+
+def test_the_companion_shows_and_hides_from_anywhere() -> None:
+    # INBOX 430: a hotkey, a palette action, and so a Find anything action.
+    wiring = (ROOT / "frontend" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert 'toggleCompanion: { keys: "Ctrl+Shift+Y"' in wiring
+    assert "nameMarkBuddyToggle()" in wiring
+    panes = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
+    assert "Show or hide the companion\", act: () => nameMarkBuddyToggle()" in panes
+    toggle = _fn("nameMarkBuddyToggle")
+    assert 'localStorage.getItem("nm-buddy-last")' in toggle
+    assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")

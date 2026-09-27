@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.
 - `POST /links/clip`, the web clipper's backend: a page you choose is fetched once (only while web search is allowed in Settings, and never from an address on this computer or your network, redirects included), reduced to its title, its address and its main text, and kept as a note that search finds by its words. The bookmarklet and its Settings row are not built yet.
 - Two notes with the same title in a note's connections (the Connections sheet and the Notes column) can be told apart: each row carries a quiet second cue, the category, or the date written, or the time, whichever separates them. The Connections column also steps aside for the note's sheet when a wide categories sidebar would leave the notes list narrower than 600px, and comes back when there is room.
 - In a window 1280 wide or more, the note you open or select in Notes has a Connections column beside the list: the notes it links to, the notes that link to it, the documents, boards and maps it is in, the files it shows, and the forgotten notes close to it. Its close button hides it for good; the notes list's More menu brings it back. In a narrower window the note's own Connections sheet is the way in, as before.

@@ -1455,6 +1455,10 @@ const DEFAULT_SHORTCUTS = {
   //: a chord in a listener of its own is invisible to
   //: `test_frontend_shortcuts.py`'s collision check and to the shortcuts help.
   inlineAi: { keys: "Ctrl+J", label: "Ask Atlas to write at the cursor" },
+  //: INBOX 430, the owner: "a show/hide companion hotkey". In the registry
+  //: for the reason `askAgent` records: collisions are checked here, and the
+  //: shortcuts sheet is built from this table.
+  toggleCompanion: { keys: "Ctrl+Shift+Y", label: "Show or hide the companion" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -1800,6 +1804,9 @@ function runShortcut(id) {
       createDocument();
     },
     todaysNote: () => openTodaysPage(),
+    toggleCompanion: () => {
+      if (typeof nameMarkBuddyToggle === "function") nameMarkBuddyToggle();
+    },
     recordMeeting: openMeetingRecorder,
     forceReload: forceReloadApp,
     toggleTheme,

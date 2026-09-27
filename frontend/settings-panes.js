@@ -2626,6 +2626,8 @@ function paletteCommands() {
     { label: "ph:archive Back up now", act: () => { openSettingsModal("data"); backupNow(); } },
     { label: "ph:export Export markdown", act: () => downloadExport("markdown") },
     { label: "ph:circle-half Toggle light/dark", act: toggleTheme },
+    //: INBOX 430: also in Find anything, which lists these same commands.
+    { label: "ph:person-simple Show or hide the companion", act: () => nameMarkBuddyToggle() },
     { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts" },
     { label: "ph:lock Lock MemoryMap", act: lockNow },
   ].map(catalogueRun);

@@ -5609,15 +5609,52 @@ function nameMarkBuddyGone() {
 
 function nameMarkBuddyHide(buddy) {
   try {
+    //: Which companion it was, so the hotkey brings the same one back.
+    const was = localStorage.getItem("avatar-buddy");
+    if (was && was !== "off") localStorage.setItem("nm-buddy-last", was);
     localStorage.setItem("avatar-buddy", "off");
   } catch (e) {
     // Hidden for this session at least.
   }
   const select = document.getElementById("avatar-buddy");
   if (select) select.value = "off";
-  buddy.remove();
+  buddy?.remove();
   nameMarkBuddyGone();
-  if (typeof toast === "function") toast("Companion hidden. Settings, Appearance brings it back.");
+  if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
+}
+
+//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
+//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
+//: in the shortcut registry), the command palette and Find anything. Hidden,
+//: it comes back as whichever companion it was (`nm-buddy-last`), or Atlas.
+function nameMarkBuddyToggle() {
+  const buddy = document.getElementById("nm-buddy");
+  let choice = "off";
+  try {
+    choice = localStorage.getItem("avatar-buddy") || "off";
+  } catch (e) {
+    choice = "off";
+  }
+  if (choice !== "off") {
+    nameMarkBuddyHide(buddy);
+    return;
+  }
+  let back = "atlas";
+  try {
+    back = localStorage.getItem("nm-buddy-last") || "atlas";
+    localStorage.setItem("avatar-buddy", back);
+  } catch (e) {
+    // Shown for this session at least.
+  }
+  //: Through the Appearance select's own change, so a custom companion is
+  //: mounted and the size control follows, as when it is picked there.
+  const select = document.getElementById("avatar-buddy");
+  if (select) {
+    select.value = back;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  } else {
+    syncNameMarkBuddy();
+  }
 }
 
 //: **Its menu opens at it** (INBOX 426 p, the owner: "the right click

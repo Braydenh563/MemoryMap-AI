@@ -86,6 +86,26 @@ def test_the_skirt_and_the_nebula_move_in_the_large_view_too():
     assert "#nm-buddy .atl-layer-neb" not in CSS
 
 
+def test_round_8_hands_feet_hair_waist_and_nebula():
+    # The owner's close-ups: shaped hands with a thumb and a finger split,
+    # feet with a heel and a toe, no heavy outline ring, the feminine hair
+    # growing out of the scalp, the torso flowing into the skirt, fuller and
+    # longer middle wisps, a wider nebula.
+    hand = ATLAS[ATLAS.index("const ATLAS_HAND_POINTS = [") :][:400]
+    fwd = [float(v) for v in re.findall(r"\[([0-9.]+), -?[0-9.]+\]", hand)]
+    assert max(fwd) <= 4.0  # no paddle: 4.45 long before
+    assert "[3.55, 0.02]" in hand  # the split between the two finger lobes
+    foot = ATLAS[ATLAS.index("const ATLAS_FOOT_POINTS = [") :][:300]
+    assert "[2.75, -0.45]" in foot and "[2.2, 4.75]" in foot  # heel and toe
+    assert "stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; opacity: 0.26;" in CSS
+    assert 'if (spec.scalp && !tiny) atlasScalp(sway, id);' in ATLAS
+    assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
+    feminine = _look("feminine")
+    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
+    assert widths[0] == widths[4] == 6.4 and min(widths[1:4]) >= 7.2, widths
+    assert "(t) => 0.8 + 8 * Math.sin(" in ATLAS
+
+
 def _keyframes(name: str) -> str:
     start = CSS.index(f"@keyframes {name} {{")
     depth, i = 0, CSS.index("{", start)

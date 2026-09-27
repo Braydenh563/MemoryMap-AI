@@ -427,7 +427,7 @@ def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
-    assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
+    assert "const near = follows && dist < NMB_EYES_NEAR * reach;" in notice
 
 
 def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
@@ -817,3 +817,32 @@ def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
         assert guard in wander, guard
     assert "now - nmb.home.at > 30000" in wander
     assert "nameMarkBuddyWarmthAt(nmb.feel, now)" in _fn("nameMarkBuddyDecide")
+
+
+def test_its_gaze_has_one_reach_for_every_kind_and_drifts_back() -> None:
+    # The owner: "it doesnt follow the mouse movement if i have it turned on
+    # either ... the main companions dont have the look at mouse proximity
+    # limit like atlas does". Measured (companiongaze.js, the switch on, as
+    # Atlas and as you): 20, 60 and 150px look that way (eyes 0.7, 2 and
+    # 3.4px), 400px has let go and drifted back to 0; one code path.
+    notice = _fn("nameMarkBuddyNotice")
+    assert "const reach = Math.max(0.7, nmb.scale || 1);" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    release = _fn("nameMarkBuddyRelease")
+    assert 'buddy.style.setProperty("--nmb-ex", "0");' in release
+    assert "#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }" in CSS08
+
+
+def test_the_larger_faces_have_a_life_of_their_own() -> None:
+    # The owner: "my popup character doesnt really have much expression, same
+    # with when it is a profile avatar". Measured (faceslife.js): the Profile
+    # face (56px) plays small acts while the 18px one stays still, and
+    # nothing plays with Avatar animation off; the large view plays one as it
+    # opens (viewerclash.js), and says what the face is.
+    tick = _fn("nameMarkIdleTick")
+    assert "NM_IDLE_MIN" in tick and "if (!big.length) return;" in tick
+    assert "nameMarkIdleQuiet()" in tick and "nameMarkIdleQuiet()" in _fn("nameMarkIdleAct")
+    quiet = _fn("nameMarkIdleQuiet")
+    assert 'root.dataset.avatarMotion === "off"' in quiet and 'nameMarkBuddyActions() === "off"' in quiet
+    viewer = _fn("openNameMarkViewer")
+    assert '"Its own face, read from its name"' in viewer and '"A face of its own"' not in viewer
+    assert "nameMarkIdleWake();" in viewer

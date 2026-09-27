@@ -17,6 +17,9 @@ const KIND = process.env.KIND || 'atlas';
 (async () => {
   const { browser, page } = await boot({ viewport: { width: VW, height: VH } });
   await page.evaluate((k) => { const b = document.getElementById('avatar-buddy'); b.value = k; b.dispatchEvent(new Event('change', { bubbles: true })); }, KIND);
+  // The setting on, by its own switch (the owner: "it doesnt follow the
+  // mouse movement if i have it turned on either").
+  await page.evaluate(() => { const f = document.getElementById('avatar-follow'); f.checked = true; f.dispatchEvent(new Event('change', { bubbles: true })); });
   await page.waitForTimeout(6000);
   const head = await page.evaluate(async () => {
     const buddy = document.getElementById('nm-buddy');
@@ -38,10 +41,10 @@ const KIND = process.env.KIND || 'atlas';
   });
   const rows = [];
   for (const side of [1, -1]) {
-    for (const d of [20, 60, 150]) {
+    for (const d of [20, 60, 150, 400]) {
       await page.mouse.move(head[0] + side * d - side * 12, head[1], { steps: 2 });
       await page.mouse.move(head[0] + side * d, head[1], { steps: 3 });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(d === 400 ? 3200 : 500);
       rows.push({ d: side * d, ...(await read()) });
     }
   }
@@ -66,6 +69,8 @@ const KIND = process.env.KIND || 'atlas';
   const woke = await page.evaluate(() => ({ asleep: document.getElementById('nm-buddy').classList.contains('nmb-sleep'), ex: Number(getComputedStyle(document.getElementById('nm-buddy')).getPropertyValue('--nmb-ex')) || 0 }));
   console.log(JSON.stringify({ kind: KIND, rows, slowPassChanges: changes, woke }));
   await browser.close();
-  const wrong = rows.filter((r) => Math.abs(r.d) >= 60 && Math.sign(r.ex) !== Math.sign(r.d));
+  // Within reach it looks the pointer's way; at 400px it has let go and
+  // drifted back to looking ahead.
+  const wrong = rows.filter((r) => (Math.abs(r.d) >= 60 && Math.abs(r.d) < 400 && Math.sign(r.ex) !== Math.sign(r.d)) || (Math.abs(r.d) === 400 && r.attend));
   process.exit(wrong.length || changes < 5 || woke.asleep ? 1 : 0);
 })();

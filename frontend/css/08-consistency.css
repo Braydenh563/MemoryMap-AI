@@ -5094,6 +5094,7 @@ main,
 }
 
 .nm-viewer-reading { margin: 0; }
+.nm-viewer-hint { margin: 0; font-size: var(--text-sm); }
 
 /* The speech bubble a poked face says its line in. */
 .nm-say {
@@ -5710,14 +5711,21 @@ main,
   translate: 0 0;
 }
 
+/* Its gaze (avatars.js, `nameMarkBuddyAim`): followed quickly while it
+   attends, and let go slowly (the base transitions here), so beyond its
+   reach it drifts back to looking ahead rather than snapping there. A
+   little wider than it was (2.4px of eye, 5 degrees of head read as not
+   following at all, the owner: "it doesnt follow the mouse movement"). */
+#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }
+#nm-buddy .nm-char .nm-buddy-head { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out), rotate calc(var(--motion-slow) * 3) var(--ease-in-out); }
 #nm-buddy:is(.nmb-attend, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
-  translate: calc(var(--nmb-ex) * 2.4px) calc(var(--nmb-ey) * 2px);
+  translate: calc(var(--nmb-ex) * 3.4px) calc(var(--nmb-ey) * 2.6px);
   transition: translate var(--motion-fast) var(--ease-out);
 }
 
 #nm-buddy:is(.nmb-attend, .nmb-watch) .nm-char .nm-buddy-head {
-  translate: calc(var(--nmb-hx) * 2.5px) 0;
-  rotate: calc(var(--nmb-hx) * 5deg);
+  translate: calc(var(--nmb-hx) * 3px) calc(var(--nmb-ey) * 1.5px);
+  rotate: calc(var(--nmb-hx) * 7deg);
   transition: translate var(--motion-slow) var(--ease-spring), rotate var(--motion-slow) var(--ease-spring);
 }
 
@@ -6346,7 +6354,8 @@ main,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
 #nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); transition: translate var(--motion-fast) var(--ease-out); }
+#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):

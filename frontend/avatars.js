@@ -1137,6 +1137,7 @@ function watchNameMark(svg) {
         else nameMarkOnScreen.delete(entry.target);
         if (entry.isIntersecting) entry.target.dataset.nmOn = "";
         if (entry.isIntersecting) nameMarkKeyboard(entry.target);
+        if (entry.isIntersecting && (Number(entry.target.dataset.nmSize || entry.target.getAttribute("width")) || 0) >= NM_IDLE_MIN) nameMarkIdleWake();
         else delete entry.target.dataset.nmOn;
         if (!entry.target.isConnected) nameMarkObserver.unobserve(entry.target);
       }
@@ -2743,12 +2744,17 @@ function openNameMarkViewer(seed) {
   reading.className = "muted nm-viewer-reading";
   //: Atlas is not a face read from its name (its reading gave "Calm face
   //: with shades", which describes nothing on the screen): it says who it is.
-  reading.textContent = isAtlasSeed(seed) ? "The app's own guide" : nameMarkTitle(nameMood(seed)) || "A face of its own";
+  //: A face with nothing read from its name used to say "A face of its
+  //: own", which says nothing (the owner): now what it is.
+  reading.textContent = isAtlasSeed(seed) ? "The app's own guide" : nameMarkTitle(nameMood(seed)) || "Its own face, read from its name";
+  const hint = document.createElement("p");
+  hint.className = "muted nm-viewer-hint";
+  hint.textContent = "Click it to say hello.";
   const close = document.createElement("button");
   close.type = "button";
   close.className = "ghost";
   close.textContent = "Close";
-  card.append(stage, name, reading, close);
+  card.append(stage, name, reading, hint, close);
   overlay.appendChild(card);
   const shut = () => {
     overlay.remove();
@@ -2776,7 +2782,89 @@ function openNameMarkViewer(seed) {
   nameMarkViewerFit(figure);
   requestAnimationFrame(() => nameMarkViewerFit(figure));
   close.focus();
+  //: Alive while it is open: a first small act soon, then the shared beat.
+  setTimeout(() => figure.isConnected && nameMarkIdleAct(figure, "glance"), 900);
+  nameMarkIdleWake();
 }
+
+//: **The larger faces have a life of their own too** (the owner: "my popup
+//: character doesnt really have much expression, same with when it is a
+//: profile avatar and only gets it if it is an active companion"). One
+//: shared timer, every 5 to 10 seconds, picks one face that is on screen
+//: and at least `NM_IDLE_MIN` px (the large view, the profile head, persona
+//: cards, the preview; never a list's small marks) and plays one small act
+//: on it: a glance, a double blink, a hop, a wave in the large view. The
+//: timer stops when there is nothing to animate and is started again when
+//: a large face comes into view or the large view opens. Each act is a
+//: short Web Animation on a part the face already has (its eyes, its
+//: blinks, its arm), so nothing restyles the page. Off with Avatar
+//: animation off, Reduce motion, the companion's Reduce actions set to off,
+//: or the matching switch in What it does.
+const NM_IDLE_MIN = 48;
+let nameMarkIdleTimer = 0;
+function nameMarkIdleWake() {
+  if (!nameMarkIdleTimer) nameMarkIdleTimer = setTimeout(nameMarkIdleTick, 3000 + Math.random() * 3000);
+}
+function nameMarkIdleQuiet() {
+  const root = document.documentElement;
+  return root.dataset.avatarMotion === "off" || root.dataset.motion === "reduced"
+    || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)
+    || nameMarkBuddyActions() === "off";
+}
+function nameMarkIdleTick() {
+  nameMarkIdleTimer = 0;
+  if (nameMarkIdleQuiet()) return;
+  if (document.hidden) {
+    document.addEventListener("visibilitychange", nameMarkIdleWake, { once: true });
+    return;
+  }
+  const viewer = document.querySelector(".nm-viewer .nm-viewer-figure");
+  const big = viewer ? [viewer] : [...nameMarkOnScreen].filter((face) => face.isConnected && !face.closest("#nm-buddy, .nm-viewer")
+    && (Number(face.dataset.nmSize || face.getAttribute("width")) || 0) >= NM_IDLE_MIN);
+  if (!big.length) return;
+  nameMarkIdleAct(big[Math.floor(Math.random() * big.length)]);
+  nameMarkIdleTimer = setTimeout(nameMarkIdleTick, 5000 + Math.random() * 5000);
+}
+function nameMarkIdleAct(el, pick = "") {
+  if (!el?.isConnected || typeof el.animate !== "function" || nameMarkIdleQuiet()) return;
+  const inViewer = !!el.closest(".nm-viewer");
+  const acts = ["glance", "glance", "blink"];
+  if (!nameMarkBuddyActOff("hop")) acts.push("hop");
+  if (inViewer && !nameMarkBuddyActOff("wave")) acts.push("wave");
+  const act = pick || acts[Math.floor(Math.random() * acts.length)];
+  const part = (sel) => el.querySelector(sel);
+  if (act === "glance") {
+    const side = nameMarkPointer ? Math.sign(nameMarkPointer[0] - (innerWidth / 2)) || 1 : Math.random() < 0.5 ? -1 : 1;
+    part(".nm-eyes")?.animate([
+      { translate: "0 0" }, { translate: `${side * 2.4}px 0`, offset: 0.2 }, { translate: `${side * 2.4}px 0`, offset: 0.55 },
+      { translate: `${-side * 1.6}px 0`, offset: 0.7 }, { translate: "0 0" },
+    ], { duration: 2600, easing: "ease-in-out" });
+  } else if (act === "blink") {
+    part(".nm-blinks")?.animate([
+      { transform: "scaleY(1)" }, { transform: "scaleY(0.1)", offset: 0.12 }, { transform: "scaleY(1)", offset: 0.3 },
+      { transform: "scaleY(0.1)", offset: 0.45 }, { transform: "scaleY(1)", offset: 0.62 }, { transform: "scaleY(1)" },
+    ], { duration: 800, easing: "linear" });
+  } else if (act === "hop") {
+    nameMarkReact(el.matches(".name-mark") ? el : part(".name-mark"));
+  } else if (act === "wave") {
+    part(".nmb-arm-r")?.animate([
+      { rotate: "0deg" }, { rotate: "-120deg", offset: 0.25 }, { rotate: "-100deg", offset: 0.4 },
+      { rotate: "-125deg", offset: 0.55 }, { rotate: "-105deg", offset: 0.7 }, { rotate: "0deg" },
+    ], { duration: 1600, easing: "ease-in-out" });
+  }
+}
+//: The pointer onto a large face: it notices (a blink), at most once in
+//: two seconds a face.
+const nameMarkNoticed = new WeakMap();
+document.addEventListener("pointerover", (event) => {
+  const el = event.target.closest?.(".nm-viewer-figure, .name-mark");
+  if (!el || el.closest("#nm-buddy") || (event.pointerType && event.pointerType !== "mouse")) return;
+  const big = el.matches(".nm-viewer-figure") || (Number(el.dataset.nmSize || el.getAttribute("width")) || 0) >= NM_IDLE_MIN;
+  const now = performance.now();
+  if (!big || now - (nameMarkNoticed.get(el) || -1e9) < 2000) return;
+  nameMarkNoticed.set(el, now);
+  nameMarkIdleAct(el.closest(".nm-viewer-figure") || el, "blink");
+}, { passive: true });
 
 //: **The drawing's own box, kept clear of the words under it** (the owner,
 //: 2026-09-27: "make sure the text doesnt clash with the avatar in the
@@ -5651,6 +5739,8 @@ function nameMarkBuddyRelease() {
   nmb.leanSide = "";
   if (!buddy) return;
   buddy.classList.remove("nmb-attend");
+  buddy.style.setProperty("--nmb-ex", "0");
+  buddy.style.setProperty("--nmb-ey", "0");
   buddy.style.setProperty("--nmb-hx", "0");
   if (!nmb.act || nmb.act !== "tilt") nameMarkBuddyTilt(0);
   if (!buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
@@ -6275,8 +6365,10 @@ function nameMarkBuddyNotice(x, y, now, salient = "") {
     if (buddy.classList.contains("nmb-attend") && !nmb.releaseTimer) nmb.releaseTimer = setTimeout(nameMarkBuddyRelease, 800);
     return;
   }
-  const near = follows && dist < NMB_EYES_NEAR;
-  if (dist > 220 && !loud) {
+  //: Its reach grows with it: a Large companion notices you from further.
+  const reach = Math.max(0.7, nmb.scale || 1);
+  const near = follows && dist < NMB_EYES_NEAR * reach;
+  if (dist > 220 * reach && !loud) {
     if (buddy.classList.contains("nmb-attend") && !nmb.releaseTimer) nmb.releaseTimer = setTimeout(nameMarkBuddyRelease, 1200 + Math.random() * 1200);
     return;
   }

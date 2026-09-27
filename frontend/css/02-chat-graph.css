@@ -2814,7 +2814,7 @@ kbd {
    stylesheet still stop these individually; the instruction was explicit
    that progress should move anyway, so those are overridden by the
    `!important` here too. */
-:root[data-progress-motion="always"] .typing-dots span {
+:root[data-progress-motion="always"] .typing-dots .typing-dot {
   animation: dot-bounce 1.2s infinite ease-in-out !important;
 }
 
@@ -2828,8 +2828,16 @@ kbd {
    motion, and a running animation beats any normal declaration, so the fade
    could not touch the dots without matching it. Measured before and after, 
    the dots sat at 0.61 opacity underneath the trace until this was added. */
-:root[data-progress-motion="always"] .typing-dots[data-phase="writing"] span {
+:root[data-progress-motion="always"] .typing-dots[data-phase="writing"] .typing-dot {
   animation: none !important;
+  opacity: 0 !important;
+}
+
+/* Same leak as 01-forms-settings.css's own writing-phase rule: without this,
+   "always" progress motion would force `dot-bounce` onto the thinking word
+   too (it is just another `<span>` in the row) instead of fading it with
+   the dots it sits beside. */
+:root[data-progress-motion="always"] .typing-dots[data-phase="writing"] .typing-thinking-word {
   opacity: 0 !important;
 }
 
@@ -2843,11 +2851,11 @@ kbd {
    This is the cost of the restated-shorthand approach named at the top of
    this block, arriving exactly where that comment said it would. The delays
    are the same 0.15s/0.3s the originals use. */
-:root[data-progress-motion="always"] .typing-dots span:nth-child(2) {
+:root[data-progress-motion="always"] .typing-dots .typing-dot:nth-child(2) {
   animation-delay: 0.15s !important;
 }
 
-:root[data-progress-motion="always"] .typing-dots span:nth-child(3) {
+:root[data-progress-motion="always"] .typing-dots .typing-dot:nth-child(3) {
   animation-delay: 0.3s !important;
 }
 

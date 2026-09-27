@@ -168,18 +168,54 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
 
 ## App (Sonnet)
 
-- [ ] Thinking words UI is broken (owner screenshots): the dots, a long
+- [x] Thinking words UI is broken (owner screenshots): the dots, a long
   line, then the phrase far right and off-centre, with an annoying pulse.
-  Redesign: dots, then the phrase right beside them, bold, a subtle
-  glow or shimmer, no pulsing; no stray line; one row, vertically
-  centred, same in chat, Ask and the popup agent.
-- [ ] Atlas guide panel: its '?' button does nothing; wire it.
+  Root cause found by isolating the element (element-scoped screenshots,
+  yellow/lime background probes): `.typing-dots span` (three rules plus two
+  `!important` "always motion" ones) matched the rotating word too, since
+  it is just a fourth `<span>` in the same row appended by
+  `startThinkingWordRotation`. The word inherited a dot's 0.45rem circle
+  stretched to its own 233px `min-width` (a flattened `border-radius: 50%`
+  pill — the "line"), `background: var(--muted)` painted solid across it,
+  and `dot-bounce` running on it (the "pulse") — all three symptoms, one
+  leak. Fixed at the cause: the three real dots now get their own
+  `.typing-dot` class (chat.js) and every dot rule (both files) is scoped
+  to it, so a future span in this row can't be caught the same way. Also
+  bold, a static text-shadow glow instead of a fade-to-invisible crossfade
+  (resting opacity 0.5, not 0), and an explicit writing-phase fade for the
+  word (it no longer rides the dots' own rule). Measured: dots, word, no
+  line, rotation still swaps text every ~2.5-3.5s with a dim/bright
+  crossfade, light and dark (`scratchpad/ui-sweeps/thinkingwords.js`
+  reproduces it standalone via `progressLine`, no model needed). Same fix
+  covers chat, Ask (capture-ask.js) and the popup agent (palette.js): all
+  three call the same `typingDots`/`startThinkingWordRotation`.
+- [ ] Atlas guide panel: its '?' button does nothing; wire it. **Not
+  reproduced.** Opened the panel from the status bar (1093, >=680px) and
+  from the phone's More sheet (390), light and dark: clicking
+  `[data-help-for="help-chat-help"]` (moved into the sheet head by
+  `openHelpChat`) opens `#help-chat-help` correctly every time, through the
+  same `wireHelpPopover` (menus.js) every other help toggle uses; measured
+  the popover's box each time (416x249 desktop, 366x298 phone), never
+  hidden or zero-sized. Added `scratchpad/ui-sweeps/guidehelp.js` to lock
+  this in and to give the owner's next report something to run first. If it
+  recurs, it needs the exact steps (which entry point, what was open
+  already, mobile or desktop) since nothing in the obvious paths breaks it.
 - [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
   the new recipes (dialog head, quiet segmented tabs, search with icon,
   compact rows with check, name and category chip that never wraps,
   sticky footer).
-- [ ] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
-- [ ] At least 4 realistic multi-line notes above the fold at 1093x614.
+- [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
+  Already landed (index.html's `#settings-close` carries `dialog-head-btn`
+  inside a `.dialog-head-actions` wrapper); verified against
+  `tests/test_ui_recipes.py -k dialog_head` (passes) rather than rebuilt.
+  DESIGN.md's own row still called it "the named holdout"; corrected.
+- [x] At least 4 realistic multi-line notes above the fold at 1093x614.
+  Measured with `scratchpad/ui-sweeps/notesdensity.js`: was 3 whole cards
+  plus one partial (113px/card) after the merged WIP; now 4 whole (91px/
+  card), light and dark. The last ~13px/card came from the "Show more"
+  button's `inline-flex` (the button base recipe) sitting in an anonymous
+  block wrapper whose strut takes the *inherited* line-height, not its own
+  smaller one; scoped override to `display: block` for the card view.
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
 - [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
 - [ ] Verify the rotating thinking words render and rotate (chat, capture
@@ -187,6 +223,17 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
 - [ ] Ask citation missing after a heading on a reopened answer: not
   reproduced; regression test added. Needs the owner's real answer if seen
   again.
+- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
+  affordance and alignment (a coordinator drop, not in the original list).
+  Icon was a couple of px off the text's optical centre (`.notice`'s own
+  `align-items: flex-start`, there for a *wrapping* notice, scoped fixed to
+  `center` for this one-line status); added a `.linklike` "See the full
+  list" wired to `openSettingsModal`'s own deep-link scroll+ring, so the
+  status now leads somewhere. Not done, flagged for an owner decision: no
+  border (it is `.notice`'s documented shared shape, "two tones and no
+  more") and a filled icon (no `-fill` glyph anywhere in the vendored
+  Phosphor set, regular weight only) both need a recipe change, not a
+  one-line fix.
 - [ ] README: showcase data (clusters, webs, loose notes, reasoned and plain
   links), dark shots of every main feature, one dark/light split, the Atlas
   section (title, headline, short intro, a mood image), the rest polished.

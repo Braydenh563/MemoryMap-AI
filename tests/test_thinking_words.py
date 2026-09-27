@@ -5,23 +5,17 @@ customisable per persona).
 Storage: `PersonaItem.thinking_words` (routes_settings.py), alongside the
 persona's `prompt`, in the same `personas` preference list custom overrides
 already use; empty means "use the app's default list, or the built-in
-persona's own list" (frontend/sheets-selects.js resolves which). A second
-preference, `show_thinking_words`, turns the whole feature off. A third
-route, `POST /personas/suggest-thinking-words`, asks the utility model for
-about sixteen in a given persona's voice.
+persona's own list" (frontend/sheets-selects.js resolves which). The
+feature's own on/off switch is `progress-motion`'s own kind of setting, a
+per-browser `localStorage` appearance preference never sent to the server
+(frontend/tests/test_thinking_words_rotation.py covers it), not a field
+here. A third route, `POST /personas/suggest-thinking-words`, asks the
+utility model for about sixteen in a given persona's voice.
 """
 
 from __future__ import annotations
 
 from memorymap.ai import librarian
-from memorymap.core import deps
-
-
-def test_show_thinking_words_defaults_true_and_round_trips(client):
-    assert client.get("/preferences").json()["show_thinking_words"] is True
-    updated = client.put("/preferences", json={"show_thinking_words": False}).json()
-    assert updated["show_thinking_words"] is False
-    assert deps.get_config().get_preference("show_thinking_words") is False
 
 
 def test_a_personas_thinking_words_round_trip(client):

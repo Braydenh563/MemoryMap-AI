@@ -50,6 +50,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A word rotates beside the thinking dots in chat, capture Ask and the popup agent ("Pondering", "Leafing through your notes"), in the answering persona's own voice; Atlas gets a starlit set of its own, and every persona can write, or ask the AI to suggest, its own list in Settings, Personas. A new "Show thinking words" switch in Settings, Appearance turns it off.
 - The LAN switch offers a "Restart now" action when a restart is actually needed to take effect, on either direction of the switch, instead of only saying so in text.
 - The popup agent's reply rows wear the persona's own avatar circle, the same as Chat's own bubbles.
 - A mind map topic's colour is reachable from words too: right-click it, More, Topic colour (or Branch colour past the first trunk); the canvas's own background colour picker in the View menu is now named "Canvas background colour" and says PNG/SVG export keeps it, and the mind map's own "Where the map's controls live" help mentions both.

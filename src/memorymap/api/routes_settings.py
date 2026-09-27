@@ -307,12 +307,6 @@ class PreferencesBody(BaseModel):
     #: default: it costs nothing until a prose document or note box is open,
     #: and nothing on the main thread even then.
     grammar_check: bool | None = None
-    #: Rotating words beside the thinking dots (chat, capture Ask, the popup
-    #: agent), e.g. "Pondering...", "Leafing through your notes...". On by
-    #: default, since it is the feature being asked for; a switch for anyone
-    #: who finds a changing word beside the dots distracting rather than
-    #: reassuring.
-    show_thinking_words: bool | None = None
     #: Curly quotes and a dash from two hyphens as you type in a prose
     #: document (the autofill ask, 2026-09-24). Off by default: software that
     #: changes what was typed without being asked is the thing people turn off
@@ -613,7 +607,6 @@ def get_preferences() -> dict:
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
-        "show_thinking_words": config.get_preference("show_thinking_words", True),
         "smart_punctuation": config.get_preference("smart_punctuation", False),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather

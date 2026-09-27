@@ -4201,6 +4201,40 @@ html.modal-open body {
   }
 }
 
+/* **The rotating thinking word** (chat.js's `startThinkingWordRotation`):
+   beside the enhanced-motion dots, never built when motion is off (that
+   branch's own `.typing-word` above already says "one word, no rotation",
+   which is the reduced-motion answer this asks for). The same crossfade and
+   2px rise `.progress-musing` uses (this file, above), so a rotating word
+   and a rotating sentence read as one family rather than two indicators
+   that happen to look similar. `min-width` is set inline per instance
+   (`thinkingWordMinWidth`, chat.js), sized to the longest word in whichever
+   persona's list is showing, so the row's own width never jumps as a short
+   word gives way to a long one. */
+.typing-thinking-word {
+  display: inline-block;
+  margin-left: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+}
+
+.typing-thinking-word.is-shown {
+  opacity: 0.85;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Same reasoning as `.typing-dots-stepped .typing-word` just above: this
+     element exists only when "always" deliberately overrode the OS
+     setting, so its own crossfade is re-declared rather than switched off. */
+  .typing-thinking-word {
+    transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+  }
+}
+
 @keyframes dot-bounce {
 
   0%,
@@ -4228,6 +4262,23 @@ html.modal-open body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The persona editor's thinking-words field (sheets-selects.js): a label,
+   the textarea (sized by the base `textarea` rule above, so it needs
+   nothing of its own), a hint line, and the status line "Suggest with AI"
+   and Save write validation errors into. */
+.persona-words-label {
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.persona-words-hint,
+.persona-words-status {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
 }
 
 

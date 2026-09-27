@@ -44,6 +44,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Settings, Tools it can use: each switch now sits level with its tool's name at any text size.
+- Appearance, Dashboard mark: Atlas is a choice beside the logo, your face and the greeting persona.
 - Undoing what Atlas did to a private note no longer writes back text sealed under a key the vault has since rotated away from; the other fields still go back and the plan names the text as kept.
 - The corner companion can be petted (rest the pointer on it for a moment: a happy wiggle), tossed (let it go while moving fast and it flies on, slowing, to a perch near where it comes down) and watches a near pointer with its eyes, as Faces follow the pointer allows (round 5).
 - The corner companion notices what happens in the app, quietly and rarely: it puts on its reading glasses and reads along when you open a long note, peeks over when the graph lays itself out again, cheers once when your capture streak grows, yawns now and then at night, covers its eyes when you open a private note and looks towards a new toast; never two within six seconds, and none under Reduce motion.

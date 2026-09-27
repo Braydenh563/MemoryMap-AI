@@ -4205,8 +4205,37 @@ p.graph-help-panel {
    and a per-item alignment always beats the container's. Measured before this:
    the switch at y=655 against a text block starting at y=620. */
 .tool-row.setting-check > input[type="checkbox"] {
-  align-self: start;
-  margin-top: var(--space-1);
+  align-self: center;
+  margin-top: 0;
+}
+
+/* **The switch is centred on the name's own line, at every text size.**
+   Reported with a screenshot: "I want each of the toggles in the tool
+   options to be in line horizontally with the tool names". The rule above
+   put the switch at the top of the row plus one fixed space, which lands
+   level with the name only at the default text size; at the owner's larger
+   size the name's line grew and the switch stayed where it was, above it.
+   So the text column dissolves into the row's grid (`display: contents`):
+   the name takes row 1 beside the switch and both centre in it, the chips
+   and the description stack under the name in column 2. Nothing is nudged
+   by a number, so no text size or display scale can move them apart. */
+.tool-row.setting-check > span {
+  display: contents;
+}
+
+.tool-row.setting-check > span > * {
+  grid-column: 2;
+}
+
+.tool-row.setting-check > span > strong {
+  grid-row: 1;
+  align-self: center;
+}
+
+.tool-row .tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
 /* --- the touch floor, for the two surfaces the dock rule cannot reach ------

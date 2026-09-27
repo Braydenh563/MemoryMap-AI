@@ -35778,3 +35778,20 @@ cheap-animation conversion and `tests/test_cheap_animations.py`, boot splash
 map as an object in a note, and reminders linked to notes) and
 `worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
 the two kinds of connection, customisation, and the pan re-rasterisation).
+## INBOX resolved, 2026-09-27
+
+428. **Mid-work drop, 2026-09-27, verbatim (the owner), with a screenshot of
+    Settings, Tools it can use, dark.** "in the tools it can use settings
+    page, I want each of the toggles in th tool options to be in line
+    horizontally with the tool names" and "also the dashboard mark should
+    have atlas as an option as well". **Fixed** 2026-09-27: the tool row's
+    text column is `display: contents` inside `.tool-row.setting-check`'s
+    grid, so the name takes row 1 beside the switch and both centre in it at
+    any text size (measured: switch centre minus name centre 1.8px before,
+    0.0 after, at the default size and at a 20px root in dark); the chips
+    moved to their own line under the name so a wrapped chip cannot pull the
+    switch off the name again. Appearance, Dashboard mark gains "Atlas"
+    (`dashboardMarkSeed` returns "Atlas"; measured: the hero draws Atlas's
+    live mark, 0 page errors). Also asked: three agents at a time at most,
+    taken as a standing order for this run.
+

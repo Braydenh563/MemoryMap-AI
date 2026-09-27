@@ -1400,7 +1400,7 @@ const APPEARANCE_DEFAULTS = {
   //: and Atlas was following Face looks anyway (OPEN.md, 0.3.3).
   "atlas-look": "auto", // auto | masculine | feminine
   "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
-  "dash-mark": "logo", // logo | me | persona
+  "dash-mark": "logo", // logo | atlas | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
   // same default: keep the three in step.

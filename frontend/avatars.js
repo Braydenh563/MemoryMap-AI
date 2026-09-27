@@ -2809,6 +2809,10 @@ document.addEventListener("change", (event) => {
 function dashboardMarkSeed() {
   const choice = typeof appearancePref === "function" ? appearancePref("dash-mark", "logo") : "logo";
   if (choice === "me") return typeof userMarkSeed === "function" ? userMarkSeed() : "You";
+  //: Atlas by name, whoever the greeting speaks as (the owner: "the
+  //: dashboard mark should have atlas as an option as well"). "Greeting
+  //: persona" only shows Atlas while Atlas is that persona.
+  if (choice === "atlas") return "Atlas";
   if (choice === "persona") {
     return (typeof prefsCache !== "undefined" && prefsCache?.dashboard_persona) || document.getElementById("persona-select")?.value || "Atlas";
   }

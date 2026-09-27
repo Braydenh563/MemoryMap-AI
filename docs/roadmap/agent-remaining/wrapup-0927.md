@@ -70,8 +70,18 @@ written.
 
 ## App (Sonnet)
 
-- [ ] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
-- [ ] At least 4 realistic multi-line notes above the fold at 1093x614.
+- [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
+  Already landed (index.html's `#settings-close` carries `dialog-head-btn`
+  inside a `.dialog-head-actions` wrapper); verified against
+  `tests/test_ui_recipes.py -k dialog_head` (passes) rather than rebuilt.
+  DESIGN.md's own row still called it "the named holdout"; corrected.
+- [x] At least 4 realistic multi-line notes above the fold at 1093x614.
+  Measured with `scratchpad/ui-sweeps/notesdensity.js`: was 3 whole cards
+  plus one partial (113px/card) after the merged WIP; now 4 whole (91px/
+  card), light and dark. The last ~13px/card came from the "Show more"
+  button's `inline-flex` (the button base recipe) sitting in an anonymous
+  block wrapper whose strut takes the *inherited* line-height, not its own
+  smaller one; scoped override to `display: block` for the card view.
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
 - [ ] Sweeps at 1093: errors.js and docks.js, fix what they find.
 - [ ] Verify the rotating thinking words render and rotate (chat, capture
@@ -79,6 +89,17 @@ written.
 - [ ] Ask citation missing after a heading on a reopened answer: not
   reproduced; regression test added. Needs the owner's real answer if seen
   again.
+- [x] Settings > Privacy verdict notice ("Nothing left this computer."):
+  affordance and alignment (a coordinator drop, not in the original list).
+  Icon was a couple of px off the text's optical centre (`.notice`'s own
+  `align-items: flex-start`, there for a *wrapping* notice, scoped fixed to
+  `center` for this one-line status); added a `.linklike` "See the full
+  list" wired to `openSettingsModal`'s own deep-link scroll+ring, so the
+  status now leads somewhere. Not done, flagged for an owner decision: no
+  border (it is `.notice`'s documented shared shape, "two tones and no
+  more") and a filled icon (no `-fill` glyph anywhere in the vendored
+  Phosphor set, regular weight only) both need a recipe change, not a
+  one-line fix.
 - [ ] README: showcase data (clusters, webs, loose notes, reasoned and plain
   links), dark shots of every main feature, one dark/light split, the Atlas
   section (title, headline, short intro, a mood image), the rest polished.

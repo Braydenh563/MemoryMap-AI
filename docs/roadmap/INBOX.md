@@ -107,6 +107,19 @@ with its owner named in the entry.
      index now names it the reference dialog head; every modal and popup
      head is brought to it, with a ratchet lint (the Sonnet agent, after
      the thinking words).
+     (g) The owner: "remake and retake the screenshots for the readme file,
+     update the atlas section with a short intro, title, headline and short
+     description and accompanying image with an expression or mood. take the
+     screenshots in dark mode but maybe have a dark/light comparison image.
+     make the graph really visually pleasing and impressive with a mix of
+     connected and non connected, some clusters some webs, some connections
+     ahve reasons and others dont etc. make sure all main features are
+     properly shown. and polish and update the rest of the the readme as
+     well." Placed: after the Atlas and companion passes land (so the shots
+     show the finished art), the first agent to free takes it: a seeded
+     showcase data dir (clusters, webs, loose notes, reasoned and plain
+     links), dark shots of every main feature, one dark/light split, the
+     Atlas section rewritten, README polished; test_readme_freshness green.
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

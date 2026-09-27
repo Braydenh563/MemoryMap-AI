@@ -163,3 +163,32 @@ def test_no_hover_is_a_filter():
         "`--hover-veil` as a `background-image` over any other ground:\n"
         + "\n".join(offenders)
     )
+
+
+def test_the_reduced_motion_blankets_stop_transitions_outright():
+    """**An off switch is zero, not almost zero** (the companion's menu, the
+    owner: "the right click companion popup still doesnt appear next to the
+    companion and instead at the top of the screen", reported several times).
+
+    `transition-property` is `all` on every element unless it says otherwise,
+    so a blanket that sets `transition-duration: 0.01ms` does not remove
+    transitions: it gives every element in the app a real one, on every
+    property. A transition runs from the next frame, and until then a
+    `getBoundingClientRect` after a style write reads where the element was:
+    measured with the system's reduced-motion hint on, the escaped menu read
+    at 0,904 straight after `left: 0; top: 0` was written, and the companion
+    placed its menu from that rect, 276 to 565px from the companion, some of
+    it off screen (`scratchpad/ui-sweeps/companionmenulow.js`, 12 of 12
+    openings under the hint, 0 of 24 without). A zero duration and a zero
+    delay start no transition at all, which is what the blanket means."""
+    blankets = []
+    for path in sorted(CSS_DIR.glob("*.css")):
+        text = _blank_comments(path.read_text(encoding="utf-8"))
+        for m in re.finditer(r"\{([^{}]*animation-iteration-count:\s*1\s*!important[^{}]*)\}", text):
+            blankets.append((path.name, m.group(1)))
+    assert len(blankets) >= 2, "the reduced-motion blankets moved; point this lint at them"
+    for name, body in blankets:
+        duration = re.search(r"transition-duration:\s*([^;]+);", body)
+        delay = re.search(r"transition-delay:\s*([^;]+);", body)
+        assert duration and duration.group(1).strip() == "0s !important", f"{name}: {duration and duration.group(1)}"
+        assert delay and delay.group(1).strip() == "0s !important", f"{name}: a delay starts a transition too"

@@ -658,7 +658,6 @@ $("timeline-scroll").addEventListener("scroll", () => {
     timelineScrollFrame = 0;
     const box = $("timeline-scroll");
     if (box.scrollTop + box.clientHeight > box.scrollHeight - 600) timelineLoadMore();
-    drawTimelineWindow();
   });
 }, { passive: true });
 
@@ -743,6 +742,7 @@ function timelineVisibleRows() {
 //: sort, a search keystroke, a filter and a change of bucket all land here, and
 //: none of them fetches anything (TIMELINE_PLAN decision 2).
 function paintTimeline() {
+  timelineForgetRows();
   const rows = timelineVisibleRows();
   const table = timelineViewMode() === "table";
   const nothingLoaded = timelineRows.length === 0;
@@ -1080,6 +1080,7 @@ function timelineRowElement(row, density) {
     if (window.getSelection()?.toString()) return; // a text selection, not a click
     toggleTimelineRow(li, row);
   });
+  timelineWatchRow(li);
   return li;
 }
 
@@ -1438,31 +1439,56 @@ function drawTimelineScrubber() {
 //: writing and a quiet year take the same scroll distance per note, and a
 //: marker computed from the scroll would drift further from the truth the more
 //: uneven the notebook is, which is exactly the notebook this strip is for.
+//: The rows that intersect the scroll box, kept by an observer rather than
+//: found by hit tests (`drawTimelineWindow`). Watched as each row is built,
+//: forgotten when a repaint throws the rows away.
+const timelineOnScreen = new Set();
+let timelineRowObserver = null;
+function timelineWatchRow(el) {
+  if (typeof IntersectionObserver !== "function") return;
+  timelineRowObserver ||= new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting && entry.target.isConnected) timelineOnScreen.add(entry.target);
+      else timelineOnScreen.delete(entry.target);
+    }
+    drawTimelineWindow();
+  }, { root: $("timeline-scroll") });
+  timelineRowObserver.observe(el);
+}
+function timelineForgetRows() {
+  timelineRowObserver?.disconnect();
+  timelineOnScreen.clear();
+}
+
 function drawTimelineWindow() {
   const strip = $("timeline-scrubber");
   if (strip.classList.contains("hidden")) return;
   const span = timelineDensitySpan();
   if (!span) return;
-  const box = $("timeline-scroll").getBoundingClientRect();
-  //: **Several probes, not one.** A single probe at the top centre of the box
-  //: misses a row in two ways, and both were measured as a marker stuck at
-  //: `y=0` after a jump tens of thousands of pixels down: the top of the box
-  //: is a sticky bucket header as often as it is a row, and the month and year
-  //: densities lay the rows out in two columns above 1024, with the gap
-  //: between them running down the centre. So: four heights inward from the
-  //: edge, at a quarter of the way across as well as at the middle.
-  const at = (y, step) => {
-    for (let i = 0; i < 4; i++) {
-      for (const x of [box.left + box.width / 4, box.left + box.width / 2]) {
-        const el = document.elementFromPoint(x, y + i * step)?.closest?.(".timeline-row");
-        const row = el && timelineById.get(el.dataset.key);
-        if (row) return row.when.getTime();
-      }
+  //: **The rows on screen, from what the browser already knows** (libtl-0926).
+  //: This used to probe with up to sixteen `elementFromPoint` calls a frame
+  //: (several, because a sticky bucket header and the gap between the two
+  //: columns of the month and year densities both hide a row from a single
+  //: probe), and each probe after a scroll made the page lay itself out: 35
+  //: layouts a second while scrolling a thousand-note feed. An observer is
+  //: told which rows cross the scroll box's edges after the browser's own
+  //: layout, with no read here, and the newest and oldest of those are the
+  //: two ends of the window whichever column or header they sit beside.
+  let top = null;
+  let bottom = null;
+  for (const el of timelineOnScreen) {
+    if (!el.isConnected) {
+      timelineOnScreen.delete(el);
+      continue;
     }
-    return null;
-  };
-  const top = at(box.top + 4, 44) ?? span.newest;
-  const bottom = at(box.bottom - 8, -44) ?? top;
+    const row = timelineById.get(el.dataset.key);
+    if (!row) continue;
+    const t = row.when.getTime();
+    if (top === null || t > top) top = t;
+    if (bottom === null || t < bottom) bottom = t;
+  }
+  top ??= span.newest;
+  bottom ??= top;
   const y = (moment) =>
     Math.min(1, Math.max(0, (span.newest - moment) / span.width)) * TIMELINE_SCRUBBER_HEIGHT;
   const from = y(top);
@@ -1746,6 +1772,7 @@ function timelineTableRow(row) {
     toggleTimelineRow(tr, row);
   });
   if (selectedIds.has(row.id)) tr.setAttribute("aria-selected", "true");
+  timelineWatchRow(tr);
   return tr;
 }
 

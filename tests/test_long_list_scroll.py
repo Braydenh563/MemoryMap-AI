@@ -73,3 +73,20 @@ def test_the_timeline_scroll_does_its_work_once_a_frame():
     assert "timelineSpanCache.density === timelineDensity" in span
     window_ = function_body(source, "drawTimelineWindow")
     assert 'getAttribute("y") !==' in window_
+
+
+def test_the_strip_window_comes_from_an_observer_not_hit_tests():
+    # Up to sixteen `elementFromPoint` probes a frame were half the feed's
+    # scripting while scrolling (38 to 20 ms/s measured; the table 39 to 15).
+    source = read("timeline.js")
+    window_ = function_body(source, "drawTimelineWindow")
+    assert "document.elementFromPoint(" not in window_
+    assert "timelineOnScreen" in window_
+    assert "timelineWatchRow(li);" in function_body(source, "timelineRowElement")
+    assert "timelineWatchRow(tr);" in function_body(source, "timelineTableRow")
+    assert "timelineForgetRows();" in function_body(source, "paintTimeline")
+    watch = function_body(source, "timelineWatchRow")
+    assert 'root: $("timeline-scroll")' in watch
+    # The scroll listener only asks for the next page now.
+    listener = source[source.index('$("timeline-scroll").addEventListener("scroll"') :][:400]
+    assert "drawTimelineWindow" not in listener

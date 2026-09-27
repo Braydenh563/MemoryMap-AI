@@ -7,6 +7,62 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-27
+
+### From WORLD_CLASS_PLAN.md 22.1 item 4: leaving with unsaved work
+
+**Built 2026-09-27.** A `hasUnsavedWork()` reader in navigation.js over the
+flags the three surfaces with a plain dirty flag already keep for their own
+Save button: `docDirty` (documents.js, through a `typeof` guard for a tab
+that has not been lazily loaded yet), a new `noteFormDirty` (notes-list.js,
+set by the note edit form's textarea, tags field and category select, reset
+on open, Save and Cancel), and the Capture box's own `#entry-content` value.
+One reader, never a second writer, so none of the three can fall out of
+step with the flag its own Save button reads.
+
+One `beforeunload` listener built on it replaces the narrower `docDirty`-only
+one that used to live in documents.js. An in-app navigation guard,
+`confirmLeavingUnsavedWork`, sits at the very top of `switchTab` (the one
+function every in-app navigation, a tab press, a deep link, the back/forward
+restore, goes through) and asks through the app's own `confirmDialog`
+(DESIGN.md's recipe for a decision, never `window.confirm`), skipped only
+when the destination is the tab already on screen. Declining leaves
+`switchTab` before it touches the DOM.
+
+Verified in Chromium (`scratchpad/ui-sweeps/lib.js` boot): dirtying the note
+edit form and pressing another tab shows the dialog ("Leave"/"Cancel", from
+`confirmVerb`), Cancel leaves the form open on Notes, and confirming leaves.
+The same dirty state also vetoes a real `beforeunload` event
+(`event.defaultPrevented`) and stops vetoing once cleared. **Left:** a board
+mid-drag and a chat mid-stream have no dirty flag yet, so they are not
+covered; `docDirty`'s own autosave window is 1.2s, so it is dirty only
+briefly. Tests: `tests/test_unsaved_work_guard.py`.
+
+### From WORLD_CLASS_PLAN.md 22.1 item 6: the server-down banner
+
+**Built 2026-09-27.** `api()`'s `fetch()` catch block already told an
+intentional abort and a slow answer (`TimeoutError`) apart from a real
+dropped connection; a real one now calls `noteServerDown()` (status.js),
+idempotent, so a dozen in-flight requests failing at once raise one banner,
+not twelve. The banner reuses the toast recipe rather than a bespoke
+element (`.toast.error`, `.toast-action`, `toastCloseButton`), held open
+instead of timed out, with a Retry button that polls `/health` (open, no
+auth, the same route the startup probe uses) right away. A backoff poll
+(3s, doubling to a 30s cap) retries while it is down, one loop at a time
+(`scheduleServerDownRetry` is a no-op while one is already scheduled); every
+successful request, whatever its HTTP status, calls `noteServerUp()` before
+the 401 branch, so a request succeeding is the fastest way the banner
+clears, ahead of the poll's own backoff.
+
+Verified against a real server: killing the uvicorn process raised the
+banner within 1.1s of the connection being refused (measured by the
+`ERR_CONNECTION_REFUSED` and the banner's own timestamped state change);
+restarting it cleared the banner within 3s of the first response, even a
+401. A dozen failing requests in a row stayed at exactly one banner element.
+**Left:** queuing or refusing a write with the same message while the
+banner is up (the plan's own target went further than the brief asked for).
+Tests: `tests/test_server_down_banner.py`.
+
 ## Moved from the plans, 2026-09-26
 
 The backend agent's night (WORLD_CLASS_PLAN section 8's open rows, in order).

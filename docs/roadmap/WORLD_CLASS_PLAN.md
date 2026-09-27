@@ -2380,20 +2380,22 @@ mobile first, as the owner's web design class teaches. Measured with
    guesses. Target: short labels kept down to 1024px (the strip has room once
    the spaces picker shrinks to an icon), tooltips with the shortcut below
    it, and the strip centred (INBOX 430). S, Sonnet.
-4. **Leaving with unsaved work.** No `beforeunload` guard anywhere; the
-   drafts cover the capture box, but a document mid-save, a board mid-drag
-   and a chat mid-stream are not checked. Target: one registry of "dirty"
-   surfaces, a guard on close, and a flush on `pagehide`. S, Sonnet.
+4. **Leaving with unsaved work.** Built 2026-09-27 for the note edit form,
+   the Capture box and a document mid-autosave, the three surfaces with a
+   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"). Left:
+   a board mid-drag and a chat mid-stream, which have no such flag yet. S,
+   Sonnet.
 5. **Two windows, one note.** The desktop window plus a browser tab, or two
    LAN devices, can edit the same note; the last save wins silently.
    Target: saves carry the `updated_at` they started from, a stale save
    gets 409 (the pattern documents already use), and the editor offers
    "keep mine / take theirs / compare". M, Opus.
-6. **The server can go away.** Only the log view says "reconnecting";
-   everywhere else a stopped backend shows as buttons that do nothing.
-   Target: one banner ("Can't reach MemoryMap. Retrying...") driven by the
-   same health poll, every write queued or refused with that message. S,
-   Sonnet.
+6. **The server can go away.** Built 2026-09-27: a persistent banner
+   ("Can't reach MemoryMap. Retrying...") with a Retry action, raised by
+   `api()`'s own network-error catch and cleared by the next successful
+   request or a backoff poll against `/health` (HISTORY.md, "Moved from the
+   plans, 2026-09-27"). Left: queuing or refusing a write with the same
+   message while it is up. S, Sonnet.
 7. **No screen-reader pass, ever.** Landmarks exist (1 header, 3 main, 5
    nav: three `main`s is itself a fault), but no session has driven the
    app with a screen reader or checked the custom widgets' roles (the rich

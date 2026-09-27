@@ -4196,15 +4196,11 @@ html.modal-open body {
   content: "";
   position: absolute;
   left: 0.22rem;
-  /* `width`, not `right: 0.22rem`. The rotating thinking word
-     (`.typing-thinking-word`, below) is appended into this same row as a
-     flex child, and `right: 0.22rem` tracked *its* far edge, stretching the
-     hairline out under the word's whole reserved width: the owner's "the
-     dots, a long line, then the phrase far right" screenshot, measured
-     (`scratchpad/ui-sweeps/thinkingwords.js`): a 249px row for three ~7px
-     dots. The cluster is always exactly three dots (`typingDots`, chat.js),
-     a fixed width, so it is computed once here instead of read off
-     whatever the row happens to contain. */
+  /* `width`, not `right: 0.22rem`: the rotating word appended after the
+     dots widens this row, and `right` used to track that far edge,
+     stretching the hairline under the word too (the owner's "a long
+     line"). Three dots is a fixed cluster (`typingDots`, chat.js), so its
+     width is computed once here rather than read off the row. */
   width: calc(3 * 0.45rem + 2 * var(--space-1) - 0.44rem);
   top: 50%;
   height: 1px;
@@ -4310,31 +4306,35 @@ html.modal-open body {
 /* **The rotating thinking word** (chat.js's `startThinkingWordRotation`):
    beside the enhanced-motion dots, never built when motion is off (that
    branch's own `.typing-word` above already says "one word, no rotation",
-   which is the reduced-motion answer this asks for). `min-width` is set
-   inline per instance (`thinkingWordMinWidth`, chat.js), sized to the
-   longest word in whichever persona's list is showing, so the row's own
-   width never jumps as a short word gives way to a long one.
+   which is the reduced-motion answer this asks for). The same crossfade and
+   2px rise `.progress-musing` uses (this file, above), so a rotating word
+   and a rotating sentence read as one family rather than two indicators
+   that happen to look similar. `min-width` is set inline per instance
+   (`thinkingWordMinWidth`, chat.js), sized to the longest word in whichever
+   persona's list is showing, so the row's own width never jumps as a short
+   word gives way to a long one.
 
-   Bold, with a static glow rather than `.progress-musing`'s fade-in-place:
-   the owner's report ("an annoying pulse") was this dropping to fully
-   transparent and back on every rotation (2.5 to 3.5s), which reads as
-   blinking rather than a word changing. The resting opacity is raised so a
-   swap only dims, never vanishes, and the glow (a fixed text-shadow, not an
-   animated one) gives it presence without adding a second loop for
-   `prefers-reduced-motion` to answer for. */
+   Bold, with a static glow: not part of the crossfade above, which is left
+   as tested (`tests/test_thinking_words_rotation.py`). Turned out not to be
+   the owner's "annoying pulse" at all -- that was `.typing-dots span`
+   leaking a dot's own bouncing circle onto this element (`.typing-dot`,
+   this file, above, and chat.js's own comment on it), fixed at the leak
+   rather than by touching a crossfade that was never the cause. */
 .typing-thinking-word {
   display: inline-block;
   margin-left: var(--space-2);
   color: var(--ink);
   font-size: var(--text-sm);
   font-weight: 600;
-  opacity: 0.5;
   text-shadow: 0 0 0.5rem color-mix(in srgb, var(--accent) 40%, transparent);
-  transition: opacity var(--motion-base) var(--ease-out);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
 }
 
 .typing-thinking-word.is-shown {
-  opacity: 1;
+  opacity: 0.85;
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4342,7 +4342,7 @@ html.modal-open body {
      element exists only when "always" deliberately overrode the OS
      setting, so its own crossfade is re-declared rather than switched off. */
   .typing-thinking-word {
-    transition: opacity var(--motion-base) var(--ease-out);
+    transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
   }
 }
 

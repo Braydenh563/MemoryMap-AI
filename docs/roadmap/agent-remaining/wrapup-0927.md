@@ -42,7 +42,18 @@ work starts.
    sides". Today it is several parallel straight spikes. Target: one thick
    central wisp that tapers softly, with thinner curved strands peeling off
    both sides, all with gentle S-curves and a slow sway; no hard points.
-8. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
+8. **The owner at release, with screenshots:** (a) the notes dock's Select
+   toggle when active has poor contrast (a filled accent square with a
+   faint check); check every toggled icon button; (b) "Start today's note"
+   sits beside "Today": decide left or right against the Timeline's
+   other heads, and measure; (c) the reminder steppers float mid-row with a
+   gap: align them to the row's grid next to the time readout; (d) mind
+   map node background fill: nodes are outline-only; add a fill option
+   (the node colour recipe, a tinted fill) if it does not exist; (e) the
+   owner says the README shots were not retaken: they were in c947ebe on
+   this branch, so check what the owner is viewing (main, or a cache) and
+   confirm the shots show the new UI.
+9. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 
 ## Held on a branch, not merged

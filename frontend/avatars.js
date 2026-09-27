@@ -3951,10 +3951,16 @@ function nameMarkBuddySurfaceWalk(page) {
       //: Nor a field you type into: sitting on a document's editor its
       //: tail hung over the first line of what you were writing.
       if (child.matches("textarea, input, select, [contenteditable='true'], .cm-editor")) continue;
+      //: Never a thing inside a run of words (the owner: "atlas companion
+      //: just perched in the middle of the weekly digest"): a highlighted
+      //: phrase, a code span or a link inside a paragraph has a surface of
+      //: its own but is text, and standing on it put the figure over the
+      //: words around it.
+      if (child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6") && !child.matches("button, [role='button']")) continue;
       let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= minW);
       if (!surface) {
         const cs = getComputedStyle(child);
-        surface = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none";
+        surface = !cs.display.startsWith("inline") && (cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none");
       }
       if (surface) found.push([child, box]);
       if (depth < 8 && !child.matches("button, a[href], [role='button'], svg, canvas")) walk(child, depth + 1);
@@ -4071,6 +4077,7 @@ function nameMarkBuddyPerches(tab, focus = null) {
 //: it pacing.
 function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
   let best = null;
+  let soiled = null;
   let scored = 0;
   nmbCoverCache = new Map();
   for (const perch of nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)) {
@@ -4093,14 +4100,21 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
     if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles, perch.legs)) continue;
     const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose, perch.legs);
     //: Any words under it at all cost more than a step along the ledge:
-    //: sampling is sparse, and one hit is usually a word half hidden.
+    //: sampling is sparse, and one hit is usually a word half hidden. A
+    //: perch over words is kept only as the last resort: any clean one wins.
     perch.score = ceiling - (covers ? 25 + covers * 120 : 0);
+    if (covers) {
+      if (!soiled || perch.score > soiled.score) soiled = perch;
+      scored += 1;
+      if (scored >= (near ? 120 : 36)) break;
+      continue;
+    }
     if (!best || perch.score > best.score) best = perch;
     scored += 1;
     if ((!near && covers === 0 && perch.rank === 0) || scored >= (near ? 120 : 36)) break;
   }
   nmbCoverCache = null;
-  if (best) return best;
+  if (best || soiled) return best || soiled;
   //: Nothing is free (a small window full of controls): the bottom corner,
   //: standing clear of the bar.
   const { bottom } = nameMarkBuddyLedges();

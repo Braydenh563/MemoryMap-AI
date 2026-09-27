@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion no longer perches over words: a phrase with a background inside a paragraph is not a ledge, and a perch with any words under it is chosen only when nothing clean is left.
 - The companion keeps walking, climbing and materialising in when Performance mode turns itself on (it only fades now when you or your system ask for less motion). Appearance > Companion movement can follow the app, always animate or fade only, and says why it is fading; About shows the companion's motion and its reason.
 - The companion no longer rocks from side to side as the pointer passes: its lean follows a smoothed gaze, holds a side at least 1.3 seconds and ignores a flick.
 - A generated companion rests its hands on its hips when cool, clasps them when bashful and holds them to its chest when worried.

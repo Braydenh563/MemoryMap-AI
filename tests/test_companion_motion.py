@@ -951,3 +951,15 @@ def test_performance_mode_alone_no_longer_holds_the_companion_still() -> None:
     assert 'id="avatar-buddy-motion"' in HTML and 'id="about-motion"' in HTML
     # Less motion leaves by a fade, not a cut.
     assert "duration: 260" in _fn("nameMarkBuddyLeave")
+
+
+def test_it_never_perches_in_a_run_of_words() -> None:
+    # The owner: "atlas companion just perched in the middle of the weekly
+    # digest". Measured (perchtext.js, 1093x614 and 1440x900, boot and six
+    # tab arrivals): on chat at 1093 it rested with 346 square px of words
+    # under it; now 0 everywhere, and no arrival is followed by a poof.
+    walk = _fn("nameMarkBuddySurfaceWalk")
+    assert 'child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6")' in walk
+    assert '!cs.display.startsWith("inline")' in walk
+    choose = _fn("nameMarkBuddyChoose")
+    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return best || soiled;" in choose

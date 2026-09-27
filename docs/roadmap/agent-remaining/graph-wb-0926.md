@@ -59,44 +59,22 @@ the owner's WebView2 window. The label placement is measured on one fixture
 (random links, eleven categories); a notebook with real clusters may place
 differently.
 
-## Paused, 2026-09-27: WORLD_CLASS_PLAN D2, the note connections rail
+## WORLD_CLASS_PLAN D2, the note connections rail: built 2026-09-27
 
-In WIP commit 97950a9 ("WIP (not swept, do not merge)"). Built but not yet
-measured in a browser:
+Paused in WIP commit 97950a9 and finished on top of it (the commit after the
+merge of 277ae31). `scratchpad/ui-sweeps/notesrail.js`, first run, 24/24 with
+no change needed: at 1440 the rail is 302px and the reading column 747px, at
+1280 272px and 620px; no overlap with the list or the sidebar, no sideways
+scroll; keys, a row following its note, hiding across a reload and the More
+menu all pass; at 1024 and 390 no rail, and the Connections sheet opens.
+Shots: `scratchpad/shots/gw-0926/notesrail-*.png` against
+`notes-before-1440.png`.
 
-- `aside#notes-rail`, the Notes layout's third column at 1280px and wider,
-  placed on an implicit grid track so `applySidebarWidth`'s inline template
-  is left alone; `h3.panel-head` with one chip (link count), a
-  `data-help-for` '?' and a close button; hidden below 1280 in CSS and in
-  script (`NOTES_RAIL_MIN_WIDTH`), where the card menu's Connections sheet
-  stays the way in.
-- `renderNotesRail` (notes-list.js): the subject is whichever note was
-  edited, expanded, jumped to (`lastOpenedEntryId`) or focused in the list
-  last; Browse only; answers cached per note and per notebook load; hiding
-  remembered under `localStorage["notes-rail"]`, and `#notes-rail-toggle`
-  in the Notes More menu brings it back. Arrows walk the rows and Escape
-  returns focus to the note.
-- The rows come from `buildConnectionGroups` (menus.js), which is now shared
-  with the sheet, plus a "Forgotten, and close to this" group from
-  `GET /resurface/near` (its shape was fine, so it is unchanged).
-- `tests/test_notes_rail.py`: 5 tests, passing, together with the lint set.
+Open, found and not fixed:
 
-What is left, in order:
-
-1. Run `scratchpad/ui-sweeps/notesrail.js` (written, never run) at 1440,
-   1280, 1024 and 390, and fix what it finds. It checks no overlap with the
-   list or sidebar, the reading column at 600px or more, nothing scrolling
-   sideways, the keys, a row following its note, the hide surviving a
-   reload, the More menu, and the sheet below 1280.
-2. Run errors.js at 1440 and 390 in the background, and `gate.sh --staged`.
-3. Take the before and after shots (`notes-before-1440.png` is already
-   there).
-4. Add a CHANGELOG line in both copies. Update D2's "State" line in
-   WORLD_CLASS_PLAN.
-5. Rewrite the WIP commit's message once it is swept (or add a follow-up
-   commit), so nothing marked "do not merge" is on the branch.
-
-Not verified: every visual claim about the rail. The predicted widths come
-from the "before" measurement: at 1280 the list column is 974px, which
-leaves the reading column at about 620px after a 17rem rail. That is
-arithmetic, not a measurement.
+- The rail is not in the guided tour (tour.js, not this scope) and has no
+  shortcut of its own (`DEFAULT_SHORTCUTS`, app.js, not this scope).
+- A note that links twice to notes of the same title shows two identical
+  rows; the rows carry no date to tell them apart. Same in the sheet.
+- Not verified: dark theme, and the rail with the sidebar collapsed or
+  dragged wide (the implicit track should hold; not measured).

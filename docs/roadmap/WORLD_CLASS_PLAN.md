@@ -311,7 +311,7 @@ typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
 renders for every note; the FAB never overlaps a primary (Playwright
 intersection check).
 
-**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the always-visible rail on desktop is not built, which is also why `GET /resurface/near` has nowhere to go (261 below). M, Opus.
+**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
 
 ### D3 Chat (M, Opus)
 

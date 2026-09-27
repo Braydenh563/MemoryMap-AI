@@ -5931,6 +5931,8 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
   } else if (old) old.replaceWith(next);
   else char.prepend(next);
   buddy.dataset.expr = want;
+  //: The mood its arms take (the CSS's `data-feel`): this face, or its own.
+  buddy.dataset.feel = want || nmb.reading?.mood || "";
   nmbTempo.seen = 0;
 }
 //: Its faces drawn ahead, one per idle moment: a face drawn the first time
@@ -7245,6 +7247,7 @@ function syncNameMarkBuddy() {
     buddy.dataset.seed = seed;
     //: Its mood and species lean its choices (`nameMarkBuddyDecide`).
     nmb.reading = nameMood(seed);
+    buddy.dataset.feel = nmb.reading?.mood || "";
     const char = buddy.querySelector(".nm-buddy-char");
     char.querySelector(".nm-figure")?.remove();
     char.prepend(characterFor(seed).figure());

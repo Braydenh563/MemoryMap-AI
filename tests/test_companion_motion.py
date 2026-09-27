@@ -846,3 +846,16 @@ def test_the_larger_faces_have_a_life_of_their_own() -> None:
     viewer = _fn("openNameMarkViewer")
     assert '"Its own face, read from its name"' in viewer and '"A face of its own"' not in viewer
     assert "nameMarkIdleWake();" in viewer
+
+
+def test_its_arms_rest_in_its_mood_and_come_back_to_it_after_an_act() -> None:
+    # The owner: "make sure that the positions of the limbs like the arm on
+    # companions ... actually match the mood as well". Measured (armmood.js,
+    # as you): each mood's arms where its rule puts them (happy -35/35,
+    # surprised -155/155, nervous a hand at the mouth), a face palm at -150
+    # over it, and after the act the arm back in the mood's pose.
+    assert 'buddy.dataset.feel = want || nmb.reading?.mood || "";' in _fn("nameMarkBuddyExpress")
+    for mood in ("happy", "surprised", "confused", "sleepy", "sad", "nervous", "serious"):
+        assert f'[data-feel="{mood}"]' in CSS08, mood
+    # Lighter than any act's arm, so an act plays over it and hands it back.
+    assert ':where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }' in CSS08

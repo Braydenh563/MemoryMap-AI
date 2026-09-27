@@ -29,6 +29,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Any small effect drawn inside one of Atlas's layers now moves ten times a second rather than twenty, which halves its cost (40 to 20 repaints and 20 to 10 layouts a second for one effect). Atlas's mood effects are currently drawn on their own layers and cost nothing either way.
+- In Settings, Tools it can use, the two columns' rows line up: a tool with a short description drew its row shorter than the one beside it (27.6px at the default text size), so the rows' edges and fills looked offset between the columns. Each row now fills its place in the grid.
+- Scrolling the Timeline costs about half the scripting it did (38 to 20ms a second in the feed, 39 to 15 in the table, a thousand notes): the band on the time strip that marks what is on screen is kept by the browser's own record of which rows are showing, rather than by up to sixteen hit tests a frame.
+- No page scrolls sideways because of the status bar. At 820 its items were 13px wider than the window (the notebook count now gives way up to 959, as it already did below 820), and a running background job's name never shortened, so while a job ran every tab scrolled sideways by up to 194px at 1024 and 172px at 768; the name now takes the room the bar has and is cut short with its full text on hover.
 - The Timeline remembers how its rows are grouped (category, tag, thread or none) across a reload, as it already remembered the bucket size, the view and the kinds shown.
 - The Library's Archived filter, when nothing is archived, says "Nothing archived yet." rather than "No archived yet.", and no longer offers a Create button beside it, since nothing you create lands there.
 - The Library's grid is one stop for the Tab key: the card you were last on, then its tick and its menu, with the arrow keys between cards. Tab used to walk every card three times over (400 presses on a thousand-note notebook without leaving the grid), so nothing after it could be reached from the keyboard. The All view's sort is kept across a reload, as the Documents and Images sorts already were.

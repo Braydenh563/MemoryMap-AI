@@ -121,6 +121,12 @@ const DASH_WIDGETS = {
   //: left in them, and which ones are stranded).
   boards: { title: "ph:squares-four Boards & maps", description: "Your most recent whiteboards and concept maps, with a miniature of each.", render: renderBoardsWidget },
   documents: { title: "ph:file-text Recent documents", description: "The documents you last edited, newest first.", render: renderDocumentsWidget },
+  //: The Library sub-tab this reads was renamed Links -> Bookmarks (INBOX
+  //: 430: "links" read as note-to-note links to anyone who hadn't opened
+  //: the tab), and this widget is the other half of the same fix: the
+  //: dashboard could see recent notes, documents and boards already, but
+  //: nothing about the one Library surface that isn't a note or a file.
+  bookmarks: { title: "ph:bookmark-simple Bookmarks", description: "Your recently saved bookmarks, pinned ones first.", render: renderBookmarksWidget },
   unfinished: { title: "ph:check-square-offset Unfinished", description: "Notes with checklist items you haven't ticked off yet.", render: renderUnfinishedWidget },
   orphans: { title: "ph:link-break Loose ends", description: "How much of your notebook is connected to anything, and the oldest notes that aren't.", render: renderOrphanNotesWidget },
   //: Deliberately a doorway rather than a live reading. Every other widget
@@ -1484,7 +1490,7 @@ function featureCatalog() {
       { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", reveal: "library-docs" },
       { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", reveal: "library-images" },
       { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", reveal: "library-files" },
-      { name: "Links", desc: "Bookmarks, grouped, with the page's own title and description.", reveal: "library-links" },
+      { name: "Bookmarks", desc: "Bookmarks, grouped, with the page's own title and description.", reveal: "library-links" },
       { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", reveal: "library-skills" },
       { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", reveal: "library-contents" },
       { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", reveal: "library-files" },
@@ -4091,6 +4097,36 @@ async function renderDocumentsWidget(body) {
         switchTab("documents");
         openDocument(doc.id);
       },
+    });
+  }
+  body.appendChild(ul);
+}
+
+//: `GET /bookmarks` is already "pinned first, then newest first"
+//: (routes_bookmarks.py), the same order the Library tab itself opens with,
+//: so this widget and that tab can never disagree about which bookmarks
+//: count as "recent". Opens the site directly, in a new tab, the same as
+//: clicking a bookmark's own title in the Library does: a bookmark's one
+//: job is the page behind it, not a detour through the tab that lists it.
+//: `bookmarkAddress` (library.js) is not called here on purpose: this
+//: widget can render before Library's own script has ever loaded (the
+//: dashboard is usually the first tab open), and `bookmark.title ||
+//: bookmark.url` is the same fallback the bookmark-attach pickers already
+//: use (app.js, documents.js) for exactly that reason.
+async function renderBookmarksWidget(body) {
+  const bookmarks = await apiJson("/bookmarks", { cacheMs: 4000, silent: true }).catch(() => null);
+  if (!bookmarks || !bookmarks.length) {
+    dashEmpty(body, "Save a link to a website you visit often and it will show up here.");
+    return;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const bookmark of bookmarks.slice(0, 6)) {
+    dashActionRow(ul, {
+      title: bookmark.title || bookmark.url,
+      meta: dashRelativeTime(bookmark.created_at),
+      hint: `Open ${bookmark.url}`,
+      onOpen: () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"),
     });
   }
   body.appendChild(ul);

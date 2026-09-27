@@ -255,7 +255,7 @@ const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
   { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
-  { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+  { kind: "link", label: "Bookmarks", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your bookmarks…" },
   {
     kind: "board",
     label: "Boards and maps",

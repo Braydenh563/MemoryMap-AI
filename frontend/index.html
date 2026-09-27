@@ -3769,7 +3769,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="doc-bookmarks-wrap" class="doc-outline-wrap">
             <h3>References</h3>
             <ul id="doc-bookmarks" class="doc-outline"></ul>
-            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a link</button>
+            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a bookmark</button>
           </div>
 
           <!-- "Where are they stored?" was asked outright, and the app had no
@@ -4689,7 +4689,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="images">Images</button>
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="files">Files</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI skills</button>
-      <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
+      <button role="tab" aria-selected="false" data-target="library-view-links">Bookmarks</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
     </div>
 
@@ -4984,20 +4984,42 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="skills-dashboard-list"></div>
         </section>
 
-      
+
         </main>
-        <aside class="card glass" id="skills-sidebar">
-        <div class="row space-between library-head">
-          <h2 id="skills-logs-heading">Skill logs</h2>
-          <div class="row skills-logs-actions">
+        <!-- Reuses the Notes/Chat/Documents sidebar recipe (INBOX 430:
+             collapse, drag-resize, the hover-peek while collapsed, and the
+             phone sheet), rather than a fourth hand-built column:
+             `initResizableSidebars` and `SIDEBAR_IDS` in app.js pick it up
+             by id, `mountPhoneSidebarOpeners` gives it the same rail opener
+             in this tab's own dock. Plain `.card`, not `.glass`: every
+             other sidebar in the app is a flat tone beside a flat `main`,
+             and `.glass`'s own shadow and rim, drawn along the one edge the
+             two panels share, was the "odd shadow between it and the main
+             panel" report -- the sidebar had a shadow the content beside it
+             did not, which reads as a seam rather than as one page.
+             Last in the DOM, unlike the other three (which lead their row):
+             this is the one sidebar on the *right*, a log panel rather than
+             primary navigation, kept there on purpose rather than moved to
+             match. `RIGHT_SIDE_SIDEBARS` in app.js is the one place that
+             asymmetry is spelled out.
+
+             Supersedes a hand-built `#skills-logs-collapse` toggle a
+             concurrent merge added here independently (its own
+             `skills-logs-collapsed` class on `.skills-split`, its own
+             `mm-skill-logs-collapsed` localStorage key): standing order 11
+             is exactly "a hand-built control where a recipe exists", and the
+             shared sidebar recipe's own toggle already does strictly more
+             (drag-resize, hover-peek, the phone sheet) than a class that
+             only shrinks the column. `setSkillLogsCollapsed` and its
+             listener in library.js are dead code now and are removed with
+             this. -->
+        <aside class="card sidebar-panel" id="skills-sidebar">
+          <div class="row space-between library-head sidebar-head">
+            <h2 id="skills-logs-heading">Skill logs</h2>
             <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
-            <button id="skills-logs-collapse" class="icon-only ghost small" type="button"
-              aria-expanded="true" aria-controls="skills-logs-list"
-              title="Collapse the skill logs" aria-label="Collapse the skill logs"><i class="ph ph-sidebar-simple" aria-hidden="true"></i></button>
           </div>
-        </div>
-        <div id="skills-logs-list" class="entry-list"></div>
-      </aside>
+          <div id="skills-logs-list" class="entry-list"></div>
+        </aside>
       </div>
     </div>
 
@@ -6582,19 +6604,19 @@ Link to another note with [[its first few words]]."></textarea>
            button, so it needs no listener of its own and cannot drift from
            what that button does: it puts the cursor in the URL field. -->
       <div class="dock" data-dock-name="library-links" role="toolbar"
-        aria-label="Saved link controls">
+        aria-label="Saved bookmark controls">
         <div class="dock-identity">
-          <h2>Links</h2>
+          <h2>Bookmarks</h2>
         </div>
         <div class="dock-group dock-find">
           <input id="bookmark-search" type="search" class="library-search"
-            placeholder="Search saved links…" aria-label="Search saved links">
+            placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
         </div>
         <div class="dock-group dock-arrange">
           <!-- Same shape and same place as the Notes and Files sort controls.
                The Library sub-tabs were reported as "missing sorting and
                filtering options", and this is the third of them to get one. -->
-          <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
+          <select id="bookmark-sort" aria-label="Sort bookmarks" title="Sort bookmarks">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
             <option value="az">Title A → Z</option>
@@ -6604,8 +6626,8 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <div class="dock-actions">
           <button id="bookmark-add" class="small" type="button"
-            data-empty-action="add-link" title="Save a new link">
-            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add link</button>
+            data-empty-action="add-link" title="Save a new bookmark">
+            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
           <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">
@@ -6642,11 +6664,11 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
-        <p class="empty-title">No links saved yet</p>
+        <p class="empty-title">No bookmarks saved yet</p>
         <p>Add a website to keep it a click away.</p>
-        <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a link</button>
+        <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a bookmark</button>
       </div>
-      <p id="bookmark-no-match" class="muted hidden">No links match your search.</p>
+      <p id="bookmark-no-match" class="muted hidden">No bookmarks match your search.</p>
     </section>
   </div>
 

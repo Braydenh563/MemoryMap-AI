@@ -879,7 +879,7 @@ const FINDER_KINDS = [
   //: Library and the tab strip.
   { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
-  { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
+  { key: "bookmark", icon: "ph:bookmark-simple", one: "bookmark", many: "bookmarks" },
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
   { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
 ];
@@ -1041,7 +1041,7 @@ function finderRenderEmpty() {
   title.textContent = "Search everything you keep";
   const body = document.createElement("p");
   body.textContent =
-    "Notes, documents, boards, mind maps, files, links and reminders at once, by your words and by what they mean. Type to begin.";
+    "Notes, documents, boards, mind maps, files, bookmarks and reminders at once, by your words and by what they mean. Type to begin.";
   box.append(icon, title, body);
   results.appendChild(box);
   finderRenderFilters();

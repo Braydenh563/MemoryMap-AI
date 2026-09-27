@@ -684,7 +684,7 @@ async function openBookmarkAttachPicker(entry, panel) {
     return;
   }
   if (!all.length) {
-    toast("No saved links yet, add one in Library → Links first.");
+    toast("No saved bookmarks yet, add one in Library → Bookmarks first.");
     return;
   }
   const select = document.createElement("select");

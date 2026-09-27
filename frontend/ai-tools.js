@@ -210,16 +210,21 @@ function _namesSignature(names) {
 }
 
 function fillModelSelect(select, names, extraFirst, savedValue) {
-  const wanted = extraFirst ? [extraFirst.value, ...names] : names;
+  //: `extraFirst` started as one leading option ("Inherited: X"); the model-
+  //: per-feature select needs three (Inherited, Same as chat model, Same as
+  //: utility model, INBOX 430), so it takes an array too now. Every existing
+  //: caller still passes a single object or null, unchanged.
+  const extras = Array.isArray(extraFirst) ? extraFirst.filter(Boolean) : extraFirst ? [extraFirst] : [];
+  const wanted = [...extras.map((e) => e.value), ...names];
   const signature = _namesSignature(wanted);
   if (select.dataset.sig === signature) return; // same options → leave it alone
   select.dataset.sig = signature;
   const previous = select.value; // preserve a live selection across a rebuild
   select.replaceChildren();
-  if (extraFirst) {
+  for (const extra of extras) {
     const option = document.createElement("option");
-    option.value = extraFirst.value;
-    option.textContent = extraFirst.label;
+    option.value = extra.value;
+    option.textContent = extra.label;
     select.appendChild(option);
   }
   for (const name of names) {
@@ -525,6 +530,12 @@ function renderVisionModelPicker(status) {
 //: from a menu and cannot wait for a round trip before drawing themselves.
 let featureModelRows = [];
 let featureModelNames = [];
+//: The two sentinel values `/models/feature-model` accepts for "Same as
+//: chat model" / "Same as utility model" (INBOX 430), read from the status
+//: poll rather than hardcoded, so this file never has to carry a string
+//: that only means something because it matches model_manager.py's own
+//: constant.
+let featureModelFollow = { chat: "", utility: "" };
 
 function featureModelRow(key) {
   return featureModelRows.find((row) => row.key === key) || null;
@@ -532,11 +543,22 @@ function featureModelRow(key) {
 
 //: What a row says about itself under its name. This is the fact the control
 //: beside it cannot carry: a select showing "llama3.2" looks the same whether
-//: that name was chosen for this feature or arrived from the chat model.
+//: that name was chosen for this feature, arrived from the chat model, or is
+//: this feature explicitly following the *other* role on purpose.
 function featureModelState(row) {
+  if (row.override_kind === "chat") return `Same as chat model (currently ${row.model})`;
+  if (row.override_kind === "utility") return `Same as utility model (currently ${row.model})`;
   return row.overridden
     ? `Its own model: ${row.model}`
     : `Inherited: ${row.inherits}`;
+}
+
+//: The toast names what was actually chosen, never the raw sentinel: "now
+//: uses __follow_chat_model__" would mean nothing to anyone reading it.
+function featureModelChoiceLabel(name) {
+  if (name === featureModelFollow.chat) return "the chat model";
+  if (name === featureModelFollow.utility) return "the utility model";
+  return name;
 }
 
 async function applyFeatureModel(key, name) {
@@ -547,7 +569,11 @@ async function applyFeatureModel(key, name) {
       body: JSON.stringify({ feature: key, name }),
     });
     const label = row ? row.label : "This feature";
-    toast(name ? `${label} now uses ${name}.` : `${label} is back on its default model.`);
+    toast(
+      name
+        ? `${label} now uses ${featureModelChoiceLabel(name)}.`
+        : `${label} is back on its default model.`
+    );
     refreshModelStatus();
   } catch (error) {
     toast(error.message || "Couldn't set that model.", true);
@@ -558,6 +584,7 @@ async function applyFeatureModel(key, name) {
 function renderFeatureModels(status) {
   featureModelRows = status.feature_models || [];
   featureModelNames = (status.installed_models || []).map((m) => m.name);
+  featureModelFollow = status.feature_model_follow || featureModelFollow;
   syncFeatureModelSelects();
   const list = $("feature-models-list");
   if (!list) return;
@@ -585,12 +612,24 @@ function renderFeatureModels(status) {
     select.setAttribute("aria-label", `Model for ${row.label}`);
     select.title = `Model for ${row.label}`;
     //: The "inherited" option names what it inherits, so the list can be read
-    //: without opening anything: every row says which model it is on.
+    //: without opening anything: every row says which model it is on. The two
+    //: "Same as ..." options (INBOX 430) are the sentinels themselves, so
+    //: picking one round-trips to `applyFeatureModel` unchanged and the
+    //: backend stores the sentinel, not a name that would go stale the next
+    //: time that role's model changes.
+    let savedValue = "";
+    if (row.override_kind === "model") savedValue = row.override_value;
+    else if (row.override_kind === "chat") savedValue = featureModelFollow.chat;
+    else if (row.override_kind === "utility") savedValue = featureModelFollow.utility;
     fillModelSelect(
       select,
       featureModelNames,
-      { value: "", label: `Inherited: ${row.inherits}` },
-      row.overridden ? row.model : ""
+      [
+        { value: "", label: `Inherited: ${row.inherits}` },
+        { value: featureModelFollow.chat, label: "Same as chat model" },
+        { value: featureModelFollow.utility, label: "Same as utility model" },
+      ],
+      savedValue
     );
     select.addEventListener("change", () => applyFeatureModel(row.key, select.value));
 
@@ -682,8 +721,31 @@ function openFeatureModelSheet(key) {
           }
         )
       );
+      //: The two "Same as ..." rows (INBOX 430): a feature that wants to
+      //: follow a role other than its own, on purpose, rather than being
+      //: pinned to one model that goes stale the moment that role changes.
+      list.appendChild(
+        sheetRow(
+          row.override_kind === "chat" ? "ph ph-check" : "ph ph-arrows-clockwise",
+          "Same as chat model",
+          () => {
+            close();
+            if (row.override_kind !== "chat") applyFeatureModel(key, featureModelFollow.chat);
+          }
+        )
+      );
+      list.appendChild(
+        sheetRow(
+          row.override_kind === "utility" ? "ph ph-check" : "ph ph-arrows-clockwise",
+          "Same as utility model",
+          () => {
+            close();
+            if (row.override_kind !== "utility") applyFeatureModel(key, featureModelFollow.utility);
+          }
+        )
+      );
       for (const name of featureModelNames) {
-        const chosen = row.overridden && row.model === name;
+        const chosen = row.override_kind === "model" && row.override_value === name;
         list.appendChild(
           sheetRow(chosen ? "ph ph-check" : "ph ph-cube", name, () => {
             close();

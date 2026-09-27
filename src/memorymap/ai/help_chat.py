@@ -190,9 +190,10 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The Library is everything already made, in one searchable, "
             "filterable place: notes, documents, chats, files and tags, plus "
-            "Links (a bookmark shelf for websites), Contents (a hyperlinked "
-            "outline of the whole notebook) and AI Skills. Sub-tabs also hold "
-            "Documents, Whiteboards, and the Files & Images gallery."
+            "Bookmarks (a shelf for websites you visit often), Contents (a "
+            "hyperlinked outline of the whole notebook) and AI Skills. "
+            "Sub-tabs also hold Documents, Whiteboards, and the Files & "
+            "Images gallery."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

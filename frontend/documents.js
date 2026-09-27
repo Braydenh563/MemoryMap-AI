@@ -1254,7 +1254,7 @@ async function attachBookmarkToDocument() {
     return;
   }
   if (!all.length) {
-    toast("No saved links yet, add one in Library → Links first.");
+    toast("No saved bookmarks yet, add one in Library → Bookmarks first.");
     return;
   }
   const wrap = $("doc-bookmarks-wrap");
@@ -1272,7 +1272,7 @@ async function attachBookmarkToDocument() {
   const select = document.createElement("select");
   select.className = "bookmark-attach-picker";
   const placeholder = document.createElement("option");
-  placeholder.textContent = "Pick a saved link…";
+  placeholder.textContent = "Pick a saved bookmark…";
   placeholder.value = "";
   select.appendChild(placeholder);
   for (const bookmark of all) {

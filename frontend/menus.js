@@ -257,7 +257,23 @@ window.addEventListener("resize", () => {
 }, { passive: true });
 // A popover is anchored to a rect that scrolls away underneath it; every
 // other floating thing in this app closes rather than chasing it.
-window.addEventListener("scroll", closeHelpPopovers, true);
+//
+// But the popover's own body scrolls too (INBOX 430: a two-finger touchpad
+// scroll doesn't scroll the popover): it is `overflow-y: auto`, and a
+// `scroll` event fired on it still ran this capturing listener, closing
+// every open popover, because capture reaches every ancestor on the way
+// down to the target regardless of whether the event itself bubbles. With
+// no guard, the first frame of a two-finger scroll on the popover's own
+// text closed it instead of scrolling it, so the gesture looked dead rather
+// than merely closing the thing it was scrolling. `event.target` is the
+// element that actually scrolled; only close a popover for the page moving
+// under its anchor, never for the popover scrolling itself.
+window.addEventListener("scroll", (event) => {
+  for (const entry of [...openHelpPopovers]) {
+    if (entry.panel.contains(event.target)) continue;
+    entry.close();
+  }
+}, true);
 
 function wireHelpPopover(trigger, panel) {
   if (!trigger || !panel || panel.dataset.helpPopover) return;

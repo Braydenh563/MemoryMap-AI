@@ -5155,6 +5155,39 @@ select {
   line-height: 1.3;
 }
 
+/* **One group-head recipe, stronger than the eyebrow it was inheriting**
+   (INBOX 430): every group head in Settings ("Destinations", "Model per
+   feature", "Which ones it may use", 30 of them) is an `h3` or `h4` inside a
+   `.settings-group`, which is itself inside `.modal-card` -- a `.card` -- so
+   `.card h3` (01-forms-settings.css, the eyebrow: 12px, uppercase, muted)
+   was the only rule that ever reached it. That recipe is right for a minor
+   label under a card title; wrong for the one heading that names an entire
+   settings block and is the thing someone's eye has to land on when
+   scanning a long page. Sized and weighted here instead, one step below the
+   modal's own `h2` ("Settings", `.card h2`: 1rem/650) rather than matching
+   it, and in DESIGN.md's recipe index so a new settings group reaches for
+   this instead of a bare heading. */
+#settings-modal .settings-group h3:not(.flush),
+#settings-modal .settings-group h4:not(.flush) {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* The muted divider under the head: on the heading itself when it stands
+   alone, on its `.help-head` row when a "?" toggle rides beside it, so the
+   line spans the whole head rather than stopping under the text and leaving
+   the toggle floating past its end. */
+#settings-modal .settings-group > h3:not(.flush),
+#settings-modal .settings-group > h4:not(.flush),
+#settings-modal .settings-group > .help-head:has(> h3),
+#settings-modal .settings-group > .help-head:has(> h4) {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--divider);
+}
+
 #settings-modal .settings-group > h3:first-child,
 #settings-modal .settings-group > h4:first-child {
   margin-top: 0;

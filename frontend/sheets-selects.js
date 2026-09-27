@@ -19,7 +19,7 @@ const SIDEBAR_MAX = 520;
 // Per-sidebar starting widths. The chat list carries the most text per row, 
 // a title, then a date/turns/tokens line, so it starts wider than a list of
 // one-word category names.
-const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260 };
+const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260, "skills-sidebar": 300 };
 const sidebarDefault = (id) => SIDEBAR_DEFAULTS[id] || 260;
 
 function sidebarWidth(id, fallback = 260) {
@@ -89,6 +89,14 @@ function sidebarFittedWidth(saved) {
   return Math.min(saved, banded);
 }
 
+//: The skill logs sidebar sits *after* `main` in `.skills-split`
+//: (INBOX 430), where every other resizable sidebar sits before it in its
+//: own grid: a template written "column, then 1fr" put the width where the
+//: content should stretch and the content where the sidebar should sit,
+//: which is why this set exists rather than reading DOM order at call time
+//: (an aside mid-resize is not necessarily still where it started).
+const RIGHT_SIDE_SIDEBARS = new Set(["skills-sidebar"]);
+
 function applySidebarWidth(aside, width, { remember = true } = {}) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
   // **The user's choice is stored, the fitted width is applied**, and the
@@ -105,10 +113,17 @@ function applySidebarWidth(aside, width, { remember = true } = {}) {
     return clamped;
   }
 
+  const onRight = RIGHT_SIDE_SIDEBARS.has(aside.id);
+  const rail = "48px";
+  const fitted = `${sidebarFittedWidth(clamped)}px`;
   if (aside.classList.contains("sidebar-collapsed")) {
-    aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
+    aside.parentElement.style.gridTemplateColumns = onRight
+      ? `minmax(0, 1fr) ${rail}`
+      : `${rail} minmax(0, 1fr)`;
   } else {
-    aside.parentElement.style.gridTemplateColumns = `${sidebarFittedWidth(clamped)}px minmax(0, 1fr)`;
+    aside.parentElement.style.gridTemplateColumns = onRight
+      ? `minmax(0, 1fr) ${fitted}`
+      : `${fitted} minmax(0, 1fr)`;
   }
   return clamped;
 }
@@ -122,7 +137,7 @@ let sidebarRefitTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(sidebarRefitTimer);
   sidebarRefitTimer = setTimeout(() => {
-    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar", "skills-sidebar"]) {
       const aside = document.getElementById(id);
       if (aside?.dataset.resizable) {
         applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
@@ -172,7 +187,7 @@ for (const query of [STACKED_LAYOUT, SIDEBAR_TABLET_BAND]) {
 // hover-peek. Instead the desktop classes are taken off while stacked and put
 // back on the way out, so none of those rules apply and there is nothing to
 // fight.
-const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar"];
+const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar", "skills-sidebar"];
 
 function eachSidebar(fn) {
   for (const id of SIDEBAR_IDS) {
@@ -274,6 +289,7 @@ const SIDEBAR_RAIL_NAMES = {
   sidebar: "Categories",
   "chat-sidebar": "Chats",
   "doc-sidebar": "Documents",
+  "skills-sidebar": "Skill logs",
 };
 
 function makeSidebarResizable(aside) {
@@ -323,14 +339,13 @@ function makeSidebarResizable(aside) {
     }
     aside.classList.toggle("sidebar-collapsed");
     aside.parentElement.classList.toggle("layout-sidebar-collapsed");
-    
-    // We update the grid column based on whether it is now collapsed or not
-    if (aside.classList.contains("sidebar-collapsed")) {
-      aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
-    } else {
-      const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
-      aside.parentElement.style.gridTemplateColumns = `${saved}px minmax(0, 1fr)`;
-    }
+
+    // The grid column, for whichever side this sidebar is on (INBOX 430):
+    // routed through applySidebarWidth so the left/right branch lives in one
+    // place rather than being re-decided here, which is how a right-side
+    // sidebar's collapse used to put its rail column on the wrong edge.
+    const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
+    applySidebarWidth(aside, saved, { remember: false });
   });
   aside.appendChild(collapseBtn);
 
@@ -351,13 +366,22 @@ function makeSidebarResizable(aside) {
     aside.appendChild(rail);
   }
 
+  //: A right-side sidebar's handle sits on its *left* edge (the one
+  //: touching `main`, see the CSS override next to `.sidebar-resize`), so
+  //: the same rightward drag that widens a left-side sidebar narrows one on
+  //: the right: the pointer is moving away from the content either way, but
+  //: which direction "away" is depends on which side the content is on.
+  const onRight = RIGHT_SIDE_SIDEBARS.has(aside.id);
   const startDrag = (event) => {
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = aside.getBoundingClientRect().width;
     document.body.classList.add("resizing-sidebar");
 
-    const move = (e) => applySidebarWidth(aside, startWidth + (e.clientX - startX));
+    const move = (e) => {
+      const delta = e.clientX - startX;
+      applySidebarWidth(aside, startWidth + (onRight ? -delta : delta));
+    };
     const stop = () => {
       document.body.classList.remove("resizing-sidebar");
       window.removeEventListener("pointermove", move);
@@ -371,10 +395,14 @@ function makeSidebarResizable(aside) {
   handle.addEventListener("keydown", (event) => {
     const step = event.shiftKey ? 40 : 12;
     const current = aside.getBoundingClientRect().width;
-    if (event.key === "ArrowLeft") {
+    // Same reasoning as the drag: Left/Right name a screen direction, and
+    // which way that grows a right-side sidebar is the mirror of a left one.
+    const grow = onRight ? "ArrowLeft" : "ArrowRight";
+    const shrink = onRight ? "ArrowRight" : "ArrowLeft";
+    if (event.key === shrink) {
       event.preventDefault();
       applySidebarWidth(aside, current - step);
-    } else if (event.key === "ArrowRight") {
+    } else if (event.key === grow) {
       event.preventDefault();
       applySidebarWidth(aside, current + step);
     } else if (event.key === "Home") {
@@ -389,7 +417,7 @@ function makeSidebarResizable(aside) {
 }
 
 function initResizableSidebars() {
-  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+  for (const id of SIDEBAR_IDS) {
     const aside = document.getElementById(id);
     if (aside) makeSidebarResizable(aside);
   }

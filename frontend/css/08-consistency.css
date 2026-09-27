@@ -2796,14 +2796,24 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* **A divider needs something on both sides of it.** `.dock > * + *` draws
    one before every zone after the first, which is right until the first
-   child is a zone that is not drawn: the Chat header's phone sidebar button
+   child is a zone that is not drawn: the Chat header's phone sidebar opener
    is `display: none` on a desktop, so the rule put a hairline between
    nothing and the thread mark, and it read as a line floating to the left of
-   the chat icon (the owner, 2026-09-21, with a screenshot). Measured: the
-   line is `.dock-identity`'s own `border-left` from that rule. On a phone,
-   where the button is drawn, a divider immediately after it is equally
-   wrong: it is a control, not a zone. */
-.dock > .phone-sidebar-open + * {
+   the chat icon (the owner, 2026-09-21, with a screenshot; reported again,
+   INBOX 430, "the icon tile already separates"). Measured: the line is
+   `.dock-identity`'s own `border-left` from that rule. On a phone, where the
+   opener is drawn, a divider immediately after it is equally wrong: it is a
+   control, not a zone.
+
+   **The regression, and why this needed measuring twice.** The first fix
+   targeted `.phone-sidebar-open`, the opener's class name at the time; the
+   opener was rebuilt since as `mountPhoneSidebarOpeners`'s `.dock-nav`
+   wrapper (DESIGN.md's own recipe index entry for "a sidebar on a phone"),
+   and nothing renamed this selector to match. Grepped rather than guessed:
+   `.phone-sidebar-open` does not appear anywhere else in the frontend, so
+   this rule had matched nothing since the rebuild and the divider had
+   nothing left undoing it. */
+.dock > .dock-nav + * {
   border-left: 0;
   padding-left: 0;
 }
@@ -7500,59 +7510,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    word's gap across; the rows stay close. */
 #raw-results .entry-meta {
   column-gap: var(--space-3);
-}
-
-/* The skill logs folded (`setSkillLogsCollapsed`, library.js): the column is
-   a rail holding its button and a sideways title, the skills take the rest. */
-/* 48px and the toggle's own inset, the folded sidebars' numbers, so the four
-   rails in the app are one width with the button in one place. */
-.skills-split.skills-logs-collapsed {
-  grid-template-columns: minmax(0, 1fr) 48px;
-}
-
-.skills-logs-collapsed #skills-sidebar {
-  padding-inline: 0;
-  padding-top: var(--sidebar-toggle-inset);
-  align-items: center;
-}
-
-.skills-logs-collapsed #skills-sidebar .library-head {
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  gap: var(--space-3);
-}
-
-.skills-logs-collapsed #skills-logs-heading {
-  writing-mode: vertical-rl;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-}
-
-/* The same rail as a folded sidebar (.sidebar-rail-name, 07-whiteboard-misc.css):
-   the accent wash at the top instead of a plain column. */
-.skills-logs-collapsed #skills-sidebar {
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
-}
-
-.skills-logs-collapsed #skills-logs-list,
-.skills-logs-collapsed #skills-logs-clear {
-  display: none;
-}
-
-.skills-logs-actions {
-  gap: var(--space-1);
-}
-
-@media (max-width: 900px) {
-  .skills-split.skills-logs-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .skills-logs-collapsed #skills-logs-heading {
-    writing-mode: horizontal-tb;
-  }
 }
 
 /* **Toasts at the bottom on a phone** (the owner's decision, 2026-09-24): at

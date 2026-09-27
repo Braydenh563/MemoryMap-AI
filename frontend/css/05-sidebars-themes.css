@@ -127,17 +127,6 @@
     align-self: stretch;
   }
 
-  /* Same reason as #chat-sidebar/#doc-sidebar just above: stacked under a
-     collapsed .skills-split (07-whiteboard-misc.css), a sidebar still
-     `position: sticky` with `max-height: var(--page-sticky-h)` pins itself
-     to viewport height in the middle of the page instead of just being the
-     next block: undo both, the same shape #doc-sidebar's own reset used. */
-  #skills-sidebar {
-    position: relative;
-    height: auto;
-    max-height: none;
-  }
-
   /* The side-by-side preview collapses back to a stack on a narrow screen.
      This used to say `grid-template-columns: 1fr` on `.doc-panes.split`,
      which was dead twice over, #doc-panes is a flex column, not a grid, and
@@ -147,6 +136,21 @@
      cascade. */
   #doc-panes.split {
     flex-direction: column;
+  }
+}
+
+/* `#skills-sidebar` is one of the resizable/sheet sidebars now (INBOX 430),
+   driven by app.js's STACKED_LAYOUT at 819.98px, not by the block above's
+   900px (that number is `.doc-layout`'s own, untouched here): stacked, a
+   sidebar still `position: sticky` with `max-height: var(--page-sticky-h)`
+   pins itself to viewport height in the middle of the page instead of just
+   being the next block, undone the same shape #doc-sidebar's own reset
+   uses, above. */
+@media (max-width: 819.98px) {
+  #skills-sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
   }
 }
 
@@ -1646,6 +1650,18 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   border-radius: var(--radius-sm);
   transition: background var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
   touch-action: none;
+}
+
+/* `#skills-sidebar` sits *after* `main` in `.skills-split` (INBOX 430),
+   the opposite side from the other three resizable sidebars, so the plain
+   `right: 0` above puts its handle at the window's outer edge, nowhere
+   near `main`, and dragging it would resize nothing a person can see move.
+   The handle belongs on the edge that actually touches the content it
+   resizes: `left: 0` here, mirrored in sheets-selects.js's own
+   `RIGHT_SIDE_SIDEBARS` branch (the drag delta's sign). */
+#skills-sidebar > .sidebar-resize {
+  right: auto;
+  left: 0;
 }
 
 .sidebar-resize:hover,

@@ -599,6 +599,20 @@
   position: relative;
 }
 
+/* Skill logs sits on the right (RIGHT_SIDE_SIDEBARS, app.js): the hover-peek
+   rule above leaves `left`/`right` on auto, which resolves against the
+   sidebar's own static position -- correct by luck for the three left-hand
+   sidebars (anchoring the left edge and growing rightward, over the content,
+   is what "auto" gives an item whose static position is already on that
+   side) but the wrong edge here, where growing from an anchored left edge
+   would push the peek off the right side of the window instead of over the
+   content beside it. Anchoring the right edge explicitly keeps it growing
+   the one direction that makes sense for a sidebar on this side. */
+.layout-sidebar-collapsed > #skills-sidebar.sidebar-collapsed:hover {
+  right: 0;
+  left: auto;
+}
+
 
 /* ======================= MICRO-ANIMATIONS ======================= */
 /* Interactive cards get a slight upward lift and shadow pop on hover */
@@ -2142,13 +2156,17 @@ body.scroll-top-visible .skills-split > main {
    mobile phones", the fixed 18.75rem sidebar column never gave way, so a
    phone-width viewport either squeezed the skill list into a sliver or
    overflowed horizontally. Same collapse-to-a-stack fix as .doc-layout
-   (04-chat-dock-appearance.css) at the same breakpoint; #skills-sidebar's
-   own sticky/fixed-height rules are undone alongside it in
-   05-sidebars-themes.css, the same way #chat-sidebar/#doc-sidebar already
-   are in that file's matching query. */
-@media (max-width: 900px) {
+   (04-chat-dock-appearance.css), **at the same breakpoint as the sidebar
+   sheet system now that #skills-sidebar is one of the three it drives**
+   (STACKED_LAYOUT in app.js; the number has to match here and there, or the
+   band between the two would leave a `position: fixed` sheet inside a grid
+   track still sized for a column it no longer occupies, an empty 18.75rem
+   gap next to a full-width `main`). #skills-sidebar's own sticky/fixed-height
+   rules are undone alongside it in 05-sidebars-themes.css, the same way
+   #chat-sidebar/#doc-sidebar already are in that file's matching query. */
+@media (max-width: 819.98px) {
   .skills-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -11960,7 +11978,8 @@ header#top-bar {
      x=-255, and a sidebar still costing the content its height. */
   #sidebar,
   #chat-sidebar,
-  #doc-sidebar {
+  #doc-sidebar,
+  #skills-sidebar {
     --sheet-rail: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
     position: fixed;
     top: var(--header-h);
@@ -11983,7 +12002,8 @@ header#top-bar {
 
   #sidebar.sidebar-sheet-open,
   #chat-sidebar.sidebar-sheet-open,
-  #doc-sidebar.sidebar-sheet-open {
+  #doc-sidebar.sidebar-sheet-open,
+  #skills-sidebar.sidebar-sheet-open {
     transform: translateX(0);
     box-shadow: var(--glass-shadow);
   }
@@ -11994,13 +12014,15 @@ header#top-bar {
      slides. */
   #sidebar > *,
   #chat-sidebar > *,
-  #doc-sidebar > * {
+  #doc-sidebar > *,
+  #skills-sidebar > * {
     visibility: hidden;
   }
 
   #sidebar.sidebar-sheet-open > *,
   #chat-sidebar.sidebar-sheet-open > *,
-  #doc-sidebar.sidebar-sheet-open > * {
+  #doc-sidebar.sidebar-sheet-open > *,
+  #skills-sidebar.sidebar-sheet-open > * {
     visibility: visible;
   }
 
@@ -12009,7 +12031,8 @@ header#top-bar {
      stays visible. */
   #sidebar > .sidebar-collapse-toggle,
   #chat-sidebar > .sidebar-collapse-toggle,
-  #doc-sidebar > .sidebar-collapse-toggle {
+  #doc-sidebar > .sidebar-collapse-toggle,
+  #skills-sidebar > .sidebar-collapse-toggle {
     right: var(--sidebar-toggle-inset);
     visibility: visible;
   }
@@ -12018,7 +12041,8 @@ header#top-bar {
      the sheet has one width. */
   #sidebar > .sidebar-resize,
   #chat-sidebar > .sidebar-resize,
-  #doc-sidebar > .sidebar-resize {
+  #doc-sidebar > .sidebar-resize,
+  #skills-sidebar > .sidebar-resize {
     display: none;
   }
 
@@ -12027,6 +12051,17 @@ header#top-bar {
      `test_style_scale.py` reads any rule whose selector starts with `.layout`
      or `.doc-layout` as the page container setting its own outer gutter. */
   .sidebar-panel ~ * {
+    padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+  }
+
+  /* Skill logs comes after `main` in the DOM (it sits on the right at
+     desktop widths, RIGHT_SIDE_SIDEBARS in app.js), so the rule above, which
+     only reaches a *later* sibling of a `.sidebar-panel`, cannot reach it.
+     On a phone every sidebar becomes a rail on the *left* regardless of
+     which side it sat on at desktop width (the shared fixed-sheet rule
+     above pins every one of them to `left: 0`), so `main` still needs the
+     same clearance, just stated in the other direction for this one. */
+  .skills-split > main:has(+ #skills-sidebar) {
     padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
   }
 }

@@ -4196,7 +4196,16 @@ html.modal-open body {
   content: "";
   position: absolute;
   left: 0.22rem;
-  right: 0.22rem;
+  /* `width`, not `right: 0.22rem`. The rotating thinking word
+     (`.typing-thinking-word`, below) is appended into this same row as a
+     flex child, and `right: 0.22rem` tracked *its* far edge, stretching the
+     hairline out under the word's whole reserved width: the owner's "the
+     dots, a long line, then the phrase far right" screenshot, measured
+     (`scratchpad/ui-sweeps/thinkingwords.js`): a 249px row for three ~7px
+     dots. The cluster is always exactly three dots (`typingDots`, chat.js),
+     a fixed width, so it is computed once here instead of read off
+     whatever the row happens to contain. */
+  width: calc(3 * 0.45rem + 2 * var(--space-1) - 0.44rem);
   top: 50%;
   height: 1px;
   background: linear-gradient(
@@ -4209,12 +4218,12 @@ html.modal-open body {
   pointer-events: none;
 }
 
-.typing-dots span {
+.typing-dots .typing-dot {
   position: relative;
   z-index: 1;
 }
 
-.typing-dots span {
+.typing-dots .typing-dot {
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
@@ -4227,11 +4236,11 @@ html.modal-open body {
   will-change: transform, opacity;
 }
 
-.typing-dots span:nth-child(2) {
+.typing-dots .typing-dot:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.typing-dots span:nth-child(3) {
+.typing-dots .typing-dot:nth-child(3) {
   animation-delay: 0.3s;
 }
 
@@ -4301,26 +4310,31 @@ html.modal-open body {
 /* **The rotating thinking word** (chat.js's `startThinkingWordRotation`):
    beside the enhanced-motion dots, never built when motion is off (that
    branch's own `.typing-word` above already says "one word, no rotation",
-   which is the reduced-motion answer this asks for). The same crossfade and
-   2px rise `.progress-musing` uses (this file, above), so a rotating word
-   and a rotating sentence read as one family rather than two indicators
-   that happen to look similar. `min-width` is set inline per instance
-   (`thinkingWordMinWidth`, chat.js), sized to the longest word in whichever
-   persona's list is showing, so the row's own width never jumps as a short
-   word gives way to a long one. */
+   which is the reduced-motion answer this asks for). `min-width` is set
+   inline per instance (`thinkingWordMinWidth`, chat.js), sized to the
+   longest word in whichever persona's list is showing, so the row's own
+   width never jumps as a short word gives way to a long one.
+
+   Bold, with a static glow rather than `.progress-musing`'s fade-in-place:
+   the owner's report ("an annoying pulse") was this dropping to fully
+   transparent and back on every rotation (2.5 to 3.5s), which reads as
+   blinking rather than a word changing. The resting opacity is raised so a
+   swap only dims, never vanishes, and the glow (a fixed text-shadow, not an
+   animated one) gives it presence without adding a second loop for
+   `prefers-reduced-motion` to answer for. */
 .typing-thinking-word {
   display: inline-block;
   margin-left: var(--space-2);
-  color: var(--muted);
+  color: var(--ink);
   font-size: var(--text-sm);
-  opacity: 0;
-  transform: translateY(2px);
-  transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+  font-weight: 600;
+  opacity: 0.5;
+  text-shadow: 0 0 0.5rem color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 .typing-thinking-word.is-shown {
-  opacity: 0.85;
-  transform: none;
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4328,7 +4342,7 @@ html.modal-open body {
      element exists only when "always" deliberately overrode the OS
      setting, so its own crossfade is re-declared rather than switched off. */
   .typing-thinking-word {
-    transition: opacity var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+    transition: opacity var(--motion-base) var(--ease-out);
   }
 }
 
@@ -5018,14 +5032,23 @@ select {
    dots stayed visible *underneath* the trace at whatever opacity the bounce
    happened to be on. Measured: 0.61 instead of 0. Dropping the animation
    hands the property back to this rule and the transition below. */
-.typing-dots[data-phase="writing"] span {
+.typing-dots[data-phase="writing"] .typing-dot {
   animation: none;
   opacity: 0;
   transform: scale(0.5);
 }
 
-.typing-dots span {
+.typing-dots .typing-dot {
   transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
+}
+
+/* The thinking word fades with the dots it used to be caught by
+   `.typing-dots[data-phase="writing"] span` above (before that rule was
+   scoped to `.typing-dot`): `stopThinkingWordRotation` only clears its
+   rotation timer, so without this the word itself would sit stuck on
+   screen, frozen on whatever it last said, once the answer starts writing. */
+.typing-dots[data-phase="writing"] .typing-thinking-word {
+  opacity: 0;
 }
 
 /* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's
@@ -5100,7 +5123,7 @@ select {
   }
 
   .ai-writing-trace,
-  .typing-dots span {
+  .typing-dots .typing-dot {
     transition: none;
   }
 }

@@ -7111,13 +7111,22 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-layer-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
     &.nmb-act-dangle .atl-layer-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
+    /* His streams are heavier: a smaller swing at about half the pace
+       (atlas.js, the masculine `lowers`). */
+    &.nmb-walking .atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-sway-heavy 1.25s ease-in-out infinite alternate; }
+    &.nmb-act-dangle .atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-sway-heavy 2.4s ease-in-out 3 alternate; }
   }
+}
+@keyframes atl-lower-sway-heavy {
+  from { transform: rotate(-2.4deg) skewX(1.2deg); }
+  to { transform: rotate(3deg) skewX(-1.2deg); }
 }
 /* The system's reduced motion: slowed right down, as the legs are (the
    companion's own reduced-motion block above; `!important` for the same
    reason, the rules above out-rank this one). */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-layer-lower { animation-duration: 6s !important; }
+  #nm-buddy .atl-layer-lower,
+  #nm-buddy .atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }

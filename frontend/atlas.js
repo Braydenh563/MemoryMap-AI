@@ -473,10 +473,18 @@ const ATLAS_LOOKS = {
     legs: false,
     lowerPivot: [31, 58],
     skirt: "M25.2 52C24.4 60 25.6 68 27.4 75C28.8 81 29.4 87 28.6 93C30.4 90.4 31.4 87.6 31.8 85C32.8 88.4 34 91 35.8 93.6C35 87.4 35.2 81.2 36.2 75C37.8 68 38.8 60 37 52Z",
+    //: **His wisps fall, hers flow** (the owner: the masculine lower body
+    //: should "read more masculine"). Three broad streams, near-straight,
+    //: overlapping at the waist as one mass that splits as it falls, each
+    //: holding its width and then tapering firmly to a point
+    //: (`lowerTaper: "firm"`), with a straight inner stream; not her five
+    //: S-curved ribbons. They sway heavier and slower too (the CSS,
+    //: `atl-lower-sway-heavy`).
+    lowerTaper: "firm",
     lowers: [
-      { seg: [[27.6, 56, 26.2, 64, 23.6, 70, 24.2, 77], [24.2, 77, 24.8, 83, 22, 88, 20.2, 92.6]], w: 6.2, specks: [[24.6, 72, 0.3], [22.4, 88.4, 0.26]] },
-      { seg: [[31, 57, 32.4, 65, 29, 72, 30.4, 80], [30.4, 80, 31.6, 87, 29.6, 92, 31, 98]], w: 7.6, specks: [[30.6, 70.4, 0.32], [30.8, 90.2, 0.3]] },
-      { seg: [[34.4, 56, 36.4, 63, 39.2, 69, 38.2, 76], [38.2, 76, 37.2, 82, 40.4, 87, 41.8, 91]], w: 6.2, specks: [[38.4, 72.4, 0.3], [40.2, 86.6, 0.26]], edge: true },
+      { seg: [[27.2, 56, 26.6, 65, 25.6, 73, 25.2, 80], [25.2, 80, 24.8, 86, 24.2, 90, 23.4, 94.4]], w: 8.2, specks: [[25.6, 72, 0.3], [24.4, 87.4, 0.26]] },
+      { seg: [[31, 57, 31.2, 66, 30.6, 75, 30.8, 83], [30.8, 83, 31, 89, 30.8, 94, 31, 99]], w: 9.6, specks: [[30.8, 70.4, 0.32], [30.9, 90.2, 0.3]] },
+      { seg: [[34.8, 56, 35.4, 65, 36.4, 73, 36.8, 80], [36.8, 80, 37.2, 86, 37.8, 90, 38.6, 94.4]], w: 8.2, specks: [[36.4, 72.4, 0.3], [37.6, 86.6, 0.26]], edge: true },
     ],
     torso: "M25.6 35.4C22.2 38.6 21.4 43.4 22 47.8C22.6 52.4 24.4 57.4 27.2 61C29.2 63.4 32.8 63.4 34.8 61C37.6 57.4 39.4 52.4 40 47.8C40.6 43.4 39.8 38.6 36.4 35.4Z",
     //: Arms hanging relaxed with a soft bend at the elbow, the forearm
@@ -844,10 +852,24 @@ function atlasBuild() {
     if (spec.lowers) {
       //: A ribbon's width: full at the waist, a slight swell as it leaves
       //: the body, then a long taper to a hair-fine wisp, no round end.
-      const ribbon = (w) => (t) => 0.18 + (w - 0.18) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
-      spec.lowerPaths = spec.lowers.map(({ seg, w, specks, edge }) => ({
+      //: A firm taper (the masculine streams) holds the width down most of
+      //: the fall and closes to a point at the end, and its inner stream
+      //: runs straight rather than weaving.
+      const firm = spec.lowerTaper === "firm";
+      const ribbon = firm
+        ? (w) => (t) => 0.16 + (w - 0.16) * (1 - t ** 1.6) ** 1.1
+        : (w) => (t) => 0.18 + (w - 0.18) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
+      const weave = firm ? 0.06 : 0.22;
+      //: Every wisp starts 6 units higher, straight up inside the torso,
+      //: so its root is under the body's fade (the `lowerin` mask) rather
+      //: than a flat end showing through it at the waist.
+      const rooted = (seg) => {
+        const [x, y] = seg[0];
+        return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];
+      };
+      spec.lowerPaths = spec.lowers.map(({ seg: drawn, w, specks, edge }) => ({ seg: rooted(drawn), w, specks, edge })).map(({ seg, w, specks, edge }) => ({
         fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false }),
-        stream: atlasStem(seg, (t) => ribbon(w)(t) * 0.26, { samples: 14, cap: false, shift: (t) => ribbon(w)(t) * 0.22 * Math.sin(Math.PI * 2.2 * t + 0.4) }),
+        stream: atlasStem(seg, (t) => ribbon(w)(t) * 0.26, { samples: 14, cap: false, shift: (t) => ribbon(w)(t) * weave * Math.sin(Math.PI * 2.2 * t + 0.4) }),
         edge: edge ? atlasStemEdge(seg, ribbon(w), 14) : "",
         specks,
       }));
@@ -1652,6 +1674,15 @@ function atlasBody(parent, id, props, look, route = null) {
     //: few star specks.
     if (spec.lowers && !edge) {
       const lower = atlasGroup(lowerAt[kind], "atl-lower", spec.lowerPivot);
+      //: **No seam at the waist** (the owner: "smoothen and blend the line
+      //: between the main body and the lower body whisps"). The torso fades
+      //: out over 54 to 63 (`waist`); the wisps fade in under it over 52 to
+      //: 60 (`lowerin`), so they emerge from beneath the body rather than
+      //: starting at a line: before this their square roots at y 56 and the
+      //: skirt veil's top edge at 49 showed through the fading torso as a
+      //: band across the hips. The mask is in the group's own space, so it
+      //: turns and sways with the wisps in every pose.
+      lower.setAttribute("mask", `url(#${id}-lowerin)`);
       const veil = atlasGroup(lower, "atl-skirt");
       atlasMake("path", { class: "atl-skirt-veil", d: spec.skirt }, veil);
       atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: spec.skirt }, veil);
@@ -1905,6 +1936,7 @@ function atlasBuildDefs(svg, id) {
     atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
   };
   fade("waist", 54, 63);
+  fade("lowerin", 60, 52);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   //: The shoulder joins (round 9, `atl-shoulders` in `atlasBody`): the

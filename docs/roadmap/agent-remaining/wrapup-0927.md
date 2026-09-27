@@ -52,14 +52,23 @@ written.
   larger middle star. `atlasportrait.js` (HEAD=1 for the 200px head),
   light and dark: full 240, head 200 and 64, companion 64x92, icon 24.
 - [ ] The lie pose's nebula cushion reads as a bed, not a thin band.
-- [ ] Masculine lower-body wisps read more masculine: fewer, broader,
+- [x] Masculine lower-body wisps read more masculine: fewer, broader,
   straighter-falling streams with a firmer taper (not the feminine
-  flowing tendrils), heavier and slower in the sway.
-- [ ] The owner: "smoothen and blend the line between the main body and the
+  flowing tendrils), heavier and slower in the sway. Three near-straight
+  streams at 8.2, 9.6, 8.2 (were 6.2, 7.6, 6.2 in S curves), a taper that
+  holds then closes (`lowerTaper: "firm"`), a straight inner stream, and
+  `atl-lower-sway-heavy` (2.4 to 3 degrees at 1.25s against her 4 to 5 at
+  0.68s). `atlaswaist.js`, light and dark, stand, sit, lie, float, walk.
+- [x] The owner: "smoothen and blend the line between the main body and the
   lower body whisps on atlas masculine and feminine". No visible seam at the
   waist: the torso fill fades into the wisps through a shared gradient or
   mask (no hard edge or outline across the join), the wisps emerging from
   under the torso. Check both looks, every pose, and while swaying.
+  Done: every wisp is rooted 6 units up inside the torso and the lower
+  group fades in over 52 to 60 (`lowerin`) under the torso's 54 to 63
+  fade, so no flat root or veil edge shows. `atlaswaist.js ZOOM=1` (12x on
+  the waist): the curved hem line and flat stream tops before, a ramp
+  after, both looks; poses and three sway frames at 5x.
 - [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
   look.
 - [ ] Masculine prop hand offset (bell, lantern about 6 units off).

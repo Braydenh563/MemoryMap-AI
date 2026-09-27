@@ -407,3 +407,22 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
         # and never falling over the brow: the curtains ended at y 17 to 19.
         assert nums[-2] > nums[0] and nums[-1] < 16, "a swept strand runs back toward the mass, above the brow"
     assert 'class: "atl-thread atl-circlet"' in ATLAS and '"atl-strand-light"' in ATLAS
+
+
+def test_the_masculine_wisps_fall_and_the_waist_has_no_seam():
+    # The owner: his lower-body wisps "more masculine: fewer, broader,
+    # straighter-falling streams with a firmer taper", and "smoothen and
+    # blend the line between the main body and the lower body whisps".
+    masculine, feminine = _look("masculine"), _look("feminine")
+    def widths(look):
+        return [float(w) for w in re.findall(r"\], w: ([0-9.]+), specks", look)]
+
+    assert len(widths(masculine)) < len(widths(feminine))
+    assert min(widths(masculine)) > max(w for w in widths(feminine) if w < 7), "his streams are broader than her outer ribbons"
+    assert 'lowerTaper: "firm"' in masculine and "lowerTaper" not in feminine
+    assert "atl-lower-sway-heavy" in CSS
+    # The seam: the wisps fade in under the torso's fade, and every wisp
+    # is rooted inside the torso rather than starting at the waist.
+    assert 'fade("lowerin", 60, 52);' in ATLAS and 'fade("waist", 54, 63);' in ATLAS
+    assert 'lower.setAttribute("mask", `url(#${id}-lowerin)`);' in ATLAS
+    assert "return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];" in ATLAS

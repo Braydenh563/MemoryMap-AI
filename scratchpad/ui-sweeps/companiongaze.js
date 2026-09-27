@@ -31,7 +31,10 @@ const KIND = process.env.KIND || 'atlas';
     const cs = getComputedStyle(buddy);
     const eye = buddy.querySelector('.nm-atlas .atl-iris') || buddy.querySelector('.name-mark .nm-eyes');
     const tr = eye ? getComputedStyle(eye).translate : '';
-    return { ex: Number(cs.getPropertyValue('--nmb-ex')) || 0, hx: Number(cs.getPropertyValue('--nmb-hx')) || 0, eyes: tr, attend: buddy.classList.contains('nmb-attend') };
+    // The body's lean toward the pointer ("tilt their body that way while
+    // still mostly facing forward"), as drawn.
+    const lean = getComputedStyle(buddy.querySelector('.nm-buddy-char')).rotate;
+    return { ex: Number(cs.getPropertyValue('--nmb-ex')) || 0, hx: Number(cs.getPropertyValue('--nmb-hx')) || 0, eyes: tr, lean, attend: buddy.classList.contains('nmb-attend') };
   });
   const rows = [];
   for (const side of [1, -1]) {

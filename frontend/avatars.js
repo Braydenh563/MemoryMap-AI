@@ -3197,6 +3197,7 @@ const NAME_MARK_BUDDY_ACTS = {
   chair: { ms: 20000, w: 0.8, cool: 200000, poses: ["stand"] },
   facepalm: { ms: 2600, w: 0.5, cool: 90000, poses: ["stand", "sit", "float", "lean"] },
   shrug: { ms: 1900, w: 0.8, cool: 60000, poses: ["stand", "sit", "float", "lean"] },
+  tilt: { ms: 5000, w: 1.5, cool: 25000, poses: ["stand", "sit", "float"] },
   cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
@@ -3228,7 +3229,7 @@ Object.assign(NAME_MARK_BUDDY_ACTS, NMB_STANCES);
 //: stances, Fewer (the default) makes the unprompted gestures a third as
 //: likely, Normal as they were. What you start (a poke, a cheer at a
 //: streak, a reaction) is never reduced: those have no weight here.
-const NMB_QUIET_ACTS = ["blink", "look", "glance", "turn", "yawn", "nap", "dangle", "shift", ...Object.keys(NMB_STANCES)];
+const NMB_QUIET_ACTS = ["blink", "look", "glance", "turn", "yawn", "nap", "dangle", "shift", "tilt", ...Object.keys(NMB_STANCES)];
 //: **Each of its doings can be turned off** (the owner, 2026-09-27: "Every
 //: companion feature must be togglable in Settings"). Appearance >
 //: Companion > What it does (`mountBuddyActivities`): one switch a row, kept
@@ -3250,6 +3251,7 @@ const NMB_ACTIVITIES = [
   ["chair", "Pull up a chair", ["chair"]],
   ["facepalm", "Face palm", ["facepalm"]],
   ["shrug", "Shrug", ["shrug"]],
+  ["tilt", "Lean to one side now and then", ["tilt"]],
 ];
 function nameMarkBuddyActivitiesOff() {
   try {
@@ -4746,6 +4748,8 @@ function nameMarkBuddyFlies(buddy) {
 }
 function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { x: nmb.x + dx, y: nmb.y + dy }) {
   nmb.hopAnim?.cancel();
+  //: It leans the way it is about to go, and straightens as it arrives.
+  if (Math.abs(dx) > 6 && !nameMarkBuddyNoTravel()) nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8, Math.min(900, 300 + Math.abs(dx) * 2));
   nmb.movedAt = Date.now();
   const distance = Math.hypot(dx, dy);
   const size = NMB_W * Math.max(0.7, nmb.scale || 1);
@@ -5455,6 +5459,7 @@ function nameMarkBuddyAct(act, ms) {
   //: any other act does not, since each style pass here is measurable.
   if (act === was) void buddy.offsetWidth;
   if (NMB_SCENE_ACTS.includes(act)) nameMarkBuddyScene(buddy);
+  if (act === "tilt") nameMarkBuddyTilt(Math.random() < 0.5 ? -0.7 : 0.7, (ms || spec.ms) - 400);
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
   nmb.lastAct = act;
@@ -5546,12 +5551,27 @@ function nameMarkBuddyAim(point, near = false) {
   clearTimeout(nmb.headTimer);
   if (near && Date.now() >= nmb.groggyUntil) {
     buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
+    nameMarkBuddyTilt(lx * 0.5);
     return;
   }
   const groggy = Date.now() < nmb.groggyUntil;
   nmb.headTimer = setTimeout(() => {
     buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
   }, (groggy ? 450 : 150) + Math.random() * 150);
+}
+
+//: Leans its body `side` (-1 left, 1 right, 0 upright), a few degrees about
+//: its feet, for `ms` (0: until told otherwise). One custom property, eased
+//: by the CSS; nothing runs between.
+function nameMarkBuddyTilt(side, ms = 0) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const value = Math.max(-1, Math.min(1, side));
+  if (Math.abs(value - (nmb.tilt || 0)) < 0.1 && !ms) return;
+  nmb.tilt = value;
+  buddy.style.setProperty("--nmb-tilt", value.toFixed(2));
+  clearTimeout(nmb.tiltTimer);
+  if (ms) nmb.tiltTimer = setTimeout(() => nameMarkBuddyTilt(0), ms);
 }
 
 //: Stops whatever it is doing, at once and without a follow-on: grabbed.
@@ -5578,6 +5598,7 @@ function nameMarkBuddyRelease() {
   if (!buddy) return;
   buddy.classList.remove("nmb-attend");
   buddy.style.setProperty("--nmb-hx", "0");
+  if (!nmb.act || nmb.act !== "tilt") nameMarkBuddyTilt(0);
   if (!buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
 }
 

@@ -734,3 +734,15 @@ def test_close_by_it_keeps_its_eyes_on_you_and_wakes_gently() -> None:
     assert "nameMarkBuddyWake(true);" in notice and "now - nmb.nearSince > 700" in notice
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate:" in CSS08
+
+
+def test_it_leans_its_body_a_little_while_still_facing_you() -> None:
+    # The owner: "tilt their body that way while still mostly facing
+    # forward". One property (`--nmb-tilt`) turns the figure a few degrees
+    # about its feet, eased; used glancing at a close pointer (measured 0.4,
+    # 1.2 and 2 degrees at 20, 60 and 150px, companiongaze.js), before
+    # setting off, and now and then at rest.
+    assert "#nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }" in CSS08
+    assert "nameMarkBuddyTilt(lx * 0.5);" in _fn("nameMarkBuddyAim")
+    assert "nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8," in _fn("nameMarkBuddyGo")
+    assert 'if (act === "tilt") nameMarkBuddyTilt(' in _fn("nameMarkBuddyAct")

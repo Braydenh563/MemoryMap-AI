@@ -99,6 +99,14 @@ with its owner named in the entry.
      and delete tag; documents; whiteboard cards and links; mind map nodes)
      gets an audited, discoverable manual path, each gap fixed, and a lint
      that fails when a new write tool has no named UI entry point.
+     (f) The owner, with a screenshot of the Documents AI assistant dialog:
+     "I actually reallly like the design of the document editor's ai
+     assistant popup panel. especially with the design of the close,
+     history,a nd tooltip buttons. idm the edit/write/remove pill either.
+     the suggest an edit button is fine to." Placed: DESIGN.md's recipe
+     index now names it the reference dialog head; every modal and popup
+     head is brought to it, with a ratchet lint (the Sonnet agent, after
+     the thinking words).
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

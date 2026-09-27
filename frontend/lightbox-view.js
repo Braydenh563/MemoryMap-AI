@@ -259,6 +259,8 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   // just a bigger thumbnail, and the OCR panel below is often the only way
   // to read text in a picture precisely because you could not zoom into it.
   let zoom = 1;
+  let panX = 0;
+  let panY = 0;
   const ZOOM_MIN = 1;
   const ZOOM_MAX = 6;
   const zoomLabel = document.createElement("span");
@@ -273,7 +275,10 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const scrollTarget = () => (!pdfPages.classList.contains("hidden") ? doc : stage);
   const applyZoom = () => {
     const target = zoomTarget();
-    target.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
+    const isImg = target === img;
+    if (zoom === 1) panX = panY = 0;
+    target.style.transform = zoom === 1 ? "" : isImg ? `translate(${panX}px, ${panY}px) scale(${zoom})` : `scale(${zoom})`;
+    stage.classList.toggle("zoomed-img", isImg && zoom > 1);
     // Set on the stage too, a multi-page column has no single element
     // whose own hover state would otherwise flip the grab cursor.
     target.classList.toggle("zoomed", zoom > 1);
@@ -311,9 +316,40 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     );
   };
   trackScrolledAway(stage);
-  const setZoom = (next) => {
+  //: **Zoom where you are looking** (the owner: "I cant zoom in on specific
+  //: parts only the top left of the attachment or image"). The scale's origin
+  //: is the top left (so the overflow stays scrollable, see the CSS), which
+  //: left every zoom anchored there. `anchor` is a viewport point, the
+  //: pointer for a wheel or pinch or double-click, the stage's centre for the
+  //: buttons: the fraction of the picture under it is measured before the
+  //: scale and scrolled back under it after. Two rect reads per zoom step, on
+  //: a user action, never per frame.
+  //: A picture is panned by a translate, not by scrolling: a scroll area
+  //: cannot reach overflow past its start edge, so every anchor near a
+  //: small picture's left or top was clamped and the zoom drifted to the
+  //: top left (measured: 70% across landed at 56%). Translate has no such
+  //: edge. The PDF column keeps its scroll, which it needs for its pages.
+  const setZoom = (next, anchor = null) => {
+    const target = zoomTarget();
+    const scroller = scrollTarget();
+    const before = target.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    const [ax, ay] = anchor || [box.left + box.width / 2, box.top + box.height / 2];
+    const fx = before.width ? (ax - before.left) / before.width : 0.5;
+    const fy = before.height ? (ay - before.top) / before.height : 0.5;
+    const from = zoom;
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
+    if (target === img) {
+      panX += (ax - before.left) * (1 - zoom / from);
+      panY += (ay - before.top) * (1 - zoom / from);
+      applyZoom();
+      return;
+    }
     applyZoom();
+    if (zoom === 1) return;
+    const after = target.getBoundingClientRect();
+    scroller.scrollLeft += after.left + fx * after.width - ax;
+    scroller.scrollTop += after.top + fy * after.height - ay;
   };
   const actionBtn = (label, title, fn) => {
     const b = document.createElement("button");
@@ -590,10 +626,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       if (!doc.classList.contains("hidden") && !e.ctrlKey) return;
       if (!doc.classList.contains("hidden") && pdfPages.classList.contains("hidden")) return; // plain text: nothing to zoom
       e.preventDefault();
-      setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25));
+      setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25), [e.clientX, e.clientY]);
     },
     { passive: false }
   );
+  //: Double-click zooms into the spot clicked, and back out to fit: the
+  //: gesture every image viewer has, and the quickest way to "zoom in on
+  //: specific parts".
+  stage.addEventListener("dblclick", (e) => {
+    if (!doc.classList.contains("hidden") && pdfPages.classList.contains("hidden")) return;
+    e.preventDefault();
+    setZoom(zoom > 1 ? 1 : 2, [e.clientX, e.clientY]);
+  });
 
   // Drag to pan, once zoomed. The scrollbars already pan the stage, but a
   // magnified picture with `cursor: grab` on it that does not actually drag
@@ -612,12 +656,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (zoom === 1) return;
     e.preventDefault();
     const scroller = scrollTarget();
-    panning = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
+    panning = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop, px: panX, py: panY };
     el.setPointerCapture(e.pointerId);
     el.style.cursor = "grabbing";
   };
   const movePan = (e) => {
     if (!panning) return;
+    if (zoomTarget() === img) {
+      panX = panning.px + (e.clientX - panning.x);
+      panY = panning.py + (e.clientY - panning.y);
+      applyZoom();
+      return;
+    }
     const scroller = scrollTarget();
     scroller.scrollLeft = panning.left - (e.clientX - panning.x);
     scroller.scrollTop = panning.top - (e.clientY - panning.y);

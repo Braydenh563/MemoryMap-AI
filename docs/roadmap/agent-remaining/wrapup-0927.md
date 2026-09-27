@@ -15,6 +15,8 @@ written.
 
 ## Atlas (atlas.js)
 
+- [ ] Sleeping arms: no arm resting on the orbit rings; doze standing,
+  sleep on the perch floor, hanging, half tucked away, or lying down.
 - [ ] Base "silver" button and select restyle, app-wide, at the base rules
   (default button, `.secondary`, `.small`, `.icon-only`, `select`): quiet
   fills, ghost icon buttons, joined steppers (reminder -15m/+15m/-1d/+1d),
@@ -45,6 +47,16 @@ written.
 
 ## Companion (avatars.js)
 
+- [ ] Emotes and acts on click must ease back to the prior state, never
+  cut back after a few seconds.
+- [ ] Covers content again (sat over the Weekly digest text): size and
+  proportion depend on the perch; it scales down where space is small
+  and never overlaps text.
+- [ ] Tab switch: it stayed visible on the new tab for a split second,
+  vanished, then came back with barely an entrance; it must hide on
+  leave and arrive with a real entrance, with no startle.
+- [ ] Chat switch: it was left floating mid-panel for seconds after its
+  perch (a button on an empty chat) went away; re-perch at once.
 - [ ] Tab switch: the companion must arrive (walk, hop, climb or portal),
   never just appear. Reproduce with motion auto and reduced.
 - [ ] Never perch inside a text block (it sat in the Weekly digest
@@ -96,6 +108,16 @@ written.
 
 ## App (Sonnet)
 
+- [ ] Thinking words UI is broken (owner screenshots): the dots, a long
+  line, then the phrase far right and off-centre, with an annoying pulse.
+  Redesign: dots, then the phrase right beside them, bold, a subtle
+  glow or shimmer, no pulsing; no stray line; one row, vertically
+  centred, same in chat, Ask and the popup agent.
+- [ ] Atlas guide panel: its '?' button does nothing; wire it.
+- [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
+  the new recipes (dialog head, quiet segmented tabs, search with icon,
+  compact rows with check, name and category chip that never wraps,
+  sticky footer).
 - [ ] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
 - [ ] At least 4 realistic multi-line notes above the fold at 1093x614.
 - [ ] Status bar under 680px: one row, extras in a "more" menu.
@@ -124,6 +146,11 @@ written.
 
 ## Before calling it done
 
+- [ ] App-wide consistency pass after the button, select and stepper
+  restyle: every surface uses the same recipes (buttons, selects, dialog
+  heads, menus, notices, chips, spacing and radius tokens); a sweep lists
+  every hand-built control and each is moved onto its recipe or its
+  ratchet in tests/test_ui_recipes.py. Light and dark, 1093, 1440, 390.
 - [ ] `scripts/gate.sh --full` green; CI green on the head.
 - [ ] INBOX 431 resolved to HISTORY; CHANGELOG lines present; README fresh.
 - [ ] PR 157's title and description updated to cover the whole branch.

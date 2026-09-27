@@ -7392,6 +7392,21 @@ function nameMarkBuddyGone() {
   document.getElementById("nm-buddy-band")?.remove();
   nameMarkBuddyWatch();
   nmb.x = nmb.y = NaN;
+  //: What it was in the middle of goes with it: a companion shown again
+  //: (or another one chosen) is not born mid-nap, mid-pout or mid-frame.
+  //: With `nmb.act` left at "lie", the new one counted as asleep
+  //: (`nameMarkBuddyAsleep`) and was carried in by the sleeping fade.
+  for (const t of nmb.poseSteps || []) clearTimeout(t);
+  nmb.poseSteps = [];
+  for (const t of nmb.wakeSteps || []) clearTimeout(t);
+  nmb.wakeSteps = [];
+  clearTimeout(nmb.easeTimer);
+  clearTimeout(nmb.poutTimer);
+  clearTimeout(nmb.fitTimer);
+  clearTimeout(nmb.cueTimer);
+  nmb.act = "";
+  nmb.wokeAt = 0;
+  nmb.easeUntil = 0;
 }
 
 function nameMarkBuddyHide(buddy) {
@@ -7881,7 +7896,9 @@ function nameMarkBuddyBuild() {
       nameMarkBuddyExpress("unimpressed", 30000);
       buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
       setTimeout(() => {
-        //: And it comes down through a pout, not straight back.
+        //: And it comes down through a pout, not straight back (unless it
+        //: has gone meanwhile: the pout would land on its successor).
+        if (!buddy.isConnected) return;
         buddy.classList.remove("nmb-grumpy");
         nameMarkBuddyPout(buddy, 5000);
         if (buddy.dataset.turn && !buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;

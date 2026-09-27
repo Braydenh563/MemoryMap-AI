@@ -277,6 +277,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     const target = zoomTarget();
     const isImg = target === img;
     if (zoom === 1) panX = panY = 0;
+    //: The other of the two keeps no zoom of its own: paging from a zoomed
+    //: PDF to a picture reset the picture only, and the page column came
+    //: back at the old scale (with the zoom reading 100%) on the next PDF.
+    const other = isImg ? pdfPages : img;
+    if (other.style.transform) other.style.transform = "";
+    other.classList.remove("zoomed");
     target.style.transform = zoom === 1 ? "" : isImg ? `translate(${panX}px, ${panY}px) scale(${zoom})` : `scale(${zoom})`;
     stage.classList.toggle("zoomed-img", isImg && zoom > 1);
     // Set on the stage too, a multi-page column has no single element

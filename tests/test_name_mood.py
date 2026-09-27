@@ -485,10 +485,18 @@ def test_atlas_look_says_when_it_follows_face_looks() -> None:
     assert options[0] == ("auto", "Auto (follows Face looks)"), options
     assert {value for value, _ in options} == {"auto", "masculine", "feminine"}
     assert '"atlas-look": "auto"' in settings
-    look = atlas[atlas.index("function atlasLook()") :]
+    #: Round 5: the decision lives in `atlasLookReason`, which also says
+    #: which of the four decided (the lab's review card shows it): Atlas
+    #: look when set, else Face looks when it says a look, else the look
+    #: chosen for the person's own face, else the main look.
+    look = atlas[atlas.index("function atlasLookReason()") :]
     look = look[: look.index("\n}\n")]
-    assert 'if (own === "feminine" || own === "masculine") return own;' in look
-    assert 'appearancePref("face-look", "mixed") === "feminine"' in look
+    assert 'if (own === "feminine" || own === "masculine") return { look: own, reason: "chosen" };' in look
+    assert 'appearancePref("face-look", "mixed")' in look
+    assert 'if (faces === "feminine" || faces === "masculine") return { look: faces, reason: "face-looks" };' in look
+    assert 'ownNameMarkStyle().look' in look
+    assert 'return { look: "masculine", reason: "default" };' in look
+    assert "return atlasLookReason().look;" in atlas[atlas.index("function atlasLook()") :][:120]
     face = settings[settings.index('$("face-look").addEventListener') :]
     face = face[: face.index("});")]
     assert "atlasRepaint()" in face, "a Face looks change leaves an Auto Atlas in the old look"

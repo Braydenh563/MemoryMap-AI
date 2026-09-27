@@ -2807,21 +2807,18 @@ function renderSidebar() {
     // Rename/delete for real categories only, "All" is a filter, and
     // Uncategorised is where notes land when a category goes away.
     const meta = category ? categoryMeta.get(category) : null;
+    //: Round 9 (INBOX 431 (e)): the row's ⋯ is the Manage categories panel's
+    //: own menu (Rename, Merge into, Split, Delete, the panel), where two
+    //: bare buttons were; and every real category takes a dropped note.
     if (meta && category !== "Uncategorised") {
       const actions = document.createElement("span");
       actions.className = "category-actions";
-      actions.append(
-        smallButton("ph:pencil-simple", `Rename ${category}`, (event) => {
-          event.stopPropagation();
-          renameCategory(meta, category);
-        }),
-        smallButton("ph:trash", `Delete ${category}`, (event) => {
-          event.stopPropagation();
-          deleteCategory(meta, category, count);
-        })
-      );
+      const menu = kebabMenu(categoryMenuItems(meta), `Actions for ${category}`);
+      menu.addEventListener("click", (event) => event.stopPropagation());
+      actions.appendChild(menu);
       li.appendChild(actions);
     }
+    if (category) wireCategoryDropTarget(li, category);
     ul.appendChild(li);
   };
 
@@ -2919,6 +2916,9 @@ async function renameCategory(meta, currentName) {
   }
 }
 
+//: Kept for the keyboard's Delete on a focused row and older callers; the
+//: sidebar's ⋯ now goes through `deleteCategoryFromPanel`, which asks where
+//: the notes go.
 async function deleteCategory(meta, name, count) {
   const ok = (await confirmDialog(
     `Delete the category "${name}"?\n\n` +
@@ -2936,6 +2936,375 @@ async function deleteCategory(meta, name, count) {
     await loadCategories();
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+// --- Manage categories ----------------------------------------------------------
+//: **Manage categories** (INBOX 431 (e), the owner: "a better, easier and more
+//: accessible and learnable way to [manually] edit categories like with
+//: merging them, splitting them, moving notes between them etc. accessible
+//: from the notes tab, and settings ... the user needs to be able to easily
+//: do anything the ai can do"). One sheet (DESIGN.md's sheet recipe), opened
+//: from the Categories head in the notes sidebar, from each category's ⋯
+//: menu and from Settings: a row per category with its colour and count and
+//: a ⋯ of Rename, Merge into, Split and Delete, and New category at the top.
+//: Every change answers with the notes it moved (routes_categories.py), and
+//: every change offers Undo, in a toast and on the global undo stack.
+//: Notes also move by ticking them in the list and choosing Move to (the
+//: batch bar), or by dragging a note's category label onto a category in
+//: the sidebar.
+
+//: Moves notes back to where they were, from the `previous` a move returned.
+async function restoreCategoryMoves(previous) {
+  const byCategory = new Map();
+  for (const { id, category } of previous) {
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category).push(id);
+  }
+  for (const [category, ids] of byCategory) {
+    await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
+  }
+}
+
+//: After any change: the notes, the sidebar, and the open panel, redrawn.
+async function refreshAfterCategoryChange() {
+  await loadEntries();
+  await loadCategories();
+  manageCategoriesRedraw?.();
+}
+
+//: One toast and one undo-stack entry per change, so the toast's Undo and
+//: Ctrl+Z are the same act.
+function offerCategoryUndo(message, undo, redo) {
+  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
+  toastAction(message, "Undo", async () => {
+    settleUndoFromToast(action);
+    await undo();
+    await refreshAfterCategoryChange();
+  });
+}
+
+let manageCategoriesRedraw = null;
+
+async function openManageCategories(focusName = null) {
+  await loadCategories();
+  openSheet({
+    label: "Manage categories",
+    sub: "Rename, merge, split or delete categories. Your notes are always kept.",
+    name: "categories",
+    onClose: () => { manageCategoriesRedraw = null; },
+    build: (card) => {
+      const tools = document.createElement("div");
+      tools.className = "row manage-cat-tools";
+      const create = smallButton("ph:plus New category", "Make an empty category to move notes into", () => createCategoryFromPanel());
+      const help = document.createElement("button");
+      help.type = "button";
+      help.className = "icon-only ghost small graph-help-toggle";
+      help.setAttribute("data-help-for", "manage-cat-help");
+      help.setAttribute("aria-controls", "manage-cat-help");
+      help.setAttribute("aria-expanded", "false");
+      help.title = "About managing categories";
+      help.setAttribute("aria-label", "About managing categories");
+      const helpIcon = document.createElement("i");
+      helpIcon.className = "ph ph-question";
+      helpIcon.setAttribute("aria-hidden", "true");
+      help.appendChild(helpIcon);
+      tools.append(create, help);
+      const helpBody = document.createElement("div");
+      helpBody.className = "help-body hidden";
+      helpBody.id = "manage-cat-help";
+      helpBody.setAttribute("role", "dialog");
+      helpBody.setAttribute("aria-label", "About managing categories");
+      for (const line of [
+        "Merge into folds one category into another: all its notes move across.",
+        "Split moves some of a category's notes into a new one. Pick them yourself, or press Suggest a split to group them by their tags and review the groups first.",
+        "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
+        "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
+      ]) {
+        const p = document.createElement("p");
+        p.textContent = line;
+        helpBody.appendChild(p);
+      }
+      const list = document.createElement("ul");
+      list.className = "sheet-list manage-cat-list";
+      list.setAttribute("aria-label", "Categories");
+      card.append(tools, helpBody, list);
+      //: The '?' is built after boot, so it is wired here (wiring.js).
+      initHelpToggles(card);
+      manageCategoriesRedraw = () => drawManageCategoryRows(list);
+      drawManageCategoryRows(list);
+      if (focusName) list.querySelector(`[data-category="${CSS.escape(focusName)}"] .manage-cat-name`)?.focus();
+    },
+  });
+}
+
+function drawManageCategoryRows(list) {
+  list.replaceChildren();
+  for (const meta of categoryMeta.values()) {
+    const li = document.createElement("li");
+    li.className = "manage-cat-row";
+    li.dataset.category = meta.name;
+    const dot = document.createElement("span");
+    dot.className = "manage-cat-dot";
+    dot.style.setProperty("--category-dot", categoryDotColour(meta.name));
+    dot.setAttribute("aria-hidden", "true");
+    //: The name is a button: it shows that category's notes, which is what
+    //: a person looking at a category usually wants next.
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "ghost manage-cat-name";
+    name.textContent = meta.name;
+    name.title = `Show the notes in ${meta.name}`;
+    name.addEventListener("click", () => {
+      activeCategory = meta.name;
+      draftsOnly = false;
+      favouritesOnly = false;
+      showNotesSection("browse");
+      renderSidebar();
+      renderEntries();
+    });
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = String(meta.count);
+    count.setAttribute("aria-label", `${meta.count} note${meta.count === 1 ? "" : "s"}`);
+    li.append(dot, name, count);
+    if (meta.name !== "Uncategorised") li.appendChild(kebabMenu(categoryMenuItems(meta), `Actions for ${meta.name}`));
+    else {
+      const spacer = document.createElement("span");
+      spacer.className = "manage-cat-spacer";
+      spacer.setAttribute("aria-hidden", "true");
+      li.appendChild(spacer);
+    }
+    list.appendChild(li);
+  }
+}
+
+//: The one list of what can be done to a category: the panel's ⋯ and the
+//: sidebar row's ⋯ both draw from it.
+function categoryMenuItems(meta) {
+  return [
+    { label: "ph:pencil-simple Rename…", title: `Rename ${meta.name}`, run: () => renameCategory(meta, meta.name) },
+    { label: "ph:arrows-merge Merge into…", title: `Move every note in ${meta.name} into another category`, run: () => mergeCategoryFromPanel(meta) },
+    { label: "ph:arrows-split Split…", title: `Move some of ${meta.name}'s notes into a new category`, run: () => splitCategoryFromPanel(meta) },
+    { label: "ph:trash Delete…", title: `Delete ${meta.name}; its notes are kept`, danger: true, group: "danger", run: () => deleteCategoryFromPanel(meta) },
+    { label: "ph:sliders-horizontal Manage categories", title: "Open the panel with every category", group: "all", run: () => openManageCategories(meta.name) },
+  ];
+}
+
+async function createCategoryFromPanel() {
+  const name = await promptDialog("Name the new category:", "", { confirmLabel: "Create" });
+  if (!name || !name.trim()) return;
+  try {
+    const made = await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+    toast(made.created ? `Made "${made.name}".` : `"${made.name}" already exists.`);
+    await refreshAfterCategoryChange();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: A choice of category in a sheet of its own: every other category as a
+//: row, and optionally Uncategorised; answers the chosen meta or null.
+function chooseCategorySheet({ label, sub, exclude, includeUncategorised = false }) {
+  return new Promise((resolve) => {
+    let chosen = null;
+    openSheet({
+      label,
+      sub,
+      name: "category-choice",
+      onClose: () => resolve(chosen),
+      build: (card, close) => {
+        const list = document.createElement("div");
+        list.className = "sheet-list";
+        for (const meta of categoryMeta.values()) {
+          if (meta.name === exclude) continue;
+          if (meta.name === "Uncategorised" && !includeUncategorised) continue;
+          list.appendChild(sheetRow("ph ph-folder", `${meta.name} (${meta.count})`, () => { chosen = meta; close(); }));
+        }
+        if (!list.children.length) {
+          const none = document.createElement("p");
+          none.className = "muted";
+          none.textContent = "There is no other category yet. Make one with New category.";
+          list.appendChild(none);
+        }
+        card.appendChild(list);
+      },
+    });
+  });
+}
+
+async function mergeCategoryFromPanel(meta) {
+  const target = await chooseCategorySheet({ label: `Merge ${meta.name} into`, sub: `Its ${meta.count} note${meta.count === 1 ? "" : "s"} move across and ${meta.name} goes.`, exclude: meta.name });
+  if (!target) return;
+  try {
+    const result = await apiJson(`/categories/${meta.id}/merge`, { method: "POST", body: JSON.stringify({ into: target.id }) });
+    if (activeCategory === meta.name) activeCategory = result.into;
+    const ids = result.moved_ids;
+    offerCategoryUndo(
+      `Merged "${result.from}" into "${result.into}".`,
+      () => (ids.length ? apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category: result.from }) }) : apiJson("/categories", { method: "POST", body: JSON.stringify({ name: result.from }) })),
+      () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids.length ? ids : [0], category: result.into }) }).catch(() => null)
+    );
+    await refreshAfterCategoryChange();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function deleteCategoryFromPanel(meta) {
+  const target = meta.count
+    ? await chooseCategorySheet({ label: `Delete ${meta.name}`, sub: `Where should its ${meta.count} note${meta.count === 1 ? "" : "s"} go? Nothing is deleted but the category.`, exclude: meta.name, includeUncategorised: true })
+    : { name: "Uncategorised", id: null };
+  if (!target) return;
+  try {
+    const into = target.name === "Uncategorised" ? "" : `?into=${target.id}`;
+    const result = await apiJson(`/categories/${meta.id}${into}`, { method: "DELETE" });
+    if (activeCategory === meta.name) activeCategory = null;
+    const ids = result.moved_ids;
+    offerCategoryUndo(
+      `Deleted "${result.name}". Its notes are in ${result.into || "Uncategorised"}.`,
+      () => (ids.length ? apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category: result.name }) }) : apiJson("/categories", { method: "POST", body: JSON.stringify({ name: result.name }) })),
+      async () => {
+        await loadCategories();
+        const again = categoryMeta.get(result.name);
+        if (again) await apiJson(`/categories/${again.id}${into}`, { method: "DELETE" });
+      }
+    );
+    await refreshAfterCategoryChange();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: Split: the category's notes with a tick each and a name for the new
+//: category, or Suggest a split, which groups them by their tags for review
+//: (POST .../split/propose moves nothing); each group applies on its own.
+function splitCategoryFromPanel(meta) {
+  const notes = allEntries.filter((e) => e.category === meta.name && !e.is_draft);
+  openSheet({
+    label: `Split ${meta.name}`,
+    sub: "Tick the notes to move and name their new category, or let a split be suggested.",
+    name: "category-split",
+    build: (card, close) => {
+      const form = document.createElement("form");
+      form.className = "manage-split";
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.maxLength = 100;
+      nameInput.placeholder = "New category name";
+      nameInput.setAttribute("aria-label", "New category name");
+      const list = document.createElement("div");
+      list.className = "sheet-list manage-split-list";
+      const boxes = new Map();
+      for (const entry of notes) {
+        const label = document.createElement("label");
+        label.className = "checkbox-label manage-split-note";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        boxes.set(entry.id, box);
+        const text = document.createElement("span");
+        text.textContent = entry.title || entry.content.slice(0, 80);
+        label.append(box, text);
+        list.appendChild(label);
+      }
+      const suggestions = document.createElement("div");
+      suggestions.className = "manage-split-suggestions";
+      const row = document.createElement("div");
+      row.className = "row confirm-actions";
+      const suggest = smallButton("ph:sparkle Suggest a split", "Group these notes by their tags, to review before anything moves", async () => {
+        const proposal = await apiJson(`/categories/${meta.id}/split/propose`, { method: "POST" }).catch((e) => { toast(e.message, true); return null; });
+        if (!proposal) return;
+        suggestions.replaceChildren();
+        if (!proposal.groups.length) {
+          const none = document.createElement("p");
+          none.className = "muted";
+          none.textContent = "No two notes here share a tag that the rest do not, so there is no split to suggest. Pick notes by hand.";
+          suggestions.appendChild(none);
+          return;
+        }
+        for (const group of proposal.groups) {
+          const pick = smallButton(`ph:check-square ${group.name} (${group.entry_ids.length})`, `Tick these ${group.entry_ids.length} notes and name the category ${group.name}`, () => {
+            for (const [id, box] of boxes) box.checked = group.entry_ids.includes(id);
+            nameInput.value = group.name;
+            nameInput.focus();
+          });
+          pick.type = "button";
+          suggestions.appendChild(pick);
+        }
+      });
+      //: Inside a form every button submits unless told otherwise.
+      suggest.type = "button";
+      const apply = document.createElement("button");
+      apply.type = "submit";
+      apply.className = "small";
+      apply.textContent = "Move to new category";
+      row.append(suggest, apply);
+      form.append(nameInput, suggestions, list, row);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim();
+        const ids = [...boxes].filter(([, box]) => box.checked).map(([id]) => id);
+        if (!name) { toast("Name the new category first.", true); nameInput.focus(); return; }
+        if (!ids.length) { toast("Tick the notes to move first.", true); return; }
+        try {
+          const result = await apiJson(`/categories/${meta.id}/split`, { method: "POST", body: JSON.stringify({ name, entry_ids: ids }) });
+          close();
+          const moved = result.moved_ids;
+          offerCategoryUndo(
+            `Moved ${moved.length} note${moved.length === 1 ? "" : "s"} from "${result.from}" into "${result.name}".`,
+            () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: moved, category: result.from }) }),
+            () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: moved, category: result.name }) })
+          );
+          await refreshAfterCategoryChange();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+      card.appendChild(form);
+      setTimeout(() => nameInput.focus(), 0);
+    },
+  });
+}
+
+//: **Dragging a note onto a category** in the sidebar moves it there, with
+//: the same undo. What is dragged is the note's category label (its chip in
+//: the card's meta line, `text/x-memorymap-note`): the card itself is not
+//: draggable, because a draggable card would steal every text selection
+//: made in it.
+function wireCategoryDropTarget(li, category) {
+  li.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer?.types?.includes("text/x-memorymap-note")) return;
+    event.preventDefault();
+    li.classList.add("is-drop-target");
+  });
+  li.addEventListener("dragleave", () => li.classList.remove("is-drop-target"));
+  li.addEventListener("drop", async (event) => {
+    li.classList.remove("is-drop-target");
+    const id = Number(event.dataTransfer?.getData("text/x-memorymap-note"));
+    if (!id) return;
+    event.preventDefault();
+    await moveNotesToCategory([id], category);
+  });
+}
+
+//: Moving chosen notes, from the batch bar's Move to or a drop: one call,
+//: one toast, one undo.
+async function moveNotesToCategory(ids, category) {
+  try {
+    const result = await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
+    const previous = result.previous;
+    if (previous.length) {
+      offerCategoryUndo(
+        `Moved ${previous.length} note${previous.length === 1 ? "" : "s"} to "${category}".`,
+        () => restoreCategoryMoves(previous),
+        () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: previous.map((p) => p.id), category }) })
+      );
+    }
+    await refreshAfterCategoryChange();
+    return result;
+  } catch (error) {
+    toast(error.message, true);
+    return null;
   }
 }
 

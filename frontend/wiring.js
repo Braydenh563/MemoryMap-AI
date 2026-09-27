@@ -1622,6 +1622,10 @@ $("notes-new-note").addEventListener("click", () => {
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
+//: The Manage categories panel (notes-list.js), from the notes sidebar's
+//: Categories head and from Settings (INBOX 431 (e)).
+$("manage-categories-btn").addEventListener("click", () => openManageCategories());
+$("settings-manage-categories").addEventListener("click", () => openManageCategories());
 
 //: **Select all, as one toggle** (owner: "no select all option??"). Every
 //: note the current filter shows, across pages, since the batch actions act

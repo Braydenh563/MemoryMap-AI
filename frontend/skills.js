@@ -1310,15 +1310,10 @@ async function batchMove(category) {
   const ids = batchSelection();
   if (!ids.length) return;
   if (!category) return;
-  for (const id of ids) {
-    await apiJson(`/entries/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ category }),
-    });
-  }
-  toast(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to ${category}.`);
+  //: One call, with an undo that puts each note back where it was (INBOX
+  //: 431 (e), `moveNotesToCategory`), where it was a PUT per note and none.
   exitSelectMode();
-  await loadEntries();
+  await moveNotesToCategory(ids, category);
 }
 
 async function batchTag() {

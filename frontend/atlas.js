@@ -454,6 +454,40 @@ const ATLAS_LOOKS = {
     tailWidth: (t) => 3.6 + 5.8 * Math.sin(Math.PI * Math.min(1, t * 1.06)) - 1.8 * t * t,
     tailStars: [[46.6, 61.4, 0.45], [54.2, 68.6, 0.35], [51.4, 78.4, 0.5], [55.6, 88.4, 0.35], [65.4, 89.4, 0.45]],
     tailTip: [67, 80.2],
+    //: **A star-being, not an animatronic** (round 9, the owner: "it still
+    //: looks like a fnaf character"). What read as mechanical: two stiff
+    //: pillar legs with round feet, a blocky egg of a torso, straight tube
+    //: arms with round paws, a wide fixed stare. Now the torso tapers from
+    //: sloped shoulders to a waist and melts (the `waist` fade) into a trail
+    //: of three nebula wisps, no legs; the arms are slimmer, bend softly at
+    //: the elbow and end in small relaxed mittens; the eyes are a size
+    //: smaller under a relaxed lid (the CSS); and the body sways gently at
+    //: rest. His wisps stream narrower and straighter than her skirt: a
+    //: comet's trail rather than a gown.
+    //: **Hair on the head** (round 9, the owner: "have the hair start a
+    //: little on the head, not have it look like a bald head with lots of
+    //: hair coming from the back"): a short cap swept to his right over the
+    //: crown, its hairline cut into two small points; the crest and the
+    //: ears rise from it (`atlasHairCap`).
+    cap: "M18.4 20.6C17.8 12.6 23.4 6.8 31 6.8C38.6 6.8 44.2 12.6 43.8 20C42.6 16.2 40.2 13.4 37 12.2C36.4 13.6 35 14.6 33.6 14.8C33.8 13.8 33.6 13 33 12.4C31.6 14 29.6 15 27.6 15.2C28 14.4 28 13.6 27.6 13C25 14.4 22 16.8 18.4 20.6Z",
+    capPart: "",
+    legs: false,
+    lowerPivot: [31, 58],
+    skirt: "M25.2 52C24.4 60 25.6 68 27.4 75C28.8 81 29.4 87 28.6 93C30.4 90.4 31.4 87.6 31.8 85C32.8 88.4 34 91 35.8 93.6C35 87.4 35.2 81.2 36.2 75C37.8 68 38.8 60 37 52Z",
+    lowers: [
+      { seg: [[27.6, 56, 26.2, 64, 23.6, 70, 24.2, 77], [24.2, 77, 24.8, 83, 22, 88, 20.2, 92.6]], w: 6.2, specks: [[24.6, 72, 0.3], [22.4, 88.4, 0.26]] },
+      { seg: [[31, 57, 32.4, 65, 29, 72, 30.4, 80], [30.4, 80, 31.6, 87, 29.6, 92, 31, 98]], w: 7.6, specks: [[30.6, 70.4, 0.32], [30.8, 90.2, 0.3]] },
+      { seg: [[34.4, 56, 36.4, 63, 39.2, 69, 38.2, 76], [38.2, 76, 37.2, 82, 40.4, 87, 41.8, 91]], w: 6.2, specks: [[38.4, 72.4, 0.3], [40.2, 86.6, 0.26]], edge: true },
+    ],
+    torso: "M25.6 35.4C22.2 38.6 21.4 43.4 22 47.8C22.6 52.4 24.4 57.4 27.2 61C29.2 63.4 32.8 63.4 34.8 61C37.6 57.4 39.4 52.4 40 47.8C40.6 43.4 39.8 38.6 36.4 35.4Z",
+    //: Arms hanging relaxed with a soft bend at the elbow, the forearm
+    //: angling back in; slimmer (4.4 at the shoulder to 1.8 at the wrist)
+    //: with a smaller mitten (0.9).
+    armL: [[26.6, 40.6, 22.2, 42.6, 19.6, 47, 18.8, 51.4], [18.8, 51.4, 18.2, 54.6, 18.6, 57, 19.4, 59]],
+    arm: [[35.4, 40.6, 39.8, 42.6, 42.4, 47, 43.2, 51.4], [43.2, 51.4, 43.8, 54.6, 43.4, 57, 42.6, 59]],
+    armWidth: [4.4, 1.8],
+    armHands: [-1, 1],
+    handScale: 0.9,
   },
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
@@ -512,7 +546,12 @@ const ATLAS_LOOKS = {
     //: 5.8) and run on 5 to 6 units further down, the centre one longest,
     //: so the skirt tapers to a trail below the figure. The outer two are
     //: unchanged.
-    scalp: true,
+    //: Round 9: a soft cap parted a little right of centre, each side
+    //: sweeping down to the temple where her locks and wings take over, in
+    //: place of round 8's scalp, which faded to skin by the brow and left
+    //: the crown reading bald (`atlasHairCap`).
+    cap: "M17.8 21.4C17.6 12.6 23.4 6.8 31 6.6C38.8 6.6 44.6 12.6 44.4 21.4C43 17.6 40.6 14.6 37.2 13.2C36.2 12.8 35 12.4 34 11.6C33 12.6 31.4 13.2 29.6 13.6C25.6 14.6 21.2 16.8 17.8 21.4Z",
+    capPart: "M34 11.6C34.6 9.6 35.4 8.2 36.6 7.2",
     lowers: [
       { seg: [[26.4, 55, 22.6, 62.4, 19.6, 69, 17.8, 76], [17.8, 76, 16, 83, 19.4, 87.4, 13.6, 90.4], [13.6, 90.4, 11.8, 91.4, 10.4, 92.6, 9.2, 94.4]], w: 6.4, specks: [[20.4, 68.4, 0.32], [16.6, 84, 0.28]], edge: true },
       { seg: [[28.8, 56, 29.8, 64.4, 23.8, 71.4, 24.6, 79], [24.6, 79, 25.2, 85.4, 28.8, 88.8, 25.6, 94.6], [25.6, 94.6, 23.8, 97.4, 26.2, 98.4, 25, 100.4]], w: 7.2, specks: [[26, 74.4, 0.3], [26.4, 92.4, 0.26]] },
@@ -793,7 +832,12 @@ function atlasBuild() {
       //: Round 6: the same shoulder inside the chest and the same mitten
       //: as the main look, a little slighter (5 to 2.3), not the 3.9 to 1.9
       //: stick with a small knob that the owner's screenshot showed.
-      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(5, 2.3), { samples: 14, tip: atlasHand(-1, 1.05) })], ["r", atlasStem(spec.arm, atlasLimbTo(5, 2.3), { samples: 14, tip: atlasHand(-1, 1.05) })]];
+      //: Round 9: a look may name its arms' widths, each hand's thumb side
+      //: and the mitten's size (the masculine arms hang, both thumbs in).
+      const [w0, w1] = spec.armWidth || [5, 2.3];
+      const [thumbL, thumbR] = spec.armHands || [-1, -1];
+      const k = spec.handScale || 1.05;
+      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbL, k) })], ["r", atlasStem(spec.arm, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbR, k) })]];
     }
     if (spec.legs === false) spec.legPaths = [];
   }
@@ -1026,8 +1070,14 @@ function atlasEye(parent, id, [cx, cy, side], tiny, lashes) {
     //: The upper lid is the head's own skin sliding down over the white,
     //: with a lash line on its edge; the lower lid rises for a squint.
     const lid = atlasGroup(inner, "atl-lid", [cx, cy]);
-    atlasMake("path", { class: "atl-skin", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 4.6}Q${cx} ${cy - 3.6} ${cx - 7} ${cy - 4.6}Z` }, lid);
-    atlasMake("path", { class: "atl-lash", d: `M${cx - 7} ${cy - 4.6}Q${cx} ${cy - 3.6} ${cx + 7} ${cy - 4.6}` }, lid);
+    atlasMake("path", { class: "atl-skin atl-lid-flat", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 4.6}Q${cx} ${cy - 3.6} ${cx - 7} ${cy - 4.6}Z` }, lid);
+    atlasMake("path", { class: "atl-lash atl-lid-flat", d: `M${cx - 7} ${cy - 4.6}Q${cx} ${cy - 3.6} ${cx + 7} ${cy - 4.6}` }, lid);
+    //: **The drowsy lid** (round 9, the owner: "the half lidded eyes look a
+    //: little creepy"): a lid whose edge droops in a soft arc over the eye,
+    //: so a half-closed eye reads as heavy and sleepy, never as a flat line
+    //: across a stare. Shown by `--atl-softlid` instead of the flat edge.
+    atlasMake("path", { class: "atl-skin atl-lid-soft", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 5.2}Q${cx} ${cy - 0.2} ${cx - 7} ${cy - 5.2}Z` }, lid);
+    atlasMake("path", { class: "atl-lash atl-lid-soft", d: `M${cx - 6.2} ${cy - 4.4}Q${cx} ${cy - 0.2} ${cx + 6.2} ${cy - 4.4}` }, lid);
     const low = atlasGroup(inner, "atl-lid-low", [cx, cy]);
     atlasMake("path", { class: "atl-skin", d: `M${cx - 7} ${cy + 12}H${cx + 7}V${cy + 3.8}Q${cx} ${cy + 2.8} ${cx - 7} ${cy + 3.8}Z` }, low);
     atlasMake("path", { class: "atl-liner", d: shape.upper }, blink);
@@ -1138,7 +1188,7 @@ function atlasMane(parent, level, edge, look) {
     atlasMake("path", { class: edge ? "atl-edge" : `atl-skin atl-lock${lock.mass ? " atl-hair-mass" : ""}`, d: lock.fill }, mane);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-hair-neb", d: lock.fill }, mane);
-      if (spec.hairStars) atlasMake("path", { class: "atl-overlay atl-hair-root", d: lock.fill }, mane);
+      atlasMake("path", { class: "atl-overlay atl-hair-root", d: lock.fill }, mane);
       if (!lock.mass) atlasMake("path", { class: "atl-hair-light", d: lock.light }, mane);
     }
   });
@@ -1155,19 +1205,21 @@ function atlasMane(parent, level, edge, look) {
   return mane;
 }
 
-//: **The hair's roots, over the crown** (round 8). The locks are drawn
-//: behind the head, so where they met it the head's own edge and its rim
-//: shade ran between them: a bald dome with strands laid behind it. The
-//: crown now wears the hair: a cap in the locks' own paint over the top of
-//: the head, running back into the locks at the sides, faded out towards
-//: the brow by the `scalp` mask, gone before the forehead: no strands fall
-//: over it (the owner: "get rid of the feminine fringe"; two parting
-//: strokes here read as a fringe).
-const ATLAS_SCALP = "M16.6 24C15.6 13.6 22.2 6.6 31 6.6C39.8 6.6 46.6 13.6 45.4 24C43.6 20.6 40.4 18.2 36.4 17.4C33 16.8 29 16.8 25.6 17.4C21.6 18.2 18.4 20.6 16.6 24Z";
-function atlasScalp(parent, id) {
-  const g = atlasMake("g", { class: "atl-scalp", mask: `url(#${id}-scalp)` }, parent);
-  atlasMake("path", { class: "atl-skin atl-lock atl-hair-mass", d: ATLAS_SCALP }, g);
-  atlasMake("path", { class: "atl-overlay atl-hair-neb", d: ATLAS_SCALP }, g);
+//: **The hair's cap** (round 9): the hair drawn over the top of the skull
+//: in the locks' own paint, down to a soft hairline, so the hair grows from
+//: the scalp and flows back into the mass behind as one shape; shaded
+//: deeper at the roots like every lock, with a faint parting where the look
+//: has one. Drawn over the head and under the ears, so the ears and wings
+//: rise out of it. It replaces round 8's scalp, a cap faded out towards the
+//: brow by a mask, which left the crown reading bald; like it, it carries no
+//: strands over the forehead (the owner, round 8: "get rid of the feminine
+//: fringe").
+function atlasHairCap(parent, spec) {
+  const g = atlasGroup(parent, "atl-hair-cap");
+  atlasMake("path", { class: "atl-skin atl-lock atl-cap-fill", d: spec.cap }, g);
+  atlasMake("path", { class: "atl-overlay atl-hair-neb", d: spec.cap }, g);
+  atlasMake("path", { class: "atl-overlay atl-hair-root", d: spec.cap }, g);
+  if (spec.capPart) atlasMake("path", { class: "atl-cap-part", d: spec.capPart }, g);
   return g;
 }
 
@@ -1398,9 +1450,9 @@ function atlasHead(parent, id, level, look) {
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
   if (!tiny) atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
   if (tiny && spec.tinyFringe) atlasMake("path", { class: "atl-lock atl-tiny-lock", d: spec.tinyFringe }, sway);
+  if (!tiny && spec.cap) atlasHairCap(sway, spec);
   const ears = atlasEars(sway, level, false, look);
   if (!tiny) atlasNightcap(sway);
-  if (spec.scalp && !tiny) atlasScalp(sway, id);
   if (!tiny) {
     atlasSpecks(sway, [[40.4, 15.4, 0.34], [42.2, 20.2, 0.26], [20.6, 28.4, 0.26]], "atl-speck atl-speck-soft");
     atlasMake("ellipse", { class: "atl-sheen atl-sheen-head", cx: 25.4, cy: 14.6, rx: 5.6, ry: 3, transform: "rotate(-34 25.4 14.6)" }, sway);
@@ -1788,7 +1840,6 @@ function atlasBuildDefs(svg, id) {
     atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
   };
   fade("waist", 54, 63);
-  fade("scalp", 8.5, 15);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   //: The shoulder joins (round 9, `atl-shoulders` in `atlasBody`): the

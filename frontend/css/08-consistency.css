@@ -5546,6 +5546,81 @@ main,
 #nm-buddy[data-pose="lean"] .nmb-leg-l { transform: rotate(-12deg); }
 #nm-buddy[data-pose="lean"] .nmb-leg-r { transform: rotate(12deg); }
 
+/* **Lying down on the nebula, and curling up** (round 9, the owner: "when
+   it sleeps can it lay down?? ... masculine and feminine ways", then "use
+   the nebular stream as comfort or a pillow or bed to lay on ... and
+   transitions to and from that state"). Poses for the companion, played
+   as frames in order, each easing into the next (the limbs' transition,
+   the figure's `rotate` and `translate`, the nebula's own slower ease):
+     stand or sit -> `lie-1` (sitting back, the stream starting to gather)
+     -> `lie-2` (half down, propped) -> `lie` (lying on the stream);
+     waking plays them backwards to `sit` or `stand`;
+     sit -> `curl-1` (hunched) -> `curl` (curled up in the stream).
+   The figure turns about its feet and slides back over its own box, so it
+   lies where it sat; the two nebula layers turn back upright and flatten
+   under it into a cushion, and the fx roots (the Zs) turn upright so they
+   still rise. Masculine lies sprawled on his back, an arm behind his head
+   and a knee up; feminine lies curled on her side, hands under her cheek
+   and her skirt drawn up. `data-atlas-variant="1"` lies the other way
+   round (head to the right), for variety. Held transforms at rest. */
+#nm-buddy .nm-figure { translate: var(--nmb-lie-shift); transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out), translate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy :is(.atl-layer-neb, .atl-layer-neb-front) {
+  transition: rotate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast), scale calc(var(--motion-slow) * 4) var(--ease-in-out), translate calc(var(--motion-slow) * 4) var(--ease-in-out);
+}
+#nm-buddy :is(.atl-layer-fx-1, .atl-layer-fx-2) { transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-1"] .nm-figure { --nmb-lean-pose: calc(-24deg + 48deg * var(--atl-v1)); --nmb-lie-shift: 0 0; }
+#nm-buddy[data-pose="lie-2"] .nm-figure { --nmb-lean-pose: calc(-58deg + 116deg * var(--atl-v1)); --nmb-lie-shift: calc(28px - 56px * var(--atl-v1)) -4px; }
+#nm-buddy[data-pose="lie"] .nm-figure { --nmb-lean-pose: calc(-84deg + 168deg * var(--atl-v1)); --nmb-lie-shift: calc(58px - 116px * var(--atl-v1)) -9px; }
+#nm-buddy[data-pose="lie-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(20deg - 40deg * var(--atl-v1)); scale: 0.95 0.8; }
+#nm-buddy[data-pose="lie-2"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(52deg - 104deg * var(--atl-v1)); scale: 1.1 0.6; translate: -4px 0; }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale: 1.12 0.6; translate: calc(-9px + 18px * var(--atl-v1)) 0; }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+/* The rings stay level about the head as it lies, a halo rather than a
+   hoop stood on end; the stream's haze thins so its bed reads. */
+#nm-buddy :is(.atl-layer-back, .atl-layer-front) { transform-origin: 31px 31px; transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-2"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(40deg - 80deg * var(--atl-v1)); }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+#nm-buddy .atl-figure-box > .atl-orbits { transform-origin: 31px 31px; transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
+#nm-buddy[data-pose="lie-2"] .atl-figure-box > .atl-orbits { rotate: calc(40deg - 80deg * var(--atl-v1)); }
+#nm-buddy[data-pose="lie"] .atl-figure-box > .atl-orbits { rotate: calc(84deg - 168deg * var(--atl-v1)); }
+/* The ground shadow and the dark theme's glow follow the body down. */
+#nm-buddy[data-pose="lie"]::before { left: calc(-6px + 52px * var(--atl-v1)); right: calc(-46px + 52px * var(--atl-v1)); }
+:root[data-theme="dark"] #nm-buddy[data-pose="lie"]::after { top: 26px; height: 56px; left: calc(-8px + 52px * var(--atl-v1)); right: calc(-48px + 52px * var(--atl-v1)); }
+#nm-buddy:is([data-pose="lie-2"], [data-pose="lie"]) .atl-band-haze { opacity: 0.35; }
+/* The near half of the stream lies under the body as its bed, not over it. */
+#nm-buddy[data-pose="lie"] .atl-layer-neb-front { opacity: 0.35; }
+/* Settling: sitting back with the legs out. */
+#nm-buddy:is([data-pose="lie-1"], [data-pose="lie-2"]) .nmb-leg-l { transform: rotate(10deg) scaleY(0.9); }
+#nm-buddy:is([data-pose="lie-1"], [data-pose="lie-2"]) .nmb-leg-r { transform: rotate(-4deg) scaleY(0.9); }
+#nm-buddy[data-pose="lie-1"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
+#nm-buddy[data-pose="lie-1"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
+#nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
+#nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-r { transform: rotate(-60deg); }
+/* Masculine, sprawled: an arm behind the head, the other loose, a knee up. */
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-l { transform: rotate(20deg); }
+#nm-buddy[data-pose="lie"] .nmb-leg-l { transform: rotate(8deg); }
+#nm-buddy[data-pose="lie"] .nmb-leg-r { transform: rotate(-34deg) scaleY(0.84); }
+/* Feminine, curled on her side: hands under her cheek, the skirt drawn up. */
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(132deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(150deg); }
+#nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
+#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
+#nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
+/* Curling up where it sits: hunched forward, arms round the knees, the
+   stream drawn in close about it. */
+#nm-buddy[data-pose="curl-1"] .nm-figure { --nmb-lean-pose: 6deg; }
+#nm-buddy[data-pose="curl"] .nm-figure { --nmb-lean-pose: 10deg; --nmb-lie-shift: 0 2px; }
+#nm-buddy:is([data-pose="curl-1"], [data-pose="curl"]) .nmb-leg-l { transform: rotate(34deg) scaleY(0.6); }
+#nm-buddy:is([data-pose="curl-1"], [data-pose="curl"]) .nmb-leg-r { transform: rotate(-34deg) scaleY(0.6); }
+#nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-l { transform: rotate(-30deg); }
+#nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-r { transform: rotate(30deg); }
+#nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-l { transform: rotate(-58deg); }
+#nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-r { transform: rotate(58deg); }
+#nm-buddy[data-pose="curl"] .atl-layer-lower { rotate: -24deg; }
+#nm-buddy[data-pose="curl-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.9; }
+#nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; translate: 0 8px; }
+
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
    is how a flat mascot turns. */
@@ -6217,6 +6292,7 @@ main,
 :root {
   --atl-lean-dir: 0;
   --nmb-lean-pose: 0deg;
+  --nmb-lie-shift: 0 0;
 }
 :is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }
 :is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }

@@ -320,3 +320,22 @@ def test_every_mood_places_the_arms_per_look_in_three_variants():
 
 
 ATLAS_MOOD_NAMES = re.findall(r"^  (\w+): \{ words:", ATLAS[ATLAS.index("const ATLAS_MOODS = {"):], re.M)
+
+
+
+def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
+    # Round 9 (the owner: "when it sleeps can it lay down", "use the nebular
+    # stream as ... a bed to lay on ... and transitions to and from that
+    # state"): frames the companion plays in order, each eased.
+    for pose in ("lie-1", "lie-2", "lie", "curl-1", "curl"):
+        assert f'#nm-buddy[data-pose="{pose}"] .nm-figure {{ --nmb-lean-pose:' in CSS, pose
+    # The stream turns back upright and flattens under the body.
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale:' in CSS
+    # Per look: sprawled with an arm behind the head, or curled with hands
+    # under the cheek and the skirt drawn up.
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
+    # Variant 1 lies the other way round; the Zs and the rings stay upright.
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS

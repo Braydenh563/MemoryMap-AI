@@ -639,6 +639,8 @@ function filterSettings(term) {
 }
 
 function closeSettingsModal() {
+  //: The address and the title go back to the tab under it (router.js).
+  if (typeof routerSettle === "function") routerSettle();
   const search = $("settings-search");
   if (search) {
     search.value = "";

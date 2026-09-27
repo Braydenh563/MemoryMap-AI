@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The avatar lab and companion simulator are tidier: the lab's actions sit in an even grid, specimens stand on one ground line so sizes compare by height, pose cards leave headroom for the taller nebula, and the status reads as a pill; the simulator's bar wraps whole buttons instead of splitting labels, with a steady-width position readout.
 - Atlas's feminine figure has a very slightly fuller chest: half a unit of swell at the flanks and two faint arcs of shade, nothing more.
 - Atlas moves with secondary motion: the tail and the nebula each take a second, slower sway out of step with the first, so their flow never repeats, and in the large drawings the hair sways about its roots; all of it on the compositor (0 layouts a second measured at rest) and still under Reduce motion.
 - Atlas's feminine ears are small feathered wings with a soft glow, where thin fins read as horns, and her icon (16 to 28px) wears her hair: a lilac silhouette behind the head and a fringe over the crown, so it reads as her rather than a pale blob with two points.

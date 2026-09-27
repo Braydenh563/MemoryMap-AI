@@ -620,7 +620,10 @@ function renderLibrary(options) {
     const madeAnything = libraryItems.some((i) => i.kind !== "activity");
     const createBtn = $("library-empty-create");
     const dockCreate = $("library-new-doc");
-    const offerCreate = !query && !items.length && !["activity", "archived"].includes(libraryKind);
+    //: Not on the archive either (libtl-0926): nothing is made archived, a
+    //: thing is archived from its own menu, and a Create beside "Nothing
+    //: archived" offered to make something that would not appear here.
+    const offerCreate = !query && !items.length && !["activity", "archived", "shelved"].includes(libraryKind);
     if (createBtn) {
       createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
       if (offerCreate && dockCreate) {
@@ -636,9 +639,11 @@ function renderLibrary(options) {
           ? "Nothing here yet. Make a document, a board or a map, or upload a file."
           : libraryKind === "archived"
             ? "The bin is empty."
-            : kindName && libraryKind !== "all"
-              ? `No ${kindName.toLowerCase()} yet.`
-              : "Nothing of this kind yet.";
+            : LIBRARY_EMPTY_SAYS[libraryKind]
+              ? LIBRARY_EMPTY_SAYS[libraryKind]
+              : kindName && libraryKind !== "all"
+                ? `No ${kindName.toLowerCase()} yet.`
+                : "Nothing of this kind yet.";
     }
   };
 
@@ -1153,6 +1158,14 @@ function activityDetailText(detail) {
   const name = ACTIVITY_SETTING_NAMES[key] || words.charAt(0).toUpperCase() + words.slice(1);
   return `${name}: ${activitySettingValue(raw)}`;
 }
+
+//: **A kind whose label does not make a sentence** (libtl-0926, measured
+//: on every chip at zero): the Archived chip said "No archived yet.". One
+//: short sentence, as the recipe asks (DESIGN.md, empty state); how a thing
+//: gets archived is what the Ask Atlas line under it is for.
+const LIBRARY_EMPTY_SAYS = {
+  shelved: "Nothing archived yet.",
+};
 
 function libraryCard(item) {
   // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,

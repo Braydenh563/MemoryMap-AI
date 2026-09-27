@@ -53,3 +53,12 @@ def test_the_all_view_sort_is_remembered_like_the_other_library_sorts():
     assert "localStorage.getItem(LIBRARY_SORT_KEY)" in LIBRARY
     # Only a value the select offers is restored.
     assert "[...select.options].some((o) => o.value === stored)" in LIBRARY
+
+
+def test_the_archive_and_drafts_empty_states_are_sentences_without_a_false_offer():
+    # Measured on every chip at zero: "No archived yet." with a Create beside
+    # it, offering to make something that would not appear there.
+    assert '"archived", "shelved"].includes(libraryKind)' in LIBRARY
+    says = LIBRARY[LIBRARY.index("const LIBRARY_EMPTY_SAYS = {") :][:400]
+    assert 'shelved: "Nothing archived yet."' in says
+    assert "LIBRARY_EMPTY_SAYS[libraryKind]" in LIBRARY

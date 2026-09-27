@@ -62,6 +62,22 @@ def test_escape_stops_the_answer_and_the_stop_button_holds_the_keyboard() -> Non
     assert '$("chat-stop").focus(' in send, "the Stop button no longer takes the focus while the answer streams"
 
 
+def test_escape_leaves_an_answer_being_written_in_another_chat_alone() -> None:
+    """The review of 2026-09-27: `chatController` outlives a switch, since a
+    turn keeps streaming into the chat it was asked in while the reader opens
+    another (`releaseChatComposer` hides Stop and hands the box back). Escape
+    keyed on the controller alone, so an Escape in the new chat's box stopped
+    an answer nobody could see. Measured with the fake answer model: streaming
+    in chat A, New chat, Escape in the box: A's answer stopped (after: still
+    streaming). The Stop button is on screen exactly while the chat on screen
+    is being answered, so Escape asks it."""
+    app = app_js_text()
+    esc = app[app.index("//: **Escape stops the answer being written**") :]
+    esc = esc[: esc.index("\n});\n")]
+    guard = esc.index('$("chat-stop").classList.contains("hidden")')
+    assert guard < esc.index("chatController.abort()")
+
+
 def test_the_streams_end_gives_the_box_the_focus_only_from_the_stop_button() -> None:
     """The review of the chat pass (2026-09-27): the stream's end called
     `input.focus()` whenever the chat was on screen, so a reader who had

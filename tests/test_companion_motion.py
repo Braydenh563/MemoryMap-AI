@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
 from pathlib import Path
 from tests._app_js import app_js_text
 
@@ -476,10 +475,6 @@ def test_the_large_view_enlarges_the_figure_with_scale_not_transform() -> None:
     assert any(re.search(r"(?<![-\w])scale\s*:\s*2\.2", body) for body in rules)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="atlas.js belongs to the Atlas agent: `atlasRepaint` must skip `svg.atl-defs` (a one-line guard)",
-)
 def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
     # The owner, with a screenshot: "a column of four small Atlas heads"
     # under the status bar at the bottom left, outside any UI. `atlasRepaint`

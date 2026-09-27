@@ -29,6 +29,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.
 - Atlas, both looks: the arms grow out of the chest rather than off its edge, fuller at the shoulder and tapering to a wrist, with hands that read as hands (the fingertips' notch made them look like claws), resting at easier angles when sitting and floating; the chest's bright four-point star is now a faded constellation of a few dim stars and hairlines; and the nebula is one soft ribbon behind the figure in a haze of light, drifting slowly, instead of two pieces with one crossing in front. The feminine look has no legs or feet: from the waist down it is a translucent skirt of flowing ribbons that end in wisps and sway, and it glides when it walks.
 - Any small effect drawn inside one of Atlas's layers now moves ten times a second rather than twenty, which halves its cost (40 to 20 repaints and 20 to 10 layouts a second for one effect). Atlas's mood effects are currently drawn on their own layers and cost nothing either way.
 - In Settings, Tools it can use, the two columns' rows line up: a tool with a short description drew its row shorter than the one beside it (27.6px at the default text size), so the rows' edges and fills looked offset between the columns. Each row now fills its place in the grid.

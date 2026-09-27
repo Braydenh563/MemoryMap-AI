@@ -1859,7 +1859,11 @@ function atlasClassicFigure() {
 //: welcome's card if it is open.
 function atlasRepaint() {
   for (const svg of document.querySelectorAll("svg.nm-atlas")) {
-    if (svg.closest("#nm-buddy") || !svg.isConnected) continue;
+    //: Not the shared defs (`atlasDefs`): each look keeps its gradients in a
+    //: hidden `svg.nm-atlas.atl-defs` under <body>, and redrawing it made a
+    //: visible 20px head at the bottom left, one more per change of look
+    //: (the owner's "column of four small Atlas heads"; strayheads.js).
+    if (svg.closest("#nm-buddy") || !svg.isConnected || svg.classList.contains("atl-defs")) continue;
     const size = Number(svg.getAttribute("height")) || 20;
     svg.replaceWith(svg.classList.contains("atl-bust") ? atlasAvatar(size) : atlasDraw(size));
   }

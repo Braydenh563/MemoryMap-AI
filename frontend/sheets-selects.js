@@ -1090,6 +1090,15 @@ function kebabMenu(items, ariaLabel) {
       menu.appendChild(rule);
     }
     if (item.group) lastGroup = item.group;
+    //: **An item with `items` is a submenu** (the owner, of the companion's
+    //: menu: "extend this menu a bit maybe with sub-sections"): the note
+    //: card's flyout recipe, `buildMenuGroupButton` (menus.js), which
+    //: already flies out beside the row, clamps to the window, escapes a
+    //: clipping ancestor, and opens in place in the phone's sheet.
+    if (Array.isArray(item.items) && typeof buildMenuGroupButton === "function") {
+      menu.appendChild(buildMenuGroupButton(item.label, item.items));
+      continue;
+    }
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     //: A destructive row says so in the app's own danger colour. Added when

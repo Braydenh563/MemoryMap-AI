@@ -275,9 +275,19 @@ function atlasTipShape(points, k) {
 //: the palm widens a little past the wrist, the fingers are one soft round
 //: end, and the thumb leaves the palm's inner side clearly, a third of the
 //: way along, so the shape says "hand" by its outline alone.
+//:
+//: **Round 8 (the owner's close-ups: "mitten blobs ... they should read as
+//: small, shaped hands (a thumb, a slight finger split, tapered from the
+//: wrist)").** The mitten was 4.45 long and 4.75 across at a 2.6 wrist, a
+//: paddle twice the wrist's width. Now the palm leaves the wrist with no
+//: step and widens only a little (to 0.4 past it), the fingers end in two
+//: soft lobes with a split between them (0.45 deep: a crease, not the
+//: claw's notch round 6 took out), and the thumb leaves the inner side at
+//: a third of the length and ends in its own rounded tip, 4 long in all.
 const ATLAS_HAND_POINTS = [
-  [0.7, 1.45], [1.9, 1.75], [3.1, 1.6], [4.05, 1.0], [4.45, 0.15], [4.2, -0.75], [3.5, -1.3],
-  [2.7, -1.45], [2.45, -2.45], [1.95, -3.0], [1.35, -2.85], [1.0, -2.1], [0.55, -1.35],
+  [0.9, 1.15], [1.9, 1.3], [2.8, 1.2], [3.5, 1.0], [3.95, 0.6], [4.0, 0.22], [3.55, 0.02],
+  [3.9, -0.22], [3.85, -0.62], [3.45, -0.9], [2.8, -1.0], [2.35, -1.15], [2.1, -1.75],
+  [1.7, -2.15], [1.3, -2.05], [1.15, -1.55], [0.7, -1.05],
 ];
 //: Round 7 (INBOX 430, the owner: "redesign the masculine limbs"): the
 //: foot was a flat paddle, a sole three units deep with the toes five out
@@ -285,10 +295,30 @@ const ATLAS_HAND_POINTS = [
 //: small soft foot that leaves the ankle with no step: the instep slopes
 //: down and out to a rounded toe a little past the ankle, the sole is
 //: shallow and the heel only a rounding of the ankle's back.
+//: **Round 8** (the owner: "clumpy flat feet ... feet with a clear heel and
+//: toe"): the instep slopes from the ankle to a rounded toe that tips up a
+//: little at its end, the sole rises into an arch between the ball and the
+//: heel, and the heel is its own rounded bump behind the ankle, so the
+//: outline reads heel, arch, ball, toe.
+//:
+//: **Round 8, again** (the owner, of the sheet above: "the feet look like
+//: they are facing the opposite direction"): a foot in profile, its toe
+//: five units out to the side, read as pointing away from the body. The
+//: figure faces us, so the foot does too: the toe comes forward (down the
+//: drawing) and a little out, under the ankle, and the heel is the rounded
+//: bump behind it on the inner side; the foot is 3.3 long and reaches 2.6
+//: out, where it reached 4.75.
 const ATLAS_FOOT_POINTS = [
-  [0.7, 1.9], [1.5, 3.3], [2.1, 4.35], [2.55, 4.25], [2.65, 3.1], [2.5, 1.0], [2.45, -0.8], [2.0, -1.55], [1.1, -1.4],
+  [0.8, 1.5], [1.6, 2.1], [2.4, 2.6], [3.0, 2.5], [3.25, 1.8], [3.3, 0.9], [3.15, 0.0],
+  [2.9, -0.7], [2.6, -1.15], [2.35, -1.5], [1.9, -1.75], [1.35, -1.6], [0.8, -1.2],
 ];
-const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]);
+//: Mirrored **and walked the other way round**: a tip is drawn from the
+//: stem's left edge round to its right (`atlasTipShape`), so a mirror that
+//: kept the order started on the wrong side, crossed the ankle and came
+//: back, which drew the right foot apart from its leg (the owner: "the foot
+//: on the right ... looks disconnected from the leg") and the left hand's
+//: thumb the same way.
+const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]).reverse();
 const atlasHand = (thumb, k = 1) => atlasTipShape(thumb < 0 ? ATLAS_HAND_POINTS : atlasMirrorPoints(ATLAS_HAND_POINTS), k);
 const atlasFoot = (toe, k = 1) => atlasTipShape(toe > 0 ? ATLAS_FOOT_POINTS : atlasMirrorPoints(ATLAS_FOOT_POINTS), k);
 //: A limb that ends in a hand or a foot tapers to the wrist or ankle and
@@ -456,11 +486,19 @@ const ATLAS_LOOKS = {
     //: (`.atl-lower`, the CSS), which turns about the waist (`lowerPivot`).
     lowerPivot: [31, 56],
     skirt: "M24.8 50.6C22.4 58.6 18 66.4 15.4 73.8C13.6 79 13.4 83.6 11.6 88.2C14.8 86.4 17.4 84.4 20 84.8C21.4 86.8 21.8 89.2 21.6 91.6C24.2 89.4 26.4 87 28.6 87.2C30 89.2 30.8 91.4 31 93.4C31.4 91.2 32.4 89 34 87.2C36.2 87.2 38.4 89.4 40.6 91.4C40.4 89 41 86.6 42.6 84.8C45.2 84.6 47.8 86.4 50.8 88C49 83.4 48.8 78.8 47 73.6C44.4 66.2 40 58.6 37.6 50.6C33.6 48.8 28.8 48.8 24.8 50.6Z",
+    //: Round 8 (the owner: "make the middle strands thicker and longer
+    //: (reaching lower), keeping the outer ones as they are, so it reads
+    //: as a trail rather than tentacles"): the three middle ribbons are a
+    //: fifth to a third wider (7.2, 7.8, 7.2, where they were 5.8, 5.6,
+    //: 5.8) and run on 5 to 6 units further down, the centre one longest,
+    //: so the skirt tapers to a trail below the figure. The outer two are
+    //: unchanged.
+    scalp: true,
     lowers: [
       { seg: [[26.4, 55, 22.6, 62.4, 19.6, 69, 17.8, 76], [17.8, 76, 16, 83, 19.4, 87.4, 13.6, 90.4], [13.6, 90.4, 11.8, 91.4, 10.4, 92.6, 9.2, 94.4]], w: 6.4, specks: [[20.4, 68.4, 0.32], [16.6, 84, 0.28]], edge: true },
-      { seg: [[28.8, 56, 29.8, 64.4, 23.8, 71.4, 24.6, 79], [24.6, 79, 25.2, 85.4, 28.8, 88.8, 25.6, 94.6]], w: 5.8, specks: [[26, 74.4, 0.3]] },
-      { seg: [[31.2, 56.4, 34, 64.4, 28, 72.2, 30.6, 80], [30.6, 80, 33, 86.6, 29, 90.4, 32.4, 95.4]], w: 5.6, specks: [[30.4, 70, 0.3], [31.2, 88.4, 0.32]] },
-      { seg: [[33.6, 56, 33.2, 64.6, 39.8, 71.4, 38.6, 79], [38.6, 79, 37.6, 85.2, 34.4, 88.8, 37.8, 94.4]], w: 5.8, specks: [[37.4, 75.4, 0.3]] },
+      { seg: [[28.8, 56, 29.8, 64.4, 23.8, 71.4, 24.6, 79], [24.6, 79, 25.2, 85.4, 28.8, 88.8, 25.6, 94.6], [25.6, 94.6, 23.8, 97.4, 26.2, 98.4, 25, 100.4]], w: 7.2, specks: [[26, 74.4, 0.3], [26.4, 92.4, 0.26]] },
+      { seg: [[31.2, 56.4, 34, 64.4, 28, 72.2, 30.6, 80], [30.6, 80, 33, 86.6, 29, 90.4, 32.4, 95.4], [32.4, 95.4, 34.2, 98.4, 30.6, 99.8, 31.8, 102]], w: 7.8, specks: [[30.4, 70, 0.3], [31.2, 88.4, 0.32], [32.4, 97.8, 0.26]] },
+      { seg: [[33.6, 56, 33.2, 64.6, 39.8, 71.4, 38.6, 79], [38.6, 79, 37.6, 85.2, 34.4, 88.8, 37.8, 94.4], [37.8, 94.4, 39.6, 97.2, 36.8, 98.4, 38, 100.4]], w: 7.2, specks: [[37.4, 75.4, 0.3], [37.6, 92, 0.26]] },
       { seg: [[35.8, 55, 39.6, 62.4, 42.8, 69, 44.4, 76.2], [44.4, 76.2, 46, 83.2, 42.8, 87.4, 48.6, 90.4], [48.6, 90.4, 50.4, 91.4, 51.8, 92.6, 53, 94.2]], w: 6.4, specks: [[41.8, 67.8, 0.3], [45.6, 83.4, 0.32]], edge: true },
     ],
     arm: [[35.6, 40.4, 41, 41.8, 46.2, 41.2, 50.2, 39.4]],
@@ -775,13 +813,16 @@ function atlasBandPaths(segs, base) {
 //: Round 7 (INBOX 430, the owner: "a taller nebula stream"): it rises from
 //: above the crown now, at -7, a thin tip over the right ear that swells as
 //: it comes down, where it began at the ear's height.
-const ATLAS_BAND = atlasBandPaths([[45, -7, 55, -7.6, 57.6, 9, 60, 16], [60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
+const ATLAS_BAND = atlasBandPaths([[45, -7, 55, -7.6, 57.6, 9, 60, 16], [60, 16, 64, 26, 52, 36, 34, 43.6], [34, 43.6, 14, 50.6, -5, 57, -6, 70], [-6, 70, -7, 82, 6, 90.6, 22, 91], [22, 91, 30, 91.2, 36, 89.6, 42, 87.4]], (t) => 0.8 + 8 * Math.sin(Math.PI * Math.min(1, t * 1.04)) ** 0.9);
 const ATLAS_BAND_STARS = [[50, -5.4, 0.3], [57, 3, 0.36], [60, 21, 0.4], [55, 31.6, 0.32], [41, 41.2, 0.5], [24, 46.6, 0.36], [6, 53.6, 0.32], [-3, 66, 0.4], [-2, 79, 0.34], [9, 88, 0.42], [26, 90.6, 0.3], [38, 88.4, 0.26]];
 //: The colour inside the ribbon, clipped to it: [cx, cy, rx, ry, colour].
-const ATLAS_BAND_CLOUDS = [[55, 0, 7, 7, "blue"], [58, 26, 9, 6, "pink"], [32, 43, 10, 5, "blue"], [2, 58, 8, 7, "pink"], [0, 80, 7, 8, "blue"], [22, 90, 9, 3, "pink"]];
+const ATLAS_BAND_CLOUDS = [[55, 0, 9, 9, "blue"], [58, 26, 12, 8, "pink"], [32, 43, 13, 7, "blue"], [2, 58, 11, 9, "pink"], [0, 80, 9, 11, "blue"], [22, 90, 12, 5, "pink"]];
 //: The haze round it, unclipped and faint: larger clouds that the ribbon
 //: runs through, so its edges dissolve into light.
-const ATLAS_BAND_HAZE = [[54, 2, 12, 11, "pink"], [56, 26, 15, 11, "blue"], [34, 42, 17, 8, "pink"], [4, 60, 11, 15, "blue"], [4, 84, 14, 9, "pink"], [28, 90, 14, 5, "blue"]];
+//: Round 8 (the owner: "widen the nebulous stream around both looks"):
+//: the ribbon swells to 8.8 across where it swelled to 6.2, and its haze
+//: reaches a third further round it.
+const ATLAS_BAND_HAZE = [[54, 2, 16, 14, "pink"], [56, 26, 20, 15, "blue"], [34, 42, 22, 11, "pink"], [4, 60, 15, 20, "blue"], [4, 84, 19, 12, "pink"], [28, 90, 19, 7, "blue"]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -954,6 +995,22 @@ function atlasMane(parent, level, edge, look) {
     }
   }
   return mane;
+}
+
+//: **The hair's roots, over the crown** (round 8). The locks are drawn
+//: behind the head, so where they met it the head's own edge and its rim
+//: shade ran between them: a bald dome with strands laid behind it. The
+//: crown now wears the hair: a cap in the locks' own paint over the top of
+//: the head, running back into the locks at the sides, faded out towards
+//: the brow by the `scalp` mask, gone before the forehead: no strands fall
+//: over it (the owner: "get rid of the feminine fringe"; two parting
+//: strokes here read as a fringe).
+const ATLAS_SCALP = "M16.6 24C15.6 13.6 22.2 6.6 31 6.6C39.8 6.6 46.6 13.6 45.4 24C43.6 20.6 40.4 18.2 36.4 17.4C33 16.8 29 16.8 25.6 17.4C21.6 18.2 18.4 20.6 16.6 24Z";
+function atlasScalp(parent, id) {
+  const g = atlasMake("g", { class: "atl-scalp", mask: `url(#${id}-scalp)` }, parent);
+  atlasMake("path", { class: "atl-skin atl-lock atl-hair-mass", d: ATLAS_SCALP }, g);
+  atlasMake("path", { class: "atl-overlay atl-hair-neb", d: ATLAS_SCALP }, g);
+  return g;
 }
 
 function atlasEars(parent, level, edge, look) {
@@ -1176,6 +1233,7 @@ function atlasHead(parent, id, level, look) {
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
   if (!tiny) atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
   const ears = atlasEars(sway, level, false, look);
+  if (spec.scalp && !tiny) atlasScalp(sway, id);
   if (!tiny) {
     atlasSpecks(sway, [[40.4, 15.4, 0.34], [42.2, 20.2, 0.26], [20.6, 28.4, 0.26]], "atl-speck atl-speck-soft");
     atlasMake("ellipse", { class: "atl-sheen atl-sheen-head", cx: 25.4, cy: 14.6, rx: 5.6, ry: 3, transform: "rotate(-34 25.4 14.6)" }, sway);
@@ -1334,6 +1392,9 @@ function atlasBody(parent, id, props, look, route = null) {
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-body", d }, hold);
     }
     const torso = atlasGroup(layer, "nmb-torso");
+    //: The look that flows into a skirt has no hem: the torso fades out
+    //: over the skirt's top (round 8, the `waist` mask).
+    if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);
     const torsoPath = spec.torsoNow;
     //: The torso's glow edge is its flanks and shoulders only (round 7).
     //: In the companion the legs and the skirt are layers under the body's,
@@ -1504,6 +1565,22 @@ function atlasBuildDefs(svg, id) {
   //: waist, fading to nothing by the hem, so the ribbons end in wisps.
   const skirt = atlasMake("linearGradient", { id: `${id}-skirt`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 52, x2: 0, y2: 96 }, defs);
   stops(skirt, [[0, "atl-st-skirt0"], [0.45, "atl-st-skirt1"], [1, "atl-st-skirt2"]]);
+  //: **Round 8, two fades** (the owner, of the feminine look: "the massive
+  //: hair strands look separate from the head" and "the torso should flow
+  //: smoothly into the wispy lower body, not read as an egg sitting on the
+  //: ribbons"). Masks in the drawing's space: `waist` shows everything above
+  //: 54 and nothing below 63, so the torso dissolves into the skirt under
+  //: it instead of ending in a round hem; `scalp` shows the hair's roots
+  //: drawn over the crown (`atlasScalp`) at full strength over the crown and
+  //: fades them out down to the brow, so the hair grows out of the head.
+  const fade = (name, y1, y2) => {
+    const grad = atlasMake("linearGradient", { id: `${id}-${name}g`, gradientUnits: "userSpaceOnUse", x1: 0, y1, x2: 0, y2 }, defs);
+    stops(grad, [[0, "atl-st-white"], [1, "atl-st-white-0"]]);
+    const mask = atlasMake("mask", { id: `${id}-${name}`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+    atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
+  };
+  fade("waist", 54, 63);
+  fade("scalp", 8.5, 15);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   for (const [cx, cy, side] of ATLAS_GEO.eyes) {

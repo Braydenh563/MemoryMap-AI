@@ -50,6 +50,7 @@ from collections.abc import Iterator
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
 from memorymap.ai import presets
+from memorymap.ai.help_topics_more import MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
@@ -374,7 +375,7 @@ HELP_TOPICS: list[dict] = [
             "telemetry, and nothing leaves your machine unless you explicitly "
             "turn on web search."
         ),
-        "badge": {"label": "Account & security", "section": "account"},
+        "badge": {"label": "Privacy", "section": "privacy"},
     },
     {
         "id": "archive",
@@ -1176,6 +1177,11 @@ HELP_TOPICS.extend(
     ]
 )
 
+#: **Every Settings section, the companion, the faces and the app's layout**
+#: (INBOX 430): the second half of the reference, in its own module
+#: (help_topics_more.py) so this one stays about how an answer is found.
+HELP_TOPICS.extend(MORE_TOPICS)
+
 #: **Which entry answers "the keys of" a surface.** A question that names a
 #: surface and asks about its keys, controls or hidden corners is about that
 #: surface's controls entry, and the ranking below cannot see that on words
@@ -1472,6 +1478,38 @@ def _matching_topics(question: str) -> list[dict]:
     return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
 
 
+def topic_title(topic: dict) -> str:
+    return TOPIC_META.get(topic["id"], {}).get("title") or topic["id"].replace("-", " ").capitalize()
+
+
+#: **The system answer** (INBOX 430, the owner: "a toggle on each answer
+#: between the AI's answer and the system-generated answer from the app's
+#: help", with "clean formatting: headings, steps, the setting's path, and a
+#: link that opens it"). The best-matching entry, laid out: its title as a
+#: heading, where it lives, its text, its steps when it has some, and the
+#: other entries worth reading named at the end. The link is the entry's
+#: badge (`open`), which the client draws as a button that goes there; a
+#: link inside the Markdown could only be a URL, and a URL cannot open a
+#: settings row. The same text is the offline answer, so the Guide with no
+#: model answers exactly as the toggle's other side does.
+def system_answer(topics: list[dict]) -> dict:
+    if not topics:
+        return {"content": "", "open": None}
+    first = topics[0]
+    meta = TOPIC_META.get(first["id"], {})
+    lines = [f"### {topic_title(first)}"]
+    if meta.get("path"):
+        lines.append(f"**Where:** {meta['path']}")
+    lines.append(first["body"])
+    steps = meta.get("steps") or ()
+    if steps:
+        lines.append("\n".join(f"{n}. {step}" for n, step in enumerate(steps, 1)))
+    related = [topic_title(topic) for topic in topics[1:]]
+    if related:
+        lines.append("**Related:** " + ", ".join(related))
+    return {"content": "\n\n".join(lines), "open": first.get("badge")}
+
+
 def source_names(topics: list[dict]) -> list[str]:
     return [topic["id"].replace("-", " ").capitalize() for topic in topics]
 
@@ -1640,14 +1678,12 @@ def offline_answer(
     #: was one paragraph of three; the best match is the answer, and the
     #: runners-up (already cut to those worth showing, `_RUNNER_UP_SHARE`)
     #: are named as related, with their chips below as before.
-    body = topics[0]["body"]
-    related = [name.lower() for name in source_names(topics[1:])]
-    if related:
-        body += "\n\nRelated: " + ", ".join(related) + "."
+    system = system_answer(topics)
     return {
-        "content": f"{OFFLINE_LEAD}\n\n{body}",
+        "content": f"{OFFLINE_LEAD}\n\n{system['content']}",
         "badges": badges_for(topics),
         "sources": source_names(topics),
+        "system": system,
     }
 
 
@@ -1709,6 +1745,7 @@ def answer_stream(
         "content": content,
         "badges": badges_for(topics),
         "sources": source_names(topics),
+        "system": system_answer(topics),
     }
 
 
@@ -1748,4 +1785,5 @@ def answer(
         "content": content,
         "badges": badges_for(topics),
         "sources": source_names(topics),
+        "system": system_answer(topics),
     }

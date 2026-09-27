@@ -2439,12 +2439,20 @@ label.setting-check,
   font-style: italic;
 }
 
-.help-chat-badges {
+.help-chat-badges,
+.help-chat-open {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+/* The answer's two views (INBOX 430): Atlas's answer or the app's help,
+   above the prose, the width of its two words. */
+.help-chat-views {
+  width: fit-content;
+  margin-bottom: var(--space-2);
+}
+.help-chat-prose > :first-child { margin-top: 0; }
 
 .help-chat-form {
   gap: var(--space-2);

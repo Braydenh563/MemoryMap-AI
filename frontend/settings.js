@@ -2610,7 +2610,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2904,6 +2904,18 @@ $("avatar-buddy").addEventListener("change", (e) => {
   nameMarkBuddySizeSelect();
 });
 $("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
+$("avatar-buddy-actions").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem("avatar-buddy-actions", e.target.value);
+  } catch (err) {
+    // This visit only.
+  }
+});
+try {
+  $("avatar-buddy-actions").value = localStorage.getItem("avatar-buddy-actions") || "fewer";
+} catch (err) {
+  $("avatar-buddy-actions").value = "fewer";
+}
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);
@@ -3036,7 +3048,9 @@ document.addEventListener("click", (event) => {
   //: closer already knows every overlay that can hold the keyboard.
   closeOverlaysForChord();
   if (link.dataset.gotoSection) {
-    openSettingsModal(link.dataset.gotoSection);
+    //: The row too (INBOX 430: the Guide's "a link that opens it" lands on
+    //: the setting it named, not the top of its section).
+    openSettingsModal(link.dataset.gotoSection, link.dataset.gotoTarget || null);
     return;
   }
   switchTab(link.dataset.gotoTab);
@@ -3510,15 +3524,77 @@ function helpChatAppendRow(row) {
   if (stick) list.scrollTop = list.scrollHeight;
 }
 
-function renderHelpChatMessage(role, content, badges = [], sources = []) {
+//: A button that opens where a help entry points: a tab, a Settings
+//: section, or one row in it (the document-level `[data-goto-*]` handler
+//: above does the going).
+function helpChatOpenButton(link, label) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "chip chip-interactive";
+  if (link.tab) btn.dataset.gotoTab = link.tab;
+  if (link.section) btn.dataset.gotoSection = link.section;
+  if (link.target) btn.dataset.gotoTarget = link.target;
+  btn.textContent = label || link.label;
+  return btn;
+}
+
+function renderHelpChatMessage(role, content, badges = [], sources = [], system = null) {
   const list = $("help-chat-messages");
   if (!list) return null;
   const row = document.createElement("div");
   row.className = `help-chat-msg is-${role}`;
+  //: **Atlas's answer, or the app's own help** (INBOX 430, the owner: "a
+  //: toggle on each answer between the AI's answer and the system-generated
+  //: answer from the app's help"). The turn carries both (`system`, laid out
+  //: by `help_chat.system_answer`: a heading, where it lives, the text, the
+  //: steps); a `.seg` of two above the answer swaps the prose between them.
+  //: With no model the answer already is the help's, so there is no toggle,
+  //: only the link.
+  const prose = document.createElement("div");
+  prose.className = "help-chat-prose";
+  const both = role === "assistant" && system?.content && !content.includes(system.content);
+  if (both) {
+    const seg = document.createElement("div");
+    seg.className = "seg seg-compact help-chat-views";
+    seg.setAttribute("role", "tablist");
+    seg.setAttribute("aria-label", "Which answer to show");
+    for (const [key, label] of [["ai", `${GUIDE_NAME}'s answer`], ["help", "From the help"]]) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.dataset.view = key;
+      tab.textContent = label;
+      const on = key === "ai";
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.addEventListener("click", () => {
+        for (const sibling of seg.children) {
+          const chosen = sibling === tab;
+          sibling.classList.toggle("active", chosen);
+          sibling.setAttribute("aria-selected", chosen ? "true" : "false");
+        }
+        renderMarkdown(prose, key === "ai" ? content : system.content);
+        row.dataset.view = key;
+      });
+      seg.appendChild(tab);
+    }
+    row.appendChild(seg);
+    row.dataset.view = "ai";
+  }
+  row.appendChild(prose);
   if (role === "assistant") {
-    renderMarkdown(row, content);
+    renderMarkdown(prose, content);
   } else {
-    row.textContent = content;
+    prose.textContent = content;
+  }
+  //: The link the owner asked for: one button that opens the setting or
+  //: tab the answer is about, row and all.
+  if (role === "assistant" && system?.open) {
+    const open = document.createElement("div");
+    open.className = "help-chat-open";
+    const where = system.open.section ? "Open Settings, " : "Go to ";
+    open.appendChild(helpChatOpenButton(system.open, `${where}${system.open.label}`));
+    row.appendChild(open);
   }
   //: **Where the answer came from** (INBOX 224). Atlas answers only from the
   //: app's own help topics, and saying which ones is the difference between a
@@ -3536,13 +3612,8 @@ function renderHelpChatMessage(role, content, badges = [], sources = []) {
     const badgeRow = document.createElement("div");
     badgeRow.className = "help-chat-badges";
     for (const badge of badges) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "chip chip-interactive";
-      if (badge.tab) btn.dataset.gotoTab = badge.tab;
-      if (badge.section) btn.dataset.gotoSection = badge.section;
-      btn.textContent = badge.label;
-      badgeRow.appendChild(btn);
+      if (system?.open && badge.label === system.open.label) continue;
+      badgeRow.appendChild(helpChatOpenButton(badge));
     }
     row.appendChild(badgeRow);
   }
@@ -3702,7 +3773,8 @@ async function submitHelpChatQuestion(question) {
       "assistant",
       signal.aborted ? `${shown.trimEnd()} (stopped)` : content,
       signal.aborted ? [] : result?.badges || [],
-      signal.aborted ? [] : result?.sources || []
+      signal.aborted ? [] : result?.sources || [],
+      signal.aborted ? null : result?.system || null
     );
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
@@ -3848,6 +3920,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     content: done?.content || text,
     badges: done?.badges || [],
     sources: done?.sources || [],
+    system: done?.system || null,
     shown: text,
   };
 }

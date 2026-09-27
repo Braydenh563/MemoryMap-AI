@@ -3680,10 +3680,35 @@ header#top-bar.tabs-wrapped #tab-bar {
 
      A zone whose reported box does not contain what it draws is also why an
      earlier reading called the dot invisible on a phone: the number said 0
-     and the pixels said otherwise. `min-content` keeps the two honest, and
-     still lets a long background-job label shorten, which is what the rule
-     above is for. */
+     and the pixels said otherwise. `min-content` keeps the two honest.
+
+     **It did not let a job's label shorten, though it said so** (libtl-0926).
+     A `nowrap` label's min-content is its whole width, so a running job at
+     1024 ("Re-indexing notes for search", 208px) pushed Redo to 1075.6 and
+     the page scrolled sideways by 52px on every tab until the job ended:
+     errors.js's seven-tab finding at 1024, which was the first seven tabs
+     it visited on a server that had just started its jobs. So the job slot
+     is sized from nothing (`width: 0`, which is also its min-content) and
+     grows into the room the zone has, up to its whole label, and the zone
+     grows to offer it the room the spacer would otherwise hold. Items to
+     the left, the controls to the right, exactly as before when no job is
+     running. The zone outgrows the spacer by far, rather than splitting the
+     room with it, or a label that fits would be cut at half the room. */
   min-width: min-content;
+  flex-grow: 1000;
+}
+#status-bar #status-task {
+  flex: 1 1 auto;
+  width: 0;
+  /* The gear at least: a job the bar has no room to name still shows that
+     one is running, and its title and a press name it. */
+  min-width: calc(var(--status-h) + var(--space-3));
+  max-width: max-content;
+}
+#status-bar #status-task > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-zone[data-status-zone="tools"],

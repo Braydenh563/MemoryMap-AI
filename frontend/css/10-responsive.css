@@ -1445,6 +1445,22 @@ header#top-bar,
   }
 }
 
+/* --- the status bar from 820 to 959: one item fewer ------------------------
+   Measured at 820 (errors.js, then per zone): the state zone 237.6px, the
+   doorways 367, the controls 184.4 and three gaps of 8 need 813px, and the
+   bar has 800 inside its padding, so Redo ended at 822.8 and every tab in
+   the app scrolled sideways by 3px. 820 is the first width this file draws
+   for a mouse, so the tablet band's cuts above do not apply. The notebook
+   count goes, the same one that goes below 820 and for the same reason (it
+   is on the dashboard's first screen); the palette's hint stays, since a
+   mouse at this width has a keyboard beside it. That frees 119px, which is
+   also room for a running job's label in the state zone. */
+@media (min-width: 820px) and (max-width: 959.98px) {
+  #status-notes {
+    display: none;
+  }
+}
+
 /* Three more a finger found on a tablet (768x1024, phonechrome.js). The
    header's tab strip let its shortest caption, "Chat", shrink its column to
    41px; the chat composer's model picker was 30px tall in a strip of 44s;

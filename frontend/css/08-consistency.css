@@ -5615,6 +5615,24 @@ main,
 #nm-buddy[data-pose="lie"] .atl-figure-box > .atl-orbits { rotate: calc(84deg - 168deg * var(--atl-v1)); }
 /* The ground shadow and the dark theme's glow follow the body down. */
 #nm-buddy[data-pose="lie"]::before { left: calc(-6px + 52px * var(--atl-v1)); right: calc(-46px + 52px * var(--atl-v1)); }
+/* **A nebula bed, not a thin band** (the owner, of the lie pose: the
+   cushion should read as a bed). The stream turned flat under the body was
+   one hairline of colour; the ground shadow under a lying or curled Atlas
+   becomes the bed instead: a soft pillow of the figure's lilac nebula,
+   deeper at its heart, with a few stars in it, raised to take the body's
+   weight. It is the host's own pseudo-element, so it stays level under the
+   body whichever way the figure turns and costs no layer. */
+#nm-buddy:has(.atl-figure):is([data-pose="lie"], [data-pose="lie-2"], [data-pose="curl"])::before {
+  top: calc(var(--nmb-edge) - 12px);
+  height: 18px;
+  background:
+    radial-gradient(1px 1px at 22% 42%, rgb(255 255 255 / 0.9), transparent),
+    radial-gradient(1px 1px at 58% 30%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 79% 60%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(38% 70% at 34% 46%, rgb(220 223 249 / 0.6), transparent),
+    radial-gradient(42% 72% at 68% 52%, rgb(195 196 241 / 0.55), transparent),
+    radial-gradient(closest-side, rgb(125 116 194 / 0.5) 45%, rgb(65 59 148 / 0.28) 78%, transparent);
+}
 :root[data-theme="dark"] #nm-buddy[data-pose="lie"]::after { top: 26px; height: 56px; left: calc(-8px + 52px * var(--atl-v1)); right: calc(-48px + 52px * var(--atl-v1)); }
 #nm-buddy:is([data-pose="lie-2"], [data-pose="lie"]) .atl-band-haze { opacity: 0.35; }
 /* The near half of the stream lies under the body as its bed, not over it. */

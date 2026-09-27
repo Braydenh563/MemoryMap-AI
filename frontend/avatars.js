@@ -3416,6 +3416,125 @@ function nameMarkBuddyEmote(kind) {
   ], { duration: 1600, easing: "ease-out" });
 }
 
+//: **Saved companions**, the custom themes' pattern for the companion:
+//: every setting that makes it who it is, kept under a name in this
+//: browser, applied in one press, renamed (its name back in the field, then
+//: saved) and deleted. At most twelve.
+const NMB_PRESET_KEYS = ["avatar-buddy", "atlas-look", "face-look", "avatar-buddy-custom", "avatar-buddy-size", "avatar-buddy-actions", "avatar-buddy-acts-off", "avatar-buddy-motion"];
+const NMB_PRESET_MAX = 12;
+let nmbPresetRenaming = "";
+function nameMarkBuddyPresets() {
+  try {
+    const list = JSON.parse(localStorage.getItem("avatar-buddy-presets") || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+function nameMarkBuddyKeepPresets(list) {
+  try {
+    localStorage.setItem("avatar-buddy-presets", JSON.stringify(list));
+  } catch (e) {
+    // Not kept this time.
+  }
+  mountBuddyPresets();
+}
+function nameMarkBuddySavePreset() {
+  const input = document.getElementById("avatar-buddy-preset-name");
+  const name = (input?.value || "").trim().slice(0, 30);
+  if (!name) {
+    if (typeof toast === "function") toast("Give the companion a name first.", true);
+    input?.focus();
+    return;
+  }
+  const values = {};
+  for (const key of NMB_PRESET_KEYS) {
+    const v = localStorage.getItem(key);
+    if (v !== null) values[key] = v;
+  }
+  const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
+  if (others.length >= NMB_PRESET_MAX) {
+    if (typeof toast === "function") toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
+    return;
+  }
+  nmbPresetRenaming = "";
+  input.value = "";
+  nameMarkBuddyKeepPresets([...others, { name, values }]);
+  if (typeof toast === "function") toast(`Saved “${name}”.`);
+}
+function nameMarkBuddyApplyPreset(preset) {
+  for (const key of NMB_PRESET_KEYS) {
+    if (preset.values?.[key] !== undefined) localStorage.setItem(key, preset.values[key]);
+    else localStorage.removeItem(key);
+  }
+  nameMarkBuddyCustomCache = null;
+  const acts = document.getElementById("avatar-buddy-activities");
+  if (acts) acts.replaceChildren();
+  if (typeof applyAppearance === "function") applyAppearance();
+  if (typeof renderAppearance === "function") renderAppearance();
+  const buddy = document.getElementById("nm-buddy");
+  if (buddy) {
+    delete buddy.dataset.seed;
+    nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
+    nameMarkBuddyToggles(buddy);
+  }
+  syncNameMarkBuddy();
+  mountBuddyActivities();
+  if (typeof toast === "function") toast(`Applied “${preset.name}”.`);
+}
+function mountBuddyPresets() {
+  const box = document.getElementById("avatar-buddy-presets");
+  if (!box) return;
+  box.replaceChildren();
+  const list = nameMarkBuddyPresets();
+  if (!list.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing saved yet: set the companion up how you like it, then save it here.";
+    box.appendChild(empty);
+  }
+  for (const preset of list) {
+    const row = document.createElement("div");
+    row.className = "row avatar-buddy-preset";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "small";
+    apply.textContent = preset.name;
+    apply.title = `Apply “${preset.name}”`;
+    apply.addEventListener("click", () => nameMarkBuddyApplyPreset(preset));
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "ghost small";
+    rename.textContent = "Rename";
+    rename.addEventListener("click", () => {
+      const input = document.getElementById("avatar-buddy-preset-name");
+      nmbPresetRenaming = preset.name;
+      input.value = preset.name;
+      input.focus();
+      input.select();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small";
+    remove.textContent = "Delete";
+    remove.setAttribute("aria-label", `Delete the saved companion “${preset.name}”`);
+    remove.addEventListener("click", () => {
+      nameMarkBuddyKeepPresets(nameMarkBuddyPresets().filter((p) => p.name !== preset.name));
+      if (typeof toast === "function") toast(`Deleted “${preset.name}”.`);
+    });
+    row.append(apply, rename, remove);
+    box.appendChild(row);
+  }
+  const save = document.getElementById("avatar-buddy-preset-save");
+  if (save && !save.dataset.wired) {
+    save.dataset.wired = "1";
+    save.addEventListener("click", nameMarkBuddySavePreset);
+    document.getElementById("avatar-buddy-preset-name")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") nameMarkBuddySavePreset();
+    });
+  }
+}
+
 function mountBuddyActivities() {
   const host = document.getElementById("avatar-buddy-activities");
   if (!host || host.childElementCount) return;

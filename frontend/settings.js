@@ -2355,6 +2355,7 @@ function renderAppearance() {
   $("avatar-buddy").value = appearancePref("avatar-buddy");
   if (typeof mountBuddyCustom === "function") mountBuddyCustom();
   if (typeof mountBuddyActivities === "function") mountBuddyActivities();
+  if (typeof mountBuddyPresets === "function") mountBuddyPresets();
   try {
     $("avatar-buddy-motion").value = localStorage.getItem("avatar-buddy-motion") || "follow";
   } catch (e) {

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companions can be saved like looks: Appearance > Saved companions keeps who it is, its look, size, what it does and how it moves under a name, to apply, rename or delete.
 - When the companion is you or your own character and you have not made that face yet, Appearance says it is read from a name and offers Create your avatar; the companion's menu offers it too, and choosing Your own character there opens its maker instead of quietly making one up.
 - Faces in the persona rows and on your profile stay inside their circle, as the dashboard emblem's does.
 - The avatar lab keeps the mood and pose you pick (a Live behaviour switch lets Atlas's own moods play), and neither the lab nor the companion wears a night cap standing up.

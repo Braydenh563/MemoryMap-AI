@@ -997,3 +997,15 @@ def test_a_face_you_have_not_made_says_so_and_leads_to_its_maker() -> None:
     assert '"ph:user-circle-plus Create your avatar"' in menu
     assert 'if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");' in menu
     assert "nameMarkBuddyMakeHint();" in _fn("mountBuddyCustom")
+
+
+def test_companions_can_be_saved_applied_renamed_and_deleted() -> None:
+    # The owner: "I want to be able to save custom companions like with the
+    # custom themes". Measured (buddypresets.js): saved as Atlas, Large, fades
+    # only; applied over you at Small, it is Atlas at 1.3 with fades again;
+    # renamed; deleted.
+    assert 'id="avatar-buddy-presets"' in HTML and 'id="avatar-buddy-preset-save"' in HTML
+    for key in ('"avatar-buddy"', '"atlas-look"', '"avatar-buddy-custom"', '"avatar-buddy-size"', '"avatar-buddy-acts-off"', '"avatar-buddy-motion"'):
+        assert key in AV[AV.index("const NMB_PRESET_KEYS = [") :][:400], key
+    assert "p.name !== nmbPresetRenaming" in _fn("nameMarkBuddySavePreset")
+    assert "mountBuddyPresets()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")

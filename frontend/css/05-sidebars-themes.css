@@ -668,6 +668,12 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   flex: 1 1 auto;
 }
 
+/* The row's Change is a fixed hit target: shrinking with the row cut its
+   label at 390 (devibe.js: 55px of text in a 53px button). */
+.shortcut-list li>button {
+  flex: 0 0 auto;
+}
+
 /* The keys are one item, not one item per key. Every `<kbd>` in a row used
    to be its own flex child, so a chord row's keys and the separators between
    them each took the row's 0.5rem gap and pushed the description into

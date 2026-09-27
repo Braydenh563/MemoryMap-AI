@@ -222,7 +222,7 @@ select optgroup {
   /* The shadowed bottom rim, the other half of a pane with thickness. Much
      weaker than the highlight on purpose: a rim light comes from somewhere,
      and two edges of equal strength read as a border instead. */
-  --glass-underline: rgba(31, 38, 135, 0.07);
+  --glass-underline: rgba(31, 36, 48, 0.07);
   --modal-bg: rgba(252, 253, 255, 0.96);
   /* Fully opaque (alpha 1, not 0.96), for a floating surface read over dense
      text, not just glanced at. Verified by sampling raw screenshot pixels,
@@ -265,8 +265,8 @@ select optgroup {
     inset 1px 0 0 var(--glass-edge),
     inset 0 -1px 0 var(--glass-underline);
   --glass-shadow:
-    0 1px 2px rgba(31, 38, 135, 0.06),
-    0 12px 32px rgba(31, 38, 135, var(--shadow-intensity));
+    0 1px 2px rgba(31, 36, 48, 0.06),
+    0 12px 32px rgba(31, 36, 48, var(--shadow-intensity));
   /* INBOX 89: "sheen strength ... doesn't do anything" -- true. The comment
      on the sheen's own `.card` rule (further down this file) already
      claimed "both rgba stops below are scaled by --glass-sheen-strength
@@ -721,7 +721,13 @@ select optgroup {
   --glass-bg: var(--card);
   --border-light: var(--glass-border);
   --font-sans: var(--ui-font);
-  --shadow-sm: 0 2px 8px rgba(31, 38, 135, var(--shadow-intensity));
+  /* **Light's shadows are cast in the app's own ink** (`--ink`, 31 36 48).
+     They were `rgba(31, 38, 135, ...)`, the blue-violet that glassmorphism
+     generators print by default, one of the recognisable tells of a
+     generated interface (the devibe pass, devibe.js: every floating action
+     button carried it at a 40px blur). A shadow is the absence of light on
+     this paper, not a colour. Dark's were already black. */
+  --shadow-sm: 0 2px 8px rgba(31, 36, 48, var(--shadow-intensity));
   --shadow-md: var(--glass-shadow);
   /* The third, missing tier: a "lifted off the surface" shadow for a
      dragged card or an active/raised control, stronger than --shadow-md's
@@ -730,7 +736,7 @@ select optgroup {
      one-off box-shadow values (0.05-0.5 opacity, six different blur radii,
      both the purple-tinted and flat-black families) existed before this,
      none dark-mode-aware unless they happened to reuse --glass-shadow. */
-  --shadow-lg: 0 16px 40px rgba(31, 38, 135, calc(var(--shadow-intensity) * 3));
+  --shadow-lg: 0 16px 40px rgba(31, 36, 48, calc(var(--shadow-intensity) * 3));
   /* The sketch/whiteboard surface set. */
   --sw-card: var(--card);
   --sw-border: var(--border);

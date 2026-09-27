@@ -3265,3 +3265,13 @@ def test_a_hovered_row_keeps_its_hint_readable():
         at = text.index(selector + " {")
         body = text[at : text.index("}", at)]
         assert "var(--row-hover-bg)" in body and "--ghost-btn-bg-hover" not in body, selector
+
+
+def test_no_glassmorphism_generator_shadow():
+    """Shadows are cast in the app's ink, never the blue-violet
+    `rgba(31, 38, 135, ...)` glassmorphism generators print by default, a
+    recognisable tell of a generated interface (scratchpad/ui-sweeps/devibe.js
+    found it on every floating action button, blurred 40px)."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    code = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    assert not re.search(r"rgba\(\s*31,\s*38,\s*135", code)

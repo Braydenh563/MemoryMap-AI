@@ -58,7 +58,22 @@ work starts.
    bald-looking dome): "the front head hair on the feminine atlas needs a
    slightly better redesign". Fuller hair mass over the crown, soft locks
    with depth and shading, not line strokes; keep the circlet subtle.
-10. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
+10. **The owner at release, more UI notes (screenshots in the session):**
+    (a) reminders bar: a way to reset the time back after using the steppers
+    (an undo, or a "Reset" that restores the saved time);
+    (b) the OCR workspace: the AI reading block leaves little room for the
+    blocks below; make sections collapsible (or cap the reading and scroll);
+    (c) Atlas floats in empty space when the Find anything dialog is open;
+    it should hide, or perch on the dialog's edge, while a modal is up;
+    (d) a small gap between a note card's text and its metadata row;
+    (e) the note edit form's "fit toolbar on one row" toggle does nothing;
+    (f) related-note badges and their Link buttons are different heights;
+    (g) help answers, "From the help": the entry title ("Skills") is tiny
+    against the body; give it heading size;
+    (h) the documents formatting toolbar: it overflows to a "..." menu by
+    design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
+    shows on keyboard focus.
+11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 
 ## Held on a branch, not merged

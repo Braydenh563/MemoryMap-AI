@@ -8665,3 +8665,11 @@ input[type="file"]::file-selector-button:hover {
 #entry-list > li > .entry-meta {
   margin-top: var(--space-2);
 }
+
+/* The dashboard edit row's drag handle lines up with Remove and Wide. */
+.dash-card .drag-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  line-height: 1;
+}

@@ -1875,7 +1875,12 @@ async function renderDashboard() {
       }
       const handle = document.createElement("span");
       handle.className = "drag-handle";
-      handle.textContent = "≡ drag";
+      //: An icon and a word like its Remove and Wide neighbours, not a "≡"
+      //: glyph that sat above their baseline (reported at release).
+      const grip = document.createElement("i");
+      grip.className = "ph ph-dots-six-vertical ph-lead";
+      grip.setAttribute("aria-hidden", "true");
+      handle.append(grip, " Drag");
       controls.appendChild(handle);
       header.appendChild(controls);
     }

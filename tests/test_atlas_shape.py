@@ -169,3 +169,17 @@ def test_the_body_and_its_limbs_read_as_one_figure():
     assert ATLAS.count('class: "atl-overlay atl-rim-body", d }') == 3
     assert 'gradientTransform: "translate(30.5 50) scale(1 2.6) translate(-30.5 -50)"' in ATLAS
     assert "spec.torsoEdgeNow || torsoPath" in ATLAS
+
+
+def test_the_feminine_ears_are_small_wings_and_her_icon_has_hair():
+    # Round 9 (the owner: "make them angelic and fluffy"; "make the mini
+    # atlas avatar on the atlas feminine version look better"): feathered
+    # wings with a glow where thin fins read as horns, and at icon size a
+    # silhouette of hair and a fringe where the mane is not drawn.
+    feminine = _look("feminine")
+    assert "earFeathers:" in feminine and "earGlow:" in feminine
+    assert "tinyHair:" in feminine and "tinyFringe:" in feminine
+    masculine = _look("masculine")
+    assert "earFeathers" not in masculine and "tinyHair" not in masculine
+    assert 'if (!spec.tinyHair) return null;' in ATLAS
+    assert ".nm-atlas .atl-ear-feather {" in CSS and ".nm-atlas .atl-tiny-lock {" in CSS

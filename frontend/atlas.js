@@ -464,10 +464,29 @@ const ATLAS_LOOKS = {
   //: should be the feminie flowing whispy ribbons"); the right hand held
   //: out sowing star seeds; a paler, lilac skin (the CSS).
   feminine: {
-    ear: "M20.4 16.6C17.6 15.6 15.2 13.6 14 10.6C13.6 9.6 12.4 9.2 12.6 8.4C15.4 10.2 18.6 11.4 22.8 11.6C21.2 13 20.4 14.6 20.4 16.6Z",
+    //: **Angel's-wing ears** (round 9, the owner: "improve the feminine
+    //: ears, make them angelic and fluffy"). Round 6's fins were thin
+    //: points that read as horns, and at icon size as two spikes on a
+    //: blob. Now each is a small wing swept up and back from the temple:
+    //: a smooth leading edge, a trailing edge of four rounded feather tips,
+    //: three pale feather lines inside and a soft glow behind, so it reads
+    //: as down and light, rounded at every size.
+    ear: atlasScalePath("M22.8 11.6C19.8 8.2 15.2 4.4 9.8 3.4C7.6 3 7 6.4 9.2 7.6C6.8 8.6 7.4 11.8 10.4 11.6C8.8 13.6 10.8 15.6 13.8 14.6C13.4 16.8 16.6 18.2 19.4 17C20.4 16.6 20.8 16.2 21.2 15.6L22.8 11.6Z", 0.86, 21.6, 14),
+    earFeathers: atlasScalePath("M20.6 13.4C17.4 10.4 14 7.6 10.6 5.6M20.2 14.8C17 13 14 11.6 11.2 10.2M20 15.8C18 15.6 16.2 15.2 14.6 14.2", 0.86, 21.6, 14),
+    earGlow: [14.8, 9.6, 8, 7],
     earIn: "",
-    earTip: [12.8, 8.6],
+    earTip: [11.6, 5],
     fin: true,
+    //: At icon size (the `tiny` level, under 28px) the mane is not drawn,
+    //: and without it the feminine face was a pale blob with two points
+    //: (the owner: "make the mini atlas avatar on the atlas feminine
+    //: version look better"). One lilac silhouette of hair behind the
+    //: head instead: a rim over the crown and the left temple, falling
+    //: fuller past the right cheek, inside the tiny crop (x 13 to 49).
+    //: and a side-swept fringe over the crown, so the top of the head is
+    //: hair rather than a bald dome between the wings.
+    tinyFringe: "M18.4 22C18.6 13.4 24 8.2 31 8.2C37.6 8.2 43 12.6 44.2 19.4C41.4 15.4 37 13 32 13.2C26.6 13.4 21.8 16.6 18.4 22Z",
+    tinyHair: "M17.6 33.6C14.2 29.6 13.4 23.4 14.8 17.8C16.8 9.6 23.2 3.6 31.2 3.4C40 3.2 46.4 9.4 47.4 18.4C48.2 25 47.8 32.2 46 37.4C45.2 34 44.2 31.4 42.4 29.4L31 22L20 29.6Z",
     strand: "",
     //: **No legs** (`legs: false`: the figure draws none, and the companion
     //: builds no leg layers for this look).
@@ -1045,7 +1064,12 @@ function atlasExtras(parent) {
 //: beside the cheek.
 function atlasMane(parent, level, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
-  if (level === "tiny") return null;
+  if (level === "tiny") {
+    if (!spec.tinyHair) return null;
+    const hair = atlasGroup(parent, "atl-crest atl-mane atl-tiny-hair", ATLAS_GEO.hair);
+    atlasMake("path", { class: edge ? "atl-edge" : "atl-lock atl-tiny-lock", d: spec.tinyHair }, hair);
+    return hair;
+  }
   const locks = level === "head" ? spec.headPaths : spec.lockPaths;
   const mane = atlasGroup(parent, "atl-crest atl-mane", ATLAS_GEO.hair);
   //: The lower locks first, so the upper ones lie over them; a lock
@@ -1095,10 +1119,15 @@ function atlasEars(parent, level, edge, look) {
     const m = (d) => (side === "l" ? d : atlasMirror(d));
     const g = atlasGroup(parent, `atl-crest atl-ear atl-ear-${side}`, ATLAS_GEO.ear[side === "l" ? 0 : 1]);
     if (spec.strand && !tiny) atlasMake("path", { class: edge ? "atl-edge" : "atl-skin atl-strand", d: m(spec.strand) }, g);
+    if (spec.earGlow && !edge && !tiny) {
+      const [cx, cy, rx, ry] = spec.earGlow;
+      atlasMake("ellipse", { class: "atl-ear-glow", cx: side === "l" ? cx : 62 - cx, cy, rx, ry }, g);
+    }
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: m(spec.ear) }, g);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-rim-limb", d: m(spec.ear) }, g);
       if (spec.earIn) atlasMake("path", { class: "atl-ear-in", d: m(spec.earIn) }, g);
+      if (spec.earFeathers) atlasMake("path", { class: "atl-ear-feather", d: m(spec.earFeathers) }, g);
       if (!tiny) {
         if (!spec.fin) {
           atlasSpecks(g, [[17.4, 6.2, 0.28], [19.6, 9.4, 0.2], [18.2, 4.4, 0.16]].map(([x, y, r]) => [side === "l" ? x : 62 - x, y, r]));
@@ -1308,6 +1337,7 @@ function atlasHead(parent, id, level, look) {
   atlasMane(sway, level, false, look);
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
   if (!tiny) atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
+  if (tiny && spec.tinyFringe) atlasMake("path", { class: "atl-lock atl-tiny-lock", d: spec.tinyFringe }, sway);
   const ears = atlasEars(sway, level, false, look);
   if (spec.scalp && !tiny) atlasScalp(sway, id);
   if (!tiny) {

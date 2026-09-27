@@ -6461,6 +6461,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    lighter rim, the nebula gathering toward the ends, each lock of the
    mane translucent with a lighter leading edge, a star at each tip. */
 .nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.55; }
+/* Round 9: the feminine ears are small wings (atlas.js, `earFeathers`,
+   `earGlow`): pale feather lines inside, a soft glow behind. */
+.nm-atlas .atl-ear-feather { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.6; }
+.nm-atlas .atl-ear-glow { fill: var(--atl-cloudb); opacity: 0.7; }
+/* Round 9: the feminine icon's hair (`tinyHair`), a violet lilac deeper
+   than her skin so the face reads as framed by hair at 16 to 24px. */
+.nm-atlas .atl-tiny-lock { fill: color-mix(in oklab, var(--atl-dp) 70%, var(--atl-violet)); opacity: 1; }
 .nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
 .nm-atlas .atl-lock { opacity: 0.86; }
 /* The hair's soft body under the locks: quieter than they are, so the

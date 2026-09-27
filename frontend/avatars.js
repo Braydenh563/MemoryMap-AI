@@ -3136,6 +3136,34 @@ const NAME_MARK_BUDDY_ACTS = {
   wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
+//: **At rest, a stance of its own** (INBOX 430, the owner: "more stances,
+//: with Atlas's masculine and feminine looks each getting their own (e.g.
+//: arms folded or a hand on the hip for masculine, a sway or clasped hands
+//: for feminine), used at rest"). Long, quiet acts, only standing or
+//: floating, only for Atlas and only in the look named: the arms ease into
+//: them (the pose transition) and out again when the act ends, and the sway
+//: is the figure's box on the compositor.
+const NMB_STANCES = {
+  fold: { ms: 16000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "masculine" },
+  hip: { ms: 14000, w: 1.4, cool: 40000, poses: ["stand"], look: "masculine" },
+  clasp: { ms: 16000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "feminine" },
+  sway: { ms: 14000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "feminine" },
+};
+Object.assign(NAME_MARK_BUDDY_ACTS, NMB_STANCES);
+
+//: **Reduce actions** (INBOX 430): Off keeps it to blinks, looks and its
+//: stances, Fewer (the default) makes the unprompted gestures a third as
+//: likely, Normal as they were. What you start (a poke, a cheer at a
+//: streak, a reaction) is never reduced: those have no weight here.
+const NMB_QUIET_ACTS = ["blink", "look", "glance", "turn", "yawn", "nap", "dangle", "shift", ...Object.keys(NMB_STANCES)];
+function nameMarkBuddyActions() {
+  try {
+    return localStorage.getItem("avatar-buddy-actions") || "fewer";
+  } catch (e) {
+    return "fewer";
+  }
+}
+
 //: How a character's mood leans its choices (multipliers on the weights).
 const NAME_MARK_BUDDY_MOODS = {
   sleepy: { yawn: 3, nap: 3, sloth: 3, hop: 0.3 },
@@ -4736,19 +4764,8 @@ function nameMarkBuddyBurst(buddy, dx, dy, delay) {
 function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant = false, near = null) {
   if (!buddy || buddy.classList.contains("nm-buddy-dragging")) return;
   const tab = nameMarkBuddyTab();
-  const obstacles = nameMarkBuddyObstacles(tab);
-  const spots = nameMarkBuddySpots();
   nmb.tab = tab;
-  if (spots["*"] && !spots[tab]) {
-    const pinned = nameMarkBuddyRestore(spots["*"]);
-    if (pinned) {
-      nameMarkBuddyMoveTo(buddy, { ...pinned, kind: "pinned" }, instant);
-      return;
-    }
-  }
-  const restored = spots[tab] ? nameMarkBuddyRestore(spots[tab]) : null;
-  const spot = restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles, near);
-  nameMarkBuddyMoveTo(buddy, spot, instant);
+  nameMarkBuddyMoveTo(buddy, nameMarkBuddyNextSpot(tab, near), instant);
 }
 
 //: Where it is now still does: on screen, not lost, not held off its
@@ -4767,7 +4784,7 @@ function nameMarkBuddyStillGood(obstacles) {
 //: next beat (`nameMarkBuddyQueuePlace`).
 function nameMarkBuddyCheck() {
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nmb.pinned || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
+  if (!buddy || nmb.pinned || nmb.away || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
   if (nameMarkBuddyMenuOpen()) {
     clearTimeout(nmbFollow.recheck);
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 600);
@@ -4836,7 +4853,7 @@ function nameMarkBuddyMenuOpen() {
 function nameMarkBuddyBeat() {
   nmb.placeTimer = 0;
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nmb.pinned) return;
+  if (!buddy || nmb.pinned || nmb.away) return;
   const busy = buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")
     || nameMarkBuddyMenuOpen();
   if (busy || document.hidden) {
@@ -4853,15 +4870,157 @@ function nameMarkBuddyBeat() {
   placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
 }
 
-//: A tab switch (app.js's `revealTab` calls this): its panel may have gone
-//: with the old tab, which the follow sees at once (it floats where it is);
-//: where to go next waits for its own beat.
+//: **It lives on a tab, and follows you only once you have stayed**
+//: (INBOX 430, the owner: "the companion lingers on the old tab for a
+//: second, then pops in elsewhere"; wanted: it "stays on the old tab (hidden
+//: with it) and only follows once the person has stayed on the new tab about
+//: 1.5 to 3s. Quick flicks back and forth never make it appear and
+//: disappear"). A tab switch hides it with the tab it is on; coming back
+//: before it has followed shows it again where it was, as the tab itself
+//: comes back; staying on another tab for `NMB_DWELL_MS` (plus up to
+//: `NMB_DWELL_JITTER_MS`, so it is not a clock) brings it in, by the way in
+//: that suits where it is going (`nameMarkBuddyEnter`). Every switch
+//: restarts the wait. Pinned on every page, it is on every tab, and stays.
+const NMB_DWELL_MS = 1600;
+const NMB_DWELL_JITTER_MS = 1200;
 function nameMarkBuddyTabChanged() {
   nameMarkBuddyIndexReset();
-  if (!document.getElementById("nm-buddy")) return;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
   for (const timer of nmb.settle) clearTimeout(timer);
-  nameMarkBuddyFollow();
-  nameMarkBuddyQueuePlace();
+  if (nmb.pinned) {
+    nameMarkBuddyFollow();
+    return;
+  }
+  clearTimeout(nmb.awayTimer);
+  const tab = nameMarkBuddyTab();
+  if (!nmb.tab || tab === nmb.tab) {
+    nmb.away = false;
+    buddy.classList.remove("nmb-away");
+    nameMarkBuddyFollow();
+    if (!nmb.tab) nameMarkBuddyQueuePlace();
+    return;
+  }
+  nmb.away = true;
+  buddy.classList.add("nmb-away");
+  nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS);
+}
+
+//: Where it goes on `tab`: your spot for it, the spot for every page, or
+//: the best free perch. `placeNameMarkBuddy`'s choice, without the move.
+function nameMarkBuddyNextSpot(tab, near = null) {
+  const obstacles = nameMarkBuddyObstacles(tab);
+  const spots = nameMarkBuddySpots();
+  if (spots["*"] && !spots[tab]) {
+    const pinned = nameMarkBuddyRestore(spots["*"]);
+    if (pinned) return { ...pinned, kind: "pinned" };
+  }
+  const restored = spots[tab] ? nameMarkBuddyRestore(spots[tab]) : null;
+  return restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles, near);
+}
+
+//: The person has stayed: it takes its place on this tab out of sight and
+//: then comes in.
+function nameMarkBuddyArrive(buddy) {
+  nmb.awayTimer = 0;
+  if (!buddy.isConnected || !nmb.away) return;
+  if (document.hidden || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging")) {
+    nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 800);
+    return;
+  }
+  const tab = nameMarkBuddyTab();
+  nameMarkBuddyIndexReset();
+  const spot = nameMarkBuddyNextSpot(tab);
+  nmb.tab = tab;
+  nameMarkBuddyMoveTo(buddy, spot, true);
+  nmb.away = false;
+  buddy.classList.remove("nmb-away");
+  nmb.enteredBy = nameMarkBuddyEnter(buddy, spot);
+}
+
+//: **In by the way that suits where it is going, never a pop** (INBOX
+//: 430: "walk on from the nearest screen edge, climb up from the bottom
+//: bar, climb down from the top bar to hang, or a soft materialise (a
+//: starlight shimmer resolving into it)"). Each is the host's `translate`
+//: and the character's `scale` and `opacity`, the compositor's. With
+//: Reduce motion it fades in where it is.
+function nameMarkBuddyEnter(buddy, spot) {
+  if (typeof buddy.animate !== "function") return "";
+  nmb.anim?.cancel();
+  nmb.hopAnim?.cancel();
+  nmb.movedAt = Date.now();
+  const char = buddy.querySelector(".nm-buddy-char");
+  if (nameMarkBuddyNoTravel()) {
+    nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
+    return "fade";
+  }
+  const x = nmb.x;
+  const y = nmb.y;
+  const edge = 150;
+  let how = "materialise";
+  if (spot.kind === "hang" || spot.pose === "hang") how = "down";
+  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) how = "up";
+  else if (x < edge || x > innerWidth - NMB_W - edge) how = "walk";
+  if (how === "walk") {
+    const fromLeft = x < innerWidth / 2;
+    const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
+    const duration = Math.round(Math.min(1500, 520 + Math.abs(dx) * 1.1));
+    buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+    buddy.dataset.turn = dx > 0 ? "l" : "r";
+    buddy.classList.add("nmb-walking");
+    nmbTempo.seen = 0;
+    clearTimeout(nmbTempo.timer);
+    nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
+    nmb.anim = buddy.animate([{ translate: `${dx}px 0px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.3, 0, 0.25, 1)" });
+    const walk = nmb.anim;
+    const done = () => {
+      if (nmb.anim !== walk) return;
+      buddy.classList.remove("nmb-walking");
+      delete buddy.dataset.turn;
+    };
+    walk.onfinish = done;
+    walk.oncancel = done;
+    nameMarkBuddySquash(char, duration);
+    return how;
+  }
+  if (how === "down" || how === "up") {
+    //: Down from the top bar, arms first, and a small give at the grip;
+    //: up over the bottom bar, a heave and a settle.
+    const from = how === "down" ? -Math.round(NMB_H * 0.8) : Math.round(NMB_H * 0.7);
+    const duration = 720;
+    nmb.anim = buddy.animate([
+      { translate: `0px ${from}px`, opacity: 0 },
+      { translate: `0px ${Math.round(from * 0.45)}px`, opacity: 1, offset: 0.3 },
+      { translate: `0px ${how === "down" ? 4 : -5}px`, offset: 0.78 },
+      { translate: "0px 0px" },
+    ], { duration, easing: "ease-in-out" });
+    nameMarkBuddySquash(char, duration - NMB_SET_OFF_MS);
+    return how;
+  }
+  //: Starlight gathering into it: the stars first, then the figure
+  //: resolving out of them, a touch large, settling to its size.
+  nameMarkBuddyBurst(buddy, 0, 0, 0);
+  nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1 }], { duration: 620, easing: "ease-out" });
+  nmb.hopAnim = char?.animate([
+    { scale: "0.5", opacity: 0.2 },
+    { scale: "1.06", opacity: 1, offset: 0.7 },
+    { scale: "1" },
+  ], { duration: 620, easing: "ease-out" }) || null;
+  return how;
+}
+
+//: **Out the same way, or dissolving** (INBOX 430): hidden from its menu or
+//: by Ctrl+Shift+Y it dematerialises into starlight rather than vanishing.
+function nameMarkBuddyLeave(buddy, then) {
+  if (!buddy || typeof buddy.animate !== "function" || nameMarkBuddyNoTravel()) {
+    then();
+    return;
+  }
+  const char = buddy.querySelector(".nm-buddy-char");
+  nmb.anim?.cancel();
+  nameMarkBuddyBurst(buddy, 0, 0, 120);
+  char?.animate([{ scale: "1", opacity: 1 }, { scale: "1.05", opacity: 1, offset: 0.25 }, { scale: "0.45", opacity: 0 }], { duration: 380, easing: "ease-in", fill: "forwards" });
+  setTimeout(then, 400);
 }
 
 //: The window changed size: held panels are followed at once, a pinned
@@ -5040,6 +5199,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
   const reading = nmb.reading || {};
   const byMood = NAME_MARK_BUDDY_MOODS[reading.mood] || {};
   const byKind = NAME_MARK_BUDDY_KINDS[reading.animal] || {};
+  const actions = nameMarkBuddyActions();
+  //: Which Atlas it is, for its stances (none for any other companion).
+  nmb.atlasLook = document.querySelector("#nm-buddy svg.atl-layer")?.dataset.atlasLook || "";
   const pool = [];
   let total = 0;
   for (const [act, spec] of Object.entries(NAME_MARK_BUDDY_ACTS)) {
@@ -5068,6 +5230,10 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (night && ["hop", "wave", "kick"].includes(act)) w *= 0.5;
     if (now - nmb.lastCheer < 60000 && ["hop", "wave", "kick", "dangle"].includes(act)) w *= 2;
     if (now - nmb.lastPoke < 20000 && ["glance", "wave", "look"].includes(act)) w *= 2;
+    //: A stance is Atlas's, in the look it was drawn for.
+    const stance = NMB_STANCES[act];
+    if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;
+    if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;
     if (w > 0) {
       pool.push([act, w]);
       total += w;
@@ -5087,6 +5253,11 @@ function nameMarkBuddyTick() {
   nmb.timer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || document.hidden || nameMarkBuddyStill()) return;
+  //: Away with the tab it lives on: nothing to act out, nobody to see it.
+  if (nmb.away) {
+    nameMarkBuddySchedule();
+    return;
+  }
   const locked = document.getElementById("lock-overlay") && !document.getElementById("lock-overlay").classList.contains("hidden");
   if (locked || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nmb-think")) {
     nameMarkBuddySchedule();
@@ -5756,6 +5927,8 @@ document.addEventListener("visibilitychange", () => {
 function nameMarkBuddyGone() {
   clearTimeout(nmb.timer);
   clearTimeout(nmb.placeTimer);
+  clearTimeout(nmb.awayTimer);
+  nmb.away = false;
   clearTimeout(nmb.heldTimer);
   nmb.timer = nmb.placeTimer = nmb.heldTimer = 0;
   nmb.glue = null;
@@ -5780,8 +5953,10 @@ function nameMarkBuddyHide(buddy) {
   }
   const select = document.getElementById("avatar-buddy");
   if (select) select.value = "off";
-  buddy?.remove();
-  nameMarkBuddyGone();
+  nameMarkBuddyLeave(buddy, () => {
+    buddy?.remove();
+    nameMarkBuddyGone();
+  });
   if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
 }
 
@@ -5854,14 +6029,14 @@ function nameMarkBuddyMenu(buddy, at = null) {
   const tab = nameMarkBuddyTab();
   const spots = nameMarkBuddySpots();
   const items = [
-    { label: "ph:hand-waving Say hello", run: () => face.click() },
-    { label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
+    { group: "say", label: "ph:hand-waving Say hello", run: () => face.click() },
+    { group: "say", label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
     //: **Pinned means pinned** (INBOX 426 l, the owner: "when I press the
     //: option to stay in the same spot across pages ... it still moves"):
     //: the place on screen and the pose are kept, and nothing but you moves
     //: it again (no perch, no errand, no beat) until you drag it or call it
     //: back.
-    { label: "ph:push-pin Stay here on every page", run: () => {
+    { group: "place", label: "ph:push-pin Stay here on every page", run: () => {
       //: Where it is drawn now: mid-walk, `nmb.x` is where it was going,
       //: and pinning there made it jump at the moment it was told to stay.
       const box = buddy.getBoundingClientRect();
@@ -5874,19 +6049,67 @@ function nameMarkBuddyMenu(buddy, at = null) {
     } },
   ];
   if (spots[tab]) {
-    items.push({ label: "ph:sparkle Let it choose its spot here", run: () => {
+    items.push({ group: "place", label: "ph:sparkle Let it choose its spot here", run: () => {
       const next = { ...spots };
       delete next[tab];
       nameMarkBuddyKeepSpots(next);
       placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
     } });
   }
-  items.push({ label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
-  const size = nmb.scale || 1;
-  for (const [name, value] of Object.entries(NMB_SIZES)) {
-    const label = `${name[0].toUpperCase()}${name.slice(1)}`;
-    items.push({ group: "size", label: `${size === value ? "ph:check" : "ph:dot-outline"} ${label}`, title: `Make it ${name}`, run: () => nameMarkBuddySetSize(value) });
+  items.push({ group: "place", label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
+  //: **Who it is, how Atlas looks, its size, and the settings behind them,
+  //: one flyout each** (the owner: "extend this menu a bit maybe with
+  //: sub-sections if necessary, for things such as a quick link to the
+  //: profile/personas/appearences tab, toggling various features such as
+  //: masculine/feminine, which companion is displayed etc."). Submenus
+  //: (`items`, the kebab recipe's flyout) so the menu stays eight rows; the
+  //: current choice in each is ticked. Each choice goes through its own
+  //: Appearance control's change, so the menu and Settings cannot disagree.
+  const tick = (on, label) => `${on ? "ph:check" : "ph:dot-outline"} ${label}`;
+  const choose = (id, value) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  let who = "off";
+  try {
+    who = localStorage.getItem("avatar-buddy") || "off";
+  } catch (e) {
+    who = "off";
   }
+  items.push({
+    group: "who",
+    label: "ph:user-switch Companion",
+    items: [["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
+      .map(([value, label]) => ({ label: tick(who === value, label), run: () => choose("avatar-buddy", value) })),
+  });
+  const look = document.getElementById("atlas-look")?.value || "auto";
+  items.push({
+    group: "who",
+    label: "ph:star-four Atlas look",
+    items: [["masculine", "Masculine"], ["feminine", "Feminine"], ["auto", "Auto: match your faces"]]
+      .map(([value, label]) => ({ label: tick(look === value, label), run: () => choose("atlas-look", value) })),
+  });
+  const size = nmb.scale || 1;
+  items.push({
+    group: "who",
+    label: "ph:resize Size",
+    items: Object.entries(NMB_SIZES).map(([name, value]) => ({
+      label: tick(size === value, `${name[0].toUpperCase()}${name.slice(1)}`),
+      title: `Make it ${name}`,
+      run: () => nameMarkBuddySetSize(value),
+    })),
+  });
+  items.push({
+    group: "settings",
+    label: "ph:gear Settings",
+    items: [
+      { label: "ph:palette Appearance, the companion", run: () => openSettingsModal("appearance", "avatar-buddy-row") },
+      { label: "ph:user-circle Profile, your look", run: () => openSettingsModal("preferences") },
+      { label: "ph:mask-happy Personas", run: () => openSettingsModal("personas") },
+    ],
+  });
   items.push({ group: "hide", label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
   const box = face.getBoundingClientRect();
   openMenuAtPoint(items, "Companion", at ? at[0] : box.left, at ? at[1] : box.top);

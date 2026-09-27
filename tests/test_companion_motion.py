@@ -281,7 +281,7 @@ def test_light_and_dark_and_its_size() -> None:
     assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
     assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
     assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
-    assert 'group: "size"' in _fn("nameMarkBuddyMenu")
+    assert 'label: "ph:resize Size",' in _fn("nameMarkBuddyMenu")  # a flyout since round 7
     assert 'id="avatar-buddy-size"' in HTML
     assert '"avatar-buddy-size"' in SETTINGS
     assert "#nm-buddy .nm-buddy-face {\n  scale: var(--nmb-scale);\n  transform-origin: 50% var(--nmb-edge);" in CSS08
@@ -537,6 +537,54 @@ def test_it_perches_on_the_pages_panels_first_on_every_tab():
     assert "child.checkVisibility({ opacityProperty: true, visibilityProperty: true })" in AV
     assert "child.matches(\"textarea, input, select, [contenteditable='true'], .cm-editor\")" in AV
     assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV
+
+
+def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
+    # INBOX 430: "the companion lingers on the old tab for a second, then pops
+    # in elsewhere". Hidden with its tab at once, shown again if you come
+    # straight back, following after 1.6 to 2.8s, entering by a walk, a
+    # climb or a materialise, and leaving by a dissolve.
+    changed = _fn("nameMarkBuddyTabChanged")
+    assert 'buddy.classList.add("nmb-away");' in changed
+    assert "NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS" in changed
+    assert "if (!nmb.tab || tab === nmb.tab)" in changed
+    enter = _fn("nameMarkBuddyEnter")
+    for how in ('how = "down"', 'how = "up"', 'how = "walk"', 'let how = "materialise"'):
+        assert how in enter, how
+    for guard in ("nameMarkBuddyBeat", "nameMarkBuddyCheck"):
+        assert "nmb.away" in _fn(guard), guard
+    assert "nameMarkBuddyLeave(buddy, () => {" in _fn("nameMarkBuddyHide")
+    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden;" in CSS08
+
+
+def test_reduce_actions_and_atlas_stances_at_rest():
+    # INBOX 430: "a Reduce actions setting (Appearance > Companion) ... Off,
+    # Fewer (the default) and Normal", and stances of each look's own.
+    assert 'id="avatar-buddy-actions"' in HTML
+    for value in ('value="off"', 'value="fewer"', 'value="normal"'):
+        assert value in HTML[HTML.index('id="avatar-buddy-actions"') :][:400]
+    decide = _fn("nameMarkBuddyDecide")
+    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;" in decide
+    assert "if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;" in decide
+    for stance, look in (("fold", "masculine"), ("hip", "masculine"), ("clasp", "feminine"), ("sway", "feminine")):
+        assert f'{stance}: {{ ms:' in AV and f'look: "{look}" }}' in AV
+        assert f"#nm-buddy.nmb-act-{stance} " in CSS08
+
+
+def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
+    # The owner: "extend this menu a bit maybe with sub-sections ... a quick
+    # link to the profile/personas/appearences tab, toggling ... masculine/
+    # feminine, which companion is displayed". Submenus are the kebab
+    # recipe's own (`items` on a row, `buildMenuGroupButton`), and each choice
+    # goes through the Appearance control it mirrors.
+    kebab = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+    assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
+    menu = _fn("nameMarkBuddyMenu")
+    for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
+        assert f'label: "{row}",\n    items:' in menu, row
+    assert 'choose("avatar-buddy", value)' in menu and 'choose("atlas-look", value)' in menu
+    for target in ('openSettingsModal("appearance", "avatar-buddy-row")', 'openSettingsModal("preferences")', 'openSettingsModal("personas")'):
+        assert target in menu
 
 
 def test_it_sets_off_and_lands_and_eases_between_poses():

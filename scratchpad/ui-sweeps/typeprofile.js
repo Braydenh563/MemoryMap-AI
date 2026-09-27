@@ -46,7 +46,8 @@ const TARGET = process.env.TARGET || 'chat';
       if (e.name === 'Layout' || e.name === 'UpdateLayoutTree') {
         const st = e.args?.beginData?.stackTrace;
         if (st && st.length) {
-          const k = `${e.name === 'Layout' ? 'layout' : 'style'} by ${st[0].functionName}@${(st[0].url || '').split('/').pop().split('?')[0]}:${st[0].lineNumber}`;
+          const frames = st.slice(0, Number(process.env.DEPTH || 1)).map((f) => `${f.functionName}@${(f.url || '').split('/').pop().split('?')[0]}:${f.lineNumber}`);
+          const k = `${e.name === 'Layout' ? 'layout' : 'style'} by ${frames.join(' < ')}`;
           forcedBy[k] = (forcedBy[k] || 0) + 1;
         }
       }

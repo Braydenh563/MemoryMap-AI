@@ -306,6 +306,11 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
+**Now (2026-09-27, v0.3.3 released from `fix/gemini-fixes-5`, PR 157):** start the
+next PR from the "Carry-over to the next PR (0.3.4)" list at the top of
+[`agent-remaining/wrapup-0927.md`](agent-remaining/wrapup-0927.md), item 1
+first (the `frontend/js/` move).
+
 **A trap this session paid for, keep it.** In the shared worktree,
 `git add <file>` stages the *whole* file, including whatever an agent has
 half-written in it. Doing that to `frontend/index.html` committed an

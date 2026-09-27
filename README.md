@@ -299,7 +299,7 @@ interface zoom, a guided tour of the real controls, and daily local backups.
 **The star spirit who keeps your notebook.**
 
 <p align="center">
-  <img src="docs/screenshots/atlas-mood.png" alt="Atlas, MemoryMap's star spirit: a small astral figure with a ring of orbiting stars, flowing starlit hair and a warm expression" width="280">
+  <img src="docs/screenshots/atlas-mood.png" alt="Atlas in its masculine look on a night-sky tile: a small astral figure with a ring of orbiting stars, swept starlit hair, a nebula stream and a happy expression" width="280">
 </p>
 
 Atlas is the one who reads what you write and works out where it goes: a

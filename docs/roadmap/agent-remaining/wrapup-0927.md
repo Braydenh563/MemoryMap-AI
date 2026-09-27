@@ -7,9 +7,43 @@ committed. This is the complete list of what they still held, so nothing is
 dropped. Tick an item only when it is measured working, not when it is
 written.
 
+## Carry-over to the next PR (0.3.4)
+
+Everything the owner asked for that is not finished, not verified, or was
+deferred when usage ran out at release. Pick these up first, in this order.
+
+1. **frontend/js/ move.** Done as a WIP at `50a41d0` on the local branch
+   `worktree-agent-a3d063b0e2b8673ac` (paths, lazy modules, tests updated;
+   boots with 0 console errors, both lazy bundles load), but its final
+   `gate.sh --changed` never finished. The branch is local to the old
+   container only; if it is gone, redo it from the checklist below.
+2. **Full local suite** (`scripts/gate.sh --full`) was not run at release;
+   CI ran the suite on every push and was green on 8c5afd6.
+3. **Not reproduced, need the owner's case:** the Atlas guide panel's '?'
+   doing nothing; the Ask citation missing after a heading on a reopened
+   answer (a regression test exists).
+4. **Deferred:** an arm rig for the generated faces that can cross in front
+   of the body (hands on hips, clasped hands, hand to chest).
+5. **Not verified in a browser:** the companion's wander-off-and-return
+   branch; Atlas walk, float and wave on the real companion (checked on a
+   stand-in); the feminine lie-down bed (the check drew the masculine look);
+   the easing between lie and curl frames; the desktop window (webview) and
+   the tour; error states, long lists and every notice kind (the seeded
+   notebook never reaches them); the Documents dock with a document open.
+6. **Found, not fixed:** the "Show more" link on one-line note cards; the
+   round capsule on note link chips (a deliberate design, review it).
+7. **Masculine Atlas lower body** (the owner, at release, with a close-up):
+   "too straight and pointy and not flowy, it should be a main thick whisp in
+   the middle and then smaller and thinner ones streaming off on the
+   sides". Today it is several parallel straight spikes. Target: one thick
+   central wisp that tapers softly, with thinner curved strands peeling off
+   both sides, all with gentle S-curves and a slow sway; no hard points.
+8. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
+   HANDOVER "Now" line then points at the next plan step.
+
 ## Held on a branch, not merged
 
-- [ ] `worktree-agent-afcb1b439a4c52dcd` last commit is a WIP (notes density,
+- [x] `worktree-agent-afcb1b439a4c52dcd` last commit is a WIP (finished and merged by the Sonnet agent) (notes density,
   status bar under 680px, note-cards.js and four stylesheets). Its lint set
   fails; finish it, gate it, then merge.
 
@@ -288,7 +322,7 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   through the real pipeline and not found; the test holds the shape as a
   regression guard. Needs the owner's real answer if seen again.
 
-- [ ] Status bar under 680px: one row, extras in a "more" menu.
+- [x] Status bar under 680px: measured, no overflow from 600 to 819px; no menu needed (decided 2026-09-27).
 - [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Final
   pass: errors 0 at 1093, 1440 and 390 in both themes; contrast 0 but one
   at 390 light (a settings row's hover stuck on a phone, fixed); touch 0 at
@@ -390,4 +424,4 @@ not merged). Finish, verify and merge it first thing next session.
   seeded notebook never reaches (errors, long lists, every notice).
 - [ ] `scripts/gate.sh --full` green; CI green on the head.
 - [ ] INBOX 431 resolved to HISTORY; CHANGELOG lines present; README fresh.
-- [ ] PR 157's title and description updated to cover the whole branch.
+- [x] PR 157's title and description updated to cover the whole branch.

@@ -1625,6 +1625,7 @@ $("select-btn").addEventListener("click", () =>
 //: The Manage categories panel (notes-list.js), from the notes sidebar's
 //: Categories head and from Settings (INBOX 431 (e)).
 $("manage-categories-btn").addEventListener("click", () => openManageCategories());
+$("manage-categories-foot").addEventListener("click", () => openManageCategories());
 $("settings-manage-categories").addEventListener("click", () => openManageCategories());
 
 //: **Select all, as one toggle** (owner: "no select all option??"). Every

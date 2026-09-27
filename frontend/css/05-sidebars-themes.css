@@ -13,7 +13,13 @@
    beside the toggle's own size, so the reserve cannot drift from the thing it
    is reserving for.
 
-   The collapse toggle itself is untouched: it was in the right place. */
+   The collapse toggle itself is untouched: it was in the right place.
+
+   `.card > .row.sidebar-head` as well as the bare class: `.card >
+   .row.space-between { flex-wrap: wrap }` (three classes) out-ranked the
+   nowrap, and at 1093 "Categories" and "Chats" wrapped their action onto a
+   second row under the title (headrows.js: 32px off its centre line). */
+.card > .row.sidebar-head,
 .sidebar-head {
   flex-wrap: nowrap;
   gap: var(--space-3);
@@ -79,6 +85,49 @@
    ancestor and landed in the wrong place on that one sidebar only. */
 .sidebar-panel {
   position: relative;
+  /* Named so a head can answer its own width, not the window's: the
+     sidebars' width is the person's (resizable, remembered), so a media
+     query cannot know when a head is too narrow. */
+  container: sidebar / inline-size;
+}
+
+/* **A head too narrow for its title and its action** (headrows.js: at 1093
+   the notes and chat sidebars are 186px, a 124px row once the collapse
+   toggle's lane is reserved). "Categories" plus a 36px button, or "Chats"
+   plus "+ New", does not fit: the row wrapped the action under the title,
+   32px off its centre line, and held on one row the title was cut to
+   "Ch...". So at that width the chat's New is its icon alone, and Manage
+   categories leaves the head for a labelled row under the list. */
+.sidebar-foot-action {
+  display: none;
+}
+
+@container sidebar (max-width: 13rem) {
+  .sidebar-head {
+    gap: var(--space-2);
+  }
+
+  #chat-new {
+    width: var(--sidebar-toggle-size);
+    padding: 0;
+    font-size: 0;
+  }
+
+  #chat-new > .ph {
+    margin: 0;
+    font-size: var(--text-md);
+  }
+
+  #manage-categories-btn {
+    display: none;
+  }
+
+  .sidebar-foot-action {
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: var(--space-3);
+  }
 }
 
 @media (max-width: 900px) {

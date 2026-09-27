@@ -5730,6 +5730,17 @@ select {
    shape with its address, a scope chip, and one facts line under it. The
    address may be a long name, so it wraps inside its column rather than
    pushing the chip off the row. */
+/* The verdict notice's icon and its one short line never wrap, so the
+   `.notice` recipe's own `align-items: flex-start` (there so a *wrapping*
+   notice keeps its mark against the first line) left this one's icon a
+   couple of px low against the text's optical centre: the icon's line-height
+   is set from its own larger font-size, the text's from the smaller one it
+   inherits, and flex-start lines up their tops rather than their middles.
+   Owner, INBOX 431: "element alignment". */
+#privacy-verdict {
+  align-items: center;
+}
+
 .privacy-range-row {
   justify-content: space-between;
   flex-wrap: wrap;

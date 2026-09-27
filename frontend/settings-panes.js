@@ -720,6 +720,23 @@ function renderPrivacyRange() {
   const verdict = $("privacy-verdict");
   verdict.classList.toggle("notice-warn", warn);
   setLabel(verdict, `${icon} ${words}`);
+  //: A status line that only ever says one of three fixed sentences reads
+  //: as inert, and the record it is describing is one scroll away with no
+  //: sign of it (the owner, INBOX 431: "affordance and element alignment").
+  //: `.linklike` is the recipe for a word made clickable inside prose
+  //: (DESIGN.md; doc-storage-toggle, the avatar and help "Related:" links);
+  //: this is not a second recipe, just this notice's first use of it. It
+  //: jumps to the Destinations list rather than duplicating its facts here,
+  //: `privacy-range-note` right below already states them once.
+  const jump = document.createElement("button");
+  jump.type = "button";
+  jump.className = "linklike";
+  jump.textContent = "See the full list";
+  //: `openSettingsModal`'s own deep-link path (this section is already
+  //: open, so it only scrolls and rings `flashRevealed`, the same cue
+  //: every catalogue row lands with, INBOX 430).
+  jump.addEventListener("click", () => openSettingsModal("privacy", "privacy-destinations"));
+  verdict.append(" ", jump);
   for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
     const on = button.dataset.range === privacyRange;
     button.setAttribute("aria-pressed", String(on));

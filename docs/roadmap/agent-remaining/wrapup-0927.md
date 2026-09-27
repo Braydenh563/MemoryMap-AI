@@ -304,10 +304,39 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   more") and a filled icon (no `-fill` glyph anywhere in the vendored
   Phosphor set, regular weight only) both need a recipe change, not a
   one-line fix.
-- [ ] README: showcase data (clusters, webs, loose notes, reasoned and plain
+- [x] README: showcase data (clusters, webs, loose notes, reasoned and plain
   links), dark shots of every main feature, one dark/light split, the Atlas
   section (title, headline, short intro, a mood image), the rest polished.
-  After the Atlas art and the button restyle land.
+  Done after the owner confirmed the Atlas art and the button restyle had
+  landed (7b8bc52).
+
+  A fresh showcase notebook (57 notes over six categories, spread across
+  six months via `seed-timeline.js` + `seed-timeline.py`, then eight
+  coherent notes on top via `seed-readme.js` so they sort newest first;
+  two boards via `seed-boardrich.js` and `seed-boards.js`; two images, one
+  PDF, three reminders), linked with `seed-graph-links.js SPARSE=1` for
+  clusters, hubs and a third of notes left loose per category, plus ten
+  extra links posted with no `reason` for a mix of reasoned (`.graph-edge
+  -reasoned`) and plain edges. Measured: the graph shot reads 57 notes, 69
+  links, six visible clusters with hubs sized by degree and several
+  genuinely unlinked satellites.
+
+  All 22 existing screenshots retaken (`scratchpad/ui-sweeps/readmeshots.js`,
+  SKIP=ocr since this sandbox has no Tesseract; `ocr.png` untouched). Eight
+  main features retaken a second time with `THEME=dark` and copied in as
+  `<name>-dark.png` (dashboard, notes, chat, graph, library, documents,
+  timeline, reminders); a light/dark split (`theme-split.png`, the
+  dashboard shot's left half from the light capture and right half from
+  the dark one, PIL) leads the dark set. A new `## Meet Atlas` section
+  (title, headline, a cropped `atlasDraw(420, 'happy', 'full')` portrait,
+  three sentences) sits after "What it does"; its old paragraph there is
+  now one line pointing at the new section, so the two do not repeat each
+  other. `graph.png`/`graph-dark.png` and the Atlas portrait quantised to
+  a 256-colour palette (PIL, `convert('P', palette=Image.ADAPTIVE)`) to
+  clear the 400 KB budget (Brief 16's trap): 730 KB and 759 KB down to
+  262 KB and 222 KB, no visible banding. `tests/test_readme_freshness.py`
+  and `tests/test_docs_layout.py` both green (the screenshot orphan check
+  included: every new file is shown, nothing shown is missing).
 
 ## Last, once no agent is editing JS (the owner asked for it this release)
 

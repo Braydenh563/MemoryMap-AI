@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, frontend_text
 
 @pytest.fixture(scope="module")
 def app_js() -> str:
@@ -215,3 +215,18 @@ def test_every_live_markdown_renderer_is_stopped_somewhere() -> None:
         "a liveMarkdownRenderer is never stopped, so a paint armed before the "
         f"stream ended can repaint over the citation markers: {unstopped}"
     )
+
+
+def test_a_reopened_chat_numbers_its_marks_by_the_panel_it_shows():
+    """INBOX 430: a mark read 1 after reopening a chat while its peek and the
+    Sources panel called the same note 8. The live path hands the panel's
+    order to the citation pass (`turnSources`); the reopen path passed null,
+    so the marks fell back to "order first cited". Both paths now build the
+    order once and hand the same list to both."""
+    reopen = frontend_text("sheets-selects.js")
+    start = reopen.index("const savedOrder = chatSourcesFrom(savedInput);")
+    rest = reopen[start:]
+    assert "chatSourcesPanel({ ...savedInput, sources: savedOrder })" in rest
+    call = rest[rest.index("renderAnswerGrounding(") :]
+    call = call[: call.index(");")]
+    assert "savedOrder" in call, call

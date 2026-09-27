@@ -674,7 +674,12 @@ function renderPrivacyRange() {
   verdict.classList.toggle("notice-warn", warn);
   setLabel(verdict, `${icon} ${words}`);
   for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
-    button.setAttribute("aria-pressed", String(button.dataset.range === privacyRange));
+    const on = button.dataset.range === privacyRange;
+    button.setAttribute("aria-pressed", String(on));
+    //: `.active` too: the `.seg` recipe draws its chosen segment from the
+    //: class (03-dashboard-widgets.css), so with aria-pressed alone neither
+    //: looked chosen (the owner, INBOX 430).
+    button.classList.toggle("active", on);
   }
   const since = ledger ? receipt.ledger?.since : receipt.watching_since;
   const totals = (ledger ? receipt.ledger?.totals : receipt.totals) || {};

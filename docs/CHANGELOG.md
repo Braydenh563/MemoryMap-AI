@@ -82,6 +82,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Chat: a reopened conversation numbers its citation marks by its Sources panel again (a mark read 1 where its source was 8).
+- Settings: the Privacy page's Since launch / All time pill shows which is chosen; the tools grid draws one divider per row in both columns.
 - Agent turns no longer fail on Windows with "Invalid format string" (the week line used a Linux-only date flag); a lint now refuses such flags.
 - The image viewer loads on its first open instead of at startup, taking about 30 KB off the cold load.
 - Dashboard: right-click (or hold) the mark to switch it between the app's logo, Atlas, your face and the greeting's persona; a face in the mark stays inside its circle while it reacts to a click.

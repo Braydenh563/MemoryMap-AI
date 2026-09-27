@@ -5915,6 +5915,19 @@ main,
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-l { animation: nmb-kick 0.65s ease-in-out 4 alternate; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-r { animation: nmb-kick 0.65s ease-in-out -0.65s 4 alternate; }
     &.nmb-act-wave .nmb-arm-r { animation: nmb-wave 1.5s ease-in-out; }
+    /* Its variants (avatars.js, `NMB_VARIANTS`): a wave with both hands, or
+       with a little hop; a hop that is a skip to one side or a spin; a
+       stretch leaning over; a nap curled small or tipped on its side; a
+       shrug with a head tilt; a face palm with both hands. */
+    &.nmb-act-wave[data-variant="1"] .nm-figure .nmb-arm-l { animation: nmb-wave-l 1.5s ease-in-out; }
+    &.nmb-act-wave[data-variant="2"] .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out) 0.2s; }
+    &.nmb-act-hop[data-variant="1"] .nm-buddy-char { animation: nmb-skip 0.8s var(--ease-out); }
+    &.nmb-act-hop[data-variant="2"] .nm-buddy-char { animation: nmb-spin-hop 0.9s var(--ease-out); }
+    &.nmb-act-stretch[data-variant="1"] .nm-buddy-char { animation: nmb-stretch-lean 1.6s ease-in-out; }
+    &.nmb-act-nap[data-variant="1"] .nm-buddy-char { transform: translateY(4px) scale(0.96); }
+    &.nmb-act-nap[data-variant="2"] .nm-buddy-char { transform: rotate(-9deg); }
+    &.nmb-act-shrug[data-variant="1"] .nm-buddy-head { rotate: -8deg; }
+    &.nmb-act-facepalm[data-variant="1"] .nm-figure .nmb-arm-l { transform: rotate(150deg); }
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
@@ -6138,6 +6151,26 @@ main,
   25% { rotate: 6deg; }
   50% { rotate: -5deg; }
   75% { rotate: 3deg; }
+}
+@keyframes nmb-wave-l {
+  0%, 100% { transform: rotate(0deg); }
+  16%, 48%, 80% { transform: rotate(98deg); }
+  32%, 64% { transform: rotate(128deg); }
+}
+@keyframes nmb-skip {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(6px, -12px) rotate(4deg); }
+  70% { transform: translate(3px, 0) scale(1.04, 0.95); }
+}
+@keyframes nmb-spin-hop {
+  0% { transform: translateY(0) rotateY(0deg); }
+  45% { transform: translateY(-14px) rotateY(180deg); }
+  80% { transform: translateY(0) rotateY(360deg) scale(1.04, 0.95); }
+  100% { transform: none; }
+}
+@keyframes nmb-stretch-lean {
+  0%, 100% { transform: none; }
+  45%, 60% { transform: rotate(-7deg) scale(0.98, 1.05); }
 }
 @keyframes nmb-wave {
   0%, 100% { transform: rotate(0deg); }

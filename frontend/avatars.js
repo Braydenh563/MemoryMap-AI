@@ -5626,10 +5626,22 @@ function nameMarkBuddyAct(act, ms) {
   //: any other act does not, since each style pass here is measurable.
   if (act === was) void buddy.offsetWidth;
   if (NMB_SCENE_ACTS.includes(act)) nameMarkBuddyScene(buddy);
+  //: **Never the same twice running** (the owner: "also state variations,
+  //: not the exact same animation or mood animation each time"). An act
+  //: with variants plays one it did not play last time (`data-variant`, the
+  //: CSS's), and every act's own animations run a little faster or slower
+  //: this time (`nameMarkBuddyVary`, below).
+  const variants = NMB_VARIANTS[act] || 0;
+  if (variants) {
+    const v = nameMarkBuddyPickVariant(variants, nmb.variant?.[act] ?? -1);
+    nmb.variant = { ...(nmb.variant || {}), [act]: v };
+    buddy.dataset.variant = String(v);
+  } else delete buddy.dataset.variant;
   if (act === "tilt") nameMarkBuddyTilt(Math.random() < 0.5 ? -0.7 : 0.7, (ms || spec.ms) - 400);
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
   nmb.lastAct = act;
+  if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);
   const face = { lie: "sleepy", facepalm: "unimpressed" }[act];
   if (face) nameMarkBuddyExpress(face, spec?.ms || 2000);
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
@@ -5638,6 +5650,25 @@ function nameMarkBuddyAct(act, ms) {
     if (act === "land") nmb.afterLand = false;
     nameMarkBuddyAct(next);
   }, (ms || spec?.ms || 1200) * (act === "land" ? 1 : 1 + Math.random() * 0.3));
+}
+
+//: How many ways each act can go, and the pick: any but the last one.
+const NMB_VARIANTS = { wave: 3, hop: 3, stretch: 2, nap: 3, lie: 2, shrug: 2, facepalm: 2, tilt: 2, read: 2, wiggle: 2, cheer: 2 };
+function nameMarkBuddyPickVariant(n, last, roll = Math.random()) {
+  if (n <= 1) return 0;
+  let i = Math.floor(roll * (n - 1));
+  if (last >= 0 && i >= last) i += 1;
+  return Math.min(n - 1, i);
+}
+//: This play's own tempo: the act's animations that have just begun run at
+//: 0.87 to 1.15 of their speed. One read of its animations as it starts (a
+//: style pass, no layout), nothing after.
+function nameMarkBuddyVary(buddy) {
+  if (typeof buddy.getAnimations !== "function") return;
+  const rate = 0.87 + Math.random() * 0.28;
+  for (const anim of buddy.getAnimations({ subtree: true })) {
+    if (typeof CSSAnimation === "function" && anim instanceof CSSAnimation && (anim.currentTime || 0) < 60) anim.playbackRate = rate;
+  }
 }
 
 //: The acts that bring something of their own, and how long getting up
@@ -5948,6 +5979,7 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
   //: An emote with a face that has one (a lingering one, not a drift).
   const emote = ms && !drift ? NMB_EXPR_EMOTE[want] : "";
   if (emote) nameMarkBuddyEmote(emote);
+  if (ms && !drift && ["happy", "excited", "laughing"].includes(want)) nameMarkBuddyJoy(buddy);
   if (old && typeof next.animate === "function" && !nameMarkBuddyNoTravel()) {
     //: The new face over the old, faded in; the old goes when it is covered.
     old.classList.add("nmb-fig-leaving");
@@ -5964,6 +5996,24 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
 //: is a 57ms task (drawn, cut up, turned into pictures), which would be a
 //: stall at the very moment it reacts; drawn in idle time, a swap is a
 //: cached picture (0.3ms).
+//: **Glad, a different way each time**: a bounce, a sway or a little
+//: spin, never the one it did last, a beat after the face changes (60 to
+//: 220ms, so it reads as a reaction) and a touch bigger or smaller.
+function nameMarkBuddyJoy(buddy) {
+  const char = buddy.querySelector(".nm-buddy-char");
+  if (!char || typeof char.animate !== "function" || nameMarkBuddyNoTravel() || nmb.act || buddy.classList.contains("nmb-walking")) return;
+  const v = nameMarkBuddyPickVariant(3, nmb.variant?.joy ?? -1);
+  nmb.variant = { ...(nmb.variant || {}), joy: v };
+  const amp = 0.8 + Math.random() * 0.4;
+  const delay = 60 + Math.random() * 160;
+  const frames = [
+    [{ translate: "0 0" }, { translate: `0 ${-8 * amp}px`, offset: 0.25 }, { translate: "0 0", offset: 0.5 }, { translate: `0 ${-5 * amp}px`, offset: 0.72 }, { translate: "0 0" }],
+    [{ rotate: "0deg" }, { rotate: `${6 * amp}deg`, offset: 0.3 }, { rotate: `${-6 * amp}deg`, offset: 0.7 }, { rotate: "0deg" }],
+    [{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg) translateY(-6px)", offset: 0.5 }, { transform: "rotateY(360deg)" }],
+  ][v];
+  char.animate(frames, { duration: Math.round((v === 2 ? 700 : 900) * (0.87 + Math.random() * 0.28)), delay, easing: "ease-in-out" });
+}
+
 //: The smaller face a big one eases down through, and the emote each
 //: lingering face brings.
 const NMB_EXPR_SOFTEN = { laughing: "happy", excited: "happy", starstruck: "happy", surprised: "calm", angry: "unimpressed" };

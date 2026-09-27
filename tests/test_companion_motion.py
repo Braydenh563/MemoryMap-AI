@@ -875,3 +875,26 @@ def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> 
     assert "const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));" in _fn("nameMarkBuddySurfaceWalk")
     assert '#nm-buddy[data-pose="stand"] .nm-buddy-face { pointer-events: none; }' in CSS08
     assert '#nm-buddy[data-pose="stand"] .nmb-size-grip { pointer-events: auto; }' in CSS08
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_variant_is_never_the_one_it_played_last() -> None:
+    # The owner: "also state variations, not the exact same animation or
+    # mood animation each time". Two hundred picks in a row, each given the
+    # last: never the same twice running, and every variant turns up.
+    runs = _run_pure(["nameMarkBuddyPickVariant"], """(() => { const out = {}; for (const n of [2, 3, 4]) { let last = -1; const seen = new Set(); let repeats = 0;
+      for (let i = 0; i < 200; i += 1) { const v = nameMarkBuddyPickVariant(n, last); if (v === last) repeats += 1; seen.add(v); last = v; }
+      out[n] = [repeats, seen.size]; } out.edge = [nameMarkBuddyPickVariant(3, 2, 0.999), nameMarkBuddyPickVariant(3, 0, 0), nameMarkBuddyPickVariant(1, 0, 0.5)]; return out; })()""")
+    for n in ("2", "3", "4"):
+        assert runs[n][0] == 0 and runs[n][1] == int(n), (n, runs[n])
+    assert runs["edge"] == [1, 1, 0]
+
+
+def test_acts_have_variants_and_their_own_tempo_each_time() -> None:
+    act = _fn("nameMarkBuddyAct")
+    assert "const v = nameMarkBuddyPickVariant(variants, nmb.variant?.[act] ?? -1);" in act
+    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);" in act
+    assert "anim.playbackRate = rate;" in _fn("nameMarkBuddyVary")
+    for rule in ('&.nmb-act-wave[data-variant="1"]', '&.nmb-act-hop[data-variant="2"]', '&.nmb-act-nap[data-variant="2"]'):
+        assert rule in CSS08, rule
+    assert "nameMarkBuddyPickVariant(3, nmb.variant?.joy ?? -1)" in _fn("nameMarkBuddyJoy")

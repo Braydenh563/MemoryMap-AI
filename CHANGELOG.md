@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion never does a thing exactly the same way twice running: a wave may be one hand, both or with a hop, a hop may be a skip or a spin, a nap curled or tipped over, a glad moment a bounce, a sway or a spin, and each play runs a little faster or slower.
 - The companion can be rested on a button: dropped on a Start something tile or a toolbar button at least as wide as it, it stands there, and the button still takes its click under its feet. A wide control nearby (the dashboard's find field) no longer throws it off a place you chose.
 - A generated companion's arms rest in its mood (open when happy, up when surprised, a hand to its chin, its head, an eye or its mouth when thinking, confused, sleepy or worried), easing from one to the next, and an act such as a wave hands them back to the mood's pose.
 - The companion's gaze reaches as far for every kind (further for a Large one), follows a little wider, and drifts back to looking ahead when you move away rather than snapping. The larger faces (the enlarged view, your Profile face, persona cards) now glance, blink, hop and, enlarged, wave now and then, and blink when the pointer comes onto them, from one shared timer that runs only while such a face is on screen; the enlarged view says what a face is and how to say hello rather than "A face of its own".

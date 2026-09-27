@@ -15,7 +15,12 @@ from sqlalchemy.orm import Session
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import sampling
 from memorymap.ai import model_manager as jobs
-from memorymap.ai.model_manager import SUGGESTED_MODELS
+from memorymap.ai.model_manager import (
+    FOLLOW_CHAT_MODEL,
+    FOLLOW_SENTINELS,
+    FOLLOW_UTILITY_MODEL,
+    SUGGESTED_MODELS,
+)
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps, ocr, security
 from memorymap.core.deps import get_session
@@ -168,6 +173,11 @@ def status() -> dict:
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
         # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
+        # What that setting resolves to right now (routing, "same as chat"
+        # and all), so the "Same as utility model" feature option can name
+        # what it currently follows without the frontend re-deriving the
+        # same logic `ModelManager.utility_model()` already owns.
+        "utility_model_resolved": manager.utility_model(),
         # "" means "auto-detect" (vision model). The resolved field is what
         # an image-carrying turn would actually use right now, None if
         # nothing installed declares vision and no explicit choice is set, 
@@ -195,6 +205,12 @@ def status() -> dict:
         "feature_models_overridden": sum(
             1 for row in manager.feature_rows() if row["overridden"]
         ),
+        #: The two sentinel values a feature's select can send back through
+        #: `/feature-model` for "Same as chat model" / "Same as utility
+        #: model" (INBOX 430), so the frontend never hardcodes a string that
+        #: only means something because it happens to match this module's
+        #: own constant.
+        "feature_model_follow": {"chat": FOLLOW_CHAT_MODEL, "utility": FOLLOW_UTILITY_MODEL},
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting*, only meaningful on that backend.
         "embedding_model": manager.embedding_model(),
@@ -460,7 +476,11 @@ def set_feature_model(
     the backend is up to be asked.
     """
     name = body.name.strip()
-    if name and deps.get_ollama().is_running():
+    #: The two `FOLLOW_*` sentinels are not model names (INBOX 430: "Same as
+    #: chat model" / "Same as utility model"): checking one against what is
+    #: installed would refuse the very setting that means "don't pin this to
+    #: an installed name at all, track the other setting instead".
+    if name and name not in FOLLOW_SENTINELS and deps.get_ollama().is_running():
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
@@ -470,11 +490,15 @@ def set_feature_model(
         deps.get_model_manager().set_feature_model(body.feature, name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _log_names = {
+        FOLLOW_CHAT_MODEL: "(same as chat model)",
+        FOLLOW_UTILITY_MODEL: "(same as utility model)",
+    }
     log_action(
         session,
         "edited",
         "preferences",
-        detail=f"feature_model_{body.feature}={name or '(inherited)'}",
+        detail=f"feature_model_{body.feature}={_log_names.get(name, name or '(inherited)')}",
     )
     session.commit()
     return {

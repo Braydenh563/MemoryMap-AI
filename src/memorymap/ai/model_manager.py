@@ -363,6 +363,23 @@ FEATURES_BY_KEY: dict[str, Feature] = {feature.key: feature for feature in FEATU
 #: without a second list to keep in step with the table above.
 FEATURE_PREF_PREFIX = "feature_model_"
 
+#: **Sentinels, not model names** (INBOX 430: "each feature's select also
+#: offers 'Same as chat model' and 'Same as utility model', which follow
+#: those settings when they change"). A feature's stored override is usually
+#: a specific model, frozen until someone changes it again; these two mean
+#: "whatever the chat/utility model setting currently is", re-read live every
+#: time the feature resolves rather than copied in at the moment they were
+#: picked. That is different from plain "inherited" (an empty override):
+#: inherited follows the *role* the feature already falls back to (Guide's
+#: role is utility, so its own "Inherited" already tracks the utility
+#: model), while these let a feature follow the *other* role's setting on
+#: purpose, chat's writing desk pinned to the small utility model, say.
+#: Double-underscored so nothing an Ollama registry hands back can ever
+#: collide with one (real tags are `name[:tag]`, never a bare `__word__`).
+FOLLOW_CHAT_MODEL = "__follow_chat_model__"
+FOLLOW_UTILITY_MODEL = "__follow_utility_model__"
+FOLLOW_SENTINELS = (FOLLOW_CHAT_MODEL, FOLLOW_UTILITY_MODEL)
+
 
 def feature_pref_key(feature: str) -> str:
     return f"{FEATURE_PREF_PREFIX}{feature}"
@@ -417,7 +434,25 @@ class ModelManager:
         row = FEATURES_BY_KEY.get(self._feature)
         if row is None or row.role != role:
             return ""
-        return str(self._config.get_preference(feature_pref_key(self._feature), "") or "")
+        raw = str(self._config.get_preference(feature_pref_key(self._feature), "") or "")
+        return self._resolve_override(raw)
+
+    def _resolve_override(self, raw: str) -> str:
+        """A stored override, resolved to a real model name or "".
+
+        A plain name passes straight through; a `FOLLOW_*` sentinel is
+        resolved through a **plain, feature-less manager**, never through
+        `self`, so this reads the app's current chat/utility setting itself
+        rather than another feature's override on top of it, and so it is
+        re-read every call instead of being fixed to whatever that setting
+        was when the sentinel was chosen (the whole point of the sentinel
+        over just copying the name in at picker time).
+        """
+        if raw == FOLLOW_CHAT_MODEL:
+            return ModelManager(self._config).chat_model()
+        if raw == FOLLOW_UTILITY_MODEL:
+            return ModelManager(self._config).utility_model()
+        return raw
 
     # --- feature overrides, read and written through the app's own manager ---
 
@@ -469,15 +504,32 @@ class ModelManager:
             #: what every row inherits.
             plain = ModelManager(self._config)
             inherits = plain.chat_model() if feature.role == "chat" else plain.utility_model()
+            #: What kind of override this is, so the UI can draw the right
+            #: option as selected: a `FOLLOW_*` sentinel is not a model name
+            #: to show in a select, it is a *third state* alongside "on its
+            #: own model" and "inherited" (INBOX 430). `override_value` is
+            #: only ever a plain name, never a sentinel, so a caller that
+            #: forgets `override_kind` and just prints the value cannot show
+            #: the raw sentinel string by accident.
+            if not override:
+                kind = ""
+            elif override == FOLLOW_CHAT_MODEL:
+                kind = "chat"
+            elif override == FOLLOW_UTILITY_MODEL:
+                kind = "utility"
+            else:
+                kind = "model"
             rows.append(
                 {
                     "key": feature.key,
                     "label": feature.label,
                     "note": feature.note,
                     "role": feature.role,
-                    "model": override or inherits,
+                    "model": self._resolve_override(override) or inherits,
                     "inherits": inherits,
                     "overridden": bool(override),
+                    "override_kind": kind,
+                    "override_value": override if kind == "model" else None,
                 }
             )
         return rows

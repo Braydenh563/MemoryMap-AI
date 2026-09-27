@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The feminine Atlas's front hair is smooth: three soft locks curve out of the parting and lie over the cap with rounded tips, where flat blade-like strips with square ends floated on it.
 - The Manage categories panel is redesigned: the same head as the documents AI panel, a filter beside New category, quiet rows with a count pill and a menu that shows on hover, a keyboard-walkable list where Space selects, and a footer to merge or delete several categories at once.
 - A category's split can be suggested by Atlas (the utility model reads the notes and proposes named groups to review), with the tag-based suggestion kept for when the model is off.
 - Atlas's hair now starts on the head: a short swept cap (masculine) or a soft parted cap (feminine) covers the crown down to a soft hairline, so the hair grows from the scalp instead of rising behind a bald dome.

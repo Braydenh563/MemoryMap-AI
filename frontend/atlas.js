@@ -552,6 +552,18 @@ const ATLAS_LOOKS = {
     //: the crown reading bald (`atlasHairCap`).
     cap: "M17.8 21.4C17.6 12.6 23.4 6.8 31 6.6C38.8 6.6 44.6 12.6 44.4 21.4C43 17.6 40.6 14.6 37.2 13.2C36.2 12.8 35 12.4 34 11.6C33 12.6 31.4 13.2 29.6 13.6C25.6 14.6 21.2 16.8 17.8 21.4Z",
     capPart: "M34 11.6C34.6 9.6 35.4 8.2 36.6 7.2",
+    //: **The front locks** (round 9, the owner: "this front part of the
+    //: feminine atlas hair needs a fix and smoothen"): the crown's three
+    //: wisps read as flat blades with square-cut roots floating on the cap.
+    //: In their place, three soft locks curving out of the parting and lying
+    //: over the cap, each thin at the parting, swelling and tapering to a
+    //: rounded tip (`atlasFrontLock`), in the cap's own paint and root
+    //: shade and with no outline, so they merge into it with no seam.
+    frontLocks: [
+      { seg: [[34, 11.8, 30.4, 9.8, 25.4, 10.8, 21.6, 14.4], [21.6, 14.4, 20.2, 15.8, 19.6, 17.4, 19.8, 19]], w: 3.2 },
+      { seg: [[33.8, 11.6, 31.2, 8.6, 28, 7.8, 25.4, 9]], w: 2.2 },
+      { seg: [[34.4, 11.8, 38, 10.4, 41.6, 11.8, 43.6, 15.2]], w: 2.6 },
+    ],
     lowers: [
       { seg: [[26.4, 55, 22.6, 62.4, 19.6, 69, 17.8, 76], [17.8, 76, 16, 83, 19.4, 87.4, 13.6, 90.4], [13.6, 90.4, 11.8, 91.4, 10.4, 92.6, 9.2, 94.4]], w: 6.4, specks: [[20.4, 68.4, 0.32], [16.6, 84, 0.28]], edge: true },
       { seg: [[28.8, 56, 29.8, 64.4, 23.8, 71.4, 24.6, 79], [24.6, 79, 25.2, 85.4, 28.8, 88.8, 25.6, 94.6], [25.6, 94.6, 23.8, 97.4, 26.2, 98.4, 25, 100.4]], w: 7.2, specks: [[26, 74.4, 0.3], [26.4, 92.4, 0.26]] },
@@ -813,6 +825,11 @@ function atlasBuild() {
     const n = tune.lockCount > 0 ? Math.round(tune.lockCount) : spec.locks.length;
     spec.lockPaths = spec.locks.slice(0, n).map(lock);
     spec.headPaths = spec.head.slice(0, n).map(lock);
+    //: A front lock is thin at its root, swells, and ends in a rounded tip:
+    //: no square end at either end to show as a seam on the cap.
+    if (spec.frontLocks) {
+      spec.frontPaths = spec.frontLocks.map(({ seg, w }) => atlasStem(seg, (t) => 0.35 + w * Math.sin(Math.PI * Math.min(1, t * 1.02)) ** 0.8, { samples: 10, cap: true }));
+    }
     spec.torsoNow = atlasScalePathX(spec.torso || ATLAS_TORSO_PATH, tune.bodyWidth, 31);
     spec.torsoEdgeNow = atlasScalePathX(atlasTorsoEdge(spec.torso || ATLAS_TORSO_PATH), tune.bodyWidth, 31);
     if (spec.lowers) {
@@ -1251,6 +1268,19 @@ function atlasEars(parent, level, edge, look) {
     out[side] = g;
   }
   const wisps = atlasGroup(parent, "atl-crest atl-wisps", ATLAS_GEO.hair);
+  if (spec.frontPaths && !tiny) {
+    //: The feminine front locks: the cap's paint, no outline in the edge
+    //: layer (a glow round a lock over the cap is a seam).
+    if (!edge) {
+      for (const d of spec.frontPaths) {
+        atlasMake("path", { class: "atl-skin atl-lock atl-front-lock", d }, wisps);
+        atlasMake("path", { class: "atl-overlay atl-hair-neb", d }, wisps);
+        atlasMake("path", { class: "atl-overlay atl-hair-root", d }, wisps);
+      }
+    }
+    out.wisps = wisps;
+    return out;
+  }
   for (const d of ATLAS_WISPS) {
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, wisps);
     if (!edge && !tiny) atlasMake("path", { class: "atl-overlay atl-hair-neb", d }, wisps);

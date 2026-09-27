@@ -6953,6 +6953,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* Round 9: the hair's cap (atlas.js, `atlasHairCap`), fuller than a lock
    so the crown reads as hair, not skin under a veil, and a faint parting. */
 .nm-atlas .atl-hair-cap .atl-cap-fill { opacity: 0.94; }
+/* The feminine front locks lie on the cap in its own paint (atlas.js,
+   `frontLocks`), a touch lighter so each lock's curve reads. */
+.nm-atlas .atl-front-lock { opacity: 0.9; }
+.nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
 .nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
 .nm-atlas .atl-cap-part { fill: none; stroke: var(--atl-rim); stroke-width: 0.6; stroke-linecap: round; opacity: 0.35; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }

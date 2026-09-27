@@ -816,6 +816,7 @@ const PHONE_SIDEBAR_OPENERS = [
   { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories and tags" },
   { aside: "chat-sidebar", dock: '[data-dock-name="chat"]', label: "Conversations" },
   { aside: "doc-sidebar", dock: ".doc-dock", label: "Documents list" },
+  { aside: "skills-sidebar", dock: '[data-dock-name="library-skills"]', label: "Skill logs" },
 ];
 
 function mountPhoneSidebarOpeners() {

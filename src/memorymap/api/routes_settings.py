@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
-from memorymap.ai import presets, skills
+from memorymap.ai import librarian, presets, skills
 from memorymap.core import deps, embedmodels, events, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -128,9 +128,77 @@ class TemplateItem(BaseModel):
 BUILTIN_TEMPLATE_NAMES = {"Journal", "Recipe", "Contact", "Meeting"}
 
 
+#: The em dash, kept as a lookup rather than written literally so this file
+#: (and `tests/test_no_em_dashes.py`, which reads every file under `src/`)
+#: passes its own rule the same way `tests/test_no_em_dashes.py` reads its
+#: own copy of the character.
+_EM_DASH = chr(0x2014)
+
+
 class PersonaItem(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     prompt: str = Field(min_length=1, max_length=2000)
+    #: The words that rotate beside the thinking dots while this persona is
+    #: answering (the owner: rotating "thinking words" like Claude Code's,
+    #: "customisable per persona"). Empty (the default for every persona that
+    #: has never set one) means "use the app's default list, or the built-in
+    #: persona's own list"; frontend/sheets-selects.js resolves which. Stored
+    #: here rather than in localStorage for the same reason the writing
+    #: dictionary is: a list built by hand should survive a cleared browser
+    #: and travel with the daily backup.
+    thinking_words: list[str] = Field(default_factory=list)
+
+    @field_validator("thinking_words")
+    @classmethod
+    def _bounded_thinking_words(cls, words: list[str]) -> list[str]:
+        cleaned = [w.strip() for w in words if w.strip()]
+        if not cleaned:
+            return []  # "use the default list", not "a list of nothing"
+        if not (8 <= len(cleaned) <= 40):
+            raise ValueError(
+                f"thinking words: 8 to 40 items, got {len(cleaned)} (or leave it empty "
+                "to use the default list)"
+            )
+        for word in cleaned:
+            if len(word) > 40:
+                raise ValueError(f'thinking word "{word}" is longer than 40 characters')
+            if "!" in word:
+                raise ValueError(f'thinking word "{word}" must not use an exclamation mark')
+            if _EM_DASH in word:
+                raise ValueError(f'thinking word "{word}" must not use an em dash')
+            #: A loose sentence-case check: reject a word typed in
+            #: ALL CAPS (the app's own copy rule, CLAUDE.md section 2 item
+            #: 6), which is the one case this can tell apart from a
+            #: deliberate acronym or a proper noun without a dictionary.
+            if word.isupper():
+                raise ValueError(f'thinking word "{word}" reads as shouting, not sentence case')
+        return cleaned
+
+
+class SuggestThinkingWordsBody(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    prompt: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/personas/suggest-thinking-words")
+def suggest_persona_thinking_words(body: SuggestThinkingWordsBody) -> dict:
+    """"Suggest with AI" in the persona editor: about sixteen thinking
+    words in this persona's own voice, from its prompt, the same
+    utility-model-completion shape `POST /suggest-tags` uses. Takes the name
+    and prompt directly (not a saved persona) so this works for one not
+    saved yet, same reasoning `POST /suggest-tags` gives for taking a
+    draft's text rather than a saved `Entry`.
+    """
+    try:
+        words = librarian.suggest_thinking_words(
+            body.name, body.prompt, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception:
+        logging.getLogger("memorymap.personas").warning(
+            "thinking-word suggestions failed", exc_info=True
+        )
+        words = []
+    return {"thinking_words": words}
 
 
 class CustomThemeItem(BaseModel):
@@ -239,6 +307,12 @@ class PreferencesBody(BaseModel):
     #: default: it costs nothing until a prose document or note box is open,
     #: and nothing on the main thread even then.
     grammar_check: bool | None = None
+    #: Rotating words beside the thinking dots (chat, capture Ask, the popup
+    #: agent), e.g. "Pondering...", "Leafing through your notes...". On by
+    #: default, since it is the feature being asked for; a switch for anyone
+    #: who finds a changing word beside the dots distracting rather than
+    #: reassuring.
+    show_thinking_words: bool | None = None
     #: Curly quotes and a dash from two hyphens as you type in a prose
     #: document (the autofill ask, 2026-09-24). Off by default: software that
     #: changes what was typed without being asked is the thing people turn off
@@ -539,6 +613,7 @@ def get_preferences() -> dict:
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
+        "show_thinking_words": config.get_preference("show_thinking_words", True),
         "smart_punctuation": config.get_preference("smart_punctuation", False),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather

@@ -467,6 +467,45 @@ being written by running agents stay beside this one.
 
 ## Chat and popup agent
 
+- **Review of the chat pass (9c8b373 to 835447d), the Library and Timeline
+  pass (2d42cd5 to d2bc42a) and 277ae31, 08cf260, 2026-09-27.** Line by line,
+  each claim then measured against the running app. Fixed, each with a
+  test that failed first: (1) a citation peek was out of the keyboard's
+  reach: lifted to `<body>`, Tab from a mark went to the next mark, never
+  into the peek (`peekkeys.js`: Enter, then Tab, both left the focus on the
+  marks); Enter on a mark now moves the focus onto the peek's preview and
+  Escape brings it back. (2) Escape from inside the peek left it on the
+  page: `closeCitationPeek` handed the focus back to the mark, whose own
+  focus handler opened the peek again (`citationPeekState.restoring`
+  guards it). (3) The stream's end took the focus into the box from
+  wherever the reader had gone in the Chat tab (`input.focus()`
+  unconditional); only from the Stop button or from nowhere now. Read and
+  measured sound: the emblem copy per reply (60 copies dropped a round, 0
+  nodes retained after GC, `emblemprobe.js`; the shared observer does not
+  hold them), Escape and the Stop button's focus (a menu's Escape is
+  stopped before the document's), the tap target (`::after`, 44px tall,
+  the pseudo-element is the mark itself to a press elsewhere), the
+  `.is-choosing` class (every path that ticks or unticks a card goes
+  through `toggleLibrarySelection`, select-all dispatches `change`, the
+  two resets re-render, and the list view keeps `.library-grid`), the
+  roving grid (`focusin` makes the used card the stop; the chunk pump
+  restores it by key), `renderIncrementally`'s `budgetMs` (at least one
+  item a frame, the pump stops when the sentinel is out of view and the
+  observer restarts it), the remembered sort and grouping (restored at
+  script load, before the select stand-in reads), `display: contents` on
+  the tool row (switch 0px off the name's centre, the label's hit area
+  covers the description and a click there toggles, filter 0 of 58 with
+  its empty line and 12 of 58 on "search", `:focus-within` true;
+  `toolrowprobe.js`), the dashboard mark's Atlas choice, and the chat
+  starters' wording (a test in the commit). [chat-b.md]
+- **The citation mark's touch box overlaps the lines above and below** (a
+  decision to note, not a bug): the `::after` box is 44px tall around a
+  13px glyph, so on a phone a tap on the line above or below a mark, within
+  8px of it sideways, opens the peek rather than acting on that line's
+  text. By design (6df7310); worth a look at an answer dense with marks.
+- **The tool row's focus is the checkbox's own ring**: with the text
+  column `display: contents` the label draws no outline of its own
+  (`outline: none`, no shadow), which is how it was before 277ae31 too.
 - **The chat welcome's blurb wraps to two lines at 1280 wide**
   (`frontend/chat.js:919`, "I've read everything you've saved. Ask me
   anything and I'll show you where the answer came from"):

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Guide covers the whole app: new help for the corner companion, Atlas's look, the generated faces, every Settings section and the app's layout (76 entries, was 59; 22 new questions all answered first-time right, the old 177 unchanged at 176). Each answer can switch between Atlas's words and the app's own help, laid out with a heading, where it lives, the steps and a button that opens the setting's own row.
 - The companion moves like a body: it crouches before it sets off, springs up, squashes into the landing and rebounds once; its limbs ease into a new pose instead of snapping; and it is quieter at rest (the rings' shimmer half as deep and slow, a smaller, slower tail swish and wag, a shallower float).
 - The companion perches on the page's own panels first on every tab (a card, a toolbar, the underside of a panel) and rides them as they scroll, where every tab used to leave it on a window bar; it skips menus that are faded out and fields you type into, and Atlas's tail counts as part of what may not cover a control.
 - Generated faces wear a mood each in their own way: per mood, each character favours its own eyes, brows and mouth from a few near neighbours (one happy face grins with sparkling eyes, another smiles a cat's smile), always the same for the same name, colours unchanged.

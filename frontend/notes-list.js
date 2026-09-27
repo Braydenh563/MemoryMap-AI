@@ -3034,8 +3034,24 @@ async function openManageCategories(focusName = null) {
       filter.className = "manage-cat-filter";
       filter.placeholder = "Filter categories";
       filter.setAttribute("aria-label", "Filter categories");
+      //: A search field says so: a leading magnifier, and a clear that shows
+      //: once there is something to clear (the owner: "the filter has no
+      //: search icon").
+      const search = document.createElement("span");
+      search.className = "manage-cat-search";
+      const glass = document.createElement("i");
+      glass.className = "ph ph-magnifying-glass manage-cat-search-icon";
+      glass.setAttribute("aria-hidden", "true");
+      const clear = smallButton("ph:x", "Clear the filter", () => {
+        filter.value = "";
+        filter.dispatchEvent(new Event("input"));
+        filter.focus();
+      });
+      clear.classList.add("manage-cat-clear", "hidden");
+      clear.setAttribute("aria-label", "Clear the filter");
+      search.append(glass, filter, clear);
       const create = smallButton("ph:plus New category", "Make an empty category to move notes into", () => createCategoryFromPanel());
-      tools.append(filter, create);
+      tools.append(search, create);
       const list = document.createElement("ul");
       list.className = "manage-cat-list";
       list.setAttribute("role", "listbox");
@@ -3052,6 +3068,7 @@ async function openManageCategories(focusName = null) {
       manageCategoriesRedraw = redraw;
       filter.addEventListener("input", () => {
         state.filter = filter.value.trim().toLowerCase();
+        clear.classList.toggle("hidden", !filter.value);
         redraw();
       });
       //: Down from the filter walks into the list.

@@ -29,9 +29,15 @@ written.
   `.stepper` pills ("− 15 min +", "− 1 day +"), 32px (44 at 390), arrow
   keys nudge, Shift a day, the readout fades (`stepper.js`). Found, not
   fixed: the magic-add placeholder wraps and clips at one row.
-- [ ] Manage categories panel redesign: the dialog head recipe, search plus
+- [x] Manage categories panel redesign: the dialog head recipe, search plus
   "New category" in one row, quiet rows (dot, name, count pill, hover
   kebab), multi-select bulk bar, no double scrollbar, listbox keyboard.
+  The owner's alignment pass (`managecats.js`, light and dark, 1093 and
+  390): title, '?' and close on one centre line (was 4.8px off); filter and
+  New category one height (32, 44 at 390; was 36.8 and 32, tops 6px apart)
+  and one radius; a magnifier and a clear; one focus ring; the
+  description 10px under the head (was 5); arrows and Space select, the
+  bulk bar shows; no inner scroller at 1093.
 - [ ] Feminine hair, the owner after 0bcfd1a: "I want to add a bit more
   texture to the start of the long hair on the feminine atlas, also I dont
   like the forehead hair part. it gives off school girl vibes and not astral

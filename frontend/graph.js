@@ -1465,7 +1465,10 @@ function graphSizeRadius(node, degree, low = 4, high = 18) {
     const days = Number.isFinite(at) ? Math.max(0, (Date.now() - at) / 86400000) : Infinity;
     return low + (high - low) * Math.pow(0.5, days / 30);
   }
-  return Math.max(low, Math.min(high, low + 2 * Math.sqrt(degree || 0)));
+  //: 3.5 per root of a link, not 2: in a notebook of tens of notes the
+  //: busiest hub has 5 or 6 links, and at 2 it drew barely 2px wider than a
+  //: leaf (reported at release). 1 link 7.5, 4 links 11, 9 links 14.5.
+  return Math.max(low, Math.min(high, low + 3.5 * Math.sqrt(degree || 0)));
 }
 
 function graphColourMode() {

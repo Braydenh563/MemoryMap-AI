@@ -166,7 +166,7 @@ function drawManageCategoryRows(list, footer, state) {
     li.setAttribute("aria-label", `${meta.name}, ${meta.count} note${meta.count === 1 ? "" : "s"}`);
     li.append(dot, name, count);
     if (meta.name !== "Uncategorised") {
-      const menu = kebabMenu(categoryMenuItems(meta), `Actions for ${meta.name}`);
+      const menu = kebabMenu(categoryMenuItems(meta, { inPanel: true }), `Actions for ${meta.name}`);
       menu.classList.add("manage-cat-menu");
       menu.addEventListener("click", (event) => event.stopPropagation());
       menu.addEventListener("keydown", (event) => event.stopPropagation());

@@ -2986,14 +2986,17 @@ function offerCategoryUndo(message, undo, redo) {
 
 let manageCategoriesRedraw = null;
 
-function categoryMenuItems(meta) {
-  return [
+function categoryMenuItems(meta, { inPanel = false } = {}) {
+  const items = [
     { label: "ph:pencil-simple Rename…", title: `Rename ${meta.name}`, run: () => renameCategory(meta, meta.name) },
     { label: "ph:arrows-merge Merge into…", title: `Move every note in ${meta.name} into another category`, run: () => mergeCategoryFromPanel(meta) },
     { label: "ph:arrows-split Split…", title: `Move some of ${meta.name}'s notes into a new category`, run: () => splitCategoryFromPanel(meta) },
     { label: "ph:trash Delete…", title: `Delete ${meta.name}; its notes are kept`, danger: true, group: "danger", run: () => deleteCategoryFromPanel(meta) },
     { label: "ph:sliders-horizontal Manage categories", title: "Open the panel with every category", group: "all", run: () => openManageCategories(meta.name) },
   ];
+  //: Inside the panel itself, "Manage categories" opened a second copy over
+  //: the first (reported at release).
+  return inPanel ? items.filter((item) => item.group !== "all") : items;
 }
 
 //: **Dragging a note onto a category** in the sidebar moves it there, with

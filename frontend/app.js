@@ -48037,7 +48037,27 @@ async function cmdPaletteAsk(text) {
 
   const userMsg = document.createElement("div");
   userMsg.className = "msg user";
-  userMsg.textContent = text;
+  //: **The avatar circles Chat's own bubbles carry** (INBOX 430: "its reply
+  //: rows lack the avatar circles the chat has"). This row used to be
+  //: `userMsg.textContent = text` directly on the bubble, with no `.msg-role`
+  //: at all, so it also missed `.msg.user .msg-body`'s own font-size
+  //: (Chat's user text and answer text read at one size on purpose; this one
+  //: was quietly back at the browser default). Built exactly like `addBubble`'s
+  //: user branch (app.js) rather than a second copy of the same three
+  //: elements, so the two cannot drift apart again.
+  const userLabel = document.createElement("div");
+  userLabel.className = "msg-role";
+  const userAvatar = document.createElement("span");
+  userAvatar.className = "msg-avatar msg-avatar-user";
+  userAvatar.setAttribute("aria-hidden", "true");
+  setLabel(userAvatar, "ph:user");
+  const userName = document.createElement("span");
+  userName.textContent = "You";
+  userLabel.append(userAvatar, userName);
+  const userBody = document.createElement("div");
+  userBody.className = "msg-body";
+  userBody.textContent = text;
+  userMsg.append(userLabel, userBody);
   //: **The same three actions the Chat tab's own bubbles carry.** Reported:
   //: *"I cant copy edit or resend any messages in the popup agent. it still
   //: lacks a lot of features."* The palette had none of them, a question you
@@ -48077,6 +48097,21 @@ async function cmdPaletteAsk(text) {
   //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
   //: spinner parked elsewhere, so what pulses is the thing being waited for.
   agentMsg.className = "msg assistant is-generating";
+  //: **The avatar circle Chat's own assistant bubbles carry** (INBOX 430),
+  //: built like `addAssistantBubble`'s own header: a `.msg-role` naming the
+  //: voice, with the app's emblem standing in as its face exactly the way
+  //: Chat's does. Appended, then drawn once the bubble is attached (below):
+  //: p5 cannot size a canvas inside a detached element, the same reason
+  //: `addAssistantBubble` draws its own emblem after appending, not before.
+  const agentLabel = document.createElement("div");
+  agentLabel.className = "msg-role msg-role-assistant";
+  const agentAvatar = document.createElement("span");
+  agentAvatar.className = "msg-avatar";
+  agentAvatar.setAttribute("aria-hidden", "true");
+  const agentName = document.createElement("span");
+  agentName.textContent = assistantLabel();
+  agentLabel.append(agentAvatar, agentName);
+  agentMsg.appendChild(agentLabel);
   //: **What the tools did, as the same fold the Chat tab shows.** Reported:
   //: "tool calls dont show" in the popup agent. The palette answered every
   //: tool event with one word on the status line ("Working…") and threw the
@@ -48137,7 +48172,8 @@ async function cmdPaletteAsk(text) {
   answerBox.appendChild(typingDots());
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
-  //: The answer's own row, added now and reading `answerRaw` at click time: 
+  renderEmblem(agentAvatar, 20); // now attached, so p5 can measure and draw
+  //: The answer's own row, added now and reading `answerRaw` at click time:
   //: the text does not exist yet, and binding a copy of an empty string is
   //: how "Copy" ends up copying nothing on a fast answer.
   agentMsg.appendChild(

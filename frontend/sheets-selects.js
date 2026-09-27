@@ -1825,14 +1825,21 @@ async function openConversation(id) {
       //: `touched` comes back off the saved tool events, which have carried it
       //: since the live action line was built, the same rows, from the same
       //: place, so a reopened panel is the panel and not an approximation.
-      const savedSources = chatSourcesPanel({
+      const savedInput = {
         meta: {
           raw_results: message.raw_results || [],
           search_mode: message.search_mode,
         },
         toolEvents: message.tools || [],
         touched: (message.tools || []).flatMap((t) => t.touched || []),
-      });
+      };
+      //: The panel's order, built once and handed to the citation pass below
+      //: as the live path does (chat-attach.js, `turnSources`). Reopening
+      //: passed `null` there, so the marks fell back to "order first cited"
+      //: and a note that was 8 in the panel read 1 in the prose while its
+      //: peek showed source 8 (the owner, INBOX 430).
+      const savedOrder = chatSourcesFrom(savedInput);
+      const savedSources = chatSourcesPanel({ ...savedInput, sources: savedOrder });
       if (savedSources) {
         handles.recordsHolder.appendChild(savedSources);
       } else if (message.raw_results) {
@@ -1854,7 +1861,7 @@ async function openConversation(id) {
           message.raw_results || [],
           handles.bubble?.querySelectorAll(".bubble-answer") || null,
           "",
-          null,
+          savedOrder,
           //: Saved on the turn by the server from the same counter the live
           //: stream used, so the notice survives reopening the chat.
           message.support || null

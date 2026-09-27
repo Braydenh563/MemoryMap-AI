@@ -91,3 +91,18 @@ def test_the_rail_gives_way_before_the_list_drops_under_600():
     body = LIST_JS.split("async function renderNotesRail(")[1].split("\n}\n")[0]
     assert "NOTES_RAIL_MIN_READING" in body and "getBoundingClientRect().width" in body
     assert "new ResizeObserver(" in LIST_JS and '.observe($("sidebar"))' in LIST_JS
+
+
+def test_opening_a_cards_menu_does_not_open_the_rail_under_it():
+    """The review of 2026-09-27 (`scratchpad/ui-sweeps/anchorsmotion.js`): a
+    card's ⋯ is a button inside its row, so pressing it is a `focusin` on the
+    row, and the rail opened 120ms later. The column takes 318px from the
+    list and the list's dock wraps to a second line, so the row moved 318px
+    left and 44px down under a menu already placed beside where its ⋯ had
+    been: at 1440x600, 118px between the menu and its opener, the menu over
+    the rail. A menu is acting on a note, not choosing one to read: only focus
+    on the row itself, or a control that is not a menu's, selects it."""
+    wire = LIST_JS[LIST_JS.index("(function wireNotesRail() {") :]
+    focus = wire[wire.index('list.addEventListener("focusin"') :]
+    focus = focus[: focus.index("\n  });\n")]
+    assert ".menu-wrap" in focus and ".action-menu" in focus, "a card's menu opening still selects the note for the rail"

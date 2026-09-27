@@ -33,6 +33,8 @@ below). Versioning is `0.x` while the app stabilises.
 ### Fixed
 
 - The note box's `[[` link list answers its keys again: with the note editor loaded, the arrows moved the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
+- Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
+- In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.
 - Atlas, both looks: the arms grow out of the chest rather than off its edge, fuller at the shoulder and tapering to a wrist, with hands that read as hands (the fingertips' notch made them look like claws), resting at easier angles when sitting and floating; the chest's bright four-point star is now a faded constellation of a few dim stars and hairlines; and the nebula is one soft ribbon behind the figure in a haze of light, drifting slowly, instead of two pieces with one crossing in front. The feminine look has no legs or feet: from the waist down it is a translucent skirt of flowing ribbons that end in wisps and sway, and it glides when it walks.
 - Any small effect drawn inside one of Atlas's layers now moves ten times a second rather than twenty, which halves its cost (40 to 20 repaints and 20 to 10 layouts a second for one effect). Atlas's mood effects are currently drawn on their own layers and cost nothing either way.
@@ -47,6 +49,8 @@ below). Versioning is `0.x` while the app stabilises.
 - The Library's grid is one stop for the Tab key: the card you were last on, then its tick and its menu, with the arrow keys between cards. Tab used to walk every card three times over (400 presses on a thousand-note notebook without leaving the grid), so nothing after it could be reached from the keyboard. The All view's sort is kept across a reload, as the Documents and Images sorts already were.
 - The Library and the Timeline scroll smoothly through a thousand notes: the worst frame while scrolling went from 100ms to 33ms on both, and the frames over 32ms from 7 to 5 (Library), 12 to 2 (Timeline) and 10 to 4 (its table), because new cards no longer restyle every card already shown and both lists build their next rows a few milliseconds at a time.
 - The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
+- With reduced motion on, the ring a keyboard save draws on the button it pressed clears straight away instead of staying on the button, and each save no longer leaves a listener behind that would never run.
+- Opening a note card's menu no longer opens the connections column beside the list as it opens: the column narrowed the list and moved the card from under its own menu (118px away at a short window).
 - Atlas in the large view keeps its size while it moves: a poke or a mood that moves its whole body (delighted, laughing, sleepy, love, confused) shrank the figure to under half its height for the length of the move, because the move replaced the enlargement; it is enlarged a way the move adds to now.
 - With reduced motion on (the system's setting or Appearance's), the companion's right-click menu opens at the companion again instead of hundreds of pixels away or off the top of the window. The reduced-motion rule gave every element a 0.01ms transition rather than none, so a menu, measured straight after it was moved, read where it had been; the rule now stops transitions outright.
 - A long conversation opens in less than half the time (a 150-turn chat, 1,028 to 1,172ms down to 410 to 441ms): each reply's label copies one drawing of the app's mark rather than starting its own.
@@ -84,6 +88,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Chat: a reopened conversation numbers its citation marks by its Sources panel again (a mark read 1 where its source was 8).
+- Settings: the Privacy page's Since launch / All time pill shows which is chosen; the tools grid draws one divider per row in both columns.
 - Agent turns no longer fail on Windows with "Invalid format string" (the week line used a Linux-only date flag); a lint now refuses such flags.
 - The image viewer loads on its first open instead of at startup, taking about 30 KB off the cold load.
 - Dashboard: right-click (or hold) the mark to switch it between the app's logo, Atlas, your face and the greeting's persona; a face in the mark stays inside its circle while it reacts to a click.

@@ -554,7 +554,7 @@ function notebookLocked() {
   //: A short, non-blocking mark on the control a shortcut just pressed, so a
 //: keyboard save is visibly a save rather than a key that did nothing. The
 //: class is removed on the animation's own end rather than on a timer, so
-//: two presses in a row both show, and it is a no-op under
+//: two presses in a row both show, and at once under
 //: `prefers-reduced-motion` (the rule carries no animation there).
 function flashSaved(el) {
   if (!el) return;
@@ -575,10 +575,31 @@ function flashSaved(el) {
   // second press inside the animation's own duration shows nothing.
   void el.offsetWidth;
   el.classList.add("just-saved");
-  el.addEventListener("animationend", () => {
+  //: **Finished whether or not the ring ran.** Under the system's reduced
+  //: motion `.just-saved` is `animation: none`, and an animation that never
+  //: starts never ends: the class and the shadow stayed on the button, and
+  //: every Ctrl+S left one more `animationend` listener that would never run
+  //: (the review, 2026-09-27; `tests/test_motion_endings.py`). So it is
+  //: finished at once when no ring is running, and otherwise when this
+  //: ring's own `finished` settles, which a cancel (the control hidden
+  //: mid-ring) settles too. The ring's promise rather than the element's
+  //: events: a second press cancels the first ring, and that ring's cancel
+  //: event, dispatched a frame later, would reach the second ring's
+  //: listener. The token keeps a late first ring off the second one.
+  const token = {};
+  el._justSaved = token;
+  const finish = () => {
+    if (el._justSaved !== token) return;
+    el._justSaved = null;
     el.classList.remove("just-saved");
     el.style.removeProperty("--just-saved-rest");
-  }, { once: true });
+  };
+  const ring = el.getAnimations().find((a) => a.animationName === "just-saved-ring");
+  if (!ring) {
+    finish();
+    return;
+  }
+  ring.finished.then(finish, finish);
 }
 
 //: **Ctrl+S saves what is in front of you** (INBOX 74, asked for: "register

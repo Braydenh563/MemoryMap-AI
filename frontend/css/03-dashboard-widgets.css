@@ -4496,3 +4496,18 @@ p.graph-help-panel {
   margin-top: var(--space-2);
   gap: var(--space-2);
 }
+
+/* **Tools it can use: one hairline per grid row, level in every column.**
+   The stack rule in 08-consistency.css draws a top line on every row after
+   the first, which is right for one column and wrong for this grid: the
+   first row of column two is the second `li`, so it alone had a line over
+   it, a second one under the filter row's own (the owner, INBOX 430). Every
+   row carries the line here, the first included, and the filter row gives
+   up its rule, so each grid row has exactly one, whatever the column count. */
+#tool-list > li > .tool-row.setting-check {
+  border-top-color: var(--divider);
+}
+
+#settings-tools .tool-filter-row {
+  border-bottom-color: transparent;
+}

@@ -40,9 +40,17 @@ def app_js_files() -> list[Path]:
     return [FRONTEND_DIR / name for name in names[start : end + 1]]
 
 
+#: Pieces of the app's code moved out of the boot scripts to load on first use
+#: (app.js, `LAZY_MODULES`). Still the app's code for every test that reads
+#: it, so `app_js_text` includes them; not in `app_js_files`, which is what
+#: loads at boot and what the gzip budget counts.
+LAZY_PIECES = ("lightbox-view.js",)
+
+
 @lru_cache(maxsize=1)
 def _joined() -> str:
-    return "\n".join(path.read_text(encoding="utf-8") for path in app_js_files())
+    paths = [*app_js_files(), *(FRONTEND_DIR / name for name in LAZY_PIECES)]
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
 
 def app_js_text() -> str:

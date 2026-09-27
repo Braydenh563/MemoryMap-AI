@@ -1028,8 +1028,12 @@ def build_agent_messages(
     #: above: a time worked out by subtracting from tonight's midnight lands
     #: on today, and the model moved it to tomorrow. Saying so once is
     #: cheaper than a reminder set on the wrong night.
+    #: The day number by hand, not `%-d`: that flag is glibc's, and Windows'
+    #: strftime raises "Invalid format string" on it, which took every agent
+    #: turn down on the owner's machine before the first event.
     week = ", ".join(
-        (local + timedelta(days=n)).strftime("%a %-d %b") for n in range(1, 8)
+        f"{day:%a} {day.day} {day:%b}"
+        for day in (local + timedelta(days=n) for n in range(1, 8))
     )
     #: The order inside this line matters for the same reason the line's own
     #: position does. The weekday, the week ahead and the rule change once a

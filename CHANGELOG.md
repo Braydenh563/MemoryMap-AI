@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A drowsy Atlas looks sleepy rather than creepy: the lids droop in soft curves over small pupils that look down, the brows and mouth relax, and blinks are slow and linger closed.
 - Atlas's feminine silhouette reads as one body: the arms grow out of the shoulders with no seam, and the hair grows from the head, darker at the roots, with no gap or hard edge beside the wings.
 - Two of Atlas's moods read as something else and are redrawn: happy (it looked calm) now smiles with its eyes, and determined (it looked bored) looks focused rather than half asleep.
 - Atlas dozes restfully in both looks: soft closed eyes with light lashes, a relaxed mouth instead of a pursed "o", less blush, three Zs that drift up and fade on a slow loop (still under Reduce motion), and a starry night cap that fades in while dozing or napping.

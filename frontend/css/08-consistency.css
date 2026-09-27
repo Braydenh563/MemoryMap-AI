@@ -6127,6 +6127,7 @@ main,
   --atl-happy: 0;
   --atl-shut: 0;
   --atl-doze: 0;
+  --atl-softlid: 0;
   --atl-squeeze: 0;
   --atl-hearteye: 0;
   --atl-m-smile: 1;
@@ -6608,6 +6609,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-eye { transform: scale(var(--atl-eye-s)); }
 .nm-atlas .atl-pupil { transform: translate(var(--atl-px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
+.nm-atlas .atl-lid-flat { opacity: calc(1 - var(--atl-softlid)); }
+.nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }
 .nm-atlas .atl-lid-low { transform: translateY(calc(var(--atl-low) * -10px)); }
 /* The ears and the hair perk and droop together: the hair and the right
    ear one way, the left ear mirrored. */
@@ -6910,7 +6913,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-music .nm-atlas { --atl-tail: 26deg; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-tail: 18deg; }
 #nm-buddy.nm-buddy-dragging .nm-atlas { --atl-tail: -30deg; }
-#nm-buddy.nmb-drowsy .nm-atlas { --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg; --atl-lid: 0.3; }
+/* Drowsy (round 9, the owner: "the half lidded eyes look a little
+   creepy"): the lids droop in soft arcs (`--atl-softlid`), the pupils are
+   small and look down and away, the brows soften with their inner ends a
+   little raised, the mouth relaxes whatever the mood was, and a blink is
+   slow and lingers closed (`atl-blink-heavy`). Its occasional yawn is the
+   companion's own `yawn` act. */
+#nm-buddy.nmb-drowsy .nm-atlas {
+  --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg;
+  --atl-open: 1; --atl-happy: 0; --atl-squeeze: 0; --atl-hearteye: 0;
+  --atl-lid: 0.3; --atl-lid-r: 0deg; --atl-softlid: 1; --atl-low: 0.08;
+  --atl-px: -0.6px; --atl-py: 1.6px; --atl-ps: 0.8;
+  --atl-brow-y: -0.3px; --atl-knit: -7deg; --atl-bl-y: 0px; --atl-br-y: 0px; --atl-bl-r: 0deg; --atl-br-r: 0deg;
+  --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
+  --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 0; --atl-m-rest: 1;
+  --atl-cheek: 0.3;
+}
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s ease-in-out var(--nm-delay) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation-duration: 12s; }
+}
+@keyframes atl-blink-heavy {
+  0%, 30%, 52%, 100% { opacity: 0; }
+  35%, 45% { opacity: 1; }
+}
 #nm-buddy.nmb-night .nm-atlas { --atl-crest: 8deg; --atl-lid: 0.28; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-py: 1.4px; --atl-lid: 0.18; --atl-brow-y: -0.6px; }
 #nm-buddy.nmb-offline .nm-atlas { --atl-knit: -11deg; --atl-brow-y: -1px; --atl-ps: 0.86; }

@@ -263,3 +263,18 @@ def test_the_feminine_silhouette_is_one_body_arms_and_hair_grown_from_it():
         for x, y in roots:
             assert (float(x) - 31) ** 2 + (float(y) - 23) ** 2 < 13 ** 2, (block, x, y)
     assert 'class: "atl-overlay atl-hair-root"' in ATLAS and ".nm-atlas .atl-hair-root { fill: var(--atl-hroot); }" in CSS
+
+
+
+def test_drowsy_droops_softly_rather_than_staring():
+    # Round 9 (the owner: "the half lidded eyes look a little creepy"): the
+    # lid's edge droops in an arc, the pupils are small and look down, the
+    # mouth relaxes whatever the mood, and a blink lingers closed.
+    start = CSS.index("#nm-buddy.nmb-drowsy .nm-atlas {")
+    drowsy = CSS[start : CSS.index("}", start)]
+    assert "--atl-softlid: 1" in drowsy and "--atl-m-rest: 1" in drowsy and "--atl-m-grin: 0" in drowsy
+    assert "--atl-ps: 0.8" in drowsy and "--atl-py: 1.6px" in drowsy
+    assert '"atl-skin atl-lid-soft"' in ATLAS and ".nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }" in CSS
+    assert "#nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s" in CSS
+    body = _keyframes("atl-blink-heavy").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"opacity"}

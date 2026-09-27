@@ -1721,7 +1721,7 @@ async function openConversation(id) {
   // ROADMAP.md item 13: switching between saved chats was invisible to
   // back/forward. Recorded here rather than at each of this function's
   // call sites (the sidebar, the Library) so neither has to remember to.
-  recordTabVisit("chat", `conv:${full.id}`);
+  recordTabVisit("chat", `conv:${full.id}`, full.title || "");
   chatConv = { id: full.id, turns: [] };
   chatAwaitingAgentAnswer = false; // a saved thread's own pending ask, if any, isn't answerable live
   // Not carried across conversations, and not persisted: re-deriving it is one

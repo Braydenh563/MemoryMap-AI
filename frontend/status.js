@@ -551,8 +551,24 @@ function notify(title, body) {
 // The count in the title bar, the one surface that works while the app is in
 // a background tab, which is where it usually is when a reminder comes due.
 const BASE_TITLE = "MemoryMap AI";
+let titleCount = 0;
+//: The view and the open thing (router.js, WORLD_CLASS_PLAN 22.1 item 1):
+//: "Half marathon, week 4 · Notes", before the app's name, after the count.
+let titleView = "";
+
+function paintTitle() {
+  const base = titleView ? `${titleView} · ${BASE_TITLE}` : BASE_TITLE;
+  document.title = titleCount > 0 ? `(${titleCount}) ${base}` : base;
+}
+
 function setTitleCount(count) {
-  document.title = count > 0 ? `(${count}) ${BASE_TITLE}` : BASE_TITLE;
+  titleCount = count;
+  paintTitle();
+}
+
+function setTitleView(view) {
+  titleView = String(view || "").trim();
+  paintTitle();
 }
 
 async function checkDueReminders() {

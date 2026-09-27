@@ -1047,8 +1047,8 @@ const LINK_CHIP_CHARS = 48;
 // only needs enough to recognise which note it is; opening the note is one
 // click away. One line plus "Show more" keeps that recognisable while
 // giving the list room for more of them.
-const LONG_NOTE_CHARS = 70;
-const LONG_NOTE_LINES = 1;
+const LONG_NOTE_CHARS = 280;
+const LONG_NOTE_LINES = 3;
 // Which notes the user has opened out, for this session. Not persisted: it is
 // a reading position, not a preference.
 const expandedNotes = new Set();
@@ -1321,9 +1321,16 @@ function entryItem(entry, options = {}) {
   // The trigger is the character count, not a measured height: this list
   // renders inside a `display: none` sub-tab, where every measurement comes
   // back 0: the trap that has caught four separate features here already.
+  //: Pictures, sketches and attachment links are shown whole (a thumbnail,
+  //: a file chip), so they never count toward "long": a note that is only a
+  //: sketch, or a title and a PDF, has nothing hidden to show more of.
+  const textOnly = entry.content
+    .split("\n")
+    .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
+    .join("\n");
   const isLong =
-    entry.content.length > LONG_NOTE_CHARS ||
-    entry.content.split("\n").length > LONG_NOTE_LINES;
+    textOnly.length > LONG_NOTE_CHARS ||
+    textOnly.split("\n").length > LONG_NOTE_LINES;
   if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML, 

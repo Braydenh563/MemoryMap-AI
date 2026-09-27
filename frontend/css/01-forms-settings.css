@@ -664,6 +664,9 @@ summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
 .stepper-pair {
   display: inline-flex;
   flex: 0 0 auto;
+  /* To the row's end: after the time readout's reserved width it floated
+     mid-row (reported at release). */
+  margin-inline-start: auto;
   flex-wrap: nowrap;
   gap: var(--space-2);
 }

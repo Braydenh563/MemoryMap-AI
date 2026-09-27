@@ -1,3 +1,7 @@
+// Retired 2026-09-27: the owner took the Atlas image out of the README
+// (7a867f2), so atlas.png is no longer shipped; run this only if a README
+// picture of Atlas comes back.
+//
 // Atlas for the README: atlas.png, Atlas whole and happy in the masculine
 // look (the main one) on a night tile, the one picture of the README's
 // "Meet Atlas" paragraph. The owner, 2026-09-27: the top image is the app's

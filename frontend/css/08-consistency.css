@@ -5803,7 +5803,7 @@ main,
   opacity: 0;
 }
 #nm-buddy .nmb-emote-q {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-sm);
   font-weight: 700;
   line-height: 1;

@@ -3241,3 +3241,13 @@ def test_a_field_is_the_button_s_shape():
     misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     opener = next(body for sel, body in _rules(misc) if sel.strip() == ".select-opener")
     assert "border-radius: var(--radius-md)" in opener
+
+
+def test_a_dialog_head_title_out_ranks_the_card_heading_margin():
+    """`.card h2` (0,1,1) kept its bottom margin over `.dialog-head-title`
+    (0,1,0), so every recipe dialog's title sat 4.8px above its buttons'
+    centre line (scratchpad/ui-sweeps/dialogheads.js). The reset needs two
+    classes."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(body for sel, body in _rules(consistency) if ".dialog-head > .dialog-head-title" in sel)
+    assert "margin: 0" in rule

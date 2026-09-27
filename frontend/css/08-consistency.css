@@ -8601,7 +8601,13 @@ input[type="file"]::file-selector-button:hover {
 
 /* On whichever element carries the visible title (`<h2>`, `<h3>`, or a
    `<strong>` where the surface predates a heading tag, e.g. Notifications):
-   the recipe resets its margin and line-height, not its tag. */
+   the recipe resets its margin and line-height, not its tag.
+   **Two classes, and that is the fix.** `.card h2` (one class and a tag)
+   out-ranked `.dialog-head-title` (one class) and kept its bottom margin,
+   so in every dialog built on this recipe the title sat 4.8px above the
+   centre line of its '?' and Close (dialogheads.js: Earlier versions,
+   Connections, the bin, Shortcuts, Meeting notes, Tools & features). */
+.dialog-head > .dialog-head-title,
 .dialog-head-title {
   margin: 0;
   line-height: 1.2;

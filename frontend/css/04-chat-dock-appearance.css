@@ -5437,19 +5437,71 @@ input.doc-title-input::placeholder {
   flex: 0 0 auto;
 }
 
-/* The Manage categories panel (notes-list.js, INBOX 431 (e)): a row per
-   category, its colour, its name (a button that shows its notes), its
-   count and its menu. The sheet's own list and rows give the spacing. */
+/* The Manage categories panel (notes-list.js, INBOX 431 (e)), redesigned
+   on the reference dialog head (DESIGN.md, "A dialog's head"): quiet rows
+   in a listbox, a tool row of filter and New, a sticky selection footer.
+   The card sizes to its content up to the sheet's cap and the list is its
+   one scroller. */
+.sheet-card.manage-cat-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: var(--space-2);
+}
+
+.manage-cat-card .doc-ai-head {
+  gap: var(--space-1);
+}
+
+.manage-cat-card .doc-ai-head-btn.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.manage-cat-card .doc-ai-head-btn.ghost:hover,
+.manage-cat-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+.manage-cat-sub {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.manage-cat-tools > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .manage-cat-tools {
-  justify-content: space-between;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
+.manage-cat-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .manage-cat-list {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
-  padding: 0;
+  padding: var(--space-1) 0;
   list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .manage-cat-row {
@@ -5457,6 +5509,27 @@ input.doc-title-input::placeholder {
   align-items: center;
   gap: var(--space-2);
   min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.manage-cat-row:hover {
+  background: var(--ghost-btn-bg);
+}
+
+.manage-cat-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.manage-cat-row[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+.manage-cat-row[aria-selected="true"] .manage-cat-name {
+  color: var(--accent-text);
 }
 
 .manage-cat-dot {
@@ -5467,33 +5540,79 @@ input.doc-title-input::placeholder {
   background: var(--category-dot);
 }
 
-/* The name reads as the row's text, not as a filled button: it is one,
-   so it keeps the focus ring and a hover tint, and nothing else. */
-.manage-cat-list .manage-cat-name {
+.manage-cat-name {
   flex: 1 1 auto;
   min-width: 0;
-  justify-content: flex-start;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: transparent;
+}
+
+.manage-cat-count {
+  flex: 0 0 auto;
+  min-width: 2.25em;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* The ⋯ is a ghost icon, the head's own button shape, shown on hover or
+   focus (always on touch, where there is no hover). */
+.manage-cat-menu > button {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: 0;
+  padding: 0;
+  color: var(--muted);
+  background: none;
   border-color: transparent;
   box-shadow: none;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-.manage-cat-list .manage-cat-name:hover {
-  background: var(--ghost-btn-bg);
+.manage-cat-menu > button:hover,
+.manage-cat-menu > button[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
 }
 
-.manage-cat-row > .count {
-  min-width: 2ch;
-  text-align: end;
+.manage-cat-row:is(:hover, :focus-within, [aria-selected="true"]) .manage-cat-menu > button,
+.manage-cat-menu > button[aria-expanded="true"] {
+  opacity: 1;
 }
 
-/* Uncategorised has no menu; the gap keeps its count in the column. */
+@media (hover: none) {
+  .manage-cat-menu > button {
+    opacity: 1;
+  }
+}
+
 .manage-cat-spacer {
   width: var(--target-min);
   flex: 0 0 auto;
+}
+
+.manage-cat-empty {
+  padding: var(--space-2);
+}
+
+.manage-cat-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-light);
+}
+
+.manage-cat-footer-label {
+  margin-right: auto;
+  color: var(--muted);
 }
 
 .manage-split {

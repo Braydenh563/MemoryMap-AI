@@ -372,3 +372,13 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
     assert head.index("atlasHairCap(sway, spec)") < head.index("const ears = atlasEars(sway, level, false, look);")
     # Round 8's fading scalp is gone with it.
     assert "function atlasScalp(" not in ATLAS and 'fade("scalp"' not in ATLAS
+
+
+def test_the_feminine_front_locks_are_soft_and_seamless():
+    # Round 9 (the owner: "this front part of the feminine atlas hair needs a
+    # fix and smoothen"): no blade wisps with square roots over the cap.
+    feminine = _look("feminine")
+    assert "frontLocks: [" in feminine
+    assert "atlasStem(seg, (t) => 0.35 + w * Math.sin(Math.PI * Math.min(1, t * 1.02)) ** 0.8, { samples: 10, cap: true })" in ATLAS
+    assert 'class: "atl-skin atl-lock atl-front-lock"' in ATLAS
+    assert "frontLocks" not in _look("masculine")

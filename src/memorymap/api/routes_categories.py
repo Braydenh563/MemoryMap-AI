@@ -19,6 +19,9 @@ note's old category), which is what the Manage categories panel's undo uses.
 
 from __future__ import annotations
 
+import json
+import logging
+import re
 from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -29,6 +32,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.tools._common import ToolError
 from memorymap.ai.tools.categories import _create_category, _merge_categories
 from memorymap.core.database import Category, Entry
+from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -146,19 +150,97 @@ def split_category(category_id: int, body: SplitBody, session: Session = Depends
 SPLIT_MIN_GROUP = 2
 
 
+#: The AI proposal's prompt, and how much of each note it is shown: enough to
+#: say what a note is about, little enough that a big category still fits a
+#: small model's window.
+SPLIT_PROMPT = (
+    "You are grouping a person's notes. All of them are filed in the category "
+    "\"{category}\". Propose how to split it into two to five smaller, clearly "
+    "named categories. Only group notes that belong together; leave the rest out. "
+    "Answer with JSON only, in this shape: "
+    '{{"groups": [{{"name": "Short name", "notes": [1, 2]}}]}} '
+    "using the note numbers given."
+)
+SPLIT_NOTE_CHARS = 160
+SPLIT_MAX_NOTES = 60
+
+logger = logging.getLogger("memorymap.categories")
+
+
+def _ai_groups(source: Category, entries: list) -> list[dict] | None:
+    """The utility model's split, or None when it is off or answers nonsense.
+
+    Only note ids that are really in the category survive, each note in one
+    group, a group needs two notes, and a name is trimmed to what a category
+    name may be. Anything else falls back to the tags, which never need the
+    model.
+    """
+    ollama = deps.get_ollama()
+    if not ollama.is_running() or not entries:
+        return None
+    shown = entries[:SPLIT_MAX_NOTES]
+    lines = "\n".join(
+        f"{e.id}: {' '.join((manager.readable_content(e) or '').split())[:SPLIT_NOTE_CHARS]}" for e in shown
+    )
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": SPLIT_PROMPT.format(category=source.name)},
+                {"role": "user", "content": lines},
+            ],
+        )
+    except Exception:  # noqa: BLE001  # any model failure falls back to tags
+        logger.warning("the AI split proposal failed", exc_info=True)
+        return None
+    text = reply.get("content", "") if isinstance(reply, dict) else ""
+    found = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        raw = json.loads(found.group(0)) if found else None
+    except ValueError:
+        raw = None
+    if not isinstance(raw, dict) or not isinstance(raw.get("groups"), list):
+        return None
+    valid = {e.id for e in shown}
+    used: set[int] = set()
+    groups = []
+    for group in raw["groups"]:
+        if not isinstance(group, dict):
+            continue
+        name = " ".join(str(group.get("name") or "").split())[:100]
+        ids = [int(i) for i in group.get("notes") or [] if isinstance(i, (int, str)) and str(i).isdigit()]
+        ids = [i for i in dict.fromkeys(ids) if i in valid and i not in used]
+        if name and len(ids) >= SPLIT_MIN_GROUP:
+            used.update(ids)
+            groups.append({"name": name, "entry_ids": ids})
+    return groups or None
+
+
 @router.post("/{category_id}/split/propose")
-def propose_split(category_id: int, session: Session = Depends(get_session)) -> dict:
+def propose_split(
+    category_id: int,
+    ai: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> dict:
     """Suggest how this category could split, for the person to review.
 
-    Grouped by the notes' own tags (which the filing AI wrote or the person
+    With `ai`, the utility model reads the notes and proposes named groups
+    (`basis: "ai"`). Otherwise, or when the model is off or answers nonsense,
+    grouped by the notes' own tags (which the filing AI wrote or the person
     did): each note goes to its most shared tag, a tag is a group when two or
-    more notes share it and not every note has it. Nothing is moved; the panel
-    shows the groups as a split the person can edit and apply.
+    more notes share it and not every note has it (`basis: "tags"`). Nothing
+    is moved; the panel shows the groups as a split the person can edit and
+    apply.
     """
     source = _existing_category(session, category_id)
     entries = list(
         session.scalars(select(Entry).where(Entry.category_id == source.id, Entry.is_deleted == False))  # noqa: E712
     )
+    if ai:
+        proposed = _ai_groups(source, entries)
+        if proposed:
+            grouped = {i for g in proposed for i in g["entry_ids"]}
+            return {"from": source.name, "groups": proposed, "rest": len(entries) - len(grouped), "basis": "ai"}
     tags_of = {e.id: [t.lower() for t in manager.entry_tags(e)] for e in entries}
     shared = Counter(t for tags in tags_of.values() for t in set(tags))
     useful = {t for t, n in shared.items() if SPLIT_MIN_GROUP <= n < len(entries)}
@@ -171,7 +253,15 @@ def propose_split(category_id: int, session: Session = Depends(get_session)) -> 
     kept = [{"name": name, "entry_ids": ids} for name, ids in groups.items() if len(ids) >= SPLIT_MIN_GROUP]
     kept.sort(key=lambda g: (-len(g["entry_ids"]), g["name"]))
     grouped = {i for g in kept for i in g["entry_ids"]}
-    return {"from": source.name, "groups": kept, "rest": len(entries) - len(grouped), "basis": "tags"}
+    return {
+        "from": source.name,
+        "groups": kept,
+        "rest": len(entries) - len(grouped),
+        "basis": "tags",
+        #: Said when the AI was asked and could not help, so the panel can
+        #: say why the groups are the tags' instead.
+        "ai_unavailable": ai,
+    }
 
 
 @router.put("/{category_id}")

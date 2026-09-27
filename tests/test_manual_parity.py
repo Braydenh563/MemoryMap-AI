@@ -21,9 +21,8 @@ from memorymap.ai.tools import WRITE_TOOLS
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 
-#: The category tools write, and the agent's claimed-a-save net and the skill
-#: list treat them as reads because they are not in WRITE_TOOLS; the parity
-#: rule covers them either way.
+#: The category tools, in WRITE_TOOLS since round 9 (they were missing, so
+#: the agent's claimed-a-save net and the skill list treated them as reads).
 CATEGORY_TOOLS = {"create_category", "rename_category", "merge_categories", "delete_category"}
 
 #: tool -> (file, a line that proves the manual path, where a person finds it)
@@ -86,3 +85,17 @@ def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_setting
     assert 'data-help-for", "manage-cat-help"' in notes
     # Every change offers undo.
     assert notes.count("offerCategoryUndo(") >= 5
+
+
+def test_the_category_tools_count_as_writes():
+    assert CATEGORY_TOOLS <= WRITE_TOOLS
+
+
+def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
+    # The owner: "needs some ui redesign ... like the ai assistant panel".
+    notes = (FRONTEND / "notes-list.js").read_text(encoding="utf-8")
+    assert 'head.classList.add("doc-ai-head");' in notes
+    assert 'list.setAttribute("role", "listbox");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
+    assert "function wireManageCategoryKeys(list, state, redraw)" in notes
+    assert "function drawManageCategoryFooter(footer, state, redraw)" in notes
+    assert 'filter.placeholder = "Filter categories";' in notes

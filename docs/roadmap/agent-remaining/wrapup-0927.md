@@ -118,6 +118,9 @@ written.
   input listener only records input now; a poke wakes it over 2.4s and it
   stays up 45s; dozing eases over 3s. `atlaswake.js`: 11 of 50 frames
   surprised before, 0 after. The `.atl-easing` CSS is the companion agent's.
+- [x] A poke's mood snapped back after 1.8s (the companion agent's report):
+  it now holds 3.8s and eases back over 1.2s with `.atl-easing`
+  (`atlaswake.js`: shy 0 to 3500ms, easing 3750 to 4750ms, calm after).
 
 ## Companion (avatars.js)
 

@@ -478,3 +478,13 @@ def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
     assert '&.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { animation: atl-buddy-wave-f 1.5s' in CSS
     assert "animation-name: atl-buddy-wave" not in CSS
     assert '&.atl-layer-body[data-atlas-look="feminine"] { animation: atl-breathe' in CSS
+
+
+def test_a_poke_holds_long_enough_to_read_and_eases_back():
+    # The companion agent's report: a poke's mood snapped back after 1.8s.
+    # scratchpad/ui-sweeps/atlaswake.js: now 3.8s, then 1.2s of .atl-easing.
+    hold = int(re.search(r"const ATLAS_POKE_HOLD_MS = (\d+);", ATLAS).group(1))
+    back = int(re.search(r"const ATLAS_POKE_BACK_MS = (\d+);", ATLAS).group(1))
+    assert 3000 <= hold <= 5000 and 1000 <= back <= 1500
+    assert "setAtlasMood(ATLAS_POKES[atlasPokeIndex], ATLAS_POKE_HOLD_MS, { quiet: true, backEaseMs: ATLAS_POKE_BACK_MS });" in ATLAS
+    assert 'easeMs: rest === "sleepy" ? ATLAS_DOZE_MS : backEaseMs' in ATLAS

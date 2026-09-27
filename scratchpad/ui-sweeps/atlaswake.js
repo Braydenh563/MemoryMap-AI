@@ -26,5 +26,12 @@ const {boot}=require('./lib.js');
   const s2=await state();
   const rest=await page.evaluate(()=>atlasRestingMood());
   console.log(`poke: poked=${poked} at+100ms mood=${s1.mood} easing=${s1.easing}; at+2.7s mood=${s2.mood} easing=${s2.easing}; resting=${rest}`);
+  // A poke of an Atlas already awake: the reaction holds 3 to 5s, then eases
+  // back (.atl-easing on) rather than snapping.
+  await page.evaluate(()=>setAtlasMood('calm'));
+  await page.evaluate(()=>{const m=[...document.querySelectorAll('.nm-atlas')].find(x=>x.checkVisibility()); m.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
+  const line=[];
+  for(let t=0;t<=6000;t+=250){ const s=await state(); line.push(`${t}:${s.mood}${s.easing?'~':''}`); await page.waitForTimeout(250); }
+  console.log('awake poke timeline (ms:mood, ~ easing): '+line.join(' '));
   await browser.close();
 })();

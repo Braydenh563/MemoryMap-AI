@@ -2494,7 +2494,9 @@ function atlasRestingMood() {
 //: face's custom properties transitioning over `--atl-ease`) rather than the
 //: quick step every other change takes: waking and dozing are the two that
 //: should never snap.
-function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0 } = {}) {
+//: `backEaseMs` eases the return to the resting mood when `forMs` runs out,
+//: for a mood that should settle rather than snap (a poke's reaction).
+function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0, backEaseMs = 0 } = {}) {
   const next = ATLAS_MOODS[mood] ? mood : "calm";
   clearTimeout(atlasMoodTimer);
   atlasMoodTimer = 0;
@@ -2527,7 +2529,7 @@ function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0 } = {}) {
   } else if (forMs) {
     atlasMoodTimer = setTimeout(() => {
       const rest = atlasRestingMood();
-      setAtlasMood(rest, 0, { easeMs: rest === "sleepy" ? ATLAS_DOZE_MS : 0 });
+      setAtlasMood(rest, 0, { easeMs: rest === "sleepy" ? ATLAS_DOZE_MS : backEaseMs });
     }, forMs);
   }
   if (next === "happy" && forMs) atlasPlay("nod", 1000);
@@ -2612,6 +2614,8 @@ setInterval(() => {
 
 //: A poke: a giggle, a blush, a heart or a delighted wiggle, for a moment.
 const ATLAS_POKES = ["laughing", "shy", "love", "delighted", "curious"];
+const ATLAS_POKE_HOLD_MS = 3800;
+const ATLAS_POKE_BACK_MS = 1200;
 let atlasPokeIndex = 0;
 document.addEventListener("click", (event) => {
   const mark = event.target.closest?.(".nm-atlas");
@@ -2622,7 +2626,9 @@ document.addEventListener("click", (event) => {
     return;
   }
   atlasPokeIndex = (atlasPokeIndex + 1) % ATLAS_POKES.length;
-  setAtlasMood(ATLAS_POKES[atlasPokeIndex], 1800, { quiet: true });
+  //: Held long enough to read (it snapped back after 1.8s, the companion's
+  //: report), then eased back over 1.2s rather than cut.
+  setAtlasMood(ATLAS_POKES[atlasPokeIndex], ATLAS_POKE_HOLD_MS, { quiet: true, backEaseMs: ATLAS_POKE_BACK_MS });
 });
 
 //: Errors (an error toast) worry it; the first unlock of a session greets.

@@ -6896,6 +6896,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-eye-l { --atl-side: 1; }
 .nm-atlas .atl-eye-r { --atl-side: -1; }
 .nm-atlas .atl-eye { transform: scale(var(--atl-eye-s)); }
+/* Round 9 (the owner, of the masculine look: "it still looks like a fnaf
+   character"): softer eyes, a size smaller, the upper lid resting a little
+   lower so the look is relaxed rather than a wide stare. Individual
+   properties, so every mood's own scale and lid still apply over them. */
+.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }
+.nm-atlas[data-atlas-look="masculine"] .atl-lid { translate: 0 0.8px; }
 .nm-atlas .atl-pupil { transform: translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
 .nm-atlas .atl-lid-flat { opacity: calc(1 - var(--atl-softlid)); }
@@ -7271,6 +7277,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
+    /* Round 9: the masculine body also sways a degree on a slower clock
+       (the `rotate` property, beside the breath's transform), so he never
+       stands rigid; the wisps under him drift on their own. */
+    &.atl-layer-body[data-atlas-look="masculine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway 7.2s ease-in-out infinite alternate; }
     /* Round 9: a second, slower sway on the tail's root on a period that
        never lines up with the swish, so its flow does not repeat; the
        `rotate` property adds to the swish's transform, both compositor. */
@@ -7385,6 +7395,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    &.atl-layer-body[data-atlas-look="masculine"] { animation-duration: 9s, 14s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second
@@ -7452,6 +7463,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @keyframes atl-think { 0%, 60%, 100% { transform: scale(1); } 25% { transform: scale(1.55); } }
 @keyframes atl-dots { 0%, 100% { opacity: 0.35; } 40% { opacity: 1; } }
 @keyframes atl-twinkle { 50% { transform: scale(0.4) rotate(45deg); opacity: 0.5; } }
+@keyframes atl-idle-sway {
+  from { rotate: -0.9deg; }
+  to { rotate: 0.9deg; }
+}
 /* Round 9: a Z's breath: up, a sway one way and back, growing a little,
    fading in and out. Transform and opacity only. */
 @keyframes atl-z-drift {

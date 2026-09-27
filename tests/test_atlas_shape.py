@@ -339,3 +339,19 @@ def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
     # Variant 1 lies the other way round; the Zs and the rings stay upright.
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
+
+
+
+def test_the_masculine_look_is_a_star_being_not_an_animatronic():
+    # Round 9 (the owner: "it still looks like a fnaf character"): no pillar
+    # legs, a torso tapering into nebula wisps, slim bent arms with small
+    # mittens, softer eyes and a gentle idle sway.
+    masculine = _look("masculine")
+    assert "legs: false," in masculine and "lowers: [" in masculine and "skirt:" in masculine
+    assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
+    arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
+    assert arms, "the arm bends: two segments"
+    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }' in CSS
+    assert "&.atl-layer-body[data-atlas-look=\"masculine\"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway" in CSS
+    body = _keyframes("atl-idle-sway").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The masculine Atlas reads as a star-being rather than a stiff mascot: his torso tapers from natural shoulders into a trail of nebula wisps instead of two pillar legs, his arms are slimmer with a soft bend and small relaxed hands, his eyes are softer, and he sways gently at rest.
 - Categories can be managed by hand: a Manage categories panel (from the Categories head in the notes sidebar, each category's menu, and Settings) renames, merges, splits (pick the notes, or review a split suggested from their tags) and deletes categories, asking where the notes go; notes move by ticking them and choosing Move to, or by dragging a note's category label onto another category. Every change can be undone.
 - Atlas can lie down to sleep on its own nebula stream, which gathers under it as a bed: sprawled with an arm behind his head (masculine) or curled on her side with her hands under her cheek (feminine), either way round, through in-between frames from sitting, and can also curl up where it sits.
 - Atlas's arms match its mood, differently for each look and in up to three variations: open or raised when happy, a hand to the mouth when laughing, at the chin or folded when thinking, up when surprised, scratching its head when confused, rubbing an eye when sleepy, hanging when sad, on the hips when proud, clasped when shy or worried, and to the chest in love.

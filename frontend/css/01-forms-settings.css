@@ -577,13 +577,13 @@ summary:focus-visible {
    tint and the body ink under the pointer. A glyph is its own boundary, and
    `--muted` clears 3:1 as one on every ground (btnshots.js). On, it is the
    filled recipe as before. */
-:is(button, summary).ghost.icon-only:not(.active):not([aria-pressed="true"]):not([aria-expanded="true"]) {
+:is(button, summary).ghost:is(.icon-only, .icon-button):not(.active):not([aria-pressed="true"]):not([aria-expanded="true"]) {
   background: transparent;
   border-color: transparent;
   color: var(--muted);
 }
 
-:is(button, summary).ghost.icon-only:not(.active):not([aria-pressed="true"]):not(:disabled):is(:hover, [aria-expanded="true"]) {
+:is(button, summary).ghost:is(.icon-only, .icon-button):not(.active):not([aria-pressed="true"]):not(:disabled):is(:hover, [aria-expanded="true"]) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }

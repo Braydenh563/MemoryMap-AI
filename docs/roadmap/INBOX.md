@@ -73,6 +73,13 @@ with its owner named in the entry.
     first with small laptops (1366x768 at 125%, 1280x720) and tablets next;
     Links is renamed Bookmarks; the two map kinds are named separately;
     releases stay on 0.3.3 for now.
+    **Added (the owner):** tab changes: the companion lingers on the old tab
+    a moment then pops in elsewhere. Wanted: it stays behind on quick tab
+    flicks and only follows after the person settles on a tab; it enters
+    smoothly (walks on from the side, climbs up from the bottom bar, climbs
+    down from the top bar, or materialises), never a sudden pop; a "reduce
+    actions" setting so waves and gestures come less often; more stances,
+    Atlas's masculine and feminine each with their own.
 
 427. **Open from INBOX 426, 2026-09-26: two calls only the owner can make.**
     Everything else in 426 (a to cc) is built and in HISTORY, "INBOX

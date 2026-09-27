@@ -587,15 +587,26 @@ async function timelineLoadMore() {
 //: frame keeps every frame inside the budget and the rows still arrive well
 //: before the scroll reaches them (the fetch starts 600px early).
 const TIMELINE_APPEND_CHUNK = 60;
+//: **And by time, not only by count** (libtl-0926): sixty rows measured
+//: 42 to 85ms a frame on a thousand-note seed while scrolling, because each
+//: row also re-counted its whole section (`querySelectorAll`, a walk that
+//: grows with the section, per row) and every chunk rebuilt the set of
+//: visible rows. Now a chunk stops at 6ms of building, the set is built once
+//: per page, and a section's count is a number written once per chunk.
+const TIMELINE_APPEND_BUDGET_MS = 6;
 
-function appendTimelineRows(fresh, from = 0) {
+function appendTimelineRows(fresh, from = 0, visible = null) {
   const feed = $("timeline-feed");
   const scale = feed.dataset.scale || "day";
   const density = feed.dataset.density || "full";
-  const visible = new Set(timelineVisibleRows().map((row) => row.key));
+  visible ||= new Set(timelineVisibleRows().map((row) => row.key));
   let section = feed.lastElementChild;
-  const slice = fresh.slice(from, from + TIMELINE_APPEND_CHUNK);
-  for (const row of slice) {
+  const started = performance.now();
+  const touched = new Set();
+  let next = from;
+  for (; next < fresh.length && next < from + TIMELINE_APPEND_CHUNK; next += 1) {
+    if (next > from && performance.now() - started > TIMELINE_APPEND_BUDGET_MS) break;
+    const row = fresh[next];
     if (!visible.has(row.key)) continue;
     const key = timelineBucketKey(row.when, scale);
     if (!section || section.dataset.bucket !== key) {
@@ -616,12 +627,15 @@ function appendTimelineRows(fresh, from = 0) {
       section.append(head, list);
       feed.appendChild(section);
     }
-    section.querySelector(".timeline-rows").appendChild(timelineRowElement(row, density));
-    const count = section.querySelector(".timeline-bucket-count");
-    count.textContent = String(section.querySelectorAll(".timeline-row").length);
+    const list = section.querySelector(".timeline-rows");
+    list.appendChild(timelineRowElement(row, density));
+    touched.add(section);
   }
-  if (from + TIMELINE_APPEND_CHUNK < fresh.length) {
-    requestAnimationFrame(() => appendTimelineRows(fresh, from + TIMELINE_APPEND_CHUNK));
+  for (const done of touched) {
+    done.querySelector(".timeline-bucket-count").textContent = String(done.querySelector(".timeline-rows").childElementCount);
+  }
+  if (next < fresh.length) {
+    requestAnimationFrame(() => appendTimelineRows(fresh, next, visible));
     return;
   }
   applyTimelineRowTabOrder();
@@ -635,11 +649,18 @@ function appendTimelineRows(fresh, from = 0) {
 //: rather than the last pixel, so the rows are there before the scroll
 //: reaches them; on the scroll box itself rather than the window, because the
 //: feed is what scrolls (05-sidebars-themes.css).
+//: Once a frame, whatever the number of scroll events (libtl-0926: the
+//: strip's window was worked out, with its hit tests, per event).
+let timelineScrollFrame = 0;
 $("timeline-scroll").addEventListener("scroll", () => {
-  const box = $("timeline-scroll");
-  if (box.scrollTop + box.clientHeight > box.scrollHeight - 600) timelineLoadMore();
-  drawTimelineWindow();
-});
+  if (timelineScrollFrame) return;
+  timelineScrollFrame = requestAnimationFrame(() => {
+    timelineScrollFrame = 0;
+    const box = $("timeline-scroll");
+    if (box.scrollTop + box.clientHeight > box.scrollHeight - 600) timelineLoadMore();
+    drawTimelineWindow();
+  });
+}, { passive: true });
 
 // What a row belongs to under the current grouping: the value the band filter
 // matches against. Threads are named by the note they continue, which is the
@@ -1342,9 +1363,19 @@ const TIMELINE_SCRUBBER_MIN_PEAK = 4;
 const TIMELINE_SCRUBBER_SLOTS = 120;
 const TIMELINE_SCRUBBER_HEIGHT = 1000; // the viewBox's own units
 
-// The range the strip spans, newest at the top, as milliseconds.
+// The range the strip spans, newest at the top, as milliseconds. Kept for
+// the density it was worked out from (a new fetch replaces the object):
+// every scroll frame asks for it, and parsing a date per day in the range on
+// each was 24ms of a thousand-note scroll (libtl-0926).
+let timelineSpanCache = { density: null, span: null };
 function timelineDensitySpan() {
-  const days = Object.keys(timelineDensity);
+  if (timelineSpanCache.density === timelineDensity) return timelineSpanCache.span;
+  const span = timelineDensitySpanOf(timelineDensity);
+  timelineSpanCache = { density: timelineDensity, span };
+  return span;
+}
+function timelineDensitySpanOf(density) {
+  const days = Object.keys(density);
   if (!days.length) return null;
   let newest = -Infinity;
   let oldest = Infinity;
@@ -1437,10 +1468,14 @@ function drawTimelineWindow() {
   const from = y(top);
   const to = y(bottom);
   const window_ = $("timeline-scrubber-window");
-  window_.setAttribute("y", String(Math.min(from, to)));
   // A floor of 6 units, or a window over one busy day is a hairline nobody
-  // can see and nobody can aim at.
-  window_.setAttribute("height", String(Math.max(6, Math.abs(to - from))));
+  // can see and nobody can aim at. Written only when it moves by half a unit
+  // or more: each write restyles and repaints the strip, and a scroll that
+  // stays inside one bucket does not move it at all (libtl-0926).
+  const yNew = Math.round(Math.min(from, to) * 2) / 2;
+  const hNew = Math.round(Math.max(6, Math.abs(to - from)) * 2) / 2;
+  if (window_.getAttribute("y") !== String(yNew)) window_.setAttribute("y", String(yNew));
+  if (window_.getAttribute("height") !== String(hNew)) window_.setAttribute("height", String(hNew));
 }
 
 //: Click or drag to go there. The strip is linear in time, so a position on it
@@ -1809,7 +1844,21 @@ $("timeline-scale").addEventListener("change", (event) => {
 //: Grouping decides what the band filter offers, so it rebuilds the options
 //: and repaints. It does not refetch either: every row already carries its
 //: category, its tags and the note it continues.
-$("timeline-group").addEventListener("change", () => {
+//:
+//: **Remembered, as the scale is** (libtl-0926): the scale, the view and the
+//: kinds all came back after a reload and the grouping went back to
+//: Category, so a person who reads by tag set it again each visit. The band
+//: filter is not remembered: it hides rows, and a remembered filter shows a
+//: timeline with most of the notebook missing and no obvious reason why.
+const TIMELINE_GROUP_KEY = "timeline-group";
+(() => {
+  const select = $("timeline-group");
+  let stored = null;
+  try { stored = localStorage.getItem(TIMELINE_GROUP_KEY); } catch { /* a private window */ }
+  if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
+})();
+$("timeline-group").addEventListener("change", (event) => {
+  try { localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
   timelineFilter = null;
   fillTimelineBandOptions();
   paintTimeline();

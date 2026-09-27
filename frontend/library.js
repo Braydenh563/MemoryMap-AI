@@ -587,8 +587,10 @@ function renderLibrary(options) {
       columns[i % columns.length].appendChild(card);
       return document.createDocumentFragment();
     }, {
+      budgetMs: 6,
       afterChunk: () => {
         renderLibraryContextBars();
+        ensureLibraryGridStop(grid);
         //: **The thumbnail column is only reserved when a thumbnail exists.**
         //: Reported: "fix the wierd gap at the start of all the cards in the
         //: library line view in the all subtab." List view reserves a 3rem
@@ -618,7 +620,10 @@ function renderLibrary(options) {
     const madeAnything = libraryItems.some((i) => i.kind !== "activity");
     const createBtn = $("library-empty-create");
     const dockCreate = $("library-new-doc");
-    const offerCreate = !query && !items.length && !["activity", "archived"].includes(libraryKind);
+    //: Not on the archive either (libtl-0926): nothing is made archived, a
+    //: thing is archived from its own menu, and a Create beside "Nothing
+    //: archived" offered to make something that would not appear here.
+    const offerCreate = !query && !items.length && !["activity", "archived", "shelved"].includes(libraryKind);
     if (createBtn) {
       createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
       if (offerCreate && dockCreate) {
@@ -634,9 +639,11 @@ function renderLibrary(options) {
           ? "Nothing here yet. Make a document, a board or a map, or upload a file."
           : libraryKind === "archived"
             ? "The bin is empty."
-            : kindName && libraryKind !== "all"
-              ? `No ${kindName.toLowerCase()} yet.`
-              : "Nothing of this kind yet.";
+            : LIBRARY_EMPTY_SAYS[libraryKind]
+              ? LIBRARY_EMPTY_SAYS[libraryKind]
+              : kindName && libraryKind !== "all"
+                ? `No ${kindName.toLowerCase()} yet.`
+                : "Nothing of this kind yet.";
     }
   };
 
@@ -993,6 +1000,9 @@ function renderLibraryContextBars() {
   const bar = $("library-selectbar");
   const chosen = [...librarySelection];
   bar.classList.toggle("hidden", chosen.length === 0);
+  //: Every tick shows while anything is ticked; see `.is-choosing` in
+  //: 08-consistency.css for why this is a class and not a `:has()`.
+  $("library-grid").classList.toggle("is-choosing", chosen.length > 0);
   if (!chosen.length) return;
   $("library-selected-count").textContent =
     `${chosen.length} selected`;
@@ -1149,6 +1159,14 @@ function activityDetailText(detail) {
   return `${name}: ${activitySettingValue(raw)}`;
 }
 
+//: **A kind whose label does not make a sentence** (libtl-0926, measured
+//: on every chip at zero): the Archived chip said "No archived yet.". One
+//: short sentence, as the recipe asks (DESIGN.md, empty state); how a thing
+//: gets archived is what the Ask Atlas line under it is for.
+const LIBRARY_EMPTY_SAYS = {
+  shelved: "Nothing archived yet.",
+};
+
 function libraryCard(item) {
   // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
   // and a button inside a button is invalid markup that browsers resolve by
@@ -1157,7 +1175,7 @@ function libraryCard(item) {
   const card = document.createElement("article");
   card.className =
     `library-card library-${item.kind}` + (item.private ? " library-private" : "");
-  card.tabIndex = 0;
+  // Focusable, and one card of the grid a Tab stop: `setLibraryCardStop`.
   card.setAttribute("role", "button");
   // Lets a caller (flashLibraryItem) find one specific card to scroll to and
   // highlight, the same way #entry-list li[data-id] already works for notes.
@@ -1349,8 +1367,41 @@ function libraryCard(item) {
     event.preventDefault();
     openLibraryItem(item);
   });
+  card.dataset.stopKey = libraryKeyOf(item);
+  setLibraryCardStop(card, false);
   return card;
 }
+
+//: **One Tab stop for the whole grid** (libtl-0926). Every card was three
+//: stops (itself, its tick, its ⋯), and the grid keeps growing as it
+//: scrolls, so Tab from the search went through 400 presses without leaving
+//: the grid on a thousand-note notebook: the pages, the bin's bar and
+//: everything after the grid could not be reached from the keyboard. Now one
+//: card is the grid's stop, with its own tick and ⋯ after it, the arrow keys
+//: move between cards (navigation.js, `ARROW_NAV_LISTS`), and whichever card
+//: takes the focus, by key or by click, becomes the stop. The same pattern
+//: as the Notes list and the Timeline's rows.
+const LIBRARY_CARD_STOPS = ".library-card-tick, .library-card-menu > button";
+function setLibraryCardStop(card, on) {
+  card.tabIndex = on ? 0 : -1;
+  for (const control of card.querySelectorAll(LIBRARY_CARD_STOPS)) control.tabIndex = on ? 0 : -1;
+}
+//: After each chunk: the card last used, when it is drawn, or the first.
+function ensureLibraryGridStop(grid) {
+  if (grid.querySelector(".library-card[tabindex='0']")) return;
+  const keep = grid.dataset.stopKey;
+  const card = (keep && [...grid.querySelectorAll(".library-card")].find((c) => c.dataset.stopKey === keep)) ||
+    grid.querySelector(".library-card");
+  if (card) setLibraryCardStop(card, true);
+}
+$("library-grid").addEventListener("focusin", (event) => {
+  const card = event.target.closest?.(".library-card");
+  if (!card || card.tabIndex === 0) return;
+  const grid = event.currentTarget;
+  for (const other of grid.querySelectorAll(".library-card[tabindex='0']")) setLibraryCardStop(other, false);
+  setLibraryCardStop(card, true);
+  grid.dataset.stopKey = card.dataset.stopKey || "";
+});
 
 // Each kind opens where it is actually worked on. The Library finds things; it
 // is not a fifth editor.
@@ -1579,7 +1630,25 @@ $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
   librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
 });
-$("library-sort").addEventListener("change", () => {
+//: **The sort is remembered, as every other Library sort is** (libtl-0926):
+//: Documents (`library-docs-sort`) and Images (`LIBRARY_MEDIA_SORT_KEY`)
+//: kept theirs across a reload and the All view's went back to Newest
+//: first each time. The filters are not remembered, for the reason written
+//: at `libraryDocsProperty`: a remembered order shows the same things, a
+//: remembered filter hides most of them.
+//: Restored as the script loads, not on DOM ready: the select's stand-in
+//: (`sheets-selects.js`) reads the value when it wraps the select, and only
+//: a `change` makes it read again, which would also render a Library that
+//: has not loaded yet.
+const LIBRARY_SORT_KEY = "library-sort";
+(() => {
+  const select = $("library-sort");
+  let stored = null;
+  try { stored = localStorage.getItem(LIBRARY_SORT_KEY); } catch { /* a private window */ }
+  if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
+})();
+$("library-sort").addEventListener("change", (event) => {
+  try { localStorage.setItem(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
   libraryCurrentPage = 1;
   renderLibrary();
 });
@@ -8406,6 +8475,7 @@ function syncSelectbarCount(idPrefix, n) {
   if (!bar || !count) return;
   bar.classList.toggle("hidden", n === 0);
   count.textContent = `${n} selected`;
+  document.getElementById(`${idPrefix}-grid`)?.classList.toggle("is-choosing", n > 0);
 }
 
 //: Builds one `.library-contextbar`, the same element `#library-docs-selectbar`

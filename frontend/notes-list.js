@@ -2215,7 +2215,15 @@ function sortEntries(entries) {
 const listWindows = new WeakMap();
 
 function renderIncrementally(container, items, buildItem, options = {}) {
-  const { initial = 60, chunk = 40, afterChunk } = options;
+  //: `budgetMs` (opt-in, libtl-0926): build for at most that long a frame and
+  //: carry on next frame while the sentinel is still near, instead of forty
+  //: items in one go. The Library's forty cards measured 42 to 83ms a chunk
+  //: on a thousand-note seed, six frames dropped each time a chunk landed
+  //: mid-scroll. The observer alone cannot drive this, because it only
+  //: fires when the sentinel's intersection *changes*: a sentinel that is
+  //: still near after a small chunk never fires again. So `near` keeps the
+  //: observer's last answer and the pump runs on frames until it goes false.
+  const { initial = 60, chunk = 40, afterChunk, budgetMs = 0 } = options;
 
   // Tear down the previous run first. Without this a re-render (a keystroke in
   // the search box) leaves the old observer alive, still holding the old
@@ -2244,21 +2252,44 @@ function renderIncrementally(container, items, buildItem, options = {}) {
   sentinel.setAttribute("aria-hidden", "true");
   container.appendChild(sentinel);
 
+  let near = false;
+  let pumping = 0;
+  let done = false;
+  const buildNext = () => {
+    const next = Math.min(rendered + chunk, items.length);
+    const started = performance.now();
+    // Insert *before* the sentinel so it stays last and keeps observing.
+    const fragment = document.createDocumentFragment();
+    let i = rendered;
+    for (; i < next; i++) {
+      if (budgetMs && i > rendered && performance.now() - started > budgetMs) break;
+      fragment.appendChild(buildItem(items[i], i));
+    }
+    container.insertBefore(fragment, sentinel);
+    rendered = i;
+    afterChunk?.();
+    if (rendered >= items.length) {
+      done = true;
+      observer.disconnect();
+      listWindows.delete(container);
+      sentinel.remove();
+    }
+  };
+  const pump = () => {
+    pumping = 0;
+    if (done || !near || listWindows.get(container) !== observer) return;
+    buildNext();
+    if (!done && near) pumping = requestAnimationFrame(pump);
+  };
   const observer = new IntersectionObserver(
     (entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      const next = Math.min(rendered + chunk, items.length);
-      // Insert *before* the sentinel so it stays last and keeps observing.
-      const fragment = document.createDocumentFragment();
-      for (let i = rendered; i < next; i++) fragment.appendChild(buildItem(items[i], i));
-      container.insertBefore(fragment, sentinel);
-      rendered = next;
-      afterChunk?.();
-      if (rendered >= items.length) {
-        observer.disconnect();
-        listWindows.delete(container);
-        sentinel.remove();
+      near = entries.some((entry) => entry.isIntersecting);
+      if (!near) return;
+      if (!budgetMs) {
+        buildNext();
+        return;
       }
+      if (!pumping) pump();
     },
     // Start the next chunk while the sentinel is still a screen away, so the
     // list refills before the user reaches the bottom rather than after.

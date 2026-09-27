@@ -383,8 +383,11 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
     assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
     dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
     assert "nameMarkBuddyStreak(streak)" in dashboard
-    # Night: a tick yawns.
-    assert 'nameMarkBuddyReact("yawn")' in _fn("nameMarkBuddyTick")
+    # Night: a tick yawns, and the yawn's early return comes after the mood
+    # has moved, so a tick that yawns still tires it at night (review, round 6).
+    tick = _fn("nameMarkBuddyTick")
+    assert 'nameMarkBuddyReact("yawn")' in tick
+    assert tick.index("nmb.mood.energy = drift(") < tick.index('nameMarkBuddyReact("yawn")')
     # A toast goes through the same limits.
     assert 'nameMarkBuddyReact("toast", added)' in AV
     # Covering its eyes: its hands over its head, not under it.
@@ -435,3 +438,14 @@ def test_a_walk_is_paced_too() -> None:
     move = _fn("nameMarkBuddyMoveTo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
+
+
+def test_every_way_to_a_note_counts_as_opening_it() -> None:
+    # Round 6: search, a link, the palette, the Library, the timeline, the
+    # graph and chat all go to a note through flashEntry (capture-ask.js);
+    # the companion reads along from there too (companionreact.js: the
+    # palette's jump to a long note reads along).
+    ask = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    flash = ask[ask.index("function flashEntry(") :]
+    flash = flash[: flash.index("\n}\n")]
+    assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash

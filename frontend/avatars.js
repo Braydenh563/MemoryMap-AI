@@ -4893,18 +4893,21 @@ function nameMarkBuddyTick() {
   }
   buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
   if (!buddy.classList.contains("nmb-think")) nameMarkBuddyHold(idle > NMB_DROWSY_MS ? "sleepy" : "");
-  //: At night it yawns now and then, whatever you are doing (once in half
-  //: an hour at most, `NMB_REACTIONS.yawn`).
-  const late = new Date().getHours();
-  if ((late >= 22 || late < 6) && nameMarkBuddyReact("yawn")) return;
-  if (Math.random() < 0.35) nameMarkBuddyDrift();
   const hour = new Date().getHours();
   const night = hour >= 22 || hour < 6;
+  //: The mood moves every tick, a yawn's included: it used to be worked out
+  //: after the yawn's early return, so a tick that yawned skipped it and a
+  //: night of yawns kept the day's energy (review, round 6).
   const energyTarget = (night ? 0.3 : 0.75) - Math.min(0.3, idle / (20 * 60 * 1000));
   const drift = (value, toward) => value + (toward - value) * 0.1;
   nmb.mood.energy = drift(nmb.mood.energy, energyTarget);
   nmb.mood.curiosity = drift(nmb.mood.curiosity, 0.6);
   nmb.mood.sociability = drift(nmb.mood.sociability, 0.7);
+  //: At night it yawns now and then, whatever you are doing (once in half
+  //: an hour at most, `NMB_REACTIONS.yawn`). The yawn is this tick's act and
+  //: its face, so it takes the place of the drift and the pick, not the mood.
+  if (night && nameMarkBuddyReact("yawn")) return;
+  if (Math.random() < 0.35) nameMarkBuddyDrift();
   nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 

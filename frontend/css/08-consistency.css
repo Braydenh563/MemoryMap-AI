@@ -6039,6 +6039,13 @@ main,
        shrug with a head tilt; a face palm with both hands. */
     &.nmb-act-wave[data-variant="1"] .nm-figure .nmb-arm-l { animation: nmb-wave-l 1.5s ease-in-out; }
     &.nmb-act-wave[data-variant="2"] .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out) 0.2s; }
+    /* Atlas's own wave, for its short arm (atl-buddy-wave), and hers beside
+       her head. Here rather than beside the arm's resting angle further
+       down: that rule set only `animation-name`, at (1,3,0), and the
+       generic `nmb-wave` above out-ranked it, so Atlas waved the generic
+       -98 to -128 degrees, which swung her level arm across her face. */
+    &.nmb-act-wave .atl-figure .nmb-arm-r { animation: atl-buddy-wave 1.5s ease-in-out; }
+    &.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { animation: atl-buddy-wave-f 1.5s ease-in-out; }
     &.nmb-act-hop[data-variant="1"] .nm-buddy-char { animation: nmb-skip 0.8s var(--ease-out); }
     &.nmb-act-hop[data-variant="2"] .nm-buddy-char { animation: nmb-spin-hop 0.9s var(--ease-out); }
     &.nmb-act-stretch[data-variant="1"] .nm-buddy-char { animation: nmb-stretch-lean 1.6s ease-in-out; }
@@ -6055,6 +6062,8 @@ main,
     &.nmb-act-dangle .nmb-leg-l { animation: nmb-dangle 1.5s ease-in-out 4 alternate; }
     &.nmb-act-dangle .nmb-leg-r { animation: nmb-dangle 1.5s ease-in-out -1.5s 4 alternate; }
     &.nmb-act-scratch .nmb-arm-r { animation: nmb-scratch 2.6s ease-in-out; }
+    /* Atlas scratches with its own swing, for the same reason as its wave. */
+    &.nmb-act-scratch .atl-figure .nmb-arm-r { animation: atl-buddy-scratch 2.6s ease-in-out; }
     /* Round 5. Covers its eyes (a private note opened): both arms up over
        its face and the eyes shut behind them. Petted: a happy wiggle. */
     /* Hanging, its hands hold on: only its eyes shut. */
@@ -6785,8 +6794,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    would put its hand over its own cheek; -100deg brings it up beside the
    head, and the wave swings about the same point. */
 #nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .atl-figure .nmb-arm-r { transform: rotate(-70deg); }
-#nm-buddy.nmb-act-wave .atl-figure .nmb-arm-r { transform: rotate(-120deg); animation-name: atl-buddy-wave; }
-#nm-buddy.nmb-act-scratch .atl-figure .nmb-arm-r { animation-name: atl-buddy-scratch; }
+#nm-buddy.nmb-act-wave .atl-figure .nmb-arm-r { transform: rotate(-120deg); }
+/* Her right arm rests held out level, so his wave's -78 to -102 degrees
+   swung her hand across her own face (atlasarms.js); hers waves beside her
+   head, from level to about 65 degrees up. */
+#nm-buddy.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-40deg); }
 .nm-atlas .nmb-hold { opacity: 0; }
 /* **A silhouette per pose** (the owner's sprite grid; the coordinator:
    "the poses are nearly one pose"). The companion's `data-pose` and its
@@ -6817,6 +6829,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(28deg); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-28deg); }
+/* Floating, her held-out arm drifts down and out like his, not up over
+   the rings (-28deg lifted a level arm to 38 degrees up). */
+#nm-buddy[data-pose="float"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(40deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
 #nm-buddy[data-pose="hang"] .nm-atlas { --atl-sy: 1.05; --atl-sx: 0.97; }
 #nm-buddy.nmb-act-startle .nmb-hold { opacity: 1; }
@@ -7156,27 +7171,60 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
-    &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
-    &.nm-buddy-dragging .atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
-    &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
-    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .atl-layer-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
-    &.nmb-act-dangle .atl-layer-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
+    /* `.nm-live .nm-atlas` in each: the idle drift below is written in an
+       `:is()` whose most specific branch names #nm-buddy, (1,6,0), and it
+       out-ranked every one of these (1,5,0) rules, so the skirt never swung
+       in a walk, a carry or a kick (atlasgait.js: the lower layer ran
+       atl-skirt-idle while walking). */
+    &.nmb-walking .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
+    &.nmb-act-kick .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-flick 0.65s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-sway 1.5s ease-in-out 4 alternate; }
     /* His streams are heavier: a smaller swing at about half the pace
        (atlas.js, the masculine `lowers`). */
-    &.nmb-walking .atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-sway-heavy 1.25s ease-in-out infinite alternate; }
-    &.nmb-act-dangle .atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-sway-heavy 2.4s ease-in-out 3 alternate; }
+    &.nmb-walking .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-trail 1.25s ease-in-out infinite alternate; }
+    &.nmb-act-dangle .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-sway-heavy 2.4s ease-in-out 3 alternate; }
+    /* **Atlas glides; it has no legs to step with** (the wrap-up ledger:
+       idle, walk, float and wave per look). The companion's walk is a hop
+       per step (`nmb-bob`, 0.3 to 0.4s), which on a legless figure read as
+       bouncing along. His walk is a low, slow glide with his streams
+       trailing behind him (`atl-lower-trail`, leaning away from the way he
+       goes, `--nmb-lean`); hers is a lighter drift with a rock, her skirt
+       swinging as before. */
+    &:has(.atl-figure).nmb-walking .nm-buddy-char { animation: atl-glide 0.9s ease-in-out infinite alternate; }
+    &:has(.atl-figure[data-atlas-look="masculine"]).nmb-walking .nm-buddy-char { animation: atl-glide-heavy 1.25s ease-in-out infinite alternate; }
   }
 }
 @keyframes atl-lower-sway-heavy {
   from { transform: rotate(-2.4deg) skewX(1.2deg); }
   to { transform: rotate(3deg) skewX(-1.2deg); }
 }
+@keyframes atl-lower-trail {
+  from { transform: rotate(calc(var(--nmb-lean) * -5deg - 1deg)) skewX(calc(var(--nmb-lean) * 3deg)); }
+  to { transform: rotate(calc(var(--nmb-lean) * -7deg + 1deg)) skewX(calc(var(--nmb-lean) * 4deg)); }
+}
+@keyframes atl-glide {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 2deg - 1deg)); }
+  to { transform: translateY(-2px) rotate(calc(var(--nmb-lean) * 3deg + 1deg)); }
+}
+@keyframes atl-glide-heavy {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
+  to { transform: translateY(-1px) rotate(calc(var(--nmb-lean) * 4deg)); }
+}
+@keyframes atl-idle-sway-soft {
+  from { rotate: -0.6deg; }
+  to { rotate: 0.7deg; }
+}
 /* The system's reduced motion: slowed right down, as the legs are (the
    companion's own reduced-motion block above; `!important` for the same
    reason, the rules above out-rank this one). */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-layer-lower,
-  #nm-buddy .atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
+  #nm-buddy .nm-live .nm-atlas.atl-layer-lower,
+  #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
+  #nm-buddy:has(.atl-figure) .nm-buddy-char,
+  #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }
@@ -7504,6 +7552,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        (the `rotate` property, beside the breath's transform), so he never
        stands rigid; the wisps under him drift on their own. */
     &.atl-layer-body[data-atlas-look="masculine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway 7.2s ease-in-out infinite alternate; }
+    /* Idle per look: she sways too, softer and slower than he does, on her
+       own clock, so the two looks never move in step. */
+    &.atl-layer-body[data-atlas-look="feminine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
     /* Round 9: a second, slower sway on the tail's root on a period that
        never lines up with the swish, so its flow does not repeat; the
        `rotate` property adds to the swish's transform, both compositor. */
@@ -7620,6 +7671,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     &.atl-layer-body[data-atlas-look="masculine"] { animation-duration: 9s, 14s !important; }
+    &.atl-layer-body[data-atlas-look="feminine"] { animation-duration: 9s, 16s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second
@@ -7740,6 +7792,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
+}
+@keyframes atl-buddy-wave-f {
+  0%, 100% { transform: rotate(0deg); }
+  16%, 48%, 80% { transform: rotate(-32deg); }
+  32%, 64% { transform: rotate(-56deg); }
 }
 @keyframes atl-buddy-scratch {
   0%, 100% { transform: rotate(0deg); }

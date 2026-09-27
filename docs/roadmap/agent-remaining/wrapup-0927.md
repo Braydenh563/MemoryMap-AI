@@ -82,8 +82,18 @@ written.
   fade, so no flat root or veil edge shows. `atlaswaist.js ZOOM=1` (12x on
   the waist): the curved hem line and flat stream tops before, a ramp
   after, both looks; poses and three sway frames at 5x.
-- [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
-  look.
+- [x] Idle, walk (masculine glide with a trailing wisp), float and wave per
+  look. `atlasgait.js` (animation names on the char box, body, lower and
+  arm, and the rise per walk cycle): walking was the companion's hop per
+  step; now a glide, his low and slow (`atl-glide-heavy`, 1.5px, 1.25s)
+  with his streams trailing away from the way he goes (`atl-lower-trail`
+  on `--nmb-lean`), hers lighter with a rock (3.4px). Found on the way:
+  the skirt never swung in a walk, carry or kick, and Atlas never ran its
+  own wave or scratch (both out-ranked on specificity); fixed. Idle: she
+  sways on her own slower clock. Float: her level arm drifts down (hand
+  51.8,50) instead of up over the rings. Wave: hers beside her head (hand
+  48.8,28.4), where the generic wave crossed her face. Not seen on the real
+  companion (a stand-in `#nm-buddy`, as for the bed).
 - [x] Masculine prop hand offset (bell, lantern about 6 units off). The
   props were drawn about one grip for every look; each look now names its
   own (`propHand`). `atlasprop.js`, gap from the prop's top to the hand's

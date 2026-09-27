@@ -462,3 +462,18 @@ def test_a_head_scratch_reaches_the_head_and_her_arms_are_outlined():
         assert f"--atl-al0: {al0}" in rule, look
     # Her pale arms were lost at the companion's size (atlasmoodgrid.js).
     assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' in CSS
+
+
+def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
+    # atlasgait.js: the skirt never swung in a walk (the idle drift's :is()
+    # out-ranked it) and Atlas waved the generic -98 to -128 degrees (its own
+    # wave set only animation-name, at lower specificity).
+    for glide in ("atl-glide ", "atl-glide-heavy "):
+        assert f"@keyframes {glide.strip()} {{" in CSS
+    assert '&:has(.atl-figure[data-atlas-look="masculine"]).nmb-walking .nm-buddy-char { animation: atl-glide-heavy' in CSS
+    assert "&.nmb-walking .nm-live .nm-atlas.atl-layer-lower {" in CSS
+    assert '&.nmb-walking .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation: atl-lower-trail' in CSS
+    assert "&.nmb-act-wave .atl-figure .nmb-arm-r { animation: atl-buddy-wave 1.5s" in CSS
+    assert '&.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { animation: atl-buddy-wave-f 1.5s' in CSS
+    assert "animation-name: atl-buddy-wave" not in CSS
+    assert '&.atl-layer-body[data-atlas-look="feminine"] { animation: atl-breathe' in CSS

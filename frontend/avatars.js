@@ -6952,6 +6952,11 @@ function nameMarkBuddyWake(gently = false, startled = false) {
   if (slept) nameMarkBuddyEase(buddy, 7000);
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (slept) nameMarkBuddyGetUp(buddy);
+  //: Atlas's face is its own mood (atlas.js): woken here, it wakes there
+  //: too, slowly. A click on the companion lands on its face's box, not
+  //: on `.nm-atlas`, so atlas.js's own poke never saw it, and the
+  //: companion stood up with its eyes still shut (atlassleepinput.js).
+  if (slept && nameMarkBuddyHasAtlas(buddy) && typeof atlasWake === "function") atlasWake();
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;

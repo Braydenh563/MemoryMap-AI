@@ -770,7 +770,7 @@ def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> 
     assert 'emote.className = "nmb-emote";' in build and "for (let i = 0; i < 3; i += 1) {" in build
     assert ".nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }" in CSS08
     # Only lying or curled (sitting), never upright.
-    assert '#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }' in CSS08
+    assert '#nm-buddy:is(.nmb-act-lie, :is([data-pose="sit"], [data-pose^="curl"]):is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }' in CSS08
     express = _fn("nameMarkBuddyExpress")
     assert 'old.classList.add("nmb-fig-leaving");' in express and "nameMarkBuddyExpress(softer, 2400)" in express
     assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
@@ -1149,3 +1149,20 @@ def test_it_takes_a_smaller_size_to_fit_a_small_perch() -> None:
     move = _fn("nameMarkBuddyMoveTo")
     assert "const size = spot.fit || nameMarkBuddyScaleSaved();" in move and "nameMarkBuddySetSize(size, false);" in move
     assert "#nm-buddy.nmb-fitting .nm-buddy-face { transition: scale" in CSS08
+
+
+def test_the_atlas_hooks_are_wired() -> None:
+    # Wrap-up ledger 0927: atlas.js's hooks for the companion: `data-lean`
+    # (its own lean, not the whole figure tipped), `data-atlas-variant` (a
+    # new arm variant at each new place; a lie-down's head side), and the
+    # pose frames lie-1, lie-2, lie and curl-1, curl, played in order and
+    # back, kept across a carry, dropped when picked up.
+    assert "buddy.dataset.lean = side < 0 ? \"l\" : \"r\";" in _fn("nameMarkBuddyLean")
+    assert 'nameMarkBuddyFrames(buddy, ["lie-1", "lie-2", "lie"]);' in _fn("nameMarkBuddyLieDown")
+    assert 'nameMarkBuddyFrames(buddy, ["curl-1", "curl"]);' in _fn("nameMarkBuddyCurlUp")
+    assert "nameMarkBuddyKeepFrame(buddy);" in _fn("nameMarkBuddyMoveTo")
+    assert "buddy.dataset.atlasVariant = String(nameMarkBuddyPickVariant(3," in _fn("nameMarkBuddyMoveTo")
+    assert 'if (act === "lie") nameMarkBuddyLieDown(buddy);' in _fn("nameMarkBuddyAct")
+    assert "nameMarkBuddyCurlUp(buddy)" in _fn("nameMarkBuddyTick") and "nameMarkBuddyGetUp(buddy)" in _fn("nameMarkBuddyWake")
+    assert "if (/^(lie|curl)/.test(buddy.dataset.pose || \"\")) buddy.dataset.pose = nmb.pose;" in _fn("nameMarkBuddyHalt")
+    assert "#nm-buddy.nmb-act-lie:has(.atl-figure-box) .nm-buddy-char { transform: none; }" in CSS08

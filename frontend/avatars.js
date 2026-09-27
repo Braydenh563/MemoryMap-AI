@@ -5204,7 +5204,12 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
     nameMarkBuddySetSize(size, false);
   }
   //: A new place: nothing to be bored of yet (a wander sets its own).
-  if (spot.kind !== nmb.perch || Math.abs(was.x - x) > 8 || Math.abs(was.y - y) > 8) nmb.perchAt = Date.now();
+  if (spot.kind !== nmb.perch || Math.abs(was.x - x) > 8 || Math.abs(was.y - y) > 8) {
+    nmb.perchAt = Date.now();
+    //: A new place, a new way to hold its arms (atlas.js's variants for
+    //: each mood, `data-atlas-variant`), eased by the limbs' transition.
+    if (nmb.act !== "lie" && nameMarkBuddyHasAtlas(buddy)) buddy.dataset.atlasVariant = String(nameMarkBuddyPickVariant(3, Number(buddy.dataset.atlasVariant ?? -1)));
+  }
   nmb.perch = spot.kind || "";
   nmb.spot = spot;
   nmb.pinned = spot.kind === "pinned";
@@ -5222,6 +5227,7 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   buddy.dataset.side = spot.side || "";
   nmb.pose = spot.pose;
   nmb.legs = spot.legs || "";
+  nameMarkBuddyKeepFrame(buddy);
   //: The band was sized by the glue above, before this spot's pose and
   //: pivot were set, so for the pose it had before (arriving hanging, it
   //: was measured with the hang's pivot and a standing figure lost its
@@ -6029,6 +6035,7 @@ function nameMarkBuddyAct(act, ms) {
   //: (a blink, a look) have no face of their own.
   if (was && was !== act && !NMB_FACELESS_ACTS.includes(was)) nameMarkBuddyEase(buddy, 1800);
   if (was) buddy.classList.remove(`nmb-act-${was}`);
+  if (was === "lie" && act !== "lie" && !buddy.classList.contains("nmb-sleep")) nameMarkBuddyGetUp(buddy);
   if (act !== "emerge") buddy.classList.remove("nmb-duck");
   if (was === "turn" || was === "glance") delete buddy.dataset.turn;
   nmb.act = "";
@@ -6064,6 +6071,7 @@ function nameMarkBuddyAct(act, ms) {
   //: any other act does not, since each style pass here is measurable.
   if (act === was) void buddy.offsetWidth;
   if (NMB_SCENE_ACTS.includes(act)) nameMarkBuddyScene(buddy);
+  if (act === "lie") nameMarkBuddyLieDown(buddy);
   //: **Never the same twice running** (the owner: "also state variations,
   //: not the exact same animation or mood animation each time"). An act
   //: with variants plays one it did not play last time (`data-variant`, the
@@ -6225,6 +6233,60 @@ function nameMarkBuddyTilt(side, ms = 0) {
   if (ms) nmb.tiltTimer = setTimeout(() => nameMarkBuddyTilt(0), ms);
 }
 
+//: **Atlas lies down on its nebula and curls up in it** (atlas.js's pose
+//: hooks, 08-consistency.css: `data-pose` lie-1, lie-2, lie, curl-1,
+//: curl). Its own drawing has these as frames that ease into each other,
+//: so a lie-down is played through them, 450ms apart, and getting up plays
+//: them back to the pose it had (`nmb.pose`, which stays "stand" or "sit"
+//: for every placement rule: only the drawing's attribute changes). Asleep
+//: sitting with no room to lie, it curls up. Generated faces keep the
+//: prop act's own lie-down (the rotated body and the pillow). With less
+//: motion the last frame is set at once.
+const NMB_POSE_FRAME_MS = 450;
+function nameMarkBuddyHasAtlas(buddy) {
+  return !!buddy?.querySelector(".atl-figure-box");
+}
+function nameMarkBuddyFrames(buddy, frames) {
+  for (const t of nmb.poseSteps || []) clearTimeout(t);
+  nmb.poseSteps = [];
+  if (nameMarkBuddyNoTravel()) {
+    buddy.dataset.pose = frames[frames.length - 1];
+    return;
+  }
+  frames.forEach((pose, i) => {
+    const set = () => {
+      if (buddy.isConnected) buddy.dataset.pose = pose;
+    };
+    if (!i) set();
+    else nmb.poseSteps.push(setTimeout(set, i * NMB_POSE_FRAME_MS));
+  });
+}
+function nameMarkBuddyLieDown(buddy) {
+  if (!nameMarkBuddyHasAtlas(buddy)) return;
+  //: Head to the left or the right, a different way from last time.
+  const v = nameMarkBuddyPickVariant(2, Number(buddy.dataset.atlasVariant ?? -1) % 2);
+  buddy.dataset.atlasVariant = String(v);
+  nameMarkBuddyFrames(buddy, ["lie-1", "lie-2", "lie"]);
+}
+function nameMarkBuddyCurlUp(buddy) {
+  if (!nameMarkBuddyHasAtlas(buddy) || nmb.pose !== "sit" || nmb.legs === "peek") return;
+  nameMarkBuddyFrames(buddy, ["curl-1", "curl"]);
+}
+function nameMarkBuddyGetUp(buddy) {
+  const now = buddy.dataset.pose || "";
+  if (!/^(lie|curl)/.test(now)) return;
+  nameMarkBuddyFrames(buddy, now.startsWith("curl") ? ["curl-1", nmb.pose] : now === "lie-1" ? [nmb.pose] : ["lie-2", "lie-1", nmb.pose].slice(now === "lie-2" ? 1 : 0));
+}
+//: Its drawing's pose again after a placement set it to `nmb.pose`:
+//: carried asleep, it arrives lying or curled, not sitting up.
+function nameMarkBuddyKeepFrame(buddy) {
+  for (const t of nmb.poseSteps || []) clearTimeout(t);
+  nmb.poseSteps = [];
+  if (!nameMarkBuddyHasAtlas(buddy)) return;
+  if (nmb.act === "lie") buddy.dataset.pose = "lie";
+  else if (buddy.classList.contains("nmb-sleep") && nmb.pose === "sit" && nmb.legs !== "peek") buddy.dataset.pose = "curl";
+}
+
 //: Stops whatever it is doing, at once and without a follow-on: grabbed.
 function nameMarkBuddyHalt(buddy) {
   if (nmb.act) buddy.classList.remove(`nmb-act-${nmb.act}`);
@@ -6234,6 +6296,10 @@ function nameMarkBuddyHalt(buddy) {
   clearTimeout(nmb.shyTimer);
   nmb.timer = nmb.shyTimer = 0;
   buddy.classList.remove("nmb-walking", "nmb-poofing", "nmb-sleep", "nmb-drowsy", "nmb-duck", "nmb-stir");
+  //: Picked up lying or curled: upright at once in the hand.
+  for (const t of nmb.poseSteps || []) clearTimeout(t);
+  nmb.poseSteps = [];
+  if (/^(lie|curl)/.test(buddy.dataset.pose || "")) buddy.dataset.pose = nmb.pose;
   delete buddy.dataset.turn;
   if (buddy.dataset.legs === "peek") buddy.dataset.legs = nmb.legs = "";
 }
@@ -6362,6 +6428,7 @@ function nameMarkBuddyTick() {
     buddy.classList.remove("nmb-drowsy");
     if (!buddy.classList.contains("nmb-sleep") && nmb.act !== "lie" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) nameMarkBuddyAct("lie", 20 * 60 * 1000);
     buddy.classList.add("nmb-sleep");
+    if (nmb.act !== "lie") nameMarkBuddyCurlUp(buddy);
     nameMarkBuddyHold("sleepy");
     nameMarkBuddyRelease();
     return;
@@ -6884,6 +6951,7 @@ function nameMarkBuddyWake(gently = false, startled = false) {
   //: Its eyes open over seconds (`nmb-easing`), not in a frame.
   if (slept) nameMarkBuddyEase(buddy, 7000);
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
+  if (slept) nameMarkBuddyGetUp(buddy);
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;
@@ -7022,7 +7090,13 @@ function nameMarkBuddyLean(ex, now, speed = 0) {
   if (side !== was) {
     nmb.leanState = side;
     nmb.leanChangedAt = now;
-    if (nmb.act !== "tilt") nameMarkBuddyTilt(side * 0.6);
+    //: Atlas leans with its own drawing (the CSS's `data-lean`: the body
+    //: a few degrees about its feet, the face sliding that way, the tail
+    //: and nebula lagging); anything else tips its whole figure.
+    if (nameMarkBuddyHasAtlas(buddy)) {
+      if (side) buddy.dataset.lean = side < 0 ? "l" : "r";
+      else delete buddy.dataset.lean;
+    } else if (nmb.act !== "tilt") nameMarkBuddyTilt(side * 0.6);
     if (!side && !buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
   } else if (side && now - nmb.leanChangedAt > 1500 && !buddy.classList.contains("nmb-walking")) {
     buddy.dataset.turn = side < 0 ? "l" : "r";

@@ -3471,12 +3471,61 @@ const nmb = {
 //: system's own hint stops the travel too (a walk across the screen is the
 //: one motion here that moves something large), and leaves the small
 //: behaviours to the CSS, which calms them like every other face.
-function nameMarkBuddyStill() {
+//: **How much it moves, and why** (the owner: "when the companion is
+//: appearing from off screen, it still just appears there. is it because I
+//: have the motion on auto"). It was held still by `data-motion="reduced"`,
+//: which Performance mode's automatic setting also sets on a small machine
+//: or when the system asks for less transparency: a cheap transform-only
+//: walk was taken away with the costly glass. Now its own setting decides
+//: (Appearance > Companion movement, `avatar-buddy-motion`):
+//:   follow  (the default) less motion only when you asked for it, in the
+//:           app's Motion setting or the system's; Performance mode alone
+//:           leaves it moving;
+//:   always  walks, hops and portals whatever else asks;
+//:   fades   no travel: it fades out and in, and does nothing on its own.
+//: Avatar animation off keeps it still. `mode` is "full", "fades" or
+//: "still"; `reason` names why it is not full, for the setting's hint.
+function nameMarkBuddyMotion() {
   const root = document.documentElement;
-  return root.dataset.avatarMotion === "off" || root.dataset.motion === "reduced";
+  let choice = "follow";
+  try {
+    choice = localStorage.getItem("avatar-buddy-motion") || "follow";
+  } catch (e) {
+    // The default.
+  }
+  if (root.dataset.avatarMotion === "off") return { mode: "still", reason: "avatar" };
+  if (choice === "always") return { mode: "full", reason: "" };
+  if (choice === "fades") return { mode: "fades", reason: "setting" };
+  const app = typeof appearancePref === "function" ? appearancePref("motion", "auto") : "auto";
+  if (app === "reduced") return { mode: "fades", reason: "app" };
+  if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return { mode: "fades", reason: "os" };
+  return { mode: "full", reason: root.dataset.perf === "on" ? "perf-ignored" : "" };
+}
+const NMB_MOTION_WHY = {
+  avatar: "Avatar animation is off, so it stays still.",
+  setting: "Fades only, as chosen here.",
+  app: "Fades only: Motion is set to Reduce in Appearance.",
+  os: "Fades only: your system asks for less motion.",
+  "perf-ignored": "Performance mode is on, but the companion still moves: it costs very little.",
+  "": "",
+};
+//: The page's own motion switch (`data-motion`) also gates its CSS; when it
+//: is on for Performance mode only, or you chose Always, the companion's
+//: gates are lifted by `data-buddy-motion` on the root.
+function nameMarkBuddyMotionApply() {
+  const root = document.documentElement;
+  const { mode, reason } = nameMarkBuddyMotion();
+  if (mode === "full" && root.dataset.motion === "reduced") root.dataset.buddyMotion = "full";
+  else delete root.dataset.buddyMotion;
+  const why = document.getElementById("avatar-buddy-motion-why");
+  if (why) why.textContent = NMB_MOTION_WHY[reason] || "";
+  return mode;
+}
+function nameMarkBuddyStill() {
+  return nameMarkBuddyMotion().mode !== "full";
 }
 function nameMarkBuddyNoTravel() {
-  return nameMarkBuddyStill() || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  return nameMarkBuddyMotion().mode !== "full";
 }
 
 function nameMarkShade(hex, t) {
@@ -5459,6 +5508,7 @@ function nameMarkBuddyEnter(buddy, spot) {
   const char = buddy.querySelector(".nm-buddy-char");
   if (nameMarkBuddyNoTravel()) {
     nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
+    nmb.anim.onfinish = null;
     return "fade";
   }
   const x = nmb.x;
@@ -5535,8 +5585,14 @@ function nameMarkBuddyEnter(buddy, spot) {
 //: **Out the same way, or dissolving** (INBOX 430): hidden from its menu or
 //: by Ctrl+Shift+Y it dematerialises into starlight rather than vanishing.
 function nameMarkBuddyLeave(buddy, then) {
-  if (!buddy || typeof buddy.animate !== "function" || nameMarkBuddyNoTravel()) {
+  if (!buddy || typeof buddy.animate !== "function") {
     then();
+    return;
+  }
+  //: Less motion is a fade, never a cut.
+  if (nameMarkBuddyNoTravel()) {
+    buddy.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: "ease-in", fill: "forwards" });
+    setTimeout(then, 280);
     return;
   }
   const char = buddy.querySelector(".nm-buddy-char");
@@ -7390,6 +7446,7 @@ function syncNameMarkBuddy() {
     return;
   }
   const fresh = !buddy;
+  nameMarkBuddyMotionApply();
   if (fresh) buddy = nameMarkBuddyBuild();
   if (buddy.dataset.seed !== seed) {
     buddy.dataset.seed = seed;

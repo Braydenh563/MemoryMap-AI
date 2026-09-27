@@ -282,6 +282,11 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   }`;
+  if (typeof nameMarkBuddyMotion === "function") {
+    const { mode, reason } = nameMarkBuddyMotion();
+    const word = { full: "moves freely", fades: "fades only", still: "stays still" }[mode];
+    $("about-motion").textContent = `Companion motion: ${word}${reason && NMB_MOTION_WHY[reason] ? `. ${NMB_MOTION_WHY[reason]}` : "."}`;
+  }
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
   $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
@@ -2350,6 +2355,12 @@ function renderAppearance() {
   $("avatar-buddy").value = appearancePref("avatar-buddy");
   if (typeof mountBuddyCustom === "function") mountBuddyCustom();
   if (typeof mountBuddyActivities === "function") mountBuddyActivities();
+  try {
+    $("avatar-buddy-motion").value = localStorage.getItem("avatar-buddy-motion") || "follow";
+  } catch (e) {
+    $("avatar-buddy-motion").value = "follow";
+  }
+  if (typeof nameMarkBuddyMotionApply === "function") nameMarkBuddyMotionApply();
   if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
   $("atlas-style").value = appearancePref("atlas-style");
   $("atlas-look").value = appearancePref("atlas-look");
@@ -2905,6 +2916,14 @@ $("avatar-buddy").addEventListener("change", (e) => {
   nameMarkBuddySizeSelect();
 });
 $("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
+$("avatar-buddy-motion").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem("avatar-buddy-motion", e.target.value);
+  } catch (err) {
+    // For this visit only.
+  }
+  nameMarkBuddyMotionApply();
+});
 $("avatar-buddy-actions").addEventListener("change", (e) => {
   try {
     localStorage.setItem("avatar-buddy-actions", e.target.value);

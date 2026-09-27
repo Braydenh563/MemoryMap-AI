@@ -933,3 +933,21 @@ def test_the_lean_has_hysteresis_and_a_dwell() -> None:
     assert got == [1, 0, 1, 0, 1, -1, -1]
     lean = _fn("nameMarkBuddyLean")
     assert "Math.exp(-dt / 250)" in lean and "if (speed > 1500) return;" in lean
+
+
+def test_performance_mode_alone_no_longer_holds_the_companion_still() -> None:
+    # The owner: "when the companion is appearing from off screen, it still
+    # just appears there" (OS animations on). Performance mode's automatic
+    # setting set data-motion=reduced and held the companion to a 300ms
+    # fade. Measured (tabentry.js, 1093x614, tab bar and keyboard): with
+    # Performance mode on it walks, materialises or climbs in; with Motion
+    # set to Reduce or the system asking, it fades; never a pop.
+    motion = _fn("nameMarkBuddyMotion")
+    assert 'if (app === "reduced") return { mode: "fades", reason: "app" };' in motion
+    assert '"(prefers-reduced-motion: reduce)"' in motion and '"perf-ignored"' in motion
+    assert "return nameMarkBuddyMotion().mode !== \"full\";" in _fn("nameMarkBuddyNoTravel")
+    assert 'root.dataset.buddyMotion = "full"' in _fn("nameMarkBuddyMotionApply")
+    assert ':root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy' in CSS08
+    assert 'id="avatar-buddy-motion"' in HTML and 'id="about-motion"' in HTML
+    # Less motion leaves by a fade, not a cut.
+    assert "duration: 260" in _fn("nameMarkBuddyLeave")

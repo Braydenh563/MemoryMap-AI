@@ -8984,6 +8984,20 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="normal">Normal</option>
                 </select>
               </div>
+              <!-- How much it moves, and why (`nameMarkBuddyMotion`,
+                   avatars.js): Performance mode alone no longer holds it
+                   still; the hint says what does. -->
+              <div class="setting-row" id="avatar-buddy-motion-row">
+                <div class="setting-label">
+                  <span>Companion movement</span>
+                  <small class="muted" id="avatar-buddy-motion-why"></small>
+                </div>
+                <select id="avatar-buddy-motion" class="small-select setting-control" aria-label="Companion movement">
+                  <option value="follow">Follow the app's motion setting</option>
+                  <option value="always">Always animate, even with less motion asked for</option>
+                  <option value="fades">Minimal: fades only</option>
+                </select>
+              </div>
               <!-- Each thing it does on its own, one switch a row (the owner,
                    2026-09-27: "Every companion feature must be togglable in
                    Settings"): built by `mountBuddyActivities`, avatars.js,
@@ -10628,6 +10642,9 @@ Link to another note with [[its first few words]]."></textarea>
                 this computer.
               </p>
               <p class="muted" id="about-version"></p>
+              <!-- How much the companion moves and why (`nameMarkBuddyMotion`):
+                   checkable here when it seems not to move. -->
+              <p class="muted" id="about-motion"></p>
               <!-- ROADMAP item C: several extras only take effect on restart
                    and the app said so without ever offering one. Hidden by
                    default (not-restart-capable builds: the browser tab, or

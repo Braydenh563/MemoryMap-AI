@@ -34,6 +34,10 @@ const SEEDS = (process.env.SEEDS || 'Atlas:masculine,Atlas:feminine,You,Brayden,
       const name = card.querySelector('.nm-viewer-name').getBoundingClientRect();
       const reading = card.querySelector('.nm-viewer-reading');
       const cbox = card.getBoundingClientRect();
+      // Alive while open: its first small act (a glance) is running by now.
+      await new Promise((r) => setTimeout(r, 400));
+      const idleActs = fig.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)).length;
+      const hintBox = card.querySelector('.nm-viewer-hint')?.getBoundingClientRect();
       let top = Infinity; let bottom = -Infinity; let left = Infinity; let right = -Infinity;
       const sample = () => {
         for (const el of fig.querySelectorAll('*')) {
@@ -54,7 +58,7 @@ const SEEDS = (process.env.SEEDS || 'Atlas:masculine,Atlas:feminine,You,Brayden,
       return {
         artTop: Math.round(top), artBottom: Math.round(bottom), figTop: Math.round(f.top), figBottom: Math.round(f.bottom),
         nameTop: Math.round(name.top), gap: Math.round(name.top - bottom), cardTop: Math.round(cbox.top), clippedTop: Math.round(Math.max(0, cbox.top - top)),
-        artW: Math.round(right - left), cardH: Math.round(cbox.height), caption: reading.textContent,
+        artW: Math.round(right - left), cardH: Math.round(cbox.height), caption: reading.textContent, idleActs, hintBelowCaption: hintBox ? Math.round(hintBox.top - reading.getBoundingClientRect().bottom) : null,
       };
     });
     rows.push({ face: entry, ...row });

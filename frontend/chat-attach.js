@@ -1685,7 +1685,7 @@ async function sendChatMessage(preset, opts = {}) {
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
-  const pendingLine = progressLine("Thinking…");
+  const pendingLine = progressLine("Thinking…", { persona: sentPersona, words: true });
   pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
   // **The placeholder trails the work instead of vanishing at the first

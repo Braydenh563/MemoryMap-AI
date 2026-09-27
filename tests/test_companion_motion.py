@@ -427,7 +427,7 @@ def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
-    assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
+    assert "const near = follows && dist < NMB_EYES_NEAR * reach;" in notice
 
 
 def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
@@ -817,3 +817,107 @@ def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
         assert guard in wander, guard
     assert "now - nmb.home.at > 30000" in wander
     assert "nameMarkBuddyWarmthAt(nmb.feel, now)" in _fn("nameMarkBuddyDecide")
+
+
+def test_its_gaze_has_one_reach_for_every_kind_and_drifts_back() -> None:
+    # The owner: "it doesnt follow the mouse movement if i have it turned on
+    # either ... the main companions dont have the look at mouse proximity
+    # limit like atlas does". Measured (companiongaze.js, the switch on, as
+    # Atlas and as you): 20, 60 and 150px look that way (eyes 0.7, 2 and
+    # 3.4px), 400px has let go and drifted back to 0; one code path.
+    notice = _fn("nameMarkBuddyNotice")
+    assert "const reach = Math.max(0.7, nmb.scale || 1);" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    release = _fn("nameMarkBuddyRelease")
+    assert 'buddy.style.setProperty("--nmb-ex", "0");' in release
+    assert "#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }" in CSS08
+
+
+def test_the_larger_faces_have_a_life_of_their_own() -> None:
+    # The owner: "my popup character doesnt really have much expression, same
+    # with when it is a profile avatar". Measured (faceslife.js): the Profile
+    # face (56px) plays small acts while the 18px one stays still, and
+    # nothing plays with Avatar animation off; the large view plays one as it
+    # opens (viewerclash.js), and says what the face is.
+    tick = _fn("nameMarkIdleTick")
+    assert "NM_IDLE_MIN" in tick and "if (!big.length) return;" in tick
+    assert "nameMarkIdleQuiet()" in tick and "nameMarkIdleQuiet()" in _fn("nameMarkIdleAct")
+    quiet = _fn("nameMarkIdleQuiet")
+    assert 'root.dataset.avatarMotion === "off"' in quiet and 'nameMarkBuddyActions() === "off"' in quiet
+    viewer = _fn("openNameMarkViewer")
+    assert '"Its own face, read from its name"' in viewer and '"A face of its own"' not in viewer
+    assert "nameMarkIdleWake();" in viewer
+
+
+def test_its_arms_rest_in_its_mood_and_come_back_to_it_after_an_act() -> None:
+    # The owner: "make sure that the positions of the limbs like the arm on
+    # companions ... actually match the mood as well". Measured (armmood.js,
+    # as you): each mood's arms where its rule puts them (happy -35/35,
+    # surprised -155/155, nervous a hand at the mouth), a face palm at -150
+    # over it, and after the act the arm back in the mood's pose.
+    assert 'buddy.dataset.feel = want || nmb.reading?.mood || "";' in _fn("nameMarkBuddyExpress")
+    for mood in ("happy", "surprised", "confused", "sleepy", "sad", "nervous", "serious"):
+        assert f'[data-feel="{mood}"]' in CSS08, mood
+    # Lighter than any act's arm, so an act plays over it and hands it back.
+    assert ':where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }' in CSS08
+    # Arms are drawn over the body, so they also turn in across it: hands
+    # on hips, clasped, at the chest (the first reading, that inward arms
+    # were hidden, was a 1x screenshot; at 3x they are in front).
+    assert ':where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }' in CSS08
+    assert ':where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }' in CSS08
+
+
+def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> None:
+    # The owner: "atlas or the companion wont let me rest it on the start
+    # something buttons on the dashboard". Measured (perchbuttons.js): let go
+    # above a tile it fell 172 to 238px (the find field above the tiles, and
+    # Atlas's tail reaching into the tile); now it stands on each tile, and
+    # the tile takes a click at its middle and at its top edge under it.
+    yours = _fn("nameMarkBuddyYoursObstacles")
+    assert "const wide = NMB_W * Math.max(0.7, nmb.scale || 1) * 4;" in yours
+    assert 'const overFront = spot?.pose === "sit" && spot?.legs !== "tuck";' in yours
+    for fn in ("nameMarkBuddyDrop", "nameMarkBuddyCheck", "nameMarkBuddyStillGood", "nameMarkBuddyNextSpot"):
+        assert "nameMarkBuddyYoursObstacles(" in _fn(fn), fn
+    assert "const minW = Math.round(NMB_W * Math.max(0.7, nmb.scale || 1));" in _fn("nameMarkBuddySurfaceWalk")
+    # Standing or sitting, only the part above its soles or seat is the
+    # handle: a 75px button it sat above (legs and nebula over it) clicks.
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nm-buddy-face { pointer-events: none; }' in CSS08
+    assert '#nm-buddy[data-pose="sit"] .nm-buddy-face::after {\n  bottom: 20px;' in CSS08
+    assert '#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }' in CSS08
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_variant_is_never_the_one_it_played_last() -> None:
+    # The owner: "also state variations, not the exact same animation or
+    # mood animation each time". Two hundred picks in a row, each given the
+    # last: never the same twice running, and every variant turns up.
+    runs = _run_pure(["nameMarkBuddyPickVariant"], """(() => { const out = {}; for (const n of [2, 3, 4]) { let last = -1; const seen = new Set(); let repeats = 0;
+      for (let i = 0; i < 200; i += 1) { const v = nameMarkBuddyPickVariant(n, last); if (v === last) repeats += 1; seen.add(v); last = v; }
+      out[n] = [repeats, seen.size]; } out.edge = [nameMarkBuddyPickVariant(3, 2, 0.999), nameMarkBuddyPickVariant(3, 0, 0), nameMarkBuddyPickVariant(1, 0, 0.5)]; return out; })()""")
+    for n in ("2", "3", "4"):
+        assert runs[n][0] == 0 and runs[n][1] == int(n), (n, runs[n])
+    assert runs["edge"] == [1, 1, 0]
+
+
+def test_acts_have_variants_and_their_own_tempo_each_time() -> None:
+    act = _fn("nameMarkBuddyAct")
+    assert "const v = nameMarkBuddyPickVariant(variants, nmb.variant?.[act] ?? -1);" in act
+    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);" in act
+    assert "anim.playbackRate = rate;" in _fn("nameMarkBuddyVary")
+    for rule in ('&.nmb-act-wave[data-variant="1"]', '&.nmb-act-hop[data-variant="2"]', '&.nmb-act-nap[data-variant="2"]'):
+        assert rule in CSS08, rule
+    assert "nameMarkBuddyPickVariant(3, nmb.variant?.joy ?? -1)" in _fn("nameMarkBuddyJoy")
+
+
+def test_it_lies_down_to_sleep_where_there_is_room_and_moves_by_its_look() -> None:
+    # The owner: "when it sleeps can it lay down?? ... masculine and feminine
+    # ways to stand and move the body". Measured (napgait.js): a nap on open
+    # bar lies down and gets up through its way up, a nap squeezed beside a
+    # button dozes where it is; a 160px walk as you takes 898ms masculine and
+    # 754 feminine (a deeper and a lighter bob), Atlas's float 788 and 662.
+    act = _fn("nameMarkBuddyAct")
+    assert 'if (act === "nap" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) act = "lie";' in act
+    assert "nameMarkBuddyLieRoom()" in _fn("nameMarkBuddyTick")
+    assert 'if (nmb.pose !== "stand" || nmb.legs' in _fn("nameMarkBuddyLieRoom")
+    assert "NMB_GAIT_PACE[buddy.dataset.gait]" in _fn("nameMarkBuddyGo")
+    assert '&[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy' in CSS08
+    assert '&[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light' in CSS08

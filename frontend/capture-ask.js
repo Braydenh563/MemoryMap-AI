@@ -2484,7 +2484,10 @@ function askStatusBusy(text) {
   $("ask-status")?.classList.remove("error");
   $("ask-status")?.replaceChildren();
   box.replaceChildren();
-  const line = progressLine(text);
+  //: No `persona` to pass: the Ask box has no persona picker of its own, it
+  //: always answers in the notebook's own voice, so `thinkingWordsFor(null)`
+  //: resolving to that default persona's list is already the right answer.
+  const line = progressLine(text, { words: true });
   box.appendChild(line);
   //: **And brought into view, because it is now further down the page than
   //: the old one was.** `#ask-status` sat directly under the question box, so

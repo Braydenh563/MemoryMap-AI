@@ -239,7 +239,8 @@ def test_the_doze_is_restful_with_drifting_zs_and_a_night_cap():
     assert "function atlasNightcap(" in ATLAS and "atl-zf-${k}" in ATLAS
     body = _keyframes("atl-z-drift").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"transform", "opacity"}
-    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }" in CSS
+    # Lying down to sleep (the companion's `lie`) wears it too, and Appearance can take it off.
+    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nm-atlas { --atl-nightcap: 1; }" in CSS
     # Reduced motion: the Zs hold still.
     assert '& .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }' in CSS
 

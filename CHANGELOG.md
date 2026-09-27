@@ -10,6 +10,13 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Atlas's hair now starts on the head: a short swept cap (masculine) or a soft parted cap (feminine) covers the crown down to a soft hairline, so the hair grows from the scalp instead of rising behind a bald dome.
+- A generated companion rests its hands on its hips when cool, clasps them when bashful and holds them to its chest when worried.
+- Sitting, the companion lets clicks through its legs and anything drawn below its seat, so a small button under it (the dashboard's Full) still works.
+- Asleep, the companion lies down on its pillow when there is room and dozes where it is when there is not, and it moves by its look: a masculine companion walks and floats slower with heavier steps, a feminine one quicker and lighter with a sway (Atlas by its own look, a face drawn from a name by Face look).
+- The companion never does a thing exactly the same way twice running: a wave may be one hand, both or with a hop, a hop may be a skip or a spin, a nap curled or tipped over, a glad moment a bounce, a sway or a spin, and each play runs a little faster or slower.
+- The companion can be rested on a button: dropped on a Start something tile or a toolbar button at least as wide as it, it stands there, and the button still takes its click under its feet. A wide control nearby (the dashboard's find field) no longer throws it off a place you chose.
+- A generated companion's arms rest in its mood (open when happy, up when surprised, a hand to its chin, its head, an eye or its mouth when thinking, confused, sleepy or worried), easing from one to the next, and an act such as a wave hands them back to the mood's pose.
+- The companion's gaze reaches as far for every kind (further for a Large one), follows a little wider, and drifts back to looking ahead when you move away rather than snapping. The larger faces (the enlarged view, your Profile face, persona cards) now glance, blink, hop and, enlarged, wave now and then, and blink when the pointer comes onto them, from one shared timer that runs only while such a face is on screen; the enlarged view says what a face is and how to say hello rather than "A face of its own".
 - The masculine Atlas reads as a star-being rather than a stiff mascot: his torso tapers from natural shoulders into a trail of nebula wisps instead of two pillar legs, his arms are slimmer with a soft bend and small relaxed hands, his eyes are softer, and he sways gently at rest.
 - Categories can be managed by hand: a Manage categories panel (from the Categories head in the notes sidebar, each category's menu, and Settings) renames, merges, splits (pick the notes, or review a split suggested from their tags) and deletes categories, asking where the notes go; notes move by ticking them and choosing Move to, or by dragging a note's category label onto another category. Every change can be undone.
 - Atlas can lie down to sleep on its own nebula stream, which gathers under it as a bed: sprawled with an arm behind his head (masculine) or curled on her side with her hands under her cheek (feminine), either way round, through in-between frames from sitting, and can also curl up where it sits.
@@ -44,6 +51,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A word rotates beside the thinking dots in chat, capture Ask and the popup agent ("Pondering", "Leafing through your notes"), in the answering persona's own voice; Atlas gets a starlit set of its own, and every persona can write, or ask the AI to suggest, its own list in Settings, Personas. A new "Show thinking words" switch in Settings, Appearance turns it off.
 - The LAN switch offers a "Restart now" action when a restart is actually needed to take effect, on either direction of the switch, instead of only saying so in text.
 - The popup agent's reply rows wear the persona's own avatar circle, the same as Chat's own bubbles.
 - A mind map topic's colour is reachable from words too: right-click it, More, Topic colour (or Branch colour past the first trunk); the canvas's own background colour picker in the View menu is now named "Canvas background colour" and says PNG/SVG export keeps it, and the mind map's own "Where the map's controls live" help mentions both.

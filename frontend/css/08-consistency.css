@@ -5094,6 +5094,7 @@ main,
 }
 
 .nm-viewer-reading { margin: 0; }
+.nm-viewer-hint { margin: 0; font-size: var(--text-sm); }
 
 /* The speech bubble a poked face says its line in. */
 .nm-say {
@@ -5295,6 +5296,25 @@ main,
 #nm-buddy[data-pose="hang"] .nm-buddy-face::after {
   bottom: -18px;
 }
+/* Standing on something, its handle ends at its soles: the face's own box
+   runs 3px past them and its margin 6px more, which took the top of a
+   button it stood on (perchbuttons.js: a Start something tile's top edge
+   answered the companion, not the tile). The box itself lets the pointer
+   through; the margin above the soles is the handle. */
+#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nm-buddy-face { pointer-events: none; }
+#nm-buddy[data-pose="stand"] .nm-buddy-face::after {
+  bottom: 3px;
+  pointer-events: auto;
+}
+/* Sitting, the handle ends at its seat: its legs over the edge, and any
+   drawing that reaches below it (Atlas's nebula), let the pointer through
+   to what is under them (perchbuttons.js: sat on a toolbar over a 75px
+   button, the button's middle answered the companion). */
+#nm-buddy[data-pose="sit"] .nm-buddy-face::after {
+  bottom: 20px;
+  pointer-events: auto;
+}
+#nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
 
@@ -5701,6 +5721,53 @@ main,
 #nm-buddy.nmb-act-shrug :is(.nm-figure, .atl-figure) .nmb-arm-r { transform: rotate(-40deg); }
 #nm-buddy.nmb-act-shrug :is(.nm-figure, .atl-figure) .nmb-arm-l { transform: rotate(40deg); }
 
+
+/* **Arms that match the mood** (the owner: "make sure that the positions of
+   the limbs like the arm on companions ... actually match the mood as
+   well"). The face it is wearing (`data-feel`, avatars.js: the passing
+   expression, or its own mood from its name) sets where its arms rest, and
+   the limbs' own transition eases them from one to the next. Wrapped in
+   `:where()` so these weigh less than any act's arm (a wave, a bell, a face
+   palm): the act plays over the mood's pose and, when it ends, the arm goes
+   back to the mood's pose, not to hanging straight. Atlas's arms are its
+   own drawing's (atlas.js). */
+/* The arms are drawn over the body (after it, outlined), so they turn in
+   across it as well as out: hips, clasped hands, hands at the chest
+   (armmood.js shots at 3x). */
+/* open arms */
+:where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }
+:where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-l { transform: rotate(35deg); }
+/* arms up in delight */
+:where(#nm-buddy:is([data-feel="excited"], [data-feel="laughing"], [data-feel="starstruck"])) .nm-figure .nmb-arm-r { transform: rotate(-70deg); }
+:where(#nm-buddy:is([data-feel="excited"], [data-feel="laughing"], [data-feel="starstruck"])) .nm-figure .nmb-arm-l { transform: rotate(70deg); }
+/* arms open for a hug */
+:where(#nm-buddy:is([data-feel="love"])) .nm-figure .nmb-arm-r { transform: rotate(-52deg); }
+:where(#nm-buddy:is([data-feel="love"])) .nm-figure .nmb-arm-l { transform: rotate(52deg); }
+/* a hand at the chin, thinking */
+:where(#nm-buddy:is([data-feel="serious"])) .nm-figure .nmb-arm-r { transform: rotate(-128deg); }
+/* hands up to its cheeks */
+:where(#nm-buddy:is([data-feel="surprised"])) .nm-figure .nmb-arm-r { transform: rotate(-155deg); }
+:where(#nm-buddy:is([data-feel="surprised"])) .nm-figure .nmb-arm-l { transform: rotate(155deg); }
+/* a hand up to its head */
+:where(#nm-buddy:is([data-feel="confused"])) .nm-figure .nmb-arm-r { transform: rotate(-165deg); }
+/* rubbing an eye */
+:where(#nm-buddy:is([data-feel="sleepy"])) .nm-figure .nmb-arm-r { transform: rotate(-142deg); }
+/* arms hanging */
+:where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-r { transform: rotate(3deg); }
+:where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-l { transform: rotate(-3deg); }
+/* hands on its hips */
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-r { transform: rotate(36deg); }
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-l { transform: rotate(-36deg); }
+/* hands clasped in front, bashful */
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-r { transform: rotate(62deg); }
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }
+/* fists stiff at its sides */
+:where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-r { transform: rotate(-8deg); }
+:where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-l { transform: rotate(8deg); }
+/* hands at its chest, worried */
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-l { transform: rotate(-100deg); }
+
 /* Peeking from behind its panel: everything below the panel's top edge is
    cut away (`--nmb-edge`, where the edge crosses it), and it sinks behind
    it; the motion itself is in the behaviours below. */
@@ -5786,14 +5853,21 @@ main,
   translate: 0 0;
 }
 
+/* Its gaze (avatars.js, `nameMarkBuddyAim`): followed quickly while it
+   attends, and let go slowly (the base transitions here), so beyond its
+   reach it drifts back to looking ahead rather than snapping there. A
+   little wider than it was (2.4px of eye, 5 degrees of head read as not
+   following at all, the owner: "it doesnt follow the mouse movement"). */
+#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }
+#nm-buddy .nm-char .nm-buddy-head { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out), rotate calc(var(--motion-slow) * 3) var(--ease-in-out); }
 #nm-buddy:is(.nmb-attend, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
-  translate: calc(var(--nmb-ex) * 2.4px) calc(var(--nmb-ey) * 2px);
+  translate: calc(var(--nmb-ex) * 3.4px) calc(var(--nmb-ey) * 2.6px);
   transition: translate var(--motion-fast) var(--ease-out);
 }
 
 #nm-buddy:is(.nmb-attend, .nmb-watch) .nm-char .nm-buddy-head {
-  translate: calc(var(--nmb-hx) * 2.5px) 0;
-  rotate: calc(var(--nmb-hx) * 5deg);
+  translate: calc(var(--nmb-hx) * 3px) calc(var(--nmb-ey) * 1.5px);
+  rotate: calc(var(--nmb-hx) * 7deg);
   transition: translate var(--motion-slow) var(--ease-spring), rotate var(--motion-slow) var(--ease-spring);
 }
 
@@ -5910,6 +5984,14 @@ main,
     &.nm-buddy-dragging .nm-buddy-char { animation: none; }
     &.nmb-walking .nmb-leg-l { animation: nmb-step 0.34s ease-in-out infinite alternate; }
     &.nmb-walking .nmb-leg-r { animation: nmb-step 0.34s ease-in-out -0.34s infinite alternate; }
+    /* Its gait by look (avatars.js, `nameMarkBuddyGait`): heavier steps,
+       slower and deeper; lighter ones, quicker with a sway. */
+    &[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy 0.4s ease-in-out infinite alternate; }
+    &[data-gait="masculine"].nmb-walking :is(.nmb-leg-l, .nmb-leg-r) { animation-duration: 0.4s; }
+    &[data-gait="masculine"].nmb-walking .nmb-leg-r { animation-delay: -0.4s; }
+    &[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light 0.3s ease-in-out infinite alternate; }
+    &[data-gait="feminine"].nmb-walking :is(.nmb-leg-l, .nmb-leg-r) { animation-duration: 0.3s; }
+    &[data-gait="feminine"].nmb-walking .nmb-leg-r { animation-delay: -0.3s; }
     &.nm-buddy-dragging .nmb-leg-l { animation: nmb-kick 0.42s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nmb-leg-r { animation: nmb-kick 0.42s ease-in-out -0.42s infinite alternate; }
     &.nmb-act-look .nm-buddy-head { animation: nmb-look 2.4s ease-in-out; }
@@ -5927,6 +6009,19 @@ main,
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-l { animation: nmb-kick 0.65s ease-in-out 4 alternate; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-r { animation: nmb-kick 0.65s ease-in-out -0.65s 4 alternate; }
     &.nmb-act-wave .nmb-arm-r { animation: nmb-wave 1.5s ease-in-out; }
+    /* Its variants (avatars.js, `NMB_VARIANTS`): a wave with both hands, or
+       with a little hop; a hop that is a skip to one side or a spin; a
+       stretch leaning over; a nap curled small or tipped on its side; a
+       shrug with a head tilt; a face palm with both hands. */
+    &.nmb-act-wave[data-variant="1"] .nm-figure .nmb-arm-l { animation: nmb-wave-l 1.5s ease-in-out; }
+    &.nmb-act-wave[data-variant="2"] .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out) 0.2s; }
+    &.nmb-act-hop[data-variant="1"] .nm-buddy-char { animation: nmb-skip 0.8s var(--ease-out); }
+    &.nmb-act-hop[data-variant="2"] .nm-buddy-char { animation: nmb-spin-hop 0.9s var(--ease-out); }
+    &.nmb-act-stretch[data-variant="1"] .nm-buddy-char { animation: nmb-stretch-lean 1.6s ease-in-out; }
+    &.nmb-act-nap[data-variant="1"] .nm-buddy-char { transform: translateY(4px) scale(0.96); }
+    &.nmb-act-nap[data-variant="2"] .nm-buddy-char { transform: rotate(-9deg); }
+    &.nmb-act-shrug[data-variant="1"] .nm-buddy-head { rotate: -8deg; }
+    &.nmb-act-facepalm[data-variant="1"] .nm-figure .nmb-arm-l { transform: rotate(150deg); }
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
@@ -6104,6 +6199,14 @@ main,
   from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
   to { transform: translateY(-3px) rotate(calc(var(--nmb-lean) * 6deg)); }
 }
+@keyframes nmb-bob-heavy {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
+  to { transform: translateY(-4.5px) rotate(calc(var(--nmb-lean) * 5deg)) scale(1.02, 0.98); }
+}
+@keyframes nmb-bob-light {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 2deg - 2deg)); }
+  to { transform: translateY(-2px) rotate(calc(var(--nmb-lean) * 4deg + 2deg)); }
+}
 @keyframes nmb-step {
   from { transform: scaleY(1); }
   to { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.7); }
@@ -6150,6 +6253,26 @@ main,
   25% { rotate: 6deg; }
   50% { rotate: -5deg; }
   75% { rotate: 3deg; }
+}
+@keyframes nmb-wave-l {
+  0%, 100% { transform: rotate(0deg); }
+  16%, 48%, 80% { transform: rotate(98deg); }
+  32%, 64% { transform: rotate(128deg); }
+}
+@keyframes nmb-skip {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(6px, -12px) rotate(4deg); }
+  70% { transform: translate(3px, 0) scale(1.04, 0.95); }
+}
+@keyframes nmb-spin-hop {
+  0% { transform: translateY(0) rotateY(0deg); }
+  45% { transform: translateY(-14px) rotateY(180deg); }
+  80% { transform: translateY(0) rotateY(360deg) scale(1.04, 0.95); }
+  100% { transform: none; }
+}
+@keyframes nmb-stretch-lean {
+  0%, 100% { transform: none; }
+  45%, 60% { transform: rotate(-7deg) scale(0.98, 1.05); }
 }
 @keyframes nmb-wave {
   0%, 100% { transform: rotate(0deg); }
@@ -6450,7 +6573,8 @@ main,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
 #nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); transition: translate var(--motion-fast) var(--ease-out); }
+#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):
@@ -7159,8 +7283,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    these on `#nm-buddy`): asleep, startled, yawning, cheering, carried. */
 /* The companion's own Zs (`.nm-buddy-z`, avatars.js) rise over a sleep, so
    Atlas's stay off here and only the cap and the face change. */
-#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }
-#nm-buddy.nmb-sleep .nm-atlas {
+/* Lying down to sleep too (`lie`), and not when Appearance has the cap off. */
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nm-atlas { --atl-nightcap: 1; }
+#nm-buddy:is(.nmb-sleep, .nmb-act-lie) .nm-atlas {
   --atl-open: 0; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 0; --atl-doze: 1; --atl-cheek: 0.14;
   --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
   --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 0; --atl-m-rest: 1;

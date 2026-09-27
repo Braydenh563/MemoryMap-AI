@@ -1070,14 +1070,23 @@ async function goToTabHistory(next, { fromBrowser = false } = {}) {
   //: too, for the same reason Back is (`stepTabHistory`).
   if (!fromBrowser && typeof routerGo === "function" && routerGo(next - tabHistory.index)) return;
   const entry = tabHistory.stack[next];
+  const from = tabHistory.index;
   tabHistory.index = next;
   tabHistory.navigating = true;
+  tabSwitchDeclined = false;
   try {
     await openHistoryEntry(entry);
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
     tabHistory.navigating = false;
+  }
+  //: Declined at "Leave without saving?": the stack stays where it was, and
+  //: a step the browser already took (Back) is taken back, so the address,
+  //: the history menu and the tab on screen agree again.
+  if (tabSwitchDeclined) {
+    tabHistory.index = from;
+    if (fromBrowser && next !== from) history.go(from - next);
   }
   paintTabHistory();
 }
@@ -1105,6 +1114,7 @@ async function openHistoryEntry(entry) {
   //: those are lazily loaded now (A1). `graphFocusModeId` in particular is a
   //: `let` in graph.js, which no stand-in can supply.
   await switchTab(entry.tab);
+  if (tabSwitchDeclined) return;
   // The sub-tab is restored after the tab, because both restore paths below
   // act on elements the tab switch has just revealed.
   if (entry.tab === "notes" && entry.section?.startsWith("note:")) {
@@ -1691,12 +1701,20 @@ window.addEventListener("beforeunload", (event) => {
 //: actually a different tab: re-pressing the tab already on screen is not a
 //: departure. Declining leaves `switchTab` before it touches the DOM, so the
 //: page in progress is exactly as the person left it.
+//: Whether the last question here was answered "stay": a history step
+//: that asked for the switch (Back, the history menu, a link) reads this
+//: and puts itself back, rather than recording a visit that never happened
+//: and opening a note or a board in a tab that is not on screen.
+let tabSwitchDeclined = false;
 async function confirmLeavingUnsavedWork(name) {
+  tabSwitchDeclined = false;
   if (localStorage.getItem("activeTab") === name) return true;
   if (!hasUnsavedWork()) return true;
-  return confirmDialog(
+  const leave = await confirmDialog(
     "Leave without saving?\n\nWhat you were working on here hasn't been saved yet."
   );
+  tabSwitchDeclined = !leave;
+  return leave;
 }
 
 async function switchTab(name) {

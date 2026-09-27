@@ -47,3 +47,18 @@ def test_a_companion_shown_again_starts_fresh() -> None:
     for part in ('nmb.act = "";', "clearTimeout(nmb.poutTimer);", "for (const t of nmb.poseSteps || []) clearTimeout(t);", "nmb.wokeAt = 0;"):
         assert part in gone, part
     assert "if (!buddy.isConnected) return;\n        buddy.classList.remove(\"nmb-grumpy\");" in AV
+
+
+NAV = (ROOT / "frontend" / "navigation.js").read_text(encoding="utf-8")
+
+
+def test_a_declined_leave_puts_the_history_step_back() -> None:
+    # With unsaved work, Back asks "Leave without saving?". Cancel kept the
+    # tab but the history stack had already stepped and the address named
+    # the old tab (unsavedback.js: after Cancel, shown notes, hash
+    # #/dashboard, stack at dashboard; now all three say notes). The step
+    # also went on to open the entry's note or board in the hidden tab.
+    assert "tabSwitchDeclined = !leave;" in _fn(NAV, "confirmLeavingUnsavedWork")
+    assert "if (tabSwitchDeclined) return;" in _fn(NAV, "openHistoryEntry")
+    walk = _fn(NAV, "goToTabHistory")
+    assert "tabHistory.index = from;" in walk and "history.go(from - next);" in walk

@@ -73,4 +73,13 @@ def test_the_nebula_is_one_ribbon_behind_the_figure_that_drifts_on_its_own_layer
     assert 'const names = ["neb", "back",' in ATLAS
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb" in rule for rule in drift)
-    assert "#nm-buddy .atl-layer-neb { animation: none; }" in CSS
+    # Held still under reduced motion.
+    assert "&.atl-layer-neb { animation: none !important; }" in CSS
+
+
+def test_the_skirt_and_the_nebula_move_in_the_large_view_too():
+    # The large view draws the layered figure (atlasFigure), so the loops
+    # are written for every layered figure, not for #nm-buddy alone.
+    for loop in ("&.atl-layer-lower { animation: atl-skirt-idle", "&.atl-layer-neb { animation: atl-neb-drift"):
+        assert loop in CSS
+    assert "#nm-buddy .atl-layer-neb" not in CSS

@@ -6455,16 +6455,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* The drift, on the nebula's own layer in the companion: a slow turn
    about the chest and a breath of opacity, compositor only. */
 .nm-atlas.atl-layer-neb { transform-origin: 31px 52px; will-change: transform, opacity; }
-@media all {
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy .atl-layer-neb {
-    animation: atl-neb-drift 13s ease-in-out infinite alternate;
-  }
-}
-/* The system's reduced motion: the nebula holds still (a drift is the
-   kind of motion the setting is for). */
-@media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-layer-neb { animation: none; }
-}
 @keyframes atl-neb-drift {
   from { transform: rotate(-1.6deg) translate(-0.6px, 0.4px) scale(0.99); opacity: 0.86; }
   to { transform: rotate(1.8deg) translate(0.8px, -0.6px) scale(1.02); opacity: 1; }
@@ -6547,7 +6537,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
-    & .atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
     &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
     &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
@@ -6820,6 +6809,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-tail { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 2.8s ease-in-out infinite; }
+    /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
+       the layered figure is drawn (the companion and the large view); the
+       companion's walk, carry and kick out-rank the skirt's with their own
+       rules (they name #nm-buddy). */
+    &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
+    &.atl-layer-neb { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.5s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
@@ -6915,6 +6910,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    /* Round 6: the skirt drifts slower still; the nebula holds still. */
+    &.atl-layer-lower { animation-duration: 12s !important; }
+    &.atl-layer-neb { animation: none !important; }
     &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }

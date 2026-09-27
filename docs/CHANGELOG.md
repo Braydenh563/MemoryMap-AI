@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Manage categories panel is redesigned: the same head as the documents AI panel, a filter beside New category, quiet rows with a count pill and a menu that shows on hover, a keyboard-walkable list where Space selects, and a footer to merge or delete several categories at once.
 - A category's split can be suggested by Atlas (the utility model reads the notes and proposes named groups to review), with the tag-based suggestion kept for when the model is off.
 - Atlas's hair now starts on the head: a short swept cap (masculine) or a soft parted cap (feminine) covers the crown down to a soft hairline, so the hair grows from the scalp instead of rising behind a bald dome.
 - A generated companion rests its hands on its hips when cool, clasps them when bashful and holds them to its chest when worried.

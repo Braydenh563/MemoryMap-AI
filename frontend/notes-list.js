@@ -2986,97 +2986,286 @@ function offerCategoryUndo(message, undo, redo) {
 
 let manageCategoriesRedraw = null;
 
+//: **The panel, redesigned** (the owner, of the first draft: "needs some ui
+//: redesign and modernisation/professionalisation refinement ... can you
+//: also do those button redesigns like the ai assistant panel in the
+//: documents editor"). The head is DESIGN.md's dialog head (the Documents AI
+//: assistant's): the title, its '?' beside it, a ghost icon Close at the
+//: right. One line of description, then one tool row: a filter field and
+//: New category. The categories are a listbox of quiet rows (the colour dot,
+//: the name, a muted count pill and a ghost ⋯ that shows on hover or focus,
+//: always on touch), with a roving focus: arrows and Home/End move, Space
+//: selects, Enter shows the category's notes, F2 renames, Delete deletes,
+//: and the context-menu key or Shift+F10 opens the ⋯. Selecting rows raises
+//: a sticky footer to merge or delete them together. The card is sized to
+//: its content up to its cap and the list is its one scroller.
 async function openManageCategories(focusName = null) {
   await loadCategories();
   openSheet({
     label: "Manage categories",
-    sub: "Rename, merge, split or delete categories. Your notes are always kept.",
     name: "categories",
     onClose: () => { manageCategoriesRedraw = null; },
-    build: (card) => {
-      const tools = document.createElement("div");
-      tools.className = "row manage-cat-tools";
-      const create = smallButton("ph:plus New category", "Make an empty category to move notes into", () => createCategoryFromPanel());
-      const help = document.createElement("button");
-      help.type = "button";
-      help.className = "icon-only ghost small graph-help-toggle";
-      help.setAttribute("data-help-for", "manage-cat-help");
-      help.setAttribute("aria-controls", "manage-cat-help");
-      help.setAttribute("aria-expanded", "false");
-      help.title = "About managing categories";
-      help.setAttribute("aria-label", "About managing categories");
-      const helpIcon = document.createElement("i");
-      helpIcon.className = "ph ph-question";
-      helpIcon.setAttribute("aria-hidden", "true");
-      help.appendChild(helpIcon);
-      tools.append(create, help);
+    build: (card, close) => {
+      card.classList.add("manage-cat-card");
+      manageCatHead(card, close);
+      const sub = document.createElement("p");
+      sub.className = "muted manage-cat-sub";
+      sub.textContent = "Rename, merge, split or delete categories. Your notes are always kept.";
       const helpBody = document.createElement("div");
       helpBody.className = "help-body hidden";
       helpBody.id = "manage-cat-help";
       helpBody.setAttribute("role", "dialog");
       helpBody.setAttribute("aria-label", "About managing categories");
       for (const line of [
-        "Merge into folds one category into another: all its notes move across.",
+        "Merge into folds one category into another: all its notes move across. Select several with Space to merge or delete them together.",
         `Split moves some of a category's notes into a new one. Pick them yourself, or have groups suggested, by their tags or by ${aiNameNow()}, and review them first.`,
         "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
         "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
+        "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete deletes.",
       ]) {
         const p = document.createElement("p");
         p.textContent = line;
         helpBody.appendChild(p);
       }
+      const tools = document.createElement("div");
+      tools.className = "manage-cat-tools";
+      const filter = document.createElement("input");
+      filter.type = "search";
+      filter.className = "manage-cat-filter";
+      filter.placeholder = "Filter categories";
+      filter.setAttribute("aria-label", "Filter categories");
+      const create = smallButton("ph:plus New category", "Make an empty category to move notes into", () => createCategoryFromPanel());
+      tools.append(filter, create);
       const list = document.createElement("ul");
-      list.className = "sheet-list manage-cat-list";
+      list.className = "manage-cat-list";
+      list.setAttribute("role", "listbox");
+      list.setAttribute("aria-multiselectable", "true");
       list.setAttribute("aria-label", "Categories");
-      card.append(tools, helpBody, list);
-      //: The '?' is built after boot, so it is wired here (wiring.js).
+      const footer = document.createElement("div");
+      footer.className = "manage-cat-footer hidden";
+      footer.setAttribute("role", "region");
+      footer.setAttribute("aria-label", "Selected categories");
+      card.append(sub, helpBody, tools, list, footer);
       initHelpToggles(card);
-      manageCategoriesRedraw = () => drawManageCategoryRows(list);
-      drawManageCategoryRows(list);
-      if (focusName) list.querySelector(`[data-category="${CSS.escape(focusName)}"] .manage-cat-name`)?.focus();
+      const state = { selected: new Set(), active: focusName, filter: "" };
+      const redraw = () => drawManageCategoryRows(list, footer, state);
+      manageCategoriesRedraw = redraw;
+      filter.addEventListener("input", () => {
+        state.filter = filter.value.trim().toLowerCase();
+        redraw();
+      });
+      //: Down from the filter walks into the list.
+      filter.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          list.querySelector('[role="option"]')?.focus();
+        }
+      });
+      wireManageCategoryKeys(list, state, redraw);
+      redraw();
+      //: After the sheet's own first-button focus, which would land on the '?'.
+      const start = focusName ? list.querySelector(`[data-category="${CSS.escape(focusName)}"]`) : null;
+      requestAnimationFrame(() => (start || filter).focus());
     },
   });
 }
 
-function drawManageCategoryRows(list) {
+//: The doc-ai head built into the sheet's own head: the '?' goes beside the
+//: title, and the Close moves into the icon group as a ghost icon.
+function manageCatHead(card, close) {
+  const head = card.querySelector(".sheet-head");
+  if (!head) return;
+  head.classList.add("doc-ai-head");
+  const help = document.createElement("button");
+  help.type = "button";
+  help.className = "icon-only ghost small doc-ai-head-btn";
+  help.setAttribute("data-help-for", "manage-cat-help");
+  help.setAttribute("aria-controls", "manage-cat-help");
+  help.setAttribute("aria-expanded", "false");
+  help.title = "About managing categories";
+  help.setAttribute("aria-label", "About managing categories");
+  const helpIcon = document.createElement("i");
+  helpIcon.className = "ph ph-question";
+  helpIcon.setAttribute("aria-hidden", "true");
+  help.appendChild(helpIcon);
+  const closeButton = head.querySelector(".sheet-close");
+  closeButton?.classList.add("doc-ai-head-btn");
+  const actions = document.createElement("span");
+  actions.className = "doc-ai-head-actions";
+  if (closeButton) actions.appendChild(closeButton);
+  head.querySelector(".sheet-title")?.after(help);
+  head.appendChild(actions);
+  void close;
+}
+
+function drawManageCategoryRows(list, footer, state) {
+  const hadFocus = list.contains(document.activeElement) ? document.activeElement.dataset.category : null;
   list.replaceChildren();
-  for (const meta of categoryMeta.values()) {
+  const shown = [...categoryMeta.values()].filter((meta) => !state.filter || meta.name.toLowerCase().includes(state.filter));
+  for (const name of [...state.selected]) if (!categoryMeta.has(name)) state.selected.delete(name);
+  if (!shown.length) {
+    const none = document.createElement("li");
+    none.className = "muted manage-cat-empty";
+    none.textContent = state.filter ? "No category matches that." : "No categories yet.";
+    list.appendChild(none);
+  }
+  const current = shown.some((meta) => meta.name === (hadFocus || state.active)) ? (hadFocus || state.active) : shown[0]?.name;
+  for (const meta of shown) {
     const li = document.createElement("li");
     li.className = "manage-cat-row";
     li.dataset.category = meta.name;
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", String(state.selected.has(meta.name)));
+    li.tabIndex = meta.name === current ? 0 : -1;
     const dot = document.createElement("span");
     dot.className = "manage-cat-dot";
     dot.style.setProperty("--category-dot", categoryDotColour(meta.name));
     dot.setAttribute("aria-hidden", "true");
-    //: The name is a button: it shows that category's notes, which is what
-    //: a person looking at a category usually wants next.
-    const name = document.createElement("button");
-    name.type = "button";
-    name.className = "ghost manage-cat-name";
+    const name = document.createElement("span");
+    name.className = "manage-cat-name";
     name.textContent = meta.name;
-    name.title = `Show the notes in ${meta.name}`;
-    name.addEventListener("click", () => {
-      activeCategory = meta.name;
-      draftsOnly = false;
-      favouritesOnly = false;
-      showNotesSection("browse");
-      renderSidebar();
-      renderEntries();
-    });
+    name.title = meta.name;
     const count = document.createElement("span");
-    count.className = "count";
+    count.className = "manage-cat-count";
     count.textContent = String(meta.count);
-    count.setAttribute("aria-label", `${meta.count} note${meta.count === 1 ? "" : "s"}`);
+    count.title = `${meta.count} note${meta.count === 1 ? "" : "s"}`;
+    li.setAttribute("aria-label", `${meta.name}, ${meta.count} note${meta.count === 1 ? "" : "s"}`);
     li.append(dot, name, count);
-    if (meta.name !== "Uncategorised") li.appendChild(kebabMenu(categoryMenuItems(meta), `Actions for ${meta.name}`));
-    else {
+    if (meta.name !== "Uncategorised") {
+      const menu = kebabMenu(categoryMenuItems(meta), `Actions for ${meta.name}`);
+      menu.classList.add("manage-cat-menu");
+      menu.addEventListener("click", (event) => event.stopPropagation());
+      menu.addEventListener("keydown", (event) => event.stopPropagation());
+      li.appendChild(menu);
+    } else {
       const spacer = document.createElement("span");
       spacer.className = "manage-cat-spacer";
       spacer.setAttribute("aria-hidden", "true");
       li.appendChild(spacer);
     }
+    //: A click selects (with Ctrl or Shift it adds to the selection); a
+    //: double click shows the category's notes.
+    li.addEventListener("click", (event) => {
+      if (meta.name === "Uncategorised") return showCategoryNotes(meta.name);
+      if (!(event.ctrlKey || event.metaKey || event.shiftKey)) {
+        const only = state.selected.size === 1 && state.selected.has(meta.name);
+        state.selected.clear();
+        if (!only) state.selected.add(meta.name);
+      } else if (state.selected.has(meta.name)) state.selected.delete(meta.name);
+      else state.selected.add(meta.name);
+      state.active = meta.name;
+      drawManageCategoryRows(list, footer, state);
+      list.querySelector(`[data-category="${CSS.escape(meta.name)}"]`)?.focus();
+    });
+    li.addEventListener("dblclick", () => showCategoryNotes(meta.name));
     list.appendChild(li);
   }
+  if (hadFocus) list.querySelector(`[data-category="${CSS.escape(hadFocus)}"]`)?.focus();
+  drawManageCategoryFooter(footer, state, () => drawManageCategoryRows(list, footer, state));
+}
+
+function showCategoryNotes(name) {
+  activeCategory = name;
+  draftsOnly = false;
+  favouritesOnly = false;
+  showNotesSection("browse");
+  renderSidebar();
+  renderEntries();
+}
+
+//: The listbox's keys, on the list so they survive every redraw.
+function wireManageCategoryKeys(list, state, redraw) {
+  list.addEventListener("keydown", (event) => {
+    const row = event.target.closest?.('[role="option"]');
+    if (!row) return;
+    const rows = [...list.querySelectorAll('[role="option"]')];
+    const at = rows.indexOf(row);
+    const move = (to) => {
+      const next = rows[Math.max(0, Math.min(rows.length - 1, to))];
+      if (!next) return;
+      rows.forEach((r) => { r.tabIndex = r === next ? 0 : -1; });
+      state.active = next.dataset.category;
+      next.focus();
+      next.scrollIntoView({ block: "nearest" });
+    };
+    const meta = categoryMeta.get(row.dataset.category);
+    if (event.key === "ArrowDown") move(at + 1);
+    else if (event.key === "ArrowUp") move(at - 1);
+    else if (event.key === "Home") move(0);
+    else if (event.key === "End") move(rows.length - 1);
+    else if (event.key === " ") {
+      if (meta && meta.name !== "Uncategorised") {
+        if (state.selected.has(meta.name)) state.selected.delete(meta.name);
+        else state.selected.add(meta.name);
+        redraw();
+      }
+    } else if (event.key === "Enter") showCategoryNotes(row.dataset.category);
+    else if (event.key === "F2" && meta && meta.name !== "Uncategorised") renameCategory(meta, meta.name);
+    else if ((event.key === "Delete" || event.key === "Backspace") && meta && meta.name !== "Uncategorised") deleteCategoryFromPanel(meta);
+    else if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) row.querySelector(".manage-cat-menu > button")?.click();
+    else return;
+    event.preventDefault();
+  });
+}
+
+//: The sticky footer: shown while rows are selected, with what can be done
+//: to them together.
+function drawManageCategoryFooter(footer, state, redraw) {
+  footer.replaceChildren();
+  const names = [...state.selected].filter((name) => categoryMeta.has(name));
+  footer.classList.toggle("hidden", names.length === 0);
+  if (!names.length) return;
+  const label = document.createElement("span");
+  label.className = "manage-cat-footer-label";
+  label.textContent = `${names.length} selected`;
+  const clear = smallButton("Clear", "Clear the selection", () => { state.selected.clear(); redraw(); });
+  const merge = smallButton("ph:arrows-merge Merge into…", "Move every note in the selected categories into one category", async () => {
+    await mergeCategoriesFromPanel(names.map((name) => categoryMeta.get(name)));
+    state.selected.clear();
+    redraw();
+  }, false);
+  const remove = smallButton("ph:trash Delete…", "Delete the selected categories; their notes are kept", async () => {
+    for (const name of names) {
+      const meta = categoryMeta.get(name);
+      if (meta) await deleteCategoryFromPanel(meta);
+    }
+    state.selected.clear();
+    redraw();
+  });
+  footer.append(label, clear, remove, merge);
+}
+
+//: Several categories folded into one, one undo for the lot.
+async function mergeCategoriesFromPanel(metas) {
+  if (metas.length === 1) return mergeCategoryFromPanel(metas[0]);
+  const names = metas.map((m) => m.name);
+  const target = await chooseCategorySheet({ label: `Merge ${metas.length} categories into`, sub: "Their notes move across and they go.", exclude: null, excludeAll: names });
+  if (!target) return;
+  const done = [];
+  try {
+    for (const meta of metas) {
+      const result = await apiJson(`/categories/${meta.id}/merge`, { method: "POST", body: JSON.stringify({ into: target.id }) });
+      done.push(result);
+      if (activeCategory === meta.name) activeCategory = result.into;
+    }
+  } catch (error) {
+    toast(error.message, true);
+  }
+  if (!done.length) return;
+  offerCategoryUndo(
+    `Merged ${done.length} categories into "${target.name}".`,
+    async () => {
+      for (const result of done) {
+        if (result.moved_ids.length) await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: result.moved_ids, category: result.from }) });
+        else await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: result.from }) });
+      }
+    },
+    async () => {
+      const ids = done.flatMap((result) => result.moved_ids);
+      if (ids.length) await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category: target.name }) });
+    }
+  );
+  await refreshAfterCategoryChange();
 }
 
 //: The one list of what can be done to a category: the panel's ⋯ and the
@@ -3105,7 +3294,7 @@ async function createCategoryFromPanel() {
 
 //: A choice of category in a sheet of its own: every other category as a
 //: row, and optionally Uncategorised; answers the chosen meta or null.
-function chooseCategorySheet({ label, sub, exclude, includeUncategorised = false }) {
+function chooseCategorySheet({ label, sub, exclude, excludeAll = [], includeUncategorised = false }) {
   return new Promise((resolve) => {
     let chosen = null;
     openSheet({
@@ -3117,7 +3306,7 @@ function chooseCategorySheet({ label, sub, exclude, includeUncategorised = false
         const list = document.createElement("div");
         list.className = "sheet-list";
         for (const meta of categoryMeta.values()) {
-          if (meta.name === exclude) continue;
+          if (meta.name === exclude || excludeAll.includes(meta.name)) continue;
           if (meta.name === "Uncategorised" && !includeUncategorised) continue;
           list.appendChild(sheetRow("ph ph-folder", `${meta.name} (${meta.count})`, () => { chosen = meta; close(); }));
         }

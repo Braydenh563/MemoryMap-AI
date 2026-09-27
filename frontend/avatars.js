@@ -5789,7 +5789,6 @@ function nameMarkBuddyAim(point, near = false) {
   clearTimeout(nmb.headTimer);
   if (near && Date.now() >= nmb.groggyUntil) {
     buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
-    nameMarkBuddyTilt(lx * 0.5);
     return;
   }
   const groggy = Date.now() < nmb.groggyUntil;
@@ -5838,6 +5837,8 @@ function nameMarkBuddyRelease() {
   buddy.style.setProperty("--nmb-ex", "0");
   buddy.style.setProperty("--nmb-ey", "0");
   buddy.style.setProperty("--nmb-hx", "0");
+  nmb.leanState = 0;
+  nmb.leanSmooth = 0;
   if (!nmb.act || nmb.act !== "tilt") nameMarkBuddyTilt(0);
   if (!buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
 }
@@ -6499,12 +6500,43 @@ function nameMarkBuddyNotice(x, y, now, salient = "") {
   nmb.target = [x, y];
   nmb.targetAt = now;
   nameMarkBuddyAim([x, y], near);
-  const side = nmb.ex < -0.7 ? "l" : nmb.ex > 0.7 ? "r" : "";
-  if (side !== nmb.leanSide) {
-    nmb.leanSide = side;
-    nmb.leanAt = now;
-  } else if (side && now - nmb.leanAt > 1500 && !buddy.classList.contains("nmb-walking")) {
-    buddy.dataset.turn = side;
+  nameMarkBuddyLean(nmb.ex, now, speed);
+}
+
+//: **Leaning toward you, steadily** (the owner: "sometimes the companion
+//: leans or tilts to the left and right a bit back and forth too fast
+//: because of my mouse movement"). The gaze was the lean: every pass of
+//: the pointer flipped it. Now the gaze is smoothed first (about 250ms),
+//: the lean is a side it is on (in past 0.7, out only under 0.3, nothing in
+//: between), it keeps a side at least 1.3s before it may change, a flick of
+//: the pointer (over 1500px a second) moves nothing, and the lean itself
+//: eases over 400ms (the CSS). Held 1.5s, the head turns that way too.
+function nameMarkBuddyLeanSide(state, smooth, heldMs) {
+  const want = smooth > 0.7 ? 1 : smooth < -0.7 ? -1 : Math.abs(smooth) < 0.3 ? 0 : state;
+  if (want !== state && heldMs < 1300) return state;
+  return want;
+}
+function nameMarkBuddyLean(ex, now, speed = 0) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const dt = Math.min(1000, Math.max(0, now - (nmb.leanSmoothAt || now)));
+  nmb.leanSmoothAt = now;
+  nmb.leanSmooth = (nmb.leanSmooth || 0) + (ex - (nmb.leanSmooth || 0)) * (1 - Math.exp(-dt / 250));
+  //: The pointer stops sending moves when it stops: looked at again a
+  //: moment later until the smoothed gaze has caught up, so a pointer that
+  //: flicked over and stayed is leaned to.
+  clearTimeout(nmb.leanTimer);
+  if (speed > 1500 || Math.abs(ex - nmb.leanSmooth) > 0.05) nmb.leanTimer = setTimeout(() => nameMarkBuddyLean(nmb.ex, Date.now(), 0), 150);
+  if (speed > 1500) return;
+  const was = nmb.leanState || 0;
+  const side = nameMarkBuddyLeanSide(was, nmb.leanSmooth, now - (nmb.leanChangedAt || 0));
+  if (side !== was) {
+    nmb.leanState = side;
+    nmb.leanChangedAt = now;
+    if (nmb.act !== "tilt") nameMarkBuddyTilt(side * 0.6);
+    if (!side && !buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
+  } else if (side && now - nmb.leanChangedAt > 1500 && !buddy.classList.contains("nmb-walking")) {
+    buddy.dataset.turn = side < 0 ? "l" : "r";
   }
 }
 

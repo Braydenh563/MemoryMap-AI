@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion no longer rocks from side to side as the pointer passes: its lean follows a smoothed gaze, holds a side at least 1.3 seconds and ignores a flick.
 - A generated companion rests its hands on its hips when cool, clasps them when bashful and holds them to its chest when worried.
 - Sitting, the companion lets clicks through its legs and anything drawn below its seat, so a small button under it (the dashboard's Full) still works.
 - Asleep, the companion lies down on its pillow when there is room and dozes where it is when there is not, and it moves by its look: a masculine companion walks and floats slower with heavier steps, a feminine one quicker and lighter with a sway (Atlas by its own look, a face drawn from a name by Face look).

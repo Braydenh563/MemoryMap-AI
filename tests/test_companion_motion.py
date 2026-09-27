@@ -748,7 +748,7 @@ def test_it_leans_its_body_a_little_while_still_facing_you() -> None:
     # 1.2 and 2 degrees at 20, 60 and 150px, companiongaze.js), before
     # setting off, and now and then at rest.
     assert "#nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }" in CSS08
-    assert "nameMarkBuddyTilt(lx * 0.5);" in _fn("nameMarkBuddyAim")
+    assert "nameMarkBuddyLean(nmb.ex, now, speed);" in _fn("nameMarkBuddyNotice")
     assert "nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8," in _fn("nameMarkBuddyGo")
     assert 'if (act === "tilt") nameMarkBuddyTilt(' in _fn("nameMarkBuddyAct")
 
@@ -921,3 +921,15 @@ def test_it_lies_down_to_sleep_where_there_is_room_and_moves_by_its_look() -> No
     assert "NMB_GAIT_PACE[buddy.dataset.gait]" in _fn("nameMarkBuddyGo")
     assert '&[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy' in CSS08
     assert '&[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light' in CSS08
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_lean_has_hysteresis_and_a_dwell() -> None:
+    # The owner: "leans or tilts to the left and right a bit back and forth
+    # too fast because of my mouse movement". Measured (leanflick.js): a 2Hz
+    # sweep across it for 5s changed its lean 21 times; now 0, and a pointer
+    # held to one side still gets its lean (0.6).
+    got = _run_pure(["nameMarkBuddyLeanSide"], "[[0,0.8,5000],[0,0.5,5000],[1,0.5,5000],[1,0.2,5000],[1,-0.8,500],[1,-0.8,1400],[-1,0.1,200]].map((a) => nameMarkBuddyLeanSide(...a))")
+    assert got == [1, 0, 1, 0, 1, -1, -1]
+    lean = _fn("nameMarkBuddyLean")
+    assert "Math.exp(-dt / 250)" in lean and "if (speed > 1500) return;" in lean

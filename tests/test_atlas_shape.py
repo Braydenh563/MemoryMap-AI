@@ -297,3 +297,26 @@ def test_the_lean_hook_turns_the_body_and_the_head_follows_with_lag():
     # Its default is the root's alone: declared on a drawing, an ancestor's
     # value would never reach the layers.
     assert len(re.findall(r"--atl-lean-dir:\s*0", CSS)) == 1
+
+
+
+def test_every_mood_places_the_arms_per_look_in_three_variants():
+    # Round 9 (the owner: "the positions of the limbs ... actually match the
+    # mood", then "state variations, not the exact same ... each time").
+    for look in ("masculine", "feminine"):
+        for mood in ATLAS_MOOD_NAMES:
+            if mood == "calm":
+                continue
+            rule = re.search(rf'\.nm-atlas\[data-atlas-look="{look}"\]\[data-atlas-mood="{mood}"\] \{{([^}}]*)\}}', CSS)
+            assert rule, (look, mood)
+            for k in range(3):
+                assert f"--atl-ar{k}:" in rule.group(1) and f"--atl-al{k}:" in rule.group(1), (look, mood, k)
+    # The variant hook inherits from any host, defaulting at the root only.
+    assert '[data-atlas-variant="1"] { --atl-v1: 1; --atl-v2: 0; }' in CSS
+    assert '[data-atlas-variant="2"] { --atl-v1: 0; --atl-v2: 1; }' in CSS
+    assert ".nm-atlas .nmb-arm-r { transform: rotate(calc(var(--atl-ar0) * (1 - var(--atl-v1) - var(--atl-v2))" in CSS
+    # The chin hand is a variant's choice, not thinking's alone.
+    assert "#nm-buddy:not([data-pose=\"hang\"], [data-pose=\"sit\"]) .nm-atlas .atl-chin-hand { opacity: var(--atl-chin); }" in CSS
+
+
+ATLAS_MOOD_NAMES = re.findall(r"^  (\w+): \{ words:", ATLAS[ATLAS.index("const ATLAS_MOODS = {"):], re.M)

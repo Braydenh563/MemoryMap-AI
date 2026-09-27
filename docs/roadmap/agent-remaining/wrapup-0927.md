@@ -47,6 +47,10 @@ written.
 - [ ] Category tools added to `WRITE_TOOLS`, with a test.
 - [ ] Split suggestion: an "Ask AI" option on the utility model.
 - [ ] Arm variants 1 and 2 per mood checked; feminine arms legible small.
+- [x] A sleepy Atlas startled by any click or held Ctrl (three reports): the
+  input listener only records input now; a poke wakes it over 2.4s and it
+  stays up 45s; dozing eases over 3s. `atlaswake.js`: 11 of 50 frames
+  surprised before, 0 after. The `.atl-easing` CSS is the companion agent's.
 
 ## Companion (avatars.js)
 

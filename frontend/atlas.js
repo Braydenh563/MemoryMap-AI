@@ -2398,19 +2398,44 @@ function atlasRepaint() {
 let atlasMoodNow = "calm";
 let atlasMoodTimer = 0;
 let atlasLastInput = Date.now();
+//: Woken by a poke, Atlas stays up this long before it may doze again, so a
+//: wake is a wake and not a flicker back to sleep on the next minute's tick.
+let atlasAwakeUntil = 0;
+const ATLAS_WAKE_MS = 2400;
+const ATLAS_AWAKE_HOLD_MS = 45 * 1000;
+const ATLAS_DOZE_MS = 3000;
+let atlasEaseTimer = 0;
 
 function atlasRestingMood() {
+  if (Date.now() < atlasAwakeUntil) return "calm";
   const hour = new Date().getHours();
   return Date.now() - atlasLastInput > 10 * 60 * 1000 || hour < 5 ? "sleepy" : "calm";
 }
 
-function setAtlasMood(mood, forMs = 0, { quiet = false } = {}) {
+//: `easeMs` turns a mood change into a slow cross-fade (`.atl-easing`, the
+//: face's custom properties transitioning over `--atl-ease`) rather than the
+//: quick step every other change takes: waking and dozing are the two that
+//: should never snap.
+function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0 } = {}) {
   const next = ATLAS_MOODS[mood] ? mood : "calm";
   clearTimeout(atlasMoodTimer);
   atlasMoodTimer = 0;
   atlasMoodNow = next;
   if (!quiet && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue(ATLAS_MOODS[next].cue);
-  for (const svg of document.querySelectorAll(".nm-atlas")) {
+  const marks = [...document.querySelectorAll(".nm-atlas")];
+  clearTimeout(atlasEaseTimer);
+  for (const svg of marks) {
+    if (easeMs) {
+      svg.style.setProperty("--atl-ease", `${easeMs}ms`);
+      svg.classList.add("atl-easing");
+    } else svg.classList.remove("atl-easing");
+  }
+  if (easeMs) {
+    atlasEaseTimer = setTimeout(() => {
+      for (const svg of document.querySelectorAll(".nm-atlas.atl-easing")) svg.classList.remove("atl-easing");
+    }, easeMs + 100);
+  }
+  for (const svg of marks) {
     //: The classic globe draws a mood rather than easing into one.
     if (svg.classList.contains("atl-classic")) svg.replaceWith(atlasClassicMark(Number(svg.getAttribute("width")) || 20, next));
     else atlasApply(svg, next);
@@ -2422,7 +2447,10 @@ function setAtlasMood(mood, forMs = 0, { quiet = false } = {}) {
     //: A turn that runs long gets a set jaw.
     atlasMoodTimer = setTimeout(() => setAtlasMood("determined", 0, { quiet: true }), 9000);
   } else if (forMs) {
-    atlasMoodTimer = setTimeout(() => setAtlasMood(atlasRestingMood()), forMs);
+    atlasMoodTimer = setTimeout(() => {
+      const rest = atlasRestingMood();
+      setAtlasMood(rest, 0, { easeMs: rest === "sleepy" ? ATLAS_DOZE_MS : 0 });
+    }, forMs);
   }
   if (next === "happy" && forMs) atlasPlay("nod", 1000);
 }
@@ -2472,16 +2500,36 @@ function atlasStreak(days) {
   atlasOn("streak");
 }
 
+//: **Input is only recorded, never reacted to.** This listener used to set
+//: "surprised" for 700ms whenever Atlas was sleepy, so in the small hours
+//: (sleepy is the resting mood before 5am) every click anywhere, and every
+//: auto-repeat of a held Ctrl, startled every Atlas on the page and snapped
+//: it back: three owner reports of a face that flickered for no reason
+//: (measured: Ctrl held, 13 of 40 frames surprised). A held key's repeats
+//: and a modifier on its own are not somebody coming back, so they do not
+//: count as input either. Waking is `atlasWake`'s, on a poke of Atlas itself
+//: or on the minute's tick once somebody is back.
+const ATLAS_MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta", "AltGraph", "CapsLock", "Fn", "OS"]);
 for (const type of ["pointerdown", "keydown"]) {
-  document.addEventListener(type, () => {
+  document.addEventListener(type, (event) => {
+    if (event.repeat || ATLAS_MODIFIER_KEYS.has(event.key)) return;
     atlasLastInput = Date.now();
-    if (atlasMoodNow === "sleepy") {
-      setAtlasMood("surprised", 700, { quiet: true });
-    }
   }, { passive: true, capture: true });
 }
+
+//: Sleepy to calm over `ATLAS_WAKE_MS`, then awake for at least
+//: `ATLAS_AWAKE_HOLD_MS` before the resting mood may be sleepy again.
+function atlasWake() {
+  atlasLastInput = Date.now();
+  atlasAwakeUntil = Date.now() + ATLAS_WAKE_MS + ATLAS_AWAKE_HOLD_MS;
+  if (atlasMoodNow === "sleepy") setAtlasMood("calm", 0, { quiet: true, easeMs: ATLAS_WAKE_MS });
+}
+
 setInterval(() => {
-  if (atlasMoodNow === "calm" && atlasRestingMood() === "sleepy") setAtlasMood("sleepy");
+  const rest = atlasRestingMood();
+  if (atlasMoodNow === "calm" && rest === "sleepy") setAtlasMood("sleepy", 0, { easeMs: ATLAS_DOZE_MS });
+  //: Back from away: input since it dozed, and not the small hours.
+  else if (atlasMoodNow === "sleepy" && rest === "calm") atlasWake();
 }, 60 * 1000);
 
 //: A poke: a giggle, a blush, a heart or a delighted wiggle, for a moment.
@@ -2490,6 +2538,11 @@ let atlasPokeIndex = 0;
 document.addEventListener("click", (event) => {
   const mark = event.target.closest?.(".nm-atlas");
   if (!mark || ["thinking", "determined"].includes(atlasMoodNow)) return;
+  //: A sleeping Atlas poked wakes slowly; the giggle is for one already up.
+  if (atlasMoodNow === "sleepy") {
+    atlasWake();
+    return;
+  }
   atlasPokeIndex = (atlasPokeIndex + 1) % ATLAS_POKES.length;
   setAtlasMood(ATLAS_POKES[atlasPokeIndex], 1800, { quiet: true });
 });

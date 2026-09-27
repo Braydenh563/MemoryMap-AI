@@ -3443,6 +3443,14 @@ WRITE_TOOLS = {
     "create_mindmap",
     "add_map_node",
     "link_map_nodes",
+    # The category tools write too (INBOX 431 (e)): left out, a turn that
+    # merged two categories counted as having written nothing, so the
+    # claimed-a-save net could fire on it, and a skill that only tidied
+    # categories was labelled as answering rather than acting.
+    "create_category",
+    "rename_category",
+    "merge_categories",
+    "delete_category",
 }
 
 

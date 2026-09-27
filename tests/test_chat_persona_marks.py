@@ -38,19 +38,18 @@ def test_the_assistant_bubble_takes_the_persona_that_wrote_it() -> None:
     assert "assistantLabel()" not in bubble
 
 
-def test_the_default_assistant_keeps_the_live_emblem() -> None:
-    """Atlas is the app's own voice and keeps the app's emblem, as today; any
-    other persona gets its generated face.
-
-    One call down since the long-chat fix (the chat pass, 2026-09-26): the
-    app's voice goes through `paintChatEmblem`, which draws the live emblem
-    once per size, accent and motion and copies that canvas for the rest, so
-    a 150-turn chat no longer starts 150 sketches. Still the live emblem."""
+def test_the_default_assistant_wears_atlas_and_no_reply_wears_the_app_logo() -> None:
+    """The owner, 2026-09-27: "should we update the assistant chat bubble app
+    logos to the persona avatars used for those specific chat messages??";
+    decided yes. Atlas, the app's own voice (the default, a turn saved with
+    no persona, or one named Atlas), wears Atlas's own face; any other
+    persona its generated face. The app's emblem is for the app itself."""
     painter = _function("paintPersonaAvatar")
-    assert "paintChatEmblem(holder" in painter, "the app's own voice no longer wears the emblem"
-    assert "renderEmblem(holder" in _function("paintChatEmblem"), "the emblem is no longer the live one"
-    assert "nameMark(" in painter or "fillPersonaMark(" in painter
-    assert "aiNameNow()" in painter
+    assert "renderEmblem(" not in painter and "paintChatEmblem(" not in painter
+    assert "atlasDraw(size" in painter and "atlasAvatar(size" in painter
+    assert "nameMark(name, size)" in painter
+    is_atlas = _function("chatHeadIsAtlas")
+    assert "aiNameNow()" in is_atlas and '"atlas"' in is_atlas and "!who" in is_atlas
 
 
 def test_a_reopened_reply_is_drawn_with_its_saved_persona() -> None:

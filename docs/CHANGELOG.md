@@ -31,6 +31,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
 - In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.
 - Changing Atlas's look no longer leaves a small Atlas head at the bottom left of the window, under the status bar, one more for every change: the redraw was turning the hidden store of Atlas's colours into a head.
 - Atlas, both looks: the arms grow out of the chest rather than off its edge, fuller at the shoulder and tapering to a wrist, with hands that read as hands (the fingertips' notch made them look like claws), resting at easier angles when sitting and floating; the chest's bright four-point star is now a faded constellation of a few dim stars and hairlines; and the nebula is one soft ribbon behind the figure in a haze of light, drifting slowly, instead of two pieces with one crossing in front. The feminine look has no legs or feet: from the waist down it is a translucent skirt of flowing ribbons that end in wisps and sway, and it glides when it walks.

@@ -879,73 +879,61 @@ function savedPersona(name) {
   return personaDisplayName(name) === aiNameNow() ? null : name;
 }
 
-//: The avatar in an assistant bubble's label row: the app's live emblem for
-//: its own voice, as it always was, and the persona's generated face for any
-//: other (`fillPersonaMark`, DESIGN.md's recipe index: "A mark generated from
-//: a name"). The holder must be in the DOM already: p5 cannot size a canvas
-//: inside a detached element.
+//: **Each reply wears the face of the persona that answered it** (the
+//: owner, 2026-09-27: "should we update the assistant chat bubble app logos
+//: to the persona avatars used for those specific chat messages??"; decided
+//: yes). Atlas, the app's own voice (the default persona, a turn saved with
+//: no persona, or one named Atlas), wears Atlas's own face (atlas.js: the
+//: bust from 28px, the face icon under it); any other persona its generated face (`nameMark`, DESIGN.md's
+//: recipe index: "A mark generated from a name"). The app's emblem is for
+//: the app itself, and no reply is the app speaking.
+//:
+//: **One drawing per face, copied for every reply** (the chat pass's
+//: long-chat measure, `chataudit.js` part `long`: a 150-turn chat opened in
+//: 939ms when every reply built its own emblem, 410 to 441ms once they were
+//: copied). The first reply of a key draws; every later one is a deep copy
+//: of that drawing's nodes, which costs no layout of its own and no p5.
+//: Keyed on what the drawing depends on: who, the size, Atlas's look and
+//: style (a change of look redraws the heads already on the page through
+//: `atlasRepaint`, and the new key draws the next reply in the new look).
+//: A face under 28px never moves (`watchNameMark`), so a copy needs no
+//: observer of its own.
+const chatHeadSources = new Map();
+
+function chatHeadIsAtlas(name) {
+  const who = String(name || "").trim().toLowerCase();
+  return !who || who === String(aiNameNow()).toLowerCase() || who === "atlas";
+}
+
+function chatHeadKey(name, size) {
+  const atlas = chatHeadIsAtlas(name);
+  const look = atlas && typeof atlasLook === "function" ? atlasLook() : "";
+  const style = atlas && typeof atlasStyle === "function" ? atlasStyle() : "";
+  return `${atlas ? "atlas" : `p:${name}`}|${size}|${look}|${style}`;
+}
+
 function paintPersonaAvatar(holder, persona, size = 20) {
   const name = personaDisplayName(persona);
-  if (name === aiNameNow()) paintChatEmblem(holder, size);
-  else fillPersonaMark(holder, name, size);
-}
-
-//: **One p5 sketch for the whole transcript, copied into every reply.**
-//: (the 2026-09-26 chat pass, `scratchpad/ui-sweeps/chataudit.js`, part
-//: `long`.) Opening a saved chat of 150 turns took 939ms, and 763ms of it was
-//: this label's emblem: `renderEmblem` builds a p5 instance per call (a
-//: canvas, a setup, a draw, an observer), about 5ms each, for a mark that is
-//: the same pixels in every bubble, since every emblem shares one seed and
-//: one accent. So the first reply's canvas is drawn by p5 as before and every
-//: later one is a copy of its pixels: same size, same classes (so the same
-//: CSS turn), paused off screen by one shared observer instead of one each.
-//: Keyed on what the drawing depends on, so a new accent or the motion
-//: switch draws afresh rather than copying a stale mark.
-const chatEmblemSource = { key: "", canvas: null };
-let chatEmblemObserver = null;
-
-function chatEmblemKey(size) {
-  const accent = typeof currentAccentHex === "function" ? currentAccentHex() : "";
-  return `${size}|${accent}|${appearancePref("motion")}`;
-}
-
-function paintChatEmblem(holder, size) {
-  const key = chatEmblemKey(size);
-  const source = chatEmblemSource.key === key ? chatEmblemSource.canvas : null;
-  if (!source) {
-    //: **Waiting for p5 comes back here, not to `renderEmblem`.** p5 is
-    //: fetched when the page is idle, and `renderEmblem`'s own wait calls
-    //: itself again, so a chat opened before it arrived started one sketch
-    //: per reply once it did: 40 for a 40-turn chat (the review,
-    //: 2026-09-27, `emblemcold.js` with p5 held back). Back through here,
-    //: the first reply to wake draws and every later one copies it.
-    if (typeof p5 === "undefined") {
-      ensureP5().then((ok) => {
-        if (ok && holder.isConnected) paintChatEmblem(holder, size);
-      });
-      return;
-    }
-    renderEmblem(holder, size, { animate: true });
-    //: p5 draws in its constructor, so the canvas is there to copy.
-    const drawn = holder.querySelector("canvas");
-    if (drawn) Object.assign(chatEmblemSource, { key, canvas: drawn });
+  const key = chatHeadKey(name, size);
+  const source = chatHeadSources.get(key);
+  if (source) {
+    holder.replaceChildren(source.cloneNode(true));
     return;
   }
-  const copy = document.createElement("canvas");
-  copy.width = source.width;
-  copy.height = source.height;
-  copy.style.width = source.style.width;
-  copy.style.height = source.style.height;
-  copy.className = source.className;
-  copy.classList.remove("is-paused");
-  copy.getContext("2d").drawImage(source, 0, 0);
-  holder.replaceChildren(copy);
-  if (copy.classList.contains("emblem-spin") && typeof IntersectionObserver !== "undefined") {
-    chatEmblemObserver ||= new IntersectionObserver((entries) => {
-      for (const entry of entries) entry.target.classList.toggle("is-paused", !entry.isIntersecting);
-    });
-    chatEmblemObserver.observe(copy);
+  //: Nothing to draw a face with yet (the faces script failing to load):
+  //: the persona's own fallback, never an empty box.
+  if (typeof nameMark !== "function" || (chatHeadIsAtlas(name) && typeof atlasAvatar !== "function")) {
+    fillPersonaMark(holder, name, size);
+    return;
   }
+  //: Atlas's own face at the size it is drawn at: under 28px that is its
+  //: face icon (`atlasDraw`'s tiny level: head, ears, eyes, 58 nodes), the
+  //: same Atlas the bust shows larger. The bust itself at 20px drew the
+  //: whole figure to crop it, 218 nodes a reply: 32,700 nodes in a 150-turn
+  //: chat, and the first paint went from 580 to 981ms (chatheads.js).
+  const face = chatHeadIsAtlas(name) ? (size >= 28 ? atlasAvatar(size, "calm") : atlasDraw(size, "calm")) : nameMark(name, size);
+  chatHeadSources.set(key, face);
+  holder.replaceChildren(face.cloneNode(true));
 }
 
 // An assistant bubble: an avatar, the step timeline, and a matching-records slot.

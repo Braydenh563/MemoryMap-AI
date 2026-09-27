@@ -647,7 +647,9 @@ async function renderDashStats() {
   const tiles = [
     // Both of these are counts of notes, so they belong on the list that
     // shows them: not on whichever Notes sub-tab happened to be open last.
-    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: "notes",
+    //: One of each reads in the singular ("1 note", "1 reminder"): the tile
+    //: said "1 reminders" (the devibe pass, a 1440 dark still).
+    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: stats && stats.total_entries === 1 ? "note" : "notes",
       title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
     { icon: "ph:calendar", value: stats ? thisWeek : unknown, label: "this week",
@@ -660,7 +662,7 @@ async function renderDashStats() {
     {
       icon: due ? "ph:alarm" : "ph:check-circle",
       value: reminders ? due || open.length : unknown,
-      label: due ? "due now" : "reminders",
+      label: due ? "due now" : reminders && open.length === 1 ? "reminder" : "reminders",
       title: reminders ? "" : why,
       go: () => switchTab("reminders"),
       alert: Boolean(due),

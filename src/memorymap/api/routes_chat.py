@@ -190,6 +190,21 @@ STARTER_SUGGESTIONS = [
 ]
 
 
+def _about(name: str) -> str:
+    """A category name as the object of "What have I saved about ...?".
+
+    Lower-cased word by word as a noun in running text ("Travel plans" to
+    "travel plans"), but a word with capitals inside it is a name and keeps
+    them ("MemoryMap"), and a category already named "About X" gives "X":
+    the seeded notebook's "About MemoryMap" came out as "What have I saved
+    about about memorymap?" (the devibe pass, a 1440 still of the empty chat).
+    """
+    words = name.split()
+    if len(words) > 1 and words[0].lower() == "about":
+        words = words[1:]
+    return " ".join(w if any(c.isupper() for c in w[1:]) else w.lower() for w in words)
+
+
 @router.get("/suggestions", response_model=list[str])
 def suggestions(session: Session = Depends(get_session)) -> list[str]:
     """Recommended questions: content-aware ones built from the user's own
@@ -212,13 +227,13 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     # offered them. The rest are reserves, reached only when one of the four is
     # dropped for being in "Ask again" already, so the row keeps its length
     # instead of losing a chip to the row below it.
-    candidates = [f"What have I saved about {name.lower()}?" for name in categories[:2]]
+    candidates = [f"What have I saved about {_about(name)}?" for name in categories[:2]]
     # "my notes in General", not "my general": a category is a filing place,
     # and read as a noun after "my" it made starters like "Summarise my
     # general." on the seeded notebook.
     candidates.append(f"Summarise my notes in {categories[0]}.")
     candidates.append("What have I saved recently?")
-    candidates += [f"What have I saved about {name.lower()}?" for name in categories[2:6]]
+    candidates += [f"What have I saved about {_about(name)}?" for name in categories[2:6]]
     candidates += [f"Summarise my notes in {name}." for name in categories[1:3]]
     candidates.append("What are my most common topics?")
     return _fill(candidates, asked)

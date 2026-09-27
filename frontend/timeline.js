@@ -833,7 +833,10 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
   const count = document.createElement("span");
   count.className = "muted timeline-bucket-count";
   count.textContent = `${bucket.rows.length}`;
-  head.append(label, count);
+  //: An empty bucket says so in words under its head ("Nothing written today
+  //: yet."), so a lone "0" beside its button says it twice.
+  if (bucket.rows.length) head.append(label, count);
+  else head.append(label);
   //: **The action is on the day, and only when the day has none.** A "start
   //: today's note" button beside a today that already has one is a second way
   //: to make the same thing, and the second one would make a note whose first

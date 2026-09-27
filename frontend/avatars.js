@@ -913,6 +913,53 @@ const NAME_MARK_FACES = {
   greedy: { eyes: "dollar", mouth: "grin", extras: ["spark"] },
 };
 
+//: **Each character's own way of wearing a mood** (round 7, INBOX 430,
+//: the owner: "generated faces vary expression slightly per character").
+//: Every face in one mood drew the same eyes, brows and mouth, so a room of
+//: happy characters smiled one smile. Now, per mood, a few near neighbours
+//: of each part, and each character favours one of them for good (its
+//: seed and the mood choose, `nameMarkLean`): one is happy with a cat's
+//: mouth and content eyes, another with a grin and sparkling ones. The
+//: first of each list is the table's own; `null` keeps the face's own.
+//: Only the parts listed vary; the extras (a tear, a "zz") stay the mood's.
+const NAME_MARK_FACE_LEANS = {
+  happy: { eyes: ["happy", "content", "sparkle"], mouth: ["smile", "cat", "grin"], brows: [null, null, "raised"] },
+  excited: { eyes: ["sparkle", "star", "wide"], mouth: ["grin", "toothy"] },
+  sad: { eyes: ["glossy", "halflid"], mouth: ["frown", "wavy"] },
+  angry: { eyes: ["narrow", "halflid"], mouth: ["frown", "teeth", "flat"] },
+  surprised: { eyes: ["wide", "round"], mouth: ["o", "gasp"], brows: ["raised", "dramatic"] },
+  sleepy: { eyes: ["closed", "halflid"], mouth: ["yawn", "o"] },
+  nervous: { eyes: ["dot", "wide"], mouth: ["wavy", "flat"], brows: ["sad", "raised"] },
+  sly: { eyes: ["narrow", "halflid"], mouth: ["smirk", "lopsided"], brows: ["sly", "flat"] },
+  calm: { eyes: ["content", "round", "happy"], mouth: ["smile", "cat"] },
+  serious: { eyes: ["dot", "narrow"], brows: ["flat", "angry"] },
+  confused: { mouth: ["wavy", "o", "lopsided"] },
+  love: { eyes: ["heart", "happy"], mouth: ["smile", "cat"] },
+  laughing: { eyes: ["squeeze", "happy"], mouth: ["grin", "toothy"] },
+  unimpressed: { eyes: ["halflid", "dot"], mouth: ["flat", "smirk"] },
+  cute: { eyes: ["sparkle", "happy"], mouth: ["cat", "smile"] },
+};
+//: The face for `mood` as the character with hash `lean` wears it: the
+//: mood's own, with each listed part swapped for the one this character
+//: favours. The pick mixes the name's hash with the mood's and the part's
+//: names (FNV-1a), so a character's choices for one mood say nothing of
+//: its choices for another, and the colour rolls are untouched.
+function nameMarkLean(face, mood, lean) {
+  const options = NAME_MARK_FACE_LEANS[mood];
+  if (!options || !face) return face;
+  const out = { ...face };
+  for (const [part, list] of Object.entries(options)) {
+    let h = lean >>> 0;
+    for (const ch of `${mood}:${part}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x2c1b3c6d) >>> 0;
+    h ^= h >>> 12;
+    const pick = list[h % list.length];
+    if (pick) out[part] = pick;
+  }
+  return out;
+}
+
 //: The creatures a name can ask for. `head` fixes the head's colour where
 //: the animal has one (a panda is white, a fox is orange); the others keep
 //: the name's own colour pair, so two cats still differ.
@@ -1698,6 +1745,8 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   h ^= h >>> 13;
   h = Math.imul(h, 0xc2b2ae35) >>> 0;
   h = (h ^ (h >>> 16)) >>> 0 || 1;
+  //: Taken before the rolls, so the face's leanings never move a colour.
+  const lean = h;
   const rnd = () => {
     h ^= h << 13;
     h >>>= 0;
@@ -1728,7 +1777,8 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   //: The companion's passing expression (`nameMarkBuddyExpress`) is its
   //: face only: the colours stay the ones its name gave it.
   const expr = full && nameCharacterExpression && NAME_MARK_FACES[nameCharacterExpression] ? nameCharacterExpression : "";
-  const face = expr ? NAME_MARK_FACES[expr] : reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
+  const faceMood = expr || reading.mood || "";
+  const face = nameMarkLean(expr ? NAME_MARK_FACES[expr] : reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {}, faceMood, lean);
   const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
   const colourRoll = rnd();
   const pair = NM_CHAR_PAIRS[bias ? bias[Math.floor(colourRoll * bias.length)] : Math.floor(colourRoll * NM_CHAR_PAIRS.length)];

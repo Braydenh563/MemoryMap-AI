@@ -730,3 +730,33 @@ def test_no_rude_gesture_and_every_named_gesture_is_drawn() -> None:
     lexicon = lexicon[: lexicon.index("  },")]
     for key in re.findall(r"^\s+(\w+): \"", lexicon, re.M):
         assert key in drawn, f"{key} can be read from a name but has no drawing"
+
+
+def test_each_character_wears_a_mood_its_own_way(tmp_path: Path) -> None:
+    # Round 7 (INBOX 430): "generated faces vary expression slightly per
+    # character". Per mood each character favours its own eyes, brows and
+    # mouth from a few near neighbours; the same character always the same.
+    node = shutil.which("node")
+    if not node:  # pragma: no cover
+        pytest.skip("node is not available")
+    start = APP.index("const NAME_MARK_FACES = {")
+    end = APP.index("\n}\n", APP.index("function nameMarkLean(")) + 3
+    script = tmp_path / "lean.js"
+    script.write_text(
+        APP[start:end]
+        + "\nconst out = {};"
+        + "\nfor (const mood of ['happy', 'sad', 'calm', 'surprised']) {"
+        + "\n  const seen = new Set();"
+        + "\n  for (let h = 1; h < 4000000000; h += 97531357) seen.add(JSON.stringify(nameMarkLean(NAME_MARK_FACES[mood], mood, h)));"
+        + "\n  out[mood] = { n: seen.size, same: JSON.stringify(nameMarkLean(NAME_MARK_FACES[mood], mood, 12345)) === JSON.stringify(nameMarkLean(NAME_MARK_FACES[mood], mood, 12345)) };"
+        + "\n}"
+        + "\nout.untouched = JSON.stringify(nameMarkLean(NAME_MARK_FACES.dead, 'dead', 7)) === JSON.stringify(NAME_MARK_FACES.dead);"
+        + "\nconsole.log(JSON.stringify(out));\n",
+        encoding="utf-8",
+    )
+    out = json.loads(subprocess.run([node, str(script)], capture_output=True, text=True, check=True).stdout)
+    for mood in ("happy", "sad", "calm", "surprised"):
+        assert out[mood]["n"] >= 3, (mood, out[mood])
+        assert out[mood]["same"]
+    # A mood with no leanings is drawn as the table has it.
+    assert out["untouched"]

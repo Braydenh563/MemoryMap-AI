@@ -48,6 +48,19 @@ const SIZES = (process.env.SIZES || '1440x900,1440x600').split(',');
             nameMarkBuddyMoveTo(document.getElementById('nm-buddy'), { kind: 'air', pose: 'float', x: 4, y: innerHeight - 130 }, true);
             return true;
           }),
+          //: INBOX 430 (the owner's screenshot: the menu at the window's top
+          //: left, the companion at the bottom right on the Dashboard).
+          'bottom right': () => page.evaluate(() => {
+            nameMarkBuddyMoveTo(document.getElementById('nm-buddy'), { kind: 'air', pose: 'float', x: innerWidth - 80, y: innerHeight - 130 }, true);
+            return true;
+          }),
+          //: Where it goes by itself since round 7 (a panel of the page, which
+          //: it rides): placed by its own choice, then the page scrolled.
+          'its own perch, page scrolled': async () => {
+            await page.evaluate(() => { localStorage.removeItem('nm-buddy-spots'); nmb.placeTimer = 0; nmb.placedAt = 0; placeNameMarkBuddy(document.getElementById('nm-buddy'), true); });
+            await page.waitForTimeout(1500);
+            return page.evaluate(() => { const pg = document.getElementById('tab-dashboard'); pg.scrollTop += 120; return true; });
+          },
           'riding a low panel, scrolled': () => page.evaluate(() => {
             const pg = document.getElementById('tab-dashboard');
             pg.scrollTop = pg.scrollHeight;
@@ -108,6 +121,7 @@ const SIZES = (process.env.SIZES || '1440x900,1440x600').split(',');
       }
     }
   }
+  for (const f of fails) console.log('  miss: ' + f);
   console.log(`${count} menus opened, ${fails.length ? `FAIL ${fails.length}` : 'PASS'}`);
   process.exitCode = fails.length ? 1 : 0;
 })();

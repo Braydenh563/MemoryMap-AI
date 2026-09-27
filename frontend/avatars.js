@@ -5854,14 +5854,14 @@ function nameMarkBuddyMenu(buddy, at = null) {
   const tab = nameMarkBuddyTab();
   const spots = nameMarkBuddySpots();
   const items = [
-    { label: "ph:hand-waving Say hello", run: () => face.click() },
-    { label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
+    { group: "say", label: "ph:hand-waving Say hello", run: () => face.click() },
+    { group: "say", label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
     //: **Pinned means pinned** (INBOX 426 l, the owner: "when I press the
     //: option to stay in the same spot across pages ... it still moves"):
     //: the place on screen and the pose are kept, and nothing but you moves
     //: it again (no perch, no errand, no beat) until you drag it or call it
     //: back.
-    { label: "ph:push-pin Stay here on every page", run: () => {
+    { group: "place", label: "ph:push-pin Stay here on every page", run: () => {
       //: Where it is drawn now: mid-walk, `nmb.x` is where it was going,
       //: and pinning there made it jump at the moment it was told to stay.
       const box = buddy.getBoundingClientRect();
@@ -5874,19 +5874,67 @@ function nameMarkBuddyMenu(buddy, at = null) {
     } },
   ];
   if (spots[tab]) {
-    items.push({ label: "ph:sparkle Let it choose its spot here", run: () => {
+    items.push({ group: "place", label: "ph:sparkle Let it choose its spot here", run: () => {
       const next = { ...spots };
       delete next[tab];
       nameMarkBuddyKeepSpots(next);
       placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
     } });
   }
-  items.push({ label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
-  const size = nmb.scale || 1;
-  for (const [name, value] of Object.entries(NMB_SIZES)) {
-    const label = `${name[0].toUpperCase()}${name.slice(1)}`;
-    items.push({ group: "size", label: `${size === value ? "ph:check" : "ph:dot-outline"} ${label}`, title: `Make it ${name}`, run: () => nameMarkBuddySetSize(value) });
+  items.push({ group: "place", label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
+  //: **Who it is, how Atlas looks, its size, and the settings behind them,
+  //: one flyout each** (the owner: "extend this menu a bit maybe with
+  //: sub-sections if necessary, for things such as a quick link to the
+  //: profile/personas/appearences tab, toggling various features such as
+  //: masculine/feminine, which companion is displayed etc."). Submenus
+  //: (`items`, the kebab recipe's flyout) so the menu stays eight rows; the
+  //: current choice in each is ticked. Each choice goes through its own
+  //: Appearance control's change, so the menu and Settings cannot disagree.
+  const tick = (on, label) => `${on ? "ph:check" : "ph:dot-outline"} ${label}`;
+  const choose = (id, value) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  let who = "off";
+  try {
+    who = localStorage.getItem("avatar-buddy") || "off";
+  } catch (e) {
+    who = "off";
   }
+  items.push({
+    group: "who",
+    label: "ph:user-switch Companion",
+    items: [["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
+      .map(([value, label]) => ({ label: tick(who === value, label), run: () => choose("avatar-buddy", value) })),
+  });
+  const look = document.getElementById("atlas-look")?.value || "auto";
+  items.push({
+    group: "who",
+    label: "ph:star-four Atlas look",
+    items: [["masculine", "Masculine"], ["feminine", "Feminine"], ["auto", "Auto: match your faces"]]
+      .map(([value, label]) => ({ label: tick(look === value, label), run: () => choose("atlas-look", value) })),
+  });
+  const size = nmb.scale || 1;
+  items.push({
+    group: "who",
+    label: "ph:resize Size",
+    items: Object.entries(NMB_SIZES).map(([name, value]) => ({
+      label: tick(size === value, `${name[0].toUpperCase()}${name.slice(1)}`),
+      title: `Make it ${name}`,
+      run: () => nameMarkBuddySetSize(value),
+    })),
+  });
+  items.push({
+    group: "settings",
+    label: "ph:gear Settings",
+    items: [
+      { label: "ph:palette Appearance, the companion", run: () => openSettingsModal("appearance", "avatar-buddy-row") },
+      { label: "ph:user-circle Profile, your look", run: () => openSettingsModal("preferences") },
+      { label: "ph:mask-happy Personas", run: () => openSettingsModal("personas") },
+    ],
+  });
   items.push({ group: "hide", label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
   const box = face.getBoundingClientRect();
   openMenuAtPoint(items, "Companion", at ? at[0] : box.left, at ? at[1] : box.top);

@@ -281,7 +281,7 @@ def test_light_and_dark_and_its_size() -> None:
     assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
     assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
     assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
-    assert 'group: "size"' in _fn("nameMarkBuddyMenu")
+    assert 'label: "ph:resize Size",' in _fn("nameMarkBuddyMenu")  # a flyout since round 7
     assert 'id="avatar-buddy-size"' in HTML
     assert '"avatar-buddy-size"' in SETTINGS
     assert "#nm-buddy .nm-buddy-face {\n  scale: var(--nmb-scale);\n  transform-origin: 50% var(--nmb-edge);" in CSS08
@@ -537,6 +537,22 @@ def test_it_perches_on_the_pages_panels_first_on_every_tab():
     assert "child.checkVisibility({ opacityProperty: true, visibilityProperty: true })" in AV
     assert "child.matches(\"textarea, input, select, [contenteditable='true'], .cm-editor\")" in AV
     assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV
+
+
+def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
+    # The owner: "extend this menu a bit maybe with sub-sections ... a quick
+    # link to the profile/personas/appearences tab, toggling ... masculine/
+    # feminine, which companion is displayed". Submenus are the kebab
+    # recipe's own (`items` on a row, `buildMenuGroupButton`), and each choice
+    # goes through the Appearance control it mirrors.
+    kebab = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+    assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
+    menu = _fn("nameMarkBuddyMenu")
+    for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
+        assert f'label: "{row}",\n    items:' in menu, row
+    assert 'choose("avatar-buddy", value)' in menu and 'choose("atlas-look", value)' in menu
+    for target in ('openSettingsModal("appearance", "avatar-buddy-row")', 'openSettingsModal("preferences")', 'openSettingsModal("personas")'):
+        assert target in menu
 
 
 def test_it_sets_off_and_lands_and_eases_between_poses():

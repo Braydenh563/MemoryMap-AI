@@ -173,3 +173,27 @@ Sweep `richpicker.js` (1440 and 390, light and dark); shots in
   `test_ui_recipes.py` holds those three hand-built `role="option"` lists.
 - **Not verified:** a screen reader on the palette's
   `aria-activedescendant` (now on the input); the desktop window (WebView2).
+
+## INBOX 430, phone, tablet and graph, 2026-09-27
+
+Built, each with its sweep (touch on, 390x844, 768x1024, 1024x768):
+`topbarshape.js` (tabs centred), `phonebottom.js` (runs into More, the
+status bar meets the tab bar), `contentsphone.js`, `lightboxphone.js`,
+`wbtouchpan.js`, `graphfitphone.js` (shape, arc, radial, tree root, the
+controls clear of New note), `graphsize.js` (View > Size), `docphone.js`
+(the Documents editor). The note box's `[[` is the editor menu at the
+caret (`richpicker.js`).
+
+- **Not reproduced: the layout flicker in devtools' responsive mode.**
+  `layoutflicker.js` (10 samples over 5s at the three sizes, touch on, at
+  DSF 1 and 3) and `flickerscan.js` (18 widths, 600 to 1280, touch on and
+  off, real scrollbars) found every width still. Nothing in the app reads
+  `outerWidth` or `screen.width`, the two numbers devtools' device mode
+  makes disagree with the viewport. Needs the owner's width, zoom and
+  device preset to reproduce.
+- **Not verified:** a real phone or tablet (every touch here is CDP's);
+  the thumb bar above a real on-screen keyboard; WebView2.
+- **Open:** the Documents dock on a tablet is still two rows at 1024 (its
+  identity asks for 22rem beside the actions); the arc of a 430-note
+  notebook framed whole is a line of dots until zoomed.
+

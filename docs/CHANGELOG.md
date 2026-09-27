@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The graph's View menu has a Size rule: connections (the default), length, recency or none.
+- On a phone the graph takes the screen's shape: a portrait force layout, the arc running down the screen, the radial and the arc framed whole, and a tall tree framed on its root.
 - The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
 - `POST /links/clip`, the web clipper's backend: a page you choose is fetched once (only while web search is allowed in Settings, and never from an address on this computer or your network, redirects included), reduced to its title, its address and its main text, and kept as a note that search finds by its words. The bookmarklet and its Settings row are not built yet.
 - Two notes with the same title in a note's connections (the Connections sheet and the Notes column) can be told apart: each row carries a quiet second cue, the category, or the date written, or the time, whichever separates them. The Connections column also steps aside for the note's sheet when a wide categories sidebar would leave the notes list narrower than 600px, and comes back when there is room.
@@ -32,6 +34,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The top bar's tabs are centred at every width that holds them, not left beside the space switcher.
+- On a phone: the agent's runs are a badge and a row in More instead of a second bar; the status bar meets the tab bar at the end of a page; Library Contents rows fit the card; the lightbox's menu opens on top of it (the page reader was one of its rows) and its actions are one row; one finger on bare canvas pans a board with Select; the graph's legend and zoom stand clear of New note; the Documents editor gives the page most of the screen, and its formatting bar sits above the tab bar instead of over it and is gone while reading.
 - The note box's `[[` link list opens at the line being written, in the same panel as the "/" menu, instead of under the whole box, and answers its keys: with the note editor loaded the arrows used to move the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
 - Each chat reply shows the face of the persona that answered it: Atlas's own face for Atlas (the default), the persona's face for any other, instead of the app's logo; a 150-turn chat still opens as fast (faster: 346 to 449ms before, 187 to 225ms after) because each face is drawn once and copied.
 - In Atlas's large view the nebula drifts and the feminine look's skirt sways, as they do in the corner companion.

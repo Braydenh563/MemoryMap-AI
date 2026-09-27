@@ -5767,3 +5767,13 @@ input.doc-title-input::placeholder {
   outline: 2px dashed var(--accent);
   outline-offset: -2px;
 }
+
+/* A help answer's entry title ("Skills") drew as a tiny heading under the
+   body text (reported at release): headings in help prose take the panel
+   heading size, not the browser's shrinking h4 to h6 defaults. */
+.help-chat-prose :is(h1, h2, h3, h4, h5, h6) {
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 var(--space-2);
+}

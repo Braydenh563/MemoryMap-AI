@@ -67,6 +67,32 @@ written.
 - [ ] Wire the Atlas hooks: `data-lean`, `data-atlas-variant`, `data-pose`
   lie-1, lie-2, lie, curl-1, curl.
 - [ ] Deferred unless small: an arm rig that can cross in front of the body.
+- [ ] The owner, high priority: "when atlas is sleeping and i click it, it
+  opens its eyes and mouth for a sec like it is startled but then falls
+  back asleep a second later making it feel like the sleep is fake. it
+  needs ot be a gradual fall back asleep. maybe a pout or getting a
+  temporarily a little mad if it happens multiple times consecutively or in
+  a short time span etc. make sure that random sudden movements dont happen
+  too frequently or randomly. it cant be distracting for the user". A click
+  asleep wakes it gradually (slow lids, a yawn, a stretch), awake at least
+  20 to 30s, drowsiness back over time before sleep over several seconds;
+  repeated clicks go sleepy-annoyed (pout, huff), then grumpy, then decay;
+  no instant revert. A calm budget: at most one attention-grabbing act
+  every 60 to 90s, never while typing or scrolling nearby. Tests: the state
+  transitions and the rate cap.
+- [ ] The owner: "the companion was sleeping but then when I clicked a
+  different tab, for a split second I saw it shoot back up look alive
+  suddenly and look surprised". Sleep persists across moves: carried asleep
+  (fades or poofs, arrives lying or curled) or woken gradually before a
+  walk; no reset to an awake or surprised pose on reposition, remount or
+  tab change. Test: sleep plus a tab switch never shows an awake frame.
+- [ ] The owner: "the companion gets frozen in its animation and with the
+  exact same half lidded half mouth open expression every time when I hold
+  down ctrl". Holding Ctrl keeps its live face and animation.
+- [ ] The owner, again: Atlas sat over the Weekly digest paragraph, and
+  scrolled, looked perched on the status bar. Top edges only, never inside
+  a card's content below its heading; every settle validated against text
+  rects; on scroll it stays on its edge or hops to a valid one.
 
 ## App (Sonnet)
 

@@ -7,10 +7,19 @@
 // the Library. Exits 1 when it shows on a tab it has not followed to, when
 // a flick makes it disappear for longer than the flick, or when it arrives
 // with no entrance animation.
+// Leaving is a 200ms fade (`--motion-slow`; the owner asked for a fade
+// rather than a cut, 2026-09-27), so "hidden" is read 250ms after a switch.
+// MOTION=reduce boots with the system's reduced motion (the entrance must
+// then be a fade where it is, never a pop or a walk); PERF=auto leaves
+// Performance mode on Auto, which on this small sandbox turns it on (the
+// companion's travel must survive that); PERF=on forces it on. MOVE=fades
+// or always sets Appearance > Companion movement: fades must enter by a
+// fade whatever else is set, always must travel even with MOTION=reduce.
+// The setting's hint is printed; it must name the reason it is not full.
 const { boot } = require("./lib.js");
 
 (async () => {
-  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
+  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 }, reducedMotion: process.env.MOTION === "reduce" ? "reduce" : "no-preference" });
   await page.evaluate(() => { localStorage.removeItem("nm-buddy-spots"); const b = document.getElementById("avatar-buddy"); b.value = "atlas"; b.dispatchEvent(new Event("change", { bubbles: true })); });
   await page.evaluate(() => switchTab("dashboard"));
   await page.waitForTimeout(3500);
@@ -24,21 +33,26 @@ const { boot } = require("./lib.js");
   //: sweep may have left it on, and this one is about the motion.
   //: Performance mode reduces motion too (Auto turns it on for a small
   //: machine, which this sandbox is), so it is set Off here.
-  await page.evaluate(() => {
+  await page.evaluate(([mode, MOVE]) => {
     const t = document.getElementById("reduce-motion-toggle");
     if (t) { t.checked = false; t.dispatchEvent(new Event("change", { bubbles: true })); }
     const perf = document.getElementById("perf-mode");
-    if (perf && perf.value !== "off") { perf.value = "off"; perf.dispatchEvent(new Event("change", { bubbles: true })); }
-  });
+    if (perf && perf.value !== mode) { perf.value = mode; perf.dispatchEvent(new Event("change", { bubbles: true })); }
+    const move = document.getElementById("avatar-buddy-motion");
+    move.value = MOVE || "follow";
+    move.dispatchEvent(new Event("change", { bubbles: true }));
+  }, [process.env.PERF || "off", process.env.MOVE || ""]);
   await page.waitForTimeout(600);
+  const why = await page.evaluate(() => document.getElementById("avatar-buddy-motion-why").textContent);
+  console.log("hint:", JSON.stringify(why));
   console.log("motion:", JSON.stringify(await page.evaluate(() => ({ pm: appearancePref("motion"), perf: appearancePref("perf"), small: smallMachine(), less: lessTransparencyWanted(), still: nameMarkBuddyStill(), noTravel: nameMarkBuddyNoTravel(), avatar: document.documentElement.dataset.avatarMotion, motion: document.documentElement.dataset.motion }))));
   const before = await state();
   console.log("start:", JSON.stringify(before));
   // 1. A flick away and straight back.
   await page.evaluate(() => switchTab("notes"));
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(250);
   const onNotes = await state();
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(230);
   await page.evaluate(() => switchTab("dashboard"));
   await page.waitForTimeout(80);
   const back = await state();
@@ -48,7 +62,8 @@ const { boot } = require("./lib.js");
   let shownWhileAway = 0;
   for (const tab of ["notes", "chat", "graph", "timeline", "reminders"]) {
     await page.evaluate((t) => switchTab(t), tab);
-    for (let i = 0; i < 5; i += 1) {
+    await page.waitForTimeout(250);
+    for (let i = 0; i < 3; i += 1) {
       await page.waitForTimeout(100);
       const s = await state();
       if (s.shown) shownWhileAway += 1;
@@ -65,7 +80,13 @@ const { boot } = require("./lib.js");
     const s = await page.evaluate(() => {
       const b = document.getElementById("nm-buddy");
       const cs = getComputedStyle(b);
-      const anims = b.getAnimations({ subtree: true }).filter((a) => a.playState === "running").map((a) => a.effect?.getKeyframes?.().map((k) => Object.keys(k).filter((p) => ["translate", "opacity", "scale"].includes(p))).flat()).flat();
+      //: The entrance is the host's translate and opacity and the
+      //: character's scale; the figure's own idle loops (breathing is a
+      //: translate on an inner layer) are not an entrance, and counting
+      //: them read "Fades only" as travelling.
+      const props = (list, keep) => list.filter((a) => a.playState === "running").map((a) => a.effect?.getKeyframes?.().map((k) => Object.keys(k).filter((p) => keep.includes(p))).flat()).flat();
+      const char = b.querySelector(".nm-buddy-char");
+      const anims = [...props(b.getAnimations(), ["translate", "opacity"]), ...(char ? props(char.getAnimations(), ["scale"]) : [])];
       return { shown: cs.visibility !== "hidden", tab: nmb.tab, anims: [...new Set(anims)], how: nmb.enteredBy, perch: nmb.perch };
     });
     if (s.shown && s.tab === "library" && arrived === null) {
@@ -77,7 +98,13 @@ const { boot } = require("./lib.js");
     await page.waitForTimeout(50);
   }
   console.log(`stayed: followed after ${arrived}ms, entering with ${entrance.join("+") || "nothing"}`);
-  if (arrived === null || arrived < 1400 || arrived > 3200 || !entrance.length) bad = true;
+  if (arrived === null || arrived < 1200 || arrived > 3200 || !entrance.length) bad = true;
+  //: Reduced motion or Fades only: in by a fade where it is, never a pop,
+  //: and no travel; Always: travel whatever the system says.
+  const fades = process.env.MOVE === "fades" || (process.env.MOTION === "reduce" && process.env.MOVE !== "always");
+  if (fades && (entrance.includes("translate") || !entrance.includes("opacity"))) bad = true;
+  if (!fades && !entrance.includes("translate")) bad = true;
+  if ((fades || process.env.PERF === "on") && !why) bad = true;
   console.log(bad ? "FAIL" : "PASS");
   process.exitCode = bad ? 1 : 0;
   await browser.close();

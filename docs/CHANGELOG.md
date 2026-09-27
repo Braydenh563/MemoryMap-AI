@@ -84,6 +84,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Agent turns no longer fail on Windows with "Invalid format string" (the week line used a Linux-only date flag); a lint now refuses such flags.
+- The image viewer loads on its first open instead of at startup, taking about 30 KB off the cold load.
 - Dashboard: right-click (or hold) the mark to switch it between the app's logo, Atlas, your face and the greeting's persona; a face in the mark stays inside its circle while it reacts to a click.
 - Settings, Tools it can use: each switch now sits level with its tool's name at any text size.
 - Appearance, Dashboard mark: Atlas is a choice beside the logo, your face and the greeting persona.

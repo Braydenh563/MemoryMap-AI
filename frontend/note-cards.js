@@ -1037,11 +1037,18 @@ function mapBoardRows() {
 //: at worst, never an overflow.
 const LINK_CHIP_CHARS = 48;
 
-// How much of a note the list shows before clamping it. Roughly ten lines at
-// a comfortable reading width, long enough that a normal note is never
-// clipped, short enough that one essay can't take the whole screen.
-const LONG_NOTE_CHARS = 500;
-const LONG_NOTE_LINES = 10;
+// How much of a note the list shows before clamping it. Lowered from 500/10,
+// then again from 220/4 (the owner, 1093x614: "at least 4 note cards must
+// be above the fold" with realistic 3-5 line notes carrying tags and links;
+// measured, scratchpad/ui-sweeps/notesdensity.js: six such notes at 500/10
+// rendered unclamped, 184-283px each, 1 fully above the fold; at 220/4,
+// clamped to four lines, 214px each, still only 1). A note list is an index
+// you scan to find one, not the place you read it in full, so the preview
+// only needs enough to recognise which note it is; opening the note is one
+// click away. Two lines plus "Show more" keeps that recognisable while
+// giving the list room for more of them.
+const LONG_NOTE_CHARS = 70;
+const LONG_NOTE_LINES = 1;
 // Which notes the user has opened out, for this session. Not persisted: it is
 // a reading position, not a preference.
 const expandedNotes = new Set();

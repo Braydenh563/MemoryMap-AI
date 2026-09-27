@@ -42,3 +42,29 @@ def test_a_computed_colour_becomes_plain_srgb() -> None:
     body = _body("wbExportColour")
     assert "color\\(srgb" in body, "a color-mix() surface computes to color(srgb ...), parsed here"
     assert "getImageData" in body, "anything else goes through a canvas pixel"
+
+
+def test_the_background_rect_reads_the_chosen_board_colour() -> None:
+    """Coordinator ask: "the export (PNG/SVG) [uses] that background colour
+    or a chosen one." Verified live in Chromium (a mind map, its background
+    set to #112233 through the View menu's picker): the exported SVG's own
+    background `<rect>` came back `fill="rgb(17, 34, 51)"`, the exact colour,
+    because it reads the *computed* style of `#whiteboard-container`, which
+    is where the picker's `--wb-board-bg` custom property lands. Kept here so
+    a rewrite of the builder cannot go back to a hard-coded background."""
+    body = _body("wbBuildExportSvg")
+    assert "getComputedStyle(container).backgroundColor" in body
+    assert re.search(r'fill="\$\{bgColor\}"', body), "the background rect must paint bgColor, not a constant"
+
+
+def test_a_nodes_own_colour_survives_into_its_branch_and_export() -> None:
+    """The map strip's colour well (`#wb-map-strip-color`) writes
+    `node.data.color`; the export paints a node's branch bar straight from
+    it. Verified live: picking #ff3366 on a topic wrote `node.data.color`
+    and the exported SVG carried a `fill="#ff3366"` rect for that node's
+    branch bar."""
+    wiring = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("frontend/*.js")))
+    start = wiring.index('$("wb-map-strip-color")?.addEventListener("change"')
+    strip_change = wiring[start : start + 600]
+    assert "node.data = { ...node.data, color: e.target.value }" in strip_change
+    assert "wbSaveObject(node)" in strip_change

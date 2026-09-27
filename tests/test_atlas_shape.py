@@ -68,20 +68,31 @@ def test_the_arms_grow_from_inside_the_chest_and_end_in_a_mitten():
     assert tips == sorted(tips, reverse=True)
 
 
-def test_the_nebula_is_one_ribbon_behind_the_figure_that_drifts_on_its_own_layer():
-    assert "ATLAS_BAND_FRONT" not in ATLAS and "atl-band-front" not in CSS
-    assert "const ATLAS_BAND = atlasBandPaths(" in ATLAS
+def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_together():
+    # Round 9 (the owner: "go around the whole figure including the hair and
+    # not be mostly hidden by the hair and cosmic rings"): one helix, its far
+    # span under everything, its near spans over the mane and the rings.
+    assert "ATLAS_BAND_FRONT" not in ATLAS
+    assert "const ATLAS_BAND = atlasBandPaths();" in ATLAS
     assert 'const names = ["neb", "back",' in ATLAS
+    assert '"front", "neb-front", "fx-1"' in ATLAS
+    assert 'atlasBand(layers["neb-front"].rig, id, "front");' in ATLAS
+    # The single drawing puts the near half after the rings' near halves.
+    single = ATLAS[ATLAS.index("function atlasDraw(size") :]
+    assert single.index("atlasRing(rig, id, ring, k, true)") < single.index('atlasBand(rig, id, "front")')
+    # Both halves on the one drift, so the ribbon never parts at a seam.
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
-    assert drift and all(".atl-layer-neb" in rule for rule in drift)
+    assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
     # Held still under reduced motion.
-    assert "&.atl-layer-neb { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+    # The halves meet where the ribbon turns edge-on (the pinch).
+    assert "ATLAS_HELIX.near.reduce(" in ATLAS
 
 
 def test_the_skirt_and_the_nebula_move_in_the_large_view_too():
     # The large view draws the layered figure (atlasFigure), so the loops
     # are written for every layered figure, not for #nm-buddy alone.
-    for loop in ("&.atl-layer-lower { animation: atl-skirt-idle", "&.atl-layer-neb { animation: atl-neb-drift"):
+    for loop in ("&.atl-layer-lower { animation: atl-skirt-idle", "&:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift"):
         assert loop in CSS
     assert "#nm-buddy .atl-layer-neb" not in CSS
 
@@ -105,7 +116,8 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     feminine = _look("feminine")
     widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
     assert widths[0] == widths[4] == 6.4 and min(widths[1:4]) >= 7.2, widths
-    assert "(t) => 0.8 + 8 * Math.sin(" in ATLAS
+    # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
+    assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
 
 def _keyframes(name: str) -> str:
@@ -137,8 +149,13 @@ def test_the_planets_orbit_on_the_compositor():
 
 
 def test_the_nebula_rises_above_the_crown():
-    # Round 7: "a taller nebula stream"; it began at the ear's height (16).
-    assert "const ATLAS_BAND = atlasBandPaths([[45, -7," in ATLAS
+    # Round 7: "a taller nebula stream"; round 9: from under the feet (92)
+    # to over the crown (-12), a turn and a third round the axis.
+    heights = re.search(r"const ATLAS_HELIX_Y = \[([^\]]+)\]", ATLAS)
+    ys = [float(v) for v in heights.group(1).split(",")]
+    assert ys[0] > 90 and ys[-1] < -8 and ys == sorted(ys, reverse=True)
+    span = re.search(r"const ATLAS_HELIX = \{ from: ([0-9]+), to: ([0-9]+),", ATLAS)
+    assert int(span.group(2)) - int(span.group(1)) >= 450
 
 
 def test_the_body_and_its_limbs_read_as_one_figure():
@@ -152,3 +169,45 @@ def test_the_body_and_its_limbs_read_as_one_figure():
     assert ATLAS.count('class: "atl-overlay atl-rim-body", d }') == 3
     assert 'gradientTransform: "translate(30.5 50) scale(1 2.6) translate(-30.5 -50)"' in ATLAS
     assert "spec.torsoEdgeNow || torsoPath" in ATLAS
+
+
+def test_the_feminine_ears_are_small_wings_and_her_icon_has_hair():
+    # Round 9 (the owner: "make them angelic and fluffy"; "make the mini
+    # atlas avatar on the atlas feminine version look better"): feathered
+    # wings with a glow where thin fins read as horns, and at icon size a
+    # silhouette of hair and a fringe where the mane is not drawn.
+    feminine = _look("feminine")
+    assert "earFeathers:" in feminine and "earGlow:" in feminine
+    assert "tinyHair:" in feminine and "tinyFringe:" in feminine
+    masculine = _look("masculine")
+    assert "earFeathers" not in masculine and "tinyHair" not in masculine
+    assert 'if (!spec.tinyHair) return null;' in ATLAS
+    assert ".nm-atlas .atl-ear-feather {" in CSS and ".nm-atlas .atl-tiny-lock {" in CSS
+
+
+
+def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
+    # Round 9 (the owner: "secondary motion"): the tail and the orbit take a
+    # second sway on a period of their own, on their layer roots; the mane
+    # sways in the whole drawing only, never inside a companion layer.
+    for name in ("atl-hair-flow", "atl-tail-flow", "atl-neb-flow"):
+        body = _keyframes(name).split("{", 1)[1]
+        assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate", "translate"}, name
+    assert "atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow" in CSS
+    assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow" in CSS
+    assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
+    assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+
+
+
+def test_the_feminine_chest_is_a_subtle_contour():
+    # Round 9 (the owner: "a bit more of a feminine chest but don't overdo
+    # it just really subtle"): half a unit of swell and two faint arcs.
+    feminine = _look("feminine")
+    assert "22.7 45.4" in feminine and "39.3 45.4" in feminine and "bust:" in feminine
+    assert "bust" not in _look("masculine")
+    torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
+    assert torso.count("C") == 5  # two per flank and the hem: atlasTorsoEdge counts on it
+    rule = re.search(r"\.nm-atlas \.atl-chest \{[^}]*opacity: ([0-9.]+)", CSS)
+    assert rule and float(rule.group(1)) <= 0.25

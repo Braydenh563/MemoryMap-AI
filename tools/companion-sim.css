@@ -13,3 +13,9 @@ body { background: var(--bg); color: var(--ink); font: 13px/1.45 system-ui, sans
 .sim-menu { position: fixed; z-index: 5; margin: 0; padding: 6px; list-style: none; background: var(--p); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
 .sim-menu li { padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .sim-menu li:hover { background: var(--p2); }
+/* Round 9 polish: the bar wraps as whole buttons instead of breaking
+   labels onto two lines, and the live position keeps a steady width so the
+   controls do not jitter as the numbers change. */
+.sim-bar:not(.sim-foot) { flex-wrap: wrap; row-gap: 6px; }
+.sim-bar strong, .sim-bar button, .sim-bar .tag { white-space: nowrap; }
+.sim-bar #where { min-width: 16ch; font-variant-numeric: tabular-nums; }

@@ -36,6 +36,8 @@ USER_CONTENT_IDS = [
     "graph-svg",
     "palette-list",
     "palette-preview",
+    "wiki-suggest-list",
+    "wiki-suggest-preview",
 ]
 
 

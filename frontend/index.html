@@ -1180,8 +1180,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
               aria-label="Preview of this note, click any text to edit it"></div>
             <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
-            <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
-              aria-label="Notes you can link to"></ul>
+            <div id="wiki-suggest" class="wiki-suggest hidden">
+              <ul id="wiki-suggest-list" class="rich-picker-list" role="listbox"
+                aria-label="Notes you can link to"></ul>
+              <div id="wiki-suggest-preview" class="rich-picker-preview hidden" aria-hidden="true"></div>
+            </div>
             <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           </div>
           <!-- Reported directly: an uploaded/pasted image only shows as raw

@@ -736,35 +736,39 @@ button.map-chip:focus-visible {
 }
 
 /* --- [[ autocomplete ---------------------------------------------------------- */
+/* A rich picker (rich-picker.js) in the flow under the note box: the list and,
+   from 44rem, the chosen note's first lines beside it. The rows, the lit row
+   and the pane are the recipe's; only the frame and the height are this
+   list's own. */
 .wiki-suggest {
-  list-style: none;
-  margin: 0.25rem 0 0;
-  padding: 0.25rem;
-  max-height: 14rem;
-  overflow-y: auto;
+  display: flex;
+  align-items: stretch;
+  margin: var(--space-1) 0 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));
   box-shadow: var(--glass-shadow);
+  overflow: hidden;
 }
 
 .wiki-suggest.hidden {
   display: none;
 }
 
-.wiki-suggest li {
-  padding: 0.4rem 0.5rem;
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.wiki-suggest > .rich-picker-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 16rem;
 }
 
-.wiki-suggest li.active,
-.wiki-suggest li:hover {
-  background: var(--accent-soft);
+.wiki-suggest > .rich-picker-preview {
+  max-height: 16rem;
+}
+
+@media (max-width: 43.99rem) {
+  .wiki-suggest > .rich-picker-preview {
+    display: none;
+  }
 }
 
 /* --- the "/" menu and block frames -------------------------------------------

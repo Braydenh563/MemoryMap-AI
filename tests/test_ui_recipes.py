@@ -3047,6 +3047,7 @@ RICH_PICKER_PARTS = ("row", "tile", "keys", "group", "label", "about", "text", "
 RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("settings-panes.js", "renderPalette"),
+    ("wiring.js", "renderWikiSuggest"),
 ]
 
 #: Lists that still build their own `role="option"` rows. May only fall:
@@ -3055,7 +3056,7 @@ RICH_PICKERS = [
 #: stay are not pickers of this shape: the document's word completion is an
 #: inline ghost of the next word, the enhanced select is a `<select>`'s own
 #: list, and a space's icon choice is a grid of glyphs.
-HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "wiring.js": 1}
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2}
 
 
 def test_only_the_rich_picker_stamps_its_anatomy() -> None:

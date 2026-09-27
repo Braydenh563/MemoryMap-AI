@@ -1063,6 +1063,9 @@ function editorLinkMatches(needle) {
       icon: "ph:note",
       label: noteLabel(entry, 60),
       hint: "note",
+      //: The note itself, for the preview: its first lines are what "is
+      //: this the one I mean" is answered by (`editorRenderPreview`).
+      entry,
       // Link by the note's opening words: that is what resolution matches
       // on. Brackets are stripped first: a note that itself contains a
       // [[link]] would otherwise be inserted verbatim, and the parser would
@@ -1259,7 +1262,8 @@ function editorRenderMenu() {
   editorPositionMenu(editorMenuState.textarea);
 }
 
-//: **The preview**, only for "/" rows and only with room for it (44rem, the
+//: **The preview**, for "/" rows and for a note a "[[" row would link to
+//: (its first lines, `richPickerLines`), and only with room for it (44rem, the
 //: width the template dialog's preview also needs before it shows). What it
 //: renders is the row's `sample`, through `renderMarkdown`, the renderer the
 //: page itself uses, so the preview is the block and not a picture of it.
@@ -1270,14 +1274,15 @@ function editorRenderPreview(item) {
   const menu = $("editor-menu");
   const pane = $("editor-menu-preview");
   if (!menu || !pane) return;
-  const show = Boolean(item) && editorMenuState.trigger === "/" && window.innerWidth >= EDITOR_PREVIEW_MIN;
+  const says = editorMenuState.trigger === "/" || (editorMenuState.trigger === "[[" && Boolean(item?.entry));
+  const show = Boolean(item) && says && window.innerWidth >= EDITOR_PREVIEW_MIN;
   menu.classList.toggle("editor-menu-wide", show);
   pane.classList.toggle("hidden", !show);
   if (!show) return;
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
-  let sample = null;
-  if (item.sample && typeof renderMarkdown === "function") {
+  let sample = item.entry ? richPickerLines(item.entry.content) : null;
+  if (!sample && item.sample && typeof renderMarkdown === "function") {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
   }

@@ -2065,21 +2065,53 @@ function renderWikiSuggest(textarea) {
   if (!wikiSuggestMatches.length) return hideWikiSuggest();
 
   wikiSuggestIndex = Math.min(wikiSuggestIndex, wikiSuggestMatches.length - 1);
-  box.replaceChildren();
-  wikiSuggestMatches.forEach((entry, index) => {
-    const li = document.createElement("li");
-    li.setAttribute("role", "option");
-    li.setAttribute("aria-selected", String(index === wikiSuggestIndex));
-    if (index === wikiSuggestIndex) li.classList.add("active");
-    li.textContent = noteLabel(entry, 64);
-    li.addEventListener("mousedown", (event) => {
+  //: **The rich picker's rows** (rich-picker.js, DESIGN.md's recipe index),
+  //: the ones the "/" menu draws: a tile, the note's opening words, and under
+  //: them the category it was filed in, so two notes that open alike can be
+  //: told apart before one is linked. The pointer lights the row it is over,
+  //: as in the "/" menu, so Enter and a click always mean the same note.
+  const list = $("wiki-suggest-list");
+  list.replaceChildren();
+  const rows = wikiSuggestMatches.map((entry, index) => {
+    const row = richPickerRow({
+      icon: "note",
+      label: noteLabel(entry, 64),
+      about: entry.category || "",
+      id: `wiki-suggest-row-${index}`,
+    });
+    row.addEventListener("mousedown", (event) => {
       // mousedown, not click: the textarea must not lose focus first.
       event.preventDefault();
       applyWikiSuggestion(textarea, entry);
     });
-    box.appendChild(li);
+    row.addEventListener("mousemove", () => {
+      if (wikiSuggestIndex === index) return;
+      wikiSuggestIndex = index;
+      wikiSuggestLight();
+    });
+    list.appendChild(row);
+    return row;
   });
   box.classList.remove("hidden");
+  wikiSuggestLight(rows);
+}
+
+//: Light the chosen row and show its note beside the list: its first lines,
+//: which is what "is this the one I mean" is answered by. The pane hides
+//: itself below 44rem (the stylesheet), where the list has the width alone.
+function wikiSuggestLight(rows) {
+  const list = $("wiki-suggest-list");
+  richPickerSetActive(list, rows || [...list.querySelectorAll("[role=option]")], wikiSuggestIndex);
+  const entry = wikiSuggestMatches[wikiSuggestIndex];
+  const pane = $("wiki-suggest-preview");
+  pane.classList.toggle("hidden", !entry);
+  if (!entry) return;
+  richPickerPreview(pane, {
+    icon: "note",
+    label: noteLabel(entry, 48),
+    about: entry.category || "",
+    sample: richPickerLines(entry.content),
+  });
 }
 
 function applyWikiSuggestion(textarea, entry) {

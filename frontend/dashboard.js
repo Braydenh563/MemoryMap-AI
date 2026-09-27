@@ -1231,15 +1231,25 @@ function dashMarkMenu(x, y) {
   }
 }
 
-function applyDashDensity(value) {
+function applyDashDensity(value, { persist = true } = {}) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
-  localStorage.setItem(DASH_DENSITY_KEY, density);
+  //: Stored only when chosen: the wiring's own first call used to write
+  //: "full" for every install, which made the default look like a choice.
+  if (persist) localStorage.setItem(DASH_DENSITY_KEY, density);
   const page = document.getElementById("tab-dashboard");
   //: A data attribute on the page, and every rule keyed off it in CSS. The
   //: alternative, adding and removing classes on six elements from here, is
   //: how one of them ends up in the wrong state after a render that rebuilt
   //: it: the attribute survives, a class on a replaced node does not.
-  if (page) page.dataset.density = density;
+  //:
+  //: **Full at the app's Compact density is the compact dashboard**
+  //: (WORLD_CLASS_PLAN 22.1 item 2). The app's density is the instruction
+  //: "less air everywhere", and on a window 700px tall or less it is Compact
+  //: by default (`effectiveDensity`, settings.js): measured at 1093x614 the
+  //: first widget started 32px under the fold with the hero, the Start
+  //: something tiles and the stats at full size. Focused stays Focused.
+  const appCompact = document.documentElement.dataset.density === "compact";
+  if (page) page.dataset.density = density === "full" && appCompact ? "compact" : density;
   //: **A dropdown, not a segmented control.** Reported with a screenshot:
   //: the three segments sat taller than the two ghost buttons beside them
   //: and none of them looked chosen, so the row read as three buttons that
@@ -1260,7 +1270,7 @@ function wireDashDensity() {
   if (!seg || seg._wired) return;
   seg._wired = true;
   seg.addEventListener("change", () => applyDashDensity(seg.value));
-  applyDashDensity(dashDensity());
+  applyDashDensity(dashDensity(), { persist: false });
 }
 
 function renderQuickLinks() {

@@ -51,7 +51,12 @@
 
   _r.dataset.fontsize = pref("fontsize", "normal");
   _r.dataset.font = pref("font", "system");
-  _r.dataset.density = pref("density", "comfortable");
+  //: **Height-aware density** (WORLD_CLASS_PLAN 22.1 item 2): with no
+  //: density chosen, a window 700px tall or less is Compact, the laptop
+  //: whose screen was mostly chrome. A choice in Appearance always wins.
+  //: Mirrored by `effectiveDensity` in settings.js; keep the two in step.
+  _r.dataset.density = localStorage.getItem("density")
+    || (window.matchMedia("(max-height: 700px)").matches ? "compact" : pref("density", "comfortable"));
   // Performance mode, mirrored from perfModeOn() in settings.js: "on", or
   // "auto" on a small machine (2 cores or 4 GB or fewer), or the operating
   // system asking for less transparency. It takes the glass and the motion

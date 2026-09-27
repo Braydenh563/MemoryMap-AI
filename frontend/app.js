@@ -2195,6 +2195,7 @@ const LAZY_MODULES = {
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/lightbox-view.js"],
+  editConflict: ["/edit-conflict.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2396,6 +2397,7 @@ document.addEventListener("keydown", (event) => {
 //:    never been opened; opening it loads and renders it anyway.
 const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
+  editConflict: ["editConflictPrompt"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

@@ -29,17 +29,27 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
   cards, 46px rows over 40 cards).
 - `d2bc42a` the Timeline's grouping is remembered across a reload.
 
+## Done, round 7
+
+- `64cdf1a` status bar: fits at 820 (the notebook count gives way to 959)
+  and a running job's name no longer widens the page (it was errors.js's
+  seven tabs at 1024: a fresh server's job label, 52px at 1024, 172px at
+  768). errors.js at 1024 and 820: 0 errors, 0 layout findings.
+- `04b16fb` the Timeline strip's window from an IntersectionObserver, not
+  `elementFromPoint`: scripting 38 to 20 ms/s (feed), 39 to 15 (table).
+- `995cc98` Settings, Tools it can use: the rows fill their grid cell;
+  offset 27.58px to 0 at DSF 1, 1.25 and 1.5 (`toolgrid.js`).
+- `3d3b50e` the pacer steps effects inside an Atlas layer at 10Hz
+  (`atlasmoodfx.js`).
+
 ## Remaining
 
-1. The Timeline feed still lays out about 35 times a second while
-   scrolling: `drawTimelineWindow`'s `elementFromPoint` probes force it,
-   once a frame now. A row index by offset would remove it.
-2. The Library search keystroke measured 17 to 191ms under load (re-render
-   of the grid per keystroke after the 150ms debounce); not re-measured on
-   an idle machine.
-3. "Mind maps" chip at zero offers "New concept map": two names for one
-   thing; which name wins is a naming decision, not taken here.
-4. At 820 the status bar's redo button ends 3px past the viewport
-   (`span.status-zone`, `#status-redo`), so every tab scrolls sideways by
-   3px (errors.js layout findings at 820; 1024's seven were not reproduced
-   on the dashboard). Not in this scope (the shell's status bar).
+1. The Timeline feed lays out about 39 times a second while scrolling. It
+   is not forced (one forced layout in a trace, `markScrollEdge` in
+   shell-reminders.js); it is the rows' `content-visibility: auto` bringing
+   rows into range, INBOX 400's deliberate trade (about 15ms a second).
+2. The Library search keystroke measured 17 to 191ms under load; not
+   re-measured on an idle machine.
+3. "Mind maps" chip at zero offers "New concept map": a naming decision.
+4. The app's poll lands a text change and two paints (about 40ms) in one
+   4s window in three or four; not chased.

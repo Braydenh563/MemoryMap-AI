@@ -4155,8 +4155,17 @@ function nameMarkBuddyEdges(tab) {
   for (const [el, box] of nameMarkBuddySurfaceWalk(page)) {
     const kind = el.matches(".dock, [role='toolbar'], [role='tablist'], .toolbar, nav, header, .dash-toolbar") ? "dock" : "card";
     const span = { el, left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    //: **Top edges only, and a card's own** (the owner, 2026-09-27, again:
+    //: Atlas sat over the Weekly digest, "just under the title, over
+    //: 'Academics and Tech...'"; wanted: "valid perches are top edges only,
+    //: and never within a card's content box below its heading"). A surface
+    //: inside a content card (one smaller than most of the window: a whole
+    //: tab's panel is not one) whose top is below the card's own is a row
+    //: of what the card says, not a ledge; and a panel's underside is gone
+    //: as a place to hang (it hung over the lines under a card's heading).
+    //: The top bar's underside stays (`hang`, above).
+    if (nameMarkBuddyInsideCard(el, box)) continue;
     if (box.top > floor + 20 && box.top < ceiling - 20 && !same("top", box.top, box.left, box.right)) edges.push({ ...span, type: "top", kind, y: box.top });
-    if (box.bottom > floor + 20 && box.bottom + NMB_H + 8 < ceiling && !same("under", box.bottom, box.left, box.right)) edges.push({ ...span, type: "under", kind: "under", y: box.bottom });
     if (box.height >= 80) edges.push({ ...span, type: "side", kind: "side" });
     count += 1;
     if (count >= NMB_SURFACE_CAP) break;
@@ -4171,6 +4180,69 @@ function nameMarkBuddyEdges(tab) {
 }
 window.addEventListener("resize", nameMarkBuddyIndexReset, { passive: true });
 document.addEventListener("scroll", nameMarkBuddyIndexReset, { passive: true, capture: true });
+
+//: Inside a content card, below its top: see `nameMarkBuddyEdges`.
+const NMB_CARDS = ".card, .dash-widget, .widget, .note-card, .library-card, .msg, li, .empty-state";
+function nameMarkBuddyInsideCard(el, box) {
+  const card = el.parentElement?.closest(NMB_CARDS);
+  if (!card || card.id?.startsWith("tab-")) return false;
+  const cb = card.getBoundingClientRect();
+  if (cb.height > innerHeight * 0.6) return false;
+  return box.top > cb.top + 6;
+}
+
+//: **Words under it, measured, not sampled** (the owner: "every settle
+//: validated against text rects"). The sampled share (`nameMarkBuddyCovers`)
+//: looks at nineteen points and missed a heading's line between two rows of
+//: them (measured, perchwords.js: 289 square px of "Start something" under
+//: a perch it scored clean). This takes the blocks under the figure (from
+//: five points of each part of its shape) and adds up where the line boxes
+//: of their words, as far as their scroll box shows them, fall inside the
+//: shape, in square px. At most 400 text nodes a call; only a perch about
+//: to be chosen is measured.
+function nameMarkBuddyWordsUnder(x, y, pose, legs = "") {
+  const parts = nameMarkBuddyShape(x, y, pose, legs).map((p) => ({ left: p.left + 2, top: p.top + 2, right: p.right - 2, bottom: p.bottom - 2 }));
+  const roots = new Set();
+  for (const p of parts) {
+    for (const [fx, fy] of [[0.2, 0.2], [0.8, 0.2], [0.5, 0.5], [0.2, 0.8], [0.8, 0.8]]) {
+      const px = p.left + (p.right - p.left) * fx;
+      const py = p.top + (p.bottom - p.top) * fy;
+      if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue;
+      const el = document.elementsFromPoint(px, py).find((node) => !node.closest("#nm-buddy"));
+      if (!el || el === document.body || el === document.documentElement || el.closest("#top-bar, #status-bar")) continue;
+      const root = el.closest(NMB_CARDS) || el.parentElement || el;
+      if (!root.id?.startsWith("tab-")) roots.add(root);
+      else roots.add(el);
+    }
+  }
+  let area = 0;
+  let seen = 0;
+  const range = document.createRange();
+  for (const root of roots) {
+    const scroller = nameMarkBuddyScroller(root);
+    const clip = scroller ? scroller.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n && seen < 400; n = walker.nextNode()) {
+      seen += 1;
+      if (!n.textContent.trim() || n.parentElement?.closest("#nm-buddy")) continue;
+      range.selectNodeContents(n);
+      for (const r of range.getClientRects()) {
+        const left = Math.max(r.left, clip.left);
+        const right = Math.min(r.right, clip.right);
+        const top = Math.max(r.top, clip.top);
+        const bottom = Math.min(r.bottom, clip.bottom);
+        if (right <= left || bottom <= top) continue;
+        for (const p of parts) {
+          const w = Math.min(right, p.right) - Math.max(left, p.left);
+          const h = Math.min(bottom, p.bottom) - Math.max(top, p.top);
+          if (w > 0 && h > 0) area += w * h;
+        }
+      }
+    }
+  }
+  return area;
+}
+const NMB_WORDS_PX = 12;
 
 //: What it can do at a place on an edge: on a top edge sit with its legs
 //: over (the owner's "dangle their legs"), sit with them tucked where they
@@ -4274,16 +4346,39 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
       if (scored >= (near ? 120 : 36)) break;
       continue;
     }
-    if (!best || perch.score > best.score) best = perch;
     scored += 1;
-    if ((!near && covers === 0 && perch.rank === 0) || scored >= (near ? 120 : 36)) break;
+    if (!best || perch.score > best.score) {
+      //: Clean by the samples; measured before it may win.
+      const words = nameMarkBuddyWordsUnder(perch.x, perch.y, perch.pose, perch.legs);
+      if (words > NMB_WORDS_PX) {
+        perch.score = ceiling - 25 - Math.min(120, words / 20);
+        perch.words = words;
+        if (!soiled || perch.score > soiled.score) soiled = perch;
+        if (scored >= (near ? 120 : 36)) break;
+        continue;
+      }
+      best = perch;
+    }
+    if ((!near && perch.rank === 0) || scored >= (near ? 120 : 36)) break;
   }
   nmbCoverCache = null;
-  if (best || soiled) return best || soiled;
-  //: Nothing is free (a small window full of controls): the bottom corner,
-  //: standing clear of the bar.
+  if (best) return best;
+  //: **Never over words when it can help it**: nothing clean on any edge
+  //: (a small window, a page of text), it tucks behind the bottom bar with
+  //: only its eyes over it, at the free end, or stands in the corner; a
+  //: perch over words is the last of all, and the one with the fewest.
   const { bottom } = nameMarkBuddyLedges();
-  return { kind: "corner", pose: "stand", legs: "", x: innerWidth - NMB_GUTTER - NMB_W, y: (bottom ? bottom.top : innerHeight) - NMB_FEET - NMB_GUTTER };
+  const fallbacks = [];
+  if (bottom) {
+    for (let x = innerWidth - NMB_GUTTER - NMB_W; x >= NMB_GUTTER; x -= 96) fallbacks.push({ kind: "bar", pose: "sit", legs: "peek", x, y: bottom.top - NMB_SEAT, edge: { el: document.getElementById("status-bar"), type: "top", kind: "bar", y: bottom.top } });
+  }
+  const corner = { kind: "corner", pose: "stand", legs: "", x: innerWidth - NMB_GUTTER - NMB_W, y: (bottom ? bottom.top : innerHeight) - NMB_FEET - NMB_GUTTER };
+  fallbacks.push(corner);
+  for (const spot of fallbacks) {
+    if (spot.legs !== "peek" && nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs)) continue;
+    if (nameMarkBuddyWordsUnder(spot.x, spot.y, spot.pose, spot.legs) <= NMB_WORDS_PX) return spot;
+  }
+  return soiled || corner;
 }
 
 function nameMarkBuddySpots() {

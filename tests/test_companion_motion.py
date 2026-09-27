@@ -988,7 +988,7 @@ def test_it_never_perches_in_a_run_of_words() -> None:
     assert 'child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6")' in walk
     assert '!cs.display.startsWith("inline")' in walk
     choose = _fn("nameMarkBuddyChoose")
-    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return best || soiled;" in choose
+    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return soiled || corner;" in choose
 
 
 def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
@@ -1092,3 +1092,23 @@ def test_out_of_sight_never_cancels_the_tab_follow() -> None:
     assert "awayTimer" not in seen and "nmb.sightTimer = setTimeout(wait, 1600);" in seen
     assert "if (nmb.away) return;" in seen
     assert "clearTimeout(nmb.sightTimer);" in _fn("nameMarkBuddyGone")
+
+
+def test_perches_are_top_edges_outside_card_content_and_measured_for_words() -> None:
+    # The owner, again: Atlas sat over the Weekly digest, just under its
+    # title; "valid perches are top edges only, and never within a card's
+    # content box below its heading", "every settle validated against text
+    # rects". Measured (perchwords.js, four tabs at six scroll positions,
+    # chosen and settled): 1093x614, 15 of 38 bad before (289 square px of
+    # "Start something", hanging from panels, rows inside cards), 0 after;
+    # 1440x900, 0 of 38.
+    edges = _fn("nameMarkBuddyEdges")
+    assert "if (nameMarkBuddyInsideCard(el, box)) continue;" in edges
+    assert 'type: "under", kind: "under"' not in edges
+    inside = _fn("nameMarkBuddyInsideCard")
+    assert "cb.height > innerHeight * 0.6" in inside and "box.top > cb.top + 6" in inside
+    choose = _fn("nameMarkBuddyChoose")
+    assert "const words = nameMarkBuddyWordsUnder(perch.x, perch.y, perch.pose, perch.legs);" in choose
+    assert choose.index('legs: "peek"') < choose.index("return soiled || corner;")
+    words = _fn("nameMarkBuddyWordsUnder")
+    assert "seen < 400" in words and "nameMarkBuddyScroller(root)" in words

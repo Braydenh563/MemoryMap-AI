@@ -60,8 +60,17 @@ const STEPS = Number(process.env.STEPS || 6);
         for (let n = walker.nextNode(); n; n = walker.nextNode()) {
           if (!n.textContent.trim() || n.parentElement.closest('#nm-buddy')) continue;
           if (typeof n.parentElement.checkVisibility === 'function' && !n.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+          //: A screen reader's label (1px, clipped) is not seen either.
+          const pb = n.parentElement.getBoundingClientRect();
+          if (pb.width <= 2 || pb.height <= 2) continue;
           range.selectNodeContents(n);
-          for (const r of range.getClientRects()) {
+          //: Only what can be seen: clipped by the text's scroll box and
+          //: the window (a list scrolled away is still laid out above it).
+          const sc = nameMarkBuddyScroller(n.parentElement);
+          const clip = sc ? sc.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+          for (const raw of range.getClientRects()) {
+            const r = { left: Math.max(raw.left, clip.left, 0), right: Math.min(raw.right, clip.right, innerWidth), top: Math.max(raw.top, clip.top, 0), bottom: Math.min(raw.bottom, clip.bottom, innerHeight) };
+            if (r.right <= r.left || r.bottom <= r.top) continue;
             for (const p of shape) {
               const w = Math.min(r.right, p.right) - Math.max(r.left, p.left);
               const h = Math.min(r.bottom, p.bottom) - Math.max(r.top, p.top);
@@ -70,16 +79,25 @@ const STEPS = Number(process.env.STEPS || 6);
           }
         }
         const el = spot.anchor || spot.edge?.el || null;
-        const card = el?.parentElement?.closest('.card, .dash-widget, .widget, .note-card, .library-card, .msg');
-        const inside = !!(card && el.getBoundingClientRect().top > card.getBoundingClientRect().top + 6);
+        //: A content card: one no taller than 60% of the window (a whole
+        //: tab's panel is a page, not a card).
+        const card = el?.parentElement?.closest('.card, .dash-widget, .widget, .note-card, .library-card, .msg, li, .empty-state');
+        const cb = card ? card.getBoundingClientRect() : null;
+        const inside = !!(card && !card.id.startsWith('tab-') && cb.height <= innerHeight * 0.6 && el.getBoundingClientRect().top > cb.top + 6);
         const hangsPanel = spot.pose === 'hang' && spot.kind !== 'hang';
         const status = document.getElementById('status-bar');
         const sb = status && status.offsetParent ? status.getBoundingClientRect() : null;
         const overStatus = !!(sb && shape.some((p) => p.bottom > sb.top + 3 && p.top < sb.bottom) && !(spot.kind === 'bar'));
+        //: Out of sight with its panel (clipped away, waiting to move) is
+        //: not over anything.
+        if (live && (nmb.outOfSight || nmb.away)) area = 0;
         return { kind: spot.kind, pose: spot.pose, legs: spot.legs, x: Math.round(spot.x), y: Math.round(spot.y), area: Math.round(area), words, inside, hangsPanel, overStatus, el: el ? `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 2).join('.')}` : '' };
       }, [tab, live]);
       const chosen = await measure(false);
+      //: Settled: out of sight it waits for the scroll to be still 1.5s
+      //: and then moves, so up to 5s.
       await page.waitForTimeout(2600);
+      for (let i = 0; i < 6 && (await page.evaluate(() => nmb.outOfSight || (nmb.anim && nmb.anim.playState === 'running'))); i += 1) await page.waitForTimeout(500);
       const settled = await measure(true);
       for (const [what, m] of [['chosen', chosen], ['settled', settled]]) {
         const fail = m.area > 20 || m.inside || m.hangsPanel || m.overStatus;

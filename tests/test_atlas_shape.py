@@ -440,3 +440,14 @@ def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
         assert abs(int(angles["al0"])) <= 10 and abs(int(angles["al2"])) <= 10, (look, "the left arm hangs")
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }' in CSS
     assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }' in CSS
+
+
+def test_the_props_hang_from_each_look_s_own_hand():
+    # The bell and the lantern were drawn about one grip, (48.2, 60), the
+    # old arm's hand: measured by scratchpad/ui-sweeps/atlasprop.js, they sat
+    # 2.1 to 3.9 units off the masculine mitten and about 18 off her held-out
+    # hand. Each look names its grip and the props move there.
+    assert "propHand: [42.2, 60.4]" in _look("masculine")
+    assert "propHand: [51.2, 39.6]" in _look("feminine")
+    assert "atlasHandProps(arms.r, arms.l, look);" in ATLAS
+    assert "const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;" in ATLAS

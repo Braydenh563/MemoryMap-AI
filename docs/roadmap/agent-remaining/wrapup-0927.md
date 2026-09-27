@@ -84,7 +84,11 @@ written.
   after, both looks; poses and three sway frames at 5x.
 - [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
   look.
-- [ ] Masculine prop hand offset (bell, lantern about 6 units off).
+- [x] Masculine prop hand offset (bell, lantern about 6 units off). The
+  props were drawn about one grip for every look; each look now names its
+  own (`propHand`). `atlasprop.js`, gap from the prop's top to the hand's
+  outline: masculine bell 2.1 to 1.6, lantern 3.9 to 0.4; feminine (found on
+  the way) bell 18.4 to 0.7, lantern 17.9 to 0.6.
 - [x] Category tools added to `WRITE_TOOLS`, with a test. They were in
   already (create, rename, merge, delete); the test added pins every
   registered tool named for categories other than `list_categories`.

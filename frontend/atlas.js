@@ -495,6 +495,8 @@ const ATLAS_LOOKS = {
     armWidth: [4.4, 1.8],
     armHands: [-1, 1],
     handScale: 0.9,
+    //: Where the right mitten grips a bell or a lantern (`atlasHandProps`).
+    propHand: [42.2, 60.4],
   },
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
@@ -590,6 +592,9 @@ const ATLAS_LOOKS = {
     ],
     arm: [[35.6, 40.4, 41, 41.8, 46.2, 41.2, 50.2, 39.4]],
     armL: [[26.4, 40.4, 21.6, 41.8, 18.6, 46.6, 18.2, 53.6]],
+    //: Her held-out arm ends at (50.2, 39.4): the bell and the lantern
+    //: hang from there, where they floated 23 units off (`atlasHandProps`).
+    propHand: [51.2, 39.6],
     seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
     //: **The hair, drawn full** (the owner, round 5: "flowing, voluminous";
     //: the definitive stand, 63.png, where the hair is a mass the size of
@@ -1503,9 +1508,15 @@ function atlasMapProp(layer) {
 //: shoulder, set in the CSS for Atlas's short arm) to hold a bell or a
 //: lantern, so each is drawn turned the other way about the hand and
 //: comes out upright once the arm is out.
-function atlasHandProps(armR, armL) {
+//: The props are drawn about the old arm's hand (48.2, 60); a look whose
+//: arm ends elsewhere names its grip (`propHand`) and they move there. The
+//: masculine arm hangs to a mitten at about (42.2, 60.4), and without this
+//: the bell and the lantern floated about 6 units off his hand.
+function atlasHandProps(armR, armL, look) {
   const hand = [48.2, 60];
-  const upright = atlasMake("g", { transform: `rotate(70 ${hand[0]} ${hand[1]})` }, armR);
+  const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;
+  const shift = `translate(${+(grip[0] - hand[0]).toFixed(2)} ${+(grip[1] - hand[1]).toFixed(2)}) `;
+  const upright = atlasMake("g", { transform: `${shift}rotate(70 ${hand[0]} ${hand[1]})` }, armR);
   const bell = atlasGroup(upright, "nmp nmp-bell");
   atlasMake("circle", { class: "atl-prop-moon-glow", cx: 48.2, cy: 66.2, r: 6.5 }, bell);
   atlasMake("path", { class: "atl-prop-bell", d: "M44.2 68C44.2 61.6 52.2 61.6 52.2 68L53.6 69.8H42.8Z" }, bell);
@@ -1796,7 +1807,7 @@ function atlasBody(parent, id, props, look, route = null) {
     }
   }
   if (props) {
-    atlasHandProps(arms.r, arms.l);
+    atlasHandProps(arms.r, arms.l, look);
     //: Startled, a translucent bubble round the whole figure (the
     //: reference's `startle` cell); the CSS shows it.
     const bubble = atlasGroup(frontAt.fill, "nmp nmp-bubble");

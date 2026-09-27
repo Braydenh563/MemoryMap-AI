@@ -3182,6 +3182,21 @@ const NAME_MARK_BUDDY_ACTS = {
   //: what is hidden is behind the bar, not over it.
   peekdown: { ms: 9000, w: 1.5, cool: 60000, poses: ["hang"] },
   peekback: { ms: 1500, w: 0, cool: 0, poses: ["hang"] },
+  //: **Settling in with a thing of its own** (the owner, 2026-09-27: "new
+  //: companion states with simple props, for example lying down and
+  //: sleeping, reading, sitting on a beanbag, pulling out a chair and
+  //: sitting, face palming, and other gestures, each with smooth transitions
+  //: in and out"). Each prop is drawn once, in the companion's own box, and
+  //: shown by its act's class (`nameMarkBuddyScene`, the CSS's `.nms-*`):
+  //: it eases in, the body eases into it after, and on the way out the body
+  //: gets up first and the prop goes after (`nmb-unwind`). Only on a flat
+  //: place (standing on a card or a bar) for the ones that need the floor.
+  lie: { ms: 26000, w: 0.8, cool: 240000, poses: ["stand"] },
+  read: { ms: 20000, w: 1, cool: 150000, poses: ["stand", "sit", "float"] },
+  beanbag: { ms: 22000, w: 0.8, cool: 200000, poses: ["stand"] },
+  chair: { ms: 20000, w: 0.8, cool: 200000, poses: ["stand"] },
+  facepalm: { ms: 2600, w: 0.5, cool: 90000, poses: ["stand", "sit", "float", "lean"] },
+  shrug: { ms: 1900, w: 0.8, cool: 60000, poses: ["stand", "sit", "float", "lean"] },
   cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
@@ -3214,6 +3229,70 @@ Object.assign(NAME_MARK_BUDDY_ACTS, NMB_STANCES);
 //: likely, Normal as they were. What you start (a poke, a cheer at a
 //: streak, a reaction) is never reduced: those have no weight here.
 const NMB_QUIET_ACTS = ["blink", "look", "glance", "turn", "yawn", "nap", "dangle", "shift", ...Object.keys(NMB_STANCES)];
+//: **Each of its doings can be turned off** (the owner, 2026-09-27: "Every
+//: companion feature must be togglable in Settings"). Appearance >
+//: Companion > What it does (`mountBuddyActivities`): one switch a row, kept
+//: in this browser as the list of the ones turned off. A row may stand for a
+//: few acts that are one idea (its hanging tricks). What is off is never
+//: picked on its own; a cue that asks for it (a bell, a saved note) still
+//: plays, since that is it answering you.
+const NMB_ACTIVITIES = [
+  ["wave", "Wave", ["wave"]],
+  ["hop", "Hop and stretch", ["hop", "stretch"]],
+  ["peek", "Peek from behind a panel", ["peek"]],
+  ["peekdown", "Peek down from under the top bar", ["peekdown"]],
+  ["legs", "Swing its legs over an edge", ["dangle", "kick"]],
+  ["hang", "Hanging tricks", ["swing", "sloth", "onehand", "feet"]],
+  ["stances", "Stances at rest", Object.keys(NMB_STANCES)],
+  ["lie", "Lie down for a nap", ["lie"]],
+  ["read", "Read a book", ["read"]],
+  ["beanbag", "Sink into a beanbag", ["beanbag"]],
+  ["chair", "Pull up a chair", ["chair"]],
+  ["facepalm", "Face palm", ["facepalm"]],
+  ["shrug", "Shrug", ["shrug"]],
+];
+function nameMarkBuddyActivitiesOff() {
+  try {
+    return new Set((localStorage.getItem("avatar-buddy-acts-off") || "").split(",").filter(Boolean));
+  } catch (e) {
+    return new Set();
+  }
+}
+function nameMarkBuddyActOff(act, off = nameMarkBuddyActivitiesOff()) {
+  return NMB_ACTIVITIES.some(([key, , acts]) => off.has(key) && acts.includes(act));
+}
+function mountBuddyActivities() {
+  const host = document.getElementById("avatar-buddy-activities");
+  if (!host || host.childElementCount) return;
+  const off = nameMarkBuddyActivitiesOff();
+  for (const [key, label] of NMB_ACTIVITIES) {
+    const row = document.createElement("label");
+    row.className = "setting-check";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !off.has(key);
+    input.dataset.activity = key;
+    const text = document.createElement("span");
+    text.textContent = label;
+    row.append(input, text);
+    host.appendChild(row);
+  }
+  host.addEventListener("change", (event) => {
+    const input = event.target.closest?.("input[data-activity]");
+    if (!input) return;
+    const now = nameMarkBuddyActivitiesOff();
+    if (input.checked) now.delete(input.dataset.activity);
+    else now.add(input.dataset.activity);
+    try {
+      localStorage.setItem("avatar-buddy-acts-off", [...now].join(","));
+    } catch (e) {
+      // Kept for this visit only.
+    }
+    //: Turned off while it is doing it: it stops, the way it always does.
+    if (nmb.act && nameMarkBuddyActOff(nmb.act, now)) nameMarkBuddyAct("");
+  });
+}
+
 function nameMarkBuddyActions() {
   try {
     return localStorage.getItem("avatar-buddy-actions") || "fewer";
@@ -4476,6 +4555,9 @@ function nameMarkBuddyPanelMoving(el) {
 //: boxes (the figure drawn in HTML, its host) are the compositor's and are
 //: left alone.
 const NMB_TEMPO_MS = 50;
+//: The long, still acts are rest, and paced as rest: a stance, a nap, a
+//: book, a seat. Full rate is for the short ones, where it is moving.
+const NMB_RESTING_ACTS = new Set(["lie", "read", "beanbag", "chair", "nap", "peek", "peekdown", ...Object.keys(NMB_STANCES)]);
 const nmbTempo = { timer: 0, anims: [], at: 0, seen: 0, clock: new WeakMap(), slow: new WeakSet(), ticks: 0 };
 function nameMarkBuddyTempo() {
   nmbTempo.timer = 0;
@@ -4513,7 +4595,7 @@ function nameMarkBuddyTempo() {
   //: layouts and 120 paints a second, while the walk itself (the host's
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
-  const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");
+  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
   const still = now - nmbFollow.scrollAt < 300;
   const step = Math.min(now - (nmbTempo.at || now), 250);
   //: Every read first, then every write: reading an animation's state
@@ -5352,6 +5434,11 @@ function nameMarkBuddyAct(act, ms) {
   //: Out from behind the panel before anything else.
   if (was === "peek" && act !== "emerge" && !nameMarkBuddyStill()) act = act || "emerge";
   if (was === "peekdown" && act !== "peekback" && !nameMarkBuddyStill()) act = act || "peekback";
+  if (NMB_SCENE_ACTS.includes(was)) {
+    buddy.classList.add("nmb-unwind");
+    clearTimeout(nmb.unwindTimer);
+    nmb.unwindTimer = setTimeout(() => buddy.classList.remove("nmb-unwind"), NMB_UNWIND_MS);
+  }
   if (!act) {
     nameMarkBuddySchedule();
     return;
@@ -5367,15 +5454,61 @@ function nameMarkBuddyAct(act, ms) {
   //: so the same act twice in a row (a second cheer) forces one style pass;
   //: any other act does not, since each style pass here is measurable.
   if (act === was) void buddy.offsetWidth;
+  if (NMB_SCENE_ACTS.includes(act)) nameMarkBuddyScene(buddy);
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
   nmb.lastAct = act;
+  const face = { lie: "sleepy", facepalm: "unimpressed" }[act];
+  if (face) nameMarkBuddyExpress(face, spec?.ms || 2000);
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
   nmb.timer = setTimeout(() => {
     const next = act === "land" && nmb.afterLand ? "look" : "";
     if (act === "land") nmb.afterLand = false;
     nameMarkBuddyAct(next);
   }, (ms || spec?.ms || 1200) * (act === "land" ? 1 : 1 + Math.random() * 0.3));
+}
+
+//: The acts that bring something of their own, and how long getting up
+//: out of one takes (the CSS's slow transition, plus the prop's delay).
+const NMB_SCENE_ACTS = ["lie", "read", "beanbag", "chair", "facepalm", "shrug"];
+const NMB_UNWIND_MS = 1300;
+//: Its props: a still drawing behind it (the beanbag, the chair, the
+//: pillow) and one in front (the book), in its 64 by 92 box and scaled
+//: with it, made the first time one is needed and kept. Nothing on them
+//: animates at rest: they are shown and hidden by opacity and moved in by
+//: `translate`, the compositor's.
+function nameMarkBuddyScene(buddy) {
+  const face = buddy.querySelector(".nm-buddy-face");
+  const char = buddy.querySelector(".nm-buddy-char");
+  if (!face || !char || face.querySelector(".nmb-scene")) return;
+  const ns = "http://www.w3.org/2000/svg";
+  const make = (tag, attrs, parent) => {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+    parent?.appendChild(el);
+    return el;
+  };
+  const layer = (where) => {
+    const svg = make("svg", { class: `nmb-scene nmb-scene-${where}`, viewBox: "0 0 64 92", width: 64, height: 92, "aria-hidden": "true", focusable: "false" });
+    return svg;
+  };
+  const back = layer("back");
+  const bag = make("g", { class: "nms nms-beanbag" }, back);
+  make("path", { d: "M6 90 C2 74 14 62 32 62 C50 62 62 74 58 90 Z", fill: "#6c7fb0" }, bag);
+  make("path", { d: "M14 72 C20 66 30 65 38 66", fill: "none", stroke: "#8fa0cc", "stroke-width": 2, "stroke-linecap": "round" }, bag);
+  const chair = make("g", { class: "nms nms-chair" }, back);
+  for (const [x, y, w, h] of [[45, 34, 4, 38], [12, 66, 38, 5], [14, 71, 3, 19], [44, 71, 3, 19]]) {
+    make("rect", { x, y, width: w, height: h, rx: 1.5, fill: "#9a6b43" }, chair);
+  }
+  const pillow = make("g", { class: "nms nms-pillow" }, back);
+  make("ellipse", { cx: -8, cy: 86, rx: 18, ry: 5, fill: "#e6e0f2" }, pillow);
+  const front = layer("front");
+  const book = make("g", { class: "nms nms-book" }, front);
+  make("path", { d: "M17 50 L32 53 L47 50 L47 62 L32 65 L17 62 Z", fill: "#b5473a" }, book);
+  make("path", { d: "M19 51 L32 54 L45 51 L45 60 L32 63 L19 60 Z", fill: "#fbf6ea" }, book);
+  make("path", { d: "M32 54 L32 63", stroke: "#c9bfa6", "stroke-width": 1 }, book);
+  face.insertBefore(back, char);
+  char.after(front);
 }
 
 //: **Looks at a place: a saccade, then the head.** The eyes jump there at
@@ -5457,6 +5590,7 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
   const byMood = NAME_MARK_BUDDY_MOODS[reading.mood] || {};
   const byKind = NAME_MARK_BUDDY_KINDS[reading.animal] || {};
   const actions = nameMarkBuddyActions();
+  const off = nameMarkBuddyActivitiesOff();
   //: Which Atlas it is, for its stances (none for any other companion).
   nmb.atlasLook = document.querySelector("#nm-buddy svg.atl-layer")?.dataset.atlasLook || "";
   const pool = [];
@@ -5468,6 +5602,7 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (nmb.legs === "peek" && !["blink", "look", "glance", "yawn", "nap"].includes(act)) continue;
     if (spec.edge && nmb.edgeType !== spec.edge) continue;
     if ((nmb.cool[act] || 0) > now || act === nmb.lastAct) continue;
+    if (nameMarkBuddyActOff(act, off)) continue;
     let w = spec.w;
     if (act === "yawn") w = idle > NMB_YAWN_MS ? 4 : night ? 2 : 0;
     if (act === "nap") w = idle > 90 * 1000 ? 3 : night ? 1 : 0;
@@ -5476,8 +5611,10 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     //: Its own slow mood: energy, curiosity and sociability (0 to 1).
     const { energy, curiosity, sociability } = nmb.mood;
     if (["hop", "kick", "dangle", "wave", "stretch", "swing", "onehand", "feet"].includes(act)) w *= 0.4 + energy;
-    if (["yawn", "nap", "sloth"].includes(act)) w *= 1.6 - energy;
-    if (["look", "glance", "peek", "peekdown", "scratch"].includes(act)) w *= 0.5 + curiosity;
+    if (["yawn", "nap", "sloth", "lie", "beanbag"].includes(act)) w *= 1.6 - energy;
+    //: A nap lying down wants you away a while, or the night.
+    if (act === "lie" && idle < 60 * 1000 && !night) w = 0;
+    if (["look", "glance", "peek", "peekdown", "scratch", "read"].includes(act)) w *= 0.5 + curiosity;
     if (["wave", "glance"].includes(act)) w *= 0.4 + sociability;
     if (["peek", "peekdown", "turn"].includes(act)) w *= 1.4 - sociability;
     if (now < nmb.grumpyUntil && ["wave", "glance", "hop", "cheer"].includes(act)) w = 0;

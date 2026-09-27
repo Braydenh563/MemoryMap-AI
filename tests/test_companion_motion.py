@@ -445,7 +445,7 @@ def test_a_walk_is_paced_too() -> None:
     # frame, 60 layouts and 120 paints a second, because the pacer let a
     # walk run at full rate. Paced from its first step: 20 and 39.
     tempo = _fn("nameMarkBuddyTempo")
-    assert 'const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");' in tempo
     move = _fn("nameMarkBuddyGo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
@@ -689,3 +689,31 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyCatchUp")
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyRefit")
     assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);" in _fn("nameMarkBuddyMoveTo")
+
+
+def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
+    # The owner, 2026-09-27: "new companion states with simple props ...
+    # lying down and sleeping, reading, sitting on a beanbag, pulling out a
+    # chair and sitting, face palming, and other gestures, each with smooth
+    # transitions in and out", and "Every companion feature must be
+    # togglable in Settings", and it "must stay cheap". Measured
+    # (companionacts.js, as you and as Atlas): each prop shown, at most 2.8px
+    # a frame going in or out, nothing left behind, 0 to 0.3 layouts a second
+    # while it rests in one.
+    for act in ("lie", "read", "beanbag", "chair", "facepalm", "shrug"):
+        assert f"  {act}: {{ ms:" in AV, act
+    for prop in ("beanbag", "chair", "pillow", "book"):
+        assert f'class: "nms nms-{prop}"' in _fn("nameMarkBuddyScene"), prop
+    # Out: the body gets up first, the prop goes after.
+    assert 'buddy.classList.add("nmb-unwind");' in _fn("nameMarkBuddyAct")
+    assert "#nm-buddy .nms {" in CSS08 and ".nmb-unwind) .nm-buddy-char {" in CSS08
+    # Rest is paced as rest: a long settled act does not run the drawing at
+    # full rate.
+    assert "const NMB_RESTING_ACTS = new Set([" in AV
+    # Every doing has a switch, and what is off is never picked.
+    assert 'id="avatar-buddy-activities"' in HTML
+    assert "mountBuddyActivities()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "if (nameMarkBuddyActOff(act, off)) continue;" in _fn("nameMarkBuddyDecide")
+    table = AV[AV.index("const NMB_ACTIVITIES = [") : AV.index("];", AV.index("const NMB_ACTIVITIES = ["))]
+    for act in ("wave", "peek", "peekdown", "lie", "read", "beanbag", "chair", "facepalm", "shrug"):
+        assert f'"{act}"' in table, act

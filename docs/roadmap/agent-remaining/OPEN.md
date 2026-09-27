@@ -7,6 +7,18 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
+- **Stray Atlas heads under the status bar (INBOX 429, the owner's
+  screenshot), for the Atlas agent: one line in `atlas.js`.** `atlasRepaint`
+  redraws every `svg.nm-atlas`, and the hidden defs each look keeps
+  (`svg.nm-atlas.atl-defs`, a child of `<body>`) is one: a change of Atlas
+  look, Atlas style or Face looks replaces it with a whole 20px Atlas in the
+  page's flow, bottom left, one more per change
+  (`scratchpad/ui-sweeps/strayheads.js` exits 1). The fix, measured with it
+  applied and then taken out again (sweep clean, the status bar's logo still
+  the turning p5 canvas): `if (svg.closest("#nm-buddy") || !svg.isConnected
+  || svg.classList.contains("atl-defs")) continue;`. The strict xfail in
+  `tests/test_companion_motion.py` flips when it lands; take its marker off
+  in the same commit. [companion review, 2026-09-27]
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]

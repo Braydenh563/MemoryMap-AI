@@ -22,6 +22,8 @@ put the old behaviour back.
 from __future__ import annotations
 
 import re
+
+import pytest
 from pathlib import Path
 from tests._app_js import app_js_text
 
@@ -472,3 +474,23 @@ def test_the_large_view_enlarges_the_figure_with_scale_not_transform() -> None:
     for body in rules:
         assert not re.search(r"(?<![-\w])transform\s*:", body), "the large view sizes its figure by `transform` again"
     assert any(re.search(r"(?<![-\w])scale\s*:\s*2\.2", body) for body in rules)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="atlas.js belongs to the Atlas agent: `atlasRepaint` must skip `svg.atl-defs` (a one-line guard)",
+)
+def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
+    # The owner, with a screenshot: "a column of four small Atlas heads"
+    # under the status bar at the bottom left, outside any UI. `atlasRepaint`
+    # (atlas.js) redraws every `svg.nm-atlas` on the page when Atlas look,
+    # Atlas style or Face looks changes, and the hidden `<svg class="nm-atlas
+    # atl-defs">` each look keeps its gradients in, a child of <body> with a
+    # height of 0, is one: it was replaced by a whole 20px Atlas, in the
+    # page's flow under everything, and the next look's defs made the next
+    # head. strayheads.js: one head per change, at x 0 and y 840, 860, 880.
+    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    start = atlas.index("function atlasRepaint(")
+    body = atlas[start : atlas.index("\n}\n", start)]
+    loop = body[: body.index("svg.replaceWith(")]
+    assert "atl-defs" in loop, "atlasRepaint redraws the shared defs as a head"

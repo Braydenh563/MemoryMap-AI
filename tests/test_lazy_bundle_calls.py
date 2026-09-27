@@ -310,3 +310,14 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
             i = j + 1
     assert checked > 50, f"only {checked} boot listeners found; has the scan broken?"
     assert not offenders, "\n".join(offenders)
+
+
+def test_the_graph_canvas_is_not_desynchronized():
+    """INBOX 430: a desynchronized 2D context is handed to the screen as an
+    opaque overlay on a GPU, so the map's transparent background drew black
+    until a menu over it forced ordinary compositing."""
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "graph-canvas.js").read_text(encoding="utf-8")
+    code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("//"))
+    assert "desynchronized" not in code

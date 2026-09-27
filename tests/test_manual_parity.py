@@ -94,7 +94,7 @@ def test_the_category_tools_count_as_writes():
 def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     # The owner: "needs some ui redesign ... like the ai assistant panel".
     notes = (FRONTEND / "notes-list.js").read_text(encoding="utf-8")
-    assert 'head.classList.add("doc-ai-head");' in notes
+    assert 'head.classList.add("dialog-head");' in notes
     assert 'list.setAttribute("role", "listbox");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes
     assert "function drawManageCategoryFooter(footer, state, redraw)" in notes

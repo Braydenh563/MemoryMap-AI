@@ -336,9 +336,12 @@ select optgroup {
      ground it stands on: 3.2:1 on a light card, 3.0:1 on the grey well of a
      settings group or the reminder form (btnshots.js). */
   --ghost-btn-border: rgba(31, 36, 48, 0.52);
-  /* Where a quiet button rests: the field's own white in light, so a
-     button on a grey well reads as lifted rather than as a grey slab. */
-  --btn-quiet-bg: rgba(255, 255, 255, 0.72);
+  /* Where a quiet button rests: near-white with a breath of the accent.
+     Plain white (0.72) was the field's own face, and the owner's screenshot
+     of the reminder form showed why that fails: "Add" beside the magic-add
+     box read as a second input of the same height. The tint says "control"
+     where the field says "type here", without turning grey or filled. */
+  --btn-quiet-bg: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.8));
   --ghost-btn-border-hover: rgba(31, 36, 48, 0.68);
   /* A select's chevron: a stroked "v" in the muted ink, as an image because
      a select has no pseudo-elements to draw one in. */
@@ -883,7 +886,7 @@ select,
   --chip-bg: rgba(255, 255, 255, 0.08);
   --ghost-btn-bg: rgba(255, 255, 255, 0.16);
   --ghost-btn-border: rgba(255, 255, 255, 0.4);
-  --btn-quiet-bg: rgba(255, 255, 255, 0.045);
+  --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -960,7 +963,7 @@ select,
     --chip-bg: rgba(255, 255, 255, 0.08);
     --ghost-btn-bg: rgba(255, 255, 255, 0.16);
     --ghost-btn-border: rgba(255, 255, 255, 0.4);
-    --btn-quiet-bg: rgba(255, 255, 255, 0.045);
+    --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.56);
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");

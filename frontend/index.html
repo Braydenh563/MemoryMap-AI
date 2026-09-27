@@ -4565,18 +4565,27 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </details>
           <span class="muted" id="reminder-due-readout" role="status"></span>
-          <!-- One joined group (`.btn-group`, DESIGN.md "Steppers on one
-               value"): four nudges to the same time were four loose boxes
-               that wrapped one at a time. -->
-          <div class="btn-group" role="group" aria-label="Nudge the time">
-          <button id="reminder-due-nudge-down" class="ghost small"
-            title="15 minutes earlier" aria-label="15 minutes earlier">−15m</button>
-          <button id="reminder-due-nudge-up" class="ghost small"
-            title="15 minutes later" aria-label="15 minutes later">+15m</button>
-          <button id="reminder-due-day-down" class="ghost small"
-            title="A day earlier" aria-label="A day earlier">−1d</button>
-          <button id="reminder-due-day-up" class="ghost small"
-            title="A day later" aria-label="A day later">+1d</button>
+          <!-- Two steppers (DESIGN.md "Stepper"): a minus and a plus around
+               the unit they move by, in one quiet pill with no dividers.
+               They were four joined boxes, "−15m | +15m | −1d | +1d", which
+               the owner asked to be "more modern and professional". Arrow
+               keys nudge by 15 minutes while either is focused, Shift+arrow
+               by a day (wiring.js). -->
+          <div class="stepper-pair">
+            <div class="stepper" role="group" aria-label="Move the time by 15 minutes" data-step-minutes="15">
+              <button type="button" id="reminder-due-nudge-down" class="ghost small icon-only stepper-btn"
+                title="15 minutes earlier" aria-label="15 minutes earlier"><i class="ph ph-minus" aria-hidden="true"></i></button>
+              <span class="stepper-unit" aria-hidden="true">15 min</span>
+              <button type="button" id="reminder-due-nudge-up" class="ghost small icon-only stepper-btn"
+                title="15 minutes later" aria-label="15 minutes later"><i class="ph ph-plus" aria-hidden="true"></i></button>
+            </div>
+            <div class="stepper" role="group" aria-label="Move the time by a day" data-step-minutes="1440">
+              <button type="button" id="reminder-due-day-down" class="ghost small icon-only stepper-btn"
+                title="A day earlier" aria-label="A day earlier"><i class="ph ph-minus" aria-hidden="true"></i></button>
+              <span class="stepper-unit" aria-hidden="true">1 day</span>
+              <button type="button" id="reminder-due-day-up" class="ghost small icon-only stepper-btn"
+                title="A day later" aria-label="A day later"><i class="ph ph-plus" aria-hidden="true"></i></button>
+            </div>
           </div>
         </div>
       </div>

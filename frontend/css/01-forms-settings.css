@@ -532,7 +532,10 @@ button.ghost {
   background: var(--btn-quiet-bg);
   border: 1px solid var(--ghost-btn-border);
   color: var(--ink);
-  font-weight: 500;
+  /* 600, a step up from 500, for the same report as the tint in
+     `--btn-quiet-bg`: a label in the field's own weight is one more thing
+     that made "Add" read as a second input. */
+  font-weight: 600;
   /* **The edge carries the affordance; the lift is gone again, and this time
      for a measured reason rather than a taste.** The pass above restored both
      the hairline and `--shadow-sm`, and INBOX 113's recommendation was only
@@ -559,6 +562,12 @@ button.ghost {
 button.ghost:hover {
   background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
+}
+
+/* A labelled quiet button's leading icon takes the accent: the third cue,
+   with the tint and the weight, that tells a button from a field. */
+button.ghost:not(.icon-only, .icon-button) > .ph-lead {
+  color: var(--accent-text);
 }
 
 button.ghost:active:not(:disabled) {
@@ -626,38 +635,72 @@ summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
   font-size: 0.85rem;
 }
 
-/* **Steppers on one value are one joined group** (`.btn-group`; the owner,
-   2026-09-27: Reminders' -15m/+15m/-1d/+1d, four loose boxes that wrapped
-   one at a time). One outer edge and corner, the inner corners squared, the
-   neighbouring hairlines overlapped into one, and the group wraps as a unit.
-   A hovered or focused segment is lifted above its neighbours so its whole
-   edge shows. */
-.btn-group {
+/* **A stepper is a minus and a plus around the unit they move by**
+   (`.stepper`, DESIGN.md "Stepper"). Reminders' nudges were four loose
+   boxes, then four joined ones, "−15m | +15m | −1d | +1d", which the owner
+   called out as needing to be "more modern and professional": four equal
+   grey boxes with heavy dividers. Now each unit is one quiet pill: the
+   quiet button's face and hairline, two round ghost icon buttons at the
+   button floor (32px, 44 under touch) and the unit between them. The
+   hairline is an outline drawn inward, not a border, so the pill is exactly
+   the buttons' height and lines up with the 32px controls beside it. A
+   `.stepper-pair` keeps two steppers on one line and wraps as a unit. */
+.stepper-pair {
   display: inline-flex;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
 }
 
-.btn-group > button {
-  position: relative;
-  border-radius: 0;
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--btn-quiet-bg);
+  outline: 1px solid var(--ghost-btn-border);
+  outline-offset: -1px;
 }
 
-.btn-group > button + button {
-  margin-inline-start: -1px;
+.stepper > .stepper-btn {
+  border-radius: var(--radius-pill);
 }
 
-.btn-group > button:first-child {
-  border-start-start-radius: var(--radius-md);
-  border-end-start-radius: var(--radius-md);
+.stepper-pair .stepper > button.ghost.stepper-btn:active:not(:disabled) {
+  background: var(--ghost-btn-bg-hover);
 }
 
-.btn-group > button:last-child {
-  border-start-end-radius: var(--radius-md);
-  border-end-end-radius: var(--radius-md);
+.stepper-unit {
+  padding-inline: var(--space-1);
+  min-width: 3.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+  user-select: none;
 }
 
-.btn-group > button:is(:hover, :focus-visible) {
-  z-index: 1;
+/* What a nudge changed, said with a short fade in the readout beside it
+   (wiring.js restarts the class on every nudge). */
+.stepper-fresh {
+  animation: stepper-fresh var(--motion-slow) var(--ease-out);
+}
+
+@keyframes stepper-fresh {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stepper-fresh {
+    animation: none;
+  }
 }
 
 /* A checkbox or switch is a hit target too, and these were the smallest in

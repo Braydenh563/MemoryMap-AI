@@ -481,7 +481,8 @@ def test_the_quiet_button_recipe_holds() -> None:
     Five screenshots of "grey, bordered, raised boxes": the tonal button's
     12% ink fill under a faint rim. The rest face is `--btn-quiet-bg` and
     the grey is state only; an icon standing alone is a ghost; the stepper
-    group is a recipe with its role and name.
+    is a recipe with its role, its name and a named unit between two
+    labelled icon buttons.
     """
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     rules = dict((sel.strip(), body) for sel, body in _rules(css))
@@ -490,12 +491,23 @@ def test_the_quiet_button_recipe_holds() -> None:
     )
     ghost_icon = next((b for s, b in rules.items() if s.startswith(":is(button, summary).ghost:is(.icon-only, .icon-button)") and ":hover" not in s), "")
     assert "background: transparent" in ghost_icon and "border-color: transparent" in ghost_icon
-    assert ".btn-group > button + button" in rules, "the stepper group's joined edge is gone"
+    stepper = rules.get(".stepper", "")
+    assert "background: var(--btn-quiet-bg)" in stepper and "outline-offset: -1px" in stepper, (
+        "the stepper is one quiet pill whose hairline is drawn inward, so it is the buttons' height"
+    )
+    assert "button.ghost:not(.icon-only, .icon-button) > .ph-lead" in rules, (
+        "a labelled quiet button's leading icon takes the accent: the cue that tells it from a field"
+    )
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    groups = re.findall(r'<div class="btn-group"[^>]*>', html)
-    assert groups, "no .btn-group in the page: Reminders' nudges were the first"
-    for tag in groups:
+    groups = re.findall(r'<div class="stepper"[^>]*>(.*?)</div>', html, re.S)
+    assert groups, "no .stepper in the page: Reminders' nudges were the first"
+    for tag in re.findall(r'<div class="stepper"[^>]*>', html):
         assert 'role="group"' in tag and "aria-label=" in tag, tag
+    for body in groups:
+        buttons = re.findall(r"<button[^>]*>", body)
+        assert len(buttons) == 2 and 'class="stepper-unit"' in body, body
+        for button in buttons:
+            assert "aria-label=" in button and "title=" in button and "icon-only" in button, button
 
 
 def test_the_tonal_button_keeps_its_edge_and_its_lift() -> None:
@@ -2836,6 +2848,7 @@ PILL_CONTROLS = {
     ".wb-map-strip>button.icon-only": "a round icon button in the map's floating strip",
     '.wb-map-node[data-shape="pill"]': "a node shape the person picked",
     "#entry-list .link-connection>.menu-wrap>button": "the round kebab inside a connection",
+    ".stepper>.stepper-btn": "a round minus or plus inside the stepper's pill (DESIGN.md 'Stepper')",
 }
 
 _PILL_CONTROL = re.compile(

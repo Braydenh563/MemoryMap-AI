@@ -2026,10 +2026,29 @@ for (const button of document.querySelectorAll("#reminder-presets button")) {
   });
 }
 // Nudges: adjusting an existing time is far quicker than retyping one.
-$("reminder-due-nudge-down").addEventListener("click", () => nudgeDue(-15));
-$("reminder-due-nudge-up").addEventListener("click", () => nudgeDue(15));
-$("reminder-due-day-down").addEventListener("click", () => nudgeDue(-60 * 24));
-$("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
+//: Each nudge fades the readout in (`.stepper-fresh`), so the change is seen
+//: where it lands. Arrow keys on a focused stepper nudge too (DESIGN.md
+//: "Stepper"): up or right later, down or left earlier, by 15 minutes, and
+//: by a day with Shift.
+function nudgeDueShown(minutes) {
+  nudgeDue(minutes);
+  const readout = $("reminder-due-readout");
+  readout.classList.remove("stepper-fresh");
+  void readout.offsetWidth;
+  readout.classList.add("stepper-fresh");
+}
+$("reminder-due-nudge-down").addEventListener("click", () => nudgeDueShown(-15));
+$("reminder-due-nudge-up").addEventListener("click", () => nudgeDueShown(15));
+$("reminder-due-day-down").addEventListener("click", () => nudgeDueShown(-60 * 24));
+$("reminder-due-day-up").addEventListener("click", () => nudgeDueShown(60 * 24));
+for (const stepper of document.querySelectorAll("#reminder-due-row .stepper")) {
+  stepper.addEventListener("keydown", (event) => {
+    const sign = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[event.key];
+    if (!sign || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    nudgeDueShown(sign * (event.shiftKey ? 60 * 24 : 15));
+  });
+}
 // The two visible fields drive the hidden value.
 $("reminder-date").addEventListener("input", syncDueFromParts);
 $("reminder-time").addEventListener("input", syncDueFromParts);

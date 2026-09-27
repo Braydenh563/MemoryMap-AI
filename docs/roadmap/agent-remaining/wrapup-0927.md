@@ -36,6 +36,11 @@ written.
 - [ ] Masculine lower-body wisps read more masculine: fewer, broader,
   straighter-falling streams with a firmer taper (not the feminine
   flowing tendrils), heavier and slower in the sway.
+- [ ] The owner: "smoothen and blend the line between the main body and the
+  lower body whisps on atlas masculine and feminine". No visible seam at the
+  waist: the torso fill fades into the wisps through a shared gradient or
+  mask (no hard edge or outline across the join), the wisps emerging from
+  under the torso. Check both looks, every pose, and while swaying.
 - [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
   look.
 - [ ] Masculine prop hand offset (bell, lantern about 6 units off).

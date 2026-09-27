@@ -614,6 +614,18 @@ button.small {
   font-size: 0.85rem;
 }
 
+/* A menu opener standing on its own (`summary.ghost.small` with a label,
+   outside a dock) is a small button with a caret, and sizes as one.
+   Measured in the reminder sheet: "Quick set" at 35.6px and 16px type beside
+   the 32px, 13.6px nudges it sits in a row with. Inside a `.dock` the dock's
+   own height rule owns it, so those are left alone. */
+summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
+  min-height: max(var(--target-min), var(--button-min-h));
+  padding-block: 0;
+  padding-inline: 0.8rem;
+  font-size: 0.85rem;
+}
+
 /* **Steppers on one value are one joined group** (`.btn-group`; the owner,
    2026-09-27: Reminders' -15m/+15m/-1d/+1d, four loose boxes that wrapped
    one at a time). One outer edge and corner, the inner corners squared, the
@@ -5470,26 +5482,25 @@ select {
   flex: 1 1 auto;
 }
 
-/* **The disclosure mark hangs in the gutter.** "Advanced response settings"
-   stood 20.8px right of the other 54 Settings headings (566.8 against 546,
-   measured at 1440), the summary's inline padding plus the chevron plus the
-   gap before the text. Hiding the chevron would buy the alignment with the
-   affordance, which OPEN.md said to decide rather than do; hanging it keeps
-   both, the way a list marker hangs: the summary starts that far left of the
-   column, so the heading lands on the column's edge and the chevron sits in
-   the margin beside it. Only a `.settings-group` summary, the one kind whose
-   text is a section heading; a fold's summary is a sentence inside a group
-   and keeps its indent. */
+/* **A group's disclosure row is one pill: chevron, heading, '?'.** It used
+   to hang the chevron in the gutter so the heading sat flush on the column
+   (566.8 against 546 at 1440), and the cost
+   was the owner's report of 2026-09-27, with a screenshot of "Themes"
+   hovered: "there's no gap between the left border and the text in these
+   types of dropdown menus in settings". Measured at 1093: the summary's
+   inline-start padding 0, the heading 1px from the highlight's edge, the
+   chevron outside the highlight altogether. A hanging mark cannot be inside
+   the highlight: the group's 16px padding is less than the padding, the
+   chevron and the gap together (19.5px), so the row takes the chevron back
+   into its flow instead. The highlight bleeds `--space-3` into the group's
+   padding on both sides, so the '?' stays on the column's right edge and
+   the fill ends where it started. */
 #settings-modal .settings-group > summary:not(.icon-only):not(.icon-button) {
-  position: relative;
-  padding-inline-start: 0;
-}
-
-#settings-modal .settings-group > summary:not(.icon-only):not(.icon-button)::before {
-  position: absolute;
-  inset-inline-start: calc(-1 * (0.32rem + var(--space-2)));
-  /* Centred on the row by its own half height (the 0.24rem borders above). */
-  top: calc(50% - 0.24rem);
+  gap: var(--space-2);
+  width: auto;
+  margin-inline: calc(-1 * var(--space-3));
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
 }
 
 /* The heading gives its own vertical margins up to the row, so the row is one

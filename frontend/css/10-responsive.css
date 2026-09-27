@@ -1832,12 +1832,14 @@ header#top-bar,
     display: none;
   }
 
-  /* Five lines of a long note, not eight: at 390 eight lines of a long
-     note made a row 400px tall, one note to a screen, and the whole of it is
-     the note page one tap away. */
+  /* The desktop clamp (06-timeline-dialogs.css) dropped from 8 to 1 line
+     (note-cards.js's own LONG_NOTE_LINES, "at least 4 note cards above the
+     fold"), tighter than this band's own value used to be: matching rather
+     than removing the rule, so a phone that later wants its own value
+     again has one already here to change. */
   #entry-list > li .entry-content.entry-clamped {
-    -webkit-line-clamp: 5;
-    line-clamp: 5;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
 
   /* The list is the page: the card that framed it on a desktop is a second

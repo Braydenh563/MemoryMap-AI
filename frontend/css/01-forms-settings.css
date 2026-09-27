@@ -1151,6 +1151,19 @@ progress {
   background: var(--surface-3);
 }
 
+/* The notes list's card view only, not the shared `.entry-list li` above:
+   the owner's density ask ("at least 4 note cards above the fold" at
+   1093x614) is about the Browse list's cards specifically, and tightening
+   the general rule would also squeeze reminders, backups, sessions and
+   skill logs, none of which were measured or asked about. `:not(.is-rows)`
+   keeps this off the list's own compact row view, which already has a
+   tighter, already-tuned padding of its own (`.entry-list.is-rows li`,
+   below) that an id selector would otherwise outrank and override. */
+#entry-list:not(.is-rows) li {
+  padding: 0.15rem 0.8rem;
+  margin-bottom: 0.2rem;
+}
+
 /* ---- Rows: the default way a list of notes is shown --------------------
    Reported directly: "half the screen is taken up by poor ui choices or
    structuring." Measured before this existed, at 1440x900: a two-line note

@@ -8954,6 +8954,10 @@ Link to another note with [[its first few words]]."></textarea>
                   </select>
                   <button type="button" id="avatar-buddy-recall" class="ghost small" title="Bring it back to a free spot and forget the places you gave it">Call back</button>
                 </div>
+                <!-- Shown when the companion is you or your own character and
+                   you have not made that face yet (`nameMarkBuddyMakeHint`):
+                   it is read from a name until you do, which looked random. -->
+                <small class="muted hidden" id="avatar-buddy-make"><span id="avatar-buddy-make-text"></span> <button type="button" class="linklike" id="avatar-buddy-make-go">Create it</button></small>
               </div>
 
               <!-- Its size (INBOX 426 x): the same three as its menu, and

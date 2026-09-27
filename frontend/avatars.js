@@ -3078,7 +3078,48 @@ function nameMarkLookPickers(host, prefix, autoLabel, read, write) {
 
 //: Appearance's "Your own character" companion: shown only while it is
 //: the choice, its pickers built once.
+//: **Made, or read from a name?** (the owner: "I havent made a custom avatar
+//: yet but it set one randomly ... on the companion when I clicked it. but
+//: I as a user might not have even known how to make a custom avatar").
+//: Your face counts as made once you picked any part in Profile; your own
+//: character once it has a name or a part.
+function nameMarkBuddyMade(kind) {
+  if (kind === "me") return Object.values(ownNameMarkStyle()).some((v) => v !== "" && v !== undefined && v !== null && v !== 0);
+  if (kind === "custom") {
+    try {
+      return !!localStorage.getItem("avatar-buddy-custom");
+    } catch (e) {
+      return false;
+    }
+  }
+  return true;
+}
+//: Where to make it: your face in Profile, your character here in
+//: Appearance under the companion's own row.
+function nameMarkBuddyMakeIt(kind) {
+  if (typeof openSettingsModal !== "function") return;
+  if (kind === "me") openSettingsModal("preferences", "profile-look");
+  else openSettingsModal("appearance", "avatar-buddy-custom");
+}
+//: The line under the companion's select: shown only while the choice is a
+//: face you have not made.
+function nameMarkBuddyMakeHint() {
+  const hint = document.getElementById("avatar-buddy-make");
+  if (!hint) return;
+  const kind = typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off";
+  const show = (kind === "me" || kind === "custom") && !nameMarkBuddyMade(kind);
+  hint.classList.toggle("hidden", !show);
+  if (!show) return;
+  document.getElementById("avatar-buddy-make-text").textContent = kind === "me"
+    ? "It wears a face read from your name until you make your own."
+    : "It wears a face read from its name until you give it one below.";
+  const go = document.getElementById("avatar-buddy-make-go");
+  go.textContent = kind === "me" ? "Create your avatar" : "Make your character";
+  go.onclick = () => nameMarkBuddyMakeIt(kind);
+}
+
 function mountBuddyCustom() {
+  nameMarkBuddyMakeHint();
   const box = document.getElementById("avatar-buddy-custom");
   if (!box) return;
   const on = (typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off") === "custom";
@@ -7034,8 +7075,19 @@ function nameMarkBuddyMenu(buddy, at = null) {
   items.push({
     group: "who",
     label: "ph:user-switch Companion",
-    items: [["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
-      .map(([value, label]) => ({ label: tick(who === value, label), run: () => choose("avatar-buddy", value) })),
+    items: [
+      ...[["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
+        .map(([value, label]) => ({
+          label: tick(who === value, label),
+          //: Your own character, never made: chosen, and its maker opened,
+          //: rather than a face quietly made up for it.
+          run: () => {
+            choose("avatar-buddy", value);
+            if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");
+          },
+        })),
+      ...(nameMarkBuddyMade("me") ? [] : [{ label: "ph:user-circle-plus Create your avatar", run: () => nameMarkBuddyMakeIt("me") }]),
+    ],
   });
   const look = document.getElementById("atlas-look")?.value || "auto";
   items.push({

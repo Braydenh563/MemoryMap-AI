@@ -984,3 +984,16 @@ def test_faces_in_round_holders_stay_inside_their_circle() -> None:
     # face in Settings clipped to circle(50%).
     css01 = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     assert ":is(.persona-mark, .profile-mark) > :is(.name-mark, .nm-atlas, svg) {\n  clip-path: circle(50%);" in css01
+
+
+def test_a_face_you_have_not_made_says_so_and_leads_to_its_maker() -> None:
+    # The owner: "I havent made a custom avatar yet but it set one randomly
+    # ... I as a user might not have even known how to make a custom avatar".
+    # Measured (makeavatar.js): the hint under the select shows, its button
+    # opens Profile's maker, and the companion's menu offers Create your avatar.
+    assert 'id="avatar-buddy-make"' in HTML and 'id="avatar-buddy-make-go"' in HTML
+    assert 'openSettingsModal("preferences", "profile-look")' in _fn("nameMarkBuddyMakeIt")
+    menu = _fn("nameMarkBuddyMenu")
+    assert '"ph:user-circle-plus Create your avatar"' in menu
+    assert 'if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");' in menu
+    assert "nameMarkBuddyMakeHint();" in _fn("mountBuddyCustom")

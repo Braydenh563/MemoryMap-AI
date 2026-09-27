@@ -748,7 +748,7 @@ def test_it_leans_its_body_a_little_while_still_facing_you() -> None:
     # 1.2 and 2 degrees at 20, 60 and 150px, companiongaze.js), before
     # setting off, and now and then at rest.
     assert "#nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }" in CSS08
-    assert "nameMarkBuddyTilt(lx * 0.5);" in _fn("nameMarkBuddyAim")
+    assert "nameMarkBuddyLean(nmb.ex, now, speed);" in _fn("nameMarkBuddyNotice")
     assert "nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8," in _fn("nameMarkBuddyGo")
     assert 'if (act === "tilt") nameMarkBuddyTilt(' in _fn("nameMarkBuddyAct")
 
@@ -764,7 +764,8 @@ def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> 
     build = _fn("nameMarkBuddyBuild")
     assert 'emote.className = "nmb-emote";' in build and "for (let i = 0; i < 3; i += 1) {" in build
     assert ".nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }" in CSS08
-    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }" in CSS08
+    # Only lying or curled (sitting), never upright.
+    assert '#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }' in CSS08
     express = _fn("nameMarkBuddyExpress")
     assert 'old.classList.add("nmb-fig-leaving");' in express and "nameMarkBuddyExpress(softer, 2400)" in express
     assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
@@ -921,3 +922,90 @@ def test_it_lies_down_to_sleep_where_there_is_room_and_moves_by_its_look() -> No
     assert "NMB_GAIT_PACE[buddy.dataset.gait]" in _fn("nameMarkBuddyGo")
     assert '&[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy' in CSS08
     assert '&[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light' in CSS08
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_lean_has_hysteresis_and_a_dwell() -> None:
+    # The owner: "leans or tilts to the left and right a bit back and forth
+    # too fast because of my mouse movement". Measured (leanflick.js): a 2Hz
+    # sweep across it for 5s changed its lean 21 times; now 0, and a pointer
+    # held to one side still gets its lean (0.6).
+    got = _run_pure(["nameMarkBuddyLeanSide"], "[[0,0.8,5000],[0,0.5,5000],[1,0.5,5000],[1,0.2,5000],[1,-0.8,500],[1,-0.8,1400],[-1,0.1,200]].map((a) => nameMarkBuddyLeanSide(...a))")
+    assert got == [1, 0, 1, 0, 1, -1, -1]
+    lean = _fn("nameMarkBuddyLean")
+    assert "Math.exp(-dt / 250)" in lean and "if (speed > 1500) return;" in lean
+
+
+def test_performance_mode_alone_no_longer_holds_the_companion_still() -> None:
+    # The owner: "when the companion is appearing from off screen, it still
+    # just appears there" (OS animations on). Performance mode's automatic
+    # setting set data-motion=reduced and held the companion to a 300ms
+    # fade. Measured (tabentry.js, 1093x614, tab bar and keyboard): with
+    # Performance mode on it walks, materialises or climbs in; with Motion
+    # set to Reduce or the system asking, it fades; never a pop.
+    motion = _fn("nameMarkBuddyMotion")
+    assert 'if (app === "reduced") return { mode: "fades", reason: "app" };' in motion
+    assert '"(prefers-reduced-motion: reduce)"' in motion and '"perf-ignored"' in motion
+    assert "return nameMarkBuddyMotion().mode !== \"full\";" in _fn("nameMarkBuddyNoTravel")
+    assert 'root.dataset.buddyMotion = "full"' in _fn("nameMarkBuddyMotionApply")
+    assert ':root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy' in CSS08
+    assert 'id="avatar-buddy-motion"' in HTML and 'id="about-motion"' in HTML
+    # Less motion leaves by a fade, not a cut.
+    assert "duration: 260" in _fn("nameMarkBuddyLeave")
+
+
+def test_it_never_perches_in_a_run_of_words() -> None:
+    # The owner: "atlas companion just perched in the middle of the weekly
+    # digest". Measured (perchtext.js, 1093x614 and 1440x900, boot and six
+    # tab arrivals): on chat at 1093 it rested with 346 square px of words
+    # under it; now 0 everywhere, and no arrival is followed by a poof.
+    walk = _fn("nameMarkBuddySurfaceWalk")
+    assert 'child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6")' in walk
+    assert '!cs.display.startsWith("inline")' in walk
+    choose = _fn("nameMarkBuddyChoose")
+    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return best || soiled;" in choose
+
+
+def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
+    # The owner: "on the avatar lab, it keeps reverting my selected motion
+    # and goes to sleep standing with a night cap". Measured (labpin.js):
+    # with Live behaviour off, a sleepy from atlas.js's idle clock and a
+    # click leave the specimens as picked; on, they follow it.
+    lab = (ROOT / "tools" / "avatar-lab.js").read_text(encoding="utf-8")
+    assert "window.setAtlasMood = (...args) => (LAB.live ? liveMood(...args) : undefined);" in lab
+    assert 'id="live"' in (ROOT / "tools" / "avatar-lab.html").read_text(encoding="utf-8")
+    assert "#nm-buddy .nm-atlas { --atl-nightcap: 0; }" in CSS08
+    assert '#nm-buddy[data-pose="sit"]:not(.nmb-cap-off) .nm-atlas[data-atlas-mood="sleepy"] { --atl-nightcap: 1; }' in CSS08
+
+
+def test_faces_in_round_holders_stay_inside_their_circle() -> None:
+    # The owner: "in Settings > Personas, the Atlas avatar spills outside its
+    # black circle". Measured (personaclip.js): every persona and profile
+    # face in Settings clipped to circle(50%).
+    css01 = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    assert ":is(.persona-mark, .profile-mark) > :is(.name-mark, .nm-atlas, svg) {\n  clip-path: circle(50%);" in css01
+
+
+def test_a_face_you_have_not_made_says_so_and_leads_to_its_maker() -> None:
+    # The owner: "I havent made a custom avatar yet but it set one randomly
+    # ... I as a user might not have even known how to make a custom avatar".
+    # Measured (makeavatar.js): the hint under the select shows, its button
+    # opens Profile's maker, and the companion's menu offers Create your avatar.
+    assert 'id="avatar-buddy-make"' in HTML and 'id="avatar-buddy-make-go"' in HTML
+    assert 'openSettingsModal("preferences", "profile-look")' in _fn("nameMarkBuddyMakeIt")
+    menu = _fn("nameMarkBuddyMenu")
+    assert '"ph:user-circle-plus Create your avatar"' in menu
+    assert 'if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");' in menu
+    assert "nameMarkBuddyMakeHint();" in _fn("mountBuddyCustom")
+
+
+def test_companions_can_be_saved_applied_renamed_and_deleted() -> None:
+    # The owner: "I want to be able to save custom companions like with the
+    # custom themes". Measured (buddypresets.js): saved as Atlas, Large, fades
+    # only; applied over you at Small, it is Atlas at 1.3 with fades again;
+    # renamed; deleted.
+    assert 'id="avatar-buddy-presets"' in HTML and 'id="avatar-buddy-preset-save"' in HTML
+    for key in ('"avatar-buddy"', '"atlas-look"', '"avatar-buddy-custom"', '"avatar-buddy-size"', '"avatar-buddy-acts-off"', '"avatar-buddy-motion"'):
+        assert key in AV[AV.index("const NMB_PRESET_KEYS = [") :][:400], key
+    assert "p.name !== nmbPresetRenaming" in _fn("nameMarkBuddySavePreset")
+    assert "mountBuddyPresets()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")

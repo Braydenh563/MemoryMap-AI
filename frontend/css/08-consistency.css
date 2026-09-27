@@ -4924,6 +4924,7 @@ main,
   :is(
     :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark[data-nm-on],
     :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .name-mark,
+    :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:hover
   ) {
@@ -5175,7 +5176,7 @@ main,
 #nm-buddy.nmb-act-hip .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
 #nm-buddy.nmb-act-clasp .atl-figure .nmb-arm-r { transform: rotate(46deg); }
 #nm-buddy.nmb-act-clasp .atl-figure .nmb-arm-l { transform: rotate(-46deg); }
-:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-act-sway .atl-figure-box { animation: atl-stance-sway 7s ease-in-out infinite; }
+:root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy.nmb-act-sway .atl-figure-box { animation: atl-stance-sway 7s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy.nmb-act-sway .atl-figure-box { animation: none; }
 }
@@ -5815,7 +5816,7 @@ main,
   transition: opacity var(--motion-base) var(--ease-out);
 }
 #nm-buddy.nmb-music .nmp-headphones,
-#nm-buddy.nmb-night .nmp-nightcap,
+#nm-buddy.nmb-night:is([data-pose="sit"], .nmb-act-lie) .nmp-nightcap,
 #nm-buddy.nmb-reading .nmp-glasses,
 #nm-buddy.nmb-reading .nmp-book,
 #nm-buddy.nmb-act-carry .nmp-note,
@@ -5936,7 +5937,9 @@ main,
 /* A night cap while it naps (`.nmp-nightcap`, the figure's own), eased on
    and off; Appearance can turn it off (`nmb-cap-off`). */
 #nm-buddy .nm-figure .nmp-nightcap { transition: opacity calc(var(--motion-slow) * 3) var(--ease-in-out); }
-#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }
+/* Only lying or curled up (sitting): upright it dozes without it (the
+   owner: it "goes to sleep standing with a night cap"). */
+#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }
 /* Its emotes (avatars.js, `nameMarkBuddyEmote`): by its head, hidden until
    one is played. */
 #nm-buddy .nmb-emote {
@@ -5978,7 +5981,7 @@ main,
    not even run the timer then). `@media all` for the same reason as the
    faces above. */
 @media all {
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+  :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
     &[data-pose="float"] .nm-buddy-char { animation: nmb-float 4.2s ease-in-out infinite; }
     &.nmb-walking .nm-buddy-char { animation: nmb-bob 0.34s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nm-buddy-char { animation: none; }
@@ -6610,7 +6613,8 @@ main,
 /* Meditating flattens the rings; the planets step out rather than run on
    an orbit the ring no longer has. */
 #nm-buddy.nmb-act-meditate .atl-orbits { opacity: 0; }
-:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live > .atl-orbits {
+:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live > .atl-orbits,
+:root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live > .atl-orbits {
   & .atl-orbit-arm { animation: atl-orbit var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
   & .atl-orbiter { animation: atl-orbit-back var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite, atl-orbit-depth var(--atl-orbit-t) linear calc(var(--atl-at) * var(--atl-orbit-t) * -1) infinite; }
 }
@@ -7092,7 +7096,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    Reduce motion. */
 .nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
 @media all {
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+  :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
     &.nmb-walking .atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
     &.nmb-act-kick .atl-layer-lower { animation: atl-lower-flick 0.6s ease-in-out 4 alternate; }
@@ -7288,7 +7292,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* The companion's own Zs (`.nm-buddy-z`, avatars.js) rise over a sleep, so
    Atlas's stay off here and only the cap and the face change. */
 /* Lying down to sleep too (`lie`), and not when Appearance has the cap off. */
-#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nm-atlas { --atl-nightcap: 1; }
+/* Upright, no cap, whatever the mood draws; lying, or asleep sitting. */
+#nm-buddy .nm-atlas { --atl-nightcap: 0; }
+#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nm-atlas,
+#nm-buddy[data-pose="sit"]:not(.nmb-cap-off) .nm-atlas[data-atlas-mood="sleepy"] { --atl-nightcap: 1; }
 #nm-buddy:is(.nmb-sleep, .nmb-act-lie) .nm-atlas {
   --atl-open: 0; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 0; --atl-doze: 1; --atl-cheek: 0.14;
   --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
@@ -7397,6 +7404,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   :is(
     :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .nm-atlas[data-nm-on],
     :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .nm-atlas,
+    :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .nm-atlas,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .nm-atlas,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .nm-atlas:hover
   ) {
@@ -7479,12 +7487,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   }
 
   /* The classic globe as the companion floats wherever it is. */
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy .atl-classic-box {
+  :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy .atl-classic-box {
     animation: nmb-float 3.2s ease-in-out infinite;
   }
 
   /* Music: its head grooves and its notes pulse to the beat. */
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-music {
+  :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy.nmb-music {
     & .atl-figure .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
     & .atl-figure .atl-ring-glint { animation: atl-beat 0.5s ease-in-out infinite alternate; }
     & .atl-figure .atl-prop-note { animation: atl-rise 1.8s ease-out infinite; }
@@ -7510,7 +7518,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    02-chat-graph.css used to hide that by freezing everything first, and
    now leaves faces and the companion to this block. */
 @media all {
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live.atl-figure-box {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live.atl-figure-box,
+  :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live.atl-figure-box {
     &[data-atlas-mood="delighted"] { animation: atl-hop 1.1s ease-in-out infinite; }
     &[data-atlas-mood="laughing"] { animation: atl-giggle 0.42s ease-in-out infinite; }
     &[data-atlas-mood="sleepy"] { animation: atl-doze 4.6s ease-in-out infinite; }

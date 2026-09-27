@@ -3078,7 +3078,48 @@ function nameMarkLookPickers(host, prefix, autoLabel, read, write) {
 
 //: Appearance's "Your own character" companion: shown only while it is
 //: the choice, its pickers built once.
+//: **Made, or read from a name?** (the owner: "I havent made a custom avatar
+//: yet but it set one randomly ... on the companion when I clicked it. but
+//: I as a user might not have even known how to make a custom avatar").
+//: Your face counts as made once you picked any part in Profile; your own
+//: character once it has a name or a part.
+function nameMarkBuddyMade(kind) {
+  if (kind === "me") return Object.values(ownNameMarkStyle()).some((v) => v !== "" && v !== undefined && v !== null && v !== 0);
+  if (kind === "custom") {
+    try {
+      return !!localStorage.getItem("avatar-buddy-custom");
+    } catch (e) {
+      return false;
+    }
+  }
+  return true;
+}
+//: Where to make it: your face in Profile, your character here in
+//: Appearance under the companion's own row.
+function nameMarkBuddyMakeIt(kind) {
+  if (typeof openSettingsModal !== "function") return;
+  if (kind === "me") openSettingsModal("preferences", "profile-look");
+  else openSettingsModal("appearance", "avatar-buddy-custom");
+}
+//: The line under the companion's select: shown only while the choice is a
+//: face you have not made.
+function nameMarkBuddyMakeHint() {
+  const hint = document.getElementById("avatar-buddy-make");
+  if (!hint) return;
+  const kind = typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off";
+  const show = (kind === "me" || kind === "custom") && !nameMarkBuddyMade(kind);
+  hint.classList.toggle("hidden", !show);
+  if (!show) return;
+  document.getElementById("avatar-buddy-make-text").textContent = kind === "me"
+    ? "It wears a face read from your name until you make your own."
+    : "It wears a face read from its name until you give it one below.";
+  const go = document.getElementById("avatar-buddy-make-go");
+  go.textContent = kind === "me" ? "Create your avatar" : "Make your character";
+  go.onclick = () => nameMarkBuddyMakeIt(kind);
+}
+
 function mountBuddyCustom() {
+  nameMarkBuddyMakeHint();
   const box = document.getElementById("avatar-buddy-custom");
   if (!box) return;
   const on = (typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off") === "custom";
@@ -3375,6 +3416,125 @@ function nameMarkBuddyEmote(kind) {
   ], { duration: 1600, easing: "ease-out" });
 }
 
+//: **Saved companions**, the custom themes' pattern for the companion:
+//: every setting that makes it who it is, kept under a name in this
+//: browser, applied in one press, renamed (its name back in the field, then
+//: saved) and deleted. At most twelve.
+const NMB_PRESET_KEYS = ["avatar-buddy", "atlas-look", "face-look", "avatar-buddy-custom", "avatar-buddy-size", "avatar-buddy-actions", "avatar-buddy-acts-off", "avatar-buddy-motion"];
+const NMB_PRESET_MAX = 12;
+let nmbPresetRenaming = "";
+function nameMarkBuddyPresets() {
+  try {
+    const list = JSON.parse(localStorage.getItem("avatar-buddy-presets") || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+function nameMarkBuddyKeepPresets(list) {
+  try {
+    localStorage.setItem("avatar-buddy-presets", JSON.stringify(list));
+  } catch (e) {
+    // Not kept this time.
+  }
+  mountBuddyPresets();
+}
+function nameMarkBuddySavePreset() {
+  const input = document.getElementById("avatar-buddy-preset-name");
+  const name = (input?.value || "").trim().slice(0, 30);
+  if (!name) {
+    if (typeof toast === "function") toast("Give the companion a name first.", true);
+    input?.focus();
+    return;
+  }
+  const values = {};
+  for (const key of NMB_PRESET_KEYS) {
+    const v = localStorage.getItem(key);
+    if (v !== null) values[key] = v;
+  }
+  const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
+  if (others.length >= NMB_PRESET_MAX) {
+    if (typeof toast === "function") toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
+    return;
+  }
+  nmbPresetRenaming = "";
+  input.value = "";
+  nameMarkBuddyKeepPresets([...others, { name, values }]);
+  if (typeof toast === "function") toast(`Saved “${name}”.`);
+}
+function nameMarkBuddyApplyPreset(preset) {
+  for (const key of NMB_PRESET_KEYS) {
+    if (preset.values?.[key] !== undefined) localStorage.setItem(key, preset.values[key]);
+    else localStorage.removeItem(key);
+  }
+  nameMarkBuddyCustomCache = null;
+  const acts = document.getElementById("avatar-buddy-activities");
+  if (acts) acts.replaceChildren();
+  if (typeof applyAppearance === "function") applyAppearance();
+  if (typeof renderAppearance === "function") renderAppearance();
+  const buddy = document.getElementById("nm-buddy");
+  if (buddy) {
+    delete buddy.dataset.seed;
+    nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
+    nameMarkBuddyToggles(buddy);
+  }
+  syncNameMarkBuddy();
+  mountBuddyActivities();
+  if (typeof toast === "function") toast(`Applied “${preset.name}”.`);
+}
+function mountBuddyPresets() {
+  const box = document.getElementById("avatar-buddy-presets");
+  if (!box) return;
+  box.replaceChildren();
+  const list = nameMarkBuddyPresets();
+  if (!list.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing saved yet: set the companion up how you like it, then save it here.";
+    box.appendChild(empty);
+  }
+  for (const preset of list) {
+    const row = document.createElement("div");
+    row.className = "row avatar-buddy-preset";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "small";
+    apply.textContent = preset.name;
+    apply.title = `Apply “${preset.name}”`;
+    apply.addEventListener("click", () => nameMarkBuddyApplyPreset(preset));
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "ghost small";
+    rename.textContent = "Rename";
+    rename.addEventListener("click", () => {
+      const input = document.getElementById("avatar-buddy-preset-name");
+      nmbPresetRenaming = preset.name;
+      input.value = preset.name;
+      input.focus();
+      input.select();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small";
+    remove.textContent = "Delete";
+    remove.setAttribute("aria-label", `Delete the saved companion “${preset.name}”`);
+    remove.addEventListener("click", () => {
+      nameMarkBuddyKeepPresets(nameMarkBuddyPresets().filter((p) => p.name !== preset.name));
+      if (typeof toast === "function") toast(`Deleted “${preset.name}”.`);
+    });
+    row.append(apply, rename, remove);
+    box.appendChild(row);
+  }
+  const save = document.getElementById("avatar-buddy-preset-save");
+  if (save && !save.dataset.wired) {
+    save.dataset.wired = "1";
+    save.addEventListener("click", nameMarkBuddySavePreset);
+    document.getElementById("avatar-buddy-preset-name")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") nameMarkBuddySavePreset();
+    });
+  }
+}
+
 function mountBuddyActivities() {
   const host = document.getElementById("avatar-buddy-activities");
   if (!host || host.childElementCount) return;
@@ -3471,12 +3631,61 @@ const nmb = {
 //: system's own hint stops the travel too (a walk across the screen is the
 //: one motion here that moves something large), and leaves the small
 //: behaviours to the CSS, which calms them like every other face.
-function nameMarkBuddyStill() {
+//: **How much it moves, and why** (the owner: "when the companion is
+//: appearing from off screen, it still just appears there. is it because I
+//: have the motion on auto"). It was held still by `data-motion="reduced"`,
+//: which Performance mode's automatic setting also sets on a small machine
+//: or when the system asks for less transparency: a cheap transform-only
+//: walk was taken away with the costly glass. Now its own setting decides
+//: (Appearance > Companion movement, `avatar-buddy-motion`):
+//:   follow  (the default) less motion only when you asked for it, in the
+//:           app's Motion setting or the system's; Performance mode alone
+//:           leaves it moving;
+//:   always  walks, hops and portals whatever else asks;
+//:   fades   no travel: it fades out and in, and does nothing on its own.
+//: Avatar animation off keeps it still. `mode` is "full", "fades" or
+//: "still"; `reason` names why it is not full, for the setting's hint.
+function nameMarkBuddyMotion() {
   const root = document.documentElement;
-  return root.dataset.avatarMotion === "off" || root.dataset.motion === "reduced";
+  let choice = "follow";
+  try {
+    choice = localStorage.getItem("avatar-buddy-motion") || "follow";
+  } catch (e) {
+    // The default.
+  }
+  if (root.dataset.avatarMotion === "off") return { mode: "still", reason: "avatar" };
+  if (choice === "always") return { mode: "full", reason: "" };
+  if (choice === "fades") return { mode: "fades", reason: "setting" };
+  const app = typeof appearancePref === "function" ? appearancePref("motion", "auto") : "auto";
+  if (app === "reduced") return { mode: "fades", reason: "app" };
+  if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return { mode: "fades", reason: "os" };
+  return { mode: "full", reason: root.dataset.perf === "on" ? "perf-ignored" : "" };
+}
+const NMB_MOTION_WHY = {
+  avatar: "Avatar animation is off, so it stays still.",
+  setting: "Fades only, as chosen here.",
+  app: "Fades only: Motion is set to Reduce in Appearance.",
+  os: "Fades only: your system asks for less motion.",
+  "perf-ignored": "Performance mode is on, but the companion still moves: it costs very little.",
+  "": "",
+};
+//: The page's own motion switch (`data-motion`) also gates its CSS; when it
+//: is on for Performance mode only, or you chose Always, the companion's
+//: gates are lifted by `data-buddy-motion` on the root.
+function nameMarkBuddyMotionApply() {
+  const root = document.documentElement;
+  const { mode, reason } = nameMarkBuddyMotion();
+  if (mode === "full" && root.dataset.motion === "reduced") root.dataset.buddyMotion = "full";
+  else delete root.dataset.buddyMotion;
+  const why = document.getElementById("avatar-buddy-motion-why");
+  if (why) why.textContent = NMB_MOTION_WHY[reason] || "";
+  return mode;
+}
+function nameMarkBuddyStill() {
+  return nameMarkBuddyMotion().mode !== "full";
 }
 function nameMarkBuddyNoTravel() {
-  return nameMarkBuddyStill() || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  return nameMarkBuddyMotion().mode !== "full";
 }
 
 function nameMarkShade(hex, t) {
@@ -3902,10 +4111,16 @@ function nameMarkBuddySurfaceWalk(page) {
       //: Nor a field you type into: sitting on a document's editor its
       //: tail hung over the first line of what you were writing.
       if (child.matches("textarea, input, select, [contenteditable='true'], .cm-editor")) continue;
+      //: Never a thing inside a run of words (the owner: "atlas companion
+      //: just perched in the middle of the weekly digest"): a highlighted
+      //: phrase, a code span or a link inside a paragraph has a surface of
+      //: its own but is text, and standing on it put the figure over the
+      //: words around it.
+      if (child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6") && !child.matches("button, [role='button']")) continue;
       let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= minW);
       if (!surface) {
         const cs = getComputedStyle(child);
-        surface = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none";
+        surface = !cs.display.startsWith("inline") && (cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none");
       }
       if (surface) found.push([child, box]);
       if (depth < 8 && !child.matches("button, a[href], [role='button'], svg, canvas")) walk(child, depth + 1);
@@ -4022,6 +4237,7 @@ function nameMarkBuddyPerches(tab, focus = null) {
 //: it pacing.
 function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
   let best = null;
+  let soiled = null;
   let scored = 0;
   nmbCoverCache = new Map();
   for (const perch of nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)) {
@@ -4044,14 +4260,21 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
     if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles, perch.legs)) continue;
     const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose, perch.legs);
     //: Any words under it at all cost more than a step along the ledge:
-    //: sampling is sparse, and one hit is usually a word half hidden.
+    //: sampling is sparse, and one hit is usually a word half hidden. A
+    //: perch over words is kept only as the last resort: any clean one wins.
     perch.score = ceiling - (covers ? 25 + covers * 120 : 0);
+    if (covers) {
+      if (!soiled || perch.score > soiled.score) soiled = perch;
+      scored += 1;
+      if (scored >= (near ? 120 : 36)) break;
+      continue;
+    }
     if (!best || perch.score > best.score) best = perch;
     scored += 1;
     if ((!near && covers === 0 && perch.rank === 0) || scored >= (near ? 120 : 36)) break;
   }
   nmbCoverCache = null;
-  if (best) return best;
+  if (best || soiled) return best || soiled;
   //: Nothing is free (a small window full of controls): the bottom corner,
   //: standing clear of the bar.
   const { bottom } = nameMarkBuddyLedges();
@@ -5459,6 +5682,7 @@ function nameMarkBuddyEnter(buddy, spot) {
   const char = buddy.querySelector(".nm-buddy-char");
   if (nameMarkBuddyNoTravel()) {
     nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
+    nmb.anim.onfinish = null;
     return "fade";
   }
   const x = nmb.x;
@@ -5535,8 +5759,14 @@ function nameMarkBuddyEnter(buddy, spot) {
 //: **Out the same way, or dissolving** (INBOX 430): hidden from its menu or
 //: by Ctrl+Shift+Y it dematerialises into starlight rather than vanishing.
 function nameMarkBuddyLeave(buddy, then) {
-  if (!buddy || typeof buddy.animate !== "function" || nameMarkBuddyNoTravel()) {
+  if (!buddy || typeof buddy.animate !== "function") {
     then();
+    return;
+  }
+  //: Less motion is a fade, never a cut.
+  if (nameMarkBuddyNoTravel()) {
+    buddy.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: "ease-in", fill: "forwards" });
+    setTimeout(then, 280);
     return;
   }
   const char = buddy.querySelector(".nm-buddy-char");
@@ -5789,7 +6019,6 @@ function nameMarkBuddyAim(point, near = false) {
   clearTimeout(nmb.headTimer);
   if (near && Date.now() >= nmb.groggyUntil) {
     buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
-    nameMarkBuddyTilt(lx * 0.5);
     return;
   }
   const groggy = Date.now() < nmb.groggyUntil;
@@ -5838,6 +6067,8 @@ function nameMarkBuddyRelease() {
   buddy.style.setProperty("--nmb-ex", "0");
   buddy.style.setProperty("--nmb-ey", "0");
   buddy.style.setProperty("--nmb-hx", "0");
+  nmb.leanState = 0;
+  nmb.leanSmooth = 0;
   if (!nmb.act || nmb.act !== "tilt") nameMarkBuddyTilt(0);
   if (!buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
 }
@@ -6499,12 +6730,43 @@ function nameMarkBuddyNotice(x, y, now, salient = "") {
   nmb.target = [x, y];
   nmb.targetAt = now;
   nameMarkBuddyAim([x, y], near);
-  const side = nmb.ex < -0.7 ? "l" : nmb.ex > 0.7 ? "r" : "";
-  if (side !== nmb.leanSide) {
-    nmb.leanSide = side;
-    nmb.leanAt = now;
-  } else if (side && now - nmb.leanAt > 1500 && !buddy.classList.contains("nmb-walking")) {
-    buddy.dataset.turn = side;
+  nameMarkBuddyLean(nmb.ex, now, speed);
+}
+
+//: **Leaning toward you, steadily** (the owner: "sometimes the companion
+//: leans or tilts to the left and right a bit back and forth too fast
+//: because of my mouse movement"). The gaze was the lean: every pass of
+//: the pointer flipped it. Now the gaze is smoothed first (about 250ms),
+//: the lean is a side it is on (in past 0.7, out only under 0.3, nothing in
+//: between), it keeps a side at least 1.3s before it may change, a flick of
+//: the pointer (over 1500px a second) moves nothing, and the lean itself
+//: eases over 400ms (the CSS). Held 1.5s, the head turns that way too.
+function nameMarkBuddyLeanSide(state, smooth, heldMs) {
+  const want = smooth > 0.7 ? 1 : smooth < -0.7 ? -1 : Math.abs(smooth) < 0.3 ? 0 : state;
+  if (want !== state && heldMs < 1300) return state;
+  return want;
+}
+function nameMarkBuddyLean(ex, now, speed = 0) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const dt = Math.min(1000, Math.max(0, now - (nmb.leanSmoothAt || now)));
+  nmb.leanSmoothAt = now;
+  nmb.leanSmooth = (nmb.leanSmooth || 0) + (ex - (nmb.leanSmooth || 0)) * (1 - Math.exp(-dt / 250));
+  //: The pointer stops sending moves when it stops: looked at again a
+  //: moment later until the smoothed gaze has caught up, so a pointer that
+  //: flicked over and stayed is leaned to.
+  clearTimeout(nmb.leanTimer);
+  if (speed > 1500 || Math.abs(ex - nmb.leanSmooth) > 0.05) nmb.leanTimer = setTimeout(() => nameMarkBuddyLean(nmb.ex, Date.now(), 0), 150);
+  if (speed > 1500) return;
+  const was = nmb.leanState || 0;
+  const side = nameMarkBuddyLeanSide(was, nmb.leanSmooth, now - (nmb.leanChangedAt || 0));
+  if (side !== was) {
+    nmb.leanState = side;
+    nmb.leanChangedAt = now;
+    if (nmb.act !== "tilt") nameMarkBuddyTilt(side * 0.6);
+    if (!side && !buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
+  } else if (side && now - nmb.leanChangedAt > 1500 && !buddy.classList.contains("nmb-walking")) {
+    buddy.dataset.turn = side < 0 ? "l" : "r";
   }
 }
 
@@ -6932,8 +7194,19 @@ function nameMarkBuddyMenu(buddy, at = null) {
   items.push({
     group: "who",
     label: "ph:user-switch Companion",
-    items: [["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
-      .map(([value, label]) => ({ label: tick(who === value, label), run: () => choose("avatar-buddy", value) })),
+    items: [
+      ...[["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
+        .map(([value, label]) => ({
+          label: tick(who === value, label),
+          //: Your own character, never made: chosen, and its maker opened,
+          //: rather than a face quietly made up for it.
+          run: () => {
+            choose("avatar-buddy", value);
+            if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");
+          },
+        })),
+      ...(nameMarkBuddyMade("me") ? [] : [{ label: "ph:user-circle-plus Create your avatar", run: () => nameMarkBuddyMakeIt("me") }]),
+    ],
   });
   const look = document.getElementById("atlas-look")?.value || "auto";
   items.push({
@@ -7358,6 +7631,7 @@ function syncNameMarkBuddy() {
     return;
   }
   const fresh = !buddy;
+  nameMarkBuddyMotionApply();
   if (fresh) buddy = nameMarkBuddyBuild();
   if (buddy.dataset.seed !== seed) {
     buddy.dataset.seed = seed;

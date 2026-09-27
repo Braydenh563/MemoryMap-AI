@@ -3432,6 +3432,13 @@ html.modal-open body {
   clip-path: circle(50%);
 }
 
+/* The same for every round holder of a face: the persona rows (Settings >
+   Personas, the chat's picker) and your profile's (the owner: "in Settings
+   > Personas, the Atlas avatar spills outside its black circle"). */
+:is(.persona-mark, .profile-mark) > :is(.name-mark, .nm-atlas, svg) {
+  clip-path: circle(50%);
+}
+
 /* The emblem and the greeting are one unit, so the clock still pushes to the
    far end. */
 .dash-hero-text {

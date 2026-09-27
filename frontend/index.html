@@ -8967,6 +8967,10 @@ Link to another note with [[its first few words]]."></textarea>
                   </select>
                   <button type="button" id="avatar-buddy-recall" class="ghost small" title="Bring it back to a free spot and forget the places you gave it">Call back</button>
                 </div>
+                <!-- Shown when the companion is you or your own character and
+                   you have not made that face yet (`nameMarkBuddyMakeHint`):
+                   it is read from a name until you do, which looked random. -->
+                <small class="muted hidden" id="avatar-buddy-make"><span id="avatar-buddy-make-text"></span> <button type="button" class="linklike" id="avatar-buddy-make-go">Create it</button></small>
               </div>
 
               <!-- Its size (INBOX 426 x): the same three as its menu, and
@@ -8997,10 +9001,36 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="normal">Normal</option>
                 </select>
               </div>
+              <!-- How much it moves, and why (`nameMarkBuddyMotion`,
+                   avatars.js): Performance mode alone no longer holds it
+                   still; the hint says what does. -->
+              <div class="setting-row" id="avatar-buddy-motion-row">
+                <div class="setting-label">
+                  <span>Companion movement</span>
+                  <small class="muted" id="avatar-buddy-motion-why"></small>
+                </div>
+                <select id="avatar-buddy-motion" class="small-select setting-control" aria-label="Companion movement">
+                  <option value="follow">Follow the app's motion setting</option>
+                  <option value="always">Always animate, even with less motion asked for</option>
+                  <option value="fades">Minimal: fades only</option>
+                </select>
+              </div>
               <!-- Each thing it does on its own, one switch a row (the owner,
                    2026-09-27: "Every companion feature must be togglable in
                    Settings"): built by `mountBuddyActivities`, avatars.js,
                    from its `NMB_ACTIVITIES` table. -->
+              <!-- Saved companions (the owner: "I want to be able to save custom
+                   companions like with the custom themes"): who it is, its
+                   look, size, what it does and how it moves, kept by name in
+                   this browser (`mountBuddyPresets`, avatars.js). -->
+              <details class="settings-fold" id="avatar-buddy-presets-fold">
+                <summary>Saved companions</summary>
+                <div id="avatar-buddy-presets" class="avatar-buddy-presets"></div>
+                <div class="row custom-theme-save-row">
+                  <input id="avatar-buddy-preset-name" type="text" maxlength="30" placeholder="Name this companion…" aria-label="Name for the saved companion">
+                  <button id="avatar-buddy-preset-save" class="small" type="button">Save this companion</button>
+                </div>
+              </details>
               <details class="settings-fold" id="avatar-buddy-activities-fold">
                 <summary>What it does on its own</summary>
                 <div id="avatar-buddy-activities" class="avatar-buddy-activities"></div>
@@ -10651,6 +10681,9 @@ Link to another note with [[its first few words]]."></textarea>
                 this computer.
               </p>
               <p class="muted" id="about-version"></p>
+              <!-- How much the companion moves and why (`nameMarkBuddyMotion`):
+                   checkable here when it seems not to move. -->
+              <p class="muted" id="about-motion"></p>
               <!-- ROADMAP item C: several extras only take effect on restart
                    and the app said so without ever offering one. Hidden by
                    default (not-restart-capable builds: the browser tab, or

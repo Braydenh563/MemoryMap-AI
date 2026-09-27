@@ -15,7 +15,7 @@ function userCss(text) {
   }
   return userCssText;
 }
-const LAB = { look: "masculine", style: "character", mood: "calm", seed: "Brayden", own: {}, ground: "dark", motion: false, css: "", notes: "", snaps: {} };
+const LAB = { look: "masculine", style: "character", mood: "calm", seed: "Brayden", own: {}, ground: "dark", motion: false, live: false, css: "", notes: "", snaps: {} };
 function userMarkSeed() { return LAB.seed; }
 function aiNameNow() { return "Atlas"; }
 function currentAccentHex() { return "#6d5dfc"; }
@@ -65,6 +65,14 @@ const ROOT = location.protocol === "file:" ? "../frontend/" : "/";
     //: Atlas reads its look from the app's storage first; the lab's choice
     //: must win without touching that storage.
     window.atlasLook = () => LAB.look;
+    //: **What you pick stays picked** (the owner: "on the avatar lab, it
+    //: keeps reverting my selected motion and goes to sleep standing with a
+    //: night cap"). atlas.js's own life (sleepy after ten idle minutes or
+    //: before 5am, a start at a click while sleepy, a poke's reaction) set
+    //: every Atlas on the page, the lab's specimens too. With Live behaviour
+    //: off (the default) none of it reaches them.
+    const liveMood = window.setAtlasMood;
+    window.setAtlasMood = (...args) => (LAB.live ? liveMood(...args) : undefined);
     boot();
   }).catch((e) => { document.getElementById("status").textContent = e.message; });
 })();
@@ -523,6 +531,11 @@ function boot() {
     document.documentElement.dataset.mode = LAB.ground;
     $("ground").textContent = `Ground: ${LAB.ground}`;
     store();
+  };
+  $("live").onclick = () => {
+    LAB.live = !LAB.live;
+    $("live").textContent = `Live behaviour: ${LAB.live ? "on" : "off"}`;
+    say(LAB.live ? "Atlas's own moods now play (sleepy when idle, pokes)" : "Pinned to what you pick");
   };
   $("motion").onclick = () => {
     LAB.motion = !LAB.motion;

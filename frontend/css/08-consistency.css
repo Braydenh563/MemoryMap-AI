@@ -5084,8 +5084,11 @@ main,
   border-radius: var(--radius-pill);
 }
 
+/* A step more than the card's gap above it: the figure's margins
+   (avatars.js, `nameMarkViewerFit`) reach to the drawing's lowest point at
+   rest, and a mood's loop dips a few px below that. */
 .nm-viewer-name {
-  margin: 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
@@ -5179,8 +5182,13 @@ main,
   50% { transform: rotate(1.6deg); }
 }
 /* Away with the tab it lives on (avatars.js, `nameMarkBuddyTabChanged`):
-   gone with the tab, at once, and not in the way of anything. */
-#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
+   out of the way of the pointer at once, and faded out over a beat rather
+   than cut (the owner, 2026-09-27: "the disappearing and reappearing
+   animation needs to be improved"; measured before, opacity 1 to 0 in one
+   frame on every tab switch). `visibility` goes when the fade is done.
+   Built hidden (`syncNameMarkBuddy`), it starts in this state with no
+   transition, so it is never drawn before its first place is known. */
+#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--motion-slow) var(--ease-in-out), visibility 0s linear var(--motion-slow); }
 #nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
 
 #nm-buddy-band {
@@ -5732,7 +5740,6 @@ main,
    faces above. */
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
-    &.nmb-arrive .nm-buddy-char { animation: nmb-arrive 0.55s var(--ease-spring); }
     &[data-pose="float"] .nm-buddy-char { animation: nmb-float 4.2s ease-in-out infinite; }
     &.nmb-walking .nm-buddy-char { animation: nmb-bob 0.34s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nm-buddy-char { animation: none; }
@@ -5901,11 +5908,6 @@ main,
   100% { translate: 0 0; }
 }
 /* Arriving: it fades in with a small drop onto its perch. */
-@keyframes nmb-arrive {
-  0% { transform: translateY(-14px); opacity: 0; }
-  70% { transform: translateY(2px) scale(1.03, 0.97); opacity: 1; }
-  100% { transform: none; }
-}
 @keyframes nmb-bob {
   from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
   to { transform: translateY(-3px) rotate(calc(var(--nmb-lean) * 6deg)); }

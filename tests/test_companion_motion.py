@@ -207,10 +207,14 @@ def test_it_rides_its_panels_scroll_and_leaves_with_it() -> None:
     assert "nameMarkBuddyQueuePlace()" in seen and "nmbFollow.scrollAt" in seen
 
 
-def test_a_jump_it_must_make_is_a_poof_under_400ms() -> None:
+def test_a_jump_it_must_make_is_a_poof_under_half_a_second() -> None:
     # INBOX 426 x: "a better teleport". Out of sight, or further than a walk
-    # should go, it dissolves in stars and appears in another burst.
-    assert "const NMB_POOF_OUT_MS = 150;" in AV and "const NMB_POOF_IN_MS = 220;" in AV
+    # should go, it dissolves in stars and appears in another burst. The
+    # owner, 2026-09-27: "the disappearing and reappearing animation needs to
+    # be improved again": two gestures, out easing in and in easing out with
+    # a small overshoot, not one blink.
+    assert "const NMB_POOF_OUT_MS = 180;" in AV and "const NMB_POOF_IN_MS = 300;" in AV
+    assert 'scale: "1.04"' in _fn("nameMarkBuddyPoof")
     move = _fn("nameMarkBuddyMoveTo")
     assert "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)" in move
     poof = _fn("nameMarkBuddyPoof")
@@ -598,3 +602,49 @@ def test_it_sets_off_and_lands_and_eases_between_poses():
     assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
     assert "a instanceof CSSTransition" in AV
     assert "#nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring)" in CSS08
+
+
+def test_it_is_never_drawn_before_its_place_and_never_jumps_after_it() -> None:
+    # The owner, 2026-09-27: it "appeared for a split second at the top right
+    # ... then ... pretty suddenly slightly adjusted its position to perch".
+    # Measured (scratchpad/ui-sweeps/companionentry.js): placed while the
+    # dashboard was filling in, then carried 142px and 18px in single frames.
+    # Built hidden, before its style is first computed ...
+    build = _fn("nameMarkBuddyBuild")
+    assert build.index('buddy.classList.add("nmb-away");') < build.index("nameMarkBuddySetSize(")
+    # ... and brought in the way it comes to a tab, once the page is still.
+    sync = _fn("syncNameMarkBuddy")
+    assert "nameMarkBuddyArrive(buddy);" in sync and "placeNameMarkBuddy(buddy, true)" not in sync
+    assert "nameMarkBuddySettle(tab, (spot) => {" in _fn("nameMarkBuddyArrive")
+    settle = _fn("nameMarkBuddySettle")
+    assert "NMB_SETTLE_QUIET_MS" in settle and "NMB_SETTLE_MAX_MS" in settle
+    assert "if (moved) choose();" in settle
+    # A tab switch while it settles does not show it unplaced.
+    assert "if (!Number.isFinite(nmb.x)) {" in _fn("nameMarkBuddyTabChanged")
+    # A panel that jumps is glided after, added to whatever else moves it;
+    # a scroll and a panel's own animation are still followed exactly.
+    catch_up = _fn("nameMarkBuddyCatchUp")
+    assert 'composite: "add"' in catch_up
+    assert "nmbFollow.scrollAt < 200" in catch_up and "nameMarkBuddyPanelMoving(" in catch_up
+    follow = _fn("nameMarkBuddyFollow")
+    assert follow.count("nameMarkBuddyCatchUp(buddy,") == 2
+    # A move that starts mid-glide starts from where it is drawn.
+    assert "nmb.glideAnim.playState === \"running\"" in _fn("nameMarkBuddyMoveTo")
+    # Leaving with its tab is a fade, not a cut; coming down or up out of a
+    # bar is clipped at its own edge rather than drawn over the bar.
+    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--motion-slow) var(--ease-in-out), visibility 0s linear var(--motion-slow); }" in CSS08
+    assert "clipPath: clip(t)" in _fn("nameMarkBuddyEnter")
+    assert "nmb-arrive" not in AV and "nmb-arrive" not in CSS08
+
+
+def test_its_enlarged_view_keeps_the_drawing_clear_of_its_name() -> None:
+    # The owner, 2026-09-27: "make sure the text doesnt clash with the avatar
+    # in the expanded companion panel". Measured (viewerclash.js): the
+    # drawing ran 4 to 16px into the name for every face; now the figure's
+    # margins take in the drawing's own reach, measured before first paint.
+    viewer = _fn("openNameMarkViewer")
+    assert "nameMarkViewerFit(figure);" in viewer
+    assert 'isAtlasSeed(seed) ? "The app\'s own guide"' in viewer
+    fit = _fn("nameMarkViewerFit")
+    assert 'grow("marginBottom", bottom - box.bottom);' in fit and 'grow("marginTop", box.top - top);' in fit
+    assert "if (px > was)" in fit

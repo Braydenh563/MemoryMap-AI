@@ -203,7 +203,22 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
 
     monkeypatch.setitem(searxng_manager._start_state, "running", True)
     monkeypatch.setitem(searxng_manager._start_state, "backend", "source")
-    monkeypatch.setitem(searxng_manager._start_state, "since", time.time() - 12)
+    # The route's clock is pinned, not the real one: the full suite once took
+    # over ten seconds between setting `since` and the request landing (a
+    # loaded four-worker run beside three agents' browsers), read 22s, and
+    # failed a 12-to-20 window that had already been widened once for the
+    # same reason. A pinned clock tests the arithmetic, which is the point.
+    import types
+
+    from memorymap.api import routes_tasks
+
+    now = time.time()
+    clock = types.SimpleNamespace(
+        **{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}
+    )
+    clock.time = lambda: now
+    monkeypatch.setattr(routes_tasks, "time", clock)
+    monkeypatch.setitem(searxng_manager._start_state, "since", now - 12)
 
     tasks = client.get("/tasks").json()["tasks"]
     start = [t for t in tasks if t["kind"] == "searxng-start"]
@@ -217,7 +232,7 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     # 90s budget", so assert that, with enough slack to survive a slow machine.
     elapsed = re.search(r"\((\d+)s of 90s\)", start[0]["detail"])
     assert elapsed, start[0]["detail"]
-    assert 12 <= int(elapsed.group(1)) <= 20, start[0]["detail"]
+    assert int(elapsed.group(1)) == 12, start[0]["detail"]
     assert 0 < start[0]["progress"] < 1
     # Quitting a start means stopping the thing being waited for, which is
     # what someone pressing Quit on "Starting SearXNG" means.

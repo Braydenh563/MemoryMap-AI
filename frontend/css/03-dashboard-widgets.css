@@ -2379,7 +2379,11 @@ header#top-bar select,
 .result-reason-chip {
   font-size: var(--text-xs);
   font-weight: 600;
-  max-width: 22rem;
+  /* And never wider than what holds it: 22rem is 352px, and a chat answer
+     at 390 is 288px wide, so the "Grounded in" chips ran 79px past the
+     bubble's edge and were cut mid-word by the pane (the chat pass,
+     2026-09-26, `chataudit.js`). The label's own ellipsis does the rest. */
+  max-width: min(22rem, 100%);
 }
 
 .result-reason-chip .note-label-prefix {
@@ -2932,7 +2936,13 @@ header#top-bar select,
   padding-left: 1.25rem;
 }
 
-.msg.assistant .bubble-answer code {
+/* Inline code only. Written as `.bubble-answer code` it also matched the code
+   inside a code block and out-ranked that block's own reset (`.code-block pre
+   code`, 0,1,2 against this rule's 0,3,1), so every line of a fenced block
+   wore its own chip: a tinted strip behind each line and a 4px step before
+   the first word only (the chat pass, 2026-09-26: the computed style of a
+   block's `code` was this fill and `0.8px 4px` of padding, inline). */
+.msg.assistant .bubble-answer :not(pre) > code {
   background: var(--chip-bg);
   padding: 0.05rem 0.25rem;
   border-radius: var(--radius-sm);
@@ -4205,8 +4215,37 @@ p.graph-help-panel {
    and a per-item alignment always beats the container's. Measured before this:
    the switch at y=655 against a text block starting at y=620. */
 .tool-row.setting-check > input[type="checkbox"] {
-  align-self: start;
-  margin-top: var(--space-1);
+  align-self: center;
+  margin-top: 0;
+}
+
+/* **The switch is centred on the name's own line, at every text size.**
+   Reported with a screenshot: "I want each of the toggles in the tool
+   options to be in line horizontally with the tool names". The rule above
+   put the switch at the top of the row plus one fixed space, which lands
+   level with the name only at the default text size; at the owner's larger
+   size the name's line grew and the switch stayed where it was, above it.
+   So the text column dissolves into the row's grid (`display: contents`):
+   the name takes row 1 beside the switch and both centre in it, the chips
+   and the description stack under the name in column 2. Nothing is nudged
+   by a number, so no text size or display scale can move them apart. */
+.tool-row.setting-check > span {
+  display: contents;
+}
+
+.tool-row.setting-check > span > * {
+  grid-column: 2;
+}
+
+.tool-row.setting-check > span > strong {
+  grid-row: 1;
+  align-self: center;
+}
+
+.tool-row .tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
 /* --- the touch floor, for the two surfaces the dock rule cannot reach ------
@@ -4372,4 +4411,73 @@ p.graph-help-panel {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
+}
+
+/* While you were away (`renderNightWidget`, dashboard.js). One line per kind
+   of finding, a ghost disclosure whose caret turns when its review list is
+   open; the list is the dashboard's own `.dash-list`, each row the finding
+   over its facts line with two icon-only actions at the end. A finding is
+   read, not opened, so its row is not a button and keeps the default
+   cursor. */
+.night-summary {
+  margin: 0 0 var(--space-2);
+}
+
+.night-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* `minmax(0, 1fr)`, not the implicit `auto`: an auto track is at least as
+     wide as its longest unbroken line, and a finding's title is one, so the
+     rows ran past the card and pushed their actions out of it (measured by
+     nightcard.js before this line). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.night-kind {
+  min-width: 0;
+}
+
+.night-kind-toggle > .ph {
+  transition: rotate var(--motion-fast) var(--ease-out);
+}
+
+.night-kind-toggle[aria-expanded="true"] > .ph {
+  rotate: 90deg;
+}
+
+.dash-list.night-facts > li.night-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.night-fact > .dash-list-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dash-list .night-fact-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.night-fact-actions {
+  flex: none;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.night-more {
+  margin-top: var(--space-1);
+}
+
+/* Recent activity's "Undo what Atlas did" under its list (activityUndoControl,
+   dashboard.js): a quiet row, separated from the rows it acts on. */
+.activity-undo {
+  margin-top: var(--space-2);
+  gap: var(--space-2);
 }

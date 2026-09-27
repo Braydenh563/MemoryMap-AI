@@ -886,8 +886,55 @@ function savedPersona(name) {
 //: inside a detached element.
 function paintPersonaAvatar(holder, persona, size = 20) {
   const name = personaDisplayName(persona);
-  if (name === aiNameNow()) renderEmblem(holder, size, { animate: true });
+  if (name === aiNameNow()) paintChatEmblem(holder, size);
   else fillPersonaMark(holder, name, size);
+}
+
+//: **One p5 sketch for the whole transcript, copied into every reply.**
+//: (the 2026-09-26 chat pass, `scratchpad/ui-sweeps/chataudit.js`, part
+//: `long`.) Opening a saved chat of 150 turns took 939ms, and 763ms of it was
+//: this label's emblem: `renderEmblem` builds a p5 instance per call (a
+//: canvas, a setup, a draw, an observer), about 5ms each, for a mark that is
+//: the same pixels in every bubble, since every emblem shares one seed and
+//: one accent. So the first reply's canvas is drawn by p5 as before and every
+//: later one is a copy of its pixels: same size, same classes (so the same
+//: CSS turn), paused off screen by one shared observer instead of one each.
+//: Keyed on what the drawing depends on, so a new accent or the motion
+//: switch draws afresh rather than copying a stale mark.
+const chatEmblemSource = { key: "", canvas: null };
+let chatEmblemObserver = null;
+
+function chatEmblemKey(size) {
+  const accent = typeof currentAccentHex === "function" ? currentAccentHex() : "";
+  return `${size}|${accent}|${appearancePref("motion")}`;
+}
+
+function paintChatEmblem(holder, size) {
+  const key = chatEmblemKey(size);
+  const source = chatEmblemSource.key === key ? chatEmblemSource.canvas : null;
+  if (!source) {
+    renderEmblem(holder, size, { animate: true });
+    //: p5 draws in its constructor once it is loaded; before that the call
+    //: above is deferred, and the next reply tries again.
+    const drawn = holder.querySelector("canvas");
+    if (drawn) Object.assign(chatEmblemSource, { key, canvas: drawn });
+    return;
+  }
+  const copy = document.createElement("canvas");
+  copy.width = source.width;
+  copy.height = source.height;
+  copy.style.width = source.style.width;
+  copy.style.height = source.style.height;
+  copy.className = source.className;
+  copy.classList.remove("is-paused");
+  copy.getContext("2d").drawImage(source, 0, 0);
+  holder.replaceChildren(copy);
+  if (copy.classList.contains("emblem-spin") && typeof IntersectionObserver !== "undefined") {
+    chatEmblemObserver ||= new IntersectionObserver((entries) => {
+      for (const entry of entries) entry.target.classList.toggle("is-paused", !entry.isIntersecting);
+    });
+    chatEmblemObserver.observe(copy);
+  }
 }
 
 // An assistant bubble: an avatar, the step timeline, and a matching-records slot.

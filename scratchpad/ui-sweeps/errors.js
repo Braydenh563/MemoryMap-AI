@@ -16,7 +16,7 @@ const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781'
 // `[data-tab]` never opened them and a console error on the documents editor
 // could not fail this sweep. Same gap `contrast.js` had, found 2026-09-12.
 const TABS=['dashboard','notes','library','chat','graph','timeline','reminders','documents','whiteboard'];
-const SECTIONS=['account','appearance','preferences','models','tools','skills','personas','templates','websearch','memory','tasks','data','logs','shortcuts','extras','help','about'];
+const SECTIONS=['account','privacy','learned','appearance','preferences','models','tools','skills','personas','templates','websearch','memory','tasks','data','logs','shortcuts','extras','help','about'];
 const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','boards','images','files','skills','links','contents']};
 (async()=>{
   const browser=await chromium.launch();

@@ -1645,9 +1645,17 @@ async function sendChatMessage(preset, opts = {}) {
   // ones that were dismissed, which belonged to that draft and not to the
   // next one.
   resetChatNudge();
+  //: The box is disabled while the answer streams, and a disabled box loses
+  //: the focus to the page: Tab then started again from the top of the app,
+  //: and nothing on screen held the keyboard. The Stop button takes it
+  //: instead, so Enter, Space and Escape all stop the answer from where the
+  //: person already is; `releaseChatComposer` and the stream's end give it
+  //: back to the box.
+  const composerHadFocus = document.activeElement === input;
   input.disabled = true;
   hide("chat-send");
   show("chat-stop");
+  if (composerHadFocus) $("chat-stop").focus({ preventScroll: true });
   status.classList.remove("error");
   status.textContent = "Searching your notes…";
   startChatTimer();

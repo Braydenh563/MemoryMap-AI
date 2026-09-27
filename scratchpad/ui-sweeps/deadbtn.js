@@ -33,6 +33,26 @@ const { boot } = require('./lib.js');
         if (parseFloat(c.opacity) < 0.2) continue;
         const name = (b.id ? '#' + b.id : '') + '.' + String(b.className).split(' ').slice(0, 2).join('.') + ' ' + (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 24);
         if (c.pointerEvents === 'none') { out.pe.push(name); continue; }
+        //: **Scrolled out is not covered.** A control half inside its own
+        //: scroller has its centre below the scroller's clip, where the
+        //: point finds whatever is drawn there (the status bar, for the
+        //: tabs that scroll in a box ending at its top edge). That is the
+        //: list being scrolled, not a control that cannot be pressed: the
+        //: first run of this sweep reported three such (two dashboard board
+        //: cards and a Notes tag chip), and no scroller on any tab runs
+        //: under the status bar (measured: every one ends at or above its
+        //: top, at 1440 and 390). So the centre is checked against every
+        //: scrolling ancestor's visible box first.
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        let clipped = false;
+        for (let a = b.parentElement; a && a !== document.body; a = a.parentElement) {
+          const o = getComputedStyle(a);
+          if (!/(auto|scroll|hidden|clip)/.test(o.overflowY + o.overflowX)) continue;
+          const box = a.getBoundingClientRect();
+          if (cy < box.top || cy > box.bottom || cx < box.left || cx > box.right) { clipped = true; break; }
+        }
+        if (clipped) continue;
         const t = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2)));
         if (t && t !== b && !b.contains(t) && !t.contains(b) && !(t.closest('label') && t.closest('label').contains(b))) out.covered.push(name + ' <- ' + t.tagName + '.' + String(t.className).split(' ')[0]);
       }

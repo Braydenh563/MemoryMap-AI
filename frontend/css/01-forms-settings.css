@@ -5528,3 +5528,36 @@ select {
     grid-column: 1 / -1;
   }
 }
+
+/* Settings, Privacy (`#settings-privacy`, renderPrivacyReceipt in
+   settings-panes.js). The group's head carries its range switch on the same
+   line, the `.seg` pushed to the end; a destination row is the entry-item
+   shape with its address, a scope chip, and one facts line under it. The
+   address may be a long name, so it wraps inside its column rather than
+   pushing the chip off the row. */
+.privacy-range-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.privacy-range-row > h3 {
+  margin: 0;
+}
+
+.privacy-row-head {
+  gap: var(--space-2);
+}
+
+.privacy-host {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.privacy-row-head > .chip {
+  flex: none;
+}
+
+.privacy-row-meta {
+  margin: var(--space-1) 0 0;
+}

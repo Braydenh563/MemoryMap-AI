@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "privacy", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -223,6 +223,7 @@ function showSettingsSection(name) {
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
+  if (name === "privacy") renderPrivacyReceipt().catch(() => {});
   if (name === "data") {
     renderBackups();
     renderBackupRetention();
@@ -1399,7 +1400,7 @@ const APPEARANCE_DEFAULTS = {
   //: and Atlas was following Face looks anyway (OPEN.md, 0.3.3).
   "atlas-look": "auto", // auto | masculine | feminine
   "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
-  "dash-mark": "logo", // logo | me | persona
+  "dash-mark": "logo", // logo | atlas | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
   // same default: keep the three in step.

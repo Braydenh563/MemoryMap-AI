@@ -89,6 +89,8 @@ const DASH_WIDGETS = {
   //: this one what *happened*, including what Atlas or a skill changed on
   //: your behalf, which is the one thing no other widget can say.
   activity: { title: "ph:pulse Recent activity", description: "What changed in your notebook lately, and whether you, Atlas or a skill changed it.", render: renderActivityWidget },
+  //: WORLD_CLASS_PLAN I1's morning card over `GET /night/latest`.
+  night: { title: "ph:moon-stars While you were away", description: "What Atlas worked out reading your notes on its own, with each finding to open or dismiss.", render: renderNightWidget },
   "most-used": { title: "ph:flame Most used", description: "The notes you open and ask about most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
@@ -170,7 +172,7 @@ const DASH_DEFAULT_SHOWN = [
 //: offered in the picker rather than appended to every existing dashboard.
 //: Applied only while a saved layout has never seen the widget: once anybody
 //: adds it, or saves a layout with it hidden, the saved layout decides.
-const DASH_OPT_IN = ["activity"];
+const DASH_OPT_IN = ["activity", "night"];
 
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
@@ -1497,6 +1499,7 @@ function featureCatalog() {
       { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", reveal: "settings:tasks" },
       { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", reveal: "settings:extras" },
       { name: "Account & security", desc: "Change your password, and what happens when the app locks.", reveal: "settings:account" },
+      { name: "Where your data went", desc: "Every connection the app made, and whether anything left this computer.", reveal: "settings:privacy" },
       { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
       { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
       { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", reveal: "palette" },
@@ -3642,6 +3645,192 @@ function dashBoardThumb(board) {
   return svg;
 }
 
+// --- While you were away: the night shift's morning card ---------------------
+//
+// WORLD_CLASS_PLAN 15, I1: "a 'While you were away' card on the Dashboard each
+// morning ... each line opens a review list where every item is accept /
+// dismiss / open the note". `GET /night/latest` is the card: the latest pass,
+// what it found that is still visible, and the last pass that found anything
+// when the latest found nothing, so a quiet night does not blank the morning.
+// A line opens its review list in place (`GET /night/runs/{id}/facts`), paged,
+// and each row's Dismiss is `DELETE /learned/{id}`, which also stops the same
+// thing being worked out again. Accepting is keeping: there is nothing to
+// press for a fact that is right.
+const NIGHT_KIND_WORDS = {
+  claim: ["claim", "claims"],
+  question: ["open question", "open questions"],
+};
+const NIGHT_PAGE = 5;
+
+function nightKindWords(kind, n) {
+  const [one, many] = NIGHT_KIND_WORDS[kind] || [kind, `${kind}s`];
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function nightRunSummary(run) {
+  const read = `Read ${run.scanned} note${run.scanned === 1 ? "" : "s"}`;
+  const when = dashRelativeTime(run.finished_at || run.started_at);
+  const stopped = run.stopped_reason === "budget" ? "stopped at its budget, carries on next time" : "";
+  return [read, when, stopped].filter(Boolean).join(" · ");
+}
+
+function nightFactRow(fact, onGone) {
+  const li = document.createElement("li");
+  li.className = "night-fact";
+  const text = document.createElement("span");
+  text.className = "dash-list-text";
+  const title = document.createElement("span");
+  title.className = "dash-list-title night-fact-text";
+  title.textContent = fact.text;
+  const meta = document.createElement("span");
+  meta.className = "dash-list-preview";
+  meta.textContent = [fact.model === "local" ? "Found without a model" : fact.model, `${Math.round((fact.confidence || 0) * 100)}% sure`]
+    .filter(Boolean)
+    .join(" · ");
+  text.append(title, meta);
+  const actions = document.createElement("span");
+  actions.className = "night-fact-actions";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small icon-only";
+  open.title = "Open the note this came from";
+  open.setAttribute("aria-label", "Open the note this came from");
+  setLabel(open, "ph:arrow-square-out");
+  open.addEventListener("click", () => flashEntry(fact.entry_id));
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "ghost small icon-only";
+  dismiss.title = "Dismiss, and never work this out again";
+  dismiss.setAttribute("aria-label", "Dismiss, and never work this out again");
+  setLabel(dismiss, "ph:x");
+  dismiss.addEventListener("click", async () => {
+    dismiss.disabled = true;
+    try {
+      await api(`/learned/${fact.id}`, { method: "DELETE" });
+      li.remove();
+      onGone();
+    } catch (error) {
+      dismiss.disabled = false;
+      toast(error.message || "Couldn't dismiss that.", true);
+    }
+  });
+  actions.append(open, dismiss);
+  li.append(text, actions);
+  return li;
+}
+
+//: One line of the card: the count, a disclosure that opens the review list
+//: under it. The list pages by NIGHT_PAGE; "Show more" reads the next page.
+function nightKindLine(host, runId, kind, count) {
+  const li = document.createElement("li");
+  li.className = "night-kind";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ghost small night-kind-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  const label = () => setLabel(toggle, `ph:caret-right ${nightKindWords(kind, count)}`);
+  label();
+  const list = document.createElement("ul");
+  list.className = "dash-list night-facts hidden";
+  list.id = `night-facts-${runId}-${kind}`;
+  toggle.setAttribute("aria-controls", list.id);
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "ghost small night-more hidden";
+  more.textContent = "Show more";
+  let offset = 0;
+  let loaded = false;
+  const gone = () => {
+    count -= 1;
+    offset = Math.max(0, offset - 1);
+    label();
+    if (count <= 0) li.remove();
+  };
+  const page = async () => {
+    more.disabled = true;
+    try {
+      const reply = await apiJson(`/night/runs/${runId}/facts?kind=${encodeURIComponent(kind)}&limit=${NIGHT_PAGE}&offset=${offset}`, { silent: true });
+      for (const fact of reply.items || []) list.appendChild(nightFactRow(fact, gone));
+      offset += (reply.items || []).length;
+      more.classList.toggle("hidden", offset >= (reply.total || 0));
+    } catch (error) {
+      toast(error.message || "Couldn't read that list.", true);
+    } finally {
+      more.disabled = false;
+    }
+  };
+  toggle.addEventListener("click", async () => {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    list.classList.toggle("hidden", !open);
+    if (open && !loaded) {
+      loaded = true;
+      await page();
+    }
+    if (!open) more.classList.add("hidden");
+    else more.classList.toggle("hidden", offset >= count);
+  });
+  more.addEventListener("click", () => page());
+  li.append(toggle, list, more);
+  host.appendChild(li);
+}
+
+async function renderNightWidget(body) {
+  let card;
+  try {
+    card = await apiJson("/night/latest", { silent: true });
+  } catch {
+    surfaceFailed(body, "what Atlas found", () => renderNightWidget(body));
+    return;
+  }
+  if (!card.run) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    const line = document.createElement("p");
+    line.textContent = "Atlas has not read your notes on its own yet.";
+    const run = document.createElement("button");
+    run.type = "button";
+    run.className = "ghost small";
+    setLabel(run, "ph:moon-stars Read my notes now");
+    run.addEventListener("click", async () => {
+      run.disabled = true;
+      try {
+        const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({}) });
+        if (reply.paused) toast("Reading on its own is switched off in Settings, What it learned.");
+      } catch (error) {
+        toast(error.message, true);
+      }
+      body.replaceChildren();
+      renderNightWidget(body);
+    });
+    empty.append(line, run);
+    body.appendChild(empty);
+    return;
+  }
+  const summary = document.createElement("p");
+  summary.className = "muted night-summary";
+  summary.textContent = nightRunSummary(card.run);
+  body.appendChild(summary);
+  let shown = card.run;
+  let counts = card.counts || {};
+  if (!Object.keys(counts).length) {
+    if (!card.previous) {
+      dashEmpty(body, "Nothing new since it last read. Claims and open questions show up here.");
+      return;
+    }
+    shown = card.previous;
+    counts = card.previous.counts || {};
+    const earlier = document.createElement("p");
+    earlier.className = "muted";
+    earlier.textContent = `Nothing new last time. ${dashRelativeTime(shown.finished_at || shown.started_at)}, it found:`;
+    body.appendChild(earlier);
+  }
+  const kinds = document.createElement("ul");
+  kinds.className = "night-kinds";
+  for (const kind of Object.keys(counts).sort()) nightKindLine(kinds, shown.id, kind, counts[kind]);
+  body.appendChild(kinds);
+}
+
 // --- Recent activity: the event feed, read with its cursor ---------------------
 //
 // `GET /events` reads forwards from a cursor (WORLD_CLASS_PLAN B1). The first
@@ -3725,6 +3914,117 @@ async function renderActivityWidget(body) {
     ul.appendChild(li);
   }
   body.appendChild(ul);
+  const undo = activityUndoControl(items, byId, () => {
+    //: The undo wrote a `restored` event per note; the feed reads it on the
+    //: next render through its cursor, so a fresh read shows it at once.
+    body.replaceChildren();
+    renderActivityWidget(body);
+  });
+  if (undo) body.appendChild(undo);
+}
+
+//: **Undo what Atlas did** (OPEN.md events-undo, `POST /events/undo`). The
+//: activity list is where a change by Atlas, a skill or the auto-filer is
+//: seen, so it is where it is taken back: one ghost button under the list per
+//: actor that appears in it (a `kebabMenu` when there are several), undoing
+//: that actor's changes from the oldest one shown. Always the dry run first,
+//: shown as the confirm dialog's body (what goes back, what is left because
+//: you changed it since, what cannot be undone), then the same plan applied.
+function activityActorName(actor) {
+  if (actor === "system:filing") return "the auto-filer";
+  if (actor === "system:librarian") return "Atlas's background pass";
+  if (actor.startsWith("ai:")) return `Atlas (${actor.slice(3).replace(/_/g, " ")})`;
+  return historyActorLabel(actor) || actor;
+}
+
+function activityUndoPlanText(plan, byId, name) {
+  const undo = plan.items.filter((item) => item.status === "undo");
+  const titled = undo.slice(0, 3).map((item) => {
+    const entry = byId.get(item.entity_id);
+    const first = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 40) : "";
+    return first ? `“${first}”` : `note ${item.entity_id}`;
+  });
+  const more = undo.length > titled.length ? ` and ${undo.length - titled.length} more` : "";
+  const lines = [
+    `${undo.length} note${undo.length === 1 ? "" : "s"} go back to how ${undo.length === 1 ? "it was" : "they were"} before ${name} changed ${undo.length === 1 ? "it" : "them"}: ${titled.join(", ")}${more}.`,
+  ];
+  const since = plan.items.filter((item) => item.status === "changed since").length;
+  if (since) lines.push(`${since} you changed since stay${since === 1 ? "s" : ""} as ${since === 1 ? "it is" : "they are"}.`);
+  const cannot = plan.items.filter((item) => ["too old", "not undoable", "gone"].includes(item.status)).length;
+  if (cannot) lines.push(`${cannot} can't be undone (a board item, or a change too old to have kept its values).`);
+  return lines.join(" ");
+}
+
+async function undoActorFrom(actor, since, byId, rerender) {
+  const name = activityActorName(actor);
+  let plan;
+  try {
+    plan = await apiJson("/events/undo", { method: "POST", body: JSON.stringify({ actor, since }) });
+  } catch (error) {
+    toast(error.message || "Couldn't read what would be undone.", true);
+    return;
+  }
+  const undoable = plan.items.filter((item) => item.status === "undo").length;
+  if (!undoable) {
+    const already = plan.items.every((item) => item.status === "already undone");
+    toast(already ? `Already undone: nothing ${name} changed is left to put back.` : `Nothing ${name} changed can be put back from here.`);
+    return;
+  }
+  const ok = await confirmDialog(
+    `Undo what ${name} changed?\n\n${activityUndoPlanText(plan, byId, name)}`,
+    { confirmLabel: "Undo", danger: false }
+  );
+  if (!ok) return;
+  try {
+    const done = await apiJson("/events/undo", {
+      method: "POST",
+      body: JSON.stringify({ actor, since, dry_run: false }),
+    });
+    toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
+    if (typeof loadEntries === "function") await loadEntries().catch(() => {});
+    rerender();
+  } catch (error) {
+    toast(error.message || "Couldn't undo that.", true);
+  }
+}
+
+function activityUndoControl(items, byId, rerender) {
+  //: The oldest shown event of each actor that is not the person: undo from
+  //: just before it, so everything that actor did in the list goes back.
+  const from = new Map();
+  for (const item of items) {
+    if (!item.actor || item.actor === "user" || item.actor.startsWith("system:recycle")) continue;
+    if (item.entity_type !== "entry") continue;
+    const at = from.get(item.actor);
+    if (at === undefined || item.id < at) from.set(item.actor, item.id);
+  }
+  if (!from.size) return null;
+  const row = document.createElement("div");
+  row.className = "row activity-undo";
+  const actors = [...from.keys()];
+  if (actors.length === 1) {
+    const [actor] = actors;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small";
+    setLabel(button, `ph:arrow-counter-clockwise Undo what ${activityActorName(actor)} did`);
+    button.title = "See what would go back first";
+    button.addEventListener("click", () => undoActorFrom(actor, from.get(actor) - 1, byId, rerender));
+    row.appendChild(button);
+    return row;
+  }
+  const menu = kebabMenu(
+    actors.map((actor) => ({
+      label: `ph:arrow-counter-clockwise Undo what ${activityActorName(actor)} did`,
+      run: () => undoActorFrom(actor, from.get(actor) - 1, byId, rerender),
+    })),
+    "Undo what Atlas did"
+  );
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Undo what Atlas did";
+  row.append(label, menu);
+  return row;
 }
 
 async function renderDocumentsWidget(body) {

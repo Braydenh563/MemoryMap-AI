@@ -126,6 +126,15 @@ def test_suggestions_are_content_aware(client):
     assert len(picks) == len(set(picks))  # no duplicates
 
 
+
+def test_a_summary_starter_names_the_category_as_a_place(client):
+    """Reported by the chat agent from the seeded notebook: "Summarise my
+    general." A category is where notes are filed, so the starter says so."""
+    _save(client, "a note", category="General")
+    picks = client.get("/chat/suggestions").json()
+    assert "Summarise my notes in General." in picks
+    assert not any(p.lower() == "summarise my general." for p in picks)
+
 def _asked(session, question):
     """One question in the Ask box's history, the row `/chat/recent` reads."""
     from memorymap.api.routes_chat import ASK_SURFACE

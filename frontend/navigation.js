@@ -808,6 +808,14 @@ function revealTab(name) {
 // entirely on the first press past the start. This is a small stack of its
 // own, capped, and behaving the way the browser's does: visiting a page
 // while somewhere in the middle of the stack discards what was ahead.
+//
+//: **It has a router now** (router.js, WORLD_CLASS_PLAN 22.1 item 1). This
+//: stack stays what a step is and how to return to one; each entry is
+//: mirrored into the browser's history with its own id, so the browser's Back
+//: and this one walk the same list, and the address names the view. The
+//: objection above answered: the browser's entries are this app's own views,
+//: and the first one is the page's own load, so Back past the start leaves
+//: the app exactly where a browser's Back would.
 const TAB_HISTORY_CAP = 50;
 const tabHistory = { stack: [], index: -1, navigating: false };
 
@@ -977,13 +985,17 @@ function entryLabel(entry) {
   //: (owner's screenshot: "documents → doc:4", "Library → library-view-docs").
   const named = historyTitles.get(entry.section);
   if (named) return `${tab}: ${named}`;
-  if (/^(doc|board|focus|conv):/.test(entry.section)) {
+  if (/^(doc|board|focus|conv|note):/.test(entry.section)) {
     const kind = entry.section.split(":")[0];
-    return `${tab}: ${{ doc: "a document", board: "a board", focus: "a note", conv: "a chat" }[kind]}`;
+    return `${tab}: ${{ doc: "a document", board: "a board", focus: "a note", conv: "a chat", note: "a note" }[kind]}`;
   }
-  const button = document.querySelector(
-    `[data-section="${entry.section}"], [data-target="${entry.section}"], [aria-controls="${entry.section}"]`
-  );
+  //: `library-view-media:files`: the media view's kind picks its button.
+  const [target, kind] = entry.section.split(":");
+  const button = kind
+    ? document.querySelector(`[data-target="${target}"][data-media-kind="${kind}"]`)
+    : document.querySelector(
+      `[data-section="${entry.section}"], [data-target="${entry.section}"], [aria-controls="${entry.section}"]`
+    );
   const section = button?.textContent?.trim().replace(/\s+/g, " ");
   return section ? `${tab}: ${section}` : tab;
 }
@@ -998,13 +1010,26 @@ function entryLabel(entry) {
 //: say "Documents: Weekly plan" instead of "documents → doc:4".
 const historyTitles = new Map();
 
-function recordTabVisit(name, section = null, title = "") {
+function recordTabVisit(name, section = null, title = "", { refine = false } = {}) {
   if (section && title) historyTitles.set(section, String(title).trim());
   // A back/forward press is a move *through* history, not a new entry.
   if (tabHistory.navigating) return;
   const current = tabHistory.stack[tabHistory.index];
   // Re-selecting exactly where you already are is not a step.
-  if (current && current.tab === name && current.section === section) return;
+  if (current && current.tab === name && current.section === section) {
+    //: Its title may have arrived since (a note's words, a document's name).
+    if (typeof routerOnVisit === "function") routerOnVisit(current, false);
+    return;
+  }
+  //: `refine`: this is a closer look at the view already on top, not a new
+  //: one (a note opened in the Notes list is the list, scrolled to it), so it
+  //: replaces the entry and the address rather than adding a step.
+  if (refine && current && current.tab === name) {
+    current.section = section;
+    paintTabHistory();
+    if (typeof routerOnVisit === "function") routerOnVisit(current, false);
+    return;
+  }
   // One entry per visit. A Notes arrival is recorded twice, as {notes,
   // "browse"} by showNotesSection and as {notes, null} by switchTab (in
   // either order), so Back from the next tab landed on the duplicate first
@@ -1014,16 +1039,23 @@ function recordTabVisit(name, section = null, title = "") {
   if (current && current.tab === name && (current.section == null || section == null)) {
     if (section != null) current.section = section;
     paintTabHistory();
+    if (typeof routerOnVisit === "function") routerOnVisit(current, false);
     return;
   }
   tabHistory.stack = tabHistory.stack.slice(0, tabHistory.index + 1);
-  tabHistory.stack.push({ tab: name, section });
+  const entry = { tab: name, section };
+  tabHistory.stack.push(entry);
   if (tabHistory.stack.length > TAB_HISTORY_CAP) tabHistory.stack.shift();
   tabHistory.index = tabHistory.stack.length - 1;
   paintTabHistory();
+  if (typeof routerOnVisit === "function") routerOnVisit(entry, true);
 }
 
+//: Back and Forward go through the browser's history when the router is
+//: mirroring it (`routerGo`, router.js), which answers with `popstate` and
+//: lands in `goToTabHistory` below; the stack walks on its own otherwise.
 function stepTabHistory(delta) {
+  if (typeof routerGo === "function" && routerGo(delta)) return;
   return goToTabHistory(tabHistory.index + delta);
 }
 
@@ -1032,100 +1064,118 @@ function stepTabHistory(delta) {
 // shows above with the navigation history to fast track back to a place".
 // stepTabHistory used to inline this with a fixed +1/-1, which had no way
 // to land on an arbitrary earlier or later entry.
-async function goToTabHistory(next) {
+async function goToTabHistory(next, { fromBrowser = false } = {}) {
   if (next < 0 || next >= tabHistory.stack.length) return;
+  //: A jump from the history menu is a walk through the browser's history
+  //: too, for the same reason Back is (`stepTabHistory`).
+  if (!fromBrowser && typeof routerGo === "function" && routerGo(next - tabHistory.index)) return;
   const entry = tabHistory.stack[next];
   tabHistory.index = next;
   tabHistory.navigating = true;
   try {
-    // Settings is a modal overlay, not one of the tab-pages switchTab knows
-    // about: asked for directly: "the back and forward buttons should cover
-    // going in and out of settings too", which they didn't, because nothing
-    // ever called recordTabVisit for it. Restoring a settings entry opens the
-    // modal (or moves it to a different section) instead of going through
-    // switchTab at all; restoring anything else closes it first if it was
-    // left open, the same way clicking Close would.
-    if (entry.tab === "settings") {
-      await openSettingsModal(entry.section || "models");
-      paintTabHistory();
-      return;
-    }
-    if (settingsModalOpen()) closeSettingsModal();
-    //: Awaited: every branch below reaches straight into the tab's own file
-    //: (`openWhiteboardBoard`, `openDocument`, `graphFocusModeId`), and two of
-    //: those are lazily loaded now (A1). `graphFocusModeId` in particular is a
-    //: `let` in graph.js, which no stand-in can supply.
-    await switchTab(entry.tab);
-    // The sub-tab is restored after the tab, because both restore paths below
-    // act on elements the tab switch has just revealed.
-    if (entry.tab === "notes" && entry.section) {
-      showNotesSection(entry.section);
-    } else if (entry.tab === "library") {
-      // Reuses the real click handler (whiteboard.js) rather than
-      // duplicating its section-show/whiteboard-landing/gallery-render
-      // logic here: a second copy is exactly the shape this codebase keeps
-      // getting bitten by. `tabHistory.navigating` (set above) makes the
-      // handler's own `recordTabVisit` call a no-op, the same guard
-      // `showNotesSection`'s call already relies on above. A bare `{tab:
-      // "library"}` entry (recorded the moment the tab itself was opened,
-      // before any sub-tab click) has no `section`, falls back to "All"
-      // (`library-view-documents`, the sub-tab that kept its old id) rather
-      // than leaving whatever sub-view happened to be on screen already.
-      //: **A board is a place, and `board:{id}` is not a sub-tab id.**
-      //: `openWhiteboardBoard` records one now (see whiteboard.js), so this
-      //: has to know how to go back to one, without this branch the selector
-      //: below would look for `button[data-target="board:12"]`, match nothing,
-      //: and Back would silently do nothing at all. Recording a place you
-      //: cannot return to is worse than not recording it: the entry appears in
-      //: the history popup and then refuses to work.
-      if (entry.section?.startsWith("board:")) {
-        //: Awaited for the same reason chat's `conv:` and documents' `doc:`
-        //: branches are: it fetches before it finishes, and returning early
-        //: would clear `tabHistory.navigating` in the `finally` below: turning
-        //: every back/forward through a board into a fresh history entry
-        //: instead of a no-op.
-        await openWhiteboardBoard(Number(entry.section.slice("board:".length)));
-      } else {
-        document
-          .querySelector(
-            `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
-          )
-          ?.click();
-      }
-    } else if (entry.tab === "chat" && entry.section) {
-      if (entry.section.startsWith("conv:")) {
-        // Awaited deliberately: openConversation does its own network fetch
-        // before calling recordTabVisit, so returning early here would clear
-        // tabHistory.navigating (in the finally below) before that call runs
-        //, turning every back/forward through a saved chat into a fresh,
-        // spurious history entry instead of a no-op.
-        await openConversation(Number(entry.section.slice("conv:".length)));
-      } else if (entry.section === "new") {
-        newChatConversation();
-      }
-    } else if (entry.tab === "documents" && entry.section?.startsWith("doc:")) {
-      // Same awaited-before-finally shape as chat's conv: branch above, for
-      // the same reason: openDocument does its own network fetch before
-      // calling recordTabVisit, so an un-awaited call here would clear
-      // tabHistory.navigating too early and turn this into a fresh entry.
-      await openDocument(Number(entry.section.slice("doc:".length)));
-    } else if (entry.tab === "graph") {
-      // switchTab's own "graph" branch above already rendered once with
-      // whatever graphFocusModeId happened to hold; set it to match this
-      // history entry and render again so Focus Mode itself is part of what
-      // back/forward restores, not just the tab underneath it.
-      graphFocusModeId = entry.section?.startsWith("focus:")
-        ? Number(entry.section.slice("focus:".length))
-        : null;
-      $("graph-focus-clear")?.classList.toggle("hidden", !graphFocusModeId);
-      await renderGraph();
-    }
+    await openHistoryEntry(entry);
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
     tabHistory.navigating = false;
   }
   paintTabHistory();
+}
+
+//: Open the view one history entry names: the tab, then its sub-tab or the
+//: thing open in it. Shared by the history walk above and the router's fresh
+//: visits (a reload, a pasted link: `routerOpen`, router.js), which are the
+//: same question asked from an address instead of from the stack.
+async function openHistoryEntry(entry) {
+  // Settings is a modal overlay, not one of the tab-pages switchTab knows
+  // about: asked for directly: "the back and forward buttons should cover
+  // going in and out of settings too", which they didn't, because nothing
+  // ever called recordTabVisit for it. Restoring a settings entry opens the
+  // modal (or moves it to a different section) instead of going through
+  // switchTab at all; restoring anything else closes it first if it was
+  // left open, the same way clicking Close would.
+  if (entry.tab === "settings") {
+    await openSettingsModal(entry.section || "models");
+    paintTabHistory();
+    return;
+  }
+  if (settingsModalOpen()) closeSettingsModal();
+  //: Awaited: every branch below reaches straight into the tab's own file
+  //: (`openWhiteboardBoard`, `openDocument`, `graphFocusModeId`), and two of
+  //: those are lazily loaded now (A1). `graphFocusModeId` in particular is a
+  //: `let` in graph.js, which no stand-in can supply.
+  await switchTab(entry.tab);
+  // The sub-tab is restored after the tab, because both restore paths below
+  // act on elements the tab switch has just revealed.
+  if (entry.tab === "notes" && entry.section?.startsWith("note:")) {
+    //: A note: the list, scrolled to it and lit (`flashEntry`, which every
+    //: way to a note already goes through).
+    flashEntry(Number(entry.section.slice("note:".length)));
+  } else if (entry.tab === "notes" && entry.section) {
+    showNotesSection(entry.section);
+  } else if (entry.tab === "library") {
+    // Reuses the real click handler (whiteboard.js) rather than
+    // duplicating its section-show/whiteboard-landing/gallery-render
+    // logic here: a second copy is exactly the shape this codebase keeps
+    // getting bitten by. `tabHistory.navigating` (set above) makes the
+    // handler's own `recordTabVisit` call a no-op, the same guard
+    // `showNotesSection`'s call already relies on above. A bare `{tab:
+    // "library"}` entry (recorded the moment the tab itself was opened,
+    // before any sub-tab click) has no `section`, falls back to "All"
+    // (`library-view-documents`, the sub-tab that kept its old id) rather
+    // than leaving whatever sub-view happened to be on screen already.
+    //: **A board is a place, and `board:{id}` is not a sub-tab id.**
+    //: `openWhiteboardBoard` records one now (see whiteboard.js), so this
+    //: has to know how to go back to one, without this branch the selector
+    //: below would look for `button[data-target="board:12"]`, match nothing,
+    //: and Back would silently do nothing at all. Recording a place you
+    //: cannot return to is worse than not recording it: the entry appears in
+    //: the history popup and then refuses to work.
+    if (entry.section?.startsWith("board:")) {
+      //: Awaited for the same reason chat's `conv:` and documents' `doc:`
+      //: branches are: it fetches before it finishes, and returning early
+      //: would clear `tabHistory.navigating` in the `finally` below: turning
+      //: every back/forward through a board into a fresh history entry
+      //: instead of a no-op.
+      await openWhiteboardBoard(Number(entry.section.slice("board:".length)));
+    } else {
+      //: `library-view-media:files`: the view and, for the media view, its
+      //: kind (library.js records both).
+      const [target, kind] = (entry.section || "library-view-documents").split(":");
+      document
+        .querySelector(
+          `#library-subtabs button[data-target="${target}"]${kind ? `[data-media-kind="${kind}"]` : ""}`
+        )
+        ?.click();
+    }
+  } else if (entry.tab === "chat" && entry.section) {
+    if (entry.section.startsWith("conv:")) {
+      // Awaited deliberately: openConversation does its own network fetch
+      // before calling recordTabVisit, so returning early here would clear
+      // tabHistory.navigating (in the finally below) before that call runs
+      //, turning every back/forward through a saved chat into a fresh,
+      // spurious history entry instead of a no-op.
+      await openConversation(Number(entry.section.slice("conv:".length)));
+    } else if (entry.section === "new") {
+      newChatConversation();
+    }
+  } else if (entry.tab === "documents" && entry.section?.startsWith("doc:")) {
+    // Same awaited-before-finally shape as chat's conv: branch above, for
+    // the same reason: openDocument does its own network fetch before
+    // calling recordTabVisit, so an un-awaited call here would clear
+    // tabHistory.navigating too early and turn this into a fresh entry.
+    await openDocument(Number(entry.section.slice("doc:".length)));
+  } else if (entry.tab === "graph") {
+    // switchTab's own "graph" branch above already rendered once with
+    // whatever graphFocusModeId happened to hold; set it to match this
+    // history entry and render again so Focus Mode itself is part of what
+    // back/forward restores, not just the tab underneath it.
+    graphFocusModeId = entry.section?.startsWith("focus:")
+      ? Number(entry.section.slice("focus:".length))
+      : null;
+    $("graph-focus-clear")?.classList.toggle("hidden", !graphFocusModeId);
+    await renderGraph();
+  }
 }
 
 //: **A surface whose data did not arrive says so, instead of saying it is
@@ -1713,6 +1763,12 @@ async function switchTab(name) {
     const colourSelect = document.getElementById("graph-colour");
     if (savedColour && colourSelect && [...colourSelect.options].some((o) => o.value === savedColour)) {
       colourSelect.value = savedColour;
+    }
+    //: And what the sizes mean (INBOX 430), the same way.
+    const savedSize = localStorage.getItem("graph-size");
+    const sizeSelect = document.getElementById("graph-size");
+    if (savedSize && sizeSelect && [...sizeSelect.options].some((o) => o.value === savedSize)) {
+      sizeSelect.value = savedSize;
     }
     // Match the saved layout on arrival, not only on change, otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.

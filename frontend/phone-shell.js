@@ -1275,6 +1275,19 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
+  //: **Above whatever it was opened from.** A sheet is a `.modal-overlay`
+  //: (1010), and a surface drawn higher than that opened its sheet behind
+  //: itself: the lightbox (1020) on a phone, whose ⋯ "does nothing (no
+  //: popup)" (INBOX 430, measured with `lightboxphone.js`: the sheet was
+  //: open, and the point at its first row was the lightbox's). The opener's
+  //: highest layer is read off its ancestors and the sheet takes the next
+  //: one up, through the CSSOM, which the CSP allows.
+  let layer = 0;
+  for (let el = returnFocus instanceof Element ? returnFocus : null; el && el !== document.body; el = el.parentElement) {
+    const z = Number.parseInt(getComputedStyle(el).zIndex, 10);
+    if (Number.isFinite(z)) layer = Math.max(layer, z);
+  }
+  if (layer >= 1010) overlay.style.zIndex = String(layer + 1);
 
   const card = document.createElement("div");
   card.className = `card modal-card sheet-card${variant ? ` sheet-card-${variant}` : ""}`;
@@ -1412,6 +1425,20 @@ function openPhoneMoreSheet() {
         //: settings.js owns the Guide sheet and loads beside this file.
         if (typeof openHelpChat === "function") openHelpChat();
       }));
+      //: The agent's runs, which the status bar holds above 600 and a phone
+      //: does not show (INBOX 430): a row with the count, opening the panel.
+      const runs = phoneMoreRunCount();
+      if (runs) {
+        const row = sheetRow("ph ph-robot tab-icon", "Agent activity", () => {
+          close();
+          $("status-activity")?.click();
+        });
+        const count = document.createElement("span");
+        count.className = "tab-badge";
+        count.textContent = String(runs);
+        row.appendChild(count);
+        list.appendChild(row);
+      }
       list.appendChild(sheetRow("ph ph-gear tab-icon", "Settings", () => {
         close();
         //: settings.js owns the modal and loads beside this file; `typeof` so
@@ -1424,6 +1451,35 @@ function openPhoneMoreSheet() {
 }
 
 $("phone-more-btn")?.addEventListener("click", openPhoneMoreSheet);
+
+//: The status bar's run count, for More: running runs, else every run this
+//: session, the same number `renderActivityStatusItem` paints.
+function phoneMoreRunCount() {
+  if (typeof agentRuns === "undefined" || !agentRuns.length) return 0;
+  return agentRuns.filter((run) => run.state === "running").length || agentRuns.length;
+}
+
+//: **The agent's runs, folded into More on a phone** (INBOX 430). The status
+//: bar's activity item stays hidden below 600 (10-responsive.css), so its
+//: count rides on More as the badge a tab's count already is, and the runs
+//: are a row in More's sheet. Called whenever the status item repaints.
+function syncPhoneMoreRuns() {
+  const more = document.getElementById("phone-more-btn");
+  if (!more) return;
+  const runs = phoneMoreRunCount();
+  let badge = more.querySelector(".tab-badge");
+  if (!runs) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "tab-badge";
+    more.appendChild(badge);
+  }
+  badge.textContent = String(runs);
+  badge.title = `${runs} agent run${runs === 1 ? "" : "s"}`;
+}
 
 // The bar has to say where you are on all seven tabs, not on the four it
 // shows. While one of the three behind More is the tab in hand, More is the lit

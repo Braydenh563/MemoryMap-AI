@@ -171,6 +171,21 @@ def test_graph_local_node_dates_are_valid_iso_too(client):
         assert parsed.tzinfo is not None
 
 
+def test_a_node_carries_what_its_size_can_be_read_from(client):
+    """INBOX 430: node size by a toggle in View, by connections (the default,
+    counted client-side from the edges), length or recency. The last two need
+    their numbers on the node: the note's word count and when it was last
+    edited. On the whole map and on a note's local map alike."""
+    a = _save(client, "one two three four five six seven")
+    b = _save(client, "short")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    for url in ("/graph", f"/graph/local/{a['id']}"):
+        nodes = {n["id"]: n for n in client.get(url).json()["nodes"]}
+        assert nodes[a["id"]]["words"] == 7, url
+        assert nodes[b["id"]]["words"] == 1, url
+        assert datetime.fromisoformat(nodes[a["id"]]["updated_at"]).tzinfo is not None, url
+
+
 def test_graph_link_edge_carries_its_reason(client):
     a = _save(client, "assignment due next week", category="Uni")
     b = _save(client, "gym session tuesday", category="Fitness")

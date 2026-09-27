@@ -735,42 +735,6 @@ button.map-chip:focus-visible {
   outline-offset: 2px;
 }
 
-/* --- [[ autocomplete ---------------------------------------------------------- */
-/* A rich picker (rich-picker.js) in the flow under the note box: the list and,
-   from 44rem, the chosen note's first lines beside it. The rows, the lit row
-   and the pane are the recipe's; only the frame and the height are this
-   list's own. */
-.wiki-suggest {
-  display: flex;
-  align-items: stretch;
-  margin: var(--space-1) 0 0;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--modal-bg, var(--card));
-  box-shadow: var(--glass-shadow);
-  overflow: hidden;
-}
-
-.wiki-suggest.hidden {
-  display: none;
-}
-
-.wiki-suggest > .rich-picker-list {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-height: 16rem;
-}
-
-.wiki-suggest > .rich-picker-preview {
-  max-height: 16rem;
-}
-
-@media (max-width: 43.99rem) {
-  .wiki-suggest > .rich-picker-preview {
-    display: none;
-  }
-}
-
 /* --- the "/" menu and block frames -------------------------------------------
    Sibling of the [[ autocomplete above, and deliberately styled to match it:
    they are the same gesture (type a token, pick from a list) and a user who

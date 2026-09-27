@@ -801,6 +801,11 @@ function flashEntry(id) {
   // display:none: so jumping to a note from a search result, the graph, or a
   // wiki link silently did nothing (user-reported).
   showNotesSection("browse");
+  //: A note has an address (`#/notes/12`, router.js): a closer look at the
+  //: list, so it refines the Notes entry rather than adding a step, and its
+  //: opening words are what the window title says.
+  const opened = allEntries.find((e) => e.id === id);
+  recordTabVisit("notes", `note:${id}`, opened ? noteLabel(opened, 60) : "", { refine: true });
   activeCategory = null;
   // A draft target needs the Drafts filter ON now that drafts are excluded
   // from every other view (user-reported): otherwise jumping to one from

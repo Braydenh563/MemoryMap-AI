@@ -8191,7 +8191,11 @@ onDomReady(() => {
         // ROADMAP.md §88.1 item 7 / live-list item 13: Library's own
         // sub-tabs were the one gap in "back/forward handles sub-tabs too"
         // that was already scoped and located, not newly discovered here.
-        if (typeof recordTabVisit === "function") recordTabVisit("library", targetId);
+        //: Images and Files are one view in two kinds: the kind is part of
+        //: the step, or Back to Files opened Images (the first button with
+        //: that target) and the address could not tell the two apart.
+        const kind = btn.dataset.mediaKind;
+        if (typeof recordTabVisit === "function") recordTabVisit("library", kind ? `${targetId}:${kind}` : targetId);
         sections.forEach(id => {
           const el = document.getElementById(id);
           if (el) {

@@ -160,13 +160,38 @@ const want = (name) => !process.env.ONLY || process.env.ONLY.split(",").includes
       check("capture box on screen", false);
     } else {
       await editable.click();
+      //: Two lines first, so the caret is not on the box's first line and a
+      //: list under the box is told apart from a list under the caret.
+      await page.keyboard.type("First line");
+      await page.keyboard.press("Enter");
       await page.keyboard.type("See [[");
-      await page.waitForTimeout(400);
-      const WIKI = ["#wiki-suggest-list, ul#wiki-suggest", "li[role=option]", "#wiki-suggest-preview", "#wiki-suggest"];
+      await page.waitForTimeout(500);
+      //: Whichever list opened: the old one under the box (`#wiki-suggest`), or
+      //: the "/" menu's panel at the caret (`#editor-menu`), which the owner
+      //: asked for: "this dropdown should show below the line being written in
+      //: a separate popup panel like the / command menu, not below the textbox".
+      const which = await page.evaluate(() => {
+        const old = document.getElementById("wiki-suggest");
+        if (old && !old.classList.contains("hidden") && old.getClientRects().length) return "old";
+        const menu = document.getElementById("editor-menu");
+        return menu && !menu.classList.contains("hidden") ? "menu" : "none";
+      });
+      const WIKI = which === "old"
+        ? ["#wiki-suggest-list, ul#wiki-suggest", "li[role=option]", "#wiki-suggest-preview", "#wiki-suggest"]
+        : ["#editor-menu-list", ".editor-menu-item", "#editor-menu-preview", "#editor-menu"];
       const w = await measure(...WIKI);
-      check("[[ suggest opens", w.open, w.box);
+      check("[[ suggest opens", w.open, `${which} ${w.box}`);
       if (w.open) {
-        console.log("     wiki", JSON.stringify(w));
+        const caret = await page.evaluate((sel) => {
+          const cursor = document.querySelector(".cm-editor .cm-cursor");
+          const c = cursor ? cursor.getBoundingClientRect() : null;
+          const p = document.querySelector(sel).getBoundingClientRect();
+          return c ? { caretTop: Math.round(c.top), caretBottom: Math.round(c.bottom), panelTop: Math.round(p.top), panelBottom: Math.round(p.bottom) } : null;
+        }, WIKI[3]);
+        const below = caret && caret.panelTop - caret.caretBottom;
+        const above = caret && caret.caretTop - caret.panelBottom;
+        console.log("     wiki", which, JSON.stringify({ ...w, caret }));
+        check("[[: the panel sits at the caret line (under 8px from it)", caret && ((below >= 0 && below < 8) || (above >= 0 && above < 8)), caret ? `below ${below}, above ${above}` : "no caret");
         check("[[: one lit row", w.lit === 1, `${w.lit}`);
         check("[[: no sideways scroll", !w.hscroll);
         await shot("wiki");
@@ -181,17 +206,17 @@ const want = (name) => !process.env.ONLY || process.env.ONLY.split(",").includes
         await page.keyboard.press("Backspace");
         await page.keyboard.press("Backspace");
         await page.keyboard.type("[[");
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(400);
         await page.keyboard.press("Enter");
         await page.waitForTimeout(300);
         const value = await page.evaluate(() => document.getElementById("entry-content").value);
         check("[[: Enter inserts a finished link", /\[\[[^\]]+\]\]/.test(value), JSON.stringify(value.slice(0, 60)));
-        await page.evaluate(() => {
-          const box = document.getElementById("entry-content");
-          box.value = "";
-          box.dispatchEvent(new InputEvent("input", { bubbles: true }));
-        });
       }
+      await page.evaluate(() => {
+        const box = document.getElementById("entry-content");
+        box.value = "";
+        box.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      });
     }
 
   }

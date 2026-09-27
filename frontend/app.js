@@ -871,8 +871,6 @@ const LOCK_PURGE_IDS = [
   "graph-svg", // node labels are note titles
   "palette-list", // whatever was last searched for
   "palette-preview", // and the note it was showing
-  "wiki-suggest-list", // the [[ list's note titles
-  "wiki-suggest-preview",
   "doc-live",
   "doc-preview",
 ];
@@ -1170,7 +1168,13 @@ function startApp() {
   // still `[]` and drew its brand-new-notebook card instead of the widgets, 
   // reported as "the dashboard widgets are missing until I refresh or change
   // tabs". Every tab wants the notes; none of them wants to guess.
-  entriesReady.then(() => step("load this tab", () => refreshActiveTab()));
+  //: The view the address names, when the page was opened on one (a reload,
+  //: a bookmark, a pasted link: router.js); it loads its own tab, so the
+  //: Dashboard is not loaded under it first.
+  entriesReady.then(() => step("load this tab", async () => {
+    if (typeof routerRestore === "function" && (await routerRestore())) return;
+    return refreshActiveTab();
+  }));
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   //

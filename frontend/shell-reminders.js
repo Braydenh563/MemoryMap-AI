@@ -162,6 +162,33 @@ function tabRowSpace() {
   return header.clientWidth - padding - others - gap * siblings;
 }
 
+//: **The room to centre the strip on the window** (INBOX 430, the owner: the
+//: top bar "isn't centred at smaller widths", the tabs sat left beside the
+//: space switcher while the buttons sat right). Twice the narrower of the two
+//: halves: from the window's centre to the nearer group, less a gap. Measured
+//: from the groups' own edges, which do not move whichever way the strip is
+//: drawn (absolutely placed, filling the gap, or on its own row), so the
+//: answer cannot feed itself.
+function tabCentreSpace() {
+  const header = document.getElementById("top-bar");
+  const bar = $("tab-bar");
+  if (!header || !bar) return 0;
+  const style = getComputedStyle(header);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const box = header.getBoundingClientRect();
+  const centre = box.left + box.width / 2;
+  let left = box.left + (parseFloat(style.paddingLeft) || 0);
+  let right = box.right - (parseFloat(style.paddingRight) || 0);
+  for (const child of header.children) {
+    if (child === bar || child.classList.contains("hidden")) continue;
+    const r = child.getBoundingClientRect();
+    if (!r.width) continue;
+    if (r.left + r.width / 2 < centre) left = Math.max(left, r.right);
+    else right = Math.min(right, r.left);
+  }
+  return 2 * (Math.min(centre - left, right - centre) - gap);
+}
+
 // What the tab strip actually needs, summed from the buttons rather than read
 // off the strip's own box.
 //
@@ -229,13 +256,22 @@ function syncTabOverflowFade() {
     // while you drag the window edge is its own kind of broken. 8px is under
     // half a character and well over the rounding.
     const wrapped = header.classList.contains("tabs-wrapped");
-    //: 16px of slack, not 1: from 1200 up the strip is centred on the window
-    //: (`position: absolute`, 07-whiteboard-misc.css), so the room beside
-    //: the controls is not where it is drawn, and a strip that fits by 13px
-    //: on paper ran 13px under the controls at 1240 (INBOX 195).
+    //: Three ways to draw the strip, in order of preference, each only once
+    //: it has been measured to fit (INBOX 430): centred on the window when
+    //: both halves have the room (`tabs-centred`, absolutely placed, which is
+    //: what a 1440 window had); else centred in the gap between the two
+    //: groups, so neither side hugs it; else a row of its own, centred. The
+    //: absolute placement used to be decided from the gap alone with 16px of
+    //: slack, and a strip that fit by 13px on paper ran 13px under the
+    //: controls at 1240 (INBOX 195); it is now decided from the room it is
+    //: actually drawn in. 8px either way for sub-pixel jitter only.
+    const nowWrapped = wrapped ? needed > space - 8 : needed > space;
+    header.classList.toggle("tabs-wrapped", nowWrapped);
+    const centred = header.classList.contains("tabs-centred");
+    const centreSpace = tabCentreSpace();
     header.classList.toggle(
-      "tabs-wrapped",
-      wrapped ? needed > space - 24 : needed > space - 16
+      "tabs-centred",
+      !nowWrapped && (centred ? needed <= centreSpace : needed <= centreSpace - 8)
     );
   }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed

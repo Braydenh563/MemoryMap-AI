@@ -1179,12 +1179,6 @@ Link to another note with [[its first few words]]."></textarea>
                  words that were clicked - see enterEntryPreview in app.js. -->
             <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
               aria-label="Preview of this note, click any text to edit it"></div>
-            <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
-            <div id="wiki-suggest" class="wiki-suggest hidden">
-              <ul id="wiki-suggest-list" class="rich-picker-list" role="listbox"
-                aria-label="Notes you can link to"></ul>
-              <div id="wiki-suggest-preview" class="rich-picker-preview hidden" aria-hidden="true"></div>
-            </div>
             <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           </div>
           <!-- Reported directly: an uploaded/pasted image only shows as raw
@@ -3067,6 +3061,20 @@ Link to another note with [[its first few words]]."></textarea>
                     <option value="file">Has a file</option>
                   </select>
                 </div>
+                <div class="dock-menu-section">
+                  <span class="muted dock-menu-label" id="graph-size-label">Size</span>
+                  <!-- INBOX 430: what a dot's size means. Connections is the
+                       default (a node's lines, the one thing a map shows by
+                       itself); length is the note's words, recency how lately
+                       it was edited, none one size for every note. -->
+                  <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
+                    title="What a note's size means">
+                    <option value="connections">Connections</option>
+                    <option value="length">Length</option>
+                    <option value="recency">Recency</option>
+                    <option value="none">None</option>
+                  </select>
+                </div>
               <!-- **Moved out of the find zone for the seven-control
                    ceiling** (docks.md section 2, which names this move and the
                    decision behind it). Trace is a mode, and this menu already
@@ -3808,7 +3816,7 @@ Link to another note with [[its first few words]]."></textarea>
                  lights Library, so the dock starts with the place you came
                  from, as a breadcrumb does. -->
             <button type="button" id="doc-back" class="ghost small doc-back" title="Back to your documents in the Library"
-              aria-label="Back to your documents in the Library"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i>Documents</button>
+              aria-label="Back to your documents in the Library"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i><span class="doc-back-label">Documents</span></button>
             <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
               aria-label="Document title" class="doc-title-input">
             <!-- What kind of file this document is. Asked for directly: the
@@ -3912,7 +3920,7 @@ Link to another note with [[its first few words]]."></textarea>
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
-              title="Ask Atlas to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
+              title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
             <!-- A code document's Format (the owner, 2026-09-23: "a button
                  to automatically format the whole document, ot just a
                  selection"). One button for both, as Shift+Alt+F is: the
@@ -11491,6 +11499,7 @@ Link to another note with [[its first few words]]."></textarea>
   <script src="/shell-reminders.js?v=0.3.3"></script>
   <script src="/markdown.js?v=0.3.3"></script>
   <script src="/navigation.js?v=0.3.3"></script>
+  <script src="/router.js?v=0.3.3"></script>
   <script src="/settings-panes.js?v=0.3.3"></script>
   <script src="/media.js?v=0.3.3"></script>
   <script src="/status.js?v=0.3.3"></script>

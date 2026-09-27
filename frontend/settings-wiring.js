@@ -513,18 +513,12 @@ $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
 });
 $("entry-content").addEventListener("keydown", (e) => {
-  // The suggestion list owns the arrows, Enter, Tab and Escape while it's up.
-  if (wikiSuggestKeydown(e, $("entry-content"))) return;
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
+//: The `[[` list is the editor menu's (editor.js), as in every other surface.
 $("entry-content").addEventListener("input", () => {
-  wikiSuggestIndex = 0;
-  renderWikiSuggest($("entry-content"));
   scheduleCaptureTagSuggestions();
 });
-// Moving the caret with the mouse or arrows can leave the fragment behind.
-$("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
-$("entry-content").addEventListener("blur", () => setTimeout(hideWikiSuggest, 120));
 //: True while the notebook is locked, the unlock overlay is up and nothing
 //: behind it may be reached.
 //:

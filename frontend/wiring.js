@@ -1426,6 +1426,11 @@ $("graph-colour").addEventListener("change", (event) => {
   localStorage.setItem("graph-colour", event.target.value);
   renderGraph();
 });
+// What the sizes mean (INBOX 430), remembered the same way.
+$("graph-size").addEventListener("change", (event) => {
+  localStorage.setItem("graph-size", event.target.value);
+  renderGraph();
+});
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class, no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {
@@ -2024,146 +2029,6 @@ $("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
 // The two visible fields drive the hidden value.
 $("reminder-date").addEventListener("input", syncDueFromParts);
 $("reminder-time").addEventListener("input", syncDueFromParts);
-// --- [[ autocomplete ------------------------------------------------------------
-// The links work, but only if you remember how a note starts. Typing "[[" now
-// offers the notes you could mean, so linking is a thing you do while writing
-// rather than something you go and look up first.
-
-let wikiSuggestIndex = 0;
-let wikiSuggestMatches = [];
-
-// The half-typed "[[..." immediately before the cursor, or null.
-function wikiFragmentAt(textarea) {
-  const upto = textarea.value.slice(0, textarea.selectionStart);
-  const open = upto.lastIndexOf("[[");
-  if (open === -1) return null;
-  // Already closed, so the cursor is past a finished link.
-  if (upto.slice(open).includes("]]")) return null;
-  const fragment = upto.slice(open + 2);
-  // A newline means they moved on and left the brackets behind.
-  if (fragment.includes("\n")) return null;
-  return { start: open, fragment };
-}
-
-function hideWikiSuggest() {
-  $("wiki-suggest").classList.add("hidden");
-  wikiSuggestMatches = [];
-}
-
-function renderWikiSuggest(textarea) {
-  const at = wikiFragmentAt(textarea);
-  const box = $("wiki-suggest");
-  if (!at) return hideWikiSuggest();
-
-  const needle = at.fragment.trim().toLowerCase();
-  // Everything when they've only typed "[[", narrowing as they go. Private
-  // notes are excluded: they can't be link targets, so offering one would be
-  // a dead end that also reveals it exists.
-  wikiSuggestMatches = allEntries
-    .filter((e) => !e.is_private && (!needle || e.content.toLowerCase().includes(needle)))
-    .slice(0, 8);
-  if (!wikiSuggestMatches.length) return hideWikiSuggest();
-
-  wikiSuggestIndex = Math.min(wikiSuggestIndex, wikiSuggestMatches.length - 1);
-  //: **The rich picker's rows** (rich-picker.js, DESIGN.md's recipe index),
-  //: the ones the "/" menu draws: a tile, the note's opening words, and under
-  //: them the category it was filed in, so two notes that open alike can be
-  //: told apart before one is linked. The pointer lights the row it is over,
-  //: as in the "/" menu, so Enter and a click always mean the same note.
-  const list = $("wiki-suggest-list");
-  list.replaceChildren();
-  const rows = wikiSuggestMatches.map((entry, index) => {
-    const row = richPickerRow({
-      icon: "note",
-      label: noteLabel(entry, 64),
-      about: entry.category || "",
-      id: `wiki-suggest-row-${index}`,
-    });
-    row.addEventListener("mousedown", (event) => {
-      // mousedown, not click: the textarea must not lose focus first.
-      event.preventDefault();
-      applyWikiSuggestion(textarea, entry);
-    });
-    row.addEventListener("mousemove", () => {
-      if (wikiSuggestIndex === index) return;
-      wikiSuggestIndex = index;
-      wikiSuggestLight();
-    });
-    list.appendChild(row);
-    return row;
-  });
-  box.classList.remove("hidden");
-  wikiSuggestLight(rows);
-}
-
-//: Light the chosen row and show its note beside the list: its first lines,
-//: which is what "is this the one I mean" is answered by. The pane hides
-//: itself below 44rem (the stylesheet), where the list has the width alone.
-function wikiSuggestLight(rows) {
-  const list = $("wiki-suggest-list");
-  richPickerSetActive(list, rows || [...list.querySelectorAll("[role=option]")], wikiSuggestIndex);
-  const entry = wikiSuggestMatches[wikiSuggestIndex];
-  const pane = $("wiki-suggest-preview");
-  pane.classList.toggle("hidden", !entry);
-  if (!entry) return;
-  richPickerPreview(pane, {
-    icon: "note",
-    label: noteLabel(entry, 48),
-    about: entry.category || "",
-    sample: richPickerLines(entry.content),
-  });
-}
-
-function applyWikiSuggestion(textarea, entry) {
-  const at = wikiFragmentAt(textarea);
-  if (!at) return;
-  // Link by the note's opening words: that's what resolution matches on.
-  //
-  // Brackets are stripped first. A note that itself contains [[a link]] would
-  // otherwise be inserted verbatim, producing [[outer [[inner]] text]]: and
-  // the parser, which won't match brackets inside a name, would then find the
-  // INNER one and silently resolve to the wrong note.
-  const name = (entry.content || "")
-    .split("\n")[0]
-    .replace(/\[\[|\]\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 60);
-  if (!name) return hideWikiSuggest();
-  const before = textarea.value.slice(0, at.start);
-  const after = textarea.value.slice(textarea.selectionStart);
-  textarea.value = `${before}[[${name}]]${after}`;
-  const caret = before.length + name.length + 4;
-  textarea.setSelectionRange(caret, caret);
-  textarea.dispatchEvent(new Event("input")); // refresh the character count
-  hideWikiSuggest();
-  textarea.focus();
-}
-
-function wikiSuggestKeydown(event, textarea) {
-  if ($("wiki-suggest").classList.contains("hidden")) return false;
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-    event.preventDefault();
-    const step = event.key === "ArrowDown" ? 1 : -1;
-    wikiSuggestIndex =
-      (wikiSuggestIndex + step + wikiSuggestMatches.length) % wikiSuggestMatches.length;
-    renderWikiSuggest(textarea);
-    $("wiki-suggest").querySelector(".active")?.scrollIntoView({ block: "nearest" });
-    return true;
-  }
-  if (event.key === "Enter" || event.key === "Tab") {
-    event.preventDefault();
-    applyWikiSuggestion(textarea, wikiSuggestMatches[wikiSuggestIndex]);
-    return true;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    hideWikiSuggest();
-    return true;
-  }
-  return false;
-}
-
 // --- duplicate tidy-up -----------------------------------------------------------
 // Finding is arithmetic and always available. Merging offers the AI when it's
 // running and a plain join when it isn't: the join reads worse but cannot

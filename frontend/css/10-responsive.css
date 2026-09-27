@@ -71,38 +71,25 @@
 
 }
 
-/* --- band 2 (820 to 1100): the tabs are icons, and the header is one row --
+/* --- band 2 (820 to 1200): the tabs keep their names, set small ----------
 
-   The measurement that made this worth doing (`tabfit.js`, 1440x900 down to
-   600): between 600 and 1100 the tab strip cannot fit beside the wordmark
-   and the header controls, so `syncTabOverflowFade` gives it a row of its
-   own. That costs 52px of every screen in the band: the header is 108px at
-   1024 and 1099 against 56px at 1440, on a laptop, above every page.
+   **The tabs keep their names on a laptop** (WORLD_CLASS_PLAN 22.1.3 as the
+   owner re-scoped it, INBOX 430: "the desktop that matters is a small uni
+   laptop, 1366x768 at 125% = 1093x614 CSS px"). This band used to draw six
+   of the seven tabs as bare glyphs, which is what a 1366 laptop at 125%
+   gets: measured with `tabnames.js`, 1 name of 7 at 1093x614, at 1024 and
+   at 820. The reason was arithmetic at full size (696px of captions beside
+   the wordmark's 521px at 1024), and the tabs are the one control that
+   says what the app has, so a word beats a glyph wherever the word fits.
 
-   At 1024 the strip needs 696px of captions and the row beside the wordmark
-   has 521px. No amount of tightening closes 175px with seven words in it.
-   Seven *icons* need about 280px, which fits with room to spare, and the
-   selected tab keeps its caption so the strip still says where you are: the
-   HIG's own tab-bar guidance, and the shape the phone band already uses
-   (icon over caption) turned on its side.
-
-   Deliberately not applied below 820. There the space beside the wordmark is
-   376px at 819 and 171px at 600, which even icons do not fit, so band 3
-   keeps its own row and the smaller captions above. And not above 1100,
-   where the captions fit and a word beats a glyph. */
-@media (min-width: 820px) and (max-width: 1099.98px) {
-
-  .tab-icon {
-    display: inline-flex;
-  }
-
-  /* The accessible name is on the button (`aria-label` in the markup), so
-     hiding the caption costs a screen reader nothing. `title` is what a
-     pointer gets, and app.js already sets neither, so the label element
-     stays in the DOM as the tooltip's source rather than being removed. */
-  #tab-bar button:not(.active) .tab-label {
-    display: none;
-  }
+   So the captions stay, at the band's small step (`--text-xs`, the
+   padding a step tighter), and the strip is placed the way every width
+   places it (`syncTabOverflowFade`): centred on the window, else centred in
+   the gap between the two groups, else on a row of its own, still named.
+   Up to 1200, not 1100: at full size the captions took a row of their own
+   from 1100 to about 1190 as well (108px of header at 1100 and 1152).
+   Measured after: see `tabnames.js` in the commit that made this. */
+@media (min-width: 820px) and (max-width: 1199.98px) {
 
   #tab-bar button {
     gap: var(--space-2);
@@ -146,7 +133,7 @@
   #tab-bar button {
     min-height: var(--target-min);
     min-width: var(--target-min);
-    padding-inline: var(--space-4);
+    padding-inline: var(--space-3);
     justify-content: center;
   }
 
@@ -173,6 +160,30 @@
     right: var(--space-1);
     margin-left: 0;
   }
+}
+
+/* The agent's run count on a phone's More (INBOX 430, `syncPhoneMoreRuns`):
+   on the corner of the glyph like a tab's count, and in the accent rather
+   than the error red a due reminder wears, because a run is news rather than
+   a thing overdue. The same count ends More's "Agent activity" row. */
+.phone-tab-more {
+  position: relative;
+}
+
+.phone-tab-more > .tab-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-2);
+  margin-left: 0;
+}
+
+:is(.phone-tab-more, .sheet-row) > .tab-badge {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.sheet-row > .tab-badge {
+  margin-left: auto;
 }
 
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
@@ -1073,6 +1084,14 @@ header#top-bar,
     height: calc(var(--target-min) + env(safe-area-inset-bottom, 0px));
   }
 
+  /* The status bar follows the bar down (INBOX 430: a gap between the tab bar
+     and the status bar at the end of a page). Its reservation stays put, for
+     the reason above, so it is moved rather than resized: a transform, which
+     changes nothing the scroll that receded the bar can see. */
+  :root:has(#phone-tab-dock[data-receded]) #status-bar {
+    transform: translateY(calc(var(--bottom-tabs-h) - var(--target-min)));
+  }
+
   #phone-tab-dock[data-receded] #tab-bar button .tab-label,
   #phone-tab-dock[data-receded] .phone-tab-more .tab-label {
     display: none;
@@ -1520,15 +1539,20 @@ header#top-bar,
     --status-h: var(--target-min);
   }
 
-  #status-bar [data-status-zone] > :not(#status-task, #status-activity, #offline-indicator, #power-saver-indicator) {
+  /* **Not the agent's runs** (INBOX 430, the owner: "hide the agent-runs bar
+     on phones and fold its count into More"). A finished run kept the bar up
+     for the rest of the session, a second bar over the tab bar for a thing
+     nobody has to see without asking; the count is a badge on More and the
+     runs are a row in its sheet (`syncPhoneMoreRuns`, phone-shell.js). */
+  #status-bar [data-status-zone] > :not(#status-task, #offline-indicator, #power-saver-indicator) {
     display: none;
   }
 
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
     --status-bar-h: 0px;
   }
 
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
     visibility: hidden;
     overflow: hidden;
     padding-block: 0;
@@ -2490,3 +2514,160 @@ header#top-bar,
   }
 }
 
+
+/* --- the lightbox on a phone (INBOX 430) ------------------------------------
+   "The lightbox on phone needs a better layout": at 390 the action row
+   wrapped, five controls on one line and the image's ⋯ alone on a second.
+   The zoom readout is the one control that is only a number (the buttons
+   either side of it say what they do, and the picture shows the zoom), so it
+   goes below 600 and the row takes the tighter step: one line of 44px
+   targets under the picture. */
+@media (max-width: 599.98px) {
+  .lightbox .lightbox-zoom-label {
+    display: none;
+  }
+
+  .lightbox .lightbox-actions {
+    gap: var(--space-1);
+  }
+}
+
+/* --- the graph's floating controls clear its New note (INBOX 430) -----------
+   "The controls overlap the legend and the New note FAB": measured at 390x844
+   with `graphphone.js`, the legend ran 38px under the floating New note and
+   the zoom strip 23px into it. Below 600 the New note floats at the page's
+   foot (`.dock-fab`, 07-whiteboard-misc.css), so the legend and the zoom
+   strip stand on a line one target and a step above the map's bottom edge,
+   where the button is, and the legend stops short of the zoom strip's column
+   as before. */
+@media (max-width: 599.98px) {
+  #tab-graph:has(.dock-fab) .graph-legend-row,
+  #tab-graph:has(.dock-fab) .graph-zoom {
+    bottom: calc(var(--target-min) + var(--space-5));
+  }
+}
+
+/* --- the Documents editor on a phone (INBOX 430) -----------------------------
+   "On phone, the Documents editor's lower half is blank or cut off; rework
+   its controls for phone and tablet." Measured at 390x844 with `docphone.js`:
+   the dock took four rows (80 to 275) and the breadcrumb a fifth, the status
+   line two and the keyboard help three, so the page itself was a 236px box
+   (335 to 570) with the rest of the document scrolled inside it; and the
+   formatting bar sat over the tab bar on the whole tab, in Read as well,
+   where every one of its buttons is off. Below 600:
+   - the dock is two rows: the list opener, Back (its glyph) and the title;
+     then the view switch and the actions, AI edit as its wand. The save
+     state leaves the row (it
+     is the one thing in it a person does not act on, and on a phone it was
+     what pushed the actions onto a third line);
+   - the status line is one row, the counts giving way with an ellipsis,
+     without the caret's line and column, a keyboard's number;
+   - the keyboard help goes: it names Ctrl chords to a screen with no Ctrl;
+   - the formatting bar stands above the tab bar rather than over it, rides
+     the keyboard when it is up, and is not drawn while reading. */
+@media (max-width: 599.98px) {
+  #tab-documents .doc-dock > .doc-dock-identity {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #tab-documents .doc-back-label,
+  #tab-documents .doc-ai-label,
+  #tab-documents .doc-dock-status,
+  #tab-documents .doc-actions > .doc-toolbar-sep,
+  #tab-documents .doc-hint,
+  #tab-documents #doc-caret {
+    display: none;
+  }
+
+  #tab-documents .doc-dock-identity > .doc-back {
+    flex: 0 0 var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  #tab-documents .doc-dock-identity > .doc-back > .ph-lead,
+  #tab-documents #doc-ai > .ph-lead {
+    margin: 0;
+  }
+
+  /* AI edit is its wand alone here, a square like the two beside it, which
+     is what brings the actions back onto one line. */
+  #tab-documents #doc-ai {
+    flex: 0 0 var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  #tab-documents .doc-actions,
+  #tab-documents .doc-view-cluster {
+    gap: var(--space-1);
+  }
+
+  #tab-documents #doc-view-seg > button {
+    padding-inline: var(--space-1) var(--space-2);
+  }
+
+  #tab-documents .doc-statusbar {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  #tab-documents .doc-statusbar > * {
+    flex: 0 0 auto;
+  }
+
+  /* The counts give way, with an ellipsis, so the two controls keep their
+     words and their targets. */
+  #tab-documents #doc-counts {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tab-documents .doc-phone-bar {
+    bottom: max(
+      calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px)),
+      env(keyboard-inset-height, 0px),
+      var(--keyboard-inset)
+    );
+    padding-bottom: var(--space-1);
+  }
+
+  #tab-documents:has(#doc-panes.reading) .doc-phone-bar {
+    display: none;
+  }
+}
+
+/* And on a touch-first tablet, the keyboard help too: the same Ctrl chords,
+   on a screen that is held rather than typed at (INBOX 430, "rework its
+   controls for phone and tablet"). A tablet with a keyboard attached reports
+   a fine pointer and keeps it. */
+@media (hover: none) and (pointer: coarse) {
+  #tab-documents .doc-hint {
+    display: none;
+  }
+}
+
+/* --- the Documents editor on a small laptop (INBOX 430's re-scope) ----------
+   "The desktop that matters is a small uni laptop, 1366x768 at 125% =
+   1093x614 CSS px." Measured there with `docphone.js`: the page took 40% of
+   the 498px between the header and the status bar, because the dock's title
+   asked for 22rem beside 477px of actions in an 809px row, so the actions
+   took a second row, and the keyboard help took 46px more under the status
+   line. From 64rem the title asks for 16rem, which puts the dock on one row
+   at 1093; and on a window under 720px tall the help goes, the same Ctrl
+   chords the `?` and the shortcuts sheet already give. */
+@media (min-width: 64rem) {
+  #tab-documents .doc-dock > .doc-dock-identity {
+    flex-basis: 16rem;
+  }
+}
+
+@media (min-width: 600px) and (max-height: 720px) {
+  #tab-documents .doc-hint {
+    display: none;
+  }
+}

@@ -302,6 +302,14 @@ function layoutHierarchy(nodes, kind, width, height) {
   const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
   const radial = kind === "radial";
   const arc = kind === "arc";
+  //: **In a portrait map the arc runs down, not across** (INBOX 430, "Arc view
+  //: doesn't fit the screen"). One baseline slot per note is a line
+  //: `count x ARC_STEP` long, and laid across a 362px phone map it is the
+  //: short side of the screen: measured with `graphphone.js`, 430 notes drew
+  //: 6,221px wide at the fit's floor. Down the long side it is half the
+  //: squeeze, and the arcs bow to the left of it with the labels to the
+  //: right, the way the tree writes them (`arcPath`, graph-canvas.js).
+  const vertical = arc && height > width * 1.15;
   if (arc) {
     // Pre-order: a category is visited before any of its notes, and each
     // note before its own replies, so walking the hierarchy in this order
@@ -310,8 +318,8 @@ function layoutHierarchy(nodes, kind, width, height) {
     // layouts a different way.
     let slot = 0;
     laid.eachBefore((point) => {
-      point.x = slot * ARC_STEP;
-      point.y = 0;
+      point.x = vertical ? 0 : slot * ARC_STEP;
+      point.y = vertical ? slot * ARC_STEP : 0;
       slot += 1;
     });
   } else if (radial) {
@@ -387,7 +395,7 @@ function layoutHierarchy(nodes, kind, width, height) {
       });
     }
   });
-  return { nodes: placed, links, radial, arc };
+  return { nodes: placed, links, radial, arc, vertical };
 }
 
 // A tree drawn with straight diagonals reads as a fan of loose string. Elbows
@@ -413,6 +421,13 @@ function hierarchyPath(link, radial) {
 // to sweep one way.
 function arcPath(link) {
   const { source: a, target: b } = link;
+  //: A baseline running down (a portrait map, `layoutHierarchy`): the same
+  //: flattened half-ellipse turned on its side, bowing left of the line so
+  //: the labels to its right stay clear.
+  if (Math.abs(b.x - a.x) < 0.5 && b.y !== a.y) {
+    const half = Math.max(Math.abs(b.y - a.y) / 2, 1);
+    return `M${a.x},${a.y}A${half * 0.6},${half} 0 0,${a.y <= b.y ? 0 : 1} ${b.x},${b.y}`;
+  }
   const rx = Math.max((b.x - a.x) / 2, 1);
   const ry = rx * 0.6; // flatter than a true semicircle, a full one over a
   // long span dominates the map more than the connection it is drawing.
@@ -423,7 +438,7 @@ function arcPath(link) {
 // rows of text become illegible. Fit the *width*, never magnify past 1:1, and
 // start at the top, the panel pans, and a readable tree you scroll beats a
 // complete one you can't read.
-function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
+function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false) {
   // Labels stick out past the node they belong to: to the right in a tree, in
   // every direction on a radial, and by however much the longest one happens
   // to be. Guessing that with a padding constant left label tips off the edge
@@ -459,20 +474,32 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
   // is worth a small zoom-out to see whole, and only falls back to panning
   // when the price of fitting would be text you can't read.
   const both = Math.min((width - 20) / spanX, (height - 20) / spanY);
-  const fit = radial || both >= 0.8 ? both : (width - 20) / spanX;
-  const scale = Math.max(0.35, Math.min(1, fit));
-  // Same rule on both axes: centre what fits, otherwise anchor to the start
-  // so the root is the part you can see.
+  //: **An arc is framed whole** (INBOX 430, "Arc view doesn't fit the
+  //: screen"): it is one line read end to end, and a line cut off at the edge
+  //: of the screen reads as the whole of it. Its floor is the fit itself,
+  //: whatever it costs the labels (they return as you zoom in, like any
+  //: map's). A tree fits when it nearly does and otherwise fits its width.
+  const fit = radial || arc || both >= 0.8 ? both : (width - 20) / spanX;
+  //: A radial the same (measured before: 1,051px across a 362px phone map
+  //: and a 997px tablet one at the 0.35 floor).
+  const scale = arc || radial ? Math.min(1, fit) : Math.max(0.35, Math.min(1, fit));
+  //: Where it does not fit, **the root is centred** (INBOX 430, the owner:
+  //: "the Tree view sits at the top instead of centred"). A tree's root is
+  //: the middle of its column, not its top, so anchoring the top edge put
+  //: the first category's notes in view and the notebook and its categories
+  //: a screen or more below. The root at the centre of the map shows the
+  //: shape the view is named for, with its branches going off either way.
+  const root = nodes.find((n) => n.depth === 0);
   const tx =
     spanX * scale <= width - 20
       ? width / 2 - scale * (minX + maxX) / 2
       : 10 - scale * minX;
-  // Centre vertically only when the whole thing already fits; otherwise start
-  // at the top, because a tree is read from its root down.
   const ty =
     spanY * scale <= height - 20
       ? height / 2 - scale * (minY + maxY) / 2
-      : 10 - scale * minY;
+      : root
+        ? height / 2 - scale * root.y
+        : 10 - scale * minY;
   //: Same rule as `fitGraphToView`: see the note beside its own check.
   if (!graphMinimapFinite(tx, ty, scale)) return;
   svg
@@ -1064,6 +1091,10 @@ function renderTraceReadout(result) {
 // `a.x < b.x` because a pre-order walk always visits a parent before its
 // children, a traced path can run either direction through the hierarchy.
 function tracePath(a, b) {
+  if (Math.abs(b.x - a.x) < 0.5 && b.y !== a.y) {
+    const half = Math.max(Math.abs(b.y - a.y) / 2, 1);
+    return `M${a.x},${a.y}A${half * 0.9},${half} 0 0,${a.y <= b.y ? 0 : 1} ${b.x},${b.y}`;
+  }
   const rx = Math.max(Math.abs(b.x - a.x) / 2, 1);
   const ry = rx * 0.9;
   const sweep = a.x <= b.x ? 1 : 0;
@@ -1408,6 +1439,34 @@ let graphStructure = null;
 //: does not offer collapses to category, so a stale saved view cannot ask
 //: for a rule that no longer exists.
 const GRAPH_COLOUR_RULES = ["category", "cluster", "kind", "age", "space", "tag", "file"];
+
+//: INBOX 430, View > Size: what a node's size says. Connections (the default)
+//: is `4 + 2*sqrt(degree)`, GRAPH_PLAN §5 Phase 1; length is the note's words,
+//: on a log scale so a 3,000-word note is not a moon beside a 30-word one;
+//: recency halves every 30 days since it was last edited; none is one size.
+//: Every rule stays in the same [4, 18] band, so the labels, the hit test and
+//: the fit's padding need no second case.
+const GRAPH_SIZE_RULES = ["connections", "length", "recency", "none"];
+
+function graphSizeMode() {
+  const value = document.getElementById("graph-size")?.value;
+  return GRAPH_SIZE_RULES.includes(value) ? value : "connections";
+}
+
+function graphSizeRadius(node, degree, low = 4, high = 18) {
+  const mode = graphSizeMode();
+  if (mode === "none") return 7;
+  if (mode === "length") {
+    const words = Math.max(0, Number(node.words) || 0);
+    return low + (high - low) * Math.min(1, Math.log1p(words) / Math.log1p(2000));
+  }
+  if (mode === "recency") {
+    const at = Date.parse(node.updated_at || node.created_at || "");
+    const days = Number.isFinite(at) ? Math.max(0, (Date.now() - at) / 86400000) : Infinity;
+    return low + (high - low) * Math.pow(0.5, days / 30);
+  }
+  return Math.max(low, Math.min(high, low + 2 * Math.sqrt(degree || 0)));
+}
 
 function graphColourMode() {
   const value = document.getElementById("graph-colour")?.value;
@@ -2600,7 +2659,7 @@ async function renderGraphSvg() {
       //: claim on the camera than this retry does.
       if (boxMeasured) {
         graphAutoFitDone = true;
-        frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+        frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial, tree.arc);
       } else {
         requestAnimationFrame(() => {
           const realWidth = box.clientWidth;
@@ -2611,7 +2670,7 @@ async function renderGraphSvg() {
           //: here too: framing against a real size inside a fake viewBox
           //: would just move the error rather than fix it.
           svg.attr("viewBox", [0, 0, realWidth, realHeight]);
-          frameTree(svg, zoomBehavior, canvas, nodes, realWidth, realHeight, tree.radial);
+          frameTree(svg, zoomBehavior, canvas, nodes, realWidth, realHeight, tree.radial, tree.arc);
         });
       }
     }
@@ -5011,6 +5070,7 @@ function graphSyncSimilarityRow() {
 const GRAPH_DEFAULTS = {
   layout: "force",
   "graph-colour": "category",
+  "graph-size": "connections",
   "graph-gravity": "50",
   "graph-spread": "50",
   "graph-similarity": false,

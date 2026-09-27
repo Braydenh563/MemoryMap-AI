@@ -3406,13 +3406,6 @@ dialog::backdrop {
   padding: 0 var(--space-4) var(--space-3);
 }
 
-/* The `[[wiki link]]` list is a popup in flow: inside the surface it keeps
-   its own edge, and takes the side padding so it does not run to the two
-   borders it sits between. */
-.note-composer > .wiki-suggest {
-  margin: 0 var(--space-4) var(--space-3);
-}
-
 /* Notes tab → Ask: the question input, the answer-length select and the Ask
    button had the same three-heights-on-one-row mismatch as
    `.capture-field-row` above, same fix. */
@@ -9396,13 +9389,21 @@ button.connection-row {
   }
 }
 
-@media (min-width: 1200px) {
-  /* Not while the strip has been measured not to fit (`tabs-wrapped`, set by
-     `syncTabOverflowFade`): an absolutely placed strip ignores the wrap's
-     100% basis and draws its last tabs under the header controls, which is
-     what a 1440 window at 120% zoom showed (INBOX 195: 944px of tabs against
-     controls that start at 910). Wrapped, it takes its own row as below 1200. */
-  header#top-bar:not(.tabs-wrapped) > #tab-bar {
+/* Centred on the window at every width the header holds it (INBOX 430: "the
+   top bar isn't centred at smaller widths", the tabs sat left beside the
+   space switcher while the buttons sat right). `syncTabOverflowFade` picks
+   one of three, each only once measured to fit: `tabs-centred`, absolutely
+   placed on the window's centre (both halves have the room); else the strip
+   fills the gap between the two groups and centres in it (`safe center`
+   below), so neither side hugs it; else `tabs-wrapped`, a row of its own.
+   It used to be the first from 1200 and the gap's left edge below it. */
+header#top-bar:not(.tabs-wrapped):not(.tabs-centred) > #tab-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (min-width: 600px) {
+  header#top-bar.tabs-centred:not(.tabs-wrapped) > #tab-bar {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);

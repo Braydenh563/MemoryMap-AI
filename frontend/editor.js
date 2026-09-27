@@ -1497,14 +1497,14 @@ function editorHandleInput(textarea) {
   }
   // Not open yet: does what was just typed start a token?
   //
-  // The capture box keeps its own [[ autocomplete (app.js's #wiki-suggest),
-  // which predates this file and is wired, styled and tested. Two menus racing
-  // for the same trigger in the same box would both open. So "[[" is claimed
-  // here only for surfaces that had nothing before, today, the document
-  // editor. Migrating capture onto this one mechanism is worth doing, but as
-  // its own change, not folded into the diff that introduces the mechanism.
-  const claimsWiki = textarea.id !== "entry-content";
-  for (const trigger of claimsWiki ? ["/", "[["] : ["/"]) {
+  //: "[[" is this menu's in every surface, the note box included (INBOX 430,
+  //: the owner on the note box's own list: "this dropdown should show below
+  //: the line being written in a separate popup panel like the / command
+  //: menu, not below the textbox"). The note box had kept an older list of
+  //: its own, `#wiki-suggest`, drawn in the flow under the whole box; it is
+  //: gone, and the box has one mechanism for both triggers, placed at the
+  //: caret by `editorPlaceMenu`.
+  for (const trigger of ["/", "[["]) {
     if (editorTokenAt(textarea, trigger)) {
       if (trigger === "[[") {
         // Fetch documents once, then redraw, the list opens on notes alone

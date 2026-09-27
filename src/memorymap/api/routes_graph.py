@@ -413,6 +413,11 @@ def _add_map_edges(
                 edges.append({"source": board_id, "target": ref_id, "kind": "map"})
 
 
+def _word_count(text: str | None) -> int:
+    """Words in a note's text, for the map's size-by-length rule."""
+    return len((text or "").split())
+
+
 @router.get("/graph")
 def graph(
     similarity: bool = False,
@@ -523,6 +528,13 @@ def graph(
             # through Pydantic directly and were never affected, this was
             # the graph's own two hand-built dicts.
             "created_at": e.created_at.isoformat(),
+            # What the map's size rule can read besides connections (INBOX
+            # 430, View > Size: connections, length, recency or none): the
+            # note's length in words, through the same readable text as the
+            # preview so a private note is counted as its placeholder while
+            # locked, and when it was last edited.
+            "words": _word_count(manager.readable_content(e)),
+            "updated_at": (e.updated_at or e.created_at).isoformat(),
         }
         for e in entries
     ]
@@ -718,6 +730,9 @@ def graph_local(
             # `+ "Z"` on top of `.isoformat()`'s own `+00:00` produced an
             # unparseable double-suffixed string in JavaScript.
             "created_at": index.entries[e_id].created_at.isoformat(),
+            # The size rule's numbers, as on the whole map (see `graph`).
+            "words": _word_count(manager.readable_content(index.entries[e_id])),
+            "updated_at": (index.entries[e_id].updated_at or index.entries[e_id].created_at).isoformat(),
         }
         for e_id in visited
     ]

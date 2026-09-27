@@ -20,6 +20,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The graph's View menu has a Size rule: connections (the default), length, recency or none.
+- On a phone the graph takes the screen's shape: a portrait force layout, the arc running down the screen, the radial and the arc framed whole, and a tall tree framed on its root.
+- The "/" menu's look, everywhere a list is picked by typing or browsing: the command palette (Ctrl+K), the `[[` link list and the Library's Create picker now draw the same rows (an icon tile, the name over one line of what it does, and the key that does it without the menu), and the palette and both `[[` lists show the chosen row beside the list on a wide window: what a command does and its key, or a note's first lines.
 - Appearance, Atlas and faces, Reduce actions: Off (only blinks, looks and resting stances), Fewer (the default, a third as many unprompted waves and hops) or Normal. At rest Atlas takes stances of its own look: arms folded or a hand on the hip (masculine), hands clasped or a slow sway (feminine).
 - The companion's menu has sections: Companion (Atlas, you, the chat's persona or your own character), Atlas look (masculine, feminine or auto), Size, and Settings (Appearance, Profile, Personas), each a flyout with the current choice ticked. Any menu row can now be a flyout of its own.
 - Show or hide the companion from anywhere: Ctrl+Shift+Y, or "Show or hide the companion" in the command palette and Find anything. It comes back as whichever companion it was.
@@ -47,6 +50,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The top bar's tabs are centred at every width that holds them, not left beside the space switcher.
+- On a phone: the agent's runs are a badge and a row in More instead of a second bar; the status bar meets the tab bar at the end of a page; Library Contents rows fit the card; the lightbox's menu opens on top of it (the page reader was one of its rows) and its actions are one row; one finger on bare canvas pans a board with Select; the graph's legend and zoom stand clear of New note; the Documents editor gives the page most of the screen, and its formatting bar sits above the tab bar instead of over it and is gone while reading.
+- The note box's `[[` link list opens at the line being written, in the same panel as the "/" menu, instead of under the whole box, and answers its keys: with the note editor loaded the arrows used to move the caret, Enter wrote a new line and Escape did nothing while the list stayed open.
 - Atlas's right foot joins its leg again (a mirrored foot or hand was drawn from the wrong side of the ankle), both feet face forward and a little out rather than sideways, and the feminine look has no fringe over the forehead.
 - During the guided tour the corner companion no longer shows through the ring around the control a step points at: it fades and steps away from the ring and the tour's card.
 - The corner companion gets out of the way of a popup: when the notifications panel, a menu, a list or a help popover opens over it, it fades at once and then steps aside, and fades back once it is clear.

@@ -1673,8 +1673,8 @@ function bodyWithoutTitleLine(content) {
 // One resolver, because there were two: renderNoteText matched notes by the
 // opening words and layerDocWikiLinks matched documents by exact title, so the
 // same [[name]] meant different things depending on which pane rendered it.
-// Notes are matched first and by prefix (that is what applyWikiSuggestion
-// inserts: a note's opening words); documents fall back to an exact,
+// Notes are matched first and by prefix (that is what the "[[" menu inserts:
+// a note's opening words, `editorLinkMatches`); documents fall back to an exact,
 // case-insensitive title. Private notes are never a target: they cannot be
 // linked, and resolving to one would leak that it exists.
 //: **The lowercased forms a wiki lookup compares against, computed once per

@@ -10963,21 +10963,7 @@ function noteSurfaceExtensions(CM, host, options) {
 //: which the app's own global chord already handles.
 function noteSurfaceKeymap(host) {
   const surface = () => noteSurfaceFor(host) || textareaSurface(host);
-  //: **The capture box's `[[` list keeps its keys with the engine mounted.**
-  //: `wikiSuggestKeydown` listens on the textarea, and once the engine is
-  //: over it the textarea never sees a key: the list opened, and then the
-  //: arrows moved the caret, Enter wrote a new line under it and Escape did
-  //: nothing (measured, `richpicker.js`). Answered here, first, with the same
-  //: function and the same contract: true when the list took the key.
-  const wikiKey = (key) => ({
-    key,
-    run: () =>
-      host.id === "entry-content" && typeof wikiSuggestKeydown === "function"
-        ? wikiSuggestKeydown({ key, preventDefault() {} }, host)
-        : false,
-  });
   return [
-    ...["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].map(wikiKey),
     //: **Ctrl+/ is the blocks menu in a note** (INBOX 402 kept it that way:
     //: only the document editor answers it with the comment toggle). The
     //: engine's `defaultKeymap` binds it to its own comment toggle, which in
@@ -14258,7 +14244,7 @@ function applyDocComplete(box, match) {
 }
 
 //: Returns true when it handled the key, so the caller knows not to let the
-//: editor's own bindings see it, the same contract `wikiSuggestKeydown` uses.
+//: editor's own bindings see it, the same contract the editor menu's keys use.
 function docCompleteKeydown(event, box) {
   const list = $("doc-complete-list");
   if (!list || list.classList.contains("hidden")) return false;

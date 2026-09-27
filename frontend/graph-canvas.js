@@ -236,8 +236,9 @@ const GC_MIN_RADIUS = 4;
 const GC_MAX_RADIUS = 18;
 function gcRadius(node, degree) {
   if (node.isGroup) return node.id === "root" ? 14 : 11;
-  const d = degree || 0;
-  return Math.max(GC_MIN_RADIUS, Math.min(GC_MAX_RADIUS, 4 + 2 * Math.sqrt(d)));
+  //: By the View menu's Size rule (`graphSizeRadius`, graph.js): connections
+  //: by default, the rule this function always drew.
+  return graphSizeRadius(node, degree, GC_MIN_RADIUS, GC_MAX_RADIUS);
 }
 
 //: Zoom at which labels come on by themselves (§5 Phase 1). Below it a label
@@ -1268,7 +1269,7 @@ function gcDraw(s = gcTab) {
     // arc labels are centred under the node here rather than rotated onto the
     // spoke, which is the one place this renderer is visibly plainer than the
     // SVG one: recorded in GRAPH_PLAN.md's "Built" section.)
-    const beside = Boolean(s.tree) && !s.tree.radial && !s.tree.arc;
+    const beside = Boolean(s.tree) && !s.tree.radial && (!s.tree.arc || s.tree.vertical);
     ctx.textAlign = beside ? "left" : "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -2584,6 +2585,9 @@ function gcWorldFor(count, width, height) {
     top: (height - side) / 2,
     right: (width - side) / 2 + side,
     bottom: (height - side) / 2 + side,
+    //: The map's shape, for the worker's centring pull (`tuning`): a portrait
+    //: map gets a portrait layout (INBOX 430).
+    aspect: width > 0 && height > 0 ? height / width : 1,
   };
 }
 
@@ -2889,7 +2893,7 @@ async function renderGraphCanvas(s = gcTab) {
     s.settledSig = null;
     if (!gcAutoFitDone(s)) {
       gcSetAutoFitDone(s, true);
-      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
+      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial, s.tree.arc);
     }
   } else {
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {

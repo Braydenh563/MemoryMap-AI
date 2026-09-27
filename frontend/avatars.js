@@ -4736,19 +4736,8 @@ function nameMarkBuddyBurst(buddy, dx, dy, delay) {
 function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant = false, near = null) {
   if (!buddy || buddy.classList.contains("nm-buddy-dragging")) return;
   const tab = nameMarkBuddyTab();
-  const obstacles = nameMarkBuddyObstacles(tab);
-  const spots = nameMarkBuddySpots();
   nmb.tab = tab;
-  if (spots["*"] && !spots[tab]) {
-    const pinned = nameMarkBuddyRestore(spots["*"]);
-    if (pinned) {
-      nameMarkBuddyMoveTo(buddy, { ...pinned, kind: "pinned" }, instant);
-      return;
-    }
-  }
-  const restored = spots[tab] ? nameMarkBuddyRestore(spots[tab]) : null;
-  const spot = restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles, near);
-  nameMarkBuddyMoveTo(buddy, spot, instant);
+  nameMarkBuddyMoveTo(buddy, nameMarkBuddyNextSpot(tab, near), instant);
 }
 
 //: Where it is now still does: on screen, not lost, not held off its
@@ -4767,7 +4756,7 @@ function nameMarkBuddyStillGood(obstacles) {
 //: next beat (`nameMarkBuddyQueuePlace`).
 function nameMarkBuddyCheck() {
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nmb.pinned || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
+  if (!buddy || nmb.pinned || nmb.away || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
   if (nameMarkBuddyMenuOpen()) {
     clearTimeout(nmbFollow.recheck);
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 600);
@@ -4836,7 +4825,7 @@ function nameMarkBuddyMenuOpen() {
 function nameMarkBuddyBeat() {
   nmb.placeTimer = 0;
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nmb.pinned) return;
+  if (!buddy || nmb.pinned || nmb.away) return;
   const busy = buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")
     || nameMarkBuddyMenuOpen();
   if (busy || document.hidden) {
@@ -4853,15 +4842,157 @@ function nameMarkBuddyBeat() {
   placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
 }
 
-//: A tab switch (app.js's `revealTab` calls this): its panel may have gone
-//: with the old tab, which the follow sees at once (it floats where it is);
-//: where to go next waits for its own beat.
+//: **It lives on a tab, and follows you only once you have stayed**
+//: (INBOX 430, the owner: "the companion lingers on the old tab for a
+//: second, then pops in elsewhere"; wanted: it "stays on the old tab (hidden
+//: with it) and only follows once the person has stayed on the new tab about
+//: 1.5 to 3s. Quick flicks back and forth never make it appear and
+//: disappear"). A tab switch hides it with the tab it is on; coming back
+//: before it has followed shows it again where it was, as the tab itself
+//: comes back; staying on another tab for `NMB_DWELL_MS` (plus up to
+//: `NMB_DWELL_JITTER_MS`, so it is not a clock) brings it in, by the way in
+//: that suits where it is going (`nameMarkBuddyEnter`). Every switch
+//: restarts the wait. Pinned on every page, it is on every tab, and stays.
+const NMB_DWELL_MS = 1600;
+const NMB_DWELL_JITTER_MS = 1200;
 function nameMarkBuddyTabChanged() {
   nameMarkBuddyIndexReset();
-  if (!document.getElementById("nm-buddy")) return;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
   for (const timer of nmb.settle) clearTimeout(timer);
-  nameMarkBuddyFollow();
-  nameMarkBuddyQueuePlace();
+  if (nmb.pinned) {
+    nameMarkBuddyFollow();
+    return;
+  }
+  clearTimeout(nmb.awayTimer);
+  const tab = nameMarkBuddyTab();
+  if (!nmb.tab || tab === nmb.tab) {
+    nmb.away = false;
+    buddy.classList.remove("nmb-away");
+    nameMarkBuddyFollow();
+    if (!nmb.tab) nameMarkBuddyQueuePlace();
+    return;
+  }
+  nmb.away = true;
+  buddy.classList.add("nmb-away");
+  nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS);
+}
+
+//: Where it goes on `tab`: your spot for it, the spot for every page, or
+//: the best free perch. `placeNameMarkBuddy`'s choice, without the move.
+function nameMarkBuddyNextSpot(tab, near = null) {
+  const obstacles = nameMarkBuddyObstacles(tab);
+  const spots = nameMarkBuddySpots();
+  if (spots["*"] && !spots[tab]) {
+    const pinned = nameMarkBuddyRestore(spots["*"]);
+    if (pinned) return { ...pinned, kind: "pinned" };
+  }
+  const restored = spots[tab] ? nameMarkBuddyRestore(spots[tab]) : null;
+  return restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles, near);
+}
+
+//: The person has stayed: it takes its place on this tab out of sight and
+//: then comes in.
+function nameMarkBuddyArrive(buddy) {
+  nmb.awayTimer = 0;
+  if (!buddy.isConnected || !nmb.away) return;
+  if (document.hidden || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging")) {
+    nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 800);
+    return;
+  }
+  const tab = nameMarkBuddyTab();
+  nameMarkBuddyIndexReset();
+  const spot = nameMarkBuddyNextSpot(tab);
+  nmb.tab = tab;
+  nameMarkBuddyMoveTo(buddy, spot, true);
+  nmb.away = false;
+  buddy.classList.remove("nmb-away");
+  nmb.enteredBy = nameMarkBuddyEnter(buddy, spot);
+}
+
+//: **In by the way that suits where it is going, never a pop** (INBOX
+//: 430: "walk on from the nearest screen edge, climb up from the bottom
+//: bar, climb down from the top bar to hang, or a soft materialise (a
+//: starlight shimmer resolving into it)"). Each is the host's `translate`
+//: and the character's `scale` and `opacity`, the compositor's. With
+//: Reduce motion it fades in where it is.
+function nameMarkBuddyEnter(buddy, spot) {
+  if (typeof buddy.animate !== "function") return "";
+  nmb.anim?.cancel();
+  nmb.hopAnim?.cancel();
+  nmb.movedAt = Date.now();
+  const char = buddy.querySelector(".nm-buddy-char");
+  if (nameMarkBuddyNoTravel()) {
+    nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
+    return "fade";
+  }
+  const x = nmb.x;
+  const y = nmb.y;
+  const edge = 150;
+  let how = "materialise";
+  if (spot.kind === "hang" || spot.pose === "hang") how = "down";
+  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) how = "up";
+  else if (x < edge || x > innerWidth - NMB_W - edge) how = "walk";
+  if (how === "walk") {
+    const fromLeft = x < innerWidth / 2;
+    const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
+    const duration = Math.round(Math.min(1500, 520 + Math.abs(dx) * 1.1));
+    buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+    buddy.dataset.turn = dx > 0 ? "l" : "r";
+    buddy.classList.add("nmb-walking");
+    nmbTempo.seen = 0;
+    clearTimeout(nmbTempo.timer);
+    nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
+    nmb.anim = buddy.animate([{ translate: `${dx}px 0px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.3, 0, 0.25, 1)" });
+    const walk = nmb.anim;
+    const done = () => {
+      if (nmb.anim !== walk) return;
+      buddy.classList.remove("nmb-walking");
+      delete buddy.dataset.turn;
+    };
+    walk.onfinish = done;
+    walk.oncancel = done;
+    nameMarkBuddySquash(char, duration);
+    return how;
+  }
+  if (how === "down" || how === "up") {
+    //: Down from the top bar, arms first, and a small give at the grip;
+    //: up over the bottom bar, a heave and a settle.
+    const from = how === "down" ? -Math.round(NMB_H * 0.8) : Math.round(NMB_H * 0.7);
+    const duration = 720;
+    nmb.anim = buddy.animate([
+      { translate: `0px ${from}px`, opacity: 0 },
+      { translate: `0px ${Math.round(from * 0.45)}px`, opacity: 1, offset: 0.3 },
+      { translate: `0px ${how === "down" ? 4 : -5}px`, offset: 0.78 },
+      { translate: "0px 0px" },
+    ], { duration, easing: "ease-in-out" });
+    nameMarkBuddySquash(char, duration - NMB_SET_OFF_MS);
+    return how;
+  }
+  //: Starlight gathering into it: the stars first, then the figure
+  //: resolving out of them, a touch large, settling to its size.
+  nameMarkBuddyBurst(buddy, 0, 0, 0);
+  nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1 }], { duration: 620, easing: "ease-out" });
+  nmb.hopAnim = char?.animate([
+    { scale: "0.5", opacity: 0.2 },
+    { scale: "1.06", opacity: 1, offset: 0.7 },
+    { scale: "1" },
+  ], { duration: 620, easing: "ease-out" }) || null;
+  return how;
+}
+
+//: **Out the same way, or dissolving** (INBOX 430): hidden from its menu or
+//: by Ctrl+Shift+Y it dematerialises into starlight rather than vanishing.
+function nameMarkBuddyLeave(buddy, then) {
+  if (!buddy || typeof buddy.animate !== "function" || nameMarkBuddyNoTravel()) {
+    then();
+    return;
+  }
+  const char = buddy.querySelector(".nm-buddy-char");
+  nmb.anim?.cancel();
+  nameMarkBuddyBurst(buddy, 0, 0, 120);
+  char?.animate([{ scale: "1", opacity: 1 }, { scale: "1.05", opacity: 1, offset: 0.25 }, { scale: "0.45", opacity: 0 }], { duration: 380, easing: "ease-in", fill: "forwards" });
+  setTimeout(then, 400);
 }
 
 //: The window changed size: held panels are followed at once, a pinned
@@ -5087,6 +5218,11 @@ function nameMarkBuddyTick() {
   nmb.timer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || document.hidden || nameMarkBuddyStill()) return;
+  //: Away with the tab it lives on: nothing to act out, nobody to see it.
+  if (nmb.away) {
+    nameMarkBuddySchedule();
+    return;
+  }
   const locked = document.getElementById("lock-overlay") && !document.getElementById("lock-overlay").classList.contains("hidden");
   if (locked || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nmb-think")) {
     nameMarkBuddySchedule();
@@ -5756,6 +5892,8 @@ document.addEventListener("visibilitychange", () => {
 function nameMarkBuddyGone() {
   clearTimeout(nmb.timer);
   clearTimeout(nmb.placeTimer);
+  clearTimeout(nmb.awayTimer);
+  nmb.away = false;
   clearTimeout(nmb.heldTimer);
   nmb.timer = nmb.placeTimer = nmb.heldTimer = 0;
   nmb.glue = null;
@@ -5780,8 +5918,10 @@ function nameMarkBuddyHide(buddy) {
   }
   const select = document.getElementById("avatar-buddy");
   if (select) select.value = "off";
-  buddy?.remove();
-  nameMarkBuddyGone();
+  nameMarkBuddyLeave(buddy, () => {
+    buddy?.remove();
+    nameMarkBuddyGone();
+  });
   if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
 }
 

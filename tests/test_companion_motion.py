@@ -539,6 +539,24 @@ def test_it_perches_on_the_pages_panels_first_on_every_tab():
     assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in AV
 
 
+def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
+    # INBOX 430: "the companion lingers on the old tab for a second, then pops
+    # in elsewhere". Hidden with its tab at once, shown again if you come
+    # straight back, following after 1.6 to 2.8s, entering by a walk, a
+    # climb or a materialise, and leaving by a dissolve.
+    changed = _fn("nameMarkBuddyTabChanged")
+    assert 'buddy.classList.add("nmb-away");' in changed
+    assert "NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS" in changed
+    assert "if (!nmb.tab || tab === nmb.tab)" in changed
+    enter = _fn("nameMarkBuddyEnter")
+    for how in ('how = "down"', 'how = "up"', 'how = "walk"', 'let how = "materialise"'):
+        assert how in enter, how
+    for guard in ("nameMarkBuddyBeat", "nameMarkBuddyCheck"):
+        assert "nmb.away" in _fn(guard), guard
+    assert "nameMarkBuddyLeave(buddy, () => {" in _fn("nameMarkBuddyHide")
+    assert "#nm-buddy.nmb-away { opacity: 0; visibility: hidden;" in CSS08
+
+
 def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     # The owner: "extend this menu a bit maybe with sub-sections ... a quick
     # link to the profile/personas/appearences tab, toggling ... masculine/

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The companion lives on the tab it is on: switching away hides it with that tab, coming straight back shows it where it was, and it only follows after you have stayed on a new tab for about two seconds, walking on from the nearest edge, climbing down from the top bar or up over the bottom bar, or gathering out of starlight, never popping in. Hiding it dissolves it.
 - Atlas, from the owner's close-ups: shaped hands (a thumb, two fingers with a split, tapered from the wrist) and feet with a heel, an arch and a toe; the outline glow half as wide; the feminine hair grows out of the scalp and the torso fades into the skirt instead of sitting on it like an egg; her middle wisps are fuller and reach lower; the nebula is wider round both looks.
 - The Guide covers the whole app: new help for the corner companion, Atlas's look, the generated faces, every Settings section and the app's layout (76 entries, was 59; 22 new questions all answered first-time right, the old 177 unchanged at 176). Each answer can switch between Atlas's words and the app's own help, laid out with a heading, where it lives, the steps and a button that opens the setting's own row.
 - The companion moves like a body: it crouches before it sets off, springs up, squashes into the landing and rebounds once; its limbs ease into a new pose instead of snapping; and it is quieter at rest (the rings' shimmer half as deep and slow, a smaller, slower tail swish and wag, a shallower float).

@@ -5151,6 +5151,9 @@ main,
    it steps aside and fades back. Opacity only: the compositor's. */
 #nm-buddy { transition: opacity var(--motion-base) var(--ease-out); }
 #nm-buddy.nmb-dodge { opacity: 0.12; }
+/* Away with the tab it lives on (avatars.js, `nameMarkBuddyTabChanged`):
+   gone with the tab, at once, and not in the way of anything. */
+#nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 #nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
 
 #nm-buddy-band {

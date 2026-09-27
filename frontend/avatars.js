@@ -5140,6 +5140,23 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   nmb.movedAt = Date.now();
   const distance = Math.hypot(dx, dy);
   const size = NMB_W * Math.max(0.7, nmb.scale || 1);
+  //: **Carried asleep** (the owner, 2026-09-27: "the companion was sleeping
+  //: but then when I clicked a different tab, for a split second I saw it
+  //: shoot back up look alive suddenly and look surprised"). Asleep, it is
+  //: not woken to walk: it fades out where it was and in where it is going,
+  //: still asleep, lying down again if the act allows the new pose, dozing
+  //: where it is if not.
+  if (nameMarkBuddyAsleep(buddy)) {
+    const lying = NAME_MARK_BUDDY_ACTS[nmb.act];
+    if (nmb.act && lying && !lying.poses.includes(nmb.pose)) nameMarkBuddyAct("");
+    nmb.anim = buddy.animate([
+      { opacity: 1, translate: `${dx}px ${dy}px` },
+      { opacity: 0, translate: `${dx}px ${dy}px`, offset: 0.4 },
+      { opacity: 0, translate: "0px 0px", offset: 0.5 },
+      { opacity: 1, translate: "0px 0px" },
+    ], { duration: 900, easing: "ease-in-out" });
+    return;
+  }
   nameMarkBuddyAct("");
   const char = buddy.querySelector(".nm-buddy-char");
   //: **Always the way there, never a vanish** (INBOX 426 n, the owner: "it
@@ -5685,6 +5702,12 @@ function nameMarkBuddyEnter(buddy, spot) {
   nmb.hopAnim?.cancel();
   nmb.movedAt = Date.now();
   const char = buddy.querySelector(".nm-buddy-char");
+  //: Asleep, it is carried in, not walked: a slow fade where it lies.
+  if (nameMarkBuddyAsleep(buddy)) {
+    nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, easing: "ease-in-out" });
+    nmb.anim.onfinish = null;
+    return "asleep";
+  }
   if (nameMarkBuddyNoTravel()) {
     nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
     nmb.anim.onfinish = null;
@@ -5901,6 +5924,7 @@ function nameMarkBuddyAct(act, ms) {
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
   nmb.lastAct = act;
+  if (NMB_LOUD_ACTS.includes(act)) nameMarkBuddyLoud();
   if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);
   const face = { lie: "sleepy", facepalm: "unimpressed" }[act];
   if (face) nameMarkBuddyExpress(face, spec?.ms || 2000);
@@ -6100,6 +6124,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
   const byKind = NAME_MARK_BUDDY_KINDS[reading.animal] || {};
   const actions = nameMarkBuddyActions();
   const off = nameMarkBuddyActivitiesOff();
+  //: The calm budget (below): a sudden or large act at most once a minute
+  //: or so, and none while you type or scroll.
+  const calm = nameMarkBuddyCalmAllows(now, nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, nmb.keyAt || 0, nameMarkBuddyScrollAgo());
   //: Which Atlas it is, for its stances (none for any other companion).
   nmb.atlasLook = document.querySelector("#nm-buddy svg.atl-layer")?.dataset.atlasLook || "";
   const pool = [];
@@ -6112,6 +6139,7 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (spec.edge && nmb.edgeType !== spec.edge) continue;
     if ((nmb.cool[act] || 0) > now || act === nmb.lastAct) continue;
     if (nameMarkBuddyActOff(act, off)) continue;
+    if (!calm && NMB_LOUD_ACTS.includes(act)) continue;
     let w = spec.w;
     if (act === "yawn") w = idle > NMB_YAWN_MS ? 4 : night ? 2 : 0;
     if (act === "nap") w = idle > 90 * 1000 ? 3 : night ? 1 : 0;
@@ -6174,6 +6202,8 @@ function nameMarkBuddyTick() {
   nameMarkBuddyContext(buddy);
   const awake = Date.now() < (nmb.awakeUntil || 0);
   if (idle > NMB_SLEEP_MS && !awake) {
+    //: Drifting off over seconds, not snapping shut.
+    if (!buddy.classList.contains("nmb-sleep")) nameMarkBuddyEase(buddy, 3200);
     buddy.classList.remove("nmb-drowsy");
     if (!buddy.classList.contains("nmb-sleep") && nmb.act !== "lie" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) nameMarkBuddyAct("lie", 20 * 60 * 1000);
     buddy.classList.add("nmb-sleep");
@@ -6279,6 +6309,8 @@ function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
 function nameMarkBuddyJoy(buddy) {
   const char = buddy.querySelector(".nm-buddy-char");
   if (!char || typeof char.animate !== "function" || nameMarkBuddyNoTravel() || nmb.act || buddy.classList.contains("nmb-walking")) return;
+  if (!nameMarkBuddyCalmAllows(Date.now(), nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, nmb.keyAt || 0, nameMarkBuddyScrollAgo())) return;
+  nameMarkBuddyLoud();
   const v = nameMarkBuddyPickVariant(3, nmb.variant?.joy ?? -1);
   nmb.variant = { ...(nmb.variant || {}), joy: v };
   const amp = 0.8 + Math.random() * 0.4;
@@ -6482,12 +6514,21 @@ function nameMarkBuddyCue(cue, from = "") {
   nmb.cueTimer = setTimeout(() => {
     nmb.cueTimer = 0;
     if (!buddy.isConnected || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging")) return;
+    //: **Asleep, the app's news keeps** (the owner: "make sure that random
+    //: sudden movements dont happen too frequently or randomly"): a saved
+    //: note or an answer used to pull it upright mid-sleep. Only a
+    //: reminder's bell wakes it, and gently.
+    if (nameMarkBuddyAsleep(buddy)) {
+      if (cue === "bell") nameMarkBuddyWake(true);
+      return;
+    }
     if (cue === "startle") nmb.startledAt = Date.now();
-    buddy.classList.remove("nmb-sleep", "nmb-drowsy");
+    buddy.classList.remove("nmb-drowsy");
     const face = { cheer: ["excited", 2400], carry: ["happy", 2400], startle: ["surprised", 1600], bell: ["surprised", 1200], wave: ["happy", 2000] }[cue];
     if (face) nameMarkBuddyExpress(face[0], face[1]);
     if (cue === "bell" && nameMarkBuddyBellErrand()) return;
-    if (NAME_MARK_BUDDY_ACTS[cue]) nameMarkBuddyAct(cue);
+    const calm = cue === "bell" || nameMarkBuddyCalmAllows(Date.now(), nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, nmb.keyAt || 0, nameMarkBuddyScrollAgo());
+    if (NAME_MARK_BUDDY_ACTS[cue] && (calm || !NMB_LOUD_ACTS.includes(cue))) nameMarkBuddyAct(cue);
   }, 1500);
 }
 
@@ -6514,7 +6555,7 @@ function nameMarkBuddyAwake() {
   if (nmb.exprHold === "sleepy") nameMarkBuddyHold("");
   //: **You are back** (INBOX 426 x: "wave at the user after a long idle"):
   //: after three minutes or more with nothing from you, awake, it waves.
-  if (away > NMB_DROWSY_MS && !nameMarkBuddyStill() && !document.hidden && !nmb.act) {
+  if (away > NMB_DROWSY_MS && !nameMarkBuddyStill() && !document.hidden && !nmb.act && nameMarkBuddyCalmAllows(now, nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, 0, nameMarkBuddyScrollAgo())) {
     nameMarkBuddyExpress("happy", 2200);
     nameMarkBuddyAct("wave");
   }
@@ -6541,13 +6582,60 @@ function nameMarkBuddyWarmthAt(feel, now) {
 function nameMarkBuddyFeel(delta, now = Date.now()) {
   nmb.feel = { v: Math.max(-1, Math.min(1, nameMarkBuddyWarmthAt(nmb.feel, now) + delta)), at: now };
 }
-//: A click: asleep, it wakes slowly, or with a start if the clicks come
-//: fast (two within 1.5s); awake, the first is a hello, the next two play,
-//: and a fourth within twenty seconds is too many.
-function nameMarkBuddyClickReaction(asleep, pokes, sinceLast) {
-  if (asleep) return sinceLast < 1500 ? "startle" : "wake";
+//: A click (the owner, 2026-09-27: "when atlas is sleeping and i click it,
+//: it opens its eyes and mouth for a sec like it is startled but then
+//: falls back asleep a second later making it feel like the sleep is fake
+//: ... maybe a pout or getting a temporarily a little mad if it happens
+//: multiple times consecutively"). Asleep, it always wakes slowly, never
+//: with a start; poked again while still waking (`groggy`, the first 10s),
+//: it pouts, and a third time it is grumpy. Awake, the first is a hello,
+//: the next two play, and a fourth within twenty seconds is too many.
+function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false) {
+  if (asleep) return "wake";
+  if (groggy) return pokes >= 3 ? "grumpy" : "pout";
   if (pokes >= 4) return "grumpy";
   return pokes >= 2 ? "playful" : "pleased";
+}
+
+//: **The calm budget** (the owner: "make sure that random sudden movements
+//: dont happen too frequently or randomly. it cant be distracting for the
+//: user"). A sudden or large act (`NMB_LOUD_ACTS`) that you did not ask for
+//: plays at most once in `gap` (60 to 90s, drawn each time), and never
+//: within 4s of a key typed in a field or 2s of a scroll. Pure, for the
+//: tests; `nameMarkBuddyLoud` stamps it.
+const NMB_LOUD_ACTS = ["hop", "wave", "cheer", "startle", "wiggle", "kick", "swing", "stretch", "facepalm", "shrug", "scratch", "peekdown", "onehand", "feet", "carry", "lantern"];
+const NMB_LOUD_GAP_MS = 75000;
+function nameMarkBuddyCalmAllows(now, loudAt, gap, keyAt, scrollAgoMs) {
+  if (now - loudAt < gap) return false;
+  if (now - keyAt < 4000) return false;
+  return !(scrollAgoMs < 2000);
+}
+function nameMarkBuddyLoud() {
+  nmb.loudAt = Date.now();
+  nmb.loudGap = 60000 + Math.random() * 30000;
+}
+function nameMarkBuddyScrollAgo() {
+  return nmbFollow.scrollAt ? performance.now() - nmbFollow.scrollAt : Infinity;
+}
+//: Asleep: its own sleep, or a nap or a lie-down.
+function nameMarkBuddyAsleep(buddy) {
+  return !!buddy && (buddy.classList.contains("nmb-sleep") || nmb.act === "nap" || nmb.act === "lie");
+}
+//: Its face eased for `ms` (the CSS's `nmb-easing`: eyes, lids and mouth
+//: cross over 1.8s), so a wake or a doze is seen happening.
+function nameMarkBuddyEase(buddy, ms) {
+  buddy.classList.add("nmb-easing");
+  clearTimeout(nmb.easeTimer);
+  nmb.easeTimer = setTimeout(() => buddy.classList.remove("nmb-easing"), ms);
+}
+//: Sleepy-annoyed: a pout and a small huff for `ms`, then its face eases
+//: back. Generated faces wear their own unimpressed face.
+function nameMarkBuddyPout(buddy, ms) {
+  nameMarkBuddyEase(buddy, ms + 2400);
+  buddy.classList.add("nmb-pout");
+  nameMarkBuddyExpress("unimpressed", ms);
+  clearTimeout(nmb.poutTimer);
+  nmb.poutTimer = setTimeout(() => buddy.classList.remove("nmb-pout"), ms);
 }
 //: The pointer resting on it, by how long: awake, it brightens at once
 //: (unless it is sulking or you have been unkind); asleep, it stirs, and
@@ -6593,6 +6681,8 @@ function nameMarkBuddyWander(now) {
     }
   }
   if (nmb.home) return false;
+  //: Off somewhere is a large move: within the calm budget.
+  if (!nameMarkBuddyCalmAllows(now, nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, nmb.keyAt || 0, nameMarkBuddyScrollAgo())) return false;
   const { energy, sociability } = nmb.mood;
   if (nameMarkBuddyBoredom(now - (nmb.perchAt || now), energy, sociability, nmb.reading?.mood || "") < 1 || Math.random() > 0.35) return false;
   const tab = nameMarkBuddyTab();
@@ -6634,10 +6724,13 @@ function nameMarkBuddyWake(gently = false, startled = false) {
   //: Awake now, so its next quiet spell starts from here.
   if (gently) nmb.lastInput = Date.now();
   nmb.awakeUntil = Date.now() + NMB_AWAKE_MS;
+  //: Its eyes open over seconds (`nmb-easing`), not in a frame.
+  if (slept) nameMarkBuddyEase(buddy, 7000);
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;
+  nmb.wokeAt = Date.now();
   nmb.exprHold = "";
   buddy.classList.add("nmb-groggy");
   setTimeout(() => buddy.classList.remove("nmb-groggy"), 5000);
@@ -6664,10 +6757,11 @@ function nameMarkBuddyStir() {
   nmb.stirAt = now;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  if (Math.random() < 0.3) {
-    nameMarkBuddyWake();
-    return;
-  }
+  //: Never woken by it (the owner: "whenever I click near the companion
+  //: when it is sleeping, not even on it just near it, it startles for
+  //: about a second then goes instantly back to sleep"): a twitch, its eyes
+  //: staying shut. Only a click on it, a pet or a pointer kept close wakes
+  //: it.
   buddy.classList.add("nmb-stir");
   setTimeout(() => buddy.classList.remove("nmb-stir"), 700);
 }
@@ -7522,11 +7616,19 @@ function nameMarkBuddyBuild() {
     nmb.lastPoke = now;
     nmb.pokes = [...nmb.pokes.filter((at) => now - at < 20000), now];
     nameMarkReact(face.querySelector(".name-mark"));
-    const how = nameMarkBuddyClickReaction(wasAsleep, nmb.pokes.length, sinceLast);
-    if (how === "wake" || how === "startle") {
+    const groggy = now - (nmb.wokeAt || 0) < 10000;
+    const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);
+    if (how === "wake") {
+      //: The poke that woke it starts the count of pokes that annoy it.
+      nmb.pokes = [now];
       if (nmb.act === "lie") nameMarkBuddyAct("");
-      nameMarkBuddyFeel(how === "startle" ? -0.1 : 0);
-      nameMarkBuddyWake(true, how === "startle");
+      nameMarkBuddyWake(true);
+      return;
+    }
+    if (how === "pout") {
+      nameMarkBuddyFeel(-0.15);
+      nmb.groggyUntil = Math.max(nmb.groggyUntil || 0, now + 4000);
+      nameMarkBuddyPout(buddy, 6000);
       return;
     }
     //: **Poked too often** (four times in twenty seconds): grumpy for half
@@ -7536,11 +7638,15 @@ function nameMarkBuddyBuild() {
       nmb.grumpyUntil = now + 30000;
       nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.25);
       nameMarkBuddyRelease();
+      buddy.classList.remove("nmb-pout");
+      nameMarkBuddyEase(buddy, 2400);
       buddy.classList.add("nmb-grumpy");
       nameMarkBuddyExpress("unimpressed", 30000);
       buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
       setTimeout(() => {
+        //: And it comes down through a pout, not straight back.
         buddy.classList.remove("nmb-grumpy");
+        nameMarkBuddyPout(buddy, 5000);
         if (buddy.dataset.turn && !buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;
       }, 30000);
       nameMarkSay(buddy, ["Hmph.", "Okay, that's enough.", "I'm not talking to you."][Math.floor(Math.random() * 3)]);

@@ -69,8 +69,10 @@ def test_following_stops_when_the_page_is_still() -> None:
 def test_no_move_is_a_fade_to_somewhere_else() -> None:
     move = _fn("nameMarkBuddyGo")
     assert "distance > 700" not in move
-    # The one fade left is Reduce motion's, in place of the travel.
-    assert move.count("opacity: 0") == 2 and "if (nameMarkBuddyNoTravel()) {" in move
+    # The two fades left: Reduce motion's, in place of the travel, and
+    # being carried asleep (a sleeper is not woken to walk).
+    assert move.count("opacity: 0") == 4 and "if (nameMarkBuddyNoTravel()) {" in move
+    assert "if (nameMarkBuddyAsleep(buddy)) {" in move
 
 
 def test_a_tab_switch_only_asks_for_a_look_on_its_own_beat() -> None:
@@ -787,8 +789,12 @@ def test_the_interaction_model_moves_between_states_as_the_owner_asked() -> None
     # The owner: "if I click it, it will change expressions for a sec then
     # instantly go back to doing what it was doing like sleeping, it needs to
     # be more natural and gradual, unless it is startled".
-    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000]].map((a) => nameMarkBuddyClickReaction(...a))")
-    assert click == ["wake", "startle", "pleased", "playful", "playful", "grumpy"]
+    # Asleep, a click always wakes it slowly (never a start: the owner,
+    # 2026-09-27, "it opens its eyes and mouth for a sec like it is startled
+    # but then falls back asleep"); poked again while waking, a pout, then
+    # grumpy.
+    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000],[false,2,1500,true],[false,3,1500,true]].map((a) => nameMarkBuddyClickReaction(...a))")
+    assert click == ["wake", "wake", "pleased", "playful", "playful", "grumpy", "pout", "grumpy"]
     hover = _run_pure(["nameMarkBuddyHoverReaction"], "[[true,0,0,false],[true,1800,0,false],[false,0,0,false],[false,0,-0.5,false],[false,0,0.5,true]].map((a) => nameMarkBuddyHoverReaction(...a))")
     assert hover == ["stir", "wake", "brighten", "none", "none"]
     # Warmth relaxes by half in four minutes, and not at all at once.
@@ -810,7 +816,7 @@ def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
     tick = _fn("nameMarkBuddyTick")
     assert "if (idle > NMB_SLEEP_MS && !awake) {" in tick and "if (nameMarkBuddyWander(Date.now())) {" in tick
     build = _fn("nameMarkBuddyBuild")
-    assert "const how = nameMarkBuddyClickReaction(wasAsleep, nmb.pokes.length, sinceLast);" in build
+    assert "const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);" in build
     assert "nameMarkBuddyHover(0);" in build
     wander = _fn("nameMarkBuddyWander")
     for guard in ("nmb.pinned", 'nmb.perch === "errand"', 'nameMarkBuddyActions() === "off"', 'nameMarkBuddyActOff("wander")',
@@ -1025,3 +1031,50 @@ def test_companions_can_be_saved_applied_renamed_and_deleted() -> None:
         assert key in AV[AV.index("const NMB_PRESET_KEYS = [") :][:400], key
     assert "p.name !== nmbPresetRenaming" in _fn("nameMarkBuddySavePreset")
     assert "mountBuddyPresets()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_calm_budget_caps_sudden_acts() -> None:
+    # The owner: "make sure that random sudden movements dont happen too
+    # frequently or randomly. it cant be distracting for the user". A loud
+    # act at most once a gap (60 to 90s), none within 4s of typing or 2s of
+    # a scroll.
+    got = _run_pure(["nameMarkBuddyCalmAllows"], "[[100000,0,75000,0,Infinity],[100000,50000,75000,0,Infinity],[100000,0,75000,97000,Infinity],[100000,0,75000,0,1500],[100000,20000,75000,90000,5000]].map((a) => nameMarkBuddyCalmAllows(...a))")
+    assert got == [True, False, False, False, True]
+    decide = _fn("nameMarkBuddyDecide")
+    assert "if (!calm && NMB_LOUD_ACTS.includes(act)) continue;" in decide
+    assert "if (NMB_LOUD_ACTS.includes(act)) nameMarkBuddyLoud();" in _fn("nameMarkBuddyAct")
+    assert "nmb.loudGap = 60000 + Math.random() * 30000;" in _fn("nameMarkBuddyLoud")
+    # Its unprompted big moves all ask: the joy bounce, the wander off, the
+    # "you are back" wave, the app's cues.
+    for name in ("nameMarkBuddyJoy", "nameMarkBuddyWander", "nameMarkBuddyAwake", "nameMarkBuddyCue"):
+        assert "nameMarkBuddyCalmAllows(" in _fn(name), name
+
+
+def test_sleep_holds_through_input_moves_and_tab_switches() -> None:
+    # The owner: a click near it "startles for about a second then goes
+    # instantly back to sleep"; clicking a tab, "I saw it shoot back up look
+    # alive suddenly and look surprised". Measured before and after
+    # (companionsleeptab.js): 83 of 461 frames walking while asleep across
+    # two tab switches, pokes gave wake, wake, wiggle; after, 0 of 463, in
+    # by the sleeping fade both times, pokes give wake, pout, grumpy.
+    # atlassleepinput.js COMPANION_ONLY=1: 0 awake frames for a held Ctrl,
+    # a click 150px off, three at 80px and a tab click; a direct poke opens
+    # its eyes over 1.25s (was 122ms) and it is awake 20s later.
+    stir = _fn("nameMarkBuddyStir")
+    assert "nameMarkBuddyWake" not in stir and 'buddy.classList.add("nmb-stir");' in stir
+    go = _fn("nameMarkBuddyGo")
+    assert go.index("if (nameMarkBuddyAsleep(buddy)) {") < go.index('nameMarkBuddyAct("");\n  const char')
+    enter = _fn("nameMarkBuddyEnter")
+    assert 'return "asleep";' in enter and enter.index("nameMarkBuddyAsleep(buddy)") < enter.index("nameMarkBuddyNoTravel()")
+    cue = _fn("nameMarkBuddyCue")
+    assert "if (nameMarkBuddyAsleep(buddy)) {" in cue and 'if (cue === "bell") nameMarkBuddyWake(true);' in cue
+    assert 'buddy.classList.remove("nmb-sleep", "nmb-drowsy");\n    const face' not in cue
+    wake = _fn("nameMarkBuddyWake")
+    assert "if (slept) nameMarkBuddyEase(buddy, 7000);" in wake and "nmb.wokeAt = Date.now();" in wake
+    assert "nameMarkBuddyEase(buddy, 3200)" in _fn("nameMarkBuddyTick")
+    css = CSS08
+    assert ":is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open," in css
+    assert "#nm-buddy.nmb-pout .nm-atlas {" in css and "#nm-buddy.nmb-grumpy .nm-atlas {" in css
+    # Grumpy comes down through a pout.
+    assert "nameMarkBuddyPout(buddy, 5000);" in AV

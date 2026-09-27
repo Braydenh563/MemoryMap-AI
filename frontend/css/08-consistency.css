@@ -7321,6 +7321,19 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 #nm-buddy.nmb-act-startle .nm-atlas { --atl-brow-y: -3.4px; --atl-lid: 0; --atl-eye-s: 1.12; --atl-ps: 0.7; }
 #nm-buddy.nmb-act-yawn .nm-atlas { --atl-lid: 0.6; --atl-brow-y: 0.6px; }
+/* Just woken (avatars.js, `nmb-groggy`, 5s): heavy lids that lift as it
+   comes round. Poked again while waking (`nmb-pout`): sleepy-annoyed, lids
+   half down, brows knit, a small pout. Poked a third time (`nmb-grumpy`,
+   30s, then a pout on the way back): unimpressed, a set mouth. */
+#nm-buddy.nmb-groggy .nm-atlas { --atl-lid: 0.45; --atl-brow-y: 0.4px; }
+#nm-buddy:is(.nmb-pout, .nmb-grumpy) .nm-atlas {
+  --atl-open: 1; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 0; --atl-doze: 0; --atl-hearteye: 0;
+  --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-tinyo: 0; --atl-m-rest: 0;
+  --atl-m-hmm: 0; --atl-m-wavy: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-frown: 0;
+  --atl-cheek: 0.35;
+}
+#nm-buddy.nmb-pout .nm-atlas { --atl-lid: 0.42; --atl-knit: 9deg; --atl-brow-y: 0.6px; --atl-m-frown: 1; --atl-tilt: 5deg; }
+#nm-buddy.nmb-grumpy .nm-atlas { --atl-lid: 0.34; --atl-lid-r: 12deg; --atl-knit: 14deg; --atl-brow-y: 0.9px; --atl-m-set: 1; --atl-cheek: 0.1; }
 #nm-buddy:is(.nmb-act-cheer, .nm-buddy-dragging) .nm-atlas {
   --atl-open: 0; --atl-happy: 1;
   --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-tinyo: 0; --atl-m-hmm: 0;

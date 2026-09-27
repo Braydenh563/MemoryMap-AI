@@ -551,13 +551,18 @@ const ATLAS_LOOKS = {
     ],
     hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
     //: Round 9 (the owner: "a bit more of a feminine chest but don't
-    //: overdo it, just really subtle"): the flanks swell half a unit at the
-    //: chest (22.7 and 39.3 at y 45.4, where they ran 22.9 and 39.1) and
-    //: ease in a little below it, and `bust` lays two faint soft arcs of
-    //: shade under it. The five curves keep their roles (two per flank,
-    //: one hem), which `atlasTorsoEdge` counts on.
-    torso: "M26 35.6C23.6 38.4 22.4 42.2 22.7 45.4C23.1 49.6 24.2 57.8 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C37.8 57.8 38.9 49.6 39.3 45.4C39.6 42.2 38.4 38.4 36 35.6Z",
-    bust: "M24.8 45.6Q27.2 47.8 29.8 46.6M32.2 46.6Q34.8 47.8 37.2 45.6",
+    //: overdo it, just really subtle", then, of two drawn arcs of shade:
+    //: "less ... like atlas is wearing cup bikinis ... make it attractive
+    //: and smooth"). No line anywhere: the flanks swell in one continuous
+    //: curve to 22.6 and 39.4 at y 45 and draw in to a waist below it, and
+    //: the form is carried by light alone (`chestLight`): a soft radial
+    //: glow over each side of the chest and a softer shade under it, each
+    //: fading to nothing at its edge, blended into the skin. The five
+    //: curves keep their roles (two per flank, one hem), which
+    //: `atlasTorsoEdge` counts on.
+    torso: "M26 35.6C23.4 38.2 22.3 41.8 22.6 45C22.9 48.8 23.6 57.6 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C38.4 57.6 39.1 48.8 39.4 45C39.7 41.8 38.6 38.2 36 35.6Z",
+    //: [cx, cy, rx, ry] of the glow on each side and of the shade under it.
+    chestLight: { glow: [[27.4, 43.8, 4.4, 3.6], [34.6, 43.8, 4.4, 3.6]], shade: [[27.6, 47.4, 4.2, 2.2], [34.4, 47.4, 4.2, 2.2]] },
     brow: "arch",
     lashes: true,
     tail: [[32, 61, 45, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
@@ -1518,7 +1523,12 @@ function atlasBody(parent, id, props, look, route = null) {
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
-      if (spec.bust) atlasMake("path", { class: "atl-chest", d: atlasScalePathX(spec.bust, atlasTune().bodyWidth, 31) }, torso);
+      if (spec.chestLight) {
+        const k = atlasTune().bodyWidth;
+        for (const [part, list] of Object.entries(spec.chestLight)) {
+          for (const [cx, cy, rx, ry] of list) atlasMake("ellipse", { class: `atl-chest-${part}`, cx: +(31 + (cx - 31) * k).toFixed(2), cy, rx: +(rx * k).toFixed(2), ry }, torso);
+        }
+      }
       //: **The constellation, faded** (round 6). The owner's screenshot:
       //: "a bright four-point star with lines" on the chest, read as a
       //: badge. It was a white four-point star 7.6 units across with four
@@ -1605,7 +1615,7 @@ function atlasDefs(svg, look) {
   return id;
 }
 
-const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt"];
+const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt", "chestglow", "chestshade"];
 
 function atlasBuildDefs(svg, id) {
   const defs = atlasMake("defs", {}, svg);
@@ -1677,6 +1687,13 @@ function atlasBuildDefs(svg, id) {
   }
   //: The skirt (the feminine look, round 6): the skin's light at the
   //: waist, fading to nothing by the hem, so the ribbons end in wisps.
+  //: The feminine chest's light (round 9, `chestLight`): a glow lit from
+  //: above and a shade, each fading to nothing at its rim, so neither has
+  //: an edge to read as a line.
+  const chestGlow = atlasMake("radialGradient", { id: `${id}-chestglow`, cx: 0.45, cy: 0.35, r: 0.6 }, defs);
+  stops(chestGlow, [[0, "atl-st-chest-glow"], [1, "atl-st-chest-clear"]]);
+  const chestShade = atlasMake("radialGradient", { id: `${id}-chestshade`, cx: 0.5, cy: 0.4, r: 0.6 }, defs);
+  stops(chestShade, [[0, "atl-st-chest-shade"], [1, "atl-st-clear"]]);
   const skirt = atlasMake("linearGradient", { id: `${id}-skirt`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 52, x2: 0, y2: 96 }, defs);
   stops(skirt, [[0, "atl-st-skirt0"], [0.45, "atl-st-skirt1"], [1, "atl-st-skirt2"]]);
   //: **Round 8, two fades** (the owner, of the feminine look: "the massive

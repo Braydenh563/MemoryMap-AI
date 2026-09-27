@@ -6095,6 +6095,8 @@ main,
   --atl-bandg: none;
   --atl-cloudp: none;
   --atl-cloudb: none;
+  --atl-chestglow: none;
+  --atl-chestshade: none;
   --atl-belly: none;
   --atl-tip: none;
   --atl-aura-a: 0.2;
@@ -6521,9 +6523,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-dp: #a49fdd;
   --atl-rim: #7d74c2;
 }
-/* Round 9: the feminine chest's shade (atlas.js, `bust`), barely there;
-   `atl-chest`, not `atl-bust`, which names the bust-level drawing. */
-.nm-atlas .atl-chest { fill: none; stroke: var(--atl-rim); stroke-width: 0.7; stroke-linecap: round; opacity: 0.18; }
+/* Round 9: the feminine chest's form in light alone (atlas.js,
+   `chestLight`), no stroke: a soft glow over each side and a softer shade
+   under it, both radial fades to nothing. */
+.nm-atlas .atl-st-chest-glow { stop-color: white; stop-opacity: 0.55; }
+.nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
+.nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
+.nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.6; }
+.nm-atlas .atl-chest-shade { fill: var(--atl-chestshade); opacity: 0.45; }
 .nm-atlas .atl-seed { fill: white; opacity: 0.9; }
 .nm-atlas .atl-seed-star { opacity: 0.95; }
 .nm-atlas .atl-tail-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; stroke-linejoin: round; opacity: 0.28; }

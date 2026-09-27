@@ -201,13 +201,18 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
 
 
 
-def test_the_feminine_chest_is_a_subtle_contour():
+def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():
     # Round 9 (the owner: "a bit more of a feminine chest but don't overdo
-    # it just really subtle"): half a unit of swell and two faint arcs.
+    # it just really subtle", then of two drawn arcs: "less ... like atlas is
+    # wearing cup bikinis ... make it attractive and smooth"): a continuous
+    # swell in the outline and radial light, never a stroke.
     feminine = _look("feminine")
-    assert "22.7 45.4" in feminine and "39.3 45.4" in feminine and "bust:" in feminine
-    assert "bust" not in _look("masculine")
+    assert "22.6 45" in feminine and "39.4 45" in feminine and "chestLight:" in feminine
+    assert "bust:" not in feminine and "atl-chest {" not in CSS and "atl-bust" not in CSS
+    assert "chestLight" not in _look("masculine")
     torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
     assert torso.count("C") == 5  # two per flank and the hem: atlasTorsoEdge counts on it
-    rule = re.search(r"\.nm-atlas \.atl-chest \{[^}]*opacity: ([0-9.]+)", CSS)
-    assert rule and float(rule.group(1)) <= 0.25
+    for part in ("glow", "shade"):
+        rule = re.search(rf"\.nm-atlas \.atl-chest-{part} \{{([^}}]*)\}}", CSS)
+        assert rule and "stroke" not in rule.group(1) and "fill: var(--atl-chest" in rule.group(1)
+

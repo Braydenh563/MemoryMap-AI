@@ -4006,14 +4006,22 @@ const GRAPH_EXPORT_STYLE_PROPS = [
   "fill-opacity", "opacity", "font-family", "font-size", "font-weight",
 ];
 
+//: **As presentation attributes, never a `style` attribute.** Every property in
+//: the list above is also an SVG presentation attribute (`fill="..."`), which
+//: the rasteriser reads exactly as it would read the declaration, since the
+//: detached image has no stylesheet for either to lose to. A `style` attribute
+//: written with `setAttribute` is an inline style to the page's CSP, which
+//: refuses it and logs a violation per element: measured, hundreds of console
+//: errors for one export of a large map (`scratchpad/ui-sweeps/graphexportcsp.js`),
+//: while the attribute itself was kept, so the picture came out right and the
+//: console said otherwise. An existing inline style on a live element (d3's
+//: `.style()` writes through the CSSOM) is cloned as it was and still wins.
 function graphInlineComputedStyle(liveEl, cloneEl) {
   const computed = getComputedStyle(liveEl);
-  let css = "";
   for (const prop of GRAPH_EXPORT_STYLE_PROPS) {
     const value = computed.getPropertyValue(prop);
-    if (value) css += `${prop}:${value};`;
+    if (value) cloneEl.setAttribute(prop, value);
   }
-  if (css) cloneEl.setAttribute("style", css);
   for (let i = 0; i < liveEl.children.length; i++) {
     graphInlineComputedStyle(liveEl.children[i], cloneEl.children[i]);
   }

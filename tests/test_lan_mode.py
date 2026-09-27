@@ -154,6 +154,58 @@ def test_the_guard_runs_only_when_listening_beyond_this_computer(client):
     assert client.get("/health", headers={"Host": "192.168.1.20:8000"}).status_code == 200
 
 
+def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bool]:
+    """Run one request through HostCheckMiddleware with a made-up ASGI
+    scope: the (address, port) the request arrived at, and its Host. Returns
+    (the status the middleware answered with, or None; whether the app ran)."""
+    import asyncio
+
+    from memorymap.core import security
+
+    ran = []
+
+    async def app(scope, receive, send):
+        ran.append(scope["path"])
+
+    headers = [] if host is None else [(b"host", host.encode())]
+    scope = {"type": "http", "method": "GET", "path": "/health", "headers": headers, "server": server}
+    sent = []
+
+    async def send(message):
+        sent.append(message)
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    asyncio.run(security.HostCheckMiddleware(app)(scope, receive, send))
+    status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
+    return status, bool(ran)
+
+
+def test_the_guard_keys_on_the_address_the_request_arrived_at():
+    """`set_current` is the launcher's word (review, 2026-09-26): a server
+    started any other way on 0.0.0.0 (`uvicorn --host 0.0.0.0`, the sweeps'
+    serve.sh, a container) never called it, so the guard stayed off while
+    the socket was open to the network. The ASGI scope carries the address
+    the request arrived at (`server`), which is the fact itself: a request
+    that came in on a network address gets the check whatever the launcher
+    said, and one that came in on loopback never does. Off loopback a
+    request with no Host at all is refused too: HTTP/1.1 requires one, so
+    nothing legitimate on the network omits it."""
+    netbind.set_current(netbind.LOOPBACK)
+    lan = ("192.168.1.9", 8000)
+    assert _through_host_check(lan, "evil.example") == (421, False)
+    assert _through_host_check(lan, "192.168.1.9:8000") == (None, True)
+    assert _through_host_check(lan, "[fe80::1%eth0]:8000") == (None, True)
+    assert _through_host_check(lan, "LOCALHOST:8000") == (None, True)
+    assert _through_host_check(lan, "evil.example.:8000") == (421, False)
+    assert _through_host_check(lan, None) == (421, False)
+    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (None, True)
+    assert _through_host_check(("::1", 8000), "evil.example") == (None, True)
+    # The test client's own scope names the server rather than numbering it.
+    assert _through_host_check(("testserver", 80), "evil.example") == (None, True)
+
+
 # --- end to end: the real launcher on 0.0.0.0 --------------------------------------
 
 

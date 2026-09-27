@@ -998,8 +998,17 @@ async function renderToolSettings() {
     const name = document.createElement("strong");
     name.textContent = tool.name.replace(/_/g, " ");
     text.append(name);
-    if (tool.destructive) text.append(" ", chip("confirms first", "review"));
-    if (tool.online) text.append(" ", chip("online", "tag"));
+    // The chips sit on their own line under the name, not after it on the
+    // same one: the switch is centred on the name's line (the grid in
+    // 03-dashboard-widgets.css), and a chip that wrapped would have made
+    // that line two lines tall and pulled the switch off the name again.
+    if (tool.destructive || tool.online) {
+      const tags = document.createElement("span");
+      tags.className = "tool-tags";
+      if (tool.destructive) tags.append(chip("confirms first", "review"));
+      if (tool.online) tags.append(chip("online", "tag"));
+      text.append(tags);
+    }
     const desc = document.createElement("span");
     desc.className = "muted tool-desc";
     desc.textContent = tool.description;

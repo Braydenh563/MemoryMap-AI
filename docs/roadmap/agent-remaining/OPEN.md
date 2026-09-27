@@ -36,12 +36,14 @@ two decisions only the owner can take are INBOX 427.
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
 - **uipolish-0924 leftovers**: the surface-by-surface pass (its item D);
-  the icon-only floor is done and measured by `iconfloor.js`. `deadbtn.js` (now in
-  `scratchpad/ui-sweeps/`) has three findings left at 1440, all controls
-  whose centre is under the status bar's `FOOTER.edge-fade` mid-scroll (two
-  dashboard board cards, a Notes tag chip); scrolled to its end the
-  dashboard clears the footer (lowest control 549px, footer at 863px), and
-  Notes, whose list scrolls in its own box, was not settled. [ui-426]
+  the icon-only floor is done and measured by `iconfloor.js`. The footer
+  overlap `deadbtn.js` reported was the sweep's, settled 2026-09-26: no tab's
+  scroller runs under the status bar (each ends at or above its top, at 1440
+  and 390), and the three were controls half scrolled out of their own box,
+  whose centre the point test found the bar under; the sweep now checks the
+  centre against each scrolling ancestor first, 0 findings at 1440. At 390
+  one is left, the graph's `#graph-fullscreen` under a `button.small` (the
+  graph agent's). [ui-426]
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]
@@ -1034,6 +1036,35 @@ being written by running agents stay beside this one.
 
 ## Backend
 
+- **Security review of the backend batch (2442101..3b8cdc5), 2026-09-26.**
+  Line by line over src/ for the six asks. Fixed, each with a test that
+  failed first: (1) `vault.key()` read an empty grant set as everyone's, and
+  the app loads the key before granting (`unlock`), and clears every grant
+  before granting the new session (`change-password`, `rotate-vault-key`),
+  so a request from a session that never gave the password, timed into
+  either gap beside a sync route, read private notes; inside a request the
+  key is now a granted session's or nobody's, and only a key loaded outside
+  any request (a script, a test's direct call) is still every request's
+  until the first grant (`_process_key`). (2) The Host check keyed only on
+  what the launcher said it bound (`set_current`), so `uvicorn --host
+  0.0.0.0`, serve.sh and a container ran with no rebinding guard; it also
+  keys on the address the request arrived at (`scope["server"]`,
+  `netbind.arrived_on_loopback`), and off loopback a request with no Host
+  is refused. (3) The .ics escaper is held to the letter and a title
+  carrying CRLF and event lines makes one event. Read and found sound: the
+  audit hook (never raises, `BaseException` caught, no I/O under its lock,
+  no lock re-entry; measured 0.07us per `open`, +3us per lookup, +7us per
+  connect), `/auth/lan-access` (password and the unlock throttle to turn on,
+  an empty password not counted as a guess, `allow_lan` only a literal
+  True, `PUT /preferences` refused by test), `/events/undo` (behind the
+  lock, the person's own actor refused, `is_private` never restored, dry
+  run by default), the receipt (behind the lock), `.ics` (private notes'
+  words absent, folding at octets, UID stable, no workspace scoping to
+  leak across since reminders have none).
+- **`netbind.host_allowed("localhost.")` and a trailing-dot own name are
+  refused** (fail closed, as intended; noted so nobody reads a 421 on
+  `localhost.` as a bug). `_own_names()` calls `gethostname` per request
+  off loopback, one syscall.
 - **The other search surfaces still do their own thing.** `file:
   frontend/app.js`, `id: search-one-surface`. The Notes list filters
   client-side with `parseNoteQuery` (which knows `tag:`, `category:`, `is:`
@@ -1087,12 +1118,11 @@ being written by running agents stay beside this one.
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
-- **Global undo of an AI action: the surface.** `events.undo` and `POST
-  /events/undo` are built 2026-09-26 (HISTORY.md, "Moved from the plans,
-  2026-09-26"). Left: the Settings surface that offers it (a dry run shown as
-  a list, then Undo), and a skill run's Undo calling it with the run's actor
-  and first event id (Brief 13). Board items stay "not undoable".
-  [brief7-event-log.md]
+- **Global undo of an AI action: a skill run's Undo.** `events.undo`, `POST
+  /events/undo` and the Recent activity widget's "Undo what Atlas did" are
+  built 2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"). Left: a
+  skill run's own Undo calling it with the run's actor and first event id
+  (Brief 13). Board items stay "not undoable". [brief7-event-log.md]
 - ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
   built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
   existing dashboards do not grow a widget), reading `/events?tail=8` once
@@ -1151,12 +1181,8 @@ being written by running agents stay beside this one.
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and
   a `DerivedFact` row, not a second pipeline. [learning-loop.md]
-- **The morning card** (I1's own surface). Its backend is built
-  2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"): `GET
-  /night/latest` returns `{run, counts, samples, previous}` and `GET
-  /night/runs/{id}/facts?kind=&limit=&offset=` pages the review list; the
-  Dashboard card over them (opt-in, like the Recent activity widget) is the
-  frontend half. [learning-loop.md]
+- ~~**The morning card**~~ built 2026-09-26: the "While you were away"
+  Dashboard widget (HISTORY.md, "Moved from the plans, 2026-09-26").
 - **The four switches with no runner yet** (`margin_reader`,
   `open_questions`, `evidence_checks`, `model_bench`) are stored and reported
   but gate nothing, because their features are not built. Each of those briefs

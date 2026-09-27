@@ -482,6 +482,7 @@ async function renderAccount() {
   ];
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
+  renderLanAccess().catch(() => {});
   for (const [label, value] of rows) {
     //: A label column and a value column (`.account-facts`), not "Label: value"
     //: in bold run-in: four facts read as a table, so they are laid out as one.
@@ -495,6 +496,225 @@ async function renderAccount() {
     facts.appendChild(li);
   }
 }
+
+// --- Account & security: other devices (LAN mode) -----------------------------
+//
+// "Allow other devices on this network" (WORLD_CLASS_PLAN section 12, Brief
+// 15). The bind happens when the app starts, so the switch says what it will
+// do and when: `restart_required` from the server is the whole of that
+// answer. On asks for the password, like turning sign-in off, and for the
+// same reason: an unlocked screen is not proof of knowing it.
+
+function renderLanState(state) {
+  const box = $("account-allow-lan");
+  const line = $("account-lan-state");
+  if (!box || !line) return;
+  box.checked = !!state.allow_lan;
+  const addresses = (state.addresses || []).filter(Boolean);
+  let icon = "ph:info";
+  let words = "";
+  if (state.restart_required) {
+    icon = "ph:arrow-clockwise";
+    words = state.allow_lan
+      ? "Restart the app to let other devices in."
+      : "Restart the app to close it to other devices.";
+    if (state.allow_lan && addresses.length) {
+      words += ` Then open ${addresses.join(" or ")} on the other device.`;
+    }
+  } else if (state.other_devices) {
+    icon = "ph:wifi-high";
+    words = addresses.length
+      ? `Open ${addresses.join(" or ")} on the other device.`
+      : "Other devices can open the app at this computer's network address.";
+  }
+  line.classList.toggle("hidden", !words);
+  if (words) setLabel(line, `${icon} ${words}`);
+}
+
+async function renderLanAccess() {
+  if (!$("account-allow-lan")) return;
+  try {
+    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
+  } catch {
+    $("account-lan-state").classList.add("hidden");
+  }
+}
+
+$("account-allow-lan")?.addEventListener("change", async (event) => {
+  const box = event.target;
+  const wanted = box.checked;
+  box.checked = !wanted; // the server's answer decides what it shows
+  try {
+    if (!wanted) {
+      renderLanState(
+        await apiJson("/auth/lan-access", { method: "POST", body: JSON.stringify({ enabled: false }) })
+      );
+      toast("Only this computer will be able to open the app.");
+      return;
+    }
+    let reply = null;
+    const done = await askPasswordPrompt({
+      title: "Allow other devices",
+      message: "Enter your password to let devices on this network open the app. They will need it too.",
+      submitLabel: "Allow",
+      submit: async (password) => {
+        reply = await apiJson("/auth/lan-access", {
+          method: "POST",
+          body: JSON.stringify({ enabled: true, current_password: password }),
+          ownsAuthErrors: true,
+        });
+        return reply;
+      },
+    });
+    if (done && reply) {
+      renderLanState(reply);
+      toast("Other devices can open the app after a restart.");
+    }
+  } catch (error) {
+    toast(error.message, true);
+  }
+});
+
+// --- Privacy: where your data went (GET /privacy/receipt) ---------------------
+//
+// WORLD_CLASS_PLAN section 2, standout 5: "a page that proves, from the app's
+// own logs, that nothing left the machine". The record is the server's audit
+// hook, which sees every connection and name lookup the app's process makes;
+// this pane only reads it. Two ranges on one `.seg`: since this launch, and
+// since the ledger on disk began. Nothing here can change a setting: the
+// switches listed at the bottom are facts, each set where it lives.
+
+const PRIVACY_SCOPE_WORDS = {
+  this_computer: "This computer",
+  local_network: "Your network",
+  internet: "The internet",
+};
+
+const PRIVACY_VERDICTS = {
+  stayed_on_this_computer: ["ph:shield-check", "Nothing left this computer.", false],
+  local_network: ["ph:wifi-high", "Only devices on your own network were contacted.", false],
+  internet: ["ph:globe-hemisphere-west", "This app connected to the internet. Each connection is listed below.", true],
+};
+
+let privacyReceipt = null;
+let privacyRange = "launch";
+
+function privacyWhen(iso) {
+  if (!iso) return "";
+  return typeof relativeTime === "function" ? relativeTime(iso) : new Date(iso).toLocaleString();
+}
+
+function privacyDestinationRow(row) {
+  const li = document.createElement("li");
+  li.className = "entry-item privacy-row";
+  const head = document.createElement("div");
+  head.className = "row align-center privacy-row-head";
+  const where = document.createElement("span");
+  where.className = "privacy-host";
+  const address = row.port ? `${row.host}:${row.port}` : row.host;
+  //: A connect names the address it reached; the name it was probably for
+  //: (the lookup just before it) is what a person recognises, so it leads.
+  where.textContent = row.name ? `${row.name} (${address})` : address;
+  head.appendChild(where);
+  const scope = document.createElement("span");
+  scope.className = "chip";
+  scope.textContent = PRIVACY_SCOPE_WORDS[row.scope] || row.scope;
+  head.appendChild(scope);
+  li.appendChild(head);
+  const meta = document.createElement("p");
+  meta.className = "library-file-meta privacy-row-meta";
+  const what = row.role && row.role !== "unattributed" ? row.role : "No feature named";
+  const verb = row.kind === "lookup" ? "looked up" : "connected";
+  const times = `${verb} ${row.count} time${row.count === 1 ? "" : "s"}`;
+  meta.textContent = [what.charAt(0).toUpperCase() + what.slice(1), times, `last ${privacyWhen(row.last)}`]
+    .filter(Boolean)
+    .join(" · ");
+  li.appendChild(meta);
+  return li;
+}
+
+function renderPrivacyRange() {
+  const receipt = privacyReceipt;
+  if (!receipt) return;
+  const ledger = privacyRange === "ledger";
+  const verdictKey = ledger ? receipt.ledger?.verdict : receipt.verdict;
+  const [icon, words, warn] = PRIVACY_VERDICTS[verdictKey] || PRIVACY_VERDICTS.stayed_on_this_computer;
+  const verdict = $("privacy-verdict");
+  verdict.classList.toggle("notice-warn", warn);
+  setLabel(verdict, `${icon} ${words}`);
+  for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.range === privacyRange));
+  }
+  const since = ledger ? receipt.ledger?.since : receipt.watching_since;
+  const totals = (ledger ? receipt.ledger?.totals : receipt.totals) || {};
+  const local = totals.this_computer || 0;
+  $("privacy-range-note").textContent =
+    `Since ${since ? new Date(since).toLocaleString() : "this launch"}. ` +
+    `${local.toLocaleString()} connection${local === 1 ? "" : "s"} stayed on this computer ` +
+    "(your model and the app's own window) and are counted, not listed.";
+  const all = (ledger ? receipt.ledger?.destinations : receipt.destinations) || [];
+  //: A name lookup followed by a connect to the address it returned is one
+  //: visit, and the connect row already carries the name: the lookup is only
+  //: listed on its own when nothing connected under that name (a lookup that
+  //: led nowhere is still a question that left the machine).
+  const named = new Set(all.filter((row) => row.kind !== "lookup" && row.name).map((row) => row.name));
+  const rows = all.filter((row) => row.kind !== "lookup" || !named.has(row.host));
+  const list = $("privacy-destinations");
+  list.replaceChildren(...rows.map(privacyDestinationRow));
+  $("privacy-empty").classList.toggle("hidden", rows.length > 0);
+}
+
+async function renderPrivacyReceipt() {
+  const list = $("privacy-destinations");
+  let receipt;
+  try {
+    receipt = await apiJson("/privacy/receipt", { silent: true });
+  } catch {
+    surfaceFailed($("privacy-empty"), "the privacy record", () => renderPrivacyReceipt());
+    $("privacy-empty").classList.remove("hidden");
+    list.replaceChildren();
+    return;
+  }
+  if (typeof surfaceRecovered === "function") surfaceRecovered($("privacy-empty"));
+  privacyReceipt = receipt;
+  if (receipt.covers) $("privacy-covers").textContent = receipt.covers;
+  renderPrivacyRange();
+
+  const model = receipt.model_server || {};
+  $("privacy-model").textContent = model.note || "";
+  $("privacy-model-meta").textContent = [
+    model.url,
+    PRIVACY_SCOPE_WORDS[model.scope] || "",
+    model.local_only_ai ? "Kept to this computer and your network" : "Hosted models allowed",
+  ].filter(Boolean).join(" · ");
+
+  const listening = receipt.listening || {};
+  $("privacy-listening").textContent = listening.other_devices
+    ? `Other devices on your network can open it, with the password: ${(listening.addresses || []).join(", ") || listening.host}.`
+    : "Only this computer. Nothing on your network can reach it.";
+
+  const switches = $("privacy-switches");
+  switches.replaceChildren();
+  for (const item of receipt.switches || []) {
+    //: The Account facts shape: a label column and a value column.
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "account-fact-label";
+    name.textContent = item.label;
+    const value = document.createElement("span");
+    value.textContent = `${item.on ? "On" : "Off"}. ${item.reaches}`;
+    li.append(name, value);
+    switches.appendChild(li);
+  }
+}
+
+for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
+  button.addEventListener("click", () => {
+    privacyRange = button.dataset.range;
+    renderPrivacyRange();
+  });
+}
+$("privacy-refresh")?.addEventListener("click", () => renderPrivacyReceipt().catch(() => {}));
 
 async function changePassword() {
   const status = $("account-status");
@@ -2361,6 +2581,7 @@ function paletteCommands() {
     { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
     { label: "ph:note-blank Settings → Templates", reveal: "settings:templates" },
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account" },
+    { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy" },
     { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks" },
     { label: "ph:package Settings → Packages", reveal: "settings:extras" },
     { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs" },

@@ -1591,6 +1591,10 @@ document.addEventListener("click", (event) => {
   }
 });
 
+//: The lazy bundles a tab visit has already waited for (see the `inert` in
+//: `switchTab`).
+const lazyTabsReady = new Set();
+
 async function switchTab(name) {
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   //, it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
@@ -1609,7 +1613,11 @@ async function switchTab(name) {
   recordTabVisit(name);
   revealTab(name);
   if (leavingGraph) {
-    graphSimulation?.stop();
+    //: `typeof` first: leaving Graph before its bundle has arrived (a press on
+    //: another tab inside the fetch) reads a name graph.js declares, and a
+    //: bare read of an undeclared name throws (`graphcoldlayout.js`). With
+    //: no bundle there is no simulation to stop.
+    if (typeof graphSimulation !== "undefined") graphSimulation?.stop();
     // The canvas renderer's simulation is in a Worker, so there is no
     // `graphSimulation` to stop: the same "a cooling layout must not go on
     // running in a tab nobody is looking at" rule needs its own message.
@@ -1644,7 +1652,24 @@ async function switchTab(name) {
   //: say so: the back/forward restore, `#conv-browse-all`, and
   //: `refreshActiveTab`.
   const lazy = TAB_MODULES[name];
-  if (lazy) await ensureModule(lazy);
+  //: **The page is inert until its code is in.** The tab is drawn from
+  //: index.html, so between the reveal above and the bundle's arrival every
+  //: control on it is on screen and live while the functions its listeners
+  //: call (here, wiring.js) do not exist yet: measured on a held-back bundle,
+  //: changing the graph's layout threw "setGraphPhysicsEnabled is not
+  //: defined", and the zoom buttons, the options' switches and the fit button
+  //: read graph.js's state the same way (`scratchpad/ui-sweeps/graphcoldlayout.js`).
+  //: `inert` closes the window for every control at once, pointer and
+  //: keyboard, rather than one guard per listener; it is set only on the
+  //: first visit, so a later switch to a tab that holds focus does not blur it.
+  const lazyPage = lazy && !lazyTabsReady.has(lazy) ? $(`tab-${name}`) : null;
+  if (lazyPage) lazyPage.inert = true;
+  try {
+    if (lazy) await ensureModule(lazy);
+  } finally {
+    if (lazyPage) lazyPage.inert = false;
+  }
+  if (lazy) lazyTabsReady.add(lazy);
   if (name === "chat") {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
@@ -1749,8 +1774,16 @@ function stripMarkdownPreview(text) {
 
 // Layout picker (§9). Stored, because which shape suits a notebook is a
 // property of the notebook rather than of one visit.
-$("graph-layout").addEventListener("change", (event) => {
+$("graph-layout").addEventListener("change", async (event) => {
   localStorage.setItem("graph-layout", event.target.value);
+  //: The picker is drawn at boot and graph.js is not (`switchTab`'s `inert`
+  //: covers a person's press; this covers a change made from script, a saved
+  //: view or the palette, before the first visit). `setGraphPhysicsEnabled`
+  //: and `renderGraph` are stand-ins that would load it anyway; the await is
+  //: for `graphAutoFitDone`, a `let` in graph.js, which a bare assignment on a
+  //: cold bundle would write to a stray global that graph.js's own binding
+  //: then shadows, so the re-frame asked for here would be lost.
+  await ensureModule("graph");
   setGraphPhysicsEnabled(event.target.value);
   // A different layout is a different shape (a radial ring is nothing like
   // a force-directed cloud): re-frame for it, unlike the filter/slider

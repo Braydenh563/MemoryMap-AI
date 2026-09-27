@@ -1102,6 +1102,7 @@ const HISTORY_ACTION_WORDS = {
   linked: "Linked",
   unlinked: "Unlinked",
   purged: "Deleted for good",
+  filed: "Filed", // the auto-filer's own move (manager.record_filing, system:filing)
 };
 
 function historyActorLabel(actor) {

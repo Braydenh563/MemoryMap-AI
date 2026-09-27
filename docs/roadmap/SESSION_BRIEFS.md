@@ -574,7 +574,8 @@ loopback, which holds on loopback too. **2026-09-26:** `tests/test_lan_mode.py`
 passes (the real launcher on 0.0.0.0, reached over this machine's network
 address), with the switch's route, the launcher's bind and a Host guard
 against DNS rebinding (HISTORY.md, "Moved from the plans, 2026-09-26"). Left:
-the Settings toggle.
+the Settings toggle, built the same night (Account and security, "Allow
+other devices on this network").
 
 ---
 

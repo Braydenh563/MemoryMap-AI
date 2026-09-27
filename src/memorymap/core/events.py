@@ -687,6 +687,22 @@ def _undone_ids(session: Session, since_id: int) -> set[int]:
     return done
 
 
+def _readable_now(content: Any) -> bool:
+    """Plain text, or ciphertext the key loaded right now can open."""
+    from memorymap.core import crypto, vault
+
+    if not crypto.is_encrypted(content):
+        return True
+    dek = vault.key()
+    if dek is None:
+        return False
+    try:
+        crypto.decrypt(dek, content)
+    except crypto.DecryptionError:
+        return False
+    return True
+
+
 def undo(
     session: Session,
     actor: str,
@@ -779,6 +795,16 @@ def undo(
                     target[key] = value
         if created:
             target = {"is_deleted": True, "deleted_at": utcnow().isoformat()}
+        if "content" in target and not _readable_now(target["content"]):
+            # A payload keeps a private note's column as it was, ciphertext
+            # under that day's key. After `rotate-vault-key` it reads under
+            # nothing, and writing it back would leave a note nobody can
+            # open, so the text stays as it is and the plan says so.
+            del target["content"]
+            item["kept"] = ["content"]
+            if not target:
+                item["status"] = "private text under an older key"
+                continue
         item["status"] = "undo"
         item["fields"] = sorted(target)
         if not apply:

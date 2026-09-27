@@ -45,6 +45,43 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### The frontend halves of the night's backend rows (2026-09-26)
+
+**Built 2026-09-26**, each from DESIGN.md's recipe index and each with its
+own sweep under `scratchpad/ui-sweeps/`, driven at 1440 and 390; `errors.js`
+(Privacy and What it learned added to its sections) clean at both.
+
+- **Settings, Privacy: "Where your data went"** (row 35). A new pane over
+  `GET /privacy/receipt` (`renderPrivacyReceipt`, settings-panes.js): the
+  verdict as a `.notice` (the warn edge when anything reached the internet),
+  destinations since launch or all time on a `.seg`, each an entry row with
+  its address, a scope chip and one `.library-file-meta` line (feature, how
+  often, when), a lookup folded into the connect it led to; the model
+  server's sentence; who can open the app; the switches that can reach out
+  as Account's facts shape. In the palette and Tools and features.
+  `privacyreceipt.js`: 7 of 7, nothing overflows the pane.
+- **Account and security: "Allow other devices on this network"** (row 2).
+  A `label.setting-check` over `/auth/lan-access`; on asks for the password
+  through `askPasswordPrompt` (a wrong one is said beside the field and
+  changes nothing), off asks nothing, and a `.notice` says a restart is
+  needed and which IPv4 address to open. `lanaccess.js`: 6 of 6.
+- **Dashboard: "While you were away"** (row 5). An opt-in widget over
+  `GET /night/latest`: the pass's summary, one disclosure per kind, each
+  opening its review list in place (five at a time, Show more), a finding
+  with Open the note and Dismiss (`DELETE /learned/{id}`) as icon-only
+  actions; a quiet pass shows the last one that found anything; no pass yet
+  is an empty state with Read my notes now. `nightcard.js`: 6 of 6; its first
+  run caught the rows overflowing the card through an `auto` grid track,
+  fixed with `minmax(0, 1fr)`.
+- **Reminders: "Add to calendar (.ics)"** (§17 row 7). On a reminder's menu
+  and, for all, in the Reminders dock's More menu, both through
+  `downloadFromApi`. `remindersics.js`: 4 of 4, each a real download.
+- **Recent activity: "Undo what Atlas did"** (OPEN.md events-undo). One
+  ghost button per non-person actor under the list (a `kebabMenu` for
+  several); the dry run is the confirm dialog's body, then the same plan is
+  applied. `activityundo.js` over `seed_ai_edits.py` (a skill re-files two
+  notes through the real write path): both go back to Garden.
+
 ### From WORLD_CLASS_PLAN.md section 17 row 7: reminders as `.ics`
 
 **Built 2026-09-26.** `GET /reminders/export.ics` (this space's reminders,
@@ -35741,3 +35778,92 @@ cheap-animation conversion and `tests/test_cheap_animations.py`, boot splash
 map as an object in a note, and reminders linked to notes) and
 `worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
 the two kinds of connection, customisation, and the pan re-rasterisation).
+## INBOX resolved, 2026-09-27
+
+428. **Mid-work drop, 2026-09-27, verbatim (the owner), with a screenshot of
+    Settings, Tools it can use, dark.** "in the tools it can use settings
+    page, I want each of the toggles in th tool options to be in line
+    horizontally with the tool names" and "also the dashboard mark should
+    have atlas as an option as well". **Fixed** 2026-09-27: the tool row's
+    text column is `display: contents` inside `.tool-row.setting-check`'s
+    grid, so the name takes row 1 beside the switch and both centre in it at
+    any text size (measured: switch centre minus name centre 1.8px before,
+    0.0 after, at the default size and at a 20px root in dark); the chips
+    moved to their own line under the name so a wrapped chip cannot pull the
+    switch off the name again. Appearance, Dashboard mark gains "Atlas"
+    (`dashboardMarkSeed` returns "Atlas"; measured: the hero draws Atlas's
+    live mark, 0 page errors). Also asked: three agents at a time at most,
+    taken as a standing order for this run.
+
+
+
+## Moved from the plans, 2026-09-26 (the Chat pass)
+
+### From CHAT_PLAN.md
+
+### Built: INBOX 80, a citation mark previews its source where it is, 2026-09-26
+
+The placed item, as it stood:
+
+80. **Citation hover/click preview**: hovering or clicking a numbered
+    reference shows a popover with a preview of the thing (note, document,
+    mind map, file, website) and a button to go to it; clicking the
+    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
+    session): one `referencePopover(kind, id)` for every kind, reusing the
+    Library's previews.
+
+**What was built.** `openCitationPeek` (capture-ask.js), on DESIGN.md's new
+row "A preview of a cited source". A press on a mark used to call
+`flashEntry`, which leaves the chat for the Notes tab, so checking one claim
+cost the conversation; it now opens a peek beside the mark: the number, the
+note's title, the grounded passage marked inside ninety characters of its
+own context (characters, never rendered Markdown), and a foot with the
+note's category and age and a worded Open note. The whole preview is one
+button that opens the note (the item's "clicking the preview panel itself
+goes there"). It is a `.help-popover` placed by `placeHelpPopover`, so the
+shell, caret, tier and flip are the help popover's. Hover and focus show it
+while they last (140ms before the first, none between marks), a press keeps
+it and is the only way in on touch, Escape is captured and spent so a
+streaming answer is not also stopped, and the card follows its mark when
+the transcript scrolls and closes once the mark has left it. The hover
+passage on the source cards (decision 2) is unchanged.
+
+**Measured** (`scratchpad/ui-sweeps/citepeek.js`, 16 checks at 1440 and 12
+at 390 on touch, all passing): 384 by 176px at 1440 and 366px wide at 390,
+inside the window and on top, 10px from its mark, numbered as the mark is,
+no Markdown, the passage marked, the chat still showing after a press, Open
+44px on a phone; `citepassage.js` and `askgrounding.js` still pass. The
+recipe's lint is `tests/test_ui_recipes.py`
+`test_a_citation_mark_previews_its_source_on_the_help_popover_recipe`.
+
+**Not built from the item:** previews for a document, mind map, file or
+website. Every inline mark is a note today (the grounding rows carry a
+`note_id` only), so a `referencePopover(kind, id)` over five kinds would be
+four branches that never run; the peek takes a kind when a mark can carry
+one. The matched-terms line INBOX 76 asks the popover to show is 76's.
+
+### Checked built: INBOX 90, the user's bubble, 2026-09-26
+
+The placed item, as it stood:
+
+90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
+    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
+    a quieter bubble (accent-soft fill, no avatar, the label as a small
+    muted "You" above, radius from tokens, max-width 70%).
+
+**Built across three passes, and one line of it overtaken.** Measured at 1440
+on a saved chat (the chat pass's `userbubble.js`): the fill is the tint
+`color-mix(in srgb, var(--accent) 14%, var(--card))` with a 22% accent
+hairline (08-consistency.css, "the person's own turn is a tinted surface in
+the page's own ink"), ink on it 13.93:1 light and 10.96:1 dark
+(`chatphase2.js`); the corners are `--radius` with the `--radius-sm` tail;
+the "You" label is kept for screen readers and not drawn, on the reasoning
+recorded there (on your own side of your own conversation it said nothing
+the alignment did not), which replaces the item's "small muted You above".
+The "no avatar" line was overtaken by the owner's own request of 2026-09-24
+for generated avatars: the bubble carries the person's mark (INBOX 409,
+`.msg-user-mark`), a badge on its corner that changes neither its box nor
+its text (`chatmarks.js`). The 70% became the shared cap every bubble has,
+`min(82%, var(--measure))` (02-chat-graph.css, a reading measure on a wide
+window rather than a share of it); a one-line question takes its text's
+width, 47% of the column at 1440.

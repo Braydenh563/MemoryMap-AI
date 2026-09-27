@@ -3534,12 +3534,24 @@ Link to another note with [[its first few words]]."></textarea>
                stood in (INBOX 426, round 4). A map with nothing on it is
                where the mark, a small constellation, says the most. -->
           <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
-          <p class="empty-title">Nothing to map yet</p>
-          <p class="muted">
-            Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry): 
-            they'll appear here as a constellation.
-          </p>
-          <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+          <!-- Two facts, one surface: a notebook with nothing in it, and a
+               notebook whose every note the map's own filters have taken off
+               (`gcShowEmpty` in graph-canvas.js picks). The second used to
+               say "Nothing to map yet" over a full notebook and offer to
+               capture a note, which answers neither. -->
+          <div id="graph-empty-fresh" class="graph-empty-variant">
+            <p class="empty-title">Nothing to map yet</p>
+            <p class="muted">
+              Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry): 
+              they'll appear here as a constellation.
+            </p>
+            <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+          </div>
+          <div id="graph-empty-filtered" class="graph-empty-variant hidden">
+            <p class="empty-title">Every note is hidden</p>
+            <p class="muted" id="graph-empty-filtered-why">The map's filters are taking all your notes off it.</p>
+            <button id="graph-empty-show-all" class="ghost small" type="button"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Show every note</button>
+          </div>
         </div>
       </div>
     </section>
@@ -4539,6 +4551,12 @@ Link to another note with [[its first few words]]."></textarea>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">
+              <!-- Every open reminder as one .ics file (`GET /reminders/export.ics`),
+                   fetched with the auth header by `downloadFromApi`: a plain link
+                   cannot send it. -->
+              <button type="button" class="doc-dock-menu-item" id="reminders-export-ics"
+                title="Every open reminder as a calendar file your phone or calendar app can import">
+                <i class="ph ph-calendar-plus ph-lead" aria-hidden="true"></i> Add all to calendar (.ics)</button>
               <div class="dock-menu-section">
                 <label class="muted dock-menu-label" for="reminders-page-size">Completed per page</label>
                 <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">
@@ -7474,6 +7492,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
             <button data-section="account">Account &amp; security</button>
+            <button data-section="privacy">Privacy</button>
             <button data-section="extras">Packages</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
@@ -8928,10 +8947,11 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row" id="dash-mark-row">
                 <div class="setting-label">
                   <span>Dashboard mark</span>
-                  <small class="muted">The app's logo, your face, or the face of the persona the greeting speaks as.</small>
+                  <small class="muted">The app's logo, Atlas, your face, or the face of the persona the greeting speaks as.</small>
                 </div>
                 <select id="dash-mark" class="small-select setting-control" aria-label="Dashboard mark">
                   <option value="logo">Logo</option>
+                  <option value="atlas">Atlas</option>
                   <option value="me">Your face</option>
                   <option value="persona">Greeting persona</option>
                 </select>
@@ -10047,6 +10067,44 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
 
+            <!-- LAN mode (WORLD_CLASS_PLAN section 12, Brief 15): shown only
+                 now that tests/test_lan_mode.py passes against the real
+                 launcher. `GET`/`POST /auth/lan-access`; on asks for the
+                 password through askPasswordPrompt, off asks for nothing.
+                 Wired in settings-panes.js (`renderLanAccess`). -->
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Other devices</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="lan-help" aria-controls="lan-help" aria-expanded="false"
+                  title="About other devices" aria-label="About other devices">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="lan-help" role="dialog" aria-label="About other devices">
+                <p>
+                  Off, only this computer can open the app: nothing on your
+                  network can even reach it. On, a phone or another computer
+                  on the same network can open it at the address shown here,
+                  and always has to give your password, whatever this
+                  computer is set to. Private notes still ask for it too.
+                </p>
+                <p>
+                  The change takes effect the next time the app starts.
+                  Addresses are IPv4 only for now. Turning it on asks for your
+                  current password.
+                </p>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="account-allow-lan">
+                <span>
+                  Allow other devices on this network
+                  <small class="muted">They always need your password.</small>
+                </span>
+              </label>
+              <p id="account-lan-state" class="notice hidden" role="status"></p>
+            </div>
+
             <div class="settings-group">
               <div class="row help-head">
                 <h3>Change your password or PIN</h3>
@@ -10130,6 +10188,67 @@ Link to another note with [[its first few words]]."></textarea>
                 cannot be recovered by anyone, and the reset loses them. The
                 command tells you how many you have before you confirm.
               </p>
+            </div>
+          </section>
+
+          <!-- Privacy: "where your data went" (WORLD_CLASS_PLAN section 2,
+               standout 5). Read from `GET /privacy/receipt`, which is the
+               interpreter's own record of every connection this app's process
+               made (core/egress.py), not a list of features that promise to
+               behave. Filled by `renderPrivacyReceipt` in settings-panes.js. -->
+          <section class="settings-section hidden" id="settings-privacy">
+            <div class="row help-head">
+              <h3>Where your data went</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="privacy-help" aria-controls="privacy-help" aria-expanded="false"
+                title="How this is recorded" aria-label="How this is recorded">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Every connection this app made, recorded as it happened.</p>
+            <div class="help-body hidden" id="privacy-help" role="dialog" aria-label="How this is recorded">
+              <p id="privacy-covers">
+                The interpreter itself reports every connection and every name
+                lookup this app makes, whatever part of it asks, so nothing can
+                leave without appearing here.
+              </p>
+            </div>
+
+            <p id="privacy-verdict" class="notice" role="status"></p>
+
+            <div class="settings-group">
+              <div class="row align-center privacy-range-row">
+                <h3>Destinations</h3>
+                <div class="seg" id="privacy-range" role="group" aria-label="Which record to show">
+                  <button type="button" data-range="launch" aria-pressed="true">Since launch</button>
+                  <button type="button" data-range="ledger" aria-pressed="false">All time</button>
+                </div>
+              </div>
+              <p class="muted" id="privacy-range-note"></p>
+              <ul id="privacy-destinations" class="entry-list privacy-list"></ul>
+              <p id="privacy-empty" class="muted hidden">Nothing has left this computer.</p>
+            </div>
+
+            <div class="settings-group">
+              <h3>Your model</h3>
+              <p id="privacy-model"></p>
+              <p class="muted library-file-meta" id="privacy-model-meta"></p>
+            </div>
+
+            <div class="settings-group">
+              <h3>Who can open this app</h3>
+              <p id="privacy-listening"></p>
+            </div>
+
+            <div class="settings-group">
+              <h3>What can reach out</h3>
+              <p class="muted">The only switches that let the app itself connect past this computer.</p>
+              <ul id="privacy-switches" class="entry-list account-facts privacy-switches"></ul>
+            </div>
+
+            <div class="row">
+              <button type="button" id="privacy-refresh" class="ghost small">
+                <i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Read it again</button>
             </div>
           </section>
 

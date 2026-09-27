@@ -443,9 +443,15 @@ $("chat-stop").addEventListener("click", () => chatController && chatController.
 //: Only while the Chat tab is on screen and an answer is streaming, and not
 //: while anything is open on top: a dialog, the note picker, a menu, each of
 //: which takes its own Escape first (they stop the key or prevent it).
+//: And only the answer on screen: a turn keeps streaming into the chat it
+//: was asked in while the reader opens another (`releaseChatComposer` hides
+//: Stop and gives the box back), and an Escape in the new chat's box used
+//: to stop that answer unseen (the review, 2026-09-27). Stop is shown
+//: exactly while the chat on screen is being answered, so Escape asks it.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || event.defaultPrevented || !chatController) return;
   if ($("tab-chat").classList.contains("hidden")) return;
+  if ($("chat-stop").classList.contains("hidden")) return;
   if (document.querySelector(".modal-overlay:not(.hidden), .sheet-overlay:not(.hidden)")) return;
   event.preventDefault();
   chatController.abort();

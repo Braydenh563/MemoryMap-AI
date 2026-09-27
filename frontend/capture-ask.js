@@ -1210,10 +1210,24 @@ function citationMarker(g, byId, numberFor) {
   link.addEventListener("click", (event) => {
     event.stopPropagation();
     openCitationPeek(link, describe(), { pinned: true });
+    //: **From the keyboard, the peek is where the keyboard goes next.** The
+    //: peek is lifted to `<body>`, so Tab from a mark reaches the next mark
+    //: or the page, never the peek: its preview (the way to the note) and
+    //: its Open note were unreachable in sequence (the review, 2026-09-27,
+    //: `chatkeys.js`). Enter or Space is a click with no pointer (`detail`
+    //: 0): the peek is pinned, as by a press, and the focus moves onto its
+    //: preview; Escape brings it back to the mark (`closeCitationPeek`).
+    if (event.detail === 0) citationPeekState.panel?.querySelector(".citation-peek-preview")?.focus({ preventScroll: true });
   });
   link.addEventListener("mouseenter", () => scheduleCitationPeek(link, describe));
   link.addEventListener("mouseleave", () => scheduleCitationPeekClose());
-  link.addEventListener("focus", () => openCitationPeek(link, describe(), { pinned: false }));
+  link.addEventListener("focus", () => {
+    //: Not the focus a closing peek hands back to its mark
+    //: (`closeCitationPeek`): that focus opened the peek again, so Escape
+    //: from inside the peek left it on the page (chatkeys.js).
+    if (citationPeekState.restoring) return;
+    openCitationPeek(link, describe(), { pinned: false });
+  });
   link.addEventListener("blur", (event) => {
     if (!citationPeekState.panel?.contains(event.relatedTarget)) scheduleCitationPeekClose();
   });
@@ -1252,7 +1266,7 @@ function citationMarker(g, byId, numberFor) {
 //: with no passage (a note a tool read mid-turn) shows the note's opening
 //: words. Characters, never rendered Markdown: the slice is taken at
 //: character offsets and can begin mid-emphasis.
-const citationPeekState = { panel: null, link: null, pinned: false, openTimer: 0, closeTimer: 0 };
+const citationPeekState = { panel: null, link: null, pinned: false, openTimer: 0, closeTimer: 0, restoring: false };
 const CITATION_PEEK_CONTEXT = 90;
 
 function scheduleCitationPeek(link, describe) {
@@ -1370,7 +1384,16 @@ function closeCitationPeek({ restoreFocus = false } = {}) {
   link?.setAttribute("aria-expanded", "false");
   link?.removeAttribute("aria-controls");
   Object.assign(citationPeekState, { panel: null, link: null, pinned: false });
-  if ((restoreFocus || hadFocus) && link?.isConnected) link.focus({ preventScroll: true });
+  if ((restoreFocus || hadFocus) && link?.isConnected) {
+    //: Marked while the focus is handed back, so the mark's own focus
+    //: handler does not open the peek that is being closed.
+    citationPeekState.restoring = true;
+    try {
+      link.focus({ preventScroll: true });
+    } finally {
+      citationPeekState.restoring = false;
+    }
+  }
 }
 
 //: Escape and a press anywhere else close a peek. Captured, and the Escape

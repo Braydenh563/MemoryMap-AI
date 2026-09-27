@@ -467,6 +467,41 @@ being written by running agents stay beside this one.
 
 ## Chat and popup agent
 
+- **Review of the chat pass (9c8b373 to 835447d), the Library and Timeline
+  pass (2d42cd5 to d2bc42a) and 277ae31, 08cf260, 2026-09-27.** Line by line,
+  then measured against the running app. Fixed, each with a test that fails
+  without it: (1) a citation peek was out of the keyboard's reach (Enter,
+  then Tab, left the focus on the marks; `chatkeys.js`, part peek): Enter or
+  Space on a mark now moves the focus onto the preview, Tab reaches Open
+  note, and Escape hands it back to the mark without the mark's own focus
+  reopening the peek; (2) the stream's end took the focus into the box from
+  wherever the reader had gone (part focus: on New, before; kept, after);
+  (3) Escape stopped an answer still streaming into a chat the reader had
+  left (part hidden: stopped, before; still streaming, after); (4) a chat
+  opened before p5 had loaded started one sketch per reply (`emblemcold.js`:
+  40 to 1, none blank). Measured sound: Escape on the answer on screen
+  (45ms, `chataudit.js` keys), `citepeek.js` at 1440 and 390 all ok, the
+  tap box 23 by 44px (a tap 14px above or below the glyph and 6px either
+  side lands on it, 25px does not), `.is-choosing` in step through a tick,
+  Select all, Select none, a search that hides the ticked card (class and
+  bar both still say one), clearing the search and Done; one Tab stop for
+  the grid (three presses, card, tick and menu, then out); the Library sort
+  and the Timeline grouping, value and stand-in label, after a reload; the
+  tool row (switch 0px off the name's centre on six rows, a click on the
+  description toggles, 12 of 58 on "search", 0 of 58 with its empty line,
+  Tab from the filter lands on the switch). Read only: `budgetMs` (at
+  least one item a frame; the pump stops when the sentinel leaves and the
+  observer restarts it) and the dashboard's Atlas mark (`isAtlasSeed`
+  takes "Atlas" whatever the AI is called). [chat-b.md]
+- **The citation mark's touch box overlaps the lines above and below** (a
+  decision to note, not a bug): the `::after` box is 44px tall around a
+  13px glyph, so on a phone a tap within 14px above or below a mark opens
+  the peek rather than acting on that line's text. By design (6df7310);
+  worth a look on an answer dense with marks.
+- **A pinned peek outlives a Tab past its Open note.** With the focus in
+  the peek, Tab from Open note leaves it for the end of the page, and the
+  peek stays pinned until Escape or a press elsewhere (read in
+  `openCitationPeek`'s focusout, not measured).
 - **The chat welcome's blurb wraps to two lines at 1280 wide**
   (`frontend/chat.js:919`, "I've read everything you've saved. Ask me
   anything and I'll show you where the answer came from"):

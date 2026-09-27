@@ -37,6 +37,22 @@ def test_a_reply_label_copies_the_emblem_rather_than_starting_a_sketch() -> None
         assert part in key, f"the copy is not keyed on {part}: a stale mark would be copied"
 
 
+def test_a_chat_opened_before_p5_has_loaded_still_copies_the_emblem() -> None:
+    """The review of 2026-09-27: `renderEmblem` defers itself while p5 is
+    still loading (it is fetched when the page is idle), and the deferred
+    call was `renderEmblem` again, so a chat opened in that window started
+    one p5 sketch per reply once p5 arrived: 40 sketches for a 40-turn chat
+    (`emblemcold.js`, p5 held back), the cost the copy was built to remove.
+    The wait comes back through `paintChatEmblem`, so the first reply draws
+    and the rest copy it."""
+    app = app_js_text()
+    emblem = _function(app, "paintChatEmblem")
+    wait = emblem.index('typeof p5 === "undefined"')
+    assert wait < emblem.index("renderEmblem(")
+    assert "ensureP5().then(" in emblem
+    assert "paintChatEmblem(holder, size)" in emblem[wait:]
+
+
 def test_a_code_block_in_an_answer_is_not_a_run_of_inline_chips() -> None:
     """`.msg.assistant .bubble-answer code` matched a fenced block's `code`
     too and out-ranked its reset, so every line wore an inline chip."""
@@ -60,6 +76,59 @@ def test_escape_stops_the_answer_and_the_stop_button_holds_the_keyboard() -> Non
     assert "event.defaultPrevented" in esc, "an Escape a menu or dialog already used must be left alone"
     send = _function(app, "sendChatMessage")
     assert '$("chat-stop").focus(' in send, "the Stop button no longer takes the focus while the answer streams"
+
+
+def test_escape_leaves_an_answer_being_written_in_another_chat_alone() -> None:
+    """The review of 2026-09-27: `chatController` outlives a switch, since a
+    turn keeps streaming into the chat it was asked in while the reader opens
+    another (`releaseChatComposer` hides Stop and hands the box back). Escape
+    keyed on the controller alone, so an Escape in the new chat's box stopped
+    an answer nobody could see. Measured with the fake answer model: streaming
+    in chat A, New chat, Escape in the box: A's answer stopped (after: still
+    streaming). The Stop button is on screen exactly while the chat on screen
+    is being answered, so Escape asks it."""
+    app = app_js_text()
+    esc = app[app.index("//: **Escape stops the answer being written**") :]
+    esc = esc[: esc.index("\n});\n")]
+    guard = esc.index('$("chat-stop").classList.contains("hidden")')
+    assert guard < esc.index("chatController.abort()")
+
+
+def test_the_streams_end_gives_the_box_the_focus_only_from_the_stop_button() -> None:
+    """The review of the chat pass (2026-09-27): the stream's end called
+    `input.focus()` whenever the chat was on screen, so a reader who had
+    moved to the search box or the sidebar while the answer streamed had
+    the box take the focus from them as it ended. Only from the Stop button
+    (which took it when the answer began) or from nowhere."""
+    app = app_js_text()
+    end = app[app.index("// The composer belongs to whatever conversation is on screen.") :]
+    end = end[: end.index("clearPending();")]
+    assert 'document.activeElement === $("chat-stop")' in end
+    assert "if (fromStop) input.focus();" in end
+    assert "\n      input.focus();\n" not in end, "the box takes the focus unconditionally again"
+
+
+def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
+    """The peek is lifted to <body>, so Tab from a mark reaches the next mark,
+    never the peek: its preview and Open note were unreachable in sequence
+    (chatkeys.js, the review of 2026-09-27: Enter, then Tab, both left the
+    keyboard on the marks). A click with no pointer (`detail` 0) moves the
+    focus onto the preview; Escape brings it back."""
+    app = app_js_text()
+    marker = _function(app, "citationMarker")
+    click = marker[marker.index('link.addEventListener("click"') :]
+    click = click[: click.index("\n  });\n")]
+    assert "event.detail === 0" in click
+    assert '.citation-peek-preview")?.focus(' in click
+    close = _function(app, "closeCitationPeek")
+    assert "link.focus({ preventScroll: true })" in close
+    #: And that focus must not open the peek again: the mark opens its peek
+    #: on focus, so the focus a closing peek handed back reopened it (Escape
+    #: from inside the peek left it on the page, measured by chatkeys.js).
+    assert "citationPeekState.restoring = true" in close
+    focus = marker[marker.index('link.addEventListener("focus"') :]
+    focus = focus[: focus.index("\n  });\n")]
+    assert "if (citationPeekState.restoring) return;" in focus
 
 
 def test_a_grounding_chip_fits_its_answer_and_says_its_sentences_in_characters() -> None:

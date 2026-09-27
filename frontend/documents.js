@@ -1578,8 +1578,12 @@ function markDocDirty() {
   docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
 }
 
+//: While the edit-conflict prompt is up, autosave waits for its answer
+//: rather than asking again every 1.2s of typing behind it.
+let docConflictOpen = false;
+
 async function saveDocument({ silent = false } = {}) {
-  if (!currentDoc) return;
+  if (!currentDoc || docConflictOpen) return;
   clearTimeout(docSaveTimer);
   const title = $("doc-title").value.trim() || "Untitled";
   const content = docText();
@@ -1590,7 +1594,11 @@ async function saveDocument({ silent = false } = {}) {
       // null as "leave it alone", so sending the current value is harmless,
       // and omitting it would make a type change depend on which save
       // happened to run next.
-      body: JSON.stringify({ title, content, file_type: currentDoc.file_type || "md" }),
+      //: `base_hash`: the hash of the text this editor last had from the
+      //: server (`currentDoc` is replaced by every save's answer), so a
+      //: save over text another window has since saved is refused with 409
+      //: rather than overwriting it (WORLD_CLASS_PLAN 22.1 item 5).
+      body: JSON.stringify({ title, content, file_type: currentDoc.file_type || "md", base_hash: currentDoc.content_hash }),
     });
     currentDoc = saved;
     docDirty = false;
@@ -1599,9 +1607,43 @@ async function saveDocument({ silent = false } = {}) {
     docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
     renderDocList();
   } catch (error) {
+    if (isEditConflict(error)) {
+      await docResolveConflict(error.detail.current, content, silent);
+      return;
+    }
     $("doc-saved").textContent = "Not saved";
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
+  }
+}
+
+//: The answer to an edit conflict on a document. "Keep mine" saves this
+//: text from the other window's hash, so it goes through as a deliberate
+//: overwrite (and the server keeps the other window's text as a revision,
+//: as every content change does). "Take theirs" puts the other text in the
+//: editor as saved. No answer leaves the text here, unsaved, and the next
+//: edit asks again.
+async function docResolveConflict(current, mine, silent) {
+  $("doc-saved").textContent = "Not saved";
+  docConflictOpen = true;
+  let answer = null;
+  try {
+    answer = await editConflictPrompt({ noun: "document", mine, theirs: current.content || "" });
+  } finally {
+    docConflictOpen = false;
+  }
+  if (!currentDoc || currentDoc.id !== current.id) return;
+  if (answer === "mine") {
+    currentDoc = { ...currentDoc, content_hash: current.content_hash };
+    await saveDocument({ silent });
+  } else if (answer === "theirs") {
+    currentDoc = { ...currentDoc, ...current };
+    docSurface().text = current.content || "";
+    renderDocPreview();
+    docDirty = false;
+    $("doc-saved").textContent = "Saved";
+    docs = docs.map((d) => (d.id === current.id ? { ...d, ...current } : d));
+    renderDocList();
   }
 }
 

@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
 from memorymap.ai import drafter, vision_ocr
 from memorymap.core import deps, docexport, docmeta, docview, filetypes, syntaxcheck
 from memorymap.core.database import (
@@ -87,6 +88,10 @@ class DocumentPatch(BaseModel):
     #: says so because only it knows, by the time a PATCH arrives the text
     #: looks the same whoever wrote it.
     revision_source: Literal["edit", "ai", "restore"] = "edit"
+    #: The `content_hash` of the text this edit started from: a save over
+    #: text another window has since changed is refused with 409 rather than
+    #: silently overwriting it (api/edit_conflicts.py). None is unchecked.
+    base_hash: str | None = Field(default=None, max_length=64)
 
 
 class AiEditBody(BaseModel):
@@ -181,7 +186,7 @@ def _summary(document: Document) -> dict:
 
 
 def _full(document: Document, session: Session | None = None) -> dict:
-    body = {**_summary(document), "content": document.content}
+    body = {**_summary(document), "content": document.content, "content_hash": content_hash(document.content)}
     if session is not None:
         body["notes"] = _linked_notes(session, document.id)
     return body
@@ -530,6 +535,15 @@ def update_document(
     document_id: int, body: DocumentPatch, session: Session = Depends(get_session)
 ) -> dict:
     document = _existing(session, document_id)
+    #: Two windows, one document (WORLD_CLASS_PLAN 22.1 item 5), checked
+    #: before anything is written, the title included.
+    refuse_if_stale(
+        base_hash=body.base_hash,
+        current_text=document.content,
+        new_text=body.content,
+        current=lambda: _full(document, session),
+        noun="document",
+    )
     if body.title is not None:
         document.title = body.title.strip() or document.title
     content_changed = body.content is not None and body.content != document.content

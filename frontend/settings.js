@@ -2355,6 +2355,7 @@ function renderAppearance() {
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
   if (typeof mountBuddyCustom === "function") mountBuddyCustom();
+  if (typeof mountBuddyActivities === "function") mountBuddyActivities();
   if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
   $("atlas-style").value = appearancePref("atlas-style");
   $("atlas-look").value = appearancePref("atlas-look");

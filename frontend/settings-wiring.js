@@ -2365,7 +2365,11 @@ $("entry-content").addEventListener("input", (e) => {
   $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
   // Keep a draft so a half-typed thought survives a reload or a stray tab
   // switch: losing one is the most annoying thing this app could do.
-  if (n) localStorage.setItem("captureDraft", e.target.value);
+  //: Whitespace alone is not a draft (INBOX 431 follow-up: the box came
+  //: back holding three blank lines after a reload, which hid the empty
+  //: placeholder). Newlines left behind by a removed image or a stray Enter
+  //: must not be kept and restored as if they were writing.
+  if (e.target.value.trim()) localStorage.setItem("captureDraft", e.target.value);
   else localStorage.removeItem("captureDraft");
   renderEntryAttachmentChips();
   // The "go to it" link belongs to the note you just saved, not the one you
@@ -2391,6 +2395,14 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
   if (!stored) return;
   const draft = stored.replace(STAGED_IN_DRAFT, "");
   const lostImages = draft !== stored;
+  //: A draft that is only blank lines (older builds saved those, and removing
+  //: a staged image can leave nothing else) restores as nothing, so the
+  //: box stays empty and its placeholder shows.
+  if (!draft.trim()) {
+    localStorage.removeItem("captureDraft");
+    if (lostImages) toast("Your restored draft only held images that were never uploaded, so it was cleared.");
+    return;
+  }
   const box = $("entry-content");
   box.value = draft;
   autoGrow(box); // a long restored draft shouldn't arrive in a one-line box

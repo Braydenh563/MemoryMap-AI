@@ -8993,6 +8993,14 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="normal">Normal</option>
                 </select>
               </div>
+              <!-- Each thing it does on its own, one switch a row (the owner,
+                   2026-09-27: "Every companion feature must be togglable in
+                   Settings"): built by `mountBuddyActivities`, avatars.js,
+                   from its `NMB_ACTIVITIES` table. -->
+              <details class="settings-fold" id="avatar-buddy-activities-fold">
+                <summary>What it does on its own</summary>
+                <div id="avatar-buddy-activities" class="avatar-buddy-activities"></div>
+              </details>
               <!-- Your own character as the companion (INBOX 426 e): a name
                    of its own and the same part pickers as Your look, shown
                    only while it is the choice (`mountBuddyCustom`). -->

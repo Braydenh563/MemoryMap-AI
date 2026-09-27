@@ -65,7 +65,10 @@ button.main { background: var(--accent); border-color: var(--accent); color: whi
 .lab #nm-buddy { position: relative !important; left: auto !important; top: auto !important; transform: none !important; translate: none !important; width: 64px; height: 92px; zoom: var(--fig-zoom, 1.6); }
 .lab #nm-buddy .nm-figure, .lab .nm-figure { position: relative !important; display: block !important; width: 64px !important; height: 92px !important; }
 .lab .nm-figure > svg { position: absolute !important; left: 0 !important; top: 0 !important; overflow: visible; }
-.lab .stage.figure { height: 190px; overflow: visible; }
+/* Round 9: the figure's reach grew (the nebula orbits it to above the
+   crown, raised hands to -7), so each pose stage keeps 20px of headroom
+   and the orbit no longer touches the card's top edge. */
+.lab .stage.figure { height: 214px; padding-top: 20px; overflow: visible; }
 .lab .name-mark, .lab .nm-figure { pointer-events: none !important; }
 .nm-viewer { display: none !important; }
 html[data-avatar-motion="off"] .name-mark *, html[data-avatar-motion="off"] .nm-figure *, html[data-avatar-motion="off"] .atl * { animation: none !important; transition: none !important; }
@@ -73,3 +76,13 @@ html[data-avatar-motion="off"] .name-mark *, html[data-avatar-motion="off"] .nm-
 .toast { position: fixed; left: 50%; bottom: 18px; opacity: 0; transform: translate(-50%, 60px); padding: 7px 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--p2); transition: 0.18s; z-index: 9; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 760px) { .lab { display: block; } .top { position: static; flex-wrap: wrap; } .side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); } .hero, .pair { grid-template-columns: 1fr; } }
+/* Round 9 polish. The side panel's action buttons sit in an even grid of
+   two, not a ragged wrap (a lone "Morning review" on its own line); the
+   header's status reads as a pill apart from the subtitle and its buttons
+   never break inside a label; specimens stand on one ground line, so sizes
+   compare by height rather than by where each happened to centre. */
+.row.actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.row.actions button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top button { white-space: nowrap; }
+.top #status { padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; }
+.grid .spec { align-content: end; }

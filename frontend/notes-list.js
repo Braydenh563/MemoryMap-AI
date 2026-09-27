@@ -494,7 +494,32 @@ function renderEditForm(li, entry) {
           category,
           tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
         };
-        await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(after) });
+        //: `base_hash`: the text this form opened on, so a save over a
+        //: newer text from another window is refused rather than silently
+        //: replacing it (WORLD_CLASS_PLAN 22.1 item 5); the prompt then
+        //: decides: "keep mine" saves again from the other window's text,
+        //: "take theirs" puts that text in the form to go on from.
+        let base = entry.content_hash;
+        for (;;) {
+          try {
+            await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ ...after, base_hash: base }) });
+            break;
+          } catch (error) {
+            if (!isEditConflict(error)) throw error;
+            const current = error.detail.current;
+            const answer = await editConflictPrompt({ noun: "note", mine: after.content, theirs: current.content || "" });
+            if (answer === "mine") {
+              base = current.content_hash;
+              continue;
+            }
+            if (answer === "theirs") {
+              Object.assign(entry, current);
+              textarea.value = current.content || "";
+              noteFormDirty = false;
+            }
+            return;
+          }
+        }
         editingId = null;
         noteFormDirty = false;
         toast("Entry updated.");

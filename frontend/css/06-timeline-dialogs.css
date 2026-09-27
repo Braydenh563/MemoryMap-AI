@@ -1207,6 +1207,31 @@
   margin: 0;
 }
 
+/* editConflictPrompt (app.js, WORLD_CLASS_PLAN 22.1 item 5): confirmDialog's
+   card, wider because Compare opens the two versions inside it and four
+   actions share its row; the row wraps rather than squeezing a label. */
+.confirm-card.edit-conflict-card {
+  width: min(44rem, 94vw);
+}
+
+.edit-conflict-card .confirm-actions {
+  flex-wrap: wrap;
+}
+
+.edit-conflict-compare {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.edit-conflict-compare > * {
+  margin: 0;
+}
+
+.edit-conflict-compare .diff-viewer {
+  max-height: 40vh;
+}
+
 /* showDetailDialog (app.js): confirmDialog's card shape, read-only. A
    heading names what is being shown (an activity card's title) since there
    is no yes/no question here for the message alone to frame. */

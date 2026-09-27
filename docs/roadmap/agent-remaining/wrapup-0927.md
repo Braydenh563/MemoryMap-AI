@@ -24,7 +24,14 @@ written.
 - [ ] Manage categories panel redesign: the dialog head recipe, search plus
   "New category" in one row, quiet rows (dot, name, count pill, hover
   kebab), multi-select bulk bar, no double scrollbar, listbox keyboard.
-- [x] Feminine front hair as soft locks (0bcfd1a); owner to confirm.
+- [ ] Feminine hair, the owner after 0bcfd1a: "I want to add a bit more
+  texture to the start of the long hair on the feminine atlas, also I dont
+  like the forehead hair part. it gives off school girl vibes and not astral
+  cosmic beauty vibes". Replace the centre-parted fringe (two rounded
+  curtains) with an astral crown: hair swept back off the brow into the
+  mass, a luminous hairline, fine flowing strands and star-dust glints at
+  the roots (texture), perhaps a circlet of tiny stars or a crescent;
+  elegant, ethereal, not cute. Check full size, companion size, the icon.
 - [ ] The lie pose's nebula cushion reads as a bed, not a thin band.
 - [ ] Masculine lower-body wisps read more masculine: fewer, broader,
   straighter-falling streams with a firmer taper (not the feminine

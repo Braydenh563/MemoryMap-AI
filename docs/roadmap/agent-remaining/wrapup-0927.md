@@ -340,7 +340,12 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   and `tests/test_docs_layout.py` both green (the screenshot orphan check
   included: every new file is shown, nothing shown is missing).
 
-## Last, once no agent is editing JS (the owner asked for it this release)
+## Deferred to the next release (usage ran out, 2026-09-27)
+
+The move was started on `worktree-agent-a3d063b0e2b8673ac` (WIP, unverified,
+not merged). Finish, verify and merge it first thing next session.
+
+## Was: last, once no agent is editing JS
 
 - [ ] Move `frontend/*.js` into `frontend/js/`, one mechanical commit:
   index.html script tags and `?v=` stamps, `LAZY_MODULES` paths, the static

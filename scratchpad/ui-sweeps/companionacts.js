@@ -19,7 +19,8 @@ const ACTS = (process.env.ACTS || 'lie,read,beanbag,chair,facepalm,shrug').split
 const PROP = { lie: 'pillow', read: 'book', beanbag: 'beanbag', chair: 'chair' };
 
 (async () => {
-  const { browser, page } = await boot({ viewport: { width: VW, height: VH } });
+  // TOUCH=1: a coarse pointer (a tablet); THEME=dark is lib.js's own.
+  const { browser, page } = await boot({ viewport: { width: VW, height: VH }, ...(process.env.TOUCH ? { hasTouch: true, isMobile: true } : {}) });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Performance.enable');
   const layouts = async () => (await cdp.send('Performance.getMetrics')).metrics.find((m) => m.name === 'LayoutCount').value;

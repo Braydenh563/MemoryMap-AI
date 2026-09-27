@@ -6607,7 +6607,10 @@ function nameMarkBuddyWander(now) {
       return true;
     }
   }
-  const away = nameMarkBuddyChoose(tab, obstacles, [nmb.x, nmb.y], 4);
+  //: Somewhere a few of its own widths off, towards the middle of the
+  //: window: asked near where it is, its own perch won every time.
+  const off = NMB_W * Math.max(0.7, nmb.scale || 1) * 4 * (nmb.x > innerWidth / 2 ? -1 : 1);
+  const away = nameMarkBuddyChoose(tab, obstacles, [nmb.x + off, nmb.y], 4);
   if (!away || (Math.abs(away.x - nmb.x) < 24 && Math.abs(away.y - nmb.y) < 24)) return false;
   nmb.home = { ...spot, x: nmb.x, y: nmb.y, pose: nmb.pose, legs: nmb.legs, tab, at: now };
   nmb.moveWhy = "bored: wandering off";

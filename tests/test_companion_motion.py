@@ -717,3 +717,20 @@ def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
     table = AV[AV.index("const NMB_ACTIVITIES = [") : AV.index("];", AV.index("const NMB_ACTIVITIES = ["))]
     for act in ("wave", "peek", "peekdown", "lie", "read", "beanbag", "chair", "facepalm", "shrug"):
         assert f'"{act}"' in table, act
+
+
+def test_close_by_it_keeps_its_eyes_on_you_and_wakes_gently() -> None:
+    # The owner: "atlas doesnt follow my mouse pointer when it is close.
+    # should it??" Measured (companiongaze.js): a slow pass past its head
+    # moved its gaze 15 to 16 times, was 7 (the dead zone and a head wait
+    # that restarted with every move); asleep, a pointer held 50px away for
+    # 1.5s now wakes it (it stayed asleep). Faces follow the pointer (the
+    # Appearance switch) still turns all of it off.
+    aim = _fn("nameMarkBuddyAim")
+    assert "const dead = near ? 0.05 : 0.15;" in aim
+    assert 'if (near && Date.now() >= nmb.groggyUntil) {' in aim
+    notice = _fn("nameMarkBuddyNotice")
+    assert "nameMarkBuddyAim([x, y], near);" in notice
+    assert "nameMarkBuddyWake(true);" in notice and "now - nmb.nearSince > 700" in notice
+    assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
+    assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate:" in CSS08

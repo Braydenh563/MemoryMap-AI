@@ -6296,6 +6296,11 @@ main,
   18%, 82% { opacity: 1; }
 }
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
+/* Atlas's eyes on what it looks at, as the faces' are (`--nmb-ex`,
+   `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
+   the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
+#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):

@@ -5517,7 +5517,7 @@ function nameMarkBuddyScene(buddy) {
 //: nothing). Everything is three custom properties on `#nm-buddy`
 //: (`--nmb-ex`, `--nmb-ey` for the eyes, `--nmb-hx` for the head), read by
 //: the CSS while `nmb-attend` is on; no frame loop.
-function nameMarkBuddyAim(point) {
+function nameMarkBuddyAim(point, near = false) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   let lx = 0;
@@ -5529,13 +5529,25 @@ function nameMarkBuddyAim(point) {
     lx = Math.max(-1, Math.min(1, (dx / reach) * 1.6));
     ly = Math.max(-1, Math.min(1, (dy / reach) * 1.6));
   }
-  if (Math.abs(lx - nmb.ex) < 0.15 && Math.abs(ly - nmb.ey) < 0.15) return;
+  //: **Close by, it keeps its eyes on you** (the owner: "atlas doesnt
+  //: follow my mouse pointer when it is close. should it??"). Near, the
+  //: dead zone is a twentieth, not a sixth, so a pointer moving a little
+  //: beside it is still followed, and the head goes with the eyes at once
+  //: rather than after a pause: the head's wait restarted with every move,
+  //: so while the pointer kept moving it never came. Each change is eased by
+  //: the CSS's own transitions, so ten a second reads as one smooth look.
+  const dead = near ? 0.05 : 0.15;
+  if (Math.abs(lx - nmb.ex) < dead && Math.abs(ly - nmb.ey) < dead) return;
   nmb.ex = lx;
   nmb.ey = ly;
   buddy.style.setProperty("--nmb-ex", lx.toFixed(2));
   buddy.style.setProperty("--nmb-ey", ly.toFixed(2));
   buddy.classList.add("nmb-attend");
   clearTimeout(nmb.headTimer);
+  if (near && Date.now() >= nmb.groggyUntil) {
+    buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
+    return;
+  }
   const groggy = Date.now() < nmb.groggyUntil;
   nmb.headTimer = setTimeout(() => {
     buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
@@ -5961,10 +5973,12 @@ function nameMarkBuddyAwake() {
   }
 }
 
-function nameMarkBuddyWake() {
+function nameMarkBuddyWake(gently = false) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  const slept = buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
+  const slept = gently || buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
+  //: Awake now, so its next quiet spell starts from here.
+  if (gently) nmb.lastInput = Date.now();
   buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
@@ -6013,10 +6027,24 @@ function nameMarkBuddyNotice(x, y, now, salient = "") {
   const last = nmb.lastMove;
   const speed = last && now > last[2] ? (Math.hypot(x - last[0], y - last[1]) / (now - last[2])) * 1000 : 0;
   nmb.lastMove = [x, y, now];
-  if (buddy.classList.contains("nmb-sleep") || nmb.act === "nap") {
+  if (buddy.classList.contains("nmb-sleep") || nmb.act === "nap" || nmb.act === "lie") {
     if ((speed > 2500 && dist < 120) || (salient === "click" && dist < 120)) nameMarkBuddyStir();
+    //: **Woken gently by you coming close** (the owner: a close pointer
+    //: "wakes a dozing companion gently: a blink, a stretch, then it looks at
+    //: you"): the pointer kept within 100px for 0.7s, it wakes (groggy, a
+    //: stretch, `nameMarkBuddyWake`) and a moment later looks your way.
+    if (dist < 100 && document.documentElement.dataset.avatarFollow !== "off") {
+      if (!nmb.nearSince) nmb.nearSince = now;
+      else if (now - nmb.nearSince > 700) {
+        nmb.nearSince = 0;
+        if (nmb.act === "lie") nameMarkBuddyAct("");
+        nameMarkBuddyWake(true);
+        setTimeout(() => nmb.pointer && nameMarkBuddyAim(nmb.pointer), 1400);
+      }
+    } else nmb.nearSince = 0;
     return;
   }
+  nmb.nearSince = 0;
   const loud = (speed > 1800 && dist < 400) || (salient && dist < 300);
   if (buddy.classList.contains("nmb-drowsy") && !loud) return;
   //: **Its eyes on the pointer, as Appearance says** (round 5): with Faces
@@ -6041,7 +6069,7 @@ function nameMarkBuddyNotice(x, y, now, salient = "") {
   if (!loud && !near && t && (Math.hypot(x - t[0], y - t[1]) < 80 || now - nmb.targetAt < wait)) return;
   nmb.target = [x, y];
   nmb.targetAt = now;
-  nameMarkBuddyAim([x, y]);
+  nameMarkBuddyAim([x, y], near);
   const side = nmb.ex < -0.7 ? "l" : nmb.ex > 0.7 ? "r" : "";
   if (side !== nmb.leanSide) {
     nmb.leanSide = side;

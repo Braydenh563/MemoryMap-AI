@@ -10,18 +10,27 @@ two decisions only the owner can take are INBOX 427.
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]
-- **Atlas round 5 (overnight, 2026-09-26)**: the feminine look has
-  slender legs, a hip sash in its own layer and hair a third longer; the
-  lids sit out an act that moves the head; curious winks; proofs
-  `scratchpad/shots/atlas-r5-*` in the main repo. Left: the feminine hair
-  streams to x 89, past the companion's 64px box (drawn, since the box
-  does not clip), which the owner may want shorter there; the ring drift
-  and per-glint twinkles are off at companion size (the front layer
-  shimmers as one); the simulator's stand-in menu says nothing about where
+- **Atlas round 5, the owner's asks (INBOX 427 (1); 2026-09-27)**: hands
+  and feet drawn as part of each limb's outline (a mitten with a thumb on
+  the inner side, a turned-out foot with a heel; `atlasStem`'s `tip`), the
+  legs a third of the height on a shorter torso (hips at 58, soles at 90,
+  from a fifth showing before), the hair drawn full on both looks (the
+  feminine: seven wavy locks fanning from the crown over a soft mass, one
+  falling forward to the shoulder; the crest a quarter fuller), the
+  feminine lower body two ribbons (a wide sash from the left hip, a
+  narrower one from the right) in the swaying layer, the Auto look reading
+  Your look when Face looks is Neutral (`atlasLookReason`), and the lab's
+  Morning review card (both looks, every expression, every pose, every
+  size, with what Auto would draw and why). Proofs
+  `scratchpad/shots/atlas-r5/`. Left: the hands' fingers are two soft
+  swells, not drawn fingers (the sprite's are mittens, so by choice); the
+  feminine hair now reaches x 78 and y -9, past the companion's 64px box
+  by the tail's margin; the ring drift and per-glint twinkles stay off at
+  companion size; the simulator's stand-in menu says nothing about where
   app.js's menu lands; three CSP "inline style" console warnings on the
   lab come from a style attribute in avatars.js's generated faces; the
   organic body, ribbon tail, strand and heart star await the owner's read
-  of the r5 proofs. [atlas-fable]
+  of the review card. [atlas-fable]
 - **The companion rides with `ScrollTimeline`** (Chromium 115+, so WebView2);
   WebKitGTK falls back to the script follow. Not driven in either desktop
   window. [companion-426]

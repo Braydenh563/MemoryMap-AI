@@ -461,18 +461,36 @@ const ATLAS_LOOKS = {
 };
 
 //: Which look: Atlas's own setting when it is Masculine or Feminine
-//: (Settings, Appearance, Atlas look), otherwise, on Auto (the default) or
-//: with nothing stored, it follows Face looks (the owner: the male version
-//: is the main one; the feminine one is its own look).
+//: (Settings, Appearance, Atlas look). On Auto (the default) or with
+//: nothing stored, it follows Face looks when that says Masculine or
+//: Feminine; when that is Neutral it follows the look the person chose for
+//: their own face (Profile, Your look), the one thing on the page that
+//: says how they like a figure drawn; with neither it is the main look
+//: (the owner: the male version is the main one; the feminine one is its
+//: own look). `atlasLookReason()` says which of the four decided, for
+//: Settings and the lab.
 function atlasLook() {
+  return atlasLookReason().look;
+}
+
+function atlasLookReason() {
   let own = null;
   try {
     own = localStorage.getItem("atlas-look");
   } catch {
     own = null;
   }
-  if (own === "feminine" || own === "masculine") return own;
-  return typeof appearancePref === "function" && appearancePref("face-look", "mixed") === "feminine" ? "feminine" : "masculine";
+  if (own === "feminine" || own === "masculine") return { look: own, reason: "chosen" };
+  const faces = typeof appearancePref === "function" ? appearancePref("face-look", "mixed") : "mixed";
+  if (faces === "feminine" || faces === "masculine") return { look: faces, reason: "face-looks" };
+  let mine = null;
+  try {
+    mine = typeof ownNameMarkStyle === "function" ? ownNameMarkStyle().look : null;
+  } catch {
+    mine = null;
+  }
+  if (mine === "feminine" || mine === "masculine") return { look: mine, reason: "your-look" };
+  return { look: "masculine", reason: "default" };
 }
 
 function atlasMirror(d) {

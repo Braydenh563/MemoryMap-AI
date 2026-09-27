@@ -8,7 +8,7 @@
 // avatars.js).
 //
 //   BASE=http://127.0.0.1:8820 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node atlaswalk.js
-//   LOOKS=masculine,feminine MS=4000 TAG=before
+//   LOOKS=masculine,feminine MS=4000 TAG=before  (IDLE=1: at rest, no walk)
 //
 // Prints one line per look: main-thread ms/s, paints/s, style recalcs/s,
 // layouts/s, frames, and whether the walking class was still on at the end.
@@ -42,12 +42,12 @@ async function metrics(cdp) {
       lower: !!document.querySelector('#nm-buddy .atl-layer-lower'),
       sash: !!document.querySelector('#nm-buddy .atl-lower'),
     }));
-    await page.evaluate(() => {
+    await page.evaluate((idle) => {
       window.__frames = 0; window.__fstop = false;
       const tick = () => { window.__frames += 1; if (!window.__fstop) requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
-      document.getElementById('nm-buddy').classList.add('nmb-walking');
-    });
+      if (!idle) document.getElementById('nm-buddy').classList.add('nmb-walking');
+    }, !!process.env.IDLE);
     const tracePath = `${os.tmpdir()}/atlaswalk-${process.pid}-${look}.json`;
     await browser.startTracing(page, { path: tracePath, categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline'] });
     const a = await metrics(cdp);

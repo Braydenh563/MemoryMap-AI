@@ -953,6 +953,31 @@ async function cmdPaletteAsk(text) {
   //: What a notification finds this answer by, if the palette is shut when
   //: it finishes (`noticeUnwatchedAnswer`).
   agentMsg.dataset.answerId = `agent-${Date.now()}`;
+  //: **The same avatar-circle header Chat's own assistant bubbles carry**
+  //: (`addAssistantBubble`, chat-agent.js), reused rather than rebuilt: "the
+  //: popup agent's reply rows should use the persona avatar circles, the
+  //: same as Chat's own bubbles." d640710 tried this before persona faces
+  //: existed on this branch (a generic emblem, `.msg-role`/`.msg-avatar`
+  //: with no persona behind it) and did not survive the app.js split; this
+  //: is the reconciled version, built on what c941505 actually landed for
+  //: Chat.
+  //:
+  //: The persona is resolved now, at send time, the same value the request
+  //: below sends and `cmdPaletteMetaRow`'s fact row names, not read back off
+  //: a live picker that may have moved on by the time a slow answer lands
+  //: (`paintPersonaAvatar`'s own comment on `addAssistantBubble` makes the
+  //: same argument for Chat).
+  const askedPersona = (prefsCache && prefsCache.active_persona) || null;
+  const askedWriter = personaDisplayName(askedPersona);
+  const agentLabel = document.createElement("div");
+  agentLabel.className = "msg-role msg-role-assistant";
+  const agentAvatar = document.createElement("span");
+  agentAvatar.className = "msg-avatar";
+  agentAvatar.setAttribute("aria-hidden", "true");
+  const agentWriterName = document.createElement("span");
+  agentWriterName.textContent = askedWriter;
+  agentLabel.append(agentAvatar, agentWriterName);
+  agentMsg.appendChild(agentLabel);
   //: **What the tools did, as the same fold the Chat tab shows.** Reported:
   //: "tool calls dont show" in the popup agent. The palette answered every
   //: tool event with one word on the status line ("Working…") and threw the
@@ -1013,6 +1038,7 @@ async function cmdPaletteAsk(text) {
   answerBox.appendChild(typingDots());
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
+  paintPersonaAvatar(agentAvatar, askedWriter, 20); // now attached, so p5 can measure and draw
   //: The answer's own row, added now and reading `answerRaw` at click time: 
   //: the text does not exist yet, and binding a copy of an empty string is
   //: how "Copy" ends up copying nothing on a fast answer.
@@ -1216,7 +1242,13 @@ async function cmdPaletteAsk(text) {
     const metaRow = cmdPaletteMetaRow({
       meta,
       stats,
-      persona: (prefsCache && prefsCache.active_persona) || null,
+      //: The persona this turn was actually *sent* with (`askedPersona`,
+      //: captured when the bubble was made and its avatar painted), not a
+      //: fresh read of the picker: a slow answer finishing after the person
+      //: switched personas used to name the *new* one here while the avatar
+      //: above still (correctly) wore the one that wrote it, two different
+      //: claims about who answered on one turn.
+      persona: askedPersona,
     });
     if (metaRow) cmdPaletteResults.appendChild(metaRow);
     cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;

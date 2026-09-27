@@ -4538,6 +4538,29 @@ function wbBuildContextMenu(kind) {
           );
         }
       }
+      //: **A words door to the colour well** (coordinator: the owner asked
+      //: for a customisable node fill colour without knowing
+      //: `#wb-map-strip-color` already exists, because nothing that opens by
+      //: right-click ever named it: the ring's six slots and this menu's
+      //: other rows are all verbs, and "carries every action on a topic"
+      //: (§12.5, above) had quietly stopped being true the moment the strip
+      //: grew a colour well of its own with no row here to match it).
+      //: Opens the exact same picker the strip's swatch does
+      //: (`showPicker()`, the `.click()` fallback documents-code.js's own
+      //: colour swatch already uses for a browser that lacks it), never a
+      //: second colour control: the strip is already showing (this menu only
+      //: exists for the node that is selected, which is the strip's own
+      //: condition), so there is always a live well to open.
+      sub(rooted ? "Topic colour…" : "Branch colour…",
+        rooted ? "Colours this topic's own card" : "Carries down to everything under this topic",
+        () => {
+          const well = document.getElementById("wb-map-strip-color");
+          try {
+            well?.showPicker();
+          } catch {
+            well?.click();
+          }
+        });
     });
 
     subItem("Lines", sub => {

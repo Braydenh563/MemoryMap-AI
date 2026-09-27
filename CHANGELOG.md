@@ -37,6 +37,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The LAN switch offers a "Restart now" action when a restart is actually needed to take effect, on either direction of the switch, instead of only saying so in text.
+- The popup agent's reply rows wear the persona's own avatar circle, the same as Chat's own bubbles.
+- A mind map topic's colour is reachable from words too: right-click it, More, Topic colour (or Branch colour past the first trunk); the canvas's own background colour picker in the View menu is now named "Canvas background colour" and says PNG/SVG export keeps it, and the mind map's own "Where the map's controls live" help mentions both.
 - Leaving a note edit form, the Capture box or a document mid-autosave with unsaved changes now asks before an in-app tab switch discards it (the app's own confirm dialog) and vetoes closing the window (`beforeunload`). A stopped backend now shows a "Can't reach MemoryMap. Retrying..." banner with a Retry button instead of buttons that quietly do nothing, and clears on the next successful request.
 - Every view has an address: `#/notes/12`, `#/chat/45`, `#/docs/7`, `#/library/images`, `#/settings/appearance`. Reload keeps the view, a bookmark or pasted link opens it, the browser's Back and Forward walk the app's own history, and the window title names the view and what is open in it.
 - Density has an Auto setting, the new default: Compact on a window 700px tall or less (a 1366x768 laptop at 125%), the look's own spacing on a taller one. A density chosen in Appearance always wins, and the Dashboard follows it.

@@ -239,10 +239,6 @@ stars about it and a ribbon of starlight for a tail. Atlas files your notes,
 answers "how do I" questions from the app's own documentation, and can keep
 you company in the corner of any page, with moods that follow what you do.
 
-<p align="center">
-  <img src="docs/screenshots/atlas.png" alt="Atlas, the notebook's guide, in the masculine look: a small glowing star spirit with swept-back ears, rings of stars and a ribbon tail of starlight" width="220">
-</p>
-
 **Faces for everyone.** Every person and persona gets a small drawn
 character read from their name (a mood word, an animal, a costume), and
 Settings, Profile, Your look lets you shuffle yours or choose every part:

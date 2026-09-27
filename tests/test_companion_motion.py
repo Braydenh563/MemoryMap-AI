@@ -764,7 +764,8 @@ def test_emotes_night_cap_and_faces_that_crossfade_and_come_down_gradually() -> 
     build = _fn("nameMarkBuddyBuild")
     assert 'emote.className = "nmb-emote";' in build and "for (let i = 0; i < 3; i += 1) {" in build
     assert ".nm-buddy-z i:nth-child(3) { animation-delay: 1.73s; }" in CSS08
-    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap, .nmb-act-lie):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }" in CSS08
+    # Only lying or curled (sitting), never upright.
+    assert '#nm-buddy:is(.nmb-act-lie, [data-pose="sit"]:is(.nmb-sleep, .nmb-act-nap)):not(.nmb-cap-off) .nmp-nightcap { opacity: 1; }' in CSS08
     express = _fn("nameMarkBuddyExpress")
     assert 'old.classList.add("nmb-fig-leaving");' in express and "nameMarkBuddyExpress(softer, 2400)" in express
     assert 'nameMarkBuddyActOff("emote")' in _fn("nameMarkBuddyEmote")
@@ -963,3 +964,15 @@ def test_it_never_perches_in_a_run_of_words() -> None:
     assert '!cs.display.startsWith("inline")' in walk
     choose = _fn("nameMarkBuddyChoose")
     assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return best || soiled;" in choose
+
+
+def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
+    # The owner: "on the avatar lab, it keeps reverting my selected motion
+    # and goes to sleep standing with a night cap". Measured (labpin.js):
+    # with Live behaviour off, a sleepy from atlas.js's idle clock and a
+    # click leave the specimens as picked; on, they follow it.
+    lab = (ROOT / "tools" / "avatar-lab.js").read_text(encoding="utf-8")
+    assert "window.setAtlasMood = (...args) => (LAB.live ? liveMood(...args) : undefined);" in lab
+    assert 'id="live"' in (ROOT / "tools" / "avatar-lab.html").read_text(encoding="utf-8")
+    assert "#nm-buddy .nm-atlas { --atl-nightcap: 0; }" in CSS08
+    assert '#nm-buddy[data-pose="sit"]:not(.nmb-cap-off) .nm-atlas[data-atlas-mood="sleepy"] { --atl-nightcap: 1; }' in CSS08

@@ -5331,6 +5331,10 @@ main,
   transform-origin: 50% var(--nmb-edge);
 }
 
+/* Made smaller to fit a small perch, or back to its own size (avatars.js,
+   `spot.fit`): eased, never a jump. Only then: a size dragged with the
+   handle follows the pointer. */
+#nm-buddy.nmb-fitting .nm-buddy-face { transition: scale calc(var(--motion-slow) * 3) var(--ease-in-out); }
 #nm-buddy[data-pose="hang"] .nm-buddy-face { transform-origin: 50% 5px; }
 #nm-buddy[data-pose="float"] .nm-buddy-face { transform-origin: 50% 50%; }
 

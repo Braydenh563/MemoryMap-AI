@@ -1136,3 +1136,16 @@ def test_an_act_lets_its_face_go_slowly() -> None:
     assert "if (until <= (nmb.easeUntil || 0) && buddy.classList.contains(\"nmb-easing\")) return;" in _fn("nameMarkBuddyEase")
     # Declared before the first function that reads them at load.
     assert AV.index("const NMB_LOUD_ACTS") < AV.index("function nameMarkBuddyAct(")
+
+
+def test_it_takes_a_smaller_size_to_fit_a_small_perch() -> None:
+    # The owner: "size and proportion depend on the perch; it scales down
+    # where space is small and never overlaps text". Measured (perchwords.js,
+    # 1093x614, dashboard scrolled to the end): the only clean perch left was
+    # on a card at 0.75 of its size; it took that rather than the bar.
+    choose = _fn("nameMarkBuddyChoose")
+    assert "nmb.scale = NMB_FIT_SCALE;" in choose and "return { ...small, fit: NMB_FIT_SCALE };" in choose
+    assert choose.index("fit: NMB_FIT_SCALE") < choose.index('legs: "peek"')
+    move = _fn("nameMarkBuddyMoveTo")
+    assert "const size = spot.fit || nameMarkBuddyScaleSaved();" in move and "nameMarkBuddySetSize(size, false);" in move
+    assert "#nm-buddy.nmb-fitting .nm-buddy-face { transition: scale" in CSS08

@@ -51,7 +51,11 @@ const STEPS = Number(process.env.STEPS || 6);
         } else {
           spot = nameMarkBuddyChoose(t, nameMarkBuddyObstacles(t));
         }
+        //: At the size it would take there (`spot.fit`, a small perch).
+        const own = nmb.scale;
+        if (spot.fit) nmb.scale = spot.fit;
         shape = nameMarkBuddyShape(spot.x, spot.y, spot.pose, spot.legs);
+        nmb.scale = own;
         const tabEl = document.getElementById(`tab-${t}`);
         const walker = document.createTreeWalker(tabEl, NodeFilter.SHOW_TEXT);
         const range = document.createRange();
@@ -91,7 +95,7 @@ const STEPS = Number(process.env.STEPS || 6);
         //: Out of sight with its panel (clipped away, waiting to move) is
         //: not over anything.
         if (live && (nmb.outOfSight || nmb.away)) area = 0;
-        return { kind: spot.kind, pose: spot.pose, legs: spot.legs, x: Math.round(spot.x), y: Math.round(spot.y), area: Math.round(area), words, inside, hangsPanel, overStatus, el: el ? `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 2).join('.')}` : '' };
+        return { fit: spot.fit || 0, kind: spot.kind, pose: spot.pose, legs: spot.legs, x: Math.round(spot.x), y: Math.round(spot.y), area: Math.round(area), words, inside, hangsPanel, overStatus, el: el ? `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 2).join('.')}` : '' };
       }, [tab, live]);
       const chosen = await measure(false);
       //: Settled: out of sight it waits for the scroll to be still 1.5s
@@ -102,7 +106,7 @@ const STEPS = Number(process.env.STEPS || 6);
       for (const [what, m] of [['chosen', chosen], ['settled', settled]]) {
         const fail = m.area > 20 || m.inside || m.hangsPanel || m.overStatus;
         if (fail) bad += 1;
-        rows.push(`${fail ? 'BAD ' : 'ok  '}${tab} scroll ${r.top}/${r.max} ${what}: ${m.kind} ${m.pose}${m.legs ? '/' + m.legs : ''} @${m.x},${m.y} on ${m.el} words ${m.area}px${m.words.length ? ' "' + m.words.join('", "') + '"' : ''}${m.inside ? ' INSIDE A CARD' : ''}${m.hangsPanel ? ' HANGS FROM A PANEL' : ''}${m.overStatus ? ' OVER THE STATUS BAR' : ''}`);
+        rows.push(`${fail ? 'BAD ' : 'ok  '}${tab} scroll ${r.top}/${r.max} ${what}: ${m.fit ? 'x' + m.fit + ' ' : ''}${m.kind} ${m.pose}${m.legs ? '/' + m.legs : ''} @${m.x},${m.y} on ${m.el} words ${m.area}px${m.words.length ? ' "' + m.words.join('", "') + '"' : ''}${m.inside ? ' INSIDE A CARD' : ''}${m.hangsPanel ? ' HANGS FROM A PANEL' : ''}${m.overStatus ? ' OVER THE STATUS BAR' : ''}`);
       }
       if (r.max <= 0) break;
     }

@@ -4250,6 +4250,7 @@ function nameMarkBuddyWordsUnder(x, y, pose, legs = "") {
   return area;
 }
 const NMB_WORDS_PX = 12;
+const NMB_FIT_SCALE = 0.75;
 
 //: What it can do at a place on an edge: on a top edge sit with its legs
 //: over (the owner's "dangle their legs"), sit with them tucked where they
@@ -4370,6 +4371,26 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
   }
   nmbCoverCache = null;
   if (best) return best;
+  //: **Smaller where space is small** (the owner, 2026-09-27: "size and
+  //: proportion depend on the perch; it scales down where space is small
+  //: and never overlaps text"). Nothing clean at its own size: the same
+  //: search at `NMB_FIT_SCALE`, and a clean edge found so is taken with
+  //: that size (`spot.fit`, applied by `nameMarkBuddyMoveTo`, eased).
+  if (!nmb.fitting && (nmb.scale || 1) > NMB_FIT_SCALE + 0.05) {
+    const saved = nmb.scale || 1;
+    nmb.fitting = true;
+    nmb.scale = NMB_FIT_SCALE;
+    let small = null;
+    try {
+      nameMarkBuddyIndexReset();
+      small = nameMarkBuddyChoose(tab, obstacles, near, per);
+    } finally {
+      nmb.scale = saved;
+      nmb.fitting = false;
+      nameMarkBuddyIndexReset();
+    }
+    if (small && !small.words && !["corner"].includes(small.kind) && small.legs !== "peek") return { ...small, fit: NMB_FIT_SCALE };
+  }
   //: **Never over words when it can help it**: nothing clean on any edge
   //: (a small window, a page of text), it tucks behind the bottom bar with
   //: only its eyes over it, at the free end, or stands in the corner; a
@@ -5173,6 +5194,15 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.glideAnim?.cancel();
   nmb.glideAnim = null;
   nameMarkBuddyPut(buddy, x, y);
+  //: Its size for this perch: smaller where it had to fit, its own
+  //: elsewhere, eased either way (`nmb-fitting`).
+  const size = spot.fit || nameMarkBuddyScaleSaved();
+  if (Math.abs(size - (nmb.scale || 1)) > 0.01) {
+    buddy.classList.add("nmb-fitting");
+    clearTimeout(nmb.fitTimer);
+    nmb.fitTimer = setTimeout(() => buddy.classList.remove("nmb-fitting"), 900);
+    nameMarkBuddySetSize(size, false);
+  }
   //: A new place: nothing to be bored of yet (a wander sets its own).
   if (spot.kind !== nmb.perch || Math.abs(was.x - x) > 8 || Math.abs(was.y - y) > 8) nmb.perchAt = Date.now();
   nmb.perch = spot.kind || "";

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The default buttons are quiet rather than silver: a light field-white face behind a hairline edge (3:1 against its ground), grey only under the pointer; an icon button standing alone (a note's pin and menu, a dialog's close) is a bare glyph until hovered; standing buttons are at least 32px tall; dropdowns draw a thin chevron; Reminders' -15m/+15m/-1d/+1d are one joined group; and the new-reminder form no longer overflows its sheet.
 - The feminine Atlas's front hair is smooth: three soft locks curve out of the parting and lie over the cap with rounded tips, where flat blade-like strips with square ends floated on it.
 - The Manage categories panel is redesigned: the same head as the documents AI panel, a filter beside New category, quiet rows with a count pill and a menu that shows on hover, a keyboard-walkable list where Space selects, and a footer to merge or delete several categories at once.
 - A category's split can be suggested by Atlas (the utility model reads the notes and proposes named groups to review), with the tag-based suggestion kept for when the model is off.

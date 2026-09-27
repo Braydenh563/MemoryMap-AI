@@ -3980,16 +3980,23 @@ mark.lightbox-hit {
    ink. Every tonal button in the row, the image's own menu (`kebabMenu`'s
    trigger) included, and not the rows of that menu, which sit on the
    menu's own surface. */
+/* Quiet on the scrim as everywhere else (the owner, 2026-09-27, the
+   "silver" buttons, this row among them): no grey fill at rest, a hairline
+   at 3:1 against the scrim, the tint as state. An icon alone is a ghost. */
 .lightbox .lightbox-actions button.ghost:not(.menu-item) {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.42);
   color: #fff;
+}
+
+.lightbox .lightbox-actions button.ghost.icon-only:not(.menu-item) {
+  border-color: transparent;
 }
 
 .lightbox .lightbox-actions button.ghost:not(.menu-item):hover,
 .lightbox .lightbox-actions button.ghost:not(.menu-item):focus-visible {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .lightbox .lightbox-zoom-label,

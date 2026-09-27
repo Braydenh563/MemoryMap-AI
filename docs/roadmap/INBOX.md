@@ -84,6 +84,14 @@ with its owner named in the entry.
      row per category with count, rename, merge into, split (pick notes or
      let the AI propose), delete with a destination; notes dragged or
      multi-selected across; every action undoable. Next free Opus slot.
+     The owner, straight after: "I should say manually edit. the user needs
+     to be able to easily do anything the ai can do". So the panel is part
+     of a parity rule: every write tool the agent has (WRITE_TOOLS and
+     tools/categories.py: create, rename, merge and delete category; create,
+     edit, tag, pin, link, unlink, delete and restore note; reminders; rename
+     and delete tag; documents; whiteboard cards and links; mind map nodes)
+     gets an audited, discoverable manual path, each gap fixed, and a lint
+     that fails when a new write tool has no named UI entry point.
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

@@ -98,6 +98,11 @@ written.
 
 ## Before calling it done
 
+- [ ] App-wide consistency pass after the button, select and stepper
+  restyle: every surface uses the same recipes (buttons, selects, dialog
+  heads, menus, notices, chips, spacing and radius tokens); a sweep lists
+  every hand-built control and each is moved onto its recipe or its
+  ratchet in tests/test_ui_recipes.py. Light and dark, 1093, 1440, 390.
 - [ ] `scripts/gate.sh --full` green; CI green on the head.
 - [ ] INBOX 431 resolved to HISTORY; CHANGELOG lines present; README fresh.
 - [ ] PR 157's title and description updated to cover the whole branch.

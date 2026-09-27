@@ -98,7 +98,13 @@ written.
   is one `--text-sm` line (it was two body paragraphs, 120px). `catsplit.js`.
   Found, not fixed: the split's note rows are toggle pills whose text is
   cut at two lines.
-- [ ] Arm variants 1 and 2 per mood checked; feminine arms legible small.
+- [x] Arm variants 1 and 2 per mood checked; feminine arms legible small.
+  `atlasarms.js` over every mood and variant, `atlasmoodgrid.js` for the
+  sheet. Fixed: the head scratch (confused) left the hand out at shoulder
+  height over the rings (72%), now beside the head in both looks; shy's
+  swung-out variant clasps; her arms carry a fine rim line, legible at
+  92px (`fem-arms-92-after.png`). Left as designed: raised arms of delight
+  and surprise cross the rings' band, and her held-out seed-sowing arm.
 - [x] A sleepy Atlas startled by any click or held Ctrl (three reports): the
   input listener only records input now; a poke wakes it over 2.4s and it
   stays up 45s; dozing eases over 3s. `atlaswake.js`: 11 of 50 frames

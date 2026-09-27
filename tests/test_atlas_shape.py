@@ -451,3 +451,14 @@ def test_the_props_hang_from_each_look_s_own_hand():
     assert "propHand: [51.2, 39.6]" in _look("feminine")
     assert "atlasHandProps(arms.r, arms.l, look);" in ATLAS
     assert "const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;" in ATLAS
+
+
+def test_a_head_scratch_reaches_the_head_and_her_arms_are_outlined():
+    # atlasarms.js: "a scratch at the head" at 103deg and 108deg left the hand
+    # out at shoulder height over the rings; a left arm's positive angle turns
+    # it out, so reaching the head takes 145 to 163 degrees.
+    for look, al0 in (("masculine", "163deg"), ("feminine", "145deg")):
+        rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="confused"\] \{{([^}}]+)\}}', CSS).group(1)
+        assert f"--atl-al0: {al0}" in rule, look
+    # Her pale arms were lost at the companion's size (atlasmoodgrid.js).
+    assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' in CSS

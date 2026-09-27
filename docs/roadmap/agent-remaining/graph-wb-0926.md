@@ -58,3 +58,23 @@ before and after numbers. The board-pan fix and the labels were not seen on
 the owner's WebView2 window. The label placement is measured on one fixture
 (random links, eleven categories); a notebook with real clusters may place
 differently.
+
+## WORLD_CLASS_PLAN D2, the note connections rail: built 2026-09-27
+
+Paused in WIP commit 97950a9 and finished on top of it (the commit after the
+merge of 277ae31). `scratchpad/ui-sweeps/notesrail.js`, first run, 24/24 with
+no change needed: at 1440 the rail is 302px and the reading column 747px, at
+1280 272px and 620px; no overlap with the list or the sidebar, no sideways
+scroll; keys, a row following its note, hiding across a reload and the More
+menu all pass; at 1024 and 390 no rail, and the Connections sheet opens.
+Shots: `scratchpad/shots/gw-0926/notesrail-*.png` against
+`notes-before-1440.png`.
+
+Open, found and not fixed:
+
+- The rail is not in the guided tour (tour.js, not this scope) and has no
+  shortcut of its own (`DEFAULT_SHORTCUTS`, app.js, not this scope).
+- A note that links twice to notes of the same title shows two identical
+  rows; the rows carry no date to tell them apart. Same in the sheet.
+- Not verified: dark theme, and the rail with the sidebar collapsed or
+  dragged wide (the implicit track should hold; not measured).

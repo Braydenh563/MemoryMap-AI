@@ -21,6 +21,8 @@ h1 { font-size: 15px; margin: 0; }
 .row-gap { margin-top: 8px; }
 .hint-head { margin: 8px 0 2px; }
 .field.field-flush { margin: 0; }
+.review-head { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: capitalize; margin: 14px 0 6px; }
+.review-head + .grid { margin-top: 0; }
 input, select, textarea, button { font: inherit; }
 input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; color: var(--ink); padding: 6px; }
 input[type="range"] { padding: 0; }

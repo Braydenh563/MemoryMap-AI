@@ -254,6 +254,48 @@ function boot() {
         batch(g, POSES.slice(0, 8).flatMap(([label, pose, classes]) => ["masculine", "feminine"].map((look) => () => spec(posed(pose, classes, look), `${label} · ${look}`, "", true))));
       });
     },
+    //: **The morning review** (the owner, round 5: "review every expression
+    //: and pose at once"): one card, both looks, every mood as the head the
+    //: chat shows, every companion state as the figure, and the sizes the
+    //: app uses (the figure at 1:1, the bust, the icon), so a round's
+    //: changes are read against each other rather than one view at a time.
+    review() {
+      card("Morning review", "both looks · every expression · every pose · every size", (body) => {
+        const auto = typeof atlasLookReason === "function" ? atlasLookReason() : null;
+        if (auto) {
+          const note = document.createElement("p");
+          note.className = "hint";
+          note.textContent = `Auto would draw ${auto.look} right now (${{ chosen: "Atlas look is set", "face-looks": "Face looks says so", "your-look": "Your look says so", default: "nothing says otherwise: the main look" }[auto.reason]}).`;
+          body.append(note);
+        }
+        for (const look of ["masculine", "feminine"]) {
+          const h = document.createElement("h3");
+          h.className = "review-head";
+          h.textContent = `${look} · expressions`;
+          body.append(h);
+          const g = grid(body);
+          batch(g, MOODS.map((m) => () => withLook(look, () => spec(draw(88, m, "head"), m, ATLAS_MOODS[m].words || "at rest"))));
+          const h2 = document.createElement("h3");
+          h2.className = "review-head";
+          h2.textContent = `${look} · poses`;
+          body.append(h2);
+          const g2 = grid(body, true);
+          batch(g2, POSES.map(([label, pose, classes]) => () => spec(posed(pose, classes, look), label, classes.join(" "), true)));
+          const h3 = document.createElement("h3");
+          h3.className = "review-head";
+          h3.textContent = `${look} · at size`;
+          body.append(h3);
+          const g3 = grid(body);
+          batch(g3, [
+            () => withLook(look, () => spec(posed("stand", [], look), "figure 1:1", "64 by 92, the companion", true)),
+            () => withLook(look, () => spec(atlasAvatar(80, LAB.mood), "bust 80", "the guide")),
+            () => withLook(look, () => spec(atlasAvatar(28, LAB.mood), "bust 28", "the agent's head")),
+            () => withLook(look, () => spec(draw(24, LAB.mood), "24px", "the icon")),
+            () => withLook(look, () => spec(draw(16, LAB.mood), "16px", "the smallest")),
+          ]);
+        }
+      });
+    },
     moods() {
       card("All moods", `${LAB.style} · ${LAB.look}`, (body) => {
         const g = grid(body);

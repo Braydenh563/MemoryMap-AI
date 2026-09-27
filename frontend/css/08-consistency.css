@@ -6732,12 +6732,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
-/* The fifteen moods. Calm is the rest state above. */
+/* The fifteen moods. Calm is the rest state above. Round 9's review of
+   all fifteen in both looks at full and companion size: happy read as
+   calm (now smiling lower lids and a warmer blush), determined as bored
+   (the lids were half down; now open, angled in, with a focused squint),
+   sleepy as a pout (the doze, below). */
 .nm-atlas[data-atlas-mood="happy"] {
   --atl-tail: -8deg; --atl-star: 1.2;
   --atl-crest: -3deg;
-  --atl-brow-y: -1px; --atl-knit: -4deg; --atl-lid: 0; --atl-low: 0.12; --atl-ps: 1.04;
-  --atl-m-smile: 0; --atl-m-grin: 1; --atl-cheek: 0.6;
+  --atl-brow-y: -1px; --atl-knit: -4deg; --atl-lid: 0; --atl-low: 0.22; --atl-ps: 1.04;
+  --atl-m-smile: 0; --atl-m-grin: 1; --atl-cheek: 0.72;
   --atl-tilt: -3deg; --atl-sx: 1.02; --atl-sy: 0.98; --atl-glow: 1.15;
 }
 .nm-atlas[data-atlas-mood="delighted"] {
@@ -6823,7 +6827,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas[data-atlas-mood="determined"] {
   --atl-tail: -6deg; --atl-star: 1.25;
   --atl-crest: -4deg;
-  --atl-brow-y: 0.8px; --atl-knit: 12deg; --atl-lid: 0.3; --atl-lid-r: 10deg; --atl-eye-s: 0.96;
+  --atl-brow-y: 0.8px; --atl-knit: 14deg; --atl-lid: 0.1; --atl-lid-r: 18deg; --atl-low: 0.18; --atl-eye-s: 0.98;
   --atl-m-smile: 0; --atl-m-set: 1; --atl-cheek: 0.2;
   --atl-sx: 1.03; --atl-sy: 0.99; --atl-glow: 1.2;
 }

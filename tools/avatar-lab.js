@@ -75,6 +75,7 @@ function boot() {
   const MOODS = Object.keys(ATLAS_MOODS);
   const POSES = [
     ["stand", "stand", []], ["sit", "sit", []], ["hang", "hang", []], ["float", "float", []], ["lean", "lean", []],
+    ["settling", "lie-1", []], ["half down", "lie-2", []], ["lying", "lie", ["nmb-sleep"]], ["curling", "curl-1", []], ["curled", "curl", []],
     ["sleep", "sit", ["nmb-sleep"]], ["drowsy", "stand", ["nmb-music", "nmb-drowsy"]], ["night", "sit", ["nmb-night"]], ["reading", "stand", ["nmb-reading", "nmb-think"]],
     ["cheer", "stand", ["nmb-act-cheer"]], ["startle", "stand", ["nmb-act-startle"]], ["wake", "stand", ["nmb-act-wake"]], ["lantern", "stand", ["nmb-act-lantern"]],
     ["bell", "stand", ["nmb-act-bell"]], ["wave", "stand", ["nmb-act-wave"]], ["peek", "stand", ["nmb-act-peek"]], ["offline", "stand", ["nmb-offline"]],

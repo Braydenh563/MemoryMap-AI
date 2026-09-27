@@ -6950,6 +6950,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-hroot { stop-color: var(--atl-rim); stop-opacity: 0.42; }
 .nm-atlas .atl-st-hroot-mid { stop-color: var(--atl-rim); stop-opacity: 0.16; }
 .nm-atlas .atl-hair-root { fill: var(--atl-hroot); }
+/* Round 9: the hair's cap (atlas.js, `atlasHairCap`), fuller than a lock
+   so the crown reads as hair, not skin under a veil, and a faint parting. */
+.nm-atlas .atl-hair-cap .atl-cap-fill { opacity: 0.94; }
+.nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
+.nm-atlas .atl-cap-part { fill: none; stroke: var(--atl-rim); stroke-width: 0.6; stroke-linecap: round; opacity: 0.35; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
 .nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.48; }

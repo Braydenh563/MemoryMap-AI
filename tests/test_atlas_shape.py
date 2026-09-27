@@ -111,7 +111,8 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert "pts.map(([fwd, side]) => [fwd, -side]).reverse()" in ATLAS  # the other foot joins its leg
     assert "ATLAS_SCALP_PARTS" not in ATLAS  # no fringe
     assert "stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; opacity: 0.26;" in CSS
-    assert 'if (spec.scalp && !tiny) atlasScalp(sway, id);' in ATLAS
+    # Round 9: the scalp became the hair's cap, drawn for both looks.
+    assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
     widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
@@ -356,3 +357,18 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     assert "&.atl-layer-body[data-atlas-look=\"masculine\"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway" in CSS
     body = _keyframes("atl-idle-sway").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}
+
+
+
+def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
+    # Round 9 (the owner: "have the hair start a little on the head, not
+    # have it look like a bald head with lots of hair coming from the back").
+    for look in ("masculine", "feminine"):
+        assert "cap: \"M" in _look(look), look
+    assert "capPart: \"M" in _look("feminine")
+    assert "function atlasHairCap(parent, spec)" in ATLAS
+    # Over the head, under the ears, so the ears rise out of it.
+    head = ATLAS[ATLAS.index("function atlasHead("):]
+    assert head.index("atlasHairCap(sway, spec)") < head.index("const ears = atlasEars(sway, level, false, look);")
+    # Round 8's fading scalp is gone with it.
+    assert "function atlasScalp(" not in ATLAS and 'fade("scalp"' not in ATLAS

@@ -129,7 +129,17 @@ written.
   reproduces it standalone via `progressLine`, no model needed). Same fix
   covers chat, Ask (capture-ask.js) and the popup agent (palette.js): all
   three call the same `typingDots`/`startThinkingWordRotation`.
-- [ ] Atlas guide panel: its '?' button does nothing; wire it.
+- [ ] Atlas guide panel: its '?' button does nothing; wire it. **Not
+  reproduced.** Opened the panel from the status bar (1093, >=680px) and
+  from the phone's More sheet (390), light and dark: clicking
+  `[data-help-for="help-chat-help"]` (moved into the sheet head by
+  `openHelpChat`) opens `#help-chat-help` correctly every time, through the
+  same `wireHelpPopover` (menus.js) every other help toggle uses; measured
+  the popover's box each time (416x249 desktop, 366x298 phone), never
+  hidden or zero-sized. Added `scratchpad/ui-sweeps/guidehelp.js` to lock
+  this in and to give the owner's next report something to run first. If it
+  recurs, it needs the exact steps (which entry point, what was open
+  already, mobile or desktop) since nothing in the obvious paths breaks it.
 - [ ] Chat attach popup (Notes/Documents/Files/Images/Maps): redesign on
   the new recipes (dialog head, quiet segmented tabs, search with icon,
   compact rows with check, name and category chip that never wraps,

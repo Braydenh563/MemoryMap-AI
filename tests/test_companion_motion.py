@@ -455,3 +455,20 @@ def test_every_way_to_a_note_counts_as_opening_it() -> None:
     flash = ask[ask.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
     assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash
+
+
+def test_the_large_view_enlarges_the_figure_with_scale_not_transform() -> None:
+    # The owner: "when I click on atlas in the larger view window sometimes
+    # it shrinks for a sec then expands back to full height after the
+    # animation is finished". The figure box is Atlas's `.atl-figure-box`,
+    # and a mood whose loop moves the whole body animates its `transform`,
+    # which replaced the viewer's `transform: scale(2.2)`: 233 to 245px at
+    # rest, 108 to 116 at the loop's middle (viewerpoke.js). `scale`
+    # composes with an animated `transform` instead of being replaced.
+    css = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "css").glob("*.css")))
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = re.findall(r"\.nm-viewer-figure\s*>\s*\.nm-figure\s*\{([^}]*)\}", css)
+    assert rules, "the large view's figure rule moved; point this test at it"
+    for body in rules:
+        assert not re.search(r"(?<![-\w])transform\s*:", body), "the large view sizes its figure by `transform` again"
+    assert any(re.search(r"(?<![-\w])scale\s*:\s*2\.2", body) for body in rules)

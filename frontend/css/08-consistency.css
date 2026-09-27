@@ -5898,6 +5898,14 @@ main,
     &.nm-buddy-dragging .nm-buddy-char { animation: none; }
     &.nmb-walking .nmb-leg-l { animation: nmb-step 0.34s ease-in-out infinite alternate; }
     &.nmb-walking .nmb-leg-r { animation: nmb-step 0.34s ease-in-out -0.34s infinite alternate; }
+    /* Its gait by look (avatars.js, `nameMarkBuddyGait`): heavier steps,
+       slower and deeper; lighter ones, quicker with a sway. */
+    &[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy 0.4s ease-in-out infinite alternate; }
+    &[data-gait="masculine"].nmb-walking :is(.nmb-leg-l, .nmb-leg-r) { animation-duration: 0.4s; }
+    &[data-gait="masculine"].nmb-walking .nmb-leg-r { animation-delay: -0.4s; }
+    &[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light 0.3s ease-in-out infinite alternate; }
+    &[data-gait="feminine"].nmb-walking :is(.nmb-leg-l, .nmb-leg-r) { animation-duration: 0.3s; }
+    &[data-gait="feminine"].nmb-walking .nmb-leg-r { animation-delay: -0.3s; }
     &.nm-buddy-dragging .nmb-leg-l { animation: nmb-kick 0.42s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nmb-leg-r { animation: nmb-kick 0.42s ease-in-out -0.42s infinite alternate; }
     &.nmb-act-look .nm-buddy-head { animation: nmb-look 2.4s ease-in-out; }
@@ -6104,6 +6112,14 @@ main,
 @keyframes nmb-bob {
   from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
   to { transform: translateY(-3px) rotate(calc(var(--nmb-lean) * 6deg)); }
+}
+@keyframes nmb-bob-heavy {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
+  to { transform: translateY(-4.5px) rotate(calc(var(--nmb-lean) * 5deg)) scale(1.02, 0.98); }
+}
+@keyframes nmb-bob-light {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 2deg - 2deg)); }
+  to { transform: translateY(-2px) rotate(calc(var(--nmb-lean) * 4deg + 2deg)); }
 }
 @keyframes nmb-step {
   from { transform: scaleY(1); }

@@ -4841,6 +4841,7 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.edgeLine = spot.pose === "sit" ? NMB_SEAT : NMB_FEET - 1;
   buddy.style.setProperty("--nmb-edge", `${nmb.edgeLine}px`);
   buddy.dataset.perch = nmb.perch;
+  nameMarkBuddyGait(buddy);
   const poseChanged = buddy.dataset.pose !== spot.pose;
   buddy.dataset.pose = spot.pose;
   buddy.dataset.legs = spot.legs || "";
@@ -4884,6 +4885,22 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
 const NMB_HOP_SIZES = 0.7;
 const NMB_POOF_SIZES = 7.5;
 const NMB_FLYERS = ["bat", "bird", "owl", "ghost", "bee", "butterfly", "fairy", "angel", "dragon", "phoenix"];
+//: **A way of moving by look** (the owner: "masculine and feminine ways to
+//: stand and move the body"): Atlas's look (its drawing says which) or,
+//: for a face drawn from a name, Appearance's Face look. Heavier is slower,
+//: with a deeper bob and a wider step; lighter is quicker and softer, with
+//: a sway. `data-gait` for the CSS; `NMB_GAIT_PACE` for the travel's time.
+const NMB_GAIT_PACE = { masculine: 1.12, feminine: 0.94 };
+function nameMarkBuddyGait(buddy) {
+  const atlas = buddy.querySelector("svg.atl-layer")?.dataset.atlasLook || "";
+  const face = typeof appearancePref === "function" ? appearancePref("face-look", "mixed") : "mixed";
+  const gait = atlas || (face === "masculine" || face === "feminine" ? face : "");
+  if ((buddy.dataset.gait || "") !== gait) {
+    if (gait) buddy.dataset.gait = gait;
+    else delete buddy.dataset.gait;
+  }
+  return gait;
+}
 function nameMarkBuddyFlies(buddy) {
   const seed = buddy.dataset.seed || "";
   return (typeof isAtlasSeed === "function" && isAtlasSeed(seed)) || NMB_FLYERS.includes(nmb.reading?.animal) || nmb.pose === "float";
@@ -4952,10 +4969,13 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   //: A float: no steps, a lift and a drift on a shallow arc, leaning a
   //: little into the way it goes, and a settle as it arrives.
   if (nameMarkBuddyFlies(buddy)) {
-    const duration = Math.round(Math.min(1300, 560 + distance * 0.9));
+    //: Its look sets its float too: heavier, slower and lower; lighter,
+    //: quicker, higher and leaning more into the way it goes.
+    const gait = buddy.dataset.gait || "";
+    const duration = Math.round(Math.min(1300, 560 + distance * 0.9) * (NMB_GAIT_PACE[gait] || 1));
     nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.45, 0, 0.25, 1)" });
-    const lift = Math.min(28, 8 + distance * 0.06);
-    const lean = Math.max(-8, Math.min(8, -dx * 0.04));
+    const lift = Math.min(28, 8 + distance * 0.06) * (gait === "masculine" ? 0.8 : gait === "feminine" ? 1.15 : 1);
+    const lean = Math.max(-8, Math.min(8, -dx * 0.04)) * (gait === "feminine" ? 1.4 : 1);
     nmb.hopAnim = char?.animate([
       { translate: "0px 0px", rotate: "0deg", easing: "ease-in-out" },
       { translate: `0px ${-lift}px`, rotate: `${lean}deg`, offset: 0.45, easing: "ease-in-out" },
@@ -4980,7 +5000,7 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   }
   //: A walking pace, not a dash: 160px was 520ms (measured 17px a frame
   //: at its fastest), now 800ms, about 8.
-  const duration = Math.round(Math.min(1600, 450 + distance * 2.2));
+  const duration = Math.round(Math.min(1600, 450 + distance * 2.2) * (NMB_GAIT_PACE[buddy.dataset.gait] || 1));
   buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
   buddy.dataset.turn = dx > 0 ? "l" : "r";
   buddy.classList.add("nmb-walking");
@@ -5614,6 +5634,11 @@ function nameMarkBuddyAct(act, ms) {
     nameMarkBuddySchedule();
     return;
   }
+  //: **Asleep, lying down if there is room** (the owner: "when it sleeps
+  //: can it lay down??"): a nap on a flat place wide enough to lie on is a
+  //: lie-down (`lie`, with its pillow and its slow way down and up);
+  //: anywhere else it dozes where it is.
+  if (act === "nap" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) act = "lie";
   const spec = NAME_MARK_BUDDY_ACTS[act];
   if (act === "glance") nameMarkBuddyAim(nmb.pointer);
   if (act === "look" || act === "nap") nameMarkBuddyRelease();
@@ -5650,6 +5675,21 @@ function nameMarkBuddyAct(act, ms) {
     if (act === "land") nmb.afterLand = false;
     nameMarkBuddyAct(next);
   }, (ms || spec?.ms || 1200) * (act === "land" ? 1 : 1 + Math.random() * 0.3));
+}
+
+//: Room to lie down: standing (not tucked, not peeking) on a flat place,
+//: with nothing it must not cover where it would lie, from 30px behind its
+//: box to 12px past it, over its lower half. One obstacle sweep, at the
+//: moment it would lie down.
+function nameMarkBuddyLieRoom() {
+  if (nmb.pose !== "stand" || nmb.legs || !Number.isFinite(nmb.x)) return false;
+  const s = Math.max(0.7, nmb.scale || 1);
+  const box = { left: nmb.x - 30 * s, right: nmb.x + NMB_W + 12 * s, top: nmb.y + NMB_FEET - 36 * s, bottom: nmb.y + NMB_FEET - 2 };
+  if (box.left < 0 || box.right > innerWidth) return false;
+  const edge = nmb.spot?.edge;
+  if (edge && edge.right - edge.left < box.right - box.left) return false;
+  const obstacles = nameMarkBuddyObstacles(nameMarkBuddyTab());
+  return !obstacles.some((b) => b.right > box.left && b.left < box.right && b.bottom > box.top && b.top < box.bottom);
 }
 
 //: How many ways each act can go, and the pick: any but the last one.
@@ -5899,6 +5939,7 @@ function nameMarkBuddyTick() {
   const awake = Date.now() < (nmb.awakeUntil || 0);
   if (idle > NMB_SLEEP_MS && !awake) {
     buddy.classList.remove("nmb-drowsy");
+    if (!buddy.classList.contains("nmb-sleep") && nmb.act !== "lie" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) nameMarkBuddyAct("lie", 20 * 60 * 1000);
     buddy.classList.add("nmb-sleep");
     nameMarkBuddyHold("sleepy");
     nameMarkBuddyRelease();

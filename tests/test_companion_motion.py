@@ -898,3 +898,18 @@ def test_acts_have_variants_and_their_own_tempo_each_time() -> None:
     for rule in ('&.nmb-act-wave[data-variant="1"]', '&.nmb-act-hop[data-variant="2"]', '&.nmb-act-nap[data-variant="2"]'):
         assert rule in CSS08, rule
     assert "nameMarkBuddyPickVariant(3, nmb.variant?.joy ?? -1)" in _fn("nameMarkBuddyJoy")
+
+
+def test_it_lies_down_to_sleep_where_there_is_room_and_moves_by_its_look() -> None:
+    # The owner: "when it sleeps can it lay down?? ... masculine and feminine
+    # ways to stand and move the body". Measured (napgait.js): a nap on open
+    # bar lies down and gets up through its way up, a nap squeezed beside a
+    # button dozes where it is; a 160px walk as you takes 898ms masculine and
+    # 754 feminine (a deeper and a lighter bob), Atlas's float 788 and 662.
+    act = _fn("nameMarkBuddyAct")
+    assert 'if (act === "nap" && !nameMarkBuddyActOff("lie") && nameMarkBuddyLieRoom()) act = "lie";' in act
+    assert "nameMarkBuddyLieRoom()" in _fn("nameMarkBuddyTick")
+    assert 'if (nmb.pose !== "stand" || nmb.legs' in _fn("nameMarkBuddyLieRoom")
+    assert "NMB_GAIT_PACE[buddy.dataset.gait]" in _fn("nameMarkBuddyGo")
+    assert '&[data-gait="masculine"].nmb-walking .nm-buddy-char { animation: nmb-bob-heavy' in CSS08
+    assert '&[data-gait="feminine"].nmb-walking .nm-buddy-char { animation: nmb-bob-light' in CSS08

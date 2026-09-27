@@ -45,6 +45,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Atlas's right foot joins its leg again (a mirrored foot or hand was drawn from the wrong side of the ankle), both feet face forward and a little out rather than sideways, and the feminine look has no fringe over the forehead.
 - During the guided tour the corner companion no longer shows through the ring around the control a step points at: it fades and steps away from the ring and the tour's card.
 - The corner companion gets out of the way of a popup: when the notifications panel, a menu, a list or a help popover opens over it, it fades at once and then steps aside, and fades back once it is clear.
 - The note box's `[[` link list answers its keys again: with the note editor loaded, the arrows moved the caret, Enter wrote a new line and Escape did nothing while the list stayed open.

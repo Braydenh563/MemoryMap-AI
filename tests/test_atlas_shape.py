@@ -96,7 +96,9 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert max(fwd) <= 4.0  # no paddle: 4.45 long before
     assert "[3.55, 0.02]" in hand  # the split between the two finger lobes
     foot = ATLAS[ATLAS.index("const ATLAS_FOOT_POINTS = [") :][:300]
-    assert "[2.75, -0.45]" in foot and "[2.2, 4.75]" in foot  # heel and toe
+    assert "[2.35, -1.5]" in foot and "[3.0, 2.5]" in foot  # heel and toe, forward and a little out
+    assert "pts.map(([fwd, side]) => [fwd, -side]).reverse()" in ATLAS  # the other foot joins its leg
+    assert "ATLAS_SCALP_PARTS" not in ATLAS  # no fringe
     assert "stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; opacity: 0.26;" in CSS
     assert 'if (spec.scalp && !tiny) atlasScalp(sway, id);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS

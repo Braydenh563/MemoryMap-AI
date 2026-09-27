@@ -300,11 +300,25 @@ const ATLAS_HAND_POINTS = [
 //: little at its end, the sole rises into an arch between the ball and the
 //: heel, and the heel is its own rounded bump behind the ankle, so the
 //: outline reads heel, arch, ball, toe.
+//:
+//: **Round 8, again** (the owner, of the sheet above: "the feet look like
+//: they are facing the opposite direction"): a foot in profile, its toe
+//: five units out to the side, read as pointing away from the body. The
+//: figure faces us, so the foot does too: the toe comes forward (down the
+//: drawing) and a little out, under the ankle, and the heel is the rounded
+//: bump behind it on the inner side; the foot is 3.3 long and reaches 2.6
+//: out, where it reached 4.75.
 const ATLAS_FOOT_POINTS = [
-  [0.6, 1.55], [1.15, 2.5], [1.55, 3.45], [1.8, 4.3], [2.2, 4.75], [2.6, 4.5], [2.75, 3.6],
-  [2.5, 2.5], [2.3, 1.5], [2.45, 0.5], [2.75, -0.45], [2.6, -1.35], [2.05, -1.75], [1.2, -1.55],
+  [0.8, 1.5], [1.6, 2.1], [2.4, 2.6], [3.0, 2.5], [3.25, 1.8], [3.3, 0.9], [3.15, 0.0],
+  [2.9, -0.7], [2.6, -1.15], [2.35, -1.5], [1.9, -1.75], [1.35, -1.6], [0.8, -1.2],
 ];
-const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]);
+//: Mirrored **and walked the other way round**: a tip is drawn from the
+//: stem's left edge round to its right (`atlasTipShape`), so a mirror that
+//: kept the order started on the wrong side, crossed the ankle and came
+//: back, which drew the right foot apart from its leg (the owner: "the foot
+//: on the right ... looks disconnected from the leg") and the left hand's
+//: thumb the same way.
+const atlasMirrorPoints = (pts) => pts.map(([fwd, side]) => [fwd, -side]).reverse();
 const atlasHand = (thumb, k = 1) => atlasTipShape(thumb < 0 ? ATLAS_HAND_POINTS : atlasMirrorPoints(ATLAS_HAND_POINTS), k);
 const atlasFoot = (toe, k = 1) => atlasTipShape(toe > 0 ? ATLAS_FOOT_POINTS : atlasMirrorPoints(ATLAS_FOOT_POINTS), k);
 //: A limb that ends in a hand or a foot tapers to the wrist or ankle and
@@ -988,15 +1002,14 @@ function atlasMane(parent, level, edge, look) {
 //: shade ran between them: a bald dome with strands laid behind it. The
 //: crown now wears the hair: a cap in the locks' own paint over the top of
 //: the head, running back into the locks at the sides, faded out towards
-//: the brow by the `scalp` mask, with two parting strokes so it reads as
-//: hair and not a hat.
+//: the brow by the `scalp` mask, gone before the forehead: no strands fall
+//: over it (the owner: "get rid of the feminine fringe"; two parting
+//: strokes here read as a fringe).
 const ATLAS_SCALP = "M16.6 24C15.6 13.6 22.2 6.6 31 6.6C39.8 6.6 46.6 13.6 45.4 24C43.6 20.6 40.4 18.2 36.4 17.4C33 16.8 29 16.8 25.6 17.4C21.6 18.2 18.4 20.6 16.6 24Z";
-const ATLAS_SCALP_PARTS = "M31.4 7.2C29.6 10.4 28 13 25.4 15.4M33.6 7.6C35.4 10.6 37.8 13.2 41.2 15.4";
 function atlasScalp(parent, id) {
   const g = atlasMake("g", { class: "atl-scalp", mask: `url(#${id}-scalp)` }, parent);
   atlasMake("path", { class: "atl-skin atl-lock atl-hair-mass", d: ATLAS_SCALP }, g);
   atlasMake("path", { class: "atl-overlay atl-hair-neb", d: ATLAS_SCALP }, g);
-  atlasMake("path", { class: "atl-hair-part", d: ATLAS_SCALP_PARTS }, g);
   return g;
 }
 
@@ -1567,7 +1580,7 @@ function atlasBuildDefs(svg, id) {
     atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
   };
   fade("waist", 54, 63);
-  fade("scalp", 9, 18);
+  fade("scalp", 8.5, 15);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   for (const [cx, cy, side] of ATLAS_GEO.eyes) {

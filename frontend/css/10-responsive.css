@@ -2119,6 +2119,31 @@ header#top-bar,
   display: none;
 }
 
+/* The attach popup inside its own sheet (`openNotePicker`'s phone path,
+   chat-attach.js): same reasoning as `.chat-answers-card` below, the sheet
+   is the surface now, so the popover sheds its own box, width and shadow
+   and becomes the sheet's plain content; its own `.dialog-head` is hidden
+   by the JS that moves it in, the sheet's head already carries a title and
+   a Close. */
+.attach-card > #note-picker-panel {
+  position: static;
+  width: auto;
+  max-height: none;
+  /* The card's own `max-height: 66dvh` bounds the sheet; without this a
+     nested flex column defaults to `min-height: auto`, which sizes to its
+     content (every row, unclamped) rather than shrinking to fit, so the
+     list's own `overflow-y: auto` never had a shorter box to scroll
+     inside of. Measured: 1870px tall before this line. */
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* The chat's "How it answers" panel inside the sheet (`openChatDockMore`):
    the sheet is the surface, so the panel sheds the popover it is at every
    other width, and the model picker and the tool toggles `dockChatTools`

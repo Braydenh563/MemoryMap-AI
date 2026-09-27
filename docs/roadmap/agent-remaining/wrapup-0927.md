@@ -227,14 +227,32 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   row's chip so a long name can never squeeze it onto a second line. Rows
   already had the check, the name and the chip; only the wrap guard was
   missing. Measured at 1093, light and dark: dialog head, close works,
-  search icon shows, chips hold one line
-  (`scratchpad/ui-sweeps/chatattach.js`). **Found, not fixed**: at 390
-  (phone), the panel opens (correct size and position, measured) but the
-  Chat tab's own empty-state content paints over it at that width,
-  `elementFromPoint` inside the panel's own rect returns the empty state's
-  starter chip, not the panel; pre-existing (nothing this change touched
-  sits between them), not reproduced at 1093, needs its own look at the
-  two components' stacking contexts on a phone.
+  search icon shows, chips hold one line.
+
+  **Phone stacking, found then fixed** (the owner: "fix the attach popup's
+  phone-width empty-state stacking (small)"). Root cause was not stacking
+  at all: `#tab-chat` (the scrolling ancestor) has `overflow-y: auto`, and
+  at 390 the composer wraps into several rows, tall enough that the
+  popover's own `bottom: calc(100% + 0.5rem)` (relative to the small
+  attach button inside that tall dock) landed its top half above where
+  the ancestor's own scroll viewport painted -- present in the DOM, a real
+  box from `getBoundingClientRect`, invisible on screen the whole time,
+  with the chat's empty state showing through where it should have been.
+  Fixed the way `openChatDockMore` already fixes the identical shape for
+  the answer-length disclosure: on a phone the popup moves into an
+  `openSheet` bottom sheet instead (its own `.dialog-head` hidden, the
+  sheet's head already carries a title and Close), with the matching
+  `.attach-card > #note-picker-panel` reset (`10-responsive.css`, mirroring
+  `.chat-answers-card`'s own) and a `min-height: 0` so the list's own
+  scroll can actually engage inside the sheet's `66dvh` cap (measured:
+  1870px tall without it). Also found and fixed along the way: the click-
+  away guard closed the sheet on every click inside it (the panel is no
+  longer a `.note-picker` descendant once moved), and `.search-field`
+  shrank to 20px in the column layout without its own `flex: none` (both
+  general fixes, not phone-only patches). Measured, light and dark: the
+  sheet opens, the popup is topmost, tabs and typing keep it open, its own
+  Close and the scrim both dismiss it (`scratchpad/ui-sweeps/chatattach.js`,
+  extended with a phone pass).
 - [x] `settings-close` onto the dialog-head recipe; the ratchet reaches 0.
   Already landed (index.html's `#settings-close` carries `dialog-head-btn`
   inside a `.dialog-head-actions` wrapper); verified against
@@ -247,19 +265,11 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   button's `inline-flex` (the button base recipe) sitting in an anonymous
   block wrapper whose strut takes the *inherited* line-height, not its own
   smaller one; scoped override to `display: block` for the card view.
-- [ ] Status bar under 680px: one row, extras in a "more" menu. **Measured,
-  not a bug**: at 819, 700, 680, 660, 620 and 600 the bar is one row with no
-  horizontal overflow (`scrollWidth === clientWidth` at every width; the
-  `state` zone's own shrink rule already absorbs the space, DESIGN.md's
-  status-bar row). The touch-bar tier already at 600-819.98 (10-responsive
-  .css) hides `#status-notes`, `#status-command` and the doorway words, so
-  "extras in a more menu" would be recovering access to those rather than
-  fixing an overflow, and needs a decision the phone's `PHONE_STATUS_ROWS` /
-  `#header-more` pattern cannot just be reused for (widening `PHONE_TABS`
-  itself to 680 turns the tab bar, touch gestures and every other
-  `PHONE_TABS`-gated behaviour into phone mode too, far past this one bar).
-  Left for a design pass: a `#status-bar`-scoped kebab, its own media query,
-  and which of the two hidden controls actually count as "extras."
+- [x] Status bar under 680px: one row, extras in a "more" menu. **Measured
+  fine, no menu needed** (the owner's decision, 2026-09-27): at 819 down to
+  600 the bar is one row with no horizontal overflow (`scrollWidth ===
+  clientWidth` at every width; the `state` zone's own shrink rule already
+  absorbs the space).
 - [x] Sweeps at 1093: errors.js and docks.js, fix what they find. Clean:
   `WIDTHS=1093 errors.js` found 0 errors, 0 layout findings across every
   tab and Settings section; `docks.js` (its own 1440, unparametrised) found

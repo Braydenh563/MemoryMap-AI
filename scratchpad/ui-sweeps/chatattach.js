@@ -76,5 +76,48 @@ const { boot } = require('./lib.js');
 
   console.log(JSON.stringify({ theme: process.env.THEME || 'light', state, chipHeight, problems, errors }, null, 2));
   await browser.close();
-  if (problems.length || errors.length) process.exit(1);
+
+  // The phone sheet (INBOX 431 found-not-fixed, then fixed): the popover's
+  // own `bottom: calc(100% + 0.5rem)` landed above where `#tab-chat` (the
+  // scrolling ancestor) actually painted on a narrow, wrapped composer --
+  // present in the DOM, a real box from getBoundingClientRect, invisible on
+  // screen, the empty state's own content showing through instead.
+  // `openNotePicker`'s phone path (chat-attach.js) moves it into a sheet
+  // instead, the same fix `openChatDockMore` already uses for this shape.
+  const phoneErrors = [];
+  const phone = await boot({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  phone.page.on('pageerror', (e) => phoneErrors.push(String(e).slice(0, 200)));
+  phone.page.on('console', (m) => { if (m.type() === 'error') phoneErrors.push(m.text().slice(0, 200)); });
+  await phone.page.evaluate(() => switchTab('chat'));
+  await phone.page.waitForTimeout(800);
+  await phone.page.click('#attach-note');
+  await phone.page.waitForTimeout(500);
+  const phoneState = await phone.page.evaluate(() => {
+    const panel = document.getElementById('note-picker-panel');
+    const sheet = document.querySelector('.sheet-overlay[data-sheet="attach"]');
+    const search = panel.querySelector('.search-field');
+    const r = panel.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(30, r.height / 2));
+    return {
+      inSheet: Boolean(sheet && sheet.contains(panel)),
+      panelIsTopmost: panel.contains(top),
+      searchHeight: search ? search.getBoundingClientRect().height : 0,
+      panelHeight: r.height,
+    };
+  });
+  const phoneProblems = [];
+  if (!phoneState.inSheet) phoneProblems.push('the popup did not move into a sheet at 390');
+  if (!phoneState.panelIsTopmost) phoneProblems.push('something else paints over the sheeted popup');
+  if (phoneState.searchHeight < 40) phoneProblems.push(`search field shrank to ${phoneState.searchHeight}px (a flex column squeeze)`);
+  if (phoneState.panelHeight > 700) phoneProblems.push(`sheet content is ${phoneState.panelHeight}px tall, past the sheet's own cap`);
+  // Interacting inside must not close it (the click-away guard's own
+  // `.sheet-overlay` exemption, wiring.js).
+  await phone.page.click('[data-picker-source="documents"]');
+  await phone.page.waitForTimeout(200);
+  const stillOpen = await phone.page.evaluate(() => document.getElementById('note-picker-panel').offsetParent !== null);
+  if (!stillOpen) phoneProblems.push('a click on a tab inside the sheet closed it');
+  console.log(JSON.stringify({ phoneState, phoneProblems, phoneErrors }, null, 2));
+  await phone.browser.close();
+
+  if (problems.length || errors.length || phoneProblems.length || phoneErrors.length) process.exit(1);
 })().catch((e) => { console.error('SWEEP_ERROR', e.message, e.stack); process.exit(1); });

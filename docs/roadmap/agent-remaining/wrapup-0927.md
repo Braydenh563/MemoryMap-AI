@@ -26,6 +26,9 @@ written.
   kebab), multi-select bulk bar, no double scrollbar, listbox keyboard.
 - [x] Feminine front hair as soft locks (0bcfd1a); owner to confirm.
 - [ ] The lie pose's nebula cushion reads as a bed, not a thin band.
+- [ ] Masculine lower-body wisps read more masculine: fewer, broader,
+  straighter-falling streams with a firmer taper (not the feminine
+  flowing tendrils), heavier and slower in the sway.
 - [ ] Idle, walk (masculine glide with a trailing wisp), float and wave per
   look.
 - [ ] Masculine prop hand offset (bell, lantern about 6 units off).

@@ -88,7 +88,12 @@ written.
 - [x] Category tools added to `WRITE_TOOLS`, with a test. They were in
   already (create, rename, merge, delete); the test added pins every
   registered tool named for categories other than `list_categories`.
-- [ ] Split suggestion: an "Ask AI" option on the utility model.
+- [x] Split suggestion: an "Ask AI" option on the utility model. It was
+  there (`?ai=true`, `utility_model()`, tested with the tags as fallback);
+  now the button is disabled and `aria-busy` while it asks, and the answer
+  is one `--text-sm` line (it was two body paragraphs, 120px). `catsplit.js`.
+  Found, not fixed: the split's note rows are toggle pills whose text is
+  cut at two lines.
 - [ ] Arm variants 1 and 2 per mood checked; feminine arms legible small.
 - [x] A sleepy Atlas startled by any click or held Ctrl (three reports): the
   input listener only records input now; a poke wakes it over 2.4s and it

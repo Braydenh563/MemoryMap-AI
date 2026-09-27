@@ -5672,6 +5672,18 @@ input.doc-title-input::placeholder {
   gap: var(--space-2);
 }
 
+/* The suggestion's one line of news, at the sheet's secondary size: it was a
+   body paragraph with a paragraph's margins. An empty row takes no gap. */
+.manage-split-line {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.manage-split-suggestions:empty {
+  display: none;
+}
+
 /* A category in the sidebar that a dragged note will land in. */
 #category-list li.is-drop-target {
   outline: 2px dashed var(--accent);

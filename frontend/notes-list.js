@@ -3421,22 +3421,31 @@ function splitCategoryFromPanel(meta) {
       //: needs nothing, or Ask AI, which has the utility model read the
       //: notes; with the model off the tags answer, and the line says so.
       const propose = async (ai) => {
-        const proposal = await apiJson(`/categories/${meta.id}/split/propose${ai ? "?ai=true" : ""}`, { method: "POST" }).catch((e) => { toast(e.message, true); return null; });
+        //: The model can take a while on a big category: the button says it
+        //: is working and cannot be pressed twice meanwhile.
+        const button = ai ? askAi : suggest;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        const proposal = await apiJson(`/categories/${meta.id}/split/propose${ai ? "?ai=true" : ""}`, { method: "POST" })
+          .catch((e) => { toast(e.message, true); return null; })
+          .finally(() => { button.disabled = false; button.removeAttribute("aria-busy"); });
         if (!proposal) return;
         suggestions.replaceChildren();
-        if (proposal.ai_unavailable) {
-          const why = document.createElement("p");
-          why.className = "muted";
-          why.textContent = `${aiNameNow()} couldn't suggest a split just now, so these are grouped by tags.`;
-          suggestions.appendChild(why);
-        }
+        //: One line, whichever way it went: two stacked paragraphs ("couldn't
+        //: suggest" then "no split to suggest") took 120px of a short sheet.
+        const line = (text) => {
+          const p = document.createElement("p");
+          p.className = "muted manage-split-line";
+          p.textContent = text;
+          suggestions.appendChild(p);
+        };
         if (!proposal.groups.length) {
-          const none = document.createElement("p");
-          none.className = "muted";
-          none.textContent = "No two notes here share a tag that the rest do not, so there is no split to suggest. Pick notes by hand.";
-          suggestions.appendChild(none);
+          line(proposal.ai_unavailable
+            ? `${aiNameNow()} couldn't suggest a split just now, and no two notes here share a tag the rest do not. Pick notes by hand.`
+            : "No two notes here share a tag that the rest do not, so there is no split to suggest. Pick notes by hand.");
           return;
         }
+        if (proposal.ai_unavailable) line(`${aiNameNow()} couldn't suggest a split just now, so these are grouped by tags.`);
         for (const group of proposal.groups) {
           const pick = smallButton(`ph:check-square ${group.name} (${group.entry_ids.length})`, `Tick these ${group.entry_ids.length} notes and name the category ${group.name}`, () => {
             for (const [id, box] of boxes) box.checked = group.entry_ids.includes(id);

@@ -454,6 +454,33 @@ const ATLAS_LOOKS = {
     tailWidth: (t) => 3.6 + 5.8 * Math.sin(Math.PI * Math.min(1, t * 1.06)) - 1.8 * t * t,
     tailStars: [[46.6, 61.4, 0.45], [54.2, 68.6, 0.35], [51.4, 78.4, 0.5], [55.6, 88.4, 0.35], [65.4, 89.4, 0.45]],
     tailTip: [67, 80.2],
+    //: **A star-being, not an animatronic** (round 9, the owner: "it still
+    //: looks like a fnaf character"). What read as mechanical: two stiff
+    //: pillar legs with round feet, a blocky egg of a torso, straight tube
+    //: arms with round paws, a wide fixed stare. Now the torso tapers from
+    //: sloped shoulders to a waist and melts (the `waist` fade) into a trail
+    //: of three nebula wisps, no legs; the arms are slimmer, bend softly at
+    //: the elbow and end in small relaxed mittens; the eyes are a size
+    //: smaller under a relaxed lid (the CSS); and the body sways gently at
+    //: rest. His wisps stream narrower and straighter than her skirt: a
+    //: comet's trail rather than a gown.
+    legs: false,
+    lowerPivot: [31, 58],
+    skirt: "M25.2 52C24.4 60 25.6 68 27.4 75C28.8 81 29.4 87 28.6 93C30.4 90.4 31.4 87.6 31.8 85C32.8 88.4 34 91 35.8 93.6C35 87.4 35.2 81.2 36.2 75C37.8 68 38.8 60 37 52Z",
+    lowers: [
+      { seg: [[27.6, 56, 26.2, 64, 23.6, 70, 24.2, 77], [24.2, 77, 24.8, 83, 22, 88, 20.2, 92.6]], w: 6.2, specks: [[24.6, 72, 0.3], [22.4, 88.4, 0.26]] },
+      { seg: [[31, 57, 32.4, 65, 29, 72, 30.4, 80], [30.4, 80, 31.6, 87, 29.6, 92, 31, 98]], w: 7.6, specks: [[30.6, 70.4, 0.32], [30.8, 90.2, 0.3]] },
+      { seg: [[34.4, 56, 36.4, 63, 39.2, 69, 38.2, 76], [38.2, 76, 37.2, 82, 40.4, 87, 41.8, 91]], w: 6.2, specks: [[38.4, 72.4, 0.3], [40.2, 86.6, 0.26]], edge: true },
+    ],
+    torso: "M25.6 35.4C22.2 38.6 21.4 43.4 22 47.8C22.6 52.4 24.4 57.4 27.2 61C29.2 63.4 32.8 63.4 34.8 61C37.6 57.4 39.4 52.4 40 47.8C40.6 43.4 39.8 38.6 36.4 35.4Z",
+    //: Arms hanging relaxed with a soft bend at the elbow, the forearm
+    //: angling back in; slimmer (4.4 at the shoulder to 1.8 at the wrist)
+    //: with a smaller mitten (0.9).
+    armL: [[26.6, 40.6, 22.2, 42.6, 19.6, 47, 18.8, 51.4], [18.8, 51.4, 18.2, 54.6, 18.6, 57, 19.4, 59]],
+    arm: [[35.4, 40.6, 39.8, 42.6, 42.4, 47, 43.2, 51.4], [43.2, 51.4, 43.8, 54.6, 43.4, 57, 42.6, 59]],
+    armWidth: [4.4, 1.8],
+    armHands: [-1, 1],
+    handScale: 0.9,
   },
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
@@ -793,7 +820,12 @@ function atlasBuild() {
       //: Round 6: the same shoulder inside the chest and the same mitten
       //: as the main look, a little slighter (5 to 2.3), not the 3.9 to 1.9
       //: stick with a small knob that the owner's screenshot showed.
-      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(5, 2.3), { samples: 14, tip: atlasHand(-1, 1.05) })], ["r", atlasStem(spec.arm, atlasLimbTo(5, 2.3), { samples: 14, tip: atlasHand(-1, 1.05) })]];
+      //: Round 9: a look may name its arms' widths, each hand's thumb side
+      //: and the mitten's size (the masculine arms hang, both thumbs in).
+      const [w0, w1] = spec.armWidth || [5, 2.3];
+      const [thumbL, thumbR] = spec.armHands || [-1, -1];
+      const k = spec.handScale || 1.05;
+      spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbL, k) })], ["r", atlasStem(spec.arm, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbR, k) })]];
     }
     if (spec.legs === false) spec.legPaths = [];
   }
@@ -1026,8 +1058,14 @@ function atlasEye(parent, id, [cx, cy, side], tiny, lashes) {
     //: The upper lid is the head's own skin sliding down over the white,
     //: with a lash line on its edge; the lower lid rises for a squint.
     const lid = atlasGroup(inner, "atl-lid", [cx, cy]);
-    atlasMake("path", { class: "atl-skin", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 4.6}Q${cx} ${cy - 3.6} ${cx - 7} ${cy - 4.6}Z` }, lid);
-    atlasMake("path", { class: "atl-lash", d: `M${cx - 7} ${cy - 4.6}Q${cx} ${cy - 3.6} ${cx + 7} ${cy - 4.6}` }, lid);
+    atlasMake("path", { class: "atl-skin atl-lid-flat", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 4.6}Q${cx} ${cy - 3.6} ${cx - 7} ${cy - 4.6}Z` }, lid);
+    atlasMake("path", { class: "atl-lash atl-lid-flat", d: `M${cx - 7} ${cy - 4.6}Q${cx} ${cy - 3.6} ${cx + 7} ${cy - 4.6}` }, lid);
+    //: **The drowsy lid** (round 9, the owner: "the half lidded eyes look a
+    //: little creepy"): a lid whose edge droops in a soft arc over the eye,
+    //: so a half-closed eye reads as heavy and sleepy, never as a flat line
+    //: across a stare. Shown by `--atl-softlid` instead of the flat edge.
+    atlasMake("path", { class: "atl-skin atl-lid-soft", d: `M${cx - 7} ${cy - 16}H${cx + 7}V${cy - 5.2}Q${cx} ${cy - 0.2} ${cx - 7} ${cy - 5.2}Z` }, lid);
+    atlasMake("path", { class: "atl-lash atl-lid-soft", d: `M${cx - 6.2} ${cy - 4.4}Q${cx} ${cy - 0.2} ${cx + 6.2} ${cy - 4.4}` }, lid);
     const low = atlasGroup(inner, "atl-lid-low", [cx, cy]);
     atlasMake("path", { class: "atl-skin", d: `M${cx - 7} ${cy + 12}H${cx + 7}V${cy + 3.8}Q${cx} ${cy + 2.8} ${cx - 7} ${cy + 3.8}Z` }, low);
     atlasMake("path", { class: "atl-liner", d: shape.upper }, blink);

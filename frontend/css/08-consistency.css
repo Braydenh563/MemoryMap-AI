@@ -5435,15 +5435,28 @@ main,
 }
 
 /* 26px of headroom: ears, horns and hats stand above the 64 by 92 box,
-   and the card clips anything outside itself. */
+   and the card clips anything outside itself.
+
+   **Enlarged by `scale`, never by `transform`** (the owner: "when I click
+   on atlas in the larger view window sometimes it shrinks for a sec then
+   expands back to full height after the animation is finished"). This box
+   is Atlas's `.atl-figure-box`, and a mood whose loop moves the whole body
+   (delighted, laughing, sleepy, love, confused; a poke can set one going)
+   animates its `transform`, which replaced the `scale(2.2)` written here:
+   measured 243px tall at rest and 109 to 116 at the loop's middle
+   (`scratchpad/ui-sweeps/viewerpoke.js`). The `scale` property composes
+   with an animated `transform` instead of being overwritten by it. Scaled
+   about the feet, where the moods pivot (`.atl-figure-box`'s own origin),
+   so the box is placed where scaling about its top left corner put it: in
+   by half its width and down by its height to the feet, times 1.2. */
 .nm-viewer-figure > .nm-figure {
   position: absolute;
-  left: 0;
-  top: 26px;
+  left: calc(64px * 0.5 * 1.2);
+  top: calc(26px + 92px * 0.98 * 1.2);
   width: 64px;
   height: 92px;
-  transform: scale(2.2);
-  transform-origin: 0 0;
+  scale: 2.2;
+  transform-origin: 50% 98%;
 }
 
 /* Limbs turn where they join the body: each carries its hip or shoulder

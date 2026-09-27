@@ -2557,7 +2557,15 @@ kbd {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* Zero, not 0.01ms: every element's `transition-property` is `all`
+       unless it says otherwise, so a tiny duration gave every element a
+       real transition on every property, and a rect read straight after a
+       style write was where the element had been. The companion's menu was
+       placed from such a rect, 276 to 565px from it (the owner, several
+       times; `companionmenulow.js`). A zero duration and delay start none;
+       `tests/test_motion_tokens.py` holds it. */
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
@@ -2783,7 +2791,9 @@ kbd {
 :root[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.001ms !important;
+  /* Zero, for the reason written at the system hint's blanket above. */
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
   scroll-behavior: auto !important;
 }
 

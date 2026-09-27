@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas reads as one figure rather than parts: the masculine legs root deep in the body with a calf and a slim ankle, smaller soft feet, fuller shoulders with a forearm's swell and a smaller mitten; the body and limbs share one shade, the torso's glow no longer outlines its hem over the legs, and the nebula's new tip fades in from nothing.
 - Atlas's rings tilt a little further and the planets on them slowly go round, on the compositor (no layout, no repaint), fading as they pass behind the head; the nebula stream now rises from above the crown.
 
 ### Added

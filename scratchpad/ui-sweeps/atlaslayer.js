@@ -6,12 +6,13 @@ const { boot } = require("./lib.js");
 (async () => {
   const look = process.env.LOOK || "masculine";
   const layers = (process.env.LAYERS || "neb").split(",");
-  const { browser, page, OUT } = await boot({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 2 });
+  const { browser, page, OUT } = await boot({ viewport: { width: 1000, height: 1100 }, deviceScaleFactor: 2 });
   await page.evaluate((look) => {
     document.documentElement.dataset.avatarMotion = "off";
     localStorage.setItem("atlas-look", look);
   }, look);
-  const box = await page.evaluate((layers) => {
+  //: HIDE: a selector of parts to leave out (the CSP refuses a style tag).
+  const box = await page.evaluate(([layers, hide]) => {
     const host = document.createElement("div");
     host.style.position = "fixed";
     host.style.left = "100px";
@@ -26,8 +27,9 @@ const { boot } = require("./lib.js");
     document.body.appendChild(host);
     for (const svg of host.querySelectorAll("svg.atl-layer")) if (!layers.includes(svg.dataset.atlasLayer)) svg.style.display = "none";
     if (!layers.includes("orbits")) host.querySelector(".atl-orbits")?.remove();
-    return { x: 40, y: 40, width: 64 * 6 + 120, height: 92 * 6 + 120 };
-  }, layers);
+    if (hide) for (const el of host.querySelectorAll(hide)) el.style.display = "none";
+    return { x: 40, y: 40, width: 64 * 6 + 120, height: 92 * 6 + 300 };
+  }, [layers, process.env.HIDE || ""]);
   await page.waitForTimeout(400);
   const file = `${OUT}/atlas-layer-${look}-${layers.join("+")}-${process.env.TAG || "now"}.png`;
   await page.screenshot({ path: file, clip: box });

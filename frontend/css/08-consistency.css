@@ -6381,6 +6381,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-band0 { stop-color: #262a6a; }
 .nm-atlas .atl-st-band1 { stop-color: #6d52b8; }
 .nm-atlas .atl-st-band2 { stop-color: #4a3c96; }
+.nm-atlas .atl-st-band-fade { stop-color: #6d52b8; stop-opacity: 0; }
 .nm-atlas .atl-st-cloud-pink { stop-color: #e39ad8; }
 .nm-atlas .atl-st-cloud-blue { stop-color: #6fb4ee; }
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }

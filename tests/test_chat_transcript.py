@@ -37,6 +37,22 @@ def test_a_reply_label_copies_the_emblem_rather_than_starting_a_sketch() -> None
         assert part in key, f"the copy is not keyed on {part}: a stale mark would be copied"
 
 
+def test_a_chat_opened_before_p5_has_loaded_still_copies_the_emblem() -> None:
+    """The review of 2026-09-27: `renderEmblem` defers itself while p5 is
+    still loading (it is fetched when the page is idle), and the deferred
+    call was `renderEmblem` again, so a chat opened in that window started
+    one p5 sketch per reply once p5 arrived: 40 sketches for a 40-turn chat
+    (`emblemcold.js`, p5 held back), the cost the copy was built to remove.
+    The wait comes back through `paintChatEmblem`, so the first reply draws
+    and the rest copy it."""
+    app = app_js_text()
+    emblem = _function(app, "paintChatEmblem")
+    wait = emblem.index('typeof p5 === "undefined"')
+    assert wait < emblem.index("renderEmblem(")
+    assert "ensureP5().then(" in emblem
+    assert "paintChatEmblem(holder, size)" in emblem[wait:]
+
+
 def test_a_code_block_in_an_answer_is_not_a_run_of_inline_chips() -> None:
     """`.msg.assistant .bubble-answer code` matched a fenced block's `code`
     too and out-ranked its reset, so every line wore an inline chip."""

@@ -913,9 +913,20 @@ function paintChatEmblem(holder, size) {
   const key = chatEmblemKey(size);
   const source = chatEmblemSource.key === key ? chatEmblemSource.canvas : null;
   if (!source) {
+    //: **Waiting for p5 comes back here, not to `renderEmblem`.** p5 is
+    //: fetched when the page is idle, and `renderEmblem`'s own wait calls
+    //: itself again, so a chat opened before it arrived started one sketch
+    //: per reply once it did: 40 for a 40-turn chat (the review,
+    //: 2026-09-27, `emblemcold.js` with p5 held back). Back through here,
+    //: the first reply to wake draws and every later one copies it.
+    if (typeof p5 === "undefined") {
+      ensureP5().then((ok) => {
+        if (ok && holder.isConnected) paintChatEmblem(holder, size);
+      });
+      return;
+    }
     renderEmblem(holder, size, { animate: true });
-    //: p5 draws in its constructor once it is loaded; before that the call
-    //: above is deferred, and the next reply tries again.
+    //: p5 draws in its constructor, so the canvas is there to copy.
     const drawn = holder.querySelector("canvas");
     if (drawn) Object.assign(chatEmblemSource, { key, canvas: drawn });
     return;

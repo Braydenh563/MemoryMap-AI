@@ -1913,6 +1913,9 @@ function showNotesSection(name, { focus = false } = {}) {
     if (active && focus) button.focus();
   }
   localStorage.setItem(NOTES_SECTION_STORE, wanted);
+  //: The connections rail belongs to the list (notes-list.js): it leaves with
+  //: Browse and comes back with it.
+  if (typeof scheduleNotesRail === "function") scheduleNotesRail();
   // A textarea measured while its section is display:none reports
   // scrollHeight 0, so autoGrow collapsed the capture box to its minimum and
   // it only sprang open once clicked (user-reported). Re-measure now that the

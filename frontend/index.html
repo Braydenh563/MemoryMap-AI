@@ -1873,6 +1873,13 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Fetch the list again from the notebook"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Reload notes</button>
                   <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
                     title="Open every note in this list" aria-label="Open every note in this list"></button>
+                  <!-- The connections rail's way back once it has been hidden
+                       (`renderNotesRail`, notes-list.js). Its label says what
+                       pressing it will do, and it is hidden in a window too
+                       narrow for the rail, where the note's own Connections
+                       sheet is the way in instead. -->
+                  <button type="button" id="notes-rail-toggle" class="doc-dock-menu-item"
+                    title="Show or hide the column of the open note's connections"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Hide connections</button>
                   <div class="dock-menu-section">
                     <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
                     <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
@@ -1937,6 +1944,43 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </section>
       </main>
+      <!-- The connections rail (WORLD_CLASS_PLAN D2): the open or selected
+           note's links, the notes that link to it, where else it is used,
+           and the forgotten notes close to it (`GET /resurface/near`). A third
+           column of this layout at 1280px and wider (`renderNotesRail`,
+           notes-list.js; placed on an implicit grid track, so the sidebar's
+           own inline `grid-template-columns` is left alone); below that the
+           card menu's Connections sheet is the way in. `hidden` until a note
+           is open: it arrives with the thing it is about. -->
+      <aside class="card notes-rail" id="notes-rail" aria-labelledby="notes-rail-title" hidden>
+        <h3 class="panel-head notes-rail-head">
+          <span class="notes-rail-title" id="notes-rail-title">Connections</span>
+          <span class="chip" id="notes-rail-count"></span>
+          <span class="row notes-rail-actions">
+            <button type="button" class="icon-only ghost small graph-help-toggle"
+              data-help-for="notes-rail-help" aria-controls="notes-rail-help"
+              aria-expanded="false" title="What this column shows"
+              aria-label="What this column shows"><i class="ph ph-question" aria-hidden="true"></i></button>
+            <button type="button" class="ghost small icon-only" id="notes-rail-close"
+              aria-label="Hide the connections column" title="Hide the connections column"><i
+                class="ph ph-x" aria-hidden="true"></i></button>
+          </span>
+        </h3>
+        <div class="help-body hidden" id="notes-rail-help" role="dialog" aria-label="What this column shows">
+          <p>
+            Everything joined to the note you have open: the notes it links
+            to, the notes that link to it, the documents, boards and maps it
+            is used in, and the files it shows. Under them, notes you have not
+            opened in a while that are close to this one.
+          </p>
+          <p>
+            Hidden, it comes back from the notes list's More menu. In a
+            narrow window it is the Connections item on a note's own menu.
+          </p>
+        </div>
+        <p class="notes-rail-subject" id="notes-rail-subject"></p>
+        <div class="notes-rail-body" id="notes-rail-body" aria-live="polite"></div>
+      </aside>
     </div>
   </div>
 

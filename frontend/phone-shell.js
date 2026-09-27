@@ -2096,28 +2096,10 @@ async function forceReloadApp() {
 }
 $("about-force-reload")?.addEventListener("click", forceReloadApp);
 
-$("about-restart")?.addEventListener("click", async () => {
-  if (
-    !(await confirmDialog(
-      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
-    ))
-  ) {
-    return;
-  }
-  try {
-    const result = await apiJson("/system/restart", { method: "POST" });
-    if (result.restarting) {
-      toast("Restarting…");
-    } else {
-      // The backend's own platform check said no, this build genuinely
-      // can't relaunch itself (see /system/restart's own docstring for
-      // which platforms that covers).
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
-    }
-  } catch (error) {
-    toast(error.message || "Couldn't restart.", true);
-  }
-});
+//: `restartMemoryMap` (settings-panes.js): one restart mechanism shared with
+//: the LAN switch's own "Restart now" toast action, rather than two copies
+//: of "ask, restart, or say why not" drifting apart.
+$("about-restart")?.addEventListener("click", () => restartMemoryMap());
 
 // Takes effect on the next close, not on a restart, the handler reads the
 // preference each time the window is closed rather than at launch, precisely

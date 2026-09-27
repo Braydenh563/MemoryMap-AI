@@ -7,6 +7,8 @@ sentence, never an exception, because the raw results are shown anyway.
 
 from __future__ import annotations
 
+import re
+
 from memorymap.ai import AI_NAME, context
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
@@ -955,6 +957,69 @@ def suggest_tags(
             seen.add(tag)
             tags.append(tag)
     return tags[:limit]
+
+
+#: The `PersonaItem.thinking_words` field's own rules (routes_settings.py),
+#: kept alongside the one place that generates a list rather than accepting
+#: one by hand: a model-written word that fails validation there is dropped
+#: here first, so "Suggest with AI" cannot hand back something the save
+#: would refuse a moment later.
+_EM_DASH = chr(0x2014)
+
+
+def suggest_thinking_words(
+    persona_name: str,
+    persona_prompt: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = 16,
+) -> list[str]:
+    """About `limit` short phrases, in this persona's voice, for the words
+    that rotate beside the thinking dots while it answers (the owner:
+    rotating "thinking words" like Claude Code's, "Pondering...",
+    "Spelunking...", "customisable per persona"). Same shape as
+    `suggest_tags`: one utility-model completion, raises `OllamaError` if the
+    model is unavailable and leaves it to the caller.
+    """
+    system = (
+        f"You write short present-tense gerund phrases (2 to 4 words, like "
+        f'"Reading between the lines" or "Weighing it up") that describe what '
+        f"someone with this personality is doing while they think, before they "
+        f"answer. Persona: {persona_name}. {persona_prompt}\n\n"
+        f"Reply with ONLY {limit} phrases, one per line, no numbering, no "
+        "bullets, no quotation marks, no explanation. Sentence case (a "
+        "capital first word only). No exclamation marks. No dashes."
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [{"role": "system", "content": system}],
+    )
+    words: list[str] = []
+    seen: set[str] = set()
+    for raw in reply["content"].splitlines():
+        #: A numbered or bulleted line despite the instruction, and a
+        #: trailing "..." some models add on their own: stripped rather than
+        #: refused, the same tolerance `suggest_tags` gives a leading "#".
+        word = re.sub(r"^[\s\-*\d.)]+", "", raw).strip()
+        #: A wrapping pair of quotes (the model added them despite being
+        #: asked not to), stripped only when both ends actually have one, so
+        #: a phrase that legitimately quotes one word (`Reading the "why"`)
+        #: keeps its own inner mark.
+        if len(word) >= 2 and word[0] in "\"'" and word[-1] == word[0]:
+            word = word[1:-1].strip()
+        word = word.rstrip(".…").strip()
+        if not word or len(word) > 40 or "!" in word or _EM_DASH in word:
+            continue
+        if word.isupper():
+            continue
+        key = word.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        words.append(word)
+        if len(words) >= limit:
+            break
+    return words
 
 
 def summarize_meeting(

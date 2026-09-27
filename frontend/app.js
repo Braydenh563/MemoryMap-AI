@@ -474,7 +474,9 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    let errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    let errMsg = typeof detail.detail === 'string'
+      ? detail.detail
+      : (typeof detail.detail?.message === 'string' ? detail.detail.message : (JSON.stringify(detail.detail) || `Request failed (${response.status})`));
     //: **Out of space is the one failure the person can act on, so the part
     //: that says how travels with it.** The server answers 507 with a
     //: `hint` naming the folder, the room left and roughly how much to free
@@ -492,7 +494,14 @@ async function api(path, options = {}) {
         `[HTTP ${response.status}] ${fetchOptions.method || 'GET'} ${path}: ${errMsg}`
       ]);
     }
-    throw new Error(errMsg);
+    //: The status and the structured detail travel on the error, so a
+    //: caller that has something to do with a particular refusal (an edit
+    //: conflict's 409 carries the text another window saved,
+    //: `editConflictPrompt`) can read it rather than parse a message.
+    const error = new Error(errMsg);
+    error.status = response.status;
+    error.detail = detail.detail;
+    throw error;
   }
   //: A write that can leave a model running on a background thread gets the
   //: task poll looked at now, rather than up to ten seconds from now.

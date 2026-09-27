@@ -562,6 +562,35 @@ function renderLanState(state) {
   if (words) setLabel(line, `${icon} ${words}`);
 }
 
+//: **Shared with the About panel's own "Restart MemoryMap" button**
+//: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
+//: (Windows desktop only; everywhere else it answers `restarting: false` and
+//: this says so), so the LAN switch's own restart offer below reuses it
+//: rather than re-implementing "ask, restart, or say why not" a second time.
+//: `confirm` is skipped for a `toastAction` call: the person already made an
+//: explicit choice by pressing that button's own label, the same reasoning
+//: every other `toastAction` in the app (Undo, and the rest) already follows.
+async function restartMemoryMap({ confirm = true } = {}) {
+  if (
+    confirm &&
+    !(await confirmDialog(
+      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+    ))
+  ) {
+    return;
+  }
+  try {
+    const result = await apiJson("/system/restart", { method: "POST" });
+    if (result.restarting) {
+      toast("Restarting…");
+    } else {
+      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't restart.", true);
+  }
+}
+
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;
   try {
@@ -577,10 +606,22 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   box.checked = !wanted; // the server's answer decides what it shows
   try {
     if (!wanted) {
-      renderLanState(
-        await apiJson("/auth/lan-access", { method: "POST", body: JSON.stringify({ enabled: false }) })
-      );
-      toast("Only this computer will be able to open the app.");
+      const off = await apiJson("/auth/lan-access", {
+        method: "POST",
+        body: JSON.stringify({ enabled: false }),
+      });
+      renderLanState(off);
+      //: The bind itself doesn't drop until the next launch (`netbind`'s own
+      //: comment on `restart_required`), the same as turning it on: this
+      //: computer's own access never depended on it, but another device
+      //: already in can still reach the app until the app is restarted.
+      if (off.restart_required) {
+        toastAction("Restart to close the app to other devices now.", "Restart now", () =>
+          restartMemoryMap({ confirm: false })
+        );
+      } else {
+        toast("Only this computer will be able to open the app.");
+      }
       return;
     }
     let reply = null;
@@ -599,7 +640,13 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
     });
     if (done && reply) {
       renderLanState(reply);
-      toast("Other devices can open the app after a restart.");
+      if (reply.restart_required) {
+        toastAction("Other devices can open the app after a restart.", "Restart now", () =>
+          restartMemoryMap({ confirm: false })
+        );
+      } else {
+        toast("Other devices can already open the app at this address.");
+      }
     }
   } catch (error) {
     toast(error.message, true);

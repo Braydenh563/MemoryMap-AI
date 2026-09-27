@@ -99,6 +99,10 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: editConflictPrompt's Compare awaits `ensureModule("library")` on the
+    #: line before, so the diff builder is in the page when it is called.
+    "docRenderDiff": "library, called by editConflictPrompt only after it awaits ensureModule('library')",
+    "docDiffLines": "library, called by editConflictPrompt only after it awaits ensureModule('library')",
     "docFileType": "library, read by the selection bar only when the surface is `doc-content`, which exists only once the documents bundle has drawn it",
     #: The tab dispatch itself: `switchTab` awaits `ensureModule(TAB_MODULES[tab])`
     #: before it runs any of these, so by the time they are called the bundle is

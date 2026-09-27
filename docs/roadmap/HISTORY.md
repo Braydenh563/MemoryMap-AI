@@ -9,6 +9,44 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-27
 
+### From WORLD_CLASS_PLAN.md 22.1 item 5: two windows, one note
+
+**Built 2026-09-27.** The desktop window and a browser tab, or two LAN
+devices, could edit the same note or document and the later save won
+silently. Now every read of a note (`EntryOut`) and of a document (`_full`)
+carries `content_hash` (16 hex of SHA-256 of the text as the reader sees
+it, decrypted), and a save may send the hash it started from as
+`base_hash`. `api/edit_conflicts.py` refuses a save whose base is no longer
+the text on the server with 409 `{code: "edit_conflict", message, current}`
+before anything is written, `current` being the object as a read returns
+it. The plan named `updated_at`; the text was chosen instead because
+`Entry.updated_at` has `onupdate=utcnow` and moves on every pin, filing or
+link, each of which would have read as a conflict with the person typing
+(the plan also said documents already had a 409 pattern; they had none).
+Two saves of the same text are not a conflict, and a save with no
+`base_hash` is not checked, so the agent's tools, undo and restores are
+unchanged.
+
+The client: `api()` keeps `status` and the structured `detail` on the error
+it throws (and reads `detail.message` for the text), `isEditConflict` and
+`editConflictPrompt` (app.js) are one prompt on `confirmDialog`'s card and
+overlay for both editors: Not now (focused, so a stray Enter loses
+nothing), Compare (the difference in place through `docRenderDiff`, the
+library bundle loaded first when a note's prompt needs it), Take theirs, and
+Keep mine (filled), which saves again from the other window's hash. The
+document editor sends `currentDoc.content_hash` (every save's answer
+replaces `currentDoc`) and holds autosave while the prompt is up; the note
+edit form sends the hash it opened on.
+
+Verified in Chromium (`conflict.js`, session scratchpad): a document saved
+through the API behind an open editor, then typed in and saved, shows the
+prompt with the four actions and "Not now" focused; Compare draws one
+removed and one added line; Keep mine leaves the server with this editor's
+text and "Saved"; Take theirs puts the other text in the editor; at 390px
+the card keeps 24px gutters with no horizontal scroll; Escape closes it.
+**Left:** the other note writers send no `base_hash`. Tests:
+`tests/test_edit_conflicts.py`, `tests/test_edit_conflicts_ui.py`.
+
 ### From WORLD_CLASS_PLAN.md 22.1 item 4: leaving with unsaved work
 
 **Built 2026-09-27.** A `hasUnsavedWork()` reader in navigation.js over the

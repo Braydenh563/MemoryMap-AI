@@ -54,13 +54,59 @@ with its owner named in the entry.
      settings. And continue. Polish the app, devibecode it. Fix bugs. Fix
      ui/ux learnability, utility, accessibility, usability and information
      architecture"
-     Placed: (a) palette notes (verify: notes should appear; if not, bug) and
-     (b) mind map node fill, canvas and export background colour: one Sonnet
-     agent; (c) companion motion first (transitions, glide, secondary motion
-     on hair, tails and nebula), then new states and props, the subtle
-     feminine chest, the test pages, per-feature toggles, cost: the two Opus
-     agents on atlas.js and avatars.js; (d) the devibecode programme,
-     WORLD_CLASS_PLAN 22.4, after.
+     Placed: ~~(a) palette notes (verify: notes should appear; if not, bug)
+     and (b) mind map node fill, canvas and export background colour: one
+     Sonnet agent~~ **done 2026-09-27**: both already existed and worked
+     (verified live in Chromium against a real palette search and a real
+     mind map), no feature code changed; regression tests added
+     (`tests/test_palette_contract.py`, `tests/test_export_paint.py`).
+     Left, from the same report: (b)'s discoverability (the owner asked
+     without knowing they exist, so the controls need better labels/help,
+     placed below as its own item) and companion motion. (c) companion
+     motion first (transitions, glide, secondary motion on hair, tails and
+     nebula), then new states and props, the subtle feminine chest, the
+     test pages, per-feature toggles, cost: the two Opus agents on atlas.js
+     and avatars.js; (d) the devibecode programme, WORLD_CLASS_PLAN 22.4,
+     after.
+     Addenda the same afternoon, verbatim where quoted, all placed with the
+     two companion agents: the top-bar peek; locomotion by distance (walk,
+     hop or fly near, portal far: "It is a companion, not a fake soulless
+     construct"); a smoother bust; a slight body tilt left or right; the
+     sleepy face in both looks, "z" emotes and a night cap; close-range
+     pointer following; hover and click reactions that ease in and decay
+     ("more natural and gradual, unless it is startled"); boredom
+     wandering; lying down to sleep and masculine and feminine body
+     language; rotating per-persona thinking words beside the typing dots
+     (the Sonnet agent, lists written by the orchestrator).
+     (e) Categories: "there needs to be a better, easier and more accessible
+     and learnable way to edit categories like with merging them, splitting
+     them, moving notes between them etc. accessible from the notes tab, and
+     settings. maybe an access menu or panel cna be used from the your notes
+     subtab and/or sidebar??" Exists today: rename (onto an existing name it
+     merges) and delete, from the sidebar menu (`renameCategory`,
+     routes_categories.py PUT/DELETE). Missing: an explicit merge, a split,
+     moving notes between categories, and one place to do all of it.
+     Recommendation, taken: one "Manage categories" panel (the sheet recipe),
+     opened from the sidebar head, each category's menu and Settings; a
+     row per category with count, rename, merge into, split (pick notes or
+     let the AI propose), delete with a destination; notes dragged or
+     multi-selected across; every action undoable. Next free Opus slot.
+     The owner, straight after: "I should say manually edit. the user needs
+     to be able to easily do anything the ai can do". So the panel is part
+     of a parity rule: every write tool the agent has (WRITE_TOOLS and
+     tools/categories.py: create, rename, merge and delete category; create,
+     edit, tag, pin, link, unlink, delete and restore note; reminders; rename
+     and delete tag; documents; whiteboard cards and links; mind map nodes)
+     gets an audited, discoverable manual path, each gap fixed, and a lint
+     that fails when a new write tool has no named UI entry point.
+     (f) The owner, with a screenshot of the Documents AI assistant dialog:
+     "I actually reallly like the design of the document editor's ai
+     assistant popup panel. especially with the design of the close,
+     history,a nd tooltip buttons. idm the edit/write/remove pill either.
+     the suggest an edit button is fine to." Placed: DESIGN.md's recipe
+     index now names it the reference dialog head; every modal and popup
+     head is brought to it, with a ratchet lint (the Sonnet agent, after
+     the thinking words).
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

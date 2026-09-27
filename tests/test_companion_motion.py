@@ -62,7 +62,7 @@ def test_following_stops_when_the_page_is_still() -> None:
 
 
 def test_no_move_is_a_fade_to_somewhere_else() -> None:
-    move = _fn("nameMarkBuddyMoveTo")
+    move = _fn("nameMarkBuddyGo")
     assert "distance > 700" not in move
     # The one fade left is Reduce motion's, in place of the travel.
     assert move.count("opacity: 0") == 2 and "if (nameMarkBuddyNoTravel()) {" in move
@@ -215,7 +215,7 @@ def test_a_jump_it_must_make_is_a_poof_under_half_a_second() -> None:
     # a small overshoot, not one blink.
     assert "const NMB_POOF_OUT_MS = 180;" in AV and "const NMB_POOF_IN_MS = 300;" in AV
     assert 'scale: "1.04"' in _fn("nameMarkBuddyPoof")
-    move = _fn("nameMarkBuddyMoveTo")
+    move = _fn("nameMarkBuddyGo")
     assert "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)" in move
     poof = _fn("nameMarkBuddyPoof")
     # The shrink is on the character: a `scale` on the host scaled the
@@ -419,7 +419,7 @@ def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     toss = _fn("nameMarkBuddyToss")
     assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
     assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
-    assert "if (spot.tossed) {" in _fn("nameMarkBuddyMoveTo")
+    assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "const near = follows && dist < NMB_EYES_NEAR;" in notice
@@ -446,7 +446,7 @@ def test_a_walk_is_paced_too() -> None:
     # walk run at full rate. Paced from its first step: 20 and 39.
     tempo = _fn("nameMarkBuddyTempo")
     assert 'const busy = !!nmb.act || buddy.classList.contains("nm-buddy-dragging");' in tempo
-    move = _fn("nameMarkBuddyMoveTo")
+    move = _fn("nameMarkBuddyGo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
 
@@ -663,3 +663,29 @@ def test_it_peeks_down_from_under_the_top_bar() -> None:
     assert "&:is(.nmb-act-peekdown, .nmb-act-peekback) .nm-buddy-face { clip-path: inset(5px -80px -80px -80px); }" in CSS08
     for name in ("nmb-peekdown", "nmb-peekback"):
         assert f"@keyframes {name} {{" in CSS08
+
+
+def test_every_change_of_place_is_travelled_by_its_body() -> None:
+    # The owner, 2026-09-27: "instead the slight position displacements, the
+    # companion instead walks or jumps, fly, to the new position ... if it is
+    # further away then it will teleport". Measured (locomotion.js, 1440 and
+    # 1093, as you and as Atlas): a 22px step is a hop, 160px a walk (Atlas
+    # floats), 640px a poof, its panel jumping 40px a hop; at most 10.8px a
+    # frame, speed changing at most 5.5px a frame, every move ending on its
+    # place.
+    go = _fn("nameMarkBuddyGo")
+    for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
+                "if (nameMarkBuddyFlies(buddy)) {", "if (distance < size * NMB_HOP_SIZES && !poseChanged) {",
+                'buddy.classList.add("nmb-walking");'):
+        assert way in go, way
+    # Distances are in its own size, not pixels.
+    assert "const size = NMB_W * Math.max(0.7, nmb.scale || 1);" in go
+    assert "distance > size * NMB_POOF_SIZES" in go
+    assert "NMB_POOF_PX" not in AV
+    # Atlas and the winged and ghostly faces float.
+    assert "isAtlasSeed(seed)" in _fn("nameMarkBuddyFlies")
+    # Its panel moving under it, and a resize keeping it to its bar, go the
+    # same way when it stands still.
+    assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyCatchUp")
+    assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyRefit")
+    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);" in _fn("nameMarkBuddyMoveTo")

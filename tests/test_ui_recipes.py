@@ -3126,17 +3126,13 @@ def test_hand_built_option_rows_do_not_multiply() -> None:
 # '?' beside it, then icon-only actions with Close last, all
 # `.dialog-head`/`.dialog-head-actions`/`.dialog-head-btn`. Rolled out to
 # doc-ai (the reference), Notifications, Earlier versions, Connections, the
-# bin, Keyboard shortcuts, Tools & features, Meeting notes, Improve writing
-# and Quick sketch. `settings-close` is the one known holdout, named with its
-# reason below; the set may only shrink.
-DIALOG_HEAD_TEXT_CLOSE_DRIFT = {
-    # Its head is coupled to a width-breakpoint rule keyed on the exact class
-    # this recipe would remove (`#settings-modal > .modal-card > .row.space-`
-    # `between`, 10-responsive.css, "an icon-only chip is still a target");
-    # renaming it without first rewriting that rule would silently break a
-    # measured touch-target fix, so it was left alone rather than risked.
-    "settings-close",
-}
+# bin, Keyboard shortcuts, Tools & features, Meeting notes, Improve writing,
+# Quick sketch and now Settings (`settings-close` kept its outer
+# `.row.space-between`, the width-breakpoint rule's own selector, and only
+# grew a `.dialog-head-actions` wrapper around the button itself, so the
+# 10-responsive.css rule needed no change). Empty on purpose: the next
+# offender is a real one.
+DIALOG_HEAD_TEXT_CLOSE_DRIFT: set[str] = set()
 
 
 def test_a_dialog_head_close_is_the_icon_recipe_not_a_text_button() -> None:

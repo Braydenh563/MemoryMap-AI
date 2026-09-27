@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas dozes restfully in both looks: soft closed eyes with light lashes, a relaxed mouth instead of a pursed "o", less blush, three Zs that drift up and fade on a slow loop (still under Reduce motion), and a starry night cap that fades in while dozing or napping.
 - Atlas's feminine chest is drawn with light instead of lines: a smooth curve in the outline and soft glows and shading blended into the body, where two drawn arcs read as a bikini top.
 - Editing the same note or document in two windows no longer loses one of them: a save made over text that was changed elsewhere is refused, and the editor asks whether to keep your version, take the other one, or compare the two first.
 - The avatar lab and companion simulator are tidier: the lab's actions sit in an even grid, specimens stand on one ground line so sizes compare by height, pose cards leave headroom for the taller nebula, and the status reads as a pill; the simulator's bar wraps whole buttons instead of splitting labels, with a steady-width position readout.

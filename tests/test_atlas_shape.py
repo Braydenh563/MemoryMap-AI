@@ -84,7 +84,7 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
     # Held still under reduced motion.
-    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
     # The halves meet where the ribbon turns edge-on (the pinch).
     assert "ATLAS_HELIX.near.reduce(" in ATLAS
 
@@ -197,7 +197,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow" in CSS
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
     assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
-    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }" in CSS
+    assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
 
 
 
@@ -216,3 +216,28 @@ def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():
         rule = re.search(rf"\.nm-atlas \.atl-chest-{part} \{{([^}}]*)\}}", CSS)
         assert rule and "stroke" not in rule.group(1) and "fill: var(--atl-chest" in rule.group(1)
 
+
+
+
+def _mood(name: str) -> str:
+    start = CSS.index(f'.nm-atlas[data-atlas-mood="{name}"] {{')
+    return CSS[start : CSS.index("}", start)]
+
+
+def test_the_doze_is_restful_with_drifting_zs_and_a_night_cap():
+    # Round 9 (the owner, of the sleepy face: "also what is this face", then
+    # "more emotes like zzzz coming off it for sleeping, wearing a night
+    # cap"): a soft lid at rest where a heavy shut arc was, a relaxed
+    # mouth where a pursed "o" read as a kiss, less blush, three Zs that
+    # drift on a slow loop, and a night cap that fades in with the doze.
+    sleepy = _mood("sleepy")
+    assert "--atl-doze: 1" in sleepy and "--atl-shut: 1" not in sleepy
+    assert "--atl-m-rest: 1" in sleepy and "--atl-m-tinyo: 1" not in sleepy
+    assert float(re.search(r"--atl-cheek: ([0-9.]+)", sleepy).group(1)) <= 0.2
+    assert "--atl-nightcap: 1" in sleepy and "--atl-fx-zz: 1" in sleepy
+    assert "function atlasNightcap(" in ATLAS and "atl-zf-${k}" in ATLAS
+    body = _keyframes("atl-z-drift").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"transform", "opacity"}
+    assert "#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }" in CSS
+    # Reduced motion: the Zs hold still.
+    assert '& .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }' in CSS

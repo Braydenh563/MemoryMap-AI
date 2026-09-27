@@ -6125,6 +6125,7 @@ main,
   --atl-open: 1;
   --atl-happy: 0;
   --atl-shut: 0;
+  --atl-doze: 0;
   --atl-squeeze: 0;
   --atl-hearteye: 0;
   --atl-m-smile: 1;
@@ -6133,6 +6134,7 @@ main,
   --atl-m-laugh: 0;
   --atl-m-o: 0;
   --atl-m-tinyo: 0;
+  --atl-m-rest: 0;
   --atl-m-hmm: 0;
   --atl-m-wavy: 0;
   --atl-m-frown: 0;
@@ -6153,6 +6155,7 @@ main,
   --atl-fx-sparkle: 0;
   --atl-fx-hearts: 0;
   --atl-fx-zz: 0;
+  --atl-nightcap: 0;
   --atl-fx-dots: 0;
   --atl-fx-q: 0;
   --atl-fx-bang: 0;
@@ -6586,7 +6589,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-offline .atl-figure :is(.atl-sheen, .atl-belly, .atl-rim-head, .atl-rim-body, .atl-rim-limb, .atl-ear-in, .atl-hair-neb) { opacity: 0; }
 #nm-buddy.nmb-offline .atl-figure :is(.atl-core, .atl-tail-core) { opacity: 0.4; }
 .nm-atlas .atl-sparkle { fill: var(--atl-gold); }
-.nm-atlas :is(.atl-z, .atl-mark-ink) { stroke: var(--ink); stroke-width: 1.6; }
+.nm-atlas .atl-mark-ink { stroke: var(--ink); stroke-width: 1.6; }
+/* Round 9: the Zs soft, in the lash colour, rounder than a caption's. */
+.nm-atlas .atl-z { stroke: var(--atl-line); stroke-width: 1.1; opacity: 0.85; }
 .nm-atlas .atl-mark-dot { fill: var(--ink); }
 .nm-atlas .atl-dot { fill: var(--atl-hi); stroke: var(--atl-line); stroke-width: 0.6; }
 .nm-atlas .atl-drop { fill: var(--atl-tear-c); stroke: var(--atl-line); stroke-width: 0.5; }
@@ -6679,6 +6684,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
 .nm-atlas .atl-e-shut { opacity: var(--atl-shut); }
+/* Round 9: the doze (atlas.js, `atl-e-doze`), softer than a shut eye. */
+.nm-atlas .atl-e-doze { opacity: var(--atl-doze); }
+.nm-atlas .atl-doze-line { fill: none; stroke: var(--atl-line); stroke-linecap: round; }
+.nm-atlas .atl-doze-lash { fill: none; stroke: var(--atl-line); stroke-width: 0.7; stroke-linecap: round; opacity: 0.7; }
 .nm-atlas .atl-e-squeeze { opacity: var(--atl-squeeze); }
 .nm-atlas .atl-iris { opacity: calc(1 - var(--atl-hearteye)); }
 .nm-atlas .atl-heart-eye { opacity: var(--atl-hearteye); }
@@ -6690,6 +6699,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-m-laugh { opacity: var(--atl-m-laugh); }
 .nm-atlas .atl-m-o { opacity: var(--atl-m-o); }
 .nm-atlas .atl-m-tinyo { opacity: var(--atl-m-tinyo); }
+.nm-atlas .atl-m-rest { opacity: var(--atl-m-rest); }
 .nm-atlas .atl-m-hmm { opacity: var(--atl-m-hmm); }
 .nm-atlas .atl-m-wavy { opacity: var(--atl-m-wavy); }
 .nm-atlas .atl-m-frown { opacity: var(--atl-m-frown); }
@@ -6699,6 +6709,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-fx-sparkle { opacity: var(--atl-fx-sparkle); }
 .nm-atlas .atl-fx-hearts { opacity: var(--atl-fx-hearts); }
 .nm-atlas .atl-fx-zz { opacity: var(--atl-fx-zz); }
+/* Round 9: the doze's night cap (atlas.js, `atlasNightcap`): night sky
+   with a pale brim and a star at the tip, faded in with the mood. */
+.nm-atlas .atl-nightcap { opacity: var(--atl-nightcap); transition: opacity var(--motion-slow) var(--ease-out); }
+.nm-atlas .atl-cap { fill: var(--atl-violet); }
+.nm-atlas .atl-cap-sheen { fill: none; stroke: var(--atl-neb-c); stroke-width: 0.9; stroke-linecap: round; opacity: 0.55; }
+.nm-atlas .atl-cap-brim { fill: var(--atl-hi); }
+.nm-atlas .atl-cap-star { fill: white; opacity: 0.85; }
+.nm-atlas .atl-cap-tip-glow { fill: var(--atl-tip); opacity: 0.8; }
+.nm-atlas .atl-cap-tip { fill: white; }
 .nm-atlas .atl-fx-dots { opacity: var(--atl-fx-dots); }
 .nm-atlas .atl-fx-q { opacity: var(--atl-fx-q); }
 .nm-atlas .atl-fx-bang { opacity: var(--atl-fx-bang); }
@@ -6709,7 +6728,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail, .atl-star) {
   transition: transform var(--motion-slow) var(--ease-out);
 }
-.nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
+.nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
@@ -6772,10 +6791,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas[data-atlas-mood="sleepy"] {
   --atl-tail: 30deg; --atl-star: 0.35;
   --atl-crest: 10deg;
-  --atl-brow-y: 0.8px; --atl-knit: -3deg; --atl-open: 0; --atl-shut: 1;
-  --atl-m-smile: 0; --atl-m-tinyo: 1; --atl-cheek: 0.3;
+  --atl-brow-y: 0.4px; --atl-knit: -2deg; --atl-open: 0; --atl-doze: 1;
+  --atl-m-smile: 0; --atl-m-rest: 1; --atl-cheek: 0.14;
   --atl-tilt: 7deg; --atl-sx: 1.03; --atl-sy: 0.97;
-  --atl-halo-o: 0.55; --atl-glow: 0.7; --atl-fx-zz: 1;
+  --atl-halo-o: 0.55; --atl-glow: 0.7; --atl-fx-zz: 1; --atl-nightcap: 1;
 }
 .nm-atlas[data-atlas-mood="sad"] {
   --atl-tail: 22deg; --atl-star: 0.5;
@@ -6825,14 +6844,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* What the companion is doing shows on Atlas's face too (avatars.js sets
    these on `#nm-buddy`): asleep, startled, yawning, cheering, carried. */
+/* The companion's own Zs (`.nm-buddy-z`, avatars.js) rise over a sleep, so
+   Atlas's stay off here and only the cap and the face change. */
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-atlas { --atl-nightcap: 1; }
 #nm-buddy.nmb-sleep .nm-atlas {
-  --atl-open: 0; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 1;
+  --atl-open: 0; --atl-happy: 0; --atl-squeeze: 0; --atl-shut: 0; --atl-doze: 1; --atl-cheek: 0.14;
   --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
-  --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 1;
+  --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 0; --atl-m-rest: 1;
   --atl-halo-o: 0.5; --atl-glow: 0.7; --atl-crest: 10deg; --atl-star: 0.35;
 }
 #nm-buddy:is(.nmb-act-startle, .nmb-act-yawn) .nm-atlas {
-  --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-tinyo: 0; --atl-m-hmm: 0;
+  --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-tinyo: 0; --atl-m-rest: 0; --atl-m-hmm: 0;
   --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-o: 1;
 }
 #nm-buddy.nmb-act-startle .nm-atlas { --atl-brow-y: -3.4px; --atl-lid: 0; --atl-eye-s: 1.12; --atl-ps: 0.7; }
@@ -6940,8 +6962,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow 7.7s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
-    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
-    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
+    &[data-atlas-mood="love"].atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
+    &[data-atlas-mood="love"].atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
+    &[data-atlas-mood="sleepy"].atl-layer-fx-1 { animation: atl-z-drift 4.2s ease-in-out infinite; }
+    &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: atl-z-drift 4.2s ease-in-out -2.1s infinite; }
     &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
     #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
     #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
@@ -6974,7 +6998,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &[data-atlas-mood="thinking"] .atl-dot-1 { animation-delay: 0.2s; }
     &[data-atlas-mood="thinking"] .atl-dot-2 { animation-delay: 0.4s; }
     &:is([data-atlas-mood="delighted"], [data-atlas-mood="proud"]) .atl-sparkle { animation: atl-twinkle 1.6s ease-in-out infinite; }
-    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]) .atl-float { animation: atl-rise 2.6s ease-out infinite; }
+    &[data-atlas-mood="love"] .atl-float { animation: atl-rise 2.6s ease-out infinite; }
+    &[data-atlas-mood="sleepy"] .atl-zf { animation: atl-z-drift 4.2s ease-in-out infinite; }
+    &[data-atlas-mood="sleepy"] .atl-zf-1 { animation-delay: -1.4s; }
+    &[data-atlas-mood="sleepy"] .atl-zf-2 { animation-delay: -2.8s; }
     &:is([data-atlas-mood="sad"], [data-atlas-mood="worried"]) .atl-fall { animation: atl-fall 2.4s ease-in infinite; }
     &[data-atlas-mood="confused"] .atl-fx-q { animation: atl-wobble 1.6s ease-in-out infinite; }
     & :is(.atl-late) { animation-delay: -1.3s; }
@@ -7037,8 +7064,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second
        sway slows to 9s with its swish, as every other loop here. */
-    &:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane { animation: none !important; }
-    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
+    &:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, & .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }
+    &[data-atlas-mood="love"].atl-layer-fx-1, &[data-atlas-mood="love"].atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }
 
@@ -7100,6 +7127,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @keyframes atl-think { 0%, 60%, 100% { transform: scale(1); } 25% { transform: scale(1.55); } }
 @keyframes atl-dots { 0%, 100% { opacity: 0.35; } 40% { opacity: 1; } }
 @keyframes atl-twinkle { 50% { transform: scale(0.4) rotate(45deg); opacity: 0.5; } }
+/* Round 9: a Z's breath: up, a sway one way and back, growing a little,
+   fading in and out. Transform and opacity only. */
+@keyframes atl-z-drift {
+  0% { transform: translate(-0.5px, 2px) scale(0.75); opacity: 0; }
+  20% { opacity: 0.95; }
+  50% { transform: translate(1.4px, -3.5px) scale(0.95); }
+  80% { opacity: 0.6; }
+  100% { transform: translate(-0.6px, -9px) scale(1.12); opacity: 0; }
+}
 @keyframes atl-rise {
   0% { transform: translateY(2px) scale(0.7); opacity: 0; }
   25% { opacity: 1; }

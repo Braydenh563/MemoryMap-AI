@@ -30,7 +30,17 @@ two decisions only the owner can take are INBOX 427.
   app.js's menu lands; three CSP "inline style" console warnings on the
   lab come from a style attribute in avatars.js's generated faces; the
   organic body, ribbon tail, strand and heart star await the owner's read
-  of the review card. [atlas-fable]
+  of the review card. A mood's body move (hop, giggle, doze, sway, ponder)
+  runs on the figure box and the Zs and hearts on two roots of their own,
+  so at rest in any mood the figure is 0 layouts and 0 paints
+  (companionperf.js, atlaswalk.js, 2026-09-27); what still animates inside
+  a layer's svg is a mood's small effects (the sparkles of delighted and
+  proud, the thinking dots and node pulses, the sad drops, the confused
+  wobble), which the companion's pacer steps at 20 Hz for as long as that
+  mood lasts, 20 layouts a second. The hook that would end it is the
+  pacer's own (avatars.js `nameMarkBuddyTempo`): skip animations whose
+  target is inside an `.atl-layer` svg and let them run free (a repaint of
+  one 64 by 92 layer, no layout), or pace them at 10 Hz. [atlas-fable]
 - **The companion rides with `ScrollTimeline`** (Chromium 115+, so WebView2);
   WebKitGTK falls back to the script follow. Not driven in either desktop
   window. [companion-426]

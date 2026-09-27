@@ -1450,7 +1450,10 @@ function atlasDrawFigure(mood) {
   //: every step, kick, dangle and pose rule written for a leg group turns
   //: the root instead, on the compositor. Before this the walk's steps
   //: repainted the body layer every frame (atlaswalk.js, 2026-09-26).
-  const names = ["back", "tail", ...(spec.lowers ? ["lower"] : []), "leg-l", "leg-r", "body", "lids", "front"];
+  //: `fx-1` and `fx-2` carry the sleepy Zs and the love hearts (one of
+  //: each per root, the second pair the late one), so their rise is the
+  //: root's and no mood leaves an animation inside a drawing.
+  const names = ["back", "tail", ...(spec.lowers ? ["lower"] : []), "leg-l", "leg-r", "body", "lids", "front", "fx-1", "fx-2"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
@@ -1473,6 +1476,21 @@ function atlasDrawFigure(mood) {
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true));
+  //: The head drew its extras in the body layer; the two that rise (the
+  //: Zs, the hearts) move to their roots, each pair under the wrappers the
+  //: mood shows and hides (`.atl-fx-hearts`, `.atl-fx-zz`).
+  const extras = layers.body.rig.querySelector(".atl-fx");
+  if (extras) {
+    for (const [name, late] of [["fx-1", false], ["fx-2", true]]) {
+      const fx = atlasGroup(layers[name].rig, "atl-fx");
+      for (const cls of ["atl-fx-hearts", "atl-fx-zz"]) {
+        const wrap = atlasGroup(fx, cls);
+        for (const el of [...extras.querySelectorAll(`.${cls} > .atl-float`)]) {
+          if (el.classList.contains("atl-late") === late) wrap.appendChild(el);
+        }
+      }
+    }
+  }
   atlasStarsProp(layers.front.rig);
   for (const { svg } of Object.values(layers)) atlasApply(svg, mood);
   return frag;
@@ -1596,6 +1614,12 @@ document.addEventListener("visibilitychange", () => {
 function atlasApply(svg, mood) {
   const next = ATLAS_MOODS[mood] ? mood : "calm";
   svg.dataset.atlasMood = next;
+  //: The layered figure's box carries the mood too: a mood's body move
+  //: (08-consistency.css, `.atl-figure-box[data-atlas-mood]`) runs on the
+  //: box, one element on the compositor moving every layer together, not
+  //: on the `.atl-mood` group inside each layer's svg.
+  const box = svg.classList.contains("atl-layer") ? svg.parentElement : null;
+  if (box && box.classList.contains("atl-figure-box")) box.dataset.atlasMood = next;
   const name = typeof aiNameNow === "function" ? aiNameNow() : "Atlas";
   const words = ATLAS_MOODS[next].words;
   const title = svg.querySelector(":scope > title");

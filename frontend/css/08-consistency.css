@@ -6147,6 +6147,16 @@ main,
   top: 0;
   overflow: visible;
 }
+/* A mood's body move (a hop, a giggle, a doze, a sway, a ponder) runs on
+   the box: one element, on the compositor, every layer moving together
+   about the feet. On the `.atl-mood` group inside each layer's svg it was
+   stepped by the companion's pacer at 20 Hz, and every step laid the
+   figure out (companionperf.js, 2026-09-27: 20 layouts a second at rest
+   in any mood but calm). The mood is on the box from `atlasApply`. */
+.atl-figure-box { transform-origin: 50% 98%; will-change: transform; }
+/* The Zs and the hearts rise on their own two roots, about where they sit. */
+.nm-atlas.atl-layer-fx-1 { transform-origin: 51px 20px; will-change: transform; }
+.nm-atlas.atl-layer-fx-2 { transform-origin: 40px 14px; will-change: transform; }
 .nm-atlas.atl-layer-body { transform-origin: 31px 90px; will-change: transform; }
 .nm-atlas.atl-layer-tail { transform-origin: 34px 60px; will-change: transform; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
@@ -6173,7 +6183,7 @@ main,
 }
 #nm-buddy:is(.nmb-attend, .nmb-watch) .atl-layer-lids { rotate: calc(var(--nmb-hx) * 5deg); }
 /* Off screen or on a hidden tab, every loop stops. */
-.atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *) { animation-play-state: paused !important; }
+.atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* The shared defs (atlas.js, `atlasDefs`): present, unseen. */
 svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
@@ -6734,7 +6744,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 2.8s ease-in-out infinite; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.5s ease-in-out infinite alternate; }
-    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow) { animation: none; }
+    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
+    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
+    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
     &.atl-layer :is(.atl-juggle-0, .atl-juggle-1, .atl-juggle-2) { animation: none; }
     #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-0 { animation: atl-juggle 1.8s linear infinite; }
     #nm-buddy.nmb-act-juggle &.atl-layer .atl-juggle-1 { animation: atl-juggle 1.8s linear -0.6s infinite; }
@@ -6806,14 +6818,27 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    above, whose selectors out-rank this one; the app-wide kill in
    02-chat-graph.css used to hide that by freezing everything first, and
    now leaves faces and the companion to this block. */
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live.atl-figure-box {
+    &[data-atlas-mood="delighted"] { animation: atl-hop 1.1s ease-in-out infinite; }
+    &[data-atlas-mood="laughing"] { animation: atl-giggle 0.42s ease-in-out infinite; }
+    &[data-atlas-mood="sleepy"] { animation: atl-doze 4.6s ease-in-out infinite; }
+    &[data-atlas-mood="love"] { animation: atl-sway-body 2.4s ease-in-out infinite; }
+    &[data-atlas-mood="confused"] { animation: atl-ponder 2.6s ease-in-out infinite; }
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
+  .nm-live.atl-figure-box {
+    &[data-atlas-mood="delighted"], &[data-atlas-mood="laughing"], &[data-atlas-mood="sleepy"], &[data-atlas-mood="love"], &[data-atlas-mood="confused"] { animation-duration: 9s !important; }
+  }
   .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-1, &:is([data-atlas-mood="love"], [data-atlas-mood="sleepy"]).atl-layer-fx-2 { animation-duration: 9s !important; }
   }
 }
 

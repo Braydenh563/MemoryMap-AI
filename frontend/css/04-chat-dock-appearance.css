@@ -4467,51 +4467,18 @@ span > .chip {
    them by an 11% ink tint alone.
 
    Now the head is one row: the title and its '?' on the left, History and
-   Close on the right, all three the same quiet 28px icon button. The verbs
+   Close on the right, all three the same quiet icon button. The verbs
    are the panel's full width in three equal segments that fill the track;
    an unchosen verb is in the body ink, and the chosen one keeps the
    segmented recipe's fill and ink (no lift: a segment sits in its track,
    INBOX 101) and adds weight and a ring in the accent, so which mode is on
-   reads at a glance without any segment looking switched off. */
-.doc-ai-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-lg);
-}
+   reads at a glance without any segment looking switched off.
 
-.doc-ai-head > h2 {
-  margin: 0;
-  line-height: 1.2;
-}
-
-.doc-ai-head-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: auto;
-}
-
-.doc-ai-card .doc-ai-head-btn.ghost {
-  width: var(--target-min);
-  height: var(--target-min);
-  min-height: 0;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  color: var(--muted);
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  box-shadow: none;
-}
-
-.doc-ai-card .doc-ai-head-btn.ghost:hover,
-.doc-ai-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
-  color: var(--ink);
-  background: var(--chip-bg);
-}
-
+   The head itself is now `.dialog-head`/`.dialog-head-actions`/
+   `.dialog-head-btn` (08-consistency.css): DESIGN.md's "A dialog's head"
+   recipe, rolled out to every modal head that carried a text "Close"
+   instead (INBOX 431 f). This panel keeps only what is specific to it, the
+   verb segments below. */
 .doc-ai-card > #doc-ai-verb {
   display: flex;
   align-self: stretch;

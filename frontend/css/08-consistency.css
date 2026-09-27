@@ -8040,3 +8040,100 @@ input[type="file"]::file-selector-button:hover {
   height: 86%;
   translate: 0 8%;
 }
+
+/* --- A dialog's head: title, its '?', icon-only actions, Close last -------
+   DESIGN.md, "A dialog's head" (INBOX 431 f). The owner named the Documents
+   AI assistant panel's head as the one they like ("I actually really like
+   the design of the document editor's ai assistant popup panel, especially
+   with the design of the close, history, and tooltip buttons") and then
+   asked for it everywhere: every '?', every close (x), every similar
+   icon-only utility button (history, expand, more) app-wide, one shared
+   class set, no per-surface fork.
+
+   `.doc-ai-head` etc. used to live in 04-chat-dock-appearance.css, scoped to
+   `.doc-ai-card` alone; that scoping is exactly the fork this recipe ends.
+   Rolled out here to the panel itself plus the seven other modal-card heads
+   that carried a full-word "Close" button instead of the recipe's icon:
+   Notifications, Earlier versions, Connections, the bin, Keyboard shortcuts,
+   Tools & features and Meeting notes (eight surfaces in all, measured before
+   and after in both themes at 1093x614 with
+   scratchpad/ui-sweeps/dialoghead.js).
+
+   `--dialog-head-btn-size` is its own token, not a reuse of `--target-min`:
+   that token drives layout math (paddings, gutters, dock and row heights) in
+   roughly 150 other rules across the app, so raising its 28px default to
+   clear this recipe's 32px floor would move all of them, most of which this
+   task never touched or measured. This recipe's buttons get their own floor
+   instead, at the same touch breakpoint every other 44px target in the app
+   already steps at. */
+:root {
+  --dialog-head-btn-size: 2rem;
+}
+
+@media (max-width: 819.98px), (pointer: coarse) {
+  :root {
+    --dialog-head-btn-size: 2.75rem;
+  }
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+}
+
+/* On whichever element carries the visible title (`<h2>`, `<h3>`, or a
+   `<strong>` where the surface predates a heading tag, e.g. Notifications):
+   the recipe resets its margin and line-height, not its tag. */
+.dialog-head-title {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.dialog-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+/* Ancestor-scoped to three classes deep on purpose, matching the specificity
+   `.doc-ai-card .doc-ai-head-btn.ghost` held before this moved: a flat
+   `.dialog-head-btn.ghost` (two classes) loses the padding-inline battle to
+   `button.small.icon-only` (00-tokens-shell.css, one type plus two classes,
+   which outranks two classes alone) and comes out squashed. The help button
+   sits directly in `.dialog-head`; History/Close sit in
+   `.dialog-head-actions`; both are covered. */
+.dialog-head-actions > .dialog-head-btn.ghost,
+.dialog-head > .dialog-head-btn.ghost {
+  width: var(--dialog-head-btn-size);
+  height: var(--dialog-head-btn-size);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.dialog-head-actions > .dialog-head-btn.ghost:hover,
+.dialog-head-actions > .dialog-head-btn.ghost[aria-expanded="true"],
+.dialog-head > .dialog-head-btn.ghost:hover,
+.dialog-head > .dialog-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+/* A visible ring, not the hover background alone: several of this app's
+   other icon-only buttons rely on a background swap for focus (e.g.
+   `.entry-actions > button.ghost:focus-visible`), which a low-contrast theme
+   can render nearly invisible. This recipe's own buttons keep the ring. */
+.dialog-head-actions > .dialog-head-btn.ghost:focus-visible,
+.dialog-head > .dialog-head-btn.ghost:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -3118,3 +3118,71 @@ def test_hand_built_option_rows_do_not_multiply() -> None:
     assert counts == HAND_BUILT_OPTION_ROWS, (
         f"a list moved to the rich picker: lower HAND_BUILT_OPTION_ROWS to {counts}"
     )
+
+
+# A dialog's head (DESIGN.md, "A dialog's head"; INBOX 431 f): title, its
+# '?' beside it, then icon-only actions with Close last, all
+# `.dialog-head`/`.dialog-head-actions`/`.dialog-head-btn`. Rolled out to
+# doc-ai (the reference), Notifications, Earlier versions, Connections, the
+# bin, Keyboard shortcuts, Tools & features, Meeting notes, Improve writing
+# and Quick sketch. `settings-close` is the one known holdout, named with its
+# reason below; the set may only shrink.
+DIALOG_HEAD_TEXT_CLOSE_DRIFT = {
+    # Its head is coupled to a width-breakpoint rule keyed on the exact class
+    # this recipe would remove (`#settings-modal > .modal-card > .row.space-`
+    # `between`, 10-responsive.css, "an icon-only chip is still a target");
+    # renaming it without first rewriting that rule would silently break a
+    # measured touch-target fix, so it was left alone rather than risked.
+    "settings-close",
+}
+
+
+def test_a_dialog_head_close_is_the_icon_recipe_not_a_text_button() -> None:
+    """A modal head's Close is the recipe's icon-only ghost X, not a plain
+    word. `skill-run-cancel` and `chat-compress-cancel` are not dialog heads
+    (a form's Cancel and an inline panel's Cancel) and are not counted."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    offenders = set(re.findall(r'<button id="([a-z0-9-]+-close)" class="ghost small">Close</button>', html))
+    unknown = sorted(offenders - DIALOG_HEAD_TEXT_CLOSE_DRIFT)
+    assert unknown == [], (
+        f"{unknown} closes a dialog with a text button instead of the "
+        "dialog-head recipe's icon-only ghost X (DESIGN.md, \"A dialog's head\")"
+    )
+    assert offenders <= DIALOG_HEAD_TEXT_CLOSE_DRIFT, (
+        "a text Close button was fixed: shrink DIALOG_HEAD_TEXT_CLOSE_DRIFT to match"
+    )
+
+
+def test_the_dialog_head_button_recipe_has_one_shared_definition() -> None:
+    """The doc-ai panel's head used to size its buttons with its own
+    surface-scoped rule (`.doc-ai-card .doc-ai-head-btn.ghost`); that fork is
+    exactly what the shared `.dialog-head-btn` recipe replaces, so it must
+    not come back, in doc-ai's file or anywhere else."""
+    for path in CSS:
+        css = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        assert ".doc-ai-head" not in css, (
+            f"{path.name} still styles .doc-ai-head*; the recipe is the shared "
+            ".dialog-head/.dialog-head-actions/.dialog-head-btn (08-consistency.css)"
+        )
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "--dialog-head-btn-size" in consistency
+    assert ".dialog-head-btn.ghost" in consistency, (
+        "the shared dialog-head-btn sizing rule has moved or gone missing"
+    )
+    assert ":focus-visible" in consistency[consistency.index("dialog-head") :], (
+        "the dialog-head recipe lost its visible :focus-visible ring"
+    )
+
+
+def test_every_dialog_head_action_carries_the_recipe_class() -> None:
+    """A button inside `.dialog-head-actions`, or the '?' sitting directly in
+    `.dialog-head`, is unstyled without `.dialog-head-btn`: the shared rule
+    is ancestor-scoped (three classes deep, to outrank
+    `button.small.icon-only`'s padding), so a button that forgets the class
+    renders with the wrong padding and no ring, silently."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for match in re.finditer(r'<span class="[^"]*dialog-head-actions[^"]*">(.*?)</span>', html, re.S):
+        for btn in re.finditer(r"<button\b[^>]*>", match.group(1)):
+            assert "dialog-head-btn" in btn.group(0), (
+                f"a button in a .dialog-head-actions group is missing dialog-head-btn: {btn.group(0)[:80]}"
+            )

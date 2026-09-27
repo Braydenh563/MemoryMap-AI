@@ -1187,6 +1187,50 @@ function paintDashEmblem() {
   renderEmblem(holder, size, { animate: true });
 }
 
+//: **The mark chooses itself where it is** (the owner: "I want to be able to
+//: right click the dashboard widget and be able to change it between atlas,
+//: my own avatar, the dashbaord persona avatar, or the animated app logo").
+//: The same four choices as Appearance, Dashboard mark, and the same write:
+//: the stored choice, the select kept in step, the mark redrawn. The menu is
+//: the recipe's (`openMenuAtPoint`, markdown.js), with a hold as its twin on
+//: touch (`wireLongPress`), like every right-click menu in the app.
+const DASH_MARK_CHOICES = [
+  ["logo", "The app's logo"],
+  ["atlas", "Atlas"],
+  ["me", "Your face"],
+  ["persona", "The greeting's persona"],
+];
+
+function dashMarkMenu(x, y) {
+  const now = typeof appearancePref === "function" ? appearancePref("dash-mark", "logo") : "logo";
+  const items = DASH_MARK_CHOICES.map(([value, label]) => ({
+    label: `${now === value ? "ph:check" : "ph:dot-outline"} ${label}`,
+    title: `Show ${label.toLowerCase()} here`,
+    run: () => {
+      try {
+        localStorage.setItem("dash-mark", value);
+      } catch {
+        // This session only.
+      }
+      const select = document.getElementById("dash-mark");
+      if (select) select.value = value;
+      paintDashEmblem();
+    },
+  }));
+  openMenuAtPoint(items, "Dashboard mark", x, y);
+}
+
+{
+  const holder = document.getElementById("dash-hero-emblem");
+  if (holder) {
+    holder.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      dashMarkMenu(event.clientX, event.clientY);
+    });
+    if (typeof wireLongPress === "function") wireLongPress(holder, (event, point) => dashMarkMenu(point.x, point.y));
+  }
+}
+
 function applyDashDensity(value) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   localStorage.setItem(DASH_DENSITY_KEY, density);

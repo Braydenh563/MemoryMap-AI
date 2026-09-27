@@ -1,0 +1,15 @@
+[
+  {"line": 3080, "title": "(cut) the map board index"},
+  {"line": 3184, "title": "(cut) note card helpers: clamps, file size, favourite, bin with undo"},
+  {"line": 3307, "title": "(cut) entryItem: the note card"},
+  {"line": 4156, "title": "(cut) a note's way to the graph and to Atlas"},
+  {"line": 4195, "title": "(cut) action menus, escaped menus, help popovers"},
+  {"line": 5135, "title": "(cut) connections, history, privacy, titles"},
+  {"line": 5569, "title": "(cut) menu keyboard, menu builders, the note's overflow menu"},
+  {"line": 6170, "title": "(cut) re-evaluate, inline actions, attachments"},
+  {"line": 6595, "title": "(cut) the lightbox"},
+  {"line": 8473, "title": "(cut) selection to note, the pick dialogs"},
+  {"line": 9173, "title": "(cut) the selection popup"},
+  {"line": 9581, "title": "(cut) a note's panels: related, faded, reminders, references"},
+  {"line": 9923, "title": "(cut) the note edit form, categories, linking"}
+]

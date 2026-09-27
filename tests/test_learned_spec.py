@@ -169,6 +169,48 @@ def test_reset_restores_what_the_model_said(ai_client, fake_ollama):
     assert again["text"] == fact["text"] and again["edited_by_user"] is False
 
 
+def _two_claims(ai_client):
+    ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
+    ai_client.post("/entries", json={"content": "The learning rate should stay at 0.001 for now."})
+    ai_client.post("/night/run", json={"budget": 1000})
+    return ai_client.get("/learned?kind=claim").json()["items"]
+
+
+def test_bulk_delete_removes_each_and_remembers_each(ai_client, fake_ollama):
+    """`POST /learned/bulk` (the plan's `{ids, action}`), so the table's
+    selection is one request that lands whole, not N that can half fail."""
+    claims = _two_claims(ai_client)
+    assert len(claims) >= 2
+    ids = [row["id"] for row in claims[:2]]
+    reply = ai_client.post("/learned/bulk", json={"ids": ids, "action": "delete"})
+    assert reply.status_code == 200
+    assert reply.json() == {"action": "delete", "done": 2, "missing": []}
+    left = {row["id"] for row in ai_client.get("/learned").json()["items"]}
+    assert not left & set(ids)
+    kinds = [c["kind"] for c in ai_client.get("/learned/corrections").json()]
+    assert kinds.count("delete_fact") >= 2
+
+
+def test_bulk_reset_puts_back_only_what_was_edited(ai_client, fake_ollama):
+    claims = _two_claims(ai_client)
+    edited, untouched = claims[0], claims[1]
+    ai_client.patch(f"/learned/{edited['id']}", json={"text": "changed by hand"})
+    reply = ai_client.post(
+        "/learned/bulk", json={"ids": [edited["id"], untouched["id"]], "action": "reset"}
+    ).json()
+    assert reply["done"] == 1
+    again = ai_client.get(f"/learned/{edited['id']}").json()
+    assert again["text"] == edited["text"] and again["edited_by_user"] is False
+
+
+def test_bulk_names_what_it_could_not_find_and_refuses_nonsense(ai_client, fake_ollama):
+    claims = _two_claims(ai_client)
+    reply = ai_client.post("/learned/bulk", json={"ids": [claims[0]["id"], 999999], "action": "delete"})
+    assert reply.json()["missing"] == [999999]
+    assert ai_client.post("/learned/bulk", json={"ids": [1], "action": "explode"}).status_code == 422
+    assert ai_client.post("/learned/bulk", json={"ids": [], "action": "delete"}).status_code == 422
+
+
 def test_each_switch_off_yields_no_rows_and_a_paused_reply(ai_client, fake_ollama):
     ai_client.put("/learned/switches", json={"night_shift": False})
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})

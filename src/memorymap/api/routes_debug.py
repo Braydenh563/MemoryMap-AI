@@ -19,6 +19,9 @@ and left in that one, which has no latency budget at all.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -42,6 +45,37 @@ ERROR_TAIL = 20
 _ERROR_LEVELS = frozenset({"ERROR", "WARNING"})
 
 
+def shown_path(path) -> str:  # noqa: ANN001  # a Path or a str
+    """Where a folder is, said without the server's absolute path.
+
+    WORLD_CLASS_PLAN §12, Brief 15 (INBOX 310): this route handed back the
+    full `data_dir` and database path. Harmless behind the unlock gate on
+    localhost; for anyone holding a token once other devices can connect, a
+    map of the server's disk with the account name in it. Settings, About
+    only needs to say where the notebook lives, so a folder under home is
+    `~/...` and anything else is its own name after an ellipsis.
+    """
+    folder = Path(path)
+    try:
+        resolved = folder.resolve()
+        home = Path.home().resolve()
+    except (OSError, RuntimeError):
+        return "\u2026" + os.sep + folder.name
+    if resolved == home:
+        return "~"
+    if resolved.is_relative_to(home):
+        return "~" + os.sep + str(resolved.relative_to(home))
+    return "\u2026" + os.sep + folder.name
+
+
+def _db_name(config) -> str:  # noqa: ANN001
+    """The database file relative to the data folder, never absolute."""
+    try:
+        return str(Path(config.db_path).resolve().relative_to(Path(config.data_dir).resolve()))
+    except (OSError, ValueError):
+        return Path(config.db_path).name
+
+
 @router.get("/health")
 def debug_health(session: Session = Depends(get_session)) -> dict:
     """One page's worth of "is this notebook okay", Settings › About reads
@@ -56,9 +90,30 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
         # process: 0 is the honest answer, not a 500 over a stat() call.
         db_size_bytes = 0
 
+    live = Entry.is_deleted == False  # noqa: E712
     counts = {
-        "entries": session.scalar(
-            select(func.count(Entry.id)).where(Entry.is_deleted == False)  # noqa: E712
+        # Every live row, boards and drafts included: the database's own
+        # number, kept for anything that already reads it.
+        "entries": session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        #: **The three kinds a person would count separately.** Settings,
+        #: About said "96 notes" for a notebook whose dashboard said 44: the
+        #: other 52 were 50 boards and maps (an Entry with `is_board`) and 2
+        #: drafts. The same split the dashboard's own figure uses
+        #: (routes_insights.py), so the two can never disagree again.
+        "notes": session.scalar(
+            select(func.count(Entry.id)).where(
+                live, Entry.is_board == False, Entry.is_draft == False  # noqa: E712
+            )
+        )
+        or 0,
+        "drafts": session.scalar(
+            select(func.count(Entry.id)).where(
+                live, Entry.is_board == False, Entry.is_draft == True  # noqa: E712
+            )
+        )
+        or 0,
+        "boards": session.scalar(
+            select(func.count(Entry.id)).where(live, Entry.is_board == True)  # noqa: E712
         )
         or 0,
         "documents": session.scalar(select(func.count(Document.id))) or 0,
@@ -76,8 +131,8 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
 
     return {
         "app_version": __version__,
-        "data_dir": str(config.data_dir),
-        "db": {"path": str(config.db_path), "size_bytes": db_size_bytes},
+        "data_dir": shown_path(config.data_dir),
+        "db": {"path": _db_name(config), "size_bytes": db_size_bytes},
         "counts": counts,
         "jobs": {"queue_depth": len(running_jobs), "running": running_jobs},
         "latency_ms_by_kind": taskhistory.latency_percentiles(),

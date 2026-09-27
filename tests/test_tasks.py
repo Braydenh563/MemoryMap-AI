@@ -203,7 +203,22 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
 
     monkeypatch.setitem(searxng_manager._start_state, "running", True)
     monkeypatch.setitem(searxng_manager._start_state, "backend", "source")
-    monkeypatch.setitem(searxng_manager._start_state, "since", time.time() - 12)
+    # The route's clock is pinned, not the real one: the full suite once took
+    # over ten seconds between setting `since` and the request landing (a
+    # loaded four-worker run beside three agents' browsers), read 22s, and
+    # failed a 12-to-20 window that had already been widened once for the
+    # same reason. A pinned clock tests the arithmetic, which is the point.
+    import types
+
+    from memorymap.api import routes_tasks
+
+    now = time.time()
+    clock = types.SimpleNamespace(
+        **{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}
+    )
+    clock.time = lambda: now
+    monkeypatch.setattr(routes_tasks, "time", clock)
+    monkeypatch.setitem(searxng_manager._start_state, "since", now - 12)
 
     tasks = client.get("/tasks").json()["tasks"]
     start = [t for t in tasks if t["kind"] == "searxng-start"]
@@ -217,7 +232,7 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     # 90s budget", so assert that, with enough slack to survive a slow machine.
     elapsed = re.search(r"\((\d+)s of 90s\)", start[0]["detail"])
     assert elapsed, start[0]["detail"]
-    assert 12 <= int(elapsed.group(1)) <= 20, start[0]["detail"]
+    assert int(elapsed.group(1)) == 12, start[0]["detail"]
     assert 0 < start[0]["progress"] < 1
     # Quitting a start means stopping the thing being waited for, which is
     # what someone pressing Quit on "Starting SearXNG" means.
@@ -352,3 +367,44 @@ def test_quitting_is_a_post_not_a_get(ai_client):
     """A GET would be reachable from a link in another tab, and "the app quit
     when I clicked something" is a bug report nobody enjoys writing."""
     assert ai_client.get("/shutdown").status_code in (404, 405)
+
+
+def test_quitting_uses_the_launchers_own_close_when_it_registered_one(ai_client, monkeypatch):
+    """The owner: "the quit memorymap button doesnt work anymore", "I cant
+    close the app". In the desktop window SIGINT never reaches the main
+    thread (it sits in the window's event loop), so the desktop launcher
+    registers the tray Quit's close and /shutdown runs that instead."""
+    import threading
+
+    from memorymap.core import quit_hook
+
+    ran = threading.Event()
+    signalled = []
+    monkeypatch.setattr("os.kill", lambda *args: signalled.append(args))
+    quit_hook.set_quit_handler(ran.set)
+    try:
+        assert ai_client.post("/shutdown").json() == {"stopping": True}
+        assert ran.wait(3)
+        assert signalled == []
+    finally:
+        quit_hook.set_quit_handler(None)
+
+
+def test_quitting_falls_back_to_sigint_without_a_registered_close(ai_client, monkeypatch):
+    import signal
+    import threading
+
+    from memorymap.core import quit_hook
+
+    quit_hook.set_quit_handler(None)
+    sent = threading.Event()
+    calls = []
+
+    def fake_kill(pid, sig):
+        calls.append(sig)
+        sent.set()
+
+    monkeypatch.setattr("os.kill", fake_kill)
+    ai_client.post("/shutdown")
+    assert sent.wait(3)
+    assert calls == [signal.SIGINT]

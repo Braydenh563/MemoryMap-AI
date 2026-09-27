@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from memorymap.ai import agent, memory, tools
 from memorymap.core.database import UserPreference
+from tests._app_js import app_js_text
 
 
 # --- the memory stream -----------------------------------------------------------
@@ -269,7 +270,7 @@ def test_the_chat_is_where_a_proposal_is_answered():
     agent_src = Path("src/memorymap/ai/agent.py").read_text(encoding="utf-8")
     assert 'event["proposal"] = result["proposal"]' in agent_src
 
-    app_js = Path("frontend/app.js").read_text(encoding="utf-8")
+    app_js = app_js_text()
     assert "renderMemoryProposal" in app_js
     assert "/answer`" in app_js
     assert "memory-proposal" in app_js

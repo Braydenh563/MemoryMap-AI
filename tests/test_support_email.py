@@ -10,9 +10,10 @@ from pathlib import Path
 
 import memorymap
 from memorymap.ai import help_chat
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+APP = app_js_text()
 SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 

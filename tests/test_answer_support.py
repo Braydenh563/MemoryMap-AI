@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 from memorymap.ai import grounding
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -101,12 +102,71 @@ def test_the_stream_sends_support_beside_the_sentences():
     )
 
 
+# --- a remembered turn keeps its notice ----------------------------------------
+#
+# The live paths carried `support` on the event; the two replay paths read a
+# stored turn and nothing stored it, so the notice appeared when an answer
+# arrived and was gone when the conversation or the Ask history turn was
+# reopened. The fix is on the saved turn, from the same counter, never a
+# second counter in the frontend.
+
+THIN = (
+    "The sourdough starter needs feeding every day with flour and water. "
+    "Bananas are grown in tropical countries a very long way from here. "
+    "Most commercial yeast is produced in enormous industrial fermenters."
+)
+
+
+def _thin_marks():
+    return grounding.ground_answer_sentences(THIN, NOTES)
+
+
+def test_a_saved_conversation_turn_carries_its_support(client):
+    marks = _thin_marks()
+    created = client.post(
+        "/conversations",
+        json={"question": "how do I keep a starter", "answer": THIN, "sentence_grounding": marks},
+    ).json()
+    messages = client.get(f"/conversations/{created['id']}").json()["messages"]
+    assistant = [m for m in messages if m["role"] == "assistant"][-1]
+    assert assistant["support"] == grounding.support(THIN, marks)
+    assert assistant["support"]["low"] is True
+
+
+def test_a_turn_with_no_grounding_carries_no_support(client):
+    created = client.post(
+        "/conversations", json={"question": "hello there", "answer": "Hello."}
+    ).json()
+    messages = client.get(f"/conversations/{created['id']}").json()["messages"]
+    assert "support" not in messages[-1]
+
+
+def test_a_reopened_ask_turn_carries_its_support(client, session):
+    import json
+
+    from memorymap.core.database import AskTurn
+
+    marks = _thin_marks()
+    turn = AskTurn(question="how do I keep a starter", answer=THIN, grounding=json.dumps(marks))
+    session.add(turn)
+    session.commit()
+    body = client.get(f"/ask-history/{turn.id}").json()
+    assert body["support"] == grounding.support(THIN, marks)
+
+
+def test_both_replay_paths_hand_the_support_to_the_renderer():
+    """The frontend's two replay calls pass the stored support through."""
+    source = app_js_text()
+    assert "turn.support || null" in source, "the Ask history replay drops support"
+    assert "message.support || null" in source, "the conversation replay drops support"
+
+
 def test_the_frontend_takes_the_backends_judgement_rather_than_its_own():
     """`renderAnswerSupport` may read `low`; it may not re-derive it.
 
     A number written into app.js is a second threshold, and the two drift.
     """
-    source = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     body = re.search(r"function renderAnswerSupport\(.*?\n\}", source, re.S)
     assert body, "renderAnswerSupport not found"
     assert "support.low" in body.group(0), "the notice must key off the backend's own `low`"

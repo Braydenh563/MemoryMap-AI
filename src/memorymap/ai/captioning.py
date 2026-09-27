@@ -26,6 +26,7 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.ai.vision_ocr import cut_reading_loops
 from memorymap.core import jobs
 
 logger = logging.getLogger("memorymap.captioning")
@@ -219,7 +220,7 @@ def page_caption_text(image_path: Path, index: int, count: int, model: str, olla
                 }
             ],
         )
-        return (reply.get("content") or "").strip()
+        return cut_reading_loops((reply.get("content") or "").strip())
     except Exception:
         # Same reasoning as `caption_text`'s own bare except: one bad page (a
         # render that produced garbage, a model that errors on this specific
@@ -244,7 +245,7 @@ def caption_text(image_path: Path, model: str, ollama) -> str:
             model,
             [{"role": "user", "content": CAPTION_PROMPT, "images": [uri]}],
         )
-        return (reply.get("content") or "").strip()
+        return cut_reading_loops((reply.get("content") or "").strip())
     except Exception:
         # Same reasoning as ocr.extract_text's own bare except: one bad
         # upload (a corrupt file, a model that errors on this specific
@@ -326,4 +327,4 @@ def caption_in_background(upload_id: int, image_path: Path) -> None:
     even more here than for `ocr.extract_in_background`, the upload is
     already done by the time this runs, and there is nothing about it that
     should make the person who just attached a photo wait."""
-    jobs.enqueue("caption", caption_and_store, upload_id, image_path, name=image_path.name)
+    jobs.enqueue("caption", caption_and_store, upload_id, image_path, name=image_path.name, dedupe_key=("caption", upload_id))

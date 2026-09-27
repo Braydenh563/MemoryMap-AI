@@ -231,6 +231,28 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     `${crossRing.label}: ${crossRing.slots.join(", ")}`);
   await page.evaluate(() => wbCloseMapLinkRadial());
 
+  //: MINDMAP_PLAN 13c's leftover: the selected cross-link's bend grip sits on
+  //: its mid-point, in the overlay layer rather than inside the link's own
+  //: group, so a right-click there reached neither the link's menu nor the
+  //: canvas's and did nothing. It is the most natural place on the line to
+  //: right-click, being the thing that is drawn to be grabbed.
+  await page.waitForTimeout(300);
+  const grip = await page.evaluate(() => {
+    const el = document.querySelector("circle.wb-link-bend-handle");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  if (grip) await page.mouse.click(grip.x, grip.y, { button: "right" });
+  await page.waitForTimeout(600);
+  const gripRing = await page.evaluate(() => {
+    const ring = document.getElementById("wb-map-link-radial");
+    return { visible: !ring.classList.contains("hidden"), label: ring.getAttribute("aria-label") || "" };
+  });
+  check("right-clicking the cross-link's bend grip opens the same ring", Boolean(grip) && gripRing.visible && gripRing.label.includes("cross-link"),
+    grip ? `ring ${gripRing.visible}, ${gripRing.label}` : "no bend grip drawn");
+  await page.evaluate(() => wbCloseMapLinkRadial());
+
   // The same ring on the other kind says the other thing.
   const branchRing = await page.evaluate(async (childId) => {
     wbOpenMapLinkRadial(childId, 600, 400);
@@ -249,30 +271,42 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     `${branchRing.label}: ${branchRing.slots.join(", ")}`);
   await page.evaluate(() => wbCloseMapLinkRadial());
 
-  // The two kinds cannot be given each other's look: a cross-link on a map is
-  // drawn in the map's own ink whatever colour the pen was.
-  const inks = await page.evaluate(() => {
+  // **Revised by the owner 2026-09-23** (MINDMAP_PLAN decisions item 6): a
+  // cross-link is now drawn exactly like a branch — `wbMapCrossLinkLook` in
+  // frontend/whiteboard.js hands it the same ribbon/curve geometry, the same
+  // branch colour (its source topic's, falling back to the target's, falling
+  // back to the accent), and no dash. What used to distinguish the two kinds
+  // by ink alone no longer does; the ring and the context-row checks above
+  // are what still tell them apart. Measured (`sw-probe1.js`, kept for the
+  // next time this needs re-checking): crossFill and the source branch's own
+  // edge fill were both `rgb(78, 121, 167)`, neither dashed, and the cross
+  // link's own stroke was `none` because a ribbon fills rather than strokes.
+  const inks = await page.evaluate((childId) => {
     const cross = document.querySelector(".sketch-group.wb-map-crosslink .sketch-path");
-    const branch = document.querySelector(".wb-map-edge");
-    const muted = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+    const ownBranchEdge = document.querySelector(`.wb-map-edge[data-child="${childId}"]`);
+    const anyBranch = document.querySelector(".wb-map-edge");
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
     const probe = document.createElement("div");
-    probe.style.color = muted;
+    probe.style.color = accent;
     document.body.appendChild(probe);
-    const mutedRgb = getComputedStyle(probe).color;
+    const accentRgb = getComputedStyle(probe).color;
     probe.remove();
     return {
+      crossFill: getComputedStyle(cross).fill,
       crossStroke: getComputedStyle(cross).stroke,
       crossDash: getComputedStyle(cross).strokeDasharray,
-      crossStored: JSON.parse((wbState.sketches || []).find((s) => s.id === window.__cross)?.data || "{}").color || null,
-      branchFill: getComputedStyle(branch).fill,
-      branchDash: getComputedStyle(branch).strokeDasharray,
-      mutedRgb,
+      // The source topic's own branch (Leaf 1a's edge, i.e. the child made
+      // above): its colour is what the cross-link is meant to carry.
+      ownBranchFill: ownBranchEdge ? getComputedStyle(ownBranchEdge).fill : null,
+      anyBranchDash: anyBranch ? getComputedStyle(anyBranch).strokeDasharray : null,
+      accentRgb,
     };
-  });
+  }, made.aId);
   show(inks);
-  check("a cross-link is drawn in the map's ink, dashed, whatever the pen held",
-    inks.crossStroke === inks.mutedRgb && inks.crossDash !== "none" && inks.branchDash === "none",
-    `${inks.crossStroke} dashed ${inks.crossDash} against the branch's fill ${inks.branchFill}`);
+  check("a cross-link is drawn like a branch: filled in its own branch's ink, not dashed",
+    inks.crossStroke === "none" && inks.crossDash === "none"
+      && inks.crossFill === inks.ownBranchFill && inks.anyBranchDash === "none",
+    `cross fill ${inks.crossFill} vs branch fill ${inks.ownBranchFill} (accent ${inks.accentRgb}), stroke ${inks.crossStroke}, dash ${inks.crossDash}`);
 
   // The rail's two Connect tools say which kind they make, on each surface.
   const railWords = await page.evaluate(() => ({

@@ -29,7 +29,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WHITEBOARD_JS = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+#: whiteboard.js and whiteboard-map.js joined: the mind map layer moved into
+#: whiteboard-map.js verbatim on 2026-09-24, and the renderer and the
+#: gestures that call into it stayed in whiteboard.js.
+WHITEBOARD_JS = "\n".join(
+    (ROOT / "frontend" / n).read_text(encoding="utf-8") for n in ("whiteboard.js", "whiteboard-map.js")
+)
 INDEX_HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 

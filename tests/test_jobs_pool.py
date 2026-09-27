@@ -203,3 +203,32 @@ def test_every_in_background_helper_enqueues_rather_than_spawning() -> None:
         source = inspect.getsource(helper)
         assert "Thread(" not in source, f"{helper.__name__} still spawns a thread"
         assert "enqueue(" in source, f"{helper.__name__} does not enqueue"
+
+
+def test_a_dedupe_key_keeps_one_job_per_thing_in_flight() -> None:
+    """Owner: "like 4 agent processes started ... the vision captioning and
+    ocr should only happen each once". Two commits of one picture before the
+    first job has stored anything must not queue two jobs."""
+    pool = jobs.Pool({"model": 1}, kind_lanes={"caption": "model"})
+    gate = threading.Event()
+    ran = []
+
+    def work(tag: str) -> None:
+        gate.wait(2)
+        ran.append(tag)
+
+    first = pool.enqueue("caption", work, "a", dedupe_key=("caption", 7))
+    second = pool.enqueue("caption", work, "b", dedupe_key=("caption", 7))
+    other = pool.enqueue("caption", work, "c", dedupe_key=("caption", 8))
+    assert second == first
+    assert other != first
+    gate.set()
+    deadline = time.monotonic() + 3
+    while len(ran) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    time.sleep(0.05)
+    assert sorted(ran) == ["a", "c"]
+    # Once it has finished, the same key may run again (a forced re-read).
+    third = pool.enqueue("caption", work, "d", dedupe_key=("caption", 7))
+    assert third not in (first, other)
+    pool.shutdown()

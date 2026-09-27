@@ -19,8 +19,8 @@
 // structured-cloned, so anything that travels per frame has to be a buffer.
 //
 // In:
-//   {type:"init", nodes:[{id,x,y,fx,fy,r}], edges:[{source,target,kind}],
-//    params:{gravity,spread}, world:{left,top,right,bottom}, alpha, epoch}
+//   {type:"init", nodes:[{id,x,y,fx,fy,r}], edges:[{source,target,kind,score}],
+//    params:{gravity,spread,lengthByScore}, world:{left,top,right,bottom}, alpha, epoch}
 //       Replace the whole simulation. `id` is only used to map the drag/pin
 //       messages below onto array indices; positions travel by index alone.
 //       `epoch` is echoed on every message this run produces: see "Out".
@@ -177,7 +177,17 @@ function tuning(params) {
   const pull = 0.25 + 0.75 * (gravity / 50) ** 3;
   return {
     charge: (-340 * density) / gravityScale,
-    linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * density * spreadScale,
+    //: Length by similarity (the Show switch, on by default): a strong
+    //: relation reads as a short one, 1.3x the base length at a score of 0
+    //: and 0.7x at 1, the same curve the SVG renderer has always used. A
+    //: line with no score keeps the base length. Until INBOX 412 this
+    //: renderer was never sent a score, so the switch did nothing here.
+    linkDistance: (edge) => {
+      const base = (edge.kind === "similar" ? 130 : 80) * density * spreadScale;
+      const score = params && params.lengthByScore === false ? null : edge.score;
+      if (typeof score !== "number" || Number.isNaN(score)) return base;
+      return base * (1.3 - 0.6 * Math.max(0, Math.min(1, score)));
+    },
     pullX: 0.015 * centreScale(nodes.length) * pull,
     pullY: 0.02 * centreScale(nodes.length) * pull,
   };
@@ -331,7 +341,7 @@ self.onmessage = (event) => {
       world = message.world || null;
       const edges = (message.edges || [])
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
-        .map((e) => ({ source: e.source, target: e.target, kind: e.kind }));
+        .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score }));
       const tuned = tuning(message.params);
       simulation = d3
         .forceSimulation(nodes)

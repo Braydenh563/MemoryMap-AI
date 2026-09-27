@@ -72,6 +72,20 @@ one of them and is judged by a count, not by looking at a screenshot.
 Standing order 3: a decision recorded here is not re-opened. A missing one
 becomes an INBOX entry with a one-line recommendation, which is then taken.
 
+- **The default look is Quiet utilitarian; the old default is a palette**
+  (the owner, 2026-09-23, asked against the unslop audit, which found the
+  identity itself to be the tell: indigo accent, purple-blue emblem, lavender
+  pastel page gradient and glass panels by default). Chosen: "go the quiet
+  utilitarian, but also have the editorial paper, technical mono and the
+  current look as ui appearance options". Quiet utilitarian: a neutral warm
+  grey ground with no gradient or blobs, solid panels (glass off unless
+  chosen), one ink-blue accent, tighter spacing; the content is the colour.
+  Editorial paper: off-white paper, strong black type, a single red-orange
+  accent for actions, hairline rules in place of card fills. Technical mono:
+  a cool graphite ground, monospace for metadata and numbers, a green signal
+  accent, square corners. Classic: today's look, kept exactly, as a palette
+  anyone can choose. All four ship light and dark sets, like every palette.
+
 - **A picker that adds to a list is an adder, not a `<select>`** (the owner,
   2026-09-12, on the capture form's "Add to document" box, INBOX 116). A
   `<select>` is the right control for choosing *a* value in a form: it shows
@@ -1098,6 +1112,50 @@ different problem than the list says.
     low-contrast, at 390, 820 and 1440 in light and dark.
 
     Still open: the screenshot set for the owner.
+
+12. **Content gets the screen: built** (2026-09-23, INBOX 392: "the mobile
+    view is still very broken, takes up a lot of the screen"). Gate:
+    `scratchpad/ui-sweeps/phonechrome.js` (chrome at most 25% of the height,
+    content in the top 40%, no sideways scroll, no cut picker, 44px targets,
+    no row drawing over its own text, nothing fixed on the tab bar), PASS at
+    390x844, 768x1024 and 1024x768 in the new default look. Before and after
+    at 390: chat chrome 266 to 170px, notes 206 to 164, the reminders list
+    from y=836 to 188, the library's first card from 407 to 304. The block
+    with its numbers is in HISTORY.md ("Moved from the plans, 2026-09-23").
+
+    **What each surface is for on a phone** (the owner, 2026-09-23: "actually
+    intentionally designing for those resolutions, and not just adapting to
+    them"), which decides what is first on its screen:
+    - Dashboard: see what is due and start something; the greeting, search
+      and the two launch rows, then the widgets.
+    - Notes: find a note and read it; the row is the note (swipe to star or
+      bin, tap to open, ⋯ for the rest), capture is the floating +.
+    - Chat: ask and read the answer; one head row, the transcript, and a
+      composer whose second row is mode, attach and the gear; the model and
+      tools live in the gear's sheet.
+    - Library: find a thing and open it; one head row, the kind chips in
+      one sideways row, cards of three lines.
+    - Timeline: scan what happened when; the table, the floating Today.
+    - Reminders: see what is due and tick it off; the list is the page,
+      adding is the floating + and a sheet.
+    - A board: look and move around; the canvas under one bar, two fingers
+      for the camera, the tool sheet at the foot.
+
+    **Decisions (made here).** Below 600 the status bar is not a bar: Back,
+    Undo and the AI dot move into the header and every other control is a row
+    of the header menu, returning as a bar only for a running job, offline or
+    power saver (this moves the AI dot out of the status bar item 1 left it
+    in, because the bar itself left the screen). A coarse pointer gets the
+    44px floor at every width, not only below 820 (supersedes band 2's
+    tab-strip-only floor; an iPad in landscape is 1024). A form that fills a
+    narrow first screen is a sheet from the list's own filled action (below
+    1100, Reminders). Below 600 a ⋯ menu is an action sheet
+    (`openKebabSheet`); a menu at the pointer stays at the pointer.
+
+    Open: the selection ticks on Library cards and reminder
+    rows draw a 44px box at rest, where a smaller drawn box in a 44px target
+    would read lighter; Settings scrolls sideways in two sections at 768.
+    The list, with ids, is `archive/agent-remaining/phone.md`.
 
 ## Placed from INBOX, 2026-09-09
 

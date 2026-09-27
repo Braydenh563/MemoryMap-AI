@@ -117,6 +117,19 @@ def test_the_activity_log_reads_in_words_not_in_verbs(client, session):
     assert not any("purged" in t or "queried" in t for t in titles), titles
 
 
+def test_an_activity_detail_keeps_its_underscores(client, session):
+    """INBOX 426 (z), image 90: a settings change's record is `key=value`,
+    and the preview ran it through the markdown stripper, which read
+    `_find_` in `['find_contradictions']` as emphasis and sent
+    "disabledtools=['findcontradictions']". A log line is plain text."""
+    client.put("/preferences", json={"disabled_tools": ["find_contradictions"]})
+    client.put("/preferences", json={"notifications_muted_except_reminders": True})
+
+    previews = [item["preview"] for item in _of_kind(client.get("/library").json(), "activity")]
+    assert "disabled_tools=['find_contradictions']" in previews, previews
+    assert "notifications_muted_except_reminders=True" in previews, previews
+
+
 def test_a_chat_is_previewed_by_its_first_question(client, session):
     """You remember what you asked far more often than what the chat ended up
     being called: the same reasoning the conversation sidebar already used,
@@ -413,3 +426,40 @@ def test_the_library_is_behind_the_unlock_gate(client):
     client.post("/auth/setup", json={"password": "a password"})
     client.post("/auth/lock")
     assert client.get("/library").status_code == 401
+
+
+def test_counts_are_totals_and_a_search_reaches_past_the_page(client, session):
+    """INBOX 424: with 400 notes the chip read "Notes 198" and a Library
+    search for the oldest note said "Nothing matching". Each kind still
+    sends its newest `PER_KIND_LIMIT`, but the counts are the real totals,
+    `truncated` says which kinds are cut, and `?q=` filters before the cut,
+    so a search finds a note the first page never carried. A private note's
+    ciphertext is never matched."""
+    from datetime import datetime, timedelta
+
+    from memorymap.api.routes_library import PER_KIND_LIMIT
+
+    start = datetime(2020, 1, 1)
+    for i in range(PER_KIND_LIMIT + 5):
+        session.add(Entry(content=f"filler note {i}", created_at=start + timedelta(minutes=i)))
+    session.add(Entry(content="the oldest zebra crossing", created_at=start - timedelta(days=1)))
+    session.add(Entry(content="zebra secret", is_private=True, created_at=start))
+    for i in range(PER_KIND_LIMIT + 2):
+        session.add(Document(title=f"doc {i}", content="words"))
+    session.commit()
+
+    body = client.get("/library").json()
+    assert body["counts"]["note"] == PER_KIND_LIMIT + 7
+    assert body["overview"]["notes"] == PER_KIND_LIMIT + 7
+    assert body["counts"]["document"] == PER_KIND_LIMIT + 2
+    assert len(_of_kind(body, "note")) == PER_KIND_LIMIT
+    assert body["truncated"]["note"] == PER_KIND_LIMIT + 7
+    assert "chat" not in body["truncated"]
+
+    found = client.get("/library", params={"q": "ZEBRA"}).json()
+    notes = _of_kind(found, "note")
+    assert [n["preview"] for n in notes] == ["the oldest zebra crossing"]
+    assert found["counts"]["note"] == PER_KIND_LIMIT + 7  # totals, not matches
+
+    wild = client.get("/library", params={"q": "100%"}).json()
+    assert _of_kind(wild, "note") == []  # % is literal, not a wildcard

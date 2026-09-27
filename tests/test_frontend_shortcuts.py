@@ -29,9 +29,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from pathlib import Path
-
-APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+from tests._app_js import app_js_text
 
 #: `id: { keys: "Ctrl+Shift+K", label: … }`, the one shape every entry in
 #: DEFAULT_SHORTCUTS uses.
@@ -39,7 +37,7 @@ ENTRY = re.compile(r'^\s*(\w+):\s*\{\s*keys:\s*"([^"]+)"', re.MULTILINE)
 
 
 def _default_shortcuts() -> dict[str, str]:
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("const DEFAULT_SHORTCUTS")
     # The table's closing "};" at the start of a line, every entry inside is
     # indented, so this cannot stop early on a nested object.
@@ -73,7 +71,7 @@ def test_the_agent_bar_does_not_bind_its_own_chord():
     `runShortcut("askAgent")`; a `keydown` listener testing for a modifier
     combination anywhere near the command palette means it has grown one
     back."""
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("--- Global Command Palette")
     region = source[start : start + 4000]
     offenders = [
@@ -91,7 +89,7 @@ def test_the_agent_bar_does_not_bind_its_own_chord():
 def test_every_shortcut_has_an_action():
     """A chord in the table with no branch in `runShortcut` is a key that
     does nothing: and the shortcuts help screen still advertises it."""
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("function runShortcut(")
     # Both spellings the object uses: `quickSketch: openSketch,` and the
     # ES6 shorthand `toggleTheme,`. Matching only the first is what made an

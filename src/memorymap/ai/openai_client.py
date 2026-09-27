@@ -45,7 +45,8 @@ import time
 from collections.abc import Iterator
 from urllib.parse import urlparse, urlunparse
 
-import requests
+# `requests` with redirects held to the configured address (§12, S6).
+from memorymap.ai import provider_http as requests
 
 from memorymap.ai import sampling
 from memorymap.ai.provider import (
@@ -181,9 +182,16 @@ class OpenAICompatClient(Provider):
         if self._catalog is not None and not refresh:
             return self._catalog
         catalog: list[dict] = []
+        #: Whether either endpoint answered at all, a 404 included. Kept apart
+        #: from the catalogue because "nothing is listening" and "listening,
+        #: no models installed" are different facts (WORLD_CLASS_PLAN 283):
+        #: `list_models` raises on the first, so `/models/status` stops
+        #: calling an absent backend running.
+        self._catalog_answered = False
         for url in (f"{self._origin()}/api/v0/models", f"{self.base_url}/models"):
             try:
                 response = requests.get(url, headers=self._headers(), timeout=5)
+                self._catalog_answered = True
                 response.raise_for_status()
                 entries = response.json().get("data") or []
             except (requests.RequestException, ValueError, AttributeError):
@@ -203,7 +211,13 @@ class OpenAICompatClient(Provider):
         size still gets to show it.
         """
         models = []
-        for entry in self._fetch_catalog(refresh=True):
+        catalog = self._fetch_catalog(refresh=True)
+        if not getattr(self, "_catalog_answered", True):
+            raise ProviderError(
+                f"Nothing answered at {self.base_url}. Check the address in "
+                "Settings, Models, and that the server is running."
+            )
+        for entry in catalog:
             model_id = entry.get("id") or entry.get("name")
             if not model_id:
                 continue
@@ -522,11 +536,24 @@ class OpenAICompatClient(Provider):
         for fragment in delta.get("tool_calls") or []:
             if not isinstance(fragment, dict):
                 continue
-            index = fragment.get("index", 0)
+            function = fragment.get("function") or {}
+            index = fragment.get("index")
+            if index is None:
+                #: OpenAI always sends `index`, so this branch never ran
+                #: against it; a looser local server may leave it out (INBOX
+                #: 285). Defaulting to 0 folded every indexless fragment into
+                #: one bucket, so two calls concatenated their arguments into
+                #: one unparseable blob and both were lost. With no index the
+                #: only order there is is arrival: a fragment that opens a
+                #: call (an id or a name) opens the next bucket, and a
+                #: nameless one continues the last bucket opened.
+                if fragment.get("id") or function.get("name") or not buckets:
+                    index = max(buckets) + 1 if buckets else 0
+                else:
+                    index = max(buckets)
             bucket = buckets.setdefault(index, {"id": "", "name": "", "arguments": ""})
             if fragment.get("id"):
                 bucket["id"] = fragment["id"]
-            function = fragment.get("function") or {}
             if function.get("name"):
                 bucket["name"] = function["name"]
             if function.get("arguments"):

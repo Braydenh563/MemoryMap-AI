@@ -27,9 +27,10 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_JS = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+APP_JS = app_js_text()
 DOCUMENTS_JS = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
 
 

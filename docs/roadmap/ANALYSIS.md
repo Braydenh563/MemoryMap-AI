@@ -3751,3 +3751,40 @@ a plainly stated leave-it, and none of it was built.
   declarations for the first two alone. **Not started.** The question is
   which engines are in scope; if it is "the two the launchers ship", the
   honest answer is to write that down and keep the zero.
+
+## Architecture review, 2026-09-24 (INBOX 400, asked for directly)
+
+The owner: "validate or criticise the app's architectural and structural
+decisions to see if there are better alternatives." Measured on the branch
+head, not recalled: 119,486 lines of frontend JS in 14 classic scripts
+(app.js 49,383, whiteboard.js 19,018, documents.js 18,254), 2,894 top-level
+functions in one global namespace, 55,435 lines of CSS in 11 files, 75,733
+lines of Python, 360 test files. Each row: the decision, the verdict, what a
+professional app of this size would do instead, what it costs, and when.
+
+| Decision | Verdict | Better alternative | Cost | When |
+| --- | --- | --- | --- | --- |
+| FastAPI + SQLite (SQLAlchemy, WAL) in one local process | **Keep.** Right for a single-user offline notebook; ARCHITECTURE section 8 and 13 argue it well, and Logseq's database version moved to SQLite for the same reasons | Nothing better; keep FTS5 and the vector table in the same file | none | |
+| Embedding model in-process (sentence-transformers, 774MB resident) | **Change the default.** It is 88% of the running app's memory (104MB without it) | Run it in a child process started on demand and stopped after idle (the job runtime B2 already has the shape), or default to Ollama's `nomic-embed-text` when Ollama is present | M | next PR |
+| No bundler, classic scripts sharing globals | **Keep no-build; change the scripts to ES modules.** The no-build rule is a real strength (no toolchain, readable in the webview). The global namespace is not: 2,894 functions can collide, load order is load-bearing (settings.js, the tour), dead code cannot be found, and tests pin source strings because there is nothing to import | Native ES modules (`<script type="module">`, `import`/`export`), still no build step; lazy `import()` for whiteboard, documents, graph (already lazy-loaded bundles, so the seam exists). Split app.js by surface (notes, chat, ask, reminders, settings shell) as timeline.js was today | L, one surface per PR | after the release |
+| Imperative DOM rendering with helpers (`chip`, `kebabMenu`, `setLabel`), no framework | **Keep, with one addition.** A framework would be a rewrite for little gain here, and the recipe helpers are the design system's teeth | A tiny keyed-list reconciler (the incremental list code, `ROADMAP §85.4`, already half is one) used by every long list, so no list re-renders wholesale | S to M | with the module move |
+| CSS: 11 files, and `08-consistency.css` as an append-only overrides layer | **Change.** An overrides file that later rules patch earlier ones is how specificity fights and dead rules accumulate (two of today's fixes were beaten by an older, more specific rule) | Cascade layers (`@layer tokens, base, components, surfaces, overrides`) with each component's rules in one place; move each 08 block back into the file of the component it fixes as it is touched; a lint that `08` only shrinks | M, incremental | ongoing, one surface at a time |
+| Tests that assert on source text (a string must appear in whiteboard.js) | **Change gradually.** They catch regressions a DOM-less suite cannot, but they break on refactors that keep behaviour (today's `wbKeepMenuBesideBar` and timeline split both tripped them) | Behaviour tests through Playwright for UI contracts (the sweeps already exist; promote the stable ones to a `-m ui` pytest group run in CI), source-text tests only for lints | M | alongside the modules |
+| Sweeps in `scratchpad/ui-sweeps/` (540 files) outside CI | **Change.** The evidence that fixes hold lives in files CI never runs | A curated `ui` suite (the 20 sweeps that matter, deterministic seeds) in CI's E2E job | S | next PR |
+| Launchers (`start.bat`/`.sh`) that git-pull, build the venv and self-repair | **Keep for source installs.** Verified end to end today (off, stable, main, a newer tag) | The packaged installer is the product for non-developers; the launchers stay the developer path | none | |
+| Windows packaging (PyInstaller, MSI steps `if: false`) | **Finish one format.** Two half-shipped installers are worse than one | Ship the .exe (Inno/NSIS) with the in-app updater (tested: host allow-list, redirects, truncation); drop MSI until someone asks | S | next PR |
+| Agent tools and prompt budget (PROSE_BUDGET_CHARS, a trimmed tool list per window) | **Keep.** Measured, tested, and tuned for 3B models, which is the honest constraint | Move the tool registry's descriptions to data the budget test can size per model | S | later |
+| Event log (B1) and job runtime (B2) as the backend's spine | **Keep, and finish B2.** Every background feature (captions, OCR, the night shift) wants durable, resumable jobs | Finish B2's second half before any new background feature | M | before H1 |
+
+**The three that matter most, in order.** (1) The embedding model out of the
+main process: the single largest cost a user feels (memory, and start-up on
+a laptop), for a contained change. (2) ES modules, surface by surface: every
+future feature is cheaper and every refactor safer once the namespace is
+real; today's timeline split is the template. (3) Cascade layers and folding
+`08-consistency.css` back into its components: the visual inconsistencies the
+owner keeps finding are partly this file's shape, patches on patches.
+
+**What is already better than the usual alternative** and should be
+defended: the no-build frontend, SQLite as the one store, the prompt budget
+discipline, the lint suite that turns every past mistake into a failing test,
+and the rule that a number shown to the user is measured.

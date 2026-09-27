@@ -54,7 +54,21 @@ def model_error_message(model: str, error: Exception) -> str:
 
 # The persona is WHO the assistant is; the grounding is non-negotiable
 # and survives any persona swap, answers always come from the notes.
-DEFAULT_PERSONA = f"You are {AI_NAME}, this notebook's librarian."
+#: **A character, not a job title** (the owner, 2026-09-23 night: "for the
+#: more atlas personality, I was thinking of the persona?? not just 'you are
+#: a librarian' yk??"). Four traits, each one that also does work: warm (the
+#: default style already asks it), curious about connections (what a
+#: notebook's AI is for), plain-spoken (small models ramble), and honest
+#: about gaps, which restates the grounding rule in the persona's own voice
+#: so a swapped-in style cannot talk it out of it. About 55 tokens, paid on
+#: every round; `PROSE_BUDGET_CHARS` rose by that much, for this, and the
+#: 4,096-token overhead test that actually decides whether a 3B model works
+#: still passes unchanged.
+DEFAULT_PERSONA = (
+    f"You are {AI_NAME}, the librarian of this notebook: warm, curious and a "
+    "little witty. You know these notes well, love spotting how they connect, "
+    "speak plainly, and say so when the notes don't know."
+)
 GROUNDING = (
     "Answer the user's question in plain English using ONLY the notes "
     "provided. If the notes don't answer the question, say so honestly."
@@ -173,10 +187,69 @@ def fill_ai_name(prompt: str) -> str:
 
 # The user's communication-style preference tweaks the tone.
 STYLE_HINTS = {
-    "friendly": "Be warm and conversational. Keep it brief.",
+    #: A little character, asked for by the owner ("give atlas a tinsy
+    #: little bit more personality"), spent here rather than on the persona:
+    #: the persona is capped and the prose budget full (ai/__init__.py), and
+    #: this is the default style, so it reaches every default chat for one
+    #: clause. Curiosity about links is the trait because it is also useful.
+    "friendly": (
+        "Be warm and conversational, a little curious, and mention a link "
+        "between notes when you spot one. Keep it brief."
+    ),
     "concise": "Be as brief as possible, bullet points are fine.",
     "detailed": "Be thorough: mention every relevant note and add context.",
 }
+
+
+#: **The local profile's share of the system prompt, capped.** Settings > Your
+#: profile holds a display name and a short "About me", and both reach the
+#: model through `profile_context` below, in the system message beside the
+#: persona and the tools guide. That message is resent on every round of every
+#: turn, so its worst case is fixed here rather than left to whatever someone
+#: pastes: the API accepts 2,000 characters of about text (older profiles were
+#: written against that ceiling and must still save), the prompt reads the
+#: first 600. `tests/test_user_profile_context.py` holds the whole context to
+#: a quarter of `agent.PROSE_BUDGET_CHARS` at most.
+PROFILE_ABOUT_CAP_CHARS = 600
+PROFILE_NAME_CAP_CHARS = 60
+#: The framing sentences plus both caps and the ellipsis a cut adds.
+PROFILE_CONTEXT_MAX_CHARS = PROFILE_ABOUT_CAP_CHARS + PROFILE_NAME_CAP_CHARS + 60
+
+
+def profile_context(name: str | None, about: str | None) -> str:
+    """What the model is told about the person, as one line of plain text.
+
+    Whitespace is collapsed because this sits inside a single system sentence
+    run, where a pasted paragraph break would read to a small model as the end
+    of its instructions. Framed as a description ("In their own words: ...")
+    rather than handed over bare, because the text is the user's own and is
+    context about them, never a source of instructions.
+    """
+    clean_name = " ".join(str(name or "").split())[:PROFILE_NAME_CAP_CHARS].strip()
+    clean_about = " ".join(str(about or "").split())
+    if len(clean_about) > PROFILE_ABOUT_CAP_CHARS:
+        clean_about = clean_about[:PROFILE_ABOUT_CAP_CHARS].rstrip() + "…"
+    parts = []
+    if clean_name:
+        parts.append(f"Their name is {clean_name}.")
+    if clean_about:
+        parts.append(f"In their own words: {clean_about}")
+    return " ".join(parts)
+
+
+def profile_from_config(config) -> str:
+    """The profile context for this notebook, or "" while the switch is off.
+
+    One switch governs everything the model reads about the person, the name
+    included: "Let Atlas use this profile" is the promise, and a name that
+    reached the prompt with the switch off would break it.
+    """
+    if not config.get_preference("profile_enabled", False):
+        return ""
+    return profile_context(
+        config.get_preference("display_name", ""),
+        config.get_preference("user_profile", ""),
+    )
 
 
 def length_hint(mode: str | None) -> str:
@@ -320,6 +393,13 @@ def build_conversational_messages(
         user_message["images"] = images
     messages.append(user_message)
     return messages
+
+
+def _written_hint(note: dict) -> str:
+    """" (written Tuesday 22 September 2026)", or "" when the caller did not
+    date the note. See the comment where `build_messages` uses it."""
+    written = str(note.get("written") or "").strip()
+    return f" (written {written})" if written else ""
 
 
 def _match_info_hint(match_info: dict | None) -> str:
@@ -467,6 +547,12 @@ def build_messages(
         # though it did is telling the user their search found something it
         # did not.
         f"{i}. [{note['category']}]"
+        # The day the note was written, when the caller knows it matters: a
+        # note that says "tonight" means the night it was written, and a
+        # model that cannot see that date reads it as tonight (the weekly
+        # digest, reported 2026-09-23). Optional, so every other caller's
+        # prompt is exactly what it was.
+        f"{_written_hint(note)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "

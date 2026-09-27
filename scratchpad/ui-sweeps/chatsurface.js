@@ -105,23 +105,32 @@ const blurOf = (shadow) => {
     // The bubble: ask with no model behind it; the error path still builds the box.
     runShortcut && runShortcut('askAgent');
     await new Promise((r) => setTimeout(r, 300));
-    // Read synchronously: with no model behind the sandbox the request fails
-    // within a frame, and the live state only exists between the call and
-    // its first await, which is after the bubble has been built.
+    //: **Revised for INBOX 187.** This used to read `is-streaming`
+    //: synchronously right after calling `cmdPaletteAsk`, on the theory that
+    //: the class went on the moment the request started and came off only
+    //: once it settled. It no longer does, on purpose: the owner's report
+    //: was the caret showing over the three-dot "waiting" animation before
+    //: any text had arrived, and the fix (app.js, `onAnswer`) moved
+    //: `is-streaming` onto the box's *first delta*, not before the request.
+    //: A sandbox with no model behind it never produces a delta, so the
+    //: class correctly never appears here at all -- asserting it did was
+    //: asserting the bug back in. What this can still guard, without a real
+    //: streaming model (CLAUDE.md's standing caveat): the class is absent
+    //: while only waiting, and does not linger after the turn errors out.
     const p = cmdPaletteAsk('probe');
     const box = document.querySelector('#command-palette-results .msg.assistant .bubble-answer');
     out.answerBox = !!box;
-    out.streamingWhileLive = !!box && box.classList.contains('is-streaming');
+    out.streamingWhileWaiting = !!box && box.classList.contains('is-streaming');
     await p.catch(() => {});
     await new Promise((r) => setTimeout(r, 300));
     out.streamingAfter = !!box && box.classList.contains('is-streaming');
     return out;
   });
   console.log(`161 badge       justify ${palette.badge.justify}, span text-overflow ${palette.badge.spanOverflow}, clipped-without-ellipsis ${palette.badge.clipped && palette.badge.spanOverflow !== 'ellipsis'}`);
-  console.log(`161 palette     answer box ${palette.answerBox}, is-streaming while live ${palette.streamingWhileLive}, after ${palette.streamingAfter}`);
+  console.log(`161 palette     answer box ${palette.answerBox}, is-streaming while waiting (no delta yet) ${palette.streamingWhileWaiting}, after ${palette.streamingAfter}`);
   if (palette.badge.justify !== 'flex-start') bad.push('badge text not left-aligned');
   if (palette.badge.spanOverflow !== 'ellipsis') bad.push('badge label has no ellipsis');
-  if (!palette.answerBox || !palette.streamingWhileLive || palette.streamingAfter) bad.push('palette answer box or caret class wrong');
+  if (!palette.answerBox || palette.streamingWhileWaiting || palette.streamingAfter) bad.push('palette answer box missing, or the caret class showed before a first token (INBOX 187) or lingered after');
 
   // 151: the Continue pill on the dashboard.
   await page.evaluate(() => switchTab('dashboard'));

@@ -353,3 +353,34 @@ def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch
     woken.clear()
     client.put("/preferences", json={"display_name": "unrelated change"})
     assert woken == []
+
+
+def test_the_avatar_style_round_trips_and_refuses_anything_but_names(client):
+    # The owner: "what if i dont like how the avatar it looks on my name??"
+    # A shuffle (`variant`) and per-part overrides, saved with the profile.
+    style = {"variant": 3, "mood": "happy", "hair": "bob", "outfit": "hoodie", "hat": "none", "eyewear": "", "hand": "controller", "look": "feminine", "skin": "tan", "hairtone": "chestnut"}
+    assert client.put("/preferences", json={"avatar_style": style}).status_code == 200
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got == style
+    # Only short lower-case words: nothing a style value could smuggle into
+    # the SVG it names a part of.
+    for bad in ({"mood": "<script>"}, {"hair": "x" * 30}, {"variant": -1}, {"variant": 100000}):
+        assert client.put("/preferences", json={"avatar_style": bad}).status_code == 422, bad
+
+
+def test_a_retired_avatar_part_is_dropped_on_write_and_on_read(client):
+    # INBOX 426 w (90.png, 73.png): a style saved before the rude gesture
+    # was taken out still carried hand "middlefinger", and Your look's
+    # Holding select showed empty (a value none of its options has). A
+    # retired part is dropped when a style is saved, and when one already
+    # saved is read back, so the face draws its name's own and the picker
+    # reads "From your name".
+    put = client.put("/preferences", json={"avatar_style": {"hand": "middlefinger", "mood": "happy"}})
+    assert put.status_code == 200
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got["hand"] == "" and got["mood"] == "happy"
+    # One stored before this, straight in the preferences, with a key that
+    # is no part and a value that is no word: only the parts come back.
+    deps.get_config().set_preference("avatar_style", {"hand": "middlefinger", "hair": "bob", "junk": "x", "mood": "Bad Value"})
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got == {"hair": "bob"}

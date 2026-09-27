@@ -28,6 +28,18 @@
 //     radius it keeps, and whether the app chrome is still laid out behind it.
 //
 // Nothing here is a screenshot. Every line is a number off the live DOM.
+// The corner select is an enhanced one (its native `<select>` is hidden behind
+// `.select-opener`) and sits in the Minimap fold, closed by default, so
+// Playwright's selectOption waits 30s for a control nobody can see and the
+// sweep died there. The value is what is under test, so it is set the way the
+// enhanced opener sets it: the value, then a change event.
+async function setMinimapCorner(page, value) {
+  await page.evaluate((v) => {
+    const sel = document.getElementById("graph-minimap-corner");
+    sel.value = v;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
 const { boot } = require("./lib.js");
 
 const round = (n) => Math.round(n * 10) / 10;
@@ -634,12 +646,12 @@ const check = (ok, what) => {
   drives.hideUnlinked = nodesAfter <= nodesBefore;
   await page.click("#graph-hide-orphans");
   await page.waitForTimeout(2500);
-  await page.selectOption("#graph-minimap-corner", "br");
+  await setMinimapCorner(page, "br");
   await page.waitForTimeout(400);
   drives.minimapCorner = await page.evaluate(() =>
     document.getElementById("graph-minimap").classList.contains("graph-minimap-br")
   );
-  await page.selectOption("#graph-minimap-corner", "tl");
+  await setMinimapCorner(page, "tl");
   await page.waitForTimeout(300);
   // Gravity and Spread have nothing to act on under a tree layout, so the
   // whole Physics section dims. `#graph-physics` moved from a span inside the

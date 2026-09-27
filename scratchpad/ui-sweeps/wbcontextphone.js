@@ -99,13 +99,14 @@ async function newBoard(page, name) {
 
   const shown = rows.filter(([, r]) => !r.hidden);
   const phone = VW < 600;
-  const ys = new Set(shown.map(([, r]) => r.bar.y));
+  // A bar pinned to the foot is held by its bottom edge (bars differ in height).
+  const ys = new Set(shown.map(([, r]) => (r.anchor === "bottom" ? `foot ${r.bar.y + r.bar.h}` : r.bar.y)));
   const covering = shown.filter(([, r]) => r.overSelection > 0);
   const onChrome = shown.filter(([, r]) => r.overRail > 0 || r.overTopBar > 0);
 
   ok("the bar appears for all ten selections", shown.length === rows.length, `${shown.length} of ${rows.length}`);
   ok(`every selection gets the ${phone ? "pinned" : "floating"} placement`,
-    shown.every(([, r]) => r.anchor === (phone ? "top" : "float")),
+    shown.every(([, r]) => (phone ? ["top", "bottom"].includes(r.anchor) : r.anchor === "float")),
     [...new Set(shown.map(([, r]) => r.anchor))].join(","));
   ok("it never leaves the canvas", shown.every(([, r]) => r.inside),
     shown.filter(([, r]) => !r.inside).map(([l]) => l).join(",") || "all inside");
@@ -116,10 +117,11 @@ async function newBoard(page, name) {
   ok("it never sits on the rail or the top bar", onChrome.length === 0,
     onChrome.map(([l, r]) => `${l} rail ${r.overRail}px2 top ${r.overTopBar}px2`).join(", ") || "0px2 on all ten");
   if (phone) {
-    ok("all ten are in the same place", ys.size === 1, `tops ${[...ys].join(",")}`);
-    // The recorded cost of pinning, not a failure: a selection in the top
-    // band is under it.
-    console.log(`cost of pinning: ${covering.length} of ${shown.length} selections are under the band  ${covering.map(([l, r]) => `${l} ${r.overSelection}px2`).join(", ") || "none"}`);
+    // Two fixed places, the top of the canvas and the foot above the rail:
+    // the foot only for a selection the top band would cover.
+    ok("it is pinned to one of two places", ys.size <= 2, `tops ${[...ys].join(",")}`);
+    ok("it never covers the item it is editing", covering.length === 0,
+      covering.map(([l, r]) => `${l} ${r.overSelection}px2`).join(", ") || "0px2 on all ten");
   } else {
     ok("it never covers the item it is editing", covering.length === 0,
       covering.map(([l, r]) => `${l} ${r.overSelection}px2`).join(", ") || "0px2 on all ten");

@@ -150,6 +150,20 @@ def delete_space(space_id: str, session: Session = Depends(get_session)):
         document_ids = [d.id for d in rows(Document).all()]
         entry_ids = [e.id for e in rows(Entry).all()]
         bookmark_ids = [b.id for b in rows(Bookmark).all()]
+        reminder_ids = [r.id for r in rows(Reminder).all()]
+
+        # Every delete below is a query-level statement, which the search
+        # index's flush hook never sees; without this the space's notes,
+        # documents and reminders stayed findable from All spaces after the
+        # space itself was gone (measured, tests/test_search_engine.py).
+        from memorymap.search import index as search_index
+
+        for model, ids in (
+            (Attachment, attachment_ids), (MediaUpload, upload_ids),
+            (Document, document_ids), (Entry, entry_ids),
+            (Bookmark, bookmark_ids), (Reminder, reminder_ids),
+        ):
+            search_index.forget(session, model, ids)
 
         # The unscoped side tables: no workspace column of their own, only a
         # foreign key into a row that is about to go. Each is the table a

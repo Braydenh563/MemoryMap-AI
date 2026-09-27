@@ -394,6 +394,40 @@ def get_entry(session: Session, entry_id: int) -> Entry | None:
 #: concerned: the composer's poller stops on anything that is not `pending`.
 AUTO_FILED = "auto"
 
+#: Who moves a note when the auto-filer does (capture's background filing,
+#: adding context, re-evaluation). Its own actor rather than the person's, so
+#: the History sheet says the AI filed it and `POST /events/undo` can put back
+#: exactly the filer's moves. `autonomous.py`'s librarian keeps its own.
+FILING_ACTOR = "system:filing"
+
+
+@events.writes("entry", "filed")
+def record_filing(session: Session, entry: Entry, category_name: str) -> bool:
+    """File a note where the AI decided, as an event the filer owns.
+
+    Returns whether the category changed. No change, no event: a re-evaluation
+    that agrees with the current category is not news. The three filing
+    paths used to set `category_id` by hand, one with no event at all and two
+    with an `edited` event carrying no values and the person's name, so a
+    note's History could not rebuild the category it had between capture and
+    now, and "undo auto-filing" had nothing to find.
+    """
+    category = get_or_create_category(session, category_name)
+    if category.id == entry.category_id:
+        return False
+    before = entry.category_id
+    entry.category_id = category.id
+    log_action(
+        session,
+        "filed",
+        "entry",
+        entry.id,
+        f"filed under {category_name}",
+        payload={"before": {"category_id": before}, "after": {"category_id": category.id}},
+        actor=FILING_ACTOR,
+    )
+    return True
+
 
 def update_entry(
     session: Session,
@@ -849,6 +883,12 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
                     attachment.id,
                     type(exc).__name__,
                 )
+    # The search index hangs off the ORM flush, and the two DELETEs here are
+    # statements the flush never sees, so their rows are taken out by hand.
+    from memorymap.search import index as search_index
+
+    search_index.forget(session, Attachment, [a.id for a in attachments])
+    search_index.forget(session, Entry, ids)
     session.execute(delete(Attachment).where(Attachment.entry_id.in_(ids)))
     session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_(ids)))
     session.execute(

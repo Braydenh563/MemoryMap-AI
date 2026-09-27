@@ -1,10 +1,11 @@
 """The notebook's AI.
 
 `AI_NAME` is the one place the assistant's name is written down (INBOX 225).
-It is a **theme, not a persona**: one clause at the head of the prompts that
-speak as the app, and nothing else. No backstory, no tone instructions, no
-"you are helpful and friendly". The reasons are the same two this project
-keeps running into:
+It began as a **theme, not a persona**: one clause and nothing else. The
+owner revised that on 2026-09-23 ("I was thinking of the persona?? not just
+'you are a librarian'"), so the default persona is now one sentence of
+character (`librarian.DEFAULT_PERSONA`), capped at 240 characters by
+`tests/test_ai_name.py`. Still no backstory, for the same two reasons:
 
 * Every character of persona is resent on every round of every turn and is
   never trimmed to fit the window (`agent.PROSE_BUDGET_CHARS`), so a

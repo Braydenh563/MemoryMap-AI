@@ -28,9 +28,14 @@ const CASES = [
   ['# H1 heading', 'H1 heading'],
   ['Some **bold** and *em* and ~~struck~~ and `code`.', 'Some bold and em and struck and code.'],
   ['> a block quote', 'a block quote'],
-  ['- a bullet', '- a bullet'],
+  // A dash is drawn as a bullet while the caret is elsewhere
+  // (`DocBulletWidget` in documents.js): one character standing in for one,
+  // so the marker is still there, just not as the character that was typed.
+  // These two expectations predated that widget and failed against every
+  // head since it landed.
+  ['- a bullet', '\u2022 a bullet'],
   ['1. a number', '1. a number'],
-  ['- [ ] a task', '-  a task'],
+  ['- [ ] a task', '\u2022  a task'],
   ['---', ''],
   ['==highlighted== and [[wikilink]] and [label](/path).', 'highlighted and wikilink and label.'],
 ];

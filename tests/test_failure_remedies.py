@@ -104,6 +104,9 @@ def test_requirements_txt_lists_every_extras_package():
         # reader to `pip install` it would be the "offering what the app
         # cannot do" shape INBOX 272 part 1 explicitly rules out.
         if not extra.unavailable
+        #: A download extra (Pyodide, needle) is a pinned file, not a pip
+        #: package, so it has no `pip install` line to drift from.
+        and getattr(extra, "kind", "pip") == "pip"
         for package in extra.packages
         # Case-sensitive: pip package names in the comment are written
         # exactly as `pip install` would take them, same as `extra.packages`.

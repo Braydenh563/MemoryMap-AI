@@ -82,6 +82,16 @@ def test_the_endpoint_is_fast_because_scores_are_precomputed(ai_client):
     for i in range(500):
         ai_client.post("/entries", json={"content": f"idea {i} about topic {i % 20}"})
     ai_client.post("/resurface/compute")
+    # The embedding warm-up thread (ai/embeddings.py `start_warmup`) backfills
+    # the 500 notes and builds the vector matrix in the background, and while
+    # it runs it holds the GIL in long stretches: the first read then measured
+    # 75 to 170ms against 12 to 25ms once it had finished. That is the
+    # warm-up's cost, not this endpoint's, so the clock starts after it.
+    import threading
+
+    for thread in threading.enumerate():
+        if thread.name == "embedding-warmup":
+            thread.join(timeout=30)
     start = time.perf_counter()
     reply = ai_client.get("/resurface")
     elapsed = time.perf_counter() - start

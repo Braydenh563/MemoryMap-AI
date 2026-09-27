@@ -58,6 +58,9 @@ a = Analysis(
         # every install stays on the pre-Alembic additive-only path.
         (str(MIGRATIONS_DIR), "migrations"),
         (str(ALEMBIC_INI), "."),
+        # The About panel's release notes, read from the bundle root when
+        # frozen (api/app.py `/changelog`); the Windows spec says more.
+        (str(REPO_ROOT / "CHANGELOG.md"), "."),
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at
@@ -87,6 +90,13 @@ a = Analysis(
         # PyInstaller's analysis has been seen to miss.
         "multipart",
         "bcrypt",
+        # Reached only through searxng_manager's importlib facade, so the
+        # analysis cannot see them; the Windows spec had them after a real
+        # support bundle showed the ModuleNotFoundError, this one never did.
+        "memorymap.search.searxng_settings",
+        "memorymap.search.searxng_docker",
+        "memorymap.search.searxng_install",
+        "memorymap.search.searxng_process",
     ],
     hookspath=[],
     hooksconfig={},

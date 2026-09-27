@@ -40,7 +40,7 @@ class BookmarkUpdate(BaseModel):
 #: host with no scheme at all ("google.com") is not on this list because it
 #: never reaches it, see below.
 ALLOWED_URL_SCHEMES = ("http", "https", "mailto", "tel")
-#: Same shape as the scheme frontend/app.js's `safeHref()` looks for
+#: Same shape as the scheme frontend/notes-list.js's `safeHref()` looks for
 #: (`^[a-z][a-z0-9+.-]*:`): anything before the first colon that reads as a
 #: URI scheme, case-insensitively.
 _SCHEME_RE = re.compile(r"^([a-z][a-z0-9+.-]*):", re.IGNORECASE)

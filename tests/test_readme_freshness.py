@@ -86,3 +86,18 @@ def test_every_screenshot_the_readme_shows_is_on_disk() -> None:
         "Show them in the README or delete them; an unshown capture is one "
         "nothing keeps up to date."
     )
+
+
+def test_every_installable_extra_is_named_in_the_readme() -> None:
+    """The Packages list in the README names what Settings offers: each
+    extra's name in its label's brackets ("Run Python files (Pyodide)"). An
+    extra added to `core/extras.py` fails this until the README says so; one
+    that is not ready to install yet is not claimed."""
+    from memorymap.core import extras
+
+    for extra in extras.EXTRAS:
+        if extra.unavailable:
+            continue
+        name = re.search(r"\(([^)]+)\)\s*$", extra.label)
+        assert name, f"{extra.id}'s label has no bracketed name"
+        assert f"({name.group(1)}" in README, f"the README's Packages list does not name {name.group(1)}"

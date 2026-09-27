@@ -33,6 +33,27 @@ async function openRing(page, id) {
   await page.waitForTimeout(400);
 }
 
+// The ring is a pie menu (ccd1b48): every slot's own box is the whole ring's
+// square (clip-path only clips the paint), so `page.click("#id")`, which
+// clicks the centre of that box, now clicks the hole where the topic sits
+// and times out ("subtree intercepts pointer events") instead of landing on
+// the slot. Click the middle of the slot's own wedge instead, from
+// `_sector` (wbFitMapRadialBand) and the ring's own rect (width:0 height:0,
+// positioned at the ring's centre).
+async function clickRadialSlot(page, id) {
+  const pt = await page.evaluate((slotId) => {
+    const el = document.getElementById(slotId);
+    const s = el?._sector;
+    const ring = el?.closest(".wb-map-radial");
+    if (!s || !ring) return null;
+    const o = ring.getBoundingClientRect();
+    const mid = (s.inner + s.outer) / 2;
+    return { x: o.left + mid * Math.cos(s.at), y: o.top + mid * Math.sin(s.at) };
+  }, id);
+  if (!pt) throw new Error(`${id} has no _sector (the ring is not open, or wbFitMapRadialBand did not run)`);
+  await page.mouse.click(pt.x, pt.y);
+}
+
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok) });
   console.log(`${ok ? "PASS" : "FAIL"}  ${label}${detail ? "  " + detail : ""}`);
@@ -81,8 +102,12 @@ const liveSections = () =>
   // map itself. `mapplaces.js` is the sweep that gates that split.
   check("a map gains its own topic and layout sections",
     map.includes("Topics") && map.includes("Layout"), JSON.stringify(map));
-  check("move, connect and edit stay shared",
-    map.includes("Select and move") && map.includes("Connect") && map.includes("Edit"));
+  // "Connect" is a map's own "Cross-link" now (wbSyncConnectWords, one
+  // vocabulary for the dock's section and the ring's own slot, 7d8b741):
+  // the section itself, found by its `link-straight` button, survives the
+  // split, only its label and aria-label change on a map board.
+  check("move, cross-link and edit stay shared",
+    map.includes("Select and move") && map.includes("Cross-link") && map.includes("Edit"), JSON.stringify(map));
 
   const tool = await page.evaluate(() => {
     wbSelectToolRef("draw");
@@ -113,7 +138,7 @@ const liveSections = () =>
   // Add child is the ring's first slot since §12.5, so the ring is opened on
   // the topic and the slot pressed, which is the gesture a person makes.
   await openRing(page, await page.evaluate(() => wbMapIndex().roots[0].id));
-  await page.click("#wb-radial-child");
+  await clickRadialSlot(page, "wb-radial-child");
   await page.waitForTimeout(1400);
   await page.keyboard.press("Escape");
   const kids = await page.evaluate(() => {
@@ -127,7 +152,7 @@ const liveSections = () =>
     return i.childrenOf.get(i.roots[0].id)[0].id;
   });
   await openRing(page, firstKid);
-  await page.click("#wb-radial-sibling");
+  await clickRadialSlot(page, "wb-radial-sibling");
   await page.waitForTimeout(1400);
   await page.keyboard.press("Escape");
   const kids2 = await page.evaluate(() => {
@@ -140,7 +165,7 @@ const liveSections = () =>
   // chevron rather than a copy of it in the dock.
   const rootNow = await page.evaluate(() => wbMapIndex().roots[0].id);
   await openRing(page, rootNow);
-  await page.click("#wb-radial-collapse");
+  await clickRadialSlot(page, "wb-radial-collapse");
   await page.waitForTimeout(900);
   const folded = await page.evaluate((id) => ({
     collapsed: Boolean(wbMapIndex().byId.get(id).data?.collapsed),
@@ -149,7 +174,7 @@ const liveSections = () =>
   check("the ring's fold folds the branch and flips the node's caret",
     folded.collapsed && folded.icon.includes("right"), JSON.stringify(folded));
   await openRing(page, rootNow);
-  await page.click("#wb-radial-collapse");
+  await clickRadialSlot(page, "wb-radial-collapse");
   await page.waitForTimeout(900);
   await page.keyboard.press("Escape");
 

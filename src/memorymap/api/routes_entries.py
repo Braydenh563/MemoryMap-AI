@@ -191,6 +191,7 @@ def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa:
             session, entry.content, deps.get_embeddings(), limit=3
         )
     except Exception:
+        logger.warning("the near-duplicate check failed; the note is saved", exc_info=True)
         return None
     for other, score in results or []:
         if other.id != entry.id and score >= 0.9:
@@ -232,6 +233,10 @@ def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
             deps.get_ollama(),
         )
     except Exception:
+        # `categorise` handles a model that is down on its own (a keyword
+        # fallback), so this is a fault in it: logged, or every note filed
+        # "Uncategorised" is the only sign.
+        logger.warning("filing failed; the note is saved uncategorised", exc_info=True)
         return manager.UNCATEGORISED, 0, "none"
 
 
@@ -281,9 +286,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 category, confidence, filed_by = _file_entry_now(
                     session, manager.readable_content(entry)
                 )
-                entry.category_id = manager.get_or_create_category(
-                    session, category
-                ).id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # Ordered deliberately: the vector has to exist before the
                 # near-duplicate search has anything to compare against, and
@@ -674,6 +677,7 @@ def suggest_tags_for_draft(
             vocabulary=_tag_vocabulary(session),
         )
     except Exception:
+        logger.warning("tag suggestions failed", exc_info=True)
         suggested = []
     return {"suggested_tags": suggested}
 
@@ -716,15 +720,16 @@ def add_context(
                 exclude_entry_id=entry.id,  # don't let it anchor to itself
             )
             if filed_by != "none":
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"recategorised -> {category}"
-                    )
-                entry.category_id = category_row.id
+                manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
+                # The same two lines as the create paths: a category the AI
+                # chose here is one a later move by hand corrects, and without
+                # the flag that correction went unrecorded (Brief 13).
+                if janitor.is_ai_method(filed_by):
+                    entry.filing_state = manager.AUTO_FILED
                 session.commit()
         except Exception:
+            logger.warning("re-filing after new context failed", exc_info=True)
             filed_by = None  # AI down, the note keeps its old category
 
     return _to_out(session, entry, filed_by=filed_by)
@@ -770,15 +775,15 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         if filed_by != "none":
             entry.ai_confidence = confidence
             if not entry.user_filed:
-                category_row = manager.get_or_create_category(session, category)
-                if category_row.id != entry.category_id:
+                if manager.record_filing(session, entry, category):
                     recategorised_to = category
-                    manager.log_action(
-                        session, "edited", "entry", entry.id, f"re-evaluated -> {category}"
-                    )
-                entry.category_id = category_row.id
+                # As on adding context: the AI owns this category now, so a
+                # move by hand is a correction the filing loop should read.
+                if janitor.is_ai_method(filed_by):
+                    entry.filing_state = manager.AUTO_FILED
             session.commit()
     except Exception:
+        logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
@@ -792,6 +797,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             vocabulary=_tag_vocabulary(session),
         )
     except Exception:
+        logger.warning("re-evaluation's tag step failed", exc_info=True)
         suggested_tags = []
 
     # 3. Suggest links: semantic neighbours that aren't connected yet.
@@ -810,6 +816,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             if len(suggested_links) >= 4:
                 break
     except Exception:
+        logger.warning("re-evaluation's link step failed", exc_info=True)
         suggested_links = []
 
     return {
@@ -892,8 +899,6 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     already-correct shape: fetch every stored vector once, compare all
     pairs in memory: which turns O(n) queries plus O(n) re-embeddings into
     one query and zero re-embedding calls."""
-    from memorymap.ai.embeddings import similar_pairs
-
     entries = manager.list_entries(session)
     entries_by_id = {e.id: e for e in entries if not e.is_private}
     already_linked: set[frozenset[int]] = set()
@@ -916,10 +921,15 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     embeddings = deps.get_embeddings()
     if not embeddings.is_ready():
         return []
-    # From the engine's matrix (Brief 11), not a fresh `SELECT` of every
-    # vector plus a `bytes_to_vector` per row: this process already holds the
-    # array, and the pairs pass below wants exactly it.
-    vectors = search_engine.vectors_by_id(session, only=set(entries_by_id))
+    # From the engine's matrix (Brief 11), and compared once per version of
+    # it (WORLD_CLASS_PLAN row 9): the all-pairs pass is O(n²) and ran on
+    # every request here while the graph cached its own. The cache is keyed
+    # by the matrix's version, so a new, edited or deleted vector is a new
+    # comparison; the filters below are per request because what is linked
+    # or dismissed moves without any vector changing.
+    pairs = search_engine.cached_similar_pairs(
+        session, LINK_SUGGESTION_THRESHOLD, only=set(entries_by_id)
+    )
 
     # `similar_pairs` hands these back best-first and blocks the matrix
     # multiply, so a big notebook costs one block of memory rather than an
@@ -948,7 +958,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     #     notebook and becomes a survey of one note.
     suggestions = []
     appearances: dict[int, int] = {}
-    for a, b, score in similar_pairs(vectors, LINK_SUGGESTION_THRESHOLD):
+    for a, b, score in pairs:
         if frozenset((a, b)) in already_linked:
             continue
         if (
@@ -1027,7 +1037,6 @@ def find_tensions(
     a bare `[]` renders them identically, which is how a feature that never
     ran gets reported as a feature that found nothing.
     """
-    from memorymap.ai.embeddings import similar_pairs
     from memorymap.ai import tensions as tensions_module
 
     ollama = deps.get_ollama()
@@ -1043,7 +1052,10 @@ def find_tensions(
     if len(by_id) < 2:
         return {"tensions": [], "status": "too_few_notes"}
 
-    vectors = search_engine.vectors_by_id(session, only=set(by_id))
+    # Cached per version of the matrix, as link suggestions are (row 9).
+    pairs = search_engine.cached_similar_pairs(
+        session, TENSION_CANDIDATE_THRESHOLD, only=set(by_id)
+    )
 
     # A pair already marked as contradicting is a finding the person has
     # already accepted, not one to re-propose. Every other link type is left
@@ -1056,7 +1068,7 @@ def find_tensions(
     models = deps.get_model_manager()
     found: list[dict] = []
     checked = 0
-    for a_id, b_id, score in similar_pairs(vectors, TENSION_CANDIDATE_THRESHOLD):
+    for a_id, b_id, score in pairs:
         if checked >= tensions_module.MAX_PAIRS_PER_PASS or len(found) >= limit:
             break
         if _tension_key(a_id, b_id) in known:
@@ -1165,7 +1177,7 @@ def link_suggestion_reasons(
                 deps.get_model_manager(),
                 deps.get_ollama(),
             )
-        except Exception as exc:  # model offline, or no model configured
+        except Exception as exc:  # noqa: BLE001  # model offline is the expected case, once per pair; the message is logged
             logger.info("link suggestion reason skipped: %s", exc)
             ai_unavailable = True
             continue
@@ -1220,7 +1232,7 @@ def backfill_link_reasons(
         result["rewritten"] = links.audit_vague_links(
             session, deps.get_model_manager(), deps.get_ollama(), limit=options.limit
         )
-    except Exception as exc:  # model offline, or no model configured
+    except Exception as exc:  # noqa: BLE001  # model offline is the expected case; the message is logged
         # Not an error the caller should see as a failure: the cheap pass
         # succeeded and its work is committed.
         logger.info("link reason audit skipped: %s", exc)
@@ -2177,6 +2189,19 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     return _to_out(session, entry)
 
 
+def _connection_cue(session: Session, other: Entry) -> dict:
+    """What tells two connected notes with the same title apart
+    (tests/test_connection_row_cues.py): the category, and when it was
+    written. The client shows one only when two titles collide. A private
+    note keeps its category back with its text, because the category is what
+    the filer read it as; the date says nothing about what it says."""
+    created = getattr(other, "created_at", None)
+    return {
+        "category": None if other.is_private else manager.category_name_for(session, other),
+        "created_at": created.isoformat() if created else None,
+    }
+
+
 @router.get("/{entry_id}/connections")
 def entry_connections(entry_id: int, session: Session = Depends(get_session)) -> dict:
     """Everything this note is joined to, in one place and grouped by kind.
@@ -2210,6 +2235,7 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "Private note" if other.is_private else _connection_label(other)
             ),
             "is_private": bool(other.is_private),
+            **_connection_cue(session, other),
             "reason": link.reason,
             "reason_confidence": link.reason_confidence,
         }
@@ -2251,6 +2277,7 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "id": other.id,
                 "preview": "Private note" if other.is_private else _connection_label(other),
                 "is_private": bool(other.is_private),
+                **_connection_cue(session, other),
                 "reason": "Links to it" if row["how"] == "links to it" else "Mentions it",
                 "reason_confidence": None,
             })

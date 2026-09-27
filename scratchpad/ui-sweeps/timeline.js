@@ -32,7 +32,13 @@ const check = (label, ok, detail) => {
   const { browser, page, OUT } = await boot();
   for (const { w, h } of WIDTHS) {
     await page.setViewportSize({ width: w, height: h });
-    await page.click('[data-tab="timeline"]');
+    // Not a click on the tab-bar button: Timeline is one of the three tabs
+    // that move into the phone's More sheet at 390 (app.js
+    // `PHONE_MORE_TABS`), so `[data-tab="timeline"]` in the main bar is not
+    // visible there and the click hung for its full 30s timeout. This
+    // sweep is about the timeline surface itself, which phonemore.js
+    // already covers getting to; switching directly is width-independent.
+    await page.evaluate(() => window.switchTab('timeline'));
     await page.waitForTimeout(900);
     // The scale select drives the density, and the gate is about the full
     // row: ask for the day scale explicitly rather than measuring whatever

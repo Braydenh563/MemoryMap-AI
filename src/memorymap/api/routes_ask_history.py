@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from memorymap.core import deps
 from memorymap.core.database import LIKE_ESCAPE, AskTurn, Entry, like_escape
 from memorymap.core.deps import get_session
+from memorymap.ai.grounding import support as grounding_support
 
 router = APIRouter(prefix="/ask-history", tags=["ask-history"])
 
@@ -115,6 +116,12 @@ def get_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
         #: numbered markers and the same "grounded in" strip the live answer
         #: had (INBOX 241).
         "grounding": _live_grounding(session, turn),
+        #: The low-support notice's numbers, from the stored answer and the
+        #: marks as they were written (not the live-filtered ones above: a note
+        #: deleted since does not make the answer any better or worse backed
+        #: than it was). Same counter as the live stream, so a reopened turn
+        #: shows the notice the live one did.
+        "support": grounding_support(turn.answer or "", json.loads(turn.grounding or "[]")),
     }
 
 

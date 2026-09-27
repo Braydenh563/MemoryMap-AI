@@ -92,32 +92,40 @@ async function newBoard(page, name) {
   console.log("  opened by:", opened);
   await page.waitForTimeout(400);
 
+  // The ring is a pie menu now (INBOX 191, second half; ccd1b48): every slot
+  // is a button the size of the whole ring, clipped to its wedge by
+  // `clip-path`, so `getBoundingClientRect()` returns the same square for
+  // all six and can no longer place them. `wbFitMapRadialBand` stamps each
+  // slot's wedge onto it as `_sector` ({a0, a1, at} in radians, clockwise
+  // from the top); the ring itself is `width:0; height:0`, positioned at
+  // its own centre, so its own rect's `left`/`top` *is* that centre. The
+  // "between two slots" point is the shared edge (`a0`/`a1`) at the band's
+  // middle radius; "on a slot but off its glyph" is the same slot's own
+  // `at` angle, close to the inner rim, below where the icon+word sit.
   const geom = await page.evaluate((id) => {
     const el = document.getElementById("wb-map-radial");
-    const slots = [...el.querySelectorAll(".wb-map-radial-slot")]
-      .filter((b) => b.getBoundingClientRect().width > 0)
-      .map((b) => { const r = b.getBoundingClientRect(); return { id: b.id, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; });
+    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].filter((b) => b._sector);
     if (!slots.length) return { hidden: el.classList.contains("hidden"), slots: 0, all: el.querySelectorAll(".wb-map-radial-slot").length };
-    const cx = slots.reduce((a, s) => a + s.cx, 0) / slots.length;
-    const cy = slots.reduce((a, s) => a + s.cy, 0) / slots.length;
-    const rr = Math.hypot(slots[0].cx - cx, slots[0].cy - cy);
-    // Halfway round the circle between the first two slots in the markup,
-    // which are neighbours in the ring by construction.
-    const ang = (s) => Math.atan2(s.cy - cy, s.cx - cx);
-    let a0 = ang(slots[0]), a1 = ang(slots[1]);
-    let d = a1 - a0;
-    while (d > Math.PI) d -= 2 * Math.PI;
-    while (d < -Math.PI) d += 2 * Math.PI;
-    const mid = a0 + d / 2;
+    const o = el.getBoundingClientRect();
+    const cx = o.left, cy = o.top;
+    const cs = getComputedStyle(el, "::before");
+    const outer = parseFloat(cs.width) / 2;
+    const inner = outer - parseFloat(cs.borderTopWidth);
+    const mid = (inner + outer) / 2;
+    const s0 = slots[0]._sector;
     const node = document.querySelector(`.wb-object[data-id="${id}"]`).getBoundingClientRect();
-    const cs = getComputedStyle(document.documentElement);
+    const cs2 = getComputedStyle(document.documentElement);
     return {
       hidden: el.classList.contains("hidden"),
-      slots: slots.length, cx, cy, rr,
-      betweenX: Math.round(cx + Math.cos(mid) * rr),
-      betweenY: Math.round(cy + Math.sin(mid) * rr),
+      slots: slots.length, cx, cy, inner, outer,
+      betweenX: Math.round(cx + Math.cos(s0.a1) * mid),
+      betweenY: Math.round(cy + Math.sin(s0.a1) * mid),
+      onSlotX: Math.round(cx + Math.cos(s0.at) * (inner + 8)),
+      onSlotY: Math.round(cy + Math.sin(s0.at) * (inner + 8)),
+      awayX: Math.round(cx + outer + 60),
+      awayY: Math.round(cy),
       nodeCentre: [Math.round(node.left + node.width / 2), Math.round(node.top + node.height / 2)],
-      card: cs.getPropertyValue("--card").trim(),
+      card: cs2.getPropertyValue("--card").trim(),
       boardBg: getComputedStyle(document.getElementById("whiteboard-container")).backgroundColor,
     };
   }, kidId);
@@ -153,22 +161,17 @@ async function newBoard(page, name) {
   const shot = `${OUT}/mapring-${THEME}.png`;
   await page.screenshot({ path: shot });
   const between = pixel(shot, geom.betweenX, geom.betweenY);
-  const away = pixel(shot, Math.round(geom.cx + geom.rr * 2.2), Math.round(geom.cy));
+  const away = pixel(shot, geom.awayX, geom.awayY);
   const atNode = pixel(shot, geom.nodeCentre[0], geom.nodeCentre[1]);
   console.log(`  between two slots ${geom.betweenX},${geom.betweenY}: ${between}; canvas away from the ring: ${away}; node centre: ${atNode}`);
   check("the gap between two slots is a surface, not the canvas",
     between && away && !near(between, away, 6), `${between} against the canvas's ${away}`);
   // The band is `--card`; a screenshot of a `--card` surface under a shadow is
   // within a few levels of the token, not exactly it.
-  // Inside the slot but off its glyph: the icon is about 16px wide on a 28px
-  // circle, so the centre reads the icon's own ink rather than the slot's
-  // ground and told us nothing about the two surfaces.
-  const slotPixel = await page.evaluate(() => {
-    const b = document.querySelector(".wb-map-radial-slot");
-    const r = b.getBoundingClientRect();
-    return [Math.round(r.left + r.width / 2 - r.width / 2 + 4), Math.round(r.top + r.height / 2)];
-  });
-  const onSlot = pixel(shot, slotPixel[0], slotPixel[1]);
+  // Inside the slot but off its glyph: sampled near the inner rim, at the
+  // sector's own middle angle, which is below where the icon and word sit
+  // (they are centred on the band's own middle radius).
+  const onSlot = pixel(shot, geom.onSlotX, geom.onSlotY);
   check("a slot still reads against the band it sits on",
     onSlot && between && !near(onSlot, between, 3), `slot ${onSlot} against band ${between}`);
   // Against what the node's own centre read before the ring opened, not

@@ -97,7 +97,7 @@ class _Job:
     """One queued piece of work. A plain object rather than a dataclass so
     `__slots__` keeps 200 of them cheap during a bulk upload."""
 
-    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at")
+    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at", "dedupe_key")
 
     def __init__(
         self,
@@ -114,6 +114,7 @@ class _Job:
         self.args = args
         self.kwargs = kwargs
         self.name = name
+        self.dedupe_key: object = None
         self.queued_at = time.time()
 
 
@@ -179,6 +180,7 @@ class Pool:
         func: Callable[..., object],
         *args: object,
         name: str = "",
+        dedupe_key: object = None,
         **kwargs: object,
     ) -> int:
         """Queue `func(*args, **kwargs)` on `kind`'s lane. Returns the job id.
@@ -186,6 +188,15 @@ class Pool:
         Never raises for a full queue (the queues are unbounded) and never
         blocks the caller, which is the whole contract the `*_in_background`
         helpers had and kept.
+
+        **`dedupe_key`: one job per thing in flight.** The readers are
+        write-once only once a result is stored, so two commits of the same
+        picture in quick succession (a note saved while the board it came
+        from saves too) queued two captions and two reads before either had
+        written anything (owner: "like 4 agent processes started ... the
+        vision captioning and ocr should only happen each once"). A job whose
+        key matches one queued or running is not queued again; the existing
+        job's id is returned.
         """
         lane = self.lane_for(kind)
         self.start()
@@ -193,8 +204,13 @@ class Pool:
             if self._stopping.is_set():
                 logger.debug("dropping a %s job: the pool is shutting down", kind)
                 return 0
+            if dedupe_key is not None:
+                for existing in (*self._running.values(), *self._queued.values()):
+                    if existing.dedupe_key == dedupe_key:
+                        return existing.seq
             self._seq += 1
             job = _Job(self._seq, kind, func, tuple(args), dict(kwargs), name)
+            job.dedupe_key = dedupe_key
             self._queued[job.seq] = job
         self._queues[lane].put(job)
         return job.seq
@@ -266,6 +282,7 @@ class Pool:
                     #: "running, no percentage" state and the truth here.
                     "progress": None,
                     "log": [],
+                    "queued": waiting,
                 }
             )
         return rows
@@ -326,8 +343,15 @@ def pool() -> Pool:
         return _default
 
 
-def enqueue(kind: str, func: Callable[..., object], *args: object, name: str = "", **kwargs: object) -> int:
-    return pool().enqueue(kind, func, *args, name=name, **kwargs)
+def enqueue(
+    kind: str,
+    func: Callable[..., object],
+    *args: object,
+    name: str = "",
+    dedupe_key: object = None,
+    **kwargs: object,
+) -> int:
+    return pool().enqueue(kind, func, *args, name=name, dedupe_key=dedupe_key, **kwargs)
 
 
 def pending() -> list[dict]:

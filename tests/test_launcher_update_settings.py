@@ -300,3 +300,24 @@ class TestTheFirstLaunchOfAFreshInstall:
         )
         assert result.returncode in (0, 1), (result.returncode, result.stdout, result.stderr)
         assert "MemoryMap AI - checks" in result.stdout, result.stdout
+
+
+def test_preferences_are_written_one_key_per_line_for_start_bat(tmp_path):
+    """start.bat reads the update settings with `findstr` line by line
+    (`auto_update_enabled.*false`, `update_channel.*stable`). On a one-line
+    JSON file that pattern also matches any *later* key that is false, 34
+    keys of which five are false by default, and "updates off" would be
+    read for a user who has them on. So the file must keep one key per
+    line, which `atomic_write_json`'s indent gives it; this pins that, so a
+    change to compact JSON fails here rather than on someone's Windows
+    launch (checked 2026-09-23 with a real `git` remote for the .sh side)."""
+    from memorymap.core.config import ConfigManager
+
+    config = ConfigManager(data_dir=tmp_path)
+    config.set_preference("auto_update_enabled", True)
+    config.set_preference("update_channel", "main")
+    lines = (tmp_path / "preferences.json").read_text().splitlines()
+    enabled = [line for line in lines if '"auto_update_enabled"' in line]
+    channel = [line for line in lines if '"update_channel"' in line]
+    assert len(enabled) == 1 and "false" not in enabled[0], enabled
+    assert len(channel) == 1 and "stable" not in channel[0], channel

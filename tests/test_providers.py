@@ -168,6 +168,39 @@ def test_an_unknown_model_on_a_silent_server_is_budgeted_at_the_default():
     assert c.usable_context("mystery-model") == c.DEFAULT_CONTEXT_TOKENS
 
 
+def test_a_backend_that_is_not_there_is_not_reported_as_running(monkeypatch):
+    """WORLD_CLASS_PLAN 283. `_fetch_catalog` swallowed every connection
+    error and returned `[]`, so `list_models` answered "no models" for a
+    server that is not listening, and `/models/status` (which decides
+    `running` on whether `list_models` raised) called it running. Nothing
+    answering and an empty catalogue are different facts."""
+    c = OpenAICompatClient(base_url="http://127.0.0.1:8999/v1")
+
+    def refused(url, headers=None, timeout=None):
+        raise requests.ConnectionError("refused")
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", refused)
+    with pytest.raises(ProviderError):
+        c.list_models()
+
+
+def test_a_backend_that_answers_with_no_models_is_running_and_empty(monkeypatch):
+    """The other half of 283: a server that answers (here a 404 from LM
+    Studio's extra endpoint and an empty list from `/models`) is up with no
+    models installed, which is not an error."""
+    from fakes_http import FakeResponse
+
+    c = OpenAICompatClient(base_url="http://127.0.0.1:8999/v1")
+
+    def answers(url, headers=None, timeout=None):
+        if "/api/v0/" in url:
+            return FakeResponse(status=404)
+        return FakeResponse(payload={"data": []})
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", answers)
+    assert c.list_models() == []
+
+
 def test_llama_server_props_beats_the_name_guess(monkeypatch):
     """ROADMAP.md item A.2: `llama-server`'s own `/props` reports the `-c`
     it was actually started with, which beats this app's guess-from-name
@@ -402,6 +435,38 @@ def test_streamed_tool_call_fragments_are_reassembled_by_index(openai_client, ca
                 {"choices": [{"delta": {"tool_calls": [
                     {"index": 1, "function": {"arguments": 'xt":"n"}'}},
                     {"index": 0, "function": {"arguments": ':"x"}'}},
+                ]}}]},
+            )
+        )
+    )
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], []) if "final" in p][0]
+    assert final["tool_calls"] == [
+        {"name": "search", "arguments": {"q": "x"}},
+        {"name": "create", "arguments": {"text": "n"}},
+    ]
+
+
+def test_fragments_without_an_index_degrade_to_arrival_order(openai_client, capture_post):
+    """INBOX 285. OpenAI itself always sends `index`, which is why nothing
+    saw this: a looser local server may leave it out, and `get("index", 0)`
+    then folded every fragment into bucket 0, so two calls concatenated their
+    arguments into one unparseable blob and both were lost. With no index the
+    only order there is is arrival: a fragment that opens a call (an id or a
+    name) opens the next bucket, and a nameless one continues the last."""
+    capture_post.queue.append(
+        FakeResponse(
+            lines=sse(
+                {"choices": [{"delta": {"tool_calls": [
+                    {"id": "a", "function": {"name": "search", "arguments": '{"q"'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"function": {"arguments": ':"x"}'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"id": "b", "function": {"name": "create", "arguments": '{"te'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"function": {"arguments": 'xt":"n"}'}},
                 ]}}]},
             )
         )

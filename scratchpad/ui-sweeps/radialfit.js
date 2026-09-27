@@ -1,12 +1,17 @@
 // What the node radial actually covers (INBOX 114, "fix the look of the
 // mindmap item radial").
 //
-// The ring is geometrically correct and still wrong to look at: eight slots on
-// a circle centred on the node's *centre* land inside the node's own box when
-// the node is wider than the ring is round. This measures the overlap rather
-// than describing it: how many slots intersect the selected topic's box, how
-// far each slot's centre is inside it, and how many slots land on a
-// neighbouring topic or on a link line.
+// The ring is a pie menu now (ccd1b48): one band, cut into sectors, whose
+// hole is sized to the selected topic (`wbSizeMapRadial`; MINDMAP_PLAN). The
+// old tiles-on-a-circle overlap question ("does a slot land on the node it
+// acts on") is answered structurally by the hole rather than by six separate
+// boxes, but the band itself is not aware of *other* topics, so a real
+// question survives: does the band land on a neighbouring topic or a link
+// line. Every slot's `getBoundingClientRect()` is now the whole ring's
+// square (clip-path only clips the paint, not the box), so this measures
+// what a pointer actually hits (`elementFromPoint`, sampled on a grid over
+// each candidate box) rather than bounding-rect intersection, which would
+// call every slot "over" everything inside the ring's outer circle.
 //
 //   BASE=http://127.0.0.1:8853 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //   node scratchpad/ui-sweeps/radialfit.js
@@ -62,53 +67,47 @@ async function newBoard(page, name, type) {
     const el = document.getElementById("wb-map-radial");
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const n = node.getBoundingClientRect();
-    const hit = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => {
-      const r = b.getBoundingClientRect();
-      return { id: b.id, r, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
-    });
-    const others = [...document.querySelectorAll(".wb-object")]
-      .filter((o) => o.dataset.id !== String(id))
-      .map((o) => o.getBoundingClientRect());
-    const lines = [...document.querySelectorAll(".wb-map-edge")].map((l) => l.getBoundingClientRect());
-    const centreIn = slots.filter((s) => s.cx > n.left && s.cx < n.right && s.cy > n.top && s.cy < n.bottom);
-    const cx = slots.reduce((a, s) => a + s.cx, 0) / slots.length;
-    const cy = slots.reduce((a, s) => a + s.cy, 0) / slots.length;
-    const radii = slots.map((s) => Math.round(Math.hypot(s.cx - cx, s.cy - cy)));
-    // The gap between the node's own box and the nearest slot edge: negative
-    // where a slot is over the node. This is the number the report is about.
-    const gaps = slots.map((s) => {
-      const dx = Math.max(n.left - s.r.right, s.r.left - n.right, 0);
-      const dy = Math.max(n.top - s.r.bottom, s.r.top - n.bottom, 0);
-      if (hit(s.r, n)) {
-        return -Math.round(Math.min(
-          Math.min(s.r.right - n.left, n.right - s.r.left),
-          Math.min(s.r.bottom - n.top, n.bottom - s.r.top),
-        ));
+    const o = el.getBoundingClientRect(); // width:0 height:0, positioned at the ring's own centre
+    const cx = o.left, cy = o.top;
+    const s0 = [...el.querySelectorAll(".wb-map-radial-slot")].find((s) => s._sector)?._sector;
+    const inner = s0 ? s0.inner : 0;
+    // A grid of points across a box, so overlap is asked of the browser's own
+    // hit-testing (clip-path and all) rather than of a bounding-rect compare
+    // that cannot see the wedge.
+    const grid = (r, steps = 4) => {
+      const pts = [];
+      for (let i = 0; i <= steps; i++) for (let j = 0; j <= steps; j++) {
+        pts.push([r.left + (r.width * i) / steps, r.top + (r.height * j) / steps]);
       }
-      return Math.round(Math.hypot(dx, dy));
-    });
+      return pts;
+    };
+    const hitsRing = (r) => grid(r).some(([x, y]) => document.elementFromPoint(x, y)?.closest(".wb-map-radial-slot"));
+    const others = [...document.querySelectorAll(".wb-object")]
+      .filter((obj) => obj.dataset.id !== String(id))
+      .map((obj) => obj.getBoundingClientRect());
+    const lines = [...document.querySelectorAll(".wb-map-edge")].map((l) => l.getBoundingClientRect());
+    // The hole's own margin past the node's farthest corner: negative means
+    // the hole is too small and the band would paint over the node.
+    const holds = inner - Math.max(...[[n.left, n.top], [n.right, n.top], [n.left, n.bottom], [n.right, n.bottom]]
+      .map(([x, y]) => Math.hypot(x - cx, y - cy)));
     const strip = document.getElementById("wb-map-strip");
     const sr = strip && !strip.classList.contains("hidden") ? strip.getBoundingClientRect() : null;
     return {
       node: { w: Math.round(n.width), h: Math.round(n.height) },
+      inner: Math.round(inner),
       stripShown: Boolean(sr),
-      overStrip: sr ? slots.filter((s) => hit(s.r, sr)).length : 0,
-      overNode: slots.filter((s) => hit(s.r, n)).map((s) => s.id),
-      centreInNode: centreIn.map((s) => s.id),
-      minGap: Math.min(...gaps),
-      gaps,
-      overOther: slots.filter((s) => others.some((o) => hit(s.r, o))).length,
-      overLine: slots.filter((s) => lines.some((l) => hit(s.r, l))).length,
-      radius: Math.min(...radii),
-      spread: Math.max(...radii) - Math.min(...radii),
-      slotW: Math.round(slots[0].r.width),
+      overStrip: sr ? hitsRing(sr) : false,
+      overNode: hitsRing(n),
+      holds: Math.round(holds),
+      overOther: others.filter((rr) => hitsRing(rr)).length,
+      overLine: lines.filter((rr) => hitsRing(rr)).length,
+      otherCount: others.length,
+      lineCount: lines.length,
     };
   }, kidId);
   console.log(JSON.stringify(m, null, 1));
-  check("no slot is drawn over the topic it acts on", m.overNode.length === 0, JSON.stringify(m.overNode));
-  check("the ring clears the node's box by at least 8px", m.minGap >= 8, String(m.minGap));
-  check("and it is still one circle", m.spread <= 2, JSON.stringify({ spread: m.spread, radius: m.radius }));
+  check("no slot is drawn over the topic it acts on", !m.overNode, String(m.overNode));
+  check("the hole clears the node's farthest corner", m.holds >= 0, `${m.holds}px past the inner edge`);
   const place = await page.evaluate((id) => {
     const host = document.getElementById("library-view-whiteboard").getBoundingClientRect();
     const strip = document.getElementById("wb-map-strip").getBoundingClientRect();
@@ -124,6 +123,10 @@ async function newBoard(page, name, type) {
     };
   }, kidId);
   console.log("placement " + JSON.stringify(place));
+  // wbMapRadialOverhang (the edge-clamp helper this used to call) was folded
+  // into wbPlaceMapRadial itself by the pie-ring rewrite (ccd1b48) and is no
+  // longer a standalone function; the node's own box, still live, is enough
+  // to see where the topic sits relative to the floor the ring must clear.
   console.log("gaps " + JSON.stringify(await page.evaluate(() => {
     const host = document.getElementById("library-view-whiteboard").getBoundingClientRect();
     const container = document.getElementById("whiteboard-container");
@@ -134,7 +137,7 @@ async function newBoard(page, name, type) {
     const top = rect.top - host.top + t.applyY(box.minY);
     const bottom = rect.top - host.top + t.applyY(box.maxY);
     const strip = document.getElementById("wb-map-strip");
-    return { top, bottom, over: wbMapRadialOverhang(host, top, bottom),
+    return { top, bottom,
       h: strip.offsetHeight, w: strip.offsetWidth,
       floor: document.getElementById("wb-topbar").getBoundingClientRect().bottom - host.top + 10 };
   })));
@@ -144,7 +147,7 @@ async function newBoard(page, name, type) {
     return { before, after: Math.round(document.getElementById("wb-map-strip").getBoundingClientRect().top),
       radialFor: wbMapRadialFor, selected: JSON.stringify(wbSelectedItem) };
   })));
-  console.log(`neighbours touched: ${m.overOther}, links touched: ${m.overLine}, strip touched: ${m.overStrip}`);
+  console.log(`neighbours touched: ${m.overOther}/${m.otherCount}, links touched: ${m.overLine}/${m.lineCount}, strip touched: ${m.overStrip}`);
   await page.screenshot({ path: process.env.SHOT || "/tmp/radialfit.png" });
 
   await browser.close();

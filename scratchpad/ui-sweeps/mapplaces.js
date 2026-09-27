@@ -228,12 +228,17 @@ const ACTION_OF_ID = {
   });
   console.log("  menu:", JSON.stringify(menu));
   const inMenu = (re) => menu.some((m) => re.test(m));
+  // e55490f (2026-09-23) grouped the flat menu under "Add", "Topic" and
+  // "Branch" (§ the node menu was 18 rows, now eight groups); the items
+  // moved under "Add" dropped the redundant word ("Add a child topic" ->
+  // "A child topic"), and "Back to the branch" became "Reset branch
+  // styling" to read on its own inside "Branch".
   check("the menu carries the ring's six", [
-    /Add a child topic/, /Add a topic beside/, /Connect this topic/, /Delete/,
+    /A child topic/, /A topic beside this one/, /Connect this topic/, /Delete/,
   ].every(inMenu) && (inMenu(/Fold this branch/) || inMenu(/Open this branch/)),
     `${menu.length} items`);
   check("the menu carries what left the ring",
-    [/Add from the library/, /Link this topic to a page/, /Copy this branch/, /Back to the branch/].every(inMenu),
+    [/From the library/, /Link this topic to a page/, /Copy this branch/, /Reset branch styling/].every(inMenu),
     menu.length + " items");
 
   // --- 4. a five-node tree with the keyboard alone --------------------------

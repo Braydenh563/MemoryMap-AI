@@ -424,10 +424,21 @@ function noteEditToolbar(boxId) {
   return bar;
 }
 
+//: Read by navigation.js's `hasUnsavedWork` (WORLD_CLASS_PLAN 22.1 item 4).
+//: `editingId` alone says a form is *open*, not that anything in it has
+//: changed; comparing every field back to `entry` at guard time would need
+//: the same `entry` object this closure already has, so it is cheaper and
+//: less to keep in step to set this once, here, than to reconstruct it from
+//: the DOM later. Reset to false at the top of every fresh form (only one is
+//: ever open, per the comment on `textarea.id` below) and on both ways out.
+let noteFormDirty = false;
+
 function renderEditForm(li, entry) {
+  noteFormDirty = false;
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
   textarea.value = entry.content;
+  textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu
   //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
   //: bar, and this form's own toolbar. Safe to be a constant rather than a
@@ -457,6 +468,7 @@ function renderEditForm(li, entry) {
   tagsInput.placeholder = "Tags, comma separated";
   tagsInput.value = entry.tags.join(", ");
   tagsInput.className = "note-edit-tags";
+  tagsInput.addEventListener("input", () => { noteFormDirty = true; });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
     // The form is not in the document yet; focus once it is.
@@ -465,6 +477,7 @@ function renderEditForm(li, entry) {
 
   const categorySelect = document.createElement("select");
   fillCategoryOptions(categorySelect, entry.category);
+  categorySelect.addEventListener("change", () => { noteFormDirty = true; });
 
   const row = document.createElement("div");
   row.className = "row";
@@ -483,6 +496,7 @@ function renderEditForm(li, entry) {
         };
         await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(after) });
         editingId = null;
+        noteFormDirty = false;
         toast("Entry updated.");
         await loadEntries();
         pushEntryPutUndo(entry.id, "Edited a note", before, after);
@@ -493,6 +507,7 @@ function renderEditForm(li, entry) {
   row.appendChild(
     smallButton("Cancel", "Discard changes", () => {
       editingId = null;
+      noteFormDirty = false;
       renderEntries();
     })
   );

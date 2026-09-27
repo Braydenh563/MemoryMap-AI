@@ -20,6 +20,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Leaving a note edit form, the Capture box or a document mid-autosave with unsaved changes now asks before an in-app tab switch discards it (the app's own confirm dialog) and vetoes closing the window (`beforeunload`). A stopped backend now shows a "Can't reach MemoryMap. Retrying..." banner with a Retry button instead of buttons that quietly do nothing, and clears on the next successful request.
 - Every view has an address: `#/notes/12`, `#/chat/45`, `#/docs/7`, `#/library/images`, `#/settings/appearance`. Reload keeps the view, a bookmark or pasted link opens it, the browser's Back and Forward walk the app's own history, and the window title names the view and what is open in it.
 - Density has an Auto setting, the new default: Compact on a window 700px tall or less (a 1366x768 laptop at 125%), the look's own spacing on a taller one. A density chosen in Appearance always wins, and the Dashboard follows it.
 - The graph's View menu has a Size rule: connections (the default), length, recency or none.

@@ -11983,12 +11983,11 @@ $("doc-find-prev").addEventListener("click", () => docFindStep(-1));
 $("doc-replace-one").addEventListener("click", docReplaceOne);
 $("doc-replace-all").addEventListener("click", docReplaceAll);
 
-// Leaving with unsaved edits would lose them; autosave hasn't fired yet.
-window.addEventListener("beforeunload", (event) => {
-  if (!docDirty) return;
-  event.preventDefault();
-  event.returnValue = "";
-});
+//: Leaving with unsaved edits would lose them; autosave hasn't fired yet.
+//: The `beforeunload` guard for this is centralised in navigation.js
+//: (`hasUnsavedWork`/its listener) now, alongside the note edit form and the
+//: Capture box, rather than kept here as a second `docDirty`-only listener:
+//: one browser event, one place that reads every surface's own flag.
 
 initDocSidebarTabs();
 

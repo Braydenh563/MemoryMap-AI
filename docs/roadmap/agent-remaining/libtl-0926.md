@@ -42,6 +42,17 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
 - `3d3b50e` the pacer steps effects inside an Atlas layer at 10Hz
   (`atlasmoodfx.js`).
 
+## Done, round 8 (Atlas, the owner's batch of 2026-09-27)
+
+- `4384b50` the drawing: the feminine look's skirt of ribbons (no legs, no
+  leg layers), the faded chest constellation on both looks, the arms from
+  inside the chest with mitten hands and easier rest angles, one nebula
+  ribbon behind the figure in a haze, drifting on its own layer.
+  Walking and idle: 0 layouts and 0 paints a second, both looks, before
+  and after; errors.js at 1440 and 390 clean.
+- `1e16321` the lab's rays knob retired; `atlasr6.js` and `atlaszoom.js`.
+  Sheets in `scratchpad/shots/atlas-r6/`.
+
 ## Remaining
 
 1. The Timeline feed lays out about 39 times a second while scrolling. It
@@ -53,3 +64,14 @@ Worktree `.claude/worktrees/agent-a42ac8319ec33be28`, merged with
 3. "Mind maps" chip at zero offers "New concept map": a naming decision.
 4. The app's poll lands a text change and two paints (about 40ms) in one
    4s window in three or four; not chased.
+5. Atlas: the large view draws the static `full` level (avatars.js,
+   `atlasDraw(size, mood)`), so the skirt's sway and the nebula's drift,
+   which live on the companion's layer roots, do not move there. The hook
+   for the avatars.js owner: draw the large view as the layered figure
+   (`atlasDrawFigure`, scaled), or ask for a `full` variant with its own
+   roots.
+6. Atlas: the feminine right arm (held out, sowing seeds) sits behind the
+   hair's locks at the full size, as it did before; bringing it in front
+   of the hair is a drawing-order change in the body layer.
+7. Atlas: judged against the owner's references 60 to 83 only by their
+   written descriptions; the images themselves are not in this sandbox.

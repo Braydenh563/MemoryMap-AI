@@ -5449,28 +5449,8 @@ input.doc-title-input::placeholder {
   gap: var(--space-2);
 }
 
-.manage-cat-card .doc-ai-head {
+.manage-cat-card .dialog-head {
   gap: var(--space-1);
-}
-
-.manage-cat-card .doc-ai-head-btn.ghost {
-  width: var(--target-min);
-  height: var(--target-min);
-  min-height: 0;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  color: var(--muted);
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  box-shadow: none;
-}
-
-.manage-cat-card .doc-ai-head-btn.ghost:hover,
-.manage-cat-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
-  color: var(--ink);
-  background: var(--chip-bg);
 }
 
 .manage-cat-sub {

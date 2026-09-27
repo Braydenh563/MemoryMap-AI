@@ -3075,10 +3075,10 @@ async function openManageCategories(focusName = null) {
 function manageCatHead(card, close) {
   const head = card.querySelector(".sheet-head");
   if (!head) return;
-  head.classList.add("doc-ai-head");
+  head.classList.add("dialog-head");
   const help = document.createElement("button");
   help.type = "button";
-  help.className = "icon-only ghost small doc-ai-head-btn";
+  help.className = "icon-only ghost small dialog-head-btn";
   help.setAttribute("data-help-for", "manage-cat-help");
   help.setAttribute("aria-controls", "manage-cat-help");
   help.setAttribute("aria-expanded", "false");
@@ -3089,9 +3089,9 @@ function manageCatHead(card, close) {
   helpIcon.setAttribute("aria-hidden", "true");
   help.appendChild(helpIcon);
   const closeButton = head.querySelector(".sheet-close");
-  closeButton?.classList.add("doc-ai-head-btn");
+  closeButton?.classList.add("dialog-head-btn");
   const actions = document.createElement("span");
-  actions.className = "doc-ai-head-actions";
+  actions.className = "dialog-head-actions";
   if (closeButton) actions.appendChild(closeButton);
   head.querySelector(".sheet-title")?.after(help);
   head.appendChild(actions);

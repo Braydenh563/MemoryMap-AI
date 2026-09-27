@@ -5655,8 +5655,9 @@ main,
    palm): the act plays over the mood's pose and, when it ends, the arm goes
    back to the mood's pose, not to hanging straight. Atlas's arms are its
    own drawing's (atlas.js). */
-/* Only outward turns: the arms are drawn behind the body, so an arm turned
-   in across it (hands on hips, clasped) measured as hidden. */
+/* The arms are drawn over the body (after it, outlined), so they turn in
+   across it as well as out: hips, clasped hands, hands at the chest
+   (armmood.js shots at 3x). */
 /* open arms */
 :where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }
 :where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-l { transform: rotate(35deg); }
@@ -5678,17 +5679,18 @@ main,
 /* arms hanging */
 :where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-r { transform: rotate(3deg); }
 :where(#nm-buddy:is([data-feel="sad"])) .nm-figure .nmb-arm-l { transform: rotate(-3deg); }
-/* arms out a little, at ease */
-:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-r { transform: rotate(-18deg); }
-:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-l { transform: rotate(18deg); }
-/* arms a little out, bashful */
-:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-r { transform: rotate(-22deg); }
-:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(22deg); }
-/* arms stiff at its sides */
+/* hands on its hips */
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-r { transform: rotate(36deg); }
+:where(#nm-buddy:is([data-feel="cool"], [data-feel="sly"])) .nm-figure .nmb-arm-l { transform: rotate(-36deg); }
+/* hands clasped in front, bashful */
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-r { transform: rotate(62deg); }
+:where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }
+/* fists stiff at its sides */
 :where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-r { transform: rotate(-8deg); }
 :where(#nm-buddy:is([data-feel="angry"], [data-feel="unimpressed"])) .nm-figure .nmb-arm-l { transform: rotate(8deg); }
-/* a hand up at its mouth, worried */
-:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(-98deg); }
+/* hands at its chest, worried */
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }
+:where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-l { transform: rotate(-100deg); }
 
 /* Peeking from behind its panel: everything below the panel's top edge is
    cut away (`--nmb-edge`, where the edge crosses it), and it sinks behind

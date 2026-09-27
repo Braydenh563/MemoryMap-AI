@@ -859,6 +859,11 @@ def test_its_arms_rest_in_its_mood_and_come_back_to_it_after_an_act() -> None:
         assert f'[data-feel="{mood}"]' in CSS08, mood
     # Lighter than any act's arm, so an act plays over it and hands it back.
     assert ':where(#nm-buddy:is([data-feel="happy"], [data-feel="cute"])) .nm-figure .nmb-arm-r { transform: rotate(-35deg); }' in CSS08
+    # Arms are drawn over the body, so they also turn in across it: hands
+    # on hips, clasped, at the chest (the first reading, that inward arms
+    # were hidden, was a 1x screenshot; at 3x they are in front).
+    assert ':where(#nm-buddy:is([data-feel="nervous"])) .nm-figure .nmb-arm-r { transform: rotate(100deg); }' in CSS08
+    assert ':where(#nm-buddy:is([data-feel="uwu"])) .nm-figure .nmb-arm-l { transform: rotate(-62deg); }' in CSS08
 
 
 def test_it_rests_where_you_put_it_on_a_button_and_the_button_still_clicks() -> None:

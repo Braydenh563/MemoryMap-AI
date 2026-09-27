@@ -53,7 +53,12 @@ work starts.
    owner says the README shots were not retaken: they were in c947ebe on
    this branch, so check what the owner is viewing (main, or a cache) and
    confirm the shots show the new UI.
-9. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
+9. **Feminine Atlas front hair** (the owner at release, with close-ups: the
+   swept-back crown reads as thin parallel lines with a star circlet over a
+   bald-looking dome): "the front head hair on the feminine atlas needs a
+   slightly better redesign". Fuller hair mass over the crown, soft locks
+   with depth and shading, not line strokes; keep the circlet subtle.
+10. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 
 ## Held on a branch, not merged

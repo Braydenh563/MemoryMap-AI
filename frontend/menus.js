@@ -1007,6 +1007,57 @@ async function openConnections(kind, id, subject) {
 //: not fit. `beforeOpen` is what leaving the surface means (the sheet closes;
 //: the rail stays where it is). Appends to `list` and returns how many rows it
 //: drew, so each caller words its own empty state.
+//: **Which connection rows need a second cue, and what it says.** Found on
+//: the Notes connections rail: a note linked to two notes with the same title
+//: drew two identical rows. Only rows whose title collides with another
+//: note's get one (the same note listed in two groups is not a collision):
+//: the category when that tells them apart, else the day written, else the
+//: day and the time, else the note's number. A `Map` of note id to cue; pure,
+//: so the tests run
+//: it in node (tests/test_connection_row_cues.py).
+function connectionRowCues(rows) {
+  const byTitle = new Map();
+  for (const r of rows) {
+    const key = r.is_private ? "\u0000private" : String(r.preview || "").trim().toLowerCase();
+    if (!byTitle.has(key)) byTitle.set(key, new Map());
+    byTitle.get(key).set(r.id, r);
+  }
+  const when = (iso, withTime) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    //: The year only when it is not this one: a cue has to fit beside a
+    //: title in a 17rem column.
+    const thisYear = d.getFullYear() === new Date().getFullYear();
+    const day = d.toLocaleDateString(undefined, thisYear
+      ? { day: "numeric", month: "short" }
+      : { day: "numeric", month: "short", year: "numeric" });
+    return withTime ? `${day}, ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : day;
+  };
+  //: The first of these that tells every note in the clash apart wins; the
+  //: note's own number is the last resort, because two notes written in the
+  //: same minute in the same category are otherwise identical to a reader.
+  const ladder = [
+    (n) => n.category || "",
+    (n) => when(n.created_at, false),
+    (n) => when(n.created_at, true),
+    (n) => [n.category, when(n.created_at, true), `note ${n.id}`].filter(Boolean).join(", "),
+  ];
+  const cues = new Map();
+  for (const group of byTitle.values()) {
+    if (group.size < 2) continue;
+    const notes = [...group.values()];
+    for (const cueOf of ladder) {
+      const labels = notes.map(cueOf);
+      if (labels.every(Boolean) && new Set(labels).size === notes.length) {
+        notes.forEach((n, i) => cues.set(n.id, labels[i]));
+        break;
+      }
+    }
+  }
+  return cues;
+}
+
 function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
   // Each group is [heading, rows, how to open one]. Built as data rather
   // than five near-identical blocks of DOM code: the groups differ only in
@@ -1035,6 +1086,12 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
     item.classList.add("connection-row");
     return item;
   }
+  //: Two rows whose titles collide carry a quiet second cue
+  //: (`connectionRowCues`); the rest carry none.
+  const noteRows = kind === "entries"
+    ? [...(data.outgoing || []), ...(data.incoming || [])]
+    : [...(data.notes || [])];
+  const cues = connectionRowCues(noteRows);
   function noteRow(link) {
     // A private note contributes the fact of the connection and not its
     // words: the server sends "Private note" as the preview, and the flag
@@ -1042,7 +1099,19 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
     // a real (empty-looking) note title.
     const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
     const why = link.reason ? `\nWhy: ${link.reason}` : "";
-    return row(label, `Open this note${why}`, () => flashEntry(link.id));
+    const cue = cues.get(link.id);
+    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${why}`, () => flashEntry(link.id));
+    if (cue) {
+      //: The title is `setLabel`'s `.ph-text`, which the stylesheet lets give
+      //: way with an ellipsis in a connection row, so on a narrow rail the
+      //: cue (the part that tells the two apart) stays whole. Measured first
+      //: without it at 1280: the cue ran 44px past the row's edge.
+      const tag = document.createElement("span");
+      tag.className = "connection-row-cue";
+      tag.textContent = cue;
+      item.appendChild(tag);
+    }
+    return item;
   }
   function docRow(doc) {
     return row(`ph:file-text ${doc.title}`, `Open “${doc.title}”`, () =>

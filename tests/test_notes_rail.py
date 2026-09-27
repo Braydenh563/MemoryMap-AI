@@ -79,3 +79,15 @@ def test_the_sheet_and_the_rail_draw_rows_with_one_builder():
     sheet = app.split("async function openConnections(")[1].split("\n}\n")[0]
     assert "buildConnectionGroups(" in sheet, "the sheet draws its groups with the shared builder"
     assert "buildConnectionGroups(" in LIST_JS, "and so does the rail"
+
+
+def test_the_rail_gives_way_before_the_list_drops_under_600():
+    """D2's gate is a reading column of at least 600px. The rail's width is
+    set against the default sidebar, and a sidebar dragged to its widest left
+    the list at 573px at 1280 (`notesrail.js` with SIDEBAR=wide), so the rail
+    measures the list and gives way to the sheet when it would be narrower,
+    and re-decides when the sidebar is resized."""
+    assert "const NOTES_RAIL_MIN_READING = 600;" in LIST_JS
+    body = LIST_JS.split("async function renderNotesRail(")[1].split("\n}\n")[0]
+    assert "NOTES_RAIL_MIN_READING" in body and "getBoundingClientRect().width" in body
+    assert "new ResizeObserver(" in LIST_JS and '.observe($("sidebar"))' in LIST_JS

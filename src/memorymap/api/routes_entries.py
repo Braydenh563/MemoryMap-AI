@@ -2189,6 +2189,19 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     return _to_out(session, entry)
 
 
+def _connection_cue(session: Session, other: Entry) -> dict:
+    """What tells two connected notes with the same title apart
+    (tests/test_connection_row_cues.py): the category, and when it was
+    written. The client shows one only when two titles collide. A private
+    note keeps its category back with its text, because the category is what
+    the filer read it as; the date says nothing about what it says."""
+    created = getattr(other, "created_at", None)
+    return {
+        "category": None if other.is_private else manager.category_name_for(session, other),
+        "created_at": created.isoformat() if created else None,
+    }
+
+
 @router.get("/{entry_id}/connections")
 def entry_connections(entry_id: int, session: Session = Depends(get_session)) -> dict:
     """Everything this note is joined to, in one place and grouped by kind.
@@ -2222,6 +2235,7 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "Private note" if other.is_private else _connection_label(other)
             ),
             "is_private": bool(other.is_private),
+            **_connection_cue(session, other),
             "reason": link.reason,
             "reason_confidence": link.reason_confidence,
         }
@@ -2263,6 +2277,7 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "id": other.id,
                 "preview": "Private note" if other.is_private else _connection_label(other),
                 "is_private": bool(other.is_private),
+                **_connection_cue(session, other),
                 "reason": "Links to it" if row["how"] == "links to it" else "Mentions it",
                 "reason_confidence": None,
             })

@@ -3486,6 +3486,14 @@ function setNotesRailHidden(hidden) {
   list.addEventListener("focusin", (event) => {
     const li = event.target.closest?.("li[data-id]");
     if (!li || li.parentElement !== list) return;
+    //: **Not a card's menu.** Its ⋯ is a button inside the row, so pressing it
+    //: is focus in the row, and the rail opened 120ms later: the column takes
+    //: 318px from the list and its dock wraps to two lines, so the row moved
+    //: 318px left and 44px down under a menu already placed beside where the
+    //: ⋯ had been (the review, 2026-09-27, `anchorsmotion.js`: 118px from its
+    //: opener at 1440x600, over the rail). A menu acts on a note; it does not
+    //: choose one to read.
+    if (event.target.closest?.(".menu-wrap, .action-menu")) return;
     const id = Number(li.dataset.id);
     if (!Number.isFinite(id) || id === notesRailId) return;
     notesRailId = id;

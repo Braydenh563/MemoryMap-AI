@@ -4589,6 +4589,13 @@ mark.lightbox-hit {
   color: var(--on-accent);
 }
 
+/* Its icon kept the ghost button's muted icon colour on the accent fill,
+   a faint check on a bright square (reported at release). */
+#select-btn.active i,
+#select-btn.active .ph {
+  color: inherit;
+}
+
 .select-check {
   width: 1.15rem;
   height: 1.15rem;

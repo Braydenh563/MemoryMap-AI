@@ -34,16 +34,16 @@ const WIDTH = Number(process.env.VIEW || 1440);
       open: true,
       rows: rows.length,
       groups,
-      tiles: rows.filter((r) => r.querySelector(".editor-menu-tile i.ph")).length,
-      abouts: rows.filter((r) => r.querySelector(".editor-menu-about")).length,
-      active: active ? active.querySelector(".editor-menu-label").textContent : null,
+      tiles: rows.filter((r) => r.querySelector(".rich-picker-tile i.ph")).length,
+      abouts: rows.filter((r) => r.querySelector(".rich-picker-about")).length,
+      active: active ? active.querySelector(".rich-picker-label").textContent : null,
       activeGroup: active ? (() => {
         let el = active.previousElementSibling;
         while (el && !el.classList.contains("editor-menu-group")) el = el.previousElementSibling;
         return el ? el.textContent : null;
       })() : null,
       preview: pane && !pane.classList.contains("hidden")
-        ? { rendered: pane.querySelectorAll(".editor-menu-sample > *").length, head: pane.querySelector(".editor-menu-preview-head")?.textContent }
+        ? { rendered: pane.querySelectorAll(".rich-picker-sample > *").length, head: pane.querySelector(".rich-picker-preview-head")?.textContent }
         : null,
       box: [Math.round(m.left), Math.round(m.top), Math.round(m.right), Math.round(m.bottom)],
       inView: m.left >= 0 && m.top >= 0 && m.right <= innerWidth + 1 && m.bottom <= innerHeight + 1,

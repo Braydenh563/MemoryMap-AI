@@ -3032,3 +3032,67 @@ def test_a_citation_mark_previews_its_source_on_the_help_popover_recipe() -> Non
             if "citation-peek" in selector:
                 for prop in ("z-index", "box-shadow", "backdrop-filter", "position"):
                     assert f"{prop}:" not in body, f"{selector} sets its own {prop}: the shell is the help popover's"
+
+
+#: **The rich picker** (DESIGN.md's recipe index, "A list of choices picked by
+#: typing or browsing"). The "/" menu's rows, taken out of editor.js so every
+#: picker draws the same row (the owner: "I reallllllyyyy like the design of
+#: this popup panel menu for the / commands. can we do more similar design
+#: styles elsewhere in the app??"). The anatomy's classes are stamped by
+#: rich-picker.js and nowhere else, so a picker cannot hand-roll a row that
+#: looks nearly like one.
+RICH_PICKER_PARTS = ("row", "tile", "keys", "group", "label", "about", "text", "hit", "preview-head")
+
+#: The pickers that draw through the recipe: (file, function).
+RICH_PICKERS = [
+    ("editor.js", "editorRenderMenu"),
+]
+
+#: Lists that still build their own `role="option"` rows. May only fall:
+#: convert one to `richPickerRow` and lower its count here (the test fails
+#: until you do, so the ratchet cannot silently loosen). The ones meant to
+#: stay are not pickers of this shape: the document's word completion is an
+#: inline ghost of the next word, the enhanced select is a `<select>`'s own
+#: list, and a space's icon choice is a grid of glyphs.
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "wiring.js": 1}
+
+
+def test_only_the_rich_picker_stamps_its_anatomy() -> None:
+    stamp = re.compile(
+        r"""(?:className\s*[=+]|classList\.(?:add|toggle)\()[^;\n]*["'`][^"'`]*\brich-picker-(?:"""
+        + "|".join(re.escape(part) for part in RICH_PICKER_PARTS)
+        + r""")\b"""
+    )
+    for path in JS:
+        if path.name == "rich-picker.js":
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            assert not stamp.search(line), (
+                f"{path.name}:{number} stamps a rich picker class by hand; build the row with "
+                "richPickerRow / richPickerGroup / richPickerPreview (rich-picker.js)"
+            )
+
+
+def test_every_rich_picker_draws_its_rows_through_the_recipe() -> None:
+    for name, function in RICH_PICKERS:
+        body = _function_body(frontend_text(name), function)
+        assert "richPickerRow(" in body, f"{name} {function} no longer draws its rows with richPickerRow"
+
+
+def test_hand_built_option_rows_do_not_multiply() -> None:
+    option = re.compile(r"""setAttribute\("role", "option"\)|\.role\s*=\s*["']option["']""")
+    counts = {}
+    for path in JS:
+        if path.name == "rich-picker.js":
+            continue
+        n = len(option.findall(path.read_text(encoding="utf-8")))
+        if n:
+            counts[path.name] = n
+    for name, n in counts.items():
+        assert n <= HAND_BUILT_OPTION_ROWS.get(name, 0), (
+            f"{name} builds {n} role=option rows by hand; a list of choices picked by typing or "
+            "browsing is the rich picker (richPickerRow, rich-picker.js; DESIGN.md's recipe index)"
+        )
+    assert counts == HAND_BUILT_OPTION_ROWS, (
+        f"a list moved to the rich picker: lower HAND_BUILT_OPTION_ROWS to {counts}"
+    )

@@ -1200,48 +1200,6 @@ function editorMenuIcon(item) {
   return "ph:dot-outline";
 }
 
-//: The label with the letters that matched the query marked, contiguous when
-//: the query is a substring, the fuzzy letters otherwise.
-function editorFillLabel(el, label, query) {
-  const text = String(label || "");
-  const needle = String(query || "").toLowerCase();
-  let hits = [];
-  if (needle) {
-    const at = text.toLowerCase().indexOf(needle);
-    hits = at >= 0
-      ? Array.from({ length: needle.length }, (_, i) => at + i)
-      : editorFuzzyMatch(text, needle) || [];
-  }
-  if (!hits.length) {
-    el.textContent = text;
-    return;
-  }
-  const lit = new Set(hits);
-  let run = "";
-  let runLit = false;
-  const flush = () => {
-    if (!run) return;
-    if (runLit) {
-      const mark = document.createElement("mark");
-      mark.className = "editor-menu-hit";
-      mark.textContent = run;
-      el.appendChild(mark);
-    } else {
-      el.appendChild(document.createTextNode(run));
-    }
-    run = "";
-  };
-  for (let i = 0; i < text.length; i += 1) {
-    const on = lit.has(i);
-    if (on !== runLit) {
-      flush();
-      runLit = on;
-    }
-    run += text[i];
-  }
-  flush();
-}
-
 function editorMenuList() {
   return $("editor-menu-list") || $("editor-menu");
 }
@@ -1256,56 +1214,28 @@ function editorRenderMenu() {
   let lastGroup = null;
   items.forEach((item, position) => {
     if (item.group && item.group !== lastGroup) {
-      const heading = document.createElement("li");
-      heading.className = "editor-menu-group";
-      heading.setAttribute("role", "presentation");
-      heading.textContent = item.group;
-      list.appendChild(heading);
+      list.appendChild(richPickerGroup(item.group, { className: "editor-menu-group" }));
       lastGroup = item.group;
     }
-    const row = document.createElement("li");
-    row.setAttribute("role", "option");
-    row.id = `editor-menu-row-${position}`;
+    //: **The rich picker's row** (rich-picker.js, DESIGN.md's recipe index):
+    //: the recipe was taken out of this menu, so this is the one place it is
+    //: drawn from and every other picker draws the same row. A callout's tile
+    //: wears its kind's ink (`tint`, the `--callout-accent` the block itself
+    //: will), so the colour is chosen before the block exists; the keycap is
+    //: the markdown the row writes, the part that teaches the syntax behind
+    //: the menu so the next time it can simply be typed.
+    const row = richPickerRow({
+      icon: editorMenuIcon(item),
+      tint: item.tint,
+      label: item.label,
+      about: item.about || item.hint,
+      keys: item.keys,
+      query: trigger === "/" ? query : "",
+      id: `editor-menu-row-${position}`,
+      className: "editor-menu-item",
+    });
     row.dataset.index = String(position);
-    row.className = "editor-menu-item";
 
-    //: The icon in a tile of its own, the way every block menu worth copying
-    //: draws it: the eye finds the kind of block by shape before it reads.
-    const tile = document.createElement("span");
-    tile.className = "editor-menu-tile";
-    //: A callout's tile wears its kind's ink, the same `--callout-accent`
-    //: the block itself will (05-sidebars-themes.css), so the colour is
-    //: chosen before the block exists.
-    if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
-    tile.setAttribute("aria-hidden", "true");
-    const glyph = document.createElement("i");
-    glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
-    tile.appendChild(glyph);
-    row.appendChild(tile);
-
-    const text = document.createElement("span");
-    text.className = "editor-menu-text";
-    const label = document.createElement("span");
-    label.className = "editor-menu-label";
-    editorFillLabel(label, item.label, trigger === "/" ? query : "");
-    text.appendChild(label);
-    const about = item.about || item.hint;
-    if (about) {
-      const line = document.createElement("span");
-      line.className = "editor-menu-about";
-      line.textContent = about;
-      text.appendChild(line);
-    }
-    row.appendChild(text);
-
-    //: The markdown the row writes, or its key: the part that teaches the
-    //: syntax behind the menu, so the next time it can simply be typed.
-    if (item.keys) {
-      const keys = document.createElement("kbd");
-      keys.className = "editor-menu-keys";
-      keys.textContent = item.keys;
-      row.appendChild(keys);
-    }
     // mousedown, not click: the textarea must not lose focus first, or the
     // caret position the insertion depends on is already gone.
     row.addEventListener("mousedown", (event) => {
@@ -1346,44 +1276,19 @@ function editorRenderPreview(item) {
   if (!show) return;
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
-  pane.replaceChildren();
-
-  const head = document.createElement("p");
-  head.className = "editor-menu-preview-head";
-  const tile = document.createElement("span");
-  tile.className = "editor-menu-tile";
-  if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
-  const glyph = document.createElement("i");
-  glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
-  tile.appendChild(glyph);
-  const name = document.createElement("span");
-  name.textContent = item.label;
-  head.append(tile, name);
-  pane.appendChild(head);
-
-  const about = item.about || item.hint;
-  if (about) {
-    const line = document.createElement("p");
-    line.className = "editor-menu-preview-about";
-    line.textContent = about;
-    pane.appendChild(line);
-  }
+  let sample = null;
   if (item.sample && typeof renderMarkdown === "function") {
-    const sample = document.createElement("div");
-    sample.className = "editor-menu-sample";
-    sample.inert = true;
+    sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
-    pane.appendChild(sample);
   }
-  if (item.keys) {
-    const syntax = document.createElement("p");
-    syntax.className = "editor-menu-preview-keys";
-    syntax.append("Type ");
-    const code = document.createElement("code");
-    code.textContent = item.keys;
-    syntax.append(code, " to write it without the menu.");
-    pane.appendChild(syntax);
-  }
+  richPickerPreview(pane, {
+    icon: editorMenuIcon(item),
+    tint: item.tint,
+    label: item.label,
+    about: item.about || item.hint,
+    sample,
+    keys: item.keys,
+  });
 }
 
 //: Move the highlight without redrawing the list: the row's classes, the

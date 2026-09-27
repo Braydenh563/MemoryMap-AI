@@ -11420,9 +11420,9 @@ Link to another note with [[its first few words]]."></textarea>
        on, drawn by the page's own renderer. The preview is aria-hidden and
        inert; every row already says what it does. -->
   <div id="editor-menu" class="editor-menu hidden">
-    <ul id="editor-menu-list" class="editor-menu-list" role="listbox"
+    <ul id="editor-menu-list" class="editor-menu-list rich-picker-list" role="listbox"
         aria-label="Insert a block, or link to a note"></ul>
-    <div id="editor-menu-preview" class="editor-menu-preview hidden" aria-hidden="true"></div>
+    <div id="editor-menu-preview" class="editor-menu-preview rich-picker-preview hidden" aria-hidden="true"></div>
   </div>
 
   <!-- D3 v7 + p5.js, both vendored locally, the offline rule: no CDNs, ever -->
@@ -11498,6 +11498,7 @@ Link to another note with [[its first few words]]."></textarea>
        arrived, and the two that could run sooner (`applyMarkdown`,
        `docEventFromCm`) are on app.js's stand-in list and its typeof-guard
        list respectively. -->
+  <script src="/rich-picker.js?v=0.3.3"></script>
   <script src="/editor.js?v=0.3.3"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global

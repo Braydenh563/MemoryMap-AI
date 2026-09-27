@@ -6521,6 +6521,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-dp: #a49fdd;
   --atl-rim: #7d74c2;
 }
+/* Round 9: the feminine chest's shade (atlas.js, `bust`), barely there. */
+.nm-atlas .atl-bust { fill: none; stroke: var(--atl-rim); stroke-width: 0.7; stroke-linecap: round; opacity: 0.18; }
 .nm-atlas .atl-seed { fill: white; opacity: 0.9; }
 .nm-atlas .atl-seed-star { opacity: 0.95; }
 .nm-atlas .atl-tail-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; stroke-linejoin: round; opacity: 0.28; }

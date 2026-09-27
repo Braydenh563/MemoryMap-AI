@@ -550,7 +550,14 @@ const ATLAS_LOOKS = {
       { seg: [[27, 10, 38, -6, 54, -4, 59, 12]], w: [16, 3], mass: true },
     ],
     hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
-    torso: "M26 35.6C23.2 40.6 22.4 46 23.2 51.4C23.8 55.4 25 58.6 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C37 58.6 38.2 55.4 38.8 51.4C39.6 46 38.8 40.6 36 35.6Z",
+    //: Round 9 (the owner: "a bit more of a feminine chest but don't
+    //: overdo it, just really subtle"): the flanks swell half a unit at the
+    //: chest (22.7 and 39.3 at y 45.4, where they ran 22.9 and 39.1) and
+    //: ease in a little below it, and `bust` lays two faint soft arcs of
+    //: shade under it. The five curves keep their roles (two per flank,
+    //: one hem), which `atlasTorsoEdge` counts on.
+    torso: "M26 35.6C23.6 38.4 22.4 42.2 22.7 45.4C23.1 49.6 24.2 57.8 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C37.8 57.8 38.9 49.6 39.3 45.4C39.6 42.2 38.4 38.4 36 35.6Z",
+    bust: "M24.8 45.6Q27.2 47.8 29.8 46.6M32.2 46.6Q34.8 47.8 37.2 45.6",
     brow: "arch",
     lashes: true,
     tail: [[32, 61, 45, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
@@ -1511,6 +1518,7 @@ function atlasBody(parent, id, props, look, route = null) {
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
+      if (spec.bust) atlasMake("path", { class: "atl-bust", d: atlasScalePathX(spec.bust, atlasTune().bodyWidth, 31) }, torso);
       //: **The constellation, faded** (round 6). The owner's screenshot:
       //: "a bright four-point star with lines" on the chest, read as a
       //: badge. It was a white four-point star 7.6 units across with four

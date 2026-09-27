@@ -50,6 +50,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Changing Atlas's look or tune while the large view is open redraws the figure once, whole, instead of putting a full drawing in place of each of its layers.
 - The top bar's tabs are centred at every width that holds them, not left beside the space switcher.
 - On a phone: the agent's runs are a badge and a row in More instead of a second bar; the status bar meets the tab bar at the end of a page; Library Contents rows fit the card; the lightbox's menu opens on top of it (the page reader was one of its rows) and its actions are one row; one finger on bare canvas pans a board with Select; the graph's legend and zoom stand clear of New note; the Documents editor gives the page most of the screen, and its formatting bar sits above the tab bar instead of over it and is gone while reading.
 - The note box's `[[` link list opens at the line being written, in the same panel as the "/" menu, instead of under the whole box, and answers its keys: with the note editor loaded the arrows used to move the caret, Enter wrote a new line and Escape did nothing while the list stayed open.

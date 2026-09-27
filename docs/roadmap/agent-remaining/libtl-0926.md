@@ -93,7 +93,9 @@ paints a second (atlaswalk.js), companionperf.js PASS, after every step.
    moves now ease. A blend would need each loop's phase carried over.
 8. The graph tab keeps the companion on the bottom bar: its canvas has no
    panel edge free of controls at 1440 by 900.
-9. `atlasRepaint` (atlas.js) replaces every `svg.nm-atlas` outside the
-   companion with a whole drawing, so a look or tune change while the
-   large view is open would put a full figure in place of each of its
-   layers. Not reproduced; seen in the code.
+9. Guide batch (INBOX 430) done: help expansion and toggle (445f7c8),
+   prompt fencing (see CHANGELOG, Security), atlasRepaint (this step).
+   Open: mood and act changes still swap loops rather than cross-fade
+   (a CSS animation cannot be blended; needs each loop's phase carried
+   into a WAAPI hand-over). Help text and prompts not tested on a real
+   model.

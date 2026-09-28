@@ -157,8 +157,8 @@ def test_the_tick_checks_phase_and_connectedness_before_rotating() -> None:
 
 
 def test_the_tick_delay_is_jittered_within_spec() -> None:
-    assert "const THINKING_WORD_MIN_MS = 2500;" in APP
-    assert "const THINKING_WORD_JITTER_MS = 1000;" in APP
+    assert "const THINKING_WORD_MIN_MS = 3750;" in APP
+    assert "const THINKING_WORD_JITTER_MS = 1500;" in APP
 
 
 def test_the_crossfade_reuses_the_progress_musings_own_technique() -> None:

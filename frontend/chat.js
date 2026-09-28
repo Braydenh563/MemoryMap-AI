@@ -2600,15 +2600,17 @@ function wireHorizontalWheelScrolling() {
 window.wireHorizontalWheelScrolling = wireHorizontalWheelScrolling;
 
 //: **Recursive, not `livingInterval`.** That helper (this file, above) fixes
-//: one period for the whole life of the timer; a jittered 2.5-to-3.5s gap
+//: one period for the whole life of the timer; a jittered 3.75-to-5.25s gap
 //: needs a new random delay every tick, so this reimplements its one other
 //: idea by hand: a node re-parented for a frame (this app re-parents a live
 //: turn's own elements on purpose, see `livingInterval`'s comment) is not a
 //: node that is gone, so a handful of short rechecks are given before the
 //: timer actually stops, rather than the leak the naive
 //: `if (!node.isConnected) return` guard used to be.
-const THINKING_WORD_MIN_MS = 2500;
-const THINKING_WORD_JITTER_MS = 1000;
+//: 1.5x the first 2.5-to-3.5s gap: the owner found that pace a little too
+//: fast to read a phrase before it changed (2026-09-28).
+const THINKING_WORD_MIN_MS = 3750;
+const THINKING_WORD_JITTER_MS = 1500;
 const THINKING_WORD_RECHECK_MS = 500;
 const THINKING_WORD_GRACE_TICKS = 4;
 

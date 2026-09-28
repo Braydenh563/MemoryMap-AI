@@ -5881,9 +5881,18 @@ button.ghost.doc-template-choice[aria-checked="true"] {
    reserved for can never appear, and that reservation was itself the reported
    gap, 12px under the last row of buttons. */
 .note-edit-toolbar[data-toolbar-mode="row"] {
-  flex-wrap: wrap;
   overflow-x: visible;
   padding-block: var(--space-1);
+}
+
+/* One row now means one row here too (the owner at release: "the fit the
+   toolbar to one row button on the note edit form doesnt work"). The
+   `flex-wrap: wrap` this rule once restated came from the scrolling mode;
+   the row mode now folds what does not fit behind More (fitDocToolbarRow),
+   so there is no overflow left to guard against, and the wrap only made the
+   toggle do nothing. More, pressed, still wraps. */
+.note-edit-toolbar[data-toolbar-mode="row"]:not(.is-more-open) {
+  flex-wrap: nowrap;
 }
 
 

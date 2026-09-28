@@ -12096,6 +12096,11 @@ function applyDocToolbarMode(mode) {
 function setDocToolbarMode(mode) {
   try {
     localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
+    //: A choice made now is never the pre-2026-09-09 default the migration
+    //: in `docToolbarMode` clears. Without the flag, the first read after
+    //: choosing "row" cleared it back to "wrap": the next press chose "row"
+    //: again (the toggle could not go back) and a reload lost it.
+    localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
   } catch {
     /* private mode: it just won't be remembered */
   }

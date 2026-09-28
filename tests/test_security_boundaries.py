@@ -77,8 +77,12 @@ def test_a_token_kept_busy_still_expires_eventually(client):
 def test_using_a_token_keeps_it_alive(client):
     token = _unlocked(client)
     routes_auth._active_tokens[token][1] = time.time() - 60
+    # Measured against the moment before the request, not after it: on a
+    # loaded CI runner the request itself took 7s, so "within 5s of now"
+    # failed while the token had in fact been refreshed.
+    before = time.time()
     client.get("/entries", headers={"X-Auth-Token": token})
-    assert time.time() - routes_auth._active_tokens[token][1] < 5
+    assert routes_auth._active_tokens[token][1] >= before
 
 
 def test_expiry_forgets_the_private_note_key_too(client):

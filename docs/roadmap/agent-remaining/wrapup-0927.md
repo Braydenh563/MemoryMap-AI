@@ -125,7 +125,11 @@ work starts.
     (4) dragging the companion to hang from the top bar drops it onto the
     elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
     edge should give a `hang` spot);
-    (5) the companion's chat sidebar perch (see 10 l): on the Chat tab it
+    (5) the companion's perches on the Chat tab need a pass as a whole (the
+    owner: "a lot of the perch spots in the chat need to be fixed and
+    refined"): walk every spot it takes there (sidebar rows, the composer,
+    the dock, the messages column, the status bar) in a sweep and fix each.
+    The sidebar perch (see 10 l): on the Chat tab it
     stands just above the status bar but is glued to a panel that scrolls,
     so it drifts with the chat's scroll instead of sitting on the bar;
     prefer the status bar's own `legs`/stand spot there, which never scrolls;

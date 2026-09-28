@@ -586,6 +586,24 @@ button.ghost:not(.icon-only, .icon-button) > .ph-lead {
   color: var(--accent-text);
 }
 
+/* Not on a destructive one: Stop's square was accent blue beside red text,
+   and sat off the text's centre line (release). A danger button's icon takes
+   its own colour and the row centres it. */
+button.ghost.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+button.ghost.danger > .ph-lead {
+  color: inherit;
+}
+
+/* Not on a destructive one: Stop's square was accent blue beside red text
+   (release). A danger button's icon takes its own colour. */
+button.ghost.danger > .ph-lead {
+  color: inherit;
+}
+
 button.ghost:active:not(:disabled) {
   background: var(--ghost-btn-bg-hover);
 }

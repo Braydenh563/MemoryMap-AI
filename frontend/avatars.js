@@ -5385,6 +5385,24 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   //: landed, whichever way it goes.
   if (distance < size * NMB_HOP_SIZES && !poseChanged) {
     const duration = Math.round(300 + distance * 2.5);
+    //: **Not always a hop** (the owner at release: "vary the small movement
+    //: transition choices... it basically always hops"). One small step in
+    //: three is a hop; the others slide there on the ground, as a shuffle
+    //: (a rock from foot to foot) or a scoot (a lean into the way it goes
+    //: and a settle back), a little slower than the hop's arc.
+    const small = ["hop", "shuffle", "scoot"][Math.floor(Math.random() * 3)];
+    if (small !== "hop") {
+      const slide = Math.round(duration * 1.25);
+      nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration: slide, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" });
+      const way = dx < 0 ? -1 : 1;
+      nmb.hopAnim = char?.animate(small === "shuffle" ? [
+        { rotate: "0deg", translate: "0px 0px" }, { rotate: "-5deg", translate: "0px -2px", offset: 0.25 },
+        { rotate: "5deg", translate: "0px -2px", offset: 0.6 }, { rotate: "0deg", translate: "0px 0px" },
+      ] : [
+        { rotate: "0deg" }, { rotate: `${way * 7}deg`, offset: 0.35 }, { rotate: `${-way * 2}deg`, offset: 0.8 }, { rotate: "0deg" },
+      ], { duration: slide, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" }) || null;
+      return;
+    }
     nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.45, 0, 0.2, 1)" });
     const arc = Math.min(22, 8 + distance * 0.35);
     nmb.hopAnim = char?.animate([

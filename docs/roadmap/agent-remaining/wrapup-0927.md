@@ -69,7 +69,7 @@ work starts.
     (f) related-note badges and their Link buttons are different heights;
     (g) help answers, "From the help": the entry title ("Skills") is tiny
     against the body; give it heading size;
-    (h) the documents formatting toolbar: it overflows to a "..." menu by
+    (h) checked in CSS, not in a browser: no button has a plain `:focus` rule, so the ring is `:focus-visible` only (keyboard); the documents formatting toolbar: it overflows to a "..." menu by
     design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
     shows on keyboard focus;
     (i) done (library.js watchLibraryColumns defers a frame; verify the notice is gone in Files): find the ResizeObserver in the Library's Files view that trips the

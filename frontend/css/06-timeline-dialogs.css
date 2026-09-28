@@ -3693,6 +3693,11 @@ aside[data-resizable="1"] {
   flex-wrap: wrap;
 }
 
+/* The status takes the row's free space so Close and Start sit at the end. */
+.tensions-controls > .tensions-status {
+  margin-inline-end: auto;
+}
+
 .tensions-status.is-busy {
   /* The app's own generating pulse, so a slow local model reads as working
      rather than as stuck, the same signal the chat dock uses. */

@@ -857,13 +857,14 @@
       can't both be right, a decision you reversed, a date that moved, a
       view you changed. Nothing is linked until you say so.
     </p>
-    <div class="row tensions-controls">
-      <button type="button" class="accent" id="tensions-run">Start the review</button>
-      <span class="muted tensions-status" id="tensions-status" role="status" aria-live="polite"></span>
-    </div>
     <div id="tensions-results" class="tensions-results"></div>
-    <div class="row right space-dialog-actions">
+    <!-- One action row (the owner at release: "put the start the review
+         button on the same row"): the status, then Close, then the one
+         filled action, instead of a lone button above an empty gap. -->
+    <div class="row right space-dialog-actions tensions-controls">
+      <span class="muted tensions-status" id="tensions-status" role="status" aria-live="polite"></span>
       <button type="button" class="ghost" data-close-dialog="tensions-dialog">Close</button>
+      <button type="button" class="accent" id="tensions-run">Start the review</button>
     </div>
   </dialog>
 

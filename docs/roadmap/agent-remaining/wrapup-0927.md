@@ -115,7 +115,7 @@ work starts.
     now (`nameMarkBuddyFarWay`); the owner asked for a portal and a
     distinct teleport too: add a portal (a ring opens, it steps through,
     one opens where it lands) as a fourth far way.;
-    (v) retake `docs/screenshots/whiteboard.png` (and the map shot) in the
+    (v) done for the board and graph shots (dark); retake the map shot in the
     dark theme: filled cards now take readable ink (`wbCoreInkFor`,
     `scratchpad/ui-sweeps/cardink.js`), and the README leads with dark.
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the

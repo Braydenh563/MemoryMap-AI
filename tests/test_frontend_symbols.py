@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -59,13 +60,13 @@ KEYWORDS = frozenset(
 KNOWN_GLOBALS = frozenset(
     """
     Array ArrayBuffer AudioContext BigInt Blob Boolean BroadcastChannel CSS
-    CSSStyleSheet CustomEvent DataView Date DOMParser Error EvalError Event
+    CSSStyleSheet CustomEvent DataView Date DOMParser Error EvalError Event MouseEvent
     EventSource File FileReader Float32Array Float64Array FormData Function
     InputEvent
     Headers Image Infinity Int32Array Intl IntersectionObserver JSON Map Math
     MediaRecorder MutationObserver NaN Notification Number Object Option Path2D
     Performance PerformanceObserver Promise Proxy Range RangeError
-    ReferenceError Reflect RegExp Request ResizeObserver Response Set
+    ReferenceError Reflect RegExp Request ResizeObserver Response ScrollTimeline Set
     SpeechSynthesisUtterance String Symbol SyntaxError TextDecoder TextEncoder
     TypeError URIError URL URLSearchParams Uint8Array Uint32Array WeakMap
     WeakRef WeakSet Worker XMLHttpRequest XMLSerializer AbortController
@@ -303,7 +304,7 @@ def test_the_scanner_still_sees_the_whole_file():
     two things that would hide a real hit are checked directly: the line
     count has to survive, and a declaration late in the largest file has to
     still be visible after stripping."""
-    raw = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    raw = app_js_text()
     stripped = _strip(raw)
     assert stripped.count("\n") == raw.count("\n")
     assert "function round2" in stripped  # app.js, past a thousand templates
@@ -328,7 +329,7 @@ def test_every_function_the_browser_calls_exists():
 #: The files that share the page's one global scope. `graph-worker.js` runs
 #: in a `Worker`, which has a scope of its own, so a name it declares cannot
 #: collide with the page's.
-WORKER_FILES = frozenset({"graph-worker.js", "sw.js"})
+WORKER_FILES = frozenset({"graph-worker.js", "harper-worker.js", "sw.js"})
 
 #: A top-level declaration, which is what the global scope actually holds.
 #: Not the nested ones `DECLARATIONS` collects: a `const` inside a function

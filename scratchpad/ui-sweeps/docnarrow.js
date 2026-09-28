@@ -162,7 +162,10 @@ const CONTENT = [
         if (!m.thumb.shown) fails.push("390: the phone formatting bar is not shown");
         if (m.thumb.actions < 7) fails.push(`390: the phone bar carries ${m.thumb.actions} actions`);
         if (m.thumb.smallest < 44) fails.push(`390: a phone bar target is ${m.thumb.smallest}px`);
-        if (Math.abs(m.thumb.bottom - h) > 1) fails.push(`390: the phone bar's foot is at ${m.thumb.bottom} in an ${h}px window`);
+        //: On the tab bar, not over it (INBOX 430: the bar used to sit at
+        //: the window's foot, over the phone's tab bar, on the whole tab).
+        const dockTop = await page.evaluate(() => document.getElementById("phone-tab-dock")?.getBoundingClientRect().top ?? innerHeight);
+        if (Math.abs(m.thumb.bottom - dockTop) > 1) fails.push(`390: the phone bar's foot is at ${m.thumb.bottom}, the tab bar at ${dockTop}`);
         if (!m.thumb.padBottom || parseFloat(m.thumb.padBottom) <= 0) {
           fails.push(`390: the phone bar's foot padding is ${m.thumb.padBottom}`);
         }

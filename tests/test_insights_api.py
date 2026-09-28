@@ -36,6 +36,20 @@ def test_stats_counts_and_activity(client):
     assert body["per_day"][-1] == 3  # all created today
 
 
+def test_stats_leave_drafts_out_like_the_notes_list(client):
+    """The dashboard, the status bar and the Notes list must agree on one
+    number: drafts are not notes until they are saved (owner: "do I have 29,
+    30, or 31 notes?")."""
+    _save(client, "a real note", category="Alpha")
+    _save(client, "half a thought", category="Alpha", is_draft=True)
+    client.post("/whiteboard/boards", json={"name": "A board is not a note"})
+
+    body = client.get("/insights/stats").json()
+    assert body["total_entries"] == 1
+    assert body["categories"] == [{"name": "Alpha", "count": 1}]
+    assert body["per_day"][-1] == 1
+
+
 def test_on_this_day_resurfaces_old_notes(client):
     _save(client, "fresh note")  # today → excluded (too recent)
     session = deps.get_db().session()

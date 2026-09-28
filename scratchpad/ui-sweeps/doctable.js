@@ -103,8 +103,11 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   // Plus the cell's own padding and the two rules it draws: a header row is
   // 29.2 where a paragraph is 25.6, and that is the table's chrome, not a
   // wrap. Anything past one wrapped line (two of them plus the chrome) is the
-  // squeezed-column bug again.
-  check('a short row is one line high', shape.headHeight <= shape.lineHeight + 5,
+  // squeezed-column bug again. DOCUMENTS_PLAN 17c gave the cells the
+  // rendered view's inset (--space-2 above and below, 12.8px together), so
+  // the chrome is now about 15px and a header row 40.4px: still well short of
+  // a wrapped one, which is a second 25.6px line on top of that.
+  check('a short row is one line high', shape.headHeight <= shape.lineHeight + 16,
     `${shape.headHeight} vs ${shape.lineHeight}`);
   check('the header is bold', Number(shape.headWeight) >= 600, shape.headWeight);
   check('alignment reaches the cells',

@@ -18,6 +18,7 @@ from collections import Counter
 from pathlib import Path
 
 from tests._css_paths import css_text
+from tests._app_js import app_js_text
 
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 
@@ -44,7 +45,8 @@ def _markup() -> str:
 
 def _frontend_js() -> str:
     """app.js, whiteboard.js, graph.js, documents.js, library.js,
-    dashboard.js and settings.js concatenated.
+    dashboard.js, settings.js, timeline.js, documents-code.js,
+    documents-prose.js and whiteboard-map.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
@@ -55,20 +57,33 @@ def _frontend_js() -> str:
     second file, the dashboard (widgets, masonry, the generative art) moved
     out into a sixth as §88.3's third file, and the settings modal, logs
     console and appearance system moved out into a seventh, settings.js , 
-    as §88.3's fourth and last file. See index.html. A check that only read
+    as §88.3's fourth and last file, and the Timeline tab moved out into an
+    eighth, timeline.js, when the gzipped app.js crossed its size bound
+    (2026-09-23), and the document editor's code side and prose tools moved
+    out of documents.js into documents-code.js and documents-prose.js
+    (2026-09-24), as did whiteboard.js's mind map layer, into
+    whiteboard-map.js. See index.html and app.js's LAZY_MODULES. A check that only read
     app.js would go on passing while silently covering none of the moved
     files' own $("...") lookups.
     """
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
     graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
     documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
     library = (INDEX.parent / "library.js").read_text(encoding="utf-8")
     dashboard = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
     settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
+    timeline = (INDEX.parent / "timeline.js").read_text(encoding="utf-8")
+    palette = (INDEX.parent / "palette.js").read_text(encoding="utf-8")
+    avatars = (INDEX.parent / "avatars.js").read_text(encoding="utf-8")
+    avatars += "\n" + (INDEX.parent / "atlas.js").read_text(encoding="utf-8")
+    documents_code = (INDEX.parent / "documents-code.js").read_text(encoding="utf-8")
+    documents_prose = (INDEX.parent / "documents-prose.js").read_text(encoding="utf-8")
+    whiteboard_map = (INDEX.parent / "whiteboard-map.js").read_text(encoding="utf-8")
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
-        + "\n" + dashboard + "\n" + settings
+        + "\n" + dashboard + "\n" + settings + "\n" + timeline + "\n" + palette + "\n" + avatars
+        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map
     )
 
 
@@ -87,7 +102,7 @@ def test_every_id_the_app_looks_up_actually_exists():
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
     assert not missing, (
-        f"app.js/whiteboard.js/graph.js/documents.js/library.js/dashboard.js/settings.js look up ids that aren't "
+        f"app.js/whiteboard.js/graph.js/documents.js/library.js/dashboard.js/settings.js/timeline.js look up ids that aren't "
         f"in index.html: {missing}"
     )
 
@@ -185,7 +200,7 @@ def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
 
 def test_a_widget_does_not_stack_class_names_on_every_render():
     """`className += " muted"` appends again each time the dashboard redraws."""
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert 'className += " muted"' not in app
 
 
@@ -215,7 +230,7 @@ def test_every_appearance_setting_has_a_default():
     # startup closure's theme/palette restore), so a key read only from
     # app.js has to be checked against the same table or this test would
     # miss exactly the class of bug it exists for.
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
     block = DEFAULTS_BLOCK.search(settings)
     assert block, "APPEARANCE_DEFAULTS wasn't found in settings.js, has it moved?"
@@ -263,7 +278,6 @@ MODEL_GATED_CONTROLS = {
     "doc-ai-run": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
-    "wb-boards-generate": "/whiteboard/boards/propose",
     "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
@@ -276,6 +290,21 @@ MODEL_GATED_CONTROLS = {
     #: so the two entries were removed rather than the paragraph amended.
     #: Measured in a browser with no model: the composer was disabled, so the
     #: one AI feature written to work without a model could not be typed into.
+}
+
+#: **Controls that reach an AI route and still work without a model**, so
+#: they must never carry the gate. Each is the rule above applied, with the
+#: route's own fallback named, so the next inventory pass that greps for "the
+#: handler reaches an AI route" finds the reason it is not gated here instead
+#: of adding it again. `wb-boards-generate` was gated by INBOX 203's pass, and
+#: that disabled a feature built to run offline: `/whiteboard/boards/propose`
+#: falls back to the notebook's own filing with no model running
+#: (`reason: "offline"`), and the dialog says "Grouped by how they are filed,
+#: because no local model is running". Measured with no model: the Library's
+#: "Map from notes" was disabled, so the offline half could not be reached
+#: (`scratchpad/ui-sweeps/mindmap3.js` timed out on it).
+WORKS_WITHOUT_A_MODEL = {
+    "wb-boards-generate": "/whiteboard/boards/propose",
 }
 
 
@@ -296,6 +325,22 @@ def test_every_ai_only_control_says_it_needs_a_model():
         "These controls call an AI route but do not carry data-needs-model in "
         f"index.html, so nothing disables them when no model is running: {missing}"
     )
+
+
+def test_a_control_with_an_offline_fallback_is_not_gated():
+    """Disabling a control whose route answers without a model hides the half that works."""
+    markup = _markup()
+    gated = sorted(
+        ident
+        for ident in WORKS_WITHOUT_A_MODEL
+        if re.search(r'\sid="%s"[^>]*\sdata-needs-model=' % re.escape(ident), markup)
+    )
+    assert not gated, (
+        "These controls work without a model (their route falls back) but carry "
+        f"data-needs-model, so the offline path cannot be reached: {gated}"
+    )
+    present = sorted(ident for ident in WORKS_WITHOUT_A_MODEL if 'id="%s"' % ident in markup)
+    assert present == sorted(WORKS_WITHOUT_A_MODEL), "a listed control is gone from index.html"
 
 
 def test_every_model_gated_control_gives_a_reason_and_is_in_the_inventory():

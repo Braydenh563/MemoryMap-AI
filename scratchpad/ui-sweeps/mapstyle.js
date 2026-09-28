@@ -36,6 +36,12 @@ const { boot } = require('./lib.js');
     };
     const edgeRule = ruleOf('.wb-map-edge');
     const slotRule = ruleOf('.wb-map-radial .wb-map-radial-slot');
+    //: The pie-ring rewrite (ccd1b48) took the visible border off each slot
+    //: (it is borderless now, `border: 0`, so its wedge reads as one band)
+    //: and put the divider on the ring's own `::before`: a thick, coloured
+    //: `border-radius: 50%` annulus painted once behind every slot, whose
+    //: own `border` is the `color-mix` this used to look for on the slot.
+    const ringBeforeRule = ruleOf('.wb-map-radial::before');
     const marker = document.getElementById('wb-map-arrow');
     const markerFill = marker ? getComputedStyle(marker.querySelector('path')).fill : null;
     // the selected topic's ring and its grip
@@ -69,6 +75,7 @@ const { boot } = require('./lib.js');
         bg: slotRule.getPropertyValue('background'),
         border: slotRule.getPropertyValue('border'),
       },
+      ringBeforeBorder: ringBeforeRule ? ringBeforeRule.getPropertyValue('border') : null,
       markerFill,
       slot: slotCs && { bg: slotCs.backgroundColor, border: slotCs.borderTopWidth + ' ' + slotCs.borderTopColor, w: Math.round(slot.getBoundingClientRect().width) },
       gripSide: grip ? getComputedStyle(grip).left : null,
@@ -77,11 +84,11 @@ const { boot } = require('./lib.js');
     };
   });
   console.log(`177 branches    ${r.edges} edge(s), ${JSON.stringify(r.edge)}, drawn span ${r.edgeVisible}px, marker fill ${r.markerFill}`);
-  console.log(`177 radial slot computed ${JSON.stringify(r.slot)}; rule ${JSON.stringify(r.slotRule)}`);
+  console.log(`177 radial slot computed ${JSON.stringify(r.slot)}; rule ${JSON.stringify(r.slotRule)}; ring divider ${r.ringBeforeBorder}`);
   console.log(`177 Aa grip     left ${r.gripSide}, overlaps the node actions ${r.gripOverlapsActions}`);
   console.log(`177 link tools  a topic is a candidate: ${r.linkCandidate} (of ${r.topics} topics)`);
   if (!r.edge || parseFloat(r.edge.width) < 3 || r.edge.opacity !== '1' || !/wb-map-arrow/.test(r.edge.marker)) bad.push('branch stroke');
-  if (!r.slotRule || !/modal-bg-opaque/.test(r.slotRule.bg) || !/color-mix/.test(r.slotRule.border)) bad.push('radial slot');
+  if (!r.slotRule || !/modal-bg-opaque/.test(r.slotRule.bg) || !/color-mix/.test(r.ringBeforeBorder || '')) bad.push('radial slot');
   if (r.gripOverlapsActions !== false) bad.push('Aa grip overlaps the actions');
   if (!r.linkCandidate || !r.linkCandidate.startsWith('object:')) bad.push('a topic is not a link candidate');
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);

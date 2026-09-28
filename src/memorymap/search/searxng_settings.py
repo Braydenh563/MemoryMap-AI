@@ -88,7 +88,15 @@ use_default_settings:
       - brave.news
       - ahmia
       - torch
-      - bilibili{extra_removes}
+      - bilibili
+      # qwant answers home instances with a CAPTCHA page, which SearXNG logs
+      # as a SearxEngineCaptchaException traceback on every search. The
+      # three siblings declare `network: qwant`, so they go with it (the
+      # brave KeyError above).
+      - qwant
+      - qwant news
+      - qwant images
+      - qwant videos{extra_removes}
 server:
   secret_key: "{secret}"
   # Safe ONLY because the instance is bound to loopback, the source path sets
@@ -124,12 +132,12 @@ outgoing:
 engines:
   # One general engine is not enough: DuckDuckGo rate-limits by IP, and a
   # home instance that leans on it alone goes dark the moment it throttles.
-  # Qwant and Mojeek run their own indexes and tolerate private instances.
+  # Mojeek runs its own index and tolerates private instances. (Qwant was
+  # here too, until it started answering home IPs with a CAPTCHA; it is in
+  # the remove list above now.)
   # Deliberately no `engine:` key: these merge onto the default entries by
   # name and only flip `disabled`, so they can never point an entry at a
   # module that is not there (which is how the torch override broke starts).
-  - name: qwant
-    disabled: false
   - name: mojeek
     disabled: false
 plugins:

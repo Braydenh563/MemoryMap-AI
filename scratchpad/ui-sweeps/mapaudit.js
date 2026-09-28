@@ -155,15 +155,20 @@ const describe = (root) => `(() => {
     const caption = ring.querySelector(".wb-map-radial-caption");
     return {
       slots: slots.map((s) => {
-        const b = s.getBoundingClientRect();
+        // The ring is a pie menu (ccd1b48): every slot's own box is the
+        // whole ring's square (clip-path only clips the paint), so w/h is
+        // the same 2*outer for all six and says nothing about the slot.
+        // The wedge each one actually owns is `_sector` (wbFitMapRadialBand).
+        const sec = s._sector;
         return {
           id: s.id,
           label: (s.getAttribute("aria-label") || s.title || "").slice(0, 70),
           // Is the label drawn, or only in the tooltip? The slot is icon-only,
           // so what is painted is the icon plus whatever ::after carries.
           text: s.textContent.trim(),
-          w: Math.round(b.width),
-          h: Math.round(b.height),
+          atDeg: sec ? Math.round((sec.at * 180) / Math.PI) : null,
+          inner: sec ? Math.round(sec.inner) : null,
+          outer: sec ? Math.round(sec.outer) : null,
         };
       }),
       captionText: caption ? caption.textContent.trim() : null,

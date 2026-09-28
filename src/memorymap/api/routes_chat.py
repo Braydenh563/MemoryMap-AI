@@ -39,11 +39,16 @@ from memorymap.ai import (
     presets,
     skill_runner,
     skills,
+    tool_fallback,
     tools,
     vision_ocr,
 )
 from memorymap.ai.answer_trim import trim_assistant_padding
-from memorymap.ai.grounding import ground_answer_sentences, support as grounding_support
+from memorymap.ai.grounding import (
+    SentenceGrounder,
+    ground_answer_sentences,
+    support as grounding_support,
+)
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview
@@ -96,6 +101,16 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 #: chip row narrows.
 ASK_SURFACE = "chat"
 AGENT_SURFACE = "agent"
+
+
+def _feature_for(body: "ChatRequest") -> str:
+    """Which feature row a turn runs under: the Ask box or the Chat tab.
+
+    Both post here. `notes_only` is set by the Notes tab's Ask box and never
+    by the Chat tab (see the field), so it is the one fact that already tells
+    the two apart without a second flag to keep in step.
+    """
+    return "ask" if body.notes_only else "chat"
 
 
 def _recent_questions(session: Session, limit: int = 5) -> list[str]:
@@ -175,6 +190,21 @@ STARTER_SUGGESTIONS = [
 ]
 
 
+def _about(name: str) -> str:
+    """A category name as the object of "What have I saved about ...?".
+
+    Lower-cased word by word as a noun in running text ("Travel plans" to
+    "travel plans"), but a word with capitals inside it is a name and keeps
+    them ("MemoryMap"), and a category already named "About X" gives "X":
+    the seeded notebook's "About MemoryMap" came out as "What have I saved
+    about about memorymap?" (the devibe pass, a 1440 still of the empty chat).
+    """
+    words = name.split()
+    if len(words) > 1 and words[0].lower() == "about":
+        words = words[1:]
+    return " ".join(w if any(c.isupper() for c in w[1:]) else w.lower() for w in words)
+
+
 @router.get("/suggestions", response_model=list[str])
 def suggestions(session: Session = Depends(get_session)) -> list[str]:
     """Recommended questions: content-aware ones built from the user's own
@@ -197,11 +227,14 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     # offered them. The rest are reserves, reached only when one of the four is
     # dropped for being in "Ask again" already, so the row keeps its length
     # instead of losing a chip to the row below it.
-    candidates = [f"What have I saved about {name.lower()}?" for name in categories[:2]]
-    candidates.append(f"Summarise my {categories[0].lower()}.")
+    candidates = [f"What have I saved about {_about(name)}?" for name in categories[:2]]
+    # "my notes in General", not "my general": a category is a filing place,
+    # and read as a noun after "my" it made starters like "Summarise my
+    # general." on the seeded notebook.
+    candidates.append(f"Summarise my notes in {categories[0]}.")
     candidates.append("What have I saved recently?")
-    candidates += [f"What have I saved about {name.lower()}?" for name in categories[2:6]]
-    candidates += [f"Summarise my {name.lower()}." for name in categories[1:3]]
+    candidates += [f"What have I saved about {_about(name)}?" for name in categories[2:6]]
+    candidates += [f"Summarise my notes in {name}." for name in categories[1:3]]
     candidates.append("What are my most common topics?")
     return _fill(candidates, asked)
 
@@ -1062,11 +1095,9 @@ def _prepare(
     # Mind maps, likewise: `_attached_boards` builds the outline.
     notes.extend(attached_boards)
     config = deps.get_config()
-    profile = (
-        config.get_preference("user_profile", "")
-        if config.get_preference("profile_enabled", False)
-        else ""
-    )
+    # The name and the capped "About me", or nothing while the profile switch
+    # is off: `librarian.profile_from_config` is the one place that decides.
+    profile = librarian.profile_from_config(config)
 
     # Every entry this question surfaced counts as "used".
     for entry in entries:
@@ -1128,11 +1159,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
     )
-    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
     #: loop included, goes on asking for `chat_model()` and gets this
-    #: tab's answer without knowing features exist.
-    model_manager = deps.get_model_manager().for_feature("chat")
+    #: surface's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature(_feature_for(body))
     ollama = deps.get_ollama()
     ollama_running = ollama.is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
@@ -1608,9 +1639,20 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
     )
     ollama_running = req.ollama.is_running()
+    #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
+    #: backend answering, a turn that may use tools can still run them
+    #: through the needle extra when it is installed (`ai/tool_fallback.py`
+    #: says why the order is what it is). Only the agent branch below uses
+    #: it: needle writes no prose, so a plain answer or a skill's written
+    #: steps still need a model server, and `ollama_running` keeps saying
+    #: the truth about that one.
+    tools_provider = req.ollama
+    if not ollama_running and req.use_tools and not req.skill:
+        tools_provider = tool_fallback.for_tools(req.ollama) or req.ollama
+    tools_only = tools_provider is not req.ollama
     # In agent mode the model can act even when nothing matched, "save a
     # note about X" must work on an empty notebook.
-    will_answer = ollama_running and (
+    will_answer = (ollama_running or tools_only) and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -1625,15 +1667,20 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],
             "when_phrase": prepared["when_phrase"],
-            "answered_by": req.model_manager.chat_model() if will_answer else None,
+            "answered_by": (
+                "needle (tools only)"
+                if tools_only and will_answer
+                else req.model_manager.chat_model() if will_answer else None
+            ),
             "ollama_running": ollama_running,
         }
     )
 
     events: Iterator[dict] = _plain_events(req, prepared, ollama_running)
+    agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
-    if ollama_running and req.use_tools and intent.needs_retrieval(prepared["intent"]):
+    if (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
         shared = {
             "style": prepared["style"],
             "profile": prepared["profile"],
@@ -1678,7 +1725,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 req.question,
                 prepared["notes"],
                 req.model_manager,
-                req.ollama,
+                tools_provider,
                 mode=req.mode,
                 allowed_tools=req.allowed_tools,
                 images=req.images,
@@ -1728,6 +1775,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 yield event(first)
         else:
             events = chain([first], agent_events)
+            agentic = True
     # ROADMAP.md item 36's frontend half: the non-streaming /chat already
     # grounds its answer, but the live Ask box only ever calls this
     # streaming route. Accumulated here (not computed per-delta: the
@@ -1768,14 +1816,36 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # must not break a paragraph in half.
     paragraph_breaks = {"thinking", "tool", "step", "plan", "result"}
     in_prose = False
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    #: **Grounding as the answer streams** (INBOX 320). The Ask tab numbers
+    #: its Matching records from the answer's citations, and those used to
+    #: arrive in one event after the last token, so the column sat unnumbered
+    #: for the whole answer. Each completed sentence is grounded as it lands
+    #: and the rows so far go out as `grounding_live`, which the client treats
+    #: as provisional: the `grounding` event below is still computed over the
+    #: whole, trimmed answer and is what the saved turn and the support line
+    #: read. Plain answers only: an agent turn's candidates grow with every
+    #: note a tool reads, so a live row there could name a set the final pass
+    #: would not.
+    live_grounder = (
+        SentenceGrounder(prepared["notes"])
+        if not agentic and not conversational and prepared["notes"]
+        else None
+    )
     try:
         for payload in events:
             kind = payload.get("type")
+            live_rows: list[dict] = []
             if kind == "answer":
                 if answer_text and not in_prose:
                     answer_text += "\n\n"
-                answer_text += payload.get("delta") or ""
+                delta = payload.get("delta") or ""
+                answer_text += delta
                 in_prose = True
+                #: Only when this delta could have ended a sentence: a split of
+                #: the whole answer per token is wasted work on every other one.
+                if live_grounder is not None and any(ch in delta for ch in ".!?\n"):
+                    live_rows = live_grounder.feed(answer_text)
             elif kind in paragraph_breaks:
                 in_prose = False
                 if kind == "tool":
@@ -1783,6 +1853,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                         if item.get("kind") == "note" and isinstance(item.get("id"), int):
                             touched_note_ids.append(item["id"])
             yield event(payload)
+            if live_rows:
+                yield event({"type": "grounding_live", "sentences": list(live_grounder.rows)})
     except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
         # for a failure that shows up partway through rather than before
         # the first event (a later skill step, say). Same fix: say what
@@ -1810,7 +1882,6 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         #: a filter on every delta: a stream that edits what it already said,
         #: token by token, flickers.
         yield event({"type": "answer_final", "text": answer_text})
-    conversational = not intent.needs_retrieval(prepared["intent"])
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
     #: Kept past the branch below so the saved turn carries the same rows the
     #: client was just sent (INBOX 241). A conversational turn, or one nothing
@@ -1818,7 +1889,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: that answer rather than a gap.
     grounding: list[dict] = []
     if not conversational and candidates and answer_text:
-        grounding = ground_answer_sentences(answer_text, candidates) or []
+        grounding = (
+            ground_answer_sentences(answer_text, candidates, numbered=len(prepared["notes"]))
+            or []
+        )
         if grounding:
             # A touched note is not in `raw_results`, so the client has
             # no text to name it by; the label rides on each entry.
@@ -1860,11 +1934,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     ollama = deps.get_ollama()
-    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
     #: loop included, goes on asking for `chat_model()` and gets this
-    #: tab's answer without knowing features exist.
-    model_manager = deps.get_model_manager().for_feature("chat")
+    #: surface's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature(_feature_for(body))
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)

@@ -20,9 +20,9 @@ lock/unlock and a fresh session both come back on Your Notes and All.
 
 from __future__ import annotations
 
-from pathlib import Path
+from tests._app_js import app_js_text
 
-JS = Path("frontend/app.js").read_text(encoding="utf-8")
+JS = app_js_text()
 
 
 def test_a_reload_keeps_your_place_and_a_new_session_does_not():

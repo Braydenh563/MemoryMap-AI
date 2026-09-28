@@ -42,6 +42,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+from tests._app_js import frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "frontend" / "index.html"
@@ -248,10 +249,15 @@ def test_segments_in_a_zone_carry_an_icon_per_option(seg):
         # them, and the runtime shape is gated by a sweep instead:
         # `scratchpad/ui-sweeps/timelinedock.js` asserts one row, the icons,
         # the `aria-pressed` per segment and the 44px target at 390.
-        app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+        #: app.js and timeline.js joined: the Timeline tab, whose kind filter
+        #: is the case above, was split out of app.js into timeline.js.
+        app = "\n".join(
+            frontend_text(name)
+            for name in ("app.js", "timeline.js")
+        )
         assert seg.id and f'"{seg.id}"' in app, (
             f"{seg.dock}:{seg.id}: a segment with no options and nothing in "
-            "app.js that builds them"
+            "app.js or timeline.js that builds them"
         )
         return
     assert seg.with_icon >= seg.options, (

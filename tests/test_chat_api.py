@@ -126,6 +126,15 @@ def test_suggestions_are_content_aware(client):
     assert len(picks) == len(set(picks))  # no duplicates
 
 
+
+def test_a_summary_starter_names_the_category_as_a_place(client):
+    """Reported by the chat agent from the seeded notebook: "Summarise my
+    general." A category is where notes are filed, so the starter says so."""
+    _save(client, "a note", category="General")
+    picks = client.get("/chat/suggestions").json()
+    assert "Summarise my notes in General." in picks
+    assert not any(p.lower() == "summarise my general." for p in picks)
+
 def _asked(session, question):
     """One question in the Ask box's history, the row `/chat/recent` reads."""
     from memorymap.api.routes_chat import ASK_SURFACE
@@ -274,3 +283,14 @@ def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):
     sent = fake_ollama.chat_calls[-1]
     assert any(m["content"] == "any jokes?" for m in sent)
     assert any(m["content"] == "Yes, a scarecrow one." for m in sent)
+
+
+def test_a_starter_names_a_category_as_it_reads_in_a_sentence():
+    # The seeded notebook's "About MemoryMap" gave "What have I saved about
+    # about memorymap?": the category's own "About" doubled and a name lower-cased.
+    from memorymap.api.routes_chat import _about
+
+    assert _about("About MemoryMap") == "MemoryMap"
+    assert _about("Travel plans") == "travel plans"
+    assert _about("Jokes") == "jokes"
+    assert _about("About") == "about"

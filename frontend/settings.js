@@ -105,24 +105,74 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "privacy", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
 let currentSettingsSection = "models";
 
-function showSettingsSection(name) {
-  //: Reported: reopening Settings lands on Models "but the scroll doesn't
-  //: reset", so the first section opened halfway down. The section's own
-  //: scrolling ancestor goes back to the top whenever the section changes.
+//: **Every pane opens with its own name** (the owner's de-vibecoding pass:
+//: seven panes began with a title and eleven began mid-thought, with a
+//: description, a status line or a group's small label). The ones without a
+//: head get the nav's own label as the same heading the others use
+//: (`.help-head > h3`, styled as the pane title in 08-consistency.css), made
+//: once and kept, so the word in the list and the word over the pane can
+//: never disagree.
+//: **Arrow keys walk the pane list**, the way a sidebar of sections moves
+//: in every settings window people know: Up and Down go to the previous and
+//: next pane and open it, Home and End to the first and last. Tab still
+//: leaves the list for the pane, so nothing a keyboard user relied on moves.
+document.getElementById("settings-nav")?.addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")]
+    .filter((b) => b.getClientRects().length);
+  const at = buttons.indexOf(document.activeElement);
+  if (at < 0) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home" ? 0
+      : event.key === "End" ? buttons.length - 1
+        : Math.max(0, Math.min(buttons.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
+  buttons[next].focus();
+  buttons[next].click();
+});
+
+function ensureSettingsPaneTitle(box, name) {
+  if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
+  const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
+  if (!label) return;
+  //: A pane whose first group is already named the same (Packages) would
+  //: say it twice, one heading straight over the other.
+  const firstHeading = box.querySelector("h3")?.textContent.trim().toLowerCase();
+  if (firstHeading === label.toLowerCase()) return;
+  const head = document.createElement("div");
+  head.className = "row help-head settings-pane-title";
+  const title = document.createElement("h3");
+  title.textContent = label;
+  head.appendChild(title);
+  box.prepend(head);
+}
+
+//: The section's own scrolling ancestor. Shared with the back/forward
+//: history (navigation.js), which remembers where in a section you were.
+function settingsScroller(name) {
   const box = $(`settings-${name}`);
   for (let el = box && box.parentElement; el; el = el.parentElement) {
     const overflow = getComputedStyle(el).overflowY;
-    if (overflow === "auto" || overflow === "scroll") {
-      el.scrollTop = 0;
-      break;
-    }
+    if (overflow === "auto" || overflow === "scroll") return el;
   }
+  return null;
+}
+
+function showSettingsSection(name) {
+  //: The companion's one-time nudge (avatars.js) may show when Appearance
+  //: is first opened.
+  if (name === "appearance" && typeof nameMarkBuddyHint === "function") nameMarkBuddyHint(true);
+  //: Reported: reopening Settings lands on Models "but the scroll doesn't
+  //: reset", so the first section opened halfway down. The section's own
+  //: scrolling ancestor goes back to the top whenever the section changes.
+  const scroller = settingsScroller(name);
+  if (scroller) scroller.scrollTop = 0;
   currentSettingsSection = name;
   // Part of the same back/forward stack every tab and sub-tab already lives
   // in (app.js's tabHistory): asked for directly. Safe to call on every
@@ -134,6 +184,7 @@ function showSettingsSection(name) {
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
+  ensureSettingsPaneTitle($(`settings-${name}`), name);
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }
@@ -142,7 +193,7 @@ function showSettingsSection(name) {
   // the only one that has to be told it is no longer being looked at.
   if (name !== "logs") closeLogs();
   if (name === "logs") renderLogs();
-  if (name === "preferences") renderPrefs().catch(() => {});
+  if (name === "preferences" || name === "general") renderPrefs().catch(() => {});
   if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
@@ -159,9 +210,25 @@ function showSettingsSection(name) {
       })
       .catch(() => {});
   }
+  //: `#pref-smart-model-routing` sits in Models, beside the utility picker it
+  //: governs, and was only ever filled by `renderAutonomousSettings`, which
+  //: runs when *Background tasks* opens. So Settings opened on Models showed
+  //: the raw HTML default, unchecked, over a preference that ships on:
+  //: measured, the box read false while `/preferences` said true, and the
+  //: first click "turned on" a switch that was already on. The same shape the
+  //: comment on `renderAutonomousSettings` records, one section over.
+  if (name === "models") {
+    apiJson("/preferences")
+      .then((prefs) => {
+        prefsCache = prefs;
+        $("pref-smart-model-routing").checked = prefs.smart_model_routing_enabled ?? true;
+      })
+      .catch(() => {});
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
+  if (name === "privacy") renderPrivacyReceipt().catch(() => {});
   if (name === "data") {
     renderBackups();
     renderBackupRetention();
@@ -213,10 +280,23 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // rows a user is most likely to be reading uncollapsed. Idempotent, so
   // reopening costs nothing.
   collapseLongSettingHints();
+  //: Your face in the head (`#settings-profile-btn`) redrawn on every open:
+  //: reported still showing an older look (the owner at release) and not
+  //: reproduced, so whatever path changed the look without a repaint, the
+  //: window never opens on a stale one.
+  if (typeof paintUserMarks === "function") paintUserMarks();
   $("settings-close").focus();
+  //: The version alone: "46 entries loaded" was a debugging line (the
+  //: client's cache size, drafts included) sitting beside the Health
+  //: section's own count of the same thing, and the two disagreed.
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
-  } · ${allEntries.length} entries loaded`;
+  }`;
+  if (typeof nameMarkBuddyMotion === "function") {
+    const { mode, reason } = nameMarkBuddyMotion();
+    const word = { full: "moves freely", fades: "fades only", still: "stays still" }[mode];
+    $("about-motion").textContent = `Companion motion: ${word}${reason && NMB_MOTION_WHY[reason] ? `. ${NMB_MOTION_WHY[reason]}` : "."}`;
+  }
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
   $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
@@ -231,6 +311,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // a browser tab, and a setting whose effect is unreachable reads as broken.
   $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
   $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
+  $("desktop-advanced-fold")?.classList.toggle("hidden", !isDesktop);
   // Same reasoning as the tray/console rows above: /system/restart can only
   // ever do something in the packaged desktop app on Windows specifically
   // (the one platform _spawn_desktop knows how to relaunch), not desktop in
@@ -253,6 +334,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     // install that has never touched this has no stored value, and Boolean()
     // of undefined would render the default as off.
     $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
+    //: Off unless chosen: a second launch brings the open window forward.
+    $("pref-new-window-on-launch").checked = Boolean(prefsCache?.new_window_on_launch);
   }
   // Rebuilt each open rather than once at startup: the list reflects saved
   // preferences, and those can change from another window or a restore.
@@ -271,6 +354,12 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     requestAnimationFrame(() => {
       const found = $(scrollToId);
       if (!found) return;
+      //: A deep link into a folded group opens the fold first (a closed
+      //: `details.settings-fold` has no box, so the jump below would be
+      //: skipped and the link would land on the section's top).
+      for (let fold = found.closest("details"); fold; fold = fold.parentElement?.closest("details")) {
+        fold.open = true;
+      }
       // **Scroll to what the user can see, not to the element that holds the
       // value.** Every `<select>` in this app is replaced at runtime by an
       // opener button plus a menu (`enhanceSelect`), and the native control
@@ -298,12 +387,14 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // is still right, it is where the explanation lives, so only the
       // scroll and flash are skipped.
       if (!target.getClientRects().length) return;
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-      target.classList.remove("flash");
-      void target.offsetWidth;
-      target.classList.add("flash");
-      // Take it off again, the way flashEntry and flashReminder both already
+      //: **The ring is `flashRevealed`'s now** (app.js), the one every
+      //: catalogue row lands with. This used to add `flash` alone, which
+      //: draws only on an element that already carries `flash-target`: the
+      //: one caller whose group did (Search relevance) got a ring, and a deep
+      //: link to anything else scrolled and drew nothing. Measured while
+      //: making the Tools and features rows land on their settings.
+      flashRevealed(target);
+      // The helper takes it off again, the way flashEntry and flashReminder both already
       // do. Reported directly: "the search relevance settings section stays
       // highlighted permanently and doesn't return to normal."
       //
@@ -316,8 +407,6 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // class that static highlight is permanent. A value that is only wrong
       // under a setting the author does not have on is exactly the shape this
       // codebase keeps getting caught by.
-      clearTimeout(openSettingsModal.flashTimer);
-      openSettingsModal.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
     });
   }
 }
@@ -394,9 +483,19 @@ async function renderHealthBlock() {
   }
   dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
   const c = health.counts || {};
-  counts.textContent =
-    `${c.entries ?? 0} notes · ${c.documents ?? 0} documents · ` +
-    `${c.media ?? 0} files · ${c.attachments ?? 0} attachments · ${c.reminders ?? 0} reminders`;
+  //: Each kind counted as the rest of the app counts it: notes are the
+  //: dashboard's notes (no boards, no drafts), and boards and drafts are
+  //: named rather than folded in (it read "96 notes" beside a dashboard's 44).
+  //: A kind with none is left out, and "1 draft" is singular.
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const parts = [plural(c.notes ?? c.entries ?? 0, "note", "notes")];
+  if (c.drafts) parts.push(plural(c.drafts, "draft", "drafts"));
+  if (c.boards) parts.push(plural(c.boards, "board or map", "boards and maps"));
+  parts.push(plural(c.documents ?? 0, "document", "documents"));
+  if (c.media) parts.push(plural(c.media, "file", "files"));
+  if (c.attachments) parts.push(plural(c.attachments, "attachment", "attachments"));
+  parts.push(plural(c.reminders ?? 0, "reminder", "reminders"));
+  counts.textContent = parts.join(" · ");
   const running = health.jobs?.running || [];
   jobs.textContent = running.length
     ? running.map((job) => job.label).join(", ")
@@ -555,6 +654,8 @@ function filterSettings(term) {
 }
 
 function closeSettingsModal() {
+  //: The address and the title go back to the tab under it (router.js).
+  if (typeof routerSettle === "function") routerSettle();
   const search = $("settings-search");
   if (search) {
     search.value = "";
@@ -563,6 +664,10 @@ function closeSettingsModal() {
   // Always cleared on the way out. A panel that reopens semi-transparent
   // reads as a rendering bug, not as a setting anyone chose.
   setSettingsPeek(false);
+  //: A select's list escapes to <body> while it is open, so it does not go
+  //: away with the window: closing Settings with one open left the list
+  //: floating over the page (measured, scratchpad/ui-sweeps/menus.js).
+  if (typeof closeActionMenus === "function") closeActionMenus();
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -1293,9 +1398,31 @@ const APPEARANCE_DEFAULTS = {
   //: Turning off "animations and transitions" is a statement about chrome. A
   //: spinner is not chrome. "always" keeps progress moving through this app's
   //: own Reduce motion; the *operating system's* accessibility setting is
-  //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
+  //: still obeyed (see `progressMotionWanted` in chat.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
+  //: The rotating word beside those same dots (chat.js's `wantsThinkingWords`,
+  //: sheets-selects.js): on by default, since it is the feature being asked
+  //: for. This table is only read for the Settings checkbox's own render;
+  //: `wantsThinkingWords` reads `localStorage` directly.
+  "show-thinking-words": "on", // on | off
+  //: Generated faces (`nameMark`, avatars.js) blink and emote. Always by
+  //: default (the owner: "I want the avatars animated by default"); only
+  //: the faces on screen move (`watchNameMark`), so a long list costs what
+  //: its visible rows cost. On hover and Off remain one click away.
+  "avatar-motion": "always", // always | hover | off
+  "avatar-follow": "on", // on | off
+  "avatar-buddy": "off", // off | me | persona | atlas | custom
+  //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
+  //: globe the owner asked to keep as a choice.
+  "atlas-style": "character", // character | classic
+  //: Atlas's look (atlas.js, `atlasLook`). Auto, the default, follows Face
+  //: looks (feminine there is a feminine Atlas, anything else masculine), and
+  //: the select says so: it used to read Masculine while nothing was stored
+  //: and Atlas was following Face looks anyway (OPEN.md, 0.3.3).
+  "atlas-look": "auto", // auto | masculine | feminine
+  "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
+  "dash-mark": "logo", // logo | atlas | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
   // same default: keep the three in step.
@@ -1318,11 +1445,13 @@ const APPEARANCE_DEFAULTS = {
   // up without a second trip to Settings; unchecking #glass-sheen-toggle
   // afterward turns just the sheen back off without touching glass itself.
   "glass-sheen": "off",
+  // The flat looks' soft ground light (owner: "maybe it can be togglable").
+  "page-wash": "on",
   // 0-100, how strong the sheen reads when it's on: its own dial, separate
   // from whether it's on at all.
   "glass-sheen-strength": "100",
   zoom: "100", // §37E: interface-wide scale, percent: multiplies the root font-size
-  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
+  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh | microbes | mycelium
   palette: "default", // which curated colour set; themes select one
   // No accent by default: the palette supplies the colour until you pick one
   // yourself. Named here so appearancePref("accent") has a defined answer
@@ -1375,10 +1504,31 @@ const APPEARANCE_DEFAULTS = {
 // which is what makes "apply manual colour changes over a selected theme"
 // work. Picking a theme never erases a manual setting, and clearing a manual
 // setting falls back to the theme rather than to the app default.
+const DEFAULT_THEME_PRESET = "utilitarian";
+
 const THEME_PRESETS = {
+  //: **Quiet utilitarian is the default look** (UI_MODERNISATION_PLAN
+  //: decisions, 2026-09-23): used whenever no look has been chosen, see
+  //: `activeThemePreset`. The old default is "Classic", kept exactly.
+  //: No density of its own: it once set compact, which as the default
+  //: scaled every spacing token to 0.75 across the app (owner: "the
+  //: dashboard feels squished now"). Quiet is flat colour and small radii,
+  //: not less room; density stays the reader's choice.
+  utilitarian: {
+    label: "Quiet utilitarian",
+    values: { palette: "utilitarian", glass: "off", radius: "8" },
+  },
   default: {
-    label: "Default",
+    label: "Classic",
     values: { palette: "default", glass: "on", radius: "14" },
+  },
+  paper: {
+    label: "Editorial paper",
+    values: { palette: "paper", glass: "off", radius: "4" },
+  },
+  mono: {
+    label: "Technical mono",
+    values: { palette: "mono", glass: "off", radius: "2", density: "compact" },
   },
   manuscript: {
     label: "Manuscript",
@@ -1440,7 +1590,10 @@ function themeSwatch(preset) {
 }
 
 function activeThemePreset() {
-  const name = localStorage.getItem("themePreset");
+  //: No look chosen yet means the default look, not "no look": the default is
+  //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
+  //: the same fallback so the first paint agrees.
+  const name = localStorage.getItem("themePreset") ?? DEFAULT_THEME_PRESET;
   return THEME_PRESETS[name] ? name : "";
 }
 
@@ -1965,21 +2118,45 @@ function perfModeReason() {
   return "On for this machine: 2 cores or 4 GB of memory or fewer.";
 }
 
+//: **Height-aware density** (WORLD_CLASS_PLAN 22.1 item 2, the owner's
+//: laptop: 1366x768 at 125%, 614px of window). With nothing chosen (Auto),
+//: a window 700px tall or less is Compact and any other takes the look's own
+//: density; a choice in Appearance always wins. theme-boot.js makes the same
+//: call before first paint.
+const DENSITY_SHORT = window.matchMedia("(max-height: 700px)");
+
+function effectiveDensity() {
+  const chosen = localStorage.getItem("density");
+  if (chosen) return chosen;
+  return DENSITY_SHORT.matches ? "compact" : appearancePref("density");
+}
+
+//: A window that crosses 700px tall changes Auto's answer.
+DENSITY_SHORT.addEventListener("change", () => {
+  if (!localStorage.getItem("density")) applyAppearance();
+});
+
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
-  root.dataset.density = appearancePref("density");
+  root.dataset.density = effectiveDensity();
+  //: The dashboard's own level follows the app's Compact (dashboard.js).
+  if (typeof applyDashDensity === "function") applyDashDensity(dashDensity(), { persist: false });
   const perf = perfModeOn();
   root.dataset.perf = perf ? "on" : "off";
   // The preferences themselves are untouched: Performance mode overrides
   // what the page shows, not what the person chose.
   root.dataset.glass = perf ? "off" : appearancePref("glass");
   root.dataset.glassSheen = appearancePref("glass-sheen");
+  root.dataset.pageWash = appearancePref("page-wash");
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
+  root.dataset.avatarMotion = appearancePref("avatar-motion");
+  root.dataset.avatarFollow = appearancePref("avatar-follow");
+  if (typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -2122,6 +2299,7 @@ function renderThemePresets() {
     swatch.style.background = page;
     swatch.style.borderBottom = `6px solid ${accent}`;
     const caption = document.createElement("span");
+    caption.className = "theme-card-name";
     caption.textContent = preset.label;
     button.append(swatch, caption);
     button.addEventListener("click", () => {
@@ -2187,6 +2365,24 @@ function renderAppearance() {
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
+  $("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";
+  $("avatar-motion").value = appearancePref("avatar-motion");
+  $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
+  $("avatar-buddy").value = appearancePref("avatar-buddy");
+  if (typeof mountBuddyCustom === "function") mountBuddyCustom();
+  if (typeof mountBuddyActivities === "function") mountBuddyActivities();
+  if (typeof mountBuddyPresets === "function") mountBuddyPresets();
+  try {
+    $("avatar-buddy-motion").value = localStorage.getItem("avatar-buddy-motion") || "follow";
+  } catch (e) {
+    $("avatar-buddy-motion").value = "follow";
+  }
+  if (typeof nameMarkBuddyMotionApply === "function") nameMarkBuddyMotionApply();
+  if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
+  $("atlas-style").value = appearancePref("atlas-style");
+  $("atlas-look").value = appearancePref("atlas-look");
+  $("face-look").value = appearancePref("face-look");
+  $("dash-mark").value = appearancePref("dash-mark");
   renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
@@ -2199,6 +2395,7 @@ function renderAppearance() {
   $("glass-row").classList.toggle("disabled-row", perfModeOn());
   $("reduce-motion-row").classList.toggle("disabled-row", perfModeOn());
   $("glass-sheen-toggle").checked = appearancePref("glass-sheen") === "on";
+  if ($("page-wash-toggle")) $("page-wash-toggle").checked = appearancePref("page-wash") === "on";
   $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on" || perfModeOn());
   $("glass-sheen-strength").value = appearancePref("glass-sheen-strength");
   $("glass-sheen-strength-value").textContent = `${appearancePref("glass-sheen-strength")}%`;
@@ -2209,6 +2406,7 @@ function renderAppearance() {
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
   $("bg-art-style").value = appearancePref("bg-style");
+  renderBgStyleHint();
   $("radius-slider").value = appearancePref("radius");
   $("radius-value").textContent = `${appearancePref("radius")}px`;
   $("glass-blur").value = appearancePref("glass-blur");
@@ -2234,7 +2432,7 @@ function renderAppearance() {
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
-  _segActive("density-seg", "density", appearancePref("density"));
+  _segActive("density-seg", "density", localStorage.getItem("density") || "auto");
 }
 
 // A frozen background with no explanation reads as a broken app, which is
@@ -2255,6 +2453,24 @@ function renderProgressMotionHint() {
     text = "Moving anyway: your system asks for reduced motion, and this setting overrides it. Choose Auto to follow the system instead.";
   } else if (choice === "still") {
     text = "Held still. The dots step through a colour once a second so you can still tell work is happening.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
+// The two seeded styles say what they grew from and what grew, so the
+// name-to-ecosystem link is visible rather than a hidden rule (the species
+// are the same ones bg-art.js draws: same strains, same genome).
+function renderBgStyleHint() {
+  const hint = $("bg-style-hint");
+  if (!hint) return;
+  const style = bgArtStyle();
+  let text = "";
+  if ((style === "microbes" || style === "mycelium") && typeof bgArtStrains === "function") {
+    const seed = bgArtSeedText();
+    const names = bgArtStrains(seed, bgArtStrainCount(seed)).map(bgArtSpeciesName);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+    text = `Grown from "${seed}": ${list}. A new display name grows a new one.`;
   }
   hint.textContent = text;
   hint.classList.toggle("hidden", !text);
@@ -2284,11 +2500,32 @@ function renderBgMotionHint() {
 // can only ever report the active one.
 const PALETTES = [
   {
+    id: "utilitarian",
+    name: "Quiet",
+    note: "The default. A warm grey ground, solid panels and one ink-blue accent.",
+    light: { page: "#f4f3f1", card: "#ffffff", accent: "#2f5bd3", border: "rgba(28,28,26,0.12)" },
+    dark: { page: "#161615", card: "#1e1e1c", accent: "#78a8ff", border: "rgba(236,235,232,0.12)" },
+  },
+  {
     id: "default",
-    name: "Aurora",
-    note: "The original: indigo glass over a soft gradient.",
+    name: "Classic",
+    note: "The original look: indigo glass over a soft gradient.",
     light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4664f0", border: "rgba(31,36,48,0.12)" },
     dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
+  },
+  {
+    id: "paper",
+    name: "Paper",
+    note: "Off-white paper, black type and hairlines, one red-orange for actions.",
+    light: { page: "#faf9f6", card: "#faf9f6", accent: "#c63d17", border: "rgba(17,17,17,0.18)" },
+    dark: { page: "#141312", card: "#141312", accent: "#ff7a4d", border: "rgba(242,239,233,0.18)" },
+  },
+  {
+    id: "mono",
+    name: "Mono",
+    note: "Cool graphite, monospace numbers and a green signal accent.",
+    light: { page: "#eceff2", card: "#f8f9fa", accent: "#1a7f45", border: "rgba(21,25,30,0.15)" },
+    dark: { page: "#0f1215", card: "#161a1f", accent: "#42d67f", border: "rgba(230,234,238,0.13)" },
   },
   {
     id: "parchment",
@@ -2402,9 +2639,9 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
-    "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
+    "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
@@ -2422,26 +2659,32 @@ function resetAppearance() {
   toast("Appearance reset to defaults.");
 }
 
-// --- generative background (a second, ambient p5 instance) --------------------------
+// --- generative background ---------------------------------------------------------
+//
+// The styles and the runtime (mounting, pausing, the still capture) live in
+// bg-art.js, which loads just before this file; this part decides whether
+// the art runs, and moving or still, from the settings.
 
-let bgArtInstance = null;
+// A seeded style (microbes, mycelium) started before the preferences
+// arrived, or before a rename, grew from the old name; regrow it from the
+// one in Preferences now. A no-op for every other style and when nothing
+// changed.
+function bgArtRefreshSeed() {
+  if (bgArtSeedUsed === null || !bgArtOn()) return;
+  if (bgArtSeedUsed !== bgArtSeedText()) startBgArt();
+}
 
 function bgArtOn() {
   return localStorage.getItem("bgArt") === "on";
 }
 
 function stopBgArt() {
-  if (bgArtInstance) {
-    bgArtInstance.remove();
-    bgArtInstance = null;
-  }
-  const canvas = document.getElementById("bg-art-canvas");
-  if (canvas) canvas.remove();
+  bgArtHalt();
 }
 
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
-const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh"];
+const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium"];
 // One source of truth for the chosen style. This used to read a "bgArtStyle"
 // key that nothing writes any more (the picker saves "bg-style"), so the
 // builder always fell back to aurora no matter what was selected.
@@ -2450,231 +2693,7 @@ function bgArtStyle() {
   return BG_ART_STYLES.includes(saved) ? saved : "aurora";
 }
 
-// Each style is a small factory: given the p5 instance + shared context it
-// returns { init, frame(t) }. startBgArt wires up the canvas, colour mode,
-// trail wash, and reduced-motion handling once, around whichever it picks.
-const BG_ART_BUILDERS = {
-  // A flowing aurora: particles drift along a Perlin flow field, trailing.
-  aurora(p, ctx) {
-    let particles = [];
-    let emblem = [];
-    let ring = null;
-    const drawEmblem = (t, g) => {
-      const radius = Math.min(g.width, g.height) * 0.32;
-      g.push();
-      g.translate(g.width / 2, g.height / 2);
-      g.rotate(t * 0.02);
-      g.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
-      g.strokeWeight(1.5);
-      for (let i = 0; i < emblem.length; i++) {
-        for (let j = i + 1; j < emblem.length; j++) {
-          if ((i + j) % 3 === 0) {
-            g.line(
-              Math.cos(emblem[i]) * radius, Math.sin(emblem[i]) * radius,
-              Math.cos(emblem[j]) * radius, Math.sin(emblem[j]) * radius
-            );
-          }
-        }
-      }
-      g.noStroke();
-      for (const a of emblem) {
-        g.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
-        g.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
-      }
-      g.pop();
-    };
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(70 * ctx.density)); i++) {
-          particles.push({
-            x: p.random(p.width), y: p.random(p.height),
-            speed: p.random(0.3, 1.1), size: p.random(1.5, 3.5),
-            hue: (ctx.baseHue + p.random(-24, 24) + 360) % 360,
-          });
-        }
-        emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
-      },
-      frame(t) {
-        //: The ring is drawn on its own layer and composited, never into the
-        //: trail buffer: drawn straight onto it, its lines and dots landed
-        //: in the same place every frame and read as a patch the trails
-        //: could not cross (INBOX 210, "the trails get reset by the rotating
-        //: middle graphic"). The layer is cleared each frame, so the ring
-        //: turns and the trails beneath it fade like everywhere else.
-        if (!ring || ring.width !== p.width || ring.height !== p.height) {
-          ring = p.createGraphics(p.width, p.height);
-          ring.colorMode(p.HSL, 360, 100, 100, 1);
-        }
-        ring.clear();
-        drawEmblem(t, ring);
-        p.image(ring, 0, 0);
-        for (const dot of particles) {
-          const angle = p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
-          dot.x += Math.cos(angle) * dot.speed;
-          dot.y += Math.sin(angle) * dot.speed;
-          if (dot.x < 0) dot.x = p.width;
-          if (dot.x > p.width) dot.x = 0;
-          if (dot.y < 0) dot.y = p.height;
-          if (dot.y > p.height) dot.y = 0;
-          p.fill(dot.hue, 70, ctx.dark ? 70 : 52, 0.78);
-          p.circle(dot.x, dot.y, dot.size);
-        }
-      },
-    };
-  },
-
-  // Drifting stars joined by faint lines when they wander close, the same
-  // motif as the dashboard "constellation", full-screen.
-  constellation(p, ctx) {
-    let stars = [];
-    return {
-      init() {
-        // `ctx.density` is the intensity slider, and this style was one of
-        // the two that never read it: aurora, bubbles and mesh all scale
-        // their population by it and the constellation and the waves did
-        // not, so on those two the slider moved the canvas's opacity and
-        // nothing else. Measured before the change
-        // (`scratchpad/ui-sweeps/bgart.js`): the constellation's frame cost
-        // was 39.5ms at intensity 10 and 37.2ms at 100, which is the same
-        // number twice, while mesh went 32.7ms to 45.6ms.
-        //
-        // It matters more here than anywhere else because the neighbour
-        // search is O(n squared): 19 stars is 171 pairs a frame and 84 is
-        // 3,486.
-        const n = Math.max(3, Math.min(140, Math.round((p.width * p.height) / 17000 * ctx.density)));
-        for (let i = 0; i < n; i++) {
-          stars.push({
-            x: p.random(p.width), y: p.random(p.height),
-            vx: p.random(-0.25, 0.25), vy: p.random(-0.25, 0.25),
-            size: p.random(1.8, 4),
-            hue: (ctx.baseHue + p.random(-30, 30) + 360) % 360,
-          });
-        }
-      },
-      frame() {
-        for (const s of stars) {
-          s.x = (s.x + s.vx + p.width) % p.width;
-          s.y = (s.y + s.vy + p.height) % p.height;
-        }
-        for (let i = 0; i < stars.length; i++) {
-          for (let j = i + 1; j < stars.length; j++) {
-            const a = stars[i], b = stars[j];
-            const d = p.dist(a.x, a.y, b.x, b.y);
-            if (d < 130) {
-              p.stroke(ctx.baseHue, 60, ctx.dark ? 72 : 48, p.map(d, 0, 130, 0.45, 0));
-              p.strokeWeight(1);
-              p.line(a.x, a.y, b.x, b.y);
-            }
-          }
-        }
-        p.noStroke();
-        for (const s of stars) {
-          p.fill(s.hue, 72, ctx.dark ? 74 : 50, 0.95);
-          p.circle(s.x, s.y, s.size);
-        }
-      },
-    };
-  },
-
-  // Layered scrolling sine waves.
-  waves(p, ctx) {
-    return {
-      init() {},
-      frame(t) {
-        // Same as the constellation: five layers whatever the slider said.
-        const layers = Math.max(2, Math.round(5 * ctx.density));
-        for (let l = 0; l < layers; l++) {
-          const yBase = p.height * (0.35 + l * 0.13);
-          const amp = 26 + l * 10;
-          const hue = (ctx.baseHue + l * 12) % 360;
-          p.noStroke();
-          p.fill(hue, 62, ctx.dark ? 55 : 58, 0.16);
-          p.beginShape();
-          p.vertex(0, p.height);
-          for (let x = 0; x <= p.width; x += 14) {
-            const y = yBase + Math.sin(x * 0.006 + t * (0.6 + l * 0.18) + l) * amp
-              + Math.sin(x * 0.013 - t * 0.4) * (amp * 0.35);
-            p.vertex(x, y);
-          }
-          p.vertex(p.width, p.height);
-          p.endShape(p.CLOSE);
-        }
-      },
-    };
-  },
-
-  // Slow translucent orbs rising like a lava lamp.
-  bubbles(p, ctx) {
-    let orbs = [];
-    const spawn = () => ({
-      x: p.random(p.width),
-      y: p.height + p.random(20, 160),
-      r: p.random(24, 90),
-      speed: p.random(0.2, 0.7),
-      hue: (ctx.baseHue + p.random(-40, 40) + 360) % 360,
-      drift: p.random(-0.3, 0.3),
-    });
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(16 * ctx.density)); i++) {
-          const o = spawn();
-          o.y = p.random(p.height);
-          orbs.push(o);
-        }
-      },
-      frame() {
-        p.noStroke();
-        for (let i = 0; i < orbs.length; i++) {
-          const o = orbs[i];
-          o.y -= o.speed;
-          o.x += o.drift;
-          if (o.y < -o.r) orbs[i] = spawn();
-          p.fill(o.hue, 68, ctx.dark ? 60 : 60, 0.17);
-          p.circle(o.x, o.y, o.r * 2);
-          p.fill(o.hue, 72, ctx.dark ? 70 : 52, 0.22);
-          p.circle(o.x, o.y, o.r);
-        }
-      },
-    };
-  },
-
-  // A soft "mesh gradient": a handful of big blurred blobs wandering.
-  mesh(p, ctx) {
-    let blobs = [];
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(5 * ctx.density)); i++) {
-          blobs.push({
-            seedX: p.random(1000), seedY: p.random(1000),
-            r: p.random(p.width * 0.25, p.width * 0.45),
-            hue: (ctx.baseHue + i * 28) % 360,
-          });
-        }
-      },
-      frame(t) {
-        p.noStroke();
-        for (const b of blobs) {
-          const x = p.noise(b.seedX, t * 0.05) * p.width;
-          const y = p.noise(b.seedY, t * 0.05) * p.height;
-          // Concentric fades approximate a soft radial glow (no blur cost).
-          for (let k = 6; k >= 1; k--) {
-            p.fill(b.hue, 62, ctx.dark ? 48 : 62, 0.05);
-            p.circle(x, y, b.r * (k / 6));
-          }
-        }
-      },
-    };
-  },
-};
-
 function startBgArt() {
-  stopBgArt();
-  //: No early return on a missing `p5` here: it is loaded on demand
-  //: (`ensureP5`, app.js), and the one boot-time call to this function
-  //: arrives before it lands. An early return at this point is why the art
-  //: never appeared on a fresh login (the setting was on, the file loaded
-  //: later for the emblem, and nothing called back); the branch at the end
-  //: waits for the file and starts the art then.
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion
@@ -2708,91 +2727,26 @@ function startBgArt() {
     perfModeOn() ||
     (typeof batteryModeOn === "function" && batteryModeOn()) ||
     (bgMotion !== "moving" && reducedMotionWanted());
-  // Whatever colour the app is wearing, accent picker or curated palette.
-  const accentHex = currentAccentHex();
   const bgStyle = bgArtStyle();
+  //: No p5: the art draws on its own canvas (bg-art.js), so it mounts at
+  //: once, including the one boot-time call to this function that used to
+  //: arrive before p5 had loaded and wait for it.
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
-  const densityScale = Math.max(0.25, intensity / 90);
-  const dark = document.documentElement.dataset.mode === "dark";
-  const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
-
-  const sketch = (p) => {
-    // Each style is a self-contained builder returning {init, frame}. The
-    // merge in #20 left this function holding pieces of two implementations
-    // at once: one branch's builders alongside the other's inline draw
-    // functions, with the `const style = build(...)` line lost between them.
-    // So p.draw called `style.frame(t)` on an undefined `style`, and every
-    // non-aurora background threw on its first frame.
-    let style = null;
-
-    p.setup = () => {
-      const c = p.createCanvas(window.innerWidth, window.innerHeight);
-      c.id("bg-art-canvas");
-      // Style it here, inside setup, where the element definitely exists.
-      // Applying the class after `new p5()` returned was a race: when p5
-      // deferred setup the lookup found nothing, the canvas kept default
-      // static positioning, and the art rendered as a block *below* the whole
-      // UI instead of fixed behind it.
-      c.elt.className = "bg-art-canvas";
-      // p5 parents new canvases to the first <main> it finds: which is the
-      // one inside the Notes tab. That hid the background art on every other
-      // tab (the whole panel is display:none). Pin it to <body> so it really
-      // is a global background.
-      c.parent(document.body);
-      // RGB for the wash rect, HSL for the coloured marks, p5 lets us
-      // switch, but simplest to keep one mode; use HSL and a grey wash.
-      p.colorMode(p.HSL, 360, 100, 100, 1);
-      p.noStroke();
-      p.frameRate(30);
-
-      style = build(p, {
-        dark,
-        baseHue: p.hue(p.color(accentHex)),
-        // The intensity slider scales how much is actually on screen, so each
-        // style decides its own population from one number.
-        density: densityScale,
-      });
-      style.init();
-
-      if (reduceMotion) {
-        // One calm static frame, no motion for reduced-motion users.
-        p.background(0, 0, dark ? 12 : 98);
-        style.frame(0);
-        p.noLoop();
-      }
-    };
-
-    p.draw = () => {
-      const t = p.frameCount * 0.01;
-      // Translucent wash → marks leave gentle trails instead of hard clears.
-      // Kept light so the art reads clearly on every tab (and the page
-      // gradient shows through) rather than flattening to near-solid.
-      p.noStroke();
-      p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
-      p.rect(0, 0, p.width, p.height);
-      style.frame(t);
-    };
-
-    p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
-  };
-  if (typeof p5 === "undefined") {
-    //: On demand (`ensureP5`, app.js): `startBgArt` is synchronous and its
-    //: callers do not wait, so the sketch mounts when the file lands; the
-    //: instance check keeps two from stacking when the setting flips twice.
-    ensureP5().then((ok) => {
-      //: Re-enter rather than mount the captured sketch: the setting or the
-      //: theme may have changed while the file loaded (unlock applies the
-      //: appearance, and `stopBgArt` may have run), so the prefs are read
-      //: again and a flipped-off setting mounts nothing.
-      if (!ok || bgArtInstance || !bgArtOn()) return;
-      startBgArt();
-    });
-    return;
-  }
-  bgArtInstance = new p5(sketch);
-  const canvas = document.getElementById("bg-art-canvas");
-  if (canvas) canvas.className = "bg-art-canvas";
+  bgArtRun({
+    style: bgStyle,
+    dark: document.documentElement.dataset.mode === "dark",
+    // Whatever colour the app is wearing, accent picker or curated palette.
+    accent: currentAccentHex(),
+    // The intensity slider scales how much is actually on screen, so each
+    // style decides its own population from one number.
+    density: Math.max(0.25, intensity / 90),
+    // The seeded styles (microbes, mycelium) grow their species from it.
+    seedText: bgArtSeedText(),
+    still: reduceMotion,
+    requested: bgMotion === "moving",
+    restart: () => { if (bgArtOn()) startBgArt(); },
+  });
 }
 
 function toggleBgArt(on) {
@@ -2832,7 +2786,9 @@ for (const b of document.querySelectorAll("#font-seg button")) {
 }
 for (const b of document.querySelectorAll("#density-seg button")) {
   b.addEventListener("click", () => {
-    localStorage.setItem("density", b.dataset.density);
+    //: Auto is no choice at all: the window's height decides.
+    if (b.dataset.density === "auto") localStorage.removeItem("density");
+    else localStorage.setItem("density", b.dataset.density);
     applyAppearance();
     renderAppearance();
   });
@@ -2856,6 +2812,10 @@ $("glass-toggle").addEventListener("change", (e) => {
   if (turningOn) localStorage.setItem("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
+});
+$("page-wash-toggle")?.addEventListener("change", (e) => {
+  localStorage.setItem("page-wash", e.target.checked ? "on" : "off");
+  applyAppearance();
 });
 $("glass-sheen-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");
@@ -2958,12 +2918,71 @@ $("page-bg-clear").addEventListener("click", () => {
 // Background art style.
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
+  renderBgStyleHint();
   if (bgArtOn()) startBgArt();
+});
+$("avatar-follow").addEventListener("change", (e) => {
+  const value = e.target.checked ? "on" : "off";
+  localStorage.setItem("avatar-follow", value);
+  document.documentElement.dataset.avatarFollow = value;
+});
+$("avatar-buddy").addEventListener("change", (e) => {
+  localStorage.setItem("avatar-buddy", e.target.value);
+  mountBuddyCustom();
+  syncNameMarkBuddy();
+  nameMarkBuddySizeSelect();
+});
+$("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
+$("avatar-buddy-motion").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem("avatar-buddy-motion", e.target.value);
+  } catch (err) {
+    // For this visit only.
+  }
+  nameMarkBuddyMotionApply();
+});
+$("avatar-buddy-actions").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem("avatar-buddy-actions", e.target.value);
+  } catch (err) {
+    // This visit only.
+  }
+});
+try {
+  $("avatar-buddy-actions").value = localStorage.getItem("avatar-buddy-actions") || "fewer";
+} catch (err) {
+  $("avatar-buddy-actions").value = "fewer";
+}
+$("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
+$("atlas-style").addEventListener("change", (e) => {
+  localStorage.setItem("atlas-style", e.target.value);
+  if (typeof atlasRepaint === "function") atlasRepaint();
+});
+$("atlas-look").addEventListener("change", (e) => {
+  localStorage.setItem("atlas-look", e.target.value);
+  if (typeof atlasRepaint === "function") atlasRepaint();
+});
+$("face-look").addEventListener("change", (e) => {
+  localStorage.setItem("face-look", e.target.value);
+  if (typeof nameMarkRepaintAll === "function") nameMarkRepaintAll();
+  //: An Atlas on Auto takes its look from here (`atlasLook`).
+  if (typeof atlasRepaint === "function") atlasRepaint();
+});
+$("dash-mark").addEventListener("change", (e) => {
+  localStorage.setItem("dash-mark", e.target.value);
+  if (typeof paintDashEmblem === "function") paintDashEmblem();
+});
+$("avatar-motion").addEventListener("change", (e) => {
+  localStorage.setItem("avatar-motion", e.target.value);
+  document.documentElement.dataset.avatarMotion = e.target.value;
 });
 $("progress-motion").addEventListener("change", (e) => {
   localStorage.setItem("progress-motion", e.target.value);
   document.documentElement.dataset.progressMotion = e.target.value;
   renderProgressMotionHint();
+});
+$("pref-show-thinking-words")?.addEventListener("change", (e) => {
+  localStorage.setItem("show-thinking-words", e.target.checked ? "on" : "off");
 });
 $("bg-motion").addEventListener("change", (e) => {
   localStorage.setItem("bg-motion", e.target.value);
@@ -3002,8 +3021,24 @@ $("custom-theme-name").addEventListener("keydown", (e) => {
 });
 
 wireBackdropClose($("settings-modal"), () => closeSettingsModal()); // backdrop click
+//: **A section chosen with the pointer hands the keys to the pane** (INBOX
+//: 426 u: "keeps scroll jumping me between sections"). A click left the
+//: focus on the nav button, and the nav's own arrow keys (above) walk the
+//: sections, so the reading keys a person then pressed to scroll the page
+//: they had just opened switched them to the next one, back to its top:
+//: measured, three ArrowDowns from Appearance landed on Import & export
+//: with the pane never moved, and PageDown and Space did nothing at all.
+//: A press from the keyboard (`detail` 0) keeps the focus in the list,
+//: where the arrows are what a keyboard user expects.
+function focusSettingsPane() {
+  document.querySelector("#settings-modal .modal-content")?.focus({ preventScroll: true });
+}
+
 for (const button of document.querySelectorAll("#settings-nav button")) {
-  button.addEventListener("click", () => showSettingsSection(button.dataset.section));
+  button.addEventListener("click", (event) => {
+    showSettingsSection(button.dataset.section);
+    if (event.detail > 0) focusSettingsPane();
+  });
 }
 $("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
 $("settings-search")?.addEventListener("keydown", (e) => {
@@ -3019,7 +3054,11 @@ $("settings-search")?.addEventListener("keydown", (e) => {
 // Delegated, so a link added to the markup later needs no wiring.
 $("settings-modal").addEventListener("click", (event) => {
   const link = event.target.closest("[data-goto-section]");
-  if (link) showSettingsSection(link.dataset.gotoSection);
+  if (!link) return;
+  //: `data-goto-target` lands on one row of that section, scrolled to and
+  //: flashed the way the catalogue's deep links are, rather than on its top.
+  if (link.dataset.gotoTarget) openSettingsModal(link.dataset.gotoSection, link.dataset.gotoTarget);
+  else showSettingsSection(link.dataset.gotoSection);
 });
 // Same idea, one step further: a Help topic about a *tab* (Reminders,
 // Graph, Library…) should be able to send you there directly, not just to
@@ -3049,7 +3088,9 @@ document.addEventListener("click", (event) => {
   //: closer already knows every overlay that can hold the keyboard.
   closeOverlaysForChord();
   if (link.dataset.gotoSection) {
-    openSettingsModal(link.dataset.gotoSection);
+    //: The row too (INBOX 430: the Guide's "a link that opens it" lands on
+    //: the setting it named, not the top of its section).
+    openSettingsModal(link.dataset.gotoSection, link.dataset.gotoTarget || null);
     return;
   }
   switchTab(link.dataset.gotoTab);
@@ -3492,7 +3533,14 @@ const GUIDE_TITLE = `${GUIDE_NAME} guide`;
 //: the '?' popover, the empty state and the composer's own hint all carry
 //: too. What it says instead is where the answers come from, which is the
 //: fact that makes the panel worth opening.
-const GUIDE_LINE = "How this app works, from its own help text";
+//:
+//: **One line, and it has to fit on one** (INBOX 270 part 4). The previous
+//: wording was 41 characters in a 251px column at `--text-sm` and wrapped at
+//: 1440 and 1024 both, leaving "text" alone on a second line and the head
+//: 63px tall against the agent activity panel's 37. Thirty characters says
+//: the same thing and fits with room to spare; the CSS still ellipsises it,
+//: so a longer translation cannot put the second line back.
+const GUIDE_LINE = "Answers from the app's own help";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");
@@ -3516,15 +3564,77 @@ function helpChatAppendRow(row) {
   if (stick) list.scrollTop = list.scrollHeight;
 }
 
-function renderHelpChatMessage(role, content, badges = [], sources = []) {
+//: A button that opens where a help entry points: a tab, a Settings
+//: section, or one row in it (the document-level `[data-goto-*]` handler
+//: above does the going).
+function helpChatOpenButton(link, label) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "chip chip-interactive";
+  if (link.tab) btn.dataset.gotoTab = link.tab;
+  if (link.section) btn.dataset.gotoSection = link.section;
+  if (link.target) btn.dataset.gotoTarget = link.target;
+  btn.textContent = label || link.label;
+  return btn;
+}
+
+function renderHelpChatMessage(role, content, badges = [], sources = [], system = null) {
   const list = $("help-chat-messages");
   if (!list) return null;
   const row = document.createElement("div");
   row.className = `help-chat-msg is-${role}`;
+  //: **Atlas's answer, or the app's own help** (INBOX 430, the owner: "a
+  //: toggle on each answer between the AI's answer and the system-generated
+  //: answer from the app's help"). The turn carries both (`system`, laid out
+  //: by `help_chat.system_answer`: a heading, where it lives, the text, the
+  //: steps); a `.seg` of two above the answer swaps the prose between them.
+  //: With no model the answer already is the help's, so there is no toggle,
+  //: only the link.
+  const prose = document.createElement("div");
+  prose.className = "help-chat-prose";
+  const both = role === "assistant" && system?.content && !content.includes(system.content);
+  if (both) {
+    const seg = document.createElement("div");
+    seg.className = "seg seg-compact help-chat-views";
+    seg.setAttribute("role", "tablist");
+    seg.setAttribute("aria-label", "Which answer to show");
+    for (const [key, label] of [["ai", `${GUIDE_NAME}'s answer`], ["help", "From the help"]]) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.dataset.view = key;
+      tab.textContent = label;
+      const on = key === "ai";
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.addEventListener("click", () => {
+        for (const sibling of seg.children) {
+          const chosen = sibling === tab;
+          sibling.classList.toggle("active", chosen);
+          sibling.setAttribute("aria-selected", chosen ? "true" : "false");
+        }
+        renderMarkdown(prose, key === "ai" ? content : system.content);
+        row.dataset.view = key;
+      });
+      seg.appendChild(tab);
+    }
+    row.appendChild(seg);
+    row.dataset.view = "ai";
+  }
+  row.appendChild(prose);
   if (role === "assistant") {
-    renderMarkdown(row, content);
+    renderMarkdown(prose, content);
   } else {
-    row.textContent = content;
+    prose.textContent = content;
+  }
+  //: The link the owner asked for: one button that opens the setting or
+  //: tab the answer is about, row and all.
+  if (role === "assistant" && system?.open) {
+    const open = document.createElement("div");
+    open.className = "help-chat-open";
+    const where = system.open.section ? "Open Settings, " : "Go to ";
+    open.appendChild(helpChatOpenButton(system.open, `${where}${system.open.label}`));
+    row.appendChild(open);
   }
   //: **Where the answer came from** (INBOX 224). Atlas answers only from the
   //: app's own help topics, and saying which ones is the difference between a
@@ -3542,13 +3652,8 @@ function renderHelpChatMessage(role, content, badges = [], sources = []) {
     const badgeRow = document.createElement("div");
     badgeRow.className = "help-chat-badges";
     for (const badge of badges) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "chip chip-interactive";
-      if (badge.tab) btn.dataset.gotoTab = badge.tab;
-      if (badge.section) btn.dataset.gotoSection = badge.section;
-      btn.textContent = badge.label;
-      badgeRow.appendChild(btn);
+      if (system?.open && badge.label === system.open.label) continue;
+      badgeRow.appendChild(helpChatOpenButton(badge));
     }
     row.appendChild(badgeRow);
   }
@@ -3651,6 +3756,10 @@ async function submitHelpChatQuestion(question) {
   const input = $("help-chat-input");
   helpChatAbort = new AbortController();
   const signal = helpChatAbort.signal;
+  //: The answer's row, and whether the turn failed, for the notice a turn
+  //: that ends behind a closed sheet posts (see the `finally` below).
+  let answerRow = null;
+  let failed = false;
   helpChatSetBusy(true);
   renderHelpChatMessage("user", question);
   // Same "thinking" indicator every other AI-backed surface uses
@@ -3700,11 +3809,12 @@ async function submitHelpChatQuestion(question) {
     pending.remove();
     //: Stopped mid-reveal: what was shown stays, marked, and the history
     //: keeps the whole answer so a follow-up still makes sense to the model.
-    renderHelpChatMessage(
+    answerRow = renderHelpChatMessage(
       "assistant",
       signal.aborted ? `${shown.trimEnd()} (stopped)` : content,
       signal.aborted ? [] : result?.badges || [],
-      signal.aborted ? [] : result?.sources || []
+      signal.aborted ? [] : result?.sources || [],
+      signal.aborted ? null : result?.system || null
     );
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
@@ -3713,9 +3823,20 @@ async function submitHelpChatQuestion(question) {
     if (signal.aborted || error?.name === "AbortError") {
       renderHelpChatMessage("assistant", "Stopped.");
     } else {
-      renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
+      failed = true;
+      answerRow = renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
     }
   } finally {
+    //: **Closed before the answer arrived** (the owner, 2026-09-23). Closing
+    //: the sheet puts the chat back in its hidden host and does not stop the
+    //: turn, so the answer lands where nobody can see it; this says it came,
+    //: with the way back to it. Not when stopped, and not when the sheet is
+    //: open, where the answer is its own notice.
+    if (answerRow && !signal.aborted && !document.querySelector('[data-sheet="guide"]')
+      && typeof noticeUnwatchedAnswer === "function") {
+      answerRow.dataset.answerId = `guide-${Date.now()}`;
+      noticeUnwatchedAnswer("guide", question, answerRow.dataset.answerId, { failed });
+    }
     helpChatBusy = false;
     helpChatAbort = null;
     helpChatSetBusy(false);
@@ -3839,6 +3960,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     content: done?.content || text,
     badges: done?.badges || [],
     sources: done?.sources || [],
+    system: done?.system || null,
     shown: text,
   };
 }
@@ -4102,6 +4224,8 @@ function openHelpChat() {
 //: app.js binds that one, because the status bar is its markup and it can
 //: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());
+//: The avatar in the Settings head is the way to the profile from every pane.
+$("settings-profile-btn")?.addEventListener("click", () => showSettingsSection("preferences"));
 $("atlas-open")?.addEventListener("click", () => openHelpChat());
 
 //: The Settings row's chips are built once, with the modal: the sheet's are
@@ -4121,11 +4245,10 @@ renderAtlasStarters();
 // routes exists so a person can see the model being wrong and say so. With
 // no screen, `derived_facts` grew where nobody could read it.
 //
-// Built against what the backend ships rather than against the whole spec:
-// there is no `POST /learned/bulk`, so there are no bulk actions here. An
-// invented client-side loop over N rows is not the same thing (it is N
-// requests that can half fail), and the honest version of that row is a
-// backend route, not a for-loop.
+// Built against what the backend ships rather than against the whole spec.
+// The bulk actions waited for `POST /learned/bulk` (2026-09-23) rather than
+// being a client-side loop over N rows, which is N requests that can half
+// fail: the route changes every selected row in one transaction.
 
 //: One page. 50 rather than the route's 100 default: this is a settings
 //: panel inside a modal, and a hundred rows is a scroll nobody finishes.
@@ -4284,6 +4407,50 @@ async function learnedSetSwitch(name, value) {
   await renderLearnedSwitches();
 }
 
+//: The ticked rows on the page on screen. Cleared whenever the page is
+//: redrawn: a selection you cannot see is one you cannot check before
+//: deleting it, so it never survives a page turn or a new search.
+const learnedSelected = new Map();
+
+function syncLearnedSelectbar() {
+  const bar = $("learned-selectbar");
+  if (!bar) return;
+  const count = learnedSelected.size;
+  bar.classList.toggle("hidden", count === 0);
+  $("learned-selected-count").textContent = `${count} selected`;
+  //: Reset only means something for a row you edited; offering it over a
+  //: selection with none would be a button that does nothing.
+  const edited = [...learnedSelected.values()].filter((fact) => fact.edited_by_user).length;
+  $("learned-bulk-reset").classList.toggle("hidden", edited === 0);
+}
+
+async function learnedBulk(action) {
+  const ids = [...learnedSelected.keys()];
+  if (!ids.length) return;
+  if (action === "delete") {
+    const ok = await confirmDialog(
+      `Delete ${ids.length === 1 ? "this" : `these ${ids.length}`} and never work ${ids.length === 1 ? "it" : "them"} out again?\n\nYour notes are not touched. Each deletion is remembered, so the next run will not derive the same things.`,
+      { confirmLabel: "Delete" }
+    );
+    if (!ok) return;
+  }
+  try {
+    const reply = await apiJson("/learned/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, action }),
+    });
+    const verb = action === "delete" ? "Deleted" : "Reset";
+    const gone = reply.missing?.length ? `, ${reply.missing.length} already gone` : "";
+    toast(`${verb} ${reply.done}${gone}.`);
+    if (action === "delete" && learnedOffset > 0 && learnedTotal - reply.done <= learnedOffset) {
+      learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    }
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
 function learnedRow(fact) {
   const li = document.createElement("li");
   li.className = "entry-item learned-row";
@@ -4291,6 +4458,17 @@ function learnedRow(fact) {
 
   const head = document.createElement("div");
   head.className = "row align-center learned-row-head";
+  const pick = document.createElement("input");
+  pick.type = "checkbox";
+  pick.className = "learned-select";
+  pick.setAttribute("aria-label", "Select this");
+  pick.checked = learnedSelected.has(fact.id);
+  pick.addEventListener("change", () => {
+    if (pick.checked) learnedSelected.set(fact.id, fact);
+    else learnedSelected.delete(fact.id);
+    syncLearnedSelectbar();
+  });
+  head.appendChild(pick);
   const kind = document.createElement("span");
   kind.className = "chip";
   kind.textContent = learnedKindLabel(fact.kind);
@@ -4364,6 +4542,8 @@ async function renderLearnedList() {
     return;
   }
   learnedTotal = Number(data.total) || 0;
+  learnedSelected.clear();
+  syncLearnedSelectbar();
   list.replaceChildren(...data.items.map(learnedRow));
   if (empty) empty.classList.toggle("hidden", data.items.length > 0 || Boolean(q) || Boolean(kind));
   if (count) {
@@ -4543,6 +4723,13 @@ function wireLearnedSection() {
   $("learned-run-now")?.addEventListener("click", learnedRunNow);
   $("learned-export")?.addEventListener("click", learnedExport);
   $("learned-forget")?.addEventListener("click", learnedForget);
+  $("learned-bulk-delete")?.addEventListener("click", () => learnedBulk("delete"));
+  $("learned-bulk-reset")?.addEventListener("click", () => learnedBulk("reset"));
+  $("learned-bulk-done")?.addEventListener("click", () => {
+    learnedSelected.clear();
+    for (const box of document.querySelectorAll("#learned-list .learned-select")) box.checked = false;
+    syncLearnedSelectbar();
+  });
 }
 
 async function renderLearned() {
@@ -4552,3 +4739,47 @@ async function renderLearned() {
 }
 
 wireLearnedSection();
+
+//: **Long Settings panes fold their tuned-once groups** (INBOX 424 m:
+//: Appearance was 4,115px with 151 controls). Each group is a
+//: `details.settings-fold` carrying a `data-fold-key` (DESIGN.md, the recipe
+//: index): the markup says which one starts open (the first), and after
+//: that the reader's own choice is kept, per group, in this browser. Open is
+//: a property of how the pane is used rather than of one visit, which is the
+//: recipe's own rule. A deep link opens the fold it lands in
+//: (`openSettingsModal`), and that counts as opening it.
+const SETTINGS_FOLDS_KEY = "settingsFolds";
+
+function settingsFoldState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_FOLDS_KEY) || "{}");
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function wireSettingsFolds() {
+  const state = settingsFoldState();
+  for (const fold of document.querySelectorAll("#settings-modal details.settings-fold[data-fold-key]")) {
+    const key = fold.dataset.foldKey;
+    if (typeof state[key] === "boolean") fold.open = state[key];
+    fold.addEventListener("toggle", () => {
+      const now = settingsFoldState();
+      now[key] = fold.open;
+      try {
+        localStorage.setItem(SETTINGS_FOLDS_KEY, JSON.stringify(now));
+      } catch {
+        // A private window: the fold still works, it just is not remembered.
+      }
+    });
+    //: A '?' in a folded group's head explains what is inside it, and its
+    //: popover lives inside the fold, so pressing it opens the group too
+    //: (the popover's own handler keeps the press from toggling it shut).
+    fold.querySelector(":scope > summary [data-help-for]")?.addEventListener("click", () => {
+      fold.open = true;
+    });
+  }
+}
+
+wireSettingsFolds();

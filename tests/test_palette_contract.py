@@ -17,13 +17,10 @@ to keep existing, and the palette has to keep reading those names.
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
-APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "app.js"
-
+from tests._app_js import app_js_text
 
 def _palette_matches_source() -> str:
-    text = APP_JS.read_text(encoding="utf-8")
+    text = app_js_text()
     start = text.index("function paletteMatches(")
     end = text.index("\nfunction ", start + 1)
     return text[start:end]
@@ -74,6 +71,19 @@ def test_the_palette_resolves_every_kind_of_thing_the_app_holds():
     source = _palette_matches_source()
     for group in ("Notes", "Documents", "Files", "Boards & maps", "Reminders", "Conversations"):
         assert f'"{group}"' in source, f"the palette no longer resolves {group}"
+
+
+def test_notes_match_by_body_not_just_title():
+    """Owner report: "I think notes appear in the command palette search."
+    Verified live in Chromium (Ctrl+K, a query matching only a note's body):
+    they do, grouped under "Notes", opening the note through `flashEntry`.
+    Kept here so a future rewrite of `paletteMatches` cannot drop the body
+    half and pass only on a title match."""
+    source = _palette_matches_source()
+    notes_block = source[source.index('group: "Notes"') - 400 : source.index('group: "Notes"') + 400]
+    assert "e.content" in notes_block
+    assert "e.title" in notes_block
+    assert "flashEntry(e.id)" in notes_block
 
 
 def test_the_palette_returns_every_group_it_builds():

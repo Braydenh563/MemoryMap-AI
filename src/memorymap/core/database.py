@@ -878,6 +878,40 @@ class DerivedFact(Base):
     edited_by_user: Mapped[bool] = mapped_column(Boolean, default=False)
     original_text: Mapped[str | None] = mapped_column(Text, default=None)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: The night run that derived this row (`NightRun.id`), so the morning
+    #: card and its review list can speak about one pass. Null on rows from
+    #: before runs were recorded; they still list under /learned.
+    run_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+
+
+class NightRun(Base):
+    """One pass of the night shift (WORLD_CLASS_PLAN 15, I1: `night_runs`).
+
+    Written by `facts.run` in the same transaction as the facts it stamps,
+    so a pass that dies halfway leaves neither (the caller rolls back), and a
+    row always describes facts that exist or existed. `counts` is what the
+    pass derived by kind, as it was derived; the
+    card recounts what is still visible (a fact deleted since, or a note made
+    private since, no longer counts), and keeps this as the record.
+    """
+
+    __tablename__ = "night_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: "manual" (`POST /night/run`) or "scheduled" (`ai/autonomous.py`).
+    trigger: Mapped[str] = mapped_column(String(20), default="manual")
+    scanned: Mapped[int] = mapped_column(Integer, default=0)
+    derived: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_spent: Mapped[int] = mapped_column(Integer, default=0)
+    budget: Mapped[int] = mapped_column(Integer, default=0)
+    #: "done", or "budget" when the pass stopped inside its token budget.
+    stopped_reason: Mapped[str] = mapped_column(String(20), default="done")
+    #: The model that narrowed this pass's candidates, or "local".
+    model: Mapped[str] = mapped_column(String(80), default="local")
+    counts: Mapped[dict] = mapped_column(JSON, default=dict)
+
 
 class EntryRevision(Base):
     """A note's text as it was before an edit.
@@ -1596,6 +1630,12 @@ class DatabaseManager:
         with self.engine.begin() as connection:
             created = search_index.ensure_table(connection)
         if not created:
+            # A table from before maps had their own kind, or before a
+            # board's row held the words on it: a diff over the boards, a
+            # read-only no-op once it has run (`reconcile_boards`).
+            with self.session() as session:
+                if search_index.reconcile_boards(session):
+                    session.commit()
             return
         # Only on the one startup that creates the table: every write after
         # this keeps itself in step (see the module's `after_flush` hook), so

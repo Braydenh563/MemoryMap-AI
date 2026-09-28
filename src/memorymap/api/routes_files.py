@@ -18,6 +18,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -189,8 +190,8 @@ class AttachmentGalleryOut(BaseModel):
     """
 
     id: int
-    #: `/files/{id}`, token-gated the same way as `/media/{name}`, see
-    #: `mediaSrc()` (app.js) and `require_unlock_media` (routes_auth.py).
+    #: `/files/{id}`, gated the same way as `/media/{name}` (the media
+    #: cookie, see `require_unlock_media` in routes_auth.py).
     #: Deliberately has no file extension (an attachment is served by id,
     #: not by stored name), which is why the gallery classifies Images vs.
     #: Files from `mime` here rather than sniffing the url the way it does
@@ -238,19 +239,14 @@ class AttachmentGalleryOut(BaseModel):
     pages_read: int = 0
 
 
-#: The gallery's page. **The default is the maximum, deliberately, and it is
-#: the only list here where that is true.** The bound is what WORLD_CLASS_PLAN
-#: F2 asks for: the response no longer grows with the notebook. A *small*
-#: default would be better still, and is not taken yet, because five callers
-#: read this endpoint whole through `apiJson` (`app.js` 17875, `editor.js`
-#: 870, `library.js` 3767 and 5403, and the Files picker source at `app.js`
-#: 7073), one of them the Library's own Files sub-tab. Shipping a 200-row
-#: default before those move to `apiPagedList` would silently truncate the
-#: Library at two hundred attachments, which is a worse bug than the one
-#: being fixed. `X-Total-Count` is sent so the paged caller that already
-#: exists (`app.js` 17861) reads to the end, and INBOX 195 carries the
-#: frontend half: once the five move, this default drops to 200.
-GALLERY_PAGE_SIZE = 1000
+#: The gallery's page (WORLD_CLASS_PLAN F2): the response no longer grows with
+#: the notebook. The default was the maximum until 2026-09-24, because five
+#: callers read this endpoint whole through `apiJson`, one of them the
+#: Library's own Files sub-tab, and a 200-row default under them would have
+#: cut the Library off at two hundred attachments. They read to the end
+#: through `apiPagedList` now, by `X-Total-Count`, and
+#: `tests/test_gallery_paging.py` fails on a caller that reads one page.
+GALLERY_PAGE_SIZE = 200
 GALLERY_PAGE_SIZE_MAX = 1000
 
 
@@ -810,7 +806,7 @@ def attached_file_html_preview(
 
     On `media_router` because an `<iframe src>` is a declarative load and
     cannot attach a header: `require_unlock_media` is the gate that accepts
-    the token as a query parameter, the same way `<img src>` already does.
+    the media cookie, the same way `<img src>` already does.
     """
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() not in {".html", ".htm"}:
@@ -1749,6 +1745,20 @@ class CaptionBody(BaseModel):
     #: something, matching the null/"not captioned yet" convention
     #: `MediaUpload.caption` already uses.
     text: str | None = Field(default=None, max_length=2000)
+    #: Who wrote `text` (the owner, 2026-09-24). "hand" is a person at a caption field,
+    #: which is every caller but one. "app" is the app describing a picture
+    #: it made itself, a board export's "Part of the mind map ..., exported
+    #: from MemoryMap" line: stored as written by `APP_CAPTION_AUTHOR` and not
+    #: as edited, so the lightbox and the Library card stop saying "typed by
+    #: hand" about text nobody typed, and a vision model that later replaces
+    #: it is credited alone rather than read as a person's edit. Kept in
+    #: `caption_model` rather than a new column: that field already means
+    #: "who wrote this caption", and a sentinel there needs no migration.
+    source: Literal["hand", "app"] = "hand"
+
+
+#: The name the app's own captions are credited to (see `CaptionBody.source`).
+APP_CAPTION_AUTHOR = "MemoryMap"
 
 
 @router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)
@@ -1772,7 +1782,10 @@ def caption_media(
         # skipping every Ollama/vision-model check below.
         stripped = body.text.strip() or None
         upload.caption = stripped
-        if stripped:
+        if stripped and body.source == "app":
+            upload.caption_model = APP_CAPTION_AUTHOR
+            upload.caption_edited = False
+        elif stripped:
             # `caption_model` is left as-is: if this text started as one
             # model's caption, the badge can still credit it alongside
             # "edited" instead of losing that history the moment someone
@@ -1913,6 +1926,46 @@ class OcrRegionOut(BaseModel):
     box: OcrRegionBox | None = None
 
 
+class OcrStoredReadingOut(BaseModel):
+    #: "vision" or "tesseract": which field this is, and so which one a
+    #: delete clears.
+    source: str
+    label: str
+    text: str
+    #: Whether the regions in the same answer were split from this text.
+    in_regions: bool = False
+
+
+def _stored_readings(
+    vision_text: str | None, vision_model: str | None, tesseract_text: str | None, regions_source: str
+) -> list[OcrStoredReadingOut]:
+    vision = (vision_text or "").strip()
+    tesseract = (tesseract_text or "").strip()
+    out: list[OcrStoredReadingOut] = []
+    if vision:
+        out.append(
+            OcrStoredReadingOut(
+                source="vision",
+                label=f"Read by {vision_model or 'a vision model'}",
+                text=vision,
+                in_regions=regions_source == "reading",
+            )
+        )
+    if tesseract:
+        out.append(
+            OcrStoredReadingOut(
+                source="tesseract",
+                label="Read with Tesseract OCR",
+                text=tesseract,
+                #: The sections are split from the vision reading when there
+                #: is one (`stored` prefers it), and are Tesseract's own boxes
+                #: when the source says so.
+                in_regions=regions_source == "tesseract" or (regions_source == "reading" and not vision),
+            )
+        )
+    return out
+
+
 class OcrRegionsOut(BaseModel):
     width: int
     height: int
@@ -1940,6 +1993,14 @@ class OcrRegionsOut(BaseModel):
     #: asked for page 99 of a 3-page PDF must be told which page it actually
     #: got.
     page: int = 0
+    #: **Every stored reading of a picture, named by its reader** (INBOX 421
+    #: e: "the text in the lightbox doesnt even appear in the ocr workspace").
+    #: A picture keeps two: the vision model's and Tesseract's, separate
+    #: fields, and the lightbox shows both (`lightboxReadingsFor`). The
+    #: sections above come from one of them at most (`in_regions`); the
+    #: workspace lists the other beside them, so the two views agree. Empty
+    #: for a PDF, whose readings are per page (`PageRead`).
+    readings: list[OcrStoredReadingOut] = []
 
 
 #: **Reading a PDF page is rasterise-then-read, not a second OCR engine.**
@@ -2146,11 +2207,14 @@ def _regions_for(
     #: came back transcribed by the other one. `auto` is false whenever the
     #: workspace's reader is not Tesseract, and then this returns the honest
     #: empty answer and the "use Read this page" message with it.
-    if not auto:
-        return OcrRegionsOut(
-            width=0, height=0, regions=[], source="none", message=""
-        )
-    found = ocr.extract_regions(path)
+    #:
+    #: **Not reading is not the same as not showing** (INBOX 421 e). This
+    #: used to return the empty answer outright, which skipped the stored
+    #: reading below as well as Tesseract: with the vision model chosen (the
+    #: owner's setting) a picture the model had already read opened on an
+    #: empty panel while the lightbox showed its text. Only the read is
+    #: skipped now; what is stored still becomes the sections.
+    found = ocr.extract_regions(path) if auto else None
     if found is not None:
         out = OcrRegionsOut(
             width=found["width"],
@@ -2185,15 +2249,24 @@ def _regions_for(
     #: them from their own shape and numbers them, which is what makes "this
     #: text came from section 4 of page 2" answerable with nothing installed.
     blocks = ocr.regions_from_reading(text)
+    #: **Worded by whether Tesseract is actually missing** (INBOX 423d). This
+    #: always said "Install Tesseract", even when it was already on the
+    #: machine and simply was not the reader that produced this text (the
+    #: vision model is the default reader, so that is the common case, not
+    #: the rare one): a program you already have does not need installing,
+    #: it needs choosing. `ocr.tesseract_available()` is the same check the
+    #: "nothing read yet" message above already makes before naming it.
+    positions_offer = (
+        "Install Tesseract to also see where each one sits on the page."
+        if not ocr.tesseract_available()
+        else "Switch to Tesseract as the reader to also see where each one sits on the page."
+    )
     return OcrRegionsOut(
         width=0,
         height=0,
         regions=[OcrRegionOut(**block) for block in blocks],
         source="reading",
-        message=(
-            f"{stored_label}: sections come from the reading itself. "
-            "Install Tesseract to also see where each one sits on the page."
-        ),
+        message=f"{stored_label}: sections come from the reading itself. {positions_offer}",
     )
 
 
@@ -2225,7 +2298,9 @@ def media_ocr_regions(
     if suffix == ".pdf":
         return _pdf_regions_for(path, page, stored, label, key, auto)
     #: An image is a one page document, and page 0 is where its regions go.
-    return _regions_for(path, stored, label, key, 0, auto)
+    out = _regions_for(path, stored, label, key, 0, auto)
+    out.readings = _stored_readings(upload.vision_ocr_text, upload.vision_ocr_model, upload.ocr_text, out.source)
+    return out
 
 
 @router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
@@ -2253,7 +2328,11 @@ def attachment_ocr_regions(
     key = _page_read_key(attachment_id, None)
     if suffix == ".pdf":
         return _pdf_regions_for(path, page, stored, label, key, auto)
-    return _regions_for(path, stored, label, key, 0, auto)
+    out = _regions_for(path, stored, label, key, 0, auto)
+    out.readings = _stored_readings(
+        attachment.vision_ocr_text, attachment.vision_ocr_model, attachment.ocr_text, out.source
+    )
+    return out
 
 
 class OcrPageReadOut(BaseModel):
@@ -3357,6 +3436,79 @@ def delete_media_page_read(
     deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     _forget_page_read(_page_read_key(None, upload_id), page)
     return _stored_range(_page_read_key(None, upload_id))
+
+
+def _clean_reading_fields(*fields: tuple[str, str | None]) -> dict[str, str | None]:
+    """`vision_ocr.cut_reading_loops` run over each field that is set, as a
+    dict of only the ones it actually changed, so a caller commits nothing
+    when there was nothing to clean.
+
+    Two fields, not one: a picture read twice (Tesseract once, the vision
+    model once) can have the loop in either, and a menu item that only
+    checked the one the workspace happens to be showing would leave the
+    other one looping forever with no way back to it.
+    """
+    changed: dict[str, str | None] = {}
+    for name, value in fields:
+        if not value:
+            continue
+        cleaned = vision_ocr.cut_reading_loops(value).strip()
+        if cleaned != value:
+            changed[name] = cleaned or None
+    return changed
+
+
+@router.post("/files/{attachment_id}/ocr-clean-loops", response_model=AttachmentGalleryOut)
+def clean_attachment_reading_loops(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> AttachmentGalleryOut:
+    """**"Clean up repeated lines"** in the OCR workspace/lightbox menu
+    (INBOX 423f). Runs the same `cut_reading_loops` a fresh reading is
+    always passed through (ai/vision_ocr.py) over whichever of this
+    attachment's readings already have text, in place: the guard at the
+    point a reading is produced does nothing for one that was already
+    stored before it existed, or one a since-changed model still managed to
+    loop, and nothing else ever re-reads a stored reading on its own.
+    Idempotent: a reading with no loop, or one already cleaned, comes back
+    unchanged.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    changed = _clean_reading_fields(
+        ("vision_ocr_text", attachment.vision_ocr_text),
+        ("ocr_text", attachment.ocr_text),
+    )
+    if changed:
+        for name, value in changed.items():
+            setattr(attachment, name, value)
+        session.commit()
+    return _attachment_out(session, attachment)
+
+
+@router.post("/media/{upload_id}/ocr-clean-loops", response_model=MediaUploadOut)
+def clean_media_reading_loops(
+    upload_id: int, session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """`clean_attachment_reading_loops`'s sibling for a media upload."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    changed = _clean_reading_fields(
+        ("vision_ocr_text", upload.vision_ocr_text),
+        ("ocr_text", upload.ocr_text),
+    )
+    if changed:
+        for name, value in changed.items():
+            setattr(upload, name, value)
+        session.commit()
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
 
 
 class VisionOcrBody(BaseModel):

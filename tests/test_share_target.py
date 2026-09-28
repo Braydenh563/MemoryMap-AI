@@ -12,12 +12,10 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "frontend" / "manifest.webmanifest"
-APP = ROOT / "frontend" / "app.js"
-
-
 def test_the_manifest_declares_a_get_share_target():
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     target = manifest["share_target"]
@@ -27,7 +25,7 @@ def test_the_manifest_declares_a_get_share_target():
 
 
 def test_the_app_reads_exactly_the_names_the_manifest_sends():
-    app = APP.read_text(encoding="utf-8")
+    app = app_js_text()
     declared = re.search(r"const SHARE_PARAMS = \[([^\]]*)\]", app)
     assert declared, "SHARE_PARAMS is missing from app.js"
     names = set(re.findall(r'"([^"]+)"', declared.group(1)))

@@ -172,6 +172,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     #: launch. Distinct from show_console_on_startup itself so a later
     #: change via Settings/tray doesn't make the intro reappear.
     "console_view_intro_seen": False,
+    #: Single instance by default: a second launch of the desktop app brings
+    #: the running window forward. On, it opens another window onto the SAME
+    #: running server instead (never a second server on one data directory,
+    #: core/instance_lock.py). Advanced, off by default.
+    "new_window_on_launch": False,
 }
 
 
@@ -203,6 +208,25 @@ def _default_data_dir() -> str:
     else:
         base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return str(Path(base) / "MemoryMap AI")
+
+
+def resolved_data_dir() -> Path:
+    """The data directory, for code that runs before (or without) a
+    `ConfigManager`: the launcher's log file, the desktop window's profile,
+    the Repair shortcut. The same answer `ConfigManager` gives, without
+    creating anything.
+
+    **Why this exists.** Those three read `MEMORYMAP_DATA_DIR` with a bare
+    `"data"` fallback, which is right for a source checkout and wrong for the
+    installed Windows app, where the notes are in `%APPDATA%\\MemoryMap AI`
+    and nothing sets the variable. The packaged build's log and window
+    profile landed in `data\\` under whatever folder Windows started it in
+    (the install folder, or `System32`, which a standard account cannot
+    write), and the Start Menu's "Repair MemoryMap AI" cleared a folder that
+    held nothing, so the repair repaired nothing. Every packaging smoke set
+    the variable, which is why none of them saw it.
+    """
+    return Path(os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()).resolve()
 
 
 class ConfigManager:

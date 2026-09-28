@@ -155,11 +155,21 @@ INTERNAL_MODES: dict[str, ResponseMode] = {
     #: headroom on top of `max_output_tokens` when thinking was not turned
     #: off, which is the §35A.3 fix, so the answer is not competing with the
     #: reasoning for the same 256 tokens.
+    #:
+    #: **And for the reply cap, since INBOX 410.** The Guide now holds a
+    #: controls reference per surface, and "what are all the whiteboard
+    #: shortcuts" is answered by listing one: the longest entry is about
+    #: 1,550 characters, near 520 tokens at the conservative three characters
+    #: a token, which Quick's 256 cut off mid-list. 640 holds the longest
+    #: entry with room over; a short question still gets a short answer,
+    #: because the system prompt asks for one and the cap is a ceiling, not a
+    #: target. `tests/test_help_controls.py` checks the cap against the
+    #: longest entry, so a longer one raises this or fails.
     GUIDE_MODE: ResponseMode(
         id=GUIDE_MODE,
         label="Guide",
         description="The Guide panel's own preset: Quick's brevity, thinking left to the model.",
-        max_output_tokens=MODES["quick"].max_output_tokens,
+        max_output_tokens=640,
         temperature=MODES["quick"].temperature,
         think=None,
         length_hint=MODES["quick"].length_hint,

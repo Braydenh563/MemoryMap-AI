@@ -38,7 +38,11 @@ unregistered name rather than quietly indexing nothing, so a seventh kind
 added to `KINDS` fails `tests/test_search_engine.py` on the spot.
 
 What this deliberately does not do: rebuild on a schedule, or index whiteboard
-sketches and objects (a board's cards are notes, and are indexed as notes).
+sketches, images and cards as rows of their own (a board's cards are notes,
+and are indexed as notes). The *words* written on a board or a map (its text
+boxes and its topics) are indexed, as part of that board's own row: a mind
+map's whole content is its topics, and a map indexed by its `# Title` line
+alone could not be found by anything written on it.
 A full rebuild on a large notebook belongs to the job runtime (Brief 9), not
 to a request; `rebuild()` is here for the one caller that needs it, a database
 that has never had this table.
@@ -52,13 +56,30 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import event, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm import Session, object_session
 
 logger = logging.getLogger("memorymap.search.index")
 
 #: The kinds the engine can return, and the kinds `kind:` accepts. The spec
-#: (`tests/test_search_engine_spec.py`) names exactly these six.
-KINDS = ("note", "document", "board", "file", "bookmark", "reminder")
+#: (`tests/test_search_engine_spec.py`) names the first six; `map` came after
+#: it. Reported: "Mind maps don't show in the Find anything universal search".
+#: A map is a board whose `board_settings` says `type: "map"` (MINDMAP_PLAN
+#: §4), and indexing it as a `board` meant the finder could only ever call it
+#: one; a previous pass relabelled the board chip "boards & maps" instead of
+#: telling the two apart, which the data always could.
+KINDS = ("note", "document", "board", "map", "file", "bookmark", "reminder")
+
+#: The kinds whose `ref_id` is an `entries.id`: the ones the embedding matrix
+#: and the link graph know, so the only ones cosine and graph distance can
+#: score. One name for it, because the engine asked "note or board" in five
+#: places and a sixth that forgot the map would score maps at zero silently.
+ENTRY_KINDS = ("note", "board", "map")
+
+#: The whiteboard object kinds whose `data.content` is words someone wrote:
+#: a board's text box and a map's topic. Images carry a url and reference
+#: nodes carry an id of something indexed in its own right.
+_WORDED_OBJECT_KINDS = ("text", "topic")
 
 #: The FTS5 table's columns, in order. The first three are indexed (they are
 #: what a query matches against); the rest are UNINDEXED, which in FTS5 means
@@ -290,6 +311,7 @@ def _index_on_flush(session: Session, flush_context) -> None:  # noqa: ANN001
                 work.append((source, ref_id, source.read(obj)))
             except Exception:  # noqa: BLE001  # see the docstring
                 logger.warning("could not index %s %s", source.name, ref_id, exc_info=True)
+    work.extend(_boards_touched_by_objects(session, {(s.name, ref) for s, ref, _ in work}))
     if not work:
         return
     connection = session.connection()
@@ -298,6 +320,92 @@ def _index_on_flush(session: Session, flush_context) -> None:  # noqa: ANN001
             _write(connection, source, ref_id, row)
         except Exception:  # noqa: BLE001  # see the docstring
             logger.warning("could not write index row for %s %s", source.name, ref_id, exc_info=True)
+
+
+def _boards_touched_by_objects(
+    session: Session, done: set[tuple[str, int]]
+) -> list[tuple[Source, int, Row | None]]:
+    """The board and map rows a whiteboard object's write changed.
+
+    A topic is not a row of its own; its words are part of its board's row
+    (`_board_words`), so adding, editing or deleting one has to re-read that
+    board. A dirty object whose `data` and `board_id` did not change (a node
+    dragged, a colour picked) says nothing new and is skipped: a drag saves
+    on every drop, and each would otherwise rewrite the board's row for
+    nothing. `done` is what the entry pass already wrote this flush.
+    """
+    from memorymap.core.database import Entry, WhiteboardObject
+
+    board_ids: set[int] = set()
+    for obj in [*session.new, *session.deleted]:
+        if isinstance(obj, WhiteboardObject) and obj.board_id is not None:
+            board_ids.add(int(obj.board_id))
+    for obj in session.dirty:
+        if not isinstance(obj, WhiteboardObject):
+            continue
+        state = sa_inspect(obj)
+        moved = state.attrs.board_id.history
+        if not (state.attrs.data.history.has_changes() or moved.has_changes()):
+            continue
+        for board_id in [*(moved.deleted or ()), obj.board_id]:
+            if board_id is not None:
+                board_ids.add(int(board_id))
+    if not board_ids:
+        return []
+    out: list[tuple[Source, int, Row | None]] = []
+    with session.no_autoflush:
+        for board_id in sorted(board_ids):
+            entry = session.get(Entry, board_id)
+            if entry is None:
+                continue
+            for source in _BY_MODEL.get(Entry, ()):
+                if (source.name, board_id) in done:
+                    continue
+                try:
+                    out.append((source, board_id, source.read(entry)))
+                except Exception:  # noqa: BLE001  # see `_index_on_flush`
+                    logger.warning("could not index %s %s", source.name, board_id, exc_info=True)
+    return out
+
+
+def reconcile_boards(session: Session) -> bool:
+    """Bring the board and map rows in line with what they should say.
+
+    Returns True when anything was written. Run at every startup after the
+    table exists, because two changes to what a board's row holds arrived
+    after notebooks had already been indexed: maps got a kind (and a slot)
+    of their own, and a board's row gained the words on it. Neither can be
+    put right by the write path, which only sees what changes from now on.
+
+    A diff, not a rebuild: boards are a handful of rows, so reading them all
+    is cheap, and writing only the rows that differ keeps the second and
+    every later startup a read-only no-op.
+    """
+    if _table_missing(session):
+        return False
+    connection = session.connection()
+    changed = False
+    for name in ("boards", "maps"):
+        source = _SOURCES[name]
+        low, high = source.slot * SLOT_STRIDE, (source.slot + 1) * SLOT_STRIDE
+        existing = {
+            int(ref_id): (title, body, tags, space, flags, written)
+            for ref_id, title, body, tags, space, flags, written in connection.exec_driver_sql(
+                "SELECT ref_id, title, body, tags, space, flags, written FROM search_index "
+                "WHERE rowid >= ? AND rowid < ?",
+                (low, high),
+            ).all()
+        }
+        wanted = dict(source.scan(session))
+        for ref_id, row in wanted.items():
+            shape = (row.title, row.body, row.tags, row.space, row.flags, row.written)
+            if existing.get(ref_id) != shape:
+                _write(connection, source, ref_id, row)
+                changed = True
+        for ref_id in existing.keys() - wanted.keys():
+            _write(connection, source, ref_id, None)
+            changed = True
+    return changed
 
 
 def touch(session: Session, source_name: str, ref_id: int) -> None:
@@ -316,15 +424,60 @@ def touch(session: Session, source_name: str, ref_id: int) -> None:
     _write(session.connection(), source, ref_id, row)
 
 
+def forget(session: Session, model: type, ids: Iterable[int]) -> int:
+    """Take rows out for things a bulk statement is about to delete, or has.
+
+    `touch` above re-reads one object; this is its bulk half, for the deletes
+    that never reach the flush hook: emptying the bin (`manager._hard_delete`
+    runs `DELETE FROM entries WHERE id IN (...)`) and deleting a space (every
+    table in `routes_spaces.delete_space` goes by a query-level delete). Both
+    left their rows here for good, measured: a purged note stayed findable
+    with `is:deleted`, and a deleted space's notes, documents and reminders
+    stayed findable from All spaces. Every source of the model is cleared,
+    because a note and a board share `Entry` and the caller cannot know
+    which of the two a row was indexed as. Returns rows removed.
+    """
+    wanted = [int(ref_id) for ref_id in ids]
+    if not wanted or _table_missing(session):
+        return 0
+    rowids = [_rowid(source, ref_id) for source in _BY_MODEL.get(model, ()) for ref_id in wanted]
+    removed = 0
+    connection = session.connection()
+    # In chunks: SQLite's default bound-parameter ceiling is 999 on older
+    # builds, and a bin can hold more notes than that.
+    for start in range(0, len(rowids), 500):
+        chunk = rowids[start : start + 500]
+        result = connection.exec_driver_sql(
+            f"DELETE FROM search_index WHERE rowid IN ({', '.join('?' * len(chunk))})",
+            tuple(chunk),
+        )
+        removed += max(result.rowcount or 0, 0)
+    return removed
+
+
+#: When the index was last rebuilt from scratch in this process, and with how
+#: many rows per kind, for `/search/stats`. None until the first rebuild: a
+#: notebook whose index has only ever been kept up by the flush hook has no
+#: "last rebuilt" to report, and inventing one would say it was checked.
+_last_rebuild: dict | None = None
+
+
+def last_rebuild() -> dict | None:
+    return dict(_last_rebuild) if _last_rebuild else None
+
+
 def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
     """Index everything from scratch. Returns rows written per kind.
 
-    The one caller is a database that has never had the table (a notebook from
+    Two callers. A database that has never had the table (a notebook from
     before this existed): `DatabaseManager` runs it once at startup when
-    `ensure_table` reports it created the table. On a large notebook this is
-    work for the job runtime (Brief 9), never for a request, which is why
-    nothing routes to it.
+    `ensure_table` reports it created the table. And the re-index job
+    (`model_manager._run_reindex`, behind Settings' "Rebuild search index"),
+    which is the way to ask for one after a restore, an import or a bug; it
+    was the one thing that could not be asked for (the `search-reindex-job`
+    row). Never a request's own work: on a large notebook it is a job.
     """
+    global _last_rebuild
     if _table_missing(session):
         return {}
     connection = session.connection()
@@ -339,6 +492,8 @@ def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
         for ref_id, row in source.scan(session):
             _write(connection, source, ref_id, row)
             written[source.kind] += 1
+    if not only:
+        _last_rebuild = {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "rows": dict(written)}
     return written
 
 
@@ -387,8 +542,58 @@ def _written(value: datetime | date | None) -> str:
     return value.isoformat()
 
 
-def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
-    """A note or a board, from the same table.
+def _entry_kind(entry) -> str:  # noqa: ANN001
+    """"note", "board" or "map" for one row of the entries table.
+
+    The same read as `entry.manager.board_type_of`, repeated rather than
+    imported for the reason this module imports nothing from above it: the
+    index sits under the entry layer. Tolerant of every shape a JSON text
+    column can hold: a bad value is an ordinary board, never an exception in
+    the middle of a flush.
+    """
+    if not bool(getattr(entry, "is_board", False)):
+        return "note"
+    try:
+        parsed = json.loads(getattr(entry, "board_settings", None) or "{}")
+    except (TypeError, ValueError):
+        return "board"
+    if isinstance(parsed, dict) and parsed.get("type") == "map":
+        return "map"
+    return "board"
+
+
+def _board_words(entry) -> str:  # noqa: ANN001
+    """The words written on a board or a map: its text boxes and topics.
+
+    Raw SQL on the entry's own session connection, not an ORM query: this
+    runs inside `after_flush`, where anything touching the unit of work would
+    re-enter it, and after the flush's SQL, so a topic added, edited or
+    deleted in the same flush is already what the table says.
+    """
+    session = object_session(entry)
+    board_id = getattr(entry, "id", None)
+    if session is None or board_id is None or _table_missing(session):
+        return ""
+    placeholders = ", ".join("?" * len(_WORDED_OBJECT_KINDS))
+    rows = session.connection().exec_driver_sql(
+        f"SELECT data FROM whiteboard_objects WHERE board_id = ? AND kind IN ({placeholders}) "
+        "ORDER BY id",
+        (int(board_id), *_WORDED_OBJECT_KINDS),
+    ).all()
+    words = []
+    for (raw,) in rows:
+        try:
+            data = json.loads(raw or "{}")
+        except (TypeError, ValueError):
+            continue
+        content = data.get("content") if isinstance(data, dict) else None
+        if isinstance(content, str) and content.strip():
+            words.append(content.strip())
+    return "\n".join(words)
+
+
+def _entry_row(entry, *, want: str) -> Row | None:  # noqa: ANN001
+    """A note, a board or a map, from the same table.
 
     A private note is never indexed, for the reason its ciphertext exists: an
     index of what an encrypted note says is the encryption undone. A binned or
@@ -396,7 +601,7 @@ def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
     """
     if entry is None or bool(getattr(entry, "is_private", False)):
         return None
-    if bool(getattr(entry, "is_board", False)) != want_board:
+    if _entry_kind(entry) != want:
         return None
     flags = []
     if getattr(entry, "pinned", False):
@@ -410,9 +615,14 @@ def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
     if getattr(entry, "source_url", None):
         flags.append("clipped")
     content = entry.content or ""
+    body = content
+    if want != "note":
+        words = _board_words(entry)
+        if words:
+            body = f"{content}\n{words}" if content else words
     return Row(
         title=_first_line(content),
-        body=content,
+        body=body,
         tags=_tagstext(getattr(entry, "tags", "[]")),
         space=getattr(entry, "workspace_id", "default") or "default",
         flags=" ".join(flags),
@@ -420,11 +630,16 @@ def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
     )
 
 
-def _scan_entries(session: Session, *, want_board: bool) -> Iterator[tuple[int, Row]]:
+def _scan_entries(session: Session, *, want: str) -> Iterator[tuple[int, Row]]:
     from memorymap.core.database import Entry
 
-    for entry in session.scalars(select(Entry).where(Entry.is_private == False)):  # noqa: E712
-        row = _entry_row(entry, want_board=want_board)
+    query = select(Entry).where(Entry.is_private == False)  # noqa: E712
+    # Boards are a handful of rows in a notebook of thousands of notes, and
+    # `reconcile_boards` scans them at every startup, so that scan must not
+    # read every note to throw them away.
+    query = query.where(Entry.is_board == (want != "note"))  # noqa: E712
+    for entry in session.scalars(query):
+        row = _entry_row(entry, want=want)
         if row is not None:
             yield entry.id, row
 
@@ -446,8 +661,8 @@ def _register_all() -> None:
             kind="note",
             slot=1,
             model=Entry,
-            read=lambda obj: _entry_row(obj, want_board=False),
-            scan=lambda session: _scan_entries(session, want_board=False),
+            read=lambda obj: _entry_row(obj, want="note"),
+            scan=lambda session: _scan_entries(session, want="note"),
         )
     )
     register(
@@ -456,8 +671,21 @@ def _register_all() -> None:
             kind="board",
             slot=2,
             model=Entry,
-            read=lambda obj: _entry_row(obj, want_board=True),
-            scan=lambda session: _scan_entries(session, want_board=True),
+            read=lambda obj: _entry_row(obj, want="board"),
+            scan=lambda session: _scan_entries(session, want="board"),
+        )
+    )
+    register(
+        Source(
+            name="maps",
+            kind="map",
+            #: The next free slot, not 2: slots are permanent, and a map row
+            #: written under the boards slot before this source existed is
+            #: moved by `reconcile_boards`, not reinterpreted.
+            slot=8,
+            model=Entry,
+            read=lambda obj: _entry_row(obj, want="map"),
+            scan=lambda session: _scan_entries(session, want="map"),
         )
     )
     register(

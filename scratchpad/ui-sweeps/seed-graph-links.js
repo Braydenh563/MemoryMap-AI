@@ -34,7 +34,10 @@ const { boot } = require('./lib.js');
       if (sparse) {
         for (let i = 1; i < group.length; i++) {
           if (rnd() < 0.33) continue;
-          add(group[i], group[Math.floor(rnd() * i)], `Both filed under ${cat}`);
+          //: Half the tree's links are plain, made by hand with no reason,
+          //: so the shot shows both kinds (the owner: "some connections with
+          //: and without reasons").
+          add(group[i], group[Math.floor(rnd() * i)], rnd() < 0.5 ? null : `Both filed under ${cat}`);
         }
         continue;
       }
@@ -54,7 +57,7 @@ const { boot } = require('./lib.js');
     if (!sparse) for (let i = 0; i < hubs.length; i++) add(hubs[i], hubs[(i + 1) % hubs.length], 'Two threads that keep meeting');
     let ok = 0, fail = 0;
     for (const [sid, tid, reason] of wanted) {
-      const r = await api(`/entries/${sid}/links`, { method: 'POST', body: JSON.stringify({ target_id: tid, reason }) }).catch(() => null);
+      const r = await api(`/entries/${sid}/links`, { method: 'POST', body: JSON.stringify(reason ? { target_id: tid, reason } : { target_id: tid }) }).catch(() => null);
       if (r && r.ok) ok++; else fail++;
     }
     return { notes: notes.length, cats: Object.keys(byCat).length, wanted: wanted.length, ok, fail };

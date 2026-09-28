@@ -211,5 +211,86 @@ def test_without_tesseract_the_sections_come_from_the_reading(client, monkeypatc
     assert body["regions"][0]["text"] == "Invoice"
     # Nothing measured where these are, so nothing claims to have.
     assert all(r["box"] is None for r in body["regions"])
-    # The offer to install Tesseract stays, it adds the boxes this cannot.
-    assert "Tesseract" in body["message"]
+    # Tesseract is genuinely missing here (not mocked), so the message
+    # tells you to install it, the honest instruction for this case.
+    assert "Install Tesseract" in body["message"]
+
+
+def test_with_tesseract_already_installed_the_message_says_switch_not_install(client, monkeypatch):
+    """INBOX 423(d): the vision model is the default reader, so a reading
+    with no page positions is the common case even on a machine that already
+    has Tesseract, simply not chosen. "Install Tesseract" is then wrong
+    advice, wrong enough to act on: the message must say to switch reader
+    instead, worded by `ocr.tesseract_available()`, the same check the
+    "nothing read yet" message next to this one already makes."""
+    monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
+    monkeypatch.setattr(ocr, "tesseract_available", lambda: True)
+    created = client.post("/entries", json={"content": "host note"}).json()
+    files = {"file": ("scan.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
+    upload = client.post(f"/entries/{created['id']}/files", files=files)
+    attachment_id = upload.json()["attachments"][-1]["id"]
+    client.post(
+        f"/files/{attachment_id}/analyse",
+        json={"kind": "vision", "text": "A page read by the vision model."},
+    )
+
+    body = client.get(f"/files/{attachment_id}/ocr-regions").json()
+    assert body["source"] == "reading"
+    assert "Switch to Tesseract" in body["message"]
+    assert "Install" not in body["message"]
+
+
+# --- the workspace shows what the lightbox shows (INBOX 421 e) ---------------
+#
+# The owner: "the text in the lightbox doesnt even appear in the ocr
+# workspace". The lightbox reads both stored fields (`lightboxReadingsFor`);
+# the workspace, with its reader set to the vision model (auto=0, the owner's
+# setting: no Tesseract), answered an empty page whatever was stored.
+
+
+def _attached_png(client):
+    created = client.post("/entries", json={"content": "host note"}).json()
+    files = {"file": ("scan.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
+    upload = client.post(f"/entries/{created['id']}/files", files=files)
+    return upload.json()["attachments"][-1]["id"]
+
+
+def test_with_the_vision_reader_chosen_a_stored_reading_still_shows(client, monkeypatch):
+    called = []
+    monkeypatch.setattr(ocr, "extract_regions", lambda path: called.append(path) or None)
+    attachment_id = _attached_png(client)
+    client.post(f"/files/{attachment_id}/analyse", json={"kind": "vision", "text": "Goal\n\nPeople and tests."})
+
+    body = client.get(f"/files/{attachment_id}/ocr-regions?page=0&auto=0").json()
+    assert body["source"] == "reading"
+    assert "".join(r["text"] for r in body["regions"]).startswith("Goal")
+    # Still no Tesseract run nobody asked for.
+    assert called == []
+
+
+def test_both_stored_readings_come_back_labelled_by_source(client, monkeypatch):
+    monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
+    attachment_id = _attached_png(client)
+    client.post(f"/files/{attachment_id}/analyse", json={"kind": "vision", "text": "Read by the model"})
+    client.post(f"/files/{attachment_id}/analyse", json={"kind": "ocr", "text": "Read by Tesseract"})
+
+    body = client.get(f"/files/{attachment_id}/ocr-regions?page=0&auto=0").json()
+    readings = {r["source"]: r for r in body["readings"]}
+    assert readings["vision"]["text"] == "Read by the model"
+    assert readings["tesseract"]["text"] == "Read by Tesseract"
+    assert "Tesseract" in readings["tesseract"]["label"]
+    # The sections above are the vision reading's, the same one the lightbox
+    # puts first; the other is the one listed beside them.
+    assert readings["vision"]["in_regions"] is True
+    assert readings["tesseract"]["in_regions"] is False
+
+
+def test_a_media_upload_lists_its_readings_too(client, monkeypatch):
+    monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
+    files = {"file": ("shot.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
+    upload = client.post("/media/upload", files=files, data={"direct": "true"}).json()
+    client.post(f"/media/{upload['id']}/vision-ocr", json={"text": "Seen by a model"})
+
+    body = client.get(f"/media/{upload['id']}/ocr-regions?page=0&auto=0").json()
+    assert [(r["source"], r["in_regions"]) for r in body["readings"]] == [("vision", True)]
+    assert body["regions"]

@@ -22,8 +22,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 
-#: Routes on `open_router` (no session needed), by path prefix.
-OPEN_ROUTES = ("/logs/client",)
+#: Routes on `open_router` (no session needed), by path prefix. `/health`
+#: is open by design (app.py: "/auth itself and /health stay open"); the
+#: server-down banner probes it precisely because it needs no session.
+OPEN_ROUTES = ("/logs/client", "/health")
 
 FETCH = re.compile(r"""fetch\(\s*(["'`])(/[^"'`]*)""")
 

@@ -23,11 +23,17 @@ from __future__ import annotations
 import pytest
 
 from memorymap.ai import help_chat
+from tests._app_js import app_js_text
 
 #: (question, the id that must be in the top three). One id, not a set: if two
 #: topics would both be right the question is too vague to be a fair test, and
 #: belongs in ALWAYS_SOMETHING below instead.
+#: Three rows moved on 2026-09-24, each to a topic that did not exist when
+#: the row was written: locking has its own "security" topic, tags and
+#: categories theirs, and mind maps theirs (the graph topic no longer claims
+#: "mind map"). The question still has to land on the entry that answers it.
 ROUTES = [
+    ("Can Atlas write for me?", "write-with-atlas"),
     ("Where do reminders live?", "reminders"),
     ("How do I make a new note?", "capture"),
     ("Can I change the theme?", "appearance"),
@@ -38,10 +44,10 @@ ROUTES = [
     ("Where are my documents saved?", "documents"),
     ("Can I use this offline?", "privacy"),
     ("Is anything sent to the cloud?", "privacy"),
-    ("How do I lock the app?", "privacy"),
-    ("How do I add a tag?", "capture"),
+    ("How do I lock the app?", "security"),
+    ("How do I add a tag?", "tags-categories"),
     ("What is a whiteboard?", "whiteboard"),
-    ("How do mind maps work?", "graph"),
+    ("How do mind maps work?", "mind-maps"),
     ("What does the graph show?", "graph"),
     ("Whats a skill?", "skills"),
     ("How do I record a meeting?", "voice"),
@@ -116,9 +122,8 @@ def test_every_suggested_question_is_one_the_guide_can_answer() -> None:
     so a starter added tomorrow is checked tomorrow.
     """
     import re
-    from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     generic = re.search(r"const ATLAS_STARTERS = \[(.*?)\];", source, re.S)
     per_tab = re.search(r"const ATLAS_TAB_STARTERS = \{(.*?)\n\};", source, re.S)
     assert generic and per_tab, "the starter tables have moved; this test cannot find them"

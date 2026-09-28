@@ -24,6 +24,7 @@ import pytest
 
 from memorymap.ai import model_manager as mm
 from memorymap.core import deps
+from tests._app_js import app_js_text
 
 
 def _manager(app_state):
@@ -337,14 +338,16 @@ def test_the_guide_reaches_the_utility_model(ai_client, fake_ollama):
     assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
-def test_with_smart_routing_off_the_guide_falls_to_the_chat_model(ai_client, fake_ollama):
-    """The measured cause of INBOX 288, and it is the switch doing what it
-    says: routing off means background work uses the chat model."""
+def test_with_smart_routing_off_the_guide_keeps_the_utility_model(ai_client, fake_ollama):
+    """INBOX 288's cause, decided by the owner 2026-09-24 (WORLD_CLASS_PLAN
+    section 20): the routing switch moves background jobs, and the Guide is
+    an interactive panel, so it stays on the utility model either way."""
     manager = deps.get_model_manager()
     manager.set_chat_model("qwen3.5:9b")
     manager.set_utility_model("llama3.2")
     deps.get_config().set_preference("smart_model_routing_enabled", False)
-    assert _guide_model(ai_client, fake_ollama) == "qwen3.5:9b"
+    assert _guide_model(ai_client, fake_ollama) == "llama3.2"
+    assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
 def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_ollama):
@@ -355,3 +358,219 @@ def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_olla
     deps.get_config().set_preference("smart_model_routing_enabled", False)
     assert _guide_model(ai_client, fake_ollama) == "llama3.2"
     assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
+
+
+# --- INBOX 430: "Same as chat model" / "Same as utility model" ---------------
+#
+# A third state alongside "on its own model" and "inherited": a feature can be
+# pinned to whichever role it does NOT already fall back to, and unlike a
+# plain model name it has to keep tracking that setting when it changes,
+# never freeze at the name that setting held the moment it was picked
+# (decision 5's reasoning applied to the other role too).
+
+
+def test_a_chat_role_feature_can_follow_the_utility_model(app_state):
+    """Writing's role is chat, so this is the "other" role for it: pinned to
+    utility on purpose (a small fast model for a feature that is usually the
+    big chat model)."""
+    manager = _manager(app_state)
+    manager.set_chat_model("llama3.2")
+    manager.set_utility_model("phi3.5")
+    manager.set_feature_model("writing", mm.FOLLOW_UTILITY_MODEL)
+
+    assert manager.feature_model("writing") == "phi3.5"
+    assert manager.feature_override("writing") == mm.FOLLOW_UTILITY_MODEL
+    # The role it actually falls back to (chat) is untouched.
+    assert manager.chat_model() == "llama3.2"
+
+
+def test_a_utility_role_feature_can_follow_the_chat_model(app_state):
+    guide = next((f for f in mm.FEATURES if f.key == "guide"), None)
+    if guide is None:
+        pytest.skip("the guide is not a feature row on this build")
+    manager = _manager(app_state)
+    manager.set_chat_model("llama3.2")
+    manager.set_utility_model("phi3.5")
+    manager.set_feature_model("guide", mm.FOLLOW_CHAT_MODEL)
+
+    view = manager.for_feature("guide")
+    assert view.utility_model() == "llama3.2"
+    # The role guide does not use stays exactly where it was.
+    assert manager.utility_model() == "phi3.5"
+
+
+def test_following_a_role_tracks_it_live_rather_than_freezing_the_name(app_state):
+    """The whole point of the sentinel over just copying the name in: change
+    the setting afterwards and the feature moves with it, the same guarantee
+    plain "inherited" already gives (decision 5), extended to the other
+    role."""
+    manager = _manager(app_state)
+    manager.set_chat_model("llama3.2")
+    manager.set_utility_model("phi3.5")
+    manager.set_feature_model("writing", mm.FOLLOW_UTILITY_MODEL)
+    assert manager.feature_model("writing") == "phi3.5"
+
+    manager.set_utility_model("qwen3.5:2b")
+    assert manager.feature_model("writing") == "qwen3.5:2b"
+    assert manager.feature_override("writing") == mm.FOLLOW_UTILITY_MODEL
+
+
+def test_following_survives_smart_routing_being_off(app_state):
+    """`utility_model()` falls to the chat model when routing is off and
+    nothing chose a model by hand; a feature that explicitly asked to follow
+    utility is exactly that hand-made choice, not a background-job guess, so
+    it keeps tracking utility_model()'s own answer (which itself falls to
+    chat with routing off) rather than being treated as unset."""
+    manager = _manager(app_state)
+    manager.set_chat_model("llama3.2")
+    manager.set_feature_model("writing", mm.FOLLOW_UTILITY_MODEL)
+    app_state.set_preference("smart_model_routing_enabled", False)
+    assert manager.feature_model("writing") == "llama3.2"
+
+    manager.set_utility_model("phi3.5")
+    app_state.set_preference("smart_model_routing_enabled", True)
+    assert manager.feature_model("writing") == "phi3.5"
+
+
+def test_the_rows_carry_the_follow_kind_not_the_raw_sentinel(app_state):
+    """`model` is always a real name a select can show; the sentinel itself
+    is only in `override_kind`, so a caller that ignores that field cannot
+    print `__follow_utility_model__` into the UI by accident."""
+    manager = _manager(app_state)
+    manager.set_chat_model("llama3.2")
+    manager.set_utility_model("phi3.5")
+    manager.set_feature_model("writing", mm.FOLLOW_UTILITY_MODEL)
+    manager.set_feature_model("documents", "gemma4:12b")
+    rows = {row["key"]: row for row in manager.feature_rows()}
+
+    assert rows["writing"]["override_kind"] == "utility"
+    assert rows["writing"]["override_value"] is None
+    assert rows["writing"]["model"] == "phi3.5"
+    assert rows["writing"]["overridden"] is True
+
+    assert rows["documents"]["override_kind"] == "model"
+    assert rows["documents"]["override_value"] == "gemma4:12b"
+
+    assert rows["chat"]["override_kind"] == ""
+    assert rows["chat"]["override_value"] is None
+    assert rows["chat"]["overridden"] is False
+
+
+def test_a_sentinel_is_never_confused_with_an_installed_model_name(app_state):
+    """A real Ollama tag can never collide with either sentinel (both are
+    double-underscored), so a feature can always tell "follow a role" apart
+    from "someone genuinely installed a model with this exact name"."""
+    assert mm.FOLLOW_CHAT_MODEL not in {"llama3.2", "phi3.5", "gemma4:12b"}
+    assert mm.FOLLOW_UTILITY_MODEL not in {"llama3.2", "phi3.5", "gemma4:12b"}
+    assert mm.FOLLOW_CHAT_MODEL != mm.FOLLOW_UTILITY_MODEL
+
+
+def test_the_api_accepts_the_sentinel_even_though_it_is_not_an_installed_model(
+    ai_client, fake_ollama
+):
+    """The install check that refuses a typo'd model name (`/utility-model`'s
+    own rule, reused here) must not also refuse the one value that means "I
+    am deliberately not naming an installed model"."""
+    response = ai_client.post(
+        "/models/feature-model",
+        json={"feature": "writing", "name": mm.FOLLOW_UTILITY_MODEL},
+    )
+    assert response.status_code == 200
+    row = next(r for r in response.json()["feature_models"] if r["key"] == "writing")
+    assert row["override_kind"] == "utility"
+
+
+def test_status_exposes_the_two_sentinels_for_the_frontend(client):
+    """The frontend sends these values back verbatim; exposed here so it
+    never has to hardcode a string that only means something because it
+    matches this module's own constant."""
+    body = client.get("/models/status").json()
+    assert body["feature_model_follow"] == {
+        "chat": mm.FOLLOW_CHAT_MODEL,
+        "utility": mm.FOLLOW_UTILITY_MODEL,
+    }
+
+
+def test_a_feature_following_utility_reaches_the_new_model_at_the_provider(
+    ai_client, fake_ollama
+):
+    """The four-tests-this-feature-exists-for pattern above, extended to the
+    "follow" state: the writing desk really does move to the model the
+    utility setting names, including after it changes."""
+    manager = deps.get_model_manager()
+    manager.set_chat_model("llama3.2")
+    manager.set_utility_model("phi3.5")
+    manager.set_feature_model("writing", mm.FOLLOW_UTILITY_MODEL)
+
+    ai_client.post("/drafts/compose", json={"thoughts": "a few loose thoughts"})
+    assert fake_ollama.chat_models[-1] == "phi3.5"
+
+    manager.set_utility_model("qwen3.5:2b")
+    ai_client.post("/drafts/compose", json={"thoughts": "a second draft"})
+    assert fake_ollama.chat_models[-1] == "qwen3.5:2b"
+
+
+# --- the Ask box, a feature of its own (2026-09-23) ----------------------------
+#
+# The owner: "I want to be able to change the model I use within the features
+# themselves using a model dropdown which pairs with the feature-specific model
+# selections in settings." The Notes tab's Ask box and the Chat tab share
+# `/chat/stream`, so the Ask box ran on the "Chat tab" row without saying so:
+# a picker on the Ask box that wrote the chat row would have moved the Chat tab
+# too. It is its own row, told apart by the `notes_only` flag the Ask box
+# already sends and the Chat tab never does.
+
+
+def _stream(client, **body) -> None:
+    with client.stream("POST", "/chat/stream", json=body) as response:
+        list(response.iter_lines())
+
+
+def test_the_ask_box_is_a_feature_row(client):
+    rows = {row["key"]: row for row in client.get("/models/status").json()["feature_models"]}
+    assert rows["ask"]["label"] == "Ask tab"
+    assert rows["ask"]["role"] == "chat"
+
+
+def test_the_ask_box_runs_on_its_own_model_and_the_chat_tab_on_its(ai_client, fake_ollama):
+    manager = deps.get_model_manager()
+    manager.set_chat_model("llama3.2")
+    manager.set_feature_model("ask", "qwen3.5:4b")
+    manager.set_feature_model("chat", "gemma4:12b")
+    _save(ai_client, "a scarecrow joke I want to remember")
+
+    _stream(ai_client, question="what jokes have I saved?", notes_only=True, use_tools=False)
+    assert fake_ollama.chat_models[-1] == "qwen3.5:4b"
+    _stream(ai_client, question="what jokes have I saved?", use_tools=False)
+    assert fake_ollama.chat_models[-1] == "gemma4:12b"
+
+
+def test_an_unset_ask_box_follows_the_chat_model_not_the_chat_tab(ai_client, fake_ollama):
+    """Inherits through its role, like every row: a Chat tab override is that
+    tab's choice and does not leak into the Ask box."""
+    manager = deps.get_model_manager()
+    manager.set_chat_model("llama3.2")
+    manager.set_feature_model("chat", "gemma4:12b")
+    _save(ai_client, "a scarecrow joke I want to remember")
+    _stream(ai_client, question="what jokes have I saved?", notes_only=True, use_tools=False)
+    assert fake_ollama.chat_models[-1] == "llama3.2"
+
+
+def test_every_in_surface_picker_names_a_real_feature_and_a_real_control():
+    """`FEATURE_MODEL_SELECTS` (app.js) pairs a `<select>` with a row of the
+    table above. A key that is not a row would post a feature the API refuses,
+    and an id that is not in the page would be a picker that never drew: both
+    silent in the browser, so both pinned here."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    app = app_js_text()
+    page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    block = re.search(r"const FEATURE_MODEL_SELECTS = \[(.*?)\];", app, re.S)
+    assert block, "FEATURE_MODEL_SELECTS is gone from app.js"
+    pairs = re.findall(r'\["([\w-]+)",\s*"(\w+)"\]', block.group(1))
+    assert {key for _, key in pairs} >= {"chat", "ask", "writing"}
+    for element_id, key in pairs:
+        assert key in mm.FEATURES_BY_KEY, key
+        assert f'id="{element_id}"' in page, element_id

@@ -26,7 +26,8 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-MODEL = "fake-answerer"
+#: FAKE_MODEL renames it, for a screenshot whose model badge a reader sees.
+MODEL = os.environ.get("FAKE_MODEL") or "fake-answerer"
 DUMP = os.environ.get("FAKE_DUMP") or ""
 #: Milliseconds to wait between streamed words, off by default.
 #:
@@ -37,6 +38,45 @@ DUMP = os.environ.get("FAKE_DUMP") or ""
 #: small model takes seconds per sentence, so pacing the fixture is the
 #: honest fixture, not a slower one.
 STREAM_DELAY_MS = float(os.environ.get("FAKE_DELAY_MS") or 0)
+#: `markdown` answers the way a real instruct model does (INBOX 318): a
+#: lead-in ending in a colon, a bullet list whose items open with a bold
+#: label, and a closing paragraph with emphasis inside a sentence. The plain
+#: style (one bare sentence per note) is the easiest possible case for the
+#: citation markers and hid every way they fail against formatted prose.
+STYLE = os.environ.get("FAKE_STYLE") or "plain"
+#: A written answer for a screenshot (`scratchpad/ui-sweeps/readme-ask.js`).
+#: The quoting answerer above is right for a probe and wrong for the README:
+#: it echoes note sentences back in a row, which proves the citations and
+#: reads like nothing a model would write. With this set, a request carrying
+#: the app's notes context ("My notes:") is answered with the file's text
+#: instead, and the follow-up prompt with the lines of `FAKE_FOLLOWUPS_FILE`.
+#: The answer still has to earn its citations: grounding scores it against
+#: the retrieved notes like any other answer, so it is written in their words.
+ANSWER_FILE = os.environ.get("FAKE_ANSWER_FILE") or ""
+FOLLOWUPS_FILE = os.environ.get("FAKE_FOLLOWUPS_FILE") or ""
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="utf-8") as fh:
+        return fh.read().strip()
+
+
+def _markdown_answer(sentences: list[str]) -> str:
+    """The same sentences, dressed the way a model dresses them."""
+    if len(sentences) < 2:
+        return " ".join(sentences)
+    lead = "Here is what your notes say:"
+    items = []
+    for sentence in sentences[:-1]:
+        words = sentence.split()
+        label = words[1].strip(".,").capitalize() if len(words) > 1 else "Note"
+        items.append(f"- **{label}:** {sentence}")
+    last = sentences[-1].split()
+    #: Emphasis mid-sentence, so the sentence spans three text nodes once
+    #: rendered: the shape a marker matched per text node can never find.
+    if len(last) > 4:
+        last[2] = f"*{last[2]}*"
+    return lead + "\n\n" + "\n".join(items) + "\n\nAlso, " + " ".join(last)
 
 
 def _sentences_from_prompt(prompt: str) -> list[str]:
@@ -95,7 +135,13 @@ class Handler(BaseHTTPRequestHandler):
         if DUMP:
             with open(DUMP, "a", encoding="utf-8") as fh:
                 fh.write("=== prompt ===\n" + prompt + "\n")
-        answer = " ".join(_sentences_from_prompt(prompt))
+        if FOLLOWUPS_FILE and "Suggest short follow-up questions" in prompt:
+            answer = _read(FOLLOWUPS_FILE)
+        elif ANSWER_FILE and "My notes:" in prompt:
+            answer = _read(ANSWER_FILE)
+        else:
+            sentences = _sentences_from_prompt(prompt)
+            answer = _markdown_answer(sentences) if STYLE == "markdown" else " ".join(sentences)
         if body.get("stream"):
             self._sse(answer)
         else:

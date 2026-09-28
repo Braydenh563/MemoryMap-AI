@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import re
 from pathlib import Path
+from tests._app_js import frontend_text
 
 SOURCE = Path("src/memorymap/__main__.py").read_text(encoding="utf-8")
 
@@ -207,7 +208,7 @@ def test_the_tray_only_calls_frontend_functions_that_exist():
     menu = SOURCE.split("def _go(js: str):")[1].split("icon = pystray.Icon(")[0]
     names = set(_re.findall(r"typeof (\w+) === 'function'", menu))
     js = "".join(
-        Path(f"frontend/{name}").read_text(encoding="utf-8")
+        frontend_text(name)
         for name in ("app.js", "settings.js", "library.js")
     )
     for name in names:

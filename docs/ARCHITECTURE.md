@@ -239,14 +239,25 @@ MemoryMap-AI/
 │   ├── index.html           # the whole shell; every id is load-bearing
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
-│   ├── app.js               # the shell, notes, chat, palette, settings glue
-│   ├── settings.js          # Settings, appearance, the background art
+│   ├── app.js … spaces-find.js # the shell, notes, chat and settings glue:
+│   │                        #   23 classic scripts, one file until 2026-09-26,
+│   │                        #   in index.html's order (app.js first: api,
+│   │                        #   auth, the lazy loader); each file's header
+│   │                        #   says what it holds
+│   ├── agent-activity.js    # Agent Activity's list of runs
+│   ├── settings.js          # Settings, appearance, whether the background art runs
+│   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
+│   ├── timeline.js          # the Timeline tab: feed, table, scrubber
 │   ├── library.js           # Library: files, images, the OCR workspace
 │   ├── documents.js · editor.js # the long-form editor and its CodeMirror
+│   ├── documents-code.js · documents-prose.js # its code tools and
+│   │                        #   prose tools, loaded before documents.js
 │   ├── graph.js · graph-canvas.js · graph-worker.js # the graph, its
 │   │                        #   canvas renderer and its layout worker
-│   ├── whiteboard.js        # boards and mind maps
+│   ├── whiteboard.js        # boards, and the concept map of cards
+│   ├── whiteboard-map.js    # mind maps: nodes, edges, tidy, themes,
+│   │                        #   loaded before whiteboard.js
 │   ├── sw.js · manifest.webmanifest # PWA
 │   ├── css/                 # eleven files, 00-tokens-shell to 10-responsive;
 │   │                        #   index.html's <link> order is load-bearing
@@ -931,11 +942,80 @@ branching off the note they answer) and a **radial tree**, drawn with D3
 vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored,
 loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
-JavaScript is split by surface (`dashboard.js`, `library.js`,
-`documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
-holds the shell and everything shared. Every local CSS and JS URL carries
+JavaScript is split by surface (`dashboard.js`, `timeline.js`,
+`library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
+and the 22 files after it hold the shell and everything shared, cut on
+2026-09-26 from one 50,000-line file into contiguous ranges kept in the old
+order, so a file may call into the ones above it while the page loads and
+never into one below (`tests/test_frontend_load_order.py`; tests read the 23
+as one text through `tests/_app_js.py`). The two biggest lazy surfaces are split
+further by concern: `documents-code.js` and `documents-prose.js` hold the
+document editor's code and prose tools, and `whiteboard-map.js` the mind map
+layer; each loads in the Library bundle *before* the file it came out of
+(`documents.js`, `whiteboard.js`), because its own top level reads nothing from
+that file while that file's top-level wiring names its functions (`LAZY_MODULES` in
+`app.js`). Every local CSS and JS URL carries
 `?v=<version>` plus a per-process boot token, so no browser or desktop
 window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
+
+### The scripts, their order, and the one scope they share
+
+Forty-six JavaScript files, in four kinds (0.3.3):
+
+| Kind | Files | Loaded |
+| --- | --- | --- |
+| Before first paint | `boot-guard.js`, `theme-boot.js` | in `<head>`, so the theme and the boot-failure guard apply before anything draws |
+| The app's own code | `app.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
+| The boot surfaces | `avatars.js`, `atlas.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js`, `tour.js` | straight after, in this order |
+| Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `documents-code.js`, `documents-prose.js`, `documents.js`, `whiteboard-map.js`, `whiteboard.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
+
+Plus three that are not page scripts: `sw.js` (the service worker),
+`graph-worker.js` and `harper-worker.js` (web workers for the graph's layout
+and the grammar checker).
+
+**Every one is a classic script, not a module, and they share one global
+scope.** A top-level `function` or `const` in any of them is a global the
+others can name, which is how `settings.js` calls `renderEmblem` from
+`phone-shell.js` and how a Playwright `page.evaluate` can call `switchTab`. There
+are no imports and nothing to resolve: the browser runs the files in the
+order `index.html` lists them, one after the other, each to its end before
+the next begins.
+
+**Load order is therefore the one rule, and it has two halves.**
+
+1. *Inside a function, anything goes.* A click handler, a renderer or a
+   timer runs after every file has loaded, so it may call a function from
+   any file, earlier or later.
+2. *At load, only upwards.* A statement at a file's top level (a
+   `$("x").addEventListener(...)`, an `init...()` call, a `const` built by
+   calling something) runs the moment the browser reaches it, so it may use
+   only what the files above it, and the lines above it in its own file,
+   have declared. A `function` declaration is hoisted within its own file
+   only; a `const` or `let` is not hoisted at all (reading one early is
+   "Cannot access X before initialization", and one in a later file is
+   simply "X is not defined"). A top-level throw stops the rest of that one
+   file, not the page, so a half-booted app is the symptom to look for.
+
+The two calls that start the app, `initNotesSubtabs()` and `initAuth()`, are
+the last lines of `spaces-find.js` for that reason: they reach functions
+declared across the whole app, and `initAuth`'s answer can arrive between
+two files. A lazy bundle's entry points are reachable before the bundle
+exists through `LAZY_ENTRY_POINTS` in `app.js`: a stand-in on `window`
+that loads the bundle and then calls the real function. A boot surface that
+calls into a later one guards the call with `typeof`.
+
+**What holds the rule.** `tests/test_frontend_load_order.py` reads
+`index.html`'s order and fails on a top-level call into a later file, on a
+top-level read of a later file's constant, and on a lazy name read at load
+with no stand-in; `tests/test_lazy_bundle_calls.py` covers the lazy bundles.
+`scratchpad/appjs-map.js --check FROM TO [AFTER]` answers the same question
+for a range of lines before it moves. The app's own code was one 50,000-line
+`app.js` until 0.3.3; it was cut into the 23 files above as contiguous
+ranges in their old order, so every reference that was backward stayed
+backward (`docs/roadmap/archive/agent-remaining/appjs-split.md`). A test
+that means "the app's code" reads all of them as one text through
+`tests/_app_js.py`. To find a function's file:
+`grep -n "^function name" frontend/*.js`.
 
 ### Driving it in a browser
 
@@ -948,7 +1028,7 @@ the Node Playwright under `/opt/node22` and the Chromium under
 with `service_workers="block"`, or `sw.js` will serve a cached `app.js`
 and your change will not be in the page you are looking at.
 
-Top-level functions in `app.js` are plain globals, so a Playwright
+Top-level functions in `app.js` and the files after it are plain globals, so a Playwright
 `page.evaluate` can call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker`
 directly. Asserting on measured geometry (`scrollWidth - clientWidth`, a
 focused element's `offsetParent`) catches far more than a screenshot.
@@ -1115,7 +1195,7 @@ What was cut, and what it bought, measured on one server and one notebook
 with only the frontend swapped:
 
 - **Two HH:MM clocks ticking once a second.** They painted the string that
-  was already on screen 59 times out of 60. `startMinuteTicker` (app.js)
+  was already on screen 59 times out of 60. `startMinuteTicker` (shell-reminders.js)
   schedules the next repaint on the wall-clock minute instead, which is both
   cheaper and more correct: the status bar's clock was a 30s interval, so it
   could show a minute that had already passed for up to half a minute.
@@ -1148,7 +1228,10 @@ with an `IntersectionObserver`; the one that is on screen is the decision,
 not an oversight, and it is about 3.5 points of the 5.5. Worth knowing
 before anyone goes looking for a leak: there is no leak, there is a
 deliberate animation, and turning it down is a design choice rather than a
-bug fix.
+bug fix. **Since answered without turning it down:** the emblem is drawn
+once and turned by a CSS rotation (`canvas.emblem-spin`), at the same
+speed, so the compositor does the turning and no p5 loop runs for it at
+all. Not re-measured with `top` since.
 
 What was deliberately *not* cut: the 60-second reminder check, because a
 reminder that waits for you to look at the tab is not a reminder, and the
@@ -1195,9 +1278,9 @@ and embedding, and both already run off the request thread.
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js`, `frontend/css/*.css` (read §10's invariants first) |
-| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
-| Add a theme or palette | `THEME_PRESETS` in `app.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
+| Change the UI | `frontend/app.js` and the files after it (`grep -n "^function name" frontend/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
+| Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
+| Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py`: a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2: an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py`: not just `content` |

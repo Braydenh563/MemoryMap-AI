@@ -116,7 +116,7 @@ class BufferHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = record.getMessage()
-        except Exception:  # a bad %-format must never kill logging
+        except Exception:  # noqa: BLE001  # a bad %-format must never kill logging (and cannot log itself)
             message = str(record.msg)
         # An exception logged with exc_info carries the traceback separately;
         # keeping it is the difference between "something failed" and knowing
@@ -125,7 +125,7 @@ class BufferHandler(logging.Handler):
         if record.exc_info:
             try:
                 trace = self.format(record).split("\n", 1)[-1]
-            except Exception:  # formatting must never kill logging either
+            except Exception:  # noqa: BLE001  # formatting must never kill logging either
                 trace = ""
         global _dropped, _dropped_since
         with _lock:
@@ -155,10 +155,12 @@ _TOKEN_QUERY = re.compile(r"(?i)([?&]token=)[^&\s\"]+")
 class TokenScrubFilter(logging.Filter):
     """Keep the session token out of the access log.
 
-    Media and file URLs carry the session token as `?token=` (see
-    `mediaSrc` in app.js), so every image the browser loads writes the
-    token into uvicorn's access line. The support bundle ships that log
-    and Settings shows it, so a token in it is a token in a screenshot.
+    Media and file URLs carried the session token as `?token=` until
+    2026-09-24 (S1 moved it into an HttpOnly media cookie, routes_auth.py),
+    so every image the browser loaded wrote the token into uvicorn's access
+    line. Kept as the second layer: an old address saved in a note, or a
+    person typing one, still arrives with a `token=`, and the support bundle
+    ships this log and Settings shows it.
     Rewrites the value in the record's args (uvicorn formats the path from
     args, not from msg) and in a pre-formatted msg, and never drops the
     record. WORLD_CLASS_PLAN 12, S1."""

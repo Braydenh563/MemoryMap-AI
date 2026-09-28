@@ -243,8 +243,9 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest tests/`: 2,800+ tests, ten to fifteen minutes, all
-  green. Keep it that way, but run it locally only when absolutely
+- `python -m pytest -n auto tests/`: 2,800+ tests, all green; about 25
+  minutes serial, under 9 across four cores (pytest-xdist, in
+  requirements.txt; `gate.sh --full` and CI use it). Keep it that way, but run it locally only when absolutely
   needed (`scripts/gate.sh --full`: the end of a large agent task, the
   end of a session); CI runs it on every push. `PYTHONPATH=src` is
   needed to run the app.
@@ -262,6 +263,12 @@ new" is a fact rather than a guess.
   docks, contrast and touch against a running app. Run it before every
   push and paste its five lines into the report.
 - `node --check frontend/<file>.js` after any JS edit; there is no bundler.
+- **`app.js` is 23 files** (2026-09-26): `app.js` through `spaces-find.js`
+  in index.html's order, one global scope, a file calling only upwards at
+  load. A test that means "the app's code" reads `app_js_text()` from
+  `tests/_app_js.py`, never `frontend/app.js`, which is now only the head
+  (api, auth, the lazy loader). `grep -n "^function name" frontend/*.js`
+  finds a function's file.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,
   `test_frontend_ids.py`, `test_frontend_handlers.py`, `test_dock_grammar.py`,

@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
-APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 CSS_DIR = Path(__file__).resolve().parents[1] / "frontend" / "css"
 
 
 def _app_js() -> str:
-    return APP_JS.read_text(encoding="utf-8")
+    return app_js_text()
 
 
 def _all_css() -> str:
@@ -135,7 +135,7 @@ def test_every_shortcut_has_something_to_run():
     the key appears in the Settings list, rebinds happily, and does nothing.
     Checked here because the section was expanded from ten bindings to
     seventeen in one sitting."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     defaults = source.split("const DEFAULT_SHORTCUTS = {")[1].split("\n};")[0]
     ids = re.findall(r"^\s{2}(\w+):\s*\{ keys:", defaults, flags=re.M)
     assert len(ids) >= 17, ids

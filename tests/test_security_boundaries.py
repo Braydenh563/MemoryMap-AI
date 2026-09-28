@@ -18,6 +18,7 @@ import pytest
 
 from memorymap.api import routes_auth
 from memorymap.core import security, vault
+from tests._app_js import FRONTEND_DIR, frontend_text
 
 
 # --- session expiry ---------------------------------------------------------
@@ -76,8 +77,12 @@ def test_a_token_kept_busy_still_expires_eventually(client):
 def test_using_a_token_keeps_it_alive(client):
     token = _unlocked(client)
     routes_auth._active_tokens[token][1] = time.time() - 60
+    # Measured against the moment before the request, not after it: on a
+    # loaded CI runner the request itself took 7s, so "within 5s of now"
+    # failed while the token had in fact been refreshed.
+    before = time.time()
     client.get("/entries", headers={"X-Auth-Token": token})
-    assert time.time() - routes_auth._active_tokens[token][1] < 5
+    assert routes_auth._active_tokens[token][1] >= before
 
 
 def test_expiry_forgets_the_private_note_key_too(client):
@@ -314,7 +319,6 @@ def test_the_frontend_has_no_inline_style_attributes():
     Setting `el.style.someProperty` from JS is fine and is not what this
     matches: the CSP blocks the *attribute*, not the CSSOM.
     """
-    from memorymap.api.app import FRONTEND_DIR
 
     # whiteboard.js carries the board/card CRUD, sketch drawing, export and
     # move/resize code that used to be the back half of app.js (ROADMAP.md
@@ -323,10 +327,20 @@ def test_the_frontend_has_no_inline_style_attributes():
     # after whiteboard): the same innerHTML-template-literal risk applies
     # there as anywhere else in the frontend, so both are checked too.
     for name in ("index.html", "app.js", "whiteboard.js", "graph.js"):
-        source = (FRONTEND_DIR / name).read_text(encoding="utf-8")
+        source = frontend_text(name)
         assert 'style="' not in source and "style='" not in source, (
             f"{name} carries an inline style attribute. The CSP refuses it, so it "
             "renders as no styling at all, move it into style.css as a class."
+        )
+    #: The owner's benches in tools/ are served by the app at /tools under the
+    #: same CSP: three `style` attributes in the avatar lab were three console
+    #: warnings on every load and three spacings silently lost (OPEN.md,
+    #: 0.3.3). Every page there is held to the same rule.
+    for page in sorted((FRONTEND_DIR.parent / "tools").glob("*.html")):
+        source = page.read_text(encoding="utf-8")
+        assert 'style="' not in source and "style='" not in source, (
+            f"tools/{page.name} carries an inline style attribute, which the CSP "
+            "refuses at /tools: give it a class in the page's own stylesheet."
         )
 
 

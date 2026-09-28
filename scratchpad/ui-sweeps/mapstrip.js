@@ -329,27 +329,28 @@ async function newBoard(page, name, type) {
     const el = document.getElementById("wb-map-radial");
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const n = node.getBoundingClientRect();
-    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => {
-      const r = b.getBoundingClientRect();
-      return { id: b.id, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
-    });
     const cx = n.left + n.width / 2, cy = n.top + n.height / 2;
-    // About the ring's own centre, not the node's: a node near an edge slides
-    // its ring inside the window (`wbPlaceMapRadial`), and a radius measured
-    // from the node would then read as a broken ring rather than a moved one.
-    // How far it has moved is its own number below, bounded by the ring's
-    // reach so that it still lands on the topic it belongs to.
-    const rx = slots.reduce((a, sl) => a + sl.cx, 0) / slots.length;
-    const ry = slots.reduce((a, sl) => a + sl.cy, 0) / slots.length;
-    const radii = slots.map((sl) => Math.round(Math.hypot(sl.cx - rx, sl.cy - ry)));
+    // The pie-ring rewrite (ccd1b48) made every slot's own box the whole
+    // ring's square (clip-path only clips the paint), so averaging slot
+    // centres no longer finds the ring's own centre, it always collapses to
+    // that same square's own centre regardless of where the ring sits. The
+    // ring itself is width:0 height:0, positioned at its own centre, so its
+    // own rect's left/top *is* that centre; each slot's real radius is its
+    // wedge's middle radius, from `_sector` (wbFitMapRadialBand).
+    const o = el.getBoundingClientRect();
+    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].filter((s) => s._sector);
+    const radii = slots.map((s) => Math.round((s._sector.inner + s._sector.outer) / 2));
     return {
       open: !el.classList.contains("hidden"),
       role: el.getAttribute("role"),
       flat: document.querySelector(".wb-ctx-menu:not(.hidden)") === null,
       n: slots.length,
       radii,
-      spread: Math.max(...radii) - Math.min(...radii),
-      offset: Math.round(Math.hypot(rx - cx, ry - cy)),
+      spread: radii.length ? Math.max(...radii) - Math.min(...radii) : null,
+      // A node near an edge slides its ring inside the window
+      // (`wbPlaceMapRadial`); how far it has moved, bounded by the ring's
+      // reach so that it still lands on the topic it belongs to.
+      offset: Math.round(Math.hypot(o.left - cx, o.top - cy)),
     };
   }, kidId);
   check("right-click on a topic opens the ring, not the board's flat menu",
@@ -934,11 +935,13 @@ async function newBoard(page, name, type) {
     const el = document.getElementById("wb-map-radial");
     const host = document.getElementById("library-view-whiteboard");
     const hostRect = host.getBoundingClientRect();
-    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => b.getBoundingClientRect());
-    const centres = slots.map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 }));
-    const cx = centres.reduce((a, c) => a + c.x, 0) / centres.length;
-    const cy = centres.reduce((a, c) => a + c.y, 0) / centres.length;
-    const radii = centres.map((c) => Math.round(Math.hypot(c.x - cx, c.y - cy)));
+    const slotEls = [...el.querySelectorAll(".wb-map-radial-slot")];
+    const slots = slotEls.map((b) => b.getBoundingClientRect());
+    // Same box for every slot now (the pie ring, ccd1b48): min/max across
+    // them still reads the ring's true circular extent (a circle inscribed
+    // in that square touches all four of its edges), but a radius has to
+    // come from the wedge each slot owns (`_sector`), not from its box.
+    const radii = slotEls.filter((s) => s._sector).map((s) => Math.round((s._sector.inner + s._sector.outer) / 2));
     return {
       open: !el.classList.contains("hidden"),
       n: slots.length,
@@ -950,8 +953,8 @@ async function newBoard(page, name, type) {
       barBottom: Math.round(document.getElementById("wb-topbar").getBoundingClientRect().bottom),
       w: window.innerWidth,
       h: window.innerHeight,
-      spread: Math.max(...radii) - Math.min(...radii),
-      radius: Math.min(...radii),
+      spread: radii.length ? Math.max(...radii) - Math.min(...radii) : null,
+      radius: radii.length ? Math.min(...radii) : 0,
     };
   });
   check("a topic in the corner keeps all six of its ring's slots reachable",

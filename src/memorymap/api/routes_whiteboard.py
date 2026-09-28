@@ -23,6 +23,7 @@ import json
 import logging
 import re
 from collections import OrderedDict
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -263,6 +264,14 @@ class WhiteboardObjectData(BaseModel):
     #: one whose topic was set back to solid are the same map, and neither
     #: should carry the field into an export.
     spine: str | None = Field(default=None, pattern="^(dashed|none)$")
+    #: **A tint of the topic's colour across its whole card** (the owner:
+    #: "the option to fill an individual node or have it cascade to its
+    #: children as well"). `self` fills this topic, `branch` fills it and
+    #: everything under it, `none` keeps one topic unfilled inside a filled
+    #: branch; unfilled is the absence of the field. The cascade is worked out
+    #: when the map is drawn (`wbMapFills`), the way branch colour is, so a
+    #: topic added to a filled branch later is filled too.
+    fill: str | None = Field(default=None, pattern="^(self|branch|none)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -822,6 +831,12 @@ class BoardOut(BaseModel):
     node_count: int
     sketch_count: int
     object_count: int = 0
+    #: When the board last changed: the later of its note's own edit and the
+    #: last card, sketch or object written on it, since drawing on a board
+    #: never touches the note. The Library's board card showed a count and
+    #: no date, where every other kind of card has one (pass2.md, Remaining
+    #: 2). None for an empty default board, which has neither.
+    updated_at: datetime | None = None
     #: "board" (a free canvas) or "map" (tree semantics). See BOARD_TYPES.
     type: str = DEFAULT_BOARD_TYPE
     layout: str = DEFAULT_BOARD_LAYOUT
@@ -1609,6 +1624,16 @@ def list_boards(
             .group_by(WhiteboardObject.board_id)
         ).all()
     )
+    #: The last write to anything on each board, keyed like the counts
+    #: above (None is the default board). One grouped query per table rather
+    #: than one per board, for the same reason the counts are.
+    touched: dict[int | None, datetime] = {}
+    for table in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
+        for board_id, last in db.execute(
+            select(table.board_id, func.max(table.updated_at)).group_by(table.board_id)
+        ).all():
+            if last is not None and (board_id not in touched or last > touched[board_id]):
+                touched[board_id] = last
     default_nodes = db.scalar(
         select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id.is_(None))
     )
@@ -1670,6 +1695,7 @@ def list_boards(
                     node_count=default_nodes,
                     sketch_count=default_sketches,
                     object_count=default_objects,
+                    updated_at=touched.get(None),
                     **_preview_fields(db, None),
                 )
             )
@@ -1683,6 +1709,10 @@ def list_boards(
                 node_count=node_counts.get(entry.id, 0),
                 sketch_count=sketch_counts.get(entry.id, 0),
                 object_count=object_counts.get(entry.id, 0),
+                updated_at=max(
+                    (t for t in (entry.updated_at, touched.get(entry.id)) if t is not None),
+                    default=None,
+                ),
                 type=board_type,
                 layout=layout,
                 **_preview_fields(db, entry.id),
@@ -2544,6 +2574,7 @@ MAP_STYLE_FIELDS = (
     "shape",
     "core",
     "spine",
+    "fill",
     "icon",
     "link",
     "edge_label",
@@ -3334,6 +3365,7 @@ _FREEMIND_PRIVATE = {
     "shape": "_shape",
     "core": "_core",
     "spine": "_spine",
+    "fill": "_fill",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -3353,6 +3385,7 @@ _OPML_PRIVATE = {
     "shape": "_shape",
     "core": "_core",
     "spine": "_spine",
+    "fill": "_fill",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

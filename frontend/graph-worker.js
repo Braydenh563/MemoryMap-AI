@@ -19,8 +19,8 @@
 // structured-cloned, so anything that travels per frame has to be a buffer.
 //
 // In:
-//   {type:"init", nodes:[{id,x,y,fx,fy,r}], edges:[{source,target,kind}],
-//    params:{gravity,spread}, world:{left,top,right,bottom}, alpha, epoch}
+//   {type:"init", nodes:[{id,x,y,fx,fy,r}], edges:[{source,target,kind,score}],
+//    params:{gravity,spread,lengthByScore}, world:{left,top,right,bottom}, alpha, epoch}
 //       Replace the whole simulation. `id` is only used to map the drag/pin
 //       messages below onto array indices; positions travel by index alone.
 //       `epoch` is echoed on every message this run produces: see "Out".
@@ -177,10 +177,38 @@ function tuning(params) {
   const pull = 0.25 + 0.75 * (gravity / 50) ** 3;
   return {
     charge: (-340 * density) / gravityScale,
-    linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * density * spreadScale,
-    pullX: 0.015 * centreScale(nodes.length) * pull,
+    //: Length by similarity (the Show switch, on by default): a strong
+    //: relation reads as a short one, 1.3x the base length at a score of 0
+    //: and 0.7x at 1, the same curve the SVG renderer has always used. A
+    //: line with no score keeps the base length. Until INBOX 412 this
+    //: renderer was never sent a score, so the switch did nothing here.
+    linkDistance: (edge) => {
+      const base = (edge.kind === "similar" ? 130 : 80) * density * spreadScale;
+      const score = params && params.lengthByScore === false ? null : edge.score;
+      if (typeof score !== "number" || Number.isNaN(score)) return base;
+      return base * (1.3 - 0.6 * Math.max(0, Math.min(1, score)));
+    },
+    //: **A portrait map gets a portrait layout** (INBOX 430, the owner: "fit
+    //: the graph to the viewport's shape (more vertical in portrait)").
+    //: The pull toward the centre sets each axis's spread (a layout held by a
+    //: spring spreads about 1/sqrt of its strength), and the y pull was the
+    //: stronger, 0.02 to 0.015, which is a slightly wide cloud: right for a
+    //: desktop map, and on a 390x698 phone map measured 344x305, 44% of its
+    //: height. In portrait the x pull rises with the square of the map's
+    //: aspect, so the cloud comes out the map's shape; a landscape map keeps
+    //: the pulls it had. Capped at 4x, past which a column of notes one
+    //: node wide is not a map.
+    pullX: 0.015 * centreScale(nodes.length) * pull * portraitPull(),
     pullY: 0.02 * centreScale(nodes.length) * pull,
   };
+}
+
+function portraitPull() {
+  const aspect = world && Number.isFinite(world.aspect) ? world.aspect : 1;
+  if (aspect <= 1) return 1;
+  //: (0.02 / 0.015) squares the two pulls level, then the aspect's square
+  //: shapes it: extent ratio ~ sqrt(pullX / pullY) = aspect.
+  return Math.min(4, (0.02 / 0.015) * aspect * aspect);
 }
 
 function applyForces(params) {
@@ -331,7 +359,7 @@ self.onmessage = (event) => {
       world = message.world || null;
       const edges = (message.edges || [])
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
-        .map((e) => ({ source: e.source, target: e.target, kind: e.kind }));
+        .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score }));
       const tuned = tuning(message.params);
       simulation = d3
         .forceSimulation(nodes)

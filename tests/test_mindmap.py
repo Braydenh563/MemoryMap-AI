@@ -686,6 +686,7 @@ MAP_STYLE = {
     "shape": "pill",
     "core": True,
     "spine": "dashed",
+    "fill": "branch",
     "icon": "lightbulb",
     "link": "https://example.org/paper",
     "edge_label": "because",

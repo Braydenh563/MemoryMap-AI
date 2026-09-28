@@ -10,6 +10,7 @@ core/security.py, which runs alongside the CSP from the same module.
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import sys
@@ -20,7 +21,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -38,11 +39,13 @@ from memorymap.api import (
     routes_conversations,
     routes_debug,
     routes_documents,
+    run_sandbox,
     routes_backups,
     routes_duplicates,
     routes_drafts,
     routes_learned,
     routes_night,
+    routes_privacy,
     routes_resurface,
     routes_entries,
     routes_files,
@@ -60,6 +63,7 @@ from memorymap.api import (
     routes_tags,
     routes_update,
     routes_voice,
+    routes_webclip,
     routes_websearch,
     routes_whiteboard,
 )
@@ -69,6 +73,7 @@ from memorymap.core import (
     bgtasks,
     deps,
     diskspace,
+    egress,
     events,
     jobs,
     logbuffer,
@@ -88,9 +93,48 @@ from memorymap.entry import manager
 # explicitly, not inferred from a path that only looks the same in both
 # cases by coincidence.
 if getattr(sys, "frozen", False):
-    FRONTEND_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
+    BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
 else:
-    FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+    BUNDLE_ROOT = Path(__file__).resolve().parents[3]
+FRONTEND_DIR = BUNDLE_ROOT / "frontend"
+
+
+#: **Every type the page is served with, named here rather than read from the
+#: machine.** Starlette asks `mimetypes`, and on Windows `mimetypes` loads the
+#: registry *over* Python's own table, so a machine where an editor or an old
+#: installer once set `.js` to `text/plain` (a known Windows state, and the
+#: reason Django and Flask users meet a blank page there) serves `app.js` as
+#: text. With `X-Content-Type-Options: nosniff` on every response
+#: (`core/security.py`) the window then refuses every script, and the grammar
+#: worker, a module worker, refuses a non-JavaScript type even without it.
+#: The packaged Windows app is the build that meets this; the pins cost
+#: nothing anywhere else.
+STATIC_MIME_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".html": "text/html",
+    ".json": "application/json",
+    ".webmanifest": "application/manifest+json",
+    ".wasm": "application/wasm",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/vnd.microsoft.icon",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".txt": "text/plain",
+}
+
+
+def pin_static_mime_types() -> None:
+    """Put `STATIC_MIME_TYPES` over whatever the registry said. `add_type`
+    initialises the table first when nothing has yet, so the registry read
+    happens before these, never after them."""
+    import mimetypes
+
+    for suffix, media_type in STATIC_MIME_TYPES.items():
+        mimetypes.add_type(media_type, suffix)
 
 
 # (Embedding warm-up now lives in ai/embeddings.start_warmup, which also
@@ -489,7 +533,7 @@ def out_of_space_body(wanted: int | None = None) -> dict:
     data_dir = None
     try:
         data_dir = str(deps.get_config().data_dir)
-    except Exception:  # pragma: no cover - only before the config exists
+    except Exception:  # noqa: BLE001  # pragma: no cover - only before the config exists
         pass
     free = diskspace.free_bytes(data_dir) if data_dir else None
     where = f" Your notebook is in {data_dir}." if data_dir else ""
@@ -552,7 +596,7 @@ class SpaceGuard:
         if wanted is not None and wanted > self.SMALL_BODY_BYTES:
             try:
                 config = deps.get_config()
-            except Exception:  # pragma: no cover - before the config exists
+            except Exception:  # noqa: BLE001  # pragma: no cover - before the config exists
                 config = None
             if config is not None and not diskspace.has_room_for(config.data_dir, wanted):
                 logging.getLogger("memorymap.errors").error(
@@ -605,13 +649,19 @@ def create_app() -> FastAPI:
     # started multi-worker: `python -m memorymap` hands uvicorn an app object
     # rather than an import string, and uvicorn cannot fork that.
     deps.refuse_multiple_workers()
+    pin_static_mime_types()
     logbuffer.install()  # start capturing logs for the Settings viewer
+    # The privacy receipt's record (core/egress.py): before anything below
+    # can open a socket, so a startup download or a warmup that phones home
+    # is on the receipt too. Idempotent, and permanent by design.
+    egress.install()
     # Coarse phase markers for the desktop launcher's loading window
     # (core/startup_status.py): the only reader, and a no-op for every
     # other way this app runs (the web build, tests, `python -m memorymap`
     # without `--desktop`), since nothing else ever calls get_phase().
     startup_status.set_phase("Setting up your notebook…")
     init_app_state()
+    ledger_path = deps.get_config().data_dir / egress.LEDGER_NAME
     _purge_expired_bin_entries()
     _compact_event_log()
     _backup_if_due()
@@ -652,6 +702,10 @@ def create_app() -> FastAPI:
         # call that cannot be interrupted and the workers are daemons: see
         # `jobs.Pool.shutdown`.
         jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
+        # The receipt's ledger keeps what this launch saw; the route flushes
+        # on every read, and this catches a launch nobody opened it in.
+        # The path was taken at startup: by now the app state may be gone.
+        egress.flush(ledger_path)
 
     # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
     # the second is the one that matters. The Swagger and ReDoc pages load
@@ -722,9 +776,19 @@ def create_app() -> FastAPI:
         exclude_content_types=(
             *DEFAULT_EXCLUDED_CONTENT_TYPES,
             "application/x-ndjson",
+            # The grammar checker's 15.9 MB binary (INBOX 401). Measured on
+            # loopback: 755 ms to gzip it on every cold fetch against 60 ms
+            # to send it as it is, so compressing it made the first check
+            # slower by the whole difference. It is fetched once per launch
+            # and revalidated by its ETag after that.
+            "application/wasm",
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)
+    # Who is asking, for the vault's per-session grants (routes_auth.VaultScope).
+    app.add_middleware(routes_auth.VaultScope)
+    # LAN mode's rebinding guard: a no-op on loopback (core/netbind.py).
+    app.add_middleware(security.HostCheckMiddleware)
     app.add_middleware(SpaceGuard)
     app.add_middleware(RequestPulse)
     app.add_middleware(
@@ -748,15 +812,20 @@ def create_app() -> FastAPI:
     # unlock: that is when the failure they describe happens. One route, and
     # `routes_settings.open_router`'s own comment says why it is separate.
     app.include_router(routes_settings.open_router)
+    # The Run button's sandbox page: no data, its own sandboxing policy, and
+    # registered before the documents router so `/documents/{id}` does not
+    # claim the path (`api/run_sandbox.py`).
+    app.include_router(run_sandbox.router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
+    app.include_router(routes_webclip.router, dependencies=locked)
     app.include_router(routes_backups.router, dependencies=locked)
     app.include_router(routes_spaces.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     # A plain `<img src>` (or a note's own inline `![]()` markdown) never
-    # attaches the X-Auth-Token header, only these two routes need a
-    # query-param fallback, so they get their own gate rather than widening
-    # `locked` for every route. See require_unlock_media's docstring.
+    # attaches the X-Auth-Token header, so only these routes also accept the
+    # media cookie, on their own gate rather than widening `locked` for every
+    # route. See require_unlock_media's docstring.
     app.include_router(
         routes_files.media_router, dependencies=[Depends(routes_auth.require_unlock_media)]
     )
@@ -781,6 +850,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
+    app.include_router(routes_privacy.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:
@@ -805,6 +875,26 @@ def create_app() -> FastAPI:
             # instead (§35E). Set by `python -m memorymap --desktop`.
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
         }
+
+    @app.post("/instance/focus", include_in_schema=False)
+    def instance_focus(x_instance_token: str | None = Header(default=None)) -> dict[str, bool]:
+        """A second launch asking this one to bring its window forward.
+
+        Open like `/health` because the asking process has no session, and
+        guarded by something better than one: the token in this server's own
+        `instance.lock` (core/instance_lock.py), which only someone who can
+        read the data directory has. Compared in constant time. `focused` is
+        False on a server started in browser mode, which has no window, and
+        the second launch then opens a window onto this server instead.
+        """
+        from memorymap.core import instance_lock
+
+        expected = instance_lock.current_token()
+        if not expected or not x_instance_token or not hmac.compare_digest(
+            expected.encode(), x_instance_token.encode()
+        ):
+            raise HTTPException(status_code=403, detail="Not this instance's token.")
+        return {"focused": instance_lock.focus()}
 
     # GET /update/check, /update/releases, /update/source-status, and
     # POST /update/apply all live in routes_update.py now, this endpoint
@@ -832,13 +922,23 @@ def create_app() -> FastAPI:
         it changes when the app is updated, and an update replaces the process
         anyway: so a cache would only ever be stale in development.
         """
-        path = Path(__file__).resolve().parents[3] / "CHANGELOG.md"
+        # BUNDLE_ROOT rather than three levels up: a packaged build keeps its
+        # files in the bundle's own folder, and `memorymap.spec` puts this
+        # file there, so the About panel's notes are not empty on Windows.
+        path = BUNDLE_ROOT / "CHANGELOG.md"
         try:
             return {"markdown": path.read_text(encoding="utf-8")}
         except OSError:
             # A packaged build may not ship it. Missing notes are not an error
             # worth a 500: the About panel just doesn't offer them.
             return {"markdown": ""}
+
+    # The owner's benches (tools/avatar-lab.html, tools/companion-sim.html)
+    # are served beside the app so they can load its own renderers from
+    # "/"; plain static files, no data behind them.
+    tools_dir = FRONTEND_DIR.parent / "tools"
+    if tools_dir.is_dir():
+        app.mount("/tools", StaticFiles(directory=tools_dir), name="tools")
 
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.

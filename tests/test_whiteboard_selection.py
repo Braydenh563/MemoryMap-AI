@@ -9,6 +9,7 @@ click by fitting the box to its text.
 from __future__ import annotations
 
 from pathlib import Path
+from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 WB = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
@@ -92,7 +93,8 @@ def test_a_swept_shape_gets_its_own_box_and_the_group_keeps_the_grips() -> None:
     )
     #: And a card or a text box in a group hides its own grips by class, since
     #: it carries them as children rather than having them drawn.
-    assert 'el.classList.toggle("wb-in-group", inGroup);' in WB
+    #: Toggled only when it changes (the marquee release touches only what moved, INBOX 410).
+    assert 'el.classList.toggle("wb-in-group", grouped);' in WB
     assert ".node-card.wb-in-group .wb-rotate-handle" in CSS
     assert ".wb-object.wb-in-group .wb-resize-handle" in CSS
 
@@ -122,14 +124,17 @@ def test_a_drag_snaps_the_movement_not_the_position() -> None:
     where my mouse was on the object". Rounding the absolute position moves an
     off-grid item up to half a cell the instant the drag starts, and it stays
     that far from the cursor; rounding the delta keeps the grab point."""
-    assert WB.count("d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);") == 2
+    # The delta is snapped, not the position; Shift may zero one axis of it
+    # (the one-axis drag, `wbAxisLock`), which is still a delta.
+    assert WB.count('d.x = d._dragOriginX + (lock === "y" ? 0 : wbSnap(d._rawX - d._dragOriginX, bypassSnap));') == 2
+    assert WB.count('d.y = d._dragOriginY + (lock === "x" ? 0 : wbSnap(d._rawY - d._dragOriginY, bypassSnap));') == 2
 
 
 def test_the_board_owns_undo_while_it_is_open() -> None:
     """Reported: "ctrl z undo and redo cont trigger in the whiteboard/mind
     map". Two listeners matched the chord and whichever stack was non-empty
     answered. The board's own binding is gone and app.js hands it over."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "await window.wbUndo();" in app
     assert "window.wbUndo = wbUndo;" in WB
     assert "wbUndo();\n      return;" not in WB
@@ -140,7 +145,7 @@ def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
     buttons in the bottom bar should work across the whole application". The
     status bar's buttons, the Ctrl+Z chord and the palette all go through
     performUndo/performRedo, which is where the handoff lives."""
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    app = app_js_text()
     assert "function boardHistoryActive()" in app
     assert app.count("if (boardHistoryActive()) {") >= 2
     assert "window.wbCanUndo?.()" in app and "window.wbCanRedo?.()" in app

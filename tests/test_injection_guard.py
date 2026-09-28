@@ -47,7 +47,10 @@ def test_the_prose_budget_is_still_the_reason_it_lives_on_the_payload():
     """If the budget ever gains real headroom, a system-prompt guard becomes
     viable too. This records why it is not there today, so the next person
     does not read its absence as an oversight."""
-    assert agent.PROSE_BUDGET_CHARS == 3_000, (
+    # Re-checked 2026-09-23 when it moved to 3,200: the 200 went to the
+    # default persona (the owner's ask), leaving the prose at 3,124 of 3,200,
+    # so there is still no room for a guard here and it stays on the payload.
+    assert agent.PROSE_BUDGET_CHARS == 3_200, (
         "PROSE_BUDGET_CHARS moved: re-check whether the injection guard "
         "should now also live in AGENT_GROUNDING (see test_injection_guard's "
         "module docstring)"

@@ -88,6 +88,9 @@ defusedxml>=0.7.1,<1.0
 # Tests
 pytest>=9.1.1,<10.0
 httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
+# Runs the suite across every core (`pytest -n auto`): 25 minutes serial,
+# under 9 on four cores. Every test already has its own data dir.
+pytest-xdist>=3.8.0,<4.0
 
 # Optional extras (Wave H) — NOT installed automatically. These are plain
 # comments so pip skips them; install by hand only if you want the feature:
@@ -101,8 +104,10 @@ httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
 #   pip install pypdfium2 Pillow # read scanned PDFs (core/pdfpages.py): turns
 #     pages with no text layer into images a vision/OCR model can read;
 #     without it a scanned PDF is only ever reported as one.
-#   pip install markitdown        # import Word/PowerPoint/etc as notes
+#   pip install "markitdown[pdf,docx,pptx]"  # import PDF/Word/PowerPoint as notes
 #   pip install python-docx       # export a document to real Word (.docx)
+#   Run Python files (Pyodide) and needle are downloads, not pip packages:
+#     Settings → Packages fetches and checks them.
 #
 # Every one of the four above (and voice/desktop above them) also has an
 # install button in Settings → Extras (`core/extras.py`), which is the

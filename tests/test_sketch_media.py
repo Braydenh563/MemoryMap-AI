@@ -17,10 +17,10 @@ the note's vector is built from the note's own words.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from memorymap.core import media_process
 from memorymap.core.database import Entry, MediaUpload
+from tests._app_js import app_js_text
 
 
 def _upload(session, filename="sketch-2026-01-01.png", **fields):
@@ -154,7 +154,7 @@ def test_saving_a_sketch_uploads_it_as_media():
     """`/entries/{id}/files` is the attachment table and a different pipeline.
     Only a MediaUpload is captioned, OCR'd, read by a vision model, or listed
     in the gallery."""
-    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    source = app_js_text()
     block = source.split("async function saveSketch()")[1].split("\n}")[0]
     assert '"/media/upload"' in block
     # The old path, in code rather than in the comment explaining why it went.

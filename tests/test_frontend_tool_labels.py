@@ -27,14 +27,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._app_js import app_js_text
 
-APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "src" / "memorymap" / "ai" / "tools"
 
 
 def _change_row_source() -> str:
     """`changeRow`'s own body: the renderer for a skill/tool change line."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = app_js_text()
     start = source.index("function changeRow(")
     # The next top-level `function ` declaration ends it; `changeRow` has no
     # nested top-level declarations of its own.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from tests._app_js import app_js_text
 
 
 def _save(client, content, **extra):
@@ -170,6 +171,21 @@ def test_graph_local_node_dates_are_valid_iso_too(client):
         assert parsed.tzinfo is not None
 
 
+def test_a_node_carries_what_its_size_can_be_read_from(client):
+    """INBOX 430: node size by a toggle in View, by connections (the default,
+    counted client-side from the edges), length or recency. The last two need
+    their numbers on the node: the note's word count and when it was last
+    edited. On the whole map and on a note's local map alike."""
+    a = _save(client, "one two three four five six seven")
+    b = _save(client, "short")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    for url in ("/graph", f"/graph/local/{a['id']}"):
+        nodes = {n["id"]: n for n in client.get(url).json()["nodes"]}
+        assert nodes[a["id"]]["words"] == 7, url
+        assert nodes[b["id"]]["words"] == 1, url
+        assert datetime.fromisoformat(nodes[a["id"]]["updated_at"]).tzinfo is not None, url
+
+
 def test_graph_link_edge_carries_its_reason(client):
     a = _save(client, "assignment due next week", category="Uni")
     b = _save(client, "gym session tuesday", category="Fitness")
@@ -245,12 +261,21 @@ def test_graph_include_documents_adds_a_prefixed_node_and_edge(client):
     assert "Document" not in body["categories"]
 
 
-def test_graph_include_documents_ignores_a_document_with_no_linked_notes(client):
+def test_graph_include_documents_shows_a_document_with_no_linked_notes(client):
+    """The owner: "the documents toggle in the graph doesnt do anything". A
+    notebook whose documents are not attached to notes got no document nodes,
+    so the switch changed nothing. A lone document is now drawn alone, with
+    no edges, and an archived one is not drawn at all."""
     _save(client, "first note", category="Alpha")
     client.post("/documents", json={"title": "Untouched", "content": ""})
+    archived = client.post("/documents", json={"title": "Old", "content": ""}).json()
+    client.put(f"/documents/{archived['id']}/archive")
 
     body = client.get("/graph?include_documents=true").json()
-    assert all(n.get("type") != "document" for n in body["nodes"])
+    docs = [n for n in body["nodes"] if n.get("type") == "document"]
+    assert [n["preview"] for n in docs] == ["Untouched"]
+    assert not [e for e in body["edges"] if e.get("kind") == "document"]
+    assert all(n.get("type") != "document" for n in client.get("/graph").json()["nodes"])
 
 
 def test_graph_thread_edges(client):
@@ -351,7 +376,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     # test_frontend_ids.py/test_frontend_handlers.py read app.js +
     # whiteboard.js + graph.js together rather than any one file alone.
     graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
-    app_source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    app_source = app_js_text()
     start = graph_source.index("function setGraphPhysicsEnabled(")
     body = graph_source[start : start + 1400]
     assert 'layoutKind === "force"' in body

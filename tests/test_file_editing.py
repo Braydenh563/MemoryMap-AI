@@ -21,6 +21,7 @@ import io
 from pathlib import Path
 
 from memorymap.core import docview
+from tests._app_js import app_js_text
 
 
 def _viewed(path: Path):
@@ -135,9 +136,7 @@ def test_the_reason_is_computed_before_the_empty_body_return():
     used to be computed past that return and was therefore never shown for
     exactly the files that most needed it, measured live: the note read only
     "Importing documents needs the optional markitdown package"."""
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     start = app.index("const editNotes = [];")
     empty_return = app.index('if (!body.trim()) {', start - 4000)
     assert start < empty_return, (
@@ -282,9 +281,7 @@ def test_export_names_the_file_after_what_the_text_is():
     the viewer is showing, which for a scanned PDF is the only readable form
     of it the app has. `report.pdf` exports as `report.md` or `report.txt`
     depending on `kind`, never as something claiming to still be a PDF."""
-    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
-        encoding="utf-8"
-    )
+    app = app_js_text()
     body = app[app.index("const exportTextBtn = actionBtn(") :][:900]
     assert 'kind === "markdown" ? "md" : "txt"' in body
     assert "replace(" in body, "the source file's own extension is stripped first"

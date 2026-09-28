@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from pathlib import Path
+from tests._app_js import app_js_text
 
 APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
@@ -34,6 +35,13 @@ DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "documents.js"
 LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "library.js"
 DASHBOARD = Path(__file__).resolve().parents[1] / "frontend" / "dashboard.js"
 SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
+TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "timeline.js"
+PALETTE = Path(__file__).resolve().parents[1] / "frontend" / "palette.js"
+AVATARS = Path(__file__).resolve().parents[1] / "frontend" / "avatars.js"
+ATLAS = Path(__file__).resolve().parents[1] / "frontend" / "atlas.js"
+DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js"
+DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "documents-prose.js"
+WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard-map.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs: the settings overlay has a backdrop-click-to-close and a delegated
@@ -72,7 +80,12 @@ def _source() -> str:
     modal, the logs console, and appearance, §88.3, the fourth and last file
     in the split) is the eighth, and graph-canvas.js (the Canvas 2D graph
     renderer and its worker plumbing, GRAPH_PLAN.md §5 Phase 1) is the
-    ninth: the reason this list has to grow with the split rather than
+    ninth, and timeline.js (the Timeline tab, split out of app.js on
+    2026-09-23 when the gzipped app.js crossed its size bound) is the tenth,
+    and documents-code.js and documents-prose.js (the document editor's code
+    side and prose tools, split out of documents.js on 2026-09-24) are the
+    eleventh and twelfth, and whiteboard-map.js (the mind map layer, split
+    out of whiteboard.js the same day) is the thirteenth: the reason this list has to grow with the split rather than
     being left at however many files it started with: a lint that cannot
     see a file cannot catch anything in it.
 
@@ -81,7 +94,7 @@ def _source() -> str:
     docstring would otherwise be quoted back at it.
     """
     combined = (
-        APP.read_text(encoding="utf-8")
+        app_js_text()
         + "\n"
         + WHITEBOARD.read_text(encoding="utf-8")
         + "\n"
@@ -98,6 +111,20 @@ def _source() -> str:
         + DASHBOARD.read_text(encoding="utf-8")
         + "\n"
         + SETTINGS.read_text(encoding="utf-8")
+        + "\n"
+        + TIMELINE.read_text(encoding="utf-8")
+        + "\n"
+        + PALETTE.read_text(encoding="utf-8")
+        + "\n"
+        + AVATARS.read_text(encoding="utf-8")
+        + "\n"
+        + ATLAS.read_text(encoding="utf-8")
+        + "\n"
+        + DOCUMENTS_CODE.read_text(encoding="utf-8")
+        + "\n"
+        + DOCUMENTS_PROSE.read_text(encoding="utf-8")
+        + "\n"
+        + WHITEBOARD_MAP.read_text(encoding="utf-8")
     )
     #: Line comments first, then blocks. The other way round, a `/*` written
     #: inside a `//` line is read as a block comment opening and everything to
@@ -218,7 +245,7 @@ def test_graph_fullscreen_escape_asks_rather_than_relies_on_order():
     check) instead of asking. Measured before/after with
     `scratchpad/ui-sweeps/graphfslightbox.js`.
     """
-    source = APP.read_text(encoding="utf-8")
+    source = app_js_text()
     match = re.search(
         r'(?ms)\$\("graph-fullscreen"\)\?\.addEventListener\("click", toggleGraphFullscreen\);'
         r".*?document\.addEventListener\(\"keydown\", \(event\) => \{.*?\n\}\);",

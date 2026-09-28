@@ -55,7 +55,7 @@ FILE_CONTENT_IS_DATA = (
 )
 
 
-def _file_text(row) -> str:  # noqa: ANN001: MediaUpload or Attachment
+def _file_text(row) -> str:  # noqa: ANN001  # MediaUpload or Attachment
     """The best text the app has for this file, and it is not one field.
 
     A vision model's transcription beats Tesseract's when both exist (it

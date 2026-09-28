@@ -6,6 +6,7 @@ absent turns into flags in /models/status, never an error.
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +16,12 @@ from sqlalchemy.orm import Session
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import sampling
 from memorymap.ai import model_manager as jobs
-from memorymap.ai.model_manager import SUGGESTED_MODELS
+from memorymap.ai.model_manager import (
+    FOLLOW_CHAT_MODEL,
+    FOLLOW_SENTINELS,
+    FOLLOW_UTILITY_MODEL,
+    SUGGESTED_MODELS,
+)
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps, ocr, security
 from memorymap.core.deps import get_session
@@ -104,11 +110,64 @@ def _name_matches(wanted: str, installed: list[dict]) -> bool:
     return wanted in names
 
 
+class _CachedCapabilities:
+    """`ollama`, answering `supports()` from what it already knows.
+
+    /models/status is polled (every second while a job runs, every thirty
+    idle) with an 8s budget in the browser, and it resolved the vision and
+    OCR models by asking each installed model its capabilities, one
+    `/api/show` round trip each at up to 5s apiece, in turn. The answers are
+    cached per process, so this only bit on the first polls after a start,
+    and it bit reliably: reported as `GET /models/status: signal timed out`
+    twice in the first minute, while the embedding model was loading.
+
+    So the poll never asks: an unknown model reads as "unknown" (None, which
+    every caller already treats as "not this one" for auto-detection), and a
+    background thread asks for the rest, so the next poll has the answer.
+    """
+
+    def __init__(self, client) -> None:
+        self._client = client
+        self._shown = getattr(client, "_shown", None)
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    def supports(self, model: str, capability: str):
+        if self._shown is None:
+            return self._client.supports(model, capability)
+        if model not in self._shown:
+            _warm_capabilities(self._client, model)
+            return None
+        return self._client.supports(model, capability)
+
+
+_warming: set[str] = set()
+_warming_lock = threading.Lock()
+
+
+def _warm_capabilities(client, model: str) -> None:
+    """Ask `client` about `model` once, off the request thread."""
+    with _warming_lock:
+        if model in _warming:
+            return
+        _warming.add(model)
+
+    def run() -> None:
+        try:
+            client.show(model)
+        finally:
+            with _warming_lock:
+                _warming.discard(model)
+
+    threading.Thread(target=run, name=f"capabilities-{model}", daemon=True).start()
+
+
 @router.get("/status")
 def status() -> dict:
     """One call that tells the UI everything: is Ollama up, what's
     installed, what's active, and whether any job is running."""
-    ollama = deps.get_ollama()
+    ollama = _CachedCapabilities(deps.get_ollama())
     manager = deps.get_model_manager()
     embeddings = deps.get_embeddings()
 
@@ -130,6 +189,7 @@ def status() -> dict:
         installed = []
         running = False
     chat_model = manager.chat_model()
+    utility_resolved, utility_reason = manager.utility_resolution()
     # Resolved once. It walks the installed models asking each whether it can
     # see, which is an HTTP call per model on a cold cache.
     resolved_vision = manager.resolve_vision_model(ollama, installed) if running else None
@@ -166,8 +226,30 @@ def status() -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
+        # **The model that actually answers** (owner, packaged app: "it said in
+        # the chat header that I had llama3.2 set when it was a completely
+        # different model and I didnt even have llama3.2 installed"). An
+        # OpenAI-dialect server (llama.cpp, LM Studio, Jan) answers with the
+        # model it has loaded whatever name is asked for, so when the
+        # configured name is not one it serves, the loaded one is what runs.
+        # Ollama has no such fallback: there the configured name stands, and
+        # `chat_model_installed` says it will fail.
+        "chat_model_effective": (
+            installed[0]["name"]
+            if running and provider != "ollama" and installed
+            and not _name_matches(chat_model, installed)
+            else chat_model
+        ),
         # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
+        # What background jobs actually run on, and why (INBOX 277): the
+        # stored name above is what the picker shows, and on its own it
+        # misreports a notebook with smart model routing off. Also what the
+        # "Same as utility model" feature-per-model option (INBOX 430) names
+        # as what it currently follows, so the frontend never has to
+        # re-derive `ModelManager.utility_model()`'s own logic.
+        "utility_model_resolved": utility_resolved,
+        "utility_model_reason": utility_reason,
         # "" means "auto-detect" (vision model). The resolved field is what
         # an image-carrying turn would actually use right now, None if
         # nothing installed declares vision and no explicit choice is set, 
@@ -195,6 +277,12 @@ def status() -> dict:
         "feature_models_overridden": sum(
             1 for row in manager.feature_rows() if row["overridden"]
         ),
+        #: The two sentinel values a feature's select can send back through
+        #: `/feature-model` for "Same as chat model" / "Same as utility
+        #: model" (INBOX 430), so the frontend never hardcodes a string that
+        #: only means something because it happens to match this module's
+        #: own constant.
+        "feature_model_follow": {"chat": FOLLOW_CHAT_MODEL, "utility": FOLLOW_UTILITY_MODEL},
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting*, only meaningful on that backend.
         "embedding_model": manager.embedding_model(),
@@ -460,7 +548,11 @@ def set_feature_model(
     the backend is up to be asked.
     """
     name = body.name.strip()
-    if name and deps.get_ollama().is_running():
+    #: The two `FOLLOW_*` sentinels are not model names (INBOX 430: "Same as
+    #: chat model" / "Same as utility model"): checking one against what is
+    #: installed would refuse the very setting that means "don't pin this to
+    #: an installed name at all, track the other setting instead".
+    if name and name not in FOLLOW_SENTINELS and deps.get_ollama().is_running():
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
@@ -470,11 +562,15 @@ def set_feature_model(
         deps.get_model_manager().set_feature_model(body.feature, name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _log_names = {
+        FOLLOW_CHAT_MODEL: "(same as chat model)",
+        FOLLOW_UTILITY_MODEL: "(same as utility model)",
+    }
     log_action(
         session,
         "edited",
         "preferences",
-        detail=f"feature_model_{body.feature}={name or '(inherited)'}",
+        detail=f"feature_model_{body.feature}={_log_names.get(name, name or '(inherited)')}",
     )
     session.commit()
     return {

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/favicon.svg" alt="" width="96" height="96">
+<img src="frontend/icon-512.png" alt="MemoryMap AI" width="120">
 
 # MemoryMap AI
 
@@ -31,31 +31,42 @@ capture a thought
 ```
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
+  <img src="docs/screenshots/dashboard-dark.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
 </p>
 
-<details>
-<summary><b>Thirteen more screenshots</b>: Notes, Chat, Graph, Library, the OCR workspace, boards, concept maps, Documents, Timeline, Reminders, the features browser, the command palette and Appearance</summary>
-<br>
-
 <p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes: a list of AI-filed notes with categories, tags and related-note chips" width="850">
+  <img src="docs/screenshots/notes.png" alt="Notes in the dark theme: AI-filed notes newest first, each with its category and tags, and the categories listed beside them" width="850">
   <br><sub><b>Notes</b>: captured, categorised and linked to what they relate to</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/chat.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and four suggested questions" width="850">
+  <img src="docs/screenshots/ask.png" alt="Notes, Ask: the question What do I still need to sort out before the Kyoto trip, a sample answer listing the ryokan, the passport and an ICOCA card with numbered citations, and the matching notes beside it" width="850">
+  <br><sub><b>Ask</b>: a question to your own notes, answered with numbered citations to the notes behind it</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/chat-dark.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and suggested questions" width="850">
   <br><sub><b>Chat</b>: ask in plain English, with skills, web search and agent mode beside the box</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/graph.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
+  <img src="docs/screenshots/graph-dark.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
   <br><sub><b>Graph</b>: your notes as a map, coloured by category, linked by meaning</sub>
 </p>
 
+<details>
+<summary><b>Eighteen more screenshots</b>: Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, and a phone</summary>
+<br>
+
+
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
+  <img src="docs/screenshots/library-dark.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
   <br><sub><b>Library</b>: everything you have made, in one place</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/activity.png" alt="Library, Activity: one line per record, newest first: when, what was done, and the detail" width="850">
+  <br><sub><b>Activity</b>: a record of what you did, one line each, in the Library beside what you made</sub>
 </p>
 
 <p align="center">
@@ -74,17 +85,22 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor with a formatting toolbar, a document list, live word count and writing suggestions" width="850">
+  <img src="docs/screenshots/documents-dark.png" alt="Documents: the long-form editor on a draft, with its outline, word count and two writing suggestions underlined in place" width="850">
   <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/timeline.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
+  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it listing a spelling slip and a repeated word" width="850">
+  <br><sub><b>Focus mode</b>: the page and nothing else, with the suggestions beside it when you want them</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/timeline-dark.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
   <br><sub><b>Timeline</b>: every note on a time axis</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/reminders.png" alt="Reminders: due dates with quick-set buttons and priority, linked to the note they came from" width="850">
+  <img src="docs/screenshots/reminders-dark.png" alt="Reminders: due dates with quick-set buttons and priority, linked to the note they came from" width="850">
   <br><sub><b>Reminders</b>: due dates linked to the note they came from</sub>
 </p>
 
@@ -99,9 +115,48 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: ten themes as swatches, with typography, density, corners and background below" width="850">
-  <br><sub><b>Appearance</b>: ten themes, your own accent, type, density and corners</sub>
+  <img src="docs/screenshots/agent.png" alt="The popup agent over the Notes tab: Atlas's head beside the title, starter questions, and the composer with its wand" width="850">
+  <br><sub><b>Popup agent</b>: ask about your notes from any tab, with Atlas at the head of it</sub>
 </p>
+
+<p align="center">
+  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: thirteen themes as swatches, Quiet utilitarian chosen, with saved looks below" width="850">
+  <br><sub><b>Appearance</b>: thirteen themes, your own accent, type, density and corners</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/your-look.png" alt="Settings, Profile, Your look: the face drawn from your name, Shuffle, and a picker for each part: look, mood, hair, hair colour, skin, clothes, headwear, eyewear and what you hold" width="850">
+  <br><sub><b>Your look</b>: a face drawn from your name, and every part of it yours to choose</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/companion.png" alt="The Notes tab with Atlas as the corner companion, perched on the top edge of the notes panel" width="850">
+  <br><sub><b>The corner companion</b>: Atlas, you, a persona or a character of your own, perched on a panel and poked for a reaction</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/custom-companion.png" alt="Settings, Appearance, Corner companion set to Your own character named Pip, large, with its part pickers, and the character itself at the top right of the page" width="850">
+  <br><sub><b>A companion of your own</b>: any name, and the same parts as Your look</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/theme-split.png" alt="The dashboard, half in the light theme and half in the dark theme, split down the middle" width="850">
+  <br><sub><b>Light or dark</b>: every theme comes in both, or follows your system</sub>
+</p>
+
+
+
+
+
+
+
+
+
+<p align="center">
+  <img src="docs/screenshots/phone.png" alt="The Notes tab at phone width: one column of note cards, a New note button and the tab bar along the bottom" width="390">
+  <br><sub><b>On a phone</b>: one column, the tabs at your thumb</sub>
+</p>
+
 
 </details>
 
@@ -109,6 +164,7 @@ capture a thought
 
 - [Get started](#get-started)
 - [What it does](#what-it-does)
+- [Meet Atlas](#meet-atlas)
 - [The AI, and life without it](#the-ai-and-life-without-it)
 - [Your data](#your-data)
 - [Documentation](#documentation)
@@ -193,11 +249,35 @@ the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
 duplicates on a schedule you set. It never deletes anything.
 
-Also: a command palette (`Ctrl`/`Cmd`+`K`), read-aloud, opt-in web search,
-themes over several colour palettes, interface zoom, daily local backups,
-and Atlas, an in-app guide reachable from the status bar on every tab, which
-answers "how do I" questions from the app's own documentation without ever
-reading your notes.
+**Meet Atlas.** The notebook's own guide, who files your notes, answers
+"how do I" questions from the app's own documentation, and can keep you
+company in the corner of any page. More below.
+
+**Faces for everyone.** Every person and persona gets a small drawn
+character read from their name (a mood word, an animal, a costume), and
+Settings, Profile, Your look lets you shuffle yours or choose every part:
+hair, skin, clothes, headwear, eyewear, what you hold.
+
+**Sign in, or don't.** The notebook asks for its password when it opens, by
+default. On a computer only you use, Settings, Account and security can turn
+that off: the app opens straight in on this computer, another device on your
+network still needs the password, and private notes stay encrypted until you
+unlock them.
+
+Also: a command palette (`Ctrl`/`Cmd`+`K`), a popup agent, read-aloud,
+opt-in web search, thirteen themes, each in light or dark,
+interface zoom, a guided tour of the real controls, and daily local backups.
+
+## Meet Atlas
+
+<p align="center">
+  <img src="docs/screenshots/atlas-mood.png" alt="Atlas in its masculine look on a night-sky tile: a small astral figure with a ring of orbiting stars, swept starlit hair, a nebula stream and a happy expression" width="240">
+  <br><b>The star spirit who keeps your notebook</b>
+</p>
+
+- **Files your notes**: a category, tags and the notes each one relates to.
+- **Answers from your notebook**: sentence by sentence, with the note behind each one.
+- **Keeps you company**: a companion in the corner of any page that reacts to what you do, or a character of your own, drawn from a name.
 
 ## The AI, and life without it
 
@@ -220,9 +300,14 @@ is doing.
 - **Search by meaning** is optional and off by default. Turn it on and
   questions match ideas rather than words, using a local embedding model
   through Ollama.
-- **Settings > Packages** installs the optional pieces (dictation, the
-  desktop window, search by meaning) from inside the app. None of them is
-  needed for the core.
+- **Settings > Packages** installs the optional pieces from inside the app,
+  none of them needed for the core: dictation (faster-whisper), the desktop
+  window (pywebview), search by meaning (sentence-transformers), scanned PDFs
+  (pypdfium2), document import (markitdown), Word export (python-docx), text
+  in images (Tesseract OCR), running Python files (Pyodide), and tool calling
+  with no model server running (needle, telemetry forced off). The last two
+  are pinned downloads checked against a sha256, and work offline once
+  installed.
 
 ## Your data
 
@@ -257,11 +342,17 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 ## Developing
 
 ```
-pytest                          # 3,600+ tests, fifteen to eighteen minutes, fully offline
+pytest                          # 4,600+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
-node --check frontend/app.js    # the frontend has no build step
+node --check frontend/app.js    # the frontend has no build step: check each file you touch
 ```
+
+The frontend is about 45 plain scripts that share one global scope, loaded
+in the order `frontend/index.html` lists them; the app's own code is
+`app.js` and the 22 files after it, one 50,000-line file until 0.3.3.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) says how load order and the
+lazily loaded tabs work.
 
 Tests use a throwaway database and fake every AI call, so they need no
 GPU, no model and no network. They also cannot see the interface, so a
@@ -276,7 +367,8 @@ src/memorymap/
   ai/             model clients, filing, the agent and its tools, skills, embeddings, voice
   search/         full-text and semantic search, opt-in web search
   api/            the FastAPI app, one router per feature
-frontend/         plain HTML, CSS and JavaScript, served as-is
+frontend/         plain HTML, CSS and JavaScript, served as-is, no bundler
+tools/            developer tools for tuning the characters (source checkouts only)
 tests/            pytest, every AI call faked
 docs/             user documentation, architecture, design system, roadmap
 ```
@@ -288,24 +380,15 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.2. The core is built and stable: capture, chat with checkable
-answers, the graph, documents, boards and mind maps, the OCR workspace,
-private notes, themes, desktop packaging for Windows and Linux. The
-interface was rebuilt on one design system in this release, measured
-rather than eyeballed, and the in-app guide has a name. What comes next,
-in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
-[CHANGELOG.md](CHANGELOG.md).
+Version 0.3.3. Capture, chat with checkable answers, the graph, documents,
+boards and mind maps, the OCR workspace, private notes and themes are
+built and stable, with desktop builds for Windows and Linux. New in this
+release: Atlas has a body and a second look, a companion keeps you company
+on every page, and signing in is optional on your own computer.
 
-**The guided tour is still in development and is known to be buggy.** It has
-been reported broken several times and fixed several times, most recently for
-a case where starting it from Settings, Help left the settings panel over the
-page so every step it wanted to point at measured as hidden and the run
-emptied itself. It may still drop steps, sit in the wrong place, or close
-itself part way through, particularly at window sizes and zoom levels that
-have not been measured here. Nothing else in the app depends on it: every
-screen it visits is reachable on its own, and you can leave the tour at any
-point with Escape or Skip. If it misbehaves, that is the tour and not your
-notebook.
+A guided tour (Settings, then Help) walks through the basics one step at a
+time. What changed is in [CHANGELOG.md](CHANGELOG.md); what comes next is in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Licence
 

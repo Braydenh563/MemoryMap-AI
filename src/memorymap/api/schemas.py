@@ -122,6 +122,11 @@ class EntryUpdate(BaseModel):
         return [tag.strip()[:MAX_TAG_LENGTH] for tag in tags if tag and tag.strip()]
     pinned: bool | None = None
     is_draft: bool | None = None
+    #: The `content_hash` of the text this edit started from, so a save made
+    #: over text another window has since changed is refused (409) rather
+    #: than silently overwriting it (api/edit_conflicts.py). Optional: a
+    #: writer that sends none is not checked.
+    base_hash: str | None = Field(default=None, max_length=64)
 
 
 class ContextBody(BaseModel):
@@ -188,6 +193,9 @@ class EntryDateOut(BaseModel):
 class EntryOut(BaseModel):
     id: int
     content: str
+    #: The hash of `content` (api/edit_conflicts.py): an editor sends it back
+    #: as `base_hash` so a save over a newer text is refused, not lost.
+    content_hash: str = ""
     # A note's own leading `# Heading`, if it wrote one, not a stored,
     # separately-edited field. Editing the title is editing that line, the
     # same as editing any other line of the note; there's no second field to

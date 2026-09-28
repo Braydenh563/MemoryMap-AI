@@ -498,10 +498,31 @@ function check(label, ok, detail) {
   // (a marquee released outside the container left a 552x440 `.wb-marquee`
   // that survived Escape, an empty-canvas click and a board reopen), so
   // these four checks are the four leaks, not a guess at one.
-  await page.evaluate(async () => {
-    const rows = await window.apiJson("/whiteboard/boards");
-    const map = rows.find((r) => r.type === "map");
-    window.openWhiteboardBoard(map.id);
+  //
+  // **Its own map, not `rows.find(type === "map")`.** That picked whichever
+  // map board the API happened to list first, which on a data dir already
+  // carrying a previous run's boards (or the app's own seed data) was not
+  // this sweep's "Verification map" at all: check B's empty-canvas point and
+  // its text-editor selector (`.wb-map-node .wb-map-text`, the *first* one
+  // in the DOM) then landed on a leftover board's own layout, and a card
+  // sitting where "empty canvas" was expected showed its own grip instead of
+  // nothing. A board this section creates and opens has one root and nothing
+  // else until the lines below add exactly what the checks need.
+  const abBoard = await page.evaluate(async () => {
+    const b = await window.apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: "Reports A and B", type: "map", layout: "tree-right" }),
+    });
+    // A board made through this route, unlike the New board dialog's own
+    // `createNewBoard`, does not seed a root on its own: the earlier
+    // TimeoutError on `.wb-map-node .wb-map-text` (nothing to dblclick) is
+    // what an empty map here actually looks like.
+    await window.apiJson(`/whiteboard/boards/${b.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", text: "Reports A and B", x: 0, y: 0 }),
+    });
+    window.openWhiteboardBoard(b.id);
+    return b.id;
   });
   await page.waitForTimeout(2500);
   await page.evaluate(() => window.wbZoomToFit({ animate: false }));

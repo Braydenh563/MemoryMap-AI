@@ -10,6 +10,9 @@
 (function () {
   const _r = document.documentElement;
   const THEMES = {
+    utilitarian: { palette: "utilitarian", glass: "off", radius: "8" },
+    paper: { palette: "paper", glass: "off", radius: "4" },
+    mono: { palette: "mono", glass: "off", radius: "2", density: "compact" },
     default: { palette: "default", glass: "on", radius: "14" },
     manuscript: { palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
     terminal: { palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
@@ -21,7 +24,10 @@
     graphite: { palette: "carbon", glass: "off", radius: "4" },
     lagoon: { palette: "lagoon", glass: "on", radius: "14" },
   };
-  const preset = THEMES[localStorage.getItem("themePreset")] || {};
+  // No look chosen means the default look, Quiet utilitarian (settings.js
+  // `DEFAULT_THEME_PRESET`); an explicit choice, "default" (Classic)
+  // included, is kept.
+  const preset = THEMES[localStorage.getItem("themePreset") ?? "utilitarian"] || {};
   const pref = (key, fallback) =>
     localStorage.getItem(key) ?? preset[key] ?? fallback;
 
@@ -36,6 +42,7 @@
       ? theme
       : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
+  _r.dataset.pageWash = pref("page-wash", "on");
   const palette = pref("palette", "default");
   if (palette && palette !== "default") _r.dataset.palette = palette;
   const accent = pref("accent", "indigo");
@@ -44,7 +51,12 @@
 
   _r.dataset.fontsize = pref("fontsize", "normal");
   _r.dataset.font = pref("font", "system");
-  _r.dataset.density = pref("density", "comfortable");
+  //: **Height-aware density** (WORLD_CLASS_PLAN 22.1 item 2): with no
+  //: density chosen, a window 700px tall or less is Compact, the laptop
+  //: whose screen was mostly chrome. A choice in Appearance always wins.
+  //: Mirrored by `effectiveDensity` in settings.js; keep the two in step.
+  _r.dataset.density = localStorage.getItem("density")
+    || (window.matchMedia("(max-height: 700px)").matches ? "compact" : pref("density", "comfortable"));
   // Performance mode, mirrored from perfModeOn() in settings.js: "on", or
   // "auto" on a small machine (2 cores or 4 GB or fewer), or the operating
   // system asking for less transparency. It takes the glass and the motion

@@ -12,8 +12,8 @@
 //   * Escape closes it and focus goes back to the button that opened it;
 //   * a tab behind More lights the More column, so the bar says where you are
 //     on all seven tabs rather than on the four it shows;
-//   * two taps to anything: the four in the bar are one, the three in the
-//     sheet and Settings are two.
+//   * two taps to anything: the four in the bar are one, the six rows in the
+//     sheet (the three tabs, Ask the agent, Guide, Settings) are two.
 //
 //   BASE=http://127.0.0.1:8943 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     node scratchpad/ui-sweeps/phonemore.js
@@ -118,7 +118,10 @@ const WIDTHS = (process.env.WIDTHS || '390,360,320').split(',').map(Number);
       if (sheet.expanded !== 'true') fail('the More button does not report aria-expanded');
       if (Math.abs(sheet.card.bottom - sheet.innerH) > 1) fail('the sheet is not against the bottom edge');
       if (sheet.card.top < 40) fail(`the sheet covers the window (top ${sheet.card.top})`);
-      if (sheet.rows.length !== 4) fail(`${sheet.rows.length} rows in the sheet, not four`);
+      //: Six rows by design (app.js `PHONE_MORE_TABS`): Dashboard, Timeline,
+      //: Reminders, then Ask the agent, Guide and Settings, added for the
+      //: header controls a phone-width bar has no room for (INBOX 190).
+      if (sheet.rows.length !== 6) fail(`${sheet.rows.length} rows in the sheet, not six`);
       if (!sheet.focusIn) fail('the sheet did not take focus');
       sheet.rows.forEach((r) => { if (r.h < MIN) fail(`sheet row ${r.name} is ${r.h}px tall`); });
     }

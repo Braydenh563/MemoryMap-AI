@@ -8711,3 +8711,39 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 #note-template-manage {
   margin-inline-end: auto;
 }
+
+/* A note's files and sketches (`.entry-links`) sat 2px above the metadata
+   row (the owner at release: "no gap between note attachments and the
+   metadata", "a larger vertical gap between sketches and the note
+   metadata"). */
+#entry-list > li > .entry-links {
+  margin-bottom: var(--space-3);
+}
+
+/* The file chip's own buttons (Download, Remove) were a 28px and a 16px
+   circle side by side on a tinted ground ("the buttons on the attachments
+   are horrendous"): one size, one quiet ghost square, tinted on hover. */
+#entry-list .entry-links .unlink {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+}
+
+#entry-list .entry-links .unlink:hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+@media (pointer: coarse) {
+  #entry-list .entry-links .unlink {
+    inline-size: var(--target-min);
+    block-size: var(--target-min);
+  }
+}

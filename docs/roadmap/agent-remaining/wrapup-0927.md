@@ -59,8 +59,7 @@ work starts.
    slightly better redesign". Fuller hair mass over the crown, soft locks
    with depth and shading, not line strokes; keep the circlet subtle.
 10. **The owner at release, more UI notes (screenshots in the session):**
-    (a) reminders bar: a way to reset the time back after using the steppers
-    (an undo, or a "Reset" that restores the saved time);
+    (a) done: reminders bar Reset beside the steppers;
     (b) the OCR workspace: the AI reading block leaves little room for the
     blocks below; make sections collapsible (or cap the reading and scroll);
     (c) Atlas floats in empty space when the Find anything dialog is open;
@@ -83,6 +82,10 @@ work starts.
     add hysteresis (a dead zone past the midpoint and a short dwell);
     (l) the companion's perch in the chat sidebar looked unsupported
     (floating beside a conversation row); check the perch edges there.
+    (m) Windows installer: review and test the installer and the packaged
+    app end to end (install, first run, update, uninstall) in a scratch
+    copy; and add close and minimise buttons to the packaged app's splash
+    window (the owner at release).
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

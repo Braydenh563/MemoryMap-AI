@@ -47,7 +47,6 @@ from memorymap.api import (
     routes_night,
     routes_privacy,
     routes_resurface,
-    routes_entries,
     routes_files,
     routes_graph,
     routes_help,
@@ -75,7 +74,6 @@ from memorymap.core import (
     diskspace,
     egress,
     events,
-    jobs,
     logbuffer,
     security,
     startup_status,
@@ -675,6 +673,14 @@ def create_app() -> FastAPI:
     # The filing model too: a cold load is most of a first filing's wait.
     # Its own daemon thread, not the model lane, so a note saved meanwhile
     # is never queued behind the warm-up (janitor.warm_filing_model).
+    # Notes the model had not answered for when the app last closed.
+    try:
+        from memorymap.api import routes_entries
+        from memorymap.core import jobs
+
+        jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
+    except Exception:  # noqa: BLE001 - never stops startup
+        logging.getLogger(__name__).warning("couldn't queue the stand-in retry", exc_info=True)
     threading.Thread(
         target=janitor.warm_filing_model,
         args=(deps.get_model_manager(), deps.get_ollama()),

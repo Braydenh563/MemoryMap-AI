@@ -9706,6 +9706,12 @@ header#top-bar > #tab-bar {
   min-width: 0;
 }
 
+/* The numbers keep their width: only the text box gives way (owner,
+   0.3.32: a preview beside the box crushed the column to a sliver). */
+.gutter-wrap > .doc-gutter {
+  flex: 0 0 auto;
+}
+
 .gutter-wrap > textarea {
   flex: 1 1 auto;
   min-width: 0;

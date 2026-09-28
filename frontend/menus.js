@@ -1208,7 +1208,11 @@ function historyActorLabel(actor) {
   // the colon; "user" is everything a person did and needs no chip at all.
   if (!actor || actor === "user") return "";
   const [kind, rest] = [actor.slice(0, actor.indexOf(":")), actor.slice(actor.indexOf(":") + 1)];
-  if (kind === "ai") return `AI: ${rest}`;
+  //: `ai:<tool>@<model>` since 0.3.32: which model made the change.
+  if (kind === "ai") {
+    const [tool, model] = rest.split("@");
+    return model ? `Atlas (${model}): ${tool.replace(/_/g, " ")}` : `AI: ${rest}`;
+  }
   if (kind === "system") return `Background: ${rest}`;
   return actor;
 }
@@ -1281,6 +1285,14 @@ async function openEntryHistory(entry) {
       head.append(" ", chip);
     }
     row.appendChild(head);
+    //: A filing says where and who decided: "filed under Gym by
+    //: granite4.1:3b, 82% sure" (manager.record_filing's `by`).
+    if (item.action === "filed" && item.detail) {
+      const who = document.createElement("p");
+      who.className = "muted small";
+      who.textContent = item.detail.charAt(0).toUpperCase() + item.detail.slice(1);
+      row.appendChild(who);
+    }
     if (item.compacted) {
       // The event is still a fact, its text is not kept: `events.compact`
       // drops the values behind changes older than the history window so the

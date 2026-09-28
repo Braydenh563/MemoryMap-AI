@@ -104,7 +104,9 @@ def test_the_models_late_answer_replaces_the_stand_in(client):
     from memorymap.core import deps
 
     with deps.get_db().session() as s:
-        s.get(Entry, created["id"]).user_filed = False
+        row = s.get(Entry, created["id"])
+        row.user_filed = False
+        row.filing_state = "standin"  # as a note whose model missed the wait
         s.commit()
     assert late.stand_in("Stand in", 40, "semantic-match") == ("Stand in", 40, "semantic-match")
     late.arrived("Recipes", 90)
@@ -181,7 +183,7 @@ def test_stopping_leaves_a_note_where_it_is_and_no_late_answer_moves_it(client, 
     stopped = client.post(f"/entries/{created['id']}/filing/stop", json={"action": "keep"}).json()
     assert stopped["stopped"] is True
     status = client.get(f"/entries/{created['id']}/filing").json()
-    assert status["filing_state"] == "done"
+    assert status["filing_state"] == "stopped"
     late = routes_entries._LateFiling(created["id"], "default")
     late.stand_in(status["category"], 0, "none")
     late.arrived("Somewhere else", 90)
@@ -205,4 +207,52 @@ def test_the_background_tasks_stop_files_every_pending_note(client, monkeypatch)
     assert answer["stopped"], answer
     assert "job-file-entry" not in bgtasks.CANCELLERS  # never stopped at shutdown
     for entry_id in ids:
-        assert client.get(f"/entries/{entry_id}/filing").json()["filing_state"] == "done"
+        assert client.get(f"/entries/{entry_id}/filing").json()["filing_state"] == "stopped"
+
+
+def test_a_filing_says_who_decided_in_the_notes_history(client, monkeypatch):
+    from memorymap.ai import janitor
+
+    monkeypatch.setattr(janitor, "categorise", lambda *a, **k: ("Recipes", 88, "llm"))
+    created = client.post("/entries", json={"content": "pasta bake", "defer_filing": True}).json()
+    assert _wait_settled(client, created["id"]) != "pending"
+    filed = [i for i in client.get(f"/entries/{created['id']}/history").json()["items"] if i["action"] == "filed"]
+    assert filed and "by " in filed[0]["detail"] and "88% sure" in filed[0]["detail"]
+
+
+def test_a_stopped_note_stays_open_to_re_evaluation(client, monkeypatch):
+    monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
+    created = client.post("/entries", json={"content": "not now", "defer_filing": True}).json()
+    client.post(f"/entries/{created['id']}/filing/stop", json={"action": "keep"})
+    from memorymap.core import deps
+
+    with deps.get_db().session() as s:
+        assert s.get(Entry, created["id"]).user_filed is False
+
+
+def test_a_cold_embedding_model_does_not_hold_the_stand_in(monkeypatch):
+    from memorymap.ai import janitor
+
+    class _Late:
+        def waiting(self):
+            self.w = True
+
+        def arrived(self, *a):
+            pass
+
+    class _Emb:
+        def is_ready(self):
+            return False
+
+    monkeypatch.setattr(janitor, "_ask_llm", lambda *a, **k: (janitor.UNCATEGORISED, 0, "timeout"))
+    monkeypatch.setattr(janitor, "_semantic_category", lambda *a, **k: (_ for _ in ()).throw(AssertionError("loaded")))
+    result = janitor.categorise(None, "x", _Emb(), None, None, on_late_llm=_Late())
+    assert result == (janitor.UNCATEGORISED, 0, "none")
+
+
+def test_an_ai_change_names_its_model():
+    from memorymap.ai import tools
+
+    assert tools._ai_actor("add_tags", "granite4.1:3b") == "ai:add_tags@granite4.1:3b"
+    assert tools._ai_actor("add_tags", None) == "ai:add_tags"
+    assert len(tools._ai_actor("x", "m" * 100)) == 60

@@ -111,7 +111,7 @@ def categorise(
     model_manager: ModelManager,
     ollama: OllamaClient,
     exclude_entry_id: int | None = None,
-    on_late_llm=None,  # noqa: ANN001 - Callable[[str, int], None] | None
+    on_late_llm=None,  # noqa: ANN001 - has .arrived(category, confidence) and .waiting()
     model_deadline: float | None = None,
 ) -> tuple[str, int, str]:
     """Decide (category_name, confidence 0-100, method) for a new note.
@@ -124,7 +124,7 @@ def categorise(
     `exclude_entry_id`, otherwise the note's own stored vector anchors
     it to its old category and it can never move.
 
-    `on_late_llm(category, confidence)`, when given, is called on the model's
+    `on_late_llm.arrived(category, confidence)`, when given, is called on the model's
     thread if the model answers after `FILING_MODEL_DEADLINE_SECONDS`: what
     this returned was a stand-in, and the model's answer is applied when it
     lands (`_file_entry_in_background`). `model_deadline` is that wait; the
@@ -169,6 +169,14 @@ def categorise(
     category, confidence, method = _ask_llm(
         session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline
     )
+    if method == "timeout":
+        # The model is still answering and its answer will be applied when
+        # it lands. A stand-in by meaning is only worth it while the
+        # embedding model is loaded: a cold load is minutes, which would put
+        # "Filing…" back on screen for exactly as long as the wait saved.
+        if not embeddings.is_ready():
+            return UNCATEGORISED, 0, "none"
+        method = "none"
     if method != "none":
         # The category can come straight from the chat model, so it is
         # untrusted text on the way to a log line like any other.
@@ -405,7 +413,7 @@ def _ask_llm(
                 {"role": "user", "content": user_prompt},
             ],
             deadline=deadline or BLOCKING_MODEL_DEADLINE_SECONDS,
-            on_late=None if on_late is None else (lambda reply: _late_answer(reply, on_late)),
+            on_late=None if on_late is None else (lambda reply: _late_answer(reply, on_late.arrived)),
         )
         # Thinking models reason before answering; only the answer part
         # can contain the JSON we asked for.
@@ -415,7 +423,13 @@ def _ask_llm(
             raise ValueError("empty category")
         return category, _confidence_of(data), "llm"
     except TimeoutError:
-        return UNCATEGORISED, 0, "none"  # logged where the deadline passed
+        # Logged where the deadline passed. "timeout" only when an answer is
+        # still coming to someone (`on_late`); `categorise` turns it back
+        # into "none" for everyone else.
+        if on_late is not None:
+            on_late.waiting()
+            return UNCATEGORISED, 0, "timeout"
+        return UNCATEGORISED, 0, "none"
     except (OllamaError, ValueError, KeyError, TypeError) as exc:
         # A confused model must never block a save, and must never be
         # silent either: this is the line in Settings, Logs that says why
@@ -468,6 +482,19 @@ def _uncount_late() -> None:
 def _row(kind: str, label: str, detail: str) -> dict:
     return {"kind": kind, "name": "", "label": label, "detail": detail,
             "progress": None, "log": [], "queued": False}
+
+
+def filed_by_label(method: str, confidence: int, model_manager=None, embeddings=None) -> str:  # noqa: ANN001
+    """Who decided, for the note's History: the model's name for the model,
+    the embedding model's for a match by meaning."""
+    try:
+        if method == "llm" and model_manager is not None:
+            return f"{model_manager.utility_model()}, {confidence}% sure"
+        if method in ("semantic-match", "knn") and embeddings is not None:
+            return f"meaning ({embeddings.active_model()}), {confidence}% sure"
+    except Exception:  # noqa: BLE001 - a label never fails a filing
+        logger.debug("janitor: couldn't name the filer", exc_info=True)
+    return {"none": "the keyword fallback", "user": "you"}.get(method, method)
 
 
 def filing_deadline() -> float:

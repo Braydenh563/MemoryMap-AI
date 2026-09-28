@@ -4026,7 +4026,7 @@ async function renderActivityWidget(body) {
 function activityActorName(actor) {
   if (actor === "system:filing") return "the auto-filer";
   if (actor === "system:librarian") return "Atlas's background pass";
-  if (actor.startsWith("ai:")) return `Atlas (${actor.slice(3).replace(/_/g, " ")})`;
+  if (actor.startsWith("ai:")) return `Atlas (${actor.slice(3).split("@")[0].replace(/_/g, " ")})`;
   return historyActorLabel(actor) || actor;
 }
 

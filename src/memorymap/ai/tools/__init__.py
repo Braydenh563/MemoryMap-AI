@@ -4128,7 +4128,23 @@ def confirm_label(name: str, arguments: dict) -> str:
     return f"Run {name}"
 
 
-def execute_tool(session: Session, name: str, arguments: dict, context_tokens: int | None = None) -> dict:
+def _ai_actor(name: str, model: str | None) -> str:
+    """`ai:<tool>@<model>`: the note's History says which model made a change
+    (owner, 0.3.31: "which models tagged or modified them"). Cut to the
+    column's 60 characters from the model's end, never the tool's."""
+    actor = f"ai:{name}"
+    if model:
+        actor = f"{actor}@{model}"[:60]
+    return actor
+
+
+def execute_tool(
+    session: Session,
+    name: str,
+    arguments: dict,
+    context_tokens: int | None = None,
+    model: str | None = None,
+) -> dict:
     """Run one tool call. Errors come back as {"error": ...} so the
     agent loop can hand them to the model instead of crashing.
 
@@ -4154,7 +4170,7 @@ def execute_tool(session: Session, name: str, arguments: dict, context_tokens: i
         # handler: a handler that forgot would silently file the AI's edit
         # as something the user typed, which is the one question the event
         # log exists to answer.
-        with events.acting_as(f"ai:{name}"):
+        with events.acting_as(_ai_actor(name, model)):
             result = spec.handler(session, args)
     except ToolError as exc:
         # An explanation the handler wrote on purpose, safe to hand back.
@@ -4197,7 +4213,7 @@ def execute_tool(session: Session, name: str, arguments: dict, context_tokens: i
         "ai_tool",
         "chat",
         detail=f"{name} {json.dumps(arguments or {})[:200]}",
-        actor=f"ai:{name}",
+        actor=_ai_actor(name, model),
     )
     session.commit()
     return result

@@ -393,6 +393,11 @@ def get_entry(session: Session, entry_id: int) -> Entry | None:
 #: ordinary edit. A terminal state like `done` as far as every reader is
 #: concerned: the composer's poller stops on anything that is not `pending`.
 AUTO_FILED = "auto"
+#: Filed by meaning because the model missed the wait; its answer replaces
+#: this when it lands, or on the next launch if the app closed first.
+STAND_IN = "standin"
+#: Filing stopped by hand: nothing files it again unless asked (re-evaluate).
+FILING_STOPPED = "stopped"
 
 #: Who moves a note when the auto-filer does (capture's background filing,
 #: adding context, re-evaluation). Its own actor rather than the person's, so
@@ -402,7 +407,7 @@ FILING_ACTOR = "system:filing"
 
 
 @events.writes("entry", "filed")
-def record_filing(session: Session, entry: Entry, category_name: str) -> bool:
+def record_filing(session: Session, entry: Entry, category_name: str, by: str | None = None) -> bool:
     """File a note where the AI decided, as an event the filer owns.
 
     Returns whether the category changed. No change, no event: a re-evaluation
@@ -422,7 +427,9 @@ def record_filing(session: Session, entry: Entry, category_name: str) -> bool:
         "filed",
         "entry",
         entry.id,
-        f"filed under {category_name}",
+        # `by` says who decided (owner, 0.3.31: "should notes say which model
+        # filed them"): "granite4.1:3b, 82% sure", "meaning (BAAI/...)".
+        f"filed under {category_name}" + (f" by {by}" if by else ""),
         payload={"before": {"category_id": before}, "after": {"category_id": category.id}},
         actor=FILING_ACTOR,
     )
@@ -452,7 +459,7 @@ def update_entry(
     it.
     """
     before_category = category_name_for(session, entry)
-    was_auto = (getattr(entry, "filing_state", "") or "") == AUTO_FILED
+    was_auto = (getattr(entry, "filing_state", "") or "") in (AUTO_FILED, STAND_IN)
     excerpt = readable_content(entry) or ""
     _update_entry_fields(session, entry, content, category_name, tags)
     after_category = category_name_for(session, entry)

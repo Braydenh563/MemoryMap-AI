@@ -15,6 +15,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note's History says who filed it and how sure: "filed under Gym by granite4.1:3b, 82% sure", or "by meaning (BAAI/bge-small-en-v1.5)". A change made by an AI tool names the model that made it, "Atlas (gemma-4-E4B): add tags", beside your own edits.
+- A note the model had not answered for when the app closed is asked about again on the next launch; its by-meaning stand-in is replaced unless you moved it.
+- Past the wait, a note is no longer held on "Filing…" while the embedding model loads: it waits in Uncategorised for the model's answer instead.
+- Stopping filing no longer marks the note as filed by you, so re-evaluate can still file it later.
+- The note edit form: a related note and its Link button are one height, and Preview replaces the whole writing area, line numbers included, instead of squeezing them; the line-number column never shrinks.
 - The graph's fit no longer leaves a wide empty band along one edge: the layout kept moving after it was framed, so it is framed once more when it comes to rest, unless you have zoomed or panned.
 - Fewer graph labels: a map of more than 20 notes names its best-connected third at the fitted zoom; zooming in, hovering or searching names the rest.
 

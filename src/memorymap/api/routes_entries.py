@@ -266,6 +266,12 @@ class _LateFiling:
         self._lock = threading.Lock()
         self._stand_in: str | None = None
         self._early: tuple[str, int] | None = None
+        #: Set by the janitor when the model misses the wait: the note is
+        #: then saved as a stand-in (`manager.STAND_IN`) for its answer.
+        self.is_waiting = False
+
+    def waiting(self) -> None:
+        self.is_waiting = True
 
     def stand_in(self, category: str, confidence: int, filed_by: str) -> tuple[str, int, str]:
         with self._lock:
@@ -293,9 +299,17 @@ class _LateFiling:
                         return
                     if getattr(entry, "user_filed", False):
                         return
+                    # Stopped by hand, or already settled: nothing to replace.
+                    if (getattr(entry, "filing_state", "") or "") != manager.STAND_IN:
+                        return
                     if manager.category_name_for(session, entry) != stand_in:
                         return  # moved by hand: the person's choice stands
-                    manager.record_filing(session, entry, category)
+                    manager.record_filing(
+                        session,
+                        entry,
+                        category,
+                        by=janitor.filed_by_label("llm", confidence, deps.get_model_manager()),
+                    )
                     entry.ai_confidence = confidence
                     entry.filing_state = manager.AUTO_FILED
                     session.commit()
@@ -356,7 +370,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 category, confidence, filed_by = _file_entry_now(
                     session,
                     manager.readable_content(entry),
-                    on_late_llm=late.arrived,
+                    on_late_llm=late,
                     model_deadline=janitor.filing_deadline(),
                 )
                 # The model answered after the deadline but before the
@@ -367,7 +381,14 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 session.refresh(entry)
                 if (getattr(entry, "filing_state", "") or "") != "pending":
                     return
-                manager.record_filing(session, entry, category)
+                manager.record_filing(
+                    session,
+                    entry,
+                    category,
+                    by=janitor.filed_by_label(
+                        filed_by, confidence, deps.get_model_manager(), deps.get_embeddings()
+                    ),
+                )
                 entry.ai_confidence = confidence
                 # `auto` rather than `done` when the AI is the one that
                 # chose (Brief 13): it is the flag that makes a later move by
@@ -377,6 +398,10 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 entry.filing_state = (
                     manager.AUTO_FILED if janitor.is_ai_method(filed_by) else "done"
                 )
+                # A model answer is still coming: the note is a stand-in
+                # until it lands, and is retried next launch if it never does.
+                if late.is_waiting and filed_by != "llm":
+                    entry.filing_state = manager.STAND_IN
                 # **Settled first, embedded after.** The vector and the
                 # near-duplicate search used to land before `filing_state`
                 # did, so the card said "Filing…" for as long as the
@@ -401,6 +426,39 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                     session.commit()
         except Exception:
             logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
+
+
+def retry_stand_ins() -> int:
+    """Ask the model again for every note left as a stand-in: its answer was
+    still coming when the app closed. Runs once per launch on the model lane
+    (`app.py`). A note moved by hand or stopped in the meantime keeps its
+    place (`_LateFiling.apply`). Returns how many were asked about."""
+    from memorymap.core.deps import impersonate_workspace
+
+    with deps.get_db().session() as session:
+        waiting = [
+            (row.id, getattr(row, "workspace_id", "default") or "default")
+            for row in session.query(Entry).filter(Entry.filing_state == manager.STAND_IN).all()
+        ]
+    for entry_id, workspace_id in waiting:
+        try:
+            with deps.get_db().session() as session:
+                with impersonate_workspace(session, workspace_id):
+                    entry = session.get(Entry, entry_id)
+                    if entry is None or entry.filing_state != manager.STAND_IN:
+                        continue
+                    stand_in = manager.category_name_for(session, entry)
+                    category, confidence, method = janitor._ask_llm(
+                        session,
+                        manager.readable_content(entry),
+                        deps.get_model_manager(),
+                        deps.get_ollama(),
+                    )
+            if method == "llm":
+                _LateFiling(entry_id, workspace_id).apply(category, confidence, stand_in)
+        except Exception:
+            logger.warning("couldn't retry the filing of entry %s", entry_id, exc_info=True)
+    return len(waiting)
 
 
 def _queue_filing(entry) -> None:
@@ -718,10 +776,15 @@ def stop_filing(session: Session, entry, action: str) -> str:  # noqa: ANN001
             exclude_entry_id=entry.id,
         )
         if match is not None:
-            manager.record_filing(session, entry, match[0])
+            manager.record_filing(
+                session, entry, match[0],
+                by=janitor.filed_by_label(match[2], match[1], embeddings=deps.get_embeddings()),
+            )
             entry.ai_confidence = match[1]
-    entry.user_filed = True
-    entry.filing_state = "done"
+    # **Stopped, not chosen.** It used to set `user_filed`, which reads as
+    # "the person picked this category" and so kept re-evaluate away from
+    # it for good; stopping only means "not now".
+    entry.filing_state = manager.FILING_STOPPED
     session.commit()
     return manager.category_name_for(session, entry)
 
@@ -737,7 +800,7 @@ def stop_filing_one(
     if body.action not in FILING_STOP_ACTIONS:
         raise HTTPException(status_code=422, detail="action must be keep or fallback")
     entry = _existing_entry(session, entry_id)
-    if (getattr(entry, "filing_state", "") or "") != "pending":
+    if (getattr(entry, "filing_state", "") or "") not in ("pending", manager.STAND_IN):
         return {"id": entry.id, "stopped": False, "category": manager.category_name_for(session, entry)}
     category = stop_filing(session, entry, body.action)
     return {"id": entry.id, "stopped": True, "category": category}
@@ -754,14 +817,16 @@ def stop_all_filing(action: str = "fallback") -> int:
     with deps.get_db().session() as session:
         pending = [
             (row.id, getattr(row, "workspace_id", "default") or "default")
-            for row in session.query(Entry).filter(Entry.filing_state == "pending").all()
+            for row in session.query(Entry)
+            .filter(Entry.filing_state.in_(("pending", manager.STAND_IN)))
+            .all()
         ]
     for entry_id, workspace_id in pending:
         try:
             with deps.get_db().session() as session:
                 with impersonate_workspace(session, workspace_id):
                     entry = session.get(Entry, entry_id)
-                    if entry is not None and entry.filing_state == "pending":
+                    if entry is not None and entry.filing_state in ("pending", manager.STAND_IN):
                         stop_filing(session, entry, action)
                         stopped += 1
         except Exception:
@@ -892,7 +957,12 @@ def add_context(
                 exclude_entry_id=entry.id,  # don't let it anchor to itself
             )
             if filed_by != "none":
-                manager.record_filing(session, entry, category)
+                manager.record_filing(
+                    session, entry, category,
+                    by=janitor.filed_by_label(
+                        filed_by, confidence, deps.get_model_manager(), deps.get_embeddings()
+                    ),
+                )
                 entry.ai_confidence = confidence
                 # The same two lines as the create paths: a category the AI
                 # chose here is one a later move by hand corrects, and without
@@ -947,7 +1017,12 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         if filed_by != "none":
             entry.ai_confidence = confidence
             if not entry.user_filed:
-                if manager.record_filing(session, entry, category):
+                if manager.record_filing(
+                    session, entry, category,
+                    by=janitor.filed_by_label(
+                        filed_by, confidence, deps.get_model_manager(), deps.get_embeddings()
+                    ),
+                ):
                     recategorised_to = category
                 # As on adding context: the AI owns this category now, so a
                 # move by hand is a correction the filing loop should read.

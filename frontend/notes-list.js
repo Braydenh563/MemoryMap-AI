@@ -559,6 +559,11 @@ function renderEditForm(li, entry) {
     if (showPreview) renderMarkdown(preview, textarea.value);
     preview.classList.toggle("hidden", !showPreview);
     textarea.classList.toggle("hidden", showPreview);
+    //: The numbered wrapper goes with the box it numbers (owner, 0.3.32:
+    //: "the preview ... crushes the numbers column"): the preview replaces
+    //: the whole writing area, gutter included, never sits beside a strip.
+    const wrap = textarea.closest(".gutter-wrap");
+    if (wrap) wrap.classList.toggle("hidden", showPreview);
     if (previewBtn) {
       //: `is-active` is what the stylesheet paints a pressed toolbar toggle
       //: with (`.doc-toolbar-toggle.is-active`, 01-forms-settings.css) and what

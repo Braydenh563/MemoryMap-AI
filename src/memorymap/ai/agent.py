@@ -1780,7 +1780,9 @@ def _dispatch_call(
             "ok": True,
         }
     else:
-        result = tools.execute_tool(session, name, arguments, context_tokens=plan.window)
+        result = tools.execute_tool(
+            session, name, arguments, context_tokens=plan.window, model=plan.agent_model
+        )
         # What changed, and the call that would put it back. Popped
         # rather than read: `undo` is for the user, and every field
         # left in the result is resent to the model on every later

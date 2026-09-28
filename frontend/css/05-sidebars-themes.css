@@ -5865,6 +5865,9 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--inner);
+  /* The same gap below as the writing box it replaces, so toggling does
+     not move the row under it. */
+  margin-bottom: var(--space-2);
 }
 
 /* The edit form's strip wraps instead of scrolling: a horizontal scrollbar

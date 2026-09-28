@@ -1866,9 +1866,11 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 /* The tags field sat flush under the content box (the owner at release:
-   "no gap between the note content and tags textbox"). */
-#graph-popup-content + #graph-popup-tags {
-  margin-top: var(--space-2);
+   "no gap between the note content and tags textbox"). On the field, not
+   `#graph-popup-content + ...`: the text box is wrapped in a
+   `.note-surface`, so that sibling rule matched nothing. */
+#graph-popup-tags {
+  margin-top: var(--space-3);
 }
 
 .graph-popup .row {

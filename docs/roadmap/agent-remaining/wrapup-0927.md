@@ -110,7 +110,11 @@ work starts.
     only took it to 1.23). Profile a drag on the overview end to end
     (`wbNavigatorJump` then `wbCenterOn`, the zoom handler's `wbCullNow` and
     `wbUpdateSelectionBar`, the companion's own scroll and resize
-    followers) with a Performance trace, on the owner's size of map.
+    followers) with a Performance trace, on the owner's size of map.;
+    (u) the companion's far travel has a poof (stars), a zip and a walk
+    now (`nameMarkBuddyFarWay`); the owner asked for a portal and a
+    distinct teleport too: add a portal (a ring opens, it steps through,
+    one opens where it lands) as a fourth far way.
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

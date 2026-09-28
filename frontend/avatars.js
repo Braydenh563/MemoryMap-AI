@@ -5264,6 +5264,20 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
 //: Every one eases from rest to rest, so its speed never jumps.
 const NMB_HOP_SIZES = 0.7;
 const NMB_POOF_SIZES = 7.5;
+const NMB_FAR_SIZES = 3;
+//: One far way at random, never the same one three times running.
+const nmbFarWays = [];
+//: A poof only from `NMB_FAR_POOF_SIZES` on: nearer, a vanish is what the
+//: owner once reported as "keeps disappearing" (INBOX 426 n).
+const NMB_FAR_POOF_SIZES = 5;
+function nameMarkBuddyFarWay(allowPoof) {
+  const ways = allowPoof ? ["poof", "zip", "walk"] : ["zip", "walk"];
+  let pick = ways[Math.floor(Math.random() * ways.length)];
+  if (nmbFarWays.length >= 2 && nmbFarWays.every((w) => w === pick)) pick = ways[(ways.indexOf(pick) + 1) % ways.length];
+  nmbFarWays.push(pick);
+  if (nmbFarWays.length > 2) nmbFarWays.shift();
+  return pick;
+}
 const NMB_FLYERS = ["bat", "bird", "owl", "ghost", "bee", "butterfly", "fairy", "angel", "dragon", "phoenix"];
 //: **A way of moving by look** (the owner: "masculine and feminine ways to
 //: stand and move the body"): Atlas's look (its drawing says which) or,
@@ -5351,8 +5365,27 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   //: burst of stars where it was (when that could be seen) and appears in
   //: another where it is going, 370ms in all.
   const seenFrom = !nmb.outOfSight && was.x > -NMB_W && was.y > -NMB_H && was.x < innerWidth && was.y < innerHeight;
-  if (!spot.falls && (!seenFrom || distance > size * NMB_POOF_SIZES)) {
+  //: **A far move picks a far way of going** (the owner at release: "if the
+  //: move is too far it should choose one of the further travel options ...
+  //: it is mostly hopping or jumping"). Past `NMB_FAR_SIZES` of itself (and
+  //: short of the always-poof distance) it draws one: a poof, a zip (a quick
+  //: glide, leaning into the way it goes) or the walk, and the walk no
+  //: longer adds a jump for a change of pose alone, only for a real climb.
+  const far = !spot.falls && distance > size * NMB_FAR_SIZES && !nameMarkBuddyFlies(buddy);
+  const farWay = far ? nameMarkBuddyFarWay(distance > size * NMB_FAR_POOF_SIZES) : "walk";
+  if (!spot.falls && (!seenFrom || distance > size * NMB_POOF_SIZES || farWay === "poof")) {
     nameMarkBuddyPoof(buddy, dx, dy, seenFrom);
+    return;
+  }
+  if (farWay === "zip") {
+    const duration = Math.round(Math.min(900, 320 + distance * 0.7));
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.7, 0, 0.2, 1)" });
+    const lean = dx > 0 ? -12 : 12;
+    nmb.hopAnim = char?.animate([
+      { rotate: "0deg", translate: "0px 0px" }, { rotate: `${lean}deg`, translate: "0px -3px", offset: 0.3 },
+      { rotate: `${lean}deg`, translate: "0px -3px", offset: 0.7 }, { rotate: `${-lean * 0.3}deg`, translate: "0px 0px", offset: 0.9 }, { rotate: "0deg" },
+    ], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" }) || null;
+    nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
     return;
   }
   //: Let go over open space, it falls: gravity's curve, straight down,
@@ -5445,7 +5478,7 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   };
   walk.onfinish = done;
   walk.oncancel = done;
-  const arc = Math.abs(dy) > 36 || poseChanged ? Math.min(80, 24 + Math.abs(dy) * 0.12) : 0;
+  const arc = Math.abs(dy) > 36 ? Math.min(80, 24 + Math.abs(dy) * 0.12) : 0;
   if (arc && char) {
     nmb.hopAnim = char.animate(
       [{ translate: "0px 0px", easing: "cubic-bezier(0.2, 0.8, 0.4, 1)" }, { translate: `0px ${-arc}px`, offset: 0.45, easing: "cubic-bezier(0.6, 0, 0.8, 0.6)" }, { translate: "0px 0px" }],

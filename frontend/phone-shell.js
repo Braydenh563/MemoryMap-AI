@@ -2395,6 +2395,12 @@ $("autonomous-trigger").addEventListener("click", () => {
 $("entry-template")?.addEventListener("click", openNoteTemplateDialog);
 $("note-template-list")?.addEventListener("keydown", noteTemplateListKeys);
 $("note-template-use")?.addEventListener("click", useNoteTemplate);
+//: Manage templates, from the picker (the owner at release): the list is
+//: made and edited in Settings > Templates, so the way there is here too.
+$("note-template-manage")?.addEventListener("click", () => {
+  $("note-template-dialog")?.close?.();
+  openSettingsModal("templates");
+});
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());

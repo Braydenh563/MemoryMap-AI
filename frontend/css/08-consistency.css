@@ -8705,3 +8705,9 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 .timeline-bucket-head > .timeline-today-action {
   margin-inline-start: auto;
 }
+
+/* Manage templates sits at the start of the picker's action row, apart
+   from Cancel and Use this template. */
+#note-template-manage {
+  margin-inline-end: auto;
+}

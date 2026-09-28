@@ -413,3 +413,11 @@ def test_status_never_waits_on_a_capability_probe(client, monkeypatch):
     while time.monotonic() < deadline and len(ollama._shown) < 4:
         time.sleep(0.05)
     assert client.get("/models/status").json()["vision_model_resolved"] == "model-2"
+
+
+def test_warm_filing_is_served_where_the_page_asks_for_it(client):
+    # The page posts to /models/warm-filing once it is unlocked (app.js). The
+    # router already carries the /models prefix; a path repeating it served
+    # the route at /models/models/warm-filing, and every tab's load logged a
+    # 405 that failed the E2E smoke suite.
+    assert client.post("/models/warm-filing").json() == {"status": "ok"}

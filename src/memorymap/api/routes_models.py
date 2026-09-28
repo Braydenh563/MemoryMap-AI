@@ -182,7 +182,7 @@ def _builtin_embedding_install_state() -> dict:
         return {"builtin_embedding_installed": True, "builtin_embedding_installing": False}
 
 
-@router.post("/models/warm-filing")
+@router.post("/warm-filing")
 def warm_filing() -> dict:
     """Load the filing model and re-ask for notes left as stand-ins when the
     app last closed. Asked for by the page once it is unlocked, not at app

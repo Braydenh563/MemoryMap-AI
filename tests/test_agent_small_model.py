@@ -283,3 +283,28 @@ def test_a_tool_call_written_as_text_runs_without_a_re_prompt(monkeypatch, app_s
     # Two model calls: the one that wrote the call as text, and the one that
     # read the result. A re-prompt would make it three.
     assert len(fake.offered) == 2
+
+
+def test_an_empty_round_is_asked_once_more(ai_client, fake_ollama):
+    """granite4.1:3b in the popup agent: a round with no text and no tool call
+    ended the turn with nothing to show. It is nudged once, then answers."""
+    replies = iter(["", "The graph shows how your notes connect."])
+    original = fake_ollama.chat_tools
+
+    def scripted(model, messages, tools, mode=None):
+        fake_ollama.librarian_reply = next(replies)
+        return original(model, messages, tools, mode)
+
+    fake_ollama.chat_tools = scripted
+    body = ai_client.post(
+        "/chat/stream", json={"question": "what can I use the graph for?", "use_tools": True}
+    ).text
+    answer = "".join(
+        json.loads(line)["delta"]
+        for line in body.splitlines()
+        if line and json.loads(line).get("type") == "answer"
+    )
+    assert answer == "The graph shows how your notes connect."
+    assert any(
+        m.get("content") == agent.EMPTY_ROUND_NUDGE for m in fake_ollama.tool_rounds[-1]
+    )

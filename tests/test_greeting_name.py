@@ -70,3 +70,27 @@ def test_any_name_is_refused_when_none_is_saved():
     """With no saved name there is nobody the model could correctly address."""
     assert _greets_a_stranger("Hello there, Sam!", "") is True
     assert _greets_a_stranger("Hello there.", "") is False
+
+
+def test_a_greeting_that_names_you_twice_falls_back(ai_client, fake_ollama, monkeypatch):
+    """Reported with granite4.1:3b: "Braiden, nice to meet you under the
+    stars, Brayden!". One right, one wrong, the wrong one as the first word."""
+    from memorymap.api import routes_insights
+
+    monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Braiden, nice to meet you under the stars, Brayden!"
+    body = ai_client.get("/insights/greeting?block=night").json()
+    assert body["source"] == "fallback"
+    assert "Braiden" not in body["greeting"]
+
+
+def test_a_misspelt_opening_name_is_repaired(ai_client, fake_ollama, monkeypatch):
+    from memorymap.api import routes_insights
+
+    monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Braiden, ready to write?"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Brayden, ready to write"
+    assert body["append_name"] is False

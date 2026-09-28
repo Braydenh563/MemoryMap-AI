@@ -207,6 +207,20 @@ def greeting(block: str = "morning") -> dict:
         return fallback
     phrase, mark = cleaned
 
+    # **The name at most once, wherever it falls.** Reported with a screenshot
+    # (granite4.1:3b): "Braiden, nice to meet you under the stars, Brayden!".
+    # The model spelt it right once and wrong once, as the *first* word, which
+    # `_name_like_words` skips, so the exact match below passed the greeting
+    # through with both. Every word is counted here, the opening one included:
+    # two attempts at the name is not a slip to repair, it is a greeting that
+    # names you twice, and the handwritten one is used instead.
+    if name:
+        mentions = _name_mentions(phrase, name)
+        if len(mentions) > 1:
+            return fallback
+        if mentions and mentions[0].lower() != name.lower():
+            phrase = re.sub(rf"\b{re.escape(mentions[0])}\b", name, phrase, count=1)
+
     # `append_name` tells the frontend whether to add the name itself. It only
     # does so when we asked for a named greeting and the model failed to use
     # one: so the name appears exactly once when wanted, and not at all on the
@@ -264,6 +278,18 @@ def _name_like_words(phrase: str) -> list[str]:
     """
     words = re.findall(r"[A-Za-z][A-Za-z'\-]*", phrase)
     return [word for word in words[1:] if word[:1].isupper()]
+
+
+def _name_mentions(phrase: str, name: str) -> list[str]:
+    """Every word in the greeting that is the saved name or a near miss of it,
+    the opening word included (unlike `_name_like_words`, which is about what
+    *could* be a name; this is about what is an attempt at this one)."""
+    target = name.lower()
+    return [
+        word
+        for word in re.findall(r"[A-Za-z][A-Za-z'\-]*", phrase)
+        if difflib.SequenceMatcher(None, word.lower(), target).ratio() >= NAME_SIMILARITY
+    ]
 
 
 def _repair_misspelt_name(phrase: str, name: str) -> tuple[str, bool]:

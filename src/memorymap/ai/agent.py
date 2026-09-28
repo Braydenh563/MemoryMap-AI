@@ -76,6 +76,13 @@ EARNED_ROUNDS = 6
 # call, so the useful half is the beginning.
 THINKING_CARRIED_CHARS = 700
 
+#: Sent after a round that produced neither text nor a tool call (see the
+#: loop's `nudged_empty`). Says both ways forward, since either may be right.
+EMPTY_ROUND_NUDGE = (
+    "Your last reply was empty. Answer my previous message now, in plain words, "
+    "or call the one tool that does what I asked."
+)
+
 # How much tool output one turn may add to the conversation, in characters.
 # Local models run in small windows, and tool results accumulate: six rounds
 # of paging through a large notebook will push the question itself out of
@@ -2023,6 +2030,8 @@ def run_agent(
     #: `allowance` immediately below, and has no notion of a run to belong to.
     #: See `ai/budget.py` for why this is a scope rather than a parameter.
     spend = run_budget.current()
+    #: One nudge per turn for a round that came back with nothing at all.
+    nudged_empty = False
 
     while round_number + 1 < allowance:
         #: Checked between rounds, never mid-stream: stopping inside a model
@@ -2123,6 +2132,18 @@ def run_agent(
             # No tools wanted → this text IS the final answer. It has usually
             # already streamed; send it only if the tool-call gate held it back.
             answer = reply.get("content", "").strip()
+            #: **A round with no words and no tool call is asked once more.**
+            #: Reported twice in one sitting with granite4.1:3b in the popup
+            #: agent ("what can I use the graph for?", "make a note"): the
+            #: model answered with nothing, and the turn ended with nothing
+            #: to show. Small models do this after a long tool list, often
+            #: having spent the round thinking. One plain-words nudge is the
+            #: cheap recovery; a second empty round ends the turn as before,
+            #: and the client says the model wrote nothing.
+            if not answer and not reply.get("streamed") and not nudged_empty:
+                nudged_empty = True
+                state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
+                continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
             # Safety net: if the model claims it saved/created something but no

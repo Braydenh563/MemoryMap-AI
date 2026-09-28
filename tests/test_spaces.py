@@ -342,4 +342,5 @@ def test_deleting_a_space_can_move_its_contents_to_another(client, session):
     shared = session.query(Category).filter(Category.name == "Shared").all()
     assert len(shared) == 1 and shared[0].workspace_id == target
     assert session.get(Entry, moved["id"]).category_id == shared[0].id
-    assert client.delete(f"/spaces/{target}?move_to={target}").status_code == 400
+    into_itself = client.delete(f"/spaces/{target}?move_to={target}")
+    assert into_itself.status_code == 400

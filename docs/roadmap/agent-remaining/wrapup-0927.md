@@ -96,6 +96,14 @@ work starts.
     app end to end (install, first run, update, uninstall) in a scratch
     copy; and add close and minimise buttons to the packaged app's splash
     window (the owner at release).
+10b. **More from the owner at release, not done:** (p) the Settings head's
+    small avatar showed an older look (not reproduced; every look path calls
+    `repaintOwnFace`; a repaint on Settings open now covers it; check a custom
+    own character, `characterRendererFor`, whose mark may cache); (q) the
+    companion's glow stays full size when it hides behind the status bar or
+    a panel edge (clip or fade the glow with the body); (r) the enlarged
+    viewer lacks the corner companion's mood changes and emotes (see 10 j);
+    (s) move `frontend/*.js` into `frontend/js/` (see item 1).
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

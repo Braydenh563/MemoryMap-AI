@@ -280,6 +280,11 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // rows a user is most likely to be reading uncollapsed. Idempotent, so
   // reopening costs nothing.
   collapseLongSettingHints();
+  //: Your face in the head (`#settings-profile-btn`) redrawn on every open:
+  //: reported still showing an older look (the owner at release) and not
+  //: reproduced, so whatever path changed the look without a repaint, the
+  //: window never opens on a stale one.
+  if (typeof paintUserMarks === "function") paintUserMarks();
   $("settings-close").focus();
   //: The version alone: "46 entries loaded" was a debugging line (the
   //: client's cache size, drafts included) sitting beside the Health

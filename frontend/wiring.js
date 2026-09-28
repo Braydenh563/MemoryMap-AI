@@ -1020,6 +1020,11 @@ function caretAtClickedText(node) {
 
 $("entry-preview-toggle")?.addEventListener("click", () => setEntryPreview(!entryPreviewOn()));
 $("entry-preview")?.addEventListener("click", (event) => {
+  //: A control inside the rendered note does its own job, not "go back to
+  //: writing": the owner, "when I try opening and closing [a toggle] in the
+  //: preview, it throws me out of preview mode". A fold's summary, a link,
+  //: a task box and a button all belong to the preview.
+  if (event.target.closest?.("summary, a, button, input, label, select, textarea, audio, video")) return;
   caretAtClickedText(event.target);
 });
 $("entry-preview")?.addEventListener("keydown", (event) => {

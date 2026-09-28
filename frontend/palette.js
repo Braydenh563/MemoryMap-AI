@@ -1035,7 +1035,10 @@ async function cmdPaletteAsk(text) {
   //: first delta, not before the request).
   const answerBox = document.createElement("div");
   answerBox.className = "bubble-answer";
-  answerBox.appendChild(typingDots(undefined, { persona: askedPersona, words: true }));
+  //: The Chat tab's own waiting line (dots, status, the rotating line under
+  //: them), not bare dots: the owner, "the extra text doesnt even show in
+  //: the popup agent". The first answer paint replaces it, as before.
+  answerBox.appendChild(progressLine("Thinking…", { persona: askedPersona, words: true }));
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
   paintPersonaAvatar(agentAvatar, askedWriter, 20); // now attached, so p5 can measure and draw
@@ -1088,6 +1091,8 @@ async function cmdPaletteAsk(text) {
   //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
   //: stripped before it can be quoted inside another label.
   let lastToolLabel = "";
+  let unsupported = "";
+  let hintText = "";
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
   //: What it is working on, in the person's own words, cut to a line. A
@@ -1189,6 +1194,24 @@ async function cmdPaletteAsk(text) {
         //: arriving while the list refreshes behind it.
         if ((event?.changes || []).length) loadEntries();
       },
+      //: **The events Chat already handled and this box dropped.** Reported
+      //: with a screenshot: "(no answer)" under a turn that found nine notes.
+      //: An agent turn can end in a way that is not answer text: the model
+      //: cannot call tools (`unsupported`, with the remedy in `message`), or
+      //: the server replaced what it streamed (`answer_final`). Dropped, each
+      //: left this box with nothing to say but "(no answer)".
+      onUnsupported: (event) => {
+        unsupported = event?.message || "";
+      },
+      onHint: (event) => {
+        hintText = event?.text || "";
+      },
+      onAnswerFinal: (event) => {
+        if (typeof event?.text !== "string") return;
+        answered = answered || Boolean(event.text);
+        answerRaw = event.text;
+        renderMarkdown(answerBox, answerRaw);
+      },
       onAnswer: (delta) => {
         answered = true;
         answerRaw += delta;
@@ -1201,7 +1224,15 @@ async function cmdPaletteAsk(text) {
     });
     answerBox.classList.remove("is-streaming");
     foldSummary(true);
-    if (!answered) answerBox.textContent = "(no answer)";
+    if (!answered) {
+      //: Said the way the Chat tab says it: what happened and what to do,
+      //: never a bare "(no answer)".
+      answerBox.textContent =
+        unsupported ||
+        hintText ||
+        "The model finished without writing anything. Try again, or rephrase the question.";
+      answerBox.classList.add("muted");
+    }
     else {
       //: Linked once, at the end, rather than on every delta: mid-stream the
       //: text can be "note id 4" on its way to "note id 43", and a link built

@@ -25,7 +25,25 @@ from pathlib import Path
 from urllib.parse import urlparse, urlsplit
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
+
+
+async def _call_next_or_gone(request, call_next):
+    """`call_next`, except for a request the browser has already given up on.
+
+    Starlette's `BaseHTTPMiddleware` raises `RuntimeError("No response
+    returned.")` when the app below it sent nothing because the client went
+    away mid-request (a fetch aborted by a tab switch or a superseded search).
+    That is not a server fault, but it reached the console as a full "Exception
+    in ASGI application" traceback (the owner's Windows log, 2026-09-28). A
+    request nobody is waiting for gets an empty 499 instead; anything else
+    still raises."""
+    try:
+        return await call_next(request)
+    except RuntimeError as exc:
+        if str(exc) == "No response returned." and await request.is_disconnected():
+            return Response(status_code=499)
+        raise
 
 # Loopback spellings that all mean this machine. A person who typed
 # "localhost:8000" and a desktop shell that loaded "127.0.0.1:8000" are the
@@ -153,7 +171,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                             )
                         },
                     )
-        return await call_next(request)
+        return await _call_next_or_gone(request, call_next)
 
 
 # --- Content-Security-Policy ------------------------------------------------
@@ -356,7 +374,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return self._csp.value() if isinstance(self._csp, CspForPage) else self._csp
 
     async def dispatch(self, request, call_next):
-        response = await call_next(request)
+        response = await _call_next_or_gone(request, call_next)
         headers = response.headers
         # setdefault, not assignment: a route that has deliberately set its own
         # policy knows something this middleware does not.

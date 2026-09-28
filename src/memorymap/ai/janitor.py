@@ -21,8 +21,10 @@ attempts:
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
+import threading
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -378,7 +380,8 @@ def _ask_llm(
     # failure this answers.
     user_prompt = librarian.filing_prompt(session, content, existing)
     try:
-        reply = ollama.chat(
+        reply = _chat_within_deadline(
+            ollama,
             # Filing is a quick background job, use the utility model so a
             # big slow chat model isn't tied up on every save.
             model_manager.utility_model(),
@@ -395,9 +398,56 @@ def _ask_llm(
             raise ValueError("empty category")
         confidence = int(data.get("confidence", 50))
         return category, max(0, min(100, confidence)), "llm"
-    except (OllamaError, ValueError, KeyError, TypeError):
+    except (OllamaError, ValueError, KeyError, TypeError, TimeoutError):
         # A confused model must never block a save.
         return UNCATEGORISED, 0, "none"
+
+
+#: **Filing waits at most this long for the model** (owner, 0.3.31: a note
+#: "needs to take a few seconds, like 5-10 at most", after watching one say
+#: "Filing…" for minutes). A cold model load or a reasoning model thinking
+#: through a one-word answer can take a minute or more on a laptop; past the
+#: deadline the note is filed by meaning instead (`_semantic_category`), the
+#: same fallback as no model at all. The call is left to finish on its
+#: daemon thread rather than cut off, so the model it loaded is warm for the
+#: next note.
+FILING_MODEL_DEADLINE_SECONDS = 8.0
+
+
+def _chat_within_deadline(
+    ollama: OllamaClient,
+    model: str,
+    messages: list[dict],
+    deadline: float = FILING_MODEL_DEADLINE_SECONDS,
+) -> dict:
+    """`ollama.chat` in `quick` mode (thinking off, a short reply), or
+    `TimeoutError` once `deadline` seconds pass. `quick` only where the
+    provider takes a mode: a filing reply is one line of JSON, and a
+    reasoning model left to think first is most of the minute."""
+    try:
+        takes_mode = "mode" in inspect.signature(ollama.chat).parameters
+    except (TypeError, ValueError):
+        takes_mode = False
+    outcome: dict = {}
+
+    def run() -> None:
+        try:
+            if takes_mode:
+                outcome["reply"] = ollama.chat(model, messages, mode="quick")
+            else:
+                outcome["reply"] = ollama.chat(model, messages)
+        except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=run, name="mm-filing-chat", daemon=True)
+    worker.start()
+    worker.join(deadline)
+    if worker.is_alive():
+        logger.info("janitor: the model took over %.0fs to file a note, filing by meaning", deadline)
+        raise TimeoutError("filing model deadline")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["reply"]
 
 
 def _extract_json(text: str) -> dict:

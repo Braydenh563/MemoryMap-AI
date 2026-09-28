@@ -285,19 +285,16 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 entry = session.get(Entry, entry_id)
                 if entry is None:
                     return  # deleted before filing finished, nothing to settle
+                # Queued again by `filing_status` for a note a closed app left
+                # pending, and that retry can race a first pass that has just
+                # finished: a settled note is never filed twice.
+                if (getattr(entry, "filing_state", "") or "") != "pending":
+                    return
                 category, confidence, filed_by = _file_entry_now(
                     session, manager.readable_content(entry)
                 )
                 manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
-                # Ordered deliberately: the vector has to exist before the
-                # near-duplicate search has anything to compare against, and
-                # both have to land before `filing_state` reads "done", that
-                # flag is what the composer's poller stops on.
-                deps.store_quietly(session, entry)
-                duplicate = _find_near_duplicate(session, entry)
-                if duplicate is not None:
-                    entry.filing_similar_id = duplicate.id
                 # `auto` rather than `done` when the AI is the one that
                 # chose (Brief 13): it is the flag that makes a later move by
                 # hand legible as a correction, and it is terminal for every
@@ -306,6 +303,19 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 entry.filing_state = (
                     manager.AUTO_FILED if janitor.is_ai_method(filed_by) else "done"
                 )
+                # **Settled first, embedded after.** The vector and the
+                # near-duplicate search used to land before `filing_state`
+                # did, so the card said "Filing…" for as long as the
+                # embedding model took to load, minutes on a first launch,
+                # after the category was already known (owner, 0.3.31). The
+                # vector still has to exist before the duplicate search has
+                # anything to compare against; a duplicate found after the
+                # poller has stopped is simply not toasted.
+                session.commit()
+                deps.store_quietly(session, entry)
+                duplicate = _find_near_duplicate(session, entry)
+                if duplicate is not None:
+                    entry.filing_similar_id = duplicate.id
                 session.commit()
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
@@ -317,6 +327,19 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                     session.commit()
         except Exception:
             logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
+
+
+def _queue_filing(entry) -> None:
+    """One filing job per note in flight: the key makes a second call while
+    the first is queued or running a no-op, so `filing_status` can ask again
+    on every poll."""
+    jobs.enqueue(
+        "file-entry",
+        _file_entry_in_background,
+        entry.id,
+        getattr(entry, "workspace_id", "default") or "default",
+        dedupe_key=("file-entry", entry.id),
+    )
 
 
 @router.post("", response_model=EntryOut, status_code=201)
@@ -414,12 +437,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # request, so the thread can never race the commit that makes this note
     # visible to its own session.
     if defer:
-        jobs.enqueue(
-            "file-entry",
-            _file_entry_in_background,
-            entry.id,
-            getattr(entry, "workspace_id", "default") or "default",
-        )
+        _queue_filing(entry)
 
     return out
 
@@ -618,6 +636,14 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
     needs.
     """
     entry = _existing_entry(session, entry_id)
+    # **A note is never pending with nothing working on it.** The filing job
+    # lives in this process's queue, so a note saved moments before the app
+    # closed came back "pending" on the next launch with no job behind it,
+    # and its card said "Filing…" forever (owner, 0.3.31: "it still looks
+    # like it is endlessly filing"). Asking here re-queues it; the dedupe
+    # key makes that a no-op while a job for it is already queued or running.
+    if (getattr(entry, "filing_state", "") or "") == "pending":
+        _queue_filing(entry)
     similar = None
     duplicate_id = getattr(entry, "filing_similar_id", None)
     if duplicate_id is not None:

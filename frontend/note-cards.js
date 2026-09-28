@@ -1409,6 +1409,12 @@ function entryItem(entry, options = {}) {
     const filing = chip("ph:circle-notch Filing…", "filing");
     filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
+    //: Any pending card is watched, not only the one just saved: a note
+    //: left filing when the app closed, or listed after a reload, would
+    //: otherwise say "Filing…" until something else re-read the list.
+    //: Quiet, because a toast for a note saved minutes ago is noise, and
+    //: deduped by id inside `watchFiling`.
+    watchFiling(entry, { quiet: true });
   } else {
     //: `category` names the chip for the meta line's own styles (08-
     //: consistency.css, "one line of facts"): before it had a class, the

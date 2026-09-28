@@ -32,37 +32,74 @@ function offerJumpToNewNote(saved, status) {
 // whose model has gone away should not accumulate error messages for notes
 // that saved perfectly well.
 const FILING_POLL_STEPS = [400, 600, 900, 1400, 2000, 3000, 4000, 6000, 8000];
+//: **Watched until it settles, not for 26 seconds.** Filing waits its turn
+//: in the one-at-a-time model queue (core/jobs.py), behind captions and a
+//: model that may still be loading, so on a first launch it can take
+//: minutes. The poller used to give up after its nine steps without
+//: re-reading the list, and the card said "Filing…" forever even once the
+//: note was filed (owner, 0.3.31). After the steps it keeps asking every
+//: eight seconds for up to ten minutes, and whatever happens it re-reads
+//: the list at the end so the card shows what the server says.
+const FILING_WATCH_LIMIT_MS = 10 * 60 * 1000;
+const filingWatches = new Set();
 
-async function watchFiling(entry) {
-  for (const wait of FILING_POLL_STEPS) {
-    await new Promise((r) => setTimeout(r, wait));
-    let status;
-    try {
-      status = await apiJson(`/entries/${entry.id}/filing`, { silent: true });
-    } catch {
-      return; // deleted, or the server went away, nothing to report
-    }
-    if (status.filing_state === "pending") continue;
-    if (status.filing_state === "failed") {
-      toast(`Saved, but Atlas couldn't file it: it's in “${status.category}”.`, true);
-    } else {
-      toastAction(
-        `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
-        "Go to it",
-        () => flashEntry(entry.id)
-      );
-      // The near-duplicate search moved into the same background pass, so
-      // this warning arrives here now rather than on the create response.
-      // Still purely informational, still never blocking, the note saved.
-      if (status.similar) {
-        toast(`Heads up: this is close to an existing note, “${status.similar.preview}”`);
+async function watchFiling(entry, { quiet = false } = {}) {
+  if (!entry || filingWatches.has(entry.id)) return;
+  filingWatches.add(entry.id);
+  const started = Date.now();
+  let step = 0;
+  try {
+    while (Date.now() - started < FILING_WATCH_LIMIT_MS) {
+      const wait = FILING_POLL_STEPS[Math.min(step, FILING_POLL_STEPS.length - 1)];
+      step += 1;
+      await new Promise((r) => setTimeout(r, wait));
+      let status;
+      try {
+        status = await apiJson(`/entries/${entry.id}/filing`, { silent: true });
+      } catch {
+        return; // deleted, or the server went away, nothing to report
       }
+      if (status.filing_state === "pending") continue;
+      settleCaptureStatus(status);
+      if (quiet) return;
+      if (status.filing_state === "failed") {
+        toast(`Saved, but Atlas couldn't file it: it's in “${status.category}”.`, true);
+      } else {
+        toastAction(
+          `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
+          "Go to it",
+          () => flashEntry(entry.id)
+        );
+        // The near-duplicate search moved into the same background pass, so
+        // this warning arrives here now rather than on the create response.
+        // Still purely informational, still never blocking, the note saved.
+        if (status.similar) {
+          toast(`Heads up: this is close to an existing note, “${status.similar.preview}”`);
+        }
+      }
+      return;
     }
+  } finally {
+    filingWatches.delete(entry.id);
     // The card in the list still says "Filing…" and still shows the holding
     // category until something re-reads it.
     await loadEntries();
-    return;
   }
+}
+
+//: The composer's line said "Filing it in the background" until the next
+//: save, long after the note had been filed. Replaced only while it still
+//: says that, so a newer save's own status is never overwritten.
+function settleCaptureStatus(status) {
+  //: The line's first node is the text; `offerJumpToNewNote` appends its
+  //: "Go to it" button after it, and that button stays.
+  const text = $("save-status")?.firstChild;
+  if (!text || text.nodeType !== Node.TEXT_NODE) return;
+  if (text.nodeValue !== filedByText({ filing_state: "pending" })) return;
+  text.nodeValue =
+    status.filing_state === "failed"
+      ? `Saved as “${status.category}”: ${aiNameNow()} couldn't file it`
+      : `Filed under “${status.category}” (${status.ai_confidence}% sure).`;
 }
 
 function filedByText(saved) {

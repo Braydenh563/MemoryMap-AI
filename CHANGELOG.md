@@ -11,6 +11,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A new note no longer looks like it is filing forever. The page kept checking for only 26 seconds and never refreshed the card after that; it now watches until the note settles, and the line under the composer says where it went. A note left filing when the app closed is filed on the next launch.
+- Filing takes seconds, not minutes: the model is asked with thinking off and a short reply, and after 8 seconds the note is filed by meaning instead. The card settles as soon as the category is known, before the note's search vector is built.
+- The README no longer points to the MSI installer, which is not built at the moment.
 - Improve writing starts when you press Start, not as soon as it opens or a mode is picked; its two buttons share a height and the chosen mode has round corners.
 - The Windows installer's optional packages page lays each row out by its measured height, so the text no longer overlaps at 125% display scaling.
 - The packaged Windows app no longer shows a blank window titled "tk" at launch: the bootloader splash (a Tcl/Tk window that failed to draw) is off, and the app's own loading window shows the launch.

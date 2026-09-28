@@ -8682,3 +8682,8 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden)) #nm-buddy {
   opacity: 0;
   pointer-events: none;
 }
+
+/* Today's note button sits at the day head's end, like the other days' counts. */
+.timeline-bucket-head > .timeline-today-action {
+  margin-inline-start: auto;
+}

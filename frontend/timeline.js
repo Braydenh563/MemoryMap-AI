@@ -856,6 +856,8 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
             startTodaysNote()
           )
     );
+    //: At the head's end, where every other day shows its count (release).
+    head.lastElementChild.classList.add("timeline-today-action");
   }
   const list = document.createElement("ul");
   list.className = "timeline-rows";

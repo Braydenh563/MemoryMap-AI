@@ -82,6 +82,16 @@ work starts.
     add hysteresis (a dead zone past the midpoint and a short dwell);
     (l) the companion's perch in the chat sidebar looked unsupported
     (floating beside a conversation row); check the perch edges there.
+    (n) "Show me my last entry" answered with an older note (the owner at
+    release): chat and Ask give the model no dates for their notes (only
+    the weekly digest passes `written`, librarian.py `_written_hint`), so it
+    guesses from the source numbering. Pass created and edited dates for
+    every note in the Ask and chat prompts ("written 3 Sept, edited 25
+    Sept"), and route "last/latest/newest note" questions to the recency
+    walker tool (newest first) rather than retrieval; the answer should say
+    whether it means newest written or last edited.
+    (o) Atlas's replies use no capitals: make lowercase style an optional
+    persona quirk (off by default), not the persona's fixed voice.
     (m) Windows installer: review and test the installer and the packaged
     app end to end (install, first run, update, uninstall) in a scratch
     copy; and add close and minimise buttons to the packaged app's splash

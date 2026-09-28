@@ -412,24 +412,15 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.3. The core is built and stable: capture, chat with checkable
-answers, the graph, documents, boards and mind maps, the OCR workspace,
-private notes, themes, desktop packaging for Windows and Linux. This
-release gives Atlas a body and a second look, puts a companion in the
-corner of every page, draws a face for every person, makes signing in
-optional on your own computer, and splits the frontend's one large script
-into files you can find your way around. What comes next,
-in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
-[CHANGELOG.md](CHANGELOG.md).
+Version 0.3.3. Capture, chat with checkable answers, the graph, documents,
+boards and mind maps, the OCR workspace, private notes and themes are
+built and stable, with desktop builds for Windows and Linux. New in this
+release: Atlas has a body and a second look, a companion keeps you company
+on every page, and signing in is optional on your own computer.
 
-**The guided tour** points at the real controls, one card at a time, over a
-dimmed page: the basics, writing a note, finding things, and the boards and
-maps, whole or one section at a time from Settings, help and guide. It closes
-whatever is open over the page before each step, becomes a sheet on a phone,
-and can be left at any point with the X, Skip or Escape. Every step of every
-section is walked at three window sizes by `scratchpad/ui-sweeps/tour.js`; a
-window size or zoom level that sweep has not measured is the likeliest place
-for it to misbehave, and nothing else in the app depends on it.
+A guided tour (Settings, then Help) walks through the basics one step at a
+time. What changed is in [CHANGELOG.md](CHANGELOG.md); what comes next is in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Licence
 

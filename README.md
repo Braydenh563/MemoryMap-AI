@@ -31,7 +31,7 @@ capture a thought
 ```
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
+  <img src="docs/screenshots/dashboard-dark.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
 </p>
 
 <p align="center">
@@ -45,22 +45,22 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/chat.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and suggested questions" width="850">
+  <img src="docs/screenshots/chat-dark.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and suggested questions" width="850">
   <br><sub><b>Chat</b>: ask in plain English, with skills, web search and agent mode beside the box</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/graph.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
+  <img src="docs/screenshots/graph-dark.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
   <br><sub><b>Graph</b>: your notes as a map, coloured by category, linked by meaning</sub>
 </p>
 
 <details>
-<summary><b>Twenty-five more screenshots</b>: Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, seven main features in the dark theme, and a phone</summary>
+<summary><b>Eighteen more screenshots</b>: Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, and a phone</summary>
 <br>
 
 
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
+  <img src="docs/screenshots/library-dark.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
   <br><sub><b>Library</b>: everything you have made, in one place</sub>
 </p>
 
@@ -85,7 +85,7 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor on a draft, with its outline, word count and two writing suggestions underlined in place" width="850">
+  <img src="docs/screenshots/documents-dark.png" alt="Documents: the long-form editor on a draft, with its outline, word count and two writing suggestions underlined in place" width="850">
   <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
 </p>
 
@@ -95,12 +95,12 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/timeline.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
+  <img src="docs/screenshots/timeline-dark.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
   <br><sub><b>Timeline</b>: every note on a time axis</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/reminders.png" alt="Reminders: due dates with quick-set buttons and priority, linked to the note they came from" width="850">
+  <img src="docs/screenshots/reminders-dark.png" alt="Reminders: due dates with quick-set buttons and priority, linked to the note they came from" width="850">
   <br><sub><b>Reminders</b>: due dates linked to the note they came from</sub>
 </p>
 
@@ -144,41 +144,13 @@ capture a thought
   <br><sub><b>Light or dark</b>: every theme comes in both, or follows your system</sub>
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/dashboard-dark.png" alt="The dashboard in the dark theme" width="850">
-  <br><sub><b>Dashboard</b>, dark</sub>
-</p>
 
 
-<p align="center">
-  <img src="docs/screenshots/chat-dark.png" alt="Chat in the dark theme" width="850">
-  <br><sub><b>Chat</b>, dark</sub>
-</p>
 
-<p align="center">
-  <img src="docs/screenshots/graph-dark.png" alt="The Graph in the dark theme" width="850">
-  <br><sub><b>Graph</b>, dark</sub>
-</p>
 
-<p align="center">
-  <img src="docs/screenshots/library-dark.png" alt="Library in the dark theme" width="850">
-  <br><sub><b>Library</b>, dark</sub>
-</p>
 
-<p align="center">
-  <img src="docs/screenshots/documents-dark.png" alt="Documents in the dark theme" width="850">
-  <br><sub><b>Documents</b>, dark</sub>
-</p>
 
-<p align="center">
-  <img src="docs/screenshots/timeline-dark.png" alt="Timeline in the dark theme" width="850">
-  <br><sub><b>Timeline</b>, dark</sub>
-</p>
 
-<p align="center">
-  <img src="docs/screenshots/reminders-dark.png" alt="Reminders in the dark theme" width="850">
-  <br><sub><b>Reminders</b>, dark</sub>
-</p>
 
 <p align="center">
   <img src="docs/screenshots/phone.png" alt="The Notes tab at phone width: one column of note cards, a New note button and the tab bar along the bottom" width="390">

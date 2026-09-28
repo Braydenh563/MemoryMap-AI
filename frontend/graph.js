@@ -1453,7 +1453,7 @@ function graphSizeMode() {
   return GRAPH_SIZE_RULES.includes(value) ? value : "connections";
 }
 
-function graphSizeRadius(node, degree, low = 4, high = 18) {
+function graphSizeRadius(node, degree, low = 4, high = 18, maxDegree = 0) {
   const mode = graphSizeMode();
   if (mode === "none") return 7;
   if (mode === "length") {
@@ -1468,7 +1468,16 @@ function graphSizeRadius(node, degree, low = 4, high = 18) {
   //: 3.5 per root of a link, not 2: in a notebook of tens of notes the
   //: busiest hub has 5 or 6 links, and at 2 it drew barely 2px wider than a
   //: leaf (reported at release). 1 link 7.5, 4 links 11, 9 links 14.5.
-  return Math.max(low, Math.min(high, low + 3.5 * Math.sqrt(degree || 0)));
+  //: **Relative to this graph's busiest note** (the owner at release: "how
+  //: come my graph doesn't look like that, there's not much size
+  //: difference"): the README's notebook has hubs of ten links, a real one
+  //: tops out at four, and on the fixed scale above 1 to 4 links is 7.5 to
+  //: 11px. The busiest note now takes the full size and the rest their share
+  //: of it (by root, as before), so the spread is the graph's own. Only from
+  //: a busiest note of 3 links: below that every linked dot would draw huge.
+  const absolute = Math.max(low, Math.min(high, low + 3.5 * Math.sqrt(degree || 0)));
+  if (!degree || maxDegree < 3) return absolute;
+  return Math.max(absolute, low + (high - low) * Math.sqrt(Math.min(1, degree / maxDegree)));
 }
 
 function graphColourMode() {

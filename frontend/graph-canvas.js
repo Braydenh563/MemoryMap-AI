@@ -232,13 +232,19 @@ let gcTokens = {};
 //: it on the payload. The SVG renderer sized by PageRank centrality instead,
 //: which is a number the reader cannot verify by looking, degree is "how many
 //: lines come out of this dot", which is the one thing a graph makes visible.
+//: The busiest note's link count, which `graphSizeRadius` scales against.
+function gcMaxDegree(s, nodes) {
+  let max = 0;
+  for (const node of nodes) if (!node.isGroup) max = Math.max(max, (s.adj.get(node.id) || { size: 0 }).size);
+  return max;
+}
 const GC_MIN_RADIUS = 4;
 const GC_MAX_RADIUS = 18;
-function gcRadius(node, degree) {
+function gcRadius(node, degree, maxDegree = 0) {
   if (node.isGroup) return node.id === "root" ? 14 : 11;
   //: By the View menu's Size rule (`graphSizeRadius`, graph.js): connections
   //: by default, the rule this function always drew.
-  return graphSizeRadius(node, degree, GC_MIN_RADIUS, GC_MAX_RADIUS);
+  return graphSizeRadius(node, degree, GC_MIN_RADIUS, GC_MAX_RADIUS, maxDegree);
 }
 
 //: Zoom at which labels come on by themselves (§5 Phase 1). Below it a label
@@ -2851,8 +2857,9 @@ async function renderGraphCanvas(s = gcTab) {
     edge.target = s.byId.get(to) || edge.target;
     edge._path2d = null;
   }
+  const maxDegree = gcMaxDegree(s, nodes);
   for (const node of nodes) {
-    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size);
+    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size, maxDegree);
     node.colour = s.colourOf(node);
   }
   //: **A note with no position yet is placed here, not in the worker.**
@@ -3426,8 +3433,9 @@ async function renderGraphPane(entryId) {
   }
   const colourOf = graphPaneColour(data);
   s.colourOf = colourOf;
+  const maxDegree = gcMaxDegree(s, nodes);
   for (const node of nodes) {
-    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size);
+    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size, maxDegree);
     node.colour = colourOf(node);
   }
   gcResize(s);

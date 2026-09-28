@@ -12075,6 +12075,10 @@ function applyDocToolbarMode(mode) {
     //: so an unset attribute is the safe shape rather than an unstyled one.
     if (row) bar.dataset.toolbarMode = "row";
     else delete bar.dataset.toolbarMode;
+    //: Refit now: the mode change alone does not resize the bar, so the
+    //: width observer never fired and the note editor's "fit on one row"
+    //: button looked like it did nothing (reported at release).
+    fitDocToolbarRow(bar);
   }
   const button = document.getElementById("doc-toolbar-mode");
   const label = document.getElementById("doc-toolbar-mode-label");

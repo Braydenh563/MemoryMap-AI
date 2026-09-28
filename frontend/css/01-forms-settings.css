@@ -2182,6 +2182,15 @@ progress {
   gap: var(--space-2);
 }
 
+/* Related-note badges and their Link buttons share one height (they were
+   two, reported at release). */
+.entry-related-live > :is(a, button, span) {
+  box-sizing: border-box;
+  min-height: var(--target-min);
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Library -> Links (§30): a plain list of saved websites, one row each. */
 #bookmark-form {
   align-items: center;

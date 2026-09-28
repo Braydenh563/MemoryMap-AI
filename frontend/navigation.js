@@ -1074,8 +1074,10 @@ async function goToTabHistory(next, { fromBrowser = false } = {}) {
   tabHistory.index = next;
   tabHistory.navigating = true;
   tabSwitchDeclined = false;
+  const scroll = entry.scroll;
   try {
     await openHistoryEntry(entry);
+    if (entry.tab === "settings" && scroll) restoreSettingsScroll(entry.section, scroll);
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
@@ -1089,6 +1091,33 @@ async function goToTabHistory(next, { fromBrowser = false } = {}) {
     if (fromBrowser && next !== from) history.go(from - next);
   }
   paintTabHistory();
+}
+
+//: **Where in a Settings section you were** (the owner at release: "I keep
+//: having to open settings, go to the right page and then scroll to the
+//: right section"). Back already reopened the section, at its top, because
+//: showSettingsSection resets the scroll on every switch. The entry on top
+//: now follows its section's scroll as it happens (a capture listener, since
+//: scroll does not bubble), so closing Settings, or moving to another
+//: section, leaves the last position on the entry it belongs to; a restore
+//: puts it back. Ignored while a back/forward move is in progress, whose
+//: own reset to the top would otherwise overwrite the value being restored.
+document.addEventListener("scroll", (event) => {
+  if (tabHistory.navigating) return;
+  const current = tabHistory.stack[tabHistory.index];
+  if (current?.tab !== "settings" || typeof settingsScroller !== "function") return;
+  if (event.target === settingsScroller(current.section)) current.scroll = event.target.scrollTop;
+}, { passive: true, capture: true });
+
+//: Set now and again a frame later: a section built on open can still be
+//: growing when the restore lands, and a scrollTop past its height clamps.
+function restoreSettingsScroll(section, top) {
+  const put = () => {
+    const el = settingsScroller(section);
+    if (el) el.scrollTop = top;
+  };
+  put();
+  requestAnimationFrame(put);
 }
 
 //: Open the view one history entry names: the tab, then its sub-tab or the

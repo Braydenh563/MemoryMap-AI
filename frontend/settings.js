@@ -153,6 +153,17 @@ function ensureSettingsPaneTitle(box, name) {
   box.prepend(head);
 }
 
+//: The section's own scrolling ancestor. Shared with the back/forward
+//: history (navigation.js), which remembers where in a section you were.
+function settingsScroller(name) {
+  const box = $(`settings-${name}`);
+  for (let el = box && box.parentElement; el; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return el;
+  }
+  return null;
+}
+
 function showSettingsSection(name) {
   //: The companion's one-time nudge (avatars.js) may show when Appearance
   //: is first opened.
@@ -160,14 +171,8 @@ function showSettingsSection(name) {
   //: Reported: reopening Settings lands on Models "but the scroll doesn't
   //: reset", so the first section opened halfway down. The section's own
   //: scrolling ancestor goes back to the top whenever the section changes.
-  const box = $(`settings-${name}`);
-  for (let el = box && box.parentElement; el; el = el.parentElement) {
-    const overflow = getComputedStyle(el).overflowY;
-    if (overflow === "auto" || overflow === "scroll") {
-      el.scrollTop = 0;
-      break;
-    }
-  }
+  const scroller = settingsScroller(name);
+  if (scroller) scroller.scrollTop = 0;
   currentSettingsSection = name;
   // Part of the same back/forward stack every tab and sub-tab already lives
   // in (app.js's tabHistory): asked for directly. Safe to call on every
@@ -179,7 +184,7 @@ function showSettingsSection(name) {
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
-  ensureSettingsPaneTitle(box, name);
+  ensureSettingsPaneTitle($(`settings-${name}`), name);
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }

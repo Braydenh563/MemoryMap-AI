@@ -1865,6 +1865,12 @@ body.scroll-top-visible #tab-notes .layout > main {
   min-height: calc(4 * 1.45em + var(--space-6));
 }
 
+/* The tags field sat flush under the content box (the owner at release:
+   "no gap between the note content and tags textbox"). */
+#graph-popup-content + #graph-popup-tags {
+  margin-top: var(--space-2);
+}
+
 .graph-popup .row {
   margin: 0;
   align-items: center;

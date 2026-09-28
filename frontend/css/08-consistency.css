@@ -4780,10 +4780,19 @@ main,
    and position without shouting. The "You" label and avatar go too: on
    your own side of your own conversation they said nothing the alignment
    did not (still read to a screen reader). */
-.msg.user {
+.msg.user,
+/* The guide panel's own turn is the same bubble as Chat's (the owner at
+   release: "make the user message bubbles in the atlas guide panel be the
+   same as the chat"); it was still the solid accent surface. */
+.help-chat-msg.is-user {
   background: color-mix(in srgb, var(--accent) 14%, var(--card));
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--ink);
+}
+
+.help-chat-msg.is-user {
+  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
 }
 
 .msg.user .msg-role {

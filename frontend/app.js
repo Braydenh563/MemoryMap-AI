@@ -1064,9 +1064,7 @@ function startApp() {
   // while it worked perfectly. Screenshotted.
   const shellStatus = $("save-status");
   if (shellStatus) shellStatus.textContent = "";
-  // Load the filing model and re-ask for notes the model had not answered
-  // for when the app last closed (routes_models.warm_filing). Fire and
-  // forget: a failure is logged on the server and costs nothing here.
+  // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
 
   // A failed load must be visible, not a silently empty page, and one

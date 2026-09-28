@@ -2988,10 +2988,14 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
         "the Settings head's mark is not painted"
     )
     # The chat's own bubble is a holder too, and never the old glyph.
+    #: Built by `userMarkEl`, which Chat's bubbles and the popup agent's share.
     bubble = app.split("function addBubble(", 1)[1].split("\nfunction ", 1)[0]
-    assert "dataset.userMark" in bubble and "nameMark(userMarkSeed()" in bubble, (
+    mark = app.split("function userMarkEl(", 1)[1].split("\nfunction ", 1)[0]
+    assert "userMarkEl()" in bubble and "dataset.userMark" in mark and "nameMark(userMarkSeed()" in mark, (
         "the user's chat bubble no longer carries the profile's mark"
     )
+    palette = (ROOT / "frontend" / "palette.js").read_text(encoding="utf-8")
+    assert "userMarkEl()" in palette, "the popup agent's bubble lost the profile's mark"
     assert '"ph:user"' not in bubble, "the user's chat bubble went back to a generic glyph"
     # Painted when the preferences arrive and after a save.
     assert app.count("paintUserMarks();") >= 3, "the person's mark is not repainted on load and save"

@@ -430,9 +430,6 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
     const row = document.createElement("div");
     row.className = "row confirm-actions";
     row.append(smallButton("Cancel", "Cancel", () => close(null)));
-    //: A one-source picker ("Which bookmark?") drew a tab strip holding a
-    //: single tab: a control with nothing to switch to, read as a stray
-    //: button. The question already names the kind, so the strip goes.
     card.append(text, ...(available.length > 1 ? [seg] : []), search, list, row);
     overlay.appendChild(card);
     wireBackdropClose(overlay, () => close(null));

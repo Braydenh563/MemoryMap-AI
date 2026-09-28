@@ -186,7 +186,7 @@ def test_capture_ask_opts_in_with_no_persona_picker_of_its_own() -> None:
 
 def test_the_popup_agent_passes_the_persona_it_asked_with() -> None:
     text = (ROOT / "frontend" / "palette.js").read_text(encoding="utf-8")
-    assert "typingDots(undefined, { persona: askedPersona, words: true })" in text
+    assert 'progressLine("Thinking…", { persona: askedPersona, words: true })' in text
 
 
 # --- CSS ---------------------------------------------------------------------

@@ -316,6 +316,15 @@ function paintUserMarks() {
   if (typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
 }
 
+function userMarkEl() {
+  const mark = document.createElement("span");
+  mark.className = "msg-user-mark";
+  mark.setAttribute("aria-hidden", "true");
+  mark.dataset.userMark = "18";
+  mark.appendChild(nameMark(userMarkSeed(), 18));
+  return mark;
+}
+
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -348,14 +357,7 @@ function addBubble(role, text, attachments = null) {
   //: right corner, positioned rather than in the flow, so the bubble's size,
   //: padding and text are exactly what they were (chatmarks.js measures
   //: that): the label row that used to hold an avatar is hidden on purpose.
-  if (role === "user") {
-    const mark = document.createElement("span");
-    mark.className = "msg-user-mark";
-    mark.setAttribute("aria-hidden", "true");
-    mark.dataset.userMark = "18";
-    mark.appendChild(nameMark(userMarkSeed(), 18));
-    bubble.appendChild(mark);
-  }
+  if (role === "user") bubble.appendChild(userMarkEl());
   const strip = chatAttachmentStrip(attachments);
   if (strip) bubble.appendChild(strip);
 

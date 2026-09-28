@@ -407,13 +407,6 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     //: taken. It says which backend is *selected*, which is the question the
     //: control is about; whether it is applied is what Apply is for.
     syncEmbeddingPickerState();
-    //: **Built-in applies on the choice itself.** Its only Apply button sits
-    //: in the Ollama row, beside the Ollama model list, so picking Built-in
-    //: and stopping there read as done while the saved backend stayed on
-    //: Ollama (the owner: "it doesnt register me selected on the built-in
-    //: embedding model"). The built-in engine has nothing else to pick, so
-    //: the choice goes straight to the same confirm-and-re-index step; a
-    //: cancel there puts the saved backend back on screen.
     if (radio.checked && radio.value === "sentence-transformers") applyEmbeddingBackend();
   });
 }

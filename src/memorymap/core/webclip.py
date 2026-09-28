@@ -162,6 +162,17 @@ _DROP = {
 _VOID = {"br", "hr", "img", "meta", "link", "input", "source", "wbr", "area", "base", "col", "embed", "param", "track"}
 _BLOCKS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre", "td", "th", "dt", "dd", "figcaption"}
 #: class/id words that mark a container as furniture rather than content.
+#: **Containers a class name never drops.** Reported with a screenshot: a
+#: Squarespace blog read as one word. Its `<body>` carries dozens of theme
+#: classes ("tweak-...-header-...", "header--menu-open"), `_JUNK` read
+#: "header" in them, and the whole page went with the body. The page's own
+#: frame and its declared content are never chrome, whatever they are named.
+_NEVER_JUNK = {"html", "body", "main", "article"}
+
+#: Below this many words the class filter is assumed to have eaten the page,
+#: and it is read again without it (`extract`).
+_THIN_WORDS = 40
+
 _JUNK = re.compile(
     r"(^|[\s_-])(nav|navigation|menu|sidebar|footer|header|comment|comments|cookie|banner|ad|ads|advert|"
     r"promo|related|share|social|subscribe|newsletter|breadcrumb|toc|popup|modal)([\s_-]|$)",
@@ -184,8 +195,10 @@ class _Tree(HTMLParser):
     its text. The standard library parser, not a regex, so a `<p>` inside an
     attribute value or a `</script>` in a string cannot fool it."""
 
-    def __init__(self) -> None:
+    def __init__(self, junk: bool = True) -> None:
         super().__init__(convert_charrefs=True)
+        #: Whether class and id names can drop an element (see `extract`).
+        self.junk = junk
         self.root = _Node("root", {}, None)
         self.cur = self.root
         self.skip = 0
@@ -204,7 +217,11 @@ class _Tree(HTMLParser):
             if tag not in _VOID:
                 self.skip += 1
             return
-        if tag in _DROP or _JUNK.search(f"{attrs.get('class', '')} {attrs.get('id', '')} {attrs.get('role', '')}"):
+        if tag in _DROP or (
+            self.junk
+            and tag not in _NEVER_JUNK
+            and _JUNK.search(f"{attrs.get('class', '')} {attrs.get('id', '')} {attrs.get('role', '')}")
+        ):
             if tag not in _VOID:
                 self.skip = 1
             return
@@ -300,6 +317,13 @@ def _safe_href(href: str, base: str) -> str:
     return clean_url(absolute)
 
 
+#: Walked into as blocks, never read as one inline run. `html` and `body`
+#: are here because a page with no paragraph tags anywhere scores nothing,
+#: `_main` then falls back to the document root, and inlining that ran every
+#: div's text together ("wordmore") into one block.
+_CONTAINERS = {"ul", "ol", "table", "tr", "div", "section", "article", "main", "figure", "dl", "tbody", "thead", "html", "body"}
+
+
 class _Markdown:
     def __init__(self, base: str):
         self.base = base
@@ -339,7 +363,7 @@ class _Markdown:
     def block(self, node: _Node, depth: int = 0) -> None:
         loose: list[str] = []
         for child in node.children:
-            if isinstance(child, str) or child.tag not in _BLOCKS | {"ul", "ol", "table", "tr", "div", "section", "article", "main", "figure", "dl", "tbody", "thead"}:
+            if isinstance(child, str) or child.tag not in _BLOCKS | _CONTAINERS:
                 loose.append(self.inline(child))
                 continue
             self.flush_inline(loose)
@@ -394,18 +418,32 @@ def _descendants(node: _Node, tag: str):
                 yield from _descendants(child, tag)
 
 
-def extract(page: str, url: str) -> dict:
-    """`{"title", "markdown", "words"}` for a page's main content."""
-    tree = _Tree()
+def _read(page: str, url: str, junk: bool) -> tuple[_Tree, str]:
+    """The parsed page and its main content as markdown."""
+    tree = _Tree(junk=junk)
     try:
         tree.feed(page)
         tree.close()
     except Exception:  # noqa: BLE001  # a malformed page is still a page
         pass
-    main = _main(tree)
     md = _Markdown(url)
-    md.block(main)
-    markdown = "\n\n".join(md.blocks).strip()
+    md.block(_main(tree))
+    return tree, "\n\n".join(md.blocks).strip()
+
+
+def extract(page: str, url: str) -> dict:
+    """`{"title", "markdown", "words"}` for a page's main content."""
+    tree, markdown = _read(page, url, junk=True)
+    #: A theme can hang a "junk" word on the one wrapper everything sits in
+    #: (a `div.site-header-wrapper` around the whole page is common), and the
+    #: exemptions above only cover the standard tags. A reading that thin is
+    #: taken again without the class filter; the tag filter (nav, header,
+    #: footer, aside) still keeps the real chrome out.
+    if len(markdown.split()) < _THIN_WORDS:
+        loose_tree, loose = _read(page, url, junk=False)
+        if len(loose.split()) > len(markdown.split()):
+            tree, markdown = loose_tree, loose
+    main = _main(tree)
     title = " ".join((tree.og_title or tree.title or "").split())
     if not title:
         first = next(_descendants(main, "h1"), None)

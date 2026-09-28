@@ -2035,6 +2035,10 @@ def run_agent(
     spend = run_budget.current()
     #: One nudge per turn for a round that came back with nothing at all.
     nudged_empty = False
+    #: Only a turn that has done nothing at all is nudged: a skill step that
+    #: read its page and then stops is finished, and the runner reads that
+    #: silence (`skill_runner`'s paging and postconditions depend on it).
+    called_any = False
 
     while round_number + 1 < allowance:
         #: Checked between rounds, never mid-stream: stopping inside a model
@@ -2143,7 +2147,7 @@ def run_agent(
             #: having spent the round thinking. One plain-words nudge is the
             #: cheap recovery; a second empty round ends the turn as before,
             #: and the client says the model wrote nothing.
-            if not answer and not reply.get("streamed") and not nudged_empty:
+            if not answer and not reply.get("streamed") and not nudged_empty and not called_any:
                 nudged_empty = True
                 state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
                 continue
@@ -2183,6 +2187,7 @@ def run_agent(
                 }
             return
 
+        called_any = True
         # Replay the assistant turn (with its calls) so the model keeps
         # its own context, then answer each call.
         #

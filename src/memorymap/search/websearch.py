@@ -650,7 +650,7 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
 
 
 def _strip_tags(fragment: str) -> str:
-    return html.unescape(re.sub(r"<[^>]{0,2000}>", "", fragment)).strip()
+    return html.unescape(re.sub(r"<[^>]{0,20000}>", "", fragment)).strip()
 
 
 def _real_url(href: str) -> str:
@@ -911,11 +911,30 @@ def fetch_readable(url: str) -> dict:
     page = raw.decode(response.encoding or "utf-8", errors="replace")
     blocks = _readable_blocks(page)
     words = sum(len(block["text"].split()) for block in blocks)
+    #: **A thin reading gets the clipper's tree reader instead.** Reported:
+    #: "some websites only show one or a couple words instead of properly
+    #: rendering". The pattern above only sees text inside p, li, h1-h6,
+    #: blockquote and pre, and a page built from styled divs (most site
+    #: builders) gives it a heading and nothing else. `webclip.extract`
+    #: parses the page into a tree and picks the densest container, the
+    #: same reader "Save page as note" uses; its markdown becomes blocks.
+    if words < _THIN_READ_WORDS:
+        from memorymap.core import webclip
+
+        tree_blocks = _blocks_from_markdown(webclip.extract(page, final_url)["markdown"])
+        tree_words = sum(len(block["text"].split()) for block in tree_blocks)
+        if tree_words > words:
+            blocks, words = tree_blocks, tree_words
     return {
         "url": url,
         "domain": domain_of(url),
         "title": _page_title(page) or domain_of(url),
-        "text": _readable_text(page)[:_READER_MAX_CHARS],
+        #: From the blocks when there are any: the whole-page strip below is
+        #: a regex, and a tag whose attributes hold a ">" (site builders put
+        #: JSON in data attributes) leaves the rest of the tag as text.
+        "text": (
+            "\n\n".join(block["text"] for block in blocks) if blocks else _readable_text(page)
+        )[:_READER_MAX_CHARS],
         "blocks": blocks,
         "links": _page_links(page, final_url),
         "words": words,
@@ -1030,6 +1049,37 @@ def _page_title(page: str) -> str:
     return _strip_tags(match.group(1)) if match else ""
 
 
+_THIN_READ_WORDS = 80
+_MD_LINK = re.compile(r"!?\[([^\]]{0,500})\]\([^)\s]{0,2000}\)")
+
+
+def _blocks_from_markdown(markdown: str) -> list[dict]:
+    """`webclip`'s markdown as the reader's [{type, text}] blocks: headings
+    keep their level, list lines become items, links keep their words."""
+    blocks: list[dict] = []
+    for chunk in markdown.split("\n\n"):
+        for line in chunk.split("\n") if chunk.lstrip().startswith(("- ", "* ")) else [chunk]:
+            text = line.strip()
+            heading = re.match(r"(#{1,6})\s+(.*)", text)
+            kind, level = "p", 0
+            if heading:
+                kind, level, text = "heading", len(heading.group(1)), heading.group(2)
+            elif text[:2] in ("- ", "* "):
+                kind, text = "li", text[2:]
+            elif text.startswith("> "):
+                kind, text = "blockquote", text[2:]
+            text = _MD_LINK.sub(r"\1", text).replace("**", "").strip()
+            if len(text) < 2:
+                continue
+            block = {"type": kind, "text": text[:2000]}
+            if level:
+                block["level"] = level
+            blocks.append(block)
+            if len(blocks) >= 300:
+                return blocks
+    return blocks
+
+
 def _readable_text(page: str) -> str:
     """Strip scripts/styles/markup and collapse whitespace into paragraphs."""
     body = re.sub(
@@ -1040,7 +1090,7 @@ def _readable_text(page: str) -> str:
     # Block-level tags become paragraph breaks so the text stays readable.
     body = re.sub(r"(?i)</(p|div|section|article|li|h[1-6]|tr)\s*>", "\n\n", body)
     body = re.sub(r"(?i)<br\s*/?>", "\n", body)
-    text = html.unescape(re.sub(r"<[^>]{0,2000}>", " ", body))
+    text = html.unescape(re.sub(r"<[^>]{0,20000}>", " ", body))
     lines = [re.sub(r"[ \t ]+", " ", line).strip() for line in text.split("\n")]
     kept: list[str] = []
     for line in lines:

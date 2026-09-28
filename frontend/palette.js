@@ -911,16 +911,7 @@ async function cmdPaletteAsk(text) {
   const userMsg = document.createElement("div");
   userMsg.className = "msg user";
   userMsg.textContent = text;
-  //: The person's own mark on the corner, as the Chat tab's bubbles carry it
-  //: (`addBubble`, chat-agent.js; the owner: "the popup agent user bubbles
-  //: dont have the user avatar in the corner"). `data-user-mark` puts it in
-  //: `paintUserMarks`' set, so a renamed profile redraws it here too.
-  const userMark = document.createElement("span");
-  userMark.className = "msg-user-mark";
-  userMark.setAttribute("aria-hidden", "true");
-  userMark.dataset.userMark = "18";
-  userMark.appendChild(nameMark(userMarkSeed(), 18));
-  userMsg.appendChild(userMark);
+  userMsg.appendChild(userMarkEl());
   //: **The same three actions the Chat tab's own bubbles carry.** Reported:
   //: *"I cant copy edit or resend any messages in the popup agent. it still
   //: lacks a lot of features."* The palette had none of them, a question you
@@ -1045,9 +1036,7 @@ async function cmdPaletteAsk(text) {
   //: first delta, not before the request).
   const answerBox = document.createElement("div");
   answerBox.className = "bubble-answer";
-  //: The Chat tab's own waiting line (dots, status, the rotating line under
-  //: them), not bare dots: the owner, "the extra text doesnt even show in
-  //: the popup agent". The first answer paint replaces it, as before.
+  //: Chat's own waiting line, musing included.
   answerBox.appendChild(progressLine("Thinking…", { persona: askedPersona, words: true }));
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
@@ -1101,8 +1090,7 @@ async function cmdPaletteAsk(text) {
   //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
   //: stripped before it can be quoted inside another label.
   let lastToolLabel = "";
-  let unsupported = "";
-  let hintText = "";
+  let why = "";
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
   //: What it is working on, in the person's own words, cut to a line. A
@@ -1204,23 +1192,13 @@ async function cmdPaletteAsk(text) {
         //: arriving while the list refreshes behind it.
         if ((event?.changes || []).length) loadEntries();
       },
-      //: **The events Chat already handled and this box dropped.** Reported
-      //: with a screenshot: "(no answer)" under a turn that found nine notes.
-      //: An agent turn can end in a way that is not answer text: the model
-      //: cannot call tools (`unsupported`, with the remedy in `message`), or
-      //: the server replaced what it streamed (`answer_final`). Dropped, each
-      //: left this box with nothing to say but "(no answer)".
-      onUnsupported: (event) => {
-        unsupported = event?.message || "";
-      },
-      onHint: (event) => {
-        hintText = event?.text || "";
-      },
-      onAnswerFinal: (event) => {
-        if (typeof event?.text !== "string") return;
-        answered = answered || Boolean(event.text);
-        answerRaw = event.text;
-        renderMarkdown(answerBox, answerRaw);
+      //: Dropped here, each ended as "(no answer)".
+      onUnsupported: (e) => (why = e?.message || why),
+      onHint: (e) => (why = why || e?.text || ""),
+      onAnswerFinal: (e) => {
+        if (!e?.text) return;
+        answered = true;
+        renderMarkdown(answerBox, (answerRaw = e.text));
       },
       onAnswer: (delta) => {
         answered = true;
@@ -1234,15 +1212,7 @@ async function cmdPaletteAsk(text) {
     });
     answerBox.classList.remove("is-streaming");
     foldSummary(true);
-    if (!answered) {
-      //: Said the way the Chat tab says it: what happened and what to do,
-      //: never a bare "(no answer)".
-      answerBox.textContent =
-        unsupported ||
-        hintText ||
-        "The model finished without writing anything. Try again, or rephrase the question.";
-      answerBox.classList.add("muted");
-    }
+    if (!answered) answerBox.textContent = why || "The model wrote nothing. Try again, or rephrase.";
     else {
       //: Linked once, at the end, rather than on every delta: mid-stream the
       //: text can be "note id 4" on its way to "note id 43", and a link built

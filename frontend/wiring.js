@@ -2040,8 +2040,31 @@ for (const button of document.querySelectorAll("#reminder-presets button")) {
 //: where it lands. Arrow keys on a focused stepper nudge too (DESIGN.md
 //: "Stepper"): up or right later, down or left earlier, by 15 minutes, and
 //: by a day with Shift.
+//: **Undo the nudges** (the owner at release: "is it possible to cancel or
+//: reset any adjustments made with the buttons in this reminders bar?").
+//: The steppers keep a running total; a Reset button beside them appears
+//: once it is non-zero and moves the time back by exactly that much. Typing
+//: a date or time, or saving, starts the total again.
+let dueNudgeNet = 0;
+const dueNudgeReset = document.createElement("button");
+dueNudgeReset.type = "button";
+dueNudgeReset.className = "ghost small stepper-reset hidden";
+dueNudgeReset.title = "Put the time back to where it was before the steppers";
+setLabel(dueNudgeReset, "ph:arrow-counter-clockwise Reset");
+dueNudgeReset.addEventListener("click", () => {
+  if (dueNudgeNet) nudgeDue(-dueNudgeNet);
+  dueNudgeNet = 0;
+  dueNudgeReset.classList.add("hidden");
+});
+document.querySelector("#reminder-due-row .stepper-pair")?.after(dueNudgeReset);
+function clearDueNudges() {
+  dueNudgeNet = 0;
+  dueNudgeReset.classList.add("hidden");
+}
 function nudgeDueShown(minutes) {
   nudgeDue(minutes);
+  dueNudgeNet += minutes;
+  dueNudgeReset.classList.toggle("hidden", dueNudgeNet === 0);
   const readout = $("reminder-due-readout");
   readout.classList.remove("stepper-fresh");
   void readout.offsetWidth;
@@ -2060,8 +2083,12 @@ for (const stepper of document.querySelectorAll("#reminder-due-row .stepper")) {
   });
 }
 // The two visible fields drive the hidden value.
-$("reminder-date").addEventListener("input", syncDueFromParts);
-$("reminder-time").addEventListener("input", syncDueFromParts);
+$("reminder-date").addEventListener("input", () => { clearDueNudges(); syncDueFromParts(); });
+$("reminder-time").addEventListener("input", () => { clearDueNudges(); syncDueFromParts(); });
+//: Adding the reminder ends the nudging (delegated: #reminder-add has its own handler).
+$("reminder-add").parentElement.addEventListener("click", (event) => {
+  if (event.target.closest("#reminder-add")) clearDueNudges();
+});
 // --- duplicate tidy-up -----------------------------------------------------------
 // Finding is arithmetic and always available. Merging offers the AI when it's
 // running and a plain join when it isn't: the join reads worse but cannot

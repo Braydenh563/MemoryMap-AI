@@ -5508,6 +5508,12 @@ select {
   margin-top: var(--space-2);
 }
 
+/* A list straight under its action row (Back up now over the backups, the
+   owner at release: "no gap") gets the section's own spacing. */
+.settings-group .row + .entry-list {
+  margin-top: var(--space-3);
+}
+
 /* The backup rows' two buttons share one height, and the icon-only one is a
    square of that height rather than whatever its glyph happens to measure.
    `.entry-actions button` shrinks both to 0.8rem text with 0.15rem padding,

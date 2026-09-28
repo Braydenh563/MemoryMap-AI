@@ -11,7 +11,8 @@ const {boot} = require("./lib");
     const bar = document.querySelector(".note-edit-toolbar");
     if (!bar) return "no edit toolbar";
     const tops = new Set([...bar.children].filter((c) => c.getClientRects().length).map((c) => Math.round(c.getBoundingClientRect().top / 8)));
-    return { mode: bar.dataset.toolbarMode || "wrap", wrap: getComputedStyle(bar).flexWrap, rows: tops.size, h: Math.round(bar.getBoundingClientRect().height), more: !bar.querySelector(".doc-toolbar-more")?.hidden, over: bar.querySelectorAll(".doc-toolbar-over").length };
+    return { mode: bar.dataset.toolbarMode || "wrap", wrap: getComputedStyle(bar).flexWrap, rows: tops.size, h: Math.round(bar.getBoundingClientRect().height), more: !bar.querySelector(".doc-toolbar-more")?.hidden, over: bar.querySelectorAll(".doc-toolbar-over").length,
+      edgeSeps: (() => { const shown = [...bar.children].filter((c) => c.getClientRects().length && getComputedStyle(c).visibility !== "hidden"); const mid = (c) => { const b = c.getBoundingClientRect(); return b.top + b.height / 2; }; return shown.filter((c, i) => c.classList.contains("doc-toolbar-sep") && (i === 0 || Math.abs(mid(c) - mid(shown[i - 1])) > 12 || i === shown.length - 1 || Math.abs(mid(shown[i + 1]) - mid(c)) > 12)).length; })() };
   });
   await page.evaluate(() => { const bar = document.querySelector(".note-edit-toolbar"); if (bar?.classList.contains("is-collapsed")) bar.querySelector(".doc-toolbar-collapse")?.click(); });
   await page.waitForTimeout(400);
@@ -28,3 +29,4 @@ const {boot} = require("./lib");
   console.log("back", JSON.stringify(await read()));
   await browser.close();
 })();
+// Rules drawn at a row's start or end (should be none): run with SEPS=1.

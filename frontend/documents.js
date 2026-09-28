@@ -12514,6 +12514,28 @@ function syncDocToolbarMore(bar) {
     ? "Fold the extra tools away again"
     : `${count} more tool${count === 1 ? "" : "s"}`;
   more.setAttribute("aria-label", more.title);
+  markDocToolbarSepEdges(bar);
+}
+
+//: **A group rule never starts or ends a row** (the owner at release: "there
+//: is a vertical divider line at the start of the second row"). A wrapped
+//: strip breaks wherever the width runs out, which is often right after a
+//: rule, so the next row opened with one. Hidden rather than removed
+//: (visibility, not display): taking its width away could pull the next
+//: tool back up a row and move the break it was marking. All writes first,
+//: then all reads, then the writes they decide, so one pass lays out once.
+function markDocToolbarSepEdges(bar) {
+  const kids = [...bar.children];
+  for (const el of kids) el.classList.remove("doc-toolbar-sep-edge");
+  const shown = kids.filter((el) => el.getClientRects().length > 0);
+  const mids = shown.map((el) => {
+    const box = el.getBoundingClientRect();
+    return box.top + box.height / 2;
+  });
+  const newRow = (i) => i === 0 || Math.abs(mids[i] - mids[i - 1]) > 12;
+  const edges = shown.filter((el, i) => el.classList.contains("doc-toolbar-sep") &&
+    (newRow(i) || i === shown.length - 1 || newRow(i + 1)));
+  for (const el of edges) el.classList.add("doc-toolbar-sep-edge");
 }
 
 //: Refitted whenever a strip's width changes, and only then: the observer

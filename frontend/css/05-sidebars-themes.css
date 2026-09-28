@@ -1950,6 +1950,12 @@ body.resizing-sidebar {
   display: none;
 }
 
+/* A rule at a row's start or end (markDocToolbarSepEdges): kept for its
+   width, not drawn. */
+.doc-toolbar .doc-toolbar-sep.doc-toolbar-sep-edge {
+  visibility: hidden;
+}
+
 /* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
 .doc-toolbar .doc-toolbar-more[hidden] {
   display: none;

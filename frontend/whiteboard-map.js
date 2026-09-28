@@ -1188,6 +1188,29 @@ function wbMapColors(index) {
   return colors;
 }
 
+//: **Which topics are filled**, `Map<id, boolean>`, in one walk for the same
+//: reason `wbMapColors` is: a fill can come from any ancestor. The owner's
+//: ask was "the option to fill an individual node or have it cascade to its
+//: children as well", so `data.fill` is `self` (this topic alone), `branch`
+//: (this topic and everything under it, including topics added later) or
+//: `none` (one topic kept unfilled inside a filled branch; what is under it
+//: still belongs to the branch, so the choice touches exactly the box it was
+//: made on). No field is no choice: the topic follows its branch.
+function wbMapFills(index) {
+  const fills = new Map();
+  const seen = new Set();
+  const walk = (node, inherited) => {
+    if (seen.has(node.id)) return;
+    seen.add(node.id);
+    const own = node.data?.fill;
+    fills.set(node.id, own === "self" || own === "branch" ? true : own === "none" ? false : inherited);
+    const next = own === "branch" ? true : inherited;
+    for (const child of index.childrenOf.get(node.id) || []) walk(child, next);
+  };
+  for (const root of index.roots) walk(root, false);
+  return fills;
+}
+
 //: The nodes a collapsed branch hides. The collapsed node itself stays, it
 //: is the thing you click to get the branch back, and it carries the count
 //: badge that says how much is behind it.
@@ -1559,7 +1582,7 @@ function wbCoreInkFor(colour) {
 //: The half that changes: label, branch colour, chevron, badge. Runs for
 //: every visible map node on every render, so it does no work that the enter
 //: selection could have done once.
-function wbPaintMapNode(el, d, index, colors) {
+function wbPaintMapNode(el, d, index, colors, fills) {
   const node = el.node();
   if (!node) return;
   const text = node.querySelector(".wb-map-text");
@@ -1612,6 +1635,10 @@ function wbPaintMapNode(el, d, index, colors) {
   }
   el.classed("wb-map-collapsed", collapsed);
   el.classed("wb-map-pinned", Boolean(d.data?.pinned));
+  //: The fill (`wbMapFills`): here rather than in `wbPaintMapNodeStyle`
+  //: because it can come from an ancestor, which only the render's one walk
+  //: of the tree knows.
+  el.classed("wb-map-filled", Boolean(fills?.get(d.id)));
   //: **The spine is on the edge the parent is on** (MINDMAP_PLAN §13e). It is
   //: the left edge in every layout that grows right, the top edge downward
   //: (a class on the view, `wb-map-down`), and the *right* edge for a topic
@@ -4298,6 +4325,7 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", data.shape || "");
     setSelect("wb-map-spine", data.spine || "");
+    wbSyncMapFill(node);
     //: The line into this topic (item 177). A trunk has none, so the group is
     //: put away rather than shown as three controls that write a field
     //: nothing draws: `wbMapEdgeHasArrow` and the rest all read the *child*
@@ -4361,6 +4389,53 @@ function wbSyncMapStrip(node) {
     }
   } finally {
     wbMapStripSyncing = false;
+  }
+}
+
+//: **The fill picker says what the topic is drawing**, the rule the rest of
+//: the strip follows. Its blank row is "No fill" on a topic outside any
+//: filled branch and "Filled by its branch" inside one, and only inside one
+//: does "No fill" exist as a choice of its own (`none`): anywhere else it
+//: would be the blank row twice. The option is added and removed rather than
+//: hidden because `enhanceSelect` rebuilds its menu on a child-list change,
+//: not on an attribute one.
+function wbSyncMapFill(node) {
+  const el = document.getElementById("wb-map-fill");
+  if (!el || !node) return;
+  const own = node.data?.fill || "";
+  let inherited = false;
+  if (!own || own === "none") {
+    const index = wbMapIndex();
+    let up = index.byId.get(node.parent_id);
+    for (let hops = 0; up && hops < 512; hops++) {
+      if (up.data?.fill === "branch") {
+        inherited = true;
+        break;
+      }
+      up = index.byId.get(up.parent_id);
+    }
+  }
+  const blank = el.querySelector('option[value=""]');
+  const said = inherited ? "Filled by its branch" : "No fill";
+  if (blank && blank.textContent !== said) blank.textContent = said;
+  let none = el.querySelector('option[value="none"]');
+  if ((inherited || own === "none") && !none) {
+    none = document.createElement("option");
+    none.value = "none";
+    none.textContent = "No fill";
+    el.appendChild(none);
+  } else if (!inherited && own !== "none" && none) {
+    none.remove();
+  }
+  if (el.value !== own) {
+    const was = wbMapStripSyncing;
+    wbMapStripSyncing = true;
+    try {
+      el.value = own;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    } finally {
+      wbMapStripSyncing = was;
+    }
   }
 }
 
@@ -5063,7 +5138,7 @@ const WB_MAP_COPY_MAX = 120;
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
   "edge_label_dx", "edge_label_dy",
-  "shape", "core", "spine", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+  "shape", "core", "spine", "fill", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
   //: The waypoint on the line (§12.1 item 5's third) belongs with the other
   //: four for the same reason: it is written from the line itself onto the
   //: node, and a branch copied without it comes out drawn differently from the

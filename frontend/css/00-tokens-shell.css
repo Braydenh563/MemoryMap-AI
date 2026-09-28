@@ -234,6 +234,10 @@ select optgroup {
      exactly. `--modal-bg` itself is left alone since most of its callers
      (Settings, the command palette) float over a much emptier backdrop. */
   --modal-bg-opaque: rgb(252, 253, 255);
+  /* How much of its colour a filled map topic takes (`.wb-map-filled`). More in
+     dark, where 24% of a palette colour barely lifts off the surface; 32% of
+     pure white on the dark surface still leaves dark-theme ink over 5:1. */
+  --wb-fill-strength: 24%;
   /* ============ THE GLASS RECIPE, as tokens =================================
      Every glass surface (.card, .glass, the modal, the popovers) reads these
      four and nothing else, which is what "make all the ui elements consistent"
@@ -877,6 +881,7 @@ select,
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
+  --wb-fill-strength: 32%;
   --ink: #e7e9ee;
   --muted: #9aa1ad;
   --accent: #8b9df8;
@@ -957,6 +962,7 @@ select,
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
+    --wb-fill-strength: 32%;
     --ink: #e7e9ee;
     --muted: #9aa1ad;
     --accent: #8b9df8;

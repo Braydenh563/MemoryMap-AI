@@ -422,6 +422,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         # that stops round-tripping only by naming every one of them.
         "core": None,
         "spine": None,
+        # And with a topic's fill (one topic, or its whole branch).
+        "fill": None,
         "edge_width": None,
         "edge_arrow": None,
         # And with §12.1 item 5's draggable waypoint on a line, and item 2's

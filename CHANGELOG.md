@@ -1285,6 +1285,15 @@ below). Versioning is `0.x` while the app stabilises.
   2ms style from a 12ms one. `scratchpad/ui-sweeps/bgartcontrast.js`
   measures text contrast against the real pixels behind each text element
   with the art on, which `contrast.js` cannot see through glass.
+- Mind map topics can be filled with their colour: the topic strip's Shape
+  menu has a Fill row with "Fill this topic", "Fill with its branch" (the
+  topic and everything under it, including topics added later) and, inside a
+  filled branch, "No fill" for one topic. Stored as the node's `fill` style
+  field, so it survives a reload, round-trips through OPML and FreeMind, and
+  "Back to the branch" clears it. A tint of the topic's colour
+  (`--wb-fill-strength`, 24% light, 32% dark), so the label keeps its normal
+  ink: measured at 11.3:1 light and 9.6:1 dark on the palette's blue, and
+  4.86:1 at the worst case, a white topic in dark theme.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

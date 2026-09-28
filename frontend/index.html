@@ -6314,6 +6314,18 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="none">No bar</option>
               </select>
             </div>
+            <!-- **The fill**: a tint of the topic's colour across its card,
+                 on this topic alone or on everything under it too. The blank
+                 row and the "No fill" row inside a filled branch are
+                 rewritten by `wbSyncMapFill`. -->
+            <div class="wb-menu-row">
+              <span>Fill</span>
+              <select id="wb-map-fill" class="ghost small" aria-label="Fill this topic with its colour" title="Tint this topic with its colour, on its own or with everything under it">
+                <option value="">No fill</option>
+                <option value="self">Fill this topic</option>
+                <option value="branch">Fill with its branch</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

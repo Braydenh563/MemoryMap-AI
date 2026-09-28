@@ -49,7 +49,7 @@ work starts.
    other heads, and measure; (c) the reminder steppers float mid-row with a
    gap: align them to the row's grid next to the time readout; (d) mind
    map node background fill: nodes are outline-only; add a fill option
-   (the node colour recipe, a tinted fill) if it does not exist; (e) the
+   (done: mind map topics have a Fill, alone or with the branch) (the node colour recipe, a tinted fill) if it does not exist; (e) the
    owner says the README shots were not retaken: they were in c947ebe on
    this branch, so check what the owner is viewing (main, or a cache) and
    confirm the shots show the new UI.

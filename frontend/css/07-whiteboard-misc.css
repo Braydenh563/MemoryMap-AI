@@ -9925,6 +9925,21 @@ input[type="file"] {
   text-align: center;
 }
 
+/* **A filled topic** (the owner: "the option to fill an individual node or
+   have it cascade to its children as well"; `wbMapFills` decides which). A
+   tint of the branch colour, not the colour itself, so the label keeps the
+   ordinary `--ink` and needs no per-colour ink the way a core node does:
+   `--wb-fill-strength` (24% light, 32% dark) of any colour at all over
+   `--modal-bg-opaque` stays within a third of the way from the theme's own
+   surface, and the worst case, pure white tinted onto the dark surface, still
+   reads over 5:1 against dark-theme ink. Mixed
+   toward the opaque surface for the reason `.wb-map-node` gives: `--card`
+   falls to transparent at zero glass. Above the core rule on purpose: equal
+   specificity, so a core node's full-colour ground wins by source order. */
+.wb-map-node.wb-map-filled {
+  background: color-mix(in srgb, var(--wb-branch) var(--wb-fill-strength), var(--modal-bg-opaque));
+}
+
 /* **A core idea, told apart three ways at once** (INBOX 201: "I want more and
    better ways to differentiate core idea nodes in the mindmap"; the decision is
    MINDMAP_PLAN §12.5).

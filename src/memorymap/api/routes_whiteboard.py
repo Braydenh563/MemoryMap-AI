@@ -264,6 +264,14 @@ class WhiteboardObjectData(BaseModel):
     #: one whose topic was set back to solid are the same map, and neither
     #: should carry the field into an export.
     spine: str | None = Field(default=None, pattern="^(dashed|none)$")
+    #: **A tint of the topic's colour across its whole card** (the owner:
+    #: "the option to fill an individual node or have it cascade to its
+    #: children as well"). `self` fills this topic, `branch` fills it and
+    #: everything under it, `none` keeps one topic unfilled inside a filled
+    #: branch; unfilled is the absence of the field. The cascade is worked out
+    #: when the map is drawn (`wbMapFills`), the way branch colour is, so a
+    #: topic added to a filled branch later is filled too.
+    fill: str | None = Field(default=None, pattern="^(self|branch|none)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -2566,6 +2574,7 @@ MAP_STYLE_FIELDS = (
     "shape",
     "core",
     "spine",
+    "fill",
     "icon",
     "link",
     "edge_label",
@@ -3356,6 +3365,7 @@ _FREEMIND_PRIVATE = {
     "shape": "_shape",
     "core": "_core",
     "spine": "_spine",
+    "fill": "_fill",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -3375,6 +3385,7 @@ _OPML_PRIVATE = {
     "shape": "_shape",
     "core": "_core",
     "spine": "_spine",
+    "fill": "_fill",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

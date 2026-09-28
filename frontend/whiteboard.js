@@ -7213,6 +7213,16 @@ async function initWhiteboard() {
     const node = wbSelectedMapNode();
     if (node) wbMapSetNodeStyle(node, { spine: e.target.value || null });
   });
+  //: The fill. Re-renders the board rather than the one node, the way the
+  //: colour does: "Fill with its branch" changes every topic under this one.
+  $("wb-map-fill")?.addEventListener("change", async (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    await wbMapSetNodeStyle(node, { fill: e.target.value || null });
+    renderWhiteboardNow();
+    wbSyncMapFill(node);
+  });
   //: The line into the selected topic (item 177). All three re-render the
   //: board rather than only the node, the way the link ring's own slots do: an
   //: edge belongs to two nodes and is drawn in the shared `.wb-map-edges`
@@ -13073,6 +13083,7 @@ function renderWbObjects(canvas) {
   // and calling it from inside a per-node callback would walk it once per node.
   const mapIndex = wbIsMap() ? wbMapIndex() : null;
   const mapColors = mapIndex ? wbMapNodeColors(mapIndex) : null;
+  const mapFills = mapIndex ? wbMapFills(mapIndex) : null;
   const mapHidden = mapIndex ? wbMapConcealed(mapIndex) : null;
   // The focus bar's counts, the legend's rows and the template offer all
   // describe the map this pass is about to draw (§5 items 18 to 21).
@@ -13276,6 +13287,9 @@ function renderWbObjects(canvas) {
   const paintCtx = {
     index: mapIndex,
     colors: mapColors,
+    //: A fill can come from an ancestor, so a topic whose own data did not
+    //: change can still need repainting when its branch is filled.
+    fills: mapFills,
     //: Read once for the pass, not once per node: both are board-wide, and
     //: `wbMapThemedData` merges the theme underneath every node's own data.
     layout: mapIndex ? wbMapLayout() : "",
@@ -13307,7 +13321,7 @@ function renderWbObjects(canvas) {
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
-      wbPaintMapNode(el, d, mapIndex, mapColors);
+      wbPaintMapNode(el, d, mapIndex, mapColors, mapFills);
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -13399,7 +13413,8 @@ function wbObjectPaintKey(d, ctx) {
     if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
-    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}`;
+    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
+    `|${ctx.fills?.get(d.id) ? "filled" : ""}`;
 }
 
 //: **Every link sketch on the board, parsed once and filed under both of its

@@ -566,7 +566,12 @@
   top: calc(var(--sidebar-toggle-inset) + var(--sidebar-toggle-size) + var(--space-3));
   left: 0;
   right: 0;
-  margin-inline: auto;
+  /* margin-block, not margin-inline: this box is vertical-rl, so its
+     inline axis is the vertical one and margin-inline: auto centred
+     nothing across; the name sat 5px left of the toggle above it (the
+     owner at release, every collapsed sidebar). Its block axis is the
+     horizontal one. */
+  margin-block: auto;
   display: block;
   width: var(--sidebar-toggle-size);
   padding: var(--space-2) 0;

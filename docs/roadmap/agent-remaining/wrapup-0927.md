@@ -125,7 +125,10 @@ work starts.
     (4) dragging the companion to hang from the top bar drops it onto the
     elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
     edge should give a `hang` spot);
-    (5) the companion's chat sidebar perch (see 10 l);
+    (5) the companion's chat sidebar perch (see 10 l): on the Chat tab it
+    stands just above the status bar but is glued to a panel that scrolls,
+    so it drifts with the chat's scroll instead of sitting on the bar;
+    prefer the status bar's own `legs`/stand spot there, which never scrolls;
     (6) graph labels: with Labels on the map is busy; consider labelling
     only notes with 2+ links unless zoomed in;
     (7) Notes, Capture: Preview crushes the line-number gutter to a sliver

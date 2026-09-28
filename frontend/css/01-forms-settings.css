@@ -5174,6 +5174,10 @@ select {
   max-width: 0;
   margin: 0;
   overflow: hidden;
+  /* On one line: at zero width a phrase ("Leafing through your notes")
+     wrapped a word to a line, an invisible column as tall as five lines
+     that opened a wide gap above and below the dots (the owner at release). */
+  white-space: nowrap;
 }
 
 /* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's

@@ -125,6 +125,50 @@ with its owner named in the entry.
      showcase data dir (clusters, webs, loose notes, reasoned and plain
      links), dark shots of every main feature, one dark/light split, the
      Atlas section rewritten, README polished; test_readme_freshness green.
+     **Addendum, the owner, 2026-09-28 (Windows, granite4.1:3b), verbatim.**
+     "No gap below the 'use nomic-embed-text' button. Colour contrast issues
+     on the plan and web polls when active on the chat interface. Depending
+     on what the companion is perched on or anchored to at a given time it
+     might have different z-indexes so like if it is perched on like a chat
+     message bubble or a library card, when it scrolls with them it should
+     probably go behind the top bar like the thing it is perched on not in
+     front of it. If say it is stitting on or perched on an element like the
+     top bar, then it would be in front yk?? It's still really confusing to
+     use the built in embedding model because half the time I can't tell if
+     it is working or how well... also the fit drag mini fit map on the
+     whiteboard and mindmap is reallllly glitchy and laggy. The Popup agent
+     has been unable to answer multiple prompts as well and it's really
+     worrying. The whole process of filing, creating, editing, refining,
+     managing, tagging, recategorising notes and more anywhere, especially in
+     the main sections needs to be wayyy more fast, intuitive, guided,
+     assisted, automated, easy manually, and smooth to use." And: "there have
+     obviously been a lot of bugs that have been missed if something as big
+     as filing a note was very broken so I'm worried."
+     Same day, also open: the graph's default layout "looks messy and is
+     distributed wierdly"; the slash menu's Link card and Web link render the
+     same on a line of their own (a lone link is a card, CHAT_PLAN decision
+     12; recommendation: Web link on an empty line inserts inline syntax the
+     card rule skips, owner to confirm); a toggle in the note edit form's
+     preview reportedly exits preview (not reproduced in Chromium, capture's
+     half fixed in 31d5460).
+     Done the same day (commits 3d493ac to 2b721bd): capture preview and
+     gutter, spinner under reduced motion, one-tab picker strip, unread-dot
+     gap, popup agent "(no answer)" reasons and waiting line, Ask waiting
+     line, 499 for abandoned requests, greeting name once, one nudge on an
+     empty agent round, built-in engine applies on selection, Chat and agent
+     read the app's help for how-to questions, popup user mark, companion
+     hide sweep, web reader on site-builder pages.
+     Placed, in this order: (1) **a real-model pass before more features**:
+     `scratchpad/llama-dev.sh serve` with a 3B model, then the popup agent's
+     two failing prompts, filing a new note, and `pytest -m evals`, because
+     every failure reported today passed a fake-transport suite; (2) the
+     note flow as one brief (WORLD_CLASS_PLAN, notes dossier): filing,
+     re-filing, tagging and editing measured end to end in the running app
+     with the model; (3) built-in engine status in words (ready, indexing N
+     of M, last query semantic or keyword); (4) minimap drag performance
+     (whiteboard and mind map, measured frame times); (5) companion stacking
+     by perch; (6) graph default forces; (7) the two small visual ones
+     (button gap, Plan/Web pill contrast) with contrast.js.
 
 430. **The owner, 2026-09-27 afternoon, with 37 screenshots (verbatim in the
     session; condensed here, each placed with an agent).** Bugs: agent turn

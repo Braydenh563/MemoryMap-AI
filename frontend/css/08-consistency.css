@@ -8747,3 +8747,19 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
     block-size: var(--target-min);
   }
 }
+
+/* The chip's glyphs on one centre line (the ✕ drew 2px low: an inline icon
+   sits on the text baseline) and its last button near the chip's edge
+   rather than 5px in from it (the owner at release). */
+#entry-list .entry-links .chip:has(> .unlink) {
+  align-items: center;
+  padding-inline-end: 2px;
+}
+
+#entry-list .entry-links .unlink > i {
+  display: block;
+  line-height: 1;
+  /* The chip-wide ✕ nudge (`.chip > .unlink:last-child > .ph-x`) made up
+     for a baseline this box no longer has. */
+  translate: none;
+}

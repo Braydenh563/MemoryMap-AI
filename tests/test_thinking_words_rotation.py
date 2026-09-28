@@ -139,12 +139,12 @@ def test_the_word_is_aria_hidden_the_row_keeps_its_own_label() -> None:
     assert 'wordEl.setAttribute("aria-hidden", "true")' in body
 
 
-def test_min_width_is_reserved_from_the_longest_word_in_the_list() -> None:
-    body = _function(APP, "thinkingWordMinWidth")
-    assert "Math.max(0, ...list.map((w) => w.length))" in body
-    assert "ch`" in body
+def test_the_word_reserves_no_width() -> None:
+    """Reserving the longest phrase's width pushed the status and tips far
+    right (the owner at release); the word sizes to itself."""
     caller = _function(APP, "startThinkingWordRotation")
-    assert "wordEl.style.minWidth = thinkingWordMinWidth(list)" in caller
+    assert "style.minWidth" not in caller
+    assert "thinkingWordMinWidth" not in APP
 
 
 def test_the_tick_checks_phase_and_connectedness_before_rotating() -> None:

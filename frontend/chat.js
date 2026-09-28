@@ -2599,18 +2599,6 @@ function wireHorizontalWheelScrolling() {
 }
 window.wireHorizontalWheelScrolling = wireHorizontalWheelScrolling;
 
-//: **The row's own width is reserved, never left to jump.** Asked for
-//: directly: rotating "thinking words" beside the dots, "a clean,
-//: professional, bug-free UI", and the risk that phrase names is a row that
-//: visibly widens and narrows as "Sifting" becomes "Piecing it together"
-//: and back. `ch` is not pixel-exact in a proportional font, but it moves
-//: with the word list rather than a guessed constant, and the +1 margin
-//: covers what was measured off (`scratchpad/ui-sweeps/thinkingwords.js`).
-function thinkingWordMinWidth(list) {
-  const longest = Math.max(0, ...list.map((w) => w.length));
-  return `${longest + 1}ch`;
-}
-
 //: **Recursive, not `livingInterval`.** That helper (this file, above) fixes
 //: one period for the whole life of the timer; a jittered 2.5-to-3.5s gap
 //: needs a new random delay every tick, so this reimplements its one other
@@ -2661,7 +2649,9 @@ function startThinkingWordRotation(dots, persona) {
   //: changes several times a minute read aloud each time would be noise, not
   //: help, so the word is decorative.
   wordEl.setAttribute("aria-hidden", "true");
-  wordEl.style.minWidth = thinkingWordMinWidth(list);
+  //: No reserved width: sized to the longest phrase it pushed "Thinking" and
+  //: the tips far to the right (the owner at release, twice). The word sits
+  //: last in its row, so a shorter or longer phrase moves nothing after it.
   wordEl.textContent = list[0];
   dots.appendChild(wordEl);
   //: The first word arrives the same way every later one does (a frame after

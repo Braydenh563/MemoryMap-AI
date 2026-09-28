@@ -30,6 +30,7 @@ THREAD_SITES = {
     "__main__.py": 2,  # the desktop window's server thread and the tray icon
     "ai/autonomous.py": 2,
     "ai/embeddings.py": 2,
+    "ai/janitor.py": 1,  # the filing deadline: runs *on* the model lane, so it cannot queue there
     "ai/model_manager.py": 2,
     "api/app.py": 1,
     "api/routes_models.py": 1,

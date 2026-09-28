@@ -459,18 +459,16 @@ BLOCKING_MODEL_DEADLINE_SECONDS = 180.0
 #: Background filing Settings can see (`/tasks`): the model answering past
 #: the wait, and the launch warm-up. Counted, not listed: neither has a name
 #: worth showing, and the rows say what they are.
-_activity = {"late": 0, "warming": False}
+_activity = {"late": 0}
 _activity_lock = threading.Lock()
 
 
 def activity_rows() -> list[dict]:
     rows = []
     with _activity_lock:
-        late, warming = _activity["late"], _activity["warming"]
+        late = _activity["late"]
     if late:
         rows.append(_row("filing-late", "Filing a note", f"waiting for {late} model answer(s) past the wait"))
-    if warming:
-        rows.append(_row("filing-warmup", "Warming up the filing model", ""))
     return rows
 
 
@@ -531,8 +529,6 @@ def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None
     try:
         if not ollama.is_running():
             return
-        with _activity_lock:
-            _activity["warming"] = True
         _chat_within_deadline(
             ollama,
             model_manager.utility_model(),
@@ -542,9 +538,6 @@ def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None
         logger.info("janitor: filing model warmed up")
     except Exception as exc:  # noqa: BLE001
         logger.warning("janitor: couldn't warm the filing model (%s)", safe_value(str(exc), 200))
-    finally:
-        with _activity_lock:
-            _activity["warming"] = False
 
 
 def _chat_within_deadline(

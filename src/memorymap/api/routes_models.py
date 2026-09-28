@@ -181,6 +181,28 @@ def _builtin_embedding_install_state() -> dict:
         )
         return {"builtin_embedding_installed": True, "builtin_embedding_installing": False}
 
+
+@router.post("/models/warm-filing")
+def warm_filing() -> dict:
+    """Load the filing model and re-ask for notes left as stand-ins when the
+    app last closed. Asked for by the page once it is unlocked, not at app
+    construction, where it ran for every test app. Both are pool jobs: the
+    warm-up on the cpu lane so a note saved meanwhile is not queued behind
+    it, the retry on the model lane with the filing it belongs to."""
+    from memorymap.ai import janitor
+    from memorymap.api import routes_entries
+    from memorymap.core import jobs
+
+    jobs.enqueue(
+        "warm-filing",
+        janitor.warm_filing_model,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+        dedupe_key="warm-filing",
+    )
+    jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
+    return {"status": "ok"}
+
 @router.get("/status")
 def status() -> dict:
     """One call that tells the UI everything: is Ollama up, what's

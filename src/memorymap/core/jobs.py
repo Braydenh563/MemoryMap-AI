@@ -90,6 +90,7 @@ LABELS: dict[str, str] = {
     "vision": "Reading an image with the vision model",
     "vision-pdf": "Reading a scan with the vision model",
     "file-entry": "Filing a note",
+    "warm-filing": "Warming up the filing model",
 }
 
 

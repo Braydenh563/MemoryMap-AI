@@ -6,6 +6,7 @@ absent turns into flags in /models/status, never an error.
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Literal
 
@@ -163,6 +164,23 @@ def _warm_capabilities(client, model: str) -> None:
     threading.Thread(target=run, name=f"capabilities-{model}", daemon=True).start()
 
 
+
+def _builtin_embedding_install_state() -> dict:
+    from memorymap.core import extras
+
+    try:
+        extra = extras.EXTRAS_BY_ID["semantic"]
+        state = extras.current()
+        return {
+            "builtin_embedding_installed": bool(extras.is_installed(extra)),
+            "builtin_embedding_installing": bool(state.running and state.extra_id == "semantic"),
+        }
+    except Exception:  # noqa: BLE001 - a status field must never fail the status
+        logging.getLogger(__name__).warning(
+            "couldn't read the built-in search model's install state", exc_info=True
+        )
+        return {"builtin_embedding_installed": True, "builtin_embedding_installing": False}
+
 @router.get("/status")
 def status() -> dict:
     """One call that tells the UI everything: is Ollama up, what's
@@ -290,6 +308,16 @@ def status() -> dict:
         # The UI used to hard-code the built-in name and was two model
         # changes out of date.
         "active_embedding_model": embeddings.active_model(),
+        # The built-in option's own name, whichever backend is active: the
+        # built-in radio used to be labelled with `active_embedding_model`,
+        # so with Ollama in use it named the Ollama model (owner's
+        # screenshot, 0.3.31: "Built-in (recommended): mxbai-embed-large").
+        "builtin_embedding_model": embeddings_module.DEFAULT_ST_MODEL,
+        # Whether the built-in model's package is here, and whether the
+        # one-time install of it is running: the app installs
+        # sentence-transformers by itself the first time the built-in model
+        # is needed, and said so only in the log.
+        **_builtin_embedding_install_state(),
         "embedding_ready": embeddings.is_ready(),
         # Lets the UI tell "still loading" from "failed" (pill fix).
         "embedding_warming": embeddings_module.warmup_running(),

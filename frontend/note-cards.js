@@ -1415,6 +1415,48 @@ function entryItem(entry, options = {}) {
     //: Quiet, because a toast for a note saved minutes ago is noise, and
     //: deduped by id inside `watchFiling`.
     watchFiling(entry, { quiet: true });
+    //: **Stop it by hand** (owner, 0.3.31: "a manual way to stop note
+    //: filing ... accessible on the filing note"). The same stop is on the
+    //: filing rows of Settings, Background tasks and the activity popup.
+    if (options.actions) {
+      const stop = (action, done) => async () => {
+        try {
+          const result = await apiJson(`/entries/${entry.id}/filing/stop`, {
+            method: "POST",
+            body: JSON.stringify({ action }),
+          });
+          toast(done(result.category));
+        } catch (error) {
+          toast(error.message, true);
+        }
+        await loadEntries();
+      };
+      meta.appendChild(
+        kebabMenu(
+          [
+            {
+              label: "ph:magic-wand File by meaning now",
+              title: "Stop waiting for Atlas and file it by what it's about",
+              run: stop("fallback", (category) => `Filed under “${category}” by meaning.`),
+            },
+            {
+              label: "ph:hand-palm Leave it where it is",
+              title: `Stop filing; it stays in “${entry.category}”`,
+              run: stop("keep", (category) => `Left in “${category}”.`),
+            },
+            {
+              label: "ph:folder-simple File it myself",
+              title: "Stop filing, then pick its category yourself",
+              run: stop(
+                "keep",
+                () => "Filing stopped. Drag it onto a category in the sidebar, or edit it to pick one."
+              ),
+            },
+          ],
+          "Stop filing this note"
+        )
+      );
+    }
   } else {
     //: `category` names the chip for the meta line's own styles (08-
     //: consistency.css, "one line of facts"): before it had a class, the

@@ -123,6 +123,17 @@ app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The
 first run takes a few minutes; after that it goes straight to launching, and
 only re-installs when `requirements.txt` changes.
 
+**The first launch also fetches the search model's package.** The built-in
+search model (filing and search by meaning) needs `sentence-transformers`.
+Wherever it is missing, the packaged Windows and Linux apps included, the app
+installs it by itself the first time the model is needed: a one-time
+download of several hundred MB (more on Windows, where it brings torch) that
+needs the internet and can take several minutes. Settings, Models, Search
+engine says when it is running, and Settings, Background tasks shows it. To
+skip it, install [Ollama](https://ollama.com), run
+`ollama pull nomic-embed-text`, and choose that model under Ollama embedding
+model in the same place.
+
 **Losing track of the folder is the single most common stumbling block
 here**, so every launch prints exactly where it is running from and the
 command to get back, right above the browser opening:

@@ -918,9 +918,35 @@ function renderEmbeddingPicker(status) {
   // no download" was wrong on both counts: it fetches ~130 MB from Hugging
   // Face the first time, which is a long quiet wait to have described as
   // needing nothing.
-  $("builtin-model-name").textContent = status.active_embedding_model
-    ? `${status.active_embedding_model}, downloaded once on first use`
-    : "downloaded once on first use";
+  //: Its own name, and whether it is the one in use: the label used to
+  //: carry the *active* model's name, so with Ollama in use the built-in
+  //: option named the Ollama model and nothing said which one was working
+  //: (owner, 0.3.31: "idk if it is using the built in one or not").
+  const builtinName = status.builtin_embedding_model || "the built-in model";
+  $("builtin-model-name").textContent =
+    status.embedding_backend === "ollama"
+      ? `${builtinName}, downloaded once on first use`
+      : `${builtinName}, in use`;
+  //: The built-in model needs the sentence-transformers package, which the
+  //: app installs by itself, once, the first time it is needed: a download
+  //: of several hundred MB that needs the internet. Said here, with the
+  //: alternative that needs neither Python packages nor that download.
+  const note = $("builtin-embed-note");
+  if (note) {
+    let text = "";
+    if (status.builtin_embedding_installing) {
+      text =
+        "Installing sentence-transformers for the built-in model. This happens once and " +
+        "can take several minutes. Prefer not to wait? Pick nomic-embed-text from Ollama below.";
+    } else if (status.builtin_embedding_installed === false) {
+      text =
+        "The built-in model needs sentence-transformers, which the app installs by itself " +
+        "the first time it is needed (a one-time download that needs the internet). " +
+        "Or pick nomic-embed-text from Ollama below instead.";
+    }
+    note.textContent = text;
+    note.classList.toggle("hidden", !text);
+  }
   // The backend radios only reflect the saved value while the user has no
   // pending choice of their own.
   //
@@ -1014,10 +1040,14 @@ function syncEmbeddingPickerState(offline) {
       : "Only used when the backend above is set to Ollama. The built-in one is in use";
   const apply = $("embedding-apply");
   if (!apply) return;
-  apply.disabled = down || !usingOllama;
+  //: **Enabled for the built-in choice too.** It was disabled whenever
+  //: Built-in was picked, so switching back from an Ollama model could never
+  //: be applied: the backend stayed on Ollama and that model stayed "in use"
+  //: and could not be removed (owner, 0.3.31).
+  apply.disabled = usingOllama && down;
   apply.title = usingOllama
     ? "Re-read every note with this model"
-    : "Choose the Ollama backend above to use a model from here";
+    : "Switch to the built-in model and re-read every note with it";
 }
 
 // The button lives in index.html (see `#reindex-box`) rather than being built

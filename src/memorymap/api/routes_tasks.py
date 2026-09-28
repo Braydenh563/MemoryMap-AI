@@ -22,6 +22,7 @@ and records endings only, see `core/taskhistory.py`.
 
 from __future__ import annotations
 
+import logging
 import time
 
 from fastapi import APIRouter
@@ -271,8 +272,25 @@ def collect() -> list[dict]:
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
     for task in tasks:
-        task["cancellable"] = task["kind"] in bgtasks.CANCELLABLE_KINDS
+        task["cancellable"] = task["kind"] in bgtasks.CANCELLABLE_KINDS or task["kind"] in FILING_KINDS
     return tasks
+
+
+#: The filing rows (the pool's "Filing a note" and janitor's late-answer
+#: row), stopped here rather than through `bgtasks.CANCELLERS`: those also
+#: run at shutdown (`bgtasks.stop_all`), and quitting the app must not file
+#: every waiting note by meaning and take it out of Atlas's hands.
+FILING_KINDS = frozenset({"job-file-entry", "filing-late"})
+
+
+def _stop_filing() -> tuple[bool, str]:
+    from memorymap.api.routes_entries import stop_all_filing
+
+    count = stop_all_filing("fallback")
+    if not count:
+        return False, "Nothing is filing."
+    return True, f"Stopped filing {count} note(s): filed by meaning where one matched."
+
 
 
 @router.get("/tasks")
@@ -312,6 +330,13 @@ def cancel_task(body: CancelTaskBody) -> dict:
     time a click arrives the job it was about may genuinely be over. The
     honest response is `stopped: false` and a sentence saying so.
     """
+    if body.kind.strip() in FILING_KINDS:
+        try:
+            stopped, detail = _stop_filing()
+        except Exception:  # noqa: BLE001 - a failed stop is a message, not a 500
+            logging.getLogger(__name__).warning("couldn't stop filing", exc_info=True)
+            stopped, detail = False, "Couldn't stop filing, see Settings → Logs."
+        return {"status": "ok", "stopped": stopped, "detail": detail}
     stopped, detail = bgtasks.cancel(body.kind.strip(), body.name.strip())
     return {"status": "ok", "stopped": stopped, "detail": detail}
 

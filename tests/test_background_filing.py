@@ -9,6 +9,8 @@ that has already settled does nothing.
 
 import time
 
+import pytest
+
 from memorymap.api import routes_entries
 from memorymap.core import jobs
 from memorymap.core.database import Entry
@@ -71,12 +73,9 @@ def test_a_slow_model_does_not_hold_filing_past_the_deadline(monkeypatch):
             return {"content": '{"category": "Late"}'}
 
     started = time.time()
-    try:
+    with pytest.raises(TimeoutError):
         janitor._chat_within_deadline(_Slow(), "m", [], deadline=0.3)
-        raised = False
-    except TimeoutError:
-        raised = True
-    assert raised and time.time() - started < 2
+    assert time.time() - started < 2
 
 
 def test_filing_asks_the_model_in_quick_mode():
@@ -144,13 +143,11 @@ def test_a_late_reply_reaches_the_callback():
             return {"content": '{"category": "Late", "confidence": 70}'}
 
     seen = []
-    try:
+    with pytest.raises(TimeoutError):
         janitor._chat_within_deadline(
             _Slow(), "m", [], deadline=0.1,
             on_late=lambda reply: (seen.append(reply), got.set()),
         )
-    except TimeoutError:
-        pass
     assert got.wait(3) and "Late" in seen[0]["content"]
 
 
@@ -168,3 +165,44 @@ def test_the_wait_is_a_clamped_preference(monkeypatch):
     for value, expected in ((None, 15.0), (30, 30.0), (1, 5.0), (500, 60.0)):
         monkeypatch.setattr(deps, "get_config", lambda v=value: _Cfg(v))
         assert janitor.filing_deadline() == expected
+
+
+def _pending_note(client, monkeypatch, content):
+    monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
+    created = client.post("/entries", json={"content": content, "defer_filing": True}).json()
+    monkeypatch.undo()
+    return created
+
+
+def test_stopping_leaves_a_note_where_it_is_and_no_late_answer_moves_it(client, session, monkeypatch):
+    # Queue nothing, so the note stays pending until it is stopped.
+    monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
+    created = client.post("/entries", json={"content": "stop me", "defer_filing": True}).json()
+    stopped = client.post(f"/entries/{created['id']}/filing/stop", json={"action": "keep"}).json()
+    assert stopped["stopped"] is True
+    status = client.get(f"/entries/{created['id']}/filing").json()
+    assert status["filing_state"] == "done"
+    late = routes_entries._LateFiling(created["id"], "default")
+    late.stand_in(status["category"], 0, "none")
+    late.arrived("Somewhere else", 90)
+    assert _category_of(client, created["id"]) == status["category"]
+
+
+def test_stop_rejects_an_unknown_action(client):
+    created = client.post("/entries", json={"content": "x", "category": "A"}).json()
+    assert client.post(f"/entries/{created['id']}/filing/stop", json={"action": "nope"}).status_code == 422
+
+
+def test_the_background_tasks_stop_files_every_pending_note(client, monkeypatch):
+    from memorymap.core import bgtasks
+
+    monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
+    ids = [
+        client.post("/entries", json={"content": f"note {i}", "defer_filing": True}).json()["id"]
+        for i in range(2)
+    ]
+    answer = client.post("/tasks/cancel", json={"kind": "job-file-entry"}).json()
+    assert answer["stopped"], answer
+    assert "job-file-entry" not in bgtasks.CANCELLERS  # never stopped at shutdown
+    for entry_id in ids:
+        assert client.get(f"/entries/{entry_id}/filing").json()["filing_state"] == "done"

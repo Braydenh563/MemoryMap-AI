@@ -362,6 +362,11 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # The model answered after the deadline but before the
                 # stand-in was decided: its answer is used instead.
                 category, confidence, filed_by = late.stand_in(category, confidence, filed_by)
+                # Stopped by hand while this ran (`stop_filing`): the
+                # person's choice stands, this pass writes nothing.
+                session.refresh(entry)
+                if (getattr(entry, "filing_state", "") or "") != "pending":
+                    return
                 manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # `auto` rather than `done` when the AI is the one that
@@ -693,6 +698,76 @@ def open_daily_note(day: str, session: Session = Depends(get_session)) -> EntryO
     # the note that won rather than its own duplicate.
     settled = _daily_note(session, wanted)
     return _to_out(session, settled if settled is not None else entry)
+
+FILING_STOP_ACTIONS = ("keep", "fallback")
+
+
+def stop_filing(session: Session, entry, action: str) -> str:  # noqa: ANN001
+    """Stop filing one note by hand (owner, 0.3.31: "a manual way to stop
+    note filing and to just do it manually or leave what has already been
+    done, or to just use the fall back"). `keep` leaves it where it is,
+    `fallback` files it by meaning now (no chat model). Either way the note
+    is marked as the person's to file, so a model answer that lands later
+    (`_LateFiling`) or a job still queued for it writes nothing. Returns the
+    category it ends in."""
+    if action == "fallback":
+        match = janitor._semantic_category(
+            session,
+            manager.readable_content(entry),
+            deps.get_embeddings(),
+            exclude_entry_id=entry.id,
+        )
+        if match is not None:
+            manager.record_filing(session, entry, match[0])
+            entry.ai_confidence = match[1]
+    entry.user_filed = True
+    entry.filing_state = "done"
+    session.commit()
+    return manager.category_name_for(session, entry)
+
+
+class FilingStopBody(BaseModel):
+    action: str = "keep"
+
+
+@router.post("/{entry_id}/filing/stop")
+def stop_filing_one(
+    entry_id: int, body: FilingStopBody, session: Session = Depends(get_session)
+) -> dict:
+    if body.action not in FILING_STOP_ACTIONS:
+        raise HTTPException(status_code=422, detail="action must be keep or fallback")
+    entry = _existing_entry(session, entry_id)
+    if (getattr(entry, "filing_state", "") or "") != "pending":
+        return {"id": entry.id, "stopped": False, "category": manager.category_name_for(session, entry)}
+    category = stop_filing(session, entry, body.action)
+    return {"id": entry.id, "stopped": True, "category": category}
+
+
+def stop_all_filing(action: str = "fallback") -> int:
+    """Every note still filing, in every space: the Stop on the filing rows
+    of Settings, Background tasks and the activity popup. Each note is
+    stopped in its own space, so the fallback weighs that space's
+    categories only. Returns how many were stopped."""
+    from memorymap.core.deps import impersonate_workspace
+
+    stopped = 0
+    with deps.get_db().session() as session:
+        pending = [
+            (row.id, getattr(row, "workspace_id", "default") or "default")
+            for row in session.query(Entry).filter(Entry.filing_state == "pending").all()
+        ]
+    for entry_id, workspace_id in pending:
+        try:
+            with deps.get_db().session() as session:
+                with impersonate_workspace(session, workspace_id):
+                    entry = session.get(Entry, entry_id)
+                    if entry is not None and entry.filing_state == "pending":
+                        stop_filing(session, entry, action)
+                        stopped += 1
+        except Exception:
+            logger.warning("couldn't stop filing entry %s", entry_id, exc_info=True)
+    return stopped
+
 
 @router.get("/{entry_id}/filing")
 def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dict:

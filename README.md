@@ -189,6 +189,15 @@ carry the executable bit, and some archive managers unpack the launcher
 without it, which leaves you with a file that will not start and no
 explanation.
 
+**The first launch downloads the search model.** Search by meaning and
+filing by meaning use a built-in model that needs the `sentence-transformers`
+package. If it is not installed yet, the app installs it by itself the first
+time it needs it: a one-time download of several hundred MB (more on
+Windows, where it brings torch), which needs the internet and can take
+several minutes. Settings, Models, Search engine says when it is running.
+Offline, or rather not? Install [Ollama](https://ollama.com), run
+`ollama pull nomic-embed-text`, and pick it there instead.
+
 **macOS, or from source on any platform.** Clone the repository and run
 `./start-desktop.sh` (on Windows, double-click `start-desktop.bat`), or
 `./start.sh` for a browser tab. The launcher builds a private Python

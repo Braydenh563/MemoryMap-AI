@@ -222,9 +222,15 @@ def test_the_cancel_endpoint_answers_rather_than_erroring(ai_client):
 
 
 def test_the_task_list_marks_the_kinds_that_can_be_quit(ai_client):
+    from memorymap.api import routes_tasks
+
+    # The filing rows are stopped by `/tasks/cancel` itself, not a canceller:
+    # `bgtasks.stop_all` runs every canceller at shutdown, and quitting must
+    # not file every waiting note by meaning (routes_tasks.FILING_KINDS).
+    quittable = bgtasks.CANCELLABLE_KINDS | routes_tasks.FILING_KINDS
     body = ai_client.get("/tasks").json()
     for task in body["tasks"]:
-        assert task["cancellable"] == (task["kind"] in bgtasks.CANCELLABLE_KINDS)
+        assert task["cancellable"] == (task["kind"] in quittable)
 
 
 def test_the_warmup_says_why_it_has_no_quit_button():

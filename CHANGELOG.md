@@ -11,6 +11,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Filing can be stopped by hand: the "Filing…" chip on a note has File by meaning now, Leave it where it is, and File it myself; the filing rows in Settings, Background tasks and the activity popup have Stop, which files every waiting note by meaning. A stopped note is yours, so a late model answer never moves it. Quitting the app does not stop filing.
+- Switching the search engine back to the built-in model works: Apply & re-index was disabled whenever Built-in was picked, so the Ollama model stayed in use and could not be removed. The built-in option now names its own model and says when it is the one in use.
+- The one-time automatic install of sentence-transformers for the built-in search model is shown in Settings, Models, with nomic-embed-text from Ollama offered as the alternative; README and INSTALL say it happens on first launch.
 - Deleting a space no longer fails with "FOREIGN KEY constraint failed": every table that points at the space's notes (their scores and derived facts were missed) is cleared first, found from the database schema rather than a hand-kept list.
 - A new note no longer looks like it is filing forever. The page kept checking for only 26 seconds and never refreshed the card after that; it now watches until the note settles, and the line under the composer says where it went. A note left filing when the app closed is filed on the next launch.
 - Filing takes seconds, not minutes, without giving up accuracy: the model is asked with thinking off and a short reply; past the wait (15 seconds, adjustable in Settings, Automation, 5 to 60, with a reset) the note is filed by meaning at once, and the model's answer replaces that when it arrives, unless you moved the note yourself. The filing model is warmed up at launch. The card settles as soon as the category is known, before the note's search vector is built.

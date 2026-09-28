@@ -7971,6 +7971,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
                 <span>Built-in (recommended): <span id="builtin-model-name" class="muted">…</span></span>
               </label>
+              <!-- The one-time install of sentence-transformers, which the app
+                   starts by itself the first time the built-in model is needed
+                   (embeddings._maybe_auto_install_missing_package). -->
+              <p id="builtin-embed-note" class="muted small hidden" role="status"></p>
               <label class="check-row">
                 <input type="radio" name="emb-backend" value="ollama">
                 <span>Ollama embedding model</span>

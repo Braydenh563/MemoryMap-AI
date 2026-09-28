@@ -246,15 +246,14 @@ def test_uninstall_never_names_the_notes_folder():
     assert 'filesandordirs; Name: "{app}\\data"' not in section
 
 
-def test_the_packaged_exe_shows_a_splash_before_python_starts():
-    """Owner: "still no splash on the windows exe packaged application". The
-    bootloader draws it (PyInstaller's Splash), and __main__ closes it when
-    the window is shown; a sleep in the in-window page was the wrong fix."""
+def test_the_packaged_exe_has_no_tk_splash():
+    """The bootloader Splash is a Tcl/Tk window, and on the owner's first
+    packaged run it failed and left Tk's empty "tk" root window on screen
+    (0.3.3). It is off; the app's own loading window says what the launch is
+    doing, and the hooks that drove the old card stay as harmless no-ops."""
     text = SPEC_PATH.read_text(encoding="utf-8")
-    assert "splash = Splash(" in text
-    assert "    splash,\n    a.scripts," in text
-    assert "splash.binaries," in text
-    assert (SPEC_PATH.parent / "splash.png").is_file()
-    main = (SPEC_PATH.parents[2] / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
-    assert "window.events.shown += _close_bootloader_splash" in main
-    assert "time.sleep(1.5)" not in main
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    assert "Splash(" not in code
+    assert "splash.binaries" not in code
+    main = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+    assert "html=_loading_html()" in main

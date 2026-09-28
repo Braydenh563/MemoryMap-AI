@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.3.31] - 2026-09-28
+
+### Fixed
+
+- Improve writing starts when you press Start, not as soon as it opens or a mode is picked; its two buttons share a height and the chosen mode has round corners.
+- The Windows installer's optional packages page lays each row out by its measured height, so the text no longer overlaps at 125% display scaling.
+- The packaged Windows app no longer shows a blank window titled "tk" at launch: the bootloader splash (a Tcl/Tk window that failed to draw) is off, and the app's own loading window shows the launch.
+
 ### Changed
 - A sleeping companion stays asleep: a click near it is only a twitch, a tab switch or a move carries it asleep and it arrives lying or curled, and the app's news no longer pulls it upright. Poked, it wakes over a few seconds with a yawn and stays up; poked again while still waking it pouts, and a third time it is grumpy for half a minute before coming down through a pout.
 - The companion does something sudden or large (a wave, a hop, a cheer, a wander) at most once a minute or so, and never while you type or scroll.

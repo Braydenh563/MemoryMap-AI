@@ -135,35 +135,19 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# **A splash from the bootloader, before Python exists** (owner: "still no
-# splash on the windows exe packaged application"). start.bat has
-# scripts/splash.ps1 for its pre-Python phase; the packaged exe had nothing
-# on screen from the double-click until pywebview's window, which is the
-# whole cold import of this folder (seconds on a first launch with a virus
-# scanner reading every DLL). PyInstaller's Splash is drawn by the
-# bootloader itself, so it is up before any of that; `__main__.py`
-# (`_close_bootloader_splash`) takes it down when the app window is shown.
-# splash.png is a still card, the way Adobe's are: no drawn progress bar,
-# because the bootloader cannot move one and a bar that never moves reads as
-# a hang (the owner, 2026-09-24: "you may as well not have one at all if it
-# is just a picture with a non moving scroll bar"). What moves is the status
-# line under the rule, drawn by the bootloader at `text_pos` and updated by
-# `__main__._splash_status` as the app reaches each step.
-splash = Splash(
-    str(Path(SPECPATH) / "splash.png"),
-    binaries=a.binaries,
-    datas=a.datas,
-    text_pos=(36, 214),
-    text_size=10,
-    text_color="#a9a8a4",
-    text_font="Segoe UI",
-    text_default="Starting...",
-    always_on_top=False,
-)
+# **Off, after the first packaged run** (the owner, 0.3.3 on Windows: "the
+# windows splash doesn't work" and a blank window titled "tk" with Tk's
+# feather icon for a couple of seconds). PyInstaller's Splash is a Tcl/Tk
+# window: when its script fails on the user's machine, Tk's empty root is
+# what is left on screen. The app's own loading window (`_loading_html`,
+# opened as soon as Python runs) already says what the launch is doing,
+# so the bootloader card is dropped rather than patched blind. A
+# pre-Python card that is tested on Windows is carry-over for 0.3.4.
+# `_splash_status` and `_close_bootloader_splash` stay: both are no-ops
+# when `pyi_splash` does not exist.
 
 exe = EXE(
     pyz,
-    splash,
     a.scripts,
     [],
     exclude_binaries=True,
@@ -189,7 +173,6 @@ exe = EXE(
 # ship for v1.
 coll = COLLECT(
     exe,
-    splash.binaries,
     a.binaries,
     a.zipfiles,
     a.datas,

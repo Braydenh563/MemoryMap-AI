@@ -96,25 +96,16 @@ work starts.
     app end to end (install, first run, update, uninstall) in a scratch
     copy; and add close and minimise buttons to the packaged app's splash
     window (the owner at release).
-10c. **Last requests at release, not done (0.3.4, top of the list):**
-    (1) custom select menus narrower than their trigger (Library "Items per
-    page"): every `enhanceSelect` menu at least the trigger's width;
-    (2) the notifications panel's unread dot is clipped at the row's left
-    edge (`.notif-unread`, 06-timeline-dialogs.css ~2065);
-    (3) chat "Ask again:" chips: history icon and text not vertically
-    centred;
-    (4) the Web search sidebar's "..." button appears seconds after the
-    sidebar opens (built after an async status fetch; build it with the head);
-    (5) "Name with Atlas" (chat sidebar menu, sheets-selects.js ~1631) shows
-    no progress or result: a naming state on the row and a toast when done;
-    (6) dragging the companion to hang from the top bar drops it onto the
-    elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
-    edge should give a `hang` spot);
-    (7) the companion's chat sidebar perch (see 10 l);
-    (8) graph labels: with Labels on the map is busy; consider labelling
-    only notes with 2+ links unless zoomed in.
-    Done at release: thinking words rotate 1.5x slower; "Writing the answer"
-    sits beside the dots with the tips under them.
+10d. **From the owner's first run of the packaged Windows app (0.3.4,
+    first of all):** (1) the bootloader splash is off in 0.3.31 (it drew a
+    blank "tk" window); a pre-Python card tested on Windows is still wanted;
+    (2) no sign for a desktop user whether the app is starting, started or
+    failed, and a port already in use prints logs to a console only: show
+    launch progress and errors in the window or a dialog, and say plainly
+    when it moved to another port; (3) a fresh dashboard says 9 widgets are
+    on it but draws none until a note exists, and scrolls far past its empty
+    content: draw every widget's empty state and fit the page to its
+    content; (4) on an empty dashboard, offer a recommended layout in a popup.
 10c. **Last requests at release, not done (0.3.4, top of the list):**
     (1) custom select menus narrower than their trigger (Library "Items per
     page"): every `enhanceSelect` menu at least the trigger's width;

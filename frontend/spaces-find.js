@@ -518,6 +518,27 @@ function openSpaceEdit(id, name, icon) {
 function openSpaceDelete(id) {
   $("space-delete-id").value = id;
   $("space-delete-error").textContent = "";
+  //: Delete everything, or move it all to another space first (owner,
+  //: 0.3.31). Deleting is the first option because it is what the button
+  //: has always done; every other space is offered as a move.
+  const fate = $("space-delete-fate");
+  fate.replaceChildren();
+  const wipe = document.createElement("option");
+  wipe.value = "";
+  wipe.textContent = "Delete everything in it";
+  fate.appendChild(wipe);
+  for (const space of spacesCache) {
+    if (space.id === id || space.id === "all") continue;
+    const option = document.createElement("option");
+    option.value = space.id;
+    option.textContent = `Move everything to ${space.name}`;
+    fate.appendChild(option);
+  }
+  const sync = () => {
+    $("space-delete-submit").textContent = fate.value ? "Move and delete space" : "Delete space and contents";
+  };
+  fate.onchange = sync;
+  sync();
   $("space-delete-dialog").showModal();
 }
 
@@ -641,7 +662,10 @@ function initSpaceSwitcher() {
     const error = $("space-delete-error");
     error.textContent = "";
     try {
-      await apiJson(`/spaces/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const moveTo = $("space-delete-fate").value;
+      const query = moveTo ? `?move_to=${encodeURIComponent(moveTo)}` : "";
+      await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" });
+      if (moveTo) await loadEntries();
       $("space-delete-dialog").close();
       // Standing in the space you just deleted has to move you somewhere real,
       // and reload() alone would leave the header naming a space that is gone.

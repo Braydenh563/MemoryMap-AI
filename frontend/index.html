@@ -700,12 +700,16 @@
 
   <dialog id="space-delete-dialog" class="card space-dialog">
     <h3>Delete this space?</h3>
-    <p>Its notes are not deleted, they move to the Default space, so nothing is lost. The space itself goes away.</p>
+    <p>Choose what happens to its notes, documents, files and chats.</p>
+    <label for="space-delete-fate" class="form-label">Its contents</label>
+    <select id="space-delete-fate" class="wide">
+      <option value="">Delete everything in it</option>
+    </select>
     <input type="hidden" id="space-delete-id">
     <p id="space-delete-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
       <button type="button" class="ghost" data-close-dialog="space-delete-dialog">Cancel</button>
-      <button type="button" class="danger" id="space-delete-submit">Move notes and delete</button>
+      <button type="button" class="danger" id="space-delete-submit">Delete space</button>
     </div>
   </dialog>
 

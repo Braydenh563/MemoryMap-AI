@@ -104,6 +104,33 @@ def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depend
     return space
 
 
+def _move_space_contents(session: Session, source: str, target: str) -> None:
+    """Every row of `source` becomes `target`'s. Categories are the one
+    per-space unique name: a category the target already has is merged
+    into it (its notes re-pointed, the duplicate dropped); the rest move."""
+    with impersonate_workspace(session, source):
+        doomed = session.query(Category).filter(Category.workspace_id == source).all()
+    with impersonate_workspace(session, target):
+        existing = {
+            c.name: c.id
+            for c in session.query(Category).filter(Category.workspace_id == target).all()
+        }
+    for category in doomed:
+        if category.name in existing:
+            session.execute(
+                sa_update(Entry.__table__)
+                .where(Entry.__table__.c.category_id == category.id)
+                .values(category_id=existing[category.name])
+            )
+            _detach_references(session, Category.__table__, [category.id])
+            session.execute(sa_delete(Category.__table__).where(Category.__table__.c.id == category.id))
+    for model in workspace_scoped_models():
+        table = model.__table__
+        session.execute(
+            sa_update(table).where(table.c.workspace_id == source).values(workspace_id=target)
+        )
+
+
 def _detach_references(session: Session, table, ids: list, depth: int = 0) -> None:  # noqa: ANN001
     """Clear every foreign key that points at `ids` in `table`: set a nullable
     one to NULL, delete the row holding a required one (and, for that row,
@@ -135,10 +162,32 @@ def _detach_references(session: Session, table, ids: list, depth: int = 0) -> No
 
 
 @router.delete("/spaces/{space_id}", response_model=SpaceResponse)
-def delete_space(space_id: str, session: Session = Depends(get_session)):
+def delete_space(
+    space_id: str,
+    move_to: str | None = None,
+    session: Session = Depends(get_session),
+):
+    """Delete a space and everything in it, or, with `move_to`, move
+    everything in it to that space first (owner, 0.3.31: "the option to
+    delete all its contents, and the other to move its contents to a
+    different space")."""
     if space_id in RESERVED_SPACE_IDS:
         raise HTTPException(400, "Cannot delete default spaces")
     space = deps.get_or_404(session, Space, space_id, "Space not found")
+    if move_to:
+        if move_to == space_id:
+            raise HTTPException(400, "Pick a different space to move its contents to")
+        deps.get_or_404(session, Space, move_to, "The space to move to was not found")
+        response = SpaceResponse.model_validate(space)
+        _move_space_contents(session, space_id, move_to)
+        session.delete(space)
+        session.commit()
+        from memorymap.search import index as search_index
+
+        # Every moved row's index entry still names the old space.
+        search_index.rebuild(session)
+        session.commit()
+        return response
 
     # Capture the response body before deleting: reading attributes off an
     # instance after session.delete()+commit() raises ObjectDeletedError,

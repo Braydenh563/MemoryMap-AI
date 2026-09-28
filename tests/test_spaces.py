@@ -313,3 +313,33 @@ def test_deleting_a_space_clears_every_table_that_points_at_its_notes(client, se
     assert response.status_code == 200, response.text
     session.expire_all()
     assert session.get(Entry, note["id"]) is None
+
+
+def test_deleting_a_space_can_move_its_contents_to_another(client, session):
+    """Owner, 0.3.31: delete a space's contents, or move them to a different
+    space. A category both spaces have is merged, not duplicated."""
+    from memorymap.core.database import Category, Entry
+
+    source = client.post("/spaces", json={"name": "Old"}).json()["id"]
+    target = client.post("/spaces", json={"name": "New"}).json()["id"]
+    moved = client.post(
+        "/entries", json={"content": "moves along", "category": "Shared"},
+        headers={"X-Workspace-ID": source},
+    ).json()
+    only_here = client.post(
+        "/entries", json={"content": "own category", "category": "Only old"},
+        headers={"X-Workspace-ID": source},
+    ).json()
+    client.post(
+        "/entries", json={"content": "already there", "category": "Shared"},
+        headers={"X-Workspace-ID": target},
+    )
+    response = client.delete(f"/spaces/{source}?move_to={target}")
+    assert response.status_code == 200, response.text
+    session.expire_all()
+    for note in (moved, only_here):
+        assert session.get(Entry, note["id"]).workspace_id == target
+    shared = session.query(Category).filter(Category.name == "Shared").all()
+    assert len(shared) == 1 and shared[0].workspace_id == target
+    assert session.get(Entry, moved["id"]).category_id == shared[0].id
+    assert client.delete(f"/spaces/{target}?move_to={target}").status_code == 400

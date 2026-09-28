@@ -11,6 +11,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Deleting a space asks what happens to its contents: delete everything in it, or move everything to another space (a category both spaces have is merged). The dialog used to promise the notes moved to Default while the space's contents were deleted.
 - Filing can be stopped by hand: the "Filing…" chip on a note has File by meaning now, Leave it where it is, and File it myself; the filing rows in Settings, Background tasks and the activity popup have Stop, which files every waiting note by meaning. A stopped note is yours, so a late model answer never moves it. Quitting the app does not stop filing.
 - Switching the search engine back to the built-in model works: Apply & re-index was disabled whenever Built-in was picked, so the Ollama model stayed in use and could not be removed. The built-in option now names its own model and says when it is the one in use.
 - The one-time automatic install of sentence-transformers for the built-in search model is shown in Settings, Models, with nomic-embed-text from Ollama offered as the alternative; README and INSTALL say it happens on first launch.

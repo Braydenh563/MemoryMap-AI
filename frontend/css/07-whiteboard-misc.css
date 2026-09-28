@@ -9748,6 +9748,19 @@ header#top-bar > #tab-bar {
   display: none;
 }
 
+/* **And once the box is an editor view, the whole numbered area goes.** The
+   note surface (`mountNoteSurface`) moves the textarea inside
+   `.note-surface` as an invisible mirror, so the `>` rule above stopped
+   matching: Preview hid the mirror and left the view on screen above the
+   rendered panel, with the gutter collapsed to its 21px floor beside it
+   (measured at 1860x1100: wrap 176px tall, gutter 40x21, preview starting
+   under it at +176). Reported as "line numbers crushed" and the preview
+   drawn below the text instead of in its place. */
+.gutter-wrap:has(textarea.hidden),
+.note-surface:has(> textarea.hidden) {
+  display: none;
+}
+
 .gutter-wrap > .doc-gutter:not(.hidden) + textarea,
 textarea.has-gutter {
   white-space: pre;

@@ -1879,15 +1879,22 @@ progress {
   /* A frozen ring reads as a rendering fault, not "loading", the same trap
      AI_STATUS_GLYPH's own comment names ("a spinner has to be animated to
      read as one"). Swap the ring for a perfectly still ellipsis instead of
-     leaving a stuck circle on screen. */
-  .spinner {
+     leaving a stuck circle on screen.
+
+     **Not when progress motion is kept on.** `data-progress-motion="always"`
+     (02-chat-graph.css) puts the rotation back with `!important`, and it put
+     it back on this ellipsis: the three dots spun round together as one
+     glyph (the owner: "the 3 dots stay together like an elipse and arent
+     separate"). With that setting the ring is what should turn, so the
+     swap only happens when the motion is really off. */
+  :root:not([data-progress-motion="always"]) .spinner {
     width: auto;
     height: auto;
     border: none;
     animation: none;
   }
 
-  .spinner::before {
+  :root:not([data-progress-motion="always"]) .spinner::before {
     content: "…";
   }
 }

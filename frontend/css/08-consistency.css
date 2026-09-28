@@ -3636,6 +3636,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
   border-left: 0;
   position: relative;
+  /* The dot's own width plus a clear gap before the icon: at the plain
+     --space-3 the dot sat 0.1rem from the icon and read as touching it. */
+  padding-left: calc(0.4rem + var(--space-4));
 }
 
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {

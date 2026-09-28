@@ -5136,6 +5136,12 @@ select {
    screen, frozen on whatever it last said, once the answer starts writing. */
 .typing-dots[data-phase="writing"] .typing-thinking-word {
   opacity: 0;
+  /* And takes no room: hidden, it still held its reserved width, leaving a
+     wide gap between the writing trace and "Writing the answer" (release). */
+  min-width: 0;
+  max-width: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 /* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's

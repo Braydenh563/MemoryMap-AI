@@ -5118,7 +5118,8 @@ select {
    appear on the lines below and aligned to the left"). The status label
    stays beside the dots on their own row (the owner, 2026-09-28: "Writing
    the answer..." alone on a line under the dots read as a second message). */
-:is(.msg, .help-chat-msg) .progress-line > .progress-musing {
+:is(.msg, .help-chat-msg) .progress-line > .progress-musing,
+.progress-line.ask-progress > .progress-musing {
   grid-column: 1 / -1;
 }
 

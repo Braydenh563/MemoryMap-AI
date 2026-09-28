@@ -72,7 +72,7 @@ work starts.
     (h) the documents formatting toolbar: it overflows to a "..." menu by
     design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
     shows on keyboard focus;
-    (i) find the ResizeObserver in the Library's Files view that trips the
+    (i) done (library.js watchLibraryColumns defers a frame; verify the notice is gone in Files): find the ResizeObserver in the Library's Files view that trips the
     browser's "loop completed with undelivered notifications" notice (now
     filtered from the error log in app.js) and defer its write a frame.
     (j) the enlarged viewer: a generated face (not Atlas) stays on one

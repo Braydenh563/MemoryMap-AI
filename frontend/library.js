@@ -457,9 +457,14 @@ function libraryColumnCount(grid) {
 // only then: a resize that keeps the count moves nothing.
 function watchLibraryColumns(grid) {
   if (libraryColumnsObserver || typeof ResizeObserver !== "function") return;
+  // The re-deal waits a frame: rendering inside the callback resizes the
+  // grid it observes, which the browser reports as "ResizeObserver loop
+  // completed with undelivered notifications".
   libraryColumnsObserver = new ResizeObserver(() => {
-    if (!grid.clientWidth) return;
-    if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary({ quiet: true });
+    requestAnimationFrame(() => {
+      if (!grid.clientWidth) return;
+      if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary({ quiet: true });
+    });
   });
   libraryColumnsObserver.observe(grid);
 }

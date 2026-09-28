@@ -5213,6 +5213,7 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.perch = spot.kind || "";
   nmb.spot = spot;
   nmb.pinned = spot.kind === "pinned";
+  if (!nmb.pinned) nmb.tucked = false;
   clearTimeout(nmb.heldTimer);
   nameMarkBuddyGlue(spot, x, y);
   nmb.edgeType = spot.edge?.type || "";
@@ -7574,6 +7575,19 @@ function nameMarkBuddyMenu(buddy, at = null) {
       placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
     } });
   }
+  //: **Tuck it away for a while** (the owner at release: "a way to tuck it
+  //: away but still have it there"): it goes behind the status bar with
+  //: only its head showing, the bar perch's own `legs: "peek"`, and stays
+  //: there, on this page only and not saved, until it is clicked, dragged
+  //: or called back.
+  const { bottom } = nameMarkBuddyLedges();
+  if (bottom && !nmb.tucked) {
+    items.push({ group: "place", label: "ph:arrow-line-down Tuck behind the bar", run: () => {
+      const x = Math.max(NMB_GUTTER, Math.min(innerWidth - NMB_GUTTER - NMB_W, Math.round(buddy.getBoundingClientRect().left)));
+      nmb.tucked = true;
+      nameMarkBuddyMoveTo(buddy, { kind: "pinned", pose: "sit", legs: "peek", x, y: bottom.top - NMB_SEAT, edge: { el: document.getElementById("status-bar"), type: "top", kind: "bar", y: bottom.top } });
+    } });
+  }
   items.push({ group: "place", label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
   //: **Who it is, how Atlas looks, its size, and the settings behind them,
   //: one flyout each** (the owner: "extend this menu a bit maybe with
@@ -7911,6 +7925,15 @@ function nameMarkBuddyBuild() {
   face.addEventListener("click", () => {
     if (face.dataset.dragged) {
       delete face.dataset.dragged;
+      return;
+    }
+    //: Tucked behind the bar (the menu's "Tuck behind the bar"): a click
+    //: brings it back out, to a spot of its own choosing. A drag does the
+    //: same by moving it (`nameMarkBuddyMoveTo` clears the pin).
+    if (nmb.tucked) {
+      nmb.tucked = false;
+      nmb.pinned = false;
+      placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
       return;
     }
     const now = Date.now();

@@ -87,6 +87,7 @@ below). Versioning is `0.x` while the app stabilises.
   4.86:1 at the worst case, a white topic in dark theme.
 - Back and Forward return to a Settings section at the scroll position you left it.
 - The template picker has a Manage templates button that opens Settings, Templates.
+- The companion's menu has "Tuck behind the bar": it sits behind the status bar with its head showing until you click or drag it; its glow fades while it hides. Graph node sizes scale to the graph's busiest note.
 - The companion's far moves vary: a zip, a walk or, much further, a poof; its small steps are a hop, a shuffle or a scoot.
 - The README has a "Meet Atlas" section with its own portrait, every screenshot retaken, eight main features shown a second time in the dark theme beside a light/dark split, and a richer showcase notebook (clusters, hubs and loose notes, both AI-reasoned and plain links) behind the graph shot.
 - A word rotates beside the thinking dots in chat, capture Ask and the popup agent ("Pondering", "Leafing through your notes"), in the answering persona's own voice; Atlas gets a starlit set of its own, and every persona can write, or ask the AI to suggest, its own list in Settings, Personas. A new "Show thinking words" switch in Settings, Appearance turns it off.

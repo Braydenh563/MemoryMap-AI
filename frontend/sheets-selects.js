@@ -1629,6 +1629,10 @@ async function loadConversationList() {
     );
     items.push(
       makeMenuItem("ph:magic-wand Name with Atlas", "Let Atlas name this chat", async () => {
+        //: Asked for, so answered directly: the activity notice below obeys
+        //: "AI activity: panel only", and with that set the click showed
+        //: nothing at all, start or finish (the owner at release).
+        toast("Atlas is naming this chat…");
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -1637,6 +1641,7 @@ async function loadConversationList() {
         });
         if (!named) return;
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
+        toast(named.ai_named ? `Named “${named.title}”.` : "Kept the first question as the title.");
         //: The AI naming a conversation is activity, not something the user
         //: did: so it obeys the same "pop up, or only in the centre" choice
         //: as every other thing the AI does on its own.

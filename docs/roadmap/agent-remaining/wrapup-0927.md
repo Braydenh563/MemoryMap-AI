@@ -96,6 +96,25 @@ work starts.
     app end to end (install, first run, update, uninstall) in a scratch
     copy; and add close and minimise buttons to the packaged app's splash
     window (the owner at release).
+10c. **Last requests at release, not done (0.3.4, top of the list):**
+    (1) custom select menus narrower than their trigger (Library "Items per
+    page"): every `enhanceSelect` menu at least the trigger's width;
+    (2) the notifications panel's unread dot is clipped at the row's left
+    edge (`.notif-unread`, 06-timeline-dialogs.css ~2065);
+    (3) chat "Ask again:" chips: history icon and text not vertically
+    centred;
+    (4) the Web search sidebar's "..." button appears seconds after the
+    sidebar opens (built after an async status fetch; build it with the head);
+    (5) "Name with Atlas" (chat sidebar menu, sheets-selects.js ~1631) shows
+    no progress or result: a naming state on the row and a toast when done;
+    (6) dragging the companion to hang from the top bar drops it onto the
+    elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
+    edge should give a `hang` spot);
+    (7) the companion's chat sidebar perch (see 10 l);
+    (8) graph labels: with Labels on the map is busy; consider labelling
+    only notes with 2+ links unless zoomed in.
+    Done at release: thinking words rotate 1.5x slower; "Writing the answer"
+    sits beside the dots with the tips under them.
 10b. **More from the owner at release, not done:** (p) the Settings head's
     small avatar showed an older look (not reproduced; every look path calls
     `repaintOwnFace`; a repaint on Settings open now covers it; check a custom

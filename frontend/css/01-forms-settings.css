@@ -5091,11 +5091,12 @@ select {
   grid-column: 2;
 }
 
-/* In an answer bubble the status and the rotating lines go under the dots,
-   from the bubble's left edge (the owner at release: "make the rotating
-   messages appear on the lines below and aligned to the left"); in the
-   second column they started under the thinking word, a ragged indent. */
-:is(.msg, .help-chat-msg) .progress-line > :is(.progress-line-label, .progress-musing) {
+/* In an answer bubble the rotating musing goes under the dots, from the
+   bubble's left edge (the owner at release: "make the rotating messages
+   appear on the lines below and aligned to the left"). The status label
+   stays beside the dots on their own row (the owner, 2026-09-28: "Writing
+   the answer..." alone on a line under the dots read as a second message). */
+:is(.msg, .help-chat-msg) .progress-line > .progress-musing {
   grid-column: 1 / -1;
 }
 

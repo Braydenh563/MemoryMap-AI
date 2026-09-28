@@ -3641,7 +3641,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
   content: "";
   position: absolute;
-  left: calc(var(--space-1) * -1);
+  /* Inside the row's own left padding: at -0.25rem it sat past the list's
+     scrolling edge and was drawn half cut off (the owner at release). */
+  left: 0;
   top: 1.05em;
   width: 0.4rem;
   height: 0.4rem;

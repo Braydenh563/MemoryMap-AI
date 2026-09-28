@@ -103,7 +103,14 @@ work starts.
     companion's glow stays full size when it hides behind the status bar or
     a panel edge (clip or fade the glow with the body); (r) the enlarged
     viewer lacks the corner companion's mood changes and emotes (see 10 j);
-    (s) move `frontend/*.js` into `frontend/js/` (see item 1).
+    (s) move `frontend/*.js` into `frontend/js/` (see item 1);
+    (t) the board overview (navigator) is "really laggy now, especially on
+    the mind map". Not the navigator's own redraw: measured 1.35ms a frame
+    on a 60-topic map (`scratchpad/ui-sweeps/navlag.js`; caching its boxes
+    only took it to 1.23). Profile a drag on the overview end to end
+    (`wbNavigatorJump` then `wbCenterOn`, the zoom handler's `wbCullNow` and
+    `wbUpdateSelectionBar`, the companion's own scroll and resize
+    followers) with a Performance trace, on the owner's size of map.
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

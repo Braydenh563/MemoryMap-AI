@@ -3,7 +3,7 @@ const {boot} = require("./lib");
 (async () => {
   const {browser, page} = await boot({});
   await page.evaluate(async () => {
-    for (const content of ["I have just recently begun playing League of Legends, and I main Seraphine.", "I didnt lock in"]) {
+    for (const content of ["I have just recently begun playing League of Legends, and I main Seraphine.", "I didnt lock in", "A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. A long note. "]) {
       await apiJson("/entries", { method: "POST", body: JSON.stringify({ content, category: "Hobbies", tags: ["test"] }) });
     }
   });
@@ -24,6 +24,7 @@ const {boot} = require("./lib");
       firstChild: kids[0]?.className, kids: kids.map((k) => k.className).join("|"), firstTop: Math.round(first?.top - box.top), textTop: Math.round(firstText - box.top),
       metaGap: meta && prev ? Math.round(meta.getBoundingClientRect().top - prev.getBoundingClientRect().bottom) : null,
       metaBottom: meta ? Math.round(box.bottom - meta.getBoundingClientRect().bottom) : null,
+      more: (() => { const m = li.querySelector(":scope > .entry-more"); if (!m || !m.getClientRects().length) return null; const c = li.querySelector(":scope > .entry-content").getBoundingClientRect(), b = m.getBoundingClientRect(); return { above: Math.round(b.top - c.bottom), below: meta ? Math.round(meta.getBoundingClientRect().top - b.bottom) : null }; })(),
       gapBelow: li.nextElementSibling ? Math.round(li.nextElementSibling.getBoundingClientRect().top - box.bottom) : null,
     };
   }));

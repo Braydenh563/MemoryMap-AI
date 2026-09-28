@@ -8820,3 +8820,9 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   font-weight: 600;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+
+/* "Show more" had no room either side: flush under the note's text and
+   flush over the metadata row (the owner at release). */
+#entry-list:not(.is-rows) > li > .entry-more {
+  margin-block: var(--space-2) var(--space-3);
+}

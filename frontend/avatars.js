@@ -7928,12 +7928,22 @@ function nameMarkBuddyBuild() {
       return;
     }
     //: Tucked behind the bar (the menu's "Tuck behind the bar"): a click
-    //: brings it back out, to a spot of its own choosing. A drag does the
-    //: same by moving it (`nameMarkBuddyMoveTo` clears the pin).
+    //: stands it up where it is, on the bar's top edge, by a small step
+    //: rather than a trip elsewhere (the owner: "it shouldn't instantly
+    //: appear somewhere else when untucked manually"). If it then covers a
+    //: control, the usual check steps it aside; otherwise it stays, settled
+    //: as after a drop. A drag also untucks (`nameMarkBuddyMoveTo` clears the pin).
     if (nmb.tucked) {
+      const { bottom } = nameMarkBuddyLedges();
       nmb.tucked = false;
       nmb.pinned = false;
-      placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
+      nmb.placedAt = Date.now();
+      if (bottom) {
+        nameMarkBuddyMoveTo(buddy, { kind: "bar", pose: "stand", legs: "", x: nmb.x, y: bottom.top - NMB_FEET, edge: { el: document.getElementById("status-bar"), type: "top", kind: "bar", y: bottom.top } });
+        setTimeout(queueNameMarkBuddyCheck, 1200);
+      } else {
+        placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
+      }
       return;
     }
     const now = Date.now();

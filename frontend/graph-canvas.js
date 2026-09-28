@@ -2666,6 +2666,7 @@ async function renderGraphCanvas(s = gcTab) {
   const wantMaps = document.getElementById("graph-maps")
     ? document.getElementById("graph-maps").checked
     : false;
+  if (typeof graphSyncFocusChip === "function") graphSyncFocusChip();
   const endpoint = graphFocusModeId
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
     : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${

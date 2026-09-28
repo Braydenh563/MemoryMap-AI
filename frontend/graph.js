@@ -1590,6 +1590,39 @@ function initGraphGroups() {
 
 let graphFocusModeId = null;
 
+//: **A way back from "around one note"** (the owner at release: "I opened it
+//: in the graph and now I cant reset the graph. this is a massive usability
+//: and learnability issue"). The local map's expand button, and a node's
+//: "Focus" action, narrow the graph to the notes within two links of one
+//: note, and nothing on screen said so or undid it. This chip beside the
+//: dock's count says what the graph is showing and "Show all" restores it.
+function graphSyncFocusChip() {
+  const stats = document.getElementById("graph-stats");
+  if (!stats) return;
+  let chip = document.getElementById("graph-focus-chip");
+  if (!graphFocusModeId) {
+    chip?.remove();
+    return;
+  }
+  if (!chip) {
+    chip = document.createElement("button");
+    chip.type = "button";
+    chip.id = "graph-focus-chip";
+    chip.className = "ghost small graph-focus-chip";
+    chip.title = "The graph is showing only the notes within two links of one note. Show every note again.";
+    const icon = document.createElement("i");
+    icon.className = "ph ph-x ph-lead";
+    icon.setAttribute("aria-hidden", "true");
+    chip.append("Around one note", icon, " Show all");
+    chip.addEventListener("click", () => {
+      graphFocusModeId = null;
+      graphSyncFocusChip();
+      renderGraph();
+    });
+    stats.after(chip);
+  }
+}
+
 //: Which renderer draws the map, GRAPH_PLAN.md §5 Phase 1.
 //:
 //: The canvas renderer (graph-canvas.js) replaces the SVG one below; while
@@ -1631,6 +1664,7 @@ async function renderGraphSvg() {
   // above, and for the same reason: a map's edge is membership of a *note*,
   // and /graph/local's depth-limited BFS has no equivalent concept yet.
   const wantMaps = $("graph-maps")?.checked;
+  graphSyncFocusChip();
   const endpoint = graphFocusModeId
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
     : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true&" : ""}${wantMaps ? "include_maps=true" : ""}`;

@@ -115,6 +115,24 @@ work starts.
     only notes with 2+ links unless zoomed in.
     Done at release: thinking words rotate 1.5x slower; "Writing the answer"
     sits beside the dots with the tips under them.
+10c. **Last requests at release, not done (0.3.4, top of the list):**
+    (1) custom select menus narrower than their trigger (Library "Items per
+    page"): every `enhanceSelect` menu at least the trigger's width;
+    (2) chat "Ask again:" chips: history icon and text not vertically
+    centred;
+    (3) the Web search sidebar's "..." button appears seconds after the
+    sidebar opens (built after an async status fetch; build it with the head);
+    (4) dragging the companion to hang from the top bar drops it onto the
+    elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
+    edge should give a `hang` spot);
+    (5) the companion's chat sidebar perch (see 10 l);
+    (6) graph labels: with Labels on the map is busy; consider labelling
+    only notes with 2+ links unless zoomed in;
+    (7) Notes, Capture: Preview crushes the line-number gutter to a sliver
+    (the gutter keeps its column in preview, or hides with it).
+    Done at release: thinking words rotate 1.5x slower; "Writing the answer"
+    sits beside the dots, tips under them; Name with Atlas toasts its start
+    and result; the notifications unread dot is drawn whole.
 10b. **More from the owner at release, not done:** (p) the Settings head's
     small avatar showed an older look (not reproduced; every look path calls
     `repaintOwnFace`; a repaint on Settings open now covers it; check a custom

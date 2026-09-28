@@ -8763,3 +8763,13 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
      for a baseline this box no longer has. */
   translate: none;
 }
+
+/* Hiding behind an edge (a peek, peeking down or back, emerging, or legs
+   tucked behind a bar), the character moves and the host does not, so its
+   glow and ground shadow, drawn on the host, stayed where it had been, a
+   halo over empty page (the owner at release). They fade with it. */
+#nm-buddy:is(.nmb-act-peek, .nmb-act-emerge, .nmb-act-peekdown, .nmb-act-peekback, [data-legs="peek"])::after,
+#nm-buddy:is(.nmb-act-peek, .nmb-act-emerge, .nmb-act-peekdown, .nmb-act-peekback, [data-legs="peek"])::before {
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}

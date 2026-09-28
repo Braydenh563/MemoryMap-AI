@@ -911,6 +911,16 @@ async function cmdPaletteAsk(text) {
   const userMsg = document.createElement("div");
   userMsg.className = "msg user";
   userMsg.textContent = text;
+  //: The person's own mark on the corner, as the Chat tab's bubbles carry it
+  //: (`addBubble`, chat-agent.js; the owner: "the popup agent user bubbles
+  //: dont have the user avatar in the corner"). `data-user-mark` puts it in
+  //: `paintUserMarks`' set, so a renamed profile redraws it here too.
+  const userMark = document.createElement("span");
+  userMark.className = "msg-user-mark";
+  userMark.setAttribute("aria-hidden", "true");
+  userMark.dataset.userMark = "18";
+  userMark.appendChild(nameMark(userMarkSeed(), 18));
+  userMsg.appendChild(userMark);
   //: **The same three actions the Chat tab's own bubbles carry.** Reported:
   //: *"I cant copy edit or resend any messages in the popup agent. it still
   //: lacks a lot of features."* The palette had none of them, a question you

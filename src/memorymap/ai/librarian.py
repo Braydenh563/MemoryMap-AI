@@ -396,7 +396,7 @@ def build_conversational_messages(
         }
     ]
     messages.extend(history_messages(history))
-    user_message = {"role": "user", "content": question}
+    user_message = {"role": "user", "content": f"{_app_help(question)}{question}"}
     if images:
         user_message["images"] = images
     messages.append(user_message)
@@ -486,6 +486,15 @@ def plan_budget(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS,
         len(system_content(style, profile, persona_prompt, mode)),
     )
+
+
+def _app_help(question: str) -> str:
+    """The app's own help for a how-to question (`help_chat.help_block_for`).
+    Imported here, not at the top: help_chat is a large module the plain
+    notebook path otherwise never loads."""
+    from memorymap.ai import help_chat
+
+    return help_chat.help_block_for(question)
 
 
 def build_messages(
@@ -590,7 +599,8 @@ def build_messages(
     user_message = {
         "role": "user",
         "content": (
-            f"My notes:\n{numbered}{dropped_hint}\n\nMy question: {question}{attached_hint}"
+            f"{_app_help(question)}My notes:\n{numbered}{dropped_hint}\n\n"
+            f"My question: {question}{attached_hint}"
         ),
     }
     if images:

@@ -1127,7 +1127,10 @@ def build_agent_messages(
             f"{'' if dropped_notes == 1 else 's'} did not fit: use search_notes "
             f"or get_note if you need them.)\n\n"
         )
-    user_message = {"role": "user", "content": f"{body}My request: {question}"}
+    user_message = {
+        "role": "user",
+        "content": f"{librarian._app_help(question)}{body}My request: {question}",
+    }
     if images:
         user_message["images"] = images
     messages.append(user_message)

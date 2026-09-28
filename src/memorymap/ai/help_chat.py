@@ -1788,3 +1788,44 @@ def answer(
         "sources": source_names(topics),
         "system": system_answer(topics),
     }
+
+
+# --- the app's own help, for the Chat tab and the agents --------------------
+#
+# Asked for directly: "give the chat tab chat ai and agent access to the help
+# info as well in case users ask it questions for help". Reported beside it,
+# with a screenshot: "how should I use the knowledge graph??" in Chat was
+# answered from the notes ("none of them specifically explain how to use a
+# knowledge graph"), because the Guide panel was the only thing that could
+# read these entries.
+#
+# **Gated twice.** Topic keywords include everyday words ("note", "chat",
+# "question"), so a keyword match alone would attach help to nearly every
+# question about the notebook. The question has to be phrased as a how-to
+# (`_HOW_TO`) *and* name a topic. Two entries at most, clipped, and carried
+# with the question rather than in the system prompt, so the cached prefix
+# stays byte-identical turn to turn.
+_HOW_TO = re.compile(
+    r"\b(how (do|can|should|would) (i|you|we)|how to|what can (i|you)|what does|"
+    r"what is the|where (is|are|do|can)|is there a way|can (i|you)|help me|explain)\b",
+    re.IGNORECASE,
+)
+HELP_BLOCK_MAX_TOPICS = 2
+HELP_BLOCK_MAX_CHARS = 1400
+
+
+def help_block_for(question: str) -> str:
+    """The app's own help for a how-to question, as a block to put before it,
+    or "" when the question is not asking how the app works."""
+    if not question or not _HOW_TO.search(question):
+        return ""
+    topics = _matching_topics(question)[:HELP_BLOCK_MAX_TOPICS]
+    if not topics:
+        return ""
+    text = "\n".join(f"- {topic_title(topic)}: {topic['body']}" for topic in topics)
+    if len(text) > HELP_BLOCK_MAX_CHARS:
+        text = text[: HELP_BLOCK_MAX_CHARS - 1].rstrip() + "…"
+    return (
+        "From MemoryMap's own help (use this if the question is about how the "
+        f"app works; it is not one of my notes):\n{text}\n\n"
+    )

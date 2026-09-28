@@ -7474,6 +7474,12 @@ function nameMarkBuddyHide(buddy) {
   if (select) select.value = "off";
   nameMarkBuddyLeave(buddy, () => {
     buddy?.remove();
+    //: Every copy, not only the one `getElementById` found. Reported with a
+    //: screenshot after Ctrl+Shift+Y: the glow and the resize ring stayed
+    //: on screen with the figure gone. Not reproduced on a single mount; a
+    //: second `#nm-buddy` left by an earlier mount is the shape that leaves
+    //: exactly that behind, so the hide takes all of them.
+    for (const stray of document.querySelectorAll("#nm-buddy, .nmb-burst")) stray.remove();
     nameMarkBuddyGone();
   });
   if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
@@ -7491,7 +7497,9 @@ function nameMarkBuddyToggle() {
   } catch (e) {
     choice = "off";
   }
-  if (choice !== "off") {
+  //: Something still on screen is hidden, whatever the saved choice says:
+  //: a press that finds a companion showing means "hide it".
+  if (choice !== "off" || buddy) {
     nameMarkBuddyHide(buddy);
     return;
   }

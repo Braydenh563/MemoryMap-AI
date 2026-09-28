@@ -2525,6 +2525,10 @@ function askStatusBusy(text) {
   //: always answers in the notebook's own voice, so `thinkingWordsFor(null)`
   //: resolving to that default persona's list is already the right answer.
   const line = progressLine(text, { words: true });
+  //: Laid out as the Chat bubble's is (the musing under the dots, from the
+  //: left edge), keyed on this class because the line leaves `#ai-answer`
+  //: once text starts arriving (see `onAnswer` in `askQuestion`).
+  line.classList.add("ask-progress");
   box.appendChild(line);
   //: **And brought into view, because it is now further down the page than
   //: the old one was.** `#ask-status` sat directly under the question box, so
@@ -2680,6 +2684,12 @@ async function askQuestion(preset) {
         //: writing" is the exact mismatch reported of the Chat tab.
         progress?.setPhase("writing");
         say("The model is writing…");
+        //: **Kept on screen while the answer streams**, under it, as Chat
+        //: keeps its own (the owner: "it dissapears when the text is
+        //: streaming"). Inside the box, every live paint rebuilt the box
+        //: from markdown and took it away. Moved once, not re-appended per
+        //: paint: a re-inserted node restarts its dots' animation.
+        if (progress && progress.previousElementSibling !== answerBox) answerBox.after(progress);
       },
       onHint: (event) => {
         // Not an answer, so it does not go through the markdown renderer or
@@ -2823,6 +2833,9 @@ async function askQuestion(preset) {
     // Every exit path, including Stop and an error: a caret still blinking on
     // an answer that stopped arriving is worse than never showing one.
     answerBox.classList.remove("is-streaming", "is-generating");
+    //: Moved out of the box on the first token, so the final paint no longer
+    //: takes it away: every exit removes it here.
+    progress?.remove();
     askController = null;
     setAsking(false);
     // The question used to be cleared here, which left an answer on screen with

@@ -11,6 +11,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Deleting a space no longer fails with "FOREIGN KEY constraint failed": every table that points at the space's notes (their scores and derived facts were missed) is cleared first, found from the database schema rather than a hand-kept list.
 - A new note no longer looks like it is filing forever. The page kept checking for only 26 seconds and never refreshed the card after that; it now watches until the note settles, and the line under the composer says where it went. A note left filing when the app closed is filed on the next launch.
 - Filing takes seconds, not minutes, without giving up accuracy: the model is asked with thinking off and a short reply; past the wait (15 seconds, adjustable in Settings, Automation, 5 to 60, with a reset) the note is filed by meaning at once, and the model's answer replaces that when it arrives, unless you moved the note yourself. The filing model is warmed up at launch. The card settles as soon as the category is known, before the note's search vector is built.
 - Re-evaluate, adding context, the agent's own notes and extraction keep their long wait, so a slow model is never swapped for a weaker guess there.

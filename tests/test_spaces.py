@@ -291,3 +291,25 @@ def test_deleting_a_space_deletes_its_chats(client, session):
     deleted = client.delete(f"/spaces/{space_id}")
     assert deleted.status_code == 200
     assert _gone(session, Conversation, conversation.id)
+
+
+def test_deleting_a_space_clears_every_table_that_points_at_its_notes(client, session):
+    """Owner, 0.3.31: DELETE /spaces/<id> failed with "FOREIGN KEY constraint
+    failed" on `DELETE FROM entries`: tables that point at notes (scores,
+    derived facts) were on no purge list. References are now found from the
+    schema, so a table added later cannot bring this back."""
+    from memorymap.core.database import DerivedFact, Entry, NoteScore
+
+    space = client.post("/spaces", json={"name": "Doomed"}).json()
+    note = client.post(
+        "/entries",
+        json={"content": "a note in a doomed space", "category": "Stuff"},
+        headers={"X-Workspace-ID": space["id"]},
+    ).json()
+    session.add(NoteScore(entry_id=note["id"], workspace_id=space["id"]) if hasattr(NoteScore, "workspace_id") else NoteScore(entry_id=note["id"]))
+    session.add(DerivedFact(entry_id=note["id"], kind="fact", text="x"))
+    session.commit()
+    response = client.delete(f"/spaces/{space['id']}")
+    assert response.status_code == 200, response.text
+    session.expire_all()
+    assert session.get(Entry, note["id"]) is None

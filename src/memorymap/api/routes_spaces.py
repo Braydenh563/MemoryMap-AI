@@ -4,8 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from memorymap.api.schemas import SpaceResponse, SpaceCreate, SpaceUpdate
 from memorymap.core import deps
-from memorymap.core.database import Category, Entry, Space, workspace_scoped_models
+from memorymap.core.database import Base, Category, Entry, Space, workspace_scoped_models
 from memorymap.core.deps import get_session, impersonate_workspace
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select as sa_select
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["Spaces"])
@@ -99,6 +102,36 @@ def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depend
     session.commit()
     session.refresh(space)
     return space
+
+
+def _detach_references(session: Session, table, ids: list, depth: int = 0) -> None:  # noqa: ANN001
+    """Clear every foreign key that points at `ids` in `table`: set a nullable
+    one to NULL, delete the row holding a required one (and, for that row,
+    whatever points at it in turn, a few levels deep)."""
+    if not ids or depth > 4:
+        return
+    for other in Base.metadata.sorted_tables:
+        for fk in other.foreign_keys:
+            if fk.column.table is not table:
+                continue
+            column = fk.parent
+            for start in range(0, len(ids), 500):
+                chunk = ids[start:start + 500]
+                if column.nullable:
+                    session.execute(
+                        sa_update(other).where(column.in_(chunk)).values({column.name: None})
+                    )
+                else:
+                    if "id" in other.c and other is not table:
+                        child_ids = [
+                            row_id
+                            for (row_id,) in session.execute(
+                                sa_select(other.c.id).where(column.in_(chunk))
+                            )
+                        ]
+                        _detach_references(session, other, child_ids, depth + 1)
+                    if other is not table:
+                        session.execute(sa_delete(other).where(column.in_(chunk)))
 
 
 @router.delete("/spaces/{space_id}", response_model=SpaceResponse)
@@ -213,11 +246,23 @@ def delete_space(space_id: str, session: Session = Depends(get_session)):
                 DocumentRevision.document_id.in_(document_ids)
             ).delete(synchronize_session=False)
 
-        for model in (
+        # **Every reference into a doomed row, found from the schema, not a
+        # list.** The list above is the tables someone remembered; the
+        # owner's delete of a space still failed on `DELETE FROM entries`
+        # with "FOREIGN KEY constraint failed" (0.3.31), from a table that
+        # points at notes and was on no list. Whatever the schema says
+        # points at a row about to go is cleared first: a nullable pointer
+        # is emptied, a required one takes its row with it.
+        doomed_models = (
             EntryLink, Attachment, AskTurn, Conversation, Reminder, Bookmark,
             WhiteboardSketch, WhiteboardObject, WhiteboardNode, Document,
             Entry, Category, MediaUpload,
-        ):
+        )
+        for model in (*doomed_models, *workspace_scoped_models()):
+            ids = [row_id for (row_id,) in rows(model).with_entities(model.id).all()] if hasattr(model, "id") else []
+            _detach_references(session, model.__table__, ids)
+
+        for model in doomed_models:
             rows(model).delete(synchronize_session=False)
 
         # Anything with WorkspaceMixin that the ordered list above does not

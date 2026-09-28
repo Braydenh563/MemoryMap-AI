@@ -8775,3 +8775,48 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   opacity: 0;
   transition: opacity var(--motion-base) var(--ease-out);
 }
+
+/* Improve writing's modes are the document AI assistant's verb bar (the
+   owner at release: "change the pill selection bar to be the same"): one
+   full-width track, equal segments, the chosen one a quiet ground with an
+   accent ring rather than four separate bordered buttons and a filled one.
+   Same measures as `.doc-ai-card > #doc-ai-verb`. */
+#improve-modes {
+  display: flex;
+  gap: 0.15rem;
+  height: var(--control-h);
+  padding: var(--space-1);
+  background: var(--chip-bg);
+  border-radius: var(--radius-choice);
+}
+
+:root[data-glass="off"] #improve-modes {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+#improve-modes > .improve-mode {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  padding-block: 0;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+#improve-modes > .improve-mode:not(.active):hover {
+  background: var(--ghost-btn-bg);
+}
+
+#improve-modes > .improve-mode.active {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}

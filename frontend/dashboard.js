@@ -69,6 +69,9 @@
 // --- dashboard (Wave D) -----------------------------------------------------------
 
 let dashEditMode = false;
+//: After a reorder the grid reflows under the pointer; without a pause the
+//: next dragover moved the card straight back (release: "a complete mess").
+let dashDragLockUntil = 0;
 let dragWidget = null; // widget name being dragged
 
 // Widget registry: name → title + async renderer that fills a body div.
@@ -1920,8 +1923,24 @@ async function renderDashboard() {
         if (!dragWidget || dragWidget === name) return;
         const dragged = grid.querySelector(`[data-widget="${dragWidget}"]`);
         if (!dragged) return;
-        const after = [...grid.children].indexOf(card) > [...grid.children].indexOf(dragged);
-        grid.insertBefore(dragged, after ? card.nextSibling : card);
+        //: **Decided by where the pointer is on the target, not by order.**
+        //: The old rule moved the card on every dragover by index alone, so
+        //: once the grid reflowed under the pointer the next dragover moved it
+        //: back: two cards swapping places over and over. Now: before or
+        //: after the target by which half of it the pointer is over (the x
+        //: half on the same row, the y half otherwise), nothing when the card
+        //: is already in that place, and a short pause after each move while
+        //: the grid settles.
+        const now = performance.now();
+        if (now < dashDragLockUntil) return;
+        const r = card.getBoundingClientRect();
+        const d = dragged.getBoundingClientRect();
+        const sameRow = Math.abs(r.top - d.top) < r.height / 2;
+        const before = sameRow ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2;
+        const ref = before ? card : card.nextSibling;
+        if (ref === dragged || ref === dragged.nextSibling) return;
+        grid.insertBefore(dragged, ref);
+        dashDragLockUntil = now + 220;
       });
     }
     grid.appendChild(card);

@@ -7921,6 +7921,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   pointer-events: auto;
 }
 
+/* In the rows view the date keeps its corner and the metadata lane beside
+   the title starts under it (the owner at release: "the date clashes with
+   the metadata below, needs to be a vertical gap"); the lane was centred on
+   the row, so the two drew over each other. */
+#entry-list.is-rows > li:not(:has(textarea)) > .entry-meta {
+  align-self: start;
+  padding-top: 1.4em;
+}
+
 #entry-list > li .entry-date {
   color: var(--muted);
   font-size: var(--text-sm);

@@ -26,7 +26,8 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-MODEL = "fake-answerer"
+#: FAKE_MODEL renames it, for a screenshot whose model badge a reader sees.
+MODEL = os.environ.get("FAKE_MODEL") or "fake-answerer"
 DUMP = os.environ.get("FAKE_DUMP") or ""
 #: Milliseconds to wait between streamed words, off by default.
 #:
@@ -43,6 +44,21 @@ STREAM_DELAY_MS = float(os.environ.get("FAKE_DELAY_MS") or 0)
 #: style (one bare sentence per note) is the easiest possible case for the
 #: citation markers and hid every way they fail against formatted prose.
 STYLE = os.environ.get("FAKE_STYLE") or "plain"
+#: A written answer for a screenshot (`scratchpad/ui-sweeps/readme-ask.js`).
+#: The quoting answerer above is right for a probe and wrong for the README:
+#: it echoes note sentences back in a row, which proves the citations and
+#: reads like nothing a model would write. With this set, a request carrying
+#: the app's notes context ("My notes:") is answered with the file's text
+#: instead, and the follow-up prompt with the lines of `FAKE_FOLLOWUPS_FILE`.
+#: The answer still has to earn its citations: grounding scores it against
+#: the retrieved notes like any other answer, so it is written in their words.
+ANSWER_FILE = os.environ.get("FAKE_ANSWER_FILE") or ""
+FOLLOWUPS_FILE = os.environ.get("FAKE_FOLLOWUPS_FILE") or ""
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="utf-8") as fh:
+        return fh.read().strip()
 
 
 def _markdown_answer(sentences: list[str]) -> str:
@@ -119,8 +135,13 @@ class Handler(BaseHTTPRequestHandler):
         if DUMP:
             with open(DUMP, "a", encoding="utf-8") as fh:
                 fh.write("=== prompt ===\n" + prompt + "\n")
-        sentences = _sentences_from_prompt(prompt)
-        answer = _markdown_answer(sentences) if STYLE == "markdown" else " ".join(sentences)
+        if FOLLOWUPS_FILE and "Suggest short follow-up questions" in prompt:
+            answer = _read(FOLLOWUPS_FILE)
+        elif ANSWER_FILE and "My notes:" in prompt:
+            answer = _read(ANSWER_FILE)
+        else:
+            sentences = _sentences_from_prompt(prompt)
+            answer = _markdown_answer(sentences) if STYLE == "markdown" else " ".join(sentences)
         if body.get("stream"):
             self._sse(answer)
         else:

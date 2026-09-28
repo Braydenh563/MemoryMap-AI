@@ -35,12 +35,17 @@ capture a thought
 </p>
 
 <details>
-<summary><b>Twenty-nine more screenshots</b>: Notes, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, eight main features in the dark theme, and a phone</summary>
+<summary><b>Thirty more screenshots</b>: Notes, Ask, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, eight main features in the dark theme, and a phone</summary>
 <br>
 
 <p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes: a list of AI-filed notes with categories, tags and related-note chips" width="850">
+  <img src="docs/screenshots/notes.png" alt="Notes in the dark theme: AI-filed notes newest first, each with its category and tags, and the categories listed beside them" width="850">
   <br><sub><b>Notes</b>: captured, categorised and linked to what they relate to</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ask.png" alt="Notes, Ask: the question What do I still need to sort out before the Kyoto trip, a sample answer listing the ryokan, the passport and an ICOCA card with numbered citations, and the matching notes beside it" width="850">
+  <br><sub><b>Ask</b>: a question to your own notes, answered with numbered citations to the notes behind it</sub>
 </p>
 
 <p align="center">

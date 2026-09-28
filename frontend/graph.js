@@ -1475,9 +1475,14 @@ function graphSizeRadius(node, degree, low = 4, high = 18, maxDegree = 0) {
   //: 11px. The busiest note now takes the full size and the rest their share
   //: of it (by root, as before), so the spread is the graph's own. Only from
   //: a busiest note of 3 links: below that every linked dot would draw huge.
+  //: The curve is steep (share to the 1.5), not a root: with a root, half
+  //: the busiest note's links drew at 70% of its size and the middle of a
+  //: small notebook was all large dots ("clean and impressive" was the ask).
+  //: A leaf stays about the fixed scale's size; only real hubs grow.
   const absolute = Math.max(low, Math.min(high, low + 3.5 * Math.sqrt(degree || 0)));
   if (!degree || maxDegree < 3) return absolute;
-  return Math.max(absolute, low + (high - low) * Math.sqrt(Math.min(1, degree / maxDegree)));
+  const leaf = low + 2.5;
+  return leaf + (high - leaf) * Math.pow(Math.min(1, degree / maxDegree), 1.5);
 }
 
 function graphColourMode() {

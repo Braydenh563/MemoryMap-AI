@@ -1410,7 +1410,22 @@ function openImprove(targetTextarea) {
   overlayReturnFocus = document.activeElement;
   $("improve-overlay").classList.remove("hidden");
   $("improve-close").focus();
-  runImprove();
+  improveReady();
+}
+
+//: **Asked for, not automatic** (the owner at release: "the improve writing
+//: panel should be a begin AI response thing"): opening the panel, or picking
+//: a mode, only gets it ready; Atlas starts on Start. The button reads Try
+//: again once there has been an answer to try again.
+function improveReady() {
+  const custom = improveMode === "custom";
+  $("improve-status").textContent = custom
+    ? "Say what you want changed, then press Go."
+    : "Pick how Atlas should help, then press Start.";
+  $("improve-status").classList.remove("error");
+  $("improve-result").textContent = "";
+  $("improve-apply").disabled = true;
+  setLabel($("improve-retry"), "ph:sparkle Start");
 }
 
 function closeImprove() {
@@ -1434,6 +1449,7 @@ async function runImprove() {
     return;
   }
   result.textContent = "";
+  setLabel($("improve-retry"), "ph:arrow-clockwise Try again");
   status.textContent = "Atlas is editing…";
   status.classList.remove("error");
   $("improve-apply").disabled = true;

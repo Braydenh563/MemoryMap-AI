@@ -371,11 +371,10 @@ for (const button of document.querySelectorAll(".improve-mode")) {
       b.classList.toggle("active", b === button);
     const isCustom = improveMode === "custom";
     $("improve-custom-row").classList.toggle("hidden", !isCustom);
-    // Switching to Custom still calls runImprove(), it just prompts for an
-    // instruction rather than hitting the API, since there's nothing to send
-    // until the person has actually typed one and pressed Go.
+    // Picking a mode only gets it ready; Start (or Go, for Custom) runs it
+    // (`improveReady`, ai-tools.js).
     if (isCustom) $("improve-custom-input").focus();
-    runImprove();
+    improveReady();
   });
 }
 

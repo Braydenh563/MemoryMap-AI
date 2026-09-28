@@ -192,7 +192,12 @@ begin
     PageNote + #13#10 + 'You can add or remove them later in Settings > Packages.'
   );
 
-  Y := 8;
+  { Every row is placed under the one above by its real height, not a fixed
+    step: at 125% display scaling a wrapped line is taller than the old
+    pixel steps allowed, and the checkboxes drew over the text above them
+    (the owner at release). Labels size themselves (AutoSize with
+    WordWrap); gaps go through ScaleY so they grow with the display. }
+  Y := 0;
 
   { Header note }
   Lbl := TNewStaticText.Create(ExtrasPage);
@@ -200,11 +205,12 @@ begin
   Lbl.Left := 0;
   Lbl.Top := Y;
   Lbl.Width := ExtrasPage.SurfaceWidth;
+  Lbl.AutoSize := True;
   Lbl.WordWrap := True;
   Lbl.Caption := 'All of these are optional. The app works without them,'
     + ' and each can be installed or removed at any time from inside the app.'
     + ' Downloading them needs Python from python.org on this computer.';
-  Y := Y + 48;
+  Y := Lbl.Top + Lbl.Height + ScaleY(16);
 
   { Semantic search }
   ChkSemantic := TNewCheckBox.Create(ExtrasPage);
@@ -212,19 +218,21 @@ begin
   ChkSemantic.Left := 0;
   ChkSemantic.Top := Y;
   ChkSemantic.Width := ExtrasPage.SurfaceWidth;
+  ChkSemantic.Height := ScaleY(17);
   ChkSemantic.Caption := 'Search by meaning (about 2 GB, recommended)';
   ChkSemantic.Checked := HavePython;
-  Y := Y + 24;
+  Y := Y + ScaleY(20);
 
   Lbl := TNewStaticText.Create(ExtrasPage);
   Lbl.Parent := ExtrasPage.Surface;
-  Lbl.Left := 24;
+  Lbl.Left := ScaleX(20);
   Lbl.Top := Y;
-  Lbl.Width := ExtrasPage.SurfaceWidth - 24;
+  Lbl.Width := ExtrasPage.SurfaceWidth - ScaleX(20);
+  Lbl.AutoSize := True;
   Lbl.WordWrap := True;
   Lbl.Caption := 'Search for what you meant rather than the exact words.'
     + ' Without it, search falls back to keywords.';
-  Y := Y + 44;
+  Y := Lbl.Top + Lbl.Height + ScaleY(12);
 
   { Voice notes }
   ChkVoice := TNewCheckBox.Create(ExtrasPage);
@@ -232,18 +240,20 @@ begin
   ChkVoice.Left := 0;
   ChkVoice.Top := Y;
   ChkVoice.Width := ExtrasPage.SurfaceWidth;
+  ChkVoice.Height := ScaleY(17);
   ChkVoice.Caption := 'Voice notes (about 50 MB)';
   ChkVoice.Checked := False;
-  Y := Y + 24;
+  Y := Y + ScaleY(20);
 
   Lbl := TNewStaticText.Create(ExtrasPage);
   Lbl.Parent := ExtrasPage.Surface;
-  Lbl.Left := 24;
+  Lbl.Left := ScaleX(20);
   Lbl.Top := Y;
-  Lbl.Width := ExtrasPage.SurfaceWidth - 24;
+  Lbl.Width := ExtrasPage.SurfaceWidth - ScaleX(20);
+  Lbl.AutoSize := True;
   Lbl.WordWrap := True;
   Lbl.Caption := 'Speak a note or question and have it transcribed locally.';
-  Y := Y + 32;
+  Y := Lbl.Top + Lbl.Height + ScaleY(12);
 
   { Document import }
   ChkDocuments := TNewCheckBox.Create(ExtrasPage);
@@ -251,15 +261,17 @@ begin
   ChkDocuments.Left := 0;
   ChkDocuments.Top := Y;
   ChkDocuments.Width := ExtrasPage.SurfaceWidth;
+  ChkDocuments.Height := ScaleY(17);
   ChkDocuments.Caption := 'Documents in and out (about 40 MB)';
   ChkDocuments.Checked := False;
-  Y := Y + 24;
+  Y := Y + ScaleY(20);
 
   Lbl := TNewStaticText.Create(ExtrasPage);
   Lbl.Parent := ExtrasPage.Surface;
-  Lbl.Left := 24;
+  Lbl.Left := ScaleX(20);
   Lbl.Top := Y;
-  Lbl.Width := ExtrasPage.SurfaceWidth - 24;
+  Lbl.Width := ExtrasPage.SurfaceWidth - ScaleX(20);
+  Lbl.AutoSize := True;
   Lbl.WordWrap := True;
   Lbl.Caption := 'Import PDFs (scanned ones too), Word files and slides as'
     + ' notes, and export documents to Word.';

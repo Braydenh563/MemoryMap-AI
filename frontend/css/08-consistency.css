@@ -8797,12 +8797,14 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 
 #improve-modes > .improve-mode {
   flex: 1 1 0;
+  /* Never square: `--radius-inner` is 0 at a small radius setting, and
+     the chosen segment drew square corners (the owner at release). */
+  border-radius: max(var(--radius-inner), var(--radius-sm));
   min-width: 0;
   height: 100%;
   padding-block: 0;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-inner);
   background: transparent;
   color: var(--ink);
   font-size: var(--text-md);
@@ -8825,4 +8827,12 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
    flush over the metadata row (the owner at release). */
 #entry-list:not(.is-rows) > li > .entry-more {
   margin-block: var(--space-2) var(--space-3);
+}
+
+/* Improve writing's two actions at one height (the owner at release: the
+   filled and the ghost button drew 40 and 42px side by side). */
+:is(#improve-apply, #improve-retry) {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding-block: 0;
 }

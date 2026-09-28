@@ -8673,3 +8673,12 @@ input[type="file"]::file-selector-button:hover {
   gap: var(--space-1);
   line-height: 1;
 }
+
+/* While a modal dialog is up (Find anything, Settings, any sheet), the
+   companion steps out instead of floating in the dimmed page beside it
+   (reported at release). No transition declared here: #nm-buddy's own
+   transitions drive its movement and must not be overridden. */
+body:has(dialog[open]:modal, .modal-overlay:not(.hidden)) #nm-buddy {
+  opacity: 0;
+  pointer-events: none;
+}

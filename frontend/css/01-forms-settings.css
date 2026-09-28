@@ -5091,6 +5091,14 @@ select {
   grid-column: 2;
 }
 
+/* In an answer bubble the status and the rotating lines go under the dots,
+   from the bubble's left edge (the owner at release: "make the rotating
+   messages appear on the lines below and aligned to the left"); in the
+   second column they started under the thinking word, a ragged indent. */
+:is(.msg, .help-chat-msg) .progress-line > :is(.progress-line-label, .progress-musing) {
+  grid-column: 1 / -1;
+}
+
 
 /* The exact-value box beside each sampling slider. Narrow, because every knob
    here is a short decimal or a small integer, and `width: 100%` (the base

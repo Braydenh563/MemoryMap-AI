@@ -34,10 +34,6 @@ capture a thought
   <img src="docs/screenshots/dashboard.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
 </p>
 
-<details>
-<summary><b>Thirty more screenshots</b>: Notes, Ask, Chat, Graph, Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, eight main features in the dark theme, and a phone</summary>
-<br>
-
 <p align="center">
   <img src="docs/screenshots/notes.png" alt="Notes in the dark theme: AI-filed notes newest first, each with its category and tags, and the categories listed beside them" width="850">
   <br><sub><b>Notes</b>: captured, categorised and linked to what they relate to</sub>
@@ -57,6 +53,11 @@ capture a thought
   <img src="docs/screenshots/graph.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
   <br><sub><b>Graph</b>: your notes as a map, coloured by category, linked by meaning</sub>
 </p>
+
+<details>
+<summary><b>Twenty-five more screenshots</b>: Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, seven main features in the dark theme, and a phone</summary>
+<br>
+
 
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
@@ -148,10 +149,6 @@ capture a thought
   <br><sub><b>Dashboard</b>, dark</sub>
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/notes-dark.png" alt="Notes in the dark theme" width="850">
-  <br><sub><b>Notes</b>, dark</sub>
-</p>
 
 <p align="center">
   <img src="docs/screenshots/chat-dark.png" alt="Chat in the dark theme" width="850">

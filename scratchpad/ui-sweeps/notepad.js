@@ -24,6 +24,7 @@ const {boot} = require("./lib");
       firstChild: kids[0]?.className, kids: kids.map((k) => k.className).join("|"), firstTop: Math.round(first?.top - box.top), textTop: Math.round(firstText - box.top),
       metaGap: meta && prev ? Math.round(meta.getBoundingClientRect().top - prev.getBoundingClientRect().bottom) : null,
       metaBottom: meta ? Math.round(box.bottom - meta.getBoundingClientRect().bottom) : null,
+      gapBelow: li.nextElementSibling ? Math.round(li.nextElementSibling.getBoundingClientRect().top - box.bottom) : null,
     };
   }));
   console.log(JSON.stringify(r, null, 1));

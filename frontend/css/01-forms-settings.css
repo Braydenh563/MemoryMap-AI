@@ -1337,7 +1337,9 @@ progress {
    --space-2 each way keeps the card symmetric and costs 8px a card. */
 #entry-list:not(.is-rows) li {
   padding: var(--space-2) 0.8rem;
-  margin-bottom: 0.15rem;
+  /* 0.15rem read as cards touching (the owner at release: "a slightly
+     larger gap between notes"). */
+  margin-bottom: var(--space-3);
 }
 
 /* ---- Rows: the default way a list of notes is shown --------------------

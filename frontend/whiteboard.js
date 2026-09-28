@@ -13325,7 +13325,11 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
-      textEl.style("color", d.data.color || "")
+      //: A card with a fill and no ink of its own takes the ink that reads
+      //: on that fill (`wbCoreInkFor`), not the theme's: a dark blue card in
+      //: the light theme drew dark text on it (the owner at release, the
+      //: README's board shot).
+      textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
         .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
         .style("text-align", d.data.align || "");
       if (document.activeElement !== textEl.node()) wbPaintTextContent(textEl.node(), d);

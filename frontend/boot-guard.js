@@ -74,7 +74,12 @@
   // so the one instruction on a dead screen was one the reader could not
   // follow. Restarting the app is the advice that works in every shell this
   // runs in, and it also fixes the stale-server case below.
+  // The ResizeObserver notice is the browser deferring a callback a frame,
+  // not a failure (app.js filters it the same way, BENIGN_BROWSER_NOTICE).
+  // This listener outlives boot, so without the same test here it posted
+  // five "[browser/error]" lines from the notes view (the owner at release).
   window.addEventListener("error", function (event) {
+    if (/^ResizeObserver loop /.test(event.message || "")) return;
     report(
       "error",
       event.message,

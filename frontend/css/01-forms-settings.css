@@ -1332,8 +1332,11 @@ progress {
    keeps this off the list's own compact row view, which already has a
    tighter, already-tuned padding of its own (`.entry-list.is-rows li`,
    below) that an id selector would otherwise outrank and override. */
+/* The block padding was 0.15rem, which left the first line 2px under the
+   card's top border (the owner at release: "a slightly larger top margin");
+   --space-2 each way keeps the card symmetric and costs 8px a card. */
 #entry-list:not(.is-rows) li {
-  padding: 0.15rem 0.8rem;
+  padding: var(--space-2) 0.8rem;
   margin-bottom: 0.15rem;
 }
 

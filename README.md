@@ -387,7 +387,7 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.31. Capture, chat with checkable answers, the graph, documents,
+Version 0.3.32. Capture, chat with checkable answers, the graph, documents,
 boards and mind maps, the OCR workspace, private notes and themes are
 built and stable, with desktop builds for Windows and Linux. New in this
 release: Atlas has a body and a second look, a companion keeps you company

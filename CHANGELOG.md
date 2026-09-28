@@ -7,6 +7,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.3.32] - 2026-09-28
+
+### Added
+
+- A saved bookmark can be linked into any note or document from the "/" menu (Bookmark link), and each reference in a document's References panel has Insert as a link, which writes `[title](url)` where the caret is.
+
+### Fixed
+
+- The graph's fit no longer leaves a wide empty band along one edge: the layout kept moving after it was framed, so it is framed once more when it comes to rest, unless you have zoomed or panned.
+- Fewer graph labels: a map of more than 20 notes names its best-connected third at the fitted zoom; zooming in, hovering or searching names the rest.
+
 ## [0.3.31] - 2026-09-28
 
 ### Fixed

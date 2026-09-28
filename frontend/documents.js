@@ -1036,6 +1036,17 @@ function docOpenBacklinkSource(row) {
 //: menu, the table command, the properties command) writes where you are, and
 //: an action that alone appended to the bottom would be the one place in the
 //: editor where "insert" means something else.
+function docInsertReferenceLink(bookmark) {
+  const surface = docSurface();
+  if (!surface) return;
+  // Brackets would end the link text early, and a space or ")" the url.
+  const text = String(bookmark.title || bookmark.url).replace(/[[\]]/g, "");
+  const url = String(bookmark.url).replace(/ /g, "%20").replace(/\)/g, "%29");
+  docReplaceRange(surface, surface.selectionStart, surface.selectionEnd, `[${text}](${url})`);
+  markDocDirty();
+  surface.focus();
+}
+
 function docLinkBack(title) {
   const surface = docSurface();
   if (!surface) return;
@@ -1239,7 +1250,15 @@ async function renderDocBookmarks() {
       renderDocBookmarks();
     });
     remove.classList.add("doc-outline-row-action");
-    item.append(open, remove);
+    //: **Into the text, not only beside it** (owner, 0.3.31: "how do I
+    //: hyperlink or attach bookmark references in a document??"). Writes
+    //: `[title](url)` at the caret, the way `docLinkBack` writes `[[Source]]`:
+    //: every insert in this editor goes where you are.
+    const insert = smallButton("ph:text-aa", "Insert as a link where the caret is", () =>
+      docInsertReferenceLink(bookmark)
+    );
+    insert.classList.add("doc-outline-row-action");
+    item.append(open, insert, remove);
     list.appendChild(item);
   }
 }

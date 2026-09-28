@@ -526,6 +526,22 @@ function editorInsertBlock(textarea, markdown) {
 //: the "the same object drawn five ways" failure this app already has a rule
 //: against, and the dialog hands the row back, so the reference can say
 //: whether it is a board or a map without a second request.
+//: The "/" menu's bookmark link: the app's one-thing picker on its Bookmarks
+//: source (`LIBRARY_PICK_SOURCES`, kind "link"), then `[title](url)` inline
+//: at the caret, where the "/" was typed.
+async function editorInsertBookmarkLink(textarea) {
+  if (typeof pickLibraryItemDialog !== "function") return;
+  const at = textarea.selectionStart;
+  const chosen = await pickLibraryItemDialog("Which bookmark?", { sources: ["link"] });
+  if (!chosen) return;
+  const row = chosen.row || {};
+  const url = String(row.url || "").replace(/ /g, "%20").replace(/\)/g, "%29");
+  if (!url) return;
+  const text = String(row.title || chosen.label || url).replace(/[[\]]/g, "");
+  textarea.focus();
+  editorSplice(textarea, at, at, `[${text}](${url})`, null);
+}
+
 async function editorInsertBoardObject(textarea) {
   if (typeof pickLibraryItemDialog !== "function" || typeof boardEmbedMarkdown !== "function") return;
   const chosen = await pickLibraryItemDialog("Which board or map?", { sources: ["board"] });
@@ -815,6 +831,10 @@ function editorBlockRows(context) {
   add({ id: "wikilink", group: "Embeds", icon: "ph:link", label: "Link to a note", about: "Pick a note, document or board to link", keys: "[[", keywords: ["link", "note", "wiki", "reference", "connect", "document"], run: (t) => { editorApplyAction(t, { insert: "[[" }); editorOpenMenu(t, "[["); } });
   add({ id: "embed", group: "Embeds", icon: "ph:paperclip", label: "Embed a note or document", about: "Its content, or a card for it, shown here", keys: "![[", keywords: ["embed", "transclude", "include", "inline", "note", "document", "card"], run: (t) => { editorApplyAction(t, { insert: "![[" }); editorOpenMenu(t, "[["); } });
   add({ id: "board-object", group: "Embeds", icon: "ph:squares-four", label: "Board or mind map", about: "A live preview of it, here in the text", keys: "![[board:]]", keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"], run: (t) => editorInsertBoardObject(t) });
+  //: A saved bookmark as a link where the caret is (owner, 0.3.31: "I want
+  //: to attach bookmark links not just general links ... in notes and other
+  //: text areas as well, like the / menu").
+  add({ id: "bookmark-link", group: "Embeds", icon: "ph:bookmark-simple", label: "Bookmark link", about: "Pick a saved bookmark and link it here", keys: "[Title](url)", keywords: ["bookmark", "link", "reference", "url", "web", "saved", "source"], run: (t) => editorInsertBookmarkLink(t) });
   add({ id: "link-card", group: "Embeds", icon: "ph:cursor-click", label: "Link card", about: "A web link drawn as a card you press", keys: "[Title](url)", keywords: ["link", "card", "button", "bookmark", "url", "web", "preview"], run: (t) => editorBlock(t, "[", "Title", "](https://)") });
   add({ id: "weblink", group: "Embeds", icon: "ph:globe", label: "Web link", about: "A link inside the sentence", keys: "[text](url)", keywords: ["url", "web", "href", "external", "link"], run: (t) => { const { selectionStart: s, selectionEnd: e, value } = t; const label = value.slice(s, e) || "link text"; editorSplice(t, s, e, `[${label}](https://)`, { from: label.length + 3, to: label.length + 11 }); } });
   if (inDocument) {

@@ -266,6 +266,13 @@ const GC_LABEL_LANDMARKS = 12;
 //: Of those, how many of the best-connected in view may be named over another
 //: dot when nowhere else is free; see the label pass in `gcDraw`.
 const GC_LABEL_LANDMARK_HUBS = 10;
+//: **Every name only on a small map** (owner, 0.3.31: "the labels on the
+//: graph are a bit much", a 35-note map named every dot at the fit). Past
+//: this many notes the fitted overview names its best-connected third (the
+//: landmarks pass, `GC_LABEL_LANDMARK_SHARE`), and zooming past
+//: GC_LABEL_ZOOM, hovering or searching still names the rest.
+const GC_LABEL_ALL_SMALL = 20;
+const GC_LABEL_LANDMARK_SHARE = 0.35;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -1141,7 +1148,7 @@ function gcDraw(s = gcTab) {
     // GC_LABEL_ALL_MAX nodes the tickbox shows them all at any zoom; above
     // it the zoom gate stays, since 2,000 labels at the fitted zoom are
     // paint the eye cannot read and the frame budget cannot afford.
-    const labelsForAll = labelsOn && s.nodes.length <= GC_LABEL_ALL_MAX;
+    const labelsForAll = labelsOn && s.nodes.length <= GC_LABEL_ALL_SMALL;
     if (!dim && ((labelsOn && (labelsForAll || k > GC_LABEL_ZOOM || matched)) || focused)) {
       labelled.push(node);
     }
@@ -1151,13 +1158,19 @@ function gcDraw(s = gcTab) {
   //: neighbourhood (degree 2 or more), so a map of islands does not name
   //: twelve arbitrary dots. They join the queue below as ordinary labels:
   //: the collision pass decides whether each has room.
-  if (labelsOn && labelled.length < drawn.length && k <= GC_LABEL_ZOOM && s.nodes.length > GC_LABEL_ALL_MAX) {
+  if (labelsOn && labelled.length < drawn.length && k <= GC_LABEL_ZOOM && s.nodes.length > GC_LABEL_ALL_SMALL) {
     const already = new Set(labelled.map((node) => node.id));
     const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
+    // A big map keeps its dozen hubs of degree 2+; a mid-sized one names
+    // its best-connected third, a lone note included only if it has a link.
+    const big = s.nodes.length > GC_LABEL_ALL_MAX;
+    const count = big
+      ? GC_LABEL_LANDMARKS
+      : Math.max(8, Math.round(s.nodes.length * GC_LABEL_LANDMARK_SHARE));
     const landmarks = drawn
-      .filter((node) => !node._dim && !already.has(node.id) && degree(node) >= 2)
+      .filter((node) => !node._dim && !already.has(node.id) && degree(node) >= (big ? 2 : 0))
       .sort((a, b) => degree(b) - degree(a))
-      .slice(0, GC_LABEL_LANDMARKS);
+      .slice(0, count);
     for (const node of landmarks) labelled.push(node);
   }
   //: Sprites at the zoom's own pixel size, so a node stays crisp at any
@@ -2452,6 +2465,11 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
             gcSetAutoFitDone(s, true);
             if (!s.userZoomed) {
               fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+              //: The layout keeps drifting between alpha 0.08 and rest, so
+              //: this frame could end lopsided: a wide empty band along one
+              //: edge (owner, 0.3.31: "the graph auto size leaves quite a bit
+              //: of a gap at the bottom"). One more fit at "end", below.
+              s.fitAgainAtEnd = true;
             }
           }
         }
@@ -2469,7 +2487,10 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
           fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+        } else if (s.fitAgainAtEnd && !s.userZoomed && s.nodes.length) {
+          fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
         }
+        s.fitAgainAtEnd = false;
         // GRAPH_PLAN Phase 5: the settle a restored view's unplaced notes
         // forced is over, so the notes it held still (`viewSeed.freezeIds`,
         // below) are released the same way a drag's freeze is: `thaw`, no

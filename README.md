@@ -298,18 +298,14 @@ interface zoom, a guided tour of the real controls, and daily local backups.
 
 ## Meet Atlas
 
-**The star spirit who keeps your notebook.**
-
 <p align="center">
-  <img src="docs/screenshots/atlas-mood.png" alt="Atlas in its masculine look on a night-sky tile: a small astral figure with a ring of orbiting stars, swept starlit hair, a nebula stream and a happy expression" width="280">
+  <img src="docs/screenshots/atlas-mood.png" alt="Atlas in its masculine look on a night-sky tile: a small astral figure with a ring of orbiting stars, swept starlit hair, a nebula stream and a happy expression" width="240">
+  <br><b>The star spirit who keeps your notebook</b>
 </p>
 
-Atlas is the one who reads what you write and works out where it goes: a
-category, a set of tags, the notes it relates to. Ask a question and Atlas
-answers from your own notebook, sentence by sentence, with the note behind
-each one beside it. Settle Atlas in the corner of any page as a companion
-that reacts to what you do, or draw a character of your own the same way,
-from a name.
+- **Files your notes**: a category, tags and the notes each one relates to.
+- **Answers from your notebook**: sentence by sentence, with the note behind each one.
+- **Keeps you company**: a companion in the corner of any page that reacts to what you do, or a character of your own, drawn from a name.
 
 ## The AI, and life without it
 

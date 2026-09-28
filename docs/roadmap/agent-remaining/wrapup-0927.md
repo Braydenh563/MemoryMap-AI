@@ -76,6 +76,13 @@ work starts.
     (i) find the ResizeObserver in the Library's Files view that trips the
     browser's "loop completed with undelivered notifications" notice (now
     filtered from the error log in app.js) and defer its write a frame.
+    (j) the enlarged viewer: a generated face (not Atlas) stays on one
+    expression; it should blink, change mood and emote there like the
+    companion does (the Atlas viewer already does);
+    (k) widget drag on the dashboard swaps back and forth while dragging:
+    add hysteresis (a dead zone past the midpoint and a short dwell);
+    (l) the companion's perch in the chat sidebar looked unsupported
+    (floating beside a conversation row); check the perch edges there.
 11. **Docs:** move INBOX 431 to HISTORY once items 1 to 6 are closed; the
    HANDOVER "Now" line then points at the next plan step.
 

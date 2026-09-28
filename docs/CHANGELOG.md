@@ -76,6 +76,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Mind map topics can be filled with their colour: the topic strip's Shape
+  menu has a Fill row with "Fill this topic", "Fill with its branch" (the
+  topic and everything under it, including topics added later) and, inside a
+  filled branch, "No fill" for one topic. Stored as the node's `fill` style
+  field, so it survives a reload, round-trips through OPML and FreeMind, and
+  "Back to the branch" clears it. A tint of the topic's colour
+  (`--wb-fill-strength`, 24% light, 32% dark), so the label keeps its normal
+  ink: measured at 11.3:1 light and 9.6:1 dark on the palette's blue, and
+  4.86:1 at the worst case, a white topic in dark theme.
+- Back and Forward return to a Settings section at the scroll position you left it.
+- The template picker has a Manage templates button that opens Settings, Templates.
+- The companion's far moves vary: a zip, a walk or, much further, a poof; its small steps are a hop, a shuffle or a scoot.
 - The README has a "Meet Atlas" section with its own portrait, every screenshot retaken, eight main features shown a second time in the dark theme beside a light/dark split, and a richer showcase notebook (clusters, hubs and loose notes, both AI-reasoned and plain links) behind the graph shot.
 - A word rotates beside the thinking dots in chat, capture Ask and the popup agent ("Pondering", "Leafing through your notes"), in the answering persona's own voice; Atlas gets a starlit set of its own, and every persona can write, or ask the AI to suggest, its own list in Settings, Personas. A new "Show thinking words" switch in Settings, Appearance turns it off.
 - The LAN switch offers a "Restart now" action when a restart is actually needed to take effect, on either direction of the switch, instead of only saying so in text.
@@ -114,6 +126,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Toolbars: one row works on the note edit form, the layout toggle goes back to several rows and a reload keeps the choice (a one-time migration was clearing it), and a group rule never starts or ends a wrapped row.
+- Note cards: more room at the top, a gap between cards, and files and sketches clear the metadata row; a file chip's Download and Remove are one size on one centre line. In the rows view the metadata lane no longer draws over the date.
+- Collapsed sidebars centre their vertical name under the toggle; the graph popup's tags field has its gap; Settings has a gap under Back up now; the guide panel's own turn is Chat's bubble; the chat thinking line puts its status and rotating lines under the dots.
+- SearXNG no longer queries qwant, which answered home instances with a CAPTCHA and a traceback on every search; the ResizeObserver notice is no longer logged as an error.
 - The rotating thinking word beside the dots (chat, Ask, the popup agent) no longer draws as a long line with an off-centre, pulsing phrase: it was a fourth `<span>` in the dots' own row, and every dot rule matched it too, stretching a dot's circle into a flattened, filled, bouncing pill. The three real dots now carry their own class, and the word is bold with a static glow instead.
 - The chat attach popup (Notes, Documents, Files, Images, Maps) has a proper dialog head (a title, a Close) and a search field with a leading icon, and its category chip can no longer wrap onto a second line. On a phone it opens as a bottom sheet rather than a popover that could land above where the page's own scroll viewport painted and never show at all.
 - Settings > Privacy's "Nothing left this computer." notice is centred on its icon rather than a couple of pixels off, and now leads to the Destinations list it is about.
@@ -1285,15 +1301,6 @@ below). Versioning is `0.x` while the app stabilises.
   2ms style from a 12ms one. `scratchpad/ui-sweeps/bgartcontrast.js`
   measures text contrast against the real pixels behind each text element
   with the art on, which `contrast.js` cannot see through glass.
-- Mind map topics can be filled with their colour: the topic strip's Shape
-  menu has a Fill row with "Fill this topic", "Fill with its branch" (the
-  topic and everything under it, including topics added later) and, inside a
-  filled branch, "No fill" for one topic. Stored as the node's `fill` style
-  field, so it survives a reload, round-trips through OPML and FreeMind, and
-  "Back to the branch" clears it. A tint of the topic's colour
-  (`--wb-fill-strength`, 24% light, 32% dark), so the label keeps its normal
-  ink: measured at 11.3:1 light and 9.6:1 dark on the palette's blue, and
-  4.86:1 at the worst case, a white topic in dark theme.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

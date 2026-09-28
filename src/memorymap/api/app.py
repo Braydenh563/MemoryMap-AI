@@ -28,7 +28,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 
 from memorymap import __version__
-from memorymap.ai import embeddings, autonomous
+from memorymap.ai import autonomous, embeddings, janitor
 from memorymap.search import searxng_manager
 from memorymap.api import (
     routes_ask_history,
@@ -672,6 +672,15 @@ def create_app() -> FastAPI:
     # The session factory is handed in so embeddings never has to import the
     # dependency container that imports it.
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
+    # The filing model too: a cold load is most of a first filing's wait.
+    # Its own daemon thread, not the model lane, so a note saved meanwhile
+    # is never queued behind the warm-up (janitor.warm_filing_model).
+    threading.Thread(
+        target=janitor.warm_filing_model,
+        args=(deps.get_model_manager(), deps.get_ollama()),
+        name="mm-warm-filing",
+        daemon=True,
+    ).start()
     startup_status.set_phase("Starting the server…")
 
     # **Nothing stopped background work when the app quit, and that was the

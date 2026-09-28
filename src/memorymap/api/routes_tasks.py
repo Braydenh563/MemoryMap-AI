@@ -150,6 +150,12 @@ def collect() -> list[dict]:
         if not (captioning_now and row["kind"] == "job-caption" and not row.get("queued"))
     )
 
+    # Filing past its wait, and the launch warm-up of the filing model: the
+    # queued and running filing jobs are pool rows above ("Filing a note").
+    from memorymap.ai import janitor
+
+    tasks.extend(janitor.activity_rows())
+
     # Autonomous optimization task
     from memorymap.ai import autonomous
     if autonomous.is_running():

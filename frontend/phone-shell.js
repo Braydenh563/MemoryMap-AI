@@ -2247,6 +2247,17 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
 $("pref-background-filing").addEventListener("change", (e) =>
   setPreference("background_filing", e.target.checked)
 );
+//: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
+//: as 60 rather than being refused by the preferences schema.
+$("pref-filing-wait").addEventListener("change", (e) => {
+  const seconds = Math.max(5, Math.min(60, Math.round(Number(e.target.value) || 15)));
+  e.target.value = seconds;
+  setPreference("filing_wait_seconds", seconds);
+});
+$("pref-filing-wait-reset").addEventListener("click", () => {
+  $("pref-filing-wait").value = 15;
+  setPreference("filing_wait_seconds", 15);
+});
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );

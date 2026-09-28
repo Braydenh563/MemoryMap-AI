@@ -458,6 +458,7 @@ class PreferencesBody(BaseModel):
     auto_capture_enabled: bool | None = None
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
+    filing_wait_seconds: int | None = Field(default=None, ge=5, le=60)
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
     # Asked directly: a way to quiet toasts and the notifications panel for

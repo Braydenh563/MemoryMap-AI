@@ -12,7 +12,9 @@ below). Versioning is `0.x` while the app stabilises.
 ### Fixed
 
 - A new note no longer looks like it is filing forever. The page kept checking for only 26 seconds and never refreshed the card after that; it now watches until the note settles, and the line under the composer says where it went. A note left filing when the app closed is filed on the next launch.
-- Filing takes seconds, not minutes: the model is asked with thinking off and a short reply, and after 8 seconds the note is filed by meaning instead. The card settles as soon as the category is known, before the note's search vector is built.
+- Filing takes seconds, not minutes, without giving up accuracy: the model is asked with thinking off and a short reply; past the wait (15 seconds, adjustable in Settings, Automation, 5 to 60, with a reset) the note is filed by meaning at once, and the model's answer replaces that when it arrives, unless you moved the note yourself. The filing model is warmed up at launch. The card settles as soon as the category is known, before the note's search vector is built.
+- Re-evaluate, adding context, the agent's own notes and extraction keep their long wait, so a slow model is never swapped for a weaker guess there.
+- Every filing failure is in Settings, Logs (a model that errors or answers something unusable used to be silent), and Settings, Background tasks shows a model answering past the wait and the filing model warming up.
 - The README no longer points to the MSI installer, which is not built at the moment.
 - Improve writing starts when you press Start, not as soon as it opens or a mode is picked; its two buttons share a height and the chosen mode has round corners.
 - The Windows installer's optional packages page lays each row out by its measured height, so the text no longer overlaps at 125% display scaling.

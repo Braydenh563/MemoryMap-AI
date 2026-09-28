@@ -9906,6 +9906,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-background-filing">
                 <span>File notes in the background (save is instant; a notification says where it landed)</span>
               </label>
+              <!-- How long a note waits for the model before it is filed by
+                   meaning; the model's answer still replaces that when it
+                   lands (janitor.FILING_MODEL_DEADLINE_SECONDS). -->
+              <label for="pref-filing-wait" class="form-label form-label-spaced">Wait for Atlas to file a note (seconds, 5 to 60)</label>
+              <div class="row">
+                <input type="number" id="pref-filing-wait" min="5" max="60" placeholder="15"
+                  title="Past this, the note is filed by meaning at once, and Atlas's answer replaces that when it arrives. Raise it on a slower computer.">
+                <button id="pref-filing-wait-reset" class="ghost small" type="button">Reset to default</button>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-auto-caption-images">
                 <span>Describe images automatically (AI caption on save)</span>

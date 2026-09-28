@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import re
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -223,7 +224,12 @@ def _process_committed_media(session: Session, plaintext_content: str) -> None:
     )
 
 
-def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
+def _file_entry_now(
+    session: Session,
+    content: str,
+    on_late_llm=None,  # noqa: ANN001
+    model_deadline: float | None = None,
+) -> tuple[str, int, str]:
     """Ask the janitor where a note belongs. Whatever goes wrong in AI land,
     the note still gets saved (plan §4)."""
     try:
@@ -233,6 +239,8 @@ def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
             deps.get_embeddings(),
             deps.get_model_manager(),
             deps.get_ollama(),
+            on_late_llm=on_late_llm,
+            model_deadline=model_deadline,
         )
     except Exception:
         # `categorise` handles a model that is down on its own (a keyword
@@ -240,6 +248,60 @@ def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
         # "Uncategorised" is the only sign.
         logger.warning("filing failed; the note is saved uncategorised", exc_info=True)
         return manager.UNCATEGORISED, 0, "none"
+
+
+class _LateFiling:
+    """**The model's answer wins, even when it is slow.** Filing gives the
+    model `janitor.FILING_MODEL_DEADLINE_SECONDS` so a note never looks stuck;
+    past that the note is filed by meaning (a stand-in) and the model keeps
+    going on its own thread. When its answer lands it replaces the stand-in,
+    unless the note was moved by hand or deleted in the meantime: the owner's
+    words, "there's no point in having the app if the notes arent filed
+    accurately". Either order is handled: an answer that lands before the
+    stand-in is decided is taken instead of it."""
+
+    def __init__(self, entry_id: int, workspace_id: str) -> None:
+        self.entry_id = entry_id
+        self.workspace_id = workspace_id
+        self._lock = threading.Lock()
+        self._stand_in: str | None = None
+        self._early: tuple[str, int] | None = None
+
+    def stand_in(self, category: str, confidence: int, filed_by: str) -> tuple[str, int, str]:
+        with self._lock:
+            if self._early is not None:
+                return self._early[0], self._early[1], "llm"
+            self._stand_in = category
+            return category, confidence, filed_by
+
+    def arrived(self, category: str, confidence: int) -> None:
+        with self._lock:
+            if self._stand_in is None:
+                self._early = (category, confidence)
+                return
+            stand_in = self._stand_in
+        self.apply(category, confidence, stand_in)
+
+    def apply(self, category: str, confidence: int, stand_in: str) -> None:
+        from memorymap.core.deps import impersonate_workspace
+
+        try:
+            with deps.get_db().session() as session:
+                with impersonate_workspace(session, self.workspace_id):
+                    entry = session.get(Entry, self.entry_id)
+                    if entry is None or getattr(entry, "is_deleted", False):
+                        return
+                    if getattr(entry, "user_filed", False):
+                        return
+                    if manager.category_name_for(session, entry) != stand_in:
+                        return  # moved by hand: the person's choice stands
+                    manager.record_filing(session, entry, category)
+                    entry.ai_confidence = confidence
+                    entry.filing_state = manager.AUTO_FILED
+                    session.commit()
+                    logger.info("janitor: late model answer refiled entry %s", self.entry_id)
+        except Exception:
+            logger.warning("couldn't apply the late filing for entry %s", self.entry_id, exc_info=True)
 
 
 def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
@@ -290,9 +352,16 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # finished: a settled note is never filed twice.
                 if (getattr(entry, "filing_state", "") or "") != "pending":
                     return
+                late = _LateFiling(entry_id, workspace_id)
                 category, confidence, filed_by = _file_entry_now(
-                    session, manager.readable_content(entry)
+                    session,
+                    manager.readable_content(entry),
+                    on_late_llm=late.arrived,
+                    model_deadline=janitor.filing_deadline(),
                 )
+                # The model answered after the deadline but before the
+                # stand-in was decided: its answer is used instead.
+                category, confidence, filed_by = late.stand_in(category, confidence, filed_by)
                 manager.record_filing(session, entry, category)
                 entry.ai_confidence = confidence
                 # `auto` rather than `done` when the AI is the one that

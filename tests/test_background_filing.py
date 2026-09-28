@@ -91,3 +91,80 @@ def test_filing_asks_the_model_in_quick_mode():
 
     janitor._chat_within_deadline(_Fake(), "m", [])
     assert seen["mode"] == "quick"
+
+
+def _category_of(client, entry_id):
+    return client.get(f"/entries/{entry_id}/filing").json()["category"]
+
+
+def test_the_models_late_answer_replaces_the_stand_in(client):
+    created = client.post("/entries", json={"content": "late one", "category": "Stand in"}).json()
+    client.put(f"/entries/{created['id']}", json={"content": "late one"})
+    late = routes_entries._LateFiling(created["id"], "default")
+    # user_filed is set for a chosen category, so clear it: the stand-in is the AI's.
+    from memorymap.core import deps
+
+    with deps.get_db().session() as s:
+        s.get(Entry, created["id"]).user_filed = False
+        s.commit()
+    assert late.stand_in("Stand in", 40, "semantic-match") == ("Stand in", 40, "semantic-match")
+    late.arrived("Recipes", 90)
+    assert _category_of(client, created["id"]) == "Recipes"
+
+
+def test_a_note_moved_by_hand_keeps_its_place(client):
+    created = client.post("/entries", json={"content": "moved one", "category": "Mine"}).json()
+    from memorymap.core import deps
+
+    with deps.get_db().session() as s:
+        s.get(Entry, created["id"]).user_filed = False
+        s.commit()
+    late = routes_entries._LateFiling(created["id"], "default")
+    late.stand_in("Something else", 40, "semantic-match")
+    late.arrived("Recipes", 90)
+    assert _category_of(client, created["id"]) == "Mine"
+
+
+def test_an_answer_before_the_stand_in_is_used_instead():
+    late = routes_entries._LateFiling(1, "default")
+    late.arrived("Recipes", 90)
+    assert late.stand_in("Stand in", 40, "semantic-match") == ("Recipes", 90, "llm")
+
+
+def test_a_late_reply_reaches_the_callback():
+    import threading
+
+    from memorymap.ai import janitor
+
+    got = threading.Event()
+
+    class _Slow:
+        def chat(self, model, messages, mode=None):
+            time.sleep(0.5)
+            return {"content": '{"category": "Late", "confidence": 70}'}
+
+    seen = []
+    try:
+        janitor._chat_within_deadline(
+            _Slow(), "m", [], deadline=0.1,
+            on_late=lambda reply: (seen.append(reply), got.set()),
+        )
+    except TimeoutError:
+        pass
+    assert got.wait(3) and "Late" in seen[0]["content"]
+
+
+def test_the_wait_is_a_clamped_preference(monkeypatch):
+    from memorymap.ai import janitor
+    from memorymap.core import deps
+
+    class _Cfg:
+        def __init__(self, v):
+            self.v = v
+
+        def get_preference(self, key, default=None):
+            return self.v if key == "filing_wait_seconds" else default
+
+    for value, expected in ((None, 15.0), (30, 30.0), (1, 5.0), (500, 60.0)):
+        monkeypatch.setattr(deps, "get_config", lambda v=value: _Cfg(v))
+        assert janitor.filing_deadline() == expected

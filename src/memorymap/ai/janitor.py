@@ -111,6 +111,8 @@ def categorise(
     model_manager: ModelManager,
     ollama: OllamaClient,
     exclude_entry_id: int | None = None,
+    on_late_llm=None,  # noqa: ANN001 - Callable[[str, int], None] | None
+    model_deadline: float | None = None,
 ) -> tuple[str, int, str]:
     """Decide (category_name, confidence 0-100, method) for a new note.
 
@@ -120,7 +122,16 @@ def categorise(
 
     When RE-categorising an existing note (add-context), pass
     `exclude_entry_id`, otherwise the note's own stored vector anchors
-    it to its old category and it can never move."""
+    it to its old category and it can never move.
+
+    `on_late_llm(category, confidence)`, when given, is called on the model's
+    thread if the model answers after `FILING_MODEL_DEADLINE_SECONDS`: what
+    this returned was a stand-in, and the model's answer is applied when it
+    lands (`_file_entry_in_background`). `model_deadline` is that wait; the
+    default is `BLOCKING_MODEL_DEADLINE_SECONDS`, because every other caller
+    (re-evaluate, adding context, the agent's own notes, extraction) keeps
+    what it gets, and a short wait there would swap the model's answer for
+    a weaker guess for good."""
     # **The model decides when there is a model.** This used to run the other
     # way round: a confident centroid match, then nearest neighbours, and the
     # chat model only if both declined, which meant that in an established
@@ -155,7 +166,9 @@ def categorise(
         if semantic is not None:
             return semantic
 
-    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
+    category, confidence, method = _ask_llm(
+        session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline
+    )
     if method != "none":
         # The category can come straight from the chat model, so it is
         # untrusted text on the way to a log line like any other.
@@ -364,6 +377,8 @@ def _ask_llm(
     content: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
+    on_late=None,  # noqa: ANN001
+    deadline: float | None = None,
 ) -> tuple[str, int, str]:
     if not ollama.is_running():
         return UNCATEGORISED, 0, "none"
@@ -389,6 +404,8 @@ def _ask_llm(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
+            deadline=deadline or BLOCKING_MODEL_DEADLINE_SECONDS,
+            on_late=None if on_late is None else (lambda reply: _late_answer(reply, on_late)),
         )
         # Thinking models reason before answering; only the answer part
         # can contain the JSON we asked for.
@@ -396,10 +413,14 @@ def _ask_llm(
         category = str(data["category"]).strip()
         if not category:
             raise ValueError("empty category")
-        confidence = int(data.get("confidence", 50))
-        return category, max(0, min(100, confidence)), "llm"
-    except (OllamaError, ValueError, KeyError, TypeError, TimeoutError):
-        # A confused model must never block a save.
+        return category, _confidence_of(data), "llm"
+    except TimeoutError:
+        return UNCATEGORISED, 0, "none"  # logged where the deadline passed
+    except (OllamaError, ValueError, KeyError, TypeError) as exc:
+        # A confused model must never block a save, and must never be
+        # silent either: this is the line in Settings, Logs that says why
+        # a note was filed by meaning rather than by the model.
+        logger.warning("janitor: the model couldn't file a note (%s); filing by meaning", safe_value(str(exc), 200))
         return UNCATEGORISED, 0, "none"
 
 
@@ -411,7 +432,92 @@ def _ask_llm(
 #: same fallback as no model at all. The call is left to finish on its
 #: daemon thread rather than cut off, so the model it loaded is warm for the
 #: next note.
-FILING_MODEL_DEADLINE_SECONDS = 8.0
+FILING_MODEL_DEADLINE_SECONDS = 15.0
+#: The owner's range for the Settings field (Settings, Automation: "Wait for
+#: Atlas to file a note"): a slow computer can give the model longer, and a
+#: late answer is applied anyway (`on_late_llm`), so the wait only decides
+#: how long the card says "Filing…" before the stand-in shows.
+FILING_WAIT_RANGE = (5, 60)
+#: Callers that keep what they get wait this long, roughly the old behaviour
+#: (the client's own timeout decided it before the deadline existed).
+BLOCKING_MODEL_DEADLINE_SECONDS = 180.0
+
+#: Background filing Settings can see (`/tasks`): the model answering past
+#: the wait, and the launch warm-up. Counted, not listed: neither has a name
+#: worth showing, and the rows say what they are.
+_activity = {"late": 0, "warming": False}
+_activity_lock = threading.Lock()
+
+
+def activity_rows() -> list[dict]:
+    rows = []
+    with _activity_lock:
+        late, warming = _activity["late"], _activity["warming"]
+    if late:
+        rows.append(_row("filing-late", "Filing a note", f"waiting for {late} model answer(s) past the wait"))
+    if warming:
+        rows.append(_row("filing-warmup", "Warming up the filing model", ""))
+    return rows
+
+
+def _uncount_late() -> None:
+    with _activity_lock:
+        _activity["late"] = max(0, _activity["late"] - 1)
+
+
+def _row(kind: str, label: str, detail: str) -> dict:
+    return {"kind": kind, "name": "", "label": label, "detail": detail,
+            "progress": None, "log": [], "queued": False}
+
+
+def filing_deadline() -> float:
+    try:
+        value = int(deps.get_config().get_preference("filing_wait_seconds") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    if not value:
+        return FILING_MODEL_DEADLINE_SECONDS
+    low, high = FILING_WAIT_RANGE
+    return float(max(low, min(high, value)))
+
+
+def _confidence_of(data: dict) -> int:
+    return max(0, min(100, int(data.get("confidence", 50))))
+
+
+def _late_answer(reply: dict, on_late) -> None:  # noqa: ANN001
+    """The model's answer after the deadline, parsed as `_ask_llm` parses
+    it and handed on; an unusable one is dropped and the stand-in stays."""
+    try:
+        data = _extract_json(reply["content"])
+        category = str(data["category"]).strip()
+        if category:
+            on_late(category, _confidence_of(data))
+    except Exception:  # noqa: BLE001 - a late answer is best effort
+        logger.debug("janitor: the model's late filing answer was unusable", exc_info=True)
+
+
+def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None:
+    """Load the filing model before the first note needs it. A cold load
+    is most of a first filing's wait, and past the deadline the first notes
+    of every launch would get the stand-in first. Never raises."""
+    try:
+        if not ollama.is_running():
+            return
+        with _activity_lock:
+            _activity["warming"] = True
+        _chat_within_deadline(
+            ollama,
+            model_manager.utility_model(),
+            [{"role": "user", "content": "Reply with OK."}],
+            deadline=BLOCKING_MODEL_DEADLINE_SECONDS,
+        )
+        logger.info("janitor: filing model warmed up")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("janitor: couldn't warm the filing model (%s)", safe_value(str(exc), 200))
+    finally:
+        with _activity_lock:
+            _activity["warming"] = False
 
 
 def _chat_within_deadline(
@@ -419,6 +525,7 @@ def _chat_within_deadline(
     model: str,
     messages: list[dict],
     deadline: float = FILING_MODEL_DEADLINE_SECONDS,
+    on_late=None,  # noqa: ANN001 - Callable[[dict], None] | None
 ) -> dict:
     """`ollama.chat` in `quick` mode (thinking off, a short reply), or
     `TimeoutError` once `deadline` seconds pass. `quick` only where the
@@ -429,21 +536,50 @@ def _chat_within_deadline(
     except (TypeError, ValueError):
         takes_mode = False
     outcome: dict = {}
+    lock = threading.Lock()
+
+    def settle(key: str, value: object) -> bool:
+        """Record the result; True when the caller had already given up
+        (and counted this call as a late answer in Settings)."""
+        with lock:
+            outcome[key] = value
+            return bool(outcome.get("abandoned"))
 
     def run() -> None:
         try:
             if takes_mode:
-                outcome["reply"] = ollama.chat(model, messages, mode="quick")
+                reply = ollama.chat(model, messages, mode="quick")
             else:
-                outcome["reply"] = ollama.chat(model, messages)
+                reply = ollama.chat(model, messages)
         except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
-            outcome["error"] = exc
+            if settle("error", exc):
+                logger.warning(
+                    "janitor: the model's late filing answer failed (%s)", safe_value(str(exc), 200)
+                )
+                _uncount_late()
+            return
+        if settle("reply", reply):
+            try:
+                if on_late is not None:
+                    on_late(reply)
+            except Exception:  # noqa: BLE001
+                logger.warning("janitor: applying a late filing answer failed", exc_info=True)
+            finally:
+                _uncount_late()
 
     worker = threading.Thread(target=run, name="mm-filing-chat", daemon=True)
     worker.start()
     worker.join(deadline)
-    if worker.is_alive():
-        logger.info("janitor: the model took over %.0fs to file a note, filing by meaning", deadline)
+    with lock:
+        if "reply" not in outcome and "error" not in outcome:
+            outcome["abandoned"] = True
+            with _activity_lock:
+                _activity["late"] += 1
+    if outcome.get("abandoned"):
+        logger.info(
+            "janitor: the model took over %.0fs to file a note, filing by meaning for now",
+            deadline,
+        )
         raise TimeoutError("filing model deadline")
     if "error" in outcome:
         raise outcome["error"]

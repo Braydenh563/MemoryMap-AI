@@ -31,6 +31,7 @@ from memorymap.ai import (
     agent,
     captioning,
     context,
+    fence,
     followups,
     intent,
     librarian,
@@ -1832,10 +1833,22 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         if not agentic and not conversational and prepared["notes"]
         else None
     )
+    #: The fence markers a small model echoes back are taken out of the
+    #: answer before anything reads or saves it (`fence.AnswerScrubber`).
+    scrubber = fence.AnswerScrubber()
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
+            if kind == "answer":
+                payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
+                if not payload["delta"]:
+                    continue
+            else:
+                held = scrubber.flush()
+                if held:
+                    answer_text += held
+                    yield event({"type": "answer", "delta": held})
             if kind == "answer":
                 if answer_text and not in_prose:
                     answer_text += "\n\n"
@@ -1855,6 +1868,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             yield event(payload)
             if live_rows:
                 yield event({"type": "grounding_live", "sentences": list(live_grounder.rows)})
+        held = scrubber.flush()
+        if held:
+            answer_text += held
+            yield event({"type": "answer", "delta": held})
     except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
         # for a failure that shows up partway through rather than before
         # the first event (a later skill step, say). Same fix: say what

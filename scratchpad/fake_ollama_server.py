@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"models": INSTALLED})
         if self.path.startswith("/api/version"):
             return self._json({"version": "0.0-fake"})
-        self._json({"error": "not found"}, 404)
+        return self._json({"error": "not found"}, 404)
 
     def do_DELETE(self):
         name = self._body().get("name", "")
@@ -78,12 +78,13 @@ class Handler(BaseHTTPRequestHandler):
                 INSTALLED.append({"name": name if ":" in name else name + ":latest", "size": total, "modified_at": "2026-10-03T10:00:00Z"})
                 self.wfile.write((json.dumps({"status": "success"}) + "\n").encode())
             except (BrokenPipeError, ConnectionResetError):
+                # The client cancelled the download: nothing left to send.
                 pass
-            return
+            return None
         if self.path.startswith("/api/chat"):
             line = {"model": body.get("model"), "message": {"role": "assistant", "content": "ok"}, "done": True}
             return self._json(line)
-        self._json({"error": "not found"}, 404)
+        return self._json({"error": "not found"}, 404)
 
 
 if __name__ == "__main__":

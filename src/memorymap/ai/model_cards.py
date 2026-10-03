@@ -142,7 +142,10 @@ _HF_URL = re.compile(
     r"(?:/(?:tree|blob|resolve)/[^/\s]+(?:/(?P<file>[^\s?#]+))?)?/?(?:[?#]\S*)?$"
 )
 #: A quantisation tag as it sits in a GGUF file name (``Qwen3-4B-Q4_K_M.gguf``).
-_QUANT = re.compile(r"(?<![A-Za-z0-9])(IQ\d_[A-Z0-9_]+|Q\d_[A-Z0-9_]+|BF16|F16|F32)(?![A-Za-z0-9])", re.IGNORECASE)
+#: Bounded (a quantisation suffix is a few characters, "Q4_K_M"): an open
+#: `+` before the look-ahead let `search` re-scan a long run of "q0_q0_..."
+#: from every start, which CodeQL flagged as polynomial on a pasted name.
+_QUANT = re.compile(r"(?<![A-Za-z0-9])(IQ\d_[A-Z0-9_]{1,8}|Q\d_[A-Z0-9_]{1,8}|BF16|F16|F32)(?![A-Za-z0-9])", re.IGNORECASE)
 
 MAX_NAME = 200
 

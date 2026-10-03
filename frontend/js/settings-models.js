@@ -262,12 +262,10 @@ function modelMenuItems(model, state) {
     title: "Copy the name Ollama knows this model by",
     group: "name",
     run: async () => {
-      try {
-        await navigator.clipboard.writeText(model.name);
-        toast("Copied the name.");
-      } catch (error) {
-        toast("Couldn't copy it from here.", true);
-      }
+      //: The shared helper: it falls back where the clipboard API is absent
+      //: (the desktop window over plain http), as every copy path does.
+      if (await copyToClipboard(model.name)) toast("Copied the name.");
+      else toast("Couldn't copy it from here.", true);
     },
   });
   if (state.installed) {

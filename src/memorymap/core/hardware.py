@@ -25,6 +25,7 @@ def total_memory_bytes() -> int | None:
             if value > 0:
                 return int(value * 1024**3)
         except ValueError:
+            # Not a number: ignore the override and measure instead.
             pass
     try:
         pages = os.sysconf("SC_PHYS_PAGES")
@@ -32,6 +33,7 @@ def total_memory_bytes() -> int | None:
         if pages > 0 and size > 0:
             return int(pages) * int(size)
     except (AttributeError, ValueError, OSError):
+        # No sysconf on this platform (Windows): the branch below asks it.
         pass
     if sys.platform == "win32":
         return _windows_total()
@@ -58,6 +60,7 @@ def _windows_total() -> int | None:
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):  # type: ignore[attr-defined]
             return int(status.ullTotalPhys)
     except (AttributeError, OSError):
+        # Not Windows, or the call is unavailable: memory is unknown.
         pass
     return None
 

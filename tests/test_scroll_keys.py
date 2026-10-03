@@ -37,7 +37,11 @@ def test_a_pointer_picked_settings_section_hands_the_keys_to_the_pane() -> None:
     wiring = settings[settings.index("function focusSettingsPane"):]
     wiring = wiring[: wiring.index("\n}\n", wiring.index("for (const button"))]
     assert "focus({ preventScroll: true })" in wiring
-    assert "if (event.detail > 0) focusSettingsPane();" in wiring
+    #: INBOX 444: a click lands on the section's heading (named to a screen
+    #: reader), whose nearest scrolling ancestor is the pane, so the reading
+    #: keys still scroll it; with no heading it falls back to the pane.
+    assert "if (!settingsNavWalking) focusSettingsHeading(button.dataset.section);" in wiring
+    assert "if (!head) return focusSettingsPane();" in wiring
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     assert '<div class="modal-content" tabindex="-1">' in html
 

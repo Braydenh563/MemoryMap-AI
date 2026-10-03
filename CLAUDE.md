@@ -52,7 +52,13 @@ full text, with the reasons, is the block at the top of
 3. **Decisions are not remade.** Every plan has a "Decisions made"
    section. A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.
-4. **Agents, by specialty, at most two at once.** Sonnet: the mechanical
+4. **Agents, by specialty, about five at once at most** (the owner,
+   2026-10-03: Opus and Sonnet agents both allowed, "dont use too many
+   agents at a time though and make sure they regularly commit their work
+   so usage limits dont result in lost work"; a commit per step is
+   mandatory in every brief). Orchestrator and agents both use a concise,
+   token-efficient style: terse briefs, five-line reports, no narration.
+   Formerly: at most two at once. Sonnet: the mechanical
    and verifiable (lints, copy moves, fixture edits, sweeps, bugs whose fix
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).

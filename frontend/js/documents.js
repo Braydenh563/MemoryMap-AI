@@ -3045,9 +3045,14 @@ function renderDocPreview() {
   //: by those lines. Bounded, rare, and a line or two against the hundreds of
   //: pixels this map exists to remove, so it is written down here rather than
   //: paid for with a second parse of the document on every render.
+  //: **Not twice** (INBOX 437 (4)): a body that already opens on its own
+  //: name as a heading (every template, and most imports) read "Meeting
+  //: notes" over "Meeting notes", so the name only goes on when it is not.
+  const opens = body.trimStart().split("\n", 1)[0];
+  const lead = !!title && !(/^#\s/.test(opens) && opens.slice(1).trim().toLowerCase() === title.toLowerCase());
   docPreviewLineShift =
-    (title ? 2 : 0) - (text.split("\n").length - stripped.split("\n").length);
-  docRenderBody(preview, title ? `# ${title}\n\n${body}` : body);
+    (lead ? 2 : 0) - (text.split("\n").length - stripped.split("\n").length);
+  docRenderBody(preview, lead ? `# ${title}\n\n${body}` : body);
   if (fm) {
     //: After the title, which is the document's name rather than part of its
     //: text, and before the first thing its author wrote.

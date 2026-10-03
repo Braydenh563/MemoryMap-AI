@@ -2607,12 +2607,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    `#writing-room > .row:has(> h2) button` (an id, a class and an element)
    outranks `.graph-help-toggle`'s own 2rem and sets only the height. An id
    plus a class ties that selector and wins on file order, which this file
-   is for; 2.25rem is the size every other copy of the button measured. */
+   is for. The head's own height, `--control-h-lg`, not the 2.25rem every
+   copy measured before the controls came down to 32px: in Capture's head
+   it stood 36px beside a 32px Template (INBOX 437 (4)). */
 #capture .graph-help-toggle,
 #writing-room .graph-help-toggle,
 #ask .graph-help-toggle {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
   padding: 0;
 }
 

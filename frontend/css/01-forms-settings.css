@@ -6324,12 +6324,18 @@ select {
   color: var(--muted);
 }
 
+/* One row, never two (INBOX 468): the last label ellipsises instead. */
 .model-card-badges {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
-  justify-content: flex-end;
+  min-width: 0;
+}
+
+.model-card-badges > .chip.item-label:last-child {
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .model-card-badges:empty {
@@ -6361,7 +6367,7 @@ select {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-top: auto;
   padding-top: var(--space-2);
 }
@@ -6383,9 +6389,8 @@ select {
   margin-top: var(--space-4);
 }
 
-/* A muted tag chip on the card's surface-3 tint measured 4.27:1 (Installed,
-   Download cancelled; scratchpad/ui-sweeps/contrast.js). On a card it takes
-   the ink. */
-.model-card .chip.tag {
+/* Muted type on the card's surface-3 tint measured 4.27:1
+   (scratchpad/ui-sweeps/contrast.js). On a card a label takes the ink. */
+.model-card .chip.item-label:not(.is-warn, .is-yours) {
   color: var(--ink);
 }

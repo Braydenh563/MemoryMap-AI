@@ -1152,7 +1152,7 @@ function renderInstalledModels(status) {
 
     const used = inUse.has(model.name) || usedBases.has(model.name.split(":")[0]);
     if (used) {
-      li.appendChild(chip("in use", "tag"));
+      li.appendChild(chip("in use", "item-label is-yours"));
     } else {
       li.appendChild(
         smallButton("Remove", `Uninstall ${model.name}`, async (event) => {

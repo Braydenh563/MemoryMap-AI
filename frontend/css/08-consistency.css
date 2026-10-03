@@ -3002,7 +3002,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* A suggestion is drawn in a box, and two boxes need a visible gap between
    them where two bare words need none: 6.4px of box, not 0. */
-.entry-meta.note-meta > .chip.tag + .chip.suggested-tag {
+.entry-meta.note-meta > .chip.tag ~ .chip.suggested-tag {
   margin-inline-start: calc(var(--space-2) - var(--space-6) + var(--space-1));
 }
 
@@ -3071,6 +3071,62 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta > .chip.chip-busy,
 .entry-meta.note-meta > .chip.untagged-ai {
   color: var(--accent-text);
+}
+
+/* **One line, never two** (INBOX 455 (1)). The line is `nowrap`; tags and
+   suggestions that do not fit fold into the "+N" (`fitNoteMetas`,
+   note-cards.js, which measures with `.is-measuring` on, every fact at its
+   own width). Past that, the facts that are words (the dates mentioned,
+   links, reminders, the space, a document) ellipsise, the whole phrase on
+   their `title`; the category, the score, the "+N" and the time never do,
+   so the time is always the line's last fact at its right edge. */
+.entry-meta.note-meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.entry-meta.note-meta > * {
+  flex-shrink: 0;
+}
+
+.entry-meta.note-meta:not(.is-measuring) > :is(.when, .refs, .reminders, .review, .untagged, .untagged-ai, .source-path, .tag:not(.hashtag, .suggested-tag)) {
+  flex-shrink: 5;
+  min-width: 2.5em;
+  overflow: hidden;
+}
+
+/* The category gives way last, and keeps a word of itself. Its factor is
+   the smaller one rather than under 1: a line whose shrinking items sum
+   under 1 only gives that fraction of its overflow back (CSS Flexbox 9.7). */
+.entry-meta.note-meta:not(.is-measuring) > .chip.category {
+  flex-shrink: 1;
+  min-width: 5em;
+}
+
+.entry-meta.note-meta > .chip > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Past the "+N", a fact keeps its icon and loses its words (`is-icon`,
+   `fitNoteMetas`); the words stay on its `title`. */
+.entry-meta.note-meta > .chip.is-icon > .ph-text {
+  display: none;
+}
+
+.entry-meta.note-meta > .chip.is-icon > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* The "+N" is one of the tags it stands for: the group's own 8px. */
+.entry-meta.note-meta > .chip.hashtag:not([hidden]) ~ .note-meta-more {
+  margin-inline-start: calc(var(--space-3) - var(--space-6) - var(--space-1));
+}
+
+.entry-meta.note-meta > .note-meta-more {
+  font-variant-numeric: tabular-nums;
 }
 
 /* The note's links and files, the row under the facts: the same quiet
@@ -3724,8 +3780,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    drawing, 13.6px text in neither. Every provenance word ("Built-in",
    "Edited", "Yours", "you set this", "from the model", "default") is this
    one: 11px muted type in a hairline box; `.is-yours` takes the accent,
-   because "you made or changed this" is the state worth spotting. */
-:is(.entry-meta, .skill-card-header, .sampling-row) .chip.item-label {
+   because "you made or changed this" is the state worth spotting.
+   **And every status word** (INBOX 461 (1), the owner: "make sure all the
+   badges across the app are the same style, and properly aligned"): a
+   package's "Installed", SearXNG's "Stopped", a model's "Fits" and "In use
+   for chat", a tool's "confirms first". Measured before
+   (`scratchpad/ui-sweeps/badgeinv.js`): those were 21.2 to 23.2px tall,
+   12px at 400 to 600, in four fills, beside 18.8px labels. The tone is the
+   edge and the icon, never a fill: `.is-ok` for ready, `.is-warn` for a
+   request to look. `body` in the list makes it every surface's at the
+   weight the three scoped ones had. */
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -3850,7 +3915,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   flex-wrap: nowrap;
 }
 
-:is(.entry-meta, .skill-card-header, .sampling-row) .chip.item-label {
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label {
   flex: 0 0 auto;
   white-space: nowrap;
   min-height: 0;
@@ -3859,9 +3924,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   align-self: center;
 }
 
-:is(.entry-meta, .skill-card-header, .sampling-row) .chip.item-label.is-yours {
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-yours {
   border-color: var(--accent);
   color: var(--accent-text);
+}
+
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-ok {
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-ok > .ph {
+  color: var(--ok);
+}
+
+:is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-warn {
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  color: var(--warn);
+}
+
+/* A label that can be long (a model's "In use for chat and background
+   jobs") gives way with an ellipsis; the whole phrase is on its title. */
+.chip.item-label > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* A group label that sits straight in the pane (Personas' "Dashboard

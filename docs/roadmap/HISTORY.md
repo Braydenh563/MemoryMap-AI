@@ -36824,3 +36824,22 @@ width, 47% of the column at 1440.
      there; Enter or Space moves to the section's heading (measured:
      Appearance, Down, Down, Up, PageDown 0 to 642px, Enter).
 
+461. **The owner, 2026-10-03 night, verbatim, with screenshots (Settings:
+     a "Stopped" badge beside a heading, an "Installed" badge with a check;
+     the dashboard's "Start something" row of five actions).** "make sure all
+     the badges across the app are the same style, and properly aligned,
+     fitted, and ui/ux styled. also Im wondering if it might be a good idea
+     to make this start something section on the dashboard customisable
+     like a quick access section?? what is there can be default".
+     Recommendation taken (order 3): yes, "Quick access", the five as the
+     default set, chosen from the command catalogue, reordered and reset
+     from its own menu. **Both built 2026-10-03**: (1) badges on DESIGN.md's
+     label recipe with INBOX 468 (the model cards); (2) Quick access
+     (`dashboard_quick_access`, lazy `quick-access.js`).
+
+468. **The owner, 2026-10-03 night, verbatim, with a screenshot (a suggested
+     model card: "Use for chat" and ⋯, then "Fits" and "Installed" on a
+     second line, "In use for background jobs" on a third).** "fix the wrap
+     in the suggested model cards in settings". Placed: the badges agent
+     (461 (1)).
+

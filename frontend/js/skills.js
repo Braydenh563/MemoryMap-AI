@@ -1006,8 +1006,8 @@ async function renderToolSettings() {
     if (tool.destructive || tool.online) {
       const tags = document.createElement("span");
       tags.className = "tool-tags";
-      if (tool.destructive) tags.append(chip("confirms first", "review"));
-      if (tool.online) tags.append(chip("online", "tag"));
+      if (tool.destructive) tags.append(chip("confirms first", "item-label is-warn"));
+      if (tool.online) tags.append(chip("online", "item-label"));
       text.append(tags);
     }
     const desc = document.createElement("span");

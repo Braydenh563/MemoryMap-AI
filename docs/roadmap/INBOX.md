@@ -39,12 +39,6 @@ with its owner named in the entry.
      action etc changes and transitions??" Placed: with 455 (2) and 462, the
      companion agent.
 
-468. **The owner, 2026-10-03 night, verbatim, with a screenshot (a suggested
-     model card: "Use for chat" and ⋯, then "Fits" and "Installed" on a
-     second line, "In use for background jobs" on a third).** "fix the wrap
-     in the suggested model cards in settings". Placed: the badges agent
-     (461 (1)).
-
 466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
      categories: a count pill on every row; the expanded companion with its
      resize ring at the top right).** "I think there should also be a clear
@@ -82,21 +76,6 @@ with its owner named in the entry.
 462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
      dont handle collapsed sidebars at least in the chat tab". Placed: with
      455 (2), the companion agent.
-
-461. **The owner, 2026-10-03 night, verbatim, with screenshots (Settings:
-     a "Stopped" badge beside a heading, an "Installed" badge with a check;
-     the dashboard's "Start something" row of five actions).** "make sure all
-     the badges across the app are the same style, and properly aligned,
-     fitted, and ui/ux styled. also Im wondering if it might be a good idea
-     to make this start something section on the dashboard customisable
-     like a quick access section?? what is there can be default".
-     Recommendation taken (order 3): yes, "Quick access", the five as the
-     default set, chosen from the command catalogue, reordered and reset
-     from its own menu. Placed: (1) badges with 455 (1), an Opus agent; (2)
-     Quick access built on its worktree branch (`dashboard_quick_access`
-     preference, lazy `quick-access.js`, `tests/test_quick_access.py`,
-     `scratchpad/ui-sweeps/quickaccess.js`), awaiting the merge; move this
-     item to HISTORY when (1) lands too.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
@@ -159,6 +138,8 @@ with its owner named in the entry.
      ragged second line, tags that collapse to "+N", the date in one place
      on every card): an Opus agent when a slot frees; (2) companion
      transitions between perches and across tabs: an Opus agent after (1).
+     (1) built 2026-10-03 (DESIGN.md's note details line recipe, the
+     decision in UI_MODERNISATION_PLAN); (2) open.
 
 453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
      be a way to open and close the documents editor sidebar when in full

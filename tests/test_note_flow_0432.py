@@ -108,7 +108,7 @@ def test_one_note_moves_from_its_chip_and_its_menu():
     assert "function chooseNoteCategory(" in _read("categories-panel.js")
     assert '"chooseNoteCategory"' in _read("app.js")
     cards = _read("note-cards.js")
-    chip_block = cards[cards.index('const categoryEl = chip(entry.category, "category")'):][:3200]
+    chip_block = cards[cards.index('const categoryEl = chip("", "category")'):][:3200]
     # INBOX 447 (5): the chip opens a menu (chip-menus.js), whose second row is the move.
     assert "openCategoryChipMenu(categoryEl, entry)" in chip_block
     assert "chooseNoteCategory([entry.id], name)" in _read("chip-menus.js")

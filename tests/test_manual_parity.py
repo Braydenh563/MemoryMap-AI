@@ -51,7 +51,7 @@ MANUAL = {
     "add_map_node": ("whiteboard-map.js", "const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {", "a mind map, Add child"),
     "link_map_nodes": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a mind map, draw a cross-link"),
     "create_category": ("categories-panel.js", "async function createCategoryFromPanel()", "Manage categories, New category"),
-    "rename_category": ("notes-list.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
+    "rename_category": ("categories-panel.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
     "merge_categories": ("categories-panel.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
     "delete_category": ("categories-panel.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
 }

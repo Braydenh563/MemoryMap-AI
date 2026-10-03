@@ -10,10 +10,13 @@ that draws a category reads it from the one place.
 
 from __future__ import annotations
 
+import re
 import sqlite3
+from pathlib import Path
 
 import pytest
 
+from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
 from memorymap.core.database import DatabaseManager
 
 
@@ -171,3 +174,77 @@ def test_the_migration_alone_adds_the_column(tmp_path):
         assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("e5a9d1c3b7f2",)]
     finally:
         conn.close()
+
+
+# ---- the frontend: one function, twelve swatches that read in both themes ----
+
+ROOT = Path(__file__).resolve().parents[1]
+FRONTEND = ROOT / "frontend"
+
+#: The lightest and darkest grounds a dot is drawn on, from the tokens in
+#: 00-tokens-shell.css: the light page's gradient stops and white, the dark
+#: page's stops and the dark modal ground.
+LIGHT_GROUNDS = ("#ffffff", "#e9edfb", "#f6f2ec", "#e6f1f2")
+DARK_GROUNDS = ("#0e1017", "#171a26", "#0f1720", "#181b25", "#2a2f40")
+
+
+def _palette() -> dict[str, str]:
+    source = (FRONTEND / "notes-list.js").read_text(encoding="utf-8")
+    block = re.search(r"const CATEGORY_PALETTE = \{(.*?)\};", source, re.S)
+    assert block, "notes-list.js has no CATEGORY_PALETTE"
+    return dict(re.findall(r'([a-z]+):\s*"(#[0-9a-f]{6})"', block.group(1)))
+
+
+def _luminance(hex_colour: str) -> float:
+    def channel(i: int) -> float:
+        c = int(hex_colour[i : i + 2], 16) / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+
+
+def _contrast(a: str, b: str) -> float:
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_the_palette_keys_are_the_ones_the_picker_draws():
+    """The server's list and the swatches in notes-list.js are one list. A key the
+    picker offers that the server refuses would be a swatch that does
+    nothing, so the two are compared here rather than trusted."""
+    palette = _palette()
+    assert tuple(palette) == CATEGORY_PALETTE_KEYS
+    assert 10 <= len(palette) <= 12
+
+
+def test_every_swatch_reads_as_a_dot_in_both_themes():
+    """WCAG 1.4.11: a graphical mark needs 3:1 against what it sits on. One
+    hex per swatch serves light and dark, so each must clear every ground."""
+    for key, hex_colour in _palette().items():
+        for ground in LIGHT_GROUNDS + DARK_GROUNDS:
+            ratio = _contrast(hex_colour, ground)
+            assert ratio >= 3.0, f"{key} {hex_colour} on {ground} is {ratio:.2f}:1"
+
+
+def test_swatches_are_distinct_hues():
+    colours = list(_palette().values())
+    assert len(set(colours)) == len(colours)
+
+
+def test_every_surface_asks_the_one_function():
+    """A dot, chip, node or legend swatch that computes its own colour would
+    ignore the person's choice. Dots go through `paintCategoryDot`, the graph
+    through `graphCategoryScale`, the dashboard through `categoryColour`."""
+    for name in ("categories-panel.js", "library.js", "note-cards.js", "timeline.js"):
+        text = (FRONTEND / name).read_text(encoding="utf-8")
+        assert "categoryDotColour(" not in text, name
+        #: The picker's own preview shows a colour not yet chosen, so it
+        #: sets the property itself; every other dot is `paintCategoryDot`.
+        if name != "categories-panel.js":
+            assert '"--category-dot"' not in text, f"{name} sets the dot itself"
+    for name in ("graph.js", "graph-canvas.js"):
+        text = (FRONTEND / name).read_text(encoding="utf-8")
+        assert not re.search(r"scaleOrdinal\(\s*data\.categories", text), name
+    dash = (FRONTEND / "dashboard.js").read_text(encoding="utf-8")
+    assert "hsl(${hueFor(cat.name)}" not in dash.replace("categoryColour(cat.name, `hsl(${hueFor(cat.name)}", "")
+    assert "hueFor(group.name)" not in dash

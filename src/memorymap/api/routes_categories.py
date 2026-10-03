@@ -44,7 +44,7 @@ class RenameBody(BaseModel):
 
 
 #: The swatches the Manage categories panel offers, in the order it draws them
-#: (app.js `CATEGORY_PALETTE` holds the same keys with their hexes, and
+#: (notes-list.js `CATEGORY_PALETTE` holds the same keys with their hexes, and
 #: `tests/test_category_colour.py` compares the two). Twelve hues picked so each
 #: reads at 3:1 or better as a dot on both the lightest and the darkest surface
 #: of either theme, so one hex serves light and dark.

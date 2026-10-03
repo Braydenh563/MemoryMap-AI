@@ -1686,20 +1686,6 @@ function settingsModalOpen() {
   return Boolean(modal) && !modal.classList.contains("hidden");
 }
 
-//: A category's own colour, the same for the same name on every card and
-//: every visit: a hash of the name into ten hues chosen to read on both
-//: grounds (the Tableau 10 set the graph's legend already draws from). A dot
-//: carries it, never the text, so the name stays at full contrast.
-const CATEGORY_DOT_COLOURS = [
-  "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-  "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#8cd17d",
-];
-function categoryDotColour(name) {
-  let h = 0;
-  for (const ch of String(name || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-  return CATEGORY_DOT_COLOURS[h % CATEGORY_DOT_COLOURS.length];
-}
-
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
@@ -2409,7 +2395,7 @@ document.addEventListener("keydown", (event) => {
 const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
-  categories: ["openManageCategories", "mergeCategoryFromPanel", "splitCategoryFromPanel", "deleteCategoryFromPanel"],
+  categories: ["openManageCategories", "mergeCategoryFromPanel", "splitCategoryFromPanel", "deleteCategoryFromPanel", "renameCategory", "moveNotesToCategory", "pickCategoryColour"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

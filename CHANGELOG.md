@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A category's colour can be chosen: in Manage categories (and a category's ⋯ menu in the sidebar), Colour opens twelve swatches that each read as a dot in light and dark, plus Automatic to go back to the name-based colour. The choice shows at once on the category's dots and chips, its graph nodes and legend, the timeline and the dashboard, and is kept with the category through a rename.
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

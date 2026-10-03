@@ -39,6 +39,16 @@ def test_the_list_render_asks_for_the_rows_only_when_something_is_held():
     assert "renderPendingNoteRows();" in render
 
 
+def test_by_site_groups_a_hostless_link_by_its_scheme():
+    """lo12 item 3: mailto: sat under its own address; now "Email", and any
+    other hostless scheme under its name. The sort uses the same key, or a
+    group would not be one run of rows."""
+    lib = (JS / "library.js").read_text(encoding="utf-8")
+    assert 'site: host || (scheme === "mailto" ? "Email" : scheme),' in lib
+    assert "bookmarkAddress(bookmark.url).site" in lib
+    assert "const host = (url) => bookmarkAddress(url).site;" in lib
+
+
 def test_by_month_contents_puts_documents_in_their_month():
     """lo12 item 2: the date mode used to trail one "Documents" section."""
     lib = (JS / "library.js").read_text(encoding="utf-8")

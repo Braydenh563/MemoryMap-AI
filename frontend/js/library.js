@@ -3464,14 +3464,19 @@ function bookmarkAddress(url) {
     //: the raw string is the answer if even that fails.
     const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
     const rest = `${parsed.pathname}${parsed.search}`;
+    const host = parsed.host.replace(/^www\./, "");
+    //: What "By site" groups on. A link with no host (mailto:, tel:, file:)
+    //: would otherwise be a section named by its own address.
+    const scheme = parsed.protocol.slice(0, -1);
     return {
-      host: parsed.host.replace(/^www\./, "") || raw,
+      site: host || (scheme === "mailto" ? "Email" : scheme),
+      host: host || raw,
       //: "/" is not a fact about a link, it is what every address ends up with
       //: when it names a site rather than a page.
       rest: rest === "/" ? "" : rest,
     };
   } catch {
-    return { host: raw, rest: "" };
+    return { site: raw, host: raw, rest: "" };
   }
 }
 
@@ -9592,16 +9597,9 @@ const BOOKMARK_SORTS = {
   az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
   za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
   site: (a, b) => {
-    const host = (url) => {
-      //: A stored link can be anything somebody pasted, so a URL that will not
-      //: parse sorts by its own raw text rather than throwing the whole list
-      //: into an exception.
-      try {
-        return new URL(url).hostname.replace(/^www\./, "");
-      } catch {
-        return String(url || "");
-      }
-    };
+    //: The same key "By site" groups on (`bookmarkAddress`), so every group is
+    //: one run of rows. It never throws on a stored link that will not parse.
+    const host = (url) => bookmarkAddress(url).site;
     return (
       host(a.url).localeCompare(host(b.url), undefined, { sensitivity: "base" }) ||
       String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })
@@ -9658,10 +9656,10 @@ function filterBookmarks() {
     let section = null;
     let sectionHost = null;
     for (const bookmark of ordered) {
-      const host = bookmarkAddress(bookmark.url).host || "(no address)";
+      const host = bookmarkAddress(bookmark.url).site || "(no address)";
       if (host !== sectionHost) {
         sectionHost = host;
-        section = bookmarkSiteSection(host, ordered.filter((b) => (bookmarkAddress(b.url).host || "(no address)") === host).length);
+        section = bookmarkSiteSection(host, ordered.filter((b) => (bookmarkAddress(b.url).site || "(no address)") === host).length);
         list.appendChild(section.root);
       }
       section.body.appendChild(bookmarkRow(bookmark));

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library: Bookmarks, By site, groups a link with no host under what it is: mailto: links under "Email", other schemes (tel:, file:) under the scheme name, instead of a section named by the raw address. The By site sort uses the same key, so a group is always one run of rows.
 - Library: Contents, By month, puts each document under the month it was created in, with the notes of that month, instead of one "Documents" section after them (the other groupings keep that section). GET /documents/outline now carries `created_at`.
 - Notes: a note kept on this device while the server is away now shows in the notes list, at the top, as a card marked "Waiting to save" (no actions that need the server), and the card goes when the note is sent.
 - Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.

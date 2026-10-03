@@ -6487,20 +6487,21 @@ function docLivePlugin(CM) {
   //: claim is that it works with the plug pulled. A remote address is left as
   //: the markdown that it is.
   class DocImageWidget extends WidgetType {
-    constructor(src, alt) {
+    constructor(src, alt, underSource = false) {
       super();
       this.src = src;
       this.alt = alt;
+      this.underSource = underSource;
       //: `![A river|400|center](/media/river.jpg)`: the options ride in the alt
       //: text, which is the form that survives being opened somewhere else.
       this.options = docImageOptionsFromAlt(alt);
     }
     eq(other) {
-      return other.src === this.src && other.alt === this.alt;
+      return other.src === this.src && other.alt === this.alt && other.underSource === this.underSource;
     }
     toDOM() {
       const img = document.createElement("img");
-      img.className = "cm-md-image";
+      img.className = this.underSource ? "cm-md-image cm-md-image-under" : "cm-md-image";
       //: **Through `mediaSrc`, like every other image in this app.** An
       //: `<img>` cannot send a header, so `/media/…` and `/files/…` carry the
       //: unlock token as a query parameter; this widget set the raw path and
@@ -7016,7 +7017,19 @@ function docLivePlugin(CM) {
             const close = text.lastIndexOf("](");
             if (close <= 1) return false;
             const src = sameOrigin(text.slice(close + 2, text.length - 1));
-            if (!src || rangeRevealed(node.from, node.to)) return false;
+            if (!src) return false;
+            //: **The caret on an image's line shows its markdown and keeps the
+            //: picture, under it** (INBOX 442, the owner: "the image/sketch in
+            //: the graph popup didnt render"). The popup's Edit put the caret
+            //: at the end of a note whose last line was the picture, so the
+            //: line revealed as source and the picture went, which read as an
+            //: image that never rendered. A widget after the source keeps it.
+            if (rangeRevealed(node.from, node.to)) {
+              ranges.push(
+                Decoration.widget({ widget: new DocImageWidget(src, text.slice(2, close), true), side: 1 }).range(node.to)
+              );
+              return false;
+            }
             //: Same rule as `hide`: an image whose alt text wraps would put a
             //: line break inside the range this widget replaces.
             if (text.includes("\n")) return false;
@@ -17528,6 +17541,7 @@ function docCmTheme(CM) {
       ".cm-md-callout-label [data-doc-callout-fold]": { cursor: "pointer" },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
+      ".cm-md-image-under": { display: "block", marginTop: "var(--space-2)" },
 
       //: --- tables ---------------------------------------------------------
       //: **A grid over the line, not a `<table>` widget.** Replacing the block

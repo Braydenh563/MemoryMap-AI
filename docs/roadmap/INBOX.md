@@ -65,13 +65,6 @@ with its owner named in the entry.
      enlarged view carries the companion's current action over and keeps
      it until a poke or a new event: the orchestrator.
 
-442. **The owner, 2026-10-03, verbatim, with a screenshot (the graph's note
-     popup for "Gary The Moss Monster :D": its body shows the raw markdown
-     `![Gary The Moss Monster :D](/media/3607...c51d.png)` as a link).**
-     "the image/sketch in the graph popup didnt render". Placed: the graph
-     popup's body renders a note's images as the note view does: the
-     orchestrator.
-
 441. **The owner, 2026-10-03, verbatim, with screenshots (the tags list
      under Capture's tags field; "Atlas is reading..." with its spinner; an
      Ask answer to "What have I saved recently?" that cites a note saying

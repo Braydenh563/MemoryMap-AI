@@ -36042,3 +36042,12 @@ width, 47% of the column at 1440.
      and say "Reinstall it from Settings, Models"; hub telemetry is off.
      `tests/test_embedding_offline.py`.
 
+442. **The owner, 2026-10-03, verbatim, with a screenshot (the graph's note
+     popup for "Gary The Moss Monster :D": its body shows the raw markdown
+     `![Gary The Moss Monster :D](/media/3607...c51d.png)` as a link).**
+     "the image/sketch in the graph popup didnt render". Placed: the graph
+     popup's body renders a note's images as the note view does: the
+     orchestrator. Fixed: the popup's Edit put the caret on the picture's
+     line, which revealed as markdown; a revealed image now keeps its
+     picture under the source (documents.js, verified in Chromium).
+

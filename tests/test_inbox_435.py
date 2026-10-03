@@ -107,3 +107,12 @@ def test_the_tags_list_follows_the_pointer_and_takes_a_chosen_row():
     assert 'row.addEventListener("pointermove"' in suggest
     assert "(state.moved || tagSuggestToken(input).token)" in suggest
 
+
+
+def test_an_image_line_being_edited_keeps_its_picture():
+    """INBOX 442: the graph popup's Edit put the caret on a note's last line,
+    its picture, which revealed as markdown and lost the image. A revealed
+    image keeps a widget after its source."""
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    assert "new DocImageWidget(src, text.slice(2, close), true), side: 1" in docs
+    assert '".cm-md-image-under"' in docs

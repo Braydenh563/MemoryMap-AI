@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture in a note stays visible while you edit its line (under its markdown), so the graph popup's Edit no longer turns a sketch into a bare link.
 - Loading placeholders show the shape of what is coming (a title line and a text line) with a visible sweep; with reduced motion they breathe gently instead of sitting blank.
 - The tags list under a tags field lights the row under the pointer, and Enter or Tab takes a row reached with the arrows or the pointer.
 - Settings, Templates, Skills and Personas: Edit, Reset and Delete sit in their own column, centred on the item and always shown (they were hidden until pointed at and hugged the card's top corner); the Built-in label is one line beside the name.

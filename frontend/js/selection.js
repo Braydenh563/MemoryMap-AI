@@ -46,10 +46,18 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
   const sourceFields = source
     ? { source_url: source.url, source_title: source.title || "" }
     : {};
+  //: **Said the moment it is pressed** (INBOX 446, the owner: "it did do
+  //: smth but i had to hard reset the app to see it and there was no
+  //: indication of it"). The save waits on the server, which files the note
+  //: before it answers, and seconds of nothing read as a dead menu item. A
+  //: progress toast now, then where it went, with Open to go and see it.
+  const progress = toastProgress(draft ? "Saving as a draft…" : "Saving as a note…");
   try {
     const created = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
+      //: Filed in the background, as Capture's are: filing first held the
+      //: answer for as long as the model took (INBOX 446).
+      body: JSON.stringify({ content, is_draft: draft, defer_filing: true, ...sourceFields }),
     });
     // Undoable, like every other create in this app (the global stack: 
     // see pushUndo). Saving a clipping by accident and having no way back
@@ -68,14 +76,17 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
         await loadEntries();
       }
     );
-    toast(draft ? "Saved as a draft note." : "Saved as a note.");
     // Same fix as saveChatAnswerAsNote(): unconditional. A selection saved
     // from wherever the popup was invoked (not necessarily the Notes tab)
     // must not leave the in-memory `entries` list stale until something
     // else happens to refetch it.
-    loadEntries();
+    await loadEntries();
+    progress.done(
+      draft ? "Saved as a draft." : "Saved as a note, filing it now.",
+      { actionLabel: "Open", onAction: () => flashEntry(created.id) }
+    );
   } catch (error) {
-    toast(error.message || "Couldn't save that note.", true);
+    progress.done(error.message || "Couldn't save that note.", { isError: true });
   }
 }
 

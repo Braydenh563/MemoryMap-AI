@@ -113,6 +113,7 @@ def _to_out(
         ),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
+        suggested_tags=_open_suggestions(entry),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
         edited_at=getattr(entry, "edited_at", None),
@@ -162,6 +163,51 @@ def _to_out(
         filing_state=getattr(entry, "filing_state", "done") or "done",
         similar=similar,
     )
+
+
+def _json_tags(raw: str | None) -> list[str]:
+    try:
+        value = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(tag) for tag in value if tag] if isinstance(value, list) else []
+
+
+def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
+    """The kept suggestions still worth showing: not on the note already and
+    not discarded (a tag added by hand since filing drops out by itself)."""
+    have = {tag.casefold() for tag in manager.entry_tags(entry)}
+    gone = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
+    return [
+        tag for tag in _json_tags(getattr(entry, "suggested_tags", "[]"))
+        if tag.casefold() not in have and tag.casefold() not in gone
+    ]
+
+
+def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  # noqa: ANN001
+    """Make the note's tag suggestions at filing and keep them on it (INBOX
+    440). The model's when it is the one that filed (it is up and answering);
+    otherwise the notebook's own: the tags its nearest notes carry, and the
+    vocabulary tags the note names. Best effort, never fails the filing."""
+    have = manager.entry_tags(entry)
+    discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
+    suggested: list[str] = []
+    if filed_by == "llm":
+        try:
+            suggested = librarian.suggest_tags(
+                entry.content, have, deps.get_model_manager(), deps.get_ollama(),
+                vocabulary=_tag_vocabulary(session),
+            )
+        except Exception:
+            logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
+    if not suggested:
+        from memorymap.ai import lexical_filing
+
+        suggested = lexical_filing.suggest_tags(
+            session, manager.readable_content(entry), have=have, exclude_entry_id=entry.id
+        )
+    keep = [tag for tag in suggested if tag.casefold() not in discarded][:5]
+    entry.suggested_tags = json.dumps(keep)
 
 
 def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
@@ -415,6 +461,12 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 if duplicate is not None:
                     entry.filing_similar_id = duplicate.id
                 session.commit()
+                try:
+                    _keep_suggestions(session, entry, filed_by)
+                    session.commit()
+                except Exception:
+                    logger.warning("couldn't keep tag suggestions for entry %s", entry_id, exc_info=True)
+                    session.rollback()
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
         try:
@@ -522,6 +574,16 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     elif janitor.settled_state(filed_by) != "done":
         entry.filing_state = janitor.settled_state(filed_by)
     session.commit()
+    if not defer:
+        #: Filed already: keep its tag suggestions now, from the notebook's
+        #: own tags (no second model call on the request; a deferred note
+        #: gets the model's in the background pass).
+        try:
+            _keep_suggestions(session, entry, None)
+            session.commit()
+        except Exception:
+            logger.warning("couldn't keep tag suggestions for a new note", exc_info=True)
+            session.rollback()
 
     # Best effort: a failed embedding only means this entry is invisible
     # to semantic search until re-indexed, never a failed save. It is logged
@@ -955,6 +1017,37 @@ def suggest_tags_for_draft(
         logger.warning("tag suggestions failed", exc_info=True)
         suggested = []
     return {"suggested_tags": suggested}
+
+
+class SuggestedTagsBody(BaseModel):
+    take: list[str] = Field(default_factory=list, max_length=20)
+    discard: list[str] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
+def answer_suggested_tags(
+    entry_id: int, body: SuggestedTagsBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Take or discard the tags filing suggested (INBOX 440). A taken tag is
+    added like one typed by hand; a discarded one is remembered so no later
+    filing pass offers it on this note again."""
+    entry = _existing_entry(session, entry_id)
+    offered = {tag.casefold(): tag for tag in _json_tags(entry.suggested_tags)}
+    take = [offered.get(tag.casefold(), tag.strip()) for tag in body.take if tag.strip()]
+    if take:
+        have = manager.entry_tags(entry)
+        folded = {tag.casefold() for tag in have}
+        manager.update_entry(session, entry, tags=have + [tag for tag in take if tag.casefold() not in folded])
+    gone = _json_tags(entry.discarded_tags)
+    gone_folded = {tag.casefold() for tag in gone}
+    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    entry.discarded_tags = json.dumps(gone[-200:])
+    answered = {tag.casefold() for tag in [*take, *body.discard]}
+    entry.suggested_tags = json.dumps(
+        [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
+    )
+    session.commit()
+    return _to_out(session, entry)
 
 
 @router.post("/{entry_id}/context", response_model=EntryOut)

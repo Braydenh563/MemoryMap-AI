@@ -118,6 +118,19 @@ const MAP_PREVIEW_TEXT_WIDTHS = new Map();
 const MAP_PREVIEW_MEASURE_SIZE = 100;
 let mapPreviewMeasureText = null;
 
+//: Take or discard the tags filing suggested (INBOX 440); the list redraws
+//: from the server's answer, so the card and every other view agree.
+async function answerSuggestedTags(entry, body) {
+  try {
+    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
+    await loadEntries();
+    const tag = (body.take || body.discard || [])[0];
+    toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
+  } catch (error) {
+    toast(error.message || "Couldn't change the tags.", true);
+  }
+}
+
 function mapPreviewTextWidth(text, fontSize) {
   const body = String(text || "");
   if (!body) return 0;
@@ -1518,6 +1531,30 @@ function entryItem(entry, options = {}) {
     if (options.actions) tagChip.title = `Show every note tagged #${tag}`;
     meta.appendChild(tagChip);
   }
+  //: **The tags filing suggested, kept on the note** (INBOX 440, the owner:
+  //: "pre suggested tags that are made and kept when filing for the user to
+  //: easily choose or discard"). A press takes one, its × discards it for
+  //: good; from the model when it filed the note, else from the notebook's
+  //: own tags (`lexical_filing.suggest_tags`).
+  const suggestions = options.actions && !entry.is_board ? entry.suggested_tags || [] : [];
+  for (const tag of suggestions) {
+    const take = chip(`ph:plus ${tag}`, "tag suggested-tag", (event) => {
+      event.stopPropagation();
+      answerSuggestedTags(entry, { take: [tag] });
+    });
+    take.title = `Suggested: add #${tag}`;
+    const discard = document.createElement("span");
+    discard.className = "unlink";
+    setLabel(discard, "ph:x");
+    discard.title = `Not #${tag}: stop suggesting it for this note`;
+    discard.addEventListener("click", (event) => {
+      event.stopPropagation();
+      answerSuggestedTags(entry, { discard: [tag] });
+    });
+    makeUnlinkAccessible(discard);
+    take.appendChild(discard);
+    meta.appendChild(take);
+  }
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real
   //: note in a list that offers actions: a board is not filed by tag and a
@@ -1525,7 +1562,7 @@ function entryItem(entry, options = {}) {
   //: flag: it opens the edit form with the cursor in the tags field, where
   //: the AI's suggestions appear as you type, so the person is one click
   //: from tagged rather than being told and left there.
-  if (!entry.tags.length && !entry.is_board && !entry.is_draft
+  if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
       && (options.actions || options.facts)) {
     //: On a read-only row the flag is a **fact and nothing more**: the
     //: handler below opens the edit form in the note list, which is not the
@@ -1594,6 +1631,16 @@ function entryItem(entry, options = {}) {
   const categoryChip = meta.querySelector(".chip.category");
   if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
     categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
+    //: And said on the card, quietly, beside what it is about (INBOX 440:
+    //: "a way to see the ai confidence score"): a tooltip is not a way to
+    //: see anything on touch, or at a glance.
+    const byWords = entry.filing_state === "words";
+    const who = byWords ? "your notebook's words" : "Atlas";
+    if (byWords) categoryChip.title = `Filed from your notebook's words, ${entry.ai_confidence}% sure`;
+    const sure = chip(`${byWords ? "ph:text-aa" : "ph:sparkle"} ${entry.ai_confidence}%`, "item-fact filing-sure");
+    sure.title = `How sure ${who} ${byWords ? "were" : "was"} when filing this in “${entry.category}”`;
+    sure.setAttribute("aria-label", `Filed by ${who}, ${entry.ai_confidence}% sure`);
+    categoryChip.after(sure);
   }
   const confidenceChip = aiDidFile && entry.ai_confidence < REVIEW_THRESHOLD
     ? // Low confidence from a real attempt, worth a human look (Phase 3).

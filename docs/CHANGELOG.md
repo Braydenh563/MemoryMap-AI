@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Selected text, Save as a note: says "Saving…" at once and "Saved as a note" with Open when done, and files in the background instead of waiting on the model.
 - Ask, Chat and the weekly digest know what a note's time words meant: "this Friday" in a note written two weeks ago reaches the model as "Friday 25 September 2026, 8 days ago", not as this week's Friday.
 - "What have I saved recently?" (and "what did I write lately") lists your newest notes instead of searching for the word "saved".
 - A picture in a note stays visible while you edit its line (under its markdown), so the graph popup's Edit no longer turns a sketch into a bare link.
@@ -66,6 +67,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Notes keep the tags filing suggested: each shows on the card as "+ tag", one press to add it, its × to stop suggesting it. With no AI they come from your own tags on the notes most like it.
+- A note's card shows how sure the filing was (for example "83%") beside its category, and says whether Atlas or your notebook's words filed it.
 - Notes: a category chip moves its note in one click (also Move to category in a note's menu); a tag chip shows that tag's notes; the filter box takes #tag, title:, before:, after:, in: and is:draft.
 - Notes: Recently edited sort, a title field when editing, Copy [[link]] in a note's menu, and Home, End, Delete and F2 on a focused note.
 - Notes sidebar: a Tags row opens every tag with its count; choose one to see its notes, or rename or remove it everywhere, with Undo.

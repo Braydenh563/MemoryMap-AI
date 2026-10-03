@@ -280,6 +280,11 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Tags offered when the note was filed, kept for the person to take or
+    #: discard (INBOX 440), and the ones they discarded, never offered again.
+    #: JSON string arrays like `tags`; additive, so old rows backfill to [].
+    suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
+    discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 

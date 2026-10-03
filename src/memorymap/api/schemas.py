@@ -204,6 +204,8 @@ class EntryOut(BaseModel):
     category: str
     tags: list[str]
     ai_confidence: int
+    #: Offered at filing, not yet taken or discarded (INBOX 440).
+    suggested_tags: list[str] = []
     access_count: int = 0
     last_opened_at: datetime | None = None
     #: When a person last changed the text, title, tags or category; null if

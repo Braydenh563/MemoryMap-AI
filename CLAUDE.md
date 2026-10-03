@@ -76,6 +76,11 @@ full text, with the reasons, is the block at the top of
      session before the PR closes (HANDOVER done-when item 7), or when a
      change touches something the targeted tests cannot see (migrations,
      the event bus, conftest). Never per step, never per merge.
+   - **Agents never run the full suite** (the owner, 2026-10-03: "some of
+     the agents are struggling with the full suite"; four cores, load over
+     100 with six agents testing). Agents run targeted tests serially plus
+     `gate.sh --staged`; CI runs the suite on every push, and the
+     orchestrator runs it at most once, alone, at the end of a session.
    - A brief names the files, selectors and line areas, the plan's
      measured numbers, and the sweep script to run, so the agent starts
      at the change, not at orientation. Most agent tokens otherwise go to

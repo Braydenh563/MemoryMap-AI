@@ -55,6 +55,18 @@ with its owner named in the entry.
      measured app-wide against native apps, then tightened through the
      tokens) plus a de-vibe audit: an Opus agent once the CSS-heavy agents
      have landed.
+     Then, of the selected-text menu's "Save as a note": "it did do smth but
+     i had to hard reset the app to see it and there was no indication of
+     it or updating ro anythinf. there is no timestamps. note edit history
+     doens allow me to go back on manual edits and I cant distinguish between
+     personal or ai edits or mixed edits." and "make sure the other highlight
+     text popup meatball menu items work properly with proper learnability
+     and indicators as well". Placed: (6) Save as a note says "Saving…" at
+     once, then where it went with Open, and refreshes the list: **fixed**;
+     every other item in that menu swept for a visible answer
+     (`selmenu-items.js`): the orchestrator; (7) note edit history: a version
+     on every manual save too, each marked as yours, Atlas's or both, with
+     its time, restorable: an agent.
 
 445. **The owner, 2026-10-03, verbatim.** "I was also wondering if the
      bookmarks and contents library pages as well as maybe others like the

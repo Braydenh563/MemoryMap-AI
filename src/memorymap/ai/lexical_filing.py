@@ -166,6 +166,91 @@ def suggest_categories(
     return out[:limit]
 
 
+#: Tag suggestions: the nearest notes vote for their tags by closeness, and a
+#: tag the person already uses whose words all appear in the note votes too.
+TAG_NEIGHBOURS = 6
+TAG_MIN_VOTE = 0.25
+TAG_NAME_VOTE = 0.5
+
+
+def suggest_tags(
+    session: Session,
+    content: str,
+    have: list[str],
+    exclude_entry_id: int | None = None,
+    limit: int = 4,
+) -> list[str]:
+    """Tags this note probably wants, from the notebook's own (INBOX 440):
+    "pre suggested tags that are made and kept when filing", with no AI. Only
+    tags the person already uses are ever offered, so a suggestion is always
+    one of their own words, best first; [] when nothing is close enough."""
+    wanted = tokens(content)
+    if not wanted:
+        return []
+    query = (
+        select(Entry.content, Entry.tags)
+        .where(Entry.is_deleted == False, Entry.tags != "[]")  # noqa: E712
+        .order_by(Entry.id.desc())
+        .limit(MAX_EXAMPLES)
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    rows = [(text, _tags(raw)) for text, raw in session.execute(query).all()]
+    rows = [(text, tags) for text, tags in rows if tags]
+    if not rows:
+        return []
+    have_folded = {tag.casefold() for tag in have}
+    frequency: dict[str, int] = {}
+    bags = []
+    for text, _tags_of in rows:
+        bag: dict[str, float] = {}
+        for word in tokens(text):
+            bag[word] = bag.get(word, 0.0) + 1.0
+        for word in bag:
+            frequency[word] = frequency.get(word, 0) + 1
+        bags.append(bag)
+    total = len(bags)
+    idf = {word: math.log((1 + total) / (1 + count)) + 1.0 for word, count in frequency.items()}
+
+    def vector(bag: dict[str, float]) -> dict[str, float]:
+        out = {word: (1.0 + math.log(n)) * idf.get(word, 0.0) for word, n in bag.items() if word in idf}
+        norm = math.sqrt(sum(v * v for v in out.values())) or 1.0
+        return {word: v / norm for word, v in out.items()}
+
+    query_bag: dict[str, float] = {}
+    for word in wanted:
+        query_bag[word] = query_bag.get(word, 0.0) + 1.0
+    target = vector(query_bag)
+    scored = []
+    for (text, tags_of), bag in zip(rows, bags):
+        doc = vector(bag)
+        similarity = sum(value * doc.get(word, 0.0) for word, value in target.items())
+        if similarity > 0:
+            scored.append((similarity, tags_of))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    votes: dict[str, float] = {}
+    spelled: dict[str, str] = {}
+    for similarity, tags_of in scored[:TAG_NEIGHBOURS]:
+        for tag in tags_of:
+            key = tag.casefold()
+            spelled.setdefault(key, tag)
+            votes[key] = votes.get(key, 0.0) + similarity
+    #: A tag the note names outright ("some cardio after work").
+    wanted_set = set(wanted)
+    vocabulary = {tag.casefold(): tag for _text, tags_of in rows for tag in tags_of}
+    for key, tag in vocabulary.items():
+        words = tokens(tag.replace("/", " "))
+        if words and all(word in wanted_set for word in words):
+            spelled.setdefault(key, tag)
+            votes[key] = votes.get(key, 0.0) + TAG_NAME_VOTE
+    ranked = sorted(
+        (key for key, vote in votes.items() if vote >= TAG_MIN_VOTE and key not in have_folded),
+        key=lambda key: votes[key],
+        reverse=True,
+    )
+    return [spelled[key] for key in ranked[:limit]]
+
+
 def _tally(
     session: Session, content: str, exclude_entry_id: int | None
 ) -> tuple[dict[str, float], dict[str, int]] | None:

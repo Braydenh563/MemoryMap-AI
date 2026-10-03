@@ -355,6 +355,13 @@ class PreferencesBody(BaseModel):
     custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
     # Dashboard layout: widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
+    #: The dashboard's Quick access tiles, in order: stable ids (the five
+    #: defaults' names, or `tab:x` / `reveal:x` for a command from the
+    #: catalogue), at most `QUICK_ACCESS_MAX`. `[]` is "never arranged", the
+    #: same convention `dashboard_layout` uses, so Reset writes `[]` and the
+    #: frontend falls back to its default five. Declared here because a field
+    #: Pydantic does not know about is silently dropped.
+    dashboard_quick_access: list[str] | None = Field(default=None, max_length=32)
     # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
@@ -616,6 +623,30 @@ class DashboardLayout(BaseModel):
     sizes: dict[str, str] = Field(default_factory=dict)
 
 
+#: Quick access holds eight tiles at most (the row is five across at the
+#: desktop width; more would wrap). The request model's own cap is looser so a
+#: stale client sending nine is cleaned here rather than failing the whole
+#: save, which is the same reason `_validated_context_windows` cleans.
+QUICK_ACCESS_MAX = 8
+
+
+def _validated_quick_access(value: object) -> list[str]:
+    """Strings only, trimmed, no repeats, short, and at most `QUICK_ACCESS_MAX`.
+
+    Whether an id still names anything is the frontend's question (a command
+    can be renamed away by a later version, and the tile then simply is not
+    drawn); the server only keeps the stored list from becoming a blob.
+    """
+    if not isinstance(value, list):
+        return []
+    cleaned: list[str] = []
+    for item in value:
+        key = item.strip() if isinstance(item, str) else ""
+        if key and len(key) <= 80 and key not in cleaned:
+            cleaned.append(key)
+    return cleaned[:QUICK_ACCESS_MAX]
+
+
 @router.get("/preferences")
 def get_preferences() -> dict:
     config = deps.get_config()
@@ -653,6 +684,7 @@ def get_preferences() -> dict:
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
+        "dashboard_quick_access": config.get_preference("dashboard_quick_access", []),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "local_only_ai": config.get_preference("local_only_ai", True),
@@ -840,6 +872,8 @@ def update_preferences(
             value = _validated_templates(value)
         if key == "export_save_dir":
             value = _validated_export_dir(value)
+        if key == "dashboard_quick_access":
+            value = _validated_quick_access(value)
         if key == "model_context_windows":
             value = _validated_context_windows(value)
         config.set_preference(key, value)

@@ -2220,6 +2220,8 @@ const LAZY_MODULES = {
   ocrEngine: ["/js/ocr-engine.js"],
   //: Quick note and the note outbox (INBOX 434): see quick-note.js.
   quickNote: ["/js/quick-note.js"],
+  //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
+  quickAccess: ["/js/quick-access.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2459,6 +2461,7 @@ const LAZY_ENTRY_POINTS = {
   chipMenus: ["openCategoryChipMenu", "openTagChipMenu"],
   attachments: ["attachmentAction"],
   ocrEngine: ["ocrEngineMount"],
+  quickAccess: ["quickAccessEdit"],
   quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
   graph: [
     "clearTrace",

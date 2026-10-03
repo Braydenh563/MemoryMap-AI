@@ -113,6 +113,6 @@ def test_the_removed_bands_left_no_styles_behind():
 def test_the_guide_describes_the_dashboard_as_it_is():
     topic = next(t for t in help_chat.HELP_TOPICS if t["id"] == "dashboard-controls")
     body = topic["body"]
-    assert "Start something" in body and "... menu" in body
+    assert "Quick access" in body and "Customise" in body and "... menu" in body
     for gone in ("quick start row", "Search notes"):
         assert gone not in body

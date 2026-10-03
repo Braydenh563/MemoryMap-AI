@@ -14,6 +14,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.
 - Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.
 - Settings: a section's jump strip marks the heading you chose, even near the end of a short page where it used to mark the last one.
+- Dashboard: the Start something row is now Quick access: the same five tiles until you change it, then add any command from the palette (up to eight, with the line it already says), remove, drag to reorder or use Move left and Move right in a tile's menu, and Reset to default, all from the section's own menu; kept per user in preferences (INBOX 461).
 - Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".
 - Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.
 - View toggles (Library, Notes, Timeline, Reminders): the selected segment sits inside its well with 4px all round; it was 4px down, flush on the well's bottom edge, and by touch it spilled 16px out.

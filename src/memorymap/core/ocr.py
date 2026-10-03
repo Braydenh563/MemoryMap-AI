@@ -245,8 +245,13 @@ def installed_languages() -> list[str]:
     return list(languages)
 
 
+_version_cache: dict[str, str] = {}
+
+
 def clear_language_cache() -> None:
+    """Forget what the program said about itself (after an install)."""
     _languages_cache.clear()
+    _version_cache.clear()
 
 
 def tesseract_version() -> str:
@@ -254,6 +259,8 @@ def tesseract_version() -> str:
     binary = shutil.which("tesseract")
     if not binary:
         return ""
+    if binary in _version_cache:
+        return _version_cache[binary]
     try:
         result = subprocess.run(  # noqa: S603  # fixed args, the binary found on PATH, no shell
             [binary, "--version"],
@@ -266,7 +273,8 @@ def tesseract_version() -> str:
         return ""
     first = ((result.stdout or result.stderr).strip().splitlines() or [""])[0]
     match = re.search(r"(\d+\.\d+(?:\.\d+)?)", first)
-    return match.group(1) if match else ""
+    _version_cache[binary] = match.group(1) if match else ""
+    return _version_cache[binary]
 
 
 def saved_language() -> str:

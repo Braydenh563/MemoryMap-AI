@@ -174,3 +174,44 @@ def test_the_readers_endpoint_carries_the_engine(monkeypatch, client):
     body = client.get("/ocr-readers").json()
     assert body["engine"]["ready"] is True
     assert body["tesseract"] is True
+
+
+def test_the_packages_row_is_installed_only_when_the_engine_can_read(monkeypatch):
+    """The OCR row showed a green tick when only the Python wrapper was there
+    (`find_spec` of pytesseract), on a machine whose Library read nothing. It
+    also meant the Install button was refused as "already installed"."""
+    from memorymap.core import extras
+
+    extra = extras.EXTRAS_BY_ID["ocr"]
+    monkeypatch.setattr(extras.importlib.util, "find_spec", lambda name: object())
+    monkeypatch.setattr(ocr, "tesseract_available", lambda: False)
+    assert extras.is_installed(extra) is False
+    monkeypatch.setattr(ocr, "tesseract_available", lambda: True)
+    assert extras.is_installed(extra) is True
+    monkeypatch.setattr(extras.importlib.util, "find_spec", lambda name: None)
+    assert extras.is_installed(extra) is False
+
+
+def test_read_again_really_reads_again(monkeypatch, client):
+    """Found driving the workspace: with a reading already on the row,
+    `extract_and_store`'s write-once guard made "Read again" a no-op, and the
+    stored rectangles from the first look came back for the second."""
+    from memorymap.api import routes_files
+    from memorymap.core.database import PageRead
+
+    media_id = _upload_png(client)
+    _engine(monkeypatch)
+    answers = iter(["first reading", "second reading"])
+    monkeypatch.setattr(ocr, "extract_text", lambda path: next(answers))
+    first = client.post(f"/media/{media_id}/ocr", json={})
+    assert first.json()["ocr_text"] == "first reading"
+    # A stored look at the page, as the regions route leaves behind.
+    with deps.get_db().session() as session:
+        session.add(PageRead(kind="upload", source_id=media_id, page=0, regions='{"x": 1}'))
+        session.commit()
+    second = client.post(f"/media/{media_id}/ocr", json={})
+    assert second.json()["ocr_text"] == "second reading"
+    with deps.get_db().session() as session:
+        row = session.query(PageRead).filter_by(kind="upload", source_id=media_id, page=0).one()
+        assert row.regions == ""
+    assert routes_files._page_read_key(None, media_id) == ("upload", media_id)

@@ -429,6 +429,7 @@ def analyse_attachment(
             if not stripped:
                 attachment.vision_ocr_model = None
         session.commit()
+        _forget_regions(_page_read_key(attachment.id, None))
         return _attachment_out(session, attachment)
 
     if not path.is_file():
@@ -456,6 +457,7 @@ def analyse_attachment(
                 text = docview.extract(path).text
         attachment.ocr_text = (text or "").strip() or None
         session.commit()
+        _forget_regions(_page_read_key(attachment.id, None))
         return _attachment_out(session, attachment)
 
     #: **Describing a document needs no vision model, only its own text.**
@@ -1897,6 +1899,7 @@ def ocr_media(
     if body.text is not None:
         upload.ocr_text = body.text.strip() or None
         session.commit()
+        _forget_regions(_page_read_key(None, upload.id))
     else:
         #: A missing engine used to come back as a 200 with no text, which the
         #: workspace painted as "Read <file>." over an empty panel. Say so.
@@ -1904,7 +1907,16 @@ def ocr_media(
         if reason:
             raise HTTPException(status_code=409, detail=reason)
         media_dir = deps.get_config().data_dir / "media"
-        ocr.extract_and_store(upload.id, media_dir / upload.filename)
+        #: **A person pressing Read again is the one case that must read.**
+        #: This called `extract_and_store`, whose guards ("once per picture",
+        #: "stand down when a vision model exists") are right for the
+        #: background pass after an upload and wrong here: with a reading on
+        #: the row, or a model running, "Read again" did nothing at all.
+        text = ocr.extract_text(media_dir / upload.filename)
+        if text:
+            upload.ocr_text = text
+            session.commit()
+            _forget_regions(_page_read_key(None, upload.id))
         session.refresh(upload)
     return MediaUploadOut(
         id=upload.id,
@@ -2195,6 +2207,35 @@ def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut
             session.commit()
     except Exception:  # noqa: BLE001 - a cache write must never fail a read
         logger.debug("could not store the regions for a page", exc_info=True)
+
+
+def _forget_regions(key: tuple[str, int] | None, page: int = 0) -> None:
+    """Throw away the stored rectangles for a page whose text just changed.
+
+    The cache describes the page as it was read. A re-read, or a correction
+    typed by hand, makes it describe something that no longer exists, and the
+    workspace would go on drawing the old reading's boxes over the new one's
+    words (found driving "Read again": the second read came back as the first).
+    """
+    if not key:
+        return
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(page),
+                )
+                .one_or_none()
+            )
+            if row is not None and row.regions:
+                row.regions = ""
+                session.commit()
+    except Exception:  # noqa: BLE001 - a cache clear must never fail a read
+        logger.debug("could not clear the stored regions for a page", exc_info=True)
 
 
 def _regions_for(

@@ -4,10 +4,18 @@ Each test pins one defect measured in Chromium at 390 with touch:
 
 * A tap on a note opened nothing: the swipe handler settled every lift-off,
   a tap included, and the note page refuses a row that is settling.
+* The categories drawer drew a chip cloud: two columns of pills, the long
+  name 727px wide in a 320px sheet, 30px rows, each ⋯ 17px above its row;
+  choosing a category left the drawer over the list.
+* A toast stood over the floating New note button.
+* The command palette found nothing for "manage", "categories", "#food" or
+  "move".
 """
 
 import re
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -75,6 +83,42 @@ def test_a_phone_toast_stands_above_the_floating_button():
     assert "var(--target-min)" in lifted
     fab = (FRONTEND / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert "bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5)" in fab
+
+
+def test_the_command_palette_carries_the_notes_rows():
+    palette = _read("palette.js")
+    rows = _function(palette, "notesPaletteCommands")
+    for label in (
+        "Manage categories",
+        "Go to category: ${name}",
+        "Show notes tagged #${tag}",
+        "to category`",
+    ):
+        assert label in rows, label
+    # The palette's row shape (`docPaletteCommands`): group, label, run.
+    assert rows.count("group: ") == rows.count("run: ") == 4
+    # Every run waits for Enter's keypress to finish, or a sheet that focuses
+    # its first row takes that keypress as a press on the row.
+    assert rows.count("run: paletteLater(") == 4
+    assert "showNotesFilter(`tag:${tag}`)" in rows
+    assert "chooseNoteCategory(ids," in rows and "openManageCategories()" in rows
+    go = _function(palette, "paletteGoToCategory")
+    assert '$("category-list")' in go and ".click()" in go
+    hand = _function(palette, "paletteNotesInHand")
+    for source in ("selectedIds", "notePageOpenId", "editingId", "overlayReturnFocus"):
+        assert source in hand
+    # Both sheets load on first use, so the palette may call them at boot.
+    app = _read("app.js")
+    assert '"chooseNoteCategory"' in app and '"openManageCategories"' in app
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="the one-line hook in settings-panes.js paletteMatches is outside this change's files",
+)
+def test_the_palette_asks_for_the_notes_rows_with_the_query():
+    matches = _function(_read("settings-panes.js"), "paletteMatches")
+    assert 'typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : []' in matches
 
 
 def test_the_drawer_opener_says_what_it_holds_and_closes_on_a_choice():

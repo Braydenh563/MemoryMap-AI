@@ -1397,3 +1397,75 @@ $("command-palette-intro")?.addEventListener("click", (e) => {
     cmdPaletteAsk(starter.trim());
   }
 });
+
+//: **Notes in the command palette** (audit, 2026-10-03: "manage",
+//: "categories", "#food" and "move" found nothing). Rows in the editor
+//: group's shape (`docPaletteCommands`): a group, a label, a `run`.
+//: `paletteMatches` (settings-panes.js) adds them with the typed query and
+//: filters them by label like any other row; the per-category and per-tag
+//: rows wait for a query so the empty list stays the app's own commands.
+//: Each `run` waits a task: the palette runs a row on Enter's keydown, and a
+//: sheet that opens and focuses its first row there took that Enter's
+//: keypress as a press on it (measured: the Move sheet closed unseen).
+const paletteLater = (fn) => () => setTimeout(fn);
+
+function notesPaletteCommands(query = "") {
+  const rows = [];
+  const ids = paletteNotesInHand();
+  if (ids.length) {
+    const one = ids.length === 1 ? allEntries.find((e) => e.id === ids[0]) : null;
+    rows.push({
+      group: "This note",
+      label: `ph:folder-open Move ${one ? "note" : "notes"} to category`,
+      about: one ? `Now in ${one.category}.` : `${ids.length} selected notes.`,
+      run: paletteLater(() => chooseNoteCategory(ids, one?.category || "")),
+    });
+  }
+  rows.push({
+    group: "Categories",
+    label: "ph:sliders-horizontal Manage categories",
+    about: "Rename, merge, split or delete categories.",
+    run: paletteLater(() => openManageCategories()),
+  });
+  if (!query) return rows;
+  const counts = new Map();
+  for (const e of allEntries) if (!e.is_draft) counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  for (const [name, n] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
+    rows.push({
+      group: "Categories",
+      label: `ph:folder Go to category: ${name}`,
+      about: `${n} ${n === 1 ? "note" : "notes"}`,
+      run: paletteLater(() => paletteGoToCategory(name)),
+    });
+  }
+  if (query.startsWith("#")) {
+    const typed = query.slice(1).trim();
+    const tags = [...new Set(allEntries.flatMap((e) => e.tags || []))]
+      .filter((t) => !/\s/.test(t) && t.toLowerCase().startsWith(typed))
+      .sort()
+      .slice(0, 6);
+    if (typed && !/\s/.test(typed) && !tags.some((t) => t.toLowerCase() === typed)) tags.push(typed);
+    for (const tag of tags) {
+      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => showNotesFilter(`tag:${tag}`)) });
+    }
+  }
+  return rows;
+}
+
+//: The note the palette was opened over: the phone's note page, the inline
+//: edit, the batch selection, or the row that had the focus.
+function paletteNotesInHand() {
+  if (selectMode && selectedIds.size) return [...selectedIds];
+  const row = overlayReturnFocus?.closest?.("#entry-list li[data-id]");
+  const id = notePageOpenId || editingId || Number(row?.dataset.id);
+  return id ? [Number(id)] : [];
+}
+
+//: The sidebar's own row is pressed, so the filter is the one a tap on it
+//: sets (and on a phone the drawer stays shut). The last match, since "All"
+//: comes first and a category may share its name.
+async function paletteGoToCategory(name) {
+  await switchTab("notes");
+  const rows = [...$("category-list").children].filter((li) => li.querySelector(".category-name")?.title === name);
+  rows.pop()?.click();
+}

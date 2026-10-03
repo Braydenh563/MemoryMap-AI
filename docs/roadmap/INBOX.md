@@ -158,8 +158,8 @@ with its owner named in the entry.
      empty agent round, built-in engine applies on selection, Chat and agent
      read the app's help for how-to questions, popup user mark, companion
      hide sweep, web reader on site-builder pages.
-     **2026-10-03 (INBOX 432):** (1), (2), (3) and (7) done, (4) with an
-     agent; (5) and (6) open.
+     **2026-10-03 (INBOX 432, PR 162):** (1), (2), (3), (4), (6) and (7)
+     done; (5) with an agent.
      Placed, in this order: (1) **a real-model pass before more features**:
      `scratchpad/llama-dev.sh serve` with a 3B model, then the popup agent's
      two failing prompts, filing a new note, and `pytest -m evals`, because

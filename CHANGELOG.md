@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- The masculine Atlas's lower body is one thick wisp curving in an S from the full width of his hips to a soft curled tip, with two smaller wisps branching off it at different heights, all one smooth shape with no seams, in place of five straight spikes.
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

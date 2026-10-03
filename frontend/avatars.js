@@ -4641,18 +4641,26 @@ const NMB_RIDE_PX = 1e6;
 function nameMarkBuddyRide(scroller, x = nmb.x, y = nmb.y) {
   const buddy = document.getElementById("nm-buddy");
   const band = document.getElementById("nm-buddy-band");
-  if (!buddy || !band) return;
-  const want = scroller && typeof ScrollTimeline === "function" && typeof band.firstElementChild?.animate === "function" ? scroller : null;
+  const shutter = band?.firstElementChild;
+  const rider = shutter?.firstElementChild;
+  if (!buddy || !band || !rider) return;
+  const want = scroller && typeof ScrollTimeline === "function" && typeof rider.animate === "function" ? scroller : null;
   if ((nmb.ride?.el || null) !== want) {
     nmb.rideAnim?.cancel();
-    nmb.rideAnim = null;
-    nmb.ride = want ? { el: want } : null;
+    nmb.shutterAnim?.cancel();
+    nmb.rideAnim = nmb.shutterAnim = null;
+    nmb.ride = want ? { el: want, s0: 0, up: 0, down: 0 } : null;
     band.classList.toggle("nmb-riding", !!want);
     if (want) {
-      nmb.rideAnim = band.firstElementChild.animate(
-        [{ transform: "translateY(0px)" }, { transform: `translateY(-${NMB_RIDE_PX}px)` }],
-        { timeline: new ScrollTimeline({ source: want, axis: "block" }), fill: "both", easing: "linear", rangeStart: "0px", rangeEnd: `${NMB_RIDE_PX}px` },
-      );
+      //: One timeline, two transforms on it: the shutter (below) and the
+      //: rider inside it, so the compositor moves both in the scroll's own
+      //: frame. Their keyframes are set from the perch by the band's
+      //: measure just below (`nameMarkBuddyRideClip`).
+      const timeline = new ScrollTimeline({ source: want, axis: "block" });
+      const opts = { timeline, fill: "both", easing: "linear", rangeStart: "0px", rangeEnd: `${NMB_RIDE_PX}px` };
+      const frames = nameMarkBuddyRideFrames(0, 0, 0);
+      nmb.shutterAnim = shutter.animate(frames.shutter, opts);
+      nmb.rideAnim = rider.animate(frames.rider, opts);
     } else {
       for (const k of ["left", "top", "width", "height"]) band.style[k] = "";
     }
@@ -4661,17 +4669,64 @@ function nameMarkBuddyRide(scroller, x = nmb.x, y = nmb.y) {
   if (Number.isFinite(x) && Number.isFinite(y)) nameMarkBuddyPut(buddy, x, y);
 }
 
+//: **Behind the bar its perch goes under** (INBOX 431 (5), the owner: "if
+//: it is perched on like a chat message bubble or a library card, when it
+//: scrolls with them it should probably go behind the top bar like the
+//: thing it is perched on not in front of it"). The band is widened at
+//: placement to take in a head that reaches over the top bar (or a bar that
+//: sticks in the area), so a perch at the very top of a panel is drawn
+//: whole where it stands; and while it stayed widened, the scroll carried
+//: the figure up over the bar its perch had gone under (measured,
+//: companionstack.js: 62px past its perch's clip line on a chat message, a
+//: library card and a note card; 41px over the top bar at the Large size).
+//: A shutter inside the band, a clipping box the band's size, is moved by
+//: the same scroll: from the scroll it was perched at (`s0`), every px the
+//: panel scrolls up brings the shutter's top edge down a px, until it is at
+//: the bar's edge (`up` px down) and the figure is cut there exactly as its
+//: perch is; scrolled the other way, its bottom edge comes up to the bottom
+//: bar's edge (`down` px) the same way. It is shut by the time the line it
+//: touches its perch on reaches the bar (`upSpan`, `downSpan`: the scroll
+//: that takes), so a head over the bar is gone when its perch is, and
+//: never slower than the panel moves (a span is at most its gap). Back
+//: where it was perched, it is drawn whole again. The rider inside takes
+//: the shutter's move back out, so it still goes one px per px scrolled
+//: wherever the shutter is. Both are piecewise linear in the scroll offset,
+//: so they are keyframes on the one timeline, at offsets of scroll px over
+//: `NMB_RIDE_PX`. On the top bar itself it rides nothing
+//: (`nameMarkBuddyGlue`: the bars hold nothing), in a band over the bar,
+//: so it stays in front of it.
+function nameMarkBuddyRideFrames(s0, up, down, upSpan = up, downSpan = down) {
+  const R = NMB_RIDE_PX;
+  const at = Math.min(Math.max(0, s0), R / 2);
+  const spanUp = Math.min(Math.max(1, upSpan), Math.max(1, up));
+  const spanDown = Math.min(Math.max(1, downSpan), Math.max(1, down));
+  const shut = (u) => (u < at ? -down * Math.min(1, (at - u) / spanDown) : up * Math.min(1, (u - at) / spanUp));
+  const us = [...new Set([0, Math.max(0, at - spanDown), at, at + spanUp, R])].sort((a, b) => a - b);
+  return {
+    shutter: us.map((u) => ({ offset: u / R, transform: `translateY(${shut(u)}px)` })),
+    rider: us.map((u) => ({ offset: u / R, transform: `translateY(${-(u + shut(u))}px)` })),
+  };
+}
+
+function nameMarkBuddyRideClip(r) {
+  const frames = nameMarkBuddyRideFrames(r.s0, r.up, r.down, r.upSpan, r.downSpan);
+  nmb.shutterAnim?.effect?.setKeyframes(frames.shutter);
+  nmb.rideAnim?.effect?.setKeyframes(frames.rider);
+}
+
 //: The band's box: the area's visible box, from under the top bar (or a
 //: bar that sticks in it) to over the bottom one, widened to take in where
 //: it was put, so a perch with its head a little over a sticking bar is
-//: not clipped where it stands. `fresh` measures the bars again (a
-//: placement); otherwise the insets found then are kept and only the
-//: area's own box is read.
+//: not clipped where it stands (the shutter above closes that widening as
+//: the panel scrolls away). `fresh` measures the bars again (a placement);
+//: otherwise the insets found then are kept and only the area's own box is
+//: read.
 function nameMarkBuddyRideBox(x = nmb.x, y = nmb.y, fresh = false) {
   const r = nmb.ride;
   const band = document.getElementById("nm-buddy-band");
   if (!r || !band) return;
   const box = r.el.getBoundingClientRect();
+  let lines = null;
   if (fresh || r.insetTop === undefined) {
     const { lo, hi } = nameMarkBuddyBand(r.el, nmb.glue?.el);
     const over = nameMarkBuddyOverhang();
@@ -4679,11 +4734,25 @@ function nameMarkBuddyRideBox(x = nmb.x, y = nmb.y, fresh = false) {
     r.insetBottom = box.bottom - Math.max(hi, y + NMB_H + over.bottom);
     r.insetLeft = Math.min(box.left + r.el.clientLeft, x - over.left) - box.left;
     r.insetRight = box.right - Math.max(box.left + r.el.clientLeft + r.el.clientWidth, x + NMB_W + over.right);
+    lines = { lo, hi };
   }
   const left = Math.round(box.left + r.insetLeft);
   const top = Math.round(box.top + r.insetTop);
   const width = Math.max(0, Math.round(box.right - r.insetRight) - left);
   const height = Math.max(0, Math.round(box.bottom - r.insetBottom) - top);
+  if (lines) {
+    //: How far the band reaches over each bar, from the band as drawn
+    //: (rounded) to the bar's own edge, never short of it; the scroll it
+    //: was perched at; and how far the line it touches its perch on (its
+    //: seat, its soles, its hands) is from each bar.
+    const touch = { sit: NMB_SEAT, stand: NMB_FEET, hang: NMB_GRIP }[nmb.glue?.pose || nmb.pose] ?? 0;
+    r.s0 = r.el.scrollTop;
+    r.up = Math.max(0, Math.ceil(lines.lo) - top);
+    r.down = Math.max(0, top + height - Math.floor(lines.hi));
+    r.upSpan = y + touch - lines.lo;
+    r.downSpan = lines.hi - (y + touch);
+    nameMarkBuddyRideClip(r);
+  }
   if (left !== r.left || top !== r.top || width !== r.width || height !== r.height) {
     Object.assign(r, { left, top, width, height });
     band.style.left = `${left}px`;
@@ -7438,7 +7507,8 @@ function nameMarkBuddyGone() {
   nmb.glue = null;
   nmb.pinned = false;
   nmb.rideAnim?.cancel();
-  nmb.rideAnim = nmb.ride = null;
+  nmb.shutterAnim?.cancel();
+  nmb.rideAnim = nmb.shutterAnim = nmb.ride = null;
   nmb.seenObserver?.disconnect();
   nmb.seenObserver = null;
   document.getElementById("nm-buddy-band")?.remove();
@@ -7478,23 +7548,30 @@ function nameMarkBuddyHide(buddy) {
     for (const stray of document.querySelectorAll("#nm-buddy, .nmb-burst")) stray.remove();
     nameMarkBuddyGone();
   });
-  if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
+  //: The chord as it is bound now (it is rebindable), not as it shipped.
+  const keys = typeof shortcuts === "object" ? shortcuts?.toggleCompanion?.keys : "";
+  if (typeof toast === "function") toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
 }
 
-//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
-//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
-//: in the shortcut registry), the command palette and Find anything. Hidden,
-//: it comes back as whichever companion it was (`nm-buddy-last`), or Atlas.
-function nameMarkBuddyToggle() {
-  const buddy = document.getElementById("nm-buddy");
+//: Whether it is out: chosen in Appearance, or still on the page.
+function nameMarkBuddyShowing() {
   let choice = "off";
   try {
     choice = localStorage.getItem("avatar-buddy") || "off";
   } catch (e) {
     choice = "off";
   }
-  if (choice !== "off" || buddy) {
-    nameMarkBuddyHide(buddy);
+  return choice !== "off" || !!document.getElementById("nm-buddy");
+}
+
+//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
+//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
+//: in the shortcut registry), the command palette and Find anything, whose
+//: row says which it will do (`nameMarkBuddyShowing`). Hidden, it comes back
+//: as whichever companion it was (`nm-buddy-last`), or Atlas.
+function nameMarkBuddyToggle() {
+  if (nameMarkBuddyShowing()) {
+    nameMarkBuddyHide(document.getElementById("nm-buddy"));
     return;
   }
   let back = "atlas";
@@ -7792,13 +7869,17 @@ function nameMarkBuddyBuild() {
   //: in, and clips it there; the rider inside it is moved by the browser
   //: with that scroll. It stays in the body: the app's own scroll boxes
   //: (the dashboard's flex page, the notes list) are never given a child
-  //: they did not make.
+  //: they did not make. Between them the shutter, which closes the band
+  //: down to the bar its perch has gone under (`nameMarkBuddyRideFrames`).
   const band = document.createElement("div");
   band.id = "nm-buddy-band";
+  const shutter = document.createElement("div");
+  shutter.className = "nm-buddy-shutter";
   const rider = document.createElement("div");
   rider.className = "nm-buddy-rider";
   rider.appendChild(buddy);
-  band.appendChild(rider);
+  shutter.appendChild(rider);
+  band.appendChild(shutter);
   document.body.appendChild(band);
   nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
   nameMarkBuddyToggles(buddy);

@@ -82,6 +82,30 @@ def log_action(
     )
 
 
+def category_space(session: Session, workspace_id: str | None = None) -> str:
+    """The one space a category lookup or insert belongs to.
+
+    Given a space, that one. Otherwise the session's own when a request scoped
+    it to a single space, and "default" when it did not ("All spaces", or a
+    background pass with no request): that is where an unscoped insert lands
+    anyway (`WorkspaceMixin`'s column default), so a lookup that answers for
+    the same space can never find a row the insert would not have made.
+    Callers filing an existing note pass the note's own space instead
+    (`entry_space`), which is the only right answer in the "all" view.
+    """
+    if workspace_id:
+        return workspace_id
+    ambient = session.info.get("workspace_id")
+    if ambient and ambient != "all":
+        return ambient
+    return "default"
+
+
+def entry_space(entry: Entry) -> str:
+    """A note's own space, for filing it: the space its category must be in."""
+    return getattr(entry, "workspace_id", None) or "default"
+
+
 def get_or_create_category(
     session: Session, name: str, workspace_id: str | None = None
 ) -> Category:
@@ -111,20 +135,31 @@ def get_or_create_category(
     the row: SQLite allows one writer at a time, so the other transaction had
     to have committed for its row to be what this one collided with.
     """
+    # **Always one space, never "whichever space has that name".** With no
+    # space given, the lookup used to be by name alone, which is right only
+    # while the session itself is scoped to a space (the statement filter in
+    # `core/database.py` then adds the space for us). In the "All spaces"
+    # view the filter is off, so filing a note of space "uni" under "Kids"
+    # found the default space's "Kids" and pointed the uni note at it; uni's
+    # own view could not list that category and the note read as
+    # Uncategorised (measured 2026-10-03). The insert half already landed in
+    # one space (the session's, or the column default); the lookup now asks
+    # the same space the insert would write to.
+    workspace_id = category_space(session, workspace_id)
+
     def _find() -> Category | None:
-        query = select(Category).where(Category.name == name)
-        if workspace_id is not None:
-            query = query.where(Category.workspace_id == workspace_id)
-        return session.scalar(query)
+        return session.scalar(
+            select(Category).where(
+                Category.name == name, Category.workspace_id == workspace_id
+            )
+        )
 
     category = _find()
     if category is not None:
         return category
     try:
         with session.begin_nested():
-            category = Category(name=name)
-            if workspace_id is not None:
-                category.workspace_id = workspace_id
+            category = Category(name=name, workspace_id=workspace_id)
             session.add(category)
             session.flush()  # assigns category.id without committing yet
     except IntegrityError:
@@ -161,7 +196,7 @@ def set_category(session: Session, entry: Entry, name: str) -> Entry:
     # and the value is the honest thing to pass anyway. It is one fact, the
     # note's own space, travelling to the one place that needs it.
     entry.category_id = get_or_create_category(
-        session, name, workspace_id=entry.workspace_id or "default"
+        session, name, workspace_id=entry_space(entry)
     ).id
     session.flush()
     return entry
@@ -417,7 +452,9 @@ def record_filing(session: Session, entry: Entry, category_name: str, by: str | 
     note's History could not rebuild the category it had between capture and
     now, and "undo auto-filing" had nothing to find.
     """
-    category = get_or_create_category(session, category_name)
+    # The note's own space: the filer runs off the request thread, so the
+    # session's space is not the note's (see `category_space`).
+    category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
     if category.id == entry.category_id:
         return False
     before = entry.category_id
@@ -500,7 +537,9 @@ def _update_entry_fields(
         entry.content = content
         changed.append("content")
     if category_name is not None:
-        category = get_or_create_category(session, category_name)
+        # In the note's own space, never the view's: from "All spaces" the
+        # view is every space at once (see `category_space`).
+        category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
         if category.id != entry.category_id:
             entry.category_id = category.id
             # A manual move means the user decided, the janitor stays
@@ -1881,7 +1920,17 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     if new_name == category.name:
         return {"renamed": False, "merged": False, "moved": 0}
 
-    existing = session.scalar(select(Category).where(Category.name == new_name))
+    # Only a same-named category in *this one's own space* is a merge. By
+    # name alone, renaming uni's "Lectures" to "Garden" from the "All spaces"
+    # view merged it into the default space's "Garden" and both uni notes
+    # then read as Uncategorised in uni (measured 2026-10-03). In another
+    # space the name is simply free, so this is a plain rename.
+    existing = session.scalar(
+        select(Category).where(
+            Category.name == new_name,
+            Category.workspace_id == category_space(session, category.workspace_id),
+        )
+    )
     if existing is not None and existing.id != category.id:
         # Merge: move the entries across, then drop the now-empty category.
         moved = _reassign(session, category.id, existing.id)
@@ -1911,7 +1960,11 @@ def delete_category(session: Session, category_id: int) -> dict:
     if category.name == UNCATEGORISED:
         raise ValueError("Uncategorised is where notes go; it can't be removed")
 
-    fallback = get_or_create_category(session, UNCATEGORISED)
+    # The deleted category's own Uncategorised, not the view's: a note must
+    # stay filed in a category its own space can list.
+    fallback = get_or_create_category(
+        session, UNCATEGORISED, workspace_id=category_space(session, category.workspace_id)
+    )
     moved = _reassign(session, category.id, fallback.id)
     log_action(session, "deleted", "category", category.id, category.name)
     session.delete(category)

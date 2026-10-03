@@ -60,8 +60,14 @@ def _create_category(session: Session, args: dict) -> dict:
         raise ToolError("A category needs a name")
     if len(name) > 100:
         raise ToolError("That category name is too long (100 characters max)")
+    # Asked in the one space the new row would land in: from the "All
+    # spaces" view a bare name lookup answered "already exists" for another
+    # space's category, and the new one was never made where it was wanted.
     existing = session.scalar(
-        select(Category).where(func.lower(Category.name) == name.lower())
+        select(Category).where(
+            func.lower(Category.name) == name.lower(),
+            Category.workspace_id == manager.category_space(session),
+        )
     )
     if existing is not None:
         # Not an error: the model asked for a category to exist, and it does.
@@ -136,6 +142,13 @@ def _merge_categories(session: Session, args: dict) -> dict:
     target = _find_category(session, str(args.get("into") or ""))
     if source.id == target.id:
         raise ToolError(f"“{source.name}” and “{target.name}” are the same category")
+    if (source.workspace_id or "default") != (target.workspace_id or "default"):
+        # The merge is a rename onto the target's name, which only merges
+        # inside the source's own space; across spaces it would quietly
+        # become a rename instead of what was asked. Say so instead.
+        raise ToolError(
+            f"“{source.name}” and “{target.name}” are in different spaces, so they can't be merged"
+        )
     source_name, target_name = source.name, target.name
     try:
         result = manager.rename_category(session, source.id, target_name)

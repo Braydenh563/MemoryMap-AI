@@ -1846,17 +1846,25 @@ def entry_tags(entry: Entry) -> list[str]:
 def all_categories(session: Session) -> list[dict]:
     """Every category with how many live entries sit in it, biggest first.
 
-    Binned entries aren't counted: the number should match what the sidebar
-    shows, and the sidebar only ever lists notes you can still see.
+    The number is the Notes list's own under that category, so it counts
+    exactly what the list shows: not binned, not archived, not a draft (the
+    list keeps drafts in their own view), not a board. It used to exclude
+    only the bin, and two numbers for one category disagreed on screen:
+    Health 4 in the sidebar and 5 in Manage categories with one archived
+    note, Work 5 and 6 with one draft (measured 2026-10-03). The where-clause
+    is `_list_entries_filter`'s, the same one `GET /entries` uses, so the two
+    cannot drift apart again by one of them gaining a filter.
     """
     rows = list(session.scalars(select(Category).order_by(Category.name)))
+    query = _list_entries_filter(
+        select(Entry.category_id, func.count(Entry.id)),
+        include_deleted=False,
+        include_archived=False,
+        boards=BOARDS_EXCLUDE,
+    ).where(Entry.is_draft == False)  # noqa: E712
     counts = {
         category_id: total
-        for category_id, total in session.execute(
-            select(Entry.category_id, func.count(Entry.id))
-            .where(Entry.is_deleted == False)  # noqa: E712
-            .group_by(Entry.category_id)
-        )
+        for category_id, total in session.execute(query.group_by(Entry.category_id))
     }
     out = [
         {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}

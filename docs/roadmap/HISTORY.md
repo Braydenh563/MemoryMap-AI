@@ -36196,3 +36196,39 @@ width, 47% of the column at 1440.
      chip-menus.js); (2) the companion reacts to AI work (`NMB_WORK`, one
      fetch hook). **Fixed, all five.**
 
+443. **The owner, 2026-10-03, verbatim, with screenshots (the graph; the
+     Library's Boards and maps placeholders; the feminine Atlas's lower
+     body).** "the graph shape could look nicer as well. also the skeleton
+     loaders are really boarinf and have no loading animation to them, they
+     are just blank shapes. also using tesseract and how it operates in the
+     ocr workspace is still annoying to use and manage." Then: "can the
+     feminine atlas lower body also be improved a little as well to not
+     look so tentacle-y?? I still want that really nice look to it. make it
+     really attractive and and alluring". Placed: (1) the graph's layout
+     and look: **fixed** (60-note sweep `graphlook.js`: category purity 0.56 to 0.84,
+     unlinked notes' gap to the cluster 3.0 to 1.8, size scale 5 to 15, tinted
+     curved links, word-cut labels); (2) skeletons: **fixed** (shaped bars, a
+     visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
+     workspace: **fixed** (one engine line with status, language and Install
+     with progress; a read that falls to the other engine and names it; Read
+     again that really reads again; an editable reading; add to a note; one
+     language setting; the Packages row means "can read"; driven by
+     `scratchpad/ui-sweeps/ocrflow.js`, measured with a stand-in program, not
+     the real one); (4) the feminine Atlas's lower body, flowing
+     like a gown's hem rather than tentacles, kept elegant: the orchestrator,
+     after the masculine tail's agent work is merged. **(4) Fixed**: a gown (A-line, waved hem, four
+     folds), measured extent 9.4..49.8 x 49..97 (was to y 102 with 24 paths).
+     Then: "also if the companion is doing a specific action and i double
+     click it to view it in the enlarged window, I want it to keep doing
+     that action unless poked or something else happens". Placed: (5) the
+     enlarged view carries the companion's current action over and keeps
+     it until a poke or a new event. Then: "also the companion perches and
+     action surfaces and stuff needs to be properly done for the chat tab.
+     and the regular companion expanded popup window needs more life and not
+     just a statue" (screenshot: the enlarged dialog, a still figure).
+     Placed: (5) and (6), Chat perches and an enlarged view that lives: an
+     Opus agent. **(5) and (6) fixed**: Chat perches, the enlarged view is
+     the companion itself and keeps its action, eyes follow the pointer,
+     reduced motion crossfades (`companionviewer.js`, `companionfade.js`).
+     (1) graph look and (3) OCR engine line: **fixed** (merged). All parts done.
+

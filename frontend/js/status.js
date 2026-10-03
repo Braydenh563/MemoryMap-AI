@@ -2537,16 +2537,10 @@ async function renderExtras() {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     if (extra.installed) {
-      // A tick, not a disabled button. "Installed" is the answer to the only
-      // question this row asks, and a greyed-out Install invites a click that
-      // will do nothing.
-      // A chip, beside the name, not a coloured word wedged between the title
-      // and the first button. Reported: "the installed and not ready yet
-      // badges are poorly spaced and aligned and need affordance" -- as bare
-      // text it had no box of its own, so it inherited the row's 0.4rem gap on
-      // both sides and read as part of whichever neighbour you looked at
-      // first. A chip says "state", a button says "press me", and this is a
-      // state.
+      // A chip beside the name, not a bare word between the title and the
+      // buttons (reported: "poorly spaced and aligned and need affordance"):
+      // a chip says "state", a button says "press me". "Installed" means it
+      // works: the OCR row counts the Tesseract program too (core/extras.py).
       const done = chip("ph:check-circle Installed", "extras-installed");
       title.appendChild(done);
       // And a way back out of the state detection cannot see. `find_spec`
@@ -2646,6 +2640,9 @@ async function renderExtras() {
     meta.className = "muted extras-meta";
     meta.textContent = [extra.packages.join(", "), extra.size, extra.licence].filter(Boolean).join(" · ");
     li.appendChild(meta);
+
+    //: The language choice (ocr-engine.js); the buttons stay this row's own.
+    if (extra.id === "ocr" && extra.installed) ocrEngineMount(li.appendChild(document.createElement("div")), { settings: true });
 
     // Said before the button is pressed, not after: "this installs the library
     // but nothing uses it yet" is exactly the sort of thing that turns into a

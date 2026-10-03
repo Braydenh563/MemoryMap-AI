@@ -106,6 +106,9 @@ function measure(page, label, rootSel) {
   await tab('dashboard'); results.push(await measure(page, 'dashboard')); await shot('dashboard');
   await tab('notes'); await click('#notes-subtabs [data-section="browse"]'); results.push(await measure(page, 'notes/browse')); await shot('notes');
   if (process.env.SHOTS) {
+    await click('#notes-subtabs [data-section="capture"]'); await shot('capture');
+    await click('#notes-subtabs [data-section="browse"]');
+    for (const t of ['chat', 'graph', 'timeline']) { await tab(t); await shot(t); }
     await tab('library'); await shot('library');
     await tab('reminders'); await shot('reminders');
     await page.evaluate(() => document.getElementById('settings-btn')?.click()); await page.waitForTimeout(900); await shot('settings');

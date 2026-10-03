@@ -4896,24 +4896,44 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* **The x is drawn 1rem everywhere; its target is not its ink** (INBOX 446
    (5)). Under a coarse pointer the x used to keep `.unlink`'s 44px floor
-   as its own box, and the grey disc behind it grew to match: on a phone
-   every suggested tag on a note was a 50px slab with a 44px grey ball over
-   its end, two or three rows of them per card (measured at 390, before and
-   after this pass, scratchpad/ui-sweeps/out/density-*-notes-*-390.png).
-   The box is the 1rem disc on every pointer now, and the target floor is
-   an invisible `::before` centred on it, `--target-min` square (28px with
-   a mouse, 44px under a finger), so the hit area is unchanged and the
-   chip no longer grows around it. */
+   and paint its grey disc across all of it: on a phone every suggested tag
+   on a note was a 50px slab with a 44px grey ball over its end, two or
+   three rows of them per card (scratchpad/ui-sweeps/out/density-*-notes-*-
+   390.png). The box is still `--target-min` square (28px with a mouse, 44px
+   under a finger, which iconfloor.js and axe's target-size measure), but
+   negative margins take the overhang back out of the layout, so the chip
+   is laid out around a 1rem x and stays 24px tall; the disc is a 1rem
+   `::before` in the middle of the box, and the glyph sits above it. */
 .chip > .unlink:last-child {
   position: relative;
+  width: var(--target-min);
+  height: var(--target-min);
   min-width: 0;
   min-height: 0;
+  margin-block: calc((1rem - var(--target-min)) / 2);
+  margin-inline: calc(var(--space-1) - (var(--target-min) - 1rem) / 2) calc((1rem - var(--target-min)) / 2);
+  background: transparent;
 }
 
 .chip > .unlink:last-child::before {
   content: "";
   position: absolute;
-  inset: calc((var(--target-min) - 1rem) / -2);
+  inset: calc((var(--target-min) - 1rem) / 2);
+  border-radius: var(--radius-pill);
+  background: var(--ghost-btn-bg);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.chip > .unlink:last-child > i {
+  position: relative;
+}
+
+.chip > .unlink:last-child:is(:hover, :focus-visible) {
+  background: transparent;
+}
+
+.chip > .unlink:last-child:is(:hover, :focus-visible)::before {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
 /* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its

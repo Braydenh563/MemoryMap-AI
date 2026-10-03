@@ -167,15 +167,18 @@ function renderPendingNoteRows() {
     const li = document.createElement("li");
     li.className = "pending-note";
     li.dataset.pendingKey = item.client_key;
-    if (item.title) {
+    //: Capture folds its title in as a leading `# Heading` (`withTitle`); the
+    //: saved card shows that line as the title, so the held row does too.
+    const [, heading, body] = /^# ([^\n]+)\n*([\s\S]*)$/.exec(item.content || "") || [null, "", item.content || ""];
+    if (heading) {
       const title = document.createElement("p");
       title.className = "entry-title";
-      title.textContent = item.title;
+      title.textContent = heading;
       li.appendChild(title);
     }
     const content = document.createElement("p");
     content.className = "entry-content";
-    renderNoteText(content, item.content || "", []);
+    renderNoteText(content, body, []);
     li.appendChild(content);
     const meta = document.createElement("div");
     meta.className = "entry-meta note-meta";

@@ -99,8 +99,7 @@ with its owner named in the entry.
      door). Decided against: "/" for a category in the box, since "/" is
      the blocks menu there. Open: deferred filing takes 1.2 to 2.5 s on this
      sandbox with no chat model (the embedding pass, server side; the note
-     is in the list long before); held notes are not drawn in the list
-     until sent; staged pictures and files cannot be held offline (the
+     is in the list long before); staged pictures and files cannot be held offline (the
      words stay in the box, saying so); the desktop window, real
      clipboards and a real server crash between commit and answer are not
      verified (the dedupe map is in memory).

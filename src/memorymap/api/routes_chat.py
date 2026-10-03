@@ -1570,7 +1570,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: passage highlight are drawn by the code that already exists. An
         #: extractive answer cannot be wrong about where a claim came from,
         #: because the claim is the passage.
-        offline = extractive.answer(req.question, prepared["notes"])
+        #: A recency question is answered by the list itself (INBOX 446).
+        offline = (
+            extractive.recent(prepared["notes"])
+            if str(prepared.get("search_mode") or "").endswith("recent")
+            else extractive.answer(req.question, prepared["notes"])
+        )
         yield {"type": "answer", "delta": offline["text"]}
         if offline["grounding"]:
             #: An extractive answer is every sentence lifted from a note, so

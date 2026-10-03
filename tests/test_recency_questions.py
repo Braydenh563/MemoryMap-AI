@@ -121,3 +121,18 @@ def test_every_note_path_carries_time_words_with_their_distance():
     assert '"when": days_from_today(' in (root / "ai" / "tools" / "_common.py").read_text(encoding="utf-8")
     assert "days_from_today(d.at.date(), now.date())" in (root / "api" / "routes_insights.py").read_text(encoding="utf-8")
     assert '"dates": _time_words(' in (root / "api" / "routes_chat.py").read_text(encoding="utf-8")
+
+
+def test_with_no_ai_a_recency_question_lists_the_newest_notes():
+    """With no model, "What have I saved recently?" said the notes did not
+    share enough with the question to quote; the answer is the list."""
+    from memorymap.ai import extractive
+
+    notes = [
+        {"id": 3, "content": "Grocery list: milk and eggs\nfor Friday", "written": "Saturday 3 October 2026, 09:10"},
+        {"id": 2, "content": "Golf practice after work", "written": "Friday 2 October 2026, 18:00"},
+    ]
+    out = extractive.recent(notes)
+    assert out["text"].startswith("Your newest notes")
+    assert "Grocery list: milk and eggs" in out["text"] and "Saturday 3 October 2026" in out["text"]
+    assert [row["note_id"] for row in out["grounding"]] == [3, 2]

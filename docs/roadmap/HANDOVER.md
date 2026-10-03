@@ -306,16 +306,19 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-10-03 evening, PR 162):** INBOX 433 to 447 drove the day: WCAG
-2.2, note making and filing with no AI (`lexical_filing`), kept tag
-suggestions, time words with their distance on every AI path, and the
-merged agents (dashboard, attachment cards, spinner recipe, category
-colours, measured optimisation, Settings IA and model cards, tag manager).
-Running: density and de-vibe (Opus), companion (Opus), OCR workspace and
-graph look (Sonnet). Next: INBOX 445 (Library pages, whiteboard and mind
-map audit), then 441 to 447's open parts. Gate with
-`grep -q "^failed:  none"` before every commit (a chain once committed past
-a red lint). `smoke.js` and `selmenu-items.js` are the quick feature checks.
+**Now (2026-10-03 night, PR 162):** merged since evening: Library pages and
+whiteboard/mind map audits (445), job last-run status (438), note making
+(434: Quick note Alt+N, offline outbox, paste/drop, `#tags`), mind map undo
+follow-ups, UI consistency pass 1 (Chat, Graph chrome, Dashboard, Timeline,
+Reminders, Settings jobs) and the zoom sweep: every tab 0 at 200% and 400%
+(433 resolved). Running: UI consistency pass 2 (Settings shell, Reminders
+phone, Library, Notes and Documents chrome, Opus). Next: refresh
+`docs/screenshots` with `readmeshots.js` after pass 2 (today's density pass
+made them stale), then 437 and 434's open parts. `gate.sh --staged` now
+includes the gzip boot budget (CI went red by 141 bytes once). Gate with
+`grep -q "^failed:  none"` before every commit. `smoke.js`,
+`selmenu-items.js`, `captureaudit.js` are the quick feature checks; run
+`zoom.js` one tab at a time (`ONLY=`).
 
 **Before that (2026-10-03 morning, PR 162, branch `claude/notes-flow-rebuild`):** the note
 flow (INBOX 432, in HISTORY "INBOX resolved, 2026-10-03") is fixed end to end

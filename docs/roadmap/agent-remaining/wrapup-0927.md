@@ -71,7 +71,11 @@ work starts.
     around Show more): a small gap between a note card's text and its
     metadata row;
     (e) the note edit form's "fit toolbar on one row" toggle does nothing;
-    (f) related-note badges and their Link buttons are different heights;
+    (f) done, already (0.3.32, `.entry-related-row` stretches the chip;
+    measured 2026-10-03, no code change: chip and Link 32/32px at 1440, 44/44
+    at 390 touch, centres 0px apart, in the edit form's Related panel and
+    the card's Similar panel, both themes): related-note badges and their
+    Link buttons are different heights;
     (g) help answers, "From the help": the entry title ("Skills") is tiny
     against the body; give it heading size;
     (h) checked in CSS, not in a browser: no button has a plain `:focus` rule, so the ring is `:focus-visible` only (keyboard); the documents formatting toolbar: it overflows to a "..." menu by

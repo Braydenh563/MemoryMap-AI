@@ -2796,6 +2796,8 @@ function renderEntries() {
   // itself would not: and this failing silently would look like the
   // toggle not working rather than a class being dropped.
   applyNotesViewMode();
+  //: Held notes first (quick-note.js); loads it only when one is held.
+  if (localStorage.getItem("noteOutbox")) renderPendingNoteRows();
 
   // Drafts stay out of All/category views entirely, user-reported: they
   // should only show up in the Drafts filter until saved as a real note.

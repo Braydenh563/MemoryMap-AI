@@ -452,6 +452,7 @@ def documents_outline(session: Session = Depends(get_session)) -> list[dict]:
             {
                 "id": document.id,
                 "title": document.title,
+                "created_at": document.created_at.isoformat(),
                 "updated_at": document.updated_at.isoformat(),
                 "file_type": kind.ext,
                 "headings": _document_headings(document.content) if kind.previewable else [],

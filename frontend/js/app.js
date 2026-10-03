@@ -2459,7 +2459,7 @@ const LAZY_ENTRY_POINTS = {
   chipMenus: ["openCategoryChipMenu", "openTagChipMenu"],
   attachments: ["attachmentAction"],
   ocrEngine: ["ocrEngineMount"],
-  quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox"],
+  quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

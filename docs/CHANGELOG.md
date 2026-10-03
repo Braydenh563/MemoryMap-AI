@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Background jobs: a failed run's last-run line says why in a few words ("No space left on device", "File exists"), not the operating system's text with an error number and the path of your folders.
+- Bookmarks: a test now holds that GET /bookmarks pages tile one order, pinned first across every page (it already did: the order is applied before the page is cut).
+- Library: Bookmarks, By site, groups a link with no host under what it is: mailto: links under "Email", other schemes (tel:, file:) under the scheme name, instead of a section named by the raw address. The By site sort uses the same key, so a group is always one run of rows.
+- Library: Contents, By month, puts each document under the month it was created in, with the notes of that month, instead of one "Documents" section after them (the other groupings keep that section). GET /documents/outline now carries `created_at`.
+- Notes: a note kept on this device while the server is away now shows in the notes list, at the top, as a card marked "Waiting to save" (no actions that need the server), and the card goes when the note is sent.
 - Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.
 - Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).
 - Backups: a manual backup that the disk refuses says why ("Couldn't save the backup: No space left on device.") instead of "Internal error".

@@ -34,6 +34,37 @@ with its owner named in the entry.
 
 ## Open items
 
+444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
+     a major expansion, improvement and modern/professional ui/ux modern
+     redesign of the models settings page suggested downloads section. also
+     just how the settings operate. the settings needs better designing,
+     rearrangement, better internal navigation and cleaning up." Placed: a
+     measured audit of Settings (sections, groups, controls per section,
+     scroll depth, duplicated controls), then a rearranged information
+     architecture, internal navigation (search, a section index, deep links)
+     and the Models suggested downloads redesigned as model cards: a Sonnet
+     agent.
+
+443. **The owner, 2026-10-03, verbatim, with screenshots (the graph; the
+     Library's Boards and maps placeholders; the feminine Atlas's lower
+     body).** "the graph shape could look nicer as well. also the skeleton
+     loaders are really boarinf and have no loading animation to them, they
+     are just blank shapes. also using tesseract and how it operates in the
+     ocr workspace is still annoying to use and manage." Then: "can the
+     feminine atlas lower body also be improved a little as well to not
+     look so tentacle-y?? I still want that really nice look to it. make it
+     really attractive and and alluring". Placed: (1) the graph's layout
+     and look: a Sonnet agent; (2) skeletons: **fixed** (shaped bars, a
+     visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
+     workspace: a Sonnet agent; (4) the feminine Atlas's lower body, flowing
+     like a gown's hem rather than tentacles, kept elegant: the orchestrator,
+     after the masculine tail's agent work is merged.
+     Then: "also if the companion is doing a specific action and i double
+     click it to view it in the enlarged window, I want it to keep doing
+     that action unless poked or something else happens". Placed: (5) the
+     enlarged view carries the companion's current action over and keeps
+     it until a poke or a new event: the orchestrator.
+
 442. **The owner, 2026-10-03, verbatim, with a screenshot (the graph's note
      popup for "Gary The Moss Monster :D": its body shows the raw markdown
      `![Gary The Moss Monster :D](/media/3607...c51d.png)` as a link).**
@@ -812,56 +843,6 @@ with its owner named in the entry.
     `dictsheet.js`); the Capture box's templates confirm too (26e8d9b,
     `notetemplatepick.js`). Nothing of 410 is open now; it stays for the
     orchestrator to resolve with 413.
-
-409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
-    Templates, the persona list, a .json document with the formatting bar
-    over it, and the Write tab's AI assistant bar.** "templates cant be
-    edited, I want the generation of persona icons to be improved and I also
-    want to auto generate other icons in other places like potentially the
-    user chat bubbles?? idk. also the degree of indenting is shallow, I think
-    it should be more prominent. also this edit/write/remove bar is ugly and
-    doesnt suit a modern app, it needs to be restructured/redesigned or
-    transformed somehow to be better." Read from the screenshots: built-in
-    templates have no edit (only added ones do); the persona marks are a
-    blob on a flat disc, too alike at 20px; the prose formatting bubble (B,
-    I, S, highlight, code, link, H, quote) draws over a code document, where
-    none of it applies; the indent guides step 2 spaces; the AI assistant
-    control is a filled segmented pill. Placed: orchestrator, in this order.
-    **Built 2026-09-24**: templates editable, built-ins included (3a769ed,
-    sweep `templates.js`); persona marks a generated face, closest pair of
-    23 at 40px 5.6% before, 29.8% after (259b743, `namemarks.js`); the
-    user's own mark on their chat bubbles and the persona picker's
-    (0e88b6e, ede4f2a, `chatmarks.js`, bubble box unchanged). The code
-    selection bar and the indent step are 7ab7eec. Open here: the AI
-    assistant bar.
-
-397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
-    screenshot.** "I pressed next on the first panel of the guided tour, and
-    it dissappeared while keeping the page dimmed and pushed the top bar down
-    by a couple pixels. I begun the tour from the settings help page." and
-    "you previously said to me multiple times that you werent able to
-    reproduce it, but the bug is real so it has to be something". Read from
-    the screenshot: the dim stays on step 1's hole, so step 2 never drew.
-    Headless runs from Settings, help at 1333x740, 1440x900, 1600x890 and
-    2000x1100 reach "2 of 15" every time, so the cause is in something the
-    desktop window has and this sandbox does not. **Guarded 2026-09-23**
-    (tour.js): an exception in a step becomes the centred card, a card
-    that is off the window or behind something is re-centred, the page's own
-    scroll is pinned at 0 before each step (the top bar moving is the
-    document scrolling), and each of the three writes a `Tour:` line to
-    Settings, Logs. Open until the owner's next run: if it recurs, those
-    lines name the cause.
-    **Then two more screenshots**, from the welcome's last slide and from
-    Settings, help, The basics: the ring the right size and about 620px to
-    the right, then 620px to the left, and no card. A shift that flips sign
-    is a correction computed from a box read mid-move: `tourPlaceFixed` wrote
-    a position, read the element straight back and added the difference, so
-    anything that makes the box lag its style doubles the move. Replaced: the
-    frame's origin is read from `#tour-origin`, a 0x0 fixed probe nothing
-    moves, and the element is read back once a frame later and nudged only if
-    it is still elsewhere (with a `Tour:` log line when it is). Headless
-    walks of all 15 steps at 1.25x scale, with and without real scrollbars,
-    were correct before and after, so the owner's run is the test.
 
 ## Placed (last 20, newest first)
 

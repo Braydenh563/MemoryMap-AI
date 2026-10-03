@@ -1872,6 +1872,24 @@ numbers go in the CHANGELOG with each step.
 
 **State 2026-09-24:** (b) boot JS went 1,699 to 1,072 KB (A1, in HISTORY) against the 1 MB line; first paint under 300 ms and virtualising every list over 200 rows were not measured here. S each.
 
+**Performance pass, 2026-10-03 (INBOX 441 item 6, measured).** Method: a 500-note notebook seeded through `POST /entries` (the app boots against it), a 5,000-note copy grown by direct insert for the scale numbers, every boot route and tab route timed through `TestClient` with SQLAlchemy statement counts and `EXPLAIN QUERY PLAN` on every distinct statement, and Playwright with CDP (event timing, a sampling CPU profile, a trace) for the page. The sandbox was at a load average near 100 while this ran, so every pair below was measured on the same machine in the same minutes (interleaved, base checkout against this one) and the milliseconds are for comparing, not for quoting.
+
+| What | Before | After |
+| --- | --- | --- |
+| `GET /entries/reference-counts` for sixty cards, run at every unlock, 500 notes | 242 statements, 172 ms | 6 statements, 53 ms |
+| the same, 5,000 notes | 2,267 ms | 388 ms |
+| the same, in the browser at boot (500 notes) | 392 ms | 154 ms |
+| `GET /insights/heatmap`, 5,000 recent notes (loaded every note whole to read its day) | 179 ms | 24 ms |
+| `GET /insights/stats`, same | 184 ms | 55 ms |
+| `GET /media` (the "used in" scan loaded every note, document and board object), 5,000 notes | 140 ms | 9 ms |
+| the first click of a session (the unlock): its handlers, `new AudioContext()` inside the gesture | 44 to 56 ms | under 1 ms (made at idle just after; the context is running) |
+| 900 lookups by `parent_id`, a note's board cards and its reminders, 5,000 notes, 4,000 cards, 1,500 reminders | 604 ms | 2.9 ms (six indexes in `_INDEXES`) |
+| a whole boot, unlock to settled, 500 notes (3 interleaved runs, median) | 1,378 ms, API time 3.1 s | 1,282 ms, API time 2.8 s |
+
+**Measured and left alone, with the number that says why.** SQLite pragmas: `cache_size` 64 MB and `mmap_size` 256 MB moved a scan of a 19 MB database from 3 to 2 ms and nothing else, against memory held per pooled connection, so they stay unset (WAL, `synchronous=NORMAL`, `busy_timeout`, `temp_store` are already set). Polling: an idle minute is 2 requests, the gate; the three `/models/status` and `/tasks` calls in the first seconds are the 1 s cadence while the filing model warms, by design. Listeners: `leaks.js` reads 0 listeners and about 20 nodes a round over five rounds of seven tabs. Layout: the whole boot spends 38 ms in layout and 51 ms in style recalculation, so the forced-layout reading `tabContentWidth` shows in a sampling profile is attribution, not cost. Batching the note cards' clamp checks into one read-then-write frame was tried and made no difference to typing in the search box (both about 150 ms of one layout over 12 keystrokes, interleaved), so it was taken back out. The three request pages of `/entries` at boot are the paging contract and the first paints at once.
+
+**Found, not fixed.** The Graph tab's `GET /graph` is 600 ms and 2.5 MB at 5,000 notes (per-note dict building, two `readable_content` calls and a regex each; a payload cache keyed on `_graph_fingerprint` would need the vault and space state in the key). `p5.min.js` is the largest boot asset (247 KB on the wire, about 85 to 135 ms of parse and setup) and is still needed by the dashboard constellation and the emblem; porting those two to canvas 2D, as `bg-art.js` already was, removes it from boot. `enhanceAllSelects` wraps 99 `<select>`s at boot (about 50 ms), most inside Settings panes nobody has opened. Creating a note costs about 300 ms in this sandbox, all of it the embedding model.
+
 ### H8 Time travel and the margin reader (I5, I2; M each, Opus)
 
 I5: "what did I think about X in March" as a first-class query, the

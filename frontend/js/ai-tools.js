@@ -1670,6 +1670,7 @@ async function loadLinkSuggestions() {
         return null;
       });
       setBusy(backfill, false);
+      if (typeof refreshJobRuns === "function") refreshJobRuns();
       if (!result) return;
       const parts = [];
       if (result.updated) parts.push(`marked ${result.updated}`);
@@ -1794,6 +1795,9 @@ async function loadLinkSuggestions() {
   });
   heading.append(headingText, actions);
   box.appendChild(heading);
+  //: When "Explain your existing links" last ran and how it went (INBOX 438).
+  //: Guarded: settings.js defines it and loads after this file.
+  if (typeof jobLineEl === "function") box.appendChild(jobLineEl("link-reasons"));
 
   // Only this list scrolls when it's long: the heading above stays put.
   const rowsWrap = document.createElement("div");

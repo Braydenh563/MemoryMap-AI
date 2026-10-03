@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, taskhistory
+from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, taskhistory
 from memorymap.core import jobs as bgpool
 
 router = APIRouter(tags=["tasks"])
@@ -304,6 +304,19 @@ def list_tasks() -> dict:
     screen that you have to know to look at.
     """
     return {"tasks": collect(), "history": taskhistory.recent()}
+
+
+@router.get("/jobs/last-runs")
+def jobs_last_runs() -> dict:
+    """When each kind of job last ran, and whether it worked (INBOX 438).
+
+    One entry per kind in `jobruns.KINDS`, `ran: false` for the ones that have
+    never run on this notebook, so the Background jobs overview can say "Not
+    run yet" instead of omitting a job the person is looking for. Unlike
+    `/tasks` this survives a restart: it is the database's record, not the
+    process's.
+    """
+    return {"jobs": jobruns.last_runs(deps.get_db())}
 
 
 class CancelTaskBody(BaseModel):

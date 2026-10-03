@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.core import backup, deps, diskspace
+from memorymap.core import backup, deps, diskspace, jobruns
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -91,7 +91,9 @@ def list_backups() -> list[dict]:
 @router.post("/backups", status_code=201)
 def backup_now(session: Session = Depends(get_session)) -> dict:
     config = deps.get_config()
-    path = backup.backup_now(config.db_path, config.data_dir, _retention(config))
+    with jobruns.job_run("backup") as run:
+        path = backup.backup_now(config.db_path, config.data_dir, _retention(config))
+        run.result = f"saved {path.name}"
     manager.log_action(session, "backed_up", "data", detail=path.name)
     session.commit()
     return {"name": path.name}

@@ -966,6 +966,18 @@ kbd {
   color: var(--error);
 }
 
+/* The "Last run ..." line beside a job's control (INBOX 438). A quiet status
+   line: the same size and colour as .status, red only on .error. It takes its
+   place in the group's rhythm rather than adding a gap of its own, and
+   disappears while empty (before the first fetch lands). */
+.job-line {
+  margin: var(--space-1) 0 0;
+}
+
+.job-line:empty {
+  display: none;
+}
+
 /* The live "how long has this been going" counter beside the chat status.
    Tabular figures so the row does not jitter a pixel every second as the
    digits change width: a counter that makes the text next to it move is

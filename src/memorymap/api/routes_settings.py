@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
-from memorymap.core import deps, embedmodels, events, extras, logbuffer
+from memorymap.core import deps, embedmodels, events, extras, jobruns, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -2163,9 +2163,17 @@ def _inside(root: Path, f: Path) -> bool:
 
 
 def _run_directory_import(directory_path: str):
+    """The background task: the import, recorded as the last "import" run
+    (INBOX 438), because a 202 Accepted answers nobody about how it went."""
+    with jobruns.job_run("import") as run:
+        _import_directory_files(directory_path, run)
+
+
+def _import_directory_files(directory_path: str, run: "jobruns.Run"):
     try:
         p = _validated_import_directory(directory_path)
     except ValueError:
+        run.fail("That folder is not inside your home folder or the data folder.")
         return
     with deps.get_db().session() as session:
         imported = 0
@@ -2246,10 +2254,15 @@ def _run_directory_import(directory_path: str):
                     detail += f" ({skipped_oversize} over {limit_mb} MB)"
             manager.log_action(session, "imported", "data", detail=detail)
             session.commit()
+            run.result = f"imported {imported} note{'' if imported == 1 else 's'} from a folder" + (
+                f", skipped {skipped}" if skipped else ""
+            )
             #: A whole vault arriving at once is exactly the "large change"
             #: the rebuild suggestion exists for, see `mark_index_stale`.
             if imported > 0:
                 deps.mark_index_stale(imported)
+        else:
+            run.result = "no markdown files found in that folder"
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
@@ -2279,6 +2292,15 @@ def import_markdown(
             detail=f"{len(files)} files at once is more than one import handles "
             f"({MAX_IMPORT_FILES} max): split it into smaller batches.",
         )
+    with jobruns.job_run("import") as run:
+        result = _import_markdown_files(files, session)
+        run.result = f"imported {result['imported']} note{'' if result['imported'] == 1 else 's'}" + (
+            f", skipped {len(result['skipped'])}" if result["skipped"] else ""
+        )
+    return result
+
+
+def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
     imported = 0
     skipped: list[str] = []
     for file in files:
@@ -2357,17 +2379,38 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         try:
             text = importer.convert_to_markdown(Path(saved.name))
         except Exception as exc:  # a file markitdown can't parse must not 500
+            jobruns.note_finished(
+                "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
+            )
             raise HTTPException(
                 status_code=422, detail=f"Couldn't read that file: {exc}"
             ) from exc
 
     all_sections = importer.split_into_sections(text)
     if not all_sections:
+        jobruns.note_finished(
+            "import", "failed", f"{file.filename or 'That file'} had no readable text in it"
+        )
         raise HTTPException(
             status_code=422, detail="That file had no readable text in it"
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
+    with jobruns.job_run("import") as run:
+        imported = _create_document_notes(session, sections)
+        run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"
+    manager.log_action(
+        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
+    )
+    session.commit()
+    return {
+        "imported": imported,
+        "truncated": len(all_sections) > len(sections),
+        "filename": file.filename,
+    }
+
+
+def _create_document_notes(session: Session, sections: list[str]) -> int:
     imported = 0
     for section in sections:
         entry = manager.create_entry(
@@ -2381,15 +2424,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         session.commit()
         deps.store_quietly(session, entry)
         imported += 1
-    manager.log_action(
-        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
-    )
-    session.commit()
-    return {
-        "imported": imported,
-        "truncated": len(all_sections) > len(sections),
-        "filename": file.filename,
-    }
+    return imported
 
 
 

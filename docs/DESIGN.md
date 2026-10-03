@@ -74,9 +74,15 @@ because that is where interface spacing actually lives.
 --text-body:    1rem      prose, card titles
 --text-h3:      1.15rem   panel headings
 --text-h2:      1.3rem
---text-h1:      1.7rem
+--text-h1:      1.5rem   (was 1.7rem; INBOX 446 (5))
 --text-display: 2.2rem
 ```
+
+**The interface's own size is `--text-lg`** (INBOX 446 (5)): `body` sets
+it, so anything without a size of its own (a tab label, an empty state, a
+sidebar row, inherited prose) draws at 14.7px, not the browser's 16px
+default. A note's preview in the list is `--text-lg` too. `--text-body`
+stays for a document's prose and a card title, which say so explicitly.
 
 Sizes above `--text-display` exist for three single hero elements and are
 allow-listed individually in the lint. **A display size is a one-off, not a step
@@ -819,7 +825,7 @@ after in Chromium (`scratchpad/ui-sweeps/`), and `tests/test_ui_signatures.py`
 ratchets the counts so they cannot drift back.
 
 - **Two card sizes, as tokens.** `.card` sets `--card-pad-y`/`--card-pad-x`
-  (panel: `--space-7`/`--space-8`); `.card.compact`, `.sidebar-panel` and
+  (panel: `--space-6`/`--space-7`, was `--space-7`/`--space-8` before INBOX 446 (5)); `.card.compact`, `.sidebar-panel` and
   `.dash-widget` set both to `--space-6`. Anything that has to cancel the
   padding to reach the card edge (the sidebar head row) references the token,
   never a step. The 720px block tightens the tokens, not `padding`.
@@ -864,6 +870,19 @@ ratchets the counts so they cannot drift back.
 - **One focus ring**: the base `:focus-visible` (2px `--accent`, 2px offset).
 
 ## Control height
+
+```
+--control-h-lg: 2rem    /* 32px, was 2.25rem (INBOX 446 (5)) */
+--control-h-body: 2.25rem /* 36px, the composers' rows (Capture, Write with AI, Ask, a document's AI card), was a literal 2.5rem */
+--target-min:   1.75rem /* 28px; 2.75rem (44px) under a coarse pointer or below 820 */
+```
+
+**Measured against native references** (`scratchpad/ui-sweeps/density.js`,
+1440x900): 36px was the commonest control on every tab, against 28 to 32px
+in Apple Notes, Things, Linear and Obsidian. The top bar's tabs and the
+Notes and Library sub-tab strips are segmented controls, so their segments
+take `--target-min` in a 2.4px or 4px well and their labels `--text-md`;
+the top bar is 48px (was 56).
 
 One more thing has to match for a row of controls to read as a strip rather
 than as a pile: **their height.** The chat dock declares `--control-h` and

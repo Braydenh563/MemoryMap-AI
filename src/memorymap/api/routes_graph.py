@@ -144,13 +144,27 @@ def _preview(text: str, length: int = 40) -> str:
     ("**Seraphine…") instead of the note. Inline marker stripping is
     `manager.strip_inline_markdown`, heading/wiki-link handling stays here
     since those are specific to what a graph label is for.
+
+    The first line with words in it (INBOX 446 (5)): every line used to be
+    joined, so "# Tomato soup" over a paragraph was labelled "Tomato soup A
+    few lin…", its title run into its body, while a longer title happened
+    to clip before the body and read correctly. A line that strips to
+    nothing (a picture, a bare rule) is passed over for the next one.
     """
-    text = _HEADING_MD.sub("", text)
-    text = _CALLOUT_MD.sub("", text)
-    text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
-    text = manager.strip_inline_markdown(text)
-    text = " ".join(text.split())
-    return text if len(text) <= length else text[: length - 1] + "…"
+    for line in text.splitlines():
+        words = _preview_line(line)
+        if words:
+            return words if len(words) <= length else words[: length - 1] + "…"
+    return ""
+
+
+def _preview_line(line: str) -> str:
+    """One line as plain words: the marker stripping `_preview` applies."""
+    line = _HEADING_MD.sub("", line)
+    line = _CALLOUT_MD.sub("", line)
+    line = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", line)
+    line = manager.strip_inline_markdown(line)
+    return " ".join(line.split())
 
 
 def _similarity_edges(

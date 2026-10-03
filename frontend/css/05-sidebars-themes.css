@@ -4293,7 +4293,9 @@ button.is-on {
   backdrop-filter: blur(16px);
   border-radius: var(--radius-strip);
   padding: var(--space-1);
-  box-shadow: var(--shadow-sm);
+  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
+     it, and its border is the edge; a shadow here was depth with no meaning. */
+  box-shadow: none;
   border: 1px solid var(--border);
 }
 
@@ -4322,9 +4324,13 @@ button.is-on {
   /* The control height, not a padding-derived 40px: the strip measured
      55px (40px buttons in a 6.4px well) on both Notes and Library, a fifth
      of the chrome above the first line of a document. 36px buttons in a
-     4px well is 46px, and the tab bar in the top bar is the same 36. */
-  height: var(--control-h-lg);
-  padding: 0 1.25rem;
+     4px well is 46px, and the tab bar in the top bar is the same 36.
+     INBOX 446 (5): now the hit-target floor, 28px in a 4px well, 13.6px
+     labels where they had inherited 16px: a sub-tab strip is a segmented
+     control, not a second header, and it matches the top bar's tabs. */
+  height: var(--target-min);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
   border-radius: var(--radius-md);
   transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }
@@ -4374,6 +4380,13 @@ textarea.autogrow {
 
 #reminder-magic {
   margin-bottom: 0;
+  /* One line at the form's own size: the row beneath it is 36px at
+     --text-md, and Magic add stood 44px at 16px above it (INBOX 446 (5)).
+     The autogrow script sizes from scrollHeight, so the padding is what
+     sets the resting height, not the min-height. */
+  min-height: max(var(--control-h-body), var(--target-min));
+  font-size: var(--text-md);
+  padding-block: var(--space-2);
 }
 
 /* Matches `textarea.autogrow`'s own 2.75rem min-height exactly, measured
@@ -4382,7 +4395,7 @@ textarea.autogrow {
    DESIGN.md, just smaller. */
 #reminder-magic-row button {
   flex: 0 0 auto;
-  height: 2.75rem;
+  height: max(var(--control-h-body), var(--target-min));
   padding-block: 0;
 }
 

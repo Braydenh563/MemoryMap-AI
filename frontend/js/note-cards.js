@@ -1061,7 +1061,10 @@ const LINK_CHIP_CHARS = 48;
 // click away. One line plus "Show more" keeps that recognisable while
 // giving the list room for more of them.
 const LONG_NOTE_CHARS = 280;
-const LONG_NOTE_LINES = 3;
+//: Two lines, matching `.entry-content.entry-clamped`'s clamp (INBOX 446
+//: (5)): the pair had drifted to 3, past the "one line plus Show more"
+//: above, and a third line was usually a blank one drawn as "...".
+const LONG_NOTE_LINES = 2;
 // Which notes the user has opened out, for this session. Not persisted: it is
 // a reading position, not a preference.
 const expandedNotes = new Set();

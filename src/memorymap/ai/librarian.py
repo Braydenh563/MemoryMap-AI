@@ -570,6 +570,7 @@ def build_messages(
         # digest, reported 2026-09-23). Optional, so every other caller's
         # prompt is exactly what it was.
         f"{_written_hint(note)}"
+        f"{' (my newest note)' if note.get('newest') else ''}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "

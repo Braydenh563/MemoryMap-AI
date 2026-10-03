@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Boards and mind maps: dragging the overview's view box keeps up with the pointer (a 150-card board at a 4x slowed CPU: 183 to 33ms a frame at the 95th percentile, long tasks 61 to 0 to 3), and Fit is two to three times smoother.
 - Phone: tapping a note opens it; the categories drawer is one column of full-width rows that closes on a choice; a toast no longer covers the New note button.
 - The command palette (Ctrl+K) finds "Manage categories", "Go to category: X", a #tag, and Move to category for the note in hand.
+- Asking for "my last note" (or latest, newest, what I wrote last) lists your newest notes newest first instead of searching for the words; Chat and Ask now tell the model when each note was written and last edited.
 - The rows view is one line per note (47px a row, was 74).
 - Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
 

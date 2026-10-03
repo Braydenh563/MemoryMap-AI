@@ -18,6 +18,7 @@ import mimetypes
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timezone
 from itertools import chain
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -66,6 +67,7 @@ from memorymap.core.database import (
     Reminder,
     like_escape,
 )
+from memorymap.core.config import user_now
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -853,6 +855,26 @@ MEDIA_READINGS_PER_NOTE = 4
 MEDIA_READING_CHARS = 240
 
 
+def _note_dates(entry, zone) -> str:  # noqa: ANN001
+    """"Wednesday 23 September 2026, 09:40", and ", edited ..." when it has been
+    since: spelled out, the form `_long_date` explains (a small model reasons
+    about weekdays better than ISO dates)."""
+
+    def day(when):  # noqa: ANN001, ANN202
+        if when is None:
+            return ""
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        when = when.astimezone(zone)
+        #: With the time: notes written the same day are told apart only by
+        #: it (measured: the model picked the wrong one of two on one day).
+        return f"{when:%A} {when.day} {when:%B %Y}, {when:%H:%M}"
+
+    written = day(getattr(entry, "created_at", None))
+    edited = day(getattr(entry, "edited_at", None))
+    return f"{written}, edited {edited}" if edited and edited != written else written
+
+
 def _media_readings(session: Session, content: str) -> str:
     """What the app already knows about the pictures inside a note.
 
@@ -1071,9 +1093,18 @@ def _prepare(
             # tracing back to the specific Link row, a bigger change not made
             # here.
             "match_info": match_info.get(entry.id),
+            #: The day it was written, and edited if since (wrapup-0927 10 n):
+            #: with no dates a model guessed "your last entry" from the order
+            #: the notes were listed in.
+            "written": _note_dates(entry, zone),
         }
 
+    zone = user_now(deps.get_config()).tzinfo
     notes = [as_note(entry) for entry in entries]
+    #: Listed newest first for "my last note": said on the first, which a
+    #: small model otherwise ignores the order of (measured on a 1.5B model).
+    if mode == "recent" and notes:
+        notes[0]["newest"] = True
     # Same shape `as_note` builds, by hand rather than through it, a
     # Document has no category/tags and its id lives in a different table
     # than Entry's, so folding it through the Entry-shaped helper above

@@ -883,6 +883,13 @@ def _rank_inner(
     return keyword[:limit], "keyword"
 
 
+_RECENCY_ASK = re.compile(
+    r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*[?.!]?\s*$",
+    re.IGNORECASE,
+)
+
+
 def _retrieve(
     session: Session,
     query: str,
@@ -901,6 +908,14 @@ def _retrieve(
     found["until"] = asked.until
     found["when_phrase"] = asked.when_phrase
     found["connected"] = set()
+    #: **"My last note" is an order, not a subject** (the owner at release,
+    #: wrapup-0927 10 n: "Show me my last entry" answered with an older
+    #: note). Searched by meaning, "last entry" matches whatever note talks
+    #: about entries; the question is about when. The newest notes, newest
+    #: first, and the prompt now carries each note's dates, so the answer
+    #: can say which is newest written and which was last edited.
+    if _RECENCY_ASK.search(query):
+        return _without_private(recent_entries(session, limit=min(limit, RECENT_FALLBACK_LIMIT))), "recent"
     if asked.time_only:
         # Nothing but a date range: list it. Ranking by similarity here would
         # be ranking noise, and the honest answer to "what did I write last

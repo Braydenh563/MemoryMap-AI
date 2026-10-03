@@ -36468,3 +36468,25 @@ width, 47% of the column at 1440.
      16px labels (were 13.6), a 4px well (was 2.4), the bar 54px (was 48);
      measured at 1440, 1280 and 1100, no overflow, no wrap.
 
+450. **The owner, 2026-10-03 night, verbatim, with four screenshots of
+     Library, AI skills.** "these chips arent aligned and could you improve
+     that section of buttons and dropdowns in the skill cards on the ai
+     skills subtab??" (the "Reads only", "3 steps", "4 tools" row: the
+     first a plain chip, the other two disclosure buttons of another
+     height; opening one pushes the next onto its own line). "big vertical
+     gap between cards" (a short card stretched to its taller neighbour's
+     row). "the top bar in the ai skills page overflows and needs a better
+     modern and professional consistent ui redesign" (title, search, the
+     All/Yours/Built-in segment and the sort fill one line; New skill and
+     '?' wrap to a second). Placed: the UI consistency pass 2 agent (Opus),
+     which owns Library's AI skills page now.
+     **Fixed 2026-10-03** (`scratchpad/ui-sweeps/skills450.js`, 1440, 1100
+     and 390, light and dark): the facts are one row of 24px boxes on one
+     baseline, the steps and tools toggles open their lists under the row
+     (the row is 24px open or shut), tools are code chips at the same
+     height, inputs moved to the run line; cards are dealt into columns
+     (no row stretch), "Never run" 8px over the footer line (was 16); the
+     dock is one 50px row at 1440 with a Windows scrollbar (was 90px, two
+     rows) and a deliberate two-row wrap under 58rem (1100 beside the logs
+     sidebar). DESIGN.md recipe row and `test_a_facts_row_opens_its_lists_below_itself`.
+

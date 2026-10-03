@@ -67,8 +67,10 @@ with its owner named in the entry.
      and smooth but dont over do it in a vibecoded way. did you use all the
      ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
      section clicked and, scrolling, the last one whose head passed the
-     line (or the one at the end when the page can scroll no further): the
-     orchestrator; (2) a restrained motion pass (the selected pill and tab
+     line (or the one at the end when the page can scroll no further): **fixed**,
+     the clicked head stays marked until a wheel, touch or key scroll
+     (Personas at 1280x560: each of the four marks itself; it was the first
+     or last); (2) a restrained motion pass (the selected pill and tab
      indicator slide between options, sidebars ease, reduced motion
      honoured, every duration and curve a token, no new decoration): an
      Opus agent, with the named skills as checklists.
@@ -128,61 +130,6 @@ with its owner named in the entry.
      in the app rn?? what is left and still open??" Placed: the sidebar
      toggle in focus mode, the orchestrator; the question answered from the
      plans' open phases, with agents on the top items.
-
-448. **The owner, 2026-10-03 night, verbatim.** "I feel like the help
-     settings as well as the help info available to the agents needs more
-     expansion for all the new features both large and small so people can
-     easily find out about all the features. also make sure the docs are all
-     up to date. continue with all the open items and the rest of my
-     requests". Placed: (1) Settings, Help and the agents' help topics
-     (`ai/help_chat.py` HELP_TOPICS, read by Chat and the popup agent)
-     cover every feature in CHANGELOG's Unreleased and 0.3.x, large and
-     small, each findable by the words a person would search: an Opus
-     agent; (2) README, ARCHITECTURE, DESIGN and the plans checked against
-     the code and brought current: a Sonnet agent.
-     **Progress 2026-10-03 ((1) done):** 95 help entries (17 new, 14
-     widened or corrected); `tests/test_help_coverage.py` holds 52
-     features from the CHANGELOG, each found by a person's question (4
-     before, 52 now; inventory in `scratchpad/help-inventory.md`).
-     Settings, Help is drawn from the table (`GET /help/topics`, twelve
-     groups) and its search finds a topic by its words, measured by
-     `scratchpad/ui-sweeps/help448.js`. Left: (2).
-
-
-437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
-     Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,
-     Top-k slider, a "you set this" badge, the value 124 twice).** "the
-     templates settings page edit buttons and built-in badges are not nicely
-     aligned and/or positioned. continue with everything. find and fix more
-     bugs. then use your ui/ux skills and devibecoding skills to further fix,
-     improve and redesign the ui/ux for the application. /anthropic-skills:
-     unslop-ui , /ui-styling , /ui-ux-pro-max /anthropic-skills:web-design-
-     guidelines , /design-system /design , /anthropic-skills:frontend-design ,
-     /anthropic-skills:apple-design". Then: "double clicking the model
-     advanced settings sliders resets the value but not the badge. and make
-     sure the badges are thje same style across the app. make sure all the ui
-     is consistent and use the skills listed in my last request".
-     Placed: (1) Templates rows: badge and Edit aligned to the row recipe;
-     (2) a slider's double-click reset updates its "you set this" badge (and
-     the readout beside the number field shows the value twice); (3) one
-     badge recipe across the app, with a lint; (4) a UI/UX pass guided by
-     the named skills, surface by surface, each change measured: the
-     orchestrator, with agents per surface.
-     **Progress 2026-10-03 (consistency agent, (4)):** Chat (with its
-     sidebar and More panel), Dashboard, Timeline, Reminders, Graph's dock,
-     zoom and options, Settings' Background tasks and Import & export
-     passed, measured by `scratchpad/ui-sweeps/consist437probe.js` at 1440
-     and 390 (before and after in the CHANGELOG line). Second round, the
-     same day (`scratchpad/ui-sweeps/consist437b.js`): the Settings shell
-     (search 42 to 32px, nav rows 35 to 32, one filled button per page with
-     a lint), Reminders on a phone (119 to 82px a row), the Library lists
-     (Bookmarks, Contents, AI skills, Images, Files, Boards), the Notes
-     sidebar and heads, the Documents Read view and hint. Left for (4): a
-     phone note card's menu takes a line of its own (the meta line's 16px
-     gaps, INBOX 447's decision, put it 9px past a 337px column: an owner
-     call or a DOM move), Library Documents rows still draw an edge round
-     every row (the row recipe draws it on hover), Write with Atlas has two
-     filled buttons (Draft, Save as note).
 
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user

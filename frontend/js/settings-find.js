@@ -215,7 +215,18 @@ function settingsIndexGo(name, head) {
   const nav = $(`settings-${name}`)?.querySelector(":scope > .settings-index");
   if (!scroller) return;
   const delta = head.getBoundingClientRect().top - scroller.getBoundingClientRect().top - settingsIndexOffset(nav);
+  //: **The head clicked is the head marked** (INBOX 459, the owner: on
+  //: Personas the strip "only goes on the first or last one"). Heads near a
+  //: short pane's end can never reach the line, so the scroll position
+  //: alone marked the last; the choice holds until the reader scrolls by
+  //: hand (wheel, touch, keys), which `_indexUnpin` listens for.
+  scroller._indexPinned = head;
+  if (!scroller._indexUnpin) {
+    scroller._indexUnpin = () => { scroller._indexPinned = null; };
+    for (const type of ["wheel", "touchstart", "keydown"]) scroller.addEventListener(type, scroller._indexUnpin, { passive: true });
+  }
   scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: typeof reducedMotionWanted === "function" && reducedMotionWanted() ? "auto" : "smooth" });
+  settingsIndexMark(name);
   head.tabIndex = -1;
   head.focus({ preventScroll: true });
 }
@@ -234,8 +245,10 @@ function settingsIndexMark(name) {
     const head = link._head;
     if (head?.isConnected && head.getBoundingClientRect().top <= line) current = i;
   });
+  const pinned = links.findIndex((link) => scroller._indexPinned && link._head === scroller._indexPinned);
+  if (pinned >= 0) current = pinned;
   //: At the very bottom the last head may never reach the line.
-  if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) current = links.length - 1;
+  else if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) current = links.length - 1;
   links.forEach((link, i) => {
     if (i === current) {
       if (link.getAttribute("aria-current") !== "location") link.setAttribute("aria-current", "location");

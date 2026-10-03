@@ -52,6 +52,17 @@ with its owner named in the entry.
      half finished": the open carry-over (wrapup-0927) ticked only when
      measured; (3) the frontend/js/ move (wrapup-0927 1), done when no agent
      is editing frontend files.
+     **Progress 2026-10-03 (PR 162):** (1) axe-core over every tab, Library
+     sub-tab, Settings section and overlay, both themes: 0 violations after
+     the fixes (main landmark, separator values, editor names, two contrast
+     pairs, button rows, Find anything's listbox, nested controls in Library
+     cards, Settings fold heads and Manage categories); `srtree.js` 0
+     (landmarks, headings, live regions, skip link, dialog focus);
+     `a11yname.js` 0; `contrast.js` 0 both themes; `notekeys.js` the notes
+     flow by keyboard clean (F2, Escape, chooser sheets fixed); `zoom.js` 0
+     on Notes and Library at 200% and 400% after the reflow fixes, the rest
+     of the tabs measured at the end. Not verified: a real screen reader
+     (none runs in the sandbox), the desktop window. (3) with an agent.
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

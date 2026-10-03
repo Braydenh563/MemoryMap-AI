@@ -10,6 +10,7 @@ Each test pins the shape of the fix; the numbers are in the ledger entry.
   child ignores `vertical-align`); nudged 0.1em down.
 * 10c(3): the Web panel's "..." waited for the engine status call.
 * 10(d): a note card's meta row sat 6.4px under its text, 8px under "Show more".
+* 8(b): today's count floated mid-head beside "Start today's note".
 """
 
 from pathlib import Path
@@ -54,3 +55,14 @@ def test_a_note_card_keeps_one_gap_above_its_metadata_row():
     each after. The rows view is untouched (its meta sits beside the text)."""
     css = _read("css/08-consistency.css")
     assert "#entry-list:not(.is-rows) > li > .entry-meta {\n  margin-top: var(--space-3);\n}" in css
+
+
+def test_today_keeps_its_count_in_the_column_of_counts():
+    """8(b): with rows today, the count floated 729px short of the head's end
+    (two auto margins split the space); after, it ends where every other
+    day's count does (0px), with "Start today's note" just before it."""
+    css = _read("css/08-consistency.css")
+    assert (
+        ".timeline-bucket-head:has(> .timeline-today-action) > .timeline-bucket-count {\n"
+        "  order: 1;\n  margin-left: 0;\n}"
+    ) in css

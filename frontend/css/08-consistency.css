@@ -8722,6 +8722,17 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   margin-inline-start: auto;
 }
 
+/* ...and on a today that has rows, its count stays in the column every other
+   day's count draws at the end, with the button just before it (wrapup-0927
+   8(b)). Both kept `margin-left: auto`, so the free space split between them
+   and the count floated mid-head: measured 729px short of the end at 1440.
+   `order`, not a DOM move: the count is not a control, so the reading order
+   (day, count, action) is unchanged. */
+.timeline-bucket-head:has(> .timeline-today-action) > .timeline-bucket-count {
+  order: 1;
+  margin-left: 0;
+}
+
 /* Manage templates sits at the start of the picker's action row, apart
    from Cancel and Use this template. */
 #note-template-manage {

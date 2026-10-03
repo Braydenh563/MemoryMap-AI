@@ -44,7 +44,12 @@ work starts.
    both sides, all with gentle S-curves and a slow sway; no hard points.
 8. **The owner at release, with screenshots:** (a) the notes dock's Select
    toggle when active has poor contrast (a filled accent square with a
-   faint check); check every toggled icon button; (b) "Start today's note"
+   faint check); check every toggled icon button; (b) done (right: 08-consistency.css
+   orders today's count after the button, so it ends in the column every
+   other day's count draws at the end; the count had floated 729px short of
+   the end at 1440 because both it and the button carried an auto margin;
+   after, 0px at 1440 and 900, the button 8px before it; a phone draws the
+   table, no heads) "Start today's note"
    sits beside "Today": decide left or right against the Timeline's
    other heads, and measure; (c) the reminder steppers float mid-row with a
    gap: align them to the row's grid next to the time readout; (d) mind

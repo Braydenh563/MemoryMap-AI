@@ -58,9 +58,17 @@ with its owner named in the entry.
      sidebar and More panel), Dashboard, Timeline, Reminders, Graph's dock,
      zoom and options, Settings' Background tasks and Import & export
      passed, measured by `scratchpad/ui-sweeps/consist437probe.js` at 1440
-     and 390 (before and after in the CHANGELOG line). Left for (4): the
-     Settings chrome (search 42px, nav rows 35px) and Reminders' rows on a
-     phone (128px each, actions on a second line).
+     and 390 (before and after in the CHANGELOG line). Second round, the
+     same day (`scratchpad/ui-sweeps/consist437b.js`): the Settings shell
+     (search 42 to 32px, nav rows 35 to 32, one filled button per page with
+     a lint), Reminders on a phone (119 to 82px a row), the Library lists
+     (Bookmarks, Contents, AI skills, Images, Files, Boards), the Notes
+     sidebar and heads, the Documents Read view and hint. Left for (4): a
+     phone note card's menu takes a line of its own (the meta line's 16px
+     gaps, INBOX 447's decision, put it 9px past a 337px column: an owner
+     call or a DOM move), Library Documents rows still draw an edge round
+     every row (the row recipe draws it on hover), Write with Atlas has two
+     filled buttons (Draft, Save as note).
 
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user

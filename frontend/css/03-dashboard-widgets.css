@@ -1899,7 +1899,10 @@ header#top-bar select,
 .cat-fill {
   display: block;
   height: 100%;
-  background: var(--accent);
+  /* Accent unless dashboard.js sets this on the bar for a colour the person
+     chose; a declaration here, so the token is never undeclared. */
+  --cat-fill: var(--accent);
+  background: var(--cat-fill);
   border-radius: var(--radius-pill);
 }
 

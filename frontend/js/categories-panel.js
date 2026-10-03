@@ -36,6 +36,7 @@ async function openManageCategories(focusName = null) {
       for (const line of [
         "Merge into folds one category into another: all its notes move across. Select several with Space to merge or delete them together.",
         `Split moves some of a category's notes into a new one. Pick them yourself, or have groups suggested, by their tags or by ${aiNameNow()}, and review them first.`,
+        "Colour picks the dot a category wears on its notes, the graph and the timeline. Automatic goes back to a colour chosen from its name.",
         "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
         "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
         "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete deletes.",
@@ -169,7 +170,7 @@ function drawManageCategoryRows(list, footer, state) {
     main.tabIndex = meta.name === current ? 0 : -1;
     const dot = document.createElement("span");
     dot.className = "manage-cat-dot";
-    dot.style.setProperty("--category-dot", categoryDotColour(meta.name));
+    paintCategoryDot(dot, meta.name);
     dot.setAttribute("aria-hidden", "true");
     const name = document.createElement("span");
     name.className = "manage-cat-name";
@@ -774,4 +775,128 @@ async function removeTagEverywhere(tag) {
   } catch (error) {
     toast(error.message, true);
   }
+}
+
+//: Moving chosen notes, from the batch bar's Move to or a drop: one call,
+//: one toast, one undo.
+async function moveNotesToCategory(ids, category) {
+  try {
+    const result = await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
+    const previous = result.previous;
+    if (previous.length) {
+      offerCategoryUndo(
+        `Moved ${previous.length} note${previous.length === 1 ? "" : "s"} to "${category}".`,
+        () => restoreCategoryMoves(previous),
+        () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: previous.map((p) => p.id), category }) })
+      );
+    }
+    await refreshAfterCategoryChange();
+    return result;
+  } catch (error) {
+    toast(error.message, true);
+    return null;
+  }
+}
+
+//: **The colour picker** (INBOX 441 (4), the owner: "there is no way to
+//: customise the colour of categories"). DESIGN.md's swatch picker: a
+//: `role="radiogroup"` of round swatches, the twelve hues of `CATEGORY_PALETTE`
+//: (notes-list.js; each reads at 3:1 as a dot on both themes) and one worded
+//: Automatic that clears the choice. Arrows, Home and End move the focus and
+//: the check together (the radio pattern), so the preview above follows the
+//: keys; Enter, Space or a click commits, Escape leaves it unchanged. The
+//: swatch is painted through the CSSOM (`--swatch`), never an inline style.
+const categoryColourName = (key) => (key ? key[0].toUpperCase() + key.slice(1) : "Automatic");
+
+function swatchPicker({ label, value, onChange, onChoose }) {
+  const group = document.createElement("div");
+  group.className = "swatch-picker";
+  group.setAttribute("role", "radiogroup");
+  group.setAttribute("aria-label", label);
+  const keys = [...Object.keys(CATEGORY_PALETTE), null];
+  const radios = keys.map((key) => {
+    const radio = document.createElement("button");
+    radio.type = "button";
+    radio.className = key ? "swatch-option" : "swatch-option swatch-auto";
+    radio.setAttribute("role", "radio");
+    radio.setAttribute("aria-label", categoryColourName(key));
+    radio.title = categoryColourName(key);
+    if (key) radio.style.setProperty("--swatch", CATEGORY_PALETTE[key]);
+    else radio.textContent = "Automatic";
+    radio.addEventListener("click", () => {
+      mark(key);
+      onChoose(key);
+    });
+    return radio;
+  });
+  //: Only the checked swatch is a Tab stop; a stored hex the swatches do not
+  //: include leaves none checked, so the first is the stop instead.
+  const mark = (key) => {
+    radios.forEach((radio, i) => {
+      radio.setAttribute("aria-checked", String(keys[i] === key));
+      radio.tabIndex = keys[i] === key ? 0 : -1;
+    });
+    if (!radios.some((radio) => radio.tabIndex === 0)) radios[0].tabIndex = 0;
+    onChange?.(key);
+  };
+  group.addEventListener("keydown", (event) => {
+    const at = radios.indexOf(event.target);
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    const to = step ? (at + step + radios.length) % radios.length : { Home: 0, End: radios.length - 1 }[event.key];
+    if (at < 0 || to === undefined) return;
+    event.preventDefault();
+    radios[to].focus();
+    mark(keys[to]);
+  });
+  group.append(...radios);
+  mark(keys.includes(value) ? value : undefined);
+  return group;
+}
+
+async function saveCategoryColour(meta, colour) {
+  await apiJson(`/categories/${meta.id}/colour`, { method: "PUT", body: JSON.stringify({ colour }) });
+  //: Carries the colour back, and `loadCategories` repaints every dot and
+  //: tells the map and the dashboard to redraw.
+  await loadCategories();
+  manageCategoriesRedraw?.();
+}
+
+function pickCategoryColour(meta) {
+  const before = categoryMeta.get(meta.name)?.colour || null;
+  openSheet({
+    label: `Colour for ${meta.name}`,
+    sub: "Shown on its dots, labels, graph nodes and timeline. Automatic picks one from its name.",
+    name: "category-colour",
+    build: (card, close) => {
+      card.classList.add("swatch-card");
+      const preview = document.createElement("p");
+      preview.className = "swatch-preview";
+      preview.textContent = meta.name;
+      const show = (key) => preview.style.setProperty("--category-dot", key ? CATEGORY_PALETTE[key] || key : categoryAutoDot(meta.name));
+      const picker = swatchPicker({
+        label: `Colour for ${meta.name}`,
+        value: before,
+        onChange: show,
+        onChoose: async (key) => {
+          close();
+          if (key === before) return;
+          try {
+            await saveCategoryColour(meta, key);
+          } catch (error) {
+            toast(error.message, true);
+            return;
+          }
+          const message = `${meta.name} is now ${categoryColourName(key).toLowerCase()}.`;
+          const undo = () => saveCategoryColour(meta, before);
+          const action = pushUndo(message, undo, () => saveCategoryColour(meta, key));
+          toastAction(message, "Undo", async () => {
+            settleUndoFromToast(action);
+            await undo();
+          });
+        },
+      });
+      card.append(preview, picker);
+      requestAnimationFrame(() => picker.querySelector('[tabindex="0"]')?.focus());
+    },
+  });
 }

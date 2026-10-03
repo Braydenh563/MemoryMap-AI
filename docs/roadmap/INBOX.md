@@ -148,7 +148,10 @@ with its owner named in the entry.
      agent; (5) note metadata redesigned and expanded, with INBOX 440 (1):
      the orchestrator; (6) a measured optimisation pass (boot, payload,
      queries, indexes): a Sonnet agent. Agent cap raised by the owner for
-     Sonnet agents.
+     Sonnet agents. **Done so far**: (1) hover and Enter; (2) one `.spinner`
+     ring and `setBusy` (merged bca3962); (3) time words with their distance
+     from today on every AI path; (5) in part: kept suggestions and the
+     visible confidence.
 
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran

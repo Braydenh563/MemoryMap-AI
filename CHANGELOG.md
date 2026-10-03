@@ -87,6 +87,9 @@ below). Versioning is `0.x` while the app stabilises.
 - The masculine Atlas's lower body is one thick wisp curving in an S from the full width of his hips to a soft curled tip, with two smaller wisps branching off it at different heights, all one smooth shape with no seams, in place of five straight spikes.
 - Files attached to a note are one card everywhere (the note, its edit form, Capture, a document, the graph and the timeline): the picture or a tinted kind icon, the whole name on up to two lines, and the kind, size and date. Click the card to open the file; its ⋯ menu has Open, Download, Rename, Describe with AI, Edit description, Annotate a copy, Copy as a link and Remove. Removing a file from a note's text can be undone, and its upload is only deleted once nothing else uses it.
 - One "working" mark across the app: the same ring, 1.15 times the text beside it, 2px stroke, turning once every 0.9s in the accent's text colour, on a note's "Atlas is reading…" and "Filing…", the agent palette and its steps, the activity panel, the tension review, a long job's toast, the Library's readings and every button that waits (which now also says so with the ring and cannot be pressed twice). Before, the same state was a ring, a spinning icon at two speeds, a pulsing word that never moved, the chat's reply dots, or a still icon. With reduced motion the ring breathes instead of turning, and "…" is always the one-character ellipsis.
+### Added
+
+- A category's colour can be chosen: in Manage categories (and a category's ⋯ menu in the sidebar), Colour opens twelve swatches that each read as a dot in light and dark, plus Automatic to go back to the name-based colour. The choice shows at once on the category's dots and chips, its graph nodes and legend, the timeline and the dashboard, and is kept with the category through a rename.
 
 ## [0.3.32] - 2026-09-28
 

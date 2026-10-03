@@ -1516,7 +1516,7 @@ function entryItem(entry, options = {}) {
     //: every variant added after it and drew "No tags yet" and "Linked by 5
     //: notes" as accent pills too.
     const categoryEl = chip(entry.category, "category");
-    categoryEl.style.setProperty("--category-dot", categoryDotColour(entry.category));
+    paintCategoryDot(categoryEl, entry.category);
     //: The drag handle for moving this note to another category (INBOX 431
     //: (e), `wireCategoryDropTarget`): only in a list with actions.
     if (options.actions && !entry.is_board) {

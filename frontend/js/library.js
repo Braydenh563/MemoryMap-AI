@@ -1347,7 +1347,7 @@ function libraryCard(item) {
     setLabel(detail, item.detail);
     if (isNoteKind && item.detail) {
       detail.className = "library-card-category";
-      detail.style.setProperty("--category-dot", categoryDotColour(item.detail));
+      paintCategoryDot(detail, item.detail);
     }
   }
   const when = document.createElement("span");

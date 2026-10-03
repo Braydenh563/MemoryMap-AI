@@ -65,6 +65,6 @@ def test_the_migration_upgrades_over_the_auto_migrator(tmp_path):
 
     conn = sqlite3.connect(str(db_path))
     try:
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("e6f2a9c4b1d7",)]
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("e5a9d1c3b7f2",)]  # the head; category colour follows edited_at
     finally:
         conn.close()

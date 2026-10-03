@@ -3278,3 +3278,40 @@ def test_no_glassmorphism_generator_shadow():
     text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     code = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     assert not re.search(r"rgba\(\s*31,\s*38,\s*135", code)
+
+
+# ---- A choice among colours: the swatch picker (INBOX 441 (4)) -------------
+
+
+def test_a_swatch_is_drawn_only_by_the_swatch_picker() -> None:
+    """DESIGN.md "A choice among colours": one builder, `swatchPicker`
+    (categories-panel.js), a radiogroup whose every swatch names itself and
+    whose arrows move the choice. A second hand-built row of colour dots would
+    bring back the accent swatches' problems (no name, no keys, no ring)."""
+    for path in JS:
+        text = path.read_text(encoding="utf-8")
+        if path.name == "categories-panel.js":
+            continue
+        assert "swatch-option" not in text, f"{path.name} builds a swatch by hand; use swatchPicker"
+    body = _function_body(frontend_text("categories-panel.js"), "swatchPicker")
+    assert 'setAttribute("role", "radiogroup")' in body
+    assert 'setAttribute("role", "radio")' in body
+    assert 'setAttribute("aria-label"' in body, "a swatch with no name says nothing to a screen reader"
+    assert 'setAttribute("aria-checked"' in body
+    for key in ("ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"):
+        assert key in body, f"the swatch picker does not answer {key}"
+    assert ".style.setProperty(" in body and "style=" not in body, "paint through the CSSOM, not style="
+
+
+def test_a_swatch_shows_focus_and_its_choice_without_colour() -> None:
+    css = re.sub(r"/\*.*?\*/", "", "\n".join(p.read_text(encoding="utf-8") for p in CSS), flags=re.S)
+    focus = [b for sel, b in _rules(css) if ".swatch-option:focus-visible" in sel]
+    assert focus and "outline" in focus[0], "a swatch needs a visible focus ring"
+    checked = [b for sel, b in _rules(css) if '.swatch-option[aria-checked="true"]' in sel and "box-shadow" in b]
+    assert checked, "the checked swatch must be a shape (a ring), not only a colour"
+
+
+def test_the_colour_item_is_on_a_categorys_menu_and_loads_lazily() -> None:
+    notes = frontend_text("notes-list.js")
+    assert "pickCategoryColour(meta)" in notes
+    assert '"pickCategoryColour"' in (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")

@@ -63,6 +63,12 @@
 // tool; a plain left-drag only pans when Pan is genuinely the active tool, so
 // drawing, the marquee and lasso are untouched.
 let wbSpaceHeld = false;
+//: **Tab on a map adds a topic only after the person has engaged the map**
+//: (MINDMAP_PLAN, decisions: "Tab adds only when armed"). Set by a pointer
+//: press on the canvas, a selection or any map key, cleared when focus lands
+//: on a control outside the canvas, so the Tab that brings focus in, and the
+//: Tab after it, move on as Tab does everywhere else instead of adding a topic.
+let wbMapKeysArmed = false;
 //: True from a middle-button press inside the boards view to its release (or
 //: the window losing focus), set by the capture listeners in initWhiteboard.
 let wbMidPanHeld = false;
@@ -3792,6 +3798,9 @@ function wbApplySelectionHighlight() {
 
 function selectWbItem(kind, id) {
   wbSelectedItem = { kind, id };
+  //: Choosing a topic, by pointer, arrow, new map or a topic just made, is
+  //: working in the map, so Tab adds under it (see `wbMapKeysArmed`).
+  if (wbIsMap()) wbMapKeysArmed = true;
   wbApplySelectionHighlight();
   //: **The chrome that depends on the selection, updated where the selection
   //: changes.** Both of these used to wait for the next render or the next
@@ -5599,6 +5608,61 @@ function wbPushUndo(entry) {
   wbUpdateUndoRedoButtons();
 }
 
+//: **Restored topics have new ids, so every history entry that names an old
+//: one is rewritten** (INBOX 445, second audit). A branch deleted and then
+//: brought back by Undo is made again by `POST`, which hands out fresh ids; an
+//: older entry ("undo the creation of topic 7", "put topic 7 back under 3")
+//: still said 7 and went to a row that no longer existed, so one more Ctrl+Z
+//: after a restore failed or did nothing. Called by `wbMapRestoreRows` with the
+//: ids it just minted, over both stacks, and over a link's two ends because a
+//: link sketch names its topics by id as well. Original ids cannot be reused
+//: instead: the create route assigns them.
+function wbRemapUndoIds(objects, sketches = new Map()) {
+  if (!objects.size && !sketches.size) return;
+  const obj = (id) => (objects.has(id) ? objects.get(id) : id);
+  const sketch = (id) => (sketches.has(id) ? sketches.get(id) : id);
+  const linkText = (text) => {
+    if (typeof text !== "string" || !text.includes("link-")) return text;
+    try {
+      const data = JSON.parse(text);
+      if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return text;
+      if (data.sourceKind === "object") data.sourceId = obj(data.sourceId);
+      if (data.targetKind === "object") data.targetId = obj(data.targetId);
+      return JSON.stringify(data);
+    } catch {
+      return text;
+    }
+  };
+  const walk = (entry) => {
+    if (!entry) return;
+    if (entry.action === "batch") {
+      entry.entries.forEach(walk);
+      return;
+    }
+    if (entry.kind === "object") {
+      if (entry.id != null) entry.id = obj(entry.id);
+      if (entry.parentId != null) entry.parentId = obj(entry.parentId);
+      if (Array.isArray(entry.ids)) entry.ids = entry.ids.map(obj);
+      for (const row of entry.rows || []) {
+        row.id = obj(row.id);
+        if (row.parent_id != null) row.parent_id = obj(row.parent_id);
+      }
+    }
+    if (entry.kind === "sketch" && entry.id != null) entry.id = sketch(entry.id);
+    for (const key of ["payload", "before"]) {
+      if (entry.kind === "sketch" && entry[key] && typeof entry[key].data === "string") {
+        entry[key].data = linkText(entry[key].data);
+      }
+    }
+    for (const link of entry.links || []) {
+      link.id = sketch(link.id);
+      link.data = linkText(link.data);
+    }
+  };
+  wbUndoStack.forEach(walk);
+  wbRedoStack.forEach(walk);
+}
+
 // The shared half of undo and redo: pop one entry off `from`, apply its
 // inverse, and push what would undo *that* onto `to`. Undo and redo are
 // each other's mirror image: pop from one stack, push the reverse onto
@@ -5908,22 +5972,26 @@ async function wbApplyHistoryEntry(from, to) {
   //: remapped, which a "delete" entry's flat POST cannot do. Its reverse
   //: deletes the restored tops again and keeps what came back for the redo.
   if (entry.action === "subtree") {
-    const tops = await wbMapRestoreRows(entry.rows);
+    const tops = await wbMapRestoreRows(entry.rows, entry.links || []);
     await wbRefreshMapState();
     to.push({ action: "unsubtree", kind: "object", ids: tops });
     return true;
   }
   if (entry.action === "unsubtree") {
     const rows = [];
+    const links = [];
     for (const id of entry.ids) {
       if (!(wbState.objects || []).some((o) => o.id === id)) continue;
       const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
       rows.push(...(Array.isArray(res.deleted) ? res.deleted : []));
+      links.push(...(Array.isArray(res.links) ? res.links : []));
     }
     const gone = new Set(rows.map((row) => row.id));
+    const goneLinks = new Set(links.map((link) => link.id));
     wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+    wbState.sketches = (wbState.sketches || []).filter((k) => !goneLinks.has(k.id));
     if (wbSelectedItem && gone.has(wbSelectedItem.id)) clearWbSelection();
-    to.push({ action: "subtree", kind: "object", rows });
+    to.push({ action: "subtree", kind: "object", rows, links });
     return true;
   }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
@@ -5958,6 +6026,11 @@ async function wbApplyHistoryEntry(from, to) {
     const payload = item && toPayload(item);
     await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
     wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
+    //: A topic made by Tab or Enter and taken back leaves its parent as the
+    //: selection (below, in `wbUndo`): the person was on that topic a moment
+    //: before they made the new one, and nothing selected would drop them off
+    //: the keyboard path the map is built on.
+    if (entry.kind === "object" && item && item.parent_id != null) wbUndoParents.push(item.parent_id);
     if (payload) to.push({ action: "delete", kind: entry.kind, payload });
   }
   return true;
@@ -5977,10 +6050,20 @@ window.wbRedo = wbRedo;
 window.wbCanUndo = () => wbUndoStack.length > 0;
 window.wbCanRedo = () => wbRedoStack.length > 0;
 
+//: The parents of the topics one Undo took away, in the order they went. A
+//: batch (a duplicated branch) removes several, and most of their parents go
+//: with them, so `wbUndo` picks the first that is still on the board.
+let wbUndoParents = [];
+
 async function wbUndo() {
+  wbUndoParents = [];
   try {
     if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
     wbUpdateUndoRedoButtons();
+    if (wbIsMap()) {
+      const parentId = wbUndoParents.find((id) => (wbState.objects || []).some((o) => o.id === id));
+      if (parentId != null) selectWbItem("object", parentId);
+    }
     wbScheduleRender();
   } catch {
     toast("Couldn't undo that.", true);
@@ -9224,6 +9307,17 @@ async function initWhiteboard() {
     // text boxes", the caret went to the container mid-gesture.
     if (e.target.closest(".whiteboard-floating-panel, [contenteditable=true]")) return;
     document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+    // A press on the map is the strongest way to say you are working in it.
+    wbMapKeysArmed = true;
+  });
+  //: **Focus landing on any control outside the canvas disarms Tab.** The
+  //: keyboard user walking the toolbar is not working in the map, and the Tab
+  //: that carries focus off the last control lands on the page body, where an
+  //: armed flag from an earlier click would add a topic (measured: sixty Tabs
+  //: from the top bar added fifteen). The canvas, its topics and the editor
+  //: inside a topic are not "outside", so a topic being typed into keeps it.
+  document.addEventListener("focusin", (e) => {
+    if (!container.node()?.contains(e.target)) wbMapKeysArmed = false;
   });
 
   document.addEventListener("keydown", (e) => {
@@ -9343,7 +9437,19 @@ async function initWhiteboard() {
     }
     const mapNode = wbSelectedMapNode();
     if (mapNode) {
+      //: Any real key (not a bare modifier) means the person is working in
+      //: the map; arrows, Enter, F2 and the rest below all arm Tab.
+      if (e.key !== "Tab" && !["Shift", "Control", "Alt", "Meta"].includes(e.key)) wbMapKeysArmed = true;
       if (e.key === "Tab") {
+        //: **Not armed, or focus is on some other control: Tab is Tab.** With
+        //: a topic selected it used to add a child from anywhere, so a
+        //: keyboard user could not leave the map without Escape first, and the
+        //: Tab that carried focus in added a topic nobody asked for
+        //: (INBOX 445, second audit). Focus on the canvas (or on nothing)
+        //: after a click or a map key still adds; Escape then Tab leaves.
+        const at = document.activeElement;
+        const onMap = !at || at === document.body || at.closest?.("#whiteboard-container");
+        if (!wbMapKeysArmed || !onMap) return;
         e.preventDefault();
         // Shift+Tab outdents. Through `/move`, which is the only endpoint
         // that runs the cycle check, see `wbMapOutdent`.

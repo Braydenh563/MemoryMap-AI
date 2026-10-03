@@ -457,10 +457,10 @@ function wbMapFocusHidden(index) {
   const queue = [start.id];
   const crossed = new Map();
   for (const link of window.wbMapState?.crossLinks || []) {
-    if (!crossed.has(link.source_id)) crossed.set(link.source_id, []);
-    if (!crossed.has(link.target_id)) crossed.set(link.target_id, []);
-    crossed.get(link.source_id).push(link.target_id);
-    crossed.get(link.target_id).push(link.source_id);
+    if (!crossed.has(link.from_id)) crossed.set(link.from_id, []);
+    if (!crossed.has(link.to_id)) crossed.set(link.to_id, []);
+    crossed.get(link.from_id).push(link.to_id);
+    crossed.get(link.to_id).push(link.from_id);
   }
   while (queue.length) {
     const id = queue.shift();
@@ -3483,6 +3483,10 @@ async function wbMapOutdent(id) {
     toast("This is already a top-level topic.");
     return;
   }
+  //: Every topic's row as it stands, so the one history entry can put back
+  //: whatever the tidy moves along with the parent (the shape
+  //: `wbMapTransplant` records for a drag).
+  const rows = new Map(index.nodes.map((n) => [n.id, WB_KIND_INFO.object.payload(n)]));
   try {
     const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
       method: "PUT",
@@ -3490,6 +3494,17 @@ async function wbMapOutdent(id) {
     });
     Object.assign(node, moved);
     await wbMapTidyBranch(moved.parent_id ?? null);
+    //: **One Undo step** (INBOX 445, second audit: Shift+Tab was the one
+    //: structural key with no history, so Ctrl+Z took back whatever came
+    //: before it).
+    const history = [{ action: "reparent", kind: "object", id, parentId: parent.id }];
+    for (const now of wbMapIndex().nodes) {
+      const row = rows.get(now.id);
+      if (row && (row.x !== now.x || row.y !== now.y)) {
+        history.push({ action: "move", kind: "object", id: now.id, before: row });
+      }
+    }
+    wbPushUndo(history.length === 1 ? history[0] : { action: "batch", entries: history });
     renderWhiteboardNow();
   } catch (err) {
     toast(err.message || "Couldn't move that node.", true);
@@ -3648,15 +3663,22 @@ async function wbMapDeleteSubtree(id) {
     return;
   }
   let deleted = [];
+  //: The cross-links that went with the branch (the server drops them with
+  //: their topics and now hands them back), kept on the entry so Undo draws
+  //: them again between the restored topics (INBOX 445, second audit).
+  let links = [];
   try {
     const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
     deleted = Array.isArray(res.deleted) ? res.deleted : [];
+    links = Array.isArray(res.links) ? res.links : [];
   } catch (err) {
     toast(err.message || "Couldn't delete that.", true);
     return;
   }
   const gone = new Set(deleted.map((row) => row.id));
+  const goneLinks = new Set(links.map((link) => link.id));
   wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+  wbState.sketches = (wbState.sketches || []).filter((k) => !goneLinks.has(k.id));
   clearWbSelection();
   wbScheduleRender();
   //: **On the board's own undo stack, so Ctrl+Z brings it back** (INBOX 445).
@@ -3664,7 +3686,7 @@ async function wbMapDeleteSubtree(id) {
   //: Ctrl+Z restored nothing and took back whatever had been done *before*
   //: the delete instead. The toast's Undo is now the same entry, taken off
   //: the stack wherever it sits, so the two can never restore it twice.
-  const entry = { action: "subtree", kind: "object", rows: deleted };
+  const entry = { action: "subtree", kind: "object", rows: deleted, links };
   wbPushUndo(entry);
   const count = deleted.length;
   toastAction(
@@ -3679,7 +3701,7 @@ async function wbMapDeleteSubtree(id) {
       }
       wbUndoStack.splice(at, 1);
       wbUpdateUndoRedoButtons();
-      await wbMapRestoreRows(deleted);
+      await wbMapRestoreRows(deleted, links);
       await wbRefreshMapState();
       renderWhiteboardNow();
     }
@@ -3694,7 +3716,13 @@ async function wbMapDeleteSubtree(id) {
 //: takes the text and the colour alone, so a restored topic used to come back
 //: plain: its shape, fill, icon, picture, fold, size and place among its
 //: siblings gone. The `PUT` after it writes the rest of the row as it was.
-async function wbMapRestoreRows(rows) {
+//:
+//: **Its cross-links come back too, between the restored topics**: each end
+//: that was inside the branch is translated to the new id, an end outside it
+//: keeps its own (it still exists). And **every older history entry that
+//: named a restored topic is rewritten** (`wbRemapUndoIds`), because the new
+//: topics have new ids and the stacks would otherwise point at nothing.
+async function wbMapRestoreRows(rows, links = []) {
   const boardId = window.currentBoardId;
   const remap = new Map();
   const tops = [];
@@ -3745,6 +3773,46 @@ async function wbMapRestoreRows(rows) {
       break;
     }
   }
+  const linkRemap = new Map();
+  for (const link of links) {
+    let data;
+    try {
+      data = JSON.parse(link.data);
+    } catch {
+      continue;
+    }
+    if (!data || typeof data !== "object") continue;
+    const ends = [["sourceId", "sourceKind"], ["targetId", "targetKind"]];
+    let whole = true;
+    for (const [idKey, kindKey] of ends) {
+      if ((data[kindKey] || "node") !== "object") continue;
+      if (remap.has(data[idKey])) data[idKey] = remap.get(data[idKey]);
+      // An end that is neither restored nor still on the board (the restore
+      // stopped part way, or the far topic was deleted since) would be a line
+      // to nowhere, which the server cleans up everywhere else.
+      else if (!(wbState.objects || []).some((o) => o.id === data[idKey])) whole = false;
+    }
+    if (!whole) continue;
+    try {
+      const made = await apiJson("/whiteboard/sketches", {
+        method: "POST",
+        body: JSON.stringify({
+          data: JSON.stringify(data),
+          board_id: link.board_id ?? boardId,
+          x: link.x ?? 0,
+          y: link.y ?? 0,
+          z: link.z ?? 0,
+          group_id: link.group_id ?? null,
+        }),
+      });
+      linkRemap.set(link.id, made.id);
+      wbState.sketches = wbState.sketches || [];
+      wbState.sketches.push(made);
+    } catch (err) {
+      toast(err.message || "Couldn't restore a link.", true);
+    }
+  }
+  wbRemapUndoIds(remap, linkRemap);
   return tops;
 }
 

@@ -538,14 +538,25 @@ def _board_filter(model, board_id: int | None):
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
 
 
-def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int) -> int:
+def _forget_links_to(
+    db: Session,
+    board_id: int | None,
+    kind: str,
+    item_id: int,
+    into: list[dict] | None = None,
+) -> int:
     """Delete the link sketches on a board whose either end was the item just
     deleted. Links live as sketch rows whose JSON `data` names their ends
     (`sourceId`/`targetId` plus a `sourceKind`/`targetKind` of "node",
     "object" or "sketch", "node" when absent); the frontend already skips a
     link whose end is gone, so without this a deleted card left an invisible
     orphan row behind forever. One linear pass over the board's sketches: 
-    boards are hundreds of rows, not millions. Returns how many went."""
+    boards are hundreds of rows, not millions. Returns how many went.
+
+    `into`, when given, collects each removed link as a sketch row
+    (`WhiteboardSketchOut`) first. A branch deleted from a map hands those
+    back with its topics, because a link to a topic is half of what a restore
+    has to put back (INBOX 445, found by the second audit)."""
     rows = db.scalars(select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))).all()
     gone = 0
     for row in rows:
@@ -565,6 +576,8 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
             (data.get("targetId"), data.get("targetKind") or "node"),
         )
         if any(end_id == item_id and end_kind == kind for end_id, end_kind in ends):
+            if into is not None and all(link["id"] != row.id for link in into):
+                into.append(WhiteboardSketchOut.model_validate(row).model_dump())
             db.delete(row)
             gone += 1
     return gone
@@ -2337,10 +2350,14 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
             "subtree": [_object_state(row) for row in doomed],
         },
     )
+    #: The cross-links that went with them, as sketch rows, so Undo can draw
+    #: them again between the restored topics (a link to a topic outside the
+    #: branch keeps its far end, which still exists). Empty for a text box.
+    links: list[dict] = []
     for row in doomed:
-        _delete_one_object(db, row)
+        _delete_one_object(db, row, links)
     db.commit()
-    return {"status": "ok", "deleted": deleted}
+    return {"status": "ok", "deleted": deleted, "links": links}
 
 
 def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
@@ -2374,11 +2391,13 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
     return found
 
 
-def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
+def _delete_one_object(
+    db: Session, obj: WhiteboardObject, links: list[dict] | None = None
+) -> None:
     """The per-row half of `delete_object`: forget its links, unlink its file
     if it owned one, remove the row. Does not commit: a subtree is one
     delete, so it is one transaction."""
-    _forget_links_to(db, obj.board_id, "object", obj.id)
+    _forget_links_to(db, obj.board_id, "object", obj.id, links)
     if obj.kind == "image":
         # The only thing that ever pointed at this file, best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own

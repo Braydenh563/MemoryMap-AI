@@ -157,3 +157,61 @@ def test_a_drag_measures_nothing_it_does_not_have_to():
     bar = _function_body(WB, "wbUpdateSelectionBar")
     assert "wbBulkBarBounds" in bar and "barMeasure" in bar
     assert "entry.pathEl" in _function_body(WB, "wbApplyBulkMove")
+
+
+# --- INBOX 445 (2), found not fixed: five undo and key gaps on a map ----------
+
+
+def test_a_restored_branch_gets_its_cross_links_back_between_the_new_topics():
+    delete = _function_body(MAP, "wbMapDeleteSubtree")
+    assert "res.links" in delete and "links }" in delete
+    restore = _function_body(MAP, "wbMapRestoreRows")
+    # Ends inside the branch are translated, and the link is written again.
+    assert "remap.get(data[idKey])" in restore and '"/whiteboard/sketches"' in restore
+    history = _function_body(WB, "wbApplyHistoryEntry")
+    assert "wbMapRestoreRows(entry.rows, entry.links" in history
+    # Redo carries the links on the entry it builds, so a second Undo has them.
+    assert 'action: "subtree", kind: "object", rows, links' in history
+
+
+def test_a_restore_rewrites_the_ids_older_history_entries_name():
+    restore = _function_body(MAP, "wbMapRestoreRows")
+    assert "wbRemapUndoIds(remap, linkRemap)" in restore
+    remap = _function_body(WB, "wbRemapUndoIds")
+    # Both stacks, batches, the reparent target and a link's two ends.
+    assert "wbUndoStack.forEach(walk)" in remap and "wbRedoStack.forEach(walk)" in remap
+    for needle in ("entry.entries.forEach(walk)", "entry.parentId", "entry.ids", "row.parent_id", "data.sourceId", "data.targetId"):
+        assert needle in remap
+
+
+def test_shift_tab_is_one_undo_step():
+    outdent = _function_body(MAP, "wbMapOutdent")
+    assert 'action: "reparent"' in outdent and "wbPushUndo(" in outdent
+    # The tidy that follows moves topics, so their places ride in the same step.
+    assert 'action: "move"' in outdent and 'action: "batch"' in outdent
+
+
+def test_undoing_a_create_selects_the_parent():
+    undo = _function_body(WB, "wbUndo")
+    assert "wbUndoParents" in undo and 'selectWbItem("object", parentId)' in undo
+    history = _function_body(WB, "wbApplyHistoryEntry")
+    assert "wbUndoParents.push(item.parent_id)" in history
+
+
+def test_tab_adds_a_topic_only_when_the_map_was_engaged_and_focus_is_on_it():
+    assert "let wbMapKeysArmed = false;" in WB
+    gate = WB.index("if (!wbMapKeysArmed || !onMap) return;")
+    # Not armed, or focus on another control: return before preventDefault, so
+    # the browser's own Tab runs.
+    assert WB[gate:].index("e.preventDefault();") < WB[gate:].index("wbMapOutdent(mapNode.id)")
+    assert WB[gate - 900 : gate].rindex('e.key === "Tab"') > 0
+    # A press on the canvas arms it, focus arriving from another control disarms.
+    assert "wbMapKeysArmed = true;" in WB[WB.index("// A press on the map is the strongest way") :][:400]
+    assert "wbMapKeysArmed = false;" in WB[WB.index("//: **Focus landing on any control outside the canvas") :][:900]
+    assert "if (wbIsMap()) wbMapKeysArmed = true;" in _function_body(WB, "selectWbItem")
+
+
+def test_focus_mode_reads_the_cross_links_by_the_names_the_server_sends():
+    near = _function_body(MAP, "wbMapFocusHidden")
+    assert "link.from_id" in near and "link.to_id" in near
+    assert "source_id" not in near and "target_id" not in near

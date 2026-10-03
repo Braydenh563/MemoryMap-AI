@@ -1501,6 +1501,10 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
     wbCullHeld = 0;
     wbScheduleCull();
   };
+  //: A backstop: a transition whose element went away (the board closed
+  //: mid-fit) may fire neither event, and a hold left on would stop culling
+  //: for every later pan.
+  setTimeout(release, 700);
   sel
     .transition()
     .duration(350)

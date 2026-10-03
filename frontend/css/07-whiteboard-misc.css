@@ -1131,7 +1131,7 @@ textarea.drag-over {
    `.tab-page` is the scroll container for most tabs, but not all of them:
    Notes and Chat (`04-chat-dock-appearance.css`) make `.tab-page` a plain
    flex column and move the actual `overflow-y: auto` onto their own nested
-   `.layout > main` instead: padding the outer element there does nothing
+   `.layout > .tab-main` instead: padding the outer element there does nothing
    for the inner one that's really scrolling, confirmed live (padding-bottom
    on #tab-notes stayed unchanged after adding the class until this second
    selector was added). Graph has no document-flow scroll container at all
@@ -1187,14 +1187,14 @@ body.has-agent-monitor #tab-reminders {
    board measured unchanged (its canvas is absolutely placed), but a canvas
    has nothing to scroll clear of the panel either, so the view is excluded
    whole, like the Graph. */
-body.has-agent-monitor #tab-notes .layout > main,
+body.has-agent-monitor #tab-notes .layout > .tab-main,
 body.has-agent-monitor .doc-sidebar .doc-list,
 body.has-agent-monitor #tab-library .library-view-section:not(#library-view-whiteboard),
 body.has-agent-monitor #timeline-scroll {
   padding-bottom: calc(var(--space-9) * 9);
 }
 
-/* Chat used to be listed alongside Notes above (`#tab-chat .layout > main`)
+/* Chat used to be listed alongside Notes above (`#tab-chat .layout > .tab-main`)
    and that was a real, user-reported bug, reproduced live: opening the
    Agent Activity monitor visibly shoved the whole chat card up the page, 
    the Send button's own Y position moved by ~113px. `#tab-notes .layout >
@@ -1209,7 +1209,7 @@ body.has-agent-monitor #timeline-scroll {
    Removed for Chat entirely instead of chasing a third selector blind, the
    monitor is `left: 20px; width: 350px` (07-whiteboard-misc.css above): 
    measured live, that footprint lands on the "Chats" sidebar column
-   (`.layout > aside`), not `.layout > main` at all (`main`'s own `x` starts
+   (`.layout > aside`), not `.layout > .tab-main` at all (`main`'s own `x` starts
    at 348px in a 1024px-wide test window, past the monitor's right edge).
    Nothing in the conversation column needs protecting from an overlay that
    never covers it; the only thing actually behind the monitor is the
@@ -2087,7 +2087,7 @@ body.has-agent-monitor #timeline-scroll {
   flex: 1;
   overflow-y: auto;
   /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
-     same shape as `#tab-notes .layout > main` (04-chat-dock-appearance.css),
+     same shape as `#tab-notes .layout > .tab-main` (04-chat-dock-appearance.css),
      a card's own kebab scrolled flush to the bottom edge sits directly
      under the fixed back-to-top button here too. INBOX 33: the padding
      itself now lives on `body.scroll-top-visible .library-view-section`
@@ -2110,12 +2110,12 @@ body.scroll-top-visible .library-view-section {
    its rounded bottom corner while the visible scroll area stayed 711.4px
    -- exactly `--scroll-top-clearance`. The clearance is for the *list*, not
    the sidebar, so it moves to the scrolling column alone, the same split
-   `#tab-notes .layout > main` already uses (04-chat-dock-appearance.css). */
+   `#tab-notes .layout > .tab-main` already uses (04-chat-dock-appearance.css). */
 body.scroll-top-visible #library-view-skills {
   padding-bottom: 0;
 }
 
-body.scroll-top-visible .skills-split > main {
+body.scroll-top-visible .skills-split > .tab-main {
   padding-bottom: var(--scroll-top-clearance);
 }
 
@@ -12121,7 +12121,7 @@ header#top-bar {
      which side it sat on at desktop width (the shared fixed-sheet rule
      above pins every one of them to `left: 0`), so `main` still needs the
      same clearance, just stated in the other direction for this one. */
-  .skills-split > main:has(+ #skills-sidebar) {
+  .skills-split > .tab-main:has(+ #skills-sidebar) {
     padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
   }
 }

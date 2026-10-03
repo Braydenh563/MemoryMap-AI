@@ -44,7 +44,7 @@ async function run(viewport) {
   await page.click('[data-tab="notes"]');
   await page.waitForTimeout(600);
   // `#entry-list` itself does not scroll (no `overflow` set); the real
-  // scroll container is `#tab-notes .layout > main` one level up
+  // scroll container is `#tab-notes .layout > .tab-main` one level up
   // (04-chat-dock-appearance.css) - scrolling `#entry-list` is a no-op, and
   // `scrollIntoView` aligns to the *visible* edge of that container
   // regardless of any padding-bottom trailing after the target, so neither
@@ -54,7 +54,7 @@ async function run(viewport) {
   // two round-trips let a poll's re-render land in between and hand back a
   // row id that no longer matched what was actually at the bottom.
   const lastRowId = await page.evaluate(() => {
-    const main = document.querySelector('#tab-notes .layout > main');
+    const main = document.querySelector('#tab-notes .layout > .tab-main');
     if (main) main.scrollTop = main.scrollHeight;
     // The list appends a `.list-window-sentinel` li (windowing/lazy-load
     // marker) after the real rows, so `li:last-child` finds an empty node,

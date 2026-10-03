@@ -4815,7 +4815,7 @@ summary.small.icon-button {
    `clip` simply does not scroll on that axis. Anything that genuinely needs
    horizontal room -- a wide table, a code block, the graph legend -- carries
    its own `overflow-x: auto` and is unaffected. */
-.layout > main {
+.layout > .tab-main {
   overflow-x: clip;
 }
 

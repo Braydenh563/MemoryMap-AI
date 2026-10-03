@@ -305,7 +305,7 @@
      "weird shadow": their own shadow, against an edge that has no business
      being hard. A little padding and a rounded clip give the column an edge
      that matches every other surface. */
-#tab-notes .layout>main {
+#tab-notes .layout>.tab-main {
   overflow-y: auto;
   min-height: 0;
   /* Reserve the scrollbar's width whether or not it is showing, so the
@@ -316,7 +316,7 @@
      last note's row of controls, including its ⋯ kebab, sat directly under
      `.scroll-top` once the list was scrolled all the way down, and a real
      click there landed on the button, not the row. INBOX 33: this is now
-     `body.scroll-top-visible #tab-notes .layout > main` below, so a short
+     `body.scroll-top-visible #tab-notes .layout > .tab-main` below, so a short
      page (nothing to scroll, button never shown) does not carry padding
      for a button that was never going to cover anything on it. */
   border-radius: var(--radius-lg);
@@ -327,7 +327,7 @@
    toggles this class in the same `update()` that shows the button, so the
    two can never drift out of sync with each other the way a fixed
    always-on padding and a sometimes-visible button did. */
-body.scroll-top-visible #tab-notes .layout > main {
+body.scroll-top-visible #tab-notes .layout > .tab-main {
   padding-bottom: var(--scroll-top-clearance);
 }
 
@@ -578,11 +578,11 @@ body.scroll-top-visible #tab-notes .layout > main {
    beside it: the mismatched heights that were reported. Neither column
    needs the margin here; the grid's own padding does that job. */
 #tab-chat .layout>aside.card,
-#tab-chat .layout>main>.card {
+#tab-chat .layout>.tab-main>.card {
   margin-bottom: 0;
 }
 
-#tab-chat .layout>main {
+#tab-chat .layout>.tab-main {
   display: flex;
   min-height: 0;
   gap: var(--space-6);
@@ -622,7 +622,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    the whole of <main> and the conversation waits behind it. The ✕ is right
    there, which is what makes that acceptable, it is one click back. */
 @media (max-width: 1100px) {
-  #tab-chat .layout>main:has(#web-panel:not(.hidden))>#chat-main {
+  #tab-chat .layout>.tab-main:has(#web-panel:not(.hidden))>#chat-main {
     display: none;
   }
 
@@ -5175,10 +5175,10 @@ input.doc-title-input::placeholder {
      which with the tab's 12.8px and the card's 16px left the transcript 278px
      of a 390px window.
 
-     `.sidebar-panel ~ main`, because `main` is the sidebar's *sibling*: the
+     `.sidebar-panel ~ .tab-main`, because `main` is the sidebar's *sibling*: the
      rule that pays for the toggle is written for the elements after the panel,
      and `main` is the one that matters here. */
-  #tab-chat .sidebar-panel ~ main {
+  #tab-chat .sidebar-panel ~ .tab-main {
     padding-left: 0;
   }
 

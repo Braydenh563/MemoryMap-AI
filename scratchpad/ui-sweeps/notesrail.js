@@ -45,7 +45,7 @@ async function state(page) {
       shown,
       rail: rect(rail),
       list: rect(document.getElementById('entry-list')),
-      main: rect(document.querySelector('#tab-notes .layout > main')),
+      main: rect(document.querySelector('#tab-notes .layout > .tab-main')),
       sidebar: rect(document.getElementById('sidebar')),
       subject: document.getElementById('notes-rail-subject')?.textContent || '',
       groups: [...document.querySelectorAll('#notes-rail .connection-heading')].map((h) => h.textContent.trim()),

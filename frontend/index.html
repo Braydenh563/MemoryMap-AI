@@ -886,6 +886,12 @@
     </div>
   </dialog>
 
+  <!-- The one main landmark (WCAG 1.3.1 and 2.4.1, INBOX 433): the tab
+       pages are the page's content, and before this a screen reader's "jump
+       to main" found nothing on five tabs and a different region on the
+       other three. `display: contents` (08-consistency.css) keeps the tab
+       pages laid out as children of <body>, exactly as before. -->
+  <main id="app-main">
   <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- The page's head: the banner and the way in. A wrapper with
@@ -1037,7 +1043,7 @@
         </section>
       </aside>
 
-      <main>
+      <div class="tab-main">
         <!-- Sub-tabs. The Notes tab was four full-height cards stacked on one
              page, so reaching your notes meant scrolling past three forms you
              weren't using. One at a time, remembered. -->
@@ -1952,7 +1958,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button class="ghost small" type="button" data-empty-action="clear-filter"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the filter</button>
           </div>
         </section>
-      </main>
+      </div><!-- .tab-main -->
       <!-- The connections rail (WORLD_CLASS_PLAN D2): the open or selected
            note's links, the notes that link to it, where else it is used,
            and the forgotten notes close to it (`GET /resurface/near`). A third
@@ -2035,7 +2041,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
           title="Search and sort everything you have ever asked"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
       </aside>
-      <main>
+      <div class="tab-main">
         <section class="card" id="chat-main">
           <!-- The header is now *only* about this conversation: its name, what
                it has cost, and how to take it away. Everything that decides
@@ -2667,10 +2673,10 @@ Link to another note with [[its first few words]]."></textarea>
              visible at once, which is impossible when one is stacked on the
              other.
 
-             Still a sibling of #chat-main inside <main>, not a third grid
+             Still a sibling of #chat-main inside .tab-main, not a third grid
              column: `.layout`'s columns are written inline by the sidebar
              resizer, and a third track would mean teaching that code about
-             this panel. <main> is already a flex row. -->
+             this panel. .tab-main is already a flex row. -->
         <!-- **A reading pane, not a form** (INBOX, the owner 2026-09-24: "the
              web browser sidebar needs a major improved modern and professional
              redesign"). Measured before (`scratchpad/ui-sweeps/webpanel.js`):
@@ -2755,7 +2761,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div id="web-reader-text" class="web-reader-text"></div>
           </div>
         </aside>
-      </main>
+      </div><!-- .tab-main -->
     </div>
   </div>
 
@@ -4986,7 +4992,7 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div id="library-view-skills" class="library-view-section hidden">
       <div class="skills-split">
-        <main>
+        <div class="tab-main">
           <section id="library-skills-section" class="card glass">
           <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: a head
                row with the title and two buttons, and the skills search box
@@ -5037,7 +5043,7 @@ Link to another note with [[its first few words]]."></textarea>
         </section>
 
 
-        </main>
+        </div><!-- .tab-main -->
         <!-- Reuses the Notes/Chat/Documents sidebar recipe (INBOX 430:
              collapse, drag-resize, the hover-peek while collapsed, and the
              phone sheet), rather than a fourth hand-built column:
@@ -6861,6 +6867,7 @@ Link to another note with [[its first few words]]."></textarea>
        column and its padding, which is why it had no margins and didn't
        sit at the top. Keep this as the LAST thing inside #tab-library. -->
   </div>
+  </main>
 
   <!-- ======================= STATUS BAR (§36D) ============================
        "Like in VS Code but stylised for the application", with the caveat the

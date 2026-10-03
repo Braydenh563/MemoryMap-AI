@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Accessibility: the app has one main landmark around its tab pages, so a screen reader's jump to main content works on every tab (it found nothing on five).
 - Status bar: below 1024px wide the page no longer scrolls sideways while a background job runs; the key hint goes and Ask, Guide, Find, reminders and the running count show their icon and number, their words still read to a screen reader.
 - Notes: a filter still being typed (`tag:`, `in:`, `#`) no longer empties the list until its value is typed.
 - Notes: Ctrl+Enter (Cmd+Enter) saves from the capture box and from a note being edited, and the caret stays in the box after a save, so the next thought goes straight in.

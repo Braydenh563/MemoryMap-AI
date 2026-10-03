@@ -1681,7 +1681,7 @@ header#top-bar,
      07-whiteboard-misc.css's 819.98px band for the full reason. Below 600
      there is no rail at all (`.dock-nav` is the only way in), so this
      clearance goes back to zero exactly like the rule above. */
-  .skills-split > main:has(+ #skills-sidebar) {
+  .skills-split > .tab-main:has(+ #skills-sidebar) {
     padding-left: 0;
   }
 
@@ -1914,7 +1914,7 @@ header#top-bar,
     padding-block: 0;
   }
 
-  #tab-notes .layout > main {
+  #tab-notes .layout > .tab-main {
     padding-right: 0;
   }
 }

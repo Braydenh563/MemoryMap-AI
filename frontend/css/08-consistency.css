@@ -4352,7 +4352,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    The editor's own scroller is the same case from the other side: typing
    into a 400-word document re-rasterised the editor behind every keystroke,
    3.1s over 88 characters, and 0.24s with `.cm-scroller` on this list. */
-main,
+.tab-main,
 .tab-page,
 .library-view-section,
 #chat-messages,
@@ -8881,4 +8881,12 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   height: var(--control-h);
   min-height: var(--control-h);
   padding-block: 0;
+}
+
+/* The one main landmark (INBOX 433, index.html): a box for the accessibility
+   tree only. `contents` gives it no box of its own, so the tab pages lay out
+   as the body's children exactly as they did before it existed, and every
+   `body > …` and fixed-position rule below is unaffected. */
+#app-main {
+  display: contents;
 }

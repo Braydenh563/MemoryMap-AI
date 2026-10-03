@@ -2129,7 +2129,7 @@ function scrollingPage() {
 // Chat, Notes and Library are special cases, not exclusions: `.tab-page`
 // itself never scrolls on any of the three, each uses a flex column with a
 // nested real scroll container instead (`#tab-chat`/`#tab-notes
-// > .layout > main`, see 04-chat-dock-appearance.css; `#tab-library`'s
+// > .layout > .tab-main`, see 04-chat-dock-appearance.css; `#tab-library`'s
 // active `.library-view-section`, see 07-whiteboard-misc.css), so a button
 // watching `.tab-page.scrollTop` would see 0 forever and never show, and
 // clicking it would scroll an element that never moves. Reported as "the
@@ -2153,7 +2153,7 @@ function scrollingPage() {
 const NO_SCROLL_TOP_TABS = new Set(["graph", "chat"]);
 const NESTED_SCROLL_TABS = {
   chat: () => chatMessagesEl(),
-  notes: () => document.querySelector("#tab-notes .layout > main"),
+  notes: () => document.querySelector("#tab-notes .layout > .tab-main"),
   // The Whiteboards sub-view pans rather than scrolls (like Graph), so it
   // deliberately returns nothing here, scrollTopTargetEl() then falls
   // back to scrollingPage(), whose scrollTop is always 0 on this tab,

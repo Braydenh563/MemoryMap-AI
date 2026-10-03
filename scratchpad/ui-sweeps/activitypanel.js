@@ -33,7 +33,7 @@ const TABS = (process.env.TABS || 'dashboard,notes,chat,graph,library,whiteboard
 const SCROLLER = {
   dashboard: '#tab-dashboard',
   reminders: '#tab-reminders',
-  notes: '#tab-notes .layout > main',
+  notes: '#tab-notes .layout > .tab-main',
   library: '#tab-library .library-view-section:not(.hidden)',
   timeline: '#timeline-scroll',
   documents: '#tab-documents .doc-list',
@@ -44,7 +44,7 @@ const SURFACE = {
   whiteboard: ['#whiteboard-container', '#wb-canvas-view'],
   timeline: ['#tab-timeline > *:not(.hidden)'],
   chat: ['#chat-main', '#chat-messages'],
-  notes: ['#tab-notes .layout > main'],
+  notes: ['#tab-notes .layout > .tab-main'],
   library: ['#tab-library .library-view-section:not(.hidden)'],
   documents: ['#tab-documents .doc-layout'],
 };

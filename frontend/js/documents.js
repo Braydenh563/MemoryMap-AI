@@ -1990,7 +1990,10 @@ function renderDocCrumbs(line) {
   //: the trail starting at the document is the shape this plan already chose;
   //: it also keeps the row the same height whether or not the caret is under
   //: a heading yet, which is what stops it from jumping as you write.
-  const crumbs = [{ text: ($("doc-title")?.value || "").trim() || "Untitled", line: 0 }];
+  //: Drawn as a "Top" mark, not the title: the title sits in the dock just
+  //: above, and the same words twice in 40px read as a stutter (the density
+  //: pass, 2026-10-03).
+  const crumbs = [{ text: "Top", line: 0 }];
   for (const index of docHeadingTrail(headings, line)) crumbs.push(headings[index]);
   const key = crumbs.map((crumb) => `${crumb.line}:${crumb.text}`).join("\u0000");
   if (key === docCrumbsKey) return;
@@ -2001,7 +2004,13 @@ function renderDocCrumbs(line) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "linklike doc-crumb";
-    button.textContent = crumb.text;
+    if (index) button.textContent = crumb.text;
+    else {
+      const icon = document.createElement("i");
+      icon.className = "ph ph-arrow-line-up ph-lead";
+      icon.setAttribute("aria-hidden", "true");
+      button.append(icon, "Top");
+    }
     button.title = index ? `Jump to \u201c${crumb.text}\u201d` : "Jump to the top of the document";
     //: The last crumb is where you are, and `aria-current="location"` is how
     //: the recipe index says a row says so: the weight it is drawn in hangs

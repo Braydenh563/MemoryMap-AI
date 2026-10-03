@@ -1584,13 +1584,13 @@ const GC_LABEL_SMALL_WORDS = new Set([
 ]);
 
 function gcLabelCut(text, limit) {
-  if (text.length <= limit) return text;
-  let cut = text.slice(0, limit - 1);
-  const space = cut.lastIndexOf(" ");
-  if (space >= limit * 0.55) cut = cut.slice(0, space);
-  const words = cut.split(" ");
+  //: The word cut is the app's own `clipText` (shell-reminders.js); this only
+  //: adds the small-word rule on top of it.
+  const clipped = clipText(text, limit);
+  if (!clipped.endsWith("…") || clipped === String(text).trim()) return clipped;
+  const words = clipped.slice(0, -1).split(" ");
   while (words.length > 2 && GC_LABEL_SMALL_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
-  return `${words.join(" ").replace(/[,:;.-]+$/, "")}…`;
+  return `${words.join(" ")}…`;
 }
 
 function gcLabelText(node, s = gcTab) {

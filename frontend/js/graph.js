@@ -3221,9 +3221,14 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   //: clamped. Skipping the fit leaves the camera where it is, which is what
   //: a fit that cannot be computed should do.
   if (!graphMinimapFinite(tx, ty, scale)) return;
+  //: The glide to the fitted view is travel, so a reader who asked for less
+  //: motion gets the framed map at once (INBOX 443 (1)): the fit lands twice
+  //: while a layout settles, and two half-second pans are the most movement
+  //: this tab makes on its own.
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   svg
     .transition()
-    .duration(500)
+    .duration(still ? 0 : 500)
     .call(
       zoomBehavior.transform,
       d3.zoomIdentity.translate(tx, ty).scale(scale)

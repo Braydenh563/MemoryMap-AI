@@ -885,13 +885,26 @@ def _rank_inner(
 
 _RECENCY_ASK = re.compile(
     r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
-    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*(?:[?.!]\s*)?$"
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)$"
     #: "What have I saved recently?" (INBOX 441): the whole question is the
     #: verb and the time word, nothing between them to search for. A topic
     #: in between ("written about golf recently") stays a search.
-    r"|^\s*what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)\s*(?:[?.!]\s*)?$",
+    r"|^what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)$",
     re.IGNORECASE,
 )
+
+
+def is_recency_ask(query: str) -> bool:
+    """Whether a question asks for the newest notes rather than a subject.
+
+    The trailing whitespace and closing marks are stripped here, in code,
+    so the pattern ends on a word and `$` with no quantifier before it:
+    any `\s*` (or `[\s?.!]*`) ahead of `$` backtracks over a run of tabs
+    on every start position `search` tries (CodeQL 443 and 445, the second
+    after a 300-character slice the analysis cannot see). Read on the first
+    300 characters: a recency question is short.
+    """
+    return bool(_RECENCY_ASK.search(query[:300].strip().rstrip("?.! \t\r\n")))
 
 
 def _retrieve(
@@ -918,10 +931,7 @@ def _retrieve(
     #: about entries; the question is about when. The newest notes, newest
     #: first, and the prompt now carries each note's dates, so the answer
     #: can say which is newest written and which was last edited.
-    #: Read on the first 300 characters only: a recency question is short,
-    #: and the bound keeps the match linear on a pasted wall of text
-    #: (CodeQL 443 flagged the old tail, two `\s*` around an optional mark).
-    if _RECENCY_ASK.search(query[:300]):
+    if is_recency_ask(query):
         return _without_private(recent_entries(session, limit=min(limit, RECENT_FALLBACK_LIMIT))), "recent"
     if asked.time_only:
         # Nothing but a date range: list it. Ranking by similarity here would

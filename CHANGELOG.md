@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The graph's note popup renders markdown and pictures again: choosing Source in Capture had switched every note box to raw markdown, including the popup, which has no Source button to switch back.
 - Selected text, Save as a note: says "Saving…" at once and "Saved as a note" with Open when done, and files in the background instead of waiting on the model.
 - Ask, Chat and the weekly digest know what a note's time words meant: "this Friday" in a note written two weeks ago reaches the model as "Friday 25 September 2026, 8 days ago", not as this week's Friday.
 - "What have I saved recently?" (and "what did I write lately") lists your newest notes instead of searching for the word "saved".

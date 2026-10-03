@@ -11,13 +11,16 @@ const { boot } = require('./lib.js');
 
   const ids = await page.evaluate(async () => {
     const post = (path, body) => apiJson(path, { method: 'POST', body: JSON.stringify(body) });
-    const note = await post('/entries', { content: 'The roof quote for the chip probe', category: 'General' });
-    await post('/entries', { content: 'Chased the roofer, see [[The roof quote for the chip probe]]', category: 'General' });
+    // A title of its own per run: the gate re-runs this against the same data
+    // dir, and a second run's wiki links would also count the first run's.
+    const title = 'The roof quote for the chip probe ' + Date.now().toString(36);
+    const note = await post('/entries', { content: title, category: 'General' });
+    await post('/entries', { content: `Chased the roofer, see [[${title}]]`, category: 'General' });
     const board = await post('/whiteboard/boards', { name: 'House jobs', type: 'board' });
     const map = await post('/whiteboard/boards', { name: 'The house', type: 'map' });
     await post('/whiteboard/nodes', { entry_id: note.id, board_id: board.id, x: 10, y: 20 });
     await post(`/whiteboard/boards/${map.id}/nodes`, { kind: 'note', parent_id: null, text: '', ref_id: note.id });
-    await post('/documents', { title: 'House plan', content: 'Waiting on [[The roof quote for the chip probe]].' });
+    await post('/documents', { title: 'House plan', content: `Waiting on [[${title}]].` });
     return { note: note.id, board: board.id, map: map.id };
   });
   await page.evaluate(() => switchTab('notes'));

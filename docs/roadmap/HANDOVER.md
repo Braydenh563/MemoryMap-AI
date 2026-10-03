@@ -306,7 +306,18 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-10-03, PR 162, branch `claude/notes-flow-rebuild`):** the note
+**Now (2026-10-03 evening, PR 162):** INBOX 433 to 447 drove the day: WCAG
+2.2, note making and filing with no AI (`lexical_filing`), kept tag
+suggestions, time words with their distance on every AI path, and the
+merged agents (dashboard, attachment cards, spinner recipe, category
+colours, measured optimisation, Settings IA and model cards, tag manager).
+Running: density and de-vibe (Opus), companion (Opus), OCR workspace and
+graph look (Sonnet). Next: INBOX 445 (Library pages, whiteboard and mind
+map audit), then 441 to 447's open parts. Gate with
+`grep -q "^failed:  none"` before every commit (a chain once committed past
+a red lint). `smoke.js` and `selmenu-items.js` are the quick feature checks.
+
+**Before that (2026-10-03 morning, PR 162, branch `claude/notes-flow-rebuild`):** the note
 flow (INBOX 432, in HISTORY "INBOX resolved, 2026-10-03") is fixed end to end
 and measured; a real model runs in the sandbox (`scratchpad/llama-dev.sh`,
 llama.cpp built from source, Qwen2.5-1.5B), so drive the popup agent and

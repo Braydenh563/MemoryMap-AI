@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -48,7 +48,11 @@ def list_tags(
 @router.post("/rename")
 def rename_tag(body: RenameBody, session: Session = Depends(get_session)) -> dict:
     """Rename a tag everywhere; renaming onto an existing tag merges them."""
-    return {"changed": manager.rename_tag(session, body.old, body.new.strip())}
+    try:
+        return {"changed": manager.rename_tag(session, body.old, body.new)}
+    except ValueError as exc:
+        # A blank new name: a plain 400, not a tag of "" on every note.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/delete")

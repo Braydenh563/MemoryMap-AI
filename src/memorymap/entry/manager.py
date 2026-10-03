@@ -44,6 +44,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.entry import timewords
+from memorymap.entry.tagnames import normalise_tags
 
 # Where entries land when no AI is available or the AI can't decide.
 UNCATEGORISED = "Uncategorised"
@@ -215,7 +216,9 @@ def create_entry(
     entry = Entry(
         content=content,
         category_id=category.id,
-        tags=json.dumps(tags or []),
+        # The schema normalises an HTTP write; this is every other writer
+        # (the AI tools, imports, passive capture), held to the same rule.
+        tags=json.dumps(normalise_tags(tags)),
         ai_confidence=ai_confidence,
     )
     session.add(entry)
@@ -547,7 +550,7 @@ def _update_entry_fields(
             entry.user_filed = True
             changed.append(f"category={category_name}")
     if tags is not None:
-        entry.tags = json.dumps(tags)
+        entry.tags = json.dumps(normalise_tags(tags))
         changed.append("tags")
     if "content" in changed:
         # The text is what carries the phrases, so a rewrite re-reads them.
@@ -1430,15 +1433,26 @@ def all_tags(session: Session) -> dict[str, int]:
 
 def rename_tag(session: Session, old: str, new: str) -> int:
     """Rename (or merge, if `new` already exists) a tag everywhere.
-    Returns how many entries changed. Commits."""
+    Returns how many entries changed. Commits.
+
+    `new` is held to the tag rule (`normalise_tags`): a blank name is refused
+    with ValueError rather than written, because "   " used to arrive here
+    intact and put an empty-string tag on every note that had `old`
+    (measured: four notes). The result on each note is normalised too, so
+    renaming onto a tag the note already has in another case ("Food" onto a
+    note with "food") folds into that one instead of leaving both.
+    """
+    cleaned = normalise_tags([new])
+    if not cleaned:
+        raise ValueError("A tag needs a name")
+    new = cleaned[0]
     changed = 0
     for entry in session.scalars(select(Entry)):
         tags = entry_tags(entry)
         if old in tags:
             merged = [t for t in tags if t != old]
-            if new not in merged:
-                merged.append(new)
-            entry.tags = json.dumps(merged)
+            merged.append(new)
+            entry.tags = json.dumps(normalise_tags(merged))
             changed += 1
     if changed:
         log_action(session, "edited", "tags", detail=f"rename {old} -> {new} ({changed})")

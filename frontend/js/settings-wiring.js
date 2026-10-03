@@ -2440,12 +2440,25 @@ function _isChatComposer(target) {
   return target && target.id === "chat-input";
 }
 
-document.addEventListener("drop", async (e) => {
-  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
-  e.preventDefault();
-  e.target.classList.remove("drag-over");
+//: **The note box under the editor, not only a bare textarea** (INBOX 434).
+//: Capture and the edit form are a live editor mounted over their textarea,
+//: so a paste or a drop lands on the editor's own element: measured, an
+//: image pasted into Capture and a file dropped on it both vanished. The
+//: listeners run in the capture phase, ahead of the editor's own handling.
+function fileDropBox(el) {
+  if (el?.tagName === "TEXTAREA") return el;
+  const host = el?.closest?.(".note-surface")?.noteSurfaceHost;
+  return host instanceof HTMLTextAreaElement ? host : null;
+}
 
-  if (_isChatComposer(e.target)) {
+document.addEventListener("drop", async (e) => {
+  const box = fileDropBox(e.target);
+  if (!box || (box !== e.target && !e.dataTransfer?.files.length)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  box.classList.remove("drag-over");
+
+  if (_isChatComposer(box)) {
     const files = Array.from(e.dataTransfer.files);
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (images.length) await attachImageFiles(images);
@@ -2458,11 +2471,12 @@ document.addEventListener("drop", async (e) => {
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("application/") || f.type.startsWith("text/") || f.type.startsWith("video/") || f.type.startsWith("audio/"));
   if (!files.length) return;
 
-  await handleFileUpload(e.target, files);
-});
+  await handleFileUpload(box, files);
+}, true);
 
 document.addEventListener("paste", async (e) => {
-  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
+  const box = fileDropBox(e.target);
+  if (!box) return;
   const items = (e.clipboardData || e.originalEvent.clipboardData).items;
   const files = [];
   for (const item of items) {
@@ -2473,8 +2487,9 @@ document.addEventListener("paste", async (e) => {
   if (!files.length) return;
   // Don't prevent default entirely unless we have files, otherwise normal paste breaks
   e.preventDefault();
+  e.stopPropagation();
 
-  if (_isChatComposer(e.target)) {
+  if (_isChatComposer(box)) {
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (images.length) await attachImageFiles(images);
     if (images.length < files.length) {
@@ -2483,8 +2498,8 @@ document.addEventListener("paste", async (e) => {
     return;
   }
 
-  await handleFileUpload(e.target, files);
-});
+  await handleFileUpload(box, files);
+}, true);
 
 //: Files waiting to become attachments on a note that does not exist yet.
 //:

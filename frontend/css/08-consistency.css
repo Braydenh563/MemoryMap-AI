@@ -1036,37 +1036,96 @@ summary > .ph-lead,
    fill: a disclosure that is invisible until you find it is the problem that
    round was solving, and taking the affordance away to make it quieter would
    just trade one report for the other. */
-/* The facts sit at their own height: as flex items of a stretching row the
-   plain "1 input" chip grew to its <details> neighbours' 24px beside their
-   20px summaries (badges.js, INBOX 437). */
-.skill-card-facts {
-  align-items: flex-start;
-}
-
-.skill-card-facts .chip.skill-fact,
-.skill-fact-expand > summary.skill-fact {
-  /* `.chip`'s own declared padding, restated rather than referenced: `.chip`
-     is 0,1,0 and loses to the summary rule at 0,2,1, so the value has to be
-     repeated at a weight that wins. It is the one literal in this file, and
-     it is a literal because it is a copy - inventing a token-shaped
-     near-equivalent here would move these chips off the persona reference
-     they are being matched to. */
-  padding: 0.1rem 0.6rem;
+/* **One row of facts, one height, one baseline** (INBOX 450). Every fact in
+   the row, the plain chips ("Reads only", "1 input") and the two toggles
+   ("3 steps", "4 tools"), is a `--skill-fact-h` box with its words centred,
+   so the row has one top, one bottom and one baseline. Before, a 20px chip
+   stood beside 22px `<details>` whose summaries sat 2px lower, and an open
+   one put its list inside the row and pushed the next fact under it. The
+   toggles are buttons now (library.js) and open a panel below the row.
+   One step of padding a side and the row's own gap, so the four facts a
+   card can carry fit a 311px card on one line. */
+.skill-card .skill-card-facts > :is(.chip, button).skill-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--skill-fact-h);
+  min-height: var(--skill-fact-h);
+  margin: 0;
+  padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
   background: var(--chip-bg);
   color: var(--muted);
   font-size: var(--text-xs);
   font-weight: 500;
-  height: auto;
-  min-height: 0;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
 }
 
-.skill-fact-expand > summary.skill-fact:hover,
-.skill-fact-expand > summary.skill-fact:focus-visible,
-.skill-fact-expand[open] > summary.skill-fact {
+.skill-card .skill-card-facts > :is(.chip, button).skill-fact > .ph-lead {
+  margin-inline-end: 0;
+}
+
+.skill-card .skill-card-facts > button.skill-fact-toggle {
+  cursor: pointer;
+}
+
+/* The caret says which way it will go, by turning, never by colour alone. */
+.skill-card .skill-fact-toggle > .ph-trail {
+  margin-inline-start: 0;
+  transition: rotate var(--motion-fast) var(--ease-out);
+}
+
+.skill-card .skill-fact-toggle[aria-expanded="true"] > .ph-trail {
+  rotate: 180deg;
+}
+
+.skill-card .skill-card-facts > button.skill-fact-toggle:is(:hover, :focus-visible, [aria-expanded="true"]) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
+}
+
+/* The facts row's hit target on a touch screen: the box keeps the row's
+   height and a transparent band above and below it takes the press, so the
+   row is not three 44px slabs beside two 24px chips. */
+@media (pointer: coarse) {
+  .skill-card .skill-card-facts > button.skill-fact-toggle {
+    position: relative;
+  }
+
+  .skill-card .skill-card-facts > button.skill-fact-toggle::after {
+    content: "";
+    position: absolute;
+    inset: calc((var(--skill-fact-h) - var(--target-min)) / 2) 0;
+  }
+}
+
+/* What a toggle opens: the card's full width, under the row. The panel adds
+   no box of its own; the list inside is the steps' bordered panel or the
+   tools' row of code chips. */
+.skill-fact-panel > .skill-fact-list {
+  margin: 0;
+}
+
+/* A tool is an identifier: a code chip, every one the same height on the
+   same line, starting at the card's content edge. */
+.skill-fact-list-tools {
+  align-items: center;
+  padding: 0;
+}
+
+.skill-fact-list-tools > li {
+  display: flex;
+}
+
+.skill-fact-list-tools .skill-tool-token {
+  display: inline-flex;
+  align-items: center;
+  height: var(--skill-fact-h);
+  padding-block: 0;
+  line-height: 1;
 }
 
 /* "Never run." / "Last run ..." is a sentence about the card, not a control
@@ -4329,8 +4388,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
        shouts. Only chips that are still chips; a fact that became text in
        the first pass stays text. */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(
-  .skill-card-facts .chip.skill-fact,
-  .skill-fact-expand > summary.skill-fact,
+  .skill-card-facts > .skill-fact,
   .library-image-tile .chip.library-image-usage-chip,
   .chip.contents-jump-chip
 ) {
@@ -9346,4 +9404,43 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
 #entry-document-adder :is(button, summary).ghost,
 .chat-tool-group > button.ghost:not([aria-pressed="true"]) {
   font-weight: 500;
+}
+
+/* --- the AI skills dock: one row where it fits, two on purpose where not ---
+   INBOX 450, the owner: "the top bar in the ai skills page overflows". The
+   dock is the Library's grammar (identity, find, arrange, actions), but the
+   search asked for a 14rem basis and the row broke wherever it ran out, so
+   at 1440 with a Windows scrollbar New skill and '?' fell to a line of their
+   own under a full one (90px; measured with SCROLLBARS=1). The search takes
+   the Notes dock's 8rem basis and the sort the Notes dock's 9rem cap, so
+   the whole row needs about 58rem: at that width or more it is one line.
+   Narrower (a 1100 window beside the logs sidebar is a 742px dock), the
+   break is chosen rather than suffered: the title, the search and the
+   actions keep the first line and the segment and the sort take the second,
+   the segment at the start and the sort at the end. Measured on the page's
+   own width (a container query), because the logs sidebar, not the window,
+   decides what it has. Above the phone band only: below 600 the zone is
+   already laid out (10-responsive.css). */
+#library-skills-section {
+  container: skills-page / inline-size;
+}
+
+.dock[data-dock-name="library-skills"] .dock-find {
+  flex: 1 1 8rem;
+}
+
+.dock[data-dock-name="library-skills"] .dock-arrange .select-shell {
+  max-width: 9rem;
+}
+
+@media (min-width: 600px) {
+  @container skills-page (max-width: 57.99rem) {
+    .dock[data-dock-name="library-skills"] > .dock-arrange {
+      order: 1;
+      flex: 1 1 100%;
+      justify-content: space-between;
+      border-left: 0;
+      padding-left: 0;
+    }
+  }
 }

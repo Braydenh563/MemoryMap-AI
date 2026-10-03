@@ -113,19 +113,6 @@ with its owner named in the entry.
      toggle in focus mode, the orchestrator; the question answered from the
      plans' open phases, with agents on the top items.
 
-450. **The owner, 2026-10-03 night, verbatim, with four screenshots of
-     Library, AI skills.** "these chips arent aligned and could you improve
-     that section of buttons and dropdowns in the skill cards on the ai
-     skills subtab??" (the "Reads only", "3 steps", "4 tools" row: the
-     first a plain chip, the other two disclosure buttons of another
-     height; opening one pushes the next onto its own line). "big vertical
-     gap between cards" (a short card stretched to its taller neighbour's
-     row). "the top bar in the ai skills page overflows and needs a better
-     modern and professional consistent ui redesign" (title, search, the
-     All/Yours/Built-in segment and the sort fill one line; New skill and
-     '?' wrap to a second). Placed: the UI consistency pass 2 agent (Opus),
-     which owns Library's AI skills page now.
-
 448. **The owner, 2026-10-03 night, verbatim.** "I feel like the help
      settings as well as the help info available to the agents needs more
      expansion for all the new features both large and small so people can

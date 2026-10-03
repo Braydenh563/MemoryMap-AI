@@ -787,22 +787,30 @@
    already given up the lift for the reason their own comment gives. */
 
 /* ======================= SKILLS TAB ======================= */
+/* Columns dealt by script in reading order (library.js `renderSkillCards`,
+   INBOX 450), each a stack on the grid's own gap, so a card is as tall as
+   its own content and no taller: a grid row stretched a short card's row to
+   its tallest neighbour and left the gap under it. */
 .skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  display: flex;
   gap: var(--space-5);
   margin-top: var(--space-6);
-  /* A grid row's cells stretch to match its tallest cell by default, 
-     reported (spacing/padding around the steps/tools dropdowns): opening
-     one card's "N steps" or "N tools" disclosure grew that card, which
-     then stretched every *other* card sharing its row into a mismatched
-     shape with a large dead gap between their own (unopened) content and
-     the Run button pinned to the bottom. Each card should size to its own
-     content, not its row-mates'. */
-  align-items: start;
+  /* Each column sizes to its own cards: opening one card's steps grows that
+     card and its column, never a neighbour (the reason the grid once had
+     `align-items: start`, which still left the row's height behind). */
+  align-items: flex-start;
+}
+
+.skills-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .skill-card {
+  --skill-fact-h: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -843,24 +851,12 @@
 .skill-card-facts {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
 .skill-fact {
   font-size: var(--text-xs);
-}
-
-/* `<details>` rather than a hand-rolled popup, same choice and same reasons
-   as .library-image-menu (00-tokens-shell.css): opens on click and on
-   Enter/Space, closes on Escape, exposed to a screen reader as a
-   disclosure, none of it hand-wired. */
-.skill-fact-expand > summary {
-  list-style: none; /* Firefox draws a marker triangle otherwise */
-  cursor: pointer;
-}
-
-.skill-fact-expand > summary::-webkit-details-marker {
-  display: none;
 }
 
 /* Reported directly: expanded, this read as plain unstyled paragraphs sat
@@ -1054,7 +1050,9 @@
      is the layout that made "Schedule" look like the main button. */
   justify-content: flex-start;
   gap: var(--space-3);
-  margin-top: var(--space-3);
+  /* The card's own gap above the hairline, nothing added (INBOX 450:
+     "Never run" stood 16px over the line and 24px over Run). */
+  margin-top: 0;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-light);
 }

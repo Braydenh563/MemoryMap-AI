@@ -238,8 +238,13 @@ function gcMaxDegree(s, nodes) {
   for (const node of nodes) if (!node.isGroup) max = Math.max(max, (s.adj.get(node.id) || { size: 0 }).size);
   return max;
 }
-const GC_MIN_RADIUS = 4;
-const GC_MAX_RADIUS = 18;
+//: **One size scale, [5, 15]** (INBOX 443 (1), "a few large nodes with glow
+//: halos"; was [4, 18]). The busiest note drew at 18 beside a leaf at 6.5 and
+//: an unlinked note at 4, which put the biggest dot at nine times the
+//: smallest one's area; now the biggest is five times it (15 against 6.5 and
+//: 5), still plainly the hub, no longer a blob that its own glow doubled.
+const GC_MIN_RADIUS = 5;
+const GC_MAX_RADIUS = 15;
 function gcRadius(node, degree, maxDegree = 0) {
   if (node.isGroup) return node.id === "root" ? 14 : 11;
   //: By the View menu's Size rule (`graphSizeRadius`, graph.js): connections
@@ -688,7 +693,11 @@ function gcNodeSprite(colour, radiusPx, hub) {
   //: bowling ball". Neither belongs in an interface of flat glass.
   //: Every node glows a little (the owner: "I didnt mind the soft glow");
   //: a hub's glow is wider and a shade stronger, which is how a hub is told.
-  const glow = hub ? Math.round(r * 1.2) + 4 : Math.round(r * 0.7) + 2;
+  //: **Calmer** (INBOX 443 (1)): the bloom reached 1.2 radii past a hub at
+  //: 24% and 0.7 past a leaf at 16%, so on 30 dots the glows overlapped into a
+  //: haze. Now 0.8 and 0.45 radii at 15% and 9%; a hub is still told by the
+  //: wider, stronger one, and the hover lights the halo back up.
+  const glow = hub ? Math.round(r * 0.8) + 3 : Math.round(r * 0.45) + 2;
   const ring = Math.max(1, Math.round(r * 0.18));
   const half = r + ring + glow + 1;
   const size = half * 2;
@@ -699,7 +708,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
   if (gcHexToRgb(colour)) {
     const bloom = c.createRadialGradient(half, half, r * 0.9, half, half, half);
     const rgb = gcHexToRgb(colour).join(", ");
-    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.24 : 0.16})`);
+    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.15 : 0.09})`);
     bloom.addColorStop(1, `rgba(${rgb}, 0)`);
     c.fillStyle = bloom;
     c.beginPath();
@@ -1562,10 +1571,36 @@ function gcLabelWidth(text, size) {
   return (width * size) / GC_LABEL_REF_PX;
 }
 
+//: **A name is cut at a word, and the pointed-at one is whole** (INBOX 443
+//: (1), "labels truncated with ..."): every label was the first 21 characters
+//: and an ellipsis, so "Fitness plan and the ..." and "Quarterly planning wi..."
+//: stopped mid-word or on a dangling "the". Now the cut falls on a space (when
+//: one is past the middle of the limit), a trailing small word or mark is
+//: dropped, and the note under the pointer or the keyboard is shown in full
+//: (up to GC_LABEL_FULL), which is where the full name is wanted.
+const GC_LABEL_FULL = 56;
+const GC_LABEL_SMALL_WORDS = new Set([
+  "a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "with", "from", "by", "is", "are", "how", "what", "why",
+]);
+
+function gcLabelCut(text, limit) {
+  if (text.length <= limit) return text;
+  let cut = text.slice(0, limit - 1);
+  const space = cut.lastIndexOf(" ");
+  if (space >= limit * 0.55) cut = cut.slice(0, space);
+  const words = cut.split(" ");
+  while (words.length > 2 && GC_LABEL_SMALL_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
+  return `${words.join(" ").replace(/[,:;.-]+$/, "")}…`;
+}
+
 function gcLabelText(node, s = gcTab) {
-  const limit = s.tree ? (s.tree.arc ? 12 : s.tree.radial ? 16 : 30) : 22;
+  //: A hub (four links or more) has the room of its own halo and is the name
+  //: the map is read by, so it keeps ten characters more than the crowd.
+  const hub = (s.adj.get(node.id) || { size: 0 }).size >= 4;
+  const limit = s.tree ? (s.tree.arc ? 12 : s.tree.radial ? 16 : 30) : hub ? 36 : 26;
   const text = node.preview || "";
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+  const pointed = !s.tree && (node.id === s.hoveredId || node.id === gcKeyboardId(s));
+  return gcLabelCut(text, pointed ? GC_LABEL_FULL : limit);
 }
 
 //: The trace overlay. Drawn from the same `graphTrace`/`graphTraceRoutes`

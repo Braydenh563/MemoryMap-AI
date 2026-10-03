@@ -107,7 +107,8 @@ function measure(page) {
       const a = boxes[i], b = boxes[j];
       if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) labelOver += 1;
     }
-    const truncated = boxes.filter((b) => /…$/.test(b.text || '')).length;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const truncated = boxes.filter((b) => byId.get(b.id) && byId.get(b.id).preview !== b.text).length;
     // crossings among link-kind edges that share no end
     const segs = s.edges.filter((e) => e.source && e.target && Number.isFinite(e.source.x) && e.kind !== 'similar').map((e) => [sx(e.source), sy(e.source), sx(e.target), sy(e.target), e.source.id, e.target.id]);
     const ccw = (ax, ay, bx, by, cx, cy) => (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
@@ -135,6 +136,8 @@ function measure(page) {
     // nearest-neighbour gap spread (edge to edge)
     const nn = nodes.map((a) => Math.min(...nodes.filter((b) => b !== a).map((b) => Math.hypot(sx(a) - sx(b), sy(a) - sy(b)) - R(a) - R(b))));
     const radii = nodes.map((n) => n.r);
+    const rel = s.edges.filter((e) => e.kind !== 'similar' && e.source && e.target);
+    const cohesion = rel.length ? rel.filter((e) => e.source.category === e.target.category).length / rel.length : 1;
     // linked dots only: spacing evenness of the cluster itself
     const nnLinked = linked.map((a) => Math.min(...linked.filter((b) => b !== a).map((b) => Math.hypot(sx(a) - sx(b), sy(a) - sy(b)) - R(a) - R(b))));
     // each isolated dot's gap to its nearest linked dot, over the cluster's median gap
@@ -158,7 +161,7 @@ function measure(page) {
       }
     }
     return {
-      purity: +(same / total).toFixed(2), labelOnDot, nnLinked, isoGap: +isoGap.toFixed(2),
+      purity: +(same / total).toFixed(2), cohesion: +cohesion.toFixed(2), labelOnDot, nnLinked, isoGap: +isoGap.toFixed(2),
       n: nodes.length, iso: iso.length, edges: segs.length, k: +k.toFixed(2),
       overlap, labelOver, labelsPlaced: boxes.length, truncated,
       crossings, fillArea: +fillArea.toFixed(3), fillAxis: +fillAxis.toFixed(3),
@@ -192,7 +195,7 @@ function measure(page) {
     await page.screenshot({ path: `${OUT}/graphlook-${theme}.png` });
     const row = {
       nodes: m.n, isolated: m.iso, links: m.edges, fitK: m.k,
-      purity: m.purity, labelOnDot: m.labelOnDot, dotOverlap: m.overlap, labelOverlap: m.labelOver, labelsPlaced: m.labelsPlaced, labelsTruncated: m.truncated,
+      purity: m.purity, cohesion: m.cohesion, labelOnDot: m.labelOnDot, dotOverlap: m.overlap, labelOverlap: m.labelOver, labelsPlaced: m.labelsPlaced, labelsTruncated: m.truncated,
       crossings: m.crossings, fillArea: m.fillArea, fillAxis: m.fillAxis,
       isoDistRatio: m.isoRatio, isoMaxRatio: m.isoMax,
       edgeMean: m.edgeMean, edgeCV: +e.cv.toFixed(2), nnCV: +nn.cv.toFixed(2), nnLinkedCV: +nl.cv.toFixed(2), isoGap: m.isoGap, radiusCV: +r.cv.toFixed(2),

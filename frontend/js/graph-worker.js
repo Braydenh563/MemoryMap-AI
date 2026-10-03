@@ -110,22 +110,24 @@ const DRAG_ALPHA = 0.3;
 //: wider than the node and pushes the layout into a lattice against its own
 //: world walls. Six is "labels do not sit on top of each other".
 //:
-//: **Twelve on a notebook of up to 150 notes, easing to six by 600** (INBOX 443
+//: **Twelve on a notebook of up to 100 notes, easing to six by 300** (INBOX 443
 //: (1), "uneven spacing"). Measured on the 60-note fixture
 //: (`scratchpad/ui-sweeps/graphlook.js`), the spread of each linked dot's gap
 //: to its nearest neighbour (coefficient of variation) fell with the pad:
 //: 0.44 at 6, 0.40 at 12, 0.32 at 16, while crossings rose 18, 21, 24. Twelve
 //: is the knee. The pad shrinks with the count because the collision field is
 //: what a big map spends its span on (the +24 above): six is the number that
-//: was measured for the 300 to 2,000 note fixtures.
+//: was measured for the 300 to 2,000 note fixtures (a 300-note fixture with
+//: links that ignore categories drew 8,188 crossings with the pad at nine and
+//: the rest of this pass in, against 6,414 before, so the easing now ends at 300).
 const COLLIDE_PAD_MAX = 12;
 const COLLIDE_PAD_MIN = 6;
 let COLLIDE_PAD = COLLIDE_PAD_MAX;
 function collidePadFor(count) {
   const n = Math.max(1, Number(count) || 1);
-  if (n <= 150) return COLLIDE_PAD_MAX;
-  if (n >= 600) return COLLIDE_PAD_MIN;
-  return COLLIDE_PAD_MAX - ((COLLIDE_PAD_MAX - COLLIDE_PAD_MIN) * Math.log2(n / 150)) / 2;
+  if (n <= 100) return COLLIDE_PAD_MAX;
+  if (n >= 300) return COLLIDE_PAD_MIN;
+  return COLLIDE_PAD_MAX - ((COLLIDE_PAD_MAX - COLLIDE_PAD_MIN) * Math.log2(n / 100)) / Math.log2(3);
 }
 
 //: **How far the map spreads, and why it must depend on how many notes there
@@ -264,13 +266,44 @@ function portraitPull() {
 //: nothing else to hold it), a linked one gently (its links still decide
 //: its neighbourhood). Off with "Group by category" in the View menu, which
 //: puts back the single centre exactly.
-//: **Categories gather harder** (INBOX 443 (1)). Measured on the same
-//: fixture: of each dot's four nearest dots, 56% shared its colour with the
-//: pull at 0.025 and anchors 22 per root of the count out; 89% at 0.05 and
-//: 28, with fewer crossings (22 to 18). The links still decide a
+//: **Categories gather harder, as far as the links say they are clusters**
+//: (INBOX 443 (1)). Measured on the 60-note fixture: of each dot's four nearest
+//: dots, 56% shared its colour with the pull at 0.025 and anchors 22 per root
+//: of the count out; 89% at 0.05 and 28, with fewer crossings (22 to 18). But
+//: on a 300-note fixture whose links ignore categories the same gather doubled
+//: the crossings (6,414 to 13,922): a pull toward a place the links do not go
+//: is a fight. So the gather scales with `cohesion`, the share of the notebook's
+//: links (not similarity lines) that join two notes of one category: the old
+//: 0.025 and 22 at or under GROUP_COHESION_LOW, the new 0.05 and 28 at or over
+//: GROUP_COHESION_HIGH, a straight line between. The links still decide a
 //: neighbourhood's inside; this only decides where it sits.
-const GROUP_RADIUS = 28;
-const GROUP_PULL = 0.05;
+const GROUP_PULL_BASE = 0.025;
+const GROUP_PULL_TOP = 0.05;
+const GROUP_RADIUS_BASE = 22;
+const GROUP_RADIUS_TOP = 28;
+const GROUP_COHESION_LOW = 0.2;
+const GROUP_COHESION_HIGH = 0.6;
+let cohesion = 1;
+
+function groupCohesion(edges) {
+  let joined = 0;
+  let same = 0;
+  for (const edge of edges) {
+    if (edge.kind === "similar") continue;
+    joined += 1;
+    if (nodes[indexById.get(edge.source)].group === nodes[indexById.get(edge.target)].group) same += 1;
+  }
+  return joined ? same / joined : 1;
+}
+
+function groupGather() {
+  const t = Math.max(0, Math.min(1, (cohesion - GROUP_COHESION_LOW) / (GROUP_COHESION_HIGH - GROUP_COHESION_LOW)));
+  return {
+    t,
+    pull: GROUP_PULL_BASE + (GROUP_PULL_TOP - GROUP_PULL_BASE) * t,
+    radius: GROUP_RADIUS_BASE + (GROUP_RADIUS_TOP - GROUP_RADIUS_BASE) * t,
+  };
+}
 const GROUP_STRETCH_MAX = 1.6;
 
 function groupOrder() {
@@ -291,8 +324,12 @@ function groupAnchors(width) {
   //: category places sit as wide as the room does; a portrait map keeps the
   //: round ring (its x pull already narrows the cloud, `portraitPull`).
   const aspect = world && Number.isFinite(world.aspect) && world.aspect > 0 ? Math.min(world.aspect, 1) : 1;
-  const stretchX = Math.min(GROUP_STRETCH_MAX, 1 / Math.sqrt(aspect));
-  const squashY = Math.max(1 / GROUP_STRETCH_MAX, Math.sqrt(aspect));
+  //: Only as far as the links back the categories (`groupGather`): on a
+  //: notebook whose links ignore them the round ring is kept, because
+  //: stretching it moved a 300-note fixture's crossings 20% for no gain in fill.
+  const t = groupGather().t;
+  const stretchX = 1 + (Math.min(GROUP_STRETCH_MAX, 1 / Math.sqrt(aspect)) - 1) * t;
+  const squashY = 1 + (Math.max(1 / GROUP_STRETCH_MAX, Math.sqrt(aspect)) - 1) * t;
   groups.forEach((group, i) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / groups.length;
     anchors.set(group, { x: Math.cos(angle) * radius * stretchX, y: Math.sin(angle) * radius * squashY });
@@ -326,6 +363,9 @@ const ORBIT_MIN_LINKED = 3;
 //: cluster). The bins are smoothed by their widest neighbour, so a seat clears
 //: a bump instead of cutting through it.
 const ORBIT_BINS = 36;
+//: Clear air between the cluster's outline and a seat's edge, past the seat's
+//: own radius and the collide pad.
+const ORBIT_CLEAR = 6;
 const orbit = { on: false, groupBy: true, tick: 0, items: [], reach: null, cx: 0, cy: 0 };
 
 function orbitReach(linked) {
@@ -380,6 +420,7 @@ function orbitUpdate() {
     if (node.degree === 0) lone.push(node);
     else linked.push(node);
   }
+  const loneWidest = lone.reduce((m, n) => Math.max(m, n.r || 8), 0);
   orbit.items = [];
   if (!lone.length || linked.length < ORBIT_MIN_LINKED) return;
   const next = orbitReach(linked);
@@ -388,7 +429,7 @@ function orbitUpdate() {
   orbit.cx = next.cx;
   orbit.cy = next.cy;
   const seat = 2 * (widest + COLLIDE_PAD) + 10;
-  const clear = widest + COLLIDE_PAD + 22;
+  const clear = loneWidest + COLLIDE_PAD + ORBIT_CLEAR;
   const order = orbit.groupBy ? groupOrder() : [];
   const slots = order.length > 1 ? order.length : 1;
   const slice = (2 * Math.PI) / slots;
@@ -439,9 +480,10 @@ function applyGrouping(params) {
   const cx = world ? (world.left + world.right) / 2 : 0;
   const cy = world ? (world.top + world.bottom) / 2 : 0;
   const spread = 0.5 + Number(params && params.spread != null ? params.spread : 50) / 50;
-  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * GROUP_RADIUS * spread) : new Map();
+  const gather = groupGather();
+  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * gather.radius * spread) : new Map();
   const at = (node) => anchors.get(node.group);
-  const pull = (node) => (at(node) ? (node.degree === 0 ? (orbit.on ? 0.02 : 0.12) : GROUP_PULL) : 0);
+  const pull = (node) => (at(node) ? (node.degree === 0 ? (orbit.on ? 0.02 : 0.12) : gather.pull) : 0);
   simulation
     .force("groupX")
     .x((node) => cx + (at(node) ? at(node).x : 0))
@@ -611,6 +653,7 @@ self.onmessage = (event) => {
         nodes[indexById.get(edge.source)].degree += 1;
         nodes[indexById.get(edge.target)].degree += 1;
       }
+      cohesion = groupCohesion(edges);
       const tuned = tuning(message.params);
       simulation = d3
         .forceSimulation(nodes)

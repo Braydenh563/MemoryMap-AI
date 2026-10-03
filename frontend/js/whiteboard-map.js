@@ -3317,9 +3317,40 @@ async function wbMapCreateNode({ parentId = null, kind = "topic", text = WB_MAP_
 //:, the same rule (and the same wording) the concept map's own branch gesture
 //: follows further up this file; a node that makes you go and find the way to
 //: name it is the difference between a mind-mapping tool and a diagram editor.
+//: **What is typed while a new topic is on its way is the topic's text**
+//: (INBOX 445). Tab and Enter make the topic on the server before its editor
+//: opens, 130ms at the median and 300ms at p95 on a sixty-topic map
+//: (wbmapaudit.js), and every key typed in that window went to the canvas as
+//: a shortcut: measured, "First branch" typed straight after Tab saved as "st
+//: branch", the F having turned on focus mode on the way. The keys are held
+//: here (`wbMapCatchTypeahead`, called first by the board's key handler, and
+//: `wbOwnsChord`, which keeps the app's own shortcuts off them) and written
+//: into the editor when it opens.
+let wbMapTypeahead = null;
+
+//: Two seconds at most: a create that failed somewhere this file did not
+//: foresee must not leave every key on the board swallowed.
+const WB_MAP_TYPEAHEAD_MS = 2000;
+
+function wbMapTypeaheadLive() {
+  if (wbMapTypeahead && performance.now() - wbMapTypeahead.at > WB_MAP_TYPEAHEAD_MS) wbMapTypeahead = null;
+  return Boolean(wbMapTypeahead);
+}
+
+function wbMapCatchTypeahead(e) {
+  if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return false;
+  e.preventDefault();
+  wbMapTypeahead.text += e.key;
+  return true;
+}
+
 async function wbMapAddChild(parentId, { order = null } = {}) {
+  wbMapTypeahead = { text: "", at: performance.now() };
   const created = await wbMapCreateNode({ parentId });
-  if (!created) return null;
+  if (!created) {
+    wbMapTypeahead = null;
+    return null;
+  }
   //: A place among the siblings, when the caller chose one (Enter puts the
   //: new topic right after the one it was pressed on, Shift+Enter right
   //: before). One more write, and only then: a plain Tab adds at the end,
@@ -3490,6 +3521,10 @@ function wbMapNavigate(id, key) {
   }
   if (!target || hidden.has(target.id)) return false;
   selectWbItem("object", target.id);
+  //: Said aloud as well as drawn (INBOX 445): which topic, and where it sits.
+  const kids = (index.childrenOf.get(target.id) || []).length;
+  const fold = target.data?.collapsed ? `, folded, ${kids} under it` : kids ? `, ${kids} under it` : "";
+  wbAnnounce(`${wbItemSpokenName("object", target)}${fold}`);
   wbApplySelectionHighlight();
   wbUpdateSelectionBar();
   // Bring it on screen, but **only when it is actually off screen**.
@@ -3515,6 +3550,7 @@ function wbMapNavigate(id, key) {
 //: and editing it here would either lie or silently rename the note.
 function wbMapEditNode(id) {
   const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node || node.kind !== "topic") wbMapTypeahead = null;
   if (!node) return;
   if (node.kind !== "topic") {
     toast("This node's name comes from the item it points at.");
@@ -3523,14 +3559,19 @@ function wbMapEditNode(id) {
   // The render that just ran replaced this element, so it is looked up fresh
   // rather than kept from before, the same trap `wbCreateTextBox` documents.
   requestAnimationFrame(() => {
+    const typed = wbMapTypeahead?.text || "";
+    wbMapTypeahead = null;
     const el = document.querySelector(`.wb-object[data-id="${id}"] .wb-map-text`);
     if (!el) return;
     wbBeginTextEdit(el);
     // Select the whole label so the first keystroke replaces it: a new node
     // arrives empty, and a renamed one is almost always being replaced rather
-    // than edited.
+    // than edited. Keys typed before the editor opened replace it instead,
+    // with the caret after them.
+    if (typed) el.textContent = typed;
     const range = document.createRange();
     range.selectNodeContents(el);
+    if (typed) range.collapse(false);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
@@ -4358,6 +4399,14 @@ function wbSyncToolSurfaces(isMap) {
   // is no longer on screen: a mode with no way out, which is the exact shape
   // of bug the hidden sections are meant to prevent.
   if (isMap && WB_BOARD_ONLY_TOOLS.has(window.currentTool)) wbSelectToolRef?.("select");
+  //: The canvas's own name says which keys it answers (INBOX 445): a map's
+  //: Tab adds a topic where a board's walks the items.
+  document.getElementById("whiteboard-container")?.setAttribute(
+    "aria-label",
+    isMap
+      ? "Mind map. Tab adds a topic under the selected one, Enter adds one beside it, and the arrow keys walk the tree"
+      : "Board. Tab moves through the items, the arrow keys move what is selected, and a letter picks a tool"
+  );
 }
 
 //: The map controls that act on the selection, kept honest about whether

@@ -5290,7 +5290,11 @@ Link to another note with [[its first few words]]."></textarea>
         <p class="muted">Start it again with one topic, then Tab for a branch off it.</p>
         <button type="button" id="wb-map-empty-add" class="ghost small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add the first topic</button>
       </div>
-    <div class="whiteboard-container" id="whiteboard-container" tabindex="-1">
+    <!-- A stop on the keyboard path since INBOX 445: Tab walks the items once
+         the canvas has focus (`wbWalkItems`), and `#wb-announcer` reads out
+         which one is selected. -->
+    <div id="wb-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
+    <div class="whiteboard-container" id="whiteboard-container" tabindex="0" role="application" aria-roledescription="canvas" aria-label="Board. Tab moves through the items, the arrow keys move what is selected, and a letter picks a tool">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">
         <!-- One arrowhead for every mind map branch (INBOX 177: "a clear

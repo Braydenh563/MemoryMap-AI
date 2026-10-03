@@ -577,7 +577,16 @@ function wbScheduleCull() {
   if (wbCullFrame) return;
   wbCullFrame = requestAnimationFrame(() => {
     wbCullFrame = 0;
-    wbCullNow();
+    //: **The canvas size from the gesture's cached box, never a fresh read**
+    //: (INBOX 445). A drag schedules this once a frame after it has written
+    //: every moved item's transform and every moved line's `d`, so reading
+    //: `clientWidth` here forced the browser to lay the board out again
+    //: inside the callback: measured on a 61-topic branch drag, 1.9ms a
+    //: frame, the largest single cost of the drag. `wbCanvasOriginRect` is
+    //: measured once per gesture, and the canvas cannot change size while a
+    //: pointer is down on it.
+    const rect = wbCanvasOriginRect();
+    wbCullNow(undefined, rect ? { width: rect.width, height: rect.height } : undefined);
   });
 }
 
@@ -2927,6 +2936,9 @@ function wbOwnsChord(e) {
   const typing = field && field.offsetParent !== null
     && (["INPUT", "TEXTAREA"].includes(field.tagName) || field.isContentEditable);
   if (typing) return false;
+  //: Every printable key while a new map topic is on its way: it is the
+  //: topic's text (`wbMapTypeahead`), not a shortcut.
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && wbMapTypeaheadLive()) return true;
   //: **Bare M is the highlighter on a board, never the "m" quick-nav chord**
   //: (INBOX 445, measured 2026-10-03). Both listeners answered the one key:
   //: the tool changed and the chord armed, so the chord guide's panel opened
@@ -3797,10 +3809,94 @@ function selectWbItem(kind, id) {
 function wbSelectAllItems() {
   wbSelectedItem = null;
   wbMultiSelection.clear();
-  for (const [kind, item] of wbLinkCandidates()) wbMultiSelection.add(wbMultiKey(kind, item.id));
+  for (const [kind, item] of wbSelectableItems()) wbMultiSelection.add(wbMultiKey(kind, item.id));
   wbApplySelectionHighlight();
   wbUpdateContextBar();
   wbUpdateSelectionBar();
+}
+
+//: Everything a selection can hold: what a link can join, plus pictures.
+//: Select all read `wbLinkCandidates`, which leaves an image object out
+//: because a link cannot land on one, so Ctrl+A then Delete left every
+//: picture on the board (INBOX 445).
+function wbSelectableItems() {
+  const out = wbLinkCandidates();
+  for (const o of wbState.objects || []) if (o.kind === "image") out.push(["object", o]);
+  return out;
+}
+
+//: **Tab walks the board's items, and the board says which one** (INBOX
+//: 445). Nothing on a board could be reached from the keyboard: an item was
+//: selected by pointing at it or not at all, and a shape is an SVG path no
+//: screen reader names. With the canvas focused, Tab and Shift+Tab select
+//: the next or previous item in reading order (rows top to bottom, then left
+//: to right), bring it on screen when it is off it, and announce it in
+//: `#wb-announcer`; past the last item Tab leaves the canvas as it would any
+//: other control, so the walk is never a trap (WCAG 2.1.2). A map keeps its
+//: own keys: Tab adds a topic there, and the arrows walk the tree.
+const WB_SHAPE_NAMES = {
+  rect: "Rectangle", circle: "Ellipse", triangle: "Triangle", diamond: "Diamond",
+  line: "Line", arrow: "Arrow", draw: "Pen stroke", highlighter: "Highlighter stroke",
+};
+
+function wbItemSpokenName(kind, item) {
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    return WB_SHAPE_NAMES[parsed?.shape] || "Drawing";
+  }
+  if (kind === "node") {
+    const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
+    const title = entry ? String(entry.content || "").replace(/^#+\s*/, "").trim().split("\n")[0].slice(0, 60) : "";
+    return title ? `Note card: ${title}` : "Note card";
+  }
+  if (item.kind === "image") return "Picture";
+  const isTopic = WB_MAP_KINDS.has(item.kind);
+  const raw = isTopic ? wbMapLabel(item) : item.data?.content;
+  const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
+  const what = isTopic ? "Topic" : item.data?.bg ? "Sticky note" : "Text box";
+  return text ? `${what}: ${text}` : what;
+}
+
+function wbAnnounce(text) {
+  const el = document.getElementById("wb-announcer");
+  if (!el) return;
+  // Emptied first, so the same words twice (two stickies saying "Idea") are
+  // still read twice.
+  el.textContent = "";
+  requestAnimationFrame(() => {
+    el.textContent = text;
+  });
+}
+
+function wbWalkItems(dir) {
+  const rowOf = (box) => Math.round(box.minY / 60);
+  const items = wbSelectableItems()
+    .map(([kind, item]) => ({ kind, item, box: wbItemBBox(kind, item) }))
+    .filter((e) => e.box)
+    .sort((a, b) => rowOf(a.box) - rowOf(b.box) || a.box.minX - b.box.minX || a.box.minY - b.box.minY);
+  if (!items.length) return false;
+  const at = wbSelectedItem
+    ? items.findIndex((e) => e.kind === wbSelectedItem.kind && e.item.id === wbSelectedItem.id)
+    : -1;
+  const next = at === -1 ? (dir > 0 ? 0 : items.length - 1) : at + dir;
+  if (next < 0 || next >= items.length) return false;
+  const { kind, item, box } = items[next];
+  wbMultiSelection.clear();
+  selectWbItem(kind, item.id);
+  const container = document.getElementById("whiteboard-container");
+  if (container) {
+    const t = d3.zoomTransform(container);
+    const view = container.getBoundingClientRect();
+    const left = box.minX * t.k + t.x;
+    const top = box.minY * t.k + t.y;
+    const right = box.maxX * t.k + t.x;
+    const bottom = box.maxY * t.k + t.y;
+    if (left < 0 || top < 0 || right > view.width || bottom > view.height) {
+      wbCenterOn(box, { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches });
+    }
+  }
+  wbAnnounce(`${wbItemSpokenName(kind, item)}, ${next + 1} of ${items.length}, selected`);
+  return true;
 }
 
 function clearWbSelection() {
@@ -3977,8 +4073,11 @@ function wbUpdateSelectionBar() {
   // A multi-selection gets the bar above the whole group, that is where
   // Arrange's align/distribute and Export "just the selection" matter.
   let box = null;
+  const moving = multi ? wbBulkBarBounds : null;
   if (multi) {
-    const b = wbSelectionBounds();
+    const b = moving
+      ? { ...moving.box, minX: moving.box.minX + moving.dx, minY: moving.box.minY + moving.dy }
+      : wbSelectionBounds();
     if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
   } else {
     const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
@@ -3989,8 +4088,13 @@ function wbUpdateSelectionBar() {
     return;
   }
   const t = d3.zoomTransform(container);
-  const rect = container.getBoundingClientRect();
-  const hostRect = host.getBoundingClientRect();
+  //: During a group drag nothing measured below can change: the drag moves
+  //: the items, not the canvas, the host, the top bar or the bar itself. So
+  //: the first frame measures and the rest reuse it, and no frame of the
+  //: drag forces a layout here (`wbBulkBarBounds`, INBOX 445).
+  const held = moving?.origin?.barMeasure || null;
+  const rect = held ? held.rect : container.getBoundingClientRect();
+  const hostRect = held ? held.hostRect : host.getBoundingClientRect();
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
   const top = rect.top - hostRect.top + t.applyY(box.minY);
   const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
@@ -4008,7 +4112,8 @@ function wbUpdateSelectionBar() {
   if (!mapNode) wbMapStripNodeId = null;
   if (mapNode) wbSyncMapStrip(mapNode);
   active.classList.remove("hidden");
-  const w = active.offsetWidth, h = active.offsetHeight;
+  const w = held ? held.w : active.offsetWidth;
+  const h = held ? held.h : active.offsetHeight;
   // 44px above, not 10: the rotation handle sits 28px above a card or
   // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
   // the item covered it, reported: "I can't rotate objects because that
@@ -4018,7 +4123,8 @@ function wbUpdateSelectionBar() {
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
-  const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
+  const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
+  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
@@ -4331,8 +4437,24 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       });
     }
   }
+  //: The selection's box as the gesture found it, for the bar above it to
+  //: ride along on (`wbBulkBarBounds`).
+  if (keys === wbMultiSelection && wbMultiSelection.size > 1) origin.boundsAtStart = wbSelectionBounds();
   return origin;
 }
+
+//: **A dragged selection's bar moves by the drag, it is not re-measured**
+//: (INBOX 445). The bar over a multi-selection is placed from the union of
+//: every member's box, and `wbItemBBox` reads a text box's or card's rendered
+//: size, so each frame of a group drag measured all of them straight after
+//: the drag had written their transforms: a forced layout per frame, two
+//: per move counted, and on an 80-item drag 165ms of 40 moves in
+//: `wbUpdateSelectionBar` alone. The members move rigidly, so the box at the
+//: start plus the drag's delta is the same box. Set by `wbApplyBulkMove`,
+//: dropped when the pointer comes up, after which the bar measures again.
+let wbBulkBarBounds = null;
+window.addEventListener("pointerup", () => { wbBulkBarBounds = null; }, true);
+window.addEventListener("pointercancel", () => { wbBulkBarBounds = null; }, true);
 
 //: **The selection chrome travels with the drag** (INBOX 262: "if I drag the
 //: selected group, the group selection box doesnt move with the selected
@@ -4361,8 +4483,13 @@ function wbTranslateSelectionChrome(dx, dy, origin = null) {
   //: handle groups nothing re-renders mid-drag. The `isConnected` test is
   //: the same safety `wbBulkMoveElement` uses: a render that replaced one
   //: sends the next frame back to the query.
+  //: **"Found none" is an answer too** (INBOX 445). The test was `!groups ||
+  //: !groups.length`, so a drag with no handle groups at all, which is every
+  //: map topic and every card drag, cached an empty list and then read it as
+  //: "not looked yet" and walked the document again on every move: measured
+  //: on a 61-topic branch drag, 47ms of `querySelectorAll` in 40 moves.
   let groups = origin?.chromeGroups;
-  if (!groups || !groups.length || groups.some((group) => !group.isConnected)) {
+  if (!groups || groups.some((group) => !group.isConnected)) {
     groups = [...document.querySelectorAll(
       "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
     )];
@@ -4389,6 +4516,7 @@ function wbBulkMoveElement(entry, selector) {
 }
 
 function wbApplyBulkMove(origin, dx, dy) {
+  wbBulkBarBounds = origin.boundsAtStart ? { box: origin.boundsAtStart, dx, dy, origin } : null;
   wbTranslateSelectionChrome(dx, dy, origin);
   //: A branch carried into view from off screen is drawn on the next frame.
   wbScheduleCull();
@@ -4396,8 +4524,15 @@ function wbApplyBulkMove(origin, dx, dy) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
       const el = wbBulkMoveElement(entry, `.sketch-group[data-id="${entry.id}"]`);
-      el?.querySelector(".sketch-path")?.setAttribute("d", newD);
-      el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      //: The group's two paths, found once per gesture like the group itself
+      //: (INBOX 445): two queries per shape per frame were 37ms of a 40-move
+      //: drag of 80 items, 40 of them shapes.
+      if (el && (!entry.pathEl || !entry.pathEl.isConnected)) {
+        entry.pathEl = el.querySelector(".sketch-path");
+        entry.hitEl = el.querySelector(".sketch-hitbox");
+      }
+      entry.pathEl?.setAttribute("d", newD);
+      entry.hitEl?.setAttribute("d", newD);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
@@ -9077,10 +9212,11 @@ async function initWhiteboard() {
   // focus, but a canvas is not focusable by default, so clicking it left
   // focus wherever it happened to be, on whatever control was touched last,
   // or on the lock screen's own password field for a freshly unlocked app.
-  // `tabindex="-1"` (index.html) plus this makes the board take focus the way
+  // A `tabindex` (index.html) plus this makes the board take focus the way
   // every other surface does, so the tool keys work after clicking the thing
-  // they act on. Out of the tab order deliberately: it is a canvas, not a
-  // stop on the keyboard path through the page.
+  // they act on. It was out of the tab order while Tab on it did nothing; it
+  // is a stop since INBOX 445, because Tab on it now walks the items
+  // (`wbWalkItems`), which is the only way to a shape without a pointer.
   container.node()?.addEventListener("pointerdown", (e) => {
     // Any editable body, not the two class names that were editable when
     // this was written: pulling focus to the canvas out from under a map
@@ -9122,6 +9258,7 @@ async function initWhiteboard() {
       && (tag === "input" || tag === "textarea" || active.isContentEditable)
       && active.offsetParent !== null;
     if (typing) return;
+    if (wbMapCatchTypeahead(e)) return;
     // **Shift+N for the overview, because bare N is the sticky note**
     // (WHITEBOARD_PLAN.md decision 8). This took the bare letter first,
     // "matching the single-letter tool keys this board already uses", and the
@@ -9195,6 +9332,15 @@ async function initWhiteboard() {
     // subtree, undoably" and the arrows mean "walk the tree", both of which
     // the generic handlers further down would otherwise have already claimed.
     // Every branch returns, so nothing here falls through to them.
+    //: Tab on a focused board canvas walks its items (`wbWalkItems`); off the
+    //: end it is left to the browser, so focus moves on.
+    if (
+      e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && !wbIsMap()
+      && document.activeElement?.id === "whiteboard-container"
+    ) {
+      if (wbWalkItems(e.shiftKey ? -1 : 1)) e.preventDefault();
+      return;
+    }
     const mapNode = wbSelectedMapNode();
     if (mapNode) {
       if (e.key === "Tab") {

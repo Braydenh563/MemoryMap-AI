@@ -62,6 +62,9 @@ async function scan(page, label) {
       return { key: el.id || (el.getAttribute("aria-label") || el.textContent || el.className).trim().slice(0, 40), ring };
     });
     if (!r) continue;
+    // The canvas keeps focus while Tab walks its items (wbWalkItems), so a
+    // repeat of it is the walk, not the end of the chrome.
+    if (r.key === "whiteboard-container" && seen.has(r.key)) continue;
     if (seen.has(r.key)) break;
     seen.add(r.key);
     stops += 1;

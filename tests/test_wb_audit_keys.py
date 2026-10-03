@@ -48,7 +48,7 @@ def test_board_owns_bare_m_but_a_map_does_not():
 def test_the_m_chord_steps_aside_for_the_board():
     arm = WIRING[WIRING.index('singleKeys && e.key === "m"') - 200 :]
     arm = arm[: arm.index("showTabJumpHint()")]
-    assert "wbOwnsChord(e)" in arm
+    assert "!boardOwns" in arm and "const boardOwns = typeof wbOwnsChord" in WIRING
 
 
 def test_a_map_never_picks_a_board_only_tool_by_key():
@@ -123,3 +123,37 @@ def test_the_fill_switch_means_filled_when_on():
     assert 'id="wb-fill-none"' not in HTML
     assert 'id="wb-fill-on"' in HTML
     assert "window.currentFillNone = !e.target.checked" in WB
+
+
+def test_a_board_canvas_is_a_tab_stop_whose_tab_walks_the_items():
+    tag = HTML[HTML.index('id="whiteboard-container"') - 60 :][:400]
+    assert 'tabindex="0"' in tag and 'role="application"' in tag
+    assert 'id="wb-announcer"' in HTML
+    assert "wbWalkItems(e.shiftKey ? -1 : 1)" in WB
+    walk = _function_body(WB, "wbWalkItems")
+    # Past the end the key is left to the browser: no keyboard trap.
+    assert "if (next < 0 || next >= items.length) return false;" in walk
+    assert "wbAnnounce(" in walk
+    # Select all takes pictures too.
+    assert "wbSelectableItems()" in _function_body(WB, "wbSelectAllItems")
+
+
+def test_keys_typed_before_a_new_topics_editor_opens_are_kept():
+    assert "wbMapCatchTypeahead(e)" in WB
+    owns = _function_body(WB, "wbOwnsChord")
+    assert owns.index("wbMapTypeaheadLive()") < owns.index('=== "m"')
+    assert "boardOwns" in WIRING
+    edit = _function_body(MAP, "wbMapEditNode")
+    assert "wbMapTypeahead = null" in edit and "el.textContent = typed" in edit
+
+
+def test_a_drag_measures_nothing_it_does_not_have_to():
+    # The cull reads the gesture's cached canvas box, not clientWidth.
+    assert "wbCullNow(undefined, rect ?" in _function_body(WB, "wbScheduleCull")
+    # "Found none" is cached too.
+    chrome = _function_body(WB, "wbTranslateSelectionChrome")
+    assert "if (!groups || groups.some(" in chrome
+    # A group drag's bar rides on the box at the start plus the delta.
+    bar = _function_body(WB, "wbUpdateSelectionBar")
+    assert "wbBulkBarBounds" in bar and "barMeasure" in bar
+    assert "entry.pathEl" in _function_body(WB, "wbApplyBulkMove")

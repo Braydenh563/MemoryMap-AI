@@ -931,6 +931,17 @@ summary > .ph-lead,
   margin-inline-end: 0;
 }
 
+/* A chip's leading icon, dropped onto its words (wrapup-0927 10c(2), the
+   "Ask again" chips). A flex child is blockified, so `.ph`'s
+   `vertical-align: -0.12em` does nothing here, and a Phosphor glyph drawn at
+   `line-height: 1` sits high in its own box: measured, its ink centre 1.5px
+   above the chip's centre while the words' ink centre was within 0.66px of
+   it. 0.1em of the icon's 13.8px is 1.38px, which brings the two within
+   half a pixel of each other. */
+.chip > .ph-lead {
+  translate: 0 0.1em;
+}
+
 /* A summary in the settings modal was the last family still on `--space-3`
    between its icon and its label: 12 of the 243 gaps measured 8px against
    the 217 on `--space-2`. It is set at (0,1,1) in 01-forms-settings.css, so
@@ -8772,6 +8783,17 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   margin-inline-start: auto;
 }
 
+/* ...and on a today that has rows, its count stays in the column every other
+   day's count draws at the end, with the button just before it (wrapup-0927
+   8(b)). Both kept `margin-left: auto`, so the free space split between them
+   and the count floated mid-head: measured 729px short of the end at 1440.
+   `order`, not a DOM move: the count is not a control, so the reading order
+   (day, count, action) is unchanged. */
+.timeline-bucket-head:has(> .timeline-today-action) > .timeline-bucket-count {
+  order: 1;
+  margin-left: 0;
+}
+
 /* Manage templates sits at the start of the picker's action row, apart
    from Cancel and Use this template. */
 #note-template-manage {
@@ -8891,6 +8913,17 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
    flush over the metadata row (the owner at release). */
 #entry-list:not(.is-rows) > li > .entry-more {
   margin-block: var(--space-2) var(--space-3);
+}
+
+/* One gap above a card's metadata row, whatever sits above it (wrapup-0927
+   10(d), "a small gap between a note card's text and its metadata row").
+   Measured in card view: 6.4px under the text, 8px under "Show more" (the
+   rule above), 6.4px under a file row. The owner's ask at the same release
+   was for room around "Show more", so its `--space-3` is the gap and the
+   other two take it; the margin collapses with whatever the row above
+   keeps, so this is the gap rather than an addition to it. */
+#entry-list:not(.is-rows) > li > .entry-meta {
+  margin-top: var(--space-3);
 }
 
 /* Improve writing's two actions at one height (the owner at release: the

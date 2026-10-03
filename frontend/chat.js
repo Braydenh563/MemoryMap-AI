@@ -1129,6 +1129,9 @@ function toggleWebPanel(force) {
     } else if (!$("web-results").childElementCount) {
       status.textContent = "";
     }
+    //: The "..." is drawn with the head, from what was last known; the
+    //: status call below (seconds while Docker answers) only updates it.
+    renderWebPanelMenu(webEngineInfo);
     refreshWebSearxngStrip();
     renderWebSearchHistory();
     //: The page you were reading is still there when the panel comes back.

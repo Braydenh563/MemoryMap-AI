@@ -735,11 +735,7 @@ function wireEscapedActionMenu(wrap) {
     //: and caps `max-height` to the room below its own final `top`. Read that
     //: function's comment before moving anything between the two: they differ
     //: because one owns the menu's position and the other does not.
-    //: Retested directly on the real View menu, board and mind map, at
-    //: 1440 and 820 wide, 900/700/640 tall: it already holds up (see INBOX
-    //: 105's own retest note for the numbers), which is why this fix stayed
-    //: scoped to the surfaces that actually call it rather than being
-    //: ported into a second implementation that was not shown to need it.
+    //: (INBOX 105 has the retest numbers for the View menu.)
     //: Whichever rule caps it, an inline `max-height: none` for the
     //: duration of the measurement is what makes `box.height` the height this
     //: menu actually wants, so the choice below is made on the real number.
@@ -753,6 +749,11 @@ function wireEscapedActionMenu(wrap) {
     //: `placeEscapedMenu`, which is the site a reader is more likely to reach
     //: first.
     menu.style.maxHeight = "none";
+    //: A select's list is at least its trigger's width (escaped, CSS's 100%
+    //: would be the viewport's), capped at the window.
+    if (menu.classList.contains("select-menu")) {
+      menu.style.minWidth = `${Math.min(anchor.width, innerWidth - 2 * margin)}px`;
+    }
     const box = menu.getBoundingClientRect();
     let left = anchor.right - box.width;
     let top = anchor.bottom + 4;

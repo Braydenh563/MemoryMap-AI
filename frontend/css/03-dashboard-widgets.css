@@ -2636,10 +2636,12 @@ header#top-bar select,
   gap: var(--space-3);
 }
 
+/* No reserved width: it follows the steppers now (wrapup-0927 8(c)), so its
+   length moves nothing anyone is pressing, and 15rem of it was the gap the
+   steppers floated across when they followed it. */
 #reminder-due-readout {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  min-width: 15rem;
 }
 
 #reminder-due-readout.error {

@@ -1780,8 +1780,8 @@ button.ghost.danger {
 #palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 24, 0.45);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1851,12 +1851,12 @@ button.ghost.danger {
 #sketch-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 24, 0.45);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem;
+  padding: 1.5rem;
   /* Matching `.modal-overlay`'s own tier, not a fixed number chosen here, 
      see that rule's comment (01-forms-settings.css) for why it moved from
      55 to 1010 (clearing #agent-monitor's z-index: 1000), and why

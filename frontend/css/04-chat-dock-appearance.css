@@ -1851,7 +1851,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   max-width: calc(100% - 1rem);
   /* Named so the actions footer below can reach the panel's own edges
      without a second copy of this number going stale against it. */
-  --graph-popup-pad: 0.8rem;
+  --graph-popup-pad: var(--panel-pad);
   padding: var(--graph-popup-pad);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);

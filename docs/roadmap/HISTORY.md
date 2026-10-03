@@ -36695,3 +36695,9 @@ width, 47% of the column at 1440.
      16px labels (were 13.6), a 4px well (was 2.4), the bar 54px (was 48);
      measured at 1440, 1280 and 1100, no overflow, no wrap.
 
+456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
+     windows and panels are the same design and style." Placed: every
+     dialog, sheet, popover and side panel inventoried and measured against
+     DESIGN.md's dialog and panel recipes (radius, padding, head, close
+     control, shadow, scrim, width steps), then brought onto them: an agent.
+

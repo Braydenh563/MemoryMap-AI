@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- One "working" mark across the app: the same ring, 1.15 times the text beside it, 2px stroke, turning once every 0.9s in the accent's text colour, on a note's "Atlas is reading…" and "Filing…", the agent palette and its steps, the activity panel, the tension review, a long job's toast, the Library's readings and every button that waits (which now also says so with the ring and cannot be pressed twice). Before, the same state was a ring, a spinning icon at two speeds, a pulsing word that never moved, the chat's reply dots, or a still icon. With reduced motion the ring breathes instead of turning, and "…" is always the one-character ellipsis.
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

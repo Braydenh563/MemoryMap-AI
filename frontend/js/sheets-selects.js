@@ -1559,11 +1559,16 @@ function sortConversations(conversations, mode) {
 }
 
 async function loadConversationList() {
+  //: Placeholders while the list is on its way, and no "no saved chats"
+  //: until the answer says so (INBOX 435 (6), skeletons.js).
+  const list = $("conversation-list");
+  showSkeletons(list, 4, "li");
+  if (!list.children.length || list.querySelector(".skeleton")) $("conv-empty")?.classList.add("hidden");
   const conversations = sortConversations(
     await apiJson("/conversations").catch(() => []),
     $("chat-sidebar-sort")?.value || "recent"
   ).slice(0, RECENT_CHATS_SHOWN);
-  const list = $("conversation-list");
+  clearSkeletons(list);
   list.replaceChildren();
   const empty = $("conv-empty");
   empty.classList.toggle("hidden", conversations.length > 0);

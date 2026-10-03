@@ -718,6 +718,17 @@ function setDocView(mode) {
 }
 
 async function loadDocuments(selectId = null) {
+  //: Placeholders while it loads (INBOX 435 (6)); cleared on either answer.
+  const sideList = document.getElementById("doc-list");
+  showSkeletons(sideList, 4, "li");
+  try {
+    return await loadDocumentsNow(selectId);
+  } finally {
+    clearSkeletons(sideList);
+  }
+}
+
+async function loadDocumentsNow(selectId) {
   // Before the list, not after: the file-type table decides how the editor
   // behaves, and openDocument below reads it. Awaited rather than fired off,
   // so the picker is never briefly empty on the first visit to this tab.

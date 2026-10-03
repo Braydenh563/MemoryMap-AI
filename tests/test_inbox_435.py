@@ -77,3 +77,23 @@ def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
     assert "if (tagSuggestOpening === input) return;" in suggest
     css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ".tag-suggest {" in css
+
+
+def test_lazily_loaded_lists_show_placeholders_while_they_load():
+    # skeletons.js with every request held 1.5s: 1 of 11 views showed
+    # placeholders before (the Timeline); 9 after, the other two answered.
+    code = app_js_text() + "\n".join(
+        (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("documents.js", "library.js", "whiteboard.js")
+    )
+    for container, fetch in (
+        ('showSkeletons(list, 4, "li");\n  if (!list.children.length', '"/conversations"'),
+        ('showSkeletons(sideList, 4, "li");', "loadDocumentsNow(selectId)"),
+        ("showSkeletons(grid, 4);\n  const boards", '"/whiteboard/boards"'),
+        ('showSkeletons($("reminder-groups"), 3);', '"/reminders"'),
+        ("showSkeletons(grid, 6);\n  const images", '"/media"'),
+        ("showSkeletons(container, 3);", '"/audit?limit=100&entity_type=skill"'),
+        ("showSkeletons(outline, 4);", "await loadEntries();\n  clearSkeletons(outline);"),
+    ):
+        assert container in code, container
+        assert fetch in code, fetch
+    assert code.count("clearSkeletons(") >= 9

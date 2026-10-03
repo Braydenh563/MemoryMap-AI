@@ -816,7 +816,9 @@ async function loadReminders() {
   //: A sentinel, not `[]`: "you have no reminders" and "the reminders could
   //: not be read" are different facts and only one of them is about the
   //: person. See `surfaceFailed`.
+  showSkeletons($("reminder-groups"), 3);
   const all = await apiPagedList("/reminders", 200).catch(() => null);
+  clearSkeletons($("reminder-groups"));
   if (!all) {
     surfaceFailed($("reminders-empty"), "reminders", loadReminders);
     return;

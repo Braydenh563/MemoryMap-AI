@@ -14350,7 +14350,9 @@ async function renderLibraryBoardsGallery() {
   // And to the end, for the same reason `refreshBoardList` reads it that way:
   // the chips below count what came back, so a first page would make the
   // counts a count of the first page.
+  showSkeletons(grid, 4);
   const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
+  clearSkeletons(grid);
   if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
   // doesn't come back from the server at all.

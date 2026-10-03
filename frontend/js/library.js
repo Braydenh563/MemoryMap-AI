@@ -2228,6 +2228,7 @@ function renderSkillCards(query = "") {
 async function renderSkillsDashboard() {
   const container = document.getElementById("skills-dashboard-list");
   if (!container) return;
+  showSkeletons(container, 3);
 
   const [skills, prefs, runs] = await Promise.all([
     loadSkills(),
@@ -2235,6 +2236,7 @@ async function renderSkillsDashboard() {
     apiJson("/audit?limit=100&entity_type=skill", { silent: true }).catch(() => []),
   ]);
   const lastRuns = skillLastRunIndex(runs);
+  clearSkeletons(container);
   container.replaceChildren();
 
   // --- background workers, in this app's own controls ------------------------
@@ -2657,6 +2659,7 @@ async function renderLibraryDocuments() {
     .toLowerCase();
 
   let docs = [];
+  showSkeletons(list, 4, "li");
   try {
     // `q` searches title *and* content server-side (routes_documents.py): 
     // client-side filtering alone could only ever match a title, since a
@@ -2676,6 +2679,8 @@ async function renderLibraryDocuments() {
   } catch (error) {
     toast(error.message || "Could not load documents.", true);
     return;
+  } finally {
+    clearSkeletons(list);
   }
 
   //: The property filter's options come from what the *search* left, so the
@@ -6419,6 +6424,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: 117): the grid's own search filters `libraryImagesCache` in the
   //: browser, so a picture missing from that cache is a picture the search
   //: box can never find, and the tile count would quietly stop at one page.
+  showSkeletons(grid, 6);
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
@@ -6435,6 +6441,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
+  clearSkeletons(grid);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
   // subtab at all and all the files are in the files subtab", and that is
@@ -8742,11 +8749,14 @@ async function renderBookmarks() {
   const list = $("bookmark-list");
   const empty = $("bookmark-empty");
   if (!list) return;
+  showSkeletons(list, 4);
   try {
     bookmarksCache = await apiJson("/bookmarks");
   } catch (error) {
     toast(error.message, true);
     return;
+  } finally {
+    clearSkeletons(list);
   }
   // A reload can drop a link that was ticked (deleted from its own ⋯, or by
   // the bulk action just below), same prune renderLibraryDocuments does for
@@ -9493,12 +9503,14 @@ async function renderContents() {
   const jump = $("contents-jump");
   const noMatch = $("contents-no-match");
   if (!outline) return;
+  showSkeletons(outline, 4);
   // Refetched on every visit, not gated behind `entriesEverLoaded`, every
   // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
   // its own data on each visit too, and this outline is exactly the kind of
   // view where showing a note that was just deleted, or missing one just
   // added, would be a wrong answer, not just a stale one.
   await loadEntries();
+  clearSkeletons(outline);
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
   outline.replaceChildren();

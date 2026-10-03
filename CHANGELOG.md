@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Loading: the Library's documents, boards and maps, images and files, AI skills, bookmarks and contents, Reminders, the chat list and the documents sidebar show placeholder rows while their data loads, instead of a blank area.
 - Tags fields (Capture and editing a note): the browser's dropdown arrow and list are replaced by the app's own list, under the field at its width, completing the tag after the last comma, leaving out tags already entered, showing how many notes use each; arrow keys, Enter, Tab and Escape work.
 - A note nothing could file offers its likely categories as one-tap buttons beside Choose category; a note filed from your notebook's words says so.
 - The AI status dot's "checking" dots sit in the middle of the dot (they were 3px off).

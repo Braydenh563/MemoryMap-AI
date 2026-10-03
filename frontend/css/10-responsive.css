@@ -1715,6 +1715,57 @@ header#top-bar,
     min-width: 0;
     width: auto;
   }
+
+  /* The categories drawer is a list of rows, not the chip cloud the 720 and
+     820 bands drew for a stacked sidebar. Measured at 390 before: rows
+     wrapped as pills in two columns, the long name's pill 727px wide in a
+     320px sheet (list scrollWidth 743 against 318), All, Drafts and
+     Favourites 30px tall, and every row's ⋯ 17px above its row: the hover
+     overlay's `translateY(-50%)` outlived its `position: absolute` under
+     `(hover: none)`. One column, names ellipsised (the base `#sidebar li`
+     rule), the ⋯ in the row's flow and pressable, every row a touch target. */
+  #sidebar ul#category-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  #sidebar ul#category-list > li {
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: var(--target-min);
+    padding-block: 0;
+    background: transparent;
+    border-radius: var(--radius-md);
+  }
+
+  #sidebar ul#category-list > li.active {
+    background: var(--accent-soft);
+  }
+
+  /* A row with no ⋯ (All, Drafts, Favourites) keeps its count in the same
+     column as the rest: the row's end padding, the gap and the ⋯'s width. */
+  #sidebar ul#category-list > li:not(:has(.category-actions)) {
+    padding-inline-end: calc(0.5rem + 0.6rem + var(--target-min));
+  }
+
+  @media (hover: hover) {
+    #sidebar ul#category-list > li:hover {
+      background: var(--accent-soft);
+    }
+  }
+
+  #category-list li .category-actions {
+    flex: 0 0 auto;
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #category-list li:has(.category-actions) .count {
+    opacity: 1;
+  }
 }
 
 /* --- Phase 11 item 2: a row swiped, star right and bin left ------------------

@@ -33,3 +33,44 @@ def test_a_tap_is_not_settled_as_a_swipe():
     assert end.index("if (!decided) return;") < end.index("settle(li);")
     page = _function(_read("phone-shell.js"), "initNotePage")
     assert 'classList.contains("is-settling")' in page
+
+
+def _phone_block_with(css: str, needle: str) -> str:
+    """The `max-width: 599.98px` block of 10-responsive.css holding `needle`."""
+    for match in re.finditer(r"@media \(max-width: 599\.98px\) \{", css):
+        depth, i = 1, match.end()
+        while depth:
+            depth += {"{": 1, "}": -1}.get(css[i], 0)
+            i += 1
+        block = css[match.end():i]
+        if needle in block:
+            return block
+    raise AssertionError(f"no phone block holds {needle}")
+
+
+def _rule(block: str, selector: str) -> str:
+    rest = block[block.index(selector + " {"):]
+    return rest[: rest.index("}")]
+
+
+def test_the_categories_drawer_is_one_column_of_touch_rows():
+    css = (FRONTEND / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    block = _phone_block_with(css, "#sidebar ul#category-list {")
+    lst = _rule(block, "#sidebar ul#category-list")
+    assert "flex-direction: column" in lst and "flex-wrap: nowrap" in lst
+    assert "min-height: var(--target-min)" in _rule(block, "#sidebar ul#category-list > li")
+    # The ⋯ sits in its row: the hover overlay's translate must not outlive
+    # its absolute position, a touch must reach it, and it never shrinks.
+    kebab = _rule(block, "#category-list li .category-actions")
+    for rule in ("position: static", "transform: none", "pointer-events: auto", "flex: 0 0 auto"):
+        assert rule in kebab
+
+
+def test_the_drawer_opener_says_what_it_holds_and_closes_on_a_choice():
+    shell = _read("phone-shell.js")
+    assert '[data-dock-name="notes"]\', label: "Categories" }' in shell
+    assert "Categories and tags" not in shell
+    close = shell[shell.index('getElementById("category-list")?.addEventListener("click"'):]
+    close = close[: close.index("\n});")]
+    assert 'classList.remove("sidebar-sheet-open")' in close
+    assert 'setAttribute("aria-expanded", "false")' in close

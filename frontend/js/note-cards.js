@@ -1260,22 +1260,12 @@ function entryItem(entry, options = {}) {
     return li;
   }
 
-  // The row's own open/close control. Rendered always but only *shown* in
-  // rows view (CSS), rather than branched on `notesViewMode` here: the
-  // view can change without a re-render, and a control that exists only in
-  // the mode it was rendered in would go missing on the toggle.
-  //
-  // A direct child of `<li>` now, not of `.entry-meta`, direct instruction:
-  // *"move the note collapse button on the compact rows view to the
-  // permanent left, make sure the button keeps its position even when
-  // expanded."* `.entry-meta` sits in the row's third grid column while
-  // collapsed (title/content/meta side by side) and becomes a bottom-of-card
-  // block once expanded (`li.row-expanded` drops the grid for `block`), so a
-  // button living inside it visibly jumped from the row's right edge to the
-  // card's bottom on every expand. Pinned absolutely to the card's own
-  // top-left corner instead (`.row-expand` in 01-forms-settings.css), which
-  // neither of those two layouts moves, it is positioned against `<li>`
-  // itself, not against whichever of its children currently holds it.
+  // The row's own open/close control. Rendered always and only *shown* in
+  // rows view (CSS), since the view can change without a re-render. A direct
+  // child of `<li>`, pinned to the card's top-left (`.row-expand`,
+  // 01-forms-settings.css): inside `.entry-meta` it jumped from the row's
+  // right edge to the card's bottom on every expand (owner: "keep its
+  // position even when expanded").
   {
     const open = expandedRows.has(entry.id);
     const expand = document.createElement("button");
@@ -1292,17 +1282,10 @@ function entryItem(entry, options = {}) {
     li.appendChild(expand);
   }
 
-  // Click anywhere on a collapsed/expanded row's own body to toggle it,
-  // same as the button, direct instruction: "if the user clicks on the
-  // main body of the note and not an element on the collapsed row view, it
-  // will expand or collapse without the user having to click the button."
-  // Scoped to rows view only (`.entry-list.is-rows`, checked live rather
-  // than cached: the view can change after this card was built) and
-  // skipped whenever the click landed on something that already has its
-  // own job: a link, a button, an image, selectable text, the checkbox.
-  // `closest("a, button, input, .chip, img")` is the same "don't swallow a
-  // click meant for something else" guard the rest of this file already
-  // uses for row-level handlers.
+  // Click on a row's own body toggles it, as the button does (owner's ask).
+  // Rows view only (`.entry-list.is-rows`, checked live: the view can change
+  // after this card was built), and not when the click landed on something
+  // with its own job: a link, button, image, selected text, the checkbox.
   li.addEventListener("click", (event) => {
     if (event.target.closest("a, button, input, textarea, .chip, img, .unlink")) return;
     if (window.getSelection()?.toString()) return; // a text selection, not a click

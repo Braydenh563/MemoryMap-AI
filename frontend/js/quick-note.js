@@ -11,21 +11,17 @@
 // Two things live here:
 //
 // 1. **The outbox.** A note saved while the server is not answering (the
-//    fetch itself threw: refused, reset, offline) is kept in this browser's
-//    storage and sent again when the server is back: on `noteServerUp`
-//    (status.js), every fifteen seconds while anything is waiting, and when
-//    this file loads. Measured before (captureaudit.js, server down mid-save):
-//    the composer said "Failed to fetch", kept the text, and nothing ever
-//    sent it. Each note carries a `client_key`, so a resend of a save whose
-//    answer was lost on the way back is answered with the note the first
-//    send made (routes_entries.py `_already_delivered`), not a second copy.
-// 2. **Quick note.** Alt+N (or the palette) from any tab opens a small dialog
-//    that saves without leaving the page, the way Drafts, Tana and Bear's
-//    quick entry do. Ctrl+Enter saves, `#word` tags, Escape closes and keeps
-//    the words for next time, "Open in Capture" carries them to the full
-//    composer (title, category, files, templates). A plain textarea rather
-//    than the live editor: the editor arrives with the Library bundle, and a
-//    popup whose point is speed must not wait on 1.7 MB.
+//    fetch itself threw) is kept in this browser's storage and sent again on
+//    `noteServerUp` (status.js), every fifteen seconds while any waits, and
+//    when this file loads. Before: the composer said "Failed to fetch" and
+//    nothing ever sent it. Each note carries a `client_key`, so a resend of a
+//    save whose answer was lost is answered with the first note
+//    (routes_entries.py `_already_delivered`), not a second copy.
+// 2. **Quick note.** Alt+N (or the palette) opens a small dialog that saves
+//    without leaving the page. Ctrl+Enter saves, `#word` tags, Escape closes
+//    and keeps the words, "Open in Capture" carries them to the full
+//    composer. A plain textarea, not the live editor: that arrives with the
+//    Library bundle (1.7 MB), and a popup whose point is speed must not wait.
 
 const NOTE_OUTBOX_KEY = "noteOutbox";
 const QUICK_NOTE_DRAFT_KEY = "quickNoteDraft";
@@ -51,6 +47,7 @@ function writeNoteOutbox(list) {
     return false;
   }
   renderNoteOutbox();
+  renderPendingNoteRows();
   return true;
 }
 
@@ -150,6 +147,47 @@ function renderNoteOutbox() {
     text,
     `ph:cloud-slash ${count === 1 ? "1 note is" : `${count} notes are`} kept on this device until the server answers.`,
   );
+}
+
+//: A held note is a pending row at the top of `#entry-list`, in the note
+//: card's shape, with no actions (each needs a server). Redrawn by every
+//: outbox write and by `renderEntries`; not under a filter or search (it has
+//: no category yet). Inserted, not appended: this may run after the list
+//: painted, when the script had to be fetched first.
+function renderPendingNoteRows() {
+  const list = $("entry-list");
+  if (!list) return;
+  for (const old of list.querySelectorAll(":scope > li.pending-note")) old.remove();
+  const filtered = noteSearch || activeCategory || draftsOnly || favouritesOnly;
+  const held = filtered ? [] : noteOutbox();
+  if (!held.length) return;
+  const rows = document.createDocumentFragment();
+  //: Newest first, as the list is.
+  for (const item of held.slice().reverse()) {
+    const li = document.createElement("li");
+    li.className = "pending-note";
+    li.dataset.pendingKey = item.client_key;
+    if (item.title) {
+      const title = document.createElement("p");
+      title.className = "entry-title";
+      title.textContent = item.title;
+      li.appendChild(title);
+    }
+    const content = document.createElement("p");
+    content.className = "entry-content";
+    renderNoteText(content, item.content || "", []);
+    li.appendChild(content);
+    const meta = document.createElement("div");
+    meta.className = "entry-meta note-meta";
+    const waiting = chip("ph:cloud-slash Waiting to save", "item-label");
+    waiting.title = "Kept on this device until the server answers. It is sent on its own.";
+    meta.appendChild(waiting);
+    for (const tag of item.tags || []) meta.appendChild(chip(tag, "tag hashtag"));
+    li.appendChild(meta);
+    rows.appendChild(li);
+  }
+  list.insertBefore(rows, list.firstChild);
+  $("empty-message")?.classList.add("hidden");
 }
 
 // --- Quick note --------------------------------------------------------------

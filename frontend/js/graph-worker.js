@@ -222,10 +222,22 @@ function portraitPull() {
 //: nothing else to hold it), a linked one gently (its links still decide
 //: its neighbourhood). Off with "Group by category" in the View menu, which
 //: puts back the single centre exactly.
-function groupAnchors(width) {
+//: **Categories gather harder** (INBOX 443 (1)). Measured on the same
+//: fixture: of each dot's four nearest dots, 56% shared its colour with the
+//: pull at 0.025 and anchors 22 per root of the count out; 89% at 0.05 and
+//: 28, with fewer crossings (22 to 18). The links still decide a
+//: neighbourhood's inside; this only decides where it sits.
+const GROUP_RADIUS = 28;
+const GROUP_PULL = 0.05;
+
+function groupOrder() {
   const sizes = new Map();
   for (const node of nodes) sizes.set(node.group, (sizes.get(node.group) || 0) + 1);
-  const groups = [...sizes.keys()].sort((a, b) => sizes.get(b) - sizes.get(a) || a.localeCompare(b));
+  return [...sizes.keys()].sort((a, b) => sizes.get(b) - sizes.get(a) || a.localeCompare(b));
+}
+
+function groupAnchors(width) {
+  const groups = groupOrder();
   const anchors = new Map();
   if (groups.length < 2) return anchors;
   const radius = width;
@@ -236,15 +248,145 @@ function groupAnchors(width) {
   return anchors;
 }
 
+//: **Unlinked notes keep an orbit, not a scatter** (INBOX 443 (1), the owner:
+//: "the graph shape could look nicer": a few notes floating far from the
+//: cluster). Measured on a 60-note, 5-category fixture
+//: (`scratchpad/ui-sweeps/graphlook.js`): the ten notes with no link had
+//: nothing to hold them but the weak category pull and the repulsion of
+//: everything else, so they came to rest wherever those balanced: dots on the
+//: map's far edge at uneven distances, which also set the fit and shrank the
+//: map. Each now has a seat on a ring just outside the linked cluster. A
+//: category's unlinked notes sit together on the arc facing its own place (the
+//: same order `groupAnchors` uses), evenly spaced, and a category with more
+//: than its arc holds spills onto a second ring a node's width further out. A
+//: spring pulls each toward its seat; the repulsion and the collision still
+//: act, so the ring is a tidy default rather than a wall. Only the Graph tab
+//: turns it on (`params.orbit`): a local map has no unlinked notes to seat.
+const ORBIT_EVERY = 8;
+const ORBIT_STRENGTH = 0.16;
+//: Fewer than this many linked notes is not a cluster to circle.
+const ORBIT_MIN_LINKED = 3;
+//: The ring hugs the cluster's silhouette rather than a circle: 36 bins of
+//: angle round the linked notes' centre, each holding how far the cluster
+//: reaches that way. A circle sized by the farthest note floated the seats a
+//: whole map-width from the side the cluster is short on (measured: the
+//: unlinked notes sat 1.24x the cluster's p90 radius out, on an elongated
+//: cluster). The bins are smoothed by their widest neighbour, so a seat clears
+//: a bump instead of cutting through it.
+const ORBIT_BINS = 36;
+const orbit = { on: false, groupBy: true, tick: 0, items: [], reach: null, cx: 0, cy: 0 };
+
+function orbitReach(linked) {
+  let cx = 0;
+  let cy = 0;
+  for (const node of linked) {
+    cx += node.x;
+    cy += node.y;
+  }
+  cx /= linked.length;
+  cy /= linked.length;
+  const raw = new Array(ORBIT_BINS).fill(0);
+  for (const node of linked) {
+    const dx = node.x - cx;
+    const dy = node.y - cy;
+    const bin = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI)) * ORBIT_BINS) % ORBIT_BINS;
+    raw[bin] = Math.max(raw[bin], Math.hypot(dx, dy) + (node.r || 8));
+  }
+  // An empty bin takes the nearer of its filled neighbours' reach, so a gap in
+  // the cluster's outline is bridged rather than dipping to the centre.
+  const mean = raw.reduce((a, b) => a + b, 0) / ORBIT_BINS;
+  const smooth = raw.map((_, i) => {
+    let best = 0;
+    for (let d = -2; d <= 2; d++) best = Math.max(best, raw[(i + d + ORBIT_BINS) % ORBIT_BINS] * (1 - Math.abs(d) * 0.06));
+    return best || mean;
+  });
+  // A light low-pass so neighbouring seats do not jump by a bump's height.
+  const reach = smooth.map((_, i) => {
+    let sum = 0;
+    for (let d = -1; d <= 1; d++) sum += smooth[(i + d + ORBIT_BINS) % ORBIT_BINS];
+    return sum / 3;
+  });
+  return { cx, cy, reach };
+}
+
+function orbitRadiusAt(angle) {
+  const t = (((angle + Math.PI) / (2 * Math.PI)) % 1 + 1) % 1;
+  const pos = t * ORBIT_BINS - 0.5;
+  const i0 = Math.floor(pos);
+  const f = pos - i0;
+  const a = orbit.reach[(i0 + ORBIT_BINS) % ORBIT_BINS];
+  const b = orbit.reach[(i0 + 1 + ORBIT_BINS) % ORBIT_BINS];
+  return a + (b - a) * f;
+}
+
+function orbitUpdate() {
+  const lone = [];
+  const linked = [];
+  let widest = 0;
+  for (const node of nodes) {
+    widest = Math.max(widest, node.r || 8);
+    if (node.degree === 0) lone.push(node);
+    else linked.push(node);
+  }
+  orbit.items = [];
+  if (!lone.length || linked.length < ORBIT_MIN_LINKED) return;
+  const next = orbitReach(linked);
+  if (!orbit.reach) orbit.reach = next.reach;
+  else orbit.reach = orbit.reach.map((v, i) => v + (next.reach[i] - v) * 0.3);
+  orbit.cx = next.cx;
+  orbit.cy = next.cy;
+  const seat = 2 * (widest + COLLIDE_PAD) + 10;
+  const clear = widest + COLLIDE_PAD + 22;
+  const order = orbit.groupBy ? groupOrder() : [];
+  const slots = order.length > 1 ? order.length : 1;
+  const slice = (2 * Math.PI) / slots;
+  const byGroup = new Map();
+  for (const node of lone) {
+    const key = slots > 1 ? node.group : "";
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key).push(node);
+  }
+  for (const [key, list] of byGroup) {
+    const index = slots > 1 ? order.indexOf(key) : 0;
+    const centre = slots > 1 ? -Math.PI / 2 + slice * index : -Math.PI / 2;
+    list.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const probe = orbitRadiusAt(centre) + clear;
+    const minStep = seat / probe;
+    const perRing = Math.max(1, Math.floor((slice * 0.92) / minStep));
+    list.forEach((node, i) => {
+      const ring = Math.floor(i / perRing);
+      const inRing = Math.min(perRing, list.length - ring * perRing);
+      const step = Math.min(0.5, (slice * 0.92) / inRing);
+      const angle = centre + ((i % perRing) - (inRing - 1) / 2) * step;
+      const radius = orbitRadiusAt(angle) + clear + ring * seat;
+      orbit.items.push({ node, x: orbit.cx + Math.cos(angle) * radius, y: orbit.cy + Math.sin(angle) * radius });
+    });
+  }
+}
+
+function orbitForce(alpha) {
+  if (!orbit.on) return;
+  if (orbit.tick++ % ORBIT_EVERY === 0) orbitUpdate();
+  const k = ORBIT_STRENGTH * (alpha + 0.05);
+  for (const item of orbit.items) {
+    item.node.vx += (item.x - item.node.x) * k;
+    item.node.vy += (item.y - item.node.y) * k;
+  }
+}
+orbitForce.initialize = () => {};
+
 function applyGrouping(params) {
   if (!simulation || !simulation.force("groupX")) return;
+  orbit.on = Boolean(params && params.orbit === true);
+  orbit.groupBy = !params || params.groupBy !== false;
+  orbit.tick = 0;
   const on = !params || params.groupBy !== false;
   const cx = world ? (world.left + world.right) / 2 : 0;
   const cy = world ? (world.top + world.bottom) / 2 : 0;
   const spread = 0.5 + Number(params && params.spread != null ? params.spread : 50) / 50;
-  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * 22 * spread) : new Map();
+  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * GROUP_RADIUS * spread) : new Map();
   const at = (node) => anchors.get(node.group);
-  const pull = (node) => (at(node) ? (node.degree === 0 ? 0.12 : 0.025) : 0);
+  const pull = (node) => (at(node) ? (node.degree === 0 ? (orbit.on ? 0.02 : 0.12) : GROUP_PULL) : 0);
   simulation
     .force("groupX")
     .x((node) => cx + (at(node) ? at(node).x : 0))
@@ -404,6 +546,8 @@ self.onmessage = (event) => {
       }));
       indexById = new Map(nodes.map((n, i) => [n.id, i]));
       world = message.world || null;
+      orbit.reach = null;
+      orbit.items = [];
       const edges = (message.edges || [])
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
         .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score }));
@@ -464,6 +608,7 @@ self.onmessage = (event) => {
         .force("y", d3.forceY(0).strength(tuned.pullY))
         .force("groupX", d3.forceX(0).strength(0))
         .force("groupY", d3.forceY(0).strength(0))
+        .force("orbit", orbitForce)
         .force(
           "collide",
           d3.forceCollide().radius((d) => (d.r || 8) + COLLIDE_PAD)

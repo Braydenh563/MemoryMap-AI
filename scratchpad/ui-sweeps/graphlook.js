@@ -135,6 +135,12 @@ function measure(page) {
     // nearest-neighbour gap spread (edge to edge)
     const nn = nodes.map((a) => Math.min(...nodes.filter((b) => b !== a).map((b) => Math.hypot(sx(a) - sx(b), sy(a) - sy(b)) - R(a) - R(b))));
     const radii = nodes.map((n) => n.r);
+    // linked dots only: spacing evenness of the cluster itself
+    const nnLinked = linked.map((a) => Math.min(...linked.filter((b) => b !== a).map((b) => Math.hypot(sx(a) - sx(b), sy(a) - sy(b)) - R(a) - R(b))));
+    // each isolated dot's gap to its nearest linked dot, over the cluster's median gap
+    const medNN = [...nnLinked].sort((p, q) => p - q)[Math.floor(nnLinked.length / 2)] || 1;
+    const isoGapList = iso.map((a) => Math.min(...linked.map((b) => Math.hypot(sx(a) - sx(b), sy(a) - sy(b)) - R(a) - R(b))));
+    const isoGap = isoGapList.length ? isoGapList.reduce((p, q) => p + q, 0) / isoGapList.length / medNN : 0;
     // category purity: of each dot's 4 nearest dots, the share of its colour
     let same = 0, total = 0;
     for (const a of nodes) {
@@ -152,7 +158,7 @@ function measure(page) {
       }
     }
     return {
-      purity: +(same / total).toFixed(2), labelOnDot,
+      purity: +(same / total).toFixed(2), labelOnDot, nnLinked, isoGap: +isoGap.toFixed(2),
       n: nodes.length, iso: iso.length, edges: segs.length, k: +k.toFixed(2),
       overlap, labelOver, labelsPlaced: boxes.length, truncated,
       crossings, fillArea: +fillArea.toFixed(3), fillAxis: +fillAxis.toFixed(3),
@@ -180,7 +186,7 @@ function measure(page) {
     }
     await page.waitForTimeout(1500); // the auto-fit lands after the end
     const m = await measure(page);
-    const e = stats(m.edgeLens), nn = stats(m.nn), r = stats(m.radii);
+    const e = stats(m.edgeLens), nn = stats(m.nn), nl = stats(m.nnLinked), r = stats(m.radii);
     const f = frames.filter(Number.isFinite).sort((a, b) => a - b);
     const theme = process.env.THEME || 'light';
     await page.screenshot({ path: `${OUT}/graphlook-${theme}.png` });
@@ -189,7 +195,7 @@ function measure(page) {
       purity: m.purity, labelOnDot: m.labelOnDot, dotOverlap: m.overlap, labelOverlap: m.labelOver, labelsPlaced: m.labelsPlaced, labelsTruncated: m.truncated,
       crossings: m.crossings, fillArea: m.fillArea, fillAxis: m.fillAxis,
       isoDistRatio: m.isoRatio, isoMaxRatio: m.isoMax,
-      edgeMean: m.edgeMean, edgeCV: +e.cv.toFixed(2), nnCV: +nn.cv.toFixed(2), radiusCV: +r.cv.toFixed(2),
+      edgeMean: m.edgeMean, edgeCV: +e.cv.toFixed(2), nnCV: +nn.cv.toFixed(2), nnLinkedCV: +nl.cv.toFixed(2), isoGap: m.isoGap, radiusCV: +r.cv.toFixed(2),
       settleMs: settledAt, frameMsMedian: f.length ? +f[Math.floor(f.length / 2)].toFixed(2) : null, frameMsMax: f.length ? +f[f.length - 1].toFixed(2) : null,
     };
     console.log(JSON.stringify(row));

@@ -2542,6 +2542,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       //: arranged by its links, and a ring of category places would pull
       //: three notes apart.
       groupBy: s.size === "full" && localStorage.getItem("graph-group") !== "0",
+      //: Unlinked notes take a seat on a ring round the cluster (the worker's
+      //: `orbitForce`); a local map has none to seat.
+      orbit: s.size === "full",
     },
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout

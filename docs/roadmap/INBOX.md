@@ -45,17 +45,6 @@ with its owner named in the entry.
      in the suggested model cards in settings". Placed: the badges agent
      (461 (1)).
 
-467. **The owner, 2026-10-03 night, verbatim, with a screenshot (the Attach
-     picker: tabs, search, rows with a checkbox and a filled category
-     badge, Clear and Done).** "panels like this need a redesign to be
-     consistent with the others and have a modern and professional look.
-     also I cant navigate on the settings navigation side bar with
-     arrows??" Placed: (1) the popups and panels agent (456); **(2) fixed**:
-     a pointer click keeps the focus in the Settings list, so Up, Down, Home
-     and End walk the sections; Page Up and Down scroll the open pane from
-     there; Enter or Space moves to the section's heading (measured:
-     Appearance, Down, Down, Up, PageDown 0 to 642px, Enter).
-
 466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
      categories: a count pill on every row; the expanded companion with its
      resize ring at the top right).** "I think there should also be a clear
@@ -158,12 +147,6 @@ with its owner named in the entry.
      thinking box appears above the atlas message bubble title and avatar in
      the popup agent. also make sure all the thinking boxes are the same
      style and consistent". Placed: the orchestrator.
-
-456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
-     windows and panels are the same design and style." Placed: every
-     dialog, sheet, popover and side panel inventoried and measured against
-     DESIGN.md's dialog and panel recipes (radius, padding, head, close
-     control, shadow, scrim, width steps), then brought onto them: an agent.
 
 455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
      details line: category, 85%, eight hashtags, the date alone on a line

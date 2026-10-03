@@ -3256,6 +3256,167 @@ def test_a_dialog_head_title_out_ranks_the_card_heading_margin():
     assert "margin: 0" in rule
 
 
+# --- one popup, three tiers (INBOX 456; DESIGN.md, "A popup window or panel") ---
+# The owner: "make sure all the popup windows and panels are the same design
+# and style." Measured with scratchpad/ui-sweeps/popupinv.js (42 surfaces, 1440
+# and 390, light and dark): the dialogs shared a shell; the heads did not (a
+# 12px uppercase title, a worded Cancel where the recipe has the X, a 28px X
+# beside a 32px one) and the panels came in three radii and four paddings.
+
+# Closes that are not a popup's: an in-page panel (a column, a sidebar, a bar)
+# or a search's own clear. They keep their own 28px ghost until their panels
+# are folded into the recipe. May only shrink.
+IN_PAGE_CLOSE_DRIFT = {
+    "ask-history-close", "notes-rail-close", "web-panel-close", "doc-find-close",
+    "wb-search-close", "wb-library-close", "wb-empty-hint-close", "global-find-close",
+}
+
+
+def test_every_popup_close_is_the_dialog_head_button() -> None:
+    """A `*-close` icon button in index.html is `.dialog-head-btn`, which is
+    what makes it 32px (44 on touch), quiet, ringed on focus and at the same
+    corner of every popup. Before: twelve popups drew a 28px or 36px X of their
+    own beside a 32px one."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    offenders = set()
+    for m in re.finditer(r'<button\b[^>]*\bid="([a-z0-9-]+-close)"[^>]*>', html):
+        if "dialog-head-btn" not in m.group(0):
+            offenders.add(m.group(1))
+    unknown = sorted(offenders - IN_PAGE_CLOSE_DRIFT)
+    assert unknown == [], (
+        f"{unknown} closes a popup without `dialog-head-btn` (DESIGN.md, \"A dialog's head\")"
+    )
+    assert offenders >= IN_PAGE_CLOSE_DRIFT, (
+        "an in-page close joined the recipe: shrink IN_PAGE_CLOSE_DRIFT to match"
+    )
+
+
+def test_every_small_dialog_opens_with_the_dialog_head() -> None:
+    """Each `<dialog class="card space-dialog">` names itself in a
+    `.dialog-head` (title, then a Close) rather than a bare `h3`, which the
+    eyebrow rule drew at 12px uppercase beside the 16px head of every other
+    dialog."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    dialogs = re.findall(r"<dialog\b[^>]*space-dialog[^>]*>(.*?)</dialog>", html, re.S)
+    assert len(dialogs) >= 13, "the small dialogs moved: this lint is looking at the wrong markup"
+    for body in dialogs:
+        first = body.lstrip()[:400]
+        assert 'class="dialog-head' in first, f"a small dialog opens without .dialog-head: {first[:120]!r}"
+        head = body[body.index('class="dialog-head') :][:1800]
+        assert "dialog-head-title" in head, f"a small dialog's head has no .dialog-head-title: {head[:120]!r}"
+        assert "dialog-head-btn" in head and "ph-x" in head, f"a small dialog's head has no Close: {head[:120]!r}"
+
+
+def test_a_sheet_s_head_and_close_are_the_dialog_head_recipe() -> None:
+    """`openSheet` is the one builder of sheets; its head, title and X are the
+    recipe's classes, so every sheet's close is the dialog head's close."""
+    text = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    start = text.index("function openSheet(")
+    body = text[start : start + 6000]
+    assert 'head.className = "sheet-head dialog-head"' in body
+    assert 'title.className = "sheet-title dialog-head-title"' in body
+    assert "dialog-head-btn sheet-close" in body
+
+
+def test_the_dialog_head_title_is_one_size_whatever_tag_carries_it() -> None:
+    """`.card h3` is the 12px uppercase eyebrow; a head written as `h3` or
+    `strong` was a different surface (Quick note measured 12px uppercase beside
+    Earlier versions' 16px)."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(body for sel, body in _rules(consistency) if sel.strip() == ".dialog-head .dialog-head-title")
+    assert "font-size: var(--text-body)" in rule
+    assert "text-transform: none" in rule
+
+
+# The dialog and sheet shells, then the panels: one radius token each. The last
+# declaration in file order is the one that paints (the stylesheets are
+# concatenated 00 to 10), so that is the one asserted.
+DIALOG_TIER = {"modal-card", "space-dialog", "sheet-card", "sheet-card-corner", "command-palette-card",
+               "finder-card", "confirm-card"}
+PANEL_TIER = {"notif-panel", "note-picker-panel", "agent-monitor", "graph-popup", "graph-new", "tour-card",
+              "wb-navigator"}
+
+
+def _last_radius_by_class() -> dict[str, str]:
+    last: dict[str, str] = {}
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            m = re.search(r"(?<![\w-])border-radius:\s*([^;]+);", body)
+            if not m:
+                continue
+            for part in selector.split(","):
+                tail = re.split(r"[\s>+~]+", part.strip())[-1].split(":")[0]
+                if re.search(r"[#\[]", tail):
+                    continue
+                for cls in re.findall(r"\.([\w-]+)", tail):
+                    if cls in DIALOG_TIER | PANEL_TIER:
+                        last[cls] = m.group(1).strip()
+    return last
+
+
+def test_dialogs_and_panels_share_one_radius_token() -> None:
+    """Dialogs, sheets and panels are `--radius` (a sheet's bottom corners 0);
+    only the anchored popover shell is `--radius-lg`. The notifications panel
+    sat in the popover shell and drew 6.4px beside every other panel's 8px."""
+    last = _last_radius_by_class()
+    allowed = re.compile(r"(var\(--radius\)|0)( (var\(--radius\)|0))*")
+    bad = {cls: value for cls, value in last.items() if not allowed.fullmatch(value)}
+    assert bad == {}, f"a dialog or panel has its own corner: {bad}"
+    assert "notif-panel" in last and "agent-monitor" in last
+    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    shell = next(body for sel, body in _rules(misc) if ".help-popover" in sel and ".action-menu" in sel and "border-radius" in body)
+    assert "border-radius: var(--radius-lg)" in shell, "the popover shell's corner moved off --radius-lg"
+
+
+def test_the_panel_tier_is_padded_by_one_token() -> None:
+    """The floating panels (notifications, agent activity, the node popup, the
+    tour's card, the board overview) are padded `--panel-pad`; they were
+    9.6, 12.8, 16 and 8px."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "--panel-pad: var(--space-5)" in consistency
+    rule = next(body for sel, body in _rules(consistency) if ".card.agent-monitor" in sel and ".notif-panel" in sel)
+    assert "padding: var(--panel-pad)" in rule
+    chat = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
+    assert "--graph-popup-pad: var(--panel-pad)" in chat
+    assert "note-picker-panel" in next(sel for sel, _ in _rules(consistency) if ".card.agent-monitor" in sel)
+    assert "padding: var(--panel-pad)" in re.search(r"\.note-picker-panel \{[^}]*\}", chat).group(0)
+
+
+def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
+    """INBOX 467, the owner: the Attach picker "need[s] a redesign to be
+    consistent with the others". Its head is the dialog head, its segment the
+    app's `.seg`, its rows the name over one muted line with the category as a
+    dot and quiet text (never a filled badge), its footer the dialog footer
+    recipe (`.space-dialog-actions`, a ghost then the one filled action)."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    start = html.index('id="note-picker-panel"')
+    panel = html[start : html.index('id="chat-model-panel"', start) if 'id="chat-model-panel"' in html[start:] else start + 6000]
+    assert 'class="dialog-head"' in panel and "dialog-head-btn" in panel
+    assert 'class="seg seg-compact note-picker-sources"' in panel
+    assert 'class="row space-dialog-actions note-picker-foot"' in panel
+    assert 'id="note-picker-clear" class="ghost"' in panel and 'id="note-picker-done" class="accent"' in panel
+    js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert 'cat.className = "chip"' not in js and 'kind.className = "chip"' not in js, (
+        "a picker row's category or kind is quiet text on the second line, not a filled chip"
+    )
+    assert "note-picker-category" in js and "paintCategoryDot(cat, entry.category)" in js
+
+
+def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:
+    """The dim behind a dialog is `var(--scrim)`. It was four values (a literal
+    `rgba(10, 12, 18, 0.45)` on the 26 modal dialogs, `rgba(10, 12, 24, 0.45)`
+    on three more, the token on the popup agent and nothing at all on Find
+    anything, whose `.lock-overlay` painted the opaque page and hid the app)."""
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            m = re.search(r"(?<![\w-])background:\s*([^;]+);", body)
+            if m and re.search(r"rgba\(\s*10,\s*12,\s*(18|24)", m.group(1)):
+                raise AssertionError(f"{path.name}: {selector!r} dims with a literal; use var(--scrim)")
+    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = next(body for sel, body in _rules(misc) if ".command-palette-overlay" in sel and ".finder-overlay" in sel)
+    assert "background: var(--scrim)" in rule, "Find anything must dim the app like the popup agent does, not replace it"
+
+
 def test_a_hovered_row_keeps_its_hint_readable():
     """A settings row's hover is `--row-hover-bg`, never the pressed button
     tone: `--ghost-btn-bg-hover` put the row's muted hint at 3.85:1 in light

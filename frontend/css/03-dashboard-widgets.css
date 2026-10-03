@@ -7,12 +7,12 @@
      1010 alongside `.modal-overlay` (01-forms-settings.css) when that tier
      itself moved off 55 to clear #agent-monitor's z-index: 1000. */
   z-index: 1010;
-  background: rgba(10, 12, 24, 0.45);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem;
+  padding: 1.5rem;
 }
 
 #improve-overlay.hidden {

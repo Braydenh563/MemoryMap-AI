@@ -1560,7 +1560,7 @@ summary > .ph-lead,
 
 .confirm-card .confirm-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-body);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -2159,9 +2159,9 @@ summary > .ph-lead,
    row. */
 .sheet-card-corner .sheet-head > button.ghost,
 .sheet-card-corner .sheet-head .atlas-menu button.ghost {
-  width: var(--target-min);
-  height: var(--target-min);
-  min-height: var(--target-min);
+  width: var(--dialog-head-btn-size);
+  height: var(--dialog-head-btn-size);
+  min-height: var(--dialog-head-btn-size);
   background: none;
   border-color: transparent;
   box-shadow: none;
@@ -9139,6 +9139,21 @@ input[type="file"]::file-selector-button:hover {
   line-height: 1.2;
 }
 
+/* **The title is one voice, whatever tag carries it.** `.card h3` is the
+   eyebrow (12px, uppercase, muted, 01-forms-settings.css), so a head written
+   as an `h3` or a `strong` came out as a different surface: the Quick note
+   dialog's title measured 12px uppercase beside Earlier versions' 16px, the
+   popup agent's 12px, the node popup's 700 and the Atlas guide's own
+   (INBOX 456, scratchpad/ui-sweeps/popupinv.js). Two classes, so the eyebrow
+   (0,1,1) and `.help-head > h3` lose to it. */
+.dialog-head .dialog-head-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: -0.005em;
+}
+
 .dialog-head-actions {
   display: inline-flex;
   align-items: center;
@@ -9153,8 +9168,8 @@ input[type="file"]::file-selector-button:hover {
    which outranks two classes alone) and comes out squashed. The help button
    sits directly in `.dialog-head`; History/Close sit in
    `.dialog-head-actions`; both are covered. */
-.dialog-head-actions > .dialog-head-btn.ghost,
-.dialog-head > .dialog-head-btn.ghost {
+.dialog-head .dialog-head-btn.ghost,
+.dialog-head-actions > .dialog-head-btn.ghost {
   width: var(--dialog-head-btn-size);
   height: var(--dialog-head-btn-size);
   min-height: 0;
@@ -9168,10 +9183,10 @@ input[type="file"]::file-selector-button:hover {
   box-shadow: none;
 }
 
+.dialog-head .dialog-head-btn.ghost:hover,
+.dialog-head .dialog-head-btn.ghost[aria-expanded="true"],
 .dialog-head-actions > .dialog-head-btn.ghost:hover,
-.dialog-head-actions > .dialog-head-btn.ghost[aria-expanded="true"],
-.dialog-head > .dialog-head-btn.ghost:hover,
-.dialog-head > .dialog-head-btn.ghost[aria-expanded="true"] {
+.dialog-head-actions > .dialog-head-btn.ghost[aria-expanded="true"] {
   color: var(--ink);
   background: var(--chip-bg);
 }
@@ -9180,10 +9195,66 @@ input[type="file"]::file-selector-button:hover {
    other icon-only buttons rely on a background swap for focus (e.g.
    `.entry-actions > button.ghost:focus-visible`), which a low-contrast theme
    can render nearly invisible. This recipe's own buttons keep the ring. */
-.dialog-head-actions > .dialog-head-btn.ghost:focus-visible,
-.dialog-head > .dialog-head-btn.ghost:focus-visible {
+.dialog-head .dialog-head-btn.ghost:focus-visible,
+.dialog-head-actions > .dialog-head-btn.ghost:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* The '?' sits beside the title, not at the far end: `.graph-help-toggle`
+   carries `margin-left: auto` for a toolbar, which in a head with an action
+   group on the right split the free space between the two and floated the '?'
+   to the middle of the Quick note's head. */
+.dialog-head > .graph-help-toggle {
+  margin-left: 0;
+}
+
+/* --- one popup, three tiers (INBOX 456, DESIGN.md "A popup window or panel")
+   The owner: "make sure all the popup windows and panels are the same design
+   and style." Measured across 42 surfaces at 1440 and 390, light and dark
+   (scratchpad/ui-sweeps/popupinv.js): the dialogs already shared one shell
+   (`--radius`, 1px edge, `--glass-shadow`); what differed was the head (a
+   12px uppercase title, a worded Cancel, a 28px X beside a 32px one) and the
+   panels, which came in three radii and four paddings.
+
+   1. **Dialog and sheet** (a scrim, a head, a way out): `.modal-card`,
+      `.space-dialog`, `.sheet-card`, the palettes. `--radius`.
+   2. **Panel** (floats over the page without a scrim, and has a head and a
+      way out): the notifications panel, the agent activity panel, the node
+      popup, the guided tour's card, the board overview. `--radius`, padded
+      `--panel-pad`.
+   3. **Popover** (anchored to the thing that opened it, no head: menus, the
+      help popover, the chat model panel, the clock): the one popover shell at
+      the end of 07-whiteboard-misc.css, `--radius-lg`, because it is the
+      smaller surface.
+   The notifications panel used to sit in the popover shell, which is where
+   its 6.4px came from; it has a head with a Close, tabs and a foot, so it is
+   a panel. */
+:root {
+  --panel-pad: var(--space-5);
+}
+
+:where(.space-dialog) {
+  width: min(34rem, calc(100vw - var(--space-8) * 2));
+}
+
+.notif-panel,
+.note-picker-panel,
+.card.agent-monitor,
+.card.tour-card,
+.card.wb-navigator {
+  border-radius: var(--radius);
+  padding: var(--panel-pad);
+  border-color: var(--glass-border);
+}
+
+/* The two palettes keep their own bands (an input under the head, a list
+   under that), but their head starts where every dialog's does: the card's own
+   top inset. It was `--space-3` and `--space-4`, so the X sat 9px and 11px
+   from the top edge against 17px in every other dialog. */
+.command-palette-head,
+.finder-head {
+  padding-top: var(--card-pad-y);
 }
 
 /* A small gap between a note card's text and its metadata row (reported at

@@ -1365,57 +1365,21 @@ document.addEventListener("click", (event) => {
     menu.open = false;
   }
 });
-//: A dock menu opens under its own button, which is right for a button on
-//: the left of the row and wrong for one near the right edge: measured, the
-//: Timeline's Options list ran 41px past the viewport. On open, the list is
-//: measured once and flipped to right-align when it would overflow, a class,
-//: not a computed left, so the stylesheet still owns the geometry.
+//: A dock menu opens under its own button; near the right edge it flips to
+//: right-align (measured: Timeline's Options ran 41px past the viewport), a
+//: class rather than a computed left, so the stylesheet owns the geometry.
 //:
-//: **Vertical clipping was the same shape and had no fix at all.** Reported
-//: (INBOX 31, whiteboard's View menu screenshot): "dropdown menus clip off
-//: the bottom of the panel and do not scroll, app-wide." The stylesheet caps
-//: `.doc-dock-menu-list` at a flat `calc(100vh - space-9*2)`, which is blind
-//: to *where* the menu opened: a button in the lower half of a short window
-//: opens a list well under that flat cap and still lands with its own
-//: bottom edge past the viewport, nothing to scroll because nothing
-//: overflowed the box the stylesheet gave it. Measured before this fix,
-//: Reminders' Quick set menu at 1024x560: rect.bottom 732 against a 560px
-//: viewport, 172px unreachable, no internal scrollbar
-//: (`scrollHeight === clientHeight`). After: the cap is recomputed from the
-//: list's own top on every open, so it can never claim more room than is
-//: actually left below it.
-//:
-//: `escapeAndCapMenu` (above) is both halves of that: it escapes a clipping
-//: ancestor first, because a dock menu whose panel sits inside a scrolling
-//: one (`overflow` anything but `visible`) is still cut by that ancestor
-//: however correctly its own height is capped, and only reparenting to <body>
-//: gets it out. The escape is a no-op whenever there is no such ancestor,
-//: which is most of these menus, so nothing changes for a dock menu that
-//: already had room. The whiteboard's top-bar menus call the same function;
-//: this handler used to hold its own copy of it.
-//: **The document dock's own ⋯ is the third menu in this family and was in
-//: neither handler.** Reported (INBOX 233): "the documents kebab button in
-//: the top right corner goes off the bottom of my screen." Measured at
-//: 1440x700 with a document open (`scratchpad/ui-sweeps/dockebab.js`): the
-//: panel is 17 rows wanting 704px, drawn at 286x636 from y=178, so its bottom
-//: edge lands 114px past the window and "Delete document" (840 to 876) cannot
-//: be reached by scrolling the panel either, because the panel's own scroll
-//: port ends off-screen.
-//:
-//: 636 is `.doc-dock-menu-list`'s flat `calc(100vh - var(--space-9) * 2)`,
-//: which is the whole bug in one number: a cap measured from the top of the
-//: *window* rather than from the top of the *menu*, exactly the shape this
-//: handler's comment above describes for the dock menus. `#doc-dock-menu`
-//: carries `.doc-dock-menu` without `.dock-menu` (it predates that recipe)
-//: and is not a `.doc-toolbar-menu` either, so `clampToolbarMenu` skipped it
-//: too, and nothing measured it at all.
-//:
-//: So it joins this handler rather than getting a fourth implementation, and
-//: `placeDockMenuInWindow` below is the one addition the recipe was missing:
-//: a side to open on. `escapeAndCapMenu` caps downward from wherever the menu
-//: already is, which is right for a menu with room under it and useless for
-//: one opened near the bottom edge, where the honest answer is to open
-//: upward instead.
+//: **Vertical clipping too** (INBOX 31: "dropdown menus clip off the bottom
+//: of the panel and do not scroll"): the flat `calc(100vh - space-9*2)` cap
+//: is blind to where the menu opened (Reminders' Quick set at 1024x560 ended
+//: 172px past the window, nothing to scroll). `escapeAndCapMenu` escapes a
+//: clipping ancestor, then caps from the list's own top on every open; the
+//: whiteboard's top-bar menus call it too.
+//: **The document dock's ⋯ joined late** (INBOX 233: 17 rows wanting 704px
+//: drawn from y=178 at 1440x700, "Delete document" unreachable): it carries
+//: neither `.dock-menu` nor `.doc-toolbar-menu`, so nothing measured it.
+//: `placeDockMenuInWindow` adds the side to open on: upward when there is
+//: more room above, since capping downward is useless near the bottom edge.
 function placeDockMenuInWindow(details, list) {
   const opener = details.querySelector("summary") || details;
   const margin = 8;

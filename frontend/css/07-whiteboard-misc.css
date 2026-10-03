@@ -1145,7 +1145,7 @@ textarea.drag-over {
     left: 0;
     width: 100vw;
     max-width: 100vw;
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     border-bottom: none;
     border-left: none;
     border-right: none;
@@ -1330,7 +1330,8 @@ body.has-agent-monitor #timeline-scroll {
 
 /* The command palette: a dialog pinned near the top rather than centred, so a
    growing result list doesn't shift the input under the cursor. */
-.command-palette-overlay {
+.command-palette-overlay,
+.finder-overlay {
   z-index: 2000;
   align-items: flex-start;
   padding-top: 15vh;
@@ -3043,12 +3044,22 @@ body.scroll-top-visible .skills-split > .tab-main {
    every native dialog in the app that same dimmed backdrop and near-opaque
    panel instead of reinventing it per-dialog. */
 dialog::backdrop {
-  background: rgba(10, 12, 18, 0.45);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
 }
 
 .space-dialog {
-  min-width: min(26rem, calc(100vw - var(--space-8)));
+  /* **The same inset from the window as a `.modal-overlay` dialog** (INBOX
+     456): the overlay's own padding keeps a modal-card `--space-8` off every
+     edge, and a native dialog sat `--space-4` off (366px against 342px at
+     390). A small dialog is also one width unless it names its own, rather
+     than as wide as its longest line: the "Where are my documents kept?"
+     dialog measured 1332px at 1440 because its path is one unbroken line.
+     `:where` so a dialog that names its width (the widgets picker, the
+     template picker, the quick note) keeps it. `min-width` wins over
+     `max-width` in CSS, so both carry the inset. */
+  min-width: min(26rem, calc(100vw - var(--space-8) * 2));
+  max-width: calc(100vw - var(--space-8) * 2);
   background: var(--modal-bg);
   /* **Every `<dialog class="card space-dialog">` in the app was landing at
      the left edge of the window, not centred.** The base `.card` rule

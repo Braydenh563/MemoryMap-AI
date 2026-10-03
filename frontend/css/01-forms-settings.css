@@ -3363,7 +3363,7 @@ mark.global-find-hit.global-find-current {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 18, 0.45);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;

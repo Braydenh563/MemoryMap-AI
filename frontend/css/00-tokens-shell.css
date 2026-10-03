@@ -214,8 +214,9 @@ select optgroup {
      a screenshot: there was nothing behind the glass for the blur to show.
      The blobs are the only texture the page has, so they carry it. */
   --blob-a: rgba(79, 109, 245, 0.30);
-  /* The dim behind a modal that floats over the app (the command palette),
-     as opposed to .lock-overlay, which replaces the app entirely. */
+  /* The dim behind every modal that floats over the app (dialogs, sheets, the
+     palettes: INBOX 456 found four values of it), as opposed to
+     .lock-overlay, which replaces the app entirely. */
   --scrim: rgba(17, 20, 32, 0.45);
   --blob-b: rgba(157, 88, 245, 0.22);
   --card: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);

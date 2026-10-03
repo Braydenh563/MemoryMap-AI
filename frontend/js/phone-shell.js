@@ -1311,13 +1311,13 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   //: from inside it (INBOX 204: "can you add an exit or x button to the top
   //: right of the guide ai panel"). In the recipe, so every sheet has it.
   const head = document.createElement("div");
-  head.className = "sheet-head";
+  head.className = "sheet-head dialog-head";
   const title = document.createElement("h2");
-  title.className = "sheet-title";
+  title.className = "sheet-title dialog-head-title";
   title.textContent = label;
   const closeButton = document.createElement("button");
   closeButton.type = "button";
-  closeButton.className = "ghost small icon-only sheet-close";
+  closeButton.className = "icon-only ghost small dialog-head-btn sheet-close";
   closeButton.setAttribute("aria-label", "Close");
   closeButton.title = "Close (Escape)";
   const closeIcon = document.createElement("i");

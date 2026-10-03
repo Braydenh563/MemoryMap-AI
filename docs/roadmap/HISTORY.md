@@ -36795,4 +36795,32 @@ width, 47% of the column at 1440.
 454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
      open, all, and done button sections in reminders, the skeleton loaders
      keep flickering in and out". Placed: the orchestrator.
+456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
+     windows and panels are the same design and style." Placed: every
+     dialog, sheet, popover and side panel inventoried and measured against
+     DESIGN.md's dialog and panel recipes (radius, padding, head, close
+     control, shadow, scrim, width steps), then brought onto them: an agent.
+     Fixed 2026-10-03: 42 surfaces measured at 1440 and 390, light and dark
+     (`scratchpad/popup-inventory.md`, `scratchpad/ui-sweeps/popupinv.js`).
+     Three tiers (dialog and sheet, panel, popover) in DESIGN.md's recipe
+     index, each with one shell, and one head for the first two. Distinct
+     values at 1440 light, before to after: dialog close widths 3 to 1, title
+     sizes 2 to 1, head heights 3 to 2; panel radii 2 to 1, paddings 5 to 1,
+     close widths 3 to 1, title sizes 4 to 2; the dim behind a dialog 4 values
+     to the one token, and Find anything dims the app instead of replacing
+     it. Small dialogs are one width (the storage dialog was 1332px). INBOX
+     467 (the Attach picker) brought onto the same recipe in the same pass.
+
+467. **The owner, 2026-10-03 night, verbatim, with a screenshot (the Attach
+     picker: tabs, search, rows with a checkbox and a filled category
+     badge, Clear and Done).** "panels like this need a redesign to be
+     consistent with the others and have a modern and professional look.
+     also I cant navigate on the settings navigation side bar with
+     arrows??" **(1) fixed** by the popups and panels agent: rows 54px with a muted
+     second line, the category a dot and text (was a filled badge), Clear
+     ghost and Done accent at the control height; **(2) fixed**:
+     a pointer click keeps the focus in the Settings list, so Up, Down, Home
+     and End walk the sections; Page Up and Down scroll the open pane from
+     there; Enter or Space moves to the section's heading (measured:
+     Appearance, Down, Down, Up, PageDown 0 to 642px, Enter).
 

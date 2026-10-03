@@ -127,6 +127,12 @@ with its owner named in the entry.
      on Notes and Library at 200% and 400% after the reflow fixes, the rest
      of the tabs measured at the end. Not verified: a real screen reader
      (none runs in the sandbox), the desktop window. (3) with an agent.
+     **Zoom, all tabs, 2026-10-03 evening** (`ONLY=<tab> node zoom.js`, one
+     tab per run: all tabs in one browser closes the page mid-run): a lasting
+     toast hid the Tab stop on six tabs, fixed (e86bd02); Dashboard, Notes,
+     Library, Whiteboard, Documents 200% now 0. Open, with the UI agent:
+     Chat (status bar wraps to 52px over the composer), Timeline scroll
+     clip, Graph 400% chrome, `#ai-status-detail` at 400%.
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

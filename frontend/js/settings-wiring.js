@@ -1374,6 +1374,7 @@ const DEFAULT_SHORTCUTS = {
   find: { keys: "Ctrl+F", label: "Find on this page" },
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
+  quickNote: { keys: "Alt+N", label: "Quick note, saved without leaving the page" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
   //: WORLD_CLASS_PLAN D6. Opens today's page wherever it is (a note or a
   //: document titled with the day), or starts one in the composer. Not while a
@@ -1794,6 +1795,7 @@ function runShortcut(id) {
     },
     help: openShortcuts,
     newNote: () => startNewNote(),
+    quickNote: () => openQuickNote(),
     newDocument: () => {
       switchTab("documents");
       createDocument();
@@ -2226,6 +2228,21 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
     );
   }
 })();
+
+//: The title and the tags are the draft too (INBOX 434): measured, a reload
+//: brought the words back and dropped both. `resetCaptureForm` clears them.
+for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "captureDraftTags"]]) {
+  const field = $(id);
+  try {
+    field.value ||= localStorage.getItem(key) || "";
+  } catch {}
+  field.addEventListener("input", () => {
+    try {
+      if (field.value.trim()) localStorage.setItem(key, field.value);
+      else localStorage.removeItem(key);
+    } catch {}
+  });
+}
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", () => importMarkdown());

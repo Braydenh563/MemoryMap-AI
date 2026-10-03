@@ -5243,3 +5243,93 @@ function graphResetToDefaults() {
 }
 
 document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);
+
+// --- the graph's controls on a phone: one sheet (moved from wiring.js) -------------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 4, "the docks as one bottom sheet with
+// the colour rule, groups and views". At 390 the Graph tab answers a question
+// about the map in one of three places: the gear's floating panel (physics,
+// what to show, time, groups, the minimap, suggest links), the View menu
+// (layout, the colour rule, Trace, the legend) and the ⋯ menu (saved views,
+// export). Each opens *over* the 362x653 map it is about, and the first of
+// them covers 42% of it.
+//
+// One sheet instead, from the gear, holding all three in that order: what the
+// map is, then what it shows, then what is saved. The same elements, moved in
+// while it is open and put back on close, so every handler, every id and every
+// saved preference is the one that was already there; nothing about this
+// surface is built twice. Above 600 nothing changes: the gear opens its panel
+// and the two menus are menus.
+//
+// The two `<details>` are hidden by the stylesheet below 600 rather than
+// emptied, because what is in them moves and comes back: an opener whose menu
+// is somewhere else is an opener that opens nothing.
+
+//: `#graph-options` moves as itself, keeping its class, so the rules written
+//: for `.graph-options .dock-menu-section` still reach its sections inside
+//: the sheet; the two menus' children move into a holder wearing the menu
+//: list's own classes, for the same reason. What is deliberately left behind
+//: is the folded arrange zone: below 1100 `foldDockArrange` parks the View
+//: menu *inside* the ⋯ menu's list, so taking that list's children whole
+//: would bring an emptied View menu into the sheet under the rows that came
+//: out of it.
+function graphControlsSheetParts() {
+  const viewList = document.querySelector("#graph-view-menu .dock-menu-list");
+  const moreList = document.querySelector("#graph-more-menu .dock-menu-list");
+  const options = $("graph-options");
+  const groups = [];
+  if (viewList) groups.push({ holder: "menu", nodes: [...viewList.children] });
+  if (options) groups.push({ holder: "options", nodes: [options] });
+  if (moreList) {
+    groups.push({
+      holder: "menu",
+      nodes: [...moreList.children].filter(
+        (el) => !el.classList.contains("dock-arrange") && !el.classList.contains("dock-arrange-label")
+      ),
+    });
+  }
+  return groups.filter((group) => group.nodes.length);
+}
+
+function openGraphControlsSheet(opener) {
+  if (graphSheetClose) return;
+  const groups = graphControlsSheetParts();
+  if (!groups.length) return;
+  // Where each node came from, taken before anything moves: a node's parent
+  // and the sibling it sat in front of are what put it back exactly.
+  const home = [];
+  for (const group of groups) {
+    for (const node of group.nodes) home.push({ node, parent: node.parentNode, next: node.nextSibling });
+  }
+  const panel = $("graph-options");
+  const wasHidden = panel ? panel.classList.contains("hidden") : true;
+  opener?.setAttribute("aria-expanded", "true");
+  graphSheetClose = openSheet({
+    label: "Map controls",
+    name: "graph",
+    returnFocus: opener,
+    build: (card) => {
+      const body = document.createElement("div");
+      body.className = "graph-controls-body";
+      for (const group of groups) {
+        if (group.holder === "options") {
+          for (const node of group.nodes) {
+            node.classList.remove("hidden");
+            body.appendChild(node);
+          }
+          continue;
+        }
+        const holder = document.createElement("div");
+        holder.className = "doc-dock-menu-list dock-menu-list";
+        for (const node of group.nodes) holder.appendChild(node);
+        body.appendChild(holder);
+      }
+      card.appendChild(body);
+    },
+    onClose: () => {
+      for (const spot of home) spot.parent.insertBefore(spot.node, spot.next);
+      if (panel && wasHidden) panel.classList.add("hidden");
+      graphSheetClose = null;
+      opener?.setAttribute("aria-expanded", "false");
+    },
+  });
+}

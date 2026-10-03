@@ -2760,12 +2760,16 @@ async function renderQuickCaptureWidget(body) {
       try {
         //: Saved at once and filed in the background, `#tags` read from the
         //: text, as Capture's are (INBOX 434). It waited on the model before.
-        const saved = await apiJson("/entries", {
-          method: "POST",
-          body: JSON.stringify({ content, tags: [], defer_filing: true, inline_tags: true }),
-        });
-        status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
+        //: Held on this device when the server is gone (quick-note.js).
+        const result = await createNoteSafely({ content, tags: [] });
+        if (!result) throw new Error("The server is not answering. Your words are kept here.");
         textarea.value = "";
+        if (result.queued) {
+          status.textContent = "Saved on this device. It goes in when the server answers.";
+          return;
+        }
+        const saved = result.saved;
+        status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
         if (saved.filing_state === "pending") watchFiling(saved);
         loadEntries();
       } catch (error) {

@@ -779,6 +779,40 @@
       <button type="button" class="accent" id="note-template-use">Use this template</button>
     </div>
   </dialog>
+  <!-- Quick note (quick-note.js, INBOX 434): a note from any tab without
+       leaving it. Alt+N or the palette; the head is the dialog-head recipe. -->
+  <dialog id="quick-note" class="card space-dialog quick-note-dialog" aria-labelledby="quick-note-title">
+    <div class="dialog-head">
+      <h3 id="quick-note-title" class="dialog-head-title"><i class="ph ph-lightning ph-lead" aria-hidden="true"></i> Quick note</h3>
+      <button type="button" class="icon-only ghost small graph-help-toggle"
+        data-help-for="quick-note-help" aria-controls="quick-note-help"
+        aria-expanded="false" title="About quick notes" aria-label="About quick notes">
+        <i class="ph ph-question" aria-hidden="true"></i>
+      </button>
+      <span class="dialog-head-actions">
+        <button id="quick-note-close" class="icon-only ghost small dialog-head-btn" type="button"
+          title="Close (Esc), your words are kept for next time" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </div>
+    <div class="help-body hidden" id="quick-note-help" role="dialog" aria-label="About quick notes">
+      <p>Alt+N opens this from any tab, and the note is saved without leaving
+        the page you are on. Ctrl+Enter saves; <code>#word</code> anywhere in
+        the text tags the note. It is filed in the background, by Atlas when a
+        model is running and from your own notes when not. Escape closes it and
+        keeps what you wrote for next time. If the server is not answering, the
+        note is kept on this device and goes in by itself when it is back.
+        Open in Capture moves the words to the full composer, for a title, a
+        category, files or a template.</p>
+    </div>
+    <p class="muted">Saved where you are, filed in the background.</p>
+    <textarea id="quick-note-text" rows="5" aria-label="Quick note"
+      placeholder="A thought, a link, a #tag. Ctrl+Enter saves."></textarea>
+    <p id="quick-note-status" class="status" role="status"></p>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" id="quick-note-more">Open in Capture</button>
+      <button type="button" class="accent" id="quick-note-save">Save note</button>
+    </div>
+  </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
        `#tab-documents` where they were written.** A modal `<dialog>` is drawn
        in the top layer and centres itself with the UA's `position: fixed;
@@ -1127,6 +1161,12 @@
                down (DESIGN.md, the recipe index): one bordered surface
                carries the edge, the inset and the focus ring, and the
                fields inside it give theirs up. -->
+          <!-- Notes saved while the server was not answering, held on this
+               device until it does (quick-note.js, INBOX 434). -->
+          <p id="note-outbox-notice" class="notice hidden" role="status">
+            <span class="note-outbox-text"></span>
+            <button type="button" class="ghost small" id="note-outbox-retry">Try now</button>
+          </p>
           <div class="note-composer">
             <!-- Optional: asked for directly. Not a second stored field: it
                  writes the same leading `# heading` line manager.extract_title

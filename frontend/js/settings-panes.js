@@ -2202,6 +2202,7 @@ function paletteCommands() {
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
     { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },
+    { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },
@@ -2668,6 +2669,9 @@ function paletteKeydown(event) {
     renderPalette($("palette-input").value);
     scrollPaletteToActive();
   } else if (event.key === "Enter" && matches[paletteIndex]) {
+    //: The row may focus an editor (New note), and the Enter went on into
+    //: it: measured, every note started from here began with a blank line.
+    event.preventDefault();
     closePalette();
     matches[paletteIndex].run();
   }

@@ -23,6 +23,42 @@ def test_a_paste_or_drop_on_the_mounted_editor_reaches_its_note_box():
     assert "await handleFileUpload(box, files);\n}, true);" in code
 
 
+def test_a_save_with_the_server_gone_is_held_and_sent_later():
+    """Before: "Failed to fetch", the text kept, nothing ever sent it. After:
+    held in the outbox, the box cleared, sent 174 ms after the server came
+    back (captureaudit.js `offline`)."""
+    code = app_js_text()
+    assert 'quickNote: ["/js/quick-note.js"]' in code
+    assert '"noteOutboxAdd", "flushNoteOutbox"' in code
+    assert 'setTimeout(() => ensureModule("quickNote"), 3000);' in code
+    assert "if (await heldOffline(error, body, contentBox, titleBox)) return;" in code
+    assert "flushNoteOutbox(); // notes kept on this device" in code
+    quick = (JS / "quick-note.js").read_text(encoding="utf-8")
+    assert "payload.client_key = payload.client_key || newNoteClientKey();" in quick
+    assert 'window.addEventListener("online", () => flushNoteOutbox());' in quick
+
+
+def test_quick_note_is_a_shortcut_and_a_palette_row():
+    """Alt+N from any tab: caret in 28 to 70 ms, saved without leaving the
+    tab, in the list 100 to 310 ms after Ctrl+Enter; Escape keeps the words."""
+    code = app_js_text()
+    assert 'quickNote: { keys: "Alt+N"' in code
+    assert "quickNote: () => openQuickNote()," in code
+    assert 'chord: "quickNote", act: () => openQuickNote()' in code
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<dialog id="quick-note" class="card space-dialog quick-note-dialog"' in html
+    assert 'id="note-outbox-notice"' in html
+
+
+def test_the_palettes_enter_does_not_reach_the_box_it_opens():
+    """New note from the palette began every note with a blank line ("\\n"
+    in the box before the first keystroke); after: ""."""
+    code = app_js_text()
+    assert 'event.key === "Enter" && matches[paletteIndex]) {' in code
+    at = code.index('event.key === "Enter" && matches[paletteIndex]) {')
+    assert "event.preventDefault();" in code[at : at + 300]
+
+
 def test_inline_tags_are_read_from_the_text():
     from memorymap.entry.tagnames import inline_tags
 

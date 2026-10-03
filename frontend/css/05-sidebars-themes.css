@@ -5830,6 +5830,34 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   width: min(46rem, calc(100vw - var(--space-8)));
 }
 
+/* Quick note (quick-note.js, INBOX 434): a space-dialog wide enough for a
+   paragraph, its box the full width and tall enough for five lines. */
+.quick-note-dialog {
+  width: min(36rem, calc(100vw - var(--space-8)));
+}
+
+.quick-note-dialog textarea {
+  width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+}
+
+/* The outbox line above Capture: its words, then Try now at the end. */
+#note-outbox-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+#note-outbox-notice.hidden {
+  display: none;
+}
+
+#note-outbox-notice .note-outbox-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .doc-template-body {
   display: grid;
   grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);

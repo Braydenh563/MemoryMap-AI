@@ -62,6 +62,29 @@ if(want('shortcut')){
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   }
 }
+// 2b. Quick note (Alt+N) from each tab: saved without leaving it.
+if(want('quick')){
+  for(const tab of ['dashboard','chat','library','graph','timeline']){
+    await page.evaluate((t)=>switchTab(t),tab).catch(()=>{}); await page.waitForTimeout(900);
+    const t0=await mark(); await page.keyboard.press('Alt+N');
+    const r=await page.evaluate(async(t0)=>{const s=performance.now();while(performance.now()-s<3000){if(document.activeElement?.id==='quick-note-text') return Math.round(performance.now()-t0);await new Promise(r=>setTimeout(r,10));}return 'never';},t0);
+    const m='qn'+stamp();
+    await page.keyboard.type(`Quick thought on ${tab} ${m} #quick`);
+    const t1=await mark(); await page.keyboard.press('Control+Enter');
+    const l=await timeToList(m,t1);
+    const after=await page.evaluate(()=>localStorage.getItem('activeTab'));
+    const open=await page.evaluate(()=>document.getElementById('quick-note')?.open);
+    row(`quick note on ${tab}`,{to_caret_ms:r,keys:'1+typing+1',list_ms:l.ms,stayed:after===tab,closed:!open});
+  }
+  // Escape keeps the words; the next open brings them back.
+  await page.keyboard.press('Alt+N'); await page.waitForTimeout(300);
+  await page.keyboard.type('Half a thought');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+  await page.keyboard.press('Alt+N'); await page.waitForTimeout(300);
+  const kept=await page.evaluate(()=>document.getElementById('quick-note-text').value);
+  row('quick note Esc+reopen',{kept:JSON.stringify(kept)});
+  await page.evaluate(()=>{document.getElementById('quick-note-text').value='';localStorage.removeItem('quickNoteDraft');document.getElementById('quick-note').close();});
+}
 // 3. The command palette.
 if(want('palette')){
   await goDash();

@@ -76,8 +76,12 @@ work starts.
     at 390 touch, centres 0px apart, in the edit form's Related panel and
     the card's Similar panel, both themes): related-note badges and their
     Link buttons are different heights;
-    (g) help answers, "From the help": the entry title ("Skills") is tiny
-    against the body; give it heading size;
+    (g) done, already (04-chat-dock-appearance.css `.help-chat-prose`
+    headings take `--text-h3`; measured 2026-10-03, no code change: the
+    "Skills" title, an h5 from renderMarkdown, 18.4px/600 against a 14.72px
+    body, 1.25x, in the toggled "From the help" view and the no-model
+    answer): help answers, "From the help": the entry title ("Skills") is
+    tiny against the body; give it heading size;
     (h) checked in CSS, not in a browser: no button has a plain `:focus` rule, so the ring is `:focus-visible` only (keyboard); the documents formatting toolbar: it overflows to a "..." menu by
     design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
     shows on keyboard focus;

@@ -4671,6 +4671,58 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 }
 
+/* **A phone row is two lines, not three bands** (INBOX 437 (4)). Below 600
+   the actions already take their own line (INBOX 433), but the row stacked
+   a 44px tick line, a 9px gap and a 44px action line inside 11px of padding
+   on each side: 119px a reminder, three to a screen, and the actions sat
+   under the tick box rather than under the words they act on. The row is
+   now the list-row recipe's grid: the tick spans both lines as the mark, the
+   words and the time are the first line, the actions (44px targets, kept)
+   the second, starting under the words. The repeat chip, when there is one,
+   sits before the time. */
+@media (max-width: 599.98px) {
+  #reminder-groups .entry-list li {
+    padding-block: var(--space-1);
+  }
+
+  #reminder-groups .entry-list li > .entry-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "tick text rep when"
+      "tick acts acts acts";
+    column-gap: var(--space-3);
+    row-gap: 0;
+    align-items: center;
+  }
+
+  #reminder-groups .entry-meta > input[type="checkbox"] {
+    grid-area: tick;
+    margin: 0;
+  }
+
+  #reminder-groups .entry-meta > .reminder-text {
+    grid-area: text;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .entry-date {
+    grid-area: when;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .chip {
+    grid-area: rep;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .entry-actions {
+    grid-area: acts;
+    justify-self: start;
+    margin: 0;
+  }
+}
+
 /* An overdue reminder said so twice: a 3px amber edge and an amber frame
    round the whole row, two rows stacked read as a warning banner. The edge
    carries it; the frame goes back to the row's own. */

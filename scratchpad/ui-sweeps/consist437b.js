@@ -46,10 +46,10 @@ const PART = process.env.PART || 'settings,reminders,library,notes,docs';
   }
 
   if (PART.includes('reminders')) {
-    await page.evaluate(async () => { for (const [t, d] of [['Call the plumber', 1], ['Renew passport before the trip', 2], ['Water plants', 0]]) { await api('/reminders', { method: 'POST', body: JSON.stringify({ text: t, remind_at: new Date(Date.now() + d * 864e5 + 36e5).toISOString() }) }).catch(() => {}); } });
+    await page.evaluate(async () => { for (const [t, d] of [['Call the plumber', 1], ['Renew passport before the trip', 2], ['Water plants', 0]]) { await api('/reminders', { method: 'POST', body: JSON.stringify({ text: t, due_at: new Date(Date.now() + d * 864e5 + 36e5).toISOString() }) }).catch(() => {}); } });
     await tab('reminders'); await page.waitForTimeout(600);
-    await m('reminder rows', () => { const r = [...document.querySelectorAll('#reminders-list .reminder-item, #reminders-list li')].filter((e) => e.getClientRects().length); return `n=${r.length} h=${r.slice(0, 4).map((e) => Math.round(e.getBoundingClientRect().height)).join('/')}`; });
-    await m('reminder row parts', () => { const e = [...document.querySelectorAll('#reminders-list .reminder-item, #reminders-list li')].find((e) => e.getClientRects().length); if (!e) return '-'; return [...e.querySelectorAll('input[type=checkbox], .reminder-check, button, .reminder-text, .reminder-meta, .reminder-when, time')].filter((x) => x.getClientRects().length).map((x) => { const r = x.getBoundingClientRect(); return `${(x.className || x.tagName).toString().split(' ')[0]}:${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.left)},${Math.round(r.top - e.getBoundingClientRect().top)}`; }).join(' '); });
+    await m('reminder rows', () => { const r = [...document.querySelectorAll('#tab-reminders .reminder-group-head + ul.entry-list > li')].filter((e) => e.getClientRects().length); return `n=${r.length} h=${r.slice(0, 4).map((e) => Math.round(e.getBoundingClientRect().height)).join('/')}`; });
+    await m('reminder row parts', () => { const e = [...document.querySelectorAll('#tab-reminders .reminder-group-head + ul.entry-list > li')].find((e) => e.getClientRects().length); if (!e) return '-'; return [...e.querySelectorAll('input[type=checkbox], .reminder-check, button, .reminder-text, .reminder-meta, .reminder-when, time')].filter((x) => x.getClientRects().length).map((x) => { const r = x.getBoundingClientRect(); return `${(x.className || x.tagName).toString().split(' ')[0]}:${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.left)},${Math.round(r.top - e.getBoundingClientRect().top)}`; }).join(' '); });
     await m('reminders dock', audit, '#tab-reminders');
   }
 

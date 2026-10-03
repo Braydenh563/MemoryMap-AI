@@ -3040,6 +3040,66 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 600;
 }
 
+/* --- the accessible card: the title opens it (INBOX 433) -------------------
+   axe-core's nested-interactive (WCAG 4.1.2): a Library card, a board card
+   and a Documents row were each a control by role holding a tick and a ⋯,
+   35 nodes over two themes. The card is a box now and its title is the one
+   control that opens it (`cardOpener`, menus.js). This is the half that keeps
+   the mouse the same: the title's click area is stretched over the whole
+   card, whose `position: relative` (00-tokens-shell.css, 04-chat-dock-
+   appearance.css) makes it the overlay's box, so a press on the thumbnail
+   or the preview still opens the card. The title is never positioned, so the
+   2-line clamp's `overflow: hidden` on it does not clip the overlay.
+
+   `z-index: 1`, not `auto`: a board card's picture is drawn at 0.55
+   opacity, which makes it a stacking layer of its own, later in the card
+   than the title, and it took the press at the card's centre (measured
+   with scratchpad/ui-sweeps/cardopen.js). */
+.card-open {
+  cursor: pointer;
+}
+
+/* And the card keeps those layers to itself, so an overlay at 1 and a tick
+   at 2 can never rise over a sticky bar the grid scrolls under. */
+.library-card,
+.doc-list-item {
+  isolation: isolate;
+}
+
+.card-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* The controls that are the card's own sit above the overlay. `:where()` for
+   the position so a tick an earlier rule pins `absolute` keeps it; the
+   stacking order is all this adds, at a weight above the hover-revealed
+   tick's own `.library-card .library-card-tick` (z-index 1). */
+:where(.library-card-tick, .doc-list-tick, .library-card-preview a) {
+  position: relative;
+}
+
+:is(.library-card, .doc-list-item) :is(.library-card-tick, .doc-list-tick, .menu-wrap, .library-card-preview a) {
+  z-index: 2;
+}
+
+/* The focus is on the title, and the ring is the card's, as it was when the
+   card took the focus itself: the hover fill and the app's ring around the
+   whole card, not a ring around two lines of text. */
+.card-open:focus-visible {
+  outline: none;
+}
+
+.library-card:has(.card-open:focus-visible),
+.doc-list-item:has(.card-open:focus-visible) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.library-note, .library-document, .library-chat, .library-file, .library-tag, .library-archived, .library-activity) {
   box-shadow: none;
 }

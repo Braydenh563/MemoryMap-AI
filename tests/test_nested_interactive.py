@@ -1,0 +1,106 @@
+"""No interactive control inside another one (INBOX 433, WCAG 2.2 4.1.2).
+
+axe-core's `nested-interactive` rule, measured with
+`scratchpad/ui-sweeps/axe.js`: every Library card was an `<article
+role="button">` holding its own tick and its own ⋯ (35 nodes across the
+two themes), and six Settings fold heads were `<summary>`s holding their '?'.
+A screen reader announces the outer control and cannot reach the inner ones
+as themselves, and the platform's own keyboard rules for a button do not
+expect anything focusable inside it.
+
+The fix is the accessible card (DESIGN.md, the recipe index): the card is
+not a control. Its title is the one control that opens it (`cardOpener`,
+menus.js), and that title's click area is stretched over the card by a
+`::after` overlay, so a click anywhere on the card still opens it while the
+tick and the ⋯ sit above the overlay as controls of their own.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+FRONTEND = ROOT / "frontend"
+LIBRARY = (FRONTEND / "library.js").read_text(encoding="utf-8")
+WHITEBOARD = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
+MENUS = (FRONTEND / "menus.js").read_text(encoding="utf-8")
+NAVIGATION = (FRONTEND / "navigation.js").read_text(encoding="utf-8")
+CSS = "\n".join(
+    re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S)
+    for p in sorted((FRONTEND / "css").glob("*.css"))
+)
+
+
+def _function(source: str, name: str) -> str:
+    start = source.index(f"function {name}(")
+    depth = 0
+    for index in range(source.index(") {", start) + 2, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+    raise AssertionError(name)
+
+
+def test_the_opener_is_one_shared_builder():
+    opener = _function(MENUS, "cardOpener")
+    assert 'setAttribute("role", "button")' in opener
+    assert "tabIndex" in opener
+    assert '"Enter"' in opener and '" "' in opener
+    # A link the title's markdown drew would be a control inside the
+    # control again; the title is a name, so its links are unwrapped.
+    assert "a[href]" in opener
+    assert 'classList.add("card-open")' in opener
+
+
+def test_the_library_card_is_not_itself_a_control():
+    card = _function(LIBRARY, "libraryCard")
+    assert 'card.setAttribute("role", "button")' not in card
+    assert "card.tabIndex" not in card
+    assert "cardOpener(title" in card
+    # Its controls still take their own presses: the overlay sits under them.
+    assert "card.addEventListener(\"keydown\"" not in card
+
+
+def test_the_board_card_and_the_document_row_use_the_same_opener():
+    gallery = _function(WHITEBOARD, "renderLibraryBoardsGallery")
+    assert 'card.setAttribute("role", "button")' not in gallery
+    assert "card.tabIndex" not in gallery
+    assert "cardOpener(title" in gallery
+    docs = LIBRARY[LIBRARY.index('open.className = "doc-list-item";') :][:4000]
+    assert 'open.setAttribute("role", "button")' not in docs
+    assert "open.tabIndex" not in docs
+    assert "cardOpener(title" in docs
+
+
+def test_the_one_tab_stop_moves_to_the_opener():
+    stop = _function(LIBRARY, "setLibraryCardStop")
+    assert "card.tabIndex" not in stop
+    assert 'const LIBRARY_CARD_STOPS = ".card-open, .library-card-tick, .library-card-menu > button";' in LIBRARY
+    ensure = _function(LIBRARY, "ensureLibraryGridStop")
+    assert ".card-open[tabindex='0']" in ensure
+    # The arrow keys move between the openers, the one stop of each card.
+    assert '["#library-grid", ".library-card .card-open"]' in NAVIGATION
+    assert '["#library-boards-grid", ".library-card .card-open"]' in NAVIGATION
+    assert '["#library-docs-list", ".doc-list-item .card-open"]' in NAVIGATION
+
+
+def test_the_overlay_covers_the_card_and_the_controls_sit_above_it():
+    after = re.search(r"\.card-open::after\s*\{([^}]*)\}", CSS)
+    assert after, "no stretched overlay for .card-open"
+    assert "position: absolute" in after.group(1)
+    assert "inset: 0" in after.group(1)
+    # The hosts are the overlay's containing block.
+    for host in (".library-card", ".doc-list-item"):
+        assert re.search(re.escape(host) + r"\s*\{[^}]*position:\s*relative", CSS), host
+    # Above it: the ticks, the menus and any link in a preview.
+    assert "z-index: 1" in after.group(1)
+    lifted = re.search(r"([^{}]*)\{\s*z-index:\s*2;\s*\}", CSS[CSS.index(".card-open::after") :])
+    assert lifted, "nothing is lifted above the overlay"
+    for control in (".library-card-tick", ".doc-list-tick", ".menu-wrap", ".library-card-preview a"):
+        assert control in lifted.group(1), control
+    # The card still shows where the keyboard is: the ring the card had.
+    assert ":has(.card-open:focus-visible)" in CSS

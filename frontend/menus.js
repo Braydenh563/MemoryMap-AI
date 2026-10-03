@@ -335,6 +335,38 @@ function wireHelpPopover(trigger, panel) {
 }
 window.wireHelpPopover = wireHelpPopover;
 
+//: **The accessible card: the title opens it, not the card** (INBOX 433,
+//: WCAG 4.1.2). A Library card was an `<article role="button">` holding its
+//: own tick and its own ⋯, and axe-core counted 35 controls nested inside
+//: controls: a screen reader announced one button and could not reach the
+//: two inside it as themselves. Now the card is only a box, and its title is
+//: the one control that opens it: a button by role, a Tab stop, Enter or
+//: Space to open. Its click area is stretched over the whole card by
+//: `.card-open::after` (08-consistency.css), so a press anywhere on the card
+//: still lands on the title and opens it, and the tick, the ⋯ and a link in
+//: the preview sit above that overlay as controls of their own. The host
+//: keeps its own click listener, which the overlay's press bubbles to, so
+//: nothing about the mouse changed.
+//:
+//: `name` is what the button is called aloud when the title alone would not
+//: say enough (the Library card says its kind and its category too).
+function cardOpener(title, open, name) {
+  //: A title is a name. A link its markdown drew would be a control inside
+  //: this one again, so it is kept as words.
+  for (const link of title.querySelectorAll("a[href], [tabindex]")) link.replaceWith(...link.childNodes);
+  title.classList.add("card-open");
+  title.setAttribute("role", "button");
+  title.tabIndex = 0;
+  if (name) title.setAttribute("aria-label", name);
+  title.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open();
+  });
+  return title;
+}
+window.cardOpener = cardOpener;
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
   window._menuOpenedAt = performance.now();

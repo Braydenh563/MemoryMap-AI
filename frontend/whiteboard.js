@@ -14034,23 +14034,16 @@ async function renderLibraryBoardsGallery() {
   empty?.classList.add("hidden");
   noMatch?.classList.add("hidden");
   for (const board of shown) {
-    // An `<article>` with role="button", the same shape libraryCard() and
-    // the Documents subtab's doc-list-item use: a plain <button> can't
-    // also host the kebab menu's own <button>, and reported live: "can't
-    // rename or delete a board from the Whiteboards subtab", the exact gap
-    // that shape already closed for documents.
+    // An `<article>`, the same shape libraryCard() and the Documents
+    // subtab's doc-list-item use: a plain <button> can't also host the
+    // kebab menu's own <button>, and reported live: "can't rename or delete
+    // a board from the Whiteboards subtab", the exact gap that shape
+    // already closed for documents. Not a button by role either (INBOX
+    // 433): the title opens it, stretched over the card (`cardOpener`).
     const card = document.createElement("article");
     card.className = "library-card library-board-card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
     const open = () => openWhiteboardBoard(board.id);
     card.addEventListener("click", open);
-    card.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (event.target !== card) return; // a key pressed inside the menu is its own
-      event.preventDefault();
-      open();
-    });
 
     const top = document.createElement("div");
     top.className = "library-card-top";
@@ -14068,6 +14061,7 @@ async function renderLibraryBoardsGallery() {
     const title = document.createElement("strong");
     title.className = "library-card-title";
     title.textContent = board.title;
+    cardOpener(title, open, `${isMapCard ? "Map" : "Board"}: ${board.title}`);
 
     const meta = document.createElement("span");
     meta.className = "muted library-card-meta";

@@ -874,7 +874,7 @@ ratchets the counts so they cannot drift back.
 
 ```
 --control-h-lg: 2rem    /* 32px, was 2.25rem (INBOX 446 (5)) */
---control-h-body: 2.25rem /* 36px, the composers' rows (Capture, Write with AI, Ask, a document's AI card), was a literal 2.5rem */
+--control-h-body: 2.25rem /* 36px, the composers' rows (Capture, Write with AI, Ask, Chat, a document's AI card), was a literal 2.5rem */
 --target-min:   1.75rem /* 28px; 2.75rem (44px) under a coarse pointer or below 820 */
 ```
 

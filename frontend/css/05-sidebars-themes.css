@@ -4421,6 +4421,20 @@ textarea.autogrow {
   padding-inline: 0.6rem;
 }
 
+/* Measured again after the density pass (INBOX 437 (4)): "Add your name" 32px
+   from `.small`'s height, the X 28px from `.icon-only`'s, two heights on one
+   row again, because the rule above lost to both. Stated at the id, the X
+   square at the same size. */
+#dash-name-nudge > button {
+  height: max(var(--control-h-lg), var(--target-min));
+  min-height: 0;
+}
+
+#dash-name-nudge > button.icon-only {
+  width: max(var(--control-h-lg), var(--target-min));
+  padding-inline: 0;
+}
+
 /* On a phone the header wraps to two or three rows and the sidebars stack
    above the content, where sticking them would pin a full-height panel over
    the thing you're reading. */

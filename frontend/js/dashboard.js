@@ -405,7 +405,7 @@ function paintDashClock() {
   if (!timeEl || !dateEl) return;
   const now = new Date();
   timeEl.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   });
   dateEl.textContent = now.toLocaleDateString([], {

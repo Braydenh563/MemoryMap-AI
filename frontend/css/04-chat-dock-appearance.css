@@ -20,7 +20,9 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  --control-h: 1.875rem;
+  /* The app's control height (INBOX 437 (4)): this said 1.875rem (30px)
+     beside a graph dock whose controls are all 32. */
+  --control-h: var(--control-h-lg);
 }
 
 :root[data-glass="off"] .graph-trace {
@@ -930,7 +932,12 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      copied from a screenshot. A custom property set on `.chat-composer`
      itself would not reach `.chat-dock-controls`, its next sibling, since
      inheritance runs down the tree and they are not one another's ancestor. */
-  --composer-h: 2.75rem;
+  /* `--control-h-body` (36px), the composers' row height that Capture, Ask
+     and Write with AI already use (INBOX 437 (4)): a literal 2.75rem made
+     Chat's message row 44px, the tallest composer in the app, at a desk
+     where nothing needs a thumb-sized target. A touch screen or a narrow
+     window still gets `--target-min` (44px there). */
+  --composer-h: max(var(--control-h-body), var(--target-min));
   /* **No background.** Reported as "a weird box shadow behind the bottom dock",
      and that is what it looked like, but the cause was a repaint rather than a
      shadow: this said `background: var(--card)` while sitting *inside* a card
@@ -967,8 +974,13 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   /* One height for everything in the strip. Not a spacing token: this is a
      control's size, the same role --radius plays for corners, and snapping it
      to a gap step would make it drift with density in a way a hit target
-     should not. */
-  --control-h: 1.875rem;
+     should not.
+     `--control-h-lg` (32px), the height every other bar in the app uses
+     (INBOX 437 (4)): a literal 1.875rem kept this strip at 30px, the one
+     row of controls left two pixels short after the density pass. The
+     `max` is the touch band's floor (44px below 820): at 200% zoom the mode
+     segment's 44px buttons sat in a 32px well and were cut off (INBOX 433). */
+  --control-h: max(var(--control-h-lg), var(--target-min));
 }
 
 /* **The free space between the left groups and the right pair, and all of
@@ -1318,6 +1330,17 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 
 .chat-dock-more-row select {
   width: auto;
+}
+
+/* The selects in the chat's sidebar and in the More panel are dressed as
+   `.select-opener`, whose own padding made them 37px beside 32px buttons in
+   the same card (INBOX 437 (4)). The opener takes the row's height, as the
+   strip's model picker already does. */
+#chat-sidebar .select-shell > .select-opener,
+.chat-dock-more-row .select-shell > .select-opener {
+  height: max(var(--control-h-lg), var(--target-min));
+  min-height: max(var(--control-h-lg), var(--target-min));
+  padding-block: 0;
 }
 
 #chat-dock-more-btn[aria-expanded="true"],

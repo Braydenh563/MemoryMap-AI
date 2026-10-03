@@ -1594,6 +1594,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      run. `hidden` would also fight the hover rule below. */
   visibility: hidden;
   opacity: 0;
+  /* Not a target while it fades out (INBOX 433, zoom.js at 400%): the fade
+     keeps it `visible` for --motion-fast after the dot loses focus, and in
+     the header on a phone it hangs over the tab's own head, so the next
+     control Tab reached sat under an invisible popup that took its clicks. */
+  pointer-events: none;
   transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast) var(--ease-out);
 }
 
@@ -1602,6 +1607,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 .ai-status-popup.pinned {
   visibility: visible;
   opacity: 1;
+  pointer-events: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

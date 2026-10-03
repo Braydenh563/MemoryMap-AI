@@ -978,6 +978,43 @@ kbd {
   display: none;
 }
 
+/* **Background jobs is a list of facts, not a stack of cards** (INBOX 437
+   (4)). As `.entry-list` cards each kind was a 68px filled block, sixteen of
+   them 1226px tall, for a name and one line. The row recipe instead: the name
+   and its last-run line side by side, a hairline between rows and no ground,
+   so the whole list reads in one look. One column on a phone. */
+#job-runs-list {
+  display: block;
+}
+
+#job-runs-list > li {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#job-runs-list > li:last-child {
+  border-bottom: 0;
+}
+
+#job-runs-list .job-line {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  #job-runs-list > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* The live "how long has this been going" counter beside the chat status.
    Tabular figures so the row does not jitter a pixel every second as the
    digits change width: a counter that makes the text next to it move is

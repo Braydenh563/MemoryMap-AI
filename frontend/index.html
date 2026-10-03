@@ -2463,7 +2463,7 @@ Link to another note with [[its first few words]]."></textarea>
             <input id="chat-image-input" type="file" class="visually-hidden"
               accept="image/*,.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.mjs,.cjs,.ts,.tsx,.jsx,.css,.scss,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.r,.sh,.bash,.zsh,.sql,.toml,.ini,.cfg"
               multiple
-              aria-label="Choose an image to attach">
+              aria-label="Choose an image to attach" tabindex="-1">
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
@@ -2805,7 +2805,7 @@ Link to another note with [[its first few words]]."></textarea>
            of nine controls at two heights, a labelled View select, Today,
            Options (a panel of three more selects under the strip), a labelled
            Highlight field, a count and help. Now the four zones: identity
-           (Timeline, the count as its context), find (the highlight field),
+           (Timeline, the count as the Graph's `.dock-chip`), find (the highlight field),
            arrange (the view as an icon segment, the app's one control for
            "how am I looking at this", and one Options menu holding bucket,
            bands and range), actions (Today as the one filled control, help).
@@ -2814,7 +2814,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="dock" data-dock-name="timeline" role="toolbar" aria-label="Timeline controls">
         <div class="dock-identity">
           <h2>Timeline</h2>
-          <span id="timeline-count" class="muted dock-context"></span>
+          <span id="timeline-count" class="dock-chip"></span>
         </div>
         <div class="dock-group dock-find">
           <!-- "Find", not "highlight": it filters the rows now rather than
@@ -10294,21 +10294,22 @@ Link to another note with [[its first few words]]."></textarea>
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
+              <!-- The line under the head, as every settings group has it, and
+                   the help keeps only what the line does not say (INBOX 437
+                   (4): the help repeated the line word for word). The four
+                   exports are one row, wrapping on a phone. -->
+              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
+              <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
+                <p>
+                  Full backup is a portable zip of the raw database and media
+                  folder, the one to keep if you move to another computer.
+                </p>
+              </div>
               <div class="row">
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
-              </div>
-              <div class="row settings-row-spaced">
                 <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
-              </div>
-              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
-              <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
-                <p>
-                  JSON/CSV/Markdown exports include everything, even binned
-                  notes. Full Backup is a portable zip of the raw database
-                  and media folder.
-                </p>
               </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports

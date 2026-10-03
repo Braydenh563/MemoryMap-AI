@@ -4644,8 +4644,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    of the edge with a hole after it, measured at 1280. With a pointer the
    strip now lies over the time instead (the mail-list convention: the date
    gives way to what you can do to the row), and the time sits at the end.
-   Touch keeps the strip in the row and always shown, as before. */
-@media (hover: hover) {
+   Touch keeps the strip in the row and always shown, as before. So does a
+   window under 600 (INBOX 433, zoom.js at 400%): in a 271px row the 240px
+   strip lay over the tick box too, so the box Tab had just reached sat under
+   the strip its own focus called up. */
+@media (hover: hover) and (min-width: 600px) {
   #reminder-groups li {
     position: relative;
   }
@@ -8753,7 +8756,10 @@ input[type="file"] {
 
 input[type="file"]::file-selector-button {
   margin-inline-end: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  /* The button's height, not its padding's (INBOX 437 (4)): 33px beside a
+     32px Import on a desk, and 33 beside 44 on a phone. */
+  height: max(var(--control-h-lg), var(--target-min));
+  padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--ghost-btn-bg);
@@ -9037,6 +9043,10 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 /* Today's note button sits at the day head's end, like the other days' counts. */
 .timeline-bucket-head > .timeline-today-action {
   margin-inline-start: auto;
+  /* Into the head's own padding, so today's head is as tall as every other
+     day's (INBOX 437 (4): 47px against 35, the one head in the list a row
+     taller because a 32px button sat inside 8px of padding each side). */
+  margin-block: calc(-1 * var(--space-2));
 }
 
 /* ...and on a today that has rows, its count stays in the column every other

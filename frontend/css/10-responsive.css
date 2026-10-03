@@ -1236,16 +1236,16 @@ header#top-bar,
     min-width: 0;
   }
 
-  .dock .dock-identity > :is(h1, h2, h3, .dock-context) {
+  .dock .dock-identity > :is(h1, h2, h3, .dock-chip) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* The context line gives way before the name does ("17 notes · by date"
+  /* The count gives way before the name does ("17 notes · by date"
      beside "Timeline" ran 68px into the Options menu at 390). */
-  .dock .dock-identity > .dock-context {
+  .dock .dock-identity > .dock-chip {
     flex: 0 1000 auto;
   }
 }
@@ -2070,6 +2070,15 @@ header#top-bar,
   }
 }
 
+/* ...and from 1100 up, where the form is on the page, "New reminder" only
+   put the caret in it: a second filled "add" 200px under the form's own Add,
+   two primaries for one action on one screen (INBOX 437 (4)). */
+@media (min-width: 1100px) {
+  #reminders-new {
+    display: none;
+  }
+}
+
 .reminder-compose-card > #reminder-compose {
   margin: 0;
   padding: 0;
@@ -2687,6 +2696,56 @@ header#top-bar,
   .notes-subtabs,
   .library-subtabs {
     position: static;
+  }
+
+  /* **And Chat stops being a fixed-height pane** (INBOX 433, zoom.js at 200%,
+     640 by 400). The card is the page's height and the dock alone is taller
+     than what is left, so the message list was squeezed to its 6rem floor
+     with its welcome scrolled under the sticky head and the dock: the "Try
+     asking" chips and Ask Atlas took the keyboard's focus out of sight.
+     Below 420px tall the card flows like any page, the list at its own
+     height and the head scrolling away with it, and the tab scrolls. */
+  #tab-chat,
+  #tab-chat > .layout {
+    display: block;
+  }
+
+  #chat-main {
+    height: auto;
+  }
+
+  #tab-chat #chat-messages {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  #tab-chat .chat-toolbar {
+    position: static;
+  }
+
+  /* The Timeline's feed keeps its own scroll (it loads more from it), but
+     not at the dock's leftovers: at 400% (320 by 256) the dock took 158px of
+     a 144px page and the feed got 0px, every row unreachable but by Tab. With
+     a floor of its own the card grows past the page, the page scrolls the
+     dock away, and the feed has most of the window. */
+  #tab-timeline .timeline-scroll {
+    min-height: min(16rem, 70dvh);
+  }
+
+  /* The map is a surface you look at, so it keeps a usable height and the
+     page scrolls to it, rather than shrinking to what the chrome leaves: at
+     200% (640 by 400) the card was 218px, the zoom strip (178px of touch
+     buttons) rose under the wrapped dock, and the minimap sat on the legend.
+     26rem holds the dock, the strip and the legend apart; the minimap, an
+     overview of a map that is itself smaller than a phone's, goes. */
+  #graph-card {
+    min-height: 26rem;
+  }
+
+  #graph-minimap {
+    display: none;
   }
 }
 

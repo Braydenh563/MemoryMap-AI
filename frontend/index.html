@@ -10294,21 +10294,22 @@ Link to another note with [[its first few words]]."></textarea>
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
+              <!-- The line under the head, as every settings group has it, and
+                   the help keeps only what the line does not say (INBOX 437
+                   (4): the help repeated the line word for word). The four
+                   exports are one row, wrapping on a phone. -->
+              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
+              <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
+                <p>
+                  Full backup is a portable zip of the raw database and media
+                  folder, the one to keep if you move to another computer.
+                </p>
+              </div>
               <div class="row">
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
-              </div>
-              <div class="row settings-row-spaced">
                 <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
-              </div>
-              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
-              <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
-                <p>
-                  JSON/CSV/Markdown exports include everything, even binned
-                  notes. Full Backup is a portable zip of the raw database
-                  and media folder.
-                </p>
               </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports

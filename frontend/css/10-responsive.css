@@ -2070,6 +2070,15 @@ header#top-bar,
   }
 }
 
+/* ...and from 1100 up, where the form is on the page, "New reminder" only
+   put the caret in it: a second filled "add" 200px under the form's own Add,
+   two primaries for one action on one screen (INBOX 437 (4)). */
+@media (min-width: 1100px) {
+  #reminders-new {
+    display: none;
+  }
+}
+
 .reminder-compose-card > #reminder-compose {
   margin: 0;
   padding: 0;

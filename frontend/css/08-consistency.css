@@ -8753,7 +8753,10 @@ input[type="file"] {
 
 input[type="file"]::file-selector-button {
   margin-inline-end: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  /* The button's height, not its padding's (INBOX 437 (4)): 33px beside a
+     32px Import on a desk, and 33 beside 44 on a phone. */
+  height: max(var(--control-h-lg), var(--target-min));
+  padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--ghost-btn-bg);

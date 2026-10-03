@@ -6000,7 +6000,11 @@ button.ghost.danger:hover {
    above already gives every panel in this column. */
 .graph-overlay .graph-options {
   align-self: flex-end;
-  width: min(22rem, 100%);
+  /* 25rem, not 22 (INBOX 437 (4)): the Show grid's longest pair, "Length by
+     similarity" beside "Group by category", needs 361px of a 352px panel,
+     so the right column's switches were cut off at the panel's edge by 11px
+     and the panel scrolled sideways. */
+  width: min(25rem, 100%);
 }
 
 /* A panel over the map is capped and scrolls inside itself. Reported once in

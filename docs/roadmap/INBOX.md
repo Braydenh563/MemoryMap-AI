@@ -34,6 +34,22 @@ with its owner named in the entry.
 
 ## Open items
 
+462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
+     dont handle collapsed sidebars at least in the chat tab". Placed: with
+     455 (2), the companion agent.
+
+461. **The owner, 2026-10-03 night, verbatim, with screenshots (Settings:
+     a "Stopped" badge beside a heading, an "Installed" badge with a check;
+     the dashboard's "Start something" row of five actions).** "make sure all
+     the badges across the app are the same style, and properly aligned,
+     fitted, and ui/ux styled. also Im wondering if it might be a good idea
+     to make this start something section on the dashboard customisable
+     like a quick access section?? what is there can be default".
+     Recommendation taken (order 3): yes, "Quick access", the five as the
+     default set, chosen from the command catalogue, reordered and reset
+     from its own menu. Placed: (1) badges with 455 (1), an Opus agent; (2)
+     Quick access, an agent.
+
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
      orchestrator (reproduce with synthetic wheel streams; suspects: a

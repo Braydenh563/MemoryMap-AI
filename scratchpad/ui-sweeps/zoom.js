@@ -69,6 +69,9 @@ async function clippedText(page) {
       //: click away, not lost text; a line clamp the same.
       if (cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none') return false;
       if (e.matches('.visually-hidden, [class*="sr-only"], textarea, input, svg, svg *, canvas')) return false;
+      //: A word kept for screen readers and hidden by the clip recipe (a dock
+      //: label at a narrow width) is a 1px box on purpose, not lost text.
+      if (e.clientWidth <= 1 && e.clientHeight <= 1) return false;
       return e.scrollHeight > e.clientHeight + 2 || e.scrollWidth > e.clientWidth + 2;
     }).slice(0, 6).map((e) => `${desc(e)} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
   });

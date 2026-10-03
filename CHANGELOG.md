@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Zoom and keyboard: at 400% zoom or on a very short window the sub-tab strips scroll with the page and New note stays in its dock, so a focused control is never hidden under them; a closed sidebar drawer is no longer a Tab stop; a control reached by Tab scrolls clear of the floating button and the sticky strip.
 - Keyboard: F2 or Edit puts the caret in the note's editor and Escape returns to the note; a chooser sheet (Move to category, Tags) opens on the current row and the arrow keys walk its rows; after a move the focus stays on the note instead of falling to the top of the page.
 - Accessibility: Find anything's results are announced as a list only while they list something; its empty and no-match messages no longer read as an empty list.
 - A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).

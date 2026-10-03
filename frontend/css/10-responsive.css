@@ -2775,3 +2775,16 @@ header#top-bar,
     display: none;
   }
 }
+
+/* **A very short window scrolls its strips away** (WCAG 1.4.10, INBOX 433:
+   zoom.js at 400%, 320 by 256). A sticky sub-tab strip kept 52px of a
+   170px list for itself, and a control the keyboard reached could only sit
+   under it. Below 420px tall the strips scroll with the page like
+   everything else; the floating New note stays in its dock at this height
+   too (phone-shell.js `PHONE_FAB`). */
+@media (max-height: 420px) {
+  .notes-subtabs,
+  .library-subtabs {
+    position: static;
+  }
+}

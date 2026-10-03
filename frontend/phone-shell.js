@@ -1683,7 +1683,11 @@ buildSettingsJumpList();
 // the one that gets hidden when its tab is not showing, which is what keeps a
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
-const PHONE_FAB = "(max-width: 599.98px)";
+//: Not on a very short screen (WCAG 1.4.10 and 2.4.11, INBOX 433): at 400%
+//: zoom (320 by 256) the floating button, the sticky sub-tabs and the bottom
+//: bars left the list 40px to show a focused 44px control in, so the
+//: button stays in its dock there and scrolls with the page.
+const PHONE_FAB = "(max-width: 599.98px) and (min-height: 421px)";
 const FAB_IDS = [
   "graph-add-node",
   "library-new-doc",

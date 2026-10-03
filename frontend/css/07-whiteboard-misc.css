@@ -12086,6 +12086,18 @@ header#top-bar {
     visibility: visible;
   }
 
+  /* And the closed sheet does not scroll. Its rows are hidden, but a box
+     that scrolls is a Tab stop of its own in Chromium (keyboard-focusable
+     scrollers), so Tab landed on an invisible, off-screen sidebar at 320
+     and 390 (zoom.js, WCAG 2.4.3 and 2.4.11, INBOX 433). `hidden` keeps its
+     scroll position for when it opens. */
+  #sidebar:not(.sidebar-sheet-open),
+  #chat-sidebar:not(.sidebar-sheet-open),
+  #doc-sidebar:not(.sidebar-sheet-open),
+  #skills-sidebar:not(.sidebar-sheet-open) {
+    overflow-y: hidden;
+  }
+
   /* The toggle rides on the rail: pinned to the sheet's right edge at the
      inset the rail was measured from, so it lands centred on the strip that
      stays visible. */
@@ -12459,6 +12471,16 @@ header#top-bar {
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-lg);
     padding-inline: var(--space-6);
+  }
+
+  /* **The button never hides what the keyboard is on** (WCAG 2.4.11, INBOX
+     433: zoom.js at 320, Tab reached a filter and a row's button sitting
+     under it). Scrolling a focused control into view stops this far above
+     the page's foot, which is the button's own height and its offset; on
+     Notes the scroller is the layout's `.tab-main`, not the page. */
+  .tab-page:has(> .dock-fab),
+  .tab-page:has(> .dock-fab) .tab-main {
+    scroll-padding-bottom: calc(var(--target-min) + var(--space-5) + var(--space-3));
   }
 
   /* --- one column of full-width cards ------------------------------------

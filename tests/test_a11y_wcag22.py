@@ -111,3 +111,19 @@ def test_the_keyboard_lands_somewhere_after_every_note_step():
     sheet = _function(_read("phone-shell.js"), "openSheet")
     assert "'.sheet-row[aria-current=\"true\"]'" in sheet
     assert "ArrowDown: 1, ArrowUp: -1" in sheet
+
+
+def test_focus_is_never_hidden_under_sticky_or_floating_furniture():
+    # zoom.js at 400% (320x256) and 320 wide: Tab reached an off-screen
+    # drawer, controls under the floating New note, and controls under the
+    # sticky sub-tabs.
+    misc = (CSS / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    closed = misc[misc.index("#skills-sidebar:not(.sidebar-sheet-open) {\n    overflow-y: hidden;") - 200:]
+    assert "#sidebar:not(.sidebar-sheet-open)," in closed
+    assert ".tab-page:has(> .dock-fab) .tab-main {\n    scroll-padding-bottom:" in misc
+    side = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert "#tab-notes .tab-main,\n#tab-library,\n#tab-library .tab-main {\n  scroll-padding-top:" in side
+    resp = (CSS / "10-responsive.css").read_text(encoding="utf-8")
+    short = resp[resp.index("@media (max-height: 420px) {"):]
+    assert ".notes-subtabs,\n  .library-subtabs {\n    position: static;" in short
+    assert 'const PHONE_FAB = "(max-width: 599.98px) and (min-height: 421px)";' in _read("phone-shell.js")

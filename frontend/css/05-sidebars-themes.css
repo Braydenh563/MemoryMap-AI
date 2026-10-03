@@ -4209,6 +4209,17 @@ button.is-on {
   border: 1px solid var(--border);
 }
 
+/* **Nothing the keyboard reaches scrolls in under the strip** (WCAG 2.4.11,
+   INBOX 433: zoom.js at 320x256, a Tab into the dock or a note's chip put
+   it behind the sticky sub-tabs). Scrolling a focused control into view
+   stops a strip's height below the top; the strip is at most a touch
+   target and its padding tall. Library's strip is the same shape. */
+#tab-notes .tab-main,
+#tab-library,
+#tab-library .tab-main {
+  scroll-padding-top: calc(var(--target-min) + var(--space-3));
+}
+
 .notes-subtabs::-webkit-scrollbar {
   display: none;
 }

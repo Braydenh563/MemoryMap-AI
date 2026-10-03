@@ -1957,9 +1957,12 @@ header#top-bar select,
   }
 }
 
-/* The note itself should read first; its metadata second. */
+/* The note itself should read first; its metadata second. `--text-lg`
+   (14.7px), was 1rem (INBOX 446 (5)): at 16px a preview was larger than
+   its own bold title and a card held three lines of it; the title's weight
+   and the metadata's 12px still order the three. */
 #entry-list .entry-content {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   line-height: 1.55;
 }
 

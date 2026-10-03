@@ -2087,8 +2087,9 @@ body.has-agent-monitor #timeline-scroll {
   min-width: 6.5rem;
   text-align: center;
   /* Same height as the Notes strip's buttons: see `.notes-subtabs button`. */
-  height: var(--control-h-lg);
-  padding: 0 1.25rem;
+  height: var(--target-min);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
   /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
      (04-chat-dock-appearance.css) is the only other rule of equal
      specificity (class + element) that sets border-radius, and it loads

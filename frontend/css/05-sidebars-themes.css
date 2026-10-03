@@ -4322,9 +4322,13 @@ button.is-on {
   /* The control height, not a padding-derived 40px: the strip measured
      55px (40px buttons in a 6.4px well) on both Notes and Library, a fifth
      of the chrome above the first line of a document. 36px buttons in a
-     4px well is 46px, and the tab bar in the top bar is the same 36. */
-  height: var(--control-h-lg);
-  padding: 0 1.25rem;
+     4px well is 46px, and the tab bar in the top bar is the same 36.
+     INBOX 446 (5): now the hit-target floor, 28px in a 4px well, 13.6px
+     labels where they had inherited 16px: a sub-tab strip is a segmented
+     control, not a second header, and it matches the top bar's tabs. */
+  height: var(--target-min);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
   border-radius: var(--radius-md);
   transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }

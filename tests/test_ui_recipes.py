@@ -3278,3 +3278,39 @@ def test_no_glassmorphism_generator_shadow():
     text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     code = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     assert not re.search(r"rgba\(\s*31,\s*38,\s*135", code)
+
+
+# --- a Settings section's own index, and the setting search (INBOX 444) ----------
+
+
+def _css_block(selector: str) -> str:
+    """The body of the first rule whose selector is exactly this one."""
+    css = re.sub(r"/\*.*?\*/", "", "\n".join(p.read_text(encoding="utf-8") for p in CSS), flags=re.S)
+    match = re.search(re.escape(selector) + r"\s*\{([^{}]*)\}", css)
+    assert match, f"no rule for {selector}"
+    return match.group(1)
+
+
+def test_a_settings_index_is_a_sticky_strip_on_the_opaque_ground() -> None:
+    """DESIGN.md, "A long Settings section's index". The strip stays with the
+    pane (`position: sticky`), on `--modal-bg-opaque` and never a tint alone (a
+    translucent strip becomes a window once the pane scrolls under it), its
+    links are the Quiet tier (no fill at rest) and the one you are in is painted
+    from `aria-current`, not a class."""
+    strip = _css_block(".settings-index")
+    assert "position: sticky" in strip and "var(--modal-bg-opaque)" in strip
+    link = _css_block(".settings-index-link")
+    assert "background: transparent" in link and "box-shadow: none" in link
+    current = _css_block('.settings-index-link[aria-current="location"]')
+    assert "var(--accent-soft)" in current and "--accent-surface" not in current
+    code = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
+    assert "scrollIntoView" not in re.sub(r"//.*", "", code), "scroll the pane's own scrollTop"
+    assert code.count('"settings-index"') >= 1 and "aria-current" in code
+
+
+def test_the_setting_search_results_are_quiet_rows() -> None:
+    """The results are rows in a list the search field frames, so no row is a
+    filled button: one name over one line saying where it is."""
+    row = _css_block(".settings-result")
+    assert "--accent-surface" not in row and "box-shadow" not in row
+    assert "flex-direction: column" in row

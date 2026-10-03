@@ -7619,6 +7619,9 @@ Link to another note with [[its first few words]]."></textarea>
             aria-describedby="settings-search-count">
           <p id="settings-search-count" class="muted settings-search-count hidden"
             role="status"></p>
+          <!-- The settings the typed words match, one line each with the
+               section and group it is in (settings-find.js). -->
+          <ul id="settings-results" class="settings-results hidden" aria-label="Matching settings"></ul>
           <!-- Six groups (INBOX 444), by what the person is doing rather than
                by what the code calls it: shaping the AI, looking after the
                notebook, how it looks and feels, who can get in and what
@@ -7756,7 +7759,8 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div id="models-config" class="hidden settings-group">
-              <h3>Chat model (answers your questions: switches instantly)</h3>
+              <h3>Chat model</h3>
+              <p class="muted">Answers your questions, and switches instantly.</p>
               <div class="row">
                 <select id="chat-model-select" aria-label="Model used for chat" title="Model used for chat"></select>
                 <button id="chat-model-apply" class="small">Use this model</button>
@@ -7809,7 +7813,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
               </div>
               <div class="row help-head">
-                <h3>Utility model (filing, digest &amp; writing fixes)</h3>
+                <h3>Utility model</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="utility-model-help" aria-controls="utility-model-help" aria-expanded="false"
                   title="About the utility model" aria-label="About the utility model">
@@ -7830,7 +7834,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Use smart model routing for background jobs</span>
                 </label>
               </div>
-              <p class="muted">A small fast model handles background jobs, so the chat model stays free to answer.</p>
+              <p class="muted">A small fast model does the filing, the digest and writing fixes, so the chat model stays free.</p>
               <div class="help-body hidden" id="utility-model-help" role="dialog" aria-label="About the utility model">
                 <p>
                   Quick background jobs run on this model, so a big slow
@@ -7846,7 +7850,7 @@ Link to another note with [[its first few words]]."></textarea>
                    than falling back to the chat model, a vision model is
                    usually a different, heavier one kept just for photos. -->
               <div class="row help-head">
-                <h3>Vision model (used when an image is attached in chat)</h3>
+                <h3>Vision model</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="vision-model-help" aria-controls="vision-model-help" aria-expanded="false"
                   title="About the vision model" aria-label="About the vision model">
@@ -7858,7 +7862,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="vision-model-apply" class="small">Use this model</button>
               </div>
               <p id="vision-model-note" class="status"></p>
-              <p class="muted">“Auto-detect” uses the first installed model that reports it can see images.</p>
+              <p class="muted">Used for images in chat. Auto-detect picks one that can see.</p>
               <div class="help-body hidden" id="vision-model-help" role="dialog" aria-label="About the vision model">
                 <p>
                   “Auto-detect” uses the first installed model that reports
@@ -7876,7 +7880,7 @@ Link to another note with [[its first few words]]."></textarea>
                    moondream for a scanned invoice and it describes the
                    invoice. -->
               <div class="row help-head">
-                <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+                <h3>Reading text</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="ocr-model-help" aria-controls="ocr-model-help" aria-expanded="false"
                   title="About reading text" aria-label="About reading text">
@@ -7888,7 +7892,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="ocr-model-apply" class="small">Use this model</button>
               </div>
               <p id="ocr-model-note" class="status"></p>
-              <p class="muted">Left on “Automatic”, this prefers a dedicated document reader when you have one.</p>
+              <p class="muted">OCR for scanned PDFs and text in images. Automatic prefers a dedicated reader.</p>
               <div class="help-body hidden" id="ocr-model-help" role="dialog" aria-label="About reading text">
                 <p>
                   Left on “Automatic”, this prefers a document reader

@@ -47,7 +47,7 @@ def app_js_files() -> list[Path]:
 #: (app.js, `LAZY_MODULES`). Still the app's code for every test that reads
 #: it, so `app_js_text` includes them; not in `app_js_files`, which is what
 #: loads at boot and what the gzip budget counts.
-LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js", "categories-panel.js", "note-history.js", "ask-history.js", "settings-data.js", "tag-suggest.js")
+LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js", "categories-panel.js", "note-history.js", "ask-history.js", "settings-data.js", "settings-find.js", "tag-suggest.js")
 
 
 @lru_cache(maxsize=1)

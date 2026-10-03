@@ -5954,3 +5954,103 @@ select {
 #embedding-error-fix-row {
   margin-block-end: var(--space-6);
 }
+
+/* --- finding your way about inside Settings (INBOX 444) ---------------------
+   Two recipes, both from settings-find.js.
+
+   `.settings-results`: the settings a typed query matches, one quiet row each,
+   the setting's own words over the section and group it is in. Rows are the
+   "Quiet" button tier (no fill, no edge, a veil under the pointer): the list
+   under the search field is the frame. */
+.settings-results {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-results.hidden {
+  display: none;
+}
+
+.settings-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  white-space: normal;
+  text-align: left;
+  font-weight: 400;
+}
+
+.settings-result-name {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.settings-result-where {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* `.settings-index`: a long section's own heads as a strip, sticky at the top
+   of the pane. The ground is the dialog's opaque ground, never a tint alone: a
+   translucent strip reads right at rest and turns into a window once the pane
+   scrolls under it (the `.selectbar` rule, 00-tokens-shell.css). Links are the
+   Quiet tier; the one you are in is painted from `aria-current`, accent-soft
+   plus a weight step, never colour alone. */
+.settings-index {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-5);
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--modal-bg-opaque);
+  border-bottom: 1px solid var(--divider);
+}
+
+.settings-index-link {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: var(--target-min);
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.settings-index-link:hover {
+  background: var(--hover-veil);
+  color: var(--ink);
+}
+
+.settings-index-link[aria-current="location"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* The strip is a row on a phone (the nav is one), so the results would sit in
+   it as one more cell. They get the width of the pane instead. */
+@media (max-width: 640px) {
+  .modal-nav .settings-results {
+    flex: 0 0 100%;
+  }
+}

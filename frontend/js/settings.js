@@ -52,8 +52,14 @@ document.getElementById("settings-nav")?.addEventListener("keydown", (event) => 
       : event.key === "End" ? buttons.length - 1
         : Math.max(0, Math.min(buttons.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
   buttons[next].focus();
+  //: Walking the list keeps the focus in it (the next arrow has to land on the
+  //: next entry); only choosing one by Enter, Space or the pointer hands the
+  //: focus on to the section's heading (`focusSettingsHeading`).
+  settingsNavWalking = true;
   buttons[next].click();
+  settingsNavWalking = false;
 });
+let settingsNavWalking = false;
 
 function ensureSettingsPaneTitle(box, name) {
   if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
@@ -105,7 +111,14 @@ function showSettingsSection(name) {
   ensureSettingsPaneTitle($(`settings-${name}`), name);
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
+    if (button.dataset.section) {
+      if (button.dataset.section === name) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    }
   }
+  //: A long section gets its own index (settings-find.js, loaded on the first
+  //: open of Settings).
+  if (typeof settingsIndexWatchSection === "function") settingsIndexWatchSection(name);
   updatePeekAvailability(name);
   // The log stream is the only section that holds a connection open, so it is
   // the only one that has to be told it is no longer being looked at.
@@ -268,6 +281,10 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // Rebuilt each open rather than once at startup: the list reflects saved
   // preferences, and those can change from another window or a restore.
   renderStatusBarSettings();
+  //: The setting search's results, each long section's index and the model
+  //: cards arrive with the first open (app.js `LAZY_MODULES.settingsUi`);
+  //: every call into them is behind a `typeof` guard.
+  if (typeof ensureModule === "function") await ensureModule("settingsUi");
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely
@@ -549,6 +566,7 @@ function filterSettings(term) {
       label.classList.remove("hidden");
     }
     count.classList.add("hidden");
+    if (typeof renderSettingResults === "function") renderSettingResults("");
     return;
   }
 
@@ -570,12 +588,16 @@ function filterSettings(term) {
   }
 
   count.classList.remove("hidden");
-  count.textContent = matches
-    ? `${matches} section${matches === 1 ? "" : "s"}`
-    : "Nothing matches that";
+  //: The settings themselves, under the field (settings-find.js).
+  const settingsFound = typeof renderSettingResults === "function" ? renderSettingResults(query) : 0;
+  count.textContent = settingsFound
+    ? `${settingsFound} setting${settingsFound === 1 ? "" : "s"} in ${matches} section${matches === 1 ? "" : "s"}`
+    : matches
+      ? `${matches} section${matches === 1 ? "" : "s"}`
+      : "Nothing matches that";
   // One match is not ambiguous, so show it rather than making the user click
   // the single remaining button.
-  if (matches === 1) {
+  if (matches === 1 && !settingsFound) {
     const only = buttons.find((b) => !b.classList.contains("hidden"));
     if (only) showSettingsSection(only.dataset.section);
   }
@@ -2962,10 +2984,22 @@ function focusSettingsPane() {
   document.querySelector("#settings-modal .modal-content")?.focus({ preventScroll: true });
 }
 
+//: **Focus lands on the section's heading after a switch** (INBOX 444). The
+//: pane used to take the focus itself, which a screen reader announces as
+//: nothing; the heading says where you are, and the reading keys still scroll
+//: the pane because a focused heading's nearest scrolling ancestor is the pane.
+function focusSettingsHeading(name) {
+  const pane = $(`settings-${name}`);
+  const head = pane?.querySelector(":scope > .settings-pane-title h3, :scope > .help-head h3, h3");
+  if (!head) return focusSettingsPane();
+  head.tabIndex = -1;
+  head.focus({ preventScroll: true });
+}
+
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", (event) => {
     showSettingsSection(button.dataset.section);
-    if (event.detail > 0) focusSettingsPane();
+    if (!settingsNavWalking) focusSettingsHeading(button.dataset.section);
   });
 }
 $("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
@@ -2976,7 +3010,17 @@ $("settings-search")?.addEventListener("keydown", (e) => {
     e.stopPropagation();
     e.target.value = "";
     filterSettings("");
+    return;
   }
+  //: Down walks into the results; Enter opens the first one.
+  if (e.key === "ArrowDown" && typeof settingResultsKey === "function" && settingResultsKey(e)) {
+    e.preventDefault();
+  } else if (e.key === "Enter") {
+    document.querySelector("#settings-results .settings-result")?.click();
+  }
+});
+$("settings-results")?.addEventListener("keydown", (e) => {
+  if (typeof settingResultsKey === "function" && settingResultsKey(e)) e.preventDefault();
 });
 // Cross-links between settings screens ("web search lives over there").
 // Delegated, so a link added to the markup later needs no wiring.

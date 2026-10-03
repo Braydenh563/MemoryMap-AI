@@ -134,6 +134,10 @@ with its owner named in the entry.
      on Notes and Library at 200% and 400% after the reflow fixes, the rest
      of the tabs measured at the end. Not verified: a real screen reader
      (none runs in the sandbox), the desktop window. (3) with an agent.
+     **Zoom, the rest (consistency agent):** Chat, Timeline, Graph,
+     Documents and Reminders 0 at 200% and 400% (14 findings before);
+     zoom.js now reads a clip per axis, so a feed that scrolls down and
+     clips sideways is not counted as lost text.
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

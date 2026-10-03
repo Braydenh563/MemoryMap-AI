@@ -1825,7 +1825,7 @@ function nudgeEmbeddingProblem() {
     key: `embedding:${error}`,
     action: { settings: "models" },
   });
-  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("models", "embedding-model-select"));
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("searchindex", "embedding-model-select"));
 }
 
 // --- the status bar (§36D) ---------------------------------------------------

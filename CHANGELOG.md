@@ -74,6 +74,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Code layout: the frontend's scripts live in `frontend/js/` (50 files, beside `css/` and `vendor/`), not loose in `frontend/`. `sw.js` stays at the frontend root, because a service worker only controls pages under its own path. Nothing about the app changes; the script URLs are `/js/<name>.js`, a test checks that every script path in `index.html`, the lazy loader and the workers resolves to a real file.
 ### Changed
 
+- Settings: the sections sit in six groups (AI, Notebook, Look and feel, Privacy and security, System, Help and About). Search and index is its own section, holding the search engine and the search index from Models and Search relevance from General; the answer style moved from General to Personas. A link that names a setting opens the section that holds it now.
 - The masculine Atlas's lower body is one thick wisp curving in an S from the full width of his hips to a soft curled tip, with two smaller wisps branching off it at different heights, all one smooth shape with no seams, in place of five straight spikes.
 
 ## [0.3.32] - 2026-09-28

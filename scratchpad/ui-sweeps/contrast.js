@@ -29,7 +29,7 @@ const SUBTABS={
   notes:['browse','capture','writing-room','ask'],
   library:null,  // filled in from the strip itself: its ids move with the plan
 };
-const SECTIONS=['models','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
+const SECTIONS=['models','searchindex','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
 // WIDTH/HEIGHT, because this sweep took no viewport at all and had therefore
 // only ever run at `boot`'s default 1440x900 (UI_MODERNISATION_PLAN Phase 11
 // item 11 named it as open for exactly that reason). A phone is not the same

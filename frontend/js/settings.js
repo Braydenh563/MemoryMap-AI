@@ -23,7 +23,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "privacy", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "searchindex", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "privacy", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -111,7 +111,7 @@ function showSettingsSection(name) {
   // the only one that has to be told it is no longer being looked at.
   if (name !== "logs") closeLogs();
   if (name === "logs") renderLogs();
-  if (name === "preferences" || name === "general") renderPrefs().catch(() => {});
+  if (["preferences", "general", "searchindex", "personas"].includes(name)) renderPrefs().catch(() => {});
   if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
@@ -191,6 +191,16 @@ function updatePeekAvailability(section) {
 // Preferences: otherwise it's a link to "somewhere in here, scroll and
 // find it yourself", which is what it was before this existed.
 async function openSettingsModal(section = "models", scrollToId = null) {
+  //: **The control names its own section** (INBOX 444). A caller that passes
+  //: both used to be right only until the control moved: Search relevance went
+  //: from General to Search and index and every link to it opened a section
+  //: that no longer held it. The control is the truth, so the section is read
+  //: from where it sits now, and the one the caller named is only the answer
+  //: when the control is not in the markup at all.
+  if (scrollToId) {
+    const holder = $(scrollToId)?.closest(".settings-section");
+    if (holder?.id.startsWith("settings-")) section = holder.id.slice("settings-".length);
+  }
   overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
   // Runs on open rather than once at load: several sections are built

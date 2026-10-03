@@ -451,7 +451,7 @@ $("ask-btn").addEventListener("click", () => askQuestion()); // no event as pres
 // it. Same destination as the other two quick-access links into this
 // preferences group (Chat's per-turn tune button, the Dashboard catalog).
 $("ask-search-tune").addEventListener("click", () => {
-  openSettingsModal("general", "search-relevance-group");
+  openSettingsModal("searchindex", "search-relevance-group");
 });
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);

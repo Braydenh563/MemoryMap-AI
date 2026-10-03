@@ -813,7 +813,7 @@ initPhoneStatus();
 // logic (`applySidebarSheetMode`, the dismissal, `aria-expanded`) stays in
 // one place. The rail and the toggle come back above 600 by CSS alone.
 const PHONE_SIDEBAR_OPENERS = [
-  { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories and tags" },
+  { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories" },
   { aside: "chat-sidebar", dock: '[data-dock-name="chat"]', label: "Conversations" },
   { aside: "doc-sidebar", dock: ".doc-dock", label: "Documents list" },
   { aside: "skills-sidebar", dock: '[data-dock-name="library-skills"]', label: "Skill logs" },
@@ -840,6 +840,18 @@ function mountPhoneSidebarOpeners() {
 }
 
 mountPhoneSidebarOpeners();
+
+//: Choosing a category on a phone closes the drawer, so the filtered list it
+//: chose is what shows; the row's ⋯ stops its own click before this.
+document.getElementById("category-list")?.addEventListener("click", () => {
+  const aside = $("sidebar");
+  if (!window.matchMedia(PHONE_TABS).matches || !aside?.classList.contains("sidebar-sheet-open")) return;
+  aside.classList.remove("sidebar-sheet-open");
+  aside.querySelector(".sidebar-collapse-toggle")?.setAttribute("aria-expanded", "false");
+  const opener = document.querySelector('.phone-sidebar-opener[aria-controls="sidebar"]');
+  opener?.setAttribute("aria-expanded", "false");
+  opener?.focus();
+});
 
 // --- swipe a row: star to the right, bin to the left --------------------------
 // UI_MODERNISATION_PLAN Phase 11 item 2: "the list as full-width rows with
@@ -922,6 +934,8 @@ function initRowSwipe(list, actions) {
     const li = row;
     const travelled = dx;
     row = null;
+    // A tap never moved: settling it would mark it a swipe and eat its click.
+    if (!decided) return;
     settle(li);
     if (Math.abs(travelled) < ROW_SWIPE_ARM) return;
     if (travelled > 0) actions.right?.(li);

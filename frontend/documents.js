@@ -1696,7 +1696,6 @@ async function expandNoteIntoDocument(entry) {
 
 // Words and reading time. Both are cheap to compute and are the two numbers
 // anyone writing long-form actually wants on screen.
-const READING_WORDS_PER_MINUTE = 220;
 
 // A target word count, set per document and kept client-side, it's a
 // writing aid, not notebook data, so it doesn't need a column or to survive

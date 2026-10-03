@@ -127,3 +127,14 @@ def test_focus_is_never_hidden_under_sticky_or_floating_furniture():
     short = resp[resp.index("@media (max-height: 420px) {"):]
     assert ".notes-subtabs,\n  .library-subtabs {\n    position: static;" in short
     assert 'const PHONE_FAB = "(max-width: 599.98px) and (min-height: 421px)";' in _read("phone-shell.js")
+
+
+def test_single_key_shortcuts_can_be_turned_off():
+    # WCAG 2.1.4: the "m" chord, "/" and "?" fired on a lone letter with no
+    # way to turn them off.
+    wiring = _read("settings-wiring.js")
+    assert "const singleKeys = singleKeysOn();" in wiring
+    assert "if (!typing && !overlayOpen && singleKeys) {" in wiring
+    assert '} else if (singleKeys && e.key === "m"' in wiring
+    assert 'localStorage.getItem("singleKeys") !== "off"' in _function(wiring, "singleKeysOn")
+    assert 'id="pref-single-keys"' in _read("index.html")

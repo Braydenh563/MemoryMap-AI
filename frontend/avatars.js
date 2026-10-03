@@ -7283,19 +7283,6 @@ function nameMarkBuddyChatErrand() {
   return nameMarkBuddyErrand({ pose: "sit", legs: "tuck", x, y: box.top - NMB_SEAT, anchor: composer, edge: { type: "top", y: box.top } }, "", 0, [box.left + box.width / 2, box.top + 20]);
 }
 
-//: A look at something that has just appeared: eyes and a little of its
-//: head, for two seconds, when it is awake and not busy.
-function nameMarkBuddyGlanceAt(el) {
-  const buddy = document.getElementById("nm-buddy");
-  if (!buddy || nameMarkBuddyStill() || buddy.classList.contains("nmb-sleep") || buddy.classList.contains("nm-buddy-dragging") || nmb.act) return;
-  requestAnimationFrame(() => {
-    const box = el.getBoundingClientRect();
-    if (!box.width) return;
-    nameMarkBuddyAim([box.left + box.width / 2, box.top + box.height / 2]);
-    clearTimeout(nmb.releaseTimer);
-    nmb.releaseTimer = setTimeout(nameMarkBuddyRelease, 2000);
-  });
-}
 
 // --- what is going on around it ---------------------------------------------
 //: **Context, from events only** (the owner: "go to sleep if the user goes

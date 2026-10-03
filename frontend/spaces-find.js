@@ -1085,11 +1085,8 @@ function finderSorted() {
   });
 }
 
-//: **A listbox only while it lists something** (WCAG 1.3.1 and 4.1.2,
-//: INBOX 433: axe, aria-required-children). The empty states are a message,
-//: and a listbox holding a paragraph and no options is announced as an empty
-//: list with stray text in it. A group, not no role, because the box keeps its
-//: name ("Results"), which a bare div may not carry.
+//: A listbox only while it lists something (WCAG 4.1.2); a group otherwise,
+//: which may keep the name "Results".
 function finderResultsRole(results, listing) {
   results.setAttribute("role", listing ? "listbox" : "group");
 }

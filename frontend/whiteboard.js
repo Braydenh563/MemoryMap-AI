@@ -1040,8 +1040,6 @@ const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter",
 //: per backdrop). This file only asks it. The board and the pad were 0.4 with
 //: multiply against 0.35 with no blend before that.
 const WB_HIGHLIGHTER_ALPHA = HIGHLIGHTER_STYLE.alpha;
-const WB_HIGHLIGHTER_MIN = HIGHLIGHTER_STYLE.minWidth;
-const WB_HIGHLIGHTER_MAX = HIGHLIGHTER_STYLE.maxWidth;
 //: Takes the pen width rather than reading it: `WB_STROKE_WIDTH` is a `let`
 //: inside `initWhiteboard`, not a module constant, so a module-level function
 //: that read it threw `WB_STROKE_WIDTH is not defined` on the first stroke
@@ -6025,9 +6023,6 @@ function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } 
   return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
-function wbSvgWrappedText(text, x, y, maxWidth, maxLines) {
-  return wbSvgText(wbSvgWrapLines(text, maxWidth, maxLines), x, y);
-}
 
 // The board's full extent, every card and sketch, with padding, computed
 // from what's actually rendered (`getBBox`/`offsetWidth`) rather than

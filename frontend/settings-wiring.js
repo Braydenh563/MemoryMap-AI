@@ -852,7 +852,10 @@ document.addEventListener("keydown", (e) => {
     !$("sketch-overlay").classList.contains("hidden");
   // Unchorded shortcuts ("/", "?") only fire when you're not typing and no
   // overlay is open, so they never steal a literal slash mid-sentence.
-  if (!typing && !overlayOpen) {
+  //: Single-key shortcuts can be turned off (WCAG 2.1.4): speech input types
+  //: letters.
+  const singleKeys = singleKeysOn();
+  if (!typing && !overlayOpen && singleKeys) {
     for (const [id, def] of Object.entries(shortcuts)) {
       const bare = !/\+/.test(def.keys);
       if (bare && matchesShortcut(e, def.keys)) {
@@ -921,7 +924,7 @@ document.addEventListener("keydown", (e) => {
       }
       // Not a recognised second key, fall through and let this keypress do
       // whatever it would have done anyway.
-    } else if (e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    } else if (singleKeys && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       tabJumpArmedAt = performance.now();
       //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":
@@ -1553,7 +1556,6 @@ const CHORD_ACTIONS = {
   a: { label: "Guide", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", run: () => toggleAgentPalette() },
 };
-const TAB_JUMP_WINDOW_MS = 900;
 let tabJumpArmedAt = 0;
 
 //: Whatever is currently on top, dismissed so a resolved chord lands on the
@@ -2935,3 +2937,22 @@ if ($("entry-attach-existing")) {
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
+
+//: Off when the reader turned single-key shortcuts off (stored in this
+//: browser, like the other keyboard preferences); on by default.
+function singleKeysOn() {
+  try {
+    return localStorage.getItem("singleKeys") !== "off";
+  } catch {
+    return true;
+  }
+}
+
+$("pref-single-keys").checked = singleKeysOn();
+$("pref-single-keys").addEventListener("change", (event) => {
+  try {
+    localStorage.setItem("singleKeys", event.target.checked ? "on" : "off");
+  } catch {
+    // Storage blocked: the switch holds for this session only.
+  }
+});

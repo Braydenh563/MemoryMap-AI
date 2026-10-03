@@ -442,9 +442,8 @@ async function noteFormMayClose() {
 }
 
 function closeNoteForm() {
-  //: **The focus goes back to the note** (WCAG 2.4.3, INBOX 433): the form
-  //: held it, the redraw removed the form, and the keyboard was left on
-  //: <body>, at the top of the page, after every Escape, Cancel or Save.
+  //: The focus goes back to the note (WCAG 2.4.3): the redraw removes the form
+  //: that held it.
   const back = editingId;
   const held = document.activeElement;
   const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
@@ -455,9 +454,7 @@ function closeNoteForm() {
   if (back != null && wasInside) focusNoteRow(back);
 }
 
-//: Put the keyboard back on a note's row once the list has redrawn, unless
-//: the focus already went somewhere real (WCAG 2.4.3): every redraw replaces
-//: the rows, so whatever held the focus inside one is gone.
+//: The keyboard back on a note's row after a redraw, unless it went somewhere.
 function focusNoteRow(id) {
   requestAnimationFrame(() => {
     const active = document.activeElement;
@@ -479,9 +476,7 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
     noteFormDraft = null;
   }
   editingId = id;
-  //: The caret goes into the form (WCAG 2.4.3, INBOX 433): F2, Edit and the
-  //: menu opened it with the focus left on a row that the redraw replaced,
-  //: so the keyboard landed on <body>.
+  //: The caret goes into the form (WCAG 2.4.3); it was left on <body>.
   if (focusTags) focusTagsAfterRender = id;
   else focusBodyAfterRender = id;
   renderEntries();
@@ -1022,8 +1017,7 @@ function parseNoteQuery(raw) {
     const tagCountMatch = TAG_COUNT_RE.exec(lower);
     //: `#trip` is how a card shows a tag, so it is how people type one
     //: (INBOX 432: it matched nothing); `tag:#trip` the same.
-    //: A bare `tag:` or `in:` is a filter still being typed: it narrows
-    //: nothing yet, rather than emptying the list under the cursor.
+    //: A bare `tag:` is still being typed: it narrows nothing yet.
     if (/^(tag:#?|#|category:|cat:|in:|title:|is:)$/.test(lower)) continue;
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4).replace(/^#/, ""));
     else if (lower.startsWith("#") && lower.length > 1) query.tags.push(lower.slice(1));
@@ -1126,10 +1120,6 @@ function matchesSearch(entry) {
   return query.words.every((word) => haystack.includes(word));
 }
 
-// Write `text` into `element`, wrapping each matched term in a <mark>.
-// Never uses innerHTML: a note containing "<script>" is text, not markup.
-// Render note text with [[wiki links]] as clickable chips and search terms
-// marked. Splits on the links first so a highlight can't land inside one.
 // Inline markdown in note text, and deliberately only the inline kind.
 //
 // Reported: notes show raw `**text**` while chat answers, documents and the

@@ -1932,32 +1932,6 @@ function askNotesOnTheRight() {
 }
 
 
-//: Into view through the nearest scrolling ancestor's own `scrollTop`, which
-//: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to
-//: the page, and the page moving is how a reader loses the answer they were
-//: reading while trying to look at what it was built from.
-function askRevealRecords(noteId = null) {
-  const list = $("raw-results");
-  if (!list) return;
-  //: The row the answer cites first, when there is one, and the column's own
-  //: top otherwise: a press that lands on source 1 answers "which notes?"
-  //: with the note rather than with the heading above it.
-  const row = noteId == null ? null : list.querySelector(`li[data-id="${noteId}"]`);
-  const half = row || list.closest(".chat-half") || list;
-  let node = half.parentElement;
-  while (node && node !== document.body) {
-    const style = getComputedStyle(node);
-    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
-      //: Rects rather than `offsetTop`, which is measured against the nearest
-      //: *positioned* ancestor and not against the scroller.
-      node.scrollTop += half.getBoundingClientRect().top - node.getBoundingClientRect().top;
-      return;
-    }
-    node = node.parentElement;
-  }
-  const scroller = document.scrollingElement || document.documentElement;
-  scroller.scrollTop += half.getBoundingClientRect().top - 12;
-}
 
 //: **A follow-up is a question that keeps the answer above it** (decision 8:
 //: "'Ask again' chips become follow-ups that carry the previous answer as

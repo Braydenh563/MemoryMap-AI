@@ -292,13 +292,8 @@ const SIDEBAR_RAIL_NAMES = {
   "skills-sidebar": "Skill logs",
 };
 
-//: **A resize grip says its value** (WCAG 4.1.2, INBOX 433): a focusable
-//: separator is a widget, and its role requires `aria-valuenow`; without it
-//: a screen reader announced "separator" and nothing about how wide the
-//: panel now is after an arrow key (axe, aria-required-attr, on all three
-//: sidebars). The value is the panel's drawn width, read by an observer, so
-//: every way of resizing (drag, keys, reset, a window re-fit, a folded
-//: sidebar) is covered without each setter remembering to report it.
+//: A resize grip says its value (WCAG 4.1.2: a focusable separator requires
+//: `aria-valuenow`). Read by an observer, so every way of resizing reports it.
 function trackSeparatorValue(handle, panel, min, max) {
   handle.setAttribute("aria-valuemin", String(min));
   handle.setAttribute("aria-valuemax", String(max));

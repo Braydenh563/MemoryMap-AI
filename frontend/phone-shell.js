@@ -1349,10 +1349,7 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   //: the Escape that is meant to close this. The same shape `confirmDialog`
   //: uses, for the same reason.
   const onKey = (event) => {
-    //: **A list of rows walks by arrow** (WCAG 2.1.1, INBOX 433): a sheet of
-    //: choices (Move to category, Tags, a menu as a sheet) is a list, and
-    //: Tab through it one row at a time was the only way down. Up, Down,
-    //: Home and End move between its rows while the focus is on one.
+    //: Arrows, Home and End walk a sheet's rows (WCAG 2.1.1).
     const rowKeys = { ArrowDown: 1, ArrowUp: -1, Home: "first", End: "last" };
     if (event.key in rowKeys && event.target?.closest?.(".sheet-row") && card.contains(event.target)) {
       const rows = [...card.querySelectorAll(".sheet-row")].filter((r) => !r.disabled && r.offsetParent !== null);
@@ -1383,10 +1380,8 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
-  //: The focus starts on the choice that is already made (`aria-current`),
-  //: else the first row, else the first control: it started on the X, so
-  //: Enter on a freshly opened chooser closed it (INBOX 433, keyboard walk).
-  //: A sheet with a field (a name to type) still starts in the field.
+  //: Focus starts in a field, else on the current row, else the first row: on
+  //: the X, Enter closed a fresh chooser.
   const field = card.querySelector("input:not([type=hidden]), select, textarea");
   const first =
     field ||
@@ -1683,10 +1678,7 @@ buildSettingsJumpList();
 // the one that gets hidden when its tab is not showing, which is what keeps a
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
-//: Not on a very short screen (WCAG 1.4.10 and 2.4.11, INBOX 433): at 400%
-//: zoom (320 by 256) the floating button, the sticky sub-tabs and the bottom
-//: bars left the list 40px to show a focused 44px control in, so the
-//: button stays in its dock there and scrolls with the page.
+//: Not below 421px tall (WCAG 2.4.11): at 400% zoom it covered focused rows.
 const PHONE_FAB = "(max-width: 599.98px) and (min-height: 421px)";
 const FAB_IDS = [
   "graph-add-node",

@@ -138,7 +138,6 @@ const ATLAS_MOODS = {
 };
 
 const ATLAS_SVG_NS = "http://www.w3.org/2000/svg";
-let atlasSerial = 0;
 
 function atlasMake(tag, attrs, parent) {
   const el = document.createElementNS(ATLAS_SVG_NS, tag);

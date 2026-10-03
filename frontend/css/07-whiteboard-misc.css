@@ -810,11 +810,6 @@
   flex: 0 0 auto;
 }
 
-.skill-badge-custom {
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
 /* **What running this will actually do**, steps, tools, inputs. The card
    used to carry a name and a description and nothing else, which is not
    enough to decide whether to let something edit your notebook. */

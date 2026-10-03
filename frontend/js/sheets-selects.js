@@ -2400,8 +2400,7 @@ async function renderPersonas() {
         })
       );
     }
-    row.appendChild(actions);
-    li.appendChild(row);
+    li.append(row, actions);
     list.appendChild(li);
   }
 }

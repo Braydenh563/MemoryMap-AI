@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Templates, Skills and Personas: Edit, Reset and Delete sit in their own column, centred on the item and always shown (they were hidden until pointed at and hugged the card's top corner); the Built-in label is one line beside the name.
+- Badges: "Built-in", "Edited", "Yours" and the Models sliders' "you set this" are drawn one way everywhere (the Library's skill cards showed bare text and the sliders a third style); the Library's skill facts are one height.
 - Privacy: the search-by-meaning model goes online only to download itself the first time; once on this computer it loads from disk with no connection, and if its files will not load it says to reinstall it instead of quietly fetching it again.
 - Settings, Models: double-clicking a slider to reset it also resets its "you set this" badge, and the value no longer shows twice.
 - Loading: the Library's documents, boards and maps, images and files, AI skills, bookmarks and contents, Reminders, the chat list and the documents sidebar show placeholder rows while their data loads, instead of a blank area.

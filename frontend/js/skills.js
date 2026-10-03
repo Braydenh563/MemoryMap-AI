@@ -789,9 +789,10 @@ function skillRow(skill) {
         await saveSkillList(customSkills().filter((s) => s.name !== skill.name));
       })
     );
-    row.appendChild(actions);
+    li.append(row, actions);
+  } else {
+    li.appendChild(row);
   }
-  li.appendChild(row);
   return li;
 }
 

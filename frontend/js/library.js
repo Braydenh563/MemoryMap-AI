@@ -2080,7 +2080,9 @@ function skillCard(skill, lastRun) {
   title.className = "skill-card-title";
   title.textContent = skill.name;
   const badge = document.createElement("span");
-  badge.className = `chip skill-badge ${skill.builtin ? "" : "skill-badge-custom"}`.trim();
+  //: The Settings lists' label (`.item-label`, DESIGN.md "a label"), so
+  //: "Built-in" is drawn one way wherever it is said.
+  badge.className = `chip item-label skill-badge${skill.builtin ? "" : " is-yours"}`;
   badge.textContent = skill.builtin ? "Built-in" : "Yours";
   header.append(title, badge);
 

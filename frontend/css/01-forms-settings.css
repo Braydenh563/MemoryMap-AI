@@ -4538,15 +4538,6 @@ html.modal-open body {
    normal case and should not shout, and only picks up the accent once the
    user has actually overridden it, which is the state worth spotting when
    scanning the panel for "what did I change?". */
-.sampling-source {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.sampling-source-user {
-  color: var(--accent-text);
-  border-color: var(--accent);
-}
 
 .sampling-controls {
   align-items: center;

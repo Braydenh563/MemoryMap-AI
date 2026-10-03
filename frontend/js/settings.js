@@ -3154,7 +3154,7 @@ function renderSamplingRows() {
     label.textContent = knob.label;
     label.htmlFor = `sampling-${knob.name}`;
     const source = document.createElement("span");
-    source.className = "chip sampling-source";
+    source.className = "chip item-label sampling-source";
     head.append(label, source);
 
     const help = document.createElement("p");
@@ -3217,7 +3217,7 @@ function renderSamplingRows() {
       const from = samplingState.sources[knob.name];
       source.textContent =
         from === "you" ? "you set this" : from === "model" ? "from the model" : "default";
-      source.classList.toggle("sampling-source-user", overridden);
+      source.classList.toggle("is-yours", overridden);
       reset.disabled = !overridden;
     };
     paint();

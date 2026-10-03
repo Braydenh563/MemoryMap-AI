@@ -34,6 +34,18 @@ with its owner named in the entry.
 
 ## Open items
 
+440. **The owner, 2026-10-03, verbatim, with a screenshot (a note's image
+     attachment card: a drawing, a truncated title "Gary The Moss Mons...",
+     three bare icon buttons).** "also I feel like on notes there should be
+     a way to see the ai confidence score as well as pre suggested tags that
+     are made and kept when filing for the user to easily choose or discard.
+     also all of the attachment cards ui and ux and utility need a massive
+     redesign and upgrade." Placed: (1) filing keeps its confidence and its
+     suggested tags on the note; the note shows them, each tag one tap to
+     keep or discard: the orchestrator; (2) the attachment card redesigned
+     (layout, naming, actions with labels, open, download, rename, replace,
+     preview): an Opus agent.
+
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran
      like the search reindexing etc." Placed: every maintenance action that
@@ -889,30 +901,6 @@ with its owner named in the entry.
     label drag drifting and starting a selection box; the chat header naming
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
-
-268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
-    screenshots.** "what is the difference between the exe and msi installer??
-    also Cut off after 3 skill steps with barely any tool calls and skills are
-    just messy, overcomplicated, not built well so the ai doesn't have all the
-    things it needs to complete the actions, maybe to rigid?? Idk but skills
-    are just a mess and only semi work. also the empty minimap goes behind the
-    top bar and sits right in the corner with no gap. the mini map probably
-    shouldnt even appear when the graph is empty."
-    The skill screenshot is "Reorganise my categories": steps 1 to 3 ticked,
-    the model wrote a proposal and stopped; steps 4 to 9 (the ones that
-    actually change anything) never ran. Three things: (1) a skill run that
-    stops after the read-only steps, (2) the skill format itself, which the
-    owner reads as over-specified and under-supplied, (3) the minimap on an
-    empty graph. Decided with the owner the same day: Windows gets an `.msi`
-    built with WiX, unsigned for now (an unsigned MSI raises the same
-    SmartScreen prompt an unsigned `.exe` does; only an Authenticode
-    certificate removes it), and the idle memory work is lazy imports rather
-    than idle suspend. Open.
-    **Checked 2026-09-23.** (3) built: an empty graph lays the minimap out of
-    the way (`graph.js`, the comment quoting this entry;
-    `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
-    AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
-    model on 2026-09-20; what that plan still holds is its evals breadth.
 
 ## Placed (last 20, newest first)
 

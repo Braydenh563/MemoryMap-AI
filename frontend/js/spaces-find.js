@@ -819,8 +819,7 @@ function templateRow(template) {
       })
     );
   }
-  row.appendChild(actions);
-  li.appendChild(row);
+  li.append(row, actions);
   return li;
 }
 

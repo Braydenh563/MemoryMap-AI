@@ -134,7 +134,7 @@ def test_single_key_shortcuts_can_be_turned_off():
     # way to turn them off.
     wiring = _read("settings-wiring.js")
     assert "const singleKeys = singleKeysOn();" in wiring
-    assert "if (!typing && !overlayOpen && singleKeys) {" in wiring
-    assert '} else if (singleKeys && e.key === "m"' in wiring
+    assert "if (!typing && !overlayOpen && singleKeys && !boardOwns) {" in wiring
+    assert 'singleKeys && e.key === "m" && !e.ctrlKey' in wiring
     assert 'localStorage.getItem("singleKeys") !== "off"' in _function(wiring, "singleKeysOn")
     assert 'id="pref-single-keys"' in _read("index.html")

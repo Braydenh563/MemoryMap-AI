@@ -171,7 +171,7 @@ def test_the_migration_alone_adds_the_column(tmp_path):
     conn = sqlite3.connect(str(path))
     try:
         assert conn.execute("SELECT name, colour FROM categories").fetchall() == [("Work", None)]
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("e5a9d1c3b7f2",)]
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [(_alembic_head(),)]
     finally:
         conn.close()
 
@@ -248,3 +248,15 @@ def test_every_surface_asks_the_one_function():
     dash = (FRONTEND / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert "hsl(${hueFor(cat.name)}" not in dash.replace("categoryColour(cat.name, `hsl(${hueFor(cat.name)}", "")
     assert "hueFor(group.name)" not in dash
+
+
+def _alembic_head() -> str:
+    """The migrations' head, read rather than written here: a pinned id goes
+    stale the moment the next migration lands (two did, the same day)."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    return ScriptDirectory.from_config(config).get_current_head()

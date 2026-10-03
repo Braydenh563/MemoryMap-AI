@@ -113,8 +113,11 @@ work starts.
     131.5px under 215.6px, every one at least its trigger after, 216/215.6):
     custom select menus narrower than their trigger (Library "Items per
     page"): every `enhanceSelect` menu at least the trigger's width;
-    (2) chat "Ask again:" chips: history icon and text not vertically
-    centred;
+    (2) done (08-consistency.css `.chip > .ph-lead { translate: 0 0.1em }`:
+    a flex child ignores `.ph`'s vertical-align; icon ink centre minus the
+    words' ink centre -1.84/-2.00/-0.84px before, -0.50/-0.66/+0.50 after,
+    dark within 0.67): chat "Ask again:" chips: history icon and text not
+    vertically centred;
     (3) the Web search sidebar's "..." button appears seconds after the
     sidebar opens (built after an async status fetch; build it with the head);
     (4) dragging the companion to hang from the top bar drops it onto the

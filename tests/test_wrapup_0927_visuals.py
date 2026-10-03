@@ -6,6 +6,8 @@ Each test pins the shape of the fix; the numbers are in the ledger entry.
   ten of thirteen were narrower (Library "Items per page" 131.5px under a
   215.6px trigger); after, every list measured is its trigger's width or
   wider.
+* 10c(2): a chip's leading icon sat 1.5px above the chip's centre (a flex
+  child ignores `vertical-align`); nudged 0.1em down.
 """
 
 from pathlib import Path
@@ -25,3 +27,10 @@ def test_an_escaped_select_list_is_floored_at_its_trigger_width():
     # Written before the menu is measured, so the placement uses the floored width.
     assert floor < place.index("const box = menu.getBoundingClientRect();")
     assert "menu.style.minWidth = `${Math.min(anchor.width, innerWidth" in place
+
+
+def test_a_chip_leading_icon_is_dropped_onto_its_words():
+    """10c(2): icon ink centre minus the words' ink centre, Ask again chips:
+    -1.84, -2.00, -0.84px before; -0.50, -0.66, +0.50 after (dark within 0.67)."""
+    css = _read("css/08-consistency.css")
+    assert ".chip > .ph-lead {\n  translate: 0 0.1em;\n}" in css

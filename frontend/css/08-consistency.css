@@ -931,6 +931,17 @@ summary > .ph-lead,
   margin-inline-end: 0;
 }
 
+/* A chip's leading icon, dropped onto its words (wrapup-0927 10c(2), the
+   "Ask again" chips). A flex child is blockified, so `.ph`'s
+   `vertical-align: -0.12em` does nothing here, and a Phosphor glyph drawn at
+   `line-height: 1` sits high in its own box: measured, its ink centre 1.5px
+   above the chip's centre while the words' ink centre was within 0.66px of
+   it. 0.1em of the icon's 13.8px is 1.38px, which brings the two within
+   half a pixel of each other. */
+.chip > .ph-lead {
+  translate: 0 0.1em;
+}
+
 /* A summary in the settings modal was the last family still on `--space-3`
    between its icon and its label: 12 of the 243 gaps measured 8px against
    the 217 on `--space-2`. It is set at (0,1,1) in 01-forms-settings.css, so

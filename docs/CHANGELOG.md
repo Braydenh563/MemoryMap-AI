@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Fixed
 
 - A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).
+- A chip's leading icon sits level with its words (the clock on the "Ask again" chips sat 1.5px high).
 
 ## [0.3.32] - 2026-09-28
 

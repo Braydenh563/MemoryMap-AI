@@ -2875,6 +2875,31 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
 }
 
+/* **The line is grouped, and the groups have air** (INBOX 447, the owner:
+   "there's no spacing between note metadata"). Measured in the Notes list at
+   1440: 6.4px from one fact's text to the next, because
+   `#entry-list:not(.is-rows) .entry-meta` (an id, 03-dashboard-widgets.css)
+   outranked the `--space-5` above, and each chip's -4px hover bleed then sat
+   the boxes 1.6px over each other. Now one rule for every note line: 16px
+   between facts, and 8px inside a group, so the line reads as where it lives
+   (category and how sure), what it is tagged, then what points at it. */
+:is(#entry-list, #raw-results, .timeline-feed, body) .entry-meta.note-meta {
+  column-gap: var(--space-6);
+}
+
+.entry-meta.note-meta > .chip.category + .chip.filing-sure,
+.entry-meta.note-meta > .chip.tag + .chip.tag,
+.entry-meta.note-meta > .chip.tag + :is(.chip.untagged, .chip.untagged-ai),
+.entry-meta.note-meta > .chip.untagged + .chip.untagged-ai {
+  margin-inline-start: calc(var(--space-3) - var(--space-6) - var(--space-1));
+}
+
+/* A suggestion is drawn in a box, and two boxes need a visible gap between
+   them where two bare words need none: 6.4px of box, not 0. */
+.entry-meta.note-meta > .chip.tag + .chip.suggested-tag {
+  margin-inline-start: calc(var(--space-2) - var(--space-6) + var(--space-1));
+}
+
 /* The category is the one fact that names where the note lives, so it is
    the one chip on the line: a soft neutral pill with the category's own
    colour as a dot (app.js `categoryDotColour`, stable per name). Revised

@@ -80,3 +80,29 @@ def test_frame_reads_the_canvas_size_before_it_writes() -> None:
         assert read < frame.index(write), f"{write} runs before the size read"
     assert "wbCullNow(t, size)" in frame
     assert "wbNavigatorUpdateViewport(t, size)" in frame
+
+
+def test_the_inverse_zoom_is_written_onto_the_grips_that_read_it() -> None:
+    """Every rule that reads `--wb-inv-zoom` is a grip the sheet writes to.
+
+    The property used to be written on `#whiteboard-container` and inherited
+    by every element on the board, so one write after each zoom re-styled
+    the lot (290ms on a 150-topic map at 4x). It is written into a
+    constructed sheet naming the grips now; a grip rule added to the CSS
+    without its selector in `WB_INV_ZOOM_GRIPS` would stay at the root's 1
+    and grow with the board, which this catches.
+    """
+    css_text = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css_text = re.sub(r"/\*.*?\*/", "", css_text, flags=re.S)
+    readers: set[str] = set()
+    for selectors, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css_text):
+        if "var(--wb-inv-zoom)" in body:
+            readers.update(s.strip() for s in selectors.split(","))
+    listed = re.search(r"const WB_INV_ZOOM_GRIPS = \[(.*?)\];", WB_JS, re.S)
+    assert listed
+    grips = set(re.findall(r'"([^"]+)"', listed.group(1)))
+    assert readers and readers == grips
+    sync = code(function_text("wbSyncGridToTransform"))
+    assert 'setProperty("--wb-inv-zoom"' not in sync
+    publish = code(function_text("wbPublishInvZoom"))
+    assert "replaceSync(" in publish and "adoptedStyleSheets" in publish

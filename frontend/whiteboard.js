@@ -679,9 +679,50 @@ function wbSyncGridToTransform(transform) {
   //: grips ride the board's scale for the length of the gesture and snap to
   //: their true size when it stops.
   const inv = String(1 / (t.k || 1));
-  if (el.style.getPropertyValue("--wb-inv-zoom") === inv) return;
   clearTimeout(wbInvZoomTimer);
-  wbInvZoomTimer = setTimeout(() => el.style.setProperty("--wb-inv-zoom", inv), 120);
+  if (wbInvZoomValue === inv) return;
+  wbInvZoomTimer = setTimeout(() => wbPublishInvZoom(el, inv), 120);
+}
+
+//: **Written onto the grips, not inherited down the whole board** (INBOX
+//: 431). Even once per zoom, the write above re-styled every element under
+//: the container, because an inherited custom property changed at the top of
+//: it: measured on a 150-topic map (4,212 elements) at a 4x throttle, 290ms
+//: for one write, and the largest single frame of every fit, the overview's
+//: included. A rule in a constructed sheet that names the grips sets the
+//: property on them alone, so a change re-styles what matches it: 40ms on
+//: the same map. A constructed sheet because the CSP refuses an injected
+//: `<style>` (as `applyCustomCss` in settings.js found). The selectors are
+//: every rule in 07-whiteboard-misc.css that reads the property, and
+//: `tests/test_wb_navigator_cost.py` keeps the two lists the same.
+const WB_INV_ZOOM_GRIPS = [
+  ".wb-resize-handle",
+  ".wb-rotate-handle",
+  ".wb-sketch-resize-handle",
+  ".wb-link-endpoint-handle",
+  ".wb-link-bend-handle",
+  ".wb-map-edge-handle",
+  ".wb-sketch-rotate-handle",
+  ".wb-rotate-handle-stem",
+];
+let wbInvZoomSheet = null;
+let wbInvZoomValue = "1";
+
+function wbPublishInvZoom(el, inv) {
+  wbInvZoomValue = inv;
+  const supported =
+    typeof CSSStyleSheet !== "undefined"
+    && "replaceSync" in CSSStyleSheet.prototype
+    && "adoptedStyleSheets" in Document.prototype;
+  if (!supported) {
+    el.style.setProperty("--wb-inv-zoom", inv);
+    return;
+  }
+  if (!wbInvZoomSheet) {
+    wbInvZoomSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, wbInvZoomSheet];
+  }
+  wbInvZoomSheet.replaceSync(`${WB_INV_ZOOM_GRIPS.join(", ")} { --wb-inv-zoom: ${inv}; }`);
 }
 
 function wbGridType() {

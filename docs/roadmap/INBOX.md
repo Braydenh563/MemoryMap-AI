@@ -82,6 +82,14 @@ with its owner named in the entry.
      orchestrator (reproduce with synthetic wheel streams; suspects: a
      scroll listener that writes scrollTop, scroll snapping, smooth
      scroll-behaviour on a wheel-driven scroller, anchoring).
+     **Measured 2026-10-03, not reproduced**: 300 seeded notes, 250 wheel
+     steps of 40px down and 250 up in headless Chromium (`.tab-main`
+     scroller): no step moved more than 6px off its delta; 4 steps moved 0
+     where the list paused to load its next page. Suspects left: the
+     Notes rows' `content-visibility: auto` with a 132px guess (rows now
+     70 to 160px) meeting a precision trackpad's momentum, which headless
+     does not emulate, and the windowed list's page load at the end. Next:
+     the owner's tab and window size, then a real-device trace.
 
 459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
      Personas: the jump strip "Answer style, Dashboard greeting, Add your

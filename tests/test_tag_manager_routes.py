@@ -136,3 +136,14 @@ def test_delete_takes_several_tags_in_one_go_and_needs_a_name(client):
     assert _tags(client, a) == ["keep"]
     assert _tags(client, b) == []
     assert client.post("/tags/delete", json={}).status_code == 400
+
+
+def test_a_tag_filter_follows_a_rename_or_clears_on_remove():
+    """Found by the tag manager's own sweep: after a rename or remove, an
+    active `tag:old` filter showed a list filtered on a tag that is gone."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-manager.js").read_text(encoding="utf-8")
+    assert "function retargetTagFilter(moves)" in js
+    assert "if (moves) retargetTagFilter(moves);" in js
+    assert js.count("Object.fromEntries(names.map((name) => [name,") == 2

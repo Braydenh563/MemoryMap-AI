@@ -41,7 +41,28 @@ async function refreshAfterTagEdit() {
 //: on the undo stack, so the toast's Undo and Ctrl+Z are the same act. The
 //: server answers with the tags each changed note had (`before`), and
 //: `/tags/restore` puts exactly those back in one transaction.
-async function runTagEdit(message, path, body) {
+//: A Notes filter on a tag that was just renamed, merged or removed follows
+//: it (to the new name) or clears, instead of showing a list filtered on a
+//: tag that no longer exists.
+function retargetTagFilter(moves) {
+  const current = (noteSearch || "").trim();
+  const match = current.match(/^tag:(?:"([^"]+)"|(\S+))$/i);
+  if (!match) return;
+  const was = (match[1] || match[2]).toLowerCase();
+  const hit = Object.keys(moves).find((name) => name.toLowerCase() === was);
+  if (hit === undefined) return;
+  const next = moves[hit];
+  if (next) {
+    filterNotesByTag(next);
+  } else {
+    noteSearch = "";
+    $("note-search").value = "";
+    $("save-search")?.classList.add("hidden");
+    renderEntries();
+  }
+}
+
+async function runTagEdit(message, path, body, moves = null) {
   let result;
   try {
     result = await apiJson(path, { method: "POST", body: JSON.stringify(body) });
@@ -55,6 +76,7 @@ async function runTagEdit(message, path, body) {
   }
   let before = result.before;
   await refreshAfterTagEdit();
+  if (moves) retargetTagFilter(moves);
   const undo = async () => {
     await apiJson("/tags/restore", { method: "POST", body: JSON.stringify({ notes: before }) });
     await refreshAfterTagEdit();
@@ -146,7 +168,8 @@ async function renameTagEverywhere(tag) {
   await runTagEdit(
     existing ? `Merged “${tag}” into “${existing}”` : `Renamed “${tag}” to “${next}”`,
     "/tags/rename",
-    { old: tag, new: existing || next }
+    { old: tag, new: existing || next },
+    { [tag]: existing || next }
   );
 }
 
@@ -159,7 +182,8 @@ async function mergeTagsInto(names) {
     counts,
   });
   if (!target) return;
-  await runTagEdit(`Merged ${tagNamesWords(names)} into “${target}”`, "/tags/merge", { names, into: target });
+  await runTagEdit(`Merged ${tagNamesWords(names)} into “${target}”`, "/tags/merge", { names, into: target },
+    Object.fromEntries(names.map((name) => [name, target])));
 }
 
 async function removeTagsEverywhere(names) {
@@ -172,7 +196,8 @@ async function removeTagsEverywhere(names) {
     { confirmLabel: "Remove" }
   );
   if (!ok) return;
-  await runTagEdit(`Removed ${tagNamesWords(names)} from every note`, "/tags/delete", { names });
+  await runTagEdit(`Removed ${tagNamesWords(names)} from every note`, "/tags/delete", { names },
+    Object.fromEntries(names.map((name) => [name, null])));
 }
 
 //: The chip's "Remove from this note": the same call as the bulk dialog, for

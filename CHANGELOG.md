@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Companion: perched on a chat message, a library card or a note card, it now scrolls under the top bar with its perch instead of staying in front of it (62px of figure over the bar before, 103px at Large); perched on the bar itself it stays in front.
+- Companion: the palette row says Hide companion or Show companion, whichever it will do, and the hide toast names the shortcut as currently bound.
 - Accessibility: the app has one main landmark around its tab pages, so a screen reader's jump to main content works on every tab (it found nothing on five).
 - Status bar: below 1024px wide the page no longer scrolls sideways while a background job runs; the key hint goes and Ask, Guide, Find, reminders and the running count show their icon and number, their words still read to a screen reader.
 - Notes: a filter still being typed (`tag:`, `in:`, `#`) no longer empties the list until its value is typed.

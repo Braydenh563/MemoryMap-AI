@@ -177,8 +177,10 @@ with its owner named in the entry.
      empty agent round, built-in engine applies on selection, Chat and agent
      read the app's help for how-to questions, popup user mark, companion
      hide sweep, web reader on site-builder pages.
-     **2026-10-03 (INBOX 432, PR 162):** (1), (2), (3), (4), (6) and (7)
-     done; (5) with an agent.
+     **2026-10-03 (INBOX 432, PR 162):** (1) to (7) all done; (5) the
+     companion goes under the bar its perch scrolls under
+     (`tests/test_companion_stacking.py`, `companionstack.js`: 62px over the
+     bar to 0, 103px at Large to 0).
      Placed, in this order: (1) **a real-model pass before more features**:
      `scratchpad/llama-dev.sh serve` with a 3B model, then the popup agent's
      two failing prompts, filing a new note, and `pytest -m evals`, because
@@ -216,7 +218,8 @@ with its owner named in the entry.
     better constellation; graph node size by a toggle, Arc fit, Tree
     centred; companion: perches on every tab, dodges popups, less
     distracting, lifelike motion and transitions, a show/hide hotkey and
-    palette action; Atlas less chunky, masculine limbs, tilted rings with
+    palette action (done: Ctrl+Shift+Y, rebindable, palette and Find
+    anything rows that say Hide or Show, PR 162); Atlas less chunky, masculine limbs, tilted rings with
     orbiting bodies, a taller nebula; generated faces vary expression per
     character. Questions: prompt injection, chat header divider. Rules:
     two or three agents, Sonnet where quality holds, concise.

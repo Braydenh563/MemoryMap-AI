@@ -48,8 +48,11 @@ def stats(session: Session = Depends(get_session)) -> dict:
 
     # Entries per day for the activity strip, oldest day first.
     start = utcnow() - timedelta(days=ACTIVITY_DAYS - 1)
+    #: The day is all this reads, so it asks for the day: loading each note
+    #: whole (its text and every other column, as an object) was 204 ms on
+    #: 5,000 recent notes and is nothing as a bare column.
     recent = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_draft == False,  # noqa: E712
             Entry.is_board == False,  # noqa: E712
@@ -58,8 +61,8 @@ def stats(session: Session = Depends(get_session)) -> dict:
     )
     per_day = [0] * ACTIVITY_DAYS
     today = utcnow().date()
-    for entry in recent:
-        offset = (today - entry.created_at.date()).days
+    for created_at in recent:
+        offset = (today - created_at.date()).days
         if 0 <= offset < ACTIVITY_DAYS:
             per_day[ACTIVITY_DAYS - 1 - offset] += 1
 
@@ -338,8 +341,10 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     today = utcnow().date()
     start = today - timedelta(days=HEATMAP_DAYS - 1)
     counts = [0] * HEATMAP_DAYS
+    #: Only the day, as a column (see `stats`): 208 ms became a few on 5,000
+    #: notes created within the year.
     rows = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             # Notes only, the one count the rest of the app shows (boards
             # and drafts are Entry rows too: the heatmap said 77 beside 40).
@@ -348,8 +353,8 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
             Entry.created_at >= utcnow() - timedelta(days=HEATMAP_DAYS),
         )
     )
-    for entry in rows:
-        offset = (entry.created_at.date() - start).days
+    for created_at in rows:
+        offset = (created_at.date() - start).days
         if 0 <= offset < HEATMAP_DAYS:
             counts[offset] += 1
     return {

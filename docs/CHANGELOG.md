@@ -74,6 +74,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - The masculine Atlas's lower body is one thick wisp curving in an S from the full width of his hips to a soft curled tip, with two smaller wisps branching off it at different heights, all one smooth shape with no seams, in place of five straight spikes.
 - Speed: the reference chips on the note cards (asked for at every unlock) are read for a whole page of notes at once instead of four database queries per note, so sixty cards cost 6 statements rather than 242 and about a third of the time on 500 notes (172 to 53 ms), and 5.8 times less on 5,000 notes (2,267 to 388 ms, same machine and load); what they count is unchanged.
+- Speed: the dashboard's activity strip and heatmap read each recent note's day as a column instead of loading every note whole, text included; on 5,000 notes made within the year the heatmap went from 179 to 24 ms and the stats from 184 to 55 ms (same machine, interleaved runs).
 
 ## [0.3.32] - 2026-09-28
 

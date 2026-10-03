@@ -34,6 +34,25 @@ with its owner named in the entry.
 
 ## Open items
 
+433. **The owner, 2026-10-03, verbatim.** "Also go through and make sure
+     the whole app follows the Australia WCAG 2.2 accessibility standards.
+     Use zoom testing, screen reader testing, and accessibility scans like
+     with axe dev tools. Continue what you are doing and make sure nothing
+     is left half finished or not properly implemented. Can you also put
+     all the js files in the frontend folder into a js folder later when you
+     can?"
+     Placed: (1) WCAG 2.2 AA (the level the Australian Government's Digital
+     Service Standard and the DDA guidance point to): axe-core scan of every
+     tab, Settings section, sheet and dialog in both themes; zoom at 200%
+     and 400% (1.4.4, 1.4.10 reflow at 320 CSS px), text spacing (1.4.12);
+     the accessibility tree read as a screen reader would (Playwright's ARIA
+     snapshot; no real screen reader runs in the sandbox, so say so);
+     keyboard-only paths and 2.4.11 focus not obscured, 2.5.8 target size;
+     fixes per finding, a sweep kept in scratchpad/ui-sweeps; (2) "nothing
+     half finished": the open carry-over (wrapup-0927) ticked only when
+     measured; (3) the frontend/js/ move (wrapup-0927 1), done when no agent
+     is editing frontend files.
+
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise
      the colour the fill of mind map nodes?? Also for the mindmap export to
@@ -580,24 +599,6 @@ with its owner named in the entry.
     but when I pressed the back navigation button it opened the settings
     panel??" (not reproduced: chat then flashEntry then Back lands on chat,
     also with chat opened from inside Settings; needs the exact path).
-
-413. **The owner, 2026-09-24, verbatim, with a chat screenshot.** "I was in a
-    document in the editor, I opened the suggestions panel and pressed check
-    with ai, it took me to the chat and a popup above the chat suggested that
-    there was a skill available for my requests, it wasnt entirely accurate
-    so I closed it by clicking the 'x' on it and then the whole new chat page
-    started viciously stuttering jumping up and down slightly really fast."
-    Not reproduced headless (with real scrollbars, at 700 to 1048 tall, the
-    dismiss gives one flip, not a loop). The one self-feeding path found is
-    fixed: `fitChatEmpty` took its own class off to measure inside a
-    ResizeObserver; it now reads stored heights with 4px hysteresis, and
-    `#chat-messages` keeps a stable scrollbar gutter. Then the owner's log:
-    "ResizeObserver loop completed with undelivered notifications", many a
-    second, after opening and widening the web panel. The observer now only
-    records the size; the fit runs a frame later, for changes of 2px or more,
-    at most one flip per 500ms (`o-webpanel.js`: 0 loop errors, 1 flip across
-    a 300 to 700px drag, 0 while still). Open until the owner's next run; the skill match being "not entirely accurate" is placed with
-    the documents' Check with AI rework (INBOX 410).
 
 410. **The owner, 2026-09-24, verbatim, with screenshots of the writing
     dictionary, New from a template, the map's radial menus and two linked

@@ -18,3 +18,15 @@ def test_an_active_pill_draws_its_icon_in_the_label_colour():
 
 def test_the_embedding_fix_row_has_room_below():
     assert "#embedding-error-fix-row {\n  margin-block-end: var(--space-6);" in CSS
+
+
+def test_the_search_engine_says_how_well_it_is_working(client):
+    """INBOX 431 (3): coverage and the last search's mode, in words."""
+    client.post("/entries", json={"content": "a note to count", "category": "Misc"})
+    body = client.get("/models/status").json()
+    assert body["embedding_coverage"]["total"] >= 1
+    assert "indexed" in body["embedding_coverage"]
+    client.get("/search", params={"q": "count"})
+    assert isinstance(body.get("last_search"), dict)
+    status_js = (Path(__file__).resolve().parent.parent / "frontend" / "status.js").read_text(encoding="utf-8")
+    assert "notes searchable by meaning" in status_js and "last search used keywords only" in status_js

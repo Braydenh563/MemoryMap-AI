@@ -15,7 +15,7 @@ import importlib
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
@@ -829,7 +829,32 @@ def retrieve(
     return _retrieve(session, query, embeddings, limit, expand_graph, {})
 
 
+#: How the most recent search found its notes, for Settings' one-line answer
+#: to "is search by meaning working" (INBOX 431 (3), the owner: "half the time
+#: I can't tell if it is working or how well"). Process-wide and overwritten,
+#: never a log: the question is only ever about the last one.
+_last_search: dict = {}
+
+
+def last_search() -> dict:
+    """`{"mode": "hybrid"|"semantic"|"keyword", "at": ISO time}`, or {}."""
+    return dict(_last_search)
+
+
 def _rank(
+    semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
+) -> tuple[list[Entry], str]:
+    ranked, mode = _rank_inner(semantic, keyword, limit)
+    note_search_mode(mode)
+    return ranked, mode
+
+
+def note_search_mode(mode: str) -> None:
+    """Record how a search found its notes (the box's engine calls this too)."""
+    _last_search.update(mode=mode, at=datetime.now(timezone.utc).isoformat())
+
+
+def _rank_inner(
     semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
 ) -> tuple[list[Entry], str]:
     """Combine a semantic and a keyword result list into one ranked answer,

@@ -27,6 +27,7 @@ from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps, ocr, security
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
+from memorymap.search import search_manager
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -203,8 +204,24 @@ def warm_filing() -> dict:
     jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
     return {"status": "ok"}
 
+def _embedding_coverage(session: Session) -> dict:
+    """How many live notes search by meaning can find, out of how many there
+    are: the "how well" half of INBOX 431 (3). Two counts on the poll that
+    already runs; the space filter applies as it does to every query."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import EmbeddingRecord, Entry
+
+    live = (Entry.is_deleted == False) & (Entry.is_draft == False)  # noqa: E712
+    total = session.scalar(select(func.count(Entry.id)).where(live)) or 0
+    indexed = session.scalar(
+        select(func.count(EmbeddingRecord.id)).join(Entry, Entry.id == EmbeddingRecord.entry_id).where(live)
+    ) or 0
+    return {"indexed": int(indexed), "total": int(total)}
+
+
 @router.get("/status")
-def status() -> dict:
+def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
     installed, what's active, and whether any job is running."""
     ollama = _CachedCapabilities(deps.get_ollama())
@@ -346,6 +363,9 @@ def status() -> dict:
         "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
+        "embedding_coverage": _embedding_coverage(session),
+        #: How the last search found its notes (`search_manager.last_search`).
+        "last_search": search_manager.last_search(),
         #: How many notes have arrived or gone in bulk since the index was
         #: last rebuilt: asked for as "suggest rebuilding the search index
         #: upon large changes". The status poll already runs; a second

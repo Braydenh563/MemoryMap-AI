@@ -2056,11 +2056,41 @@ function renderSearchEngineHealth(status) {
     cls = "ok";
   } else if (status.embedding_warming) {
     state = "… warming up";
+  } else if (status.embedding_backend !== "ollama" && status.builtin_embedding_installing) {
+    state = "installing, search uses keywords until it is done";
+  } else if (status.embedding_backend !== "ollama" && status.builtin_embedding_installed === false) {
+    //: "not ready" read as "wait", when nothing was coming (INBOX 431 (3)).
+    state = "not installed, search uses keywords (install it under Packages)";
+    cls = "error";
   } else if (status.embedding_error) {
     state = "Unavailable: using keyword search (details below)";
     cls = "error";
   }
-  el.textContent = `Search engine: ${engine}: ${state}`;
+  //: **In words: is it working, and how well** (INBOX 431 (3), the owner:
+  //: "half the time I can't tell if it is working or how well"). How many
+  //: notes it can find by meaning, a re-index's progress, and how the last
+  //: search actually found its notes.
+  const reindex = status.reindex;
+  const cover = status.embedding_coverage;
+  const parts = [state];
+  if (reindex && reindex.status === "running" && reindex.total) {
+    parts.push(`indexing ${reindex.done} of ${reindex.total} notes`);
+  } else if (status.embedding_ready && cover && cover.total) {
+    parts.push(
+      cover.indexed >= cover.total
+        ? `all ${cover.total} notes searchable by meaning`
+        : `${cover.indexed} of ${cover.total} notes searchable by meaning`
+    );
+  }
+  const last = status.last_search?.mode;
+  if (last) {
+    parts.push(
+      last === "keyword" ? "last search used keywords only"
+        : last === "semantic" ? "last search matched by meaning"
+          : "last search matched by meaning and keywords"
+    );
+  }
+  el.textContent = `Search engine: ${engine}: ${parts.join(", ")}`;
   el.className = `status ${cls}`;
 }
 

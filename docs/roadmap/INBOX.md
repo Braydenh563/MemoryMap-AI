@@ -48,14 +48,9 @@ with its owner named in the entry.
      preview bug, the orchestrator, now; the bubble parts with 457 (thinking
      under the name, one thinking fold style, skills/steps fold spacing,
      scroll-up while streaming, action row clash, sources redesign): an
-     Opus agent.
-
-457. **The owner, 2026-10-03 night, verbatim, with a screenshot (the popup
-     agent: a Thinking fold and its open text drawn above Atlas's name and
-     avatar, the bubble's "Stargazing / Thinking..." line below).** "the
-     thinking box appears above the atlas message bubble title and avatar in
-     the popup agent. also make sure all the thinking boxes are the same
-     style and consistent". Placed: the orchestrator.
+     Opus agent. Bubble parts built 2026-10-03 (81e7d63, measured in the
+     commit; `scratchpad/ui-sweeps/bubbleparts.js`); the preview half stays
+     with the orchestrator.
 
 456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
      windows and panels are the same design and style." Placed: every

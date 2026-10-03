@@ -36707,3 +36707,10 @@ width, 47% of the column at 1440.
      notification row is inset 8px on both sides; the unread dot sat at 0px
      from the left and the read toggle at 0px from the right.
 
+457. **Fixed 2026-10-03 (81e7d63): one `thinkingFold`, under the head, ratchet in test_ui_recipes.py.** **The owner, 2026-10-03 night, verbatim, with a screenshot (the popup
+     agent: a Thinking fold and its open text drawn above Atlas's name and
+     avatar, the bubble's "Stargazing / Thinking..." line below).** "the
+     thinking box appears above the atlas message bubble title and avatar in
+     the popup agent. also make sure all the thinking boxes are the same
+     style and consistent". Placed: the orchestrator.
+

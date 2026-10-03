@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Assistant bubbles (INBOX 457, 458): the popup agent's Thinking box sits under Atlas's name, not above it, and every thinking box (Chat, the popup agent, Ask, the Guide, Write with Atlas) is one fold: the same summary as the steps and sources folds, a rail, body text, a 12rem cap. The popup agent's bubble reads like Chat's (name, thinking, steps, answer, sources, facts, actions, with even 6px gaps); its copy and retry row no longer covers the sources; its sources are one list without duplicates, a row per note (title, category dot, date); its run facts are Chat's one muted line, a long model id cut short with the whole id on hover. Scrolling up while an answer streams now holds in the popup agent, Chat and the Guide until you come back to the bottom.
 - Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.
 - View toggles (Library, Notes, Timeline, Reminders): the selected segment sits inside its well with 4px all round; it was 4px down, flush on the well's bottom edge, and by touch it spilled 16px out.
 - Top bar: the tabs are back to their first size (36px, 16px labels, a 4px well); the density pass had made them 32px with 13.6px labels.

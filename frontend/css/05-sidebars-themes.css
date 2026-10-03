@@ -4380,6 +4380,13 @@ textarea.autogrow {
 
 #reminder-magic {
   margin-bottom: 0;
+  /* One line at the form's own size: the row beneath it is 36px at
+     --text-md, and Magic add stood 44px at 16px above it (INBOX 446 (5)).
+     The autogrow script sizes from scrollHeight, so the padding is what
+     sets the resting height, not the min-height. */
+  min-height: max(var(--control-h-body), var(--target-min));
+  font-size: var(--text-md);
+  padding-block: var(--space-2);
 }
 
 /* Matches `textarea.autogrow`'s own 2.75rem min-height exactly, measured
@@ -4388,7 +4395,7 @@ textarea.autogrow {
    DESIGN.md, just smaller. */
 #reminder-magic-row button {
   flex: 0 0 auto;
-  height: 2.75rem;
+  height: max(var(--control-h-body), var(--target-min));
   padding-block: 0;
 }
 

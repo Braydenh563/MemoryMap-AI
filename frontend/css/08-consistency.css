@@ -9105,3 +9105,18 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-popup.pinned, [aria-expanded="true"], .space-menu:not(.hidden)) {
   z-index: 51;
 }
+
+/* **A toolbar's quiet buttons read at 500** (INBOX 446 (5), the density and
+   de-vibe pass). `button.ghost` is 600 so a bordered "Add" never reads as a
+   second input; that reason is the border's, and these strips have none.
+   Measured (bold, borderless, unselected buttons per tab): the note's
+   formatting strip ("List", "Task", "Source"), the Capture box's "Add to
+   this note" row (Attach, From library, Sketch, Dictate, Improve) and the
+   chat composer's Skills, Web and Plan all drew their labels bold, so a
+   row of tools shouted as loudly as the Save beside it. Selected state
+   keeps its own weight; "B" keeps its <strong>. */
+.doc-toolbar button:not(.active):not([aria-pressed="true"]),
+.capture-tools-row > button.ghost,
+.chat-tool-group > button.ghost:not([aria-pressed="true"]) {
+  font-weight: 500;
+}

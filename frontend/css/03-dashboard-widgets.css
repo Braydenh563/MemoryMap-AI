@@ -2395,8 +2395,11 @@ header#top-bar select,
 .reminder-form input,
 .reminder-form select,
 .reminder-form button {
-  height: 2.75rem;
-  min-height: 2.75rem;
+  /* The composers' height, 36px, and never under the touch floor (INBOX 446
+     (5)): a literal 2.75rem made this the one 44px row on a desktop, eight
+     pixels over every other form in the app. */
+  height: max(var(--control-h-body), var(--target-min));
+  min-height: max(var(--control-h-body), var(--target-min));
   margin-bottom: 0;
   padding-block: 0;
   font-size: var(--text-md);

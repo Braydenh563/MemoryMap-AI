@@ -4214,3 +4214,46 @@ twenty). A recommendation awaiting the owner, not open work.
     promise absolute and build the local folder player instead; if it is ever
     reopened, it is a second clearly labelled opt-in extra, off by default,
     and the copy in all three places changes in the same commit.
+
+## Placed from INBOX, 2026-10-03 (INBOX 213)
+
+Moved whole from INBOX when INBOX 437 arrived (the tray holds under
+twenty); open, by impact with the rest of this file.
+
+213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
+    scan.** "finish all the agents, scan for bugs and high complexity one
+    last time, and let me know when the pr is ready to merge / make sure to
+    merge all of the agent branches into this one as the agents finish."
+    And: "once absolutely everything is done and the roadmap documents are
+    cleaned etc, all the agent branches are merged into this one etc, merge
+    this pr for me." And (228, the same order, folded in): "after you have
+    finished all these, done the final bug sweep, make sure everything is
+    finished for the pr, and finish the pr, merging it into main." Owner:
+    orchestrator; the merge is the last act.
+    **The last scan, run 2026-09-20.** Four passes, each a number rather
+    than a reading:
+    - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320
+      served, 9 unnamed by the frontend, every one triaged in 261. Two were
+      real and are fixed: `/resurface/near/{entry_id}` was unreachable *and*
+      crashed on its first call, and `GET /events` is a built feed with no
+      strip to read it (WORLD_CLASS_PLAN B1, still open).
+    - **Calls with no route** (`scratchpad/probe_missing_routes.py`, new,
+      the mirror and the worse failure): 297 distinct paths called, **0 with
+      no route**, both undecidable paths resolved by hand.
+    - **Frontend declarations nothing references**: 3,222 top-level names,
+      **0** referenced only by their own declaration. No dead weight left in
+      `frontend/js/*.js`.
+    - **Complexity, backend**, by branch count over 1,827 functions. The top
+      five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
+      50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,
+      43 / 167), `search` (search/engine.py:645, 41 / 139),
+      `_optimization_pass` (autonomous.py:268, 40 / 250), `_run_skill`
+      (skill_runner.py:1206, 36 / 300). Not refactored here on purpose: this
+      PR is about to merge and restructuring a 419-line agent step is not a
+      thing to do on the way out of one.
+    A fifth pass, silent exception handlers, was run and is not reported as
+    a finding: 251 handlers return a fallback without logging, and in an app
+    whose whole design is "degrade to offline" that is the intended shape,
+    not a smell. The heuristic could not separate the two, so it is written
+    down here rather than left as a number somebody later mistakes for a
+    defect count.

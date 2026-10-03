@@ -34,6 +34,26 @@ with its owner named in the entry.
 
 ## Open items
 
+437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
+     Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,
+     Top-k slider, a "you set this" badge, the value 124 twice).** "the
+     templates settings page edit buttons and built-in badges are not nicely
+     aligned and/or positioned. continue with everything. find and fix more
+     bugs. then use your ui/ux skills and devibecoding skills to further fix,
+     improve and redesign the ui/ux for the application. /anthropic-skills:
+     unslop-ui , /ui-styling , /ui-ux-pro-max /anthropic-skills:web-design-
+     guidelines , /design-system /design , /anthropic-skills:frontend-design ,
+     /anthropic-skills:apple-design". Then: "double clicking the model
+     advanced settings sliders resets the value but not the badge. and make
+     sure the badges are thje same style across the app. make sure all the ui
+     is consistent and use the skills listed in my last request".
+     Placed: (1) Templates rows: badge and Edit aligned to the row recipe;
+     (2) a slider's double-click reset updates its "you set this" badge (and
+     the readout beside the number field shows the value twice); (3) one
+     badge recipe across the app, with a lint; (4) a UI/UX pass guided by
+     the named skills, surface by surface, each change measured: the
+     orchestrator, with agents per surface.
+
 436. **The owner, 2026-10-03, verbatim (user feedback).** "I also got a bit
      of user feedback that there is quite a lot going on visually on the
      dashboard when the user opens the application. I think the dashboard ui
@@ -856,44 +876,6 @@ with its owner named in the entry.
     label drag drifting and starting a selection box; the chat header naming
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
-
-213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
-    scan.** "finish all the agents, scan for bugs and high complexity one
-    last time, and let me know when the pr is ready to merge / make sure to
-    merge all of the agent branches into this one as the agents finish."
-    And: "once absolutely everything is done and the roadmap documents are
-    cleaned etc, all the agent branches are merged into this one etc, merge
-    this pr for me." And (228, the same order, folded in): "after you have
-    finished all these, done the final bug sweep, make sure everything is
-    finished for the pr, and finish the pr, merging it into main." Owner:
-    orchestrator; the merge is the last act.
-    **The last scan, run 2026-09-20.** Four passes, each a number rather
-    than a reading:
-    - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320
-      served, 9 unnamed by the frontend, every one triaged in 261. Two were
-      real and are fixed: `/resurface/near/{entry_id}` was unreachable *and*
-      crashed on its first call, and `GET /events` is a built feed with no
-      strip to read it (WORLD_CLASS_PLAN B1, still open).
-    - **Calls with no route** (`scratchpad/probe_missing_routes.py`, new,
-      the mirror and the worse failure): 297 distinct paths called, **0 with
-      no route**, both undecidable paths resolved by hand.
-    - **Frontend declarations nothing references**: 3,222 top-level names,
-      **0** referenced only by their own declaration. No dead weight left in
-      `frontend/js/*.js`.
-    - **Complexity, backend**, by branch count over 1,827 functions. The top
-      five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
-      50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,
-      43 / 167), `search` (search/engine.py:645, 41 / 139),
-      `_optimization_pass` (autonomous.py:268, 40 / 250), `_run_skill`
-      (skill_runner.py:1206, 36 / 300). Not refactored here on purpose: this
-      PR is about to merge and restructuring a 419-line agent step is not a
-      thing to do on the way out of one.
-    A fifth pass, silent exception handlers, was run and is not reported as
-    a finding: 251 handlers return a fallback without logging, and in an app
-    whose whole design is "degrade to offline" that is the intended shape,
-    not a smell. The heuristic could not separate the two, so it is written
-    down here rather than left as a number somebody later mistakes for a
-    defect count.
 
 266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
     information architecture things are missing and can be added?? It's often

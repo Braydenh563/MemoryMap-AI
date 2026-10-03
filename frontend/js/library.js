@@ -2152,6 +2152,14 @@ function skillCard(skill, lastRun) {
     wrap.append(summary, list);
     return wrap;
   };
+  //: The fact that decides whether to press Run, first: does it write to the
+  //: notebook, or only read it. `changes` comes from the server (it checks the
+  //: skill's tools against the write set), and Settings shows the same chip.
+  const effect = document.createElement("span");
+  effect.className = `chip skill-fact ${skill.changes ? "skill-fact-writes" : "skill-fact-reads"}`;
+  effect.title = skill.changes ? "Can create, edit or delete notes when it runs" : "Reads your notebook and changes nothing";
+  setLabel(effect, skill.changes ? "ph:pencil-simple Changes notes" : "ph:eye Reads only");
+  facts.appendChild(effect);
   if (steps) facts.appendChild(expandableFact("ph:list-numbers", steps, "step", skill.steps, true));
   if (tools) facts.appendChild(expandableFact("ph:wrench", tools, "tool", skill.tools, false));
   if (inputs) {
@@ -2162,13 +2170,21 @@ function skillCard(skill, lastRun) {
     facts.appendChild(chip_);
   }
 
+  //: **When it last ran and how that went**, in one line with a glyph that
+  //: says the result without colour: a tick for a run that finished, a stop
+  //: for one that stopped at a step, a pause for one waiting on you. The
+  //: outcome is the audit row's own words ("completed · 3 step(s) · 2
+  //: change(s)"); the time is relative, with the full stamp on the tooltip.
   const when = document.createElement("p");
   when.className = "skill-card-when muted text-xs";
   if (lastRun) {
-    const outcome = (lastRun.detail || "").split(", ")[1] || "";
-    when.textContent = `Last run ${new Date(lastRun.created_at).toLocaleString()}, ${outcome}`;
+    const outcome = (lastRun.detail || "").split(", ").slice(1).join(", ");
+    const glyph = /^completed/.test(outcome) ? "check-circle" : /^stopped/.test(outcome) ? "warning" : "pause-circle";
+    when.dataset.state = glyph === "check-circle" ? "ok" : glyph === "warning" ? "stopped" : "paused";
+    when.title = new Date(lastRun.created_at).toLocaleString();
+    setLabel(when, `ph:${glyph} Ran ${relativeTime(lastRun.created_at)}${outcome ? `: ${outcome}` : ""}`);
   } else {
-    when.textContent = "Never run.";
+    setLabel(when, "ph:clock-countdown Never run");
   }
 
   const footer = document.createElement("div");
@@ -2200,10 +2216,110 @@ function skillCard(skill, lastRun) {
     footer.appendChild(edit);
   }
 
+  //: Duplicate for every skill, Delete for yours. A built-in cannot be edited,
+  //: so a copy is how it becomes yours to change; and a skill library with no
+  //: way to start from the one nearest to what you want is a blank form.
+  const items = [
+    {
+      ...makeMenuItem("ph:copy-simple Duplicate", skill.builtin ? "Make a copy of your own to change" : "Make a copy of this skill", () => duplicateSkill(skill)),
+      group: "copy",
+    },
+  ];
+  if (!skill.builtin) {
+    items.push({ ...makeMenuItem("ph:trash Delete", "Delete this skill", () => deleteSkillWithUndo(skill)), danger: true, group: "danger" });
+  }
+  const more = kebabMenu(items, `Actions for ${skill.name}`);
+  more.classList.add("skill-card-more");
+  footer.appendChild(more);
+
   card.append(header, desc);
   if (facts.children.length) card.appendChild(facts);
   card.append(when, footer);
   return card;
+}
+
+//: Which kind of skill the segment shows, and the order. Both are the page's
+//: own state for this visit; the order is remembered like the Bookmarks sort.
+let skillKindFilter = "all"; // "all" | "yours" | "builtin"
+const SKILL_SORT_KEY = "library-skills-sort";
+const SKILL_SORTS = {
+  //: Yours first, then the shipped ones, each A to Z: twenty-odd built-ins
+  //: used to sit above the handful someone wrote, so the skills a person had
+  //: made were the ones at the bottom of the page.
+  yours: (a, b) =>
+    Number(Boolean(a.skill.builtin)) - Number(Boolean(b.skill.builtin)) ||
+    a.skill.name.localeCompare(b.skill.name, undefined, { sensitivity: "base" }),
+  az: (a, b) => a.skill.name.localeCompare(b.skill.name, undefined, { sensitivity: "base" }),
+  //: Most recently run first; those never run keep their A to Z order after.
+  recent: (a, b) => {
+    const when = (c) => (c.lastRun ? Date.parse(c.lastRun.created_at) || 0 : 0);
+    return when(b) - when(a) || a.skill.name.localeCompare(b.skill.name, undefined, { sensitivity: "base" });
+  },
+};
+
+function skillSort() {
+  let stored = "";
+  try {
+    stored = localStorage.getItem(SKILL_SORT_KEY) || "";
+  } catch {
+    // Storage can be blocked; the default order is the answer.
+  }
+  return SKILL_SORTS[stored] ? stored : "yours";
+}
+
+//: A copy of any skill under a name that is free. Built-in names are taken by
+//: the server's own list, so a copy of a built-in can never keep its name;
+//: "Name (copy)", then "(copy 2)", fits the 40 characters a name may be.
+async function duplicateSkill(skill) {
+  const taken = new Set(allSkills().map((s) => s.name));
+  const clip = (base, suffix) => `${base.slice(0, 40 - suffix.length).trimEnd()}${suffix}`;
+  let name = clip(skill.name, " (copy)");
+  for (let n = 2; taken.has(name); n += 1) name = clip(skill.name, ` (copy ${n})`);
+  const copy = {
+    name,
+    prompt: skill.prompt,
+    description: skill.description || "",
+    steps: [...(skill.steps || [])],
+    tools: [...(skill.tools || [])],
+    inputs: (skill.inputs || []).map((input) => ({ ...input })),
+    ...(skill.verify ? { verify: skill.verify } : {}),
+  };
+  try {
+    await saveSkillList([...customSkills(), copy]);
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  toast(`Saved “${name}” under Yours. Edit it from its card.`);
+  skillKindFilter = "all";
+  renderSkillsDashboard();
+}
+
+//: Delete, with Undo on the toast like every other delete in the Library: the
+//: skill list is one preference, so putting it back is saving the list as it
+//: was.
+async function deleteSkillWithUndo(skill) {
+  const before = customSkills();
+  try {
+    await saveSkillList(before.filter((s) => s.name !== skill.name));
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  await renderSkillsDashboard();
+  const restore = async () => {
+    await saveSkillList(before).catch((e) => toast(e.message, true));
+    await renderSkillsDashboard();
+  };
+  const action = pushUndo(`Deleted the skill “${skill.name}”`, restore, async () => {
+    await saveSkillList(before.filter((s) => s.name !== skill.name)).catch(() => {});
+    await renderSkillsDashboard();
+  });
+  toastAction(`Deleted “${skill.name}”.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await restore();
+    toast(`Restored “${skill.name}”.`);
+  });
 }
 
 function renderSkillCards(query = "") {
@@ -2211,21 +2327,86 @@ function renderSkillCards(query = "") {
   const empty = document.getElementById("skills-empty");
   if (!grid) return;
   const term = query.trim().toLowerCase();
-  const matches = term
-    ? skillCardsCache.filter(
+  const byKind = skillCardsCache.filter(({ skill }) =>
+    skillKindFilter === "yours" ? !skill.builtin : skillKindFilter === "builtin" ? Boolean(skill.builtin) : true
+  );
+  const matches = (term
+    ? byKind.filter(
         ({ skill }) =>
           skill.name.toLowerCase().includes(term) ||
-          (skill.description || "").toLowerCase().includes(term)
+          (skill.description || "").toLowerCase().includes(term) ||
+          (skill.steps || []).some((step) => step.toLowerCase().includes(term))
       )
-    : skillCardsCache;
+    : byKind
+  ).sort(SKILL_SORTS[skillSort()]);
   grid.replaceChildren(...matches.map(({ skill, lastRun }) => skillCard(skill, lastRun)));
-  if (empty) {
-    empty.classList.toggle("hidden", matches.length > 0);
-    empty.textContent = skillCardsCache.length
-      ? "No skills match that."
-      : "No skills yet. “New skill” writes one, a name, what it should do, and the steps to take.";
+
+  //: The segment carries its counts, so "Yours 0" says why the page looks the
+  //: way it does before anyone clicks it.
+  const yours = skillCardsCache.filter(({ skill }) => !skill.builtin).length;
+  const counts = { all: skillCardsCache.length, yours, builtin: skillCardsCache.length - yours };
+  document.querySelectorAll("#skills-kind button").forEach((button) => {
+    const kind = button.dataset.kind;
+    const on = kind === skillKindFilter;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    const count = button.querySelector("[data-count]");
+    if (count) count.textContent = counts[kind];
+  });
+
+  if (!empty) return;
+  empty.replaceChildren();
+  empty.classList.toggle("hidden", matches.length > 0);
+  if (matches.length > 0) return;
+  //: One empty state, with the one action that fits: a library with no skills
+  //: of its own is asked to write one; a filter that matched nothing is asked
+  //: to let go of the filter.
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  const hint = document.createElement("p");
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "ghost small";
+  if (skillCardsCache.length === 0 || (skillKindFilter === "yours" && !term && yours === 0)) {
+    title.textContent = "No skills of your own yet";
+    hint.textContent = "A skill is a named job: what to do, the steps to take, the tools it may use.";
+    setLabel(action, "ph:plus New skill");
+    action.addEventListener("click", () => $("skills-add-new")?.click());
+  } else {
+    title.textContent = "No skills match";
+    hint.textContent = term ? `Nothing fits “${query.trim()}” here.` : "None of these fit the filter.";
+    setLabel(action, "ph:x Clear search and filter");
+    action.addEventListener("click", () => {
+      skillKindFilter = "all";
+      const search = $("skills-search");
+      if (search) search.value = "";
+      renderSkillCards("");
+      search?.focus();
+    });
   }
+  empty.append(title, hint, action);
 }
+
+onDomReady(() => {
+  const sort = $("skills-sort");
+  if (sort) {
+    sort.value = skillSort();
+    sort.addEventListener("change", () => {
+      try {
+        localStorage.setItem(SKILL_SORT_KEY, sort.value);
+      } catch {
+        // Kept for this visit only.
+      }
+      renderSkillCards($("skills-search")?.value || "");
+    });
+  }
+  $("skills-kind")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-kind]");
+    if (!button) return;
+    skillKindFilter = button.dataset.kind;
+    renderSkillCards($("skills-search")?.value || "");
+  });
+});
 
 async function renderSkillsDashboard() {
   const container = document.getElementById("skills-dashboard-list");
@@ -2249,13 +2430,21 @@ async function renderSkillsDashboard() {
   // `savePrefs`, which rebuilds the whole object from the *other* screen's
   // DOM: silently switched them back off again. Reported as "the automated
   // tasks option keeps automatically disabling itself even when turned on".
-  const workers = document.createElement("section");
-  workers.className = "card skills-workers";
-  const workersHead = document.createElement("div");
-  workersHead.className = "row space-between";
-  const workersTitle = document.createElement("h3");
+  //: **Folded, on the app's `details.settings-fold` recipe.** It was a card
+  //: of its own, 235px tall at 1440, above the skills it is not about: the
+  //: first thing on the page was three switches set once and left, and the
+  //: first skill began 230px lower than it had to. The summary carries the
+  //: group's label and, beside it, whether it is on, so a closed fold still
+  //: answers the question the card answered.
+  const workers = document.createElement("details");
+  workers.className = "settings-fold skills-workers";
+  const workersHead = document.createElement("summary");
+  const workersTitle = document.createElement("span");
   workersTitle.textContent = "Background workers";
-  workersHead.append(workersTitle);
+  const workersState = document.createElement("span");
+  workersState.className = "muted text-sm skills-workers-state";
+  workersState.textContent = prefs.autonomous_tasks_enabled ? "On" : "Off";
+  workersHead.append(workersTitle, workersState);
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
@@ -2274,7 +2463,13 @@ async function renderSkillsDashboard() {
     box.type = "checkbox";
     box.id = id;
     box.checked = on;
-    box.addEventListener("change", (event) => setPreference(key, event.target.checked));
+    box.addEventListener("change", (event) => {
+      setPreference(key, event.target.checked);
+      if (key === "autonomous_tasks_enabled") {
+        const state = document.querySelector(".skills-workers-state");
+        if (state) state.textContent = event.target.checked ? "On" : "Off";
+      }
+    });
     const text = document.createElement("span");
     text.textContent = label;
     wrap.append(box, text);
@@ -2310,6 +2505,7 @@ async function renderSkillsDashboard() {
     )
   );
   workers.append(workersHead, workersHint, masterRow, jobsHint, workersRow);
+  workers.open = false;
   container.appendChild(workers);
 
   // --- the skills themselves --------------------------------------------------
@@ -2328,9 +2524,9 @@ async function renderSkillsDashboard() {
   const grid = document.createElement("div");
   grid.id = "skills-grid";
   grid.className = "skills-grid";
-  const empty = document.createElement("p");
+  const empty = document.createElement("div");
   empty.id = "skills-empty";
-  empty.className = "muted hidden";
+  empty.className = "empty-state hidden";
   // Appended *outside* the grid: the previous version put its empty state
   // inside a grid whose cards went somewhere else entirely, so an empty
   // library rendered as a blank page.
@@ -8590,12 +8786,16 @@ onDomReady(() => {
       const created = await apiJson("/bookmarks", {
         method: "POST",
         body: JSON.stringify({
-          url, title: titleInput.value.trim(), group_name: groupInput.value.trim(),
+          url,
+          title: titleInput.value.trim(),
+          group_name: groupInput.value.trim(),
+          note: ($("bookmark-note-input")?.value || "").trim(),
         }),
       });
       urlInput.value = "";
       titleInput.value = "";
       groupInput.value = "";
+      if ($("bookmark-note-input")) $("bookmark-note-input").value = "";
       urlInput.focus();
       if (created.duplicate_of) {
         toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
@@ -8631,7 +8831,22 @@ onDomReady(() => {
     search.dispatchEvent(new Event("input", { bubbles: true }));
     search.focus();
   });
-  $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  //: Typing filters in memory, so a debounce is only for the repaint of a
+  //: long list: 30 rows is free, 900 is not.
+  let bookmarkSearchTimer = null;
+  $("bookmark-search")?.addEventListener("input", () => {
+    clearTimeout(bookmarkSearchTimer);
+    bookmarkSearchTimer = setTimeout(filterBookmarks, 120);
+  });
+  $("bookmark-no-match-clear")?.addEventListener("click", () => {
+    const search = $("bookmark-search");
+    if (search) search.value = "";
+    bookmarkGroupFilter = null;
+    bookmarkStateFilter = "all";
+    renderBookmarkGroupChips();
+    filterBookmarks();
+    search?.focus();
+  });
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
   $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
   $("contents-refresh")?.addEventListener("click", renderContents);
@@ -8654,27 +8869,6 @@ onDomReady(() => {
   $("contents-filter")?.addEventListener("input", () => {
     clearTimeout(contentsFilterTimer);
     contentsFilterTimer = setTimeout(renderContents, 150);
-  });
-  $("contents-collapse")?.addEventListener("click", (event) => {
-    const outline = $("contents-outline");
-    if (!outline) return;
-    //: Reads the sections rather than a flag of its own: the button's job is
-    //: "make them all the same", and whether that means folding or unfolding
-    //: depends on what is on screen right now, which the user may have
-    //: changed one section at a time since the last press.
-    const anyOpen = [...outline.querySelectorAll(".contents-heading")].some(
-      (h) => h.getAttribute("aria-expanded") === "true",
-    );
-    for (const heading of outline.querySelectorAll(".contents-heading")) {
-      if ((heading.getAttribute("aria-expanded") === "true") === anyOpen) heading.click();
-    }
-    //: The words only, not the whole button. This control now lives in the
-    //: dock's `...` menu, where it carries an icon beside its label, and
-    //: writing `textContent` on the button replaced that icon with a bare
-    //: string on the first press. The span is the label; the button is the
-    //: fallback for anywhere this markup is simpler.
-    const label = event.currentTarget.querySelector("[data-collapse-label]") || event.currentTarget;
-    label.textContent = anyOpen ? "Expand all" : "Collapse all";
   });
 });
 
@@ -8927,6 +9121,25 @@ onDomReady(() => {
   if (linksList && !document.getElementById("library-links-selectbar")) {
     const bar = createLibrarySelectbar("library-links", "Actions for the selected bookmarks", "bookmark-list");
     linksList.parentNode.insertBefore(bar, linksList);
+    //: The verbs a pile of links wants besides Delete, in front of it (the
+    //: bar's own order: the useful ones, then the destructive one, then Done).
+    const linksEnd = bar.querySelector(".library-contextbar-end");
+    const linksDelete = document.getElementById("library-links-bulk-delete");
+    const linkVerb = (id, label, title, run) => {
+      const button = document.createElement("button");
+      button.id = id;
+      button.type = "button";
+      button.className = "ghost small";
+      button.title = title;
+      setLabel(button, label);
+      button.addEventListener("click", run);
+      linksEnd.insertBefore(button, linksDelete);
+    };
+    linkVerb("library-links-bulk-move", "ph:folder-simple Move to group", "Put the ticked bookmarks in a group", bulkMoveLibraryLinks);
+    linkVerb("library-links-bulk-read", "ph:check-circle Mark read", "Mark the ticked bookmarks as read", () =>
+      bulkUpdateLibraryLinks({ is_read: true }, (n) => `Marked ${n} bookmark${n === 1 ? "" : "s"} as read.`));
+    linkVerb("library-links-bulk-pin", "ph:push-pin Pin", "Pin the ticked bookmarks to the top", () =>
+      bulkUpdateLibraryLinks({ pinned: true }, (n) => `Pinned ${n} bookmark${n === 1 ? "" : "s"}.`));
     document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
   }
@@ -8943,11 +9156,30 @@ onDomReady(() => {
 
 let bookmarksCache = [];
 let bookmarkGroupFilter = null; // null = all groups
+let bookmarkStateFilter = "all"; // "all" | "unread" | "pinned"
+//: Sites folded away in the "By site" grouping, for this visit.
+const bookmarkFoldedSites = new Set();
 
 //: Which links are ticked, keyed by bookmark id, its own Map so a selection
 //: here can never leak into another sub-tab's bulk delete, the same reasoning
 //: mediaRowKey's own comment gives for libraryMediaSelection.
 const libraryLinksSelection = new Map();
+
+//: **Every page, not the first.** `GET /bookmarks` answers 200 links a page
+//: (`BOOKMARKS_PAGE_SIZE`) and this list asked once, so the 201st link saved
+//: was in the notebook and nowhere on this page: no search found it, because
+//: the search filters what was fetched. Pages of the endpoint's maximum until
+//: one comes back short.
+async function fetchAllBookmarks() {
+  const size = 1000;
+  const all = [];
+  for (let offset = 0; ; offset += size) {
+    const page = await apiJson(`/bookmarks?limit=${size}&offset=${offset}`);
+    all.push(...page);
+    if (page.length < size) break;
+  }
+  return all;
+}
 
 async function renderBookmarks() {
   const list = $("bookmark-list");
@@ -8955,7 +9187,7 @@ async function renderBookmarks() {
   if (!list) return;
   showSkeletons(list, 4);
   try {
-    bookmarksCache = await apiJson("/bookmarks");
+    bookmarksCache = await fetchAllBookmarks();
   } catch (error) {
     toast(error.message, true);
     return;
@@ -8981,14 +9213,17 @@ function clearLibraryLinksSelection() {
   renderBookmarks();
 }
 
-async function bulkDeleteLibraryLinks() {
-  const links = [...libraryLinksSelection.values()];
-  if (!links.length) return;
-  if (
-    !(await confirmDialog(`Delete ${links.length} selected bookmark${links.length === 1 ? "" : "s"}?`))
-  ) {
-    return;
-  }
+//: **Delete says Undo, not "Are you sure".** Every other delete in the
+//: Library that can be taken back (a note to the bin, a document) offers Undo
+//: on its toast; the links alone asked first and then could not return. A
+//: bookmark has no bin, so Undo saves the same fields again (the id is new,
+//: nothing refers to a link by id except a note's attached references, which
+//: the delete route already removes). Pin and read state travel with it.
+async function deleteBookmarksWithUndo(links) {
+  const kept = links.map((b) => ({
+    url: b.url, title: b.title, note: b.note, group_name: b.group_name,
+    pinned: Boolean(b.pinned), is_read: Boolean(b.is_read),
+  }));
   let deleted = 0;
   for (const bookmark of links) {
     try {
@@ -8999,10 +9234,74 @@ async function bulkDeleteLibraryLinks() {
     }
   }
   libraryLinksSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} bookmark${deleted === 1 ? "" : "s"}.`);
   const failed = links.length - deleted;
   if (failed) toast(`${failed} bookmark${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
-  renderBookmarks();
+  await renderBookmarks();
+  if (!deleted) return;
+  const restore = async () => {
+    for (const body of kept) {
+      await apiJson("/bookmarks", { method: "POST", body: JSON.stringify(body) }).catch((e) => toast(e.message, true));
+    }
+    await renderBookmarks();
+  };
+  const noun = deleted === 1 ? "bookmark" : "bookmarks";
+  const action = pushUndo(`Deleted ${deleted} ${noun}`, restore, async () => {
+    // Redo finds the links again by address: their ids changed on restore.
+    const urls = new Set(kept.map((b) => b.url));
+    for (const live of bookmarksCache.filter((b) => urls.has(b.url))) {
+      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch(() => {});
+    }
+    await renderBookmarks();
+  });
+  toastAction(deleted === 1 ? "Bookmark deleted." : `${deleted} bookmarks deleted.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await restore();
+    toast(deleted === 1 ? "Bookmark restored." : `${deleted} bookmarks restored.`);
+  });
+}
+
+async function bulkDeleteLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  await deleteBookmarksWithUndo(links);
+}
+
+//: The other bulk verbs, one pass each over what is ticked. `changes` is the
+//: body of a `PUT /bookmarks/{id}`; the selection survives (it is pruned by
+//: `renderBookmarks`), so "Move to group" then "Mark read" is two presses, not
+//: a re-select.
+async function bulkUpdateLibraryLinks(changes, done) {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  let changed = 0;
+  for (const bookmark of links) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(changes) });
+      changed++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryLinksSelection.clear();
+  if (changed) toast(done(changed));
+  await renderBookmarks();
+}
+
+async function bulkMoveLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  const value = await promptDialog(
+    `Group for ${links.length} bookmark${links.length === 1 ? "" : "s"} (e.g. Work/Reading, blank clears it):`,
+    ""
+  );
+  //: Cancel and an empty field both resolve "" (see `moveToGroup`), so a bulk
+  //: move to "no group" is not offered here: clearing many groups at once on
+  //: an accidental Enter is the worse trade. Manage groups does that on purpose.
+  if (!value) return;
+  await bulkUpdateLibraryLinks(
+    { group_name: value.trim() },
+    (n) => `Moved ${n} bookmark${n === 1 ? "" : "s"} to “${value.trim()}”.`
+  );
 }
 
 //: **A group is a name on a bookmark, not a row in a table.** There is no
@@ -9221,25 +9520,61 @@ function renderBookmarkGroupChips() {
     ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
   );
   box.replaceChildren();
-  if (groups.length === 0) {
+  if (bookmarksCache.length === 0) {
     bookmarkGroupFilter = null;
+    bookmarkStateFilter = "all";
     return;
   }
-  const allChip = document.createElement("button");
-  allChip.type = "button";
-  allChip.className = `library-chip${bookmarkGroupFilter === null ? " active" : ""}`;
-  allChip.textContent = "All";
-  allChip.addEventListener("click", () => { bookmarkGroupFilter = null; renderBookmarkGroupChips(); filterBookmarks(); });
-  box.appendChild(allChip);
+  //: A group that has gone (renamed, emptied) cannot stay the filter.
+  if (bookmarkGroupFilter !== null && !groups.includes(bookmarkGroupFilter)) bookmarkGroupFilter = null;
+  const apply = () => { renderBookmarkGroupChips(); filterBookmarks(); };
+  const chip = (label, count, active, onPress) => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = `library-chip${active ? " active" : ""}`;
+    el.setAttribute("aria-pressed", active ? "true" : "false");
+    el.append(document.createTextNode(label));
+    if (count !== null) {
+      const n = document.createElement("span");
+      n.className = "library-chip-count";
+      n.textContent = count;
+      el.append(" ", n);
+    }
+    el.addEventListener("click", onPress);
+    box.appendChild(el);
+    return el;
+  };
+  //: **A reading list is the point of a bookmark shelf**, so the state
+  //: filters come first and carry their counts (Raindrop and Pocket both
+  //: open on "Unread"): All resets everything, Unread and Pinned narrow it,
+  //: and the groups below narrow it further.
+  const unread = bookmarksCache.filter((b) => !b.is_read).length;
+  const pinned = bookmarksCache.filter((b) => b.pinned).length;
+  chip("All", bookmarksCache.length, bookmarkStateFilter === "all" && bookmarkGroupFilter === null, () => {
+    bookmarkStateFilter = "all";
+    bookmarkGroupFilter = null;
+    apply();
+  });
+  chip("Unread", unread, bookmarkStateFilter === "unread", () => {
+    bookmarkStateFilter = bookmarkStateFilter === "unread" ? "all" : "unread";
+    apply();
+  });
+  if (pinned) {
+    chip("Pinned", pinned, bookmarkStateFilter === "pinned", () => {
+      bookmarkStateFilter = bookmarkStateFilter === "pinned" ? "all" : "pinned";
+      apply();
+    });
+  } else if (bookmarkStateFilter === "pinned") {
+    bookmarkStateFilter = "all";
+  }
   for (const group of groups) {
-    const chipEl = document.createElement("button");
-    chipEl.type = "button";
-    chipEl.className = `library-chip${bookmarkGroupFilter === group ? " active" : ""}`;
+    const count = bookmarksCache.filter((b) => b.group_name === group).length;
     // "Work/Reading" renders as "Work / Reading", the "/" is a grouping
     // convention for the user to type, not meant to display as a raw slash.
-    chipEl.textContent = group.split("/").join(" / ");
-    chipEl.addEventListener("click", () => { bookmarkGroupFilter = group; renderBookmarkGroupChips(); filterBookmarks(); });
-    box.appendChild(chipEl);
+    chip(group.split("/").join(" / "), count, bookmarkGroupFilter === group, () => {
+      bookmarkGroupFilter = bookmarkGroupFilter === group ? null : group;
+      apply();
+    });
   }
 }
 
@@ -9298,21 +9633,119 @@ function filterBookmarks() {
   const query = ($("bookmark-search")?.value || "").trim().toLowerCase();
   const visible = bookmarksCache.filter((b) => {
     if (bookmarkGroupFilter !== null && b.group_name !== bookmarkGroupFilter) return false;
+    if (bookmarkStateFilter === "unread" && b.is_read) return false;
+    if (bookmarkStateFilter === "pinned" && !b.pinned) return false;
     if (!query) return true;
+    //: Group names too: "recipes" finds the Recipes group's links, which is
+    //: what typing a group's name into a search box means.
     return (
       b.title.toLowerCase().includes(query) ||
       b.url.toLowerCase().includes(query) ||
-      b.note.toLowerCase().includes(query)
+      b.note.toLowerCase().includes(query) ||
+      (b.group_name || "").toLowerCase().includes(query)
     );
   });
   list.replaceChildren();
   //: On a copy, for the reason the media gallery's own sort records: `visible`
   //: can be the cache itself when nothing is filtered, and sorting in place
   //: would reorder the array every other reader shares.
-  for (const bookmark of [...visible].sort(BOOKMARK_SORTS[bookmarkSort()])) {
-    list.appendChild(bookmarkRow(bookmark));
+  const ordered = [...visible].sort(BOOKMARK_SORTS[bookmarkSort()]);
+  if (bookmarkSort() === "site") {
+    //: **"By site" groups, it does not only order.** Sorted by host the rows
+    //: of one site already sat together, but nothing said so and nothing
+    //: could fold them. A heading per site with its count, the same
+    //: heading the Contents index uses, which folds.
+    let section = null;
+    let sectionHost = null;
+    for (const bookmark of ordered) {
+      const host = bookmarkAddress(bookmark.url).host || "(no address)";
+      if (host !== sectionHost) {
+        sectionHost = host;
+        section = bookmarkSiteSection(host, ordered.filter((b) => (bookmarkAddress(b.url).host || "(no address)") === host).length);
+        list.appendChild(section.root);
+      }
+      section.body.appendChild(bookmarkRow(bookmark));
+    }
+  } else {
+    for (const bookmark of ordered) list.appendChild(bookmarkRow(bookmark));
   }
   noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
+  const count = $("bookmark-count");
+  if (count) {
+    count.textContent = bookmarksCache.length === 0
+      ? ""
+      : visible.length === bookmarksCache.length
+        ? `${bookmarksCache.length} bookmark${bookmarksCache.length === 1 ? "" : "s"}`
+        : `Showing ${visible.length} of ${bookmarksCache.length}`;
+  }
+}
+
+function bookmarkSiteSection(host, total) {
+  const root = document.createElement("section");
+  root.className = "bookmark-site";
+  const folded = bookmarkFoldedSites.has(host);
+  const heading = document.createElement("button");
+  heading.type = "button";
+  heading.className = "contents-heading bookmark-site-heading";
+  heading.setAttribute("aria-expanded", folded ? "false" : "true");
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down contents-caret";
+  caret.setAttribute("aria-hidden", "true");
+  const name = document.createElement("span");
+  name.className = "contents-heading-name";
+  name.textContent = host;
+  const n = document.createElement("span");
+  n.className = "contents-count";
+  n.textContent = total;
+  heading.append(caret, name, n);
+  const body = document.createElement("div");
+  body.className = "bookmark-site-body";
+  body.hidden = folded;
+  root.classList.toggle("is-folded", folded);
+  heading.addEventListener("click", () => {
+    const now = !bookmarkFoldedSites.has(host);
+    if (now) bookmarkFoldedSites.add(host);
+    else bookmarkFoldedSites.delete(host);
+    body.hidden = now;
+    root.classList.toggle("is-folded", now);
+    heading.setAttribute("aria-expanded", now ? "false" : "true");
+  });
+  root.append(heading, body);
+  return { root, body };
+}
+
+//: What kind of thing a link points at, from its address alone: this app
+//: fetches nothing from the internet, so there is no favicon, but a tile that
+//: says "video", "code", "PDF" or "email" tells a list of links apart at a
+//: glance, which is what a favicon column is for. Hosts are matched at their
+//: tail so "m.youtube.com" and "www.youtube.com" are one kind.
+const BOOKMARK_KINDS = [
+  { key: "email", icon: "ph:envelope-simple", label: "Email address", test: (u) => u.protocol === "mailto:" },
+  { key: "phone", icon: "ph:phone", label: "Phone number", test: (u) => u.protocol === "tel:" },
+  { key: "pdf", icon: "ph:file-pdf", label: "PDF", test: (u) => /\.pdf$/i.test(u.pathname) },
+  {
+    key: "video", icon: "ph:play-circle", label: "Video",
+    test: (u) => /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com)$/.test(u.hostname),
+  },
+  {
+    key: "code", icon: "ph:code", label: "Code",
+    test: (u) => /(^|\.)(github\.com|gitlab\.com|bitbucket\.org|codeberg\.org|stackoverflow\.com|developer\.mozilla\.org|docs\.python\.org)$/.test(u.hostname),
+  },
+  {
+    key: "reference", icon: "ph:book-open", label: "Reference",
+    test: (u) => /(^|\.)(wikipedia\.org|arxiv\.org|wikimedia\.org|britannica\.com)$/.test(u.hostname),
+  },
+];
+const BOOKMARK_KIND_DEFAULT = { key: "link", icon: "ph:globe", label: "Web page" };
+
+function bookmarkKind(url) {
+  const raw = String(url || "").trim();
+  try {
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    return BOOKMARK_KINDS.find((kind) => kind.test(parsed)) || BOOKMARK_KIND_DEFAULT;
+  } catch {
+    return BOOKMARK_KIND_DEFAULT;
+  }
 }
 
 function bookmarkRow(bookmark) {
@@ -9342,11 +9775,18 @@ function bookmarkRow(bookmark) {
   //: this app fetches nothing from the internet: a favicon is a request to
   //: every site you have ever saved, which is the one thing an offline
   //: notebook must not do.
+  //: **The tile says what kind of link it is** (`bookmarkKind`: video, code,
+  //: PDF, email, reference, page), and a pinned link keeps the pin. Its
+  //: words are on the tooltip; the row's own text says the rest.
+  const kind = bookmarkKind(bookmark.url);
   const mark = document.createElement("span");
-  mark.className = "bookmark-mark";
+  mark.className = `bookmark-mark bookmark-mark-${kind.key}`;
   mark.setAttribute("aria-hidden", "true");
-  setLabel(mark, bookmark.pinned ? "ph:push-pin" : "ph:link-simple");
+  mark.title = kind.label;
+  setLabel(mark, bookmark.pinned ? "ph:push-pin" : kind.icon);
   row.appendChild(mark);
+  row.classList.toggle("is-read", Boolean(bookmark.is_read));
+  row.dataset.bookmarkId = bookmark.id;
 
   const main = document.createElement("div");
   main.className = "bookmark-main";
@@ -9372,6 +9812,29 @@ function bookmarkRow(bookmark) {
   link.rel = "noopener noreferrer";
   link.textContent = bookmark.title || address.host;
   link.title = bookmark.url;
+  //: **Opening a link reads it.** A plain click and a middle click both go to
+  //: the new tab on their own; this only notes it, in the cache and on the
+  //: row at once and on the server behind them, so "Unread" is a reading list
+  //: that empties as it is read rather than one you tick by hand.
+  const noteRead = () => {
+    if (bookmark.is_read) return;
+    bookmark.is_read = true;
+    row.classList.add("is-read");
+    row.querySelector(".bookmark-unread-word")?.remove();
+    apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify({ is_read: true }), silent: true })
+      .then(renderBookmarkGroupChips)
+      .catch(() => {});
+  };
+  if (!bookmark.is_read) {
+    //: Unread is also a weight and a dot (CSS); this is its words, for a
+    //: reader that has neither.
+    const word = document.createElement("span");
+    word.className = "visually-hidden bookmark-unread-word";
+    word.textContent = "Unread: ";
+    link.prepend(word);
+  }
+  link.addEventListener("click", noteRead);
+  link.addEventListener("auxclick", (event) => { if (event.button === 1) noteRead(); });
   main.append(
     link,
     metaLine(
@@ -9454,6 +9917,10 @@ function bookmarkRow(bookmark) {
     const urlInput = field("URL", bookmark.url, "https://example.com");
     // Blank is meaningful here and always was: it means "no group".
     const groupInput = field("Group", bookmark.group_name, "e.g. Work/Reading");
+    //: The note had no way in once a link was saved: the Add form never asked
+    //: for one and this form never showed it, though the row and the search
+    //: both read it.
+    const noteInput = field("Note", bookmark.note, "Why you saved it");
 
     const buttons = document.createElement("div");
     buttons.className = "row bookmark-edit-actions";
@@ -9501,6 +9968,7 @@ function bookmarkRow(bookmark) {
             title: titleInput.value.trim(),
             url,
             group_name: groupInput.value.trim(),
+            note: noteInput.value.trim(),
           }),
         });
         renderBookmarks();
@@ -9535,12 +10003,55 @@ function bookmarkRow(bookmark) {
     renderBookmarks();
   };
 
-  const removeBookmark = async () => {
-    const ok = await confirmDialog(`Delete "${bookmark.title || bookmark.url}"?`);
-    if (!ok) return;
-    await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+  const removeBookmark = () => deleteBookmarksWithUndo([bookmark]);
+
+  const toggleRead = async () => {
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ is_read: !bookmark.is_read }),
+    });
     renderBookmarks();
   };
+
+  //: **A look at the link without leaving the list.** An offline notebook
+  //: cannot render the page, so the preview is everything the notebook knows
+  //: about it: the whole address (the row shows only the host), the note,
+  //: the group and when it was saved, with the two things you would do next.
+  const toggleDetails = () => {
+    const open = row.querySelector(".bookmark-detail");
+    if (open) {
+      open.remove();
+      row.classList.remove("is-open");
+      return;
+    }
+    const box = document.createElement("div");
+    box.className = "bookmark-detail";
+    const addr = document.createElement("code");
+    addr.className = "bookmark-detail-url";
+    addr.textContent = bookmark.url;
+    const facts = [kind.label];
+    if (bookmark.group_name) facts.push(bookmark.group_name.split("/").join(" / "));
+    const saved = new Date(bookmark.created_at);
+    if (!Number.isNaN(saved.getTime())) facts.push(`saved ${saved.toLocaleDateString()}`);
+    facts.push(bookmark.is_read ? "read" : "unread");
+    const meta = metaLine(facts, "bookmark-detail-meta");
+    box.append(addr, meta);
+    if (bookmark.note) {
+      const note = document.createElement("p");
+      note.className = "bookmark-detail-note";
+      note.textContent = bookmark.note;
+      box.appendChild(note);
+    }
+    row.appendChild(box);
+    row.classList.add("is-open");
+  };
+
+  //: The row's own click opens the details, on the empty part of the row
+  //: only: the title, the tick and the controls keep their own meaning.
+  row.addEventListener("dblclick", (event) => {
+    if (event.target.closest("a, button, input, .menu-wrap, form, .bookmark-detail")) return;
+    toggleDetails();
+  });
 
   //: **Two controls on a row at rest, not four** (the owner, 2026-09-13:
   //: "redesign the links cards/rows ... to make them look nicer and more
@@ -9553,15 +10064,36 @@ function bookmarkRow(bookmark) {
   //: Library could get a URL back out of the notebook.
   const menu = kebabMenu(
     [
-      makeMenuItem("ph:pencil-simple Edit this bookmark", "Change the title, address or group", startEditing),
-      makeMenuItem("ph:folder-simple Move to group", "Move this bookmark to a group", moveToGroup),
-      makeMenuItem("ph:copy Copy address", "Copy the address to the clipboard", async () => {
-        //: `copyToClipboard` flashes the button it is given, and a menu row is
-        //: gone by the time it would: it says so in a toast instead, the same
-        //: way every other copy in a menu does.
-        if (await copyToClipboard(bookmark.url)) toast("Address copied.");
-      }),
-      { ...makeMenuItem("ph:trash Delete", "Delete this bookmark", removeBookmark), danger: true },
+      //: Seven rows is past the menu ceiling (DESIGN.md), so they are grouped:
+      //: look at it, change it, remove it.
+      {
+        ...makeMenuItem("ph:arrow-square-out Open", "Open this link in a new tab", () => {
+          noteRead();
+          window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer");
+        }),
+        group: "look",
+      },
+      { ...makeMenuItem("ph:eye Details", "Show the whole address, the note and when it was saved", toggleDetails), group: "look" },
+      {
+        ...makeMenuItem(
+          bookmark.is_read ? "ph:circle Mark as unread" : "ph:check-circle Mark as read",
+          bookmark.is_read ? "Put this back on the reading list" : "Take this off the reading list",
+          toggleRead
+        ),
+        group: "look",
+      },
+      { ...makeMenuItem("ph:pencil-simple Edit this bookmark", "Change the title, address, group or note", startEditing), group: "change" },
+      { ...makeMenuItem("ph:folder-simple Move to group", "Move this bookmark to a group", moveToGroup), group: "change" },
+      {
+        ...makeMenuItem("ph:copy Copy address", "Copy the address to the clipboard", async () => {
+          //: `copyToClipboard` flashes the button it is given, and a menu row is
+          //: gone by the time it would: it says so in a toast instead, the same
+          //: way every other copy in a menu does.
+          if (await copyToClipboard(bookmark.url)) toast("Address copied.");
+        }),
+        group: "change",
+      },
+      { ...makeMenuItem("ph:trash Delete", "Delete this bookmark", removeBookmark), danger: true, group: "danger" },
     ],
     `Actions for ${bookmark.title || bookmark.url}`,
   );
@@ -9701,27 +10233,270 @@ function contentsNoteName(entry) {
   return name || noteLabel(entry, 80);
 }
 
+//: The documents section's key in the fold sets. Not a word a person could
+//: type as a category, so a category called "Documents" cannot fold it.
+const CONTENTS_DOCS_KEY = "__documents__";
+//: Document ids whose headings are showing, for this visit. Documents start
+//: folded: an index of forty documents with every heading open is a book.
+const contentsOpenDocs = new Set();
+
+//: A heading in a document, or the document, in the editor: the Library's own
+//: card does `switchTab` then `openDocument`, and a heading adds the jump the
+//: editor's Outline row does (`jumpToDocLine`, zero-based).
+function contentsOpenDocument(docId, line) {
+  switchTab("documents");
+  openDocument(docId).then(() => {
+    if (line !== null && line !== undefined) setTimeout(() => jumpToDocLine(line), 80);
+  });
+}
+
+//: **Every row of the index is a tree item** (the ARIA tree pattern, which is
+//: what an outline of nested things is, and what Obsidian's file explorer and
+//: VS Code's outline both are): the section heading is level 1, a note or a
+//: document is level 2, a document's heading is level 3 and deeper. One
+//: `role="tree"` (the markup), `role="group"` around each list of children,
+//: `role="none"` on the wrappers between, `aria-expanded` on everything that
+//: opens. Exactly one item is in the tab order (roving tabindex), and the keys
+//: are in `contentsTreeKeys` below.
+function contentsTreeItem(el, level) {
+  el.setAttribute("role", "treeitem");
+  el.setAttribute("aria-level", String(level));
+  el.tabIndex = -1;
+  return el;
+}
+
+function contentsNoteRow(entry) {
+  const li = document.createElement("li");
+  li.setAttribute("role", "none");
+  //: **No tick here.** Asked for directly: "the contents page shouldnt have
+  //: radio buttons, it is purely a table of contents." It is right, and it
+  //: is a point about what this page *is* rather than about how the
+  //: control looked: a table of contents is a way to find your place, and
+  //: every row offering to select itself for a bulk delete makes an index
+  //: into a management screen you did not ask to be in.
+  const link = contentsTreeItem(document.createElement("a"), 2);
+  link.href = "#";
+  //: **A picture note shows its picture.** Reported: "the contents tab
+  //: doesnt render images". Every row was `noteLabel`, which strips
+  //: markdown down to text, so a note that *is* a photo appeared as its
+  //: filename, or as the bare word "image" when the alt text was empty.
+  //: In an index whose whole job is helping you recognise a note, that is
+  //: the one row shape that cannot do it.
+  const shot = noteAnyImage(entry);
+  if (shot) {
+    const thumb = document.createElement("img");
+    thumb.className = "contents-thumb";
+    thumb.src = mediaSrc(shot.url);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    //: A picture that will not load is simply not shown: the row's own
+    //: words still name the note, and the missing-media placeholder is a
+    //: 170px box that pushed this row's label off the index's left edge.
+    thumb.addEventListener("error", () => thumb.remove());
+    link.appendChild(thumb);
+  }
+  const text = document.createElement("span");
+  text.className = "contents-label";
+  //: In folder mode a row is a *file*, so it is named the way the vault
+  //: names it: that is also the name its `[[wiki links]]` use, so the
+  //: index and the links agree about what a note is called.
+  const fileName =
+    contentsMode === "folder" && entry.source_path ? entry.source_path.split("/").pop() : "";
+  //: **An index lists titles.** A note with a heading was labelled with
+  //: its heading run straight into its first paragraph ("Sprint retro
+  //: What went well: measuring..."), which reads as one long title. A
+  //: note that has a heading is named by it; one without is named by its
+  //: opening words, as before.
+  text.textContent = fileName || contentsNoteName(entry);
+  link.appendChild(text);
+  //: The right-hand column of an index: what a row is filed under, or
+  //: when it was written when the grouping already answers "under what".
+  //: One value, muted, at a fixed edge, so the eye can run down it.
+  const meta = document.createElement("span");
+  meta.className = "contents-meta";
+  meta.textContent =
+    contentsMode === "category" || contentsMode === "folder"
+      ? relativeTime(entry.updated_at || entry.created_at)
+      : entry.category || "Uncategorised";
+  link.appendChild(meta);
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    flashEntry(entry.id);
+  });
+  li.appendChild(link);
+  return li;
+}
+
+//: A document, with its headings under it when it has any. `heads` is the
+//: ones to list (all of them, or only those a filter matched), `shallowest`
+//: the document's own top heading level so a document that starts at `##`
+//: is not indented a level for nothing.
+function contentsDocRow(doc, heads, shallowest, forceOpen) {
+  const li = document.createElement("li");
+  li.className = "contents-doc";
+  li.setAttribute("role", "none");
+  const link = contentsTreeItem(document.createElement("a"), 2);
+  link.href = "#";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down contents-caret contents-doc-caret";
+  caret.setAttribute("aria-hidden", "true");
+  const icon = document.createElement("i");
+  icon.className = "ph ph-file-text contents-doc-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "contents-label";
+  text.textContent = doc.title || "Untitled";
+  const meta = document.createElement("span");
+  meta.className = "contents-meta";
+  meta.textContent = heads.length
+    ? `${heads.length} section${heads.length === 1 ? "" : "s"}`
+    : relativeTime(doc.updated_at);
+  if (heads.length) link.appendChild(caret);
+  link.append(icon, text, meta);
+  li.appendChild(link);
+
+  if (heads.length) {
+    const group = document.createElement("ul");
+    group.className = "contents-list contents-subtree";
+    group.setAttribute("role", "group");
+    for (const head of heads) {
+      const item = document.createElement("li");
+      item.setAttribute("role", "none");
+      const depth = Math.min(Math.max(head.level - shallowest, 0), 4);
+      const row = contentsTreeItem(document.createElement("a"), 3 + depth);
+      row.href = "#";
+      row.className = "contents-heading-row";
+      row.style.setProperty("--depth", String(depth));
+      const label = document.createElement("span");
+      label.className = "contents-label";
+      label.textContent = head.text;
+      row.appendChild(label);
+      row.addEventListener("click", (event) => {
+        event.preventDefault();
+        contentsOpenDocument(doc.id, head.line);
+      });
+      item.appendChild(row);
+      group.appendChild(item);
+    }
+    li.appendChild(group);
+    const setOpen = (open) => {
+      group.hidden = !open;
+      li.classList.toggle("is-open", open);
+      link.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) contentsOpenDocs.add(doc.id);
+      else contentsOpenDocs.delete(doc.id);
+    };
+    link.contentsSet = setOpen;
+    setOpen(forceOpen || contentsOpenDocs.has(doc.id));
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      //: The caret folds; the rest of the row opens the document, so the
+      //: pointer has both and the keyboard has Right and Enter.
+      if (event.target.closest(".contents-doc-caret")) setOpen(group.hidden);
+      else contentsOpenDocument(doc.id, null);
+    });
+  } else {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      contentsOpenDocument(doc.id, null);
+    });
+  }
+  return li;
+}
+
+//: One top-level section: a heading that folds, and the rows under it.
+function contentsBuildSection(outline, jump, { key, label, total, fill }) {
+  const folded = contentsCollapsed[contentsMode];
+  const section = document.createElement("section");
+  section.className = "contents-section";
+  section.setAttribute("role", "none");
+  section.id = `contents-sec-${encodeURIComponent(key)}`;
+
+  //: A `<button>` heading, not an `<h3>` with a click handler: folding a
+  //: section is an action, and the thing that performs it has to be
+  //: reachable by keyboard and announce its state. `aria-expanded` is what
+  //: a screen reader reads out; the caret is what everyone else sees.
+  const heading = contentsTreeItem(document.createElement("button"), 1);
+  heading.type = "button";
+  heading.className = "contents-heading";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down contents-caret";
+  caret.setAttribute("aria-hidden", "true");
+  const name = document.createElement("span");
+  name.className = "contents-heading-name";
+  name.textContent = label;
+  const count = document.createElement("span");
+  count.className = "contents-count";
+  count.textContent = total;
+  heading.append(caret, name, count);
+
+  const list = document.createElement("ul");
+  list.className = "contents-list";
+  list.setAttribute("role", "group");
+  const setOpen = (open) => {
+    if (open) folded.delete(key);
+    else folded.add(key);
+    list.hidden = !open;
+    heading.setAttribute("aria-expanded", open ? "true" : "false");
+    section.classList.toggle("is-folded", !open);
+  };
+  heading.contentsSet = setOpen;
+  setOpen(!folded.has(key));
+  heading.addEventListener("click", () => setOpen(list.hidden));
+  fill(list);
+  section.append(heading, list);
+  outline.appendChild(section);
+
+  //: The jump bar. An index long enough to need one is exactly the index
+  //: that had nothing but a scrollbar before.
+  if (jump) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip contents-jump-chip";
+    chip.textContent = `${label} ${total}`;
+    chip.title = `Jump to ${label}`;
+    chip.addEventListener("click", () => {
+      //: Unfold before scrolling: jumping to a section that is folded lands
+      //: on a heading with nothing under it, which reads as the jump having
+      //: failed.
+      if (list.hidden) setOpen(true);
+      section.scrollIntoView({ behavior: !reducedMotionWanted() ? "smooth" : "auto", block: "start" });
+      heading.focus({ preventScroll: true });
+    });
+    jump.appendChild(chip);
+  }
+}
+
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
   const jump = $("contents-jump");
   const noMatch = $("contents-no-match");
+  const hint = $("contents-hint");
+  const summary = $("contents-summary");
   if (!outline) return;
   showSkeletons(outline, 4);
   // Refetched on every visit, not gated behind `entriesEverLoaded`, every
   // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
   // its own data on each visit too, and this outline is exactly the kind of
   // view where showing a note that was just deleted, or missing one just
-  // added, would be a wrong answer, not just a stale one.
-  await loadEntries();
+  // added, would be a wrong answer, not just a stale one. The documents'
+  // headings come in the same breath (`GET /documents/outline`); if that one
+  // fails the notes still show.
+  const [, docs] = await Promise.all([
+    loadEntries(),
+    apiJson("/documents/outline", { silent: true }).catch(() => []),
+  ]);
   clearSkeletons(outline);
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
   outline.replaceChildren();
   jump?.replaceChildren();
-  empty.classList.toggle("hidden", active.length > 0);
+  hint?.classList.add("hidden");
+  if (summary) summary.textContent = "";
+  empty.classList.toggle("hidden", active.length + docs.length > 0);
   noMatch?.classList.add("hidden");
-  if (active.length === 0) return;
+  if (active.length + docs.length === 0) return;
 
   const needle = ($("contents-filter")?.value || "").trim().toLowerCase();
   //: The filter reads the same text the row shows. Matching the raw markdown
@@ -9730,7 +10505,23 @@ async function renderContents() {
   const shown = needle
     ? active.filter((entry) => noteLabel(entry, 200).toLowerCase().includes(needle))
     : active;
-  if (!shown.length) {
+  //: A document matches by its title or by any of its headings. When only a
+  //: heading matched, just those headings are listed and the document opens
+  //: itself, because the heading is what was found.
+  const shownDocs = [];
+  for (const doc of docs) {
+    const hit = (text) => String(text || "").toLowerCase().includes(needle);
+    const titleHit = !needle || hit(doc.title || "Untitled");
+    const matched = needle ? doc.headings.filter((h) => hit(h.text)) : [];
+    if (!titleHit && !matched.length) continue;
+    shownDocs.push({
+      doc,
+      heads: titleHit ? doc.headings : matched,
+      shallowest: Math.min(6, ...doc.headings.map((h) => h.level)),
+      forceOpen: matched.length > 0,
+    });
+  }
+  if (!shown.length && !shownDocs.length) {
     if (noMatch) {
       noMatch.textContent = `Nothing in the index matches “${needle}”.`;
       noMatch.classList.remove("hidden");
@@ -9739,7 +10530,6 @@ async function renderContents() {
   }
 
   const groups = contentsGroups(shown);
-  const folded = contentsCollapsed[contentsMode];
 
   //: **A mode that groups everything under one heading has to say why.**
   //: Reported: *"idk what (written here) is. are there even folders?? how do I
@@ -9748,143 +10538,144 @@ async function renderContents() {
   //: has no path at all. Until something is imported, By folder therefore has
   //: exactly one group, which reads as a broken mode rather than an empty one.
   //: Shown only in that case: once a vault is imported there are real folders
-  //: and the note would be clutter.
-  if (contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
-    const hint = document.createElement("p");
-    hint.className = "muted contents-folder-hint";
+  //: and the note would be clutter. It sits above the tree, not in it: a tree
+  //: holds tree items and nothing else.
+  if (hint && contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
     hint.textContent =
       "Folders come from an imported Obsidian vault, they are not created in "
       + "MemoryMap. Nothing has been imported yet, so every note is grouped "
       + "here. Import a vault from Settings → Import to see its folder tree.";
-    outline.appendChild(hint);
+    hint.classList.remove("hidden");
   }
 
   for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);
-    const label = contentsSectionLabel(key);
-    const section = document.createElement("section");
-    section.className = "contents-section";
-    section.id = `contents-sec-${encodeURIComponent(key)}`;
-
-    //: A `<button>` heading, not an `<h3>` with a click handler: folding a
-    //: section is an action, and the thing that performs it has to be
-    //: reachable by keyboard and announce its state. `aria-expanded` is what
-    //: a screen reader reads out; the caret is what everyone else sees.
-    const heading = document.createElement("button");
-    heading.type = "button";
-    heading.className = "contents-heading";
-    heading.setAttribute("aria-expanded", folded.has(key) ? "false" : "true");
-    const caret = document.createElement("i");
-    caret.className = "ph ph-caret-down contents-caret";
-    caret.setAttribute("aria-hidden", "true");
-    const name = document.createElement("span");
-    name.className = "contents-heading-name";
-    name.textContent = label;
-    const count = document.createElement("span");
-    count.className = "contents-count";
-    count.textContent = members.length;
-    heading.append(caret, name, count);
-
-    const list = document.createElement("ul");
-    list.className = "contents-list";
-    list.hidden = folded.has(key);
-    heading.addEventListener("click", () => {
-      const nowFolded = !folded.has(key);
-      if (nowFolded) folded.add(key);
-      else folded.delete(key);
-      list.hidden = nowFolded;
-      heading.setAttribute("aria-expanded", nowFolded ? "false" : "true");
-      section.classList.toggle("is-folded", nowFolded);
+    contentsBuildSection(outline, jump, {
+      key,
+      label: contentsSectionLabel(key),
+      total: members.length,
+      fill: (list) => {
+        for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) list.appendChild(contentsNoteRow(entry));
+        if (members.length > CONTENTS_GROUP_CAP) {
+          const more = document.createElement("li");
+          more.setAttribute("role", "none");
+          more.className = "muted text-sm contents-more";
+          more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
+          list.appendChild(more);
+        }
+      },
     });
-    section.classList.toggle("is-folded", folded.has(key));
+  }
+  if (shownDocs.length) {
+    contentsBuildSection(outline, jump, {
+      key: CONTENTS_DOCS_KEY,
+      label: "Documents",
+      total: shownDocs.length,
+      fill: (list) => {
+        for (const { doc, heads, shallowest, forceOpen } of shownDocs.slice(0, CONTENTS_GROUP_CAP)) {
+          list.appendChild(contentsDocRow(doc, heads, shallowest, forceOpen));
+        }
+      },
+    });
+  }
 
-    for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
-      const li = document.createElement("li");
-      //: **No tick here.** Asked for directly: "the contents page shouldnt have
-      //: radio buttons, it is purely a table of contents." It is right, and it
-      //: is a point about what this page *is* rather than about how the
-      //: control looked: a table of contents is a way to find your place, and
-      //: every row offering to select itself for a bulk delete makes an index
-      //: into a management screen you did not ask to be in.
-      const link = document.createElement("a");
-      link.href = "#";
-      //: **A picture note shows its picture.** Reported: "the contents tab
-      //: doesnt render images". Every row was `noteLabel`, which strips
-      //: markdown down to text, so a note that *is* a photo appeared as its
-      //: filename, or as the bare word "image" when the alt text was empty.
-      //: In an index whose whole job is helping you recognise a note, that is
-      //: the one row shape that cannot do it.
-      const shot = noteAnyImage(entry);
-      if (shot) {
-        const thumb = document.createElement("img");
-        thumb.className = "contents-thumb";
-        thumb.src = mediaSrc(shot.url);
-        thumb.alt = "";
-        thumb.loading = "lazy";
-        //: A picture that will not load is simply not shown: the row's own
-        //: words still name the note, and the missing-media placeholder is a
-        //: 170px box that pushed this row's label off the index's left edge.
-        thumb.addEventListener("error", () => thumb.remove());
-        link.appendChild(thumb);
-      }
-      const text = document.createElement("span");
-      text.className = "contents-label";
-      //: In folder mode a row is a *file*, so it is named the way the vault
-      //: names it: that is also the name its `[[wiki links]]` use, so the
-      //: index and the links agree about what a note is called.
-      const fileName =
-        contentsMode === "folder" && entry.source_path
-          ? entry.source_path.split("/").pop()
-          : "";
-      //: **An index lists titles.** A note with a heading was labelled with
-      //: its heading run straight into its first paragraph ("Sprint retro
-      //: What went well: measuring..."), which reads as one long title. A
-      //: note that has a heading is named by it; one without is named by its
-      //: opening words, as before.
-      text.textContent = fileName || contentsNoteName(entry);
-      link.appendChild(text);
-      //: The right-hand column of an index: what a row is filed under, or
-      //: when it was written when the grouping already answers "under what".
-      //: One value, muted, at a fixed edge, so the eye can run down it.
-      const meta = document.createElement("span");
-      meta.className = "contents-meta";
-      meta.textContent =
-        contentsMode === "category" || contentsMode === "folder"
-          ? relativeTime(entry.updated_at || entry.created_at)
-          : entry.category || "Uncategorised";
-      link.appendChild(meta);
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        flashEntry(entry.id);
-      });
-      li.appendChild(link);
-      list.appendChild(li);
+  if (summary) {
+    const sections = shownDocs.reduce((n, d) => n + d.heads.length, 0);
+    const bits = [`${shown.length} note${shown.length === 1 ? "" : "s"}`];
+    if (shownDocs.length) {
+      bits.push(`${shownDocs.length} document${shownDocs.length === 1 ? "" : "s"}`);
+      if (sections) bits.push(`${sections} section${sections === 1 ? "" : "s"}`);
     }
-    if (members.length > CONTENTS_GROUP_CAP) {
-      const more = document.createElement("li");
-      more.className = "muted text-sm contents-more";
-      more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
-      list.appendChild(more);
-    }
-    section.append(heading, list);
-    outline.appendChild(section);
+    summary.textContent = bits.join(" · ");
+  }
+  //: One door into the tab order: the first item. Roving from there.
+  outline.querySelector('[role="treeitem"]')?.setAttribute("tabindex", "0");
+}
 
-    //: The jump bar. An index long enough to need one is exactly the index
-    //: that had nothing but a scrollbar before.
-    if (jump) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip contents-jump-chip";
-      chip.textContent = `${label} ${members.length}`;
-      chip.title = `Jump to ${label}`;
-      chip.addEventListener("click", () => {
-        //: Unfold before scrolling: jumping to a section that is folded lands
-        //: on a heading with nothing under it, which reads as the jump having
-        //: failed.
-        if (folded.has(key)) heading.click();
-        section.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      jump.appendChild(chip);
-    }
+//: Expand or collapse everything the index has: every section heading and
+//: every document with headings. Reads the items themselves (`contentsSet`)
+//: rather than a flag, so it is right whatever was folded by hand before.
+function contentsSetAll(open) {
+  const outline = $("contents-outline");
+  if (!outline) return;
+  for (const item of outline.querySelectorAll('[role="treeitem"]')) {
+    if (item.contentsSet && (item.getAttribute("aria-expanded") === "true") !== open) item.contentsSet(open);
   }
 }
+
+//: **The keys of the tree** (WAI-ARIA Authoring Practices, tree view).
+//: Up and Down walk the visible items in the order they are drawn; Right opens
+//: a closed one and steps into an open one; Left closes an open one and
+//: otherwise steps out to its parent; Home and End go to the ends; `*` opens
+//: every sibling; a letter jumps to the next item starting with it. Enter and
+//: Space already press the heading (a button) and open the note or document (a
+//: link), so they are not handled here.
+function contentsTreeKeys(event) {
+  const tree = event.currentTarget;
+  const current = event.target.closest?.('[role="treeitem"]');
+  if (!current || event.altKey || event.ctrlKey || event.metaKey) return;
+  const visible = () => [...tree.querySelectorAll('[role="treeitem"]')].filter((el) => el.offsetParent !== null);
+  const level = (el) => Number(el.getAttribute("aria-level"));
+  const items = visible();
+  const index = items.indexOf(current);
+  const go = (target) => {
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+    target.scrollIntoView({ block: "nearest" });
+  };
+  const expanded = current.getAttribute("aria-expanded");
+  switch (event.key) {
+    case "ArrowDown": go(items[index + 1]); break;
+    case "ArrowUp": go(items[index - 1]); break;
+    case "Home": go(items[0]); break;
+    case "End": go(items[items.length - 1]); break;
+    case "ArrowRight":
+      if (expanded === "false") { event.preventDefault(); current.contentsSet?.(true); }
+      else if (expanded === "true") go(items[index + 1] && level(items[index + 1]) > level(current) ? items[index + 1] : null);
+      break;
+    case "ArrowLeft":
+      if (expanded === "true") { event.preventDefault(); current.contentsSet?.(false); }
+      else {
+        let parent = null;
+        for (let i = index - 1; i >= 0; i -= 1) {
+          if (level(items[i]) < level(current)) { parent = items[i]; break; }
+        }
+        go(parent);
+      }
+      break;
+    case "*":
+      event.preventDefault();
+      for (const sibling of items) {
+        if (level(sibling) === level(current) && sibling.contentsSet && sibling.getAttribute("aria-expanded") === "false") {
+          sibling.contentsSet(true);
+        }
+      }
+      break;
+    default:
+      if (event.key.length === 1 && /\S/.test(event.key) && !event.shiftKey) {
+        const ch = event.key.toLowerCase();
+        const label = (el) => (el.querySelector(".contents-label, .contents-heading-name")?.textContent || "").trim().toLowerCase();
+        const ring = [...items.slice(index + 1), ...items.slice(0, index)];
+        go(ring.find((el) => label(el).startsWith(ch)));
+      }
+  }
+}
+
+onDomReady(() => {
+  const tree = $("contents-outline");
+  if (!tree) return;
+  tree.addEventListener("keydown", contentsTreeKeys);
+  //: Roving tabindex: whichever item has the focus is the one in the tab
+  //: order, so Tab leaves the tree from where you were and returns to it.
+  tree.addEventListener("focusin", (event) => {
+    const item = event.target.closest?.('[role="treeitem"]');
+    if (!item) return;
+    for (const other of tree.querySelectorAll('[role="treeitem"][tabindex="0"]')) {
+      if (other !== item) other.tabIndex = -1;
+    }
+    item.tabIndex = 0;
+  });
+  $("contents-expand")?.addEventListener("click", () => contentsSetAll(true));
+  $("contents-collapse")?.addEventListener("click", () => contentsSetAll(false));
+});

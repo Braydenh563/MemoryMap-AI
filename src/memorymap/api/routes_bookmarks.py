@@ -25,6 +25,10 @@ class BookmarkCreate(BaseModel):
     title: str = Field(default="", max_length=200)
     note: str = Field(default="", max_length=2000)
     group_name: str = Field(default="", max_length=120)
+    #: Carried on create so an Undo of a delete can put a link back exactly as
+    #: it was, pin and read state included.
+    pinned: bool = False
+    is_read: bool = False
 
 
 class BookmarkUpdate(BaseModel):
@@ -32,6 +36,7 @@ class BookmarkUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=2000)
     pinned: bool | None = None
+    is_read: bool | None = None
     group_name: str | None = Field(default=None, max_length=120)
 
 
@@ -83,6 +88,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
         "title": bookmark.title,
         "note": bookmark.note,
         "pinned": bookmark.pinned,
+        "is_read": bool(bookmark.is_read),
         "group_name": bookmark.group_name,
         "created_at": bookmark.created_at.isoformat(),
     }
@@ -138,6 +144,8 @@ def create_bookmark(body: BookmarkCreate, session: Session = Depends(get_session
         title=body.title.strip(),
         note=body.note.strip(),
         group_name=body.group_name.strip(),
+        pinned=body.pinned,
+        is_read=body.is_read,
     )
     session.add(bookmark)
     session.flush()
@@ -159,6 +167,8 @@ def update_bookmark(
         bookmark.note = body.note.strip()
     if body.pinned is not None:
         bookmark.pinned = body.pinned
+    if body.is_read is not None:
+        bookmark.is_read = body.is_read
     if body.group_name is not None:
         bookmark.group_name = body.group_name.strip()
     session.commit()

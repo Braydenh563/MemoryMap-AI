@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note nothing could file offers its likely categories as one-tap buttons beside Choose category; a note filed from your notebook's words says so.
+- The AI status dot's "checking" dots sit in the middle of the dot (they were 3px off).
+- The AI status popup and the header's menus stand above the companion when it is perched on their bar.
+- Settings, Models says it is checking while the model status loads and that a slow model server is slow, instead of "Can't reach the MemoryMap server" while the app is running.
+- The needle extra's note says plainly that it runs offline and that nothing needs doing about telemetry.
 - Notes: Ctrl+Shift+N, the dashboard's New note and the empty states always open Capture with the caret in the box; with Notes last on Browse the shortcut used to focus nothing, and what you typed next was lost.
 - Filing with no AI: a new note is filed from your notebook's own words (the notes already in each category, their tags, your moves by hand and the category names), says so ("filed from your notebook's words"), and stays in Uncategorised when it is not sure; before, every note went to Uncategorised whenever no model was running.
 - Accessibility: Settings, Keyboard shortcuts has a switch for single-key shortcuts (the m chord, / and ?), so speech input or a stray key cannot trigger them (WCAG 2.1.4).

@@ -1,105 +1,23 @@
-// settings.js: the settings modal, the logs console, and appearance
-// (theme, accent, curated palettes, saved looks, the generative background
-// preview): split out of app.js. §88.3, the fourth and last file in the
-// app.js split.
+// settings.js: the settings modal, the logs console, and appearance (theme,
+// accent, curated palettes, saved looks, the background art preview).
+// Split out of app.js (§88.3; HISTORY.md has the split's full account).
 //
-// Loaded after app.js AND after documents.js/whiteboard.js/library.js/
-// editor.js/dashboard.js (see index.html's own script-order comment): every
-// reference here into an app.js/dashboard.js global ($, apiJson, toast,
-// smallButton, confirmDialog, setLabel, chip, copyToClipboard, saveFile,
-// authToken, desktopShell, prefsCache, allEntries, setPreference,
-// refreshModelStatus, refreshArtForTheme, renderEmblem, renderBrandLogo,
-// browserLogs, OVERRIDABLE_KEYS, LOOK_KEYS, manualOverrides's own callers,
-// and more) is a runtime call inside a function body or an event-listener
-// closure, never a parse-time reference, so normal load order only matters
-// for the reverse direction, see the two relocated calls at the very end of
-// this file for the one place that was not already true.
+// Load order: everything here that reaches into another file is a runtime
+// call inside a function or a listener, never a parse-time reference. The
+// one exception ran the other way, and is why `applyAppearance()` (with
+// `startBgArt()`) and `renderBrandLogo()` are called at the very end of this
+// file rather than from app.js: they read functions defined here, so called
+// from app.js's top level they threw before this file had loaded. The
+// head's pre-paint script already applied the saved look, so this later
+// call changes nothing a person can see.
 //
-// Two hazards found doing this split, the same `initDocSidebarTabs()` shape
-// documents.js's/dashboard.js's own splits found, a bare top-level
-// statement in app.js resolving before this file has loaded:
-//
-// 1. `applyAppearance(); if (bgArtOn()) startBgArt();` ran from a bare
-//    top-level pair of lines in app.js's own wiring, to paint the saved
-//    look before first render. `applyAppearance()` calls `applyPalette()`
-//    (app.js, stays there: see its own comment) which itself calls
-//    `bgArtOn()`/`startBgArt()` unconditionally, both of which moved here.
-//    Left as two lines in app.js, this would have thrown `ReferenceError:
-//    bgArtOn is not defined` and aborted the rest of app.js's synchronous
-//    top-level wiring (the tab-button click-listener loop included) before
-//    settings.js had even loaded to define them. Fixed the documents.js way:
-//    the call site moved with the code it calls into, run once at this
-//    file's own end instead of splitting definition from call site. Safe to
-//    run later than before: index.html's own pre-paint `<head>` script
-//    already stamps every load-bearing `data-*`/custom-property from
-//    localStorage before any `<script>` tag runs specifically to prevent a
-//    flash, so `applyAppearance()`'s own re-application arriving after every
-//    split file has loaded, still well before the browser's first paint,
-//    since none of these `<script>` tags defer or fetch anything remote, 
-//    changes nothing a user could see.
-// 2. `renderBrandLogo();`, the initial draw of the generative brand emblem
-//    (stays in app.js; used on the lock screen, onboarding, the chat avatar
-//    and more, not just here), sat at a second bare top-level line further
-//    down in app.js. `renderEmblem()` reads `ACCENTS`/`activeAccent()`/
-//    `appearancePref()`, all of which moved here, so this call had the exact
-//    same shape as hazard 1 and got the same fix: relocated to this file's
-//    own tail, right after the first pair, in its original relative order.
-//
-// **What stayed in app.js despite reading like "appearance"**, each for a
-// concrete reason rather than by default:
-// - `applyPalette()`, precedent from the dashboard.js split (§88.3 item 3):
-//   "it does real app.js-only work, the whole-app palette." Its own comment
-//   (updated by this split) explains the guard it already carries.
-// - `renderEmblem()`/`renderBrandLogo()`/`EMBLEM_SLOTS`/`emblemSeed` (the
-//   generative brand mark): used far outside Settings: the lock screen, the
-//   onboarding tour, the chat avatar, the graph's empty state. The same test
-//   documents.js's and library.js's splits used for their own functions
-//   (grep every call site, decide by what actually calls it, not by which
-//   comment block it happened to be written under).
-// - `MIRRORED_UI_EXTRAS`/`mirroredUiKeys()`/`watchMirroredUiKeys()`/
-//   `saveUiState()`/`seedUiStateFromServer()` (§35E, "keeping the look
-//   across restarts"), despite the section's own name, this mirrors far
-//   more than appearance: `activeTab`, every graph/whiteboard view
-//   preference, the chat composer's dragged height. It is called from a
-//   bare top-level line in app.js (`watchMirroredUiKeys();`) that runs
-//   before this file loads, so it has to stay resident there regardless.
-// - `OVERRIDABLE_KEYS`/`LOOK_KEYS`, small data tables, genuinely about
-//   appearance, but `mirroredUiKeys()` above spreads `LOOK_KEYS` into its
-//   own list synchronously at that same bare top-level call, so it has to be
-//   defined in app.js by then too. Kept there with a comment pointing here,
-//   rather than duplicated. `manualOverrides()` itself moved: its only
-//   callers are Settings' own UI, called well after everything has loaded.
-//
-// **The sibling `dashboard.js` split (§88.3 item 3) explicitly flagged two
-// zones as not its own and left them in app.js for this split to judge:**
-// "Wave J: accent themes + generative background" (this file's own: 
-// confirmed: curated/saved themes and the second, ambient p5 instance used
-// as Settings' own live accent preview, not a dashboard widget) and "SKILLS
-// DASHBOARD TAB" (`renderSkillsDashboard`, `#skills-dashboard-list`, the AI
-// Skills library page, an unrelated feature that happens to share the word
-// "dashboard" in its own internal naming; confirmed NOT this file's either,
-// and left in app.js since library.js's own split already owns the AI
-// Skills sub-tab it's called from). The "AI status pill"/`aiStatusState()`/
-// `renderAiPill()` code was also checked directly: it is core app-shell
-// chrome (top-bar status, `refreshModelStatus()`'s polling loop, the
-// AI-only-control gating used by Notes/Reminders/Documents/Whiteboard) with
-// far more callers than Settings, so it stayed in app.js too.
-//
-// **Deliberately not moved, and not appearance/logs/modal-shell either**,
-// each a separate Settings *section* the roadmap item didn't name and this
-// split left alone rather than guess at scope: account & security, web
-// search, preferences, optional extras + embedding models, the model
-// manager, personas, skills, tools, memory, capture templates, background
-// tasks, backups, and rebindable shortcuts. Every one of these already
-// renders inside the settings modal `showSettingsSection()` now drives from
-// here, exactly as it did from app.js before this split, moving the shell
-// does not require moving what it shows.
-//
-// No code sharing found between this file's own generative-background p5
-// instance (`startBgArt()`, five self-contained style builders) and
-// dashboard.js's "notebook constellation" widget beyond the same visual
-// motif in a comment, read both fully before concluding that; they do not
-// share a helper function.
+// Deliberately left in app.js: `applyPalette()` (the whole app's palette),
+// the brand emblem (used by the lock screen, the tour, the chat avatar),
+// the UI-state mirroring (`watchMirroredUiKeys`, run at app.js's top level)
+// with `LOOK_KEYS`, and the AI status pill (app-shell chrome with callers
+// everywhere). The other Settings sections (account, web search, models,
+// skills, tools, memory, templates, tasks, backups, shortcuts) render inside
+// the modal this file drives, from wherever their code lives.
 
 //: Every section id, and a new one is invisible until it is in this list, 
 //: `showSettingsSection` un-hides by iterating it, so a section left out is

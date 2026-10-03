@@ -34,6 +34,59 @@ with its owner named in the entry.
 
 ## Open items
 
+436. **The owner, 2026-10-03, verbatim (user feedback).** "I also got a bit
+     of user feedback that there is quite a lot going on visually on the
+     dashboard when the user opens the application. I think the dashboard ui
+     needs a more modern and professional redesign with top tier and
+     maximised ux design principles and techniques. I like the top hero
+     section though and I think the widgets section is fine..."
+     Placed: a measured audit of what the dashboard shows on first open
+     (counts of elements, colours, motion, competing calls to action above
+     the fold at 1440, 1280 and 390), then a redesign of everything between
+     the hero and the widgets (kept as they are): one primary action, a
+     clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
+
+435. **The owner, 2026-10-03, verbatim, with screenshots (the Capture tags
+     row with its open list; CodeQL alerts 439 to 441; Atlas; a drawing).**
+     "the dropdown arrow on the tags row in the capture subtab is not aligned
+     vertically and the popup is awkwardly sized. there was a couple codeql
+     stuff that got flagged and im not sure if they are fixed or not. also on
+     the masculine atlas lower body looks like a tripod and very straight
+     pencil-y, I was thinking like a thicker main whispy tail in the mddle
+     like a snake and then the smaller ones on the side like the shoddy
+     drawing I attached. continue what you are doing."
+     Placed: (1) the tags field's native `<datalist>` arrow and list
+     (Chromium draws both; neither takes the app's styles) become the app's
+     own suggestion menu, aligned and sized to the field: the orchestrator;
+     (2) CodeQL 439 to 441, "Cyclic import" notes in core/webclip.py and
+     search/websearch.py (main, five days old): broken, the orchestrator;
+     CodeQL 442 and 443 (this PR) were fixed and resolved; (3) the masculine
+     lower body (wrapup-0927 item 7, now with the drawing): one thick
+     S-curved central wisp tapering like a snake's tail, two or three thinner
+     curved strands peeling off each side, a slow sway, no hard points: an
+     Opus agent on atlas.js.
+     **Added the same hour, verbatim, with a screenshot (the companion on
+     the status bar, drawn over the AI status popup "Checking..."):** "the
+     companion also clashes with some popups and the ai status icon isnt
+     centred". Placed: (4) popups stand above the companion (or it steps
+     aside) and (5) the AI status dot's glyph centred, measured: the
+     orchestrator.
+
+     **Added (6), verbatim:** "also there is no clear skeleton loaders for
+     many features that are lazily loaded like the boards and maps in the
+     library and other places". Placed: every surface that fetches before it
+     draws gets DESIGN.md's `showSkeletons` recipe, found by a sweep that
+     opens each lazily loaded view on a cold load: the orchestrator.
+     **Added (7), verbatim, with a screenshot (Settings, Models: "Can't reach
+     the MemoryMap server."):** "the models settings notice just appeared
+     with no indication that it was working on something and said that the
+     server cant be reached even though the app is running so incorrect or
+     misleading message". **Done 2026-10-03** (`tests/test_inbox_435.py`).
+     **Added (8), verbatim:** "also why does telemetry and do not track needs
+     to be disabled for needle?? isnt it offline??" Answered (it is offline;
+     needle's own tools default telemetry on, this app uses only its engine,
+     which has no network code) and the caveat reworded. **Done.**
+
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user
      can write notes and make a note is insanely easy and fast?? It needs to
@@ -700,22 +753,6 @@ with its owner named in the entry.
     selection bar and the indent step are 7ab7eec. Open here: the AI
     assistant bar.
 
-403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
-    application isn't just the information it shows but that is very much a
-    key point, it is also how cleanly and professionally the application ui
-    is designed and works. the less professional or unclean any part of the
-    ui is, no matter how small, I instantly doubt the applicationa dn wonder
-    if it is worth putting any time into as it feels unreliable. things like
-    having that small gap between the edge of the note connection pill chips
-    on the right and the 'x' delete button, as well as poorly designed
-    dropdown menus with bd widths, poor spacing, poor alignment, poor
-    heirarchy, positioning, poor learnability, not intuitive controls poor
-    information architecture and more. keep doing what you are doing" The
-    standing bar for every pass (INBOX 399's hole-poke and refinement briefs
-    carry it). Named: the connection pill's x inset, orchestrator; menus
-    (widths, spacing, alignment), a sweep of every menu for width, padding
-    and row alignment.
-
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and
     it dissappeared while keeping the page dimmed and pushed the top bar down
@@ -988,21 +1025,6 @@ with its owner named in the entry.
     `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
     AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
     model on 2026-09-20; what that plan still holds is its evals breadth.
-
-303. **The owner, 2026-09-21, verbatim, with the session's reading beneath
-    it:** "it'd be cool if the user can upload songs or connect an in-app
-    player to a player or maybe even spotify or youtube music but idk if
-    that's offline only anymore...". The local half is a recommendation, not
-    a decision, and is in the ANALYSIS.md section named above. The streaming
-    half is his: today `routes_settings.py:220` calls web search "The ONE
-    feature that goes online, off unless the user opts in",
-    `routes_websearch.py:31` says the same in its 403, and
-    `dashboard.js:1277` says it to the person, so a Spotify or YouTube Music
-    connection would make that sentence false in three places, on top of an
-    OAuth flow, a cloud account and a stored token. Recommendation: leave the
-    promise absolute and build the local folder player instead; if it is ever
-    reopened, it is a second clearly labelled opt-in extra, off by default,
-    and the copy in all three places changes in the same commit.
 
 ## Placed (last 20, newest first)
 

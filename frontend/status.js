@@ -1335,6 +1335,11 @@ let modelStatus = null; // latest /models/status payload
 // startup, the second is a fault. Without this the indicator flashed red on
 // every single page load before settling.
 let statusEverAnswered = false;
+//: Why the last poll has no status, for Settings' line (INBOX 435): "slow"
+//: (the 8s budget ran out, usually a model server slow to answer), "down"
+//: (the app's own server did not answer `/health` either), "error" (it did,
+//: but the status call failed), or null.
+let modelStatusProblem = null;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 //: The idle poll's own cadence, which doubles while nothing changes and
@@ -1423,8 +1428,14 @@ async function refreshModelStatus() {
       signal: AbortSignal.timeout(8000)
     });
     statusEverAnswered = true;
-  } catch {
+    modelStatusProblem = null;
+  } catch (err) {
     modelStatus = null; // locked or unreachable: pill shows the worst case
+    if (err?.name === "TimeoutError" || err?.name === "AbortError") modelStatusProblem = "slow";
+    else {
+      const up = await fetch("/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false);
+      modelStatusProblem = up ? "error" : "down";
+    }
   }
   //: **The feature rows ride every poll, not only Settings.** They used to be
   //: read only when Settings rendered, so until Settings had been opened once
@@ -1772,7 +1783,11 @@ function renderAiPill() {
   if (!button) return;
   const state = aiStatusState();
   button.dataset.level = state.level;
-  button.querySelector(".ai-status-dot").textContent = AI_STATUS_GLYPH[state.level];
+  //: "Checking" is three dots drawn by CSS, not "…": an ellipsis sits on the
+  //: baseline in every font and the icon font's dots sit above the middle,
+  //: 3px off either way (INBOX 435, measured); a box of known size is
+  //: centred by the dot's own grid. ✓, ! and ✕ are within half a pixel.
+  button.querySelector(".ai-status-dot").textContent = state.level === "idle" ? "" : AI_STATUS_GLYPH[state.level];
   // The button's own name for screen readers and for the native tooltip, so
   // the information is reachable without opening anything.
   const summary = `AI status: ${state.title}`;
@@ -2205,8 +2220,19 @@ function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
 
+  //: **Only "can't reach" when it cannot** (INBOX 435): this said the
+  //: app's server was unreachable while the app was plainly running, on a
+  //: first open before the status had answered and whenever a slow model
+  //: server ran the poll past its budget.
   if (!status) {
-    ollamaLine.textContent = "Can't reach the MemoryMap server.";
+    ollamaLine.textContent =
+      {
+        slow: "The model server is slow to answer. Checking again…",
+        error: "Couldn't read the models' status. Checking again…",
+        down: "Can't reach the MemoryMap server.",
+      }[modelStatusProblem] || "Checking the models…";
+    ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
+    if (!modelStatusProblem) refreshModelStatus().then(() => settingsOpen() && renderSettings());
     return;
   }
 

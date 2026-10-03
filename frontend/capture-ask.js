@@ -112,6 +112,20 @@ function settleCaptureStatus(status) {
       choose.addEventListener("click", () => chooseNoteCategory([status.id], status.category));
       jump.replaceWith(choose);
     }
+    //: **One tap to file it** (INBOX 434): the categories its words lean
+    //: to, then the ones used last, beside Choose category. A guess shown
+    //: as a choice costs a glance; a guess filed is a note lost.
+    for (const name of (status.suggestions || []).slice(0, 3)) {
+      const pick = smallButton(`ph:folder ${name}`, `File it under ${name}`, async () => {
+        const moved = await moveNotesToCategory([status.id], name);
+        if (!moved) return;
+        for (const other of line.querySelectorAll(".capture-suggest")) other.remove();
+        line.querySelector(".jump-to-note")?.remove();
+        text.nodeValue = `Filed under “${name}”.`;
+      });
+      pick.classList.add("capture-suggest");
+      line.appendChild(pick);
+    }
   }
   return line.offsetParent !== null;
 }
@@ -128,6 +142,9 @@ function filingOutcomeText(status) {
       : `Saved in “${status.category}”: ${aiNameNow()} couldn't decide where it goes.`;
   }
   if (status.filed_by === "user") return `Filed under “${status.category}”.`;
+  //: Filed with no model, from the notes already filed (INBOX 434): said as
+  //: what it is, so it is never mistaken for the AI's judgement.
+  if (status.filed_by === "words") return `Filed under “${status.category}”: it reads like your other notes there.`;
   return status.ai_confidence
     ? `Filed under “${status.category}” (${status.ai_confidence}% sure).`
     : `Filed under “${status.category}”.`;
@@ -1005,73 +1022,22 @@ function clickableResult(entry) {
   return li;
 }
 
-// ROADMAP.md item 36: which retrieved note backs which sentence of a direct
-// Q&A answer: surfaced the same understated way `match_info`'s own badges
-// already are (a strip of small chips, not a rewrite of the answer's own
-// text). One chip per *note* (not per sentence: several grounded sentences
-// often share a note, and a chip per sentence would repeat itself), the
-// chip's title carrying the actual sentence(s) it backs. Clicking a chip
-// opens that note, same as a search result row already does.
-// **Numbered citations in the answer itself.** Asked for directly: "inline
-// referencing with hyperlinks in ai chat messages would be amazing."
+// Which retrieved note backs which sentence of an answer (ROADMAP item 36,
+// INBOX 81): `ground_answer_sentences` (ai/grounding.py) gives {sentence,
+// note_id} pairs, shown as numbered markers in the prose, chips under it,
+// and the Sources panel. The rules each of these follows:
 //
-// The data for this already existed and only ever reached a chip row *under*
-// the answer: `ground_answer_sentences` (ai/grounding.py) returns
-// {sentence, note_id} pairs, scored by word overlap against the notes that
-// were actually retrieved: so the app already knows, per sentence, which
-// note backs it. What it did not do was say so where the sentence is, which
-// is the only place the claim and its source are read together.
-//
-// Deliberately conservative about *where* a marker may go: it walks real text
-// nodes and only places one where a grounded sentence is found whole inside a
-// single node. A sentence split across an <em> or a link is skipped rather
-// than reassembled: a citation attached to the wrong half of a sentence is
-// worse than no citation, and the chip row below still lists every source
-// either way, so nothing is lost by skipping.
-//: **`answerEl` is every prose block of the turn, latest first, not one
-//: element.** Reported: an agent answer and a skill run showed no markers at
-//: all, while a plain Ask answer showed them. The cause is one word:
-//: `querySelector`. A skill run's timeline writes each step's prose into its
-//: own `.bubble-answer` node (`startAnswer`, called again after every `step`
-//: event), so the *first* one is step 1's narration and the run's real answer
-//: is the last. The backend grounds the turn's whole prose as one string, so
-//: every sentence it returned came from the final answer, and every one of
-//: them was hunted for in the wrong paragraph.
-//:
-//: Latest first because a run repeats itself: a sentence the closing summary
-//: and an intermediate step both contain belongs on the summary, which is
-//: what a reader takes away. A step's own unique sentence still gets its
-//: marker where it is, which is what walking all of them buys over simply
-//: picking the last.
-//: `orderedSources` is the Sources panel's own list, in the order it numbers
-//: them. INBOX 81's second half asks that "the sources list numbers web
-//: results after the notes so [5] resolves to a site", and reading the two
-//: numberings side by side showed a wider problem than that: the panel counts
-//: its rows from 1 in list order (notes, then what the turn touched, then
-//: what it read off the web), while the block below counted from 1 in
-//: *order first cited* among the grounded sentences. Those are two unrelated
-//: sequences, so [2] in the prose and 2 in the panel were only ever the same
-//: source by luck, with no web results involved at all.
-//:
-//: Passed rather than recomputed here, because the panel builds the list from
-//: three inputs this function does not have, and two functions deriving "the
-//: same" order independently is how they drift apart again. Optional, so the
-//: Ask box's own call keeps its existing behaviour until it grows a panel to
-//: agree with.
-//: **One numbering, read by everything that prints a digit.** Reported of the
-//: Ask tab: "In-text referencing and grounding in the ask subtab doesn't
-//: stick, the wrong numbers will be used and in the wrong spot, and the
-//: numbers wont match the grounding". Three things there number the same
-//: sources: the markers in the prose, the "Grounded in" chips under it and
-//: the Sources panel below that. Each counted for itself, so a note could be
-//: 1 in the prose, 2 on a chip and 3 in the panel, and the Chat tab had
-//: already been given the panel's order for exactly this reason while Ask had
-//: not. A function rather than a convention: two loops that agree today are
-//: two loops that disagree after the next edit to either.
-//:
-//: A note the panel did not list (it caps its rows) keeps a number after the
-//: listed ones rather than none at all: an unnumbered citation is worse than
-//: one whose row needs scrolling to.
+// * A marker goes only where a grounded sentence is found whole inside one
+//   text node: a citation on the wrong half of a sentence is worse than
+//   none, and the chips still list every source.
+// * `answerEl` is every prose block of the turn, latest first: a skill run
+//   writes each step into its own `.bubble-answer`, and the run's real
+//   answer is the last, so a sentence in both belongs on the summary.
+// * One numbering for markers, chips and the panel (`citationNumbers`),
+//   taken from the panel's own order (`orderedSources`) rather than
+//   recomputed: two loops that agree today disagree after the next edit.
+//   A note the panel did not list (it caps its rows) still gets a number,
+//   after the listed ones.
 function citationNumbers(sentences, orderedSources = null) {
   const numberFor = new Map();
   if (orderedSources && orderedSources.length) {

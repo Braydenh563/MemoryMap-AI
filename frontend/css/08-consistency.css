@@ -3311,6 +3311,35 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   vertical-align: 0.1em;
 }
 
+/* Still finding out (INBOX 435): the same dot, breathing, so the line says
+   "working on it" instead of reading as an answer. */
+#settings-modal .status.is-checking::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background: var(--muted);
+  vertical-align: 0.1em;
+  animation: status-checking 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes status-checking {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #settings-modal .status.is-checking::before {
+    animation: none;
+  }
+}
+
 #settings-modal .status.ok::before {
   content: "";
   display: inline-block;
@@ -9035,4 +9064,15 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
    `body > …` and fixed-position rule below is unaffected. */
 #app-main {
   display: contents;
+}
+
+/* **A bar's popup stands above the companion** (INBOX 435, the owner's
+   screenshot: Atlas, perched on the status bar, drawn over the AI status
+   popup). A popup inside the status bar (z 30) or the header (z 40) can
+   rise no higher than its bar, and the companion's band is z 50. While one
+   is open, the bar it belongs to steps above the band; closed, everything
+   is as it was, so a perch on the bar still stands in front of it. */
+#status-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-popup.pinned, [aria-expanded="true"]),
+header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-popup.pinned, [aria-expanded="true"], .space-menu:not(.hidden)) {
+  z-index: 51;
 }

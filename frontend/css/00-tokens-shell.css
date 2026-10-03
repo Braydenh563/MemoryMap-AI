@@ -1501,17 +1501,19 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* transform: translateY(0.17em); */
 }
 
+/* The "checking" state's three dots (status.js), drawn rather than typed so
+   they sit in the exact middle of the dot (INBOX 435). The ellipsis this
+   replaced rode the baseline and was lifted by a font-tuned translate that
+   left it off-centre on the owner's Windows fonts. */
+.ai-status[data-level="idle"] .ai-status-dot {
+  width: 1em;
+  height: 0.25em;
+  background: radial-gradient(circle, currentColor 0.11em, transparent 0.13em) 0 50% / 0.34em 100% repeat-x;
+}
+
 .ai-status[data-level="idle"] {
   background: var(--chip-bg);
   color: var(--muted);
-}
-
-/* The ellipsis is the one glyph that sits *below* the middle, it rides the
-   baseline rather than the cap height, so it needs the opposite correction
-   to the other three. Measured the same way: 2px low before this. */
-.ai-status[data-level="idle"] .ai-status-dot {
-  font-size: 0.92rem;
-  transform: translateY(-0.16em);
 }
 
 .ai-status[data-level="ok"] {

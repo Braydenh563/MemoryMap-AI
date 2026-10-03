@@ -509,8 +509,9 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("needle 3.0.1",),
         module="",
         size="~36 MB",
-        caveat="Telemetry is switched off: MemoryMap sets NEEDLE_TELEMETRY=0 "
-        "and DO_NOT_TRACK=1 before the engine loads.",
+        caveat="Runs offline, inside the app. needle's own tools send usage "
+        "data by default; MemoryMap uses only its engine, which has no network "
+        "code, and switches that setting off anyway. Nothing for you to do.",
         kind="download",
         version="3.0.1",
         licence="Apache-2.0",

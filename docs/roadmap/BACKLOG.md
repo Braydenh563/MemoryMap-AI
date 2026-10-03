@@ -4194,3 +4194,23 @@ a session or less and names its gate.
 
 Rows 1, 2, 7 and 10 are the ones people ask about before they trust a
 notebook with work; do those first.
+
+## Placed from INBOX, 2026-10-03 (INBOX 303, music)
+
+Moved whole from INBOX when INBOX 436 arrived (the tray holds under
+twenty). A recommendation awaiting the owner, not open work.
+
+303. **The owner, 2026-09-21, verbatim, with the session's reading beneath
+    it:** "it'd be cool if the user can upload songs or connect an in-app
+    player to a player or maybe even spotify or youtube music but idk if
+    that's offline only anymore...". The local half is a recommendation, not
+    a decision, and is in the ANALYSIS.md section named above. The streaming
+    half is his: today `routes_settings.py:220` calls web search "The ONE
+    feature that goes online, off unless the user opts in",
+    `routes_websearch.py:31` says the same in its 403, and
+    `dashboard.js:1277` says it to the person, so a Spotify or YouTube Music
+    connection would make that sentence false in three places, on top of an
+    OAuth flow, a cloud account and a stored token. Recommendation: leave the
+    promise absolute and build the local folder player instead; if it is ever
+    reopened, it is a second clearly labelled opt-in extra, off by default,
+    and the copy in all three places changes in the same commit.

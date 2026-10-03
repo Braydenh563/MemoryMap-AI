@@ -2528,3 +2528,24 @@ not too fast; the rule is simply one number per published release.
     (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
     toasts fade out, skeletons in the Library and Timeline. Menus' exit left
     to the menu agent (agent-remaining/perfpolish.md).
+
+## Placed from INBOX, 2026-10-03 (INBOX 403, the standing bar)
+
+Moved whole from INBOX when INBOX 435 arrived (the tray holds under
+twenty). It is the bar every pass in this plan is measured against.
+
+403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
+    application isn't just the information it shows but that is very much a
+    key point, it is also how cleanly and professionally the application ui
+    is designed and works. the less professional or unclean any part of the
+    ui is, no matter how small, I instantly doubt the applicationa dn wonder
+    if it is worth putting any time into as it feels unreliable. things like
+    having that small gap between the edge of the note connection pill chips
+    on the right and the 'x' delete button, as well as poorly designed
+    dropdown menus with bd widths, poor spacing, poor alignment, poor
+    heirarchy, positioning, poor learnability, not intuitive controls poor
+    information architecture and more. keep doing what you are doing" The
+    standing bar for every pass (INBOX 399's hole-poke and refinement briefs
+    carry it). Named: the connection pill's x inset, orchestrator; menus
+    (widths, spacing, alignment), a sweep of every menu for width, padding
+    and row alignment.

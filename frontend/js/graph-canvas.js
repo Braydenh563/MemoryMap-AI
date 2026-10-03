@@ -301,7 +301,7 @@ function gcReadTokens(s = gcTab) {
 //: `.graph-edge-similar` in the DOM to run `getComputedStyle` against. The
 //: colours still come from tokens (above), so a theme change moves both.
 const GC_EDGE_STYLES = {
-  link: { width: 1.4, alpha: 0.42, dash: null, colour: "muted" },
+  link: { width: 1.3, alpha: 0.4, dash: null, colour: "muted" },
   thread: { width: 1.4, alpha: 0.55, dash: [7, 4], colour: "muted" },
   similar: { width: 1.2, alpha: 0.55, dash: [2, 5], colour: "accent" },
   map: { width: 1.3, alpha: 0.7, dash: [1, 4], colour: "accent" },
@@ -309,6 +309,17 @@ const GC_EDGE_STYLES = {
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
 };
+//: **A link between two notes of one colour takes that colour** (INBOX 443
+//: (1), the owner: "the graph shape could look nicer"; the edges were all one
+//: blue-grey). The line inside a category now says which category it is in, so
+//: the clusters read as clusters before a label does, and the neutral grey
+//: lines are left to mean what they should: a bridge between two. Bucketed by
+//: colour, so the stroke state is still set once per colour (five categories
+//: is five buckets, not five hundred strokes). The kinds that are not a
+//: relation between two notes of a colour (a similarity, a board's reference,
+//: a filing line, a contradiction) keep their own recipe. The number is the
+//: least opacity a tinted line of that kind is drawn at.
+const GC_EDGE_TINTED = { link: 0.55, thread: 0.6, entity: 0.55, document: 0.55 };
 // GRAPH-SIM-BEGIN
 //: **Similarity is a backbone, not every pair** (INBOX 412, the owner: "when
 //: I tick similarity on the graph, this happens, is there a way to make it
@@ -523,8 +534,33 @@ function gcSimilarityCutoff() {
   return Math.max(GC_SIM_FLOOR, Math.min(0.95, value / 100));
 }
 
-const GC_EDGE_REASONED = { width: 1.5, alpha: 0.5, dash: null, colour: "accent" };
+const GC_EDGE_REASONED = { width: 1.9, alpha: 0.62, dash: null, colour: "accent" };
 const GC_EDGE_CONTRADICTS = { width: 2.2, alpha: 0.85, dash: [6, 4], colour: "error" };
+
+//: **Curved links are the default** (INBOX 443 (1), the owner: "the graph
+//: shape could look nicer"; the lines were straight). Read from the switch
+//: itself, like the labels, so what the menu shows and what is drawn cannot
+//: disagree (the owner: "it is showing curved links even when it is visibly
+//: off??"); the stored value only stands in for a pane, which has no switch,
+//: and a notebook that never touched it is on.
+function gcCurvedLinks(s = gcTab) {
+  const box = s.size === "full" ? gcEl("graph-curved") : null;
+  return box ? box.checked : localStorage.getItem("graph-curved") !== "0";
+}
+
+//: A quadratic curve bowed to one side by a seventh of its length (48px at
+//: most), the side chosen by the endpoints' ids so the same link bows the
+//: same way whichever end the simulation lists first, and a link that is
+//: drawn twice (both directions) lands on itself. Shared by the paint and the
+//: pointer's hit test, which has to find the line where it is drawn.
+function gcBowPoint(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const side = String(a.id) < String(b.id) ? 1 : -1;
+  const bow = Math.min(len * 0.14, 48) * side;
+  return { x: (a.x + b.x) / 2 - (dy / len) * bow, y: (a.y + b.y) / 2 + (dx / len) * bow };
+}
 
 function gcEdgeStyle(edge) {
   if (edge.link_type === "contradicts") return GC_EDGE_CONTRADICTS;
@@ -964,8 +1000,7 @@ function gcDraw(s = gcTab) {
   //: shows and what is drawn cannot disagree (the owner: "it is showing
   //: curved links even when it is visibly off??"); the stored value only
   //: stands in for a pane, which has no switch.
-  const curvedBox = s.size === "full" ? gcEl("graph-curved") : null;
-  const curvedLinks = curvedBox ? curvedBox.checked : localStorage.getItem("graph-curved") === "1";
+  const curvedLinks = gcCurvedLinks(s);
 
   // --- edges -------------------------------------------------------------
   // Bucketed by recipe and by whether they are dimmed, so the context's
@@ -1013,12 +1048,18 @@ function gcDraw(s = gcTab) {
     const dim = !(bySearch && byHover);
     const similar = edge.kind === "similar" && typeof edge.score === "number";
     const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
-    const style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
-    const key = `${edge.kind}|${style.colour}|${style.width}|${style.dash}|${dim}`;
+    let style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
+    //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
+    const tint =
+      !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
+        ? a.colour
+        : null;
+    if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
+    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${dim}`;
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
-      bucket = { style, dim, path: new Path2D() };
+      bucket = { style, dim, tint, path: new Path2D() };
       into.set(key, bucket);
     }
     if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
@@ -1035,19 +1076,9 @@ function gcDraw(s = gcTab) {
       }
       bucket.path.addPath(edge._path2d);
     } else if (curvedLinks) {
-      //: A quadratic curve bowed to one side by an eighth of its length, the
-      //: side chosen by the endpoints' ids so the same link bows the same way
-      //: whichever end the simulation lists first, and a link that is drawn
-      //: twice (both directions) lands on itself.
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const side = String(a.id) < String(b.id) ? 1 : -1;
-      const bow = Math.min(len * 0.14, 48) * side;
-      const cx = (a.x + b.x) / 2 - (dy / len) * bow;
-      const cy = (a.y + b.y) / 2 + (dx / len) * bow;
+      const bow = gcBowPoint(a, b);
       bucket.path.moveTo(a.x, a.y);
-      bucket.path.quadraticCurveTo(cx, cy, b.x, b.y);
+      bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
     } else {
       bucket.path.moveTo(a.x, a.y);
       bucket.path.lineTo(b.x, b.y);
@@ -1055,7 +1086,7 @@ function gcDraw(s = gcTab) {
   }
   const strokeBucket = (bucket) => {
     const style = bucket.style;
-    ctx.strokeStyle = gcTokens[style.colour] || gcTokens.muted;
+    ctx.strokeStyle = bucket.tint || gcTokens[style.colour] || gcTokens.muted;
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
     // a dimmed edge that is still readable defeats the spotlight.
     ctx.globalAlpha = bucket.dim ? 0.06 : style.alpha;
@@ -1623,17 +1654,32 @@ function gcEdgeAtWorld(x, y, s = gcTab) {
   const tolerance = 8 / ((s.transform && s.transform.k) || 1);
   let best = null;
   let bestDistance = tolerance;
+  const curved = !s.tree && gcCurvedLinks(s);
   for (const edge of s.edges) {
     if (edge.kind !== "link") continue;
     const a = edge.source;
     const b = edge.target;
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSq = dx * dx + dy * dy || 1;
-    let t = ((x - a.x) * dx + (y - a.y) * dy) / lengthSq;
-    t = Math.max(0, Math.min(1, t));
-    const distance = Math.hypot(a.x + t * dx - x, a.y + t * dy - y);
+    let distance;
+    if (curved) {
+      //: Sampled along the curve it is drawn as: eight steps are a pixel or
+      //: two of error on a 150px line, well inside the tolerance.
+      const c = gcBowPoint(a, b);
+      distance = Infinity;
+      for (let i = 0; i <= 8; i++) {
+        const u = i / 8;
+        const px = (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * c.x + u * u * b.x;
+        const py = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * c.y + u * u * b.y;
+        distance = Math.min(distance, Math.hypot(px - x, py - y));
+      }
+    } else {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const lengthSq = dx * dx + dy * dy || 1;
+      let t = ((x - a.x) * dx + (y - a.y) * dy) / lengthSq;
+      t = Math.max(0, Math.min(1, t));
+      distance = Math.hypot(a.x + t * dx - x, a.y + t * dy - y);
+    }
     if (distance < bestDistance) {
       bestDistance = distance;
       best = edge;

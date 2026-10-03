@@ -271,6 +271,7 @@ function portraitPull() {
 //: neighbourhood's inside; this only decides where it sits.
 const GROUP_RADIUS = 28;
 const GROUP_PULL = 0.05;
+const GROUP_STRETCH_MAX = 1.6;
 
 function groupOrder() {
   const sizes = new Map();
@@ -283,9 +284,18 @@ function groupAnchors(width) {
   const anchors = new Map();
   if (groups.length < 2) return anchors;
   const radius = width;
+  //: **The ring takes the map's shape** (INBOX 443 (1)): on a 1440x700 map a
+  //: round ring left the cluster 45% of the width and a third of the canvas
+  //: filled. A landscape map (aspect, height over width, under 1) stretches the
+  //: ring along x and squashes it along y by the root of the aspect, so the
+  //: category places sit as wide as the room does; a portrait map keeps the
+  //: round ring (its x pull already narrows the cloud, `portraitPull`).
+  const aspect = world && Number.isFinite(world.aspect) && world.aspect > 0 ? Math.min(world.aspect, 1) : 1;
+  const stretchX = Math.min(GROUP_STRETCH_MAX, 1 / Math.sqrt(aspect));
+  const squashY = Math.max(1 / GROUP_STRETCH_MAX, Math.sqrt(aspect));
   groups.forEach((group, i) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / groups.length;
-    anchors.set(group, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    anchors.set(group, { x: Math.cos(angle) * radius * stretchX, y: Math.sin(angle) * radius * squashY });
   });
   return anchors;
 }
@@ -382,6 +392,7 @@ function orbitUpdate() {
   const order = orbit.groupBy ? groupOrder() : [];
   const slots = order.length > 1 ? order.length : 1;
   const slice = (2 * Math.PI) / slots;
+  const directions = slots > 1 ? groupAnchors(1) : null;
   const byGroup = new Map();
   for (const node of lone) {
     const key = slots > 1 ? node.group : "";
@@ -389,8 +400,10 @@ function orbitUpdate() {
     byGroup.get(key).push(node);
   }
   for (const [key, list] of byGroup) {
-    const index = slots > 1 ? order.indexOf(key) : 0;
-    const centre = slots > 1 ? -Math.PI / 2 + slice * index : -Math.PI / 2;
+    //: Facing its category's own place: the direction of its anchor, which is
+    //: not the ring's angle once the ring has been stretched to the map.
+    const place = slots > 1 ? directions.get(key) : null;
+    const centre = place ? Math.atan2(place.y, place.x) : -Math.PI / 2;
     list.sort((a, b) => String(a.id).localeCompare(String(b.id)));
     const probe = orbitRadiusAt(centre) + clear;
     const minStep = seat / probe;

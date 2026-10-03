@@ -2637,7 +2637,7 @@ async function renderGraphSvg() {
   //: like the others, read by the canvas renderer on every frame, so the
   //: toggle is a redraw and never a rebuild of the simulation.
   const curvedBox = $("graph-curved");
-  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") === "1";
+  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") !== "0";
   const nebulaBox = $("graph-nebula");
   if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
   const lengthBox = $("graph-length-score");
@@ -5143,7 +5143,7 @@ const GRAPH_DEFAULTS = {
   "graph-maps": false,
   "graph-hide-orphans": false,
   "graph-labels": true,
-  "graph-curved": false,
+  "graph-curved": true,
   "graph-nebula": true,
   "graph-length-score": true,
   "graph-group": true,

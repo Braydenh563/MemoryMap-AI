@@ -36232,3 +36232,47 @@ width, 47% of the column at 1440.
      reduced motion crossfades (`companionviewer.js`, `companionfade.js`).
      (1) graph look and (3) OCR engine line: **fixed** (merged). All parts done.
 
+446. **The owner, 2026-10-03, verbatim.** "make sure the other agents like
+     the popup and chat are aware of time relativity as well" / "maybe for
+     the suggested models as well there can be a way to enter custom model
+     names for downloading as well??" / "continue regular bug scans to make
+     sure you havent missed anything and make sure all the main features
+     actually work. make the note filing and how the user can make notes the
+     fastest, most reliable and easiest thing to use the user has ever seen.
+     the user needs to choose to use this app. the app needs to be worthy."
+     / "Im wondering if we should tighten and shrink some of the ui down a
+     little as I still think it takes up excessive space and something about
+     the whole ui design still feels very demo, vibe coded and not like an
+     official app...". Placed: (1) time relativity: Ask, the chat agent's
+     notes, its note tools and the digest all carry each time word's date and
+     its distance from today: **fixed** (`days_from_today`, config.py);
+     (2) custom model names: sent to the Settings agent (INBOX 444); (3) a
+     feature smoke sweep (every main flow driven end to end) run at each
+     merge: the orchestrator; (4) note making and filing: continues INBOX
+     434; (5) a density pass (type scale, control heights, paddings, gaps
+     measured app-wide against native apps, then tightened through the
+     tokens) plus a de-vibe audit: **built** 2026-10-03, measured with
+     `scratchpad/ui-sweeps/density.js` (controls 36 to 32px, top bar 56 to
+     48px, body text at --text-lg, Notes chrome 203 to 178px and five cards
+     above the fold at 1440x900, not four; DESIGN.md's token tables say the
+     same); left open: the Library sub-tabs' 6.5rem min-width spacing, axe's
+     nested-interactive on suggested-tag chips (an x inside a chip that is
+     itself a button), and "Browse all in Library" wrapping in a 240px
+     sidebar.
+     Then, of the selected-text menu's "Save as a note": "it did do smth but
+     i had to hard reset the app to see it and there was no indication of
+     it or updating ro anythinf. there is no timestamps. note edit history
+     doens allow me to go back on manual edits and I cant distinguish between
+     personal or ai edits or mixed edits." and "make sure the other highlight
+     text popup meatball menu items work properly with proper learnability
+     and indicators as well". Placed: (6) Save as a note says "Saving…" at
+     once, then where it went with Open, and refreshes the list: **fixed**;
+     every other item in that menu swept for a visible answer
+     (`selmenu-items.js`): the orchestrator; (7) note edit history: a version
+     on every manual save too, each marked as yours, Atlas's or both, with
+     its time, restorable: an agent. **All fixed**: (2) model cards and
+     "Download another model"; (3) `smoke.js` and `selmenu-items.js`, green;
+     (5) the density pass (top bar 56 to 48px, controls 36 to 32px, 5 note
+     cards above the fold, was 4); (7) You, Atlas, You and Atlas on every
+     history row. (4) continues as INBOX 434.
+

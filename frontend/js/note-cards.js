@@ -1571,8 +1571,12 @@ function entryItem(entry, options = {}) {
         event.stopPropagation();
         openTagChipMenu(tagChip, entry, tag, event.clientX, event.clientY);
       });
+      //: A hold on a phone is the same menu, and takes the hold away from the
+      //: note's own menu (`rowMenuAtEvent` leaves `[data-chip-menu]` alone).
+      tagChip.dataset.chipMenu = "tag";
+      wireLongPress(tagChip, (event, point) => openTagChipMenu(tagChip, entry, tag, point.x, point.y));
       tagChip.addEventListener("keydown", (event) => {
-        if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+        if (event.key !== "ContextMenu"&& !(event.key === "F10" && event.shiftKey)) return;
         event.preventDefault();
         event.stopPropagation();
         openTagChipMenu(tagChip, entry, tag);

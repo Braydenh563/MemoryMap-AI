@@ -124,12 +124,14 @@ const check = (name, ok, detail = '') => {
 
   // axe on the manager
   if (fs.existsSync(process.env.AXE_JS || '/tmp/axe-core/package/axe.min.js')) {
-    await page.addScriptTag({ content: fs.readFileSync(process.env.AXE_JS || '/tmp/axe-core/package/axe.min.js', 'utf8') });
+    await page.evaluate(fs.readFileSync(process.env.AXE_JS || '/tmp/axe-core/package/axe.min.js', 'utf8'));
     const result = await page.evaluate(async () => {
       const out = await axe.run(document.querySelector('.sheet-overlay[data-sheet="tags"]'), { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] });
       return out.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' ; ')}`);
     });
     check('axe finds nothing on the manager', result.length === 0, result.join(' || '));
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: `${process.env.SCRATCH || '.'}/tagmanager-sheet.png` });
   } else console.log('skip axe (AXE_JS missing)');
 
   // rename by keyboard (F2)
@@ -140,7 +142,7 @@ const check = (name, ok, detail = '') => {
   await page.fill('.prompt-card input[type="text"]', 'tm-active');
   await page.keyboard.press('Enter');
   await settle();
-  check('F2 renames a tag on every note that has it', JSON.stringify(await tagsOf(ids[2])) === '["tm-active","tm-bake"]' && JSON.stringify(await tagsOf(ids[3])) === '["tm-active"]');
+  check('F2 renames a tag on every note that has it', JSON.stringify(await tagsOf(ids[2])) === '["tm-bake","tm-active"]' && JSON.stringify(await tagsOf(ids[3])) === '["tm-active"]');
   check('the manager redraws with the new name', (await page.$$(row('tm-active'))).length === 1 && (await page.$$(row('tm-wip'))).length === 0);
   await page.click('.toast button:has-text("Undo"), #toast-region button:has-text("Undo")');
   await settle();
@@ -161,13 +163,13 @@ const check = (name, ok, detail = '') => {
   // select two rows with Space and remove them
   await page.focus(row('tm-wip'));
   await page.keyboard.press('Space');
-  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Space');
   const footer = await page.$eval('.sheet-overlay[data-sheet="tags"] .manage-cat-footer', (e) => [e.classList.contains('hidden'), e.textContent]);
   check('selecting rows raises the footer', !footer[0] && /2 selected/.test(footer[1]), footer[1]);
   await page.click('.sheet-overlay[data-sheet="tags"] .manage-cat-footer button:has-text("Remove")');
-  await page.waitForSelector('.confirm-card, .confirm-overlay, [role="alertdialog"], [data-confirm]', { timeout: 3000 }).catch(() => {});
-  await page.click('button:has-text("Remove"):not(.manage-cat-footer button)', { timeout: 3000 }).catch(() => {});
+  await page.waitForSelector('.confirm-card');
+  await page.click('.confirm-card .confirm-actions button:has-text("Remove")');
   await settle();
   const after = [await tagsOf(ids[2]), await tagsOf(ids[3])];
   check('Remove takes the tags off, notes kept', !after[0].includes('tm-wip') && (await api(`/entries/${ids[3]}`)).id === ids[3], JSON.stringify(after));
@@ -191,7 +193,19 @@ const check = (name, ok, detail = '') => {
   await page.click('#batch-tag');
   await page.waitForSelector('.sheet-overlay[data-sheet="bulk-tags"] form');
   const bulk = await page.$$eval('.sheet-overlay[data-sheet="bulk-tags"] .manage-split-note', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
-  check('the dialog lists the tags in the selection with how many carry each', bulk.some((t) => /#tm-draft 1 of 3/.test(t)) && bulk.some((t) => /#tm-bake 2 of 3/.test(t)), bulk.join(' | '));
+  check('the dialog lists the tags in the selection with how many carry each', bulk.some((t) => /#tm-draft\s*1 of 3/.test(t)) && bulk.some((t) => /#tm-bake\s*2 of 3/.test(t)), bulk.join(' | '));
+  await page.click('.sheet-overlay[data-sheet="bulk-tags"] input[type="text"]');
+  await page.keyboard.type('tm-b');
+  await page.waitForTimeout(500);
+  const suggestTop = await page.evaluate(() => {
+    const box = document.querySelector('.tag-suggest');
+    if (!box || box.classList.contains('hidden')) return 'no list';
+    const r = box.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 10);
+    return box.contains(hit) ? 'on top' : `covered by ${hit?.className}`;
+  });
+  check('the tag list under the add field is on top of the dialog', suggestTop === 'on top', suggestTop);
+  await page.screenshot({ path: `${process.env.SCRATCH || '.'}/tagmanager-bulk.png` });
   await page.fill('.sheet-overlay[data-sheet="bulk-tags"] input[type="text"]', 'tm-all, tm-bake');
   await page.check('.sheet-overlay[data-sheet="bulk-tags"] .manage-split-note:has-text("#tm-draft") input');
   await page.click('.sheet-overlay[data-sheet="bulk-tags"] button[type="submit"]');

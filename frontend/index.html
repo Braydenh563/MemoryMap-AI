@@ -6036,22 +6036,22 @@ Link to another note with [[its first few words]]."></textarea>
            and nothing is selected. The colour is on the rail's ink swatch, so
            it is not repeated here. -->
       <div class="wb-context-group hidden" data-wb-ctx="tool">
-        <label class="wb-context-field" title="Pen, shape and eraser size">
+        <label class="wb-context-field" title="Pen, shape and eraser size" data-wb-tool-setting="size">
           <span class="wb-context-label">Size</span>
           <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Pen / shape / eraser size" min="1" max="24" step="1" value="3">
         </label>
-        <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style: the Line and Arrow tools">
+        <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style: the Line and Arrow tools" data-wb-tool-setting="ends">
           <option value="end">End</option>
           <option value="start">Start</option>
           <option value="both">Both ends</option>
           <option value="none">Plain</option>
         </select>
-        <select id="wb-stroke-style" aria-label="Line style" title="Line style">
+        <select id="wb-stroke-style" aria-label="Line style" title="Line style" data-wb-tool-setting="dash">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
           <option value="dotted">Dotted</option>
         </select>
-        <span class="row wb-inline-controls">
+        <span class="row wb-inline-controls" data-wb-tool-setting="fill">
           <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
           <label class="wb-snap-label" title="Fill the shape, instead of just its outline"><input type="checkbox" id="wb-fill-on"><span>Fill</span></label>
         </span>
@@ -6145,7 +6145,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="wb-context-menu" class="wb-board-menu wb-context-menu hidden" role="menu" aria-label="More">
             <div class="wb-menu-section" data-wb-ctx="more-style">
               <span class="wb-panel-group-label">Style</span>
-              <div class="wb-menu-row">
+              <div class="wb-menu-row" id="wb-copy-style-row">
                 <span>Copy and paste a style</span>
                 <span class="row wb-inline-controls">
                   <button type="button" id="wb-copy-style" class="ghost small icon-only" title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>

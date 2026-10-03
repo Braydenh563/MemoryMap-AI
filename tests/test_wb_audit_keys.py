@@ -102,3 +102,24 @@ def test_deleting_a_map_branch_is_on_the_undo_stack():
 def test_the_undo_stack_is_a_hundred_deep():
     depth = int(re.search(r"const WB_UNDO_MAX = (\d+);", WB).group(1))
     assert depth >= 100
+
+
+HTML = (JS.parent / "index.html").read_text(encoding="utf-8")
+
+
+def test_the_tool_bar_shows_only_what_the_held_tool_reads():
+    table = WB[WB.index("const WB_TOOL_SETTINGS = {") :]
+    table = table[: table.index("};")]
+    # A link, the eraser, the sticky, the text box and the bucket read none.
+    for tool in ("link-straight", "eraser", "sticky", "text", "bucket"):
+        assert f"{tool}:" not in table and f'"{tool}"' not in table
+    assert 'draw: ["size", "dash"]' in table
+    for setting in ("size", "ends", "dash", "fill"):
+        assert f'data-wb-tool-setting="{setting}"' in HTML
+    assert "wbHideSelectionActions(" in _function_body(WB, "wbFillContextBar")
+
+
+def test_the_fill_switch_means_filled_when_on():
+    assert 'id="wb-fill-none"' not in HTML
+    assert 'id="wb-fill-on"' in HTML
+    assert "window.currentFillNone = !e.target.checked" in WB

@@ -97,9 +97,14 @@
    ~0.5rem padding strip to grab. Same glyph and cursor as `.wb-panel-grip`,
    always visible (not hover-gated) since the whole point is not having to
    go hunting for it. */
+/* Centred on the box's top edge, a tab on the border rather than a chip in
+   the text: at `top: -4px` its opaque ground covered the top 3px of the
+   first line (measured: 28 to 36 square px of the first glyph's box, the
+   ascender of "h" cut off; INBOX 445). */
 .wb-object-grip {
   position: absolute;
-  top: -4px;
+  top: 0;
+  transform: translateY(-50%);
   left: 6px;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);

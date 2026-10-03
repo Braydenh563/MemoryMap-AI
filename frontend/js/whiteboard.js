@@ -2996,12 +2996,35 @@ function wbNudgeSelection(dx, dy) {
 // for a mixed multi-selection. A node (note card) and an image object have
 // nothing here to edit yet (a card's own text is the note; an image has no
 // stroke/fill of its own), so the panel just stays hidden for those.
-// The tools that draw something with a colour and a thickness, the ones
-// whose settings the properties panel shows when nothing is selected.
-const WB_STYLE_TOOLS = new Set([
-  "draw", "highlighter", "eraser", "line", "arrow", "rect", "circle",
-  "triangle", "diamond", "text", "sticky", "link-straight", "link-curved", "bucket",
-]);
+//: **Which of the bar's tool settings each held tool actually reads**
+//: (INBOX 445), by the `data-wb-tool-setting` each control carries. The bar
+//: used to show all four for fourteen tools: the pen offered arrowheads and a
+//: fill, a link offered a size, a dash and a fill it never reads (a link takes
+//: the rail's ink and nothing else), and the eraser, the sticky, the text box
+//: and the fill bucket offered settings none of them use. A control that does
+//: nothing when changed reads as broken. A tool missing here shows no bar;
+//: the ink well on the rail is still its colour.
+const WB_TOOL_SETTINGS = {
+  draw: ["size", "dash"],
+  highlighter: ["size"],
+  line: ["size", "ends", "dash"],
+  arrow: ["size", "ends", "dash"],
+  rect: ["size", "dash", "fill"],
+  circle: ["size", "dash", "fill"],
+  triangle: ["size", "dash", "fill"],
+  diamond: ["size", "dash", "fill"],
+};
+
+function wbShowToolSettings(tool) {
+  const wanted = new Set(WB_TOOL_SETTINGS[tool] || []);
+  for (const el of document.querySelectorAll("#wb-context [data-wb-tool-setting]")) {
+    // An enhanced <select> is drawn by its shell; hiding the native one alone
+    // would leave the opener showing (`enhanceSelect`, sheets-selects.js).
+    const shown = el.closest(".select-shell") || el;
+    shown.classList.toggle("hidden", !wanted.has(el.dataset.wbToolSetting));
+  }
+  return wanted;
+}
 
 //: The two "what is selected, if it is of this kind" lookups. Module-level
 //: because both the properties panel's own controls and the copy-style
@@ -3175,6 +3198,25 @@ function wbApplyContextRow(row) {
   for (const id of ["wb-prop-nostroke-row", "wb-prop-md-row", "wb-prop-bullets-row", "wb-fill-opacity-row", "wb-stroke-none-row"]) {
     document.getElementById(id)?.classList.add("hidden");
   }
+  // What acts on a selection, back for every row that has one; the held-tool
+  // row takes them away again (`wbHideSelectionActions`).
+  for (const id of WB_SELECTION_ONLY_CONTROLS) document.getElementById(id)?.classList.remove("hidden");
+  wbContextMoreWrap()?.classList.remove("hidden");
+}
+
+//: **With a tool held and nothing selected, the bar has no selection to act
+//: on** (INBOX 445). Duplicate, Delete and the More menu's copy and paste of
+//: a style stayed on it and did nothing when pressed; the More menu itself is
+//: kept only for a shape tool, whose fill opacity and stroke live there.
+const WB_SELECTION_ONLY_CONTROLS = ["wb-selbar-duplicate", "wb-selbar-delete", "wb-copy-style-row"];
+
+function wbContextMoreWrap() {
+  return document.querySelector("#wb-context [data-wb-menu-toggle]")?.closest(".wb-board-menu-wrap") || null;
+}
+
+function wbHideSelectionActions(keepMore) {
+  for (const id of WB_SELECTION_ONLY_CONTROLS) document.getElementById(id)?.classList.add("hidden");
+  wbContextMoreWrap()?.classList.toggle("hidden", !keepMore);
 }
 
 //: **The bar with nothing selected sits over the rail.** Placed here rather
@@ -3247,9 +3289,12 @@ function wbFillContextBar() {
   // the pen's own thickness. This is the split every whiteboard app makes,
   // tools in the rail, their properties in the context surface.
   if (!wbSelectedItem) {
-    const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
+    const settings = wbShowToolSettings(window.currentTool);
+    const toolDraws = settings.size > 0;
     wbApplyContextRow(toolDraws ? WB_CONTEXT_CONTROLS.tool : null);
-    if (toolDraws) show("wb-fill-opacity-row", "wb-stroke-none-row");
+    // The More menu's two shape rows, for the tools that draw a shape.
+    if (settings.has("fill")) show("wb-fill-opacity-row", "wb-stroke-none-row");
+    if (toolDraws) wbHideSelectionActions(settings.has("fill"));
     if (!toolDraws) wbParkContextOnRail(false);
     return toolDraws ? "rail" : null;
   }

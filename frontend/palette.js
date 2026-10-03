@@ -1446,7 +1446,7 @@ function notesPaletteCommands(query = "") {
       .slice(0, 6);
     if (typed && !/\s/.test(typed) && !tags.some((t) => t.toLowerCase() === typed)) tags.push(typed);
     for (const tag of tags) {
-      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => showNotesFilter(`tag:${tag}`)) });
+      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => filterNotesByTag(tag)) });
     }
   }
   return rows;

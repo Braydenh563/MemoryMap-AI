@@ -15,7 +15,6 @@ Each test pins one defect measured in Chromium at 390 with touch:
 import re
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -100,7 +99,7 @@ def test_the_command_palette_carries_the_notes_rows():
     # Every run waits for Enter's keypress to finish, or a sheet that focuses
     # its first row takes that keypress as a press on the row.
     assert rows.count("run: paletteLater(") == 4
-    assert "showNotesFilter(`tag:${tag}`)" in rows
+    assert "filterNotesByTag(tag)" in rows
     assert "chooseNoteCategory(ids," in rows and "openManageCategories()" in rows
     go = _function(palette, "paletteGoToCategory")
     assert '$("category-list")' in go and ".click()" in go
@@ -112,10 +111,6 @@ def test_the_command_palette_carries_the_notes_rows():
     assert '"chooseNoteCategory"' in app and '"openManageCategories"' in app
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the one-line hook in settings-panes.js paletteMatches is outside this change's files",
-)
 def test_the_palette_asks_for_the_notes_rows_with_the_query():
     matches = _function(_read("settings-panes.js"), "paletteMatches")
     assert 'typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : []' in matches

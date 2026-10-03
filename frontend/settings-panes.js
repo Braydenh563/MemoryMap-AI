@@ -2412,7 +2412,9 @@ function paletteMatches(query) {
   //: ahead of them, an unlabelled run reads as more of "This document", which
   //: is the one thing it is not. `group` is only set where the row has not
   //: already claimed one, so the editor's stays its own.
-  const commands = paletteCommands()
+  //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
+  //: category to go to, a #tag to show, Move for the note in hand.
+  const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
     .filter((c) => paletteText(c.label).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;

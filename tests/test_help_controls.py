@@ -165,7 +165,7 @@ def test_every_m_chord_letter_is_in_the_hidden_features_entry():
 
 
 def test_every_document_command_key_is_in_the_editor_entries():
-    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     table = _table(docs, "const DOC_COMMANDS = [", "\n];")
     keys = {k for k in re.findall(r'keys: "([^"]*)"', table) if k}
     assert len(keys) > 15, "DOC_COMMANDS has moved; this test cannot read it"
@@ -175,7 +175,7 @@ def test_every_document_command_key_is_in_the_editor_entries():
 
 
 def test_every_whiteboard_tool_key_is_in_the_whiteboard_entry():
-    board = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
+    board = (FRONTEND / "js" / "whiteboard.js").read_text(encoding="utf-8")
     tools = re.findall(r'^\s*(\w): "[\w-]+",', _table(board, "const WB_TOOL_KEYS", "\n  };"), re.MULTILINE)
     shifted = re.findall(r'^\s*(\w): "[\w-]+",', _table(board, "const WB_TOOL_SHIFT_KEYS", "\n  };"), re.MULTILINE)
     actions = re.findall(r'^\s*(\w): "[\w-]+",', _table(board, "const WB_ACTION_KEYS", "\n  };"), re.MULTILINE)

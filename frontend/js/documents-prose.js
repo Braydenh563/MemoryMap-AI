@@ -39,7 +39,7 @@
 // to, and two checkers disagreeing about one word is the fastest way to teach
 // a writer to ignore both.
 
-const DOC_GRAMMAR_WORKER_URL = "/harper-worker.js";
+const DOC_GRAMMAR_WORKER_URL = "/js/harper-worker.js";
 //: Harper's lint kinds this app does not take (see above).
 const DOC_GRAMMAR_SKIP_KINDS = new Set(["Spelling"]);
 //: The quiet between keystrokes before a note box is checked. Longer than

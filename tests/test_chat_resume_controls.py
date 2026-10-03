@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 #: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
 #: on 2026-09-24, and these tests read it wherever it lives.
 APP = app_js_text() + "\n" + (
-    ROOT / "frontend" / "palette.js"
+    ROOT / "frontend" / "js" / "palette.js"
 ).read_text(encoding="utf-8")
 
 
@@ -65,7 +65,7 @@ def test_the_popup_agent_writes_its_thinking_as_it_arrives() -> None:
 def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
     settings = (
         __import__("pathlib").Path(__file__).resolve().parent.parent
-        / "frontend" / "settings.js"
+        / "frontend" / "js" / "settings.js"
     ).read_text(encoding="utf-8")
     assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
     assert 'fetch("/help/ask/stream"' in settings

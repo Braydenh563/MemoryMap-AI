@@ -1,4 +1,4 @@
-"""`clipText` (frontend/app.js): display text is shortened at a word, with
+"""`clipText` (frontend/js/app.js): display text is shortened at a word, with
 an ellipsis, never mid-word. The dashboard's last-note pill read "responds
 to the blu" before it existed."""
 

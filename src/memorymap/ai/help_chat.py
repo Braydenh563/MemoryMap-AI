@@ -287,7 +287,7 @@ HELP_TOPICS: list[dict] = [
         #: app offers "What is the status bar telling me?" under the status
         #: bar's own '?', and the guide had nothing to answer it from: a
         #: suggestion the corpus cannot reach. Written from `STATUS_SLOTS` in
-        #: `frontend/app.js` and the copy in `#statusbar-help`, which are the
+        #: `frontend/js/app.js` and the copy in `#statusbar-help`, which are the
         #: two places that decide what the bar actually shows.
         "id": "statusbar",
         "keywords": ("status bar", "statusbar", "bottom bar", "bottom strip", "the strip"),
@@ -305,7 +305,7 @@ HELP_TOPICS: list[dict] = [
     {
         "id": "shortcuts",
         "keywords": ("shortcut", "keyboard", "hotkey", "command palette"),
-        #: Every chord in `DEFAULT_SHORTCUTS` (frontend/app.js) is named here,
+        #: Every chord in `DEFAULT_SHORTCUTS` (frontend/js/app.js) is named here,
         #: which `tests/test_help_controls.py` checks against the table, so a
         #: new shortcut fails the build until the guide can answer for it. It
         #: said "g then a letter" until INBOX 410: the chord had been "m" for
@@ -1254,7 +1254,7 @@ TAB_TOPICS: dict[str, tuple[str, ...]] = {
 
 #: How much of the surface's own help copy the client may send with a
 #: question. The caller passes the `.help-body` text of whatever is on screen
-#: (frontend/settings.js), which is the app's own wording for the thing being
+#: (frontend/js/settings.js), which is the app's own wording for the thing being
 #: asked about and therefore the best possible reference note: it is also
 #: user-supplied input on the wire, so it is capped here rather than trusted
 #: to have been capped there.

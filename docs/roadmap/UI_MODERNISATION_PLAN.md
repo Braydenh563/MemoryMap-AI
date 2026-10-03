@@ -127,7 +127,7 @@ survive its archiving; the numbering is that file's.
    inline, decided now.** It is a different shape from every other item
    on this list, and was left open deliberately in an earlier pass rather
    than converted blind: the caveat text is built by `renderExtras()` in
-   `frontend/app.js`, one row at a time from server data (`caveat=` on the
+   `frontend/js/app.js`, one row at a time from server data (`caveat=` on the
    extra's own definition), not static markup in `index.html`, so
    `count.py` structurally cannot see it either way. Decision: leave it
    inline. It reads as a field-level warning attached to one specific
@@ -189,9 +189,9 @@ survive its archiving; the numbering is that file's.
 6. **The two JS strings (`countjs.py`) checked this pass, both decided
    inline, for the same reason as decision 2 (Tesseract):** the
    dashboard's Tensions widget explain line
-   (`frontend/dashboard.js:3156`, "Similar-notes search finds what
+   (`frontend/js/dashboard.js:3156`, "Similar-notes search finds what
    belongs together...") and the Library skills panel's Background
-   workers hint (`frontend/library.js:1649`, "Lets the AI work through
+   workers hint (`frontend/js/library.js:1649`, "Lets the AI work through
    your notebook on its own..."). Both are one or two sentences built
    with `document.createElement`, the same JS-generated shape as the
    Tesseract caveat, and both are short enough that they are not the

@@ -1596,7 +1596,7 @@ Small, concrete, each seen in the running app:
   `link_notes`, `unlink_notes` — all four route through the note's own id,
   which is the right target for "View" either way; `create_document`;
   `set_reminder`/`complete_reminder`; `create_category`/`rename_category`/
-  `merge_categories`). `changeRow` (`frontend/app.js`) renders the View
+  `merge_categories`). `changeRow` (`frontend/js/app.js`) renders the View
   button from whichever id is present, and is called from both the live
   per-turn tool-call rendering *and* a skill run's final "what changed"
   list — the "two things to decide" below were both resolved. Only the
@@ -1609,7 +1609,7 @@ Small, concrete, each seen in the running app:
   result reused `flashEntry`, which only ever looks in the ordinary browse
   list — a note just moved to the bin is never there, so it silently found
   nothing. `delete_note` now gets its own "View in bin" button
-  (`flashLibraryItem`, `frontend/app.js`), which opens the Library's Bin
+  (`flashLibraryItem`, `frontend/js/app.js`), which opens the Library's Bin
   filter and highlights the note there — the one place it actually lives.
   Verified live (Playwright): create → delete via the API → call the new
   function → lands on Library, Bin filter active, correct card found and
@@ -1659,7 +1659,7 @@ Small, concrete, each seen in the running app:
   ever worth it before anyone "fixes" this again.
 - ~~**Chat metadata disappears on a reload or app restart.**~~ **Done — this
   entry was stale.** Checked against the running app (`openConversation` in
-  `frontend/app.js`), not assumed: `message.stats` is persisted and the
+  `frontend/js/app.js`), not assumed: `message.stats` is persisted and the
   function's own comment already says why — "Rebuild the metadata line...
   it was only ever built from the live stream... Turns saved before this
   stored no stats and correctly get no line, rather than a row of '?'s."
@@ -4034,7 +4034,7 @@ Ranked by the gap between what it costs to build and what it would be worth.
   50,000, and invisible until someone has the second one. **This is the largest
   scalability item in the app** and the server-side pagination it needs already
   exists.
-- **`frontend/app.js` is past 30,000 lines.** The four splits (`library.js`,
+- **`frontend/js/app.js` is past 30,000 lines.** The four splits (`library.js`,
   `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
   natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
   centre. Each is a session's work and each makes the next bug cheaper to find.

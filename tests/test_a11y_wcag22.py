@@ -19,7 +19,7 @@ CSS = FRONTEND / "css"
 
 
 def _read(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
 
 
 def _function(source: str, name: str) -> str:

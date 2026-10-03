@@ -10,9 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LIGHTBOX = (ROOT / "frontend" / "lightbox-view.js").read_text(encoding="utf-8")
-CATEGORIES = (ROOT / "frontend" / "categories-panel.js").read_text(encoding="utf-8")
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+LIGHTBOX = (ROOT / "frontend" / "js" / "lightbox-view.js").read_text(encoding="utf-8")
+CATEGORIES = (ROOT / "frontend" / "js" / "categories-panel.js").read_text(encoding="utf-8")
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _fn(src: str, name: str) -> str:
@@ -49,7 +49,7 @@ def test_a_companion_shown_again_starts_fresh() -> None:
     assert "if (!buddy.isConnected) return;\n        buddy.classList.remove(\"nmb-grumpy\");" in AV
 
 
-NAV = (ROOT / "frontend" / "navigation.js").read_text(encoding="utf-8")
+NAV = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
 
 def test_a_declined_leave_puts_the_history_step_back() -> None:
@@ -64,7 +64,7 @@ def test_a_declined_leave_puts_the_history_step_back() -> None:
     assert "tabHistory.index = from;" in walk and "history.go(from - next);" in walk
 
 
-CONFLICT = (ROOT / "frontend" / "edit-conflict.js").read_text(encoding="utf-8")
+CONFLICT = (ROOT / "frontend" / "js" / "edit-conflict.js").read_text(encoding="utf-8")
 
 
 def test_compare_is_drawn_once_however_often_it_is_pressed() -> None:

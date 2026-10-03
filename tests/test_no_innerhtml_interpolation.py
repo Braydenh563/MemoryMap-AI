@@ -14,7 +14,7 @@ PATTERN = re.compile(r"innerHTML\s*=\s*`[^`]*\$\{")
 
 def test_no_innerhtml_assignment_interpolates():
     hits = []
-    for path in FRONTEND.glob("*.js"):
+    for path in (FRONTEND / "js").glob("*.js"):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if PATTERN.search(line):
                 hits.append(f"{path.name}:{number}")

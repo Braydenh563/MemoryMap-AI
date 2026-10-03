@@ -1,4 +1,4 @@
-"""The hash router (WORLD_CLASS_PLAN 22.1 item 1, frontend/router.js).
+"""The hash router (WORLD_CLASS_PLAN 22.1 item 1, frontend/js/router.js).
 
 Every view has an address: `#/notes/12`, `#/chat/45`, `#/docs/7`,
 `#/library/images`, `#/settings/appearance`. The two pure halves, a history
@@ -21,7 +21,7 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
-ROUTER = ROOT / "frontend" / "router.js"
+ROUTER = ROOT / "frontend" / "js" / "router.js"
 
 
 def _functions(*names: str) -> str:
@@ -105,7 +105,7 @@ def test_reload_restores_the_view_and_the_title_names_it():
     assert "routerRestore()" in app, "the boot no longer opens the view in the address"
     router = ROUTER.read_text(encoding="utf-8")
     assert "setTitleView(" in router
-    status = (ROOT / "frontend" / "status.js").read_text(encoding="utf-8")
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
     assert "function setTitleView(" in status
 
 

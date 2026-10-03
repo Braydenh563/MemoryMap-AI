@@ -220,7 +220,7 @@ def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
 
 
 def _editor_js() -> str:
-    return (Path(__file__).resolve().parents[1] / "frontend" / "editor.js").read_text(
+    return (Path(__file__).resolve().parents[1] / "frontend" / "js" / "editor.js").read_text(
         encoding="utf-8"
     )
 

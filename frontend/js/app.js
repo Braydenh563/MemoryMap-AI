@@ -2203,15 +2203,15 @@ function smallButton(label, title, onClick, ghost = true) {
 //: document order: a dynamic script defaults to async, and library.js running
 //: before documents.js would be a different program.
 const LAZY_MODULES = {
-  graph: ["/graph.js", "/graph-canvas.js"],
+  graph: ["/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
-  lightbox: ["/lightbox-view.js"],
-  editConflict: ["/edit-conflict.js"],
-  categories: ["/categories-panel.js"],
-  noteHistory: ["/note-history.js"],
-  askHistory: ["/ask-history.js"],
-  settingsData: ["/settings-data.js"],
+  lightbox: ["/js/lightbox-view.js"],
+  editConflict: ["/js/edit-conflict.js"],
+  categories: ["/js/categories-panel.js"],
+  noteHistory: ["/js/note-history.js"],
+  askHistory: ["/js/ask-history.js"],
+  settingsData: ["/js/settings-data.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2223,12 +2223,12 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
-    "/documents-code.js",
-    "/documents-prose.js",
-    "/documents.js",
-    "/whiteboard-map.js",
-    "/whiteboard.js",
-    "/library.js",
+    "/js/documents-code.js",
+    "/js/documents-prose.js",
+    "/js/documents.js",
+    "/js/whiteboard-map.js",
+    "/js/whiteboard.js",
+    "/js/library.js",
   ],
 };
 
@@ -2249,7 +2249,7 @@ const lazyModuleLoads = new Map();
 //: cache key for the same file, which is the exact bug that splice exists to
 //: prevent.
 function lazyAssetStamp() {
-  const src = document.querySelector('script[src*="/app.js?"]')?.getAttribute("src") || "";
+  const src = document.querySelector('script[src*="/js/app.js?"]')?.getAttribute("src") || "";
   const query = src.indexOf("?");
   return query === -1 ? "" : src.slice(query);
 }

@@ -46,7 +46,7 @@ const ROOT = location.protocol === "file:" ? "../frontend/" : "/";
     el.onerror = () => no(new Error(`could not load ${src}`));
     document.head.appendChild(el);
   });
-  script("avatars.js").then(() => {
+  script("js/avatars.js").then(() => {
     //: The product decomposes each SVG into raster layers for animated chat
     //: surfaces; the lab wants the geometry itself.
     window.nameMarkCompose = function (key, build, opts = {}) {
@@ -60,7 +60,7 @@ const ROOT = location.protocol === "file:" ? "../frontend/" : "/";
       return svg;
     };
     window.watchNameMark = function (svg) { if (svg) svg.dataset.nmKb = "1"; };
-    return script("atlas.js");
+    return script("js/atlas.js");
   }).then(() => {
     //: Atlas reads its look from the app's storage first; the lab's choice
     //: must win without touching that storage.

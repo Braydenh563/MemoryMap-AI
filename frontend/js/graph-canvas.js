@@ -2411,7 +2411,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     // tag rather than kept in a second place that can drift from it.
     const own = document.querySelector('script[src*="graph-canvas.js"]');
     const stamp = ((own && own.getAttribute("src")) || "").split("?v=")[1] || "0";
-    s.worker = new Worker(`/graph-worker.js?v=${stamp}`);
+    s.worker = new Worker(`/js/graph-worker.js?v=${stamp}`);
     s.worker.onmessage = (event) => {
       const message = event.data || {};
       //: A message from a simulation that no longer matches what is on screen

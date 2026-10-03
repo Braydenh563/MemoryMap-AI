@@ -22,10 +22,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
-LIBRARY = (FRONTEND / "library.js").read_text(encoding="utf-8")
-WHITEBOARD = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
-MENUS = (FRONTEND / "menus.js").read_text(encoding="utf-8")
-NAVIGATION = (FRONTEND / "navigation.js").read_text(encoding="utf-8")
+LIBRARY = (FRONTEND / "js" / "library.js").read_text(encoding="utf-8")
+WHITEBOARD = (FRONTEND / "js" / "whiteboard.js").read_text(encoding="utf-8")
+MENUS = (FRONTEND / "js" / "menus.js").read_text(encoding="utf-8")
+NAVIGATION = (FRONTEND / "js" / "navigation.js").read_text(encoding="utf-8")
 CSS = "\n".join(
     re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S)
     for p in sorted((FRONTEND / "css").glob("*.css"))
@@ -116,7 +116,7 @@ def test_the_overlay_covers_the_card_and_the_controls_sit_above_it():
 # identical to the tenth of a pixel to the old positions.
 
 INDEX = (FRONTEND / "index.html").read_text(encoding="utf-8")
-SETTINGS = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+SETTINGS = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
 
 # A summary that carries its one action (DESIGN.md's fold recipe allowed it)
 # is still a control inside a control; this is the one left, a ratchet that
@@ -175,7 +175,7 @@ def test_the_button_is_placed_over_its_slot_and_still_opens_its_fold():
 # with `aria-selected` in a multiselectable `role="grid"`; the first cell
 # (dot, name, count) is the roving stop and the ⋯ is the last cell.
 
-CATEGORIES = (FRONTEND / "categories-panel.js").read_text(encoding="utf-8")
+CATEGORIES = (FRONTEND / "js" / "categories-panel.js").read_text(encoding="utf-8")
 
 
 def test_the_category_rows_are_grid_rows_with_the_menu_in_its_own_cell():

@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD_JS = ROOT / "frontend" / "dashboard.js"
+DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def test_opening_an_entry_stamps_when(client):

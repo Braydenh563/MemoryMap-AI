@@ -4,7 +4,7 @@ DOCUMENTS_PLAN Phase 5 item 1 and Phase 7. Two jobs live here:
 
 * **Comments as footnotes.** A document's remarks are `==words== %%about
   them%%` in its own text (the model, and the reasons for that syntax, are in
-  `frontend/documents.js` between `DOC-COMMENT-BEGIN` and `DOC-COMMENT-END`).
+  `frontend/js/documents.js` between `DOC-COMMENT-BEGIN` and `DOC-COMMENT-END`).
   Read view hides them; an export turns each one into a footnote, so a file
   handed to somebody carries the remarks rather than dropping them.
 * **The other formats** a document can leave as: self-contained HTML, a .docx,

@@ -237,6 +237,9 @@ MemoryMap-AI/
 │       └── routes_*.py      # one router per feature area (see §6)
 ├── frontend/                # vanilla HTML/CSS/JS, served as-is, no build
 │   ├── index.html           # the whole shell; every id is load-bearing
+│   ├── js/                  # every script named below, except sw.js (a service
+│   │                        #   worker only controls pages under its own path,
+│   │                        #   so it stays here at the root)
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
 │   ├── app.js … spaces-find.js # the shell, notes, chat and settings glue:
@@ -1015,7 +1018,7 @@ ranges in their old order, so every reference that was backward stayed
 backward (`docs/roadmap/archive/agent-remaining/appjs-split.md`). A test
 that means "the app's code" reads all of them as one text through
 `tests/_app_js.py`. To find a function's file:
-`grep -n "^function name" frontend/*.js`.
+`grep -n "^function name" frontend/js/*.js`.
 
 ### Driving it in a browser
 
@@ -1278,7 +1281,7 @@ and embedding, and both already run off the request thread.
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js` and the files after it (`grep -n "^function name" frontend/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
+| Change the UI | `frontend/js/app.js` and the files after it (`grep -n "^function name" frontend/js/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
 | Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
 | Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py`: a note sits at what it is *about* when it says so |

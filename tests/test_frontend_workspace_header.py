@@ -50,7 +50,7 @@ FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 #: through the API: the same upload lands in `space-b` with the header and in
 #: `default` without it. A lint that reads one of five files is a lint with
 #: four blind spots.
-SOURCES = sorted(FRONTEND.glob("*.js"))
+SOURCES = sorted((FRONTEND / "js").glob("*.js"))
 
 #: Endpoints that read or write a `WorkspaceMixin` row: a hand-rolled fetch
 #: to one of these must carry `X-Workspace-ID`. Deliberately not every raw

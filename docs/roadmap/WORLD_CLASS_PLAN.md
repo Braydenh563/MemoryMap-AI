@@ -435,7 +435,7 @@ toggle-row recipe; the section list is a tablist with arrow keys.
 
 ### D14 Help, onboarding and the command palette (S, Sonnet)
 
-Exists: help accordion, the welcome overlay, the guided tour (`frontend/tour.js`,
+Exists: help accordion, the welcome overlay, the guided tour (`frontend/js/tour.js`,
 DESIGN.md's "A guided tour of the interface": anchored cards over a cut-out
 dim, four sections, replayable whole or one section from Settings, help and
 guide), `Ctrl+K`. Wrong: the accordion is cards in cards; the palette lacks
@@ -863,13 +863,13 @@ should fix the class and add the lint that keeps it fixed.
 
 | # | Flaw | Evidence | Why it matters | Fix (and lint) |
 | --- | --- | --- | --- | --- |
-| F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
+| F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/js/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
 | F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
-| F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
+| F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/js/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
 | F10 | Extracted text, captions and OCR live in three columns with three UIs | `grep -n "vision_ocr_text\|ocr_text\|caption" src/memorymap/api/routes_files.py \| wc -l` | The Files card shows one, hides one, and the search indexes some; the owner's "only the first line" report was one symptom. | One `readings` table (`media_id, kind, page, text, model, ts`), one renderer, all kinds indexed (B3). |
-| F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/graph.js frontend/dashboard.js frontend/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
+| F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/js/graph.js frontend/js/dashboard.js frontend/js/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
 | F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
 
 F3, F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
@@ -2011,7 +2011,7 @@ This is served over loopback to a local process, so 5.9 MB is not a download
 and DOMContentLoaded at 182 ms says so. The costs that are real are parse
 time on a slow machine, the 18 MB heap, and the installer's size. A bundler
 and code splitting would be a large change to a codebase that deliberately
-has no build step (`CLAUDE.md`: "No build step: `frontend/*.js` and
+has no build step (`CLAUDE.md`: "No build step: `frontend/js/*.js` and
 `frontend/css/*.css` are served as-is"), and the measurement does not justify
 paying for it yet.
 
@@ -2098,7 +2098,7 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
 ## Placed from INBOX, 2026-09-21
 
 261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
-    the app serves that `frontend/*.js` never names, from
+    the app serves that `frontend/js/*.js` never names, from
     `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
     Four more were in this list and are now wired: `GET /learned` and its
     whole lifecycle, `POST /night/run`, `GET /search/stats` and
@@ -2332,7 +2332,7 @@ that holds it is `tests/test_failure_remedies.py`.
 State 2026-09-24, what the survey left open:
 
 - Row 1 and 2: the embedding-model messages still draw with `.status.error`
-  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/app.js`
+  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/js/app.js`
   `embedding-error-fix-row`.
 - Row 12: a wrong custom `base_url` and an absent server now differ in the
   provider (`list_models` raises "Nothing answered at <url>. Check the

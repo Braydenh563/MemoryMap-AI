@@ -2,7 +2,7 @@
 
 A 100% offline, local-first notebook where a local AI files your notes and
 answers questions about them. Python and FastAPI backend, vanilla JS
-frontend, SQLite. No build step: `frontend/*.js` and `frontend/css/*.css`
+frontend, SQLite. No build step: `frontend/js/*.js` and `frontend/css/*.css`
 are served as-is.
 
 This file is the operating manual for any session, human or model. It is
@@ -262,12 +262,14 @@ new" is a fact rather than a guess.
   `BASE=... --sweeps` adds errors,
   docks, contrast and touch against a running app. Run it before every
   push and paste its five lines into the report.
-- `node --check frontend/<file>.js` after any JS edit; there is no bundler.
+- `node --check frontend/js/<file>.js` after any JS edit; there is no bundler.
+  The scripts live in `frontend/js/`; only `frontend/sw.js` stays at the root,
+  because a service worker only controls pages under its own path.
 - **`app.js` is 23 files** (2026-09-26): `app.js` through `spaces-find.js`
   in index.html's order, one global scope, a file calling only upwards at
   load. A test that means "the app's code" reads `app_js_text()` from
-  `tests/_app_js.py`, never `frontend/app.js`, which is now only the head
-  (api, auth, the lazy loader). `grep -n "^function name" frontend/*.js`
+  `tests/_app_js.py`, never `frontend/js/app.js`, which is now only the head
+  (api, auth, the lazy loader). `grep -n "^function name" frontend/js/*.js`
   finds a function's file.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,

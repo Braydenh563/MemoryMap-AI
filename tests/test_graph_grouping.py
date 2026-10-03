@@ -11,7 +11,7 @@ FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 
 def test_the_worker_gathers_a_category_and_its_loose_notes():
-    worker = (FRONTEND / "graph-worker.js").read_text(encoding="utf-8")
+    worker = (FRONTEND / "js" / "graph-worker.js").read_text(encoding="utf-8")
     assert 'force("groupX"' in worker and 'force("groupY"' in worker
     assert "function applyGrouping(params)" in worker
     # Loose notes firmly, linked ones gently.
@@ -22,8 +22,8 @@ def test_the_worker_gathers_a_category_and_its_loose_notes():
 
 
 def test_it_is_a_setting_and_only_on_the_tabs_map():
-    canvas = (FRONTEND / "graph-canvas.js").read_text(encoding="utf-8")
+    canvas = (FRONTEND / "js" / "graph-canvas.js").read_text(encoding="utf-8")
     assert 'groupBy: s.size === "full" && localStorage.getItem("graph-group") !== "0"' in canvas
     assert 'id="graph-group"' in (FRONTEND / "index.html").read_text(encoding="utf-8")
-    graph = (FRONTEND / "graph.js").read_text(encoding="utf-8")
+    graph = (FRONTEND / "js" / "graph.js").read_text(encoding="utf-8")
     assert '"graph-group": true' in graph

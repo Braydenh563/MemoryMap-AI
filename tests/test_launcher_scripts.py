@@ -892,7 +892,7 @@ class TestTheBrowserBootSplash:
         assert ".boot-splash-tip {" in css
 
     def test_still_loading_appears_at_eight_seconds_with_the_way_out(self):
-        js = _read(ROOT / "frontend" / "boot-guard.js")
+        js = _read(ROOT / "frontend" / "js" / "boot-guard.js")
         at = js.index("}, 8000);")
         block = js[js.rindex("setTimeout(", 0, at) : at]
         assert "Still loading" in block

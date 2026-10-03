@@ -173,7 +173,7 @@ def _sites_in(source: str, where: str) -> list[tuple[str, int, str, str, str]]:
 def _sites() -> list[tuple[str, int, str, str, str]]:
     """The same, across every frontend script."""
     found = []
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         found.extend(_sites_in(path.read_text(encoding="utf-8"), path.name))
     return found
 

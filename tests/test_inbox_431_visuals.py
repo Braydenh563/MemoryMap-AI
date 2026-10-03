@@ -28,5 +28,5 @@ def test_the_search_engine_says_how_well_it_is_working(client):
     assert "indexed" in body["embedding_coverage"]
     client.get("/search", params={"q": "count"})
     assert isinstance(body.get("last_search"), dict)
-    status_js = (Path(__file__).resolve().parent.parent / "frontend" / "status.js").read_text(encoding="utf-8")
+    status_js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
     assert "notes searchable by meaning" in status_js and "last search used keywords only" in status_js

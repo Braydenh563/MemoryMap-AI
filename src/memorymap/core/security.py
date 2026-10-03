@@ -183,7 +183,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 # and any path that pairs one version of the page with the other version's
 # header refuses it: reported as "[browser/csp] blocked script-src-elem:
 # inline", which lands as the app opening in its default look with the saved
-# theme never applied. The block now lives in `frontend/theme-boot.js`, which
+# theme never applied. The block now lives in `frontend/js/theme-boot.js`, which
 # `script-src 'self'` covers unconditionally, and
 # `test_static_freshness.py::test_the_page_has_no_inline_script_left` holds
 # the page that way.
@@ -261,7 +261,7 @@ def build_csp(script_hashes: list[str]) -> str:
         # `'wasm-unsafe-eval'` is the one exception, and it is narrower than
         # its name: it lets the page compile WebAssembly and nothing else.
         # `eval` and `new Function` stay refused. It is here for the grammar
-        # checker (Harper, vendored, run in `frontend/harper-worker.js`);
+        # checker (Harper, vendored, run in `frontend/js/harper-worker.js`);
         # without it `WebAssembly.instantiate` throws a CompileError naming
         # this policy and the check quietly never runs.
         "script-src": " ".join(["'self'", "'wasm-unsafe-eval'", *script_hashes]),
@@ -279,7 +279,7 @@ def build_csp(script_hashes: list[str]) -> str:
         # Ollama directly, every call goes through this server, so there is
         # nothing else to allow.
         "connect-src": "'self'",
-        # `frontend/graph-worker.js`, the graph's force simulation, off the
+        # `frontend/js/graph-worker.js`, the graph's force simulation, off the
         # main thread (GRAPH_PLAN.md §4). Checked before that file was written
         # rather than after: a missing `worker-src` falls back to
         # `default-src 'self'` here so it would have worked anyway, but a

@@ -117,7 +117,7 @@ working version in the process. Three rules keep that from happening:
   already built.)
 - **Additive only.** Extend functions rather than replacing them, and
   never delete a feature, widget, or CSS rule to make room for a new
-  one without asking. `frontend/app.js` is one large script: make
+  one without asking. `frontend/js/app.js` is one large script: make
   small, targeted edits.
 - **One feature per commit.** After each commit, `git diff --stat`
   should list only the files that feature touches. An unexpectedly wide

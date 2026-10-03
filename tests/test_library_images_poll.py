@@ -34,6 +34,6 @@ def test_switch_tab_restarts_it_only_when_the_media_sub_tab_is_showing():
 
 
 def test_the_poll_functions_still_exist_in_library_js():
-    lib = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    lib = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
     assert "function startLibraryImagesPoll()" in lib
     assert "function stopLibraryImagesPoll()" in lib

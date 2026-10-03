@@ -958,7 +958,7 @@ PREVIEW_LABEL_CHARS = 28
 #: What a thing is drawn at on the canvas when it has no size of its own,
 #: so a thumbnail draws the same picture the board does. These mirror
 #: `WB_CARD_DEFAULT_SIZE`, `WB_MAP_NODE_W/H` and the sketch's own box in
-#: frontend/whiteboard.js; a card's width and height are nullable columns and
+#: frontend/js/whiteboard.js; a card's width and height are nullable columns and
 #: a sketch has none at all, so without a figure here every one of them would
 #: have to be drawn as a point.
 PREVIEW_DEFAULT_SIZES = {
@@ -1743,7 +1743,7 @@ def list_images(
 
     **Superseded in the Library by `/media`**, which lists every uploaded
     file rather than only the ones that happen to be on a board, so nothing
-    in `frontend/*.js` names this any more (INBOX 261, found by
+    in `frontend/js/*.js` names this any more (INBOX 261, found by
     `scratchpad/probe_dead_routes.py`). Kept as the board-scoped view, which
     `/media` does not offer; this paragraph is here so the next scan does not
     re-open the question.

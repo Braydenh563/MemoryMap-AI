@@ -142,7 +142,7 @@ class PersonaItem(BaseModel):
     #: answering (the owner: rotating "thinking words" like Claude Code's,
     #: "customisable per persona"). Empty (the default for every persona that
     #: has never set one) means "use the app's default list, or the built-in
-    #: persona's own list"; frontend/sheets-selects.js resolves which. Stored
+    #: persona's own list"; frontend/js/sheets-selects.js resolves which. Stored
     #: here rather than in localStorage for the same reason the writing
     #: dictionary is: a list built by hand should survive a cleared browser
     #: and travel with the daily backup.

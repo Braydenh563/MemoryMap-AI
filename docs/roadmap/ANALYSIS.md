@@ -1842,9 +1842,9 @@ file. Comes in clean, notice kept.
 
 **What exists in MemoryMap today, checked before proposing anything
 (grepped "writing check", "proofread," and spelling/grammar in
-`src/memorymap/ai` and `frontend/documents.js`, per the brief).** Three
+`src/memorymap/ai` and `frontend/js/documents.js`, per the brief).** Three
 separate things answer to "writing help," and the document editor's own
-comment block (`frontend/documents.js`, the "editor's own instruments"
+comment block (`frontend/js/documents.js`, the "editor's own instruments"
 section starting around line 10005) states the design on purpose: "No
 model, no network, no service, which is not a limitation here, it is the
 requirement... Rules that would need judgement (its/it's, their/there in
@@ -1867,7 +1867,7 @@ path.
 
 **(a) ideas and UX patterns.** Nothing new: the underline-and-click,
 Suggestions-panel, "nothing changes until you choose it" pattern
-`frontend/documents.js` already has (the `writing-checks` help topic
+`frontend/js/documents.js` already has (the `writing-checks` help topic
 describes it) is the same shape Harper's own editor integrations use.
 Convergent design, not a gap.
 
@@ -1893,7 +1893,7 @@ first step, not a decision from the README's word alone.
 extension are not shaped for this app (they integrate with other editors'
 own protocols); only the WASM core and its JS wrapper are relevant.
 
-**Where it would land.** `frontend/documents.js`'s writing-checks pipeline
+**Where it would land.** `frontend/js/documents.js`'s writing-checks pipeline
 (the finding list feeding the Suggestions panel, `DOC_AUTOCORRECT`, and
 the `rule` field the findings menu switches on around line 10872) and the
 `writing-checks` help topic in `src/memorymap/ai/help_chat.py`, which
@@ -1932,10 +1932,10 @@ Svelte, Solid, Preact, React Native).
 **Licence.** MIT, confirmed in `LICENSE`. Comes in clean with notice.
 
 **What exists in MemoryMap today.** Grepped "avatar" across
-`frontend/*.js` and `src/memorymap`: the app has no per-person avatars at
+`frontend/js/*.js` and `src/memorymap`: the app has no per-person avatars at
 all. What it has is two fixed icon glyphs, a user-icon box for the
 person's own chat bubble and a p5.js-rendered app emblem for the
-assistant's, both in `frontend/app.js` (`msg-avatar`,
+assistant's, both in `frontend/js/app.js` (`msg-avatar`,
 `renderEmblem`). This is a single-user, no-account app, so there was never
 a need for "whose avatar is this" in the chat, but named people are a real
 thing the app already extracts: `src/memorymap/ai/entities.py` pulls
@@ -1953,7 +1953,7 @@ family) currently renders them visually identical apart from the label.
 algorithm (`packages/blobatar/src/blob.ts`, `render.ts`) is small,
 dependency-free, framework-agnostic TypeScript that emits an SVG string or
 data URI from a string input, exactly the shape that fits "no build step,
-`frontend/*.js` served as-is": it would need converting from TypeScript to
+`frontend/js/*.js` served as-is": it would need converting from TypeScript to
 plain JS (mechanical, no framework runtime involved) rather than pulling
 in the npm package and a bundler.
 
@@ -2257,7 +2257,7 @@ region output (`extract_regions`, `REGION_MIN_CONFIDENCE`,
 `REGION_HEADING_RATIO`) is a genuinely different, tuned pipeline that
 would need re-deriving from `rapidocr-onnxruntime`'s own output shape
 before it could serve the Library's page-region workspace
-(`frontend/library.js`) the same way; that mapping work is the bulk of
+(`frontend/js/library.js`) the same way; that mapping work is the bulk of
 the M-sized estimate, not the extras-registry entry itself.
 ## Odysseus read deeply, 2026-09-21
 
@@ -2639,7 +2639,7 @@ recording it is that a clean review is a fact the next session should not
 have to buy twice.
 
 **A feature that never ran once.** Eighty-one functions were added to
-`frontend/*.js` and twenty-three defs to `src/`, and every one of them has a
+`frontend/js/*.js` and twenty-three defs to `src/`, and every one of them has a
 call site. The three that answer to nothing but a decorator are routes, and
 each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
 `/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
@@ -3040,7 +3040,7 @@ latency (`itl.py`), FLOPs (`flops.py`) and energy read from Intel RAPL,
 NVIDIA, AMD and Apple counters (`energy_*.py`), aggregated per model and per
 engine. MemoryMap measures a piece of the same thing once per response and
 then throws it away: `ai/ollama_client.py:551` computes `eval_ms` from the
-Ollama payload and `frontend/app.js:21270` renders "3.9k/8k window · 12 tok/s
+Ollama payload and `frontend/js/app.js:21270` renders "3.9k/8k window · 12 tok/s
 · llama3.2" onto the message. There is no table for it: `core/database.py`
 declares 30-odd models and none of them is an inference record. So the app
 cannot answer *"which of the models I have installed is actually fastest on
@@ -3205,10 +3205,10 @@ explains instead of breaking. Audio never leaves the machine."*
 `api/routes_voice.py` has both `/voice/transcribe` and a
 `/voice/transcribe-meeting` sized for a meeting (a 300MB ceiling against the
 spoken note's 25MB), and `librarian.summarize_meeting` already pulls decisions
-and action items out of a transcript. `frontend/app.js` has two recorders, one
+and action items out of a transcript. `frontend/js/app.js` has two recorders, one
 for dictation and one for meetings with pause and resume.
 
-**Text to speech is built, barely.** `frontend/app.js:33882` uses the
+**Text to speech is built, barely.** `frontend/js/app.js:33882` uses the
 browser's own `speechSynthesis` with a bare `SpeechSynthesisUtterance` and
 `cancel()` as the stop button. No voice picker, no rate, nothing saved. So
 "improved" has a specific baseline: whichever voices the operating system
@@ -3449,7 +3449,7 @@ WORLD_CLASS_PLAN 19.1 item, not a new idea.
 related-notes sidebar (`src/components/Sidebars/SimilarFilesSidebar.tsx`,
 `SemanticSidebar/SimilarEntriesComponent.tsx`) lists notes by raw vector
 similarity and says nothing about why. MemoryMap has the same panel live
-while a note is open (`frontend/app.js:9158`), and every link carries a
+while a note is open (`frontend/js/app.js:9158`), and every link carries a
 reason that starts as "similar in meaning" and is then rewritten by
 `ai/links.py` into the specific thing connecting the two notes, with
 `ai/links.py` rejecting a reply that is still vague. A related note with a
@@ -3590,7 +3590,7 @@ a-star.js`) and takes its path, so an elbow connector routes *around* the
 shapes between its two ends. MemoryMap's elbow connectors are careful about
 the things AFFiNE's are also careful about, leaving a card perpendicular to
 the side they attach to and turning at a computed midpoint
-(`frontend/whiteboard.js:1640`, `:4725`, `wbMapEdgeElbowTurn`), and they do
+(`frontend/js/whiteboard.js:1640`, `:4725`, `wbMapEdgeElbowTurn`), and they do
 not avoid obstacles at all: a connector between two cards with a third card
 between them draws straight through it. **What we would change:** the
 algorithm is self-contained and portable to vanilla JS, and the cost is

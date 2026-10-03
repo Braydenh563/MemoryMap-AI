@@ -879,7 +879,7 @@ with its owner named in the entry.
       no route**, both undecidable paths resolved by hand.
     - **Frontend declarations nothing references**: 3,222 top-level names,
       **0** referenced only by their own declaration. No dead weight left in
-      `frontend/*.js`.
+      `frontend/js/*.js`.
     - **Complexity, backend**, by branch count over 1,827 functions. The top
       five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
       50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,

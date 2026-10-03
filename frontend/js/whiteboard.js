@@ -35,7 +35,7 @@
 // sub-tabs, not this one) that had ended up in this file's own
 // DOMContentLoaded listener purely because it was written in the same block
 // as this tab's own two controls (`wb-boards-new`/`wb-back-to-boards`,
-// still below). Moved out to frontend/library.js in the app.js split's
+// still below). Moved out to frontend/js/library.js in the app.js split's
 // second file (§88.3); see that file's own header for the full list and the
 // reasoning. `renderLibraryBoardsGallery`/`wbShowBoardsLanding`/
 // `wbShowCanvasView` stayed: they render and switch between *this* tab's

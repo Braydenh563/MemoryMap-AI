@@ -106,12 +106,12 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_offline_promise.py
   tests/test_cheap_animations.py tests/test_motion_tokens.py tests/test_icon_label_gap.py tests/test_like_escaping.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
-  # reads every string in `frontend/*.js` and every piece of markup outside a
+  # reads every string in `frontend/js/*.js` and every piece of markup outside a
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
   tests/test_ai_name.py tests/test_frontend_symbols.py
-  # Same reason again: it reads every string in `frontend/*.js`, so no changed
+  # Same reason again: it reads every string in `frontend/js/*.js`, so no changed
   # source file selects it.
   tests/test_no_glyph_icons.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
@@ -168,7 +168,7 @@ if [ "$STAGED" = 1 ]; then
 else
   skipped+=("staged-lints (--staged)")
 fi
-node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
+node_check() { local bad=0; for f in frontend/js/*.js frontend/sw.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
 step ruff "$RUFF" check .
 # --changed: every changed test file, plus tests/test_<stem>*.py for each
@@ -223,7 +223,7 @@ changed_tests() {
   while read -r f; do
     case "$f" in
       tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
-      src/memorymap/*.py|src/memorymap/*/*.py|frontend/*.js|frontend/css/*.css)
+      src/memorymap/*.py|src/memorymap/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
         case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac

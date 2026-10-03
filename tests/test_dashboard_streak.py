@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = ROOT / "frontend" / "dashboard.js"
+DASH = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def _function_source(text: str, name: str) -> str:

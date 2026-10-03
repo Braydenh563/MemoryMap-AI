@@ -3272,7 +3272,7 @@ function withDocPreviewShown(fn) {
 // is fetched and cached rather than queried, see `loadDocFileTypes`.
 //
 // Built on the existing textarea rather than on a third-party code editor.
-// This app has no build step (`frontend/app.js` is served as-is), so a real
+// This app has no build step (`frontend/js/app.js` is served as-is), so a real
 // editor component would mean either a vendored bundle or a CDN, and the
 // three behaviours that were actually asked for are a few dozen lines each
 // against a textarea. What is genuinely lost by not using one is syntax

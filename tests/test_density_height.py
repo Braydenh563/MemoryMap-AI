@@ -16,7 +16,8 @@ FRONTEND = ROOT / "frontend"
 
 
 def _text(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    folder = FRONTEND / "js" if name.endswith(".js") else FRONTEND
+    return (folder / name).read_text(encoding="utf-8")
 
 
 def test_the_first_paint_and_the_settings_make_the_same_call():

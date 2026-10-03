@@ -351,7 +351,7 @@ being written by running agents stay beside this one.
 ## Graph
 
 - **The graph export writes its styles with `setAttribute("style")`, which
-  the CSP refuses element by element** (`frontend/graph.js:4016`,
+  the CSP refuses element by element** (`frontend/js/graph.js:4016`,
   `graphInlineComputedStyle`). Measured 2026-09-26 (`cspprobe.js`, in the
   review): under `style-src 'self'` the attribute string is kept and
   serialises, so the exported picture is right, but the browser logs
@@ -515,7 +515,7 @@ being written by running agents stay beside this one.
   peek stays pinned until Escape or a press elsewhere (read in
   `openCitationPeek`'s focusout, not measured).
 - **The chat welcome's blurb wraps to two lines at 1280 wide**
-  (`frontend/chat.js:919`, "I've read everything you've saved. Ask me
+  (`frontend/js/chat.js:919`, "I've read everything you've saved. Ask me
   anything and I'll show you where the answer came from"):
   `scratchpad/ui-sweeps/chatemptyhelp.js` fails its "the sentence it left
   behind is one line" check with the sentence over 2 lines, the '?' itself
@@ -839,12 +839,12 @@ being written by running agents stay beside this one.
   Library can write one (`POST /media/{id}/caption`). An "Ask the model for
   one" action on that line is the obvious next step and was not built because
   it puts a model call behind a row in a picker, which is a decision. File:
-  `frontend/app.js`, the `caption` entry of the images shape.
+  `frontend/js/app.js`, the `caption` entry of the images shape.
   [picker-catalog-readme.md]
 - **The other four picker sources have no thumbnail.** Documents, files and
   maps all have something to show (a first page, a file glyph, `mapPreview`
   already draws a map for the boards gallery). The renderer is ready:
-  `shape.thumb` is optional and per source. File: `frontend/app.js`,
+  `shape.thumb` is optional and per source. File: `frontend/js/app.js`,
   `notePickerShape`. [picker-catalog-readme.md]
 - **The Notes (10) and Library (9) docks are still over the seven-control
   ceiling.** The graph's move to six was decided for the graph specifically;
@@ -1045,7 +1045,7 @@ being written by running agents stay beside this one.
   checked 2026-09-23**: `librarian.PERSONA_ALIASES = {"Librarian": "Atlas"}`
   keeps the stored id resolving and `DEFAULT_PERSONA` names Atlas, "this
   notebook's librarian". The original row: (chrome2, not
-  started). `frontend/app.js` ~line 21492 mirrors the backend's built-ins:
+  started). `frontend/js/app.js` ~line 21492 mirrors the backend's built-ins:
   rename the built-in card to Atlas, description "Atlas, this notebook's
   librarian: files, links and answers from your notes.", on both sides (the
   backend's list lives with `resolve_persona_prompt`), keeping the id
@@ -1132,7 +1132,7 @@ being written by running agents stay beside this one.
   `localhost.` as a bug). `_own_names()` calls `gethostname` per request
   off loopback, one syscall.
 - **The other search surfaces still do their own thing.** `file:
-  frontend/app.js`, `id: search-one-surface`. The Notes list filters
+  frontend/js/app.js`, `id: search-one-surface`. The Notes list filters
   client-side with `parseNoteQuery` (which knows `tag:`, `category:`, `is:`
   and phrases, but not `kind:`, `in:`, `before:`, `after:` or `has:`), the
   Library filters its own arrays, and `/entries?semantic=true` is a second
@@ -1180,7 +1180,7 @@ being written by running agents stay beside this one.
   `tests/test_search_engine.py`, four new, three failing before.
   [brief11-retrieval-engine.md]
 - **The graph signal needs an open note, and the Notes list rarely has one.**
-  `file: frontend/app.js`, `id: search-open-note`. The list passes `entry_id`
+  `file: frontend/js/app.js`, `id: search-open-note`. The list passes `entry_id`
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
@@ -1297,7 +1297,7 @@ being written by running agents stay beside this one.
   has no shot at all, because it wants a multi-page PDF and an OCR binary and
   this sandbox has neither. Files: `scratchpad/ui-sweeps/readmeshots.js`, the
   `chat` entry. [picker-catalog-readme.md]
-- **`frontend/app.js` is 1.93 MB of source.** The gzip smoke bound in
+- **`frontend/js/app.js` is 1.93 MB of source.** The gzip smoke bound in
   `tests/test_static_compression.py` was raised to 700 KB on 2026-09-13;
   splitting the file is still the thing that number is really measuring, and
   it is above a single agent's remit. [chat-popup-agent.md]
@@ -1319,7 +1319,7 @@ being written by running agents stay beside this one.
 ## Not verified
 
 - **The About pane's "Take tour again" button greyed out with the tour off**
-  (`frontend/settings-wiring.js`, the `onDomReady` block; 2026-09-26). The
+  (`frontend/js/settings-wiring.js`, the `onDomReady` block; 2026-09-26). The
   block that disables it never ran before the review (a top-level `typeof
   TOUR_ENABLED` guard read a later script's const, so it was always
   "undefined"); it now runs on `DOMContentLoaded`, which is after tour.js,

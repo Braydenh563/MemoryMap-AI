@@ -22,9 +22,9 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-PROSE_JS = ROOT / "frontend" / "documents-prose.js"
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
-APP_JS = ROOT / "frontend" / "app.js"
+PROSE_JS = ROOT / "frontend" / "js" / "documents-prose.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
+APP_JS = ROOT / "frontend" / "js" / "app.js"
 
 node = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 

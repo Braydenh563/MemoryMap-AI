@@ -20,9 +20,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
-PANES = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
-WIRING = (ROOT / "frontend" / "settings-wiring.js").read_text(encoding="utf-8")
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+PANES = (ROOT / "frontend" / "js" / "settings-panes.js").read_text(encoding="utf-8")
+WIRING = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
 
 
 def _fn(name: str, src: str = AV) -> str:

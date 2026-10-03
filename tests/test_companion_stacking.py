@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 CSS08 = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 
 

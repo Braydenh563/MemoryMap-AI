@@ -12,8 +12,8 @@ from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 APP = app_js_text()
-LIBRARY = (FRONTEND / "library.js").read_text(encoding="utf-8")
-BOARDS = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
+LIBRARY = (FRONTEND / "js" / "library.js").read_text(encoding="utf-8")
+BOARDS = (FRONTEND / "js" / "whiteboard.js").read_text(encoding="utf-8")
 
 
 def _block(source: str, start: str, end: str) -> str:

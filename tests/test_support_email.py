@@ -14,7 +14,7 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 

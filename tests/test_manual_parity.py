@@ -68,7 +68,7 @@ def test_every_write_tool_names_its_manual_path():
 def test_every_named_manual_path_still_exists():
     gone = []
     for tool, (name, proof, where) in MANUAL.items():
-        text = (FRONTEND / name).read_text(encoding="utf-8")
+        text = (FRONTEND / "js" / name).read_text(encoding="utf-8")
         if proof not in text:
             gone.append(f"{tool}: {where} ({name} no longer has {proof!r})")
     assert not gone, "Manual paths that went missing:\n  " + "\n  ".join(gone)
@@ -76,9 +76,9 @@ def test_every_named_manual_path_still_exists():
 
 def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_settings():
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    wiring = (FRONTEND / "wiring.js").read_text(encoding="utf-8")
+    wiring = (FRONTEND / "js" / "wiring.js").read_text(encoding="utf-8")
     # The panel moved to its own lazy piece (categories-panel.js).
-    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
+    notes = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'id="manage-categories-btn"' in html and 'id="settings-manage-categories"' in html
     assert '$("manage-categories-btn").addEventListener("click", () => openManageCategories());' in wiring
     assert '$("settings-manage-categories").addEventListener("click", () => openManageCategories());' in wiring
@@ -95,7 +95,7 @@ def test_the_category_tools_count_as_writes():
 def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     # The owner: "needs some ui redesign ... like the ai assistant panel".
     # The panel moved to its own lazy piece (categories-panel.js).
-    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
+    notes = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'head.classList.add("dialog-head");' in notes
     # A grid since INBOX 433 (an option may not hold its ⋯; a grid cell may).
     assert 'list.setAttribute("role", "grid");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes

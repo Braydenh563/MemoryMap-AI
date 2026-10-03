@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
 
 
 def test_the_server_keeps_the_words_it_is_given(client):

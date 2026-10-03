@@ -21,7 +21,7 @@ FRONTEND = ROOT / "frontend"
 
 
 def _read(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
 
 
 def test_an_escaped_select_list_is_floored_at_its_trigger_width():

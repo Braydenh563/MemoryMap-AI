@@ -30,8 +30,8 @@
 // emoji before the finding (`p2-harper.js`, "has" at 5 after a two-unit
 // emoji), so nothing here converts them.
 
-import { Dialect, Language, SuggestionKind } from "./vendor/harper/BinaryModule-BmeyZWwZ.js";
-import { slimBinary } from "./vendor/harper/slimBinary.js";
+import { Dialect, Language, SuggestionKind } from "../vendor/harper/BinaryModule-BmeyZWwZ.js";
+import { slimBinary } from "../vendor/harper/slimBinary.js";
 
 const linters = new Map();
 

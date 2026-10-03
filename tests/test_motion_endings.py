@@ -45,7 +45,7 @@ def _enclosing_function(text: str, at: int) -> str:
 
 def test_every_end_listener_has_a_way_to_finish_without_it():
     offenders = []
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         text = path.read_text(encoding="utf-8")
         for m in re.finditer(r'addEventListener\(\s*"(animationend|transitionend)"|for \(const type of \[[^\]]*"(?:animationend|transitionend)"', text):
             line_start = text.rfind("\n", 0, m.start()) + 1
@@ -62,7 +62,7 @@ def test_every_end_listener_has_a_way_to_finish_without_it():
 
 
 def test_the_save_ring_finishes_when_no_ring_runs():
-    text = (FRONTEND / "settings-wiring.js").read_text(encoding="utf-8")
+    text = (FRONTEND / "js" / "settings-wiring.js").read_text(encoding="utf-8")
     body = _enclosing_function(text, text.index("function flashSaved(el)") + 1)
     assert "getAnimations()" in body and "if (!ring)" in body, "flashSaved waits on a ring that reduced motion never starts"
     assert "ring.finished.then(finish, finish)" in body, "a cancelled ring must finish too"

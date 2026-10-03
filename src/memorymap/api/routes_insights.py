@@ -379,7 +379,7 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
 
     **Not called by this app's own frontend, and that is a decision, not an
     oversight** (INBOX 261, found by `scratchpad/probe_dead_routes.py`, which
-    lists every route no `frontend/*.js` names). The dashboard's widget
+    lists every route no `frontend/js/*.js` names). The dashboard's widget
     filters `allEntries` in the browser: one fewer request, and correct once
     the notebook has finished paging in. This stays for anything that talks
     to the app over HTTP rather than through the bundled page, and this

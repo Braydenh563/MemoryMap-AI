@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+SOURCE = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
 
 
 def _widget_body() -> str:

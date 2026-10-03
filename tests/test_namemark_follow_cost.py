@@ -9,7 +9,7 @@ by the IntersectionObserver that already marks them: 20ms for the same sweep.
 
 from pathlib import Path
 
-SRC = (Path(__file__).resolve().parent.parent / "frontend" / "avatars.js").read_text(encoding="utf-8")
+SRC = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _follow_handler() -> str:

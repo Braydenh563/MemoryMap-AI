@@ -24,7 +24,7 @@ from tests._css_paths import CSS_DIR
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-LIST_JS = (ROOT / "frontend" / "notes-list.js").read_text(encoding="utf-8")
+LIST_JS = (ROOT / "frontend" / "js" / "notes-list.js").read_text(encoding="utf-8")
 CSS = "\n".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css")))
 
 

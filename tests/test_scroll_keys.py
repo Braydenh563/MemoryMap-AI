@@ -33,7 +33,7 @@ def _css() -> str:
 
 
 def test_a_pointer_picked_settings_section_hands_the_keys_to_the_pane() -> None:
-    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
     wiring = settings[settings.index("function focusSettingsPane"):]
     wiring = wiring[: wiring.index("\n}\n", wiring.index("for (const button"))]
     assert "focus({ preventScroll: true })" in wiring

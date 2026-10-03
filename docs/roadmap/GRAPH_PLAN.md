@@ -13,7 +13,7 @@ the plans already listed (row 13).** The instruction, verbatim:
 
 ## 1. What exists (checked in the code, not assumed)
 
-`frontend/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
+`frontend/js/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
 `<g>` per node with a circle, a label and a halo; edges as `<line>`s;
 `forceManyBody(-340)`, `forceLink`, `alphaDecay(0.05)`; four layouts
 (force, tree, radial, arc); colour by category or by cluster; a legend row;
@@ -351,8 +351,8 @@ notebook content) is a different, permanent hold and is never touched by
 this: it is set and released by the code that already owns it.
 
 Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
-(`frontend/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
-(`frontend/graph-canvas.js`, the default renderer).
+(`frontend/js/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
+(`frontend/js/graph-canvas.js`, the default renderer).
 
 
 ## Decision made, 2026-09-24: similarity is each note's two closest matches

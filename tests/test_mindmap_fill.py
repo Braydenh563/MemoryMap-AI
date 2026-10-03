@@ -25,9 +25,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-WHITEBOARD_JS = ROOT / "frontend" / "whiteboard.js"
+WHITEBOARD_JS = ROOT / "frontend" / "js" / "whiteboard.js"
 # The map layer is its own file (whiteboard-map.js), loaded before this one.
-WHITEBOARD_MAP_JS = ROOT / "frontend" / "whiteboard-map.js"
+WHITEBOARD_MAP_JS = ROOT / "frontend" / "js" / "whiteboard-map.js"
 
 
 def _whiteboard_text() -> str:

@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-LIBRARY = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+LIBRARY = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
 PAGE = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
 
 

@@ -202,7 +202,7 @@ def test_the_attachment_side_has_the_same_route(client, fake_ollama, monkeypatch
 
 from pathlib import Path  # noqa: E402  (the lints below are a separate concern)
 
-LIBRARY = Path("frontend/library.js").read_text(encoding="utf-8")
+LIBRARY = Path("frontend/js/library.js").read_text(encoding="utf-8")
 INDEX = Path("frontend/index.html").read_text(encoding="utf-8")
 CSS = Path("frontend/css/07-whiteboard-misc.css").read_text(encoding="utf-8")
 

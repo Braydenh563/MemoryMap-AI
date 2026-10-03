@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
 
 BEGIN = "// DOC-MATH-BEGIN"
 END = "// DOC-MATH-END"

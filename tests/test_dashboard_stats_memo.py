@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD = ROOT / "frontend" / "dashboard.js"
+DASHBOARD = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def _function_body(source: str, name: str) -> str:

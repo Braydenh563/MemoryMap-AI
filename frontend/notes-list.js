@@ -3058,6 +3058,18 @@ function renderSidebar() {
   });
   ul.appendChild(draftRow);
   ul.appendChild(favouriteRow);
+  //: Tags, beside Drafts and Favourites (INBOX 432): a sheet of every tag
+  //: (categories-panel.js `openTagsSheet`), not a second long list here.
+  const tagRow = document.createElement("li");
+  tagRow.className = "category-drafts-row";
+  const tagName = document.createElement("span");
+  tagName.className = "category-name";
+  setLabel(tagName, "ph:hash Tags");
+  tagRow.append(tagName);
+  tagRow.title = "Every tag: see its notes, rename it or remove it";
+  tagRow.addEventListener("click", () => openTagsSheet());
+  wireSidebarRowKeys(tagRow);
+  ul.appendChild(tagRow);
 
   //: One order everywhere a list of categories is shown: by name, ignoring
   //: case and accents, numbers in number order (INBOX 432: a bare `.sort()`

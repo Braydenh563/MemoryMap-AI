@@ -2440,6 +2440,7 @@ const LAZY_ENTRY_POINTS = {
     "deleteCategory",
     "restoreCategoryMoves",
     "chooseNoteCategory",
+    "openTagsSheet",
   ],
   graph: [
     "clearTrace",

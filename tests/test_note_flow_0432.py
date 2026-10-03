@@ -275,3 +275,13 @@ def test_note_boxes_are_live_with_a_source_switch_not_a_preview():
     assert "setNoteSource(!noteSourceOn())" in _function(_read("notes-list.js"), "renderEditForm")
     css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ":not(#entry-preview-toggle):not([data-note-preview])" in css
+
+
+def test_tags_have_a_place_in_the_notes_sidebar():
+    side = _function(_read("notes-list.js"), "renderSidebar")
+    assert 'setLabel(tagName, "ph:hash Tags")' in side and "openTagsSheet()" in side
+    panel = _read("categories-panel.js")
+    for name in ("openTagsSheet", "renameTagEverywhere", "removeTagEverywhere"):
+        assert f"function {name}(" in panel, name
+    assert "pushUndo(" in _function(panel, "renameTagEverywhere")
+    assert '"openTagsSheet"' in _read("app.js")

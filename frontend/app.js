@@ -138,6 +138,8 @@ let editingId = null; // entry id currently in inline-edit mode
 //: Set by the "No tags yet" chip: the next edit form for this id opens with
 //: its tags field focused. Read and cleared by renderEditForm.
 let focusTagsAfterRender = null;
+//: The note whose edit form takes the caret once drawn (openNoteEditor).
+let focusBodyAfterRender = null;
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
 let busyEntryId = null; // entry the AI is currently working on (spinner shown)
 let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)

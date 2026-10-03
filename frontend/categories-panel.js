@@ -635,6 +635,8 @@ function chooseNoteCategory(ids, current = "") {
         const row = sheetRow(here ? "ph ph-check" : "ph ph-folder", `${name} (${meta?.count ?? 0})`, async () => {
           close();
           if (!here) await moveNotesToCategory(noteIds, name);
+          //: The redraw took the chip the sheet gave the focus back to.
+          if (!many) focusNoteRow(noteIds[0]);
         });
         if (here) row.setAttribute("aria-current", "true");
         list.appendChild(row);

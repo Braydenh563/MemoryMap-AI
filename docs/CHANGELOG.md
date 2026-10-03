@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Keyboard: F2 or Edit puts the caret in the note's editor and Escape returns to the note; a chooser sheet (Move to category, Tags) opens on the current row and the arrow keys walk its rows; after a move the focus stays on the note instead of falling to the top of the page.
 - Accessibility: Find anything's results are announced as a list only while they list something; its empty and no-match messages no longer read as an empty list.
 - A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).
 - A chip's leading icon sits level with its words (the clock on the "Ask again" chips sat 1.5px high).

@@ -97,3 +97,17 @@ def test_find_anything_is_a_listbox_only_while_it_lists():
     assert "finderResultsRole(results, false);" in _function(find, "finderRenderEmpty")
     assert "finderResultsRole(results, rows.length > 0);" in _function(find, "finderRender")
     assert 'id="finder-results" class="finder-results" role="group"' in _read("index.html")
+
+
+def test_the_keyboard_lands_somewhere_after_every_note_step():
+    # notekeys.js: F2 left the focus on <body>, Escape too, and a move by the
+    # chooser too; a chooser opened on its X, so Enter closed it.
+    notes = _read("notes-list.js")
+    assert "else focusBodyAfterRender = id;" in _function(notes, "openNoteEditor")
+    assert "focusNoteRow(back)" in _function(notes, "closeNoteForm")
+    row = _function(notes, "focusNoteRow")
+    assert "active !== document.body" in row and "row.focus(" in row
+    assert "if (!many) focusNoteRow(noteIds[0]);" in _read("categories-panel.js")
+    sheet = _function(_read("phone-shell.js"), "openSheet")
+    assert "'.sheet-row[aria-current=\"true\"]'" in sheet
+    assert "ArrowDown: 1, ArrowUp: -1" in sheet

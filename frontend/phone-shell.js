@@ -1349,6 +1349,23 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   //: the Escape that is meant to close this. The same shape `confirmDialog`
   //: uses, for the same reason.
   const onKey = (event) => {
+    //: **A list of rows walks by arrow** (WCAG 2.1.1, INBOX 433): a sheet of
+    //: choices (Move to category, Tags, a menu as a sheet) is a list, and
+    //: Tab through it one row at a time was the only way down. Up, Down,
+    //: Home and End move between its rows while the focus is on one.
+    const rowKeys = { ArrowDown: 1, ArrowUp: -1, Home: "first", End: "last" };
+    if (event.key in rowKeys && event.target?.closest?.(".sheet-row") && card.contains(event.target)) {
+      const rows = [...card.querySelectorAll(".sheet-row")].filter((r) => !r.disabled && r.offsetParent !== null);
+      const at = rows.indexOf(event.target.closest(".sheet-row"));
+      const step = rowKeys[event.key];
+      const next = step === "first" ? 0 : step === "last" ? rows.length - 1 : Math.min(Math.max(at + step, 0), rows.length - 1);
+      if (rows[next]) {
+        event.preventDefault();
+        event.stopPropagation();
+        rows[next].focus();
+      }
+      return;
+    }
     if (event.key !== "Escape") return;
     //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
     //: sheet over the note page, INBOX 392), and every sheet's listener is
@@ -1366,7 +1383,18 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
-  (card.querySelector("button, [href], input, select, textarea") || card).focus?.();
+  //: The focus starts on the choice that is already made (`aria-current`),
+  //: else the first row, else the first control: it started on the X, so
+  //: Enter on a freshly opened chooser closed it (INBOX 433, keyboard walk).
+  //: A sheet with a field (a name to type) still starts in the field.
+  const field = card.querySelector("input:not([type=hidden]), select, textarea");
+  const first =
+    field ||
+    card.querySelector('.sheet-row[aria-current="true"]') ||
+    card.querySelector(".sheet-row") ||
+    card.querySelector("button, [href]") ||
+    card;
+  first.focus?.();
   return close;
 }
 

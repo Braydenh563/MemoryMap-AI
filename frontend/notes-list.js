@@ -442,10 +442,32 @@ async function noteFormMayClose() {
 }
 
 function closeNoteForm() {
+  //: **The focus goes back to the note** (WCAG 2.4.3, INBOX 433): the form
+  //: held it, the redraw removed the form, and the keyboard was left on
+  //: <body>, at the top of the page, after every Escape, Cancel or Save.
+  const back = editingId;
+  const held = document.activeElement;
+  const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
   editingId = null;
   noteFormDirty = false;
   noteFormDraft = null;
   renderEntries();
+  if (back != null && wasInside) focusNoteRow(back);
+}
+
+//: Put the keyboard back on a note's row once the list has redrawn, unless
+//: the focus already went somewhere real (WCAG 2.4.3): every redraw replaces
+//: the rows, so whatever held the focus inside one is gone.
+function focusNoteRow(id) {
+  requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    const row = document.querySelector(`#entry-list > li[data-id="${id}"]`);
+    if (!row) return;
+    for (const other of document.querySelectorAll("#entry-list > li[tabindex='0']")) other.tabIndex = -1;
+    row.tabIndex = 0;
+    row.focus({ preventScroll: true });
+  });
 }
 
 //: Every "edit this note" goes through here, so a form with changes is
@@ -457,7 +479,11 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
     noteFormDraft = null;
   }
   editingId = id;
+  //: The caret goes into the form (WCAG 2.4.3, INBOX 433): F2, Edit and the
+  //: menu opened it with the focus left on a row that the redraw replaced,
+  //: so the keyboard landed on <body>.
   if (focusTags) focusTagsAfterRender = id;
+  else focusBodyAfterRender = id;
   renderEntries();
   requestAnimationFrame(() => scrollEditingEntryIntoView(id));
   return true;
@@ -520,6 +546,14 @@ function renderEditForm(li, entry) {
     focusTagsAfterRender = null;
     // The form is not in the document yet; focus once it is.
     requestAnimationFrame(() => tagsInput.focus());
+  }
+  if (focusBodyAfterRender === entry.id) {
+    focusBodyAfterRender = null;
+    requestAnimationFrame(() => {
+      const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(textarea) : null;
+      if (surface) surface.focus();
+      else textarea.focus();
+    });
   }
 
   const categorySelect = document.createElement("select");

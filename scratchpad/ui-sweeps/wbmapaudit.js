@@ -143,6 +143,46 @@ async function timedKey(page, key, until) {
   await page.waitForTimeout(800);
   const o1 = await orderOf();
   ok("Ctrl+Shift+ArrowUp moves a topic up among its siblings", o1 < o0, `${o0} -> ${o1}`);
+  const outlineOrder = () => page.evaluate(async () => {
+    const tree = await apiJson(`/whiteboard/boards/${window.currentBoardId}/tree`);
+    return tree.roots[0].children.map((n) => n.text);
+  });
+  ok("the tree endpoint reads the new order", (await outlineOrder())[0] === second.selText, (await outlineOrder()).slice(0, 3).join(", "));
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(1200);
+  ok("one Ctrl+Z puts the order back", (await orderOf()) === o0, `${await orderOf()}`);
+  // Enter on a middle topic adds right after it; Shift+Enter right before.
+  const sibs = await page.evaluate((id) => {
+    const me = wbState.objects.find((o) => o.id === id);
+    return wbMapIndex().childrenOf.get(me.parent_id).map((o) => o.id);
+  }, second.sel);
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.isContentEditable, null, { timeout: 4000 }).catch(() => {});
+  await page.keyboard.type("Inserted after");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(600);
+  const afterIns = await page.evaluate((pid) => wbMapIndex().childrenOf.get(pid).map((o) => o.data.content), await page.evaluate((id) => wbState.objects.find((o) => o.id === id).parent_id, second.sel));
+  const at = sibs.indexOf(second.sel);
+  ok("Enter adds the sibling right after the topic", afterIns[at + 1] === "Inserted after", afterIns.slice(0, 4).join(", "));
+  await page.keyboard.press("Shift+Enter");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.isContentEditable, null, { timeout: 4000 }).catch(() => {});
+  await page.keyboard.type("Inserted before");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(600);
+  const afterIns2 = await page.evaluate((pid) => wbMapIndex().childrenOf.get(pid).map((o) => o.data.content), await page.evaluate((id) => wbState.objects.find((o) => o.id === id).parent_id, second.sel));
+  ok("Shift+Enter adds the sibling right before it", afterIns2.indexOf("Inserted before") === afterIns2.indexOf("Inserted after") - 1, afterIns2.slice(0, 5).join(", "));
+  const overlaps2 = await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll("#wb-html-layer .wb-map-node")].map((e) => e.getBoundingClientRect());
+    let n = 0;
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) n += 1;
+      }
+    return n;
+  });
+  ok("no overlaps after inserting in the middle", overlaps2 === 0, `${overlaps2}`);
+  await page.evaluate((id) => selectWbItem("object", id), second.sel);
   await page.keyboard.press("F2");
   await page.waitForTimeout(300);
   ok("F2 edits the topic", (await state(page)).editing);
@@ -157,13 +197,30 @@ async function timedKey(page, key, until) {
   await page.waitForTimeout(1200);
   const n2 = (await state(page)).n;
   ok("Ctrl+Z takes the duplicate back", n2 === n0, `${n1} -> ${n2}`);
+  const selAfterUndo = (await state(page)).sel;
+  // Informational: undoing a create leaves nothing selected (the item is gone).
+  console.log(`INFO selection after undoing a duplicate: ${selAfterUndo}`);
+  await page.evaluate((id) => selectWbItem("object", id), second.sel);
   await page.keyboard.press("Delete");
   await page.waitForTimeout(1000);
   const n3 = (await state(page)).n;
-  ok("Delete removes a topic", n3 === n0 - 1, `${n0} -> ${n3}`);
+  // Delete takes the branch with it (`wbMapDeleteSubtree`, with an undo
+  // rather than a confirm); "Remove topic" in the ring keeps the branch.
+  ok("Delete removes the topic and its branch", n3 === n0 - 1 - kidsBefore, `${n0} -> ${n3}`);
   await page.keyboard.press("Control+z");
+  await page.waitForTimeout(3500);
+  const n4 = (await state(page)).n;
+  ok("Ctrl+Z restores it", n4 === n0, `${n3} -> ${n4}; undo stack ${await page.evaluate(() => wbUndoStack.map((e) => e.action).join(","))}`);
+  const shape = await page.evaluate((text) => {
+    const top = wbState.objects.find((o) => o.data && o.data.content === text);
+    return top ? { kids: wbState.objects.filter((o) => o.parent_id === top.id).length, parent: top.parent_id } : null;
+  }, second.selText);
+  ok("the restored branch comes back with its children under it", shape && shape.kids === kidsBefore && shape.parent !== null, JSON.stringify(shape));
+  await page.keyboard.press("Control+Shift+z");
   await page.waitForTimeout(1500);
-  ok("Ctrl+Z restores it", (await state(page)).n === n0);
+  ok("Ctrl+Shift+Z deletes it again", (await state(page)).n === n3, String((await state(page)).n));
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(3500);
   // Board-only letters on a map.
   for (const k of ["r", "p", "t", "e", "n"]) {
     await page.keyboard.press(k);

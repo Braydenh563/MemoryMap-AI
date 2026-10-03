@@ -28,7 +28,8 @@ WIRING = (JS / "settings-wiring.js").read_text(encoding="utf-8")
 def _function_body(src: str, name: str) -> str:
     start = src.index(f"function {name}(")
     depth = 0
-    for i in range(src.index("{", start), len(src)):
+    # The body's brace, not a destructured parameter's (`{ above = false } = {}`).
+    for i in range(src.index(") {", start) + 2, len(src)):
         if src[i] == "{":
             depth += 1
         elif src[i] == "}":
@@ -67,3 +68,37 @@ def test_escape_leaves_a_text_box_selected_rather_than_typing_on():
     esc = handler[handler.index('event.key === "Escape"') :]
     assert esc.index("this.blur()") < esc.index("return;")
     assert 'selectWbItem("object", d.id)' in esc
+
+
+MAP = (JS / "whiteboard-map.js").read_text(encoding="utf-8")
+
+
+def test_siblings_sort_by_their_order_key_and_colours_by_creation():
+    index = _function_body(MAP, "wbMapIndex")
+    assert "list.sort(wbMapBySiblingOrder)" in index and "roots.sort(wbMapBySiblingOrder)" in index
+    key = _function_body(MAP, "wbMapOrderKey")
+    assert "data?.order" in key and "obj.id" in key
+    # A branch keeps its colour when it moves: the palette walks by id.
+    assert "sort((a, b) => a.id - b.id)" in _function_body(MAP, "wbMapColors")
+
+
+def test_ctrl_shift_arrows_move_a_topic_and_enter_inserts_in_place():
+    assert "wbMapMoveAmongSiblings(mapNode.id" in WB
+    assert "wbMapAddSibling(mapNode.id, { above: e.shiftKey })" in WB
+    move = _function_body(MAP, "wbMapMoveAmongSiblings")
+    assert "wbPushUndo" in move and "wbMapTidyBranch" in move
+    assert "wbMapKeyBetween" in _function_body(MAP, "wbMapAddSibling")
+
+
+def test_deleting_a_map_branch_is_on_the_undo_stack():
+    delete = _function_body(MAP, "wbMapDeleteSubtree")
+    assert 'action: "subtree"' in delete and "wbPushUndo(entry)" in delete
+    history = _function_body(WB, "wbApplyHistoryEntry")
+    assert 'entry.action === "subtree"' in history and 'entry.action === "unsubtree"' in history
+    # The restore writes the whole row back, not only the text and colour.
+    assert 'method: "PUT"' in _function_body(MAP, "wbMapRestoreRows")
+
+
+def test_the_undo_stack_is_a_hundred_deep():
+    depth = int(re.search(r"const WB_UNDO_MAX = (\d+);", WB).group(1))
+    assert depth >= 100

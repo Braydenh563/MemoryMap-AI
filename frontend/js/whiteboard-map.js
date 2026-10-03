@@ -1125,12 +1125,84 @@ function wbMapIndex() {
       childrenOf.get(parent.id).push(obj);
     }
   }
-  // Creation order throughout, so a sibling added with Enter lands after the
-  // one it was added from rather than wherever the object array happens to
-  // sit: and so two renders of an unchanged map are identical.
-  for (const list of childrenOf.values()) list.sort((a, b) => a.id - b.id);
-  roots.sort((a, b) => a.id - b.id);
+  // Sibling order throughout (`wbMapBySiblingOrder`), never the object
+  // array's, so two renders of an unchanged map are identical.
+  for (const list of childrenOf.values()) list.sort(wbMapBySiblingOrder);
+  roots.sort(wbMapBySiblingOrder);
   return { nodes, byId, childrenOf, roots };
+}
+
+//: **A topic's place among its siblings** (INBOX 445; MINDMAP_PLAN §12.0
+//: names Ctrl+Shift+arrows for it). Siblings were sorted by id, which made
+//: creation order the only order a branch could ever have: Enter on a middle
+//: topic put the new one at the end, and nothing could move a topic up. The
+//: key is `data.order` when a topic has been placed and its own id when it
+//: has not, which is the order every map made before this already had, and
+//: the server sorts by the same key (`_sibling_key` in routes_whiteboard.py),
+//: so the tree, the exports and the agent's outline agree with the canvas.
+function wbMapOrderKey(obj) {
+  const order = obj?.data?.order;
+  return typeof order === "number" && Number.isFinite(order) ? order : obj.id;
+}
+
+function wbMapBySiblingOrder(a, b) {
+  return wbMapOrderKey(a) - wbMapOrderKey(b) || a.id - b.id;
+}
+
+//: The siblings a topic sits among: its parent's children, or the roots.
+function wbMapSiblingsOf(index, node) {
+  return node.parent_id != null && index.byId.has(node.parent_id)
+    ? index.childrenOf.get(node.parent_id) || []
+    : index.roots;
+}
+
+//: A key between two neighbours' keys, for a topic placed between them;
+//: either side may be missing (the first or the last place).
+function wbMapKeyBetween(before, after) {
+  if (before && after) return (wbMapOrderKey(before) + wbMapOrderKey(after)) / 2;
+  if (before) return wbMapOrderKey(before) + 1;
+  if (after) return wbMapOrderKey(after) - 1;
+  return null;
+}
+
+//: Ctrl+Shift+Up/Down (and Left/Right, for the layouts whose siblings run
+//: across): swap a topic with the sibling before or after it. **One undo
+//: step for the whole visible change**: the two keys and every position the
+//: tidy then moved, compared against a snapshot, because a tidy pushes no
+//: undo entry of its own and taking back only the keys would leave two
+//: branches drawn in each other's places.
+async function wbMapMoveAmongSiblings(id, dir) {
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!node) return false;
+  const siblings = wbMapSiblingsOf(index, node);
+  const at = siblings.findIndex((s) => s.id === id);
+  const other = siblings[at + dir];
+  if (!other) {
+    toast(dir < 0 ? "This topic is already first among its siblings." : "This topic is already last among its siblings.");
+    return false;
+  }
+  const before = new Map(index.nodes.map((o) => [o.id, WB_KIND_INFO.object.payload(o)]));
+  const mine = wbMapOrderKey(node);
+  const theirs = wbMapOrderKey(other);
+  node.data = { ...node.data, order: theirs };
+  other.data = { ...other.data, order: mine };
+  await Promise.all([wbSaveObject(node), wbSaveObject(other)]);
+  if (wbMapLayout() === "free") {
+    toast("Moved in the outline. This map's layout is Free, so the canvas stays as it is.");
+  } else {
+    await wbMapTidyBranch(node.parent_id ?? null);
+  }
+  renderWhiteboardNow();
+  const entries = [];
+  for (const obj of wbMapIndex().nodes) {
+    const was = before.get(obj.id);
+    if (was && (was.x !== obj.x || was.y !== obj.y || was.data !== obj.data)) {
+      entries.push({ action: "move", kind: "object", id: obj.id, before: was });
+    }
+  }
+  if (entries.length) wbPushUndo(entries.length === 1 ? entries[0] : { action: "batch", entries });
+  return true;
 }
 
 //: Every node reachable from `id`, itself first, deepest last. Seen-guarded
@@ -1174,7 +1246,11 @@ function wbMapColors(index) {
     seen.add(node.id);
     const own = node.data?.color || inherited || null;
     colors.set(node.id, own);
-    for (const child of index.childrenOf.get(node.id) || []) {
+    //: Creation order, not sibling order: a branch keeps its colour when it
+    //: is moved up or down (INBOX 445), and the Library's thumbnail, which
+    //: hands out `MAP_BRANCH_PALETTE` by id on the server, keeps agreeing.
+    const kids = [...(index.childrenOf.get(node.id) || [])].sort((a, b) => a.id - b.id);
+    for (const child of kids) {
       // `inherited == null` is true for exactly one generation, the roots'
       // own children, which *are* the first-level topics. Starting the colours
       // at the root instead would give every branch on the map the same
@@ -1184,7 +1260,7 @@ function wbMapColors(index) {
       walk(child, next);
     }
   };
-  for (const root of index.roots) walk(root, null);
+  for (const root of [...index.roots].sort((a, b) => a.id - b.id)) walk(root, null);
   return colors;
 }
 
@@ -3241,9 +3317,17 @@ async function wbMapCreateNode({ parentId = null, kind = "topic", text = WB_MAP_
 //:, the same rule (and the same wording) the concept map's own branch gesture
 //: follows further up this file; a node that makes you go and find the way to
 //: name it is the difference between a mind-mapping tool and a diagram editor.
-async function wbMapAddChild(parentId) {
+async function wbMapAddChild(parentId, { order = null } = {}) {
   const created = await wbMapCreateNode({ parentId });
   if (!created) return null;
+  //: A place among the siblings, when the caller chose one (Enter puts the
+  //: new topic right after the one it was pressed on, Shift+Enter right
+  //: before). One more write, and only then: a plain Tab adds at the end,
+  //: which is where the id already sorts it.
+  if (order != null) {
+    created.data = { ...created.data, order };
+    await wbSaveObject(created);
+  }
   // Expanding first: adding a child to a collapsed node would otherwise put
   // the new node straight into the hidden set, so the gesture would appear to
   // do nothing at all.
@@ -3327,7 +3411,11 @@ async function wbMapAddReference(parentId) {
 //: Enter: a sibling, which is a child of *this* node's parent. A root has no
 //: parent to be a sibling under, so Enter there adds another root, which is
 //: the only reading of "a sibling of the root" that means anything.
-async function wbMapAddSibling(id) {
+//: **Right after the topic it was pressed on** (Shift+Enter: right before),
+//: which is what XMind, MindNode and Coggle do and what this comment always
+//: said Enter did; with siblings sorted by id it landed at the end of the
+//: branch instead, measured on a middle topic (INBOX 445).
+async function wbMapAddSibling(id, { above = false } = {}) {
   const index = wbMapIndex();
   const node = index.byId.get(id);
   if (!node) return null;
@@ -3338,7 +3426,14 @@ async function wbMapAddSibling(id) {
   const parentId = node.parent_id != null && index.byId.has(node.parent_id)
     ? node.parent_id
     : null;
-  return wbMapAddChild(parentId);
+  const siblings = wbMapSiblingsOf(index, node);
+  const at = siblings.findIndex((s) => s.id === id);
+  const neighbour = siblings[above ? at - 1 : at + 1];
+  // The last place needs no key: a new id already sorts there.
+  const order = !above && !neighbour
+    ? null
+    : above ? wbMapKeyBetween(neighbour, node) : wbMapKeyBetween(node, neighbour);
+  return wbMapAddChild(parentId, { order });
 }
 
 //: Shift+Tab: outdent: this node becomes a sibling of its own parent.
@@ -3523,50 +3618,95 @@ async function wbMapDeleteSubtree(id) {
   wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
   clearWbSelection();
   wbScheduleRender();
+  //: **On the board's own undo stack, so Ctrl+Z brings it back** (INBOX 445).
+  //: The only way back used to be the toast's button: measured, Delete then
+  //: Ctrl+Z restored nothing and took back whatever had been done *before*
+  //: the delete instead. The toast's Undo is now the same entry, taken off
+  //: the stack wherever it sits, so the two can never restore it twice.
+  const entry = { action: "subtree", kind: "object", rows: deleted };
+  wbPushUndo(entry);
   const count = deleted.length;
   toastAction(
     `Deleted ${count} node${count === 1 ? "" : "s"}.`,
     "Undo",
     async () => {
-      const remap = new Map();
-      for (const row of deleted) {
-        // **A parent that was not itself deleted keeps its own id.** The first
-        // version fell back to `null` whenever `remap` had no entry, which is
-        // true for exactly one row, the top of the deleted subtree, whose
-        // parent is still sitting on the board. So the branch came back as a
-        // *root* instead of reattaching where it was taken from: five nodes
-        // restored, four parent links gone down to three, measured. Only a
-        // parent inside `deleted` needs translating, because only those have
-        // new ids.
-        const parent = row.parent_id == null
-          ? null
-          : remap.get(row.parent_id) ?? row.parent_id;
-        const body = {
-          kind: row.kind,
-          parent_id: parent,
-          text: row.data?.content || "",
-          x: row.x,
-          y: row.y,
-        };
-        if (row.data?.ref_id != null) body.ref_id = row.data.ref_id;
-        if (row.data?.color) body.color = row.data.color;
-        try {
-          const recreated = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {
-            method: "POST",
-            body: JSON.stringify(body),
-          });
-          remap.set(row.id, recreated.id);
-          wbState.objects.push(recreated);
-        } catch (err) {
-          toast(err.message || "Couldn't restore that node.", true);
-          break;
-        }
+      const at = wbUndoStack.lastIndexOf(entry);
+      if (at === -1) return; // already taken back with Ctrl+Z
+      if (at === wbUndoStack.length - 1) {
+        await wbUndo();
+        return;
       }
+      wbUndoStack.splice(at, 1);
+      wbUpdateUndoRedoButtons();
+      await wbMapRestoreRows(deleted);
       await wbRefreshMapState();
       renderWhiteboardNow();
     }
   );
 }
+
+//: Put a deleted subtree back, parents first, and return the new ids of its
+//: top rows (the ones whose parent was not deleted with them).
+//:
+//: **Two writes per topic, so it comes back as it was.** `POST .../nodes`
+//: is the only route that sets `parent_id` (it runs the cycle check) and it
+//: takes the text and the colour alone, so a restored topic used to come back
+//: plain: its shape, fill, icon, picture, fold, size and place among its
+//: siblings gone. The `PUT` after it writes the rest of the row as it was.
+async function wbMapRestoreRows(rows) {
+  const boardId = window.currentBoardId;
+  const remap = new Map();
+  const tops = [];
+  for (const row of rows) {
+    // **A parent that was not itself deleted keeps its own id.** The first
+    // version fell back to `null` whenever `remap` had no entry, which is
+    // true for exactly one row, the top of the deleted subtree, whose
+    // parent is still sitting on the board. So the branch came back as a
+    // *root* instead of reattaching where it was taken from. Only a parent
+    // inside `rows` needs translating, because only those have new ids.
+    const parent = row.parent_id == null
+      ? null
+      : remap.get(row.parent_id) ?? row.parent_id;
+    const body = {
+      kind: row.kind,
+      parent_id: parent,
+      text: row.data?.content || "",
+      x: row.x,
+      y: row.y,
+    };
+    if (row.data?.ref_id != null) body.ref_id = row.data.ref_id;
+    if (row.data?.color) body.color = row.data.color;
+    try {
+      const made = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const full = await apiJson(`/whiteboard/objects/${made.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          kind: made.kind,
+          board_id: made.board_id,
+          data: { ...made.data, ...(row.data || {}) },
+          x: row.x,
+          y: row.y,
+          z: row.z ?? made.z,
+          width: row.width ?? made.width,
+          height: row.height ?? made.height,
+          rotation: row.rotation ?? null,
+          group_id: row.group_id ?? null,
+        }),
+      });
+      remap.set(row.id, made.id);
+      if (!remap.has(row.parent_id) || row.parent_id == null) tops.push(made.id);
+      wbState.objects.push({ ...made, ...full, parent_id: made.parent_id });
+    } catch (err) {
+      toast(err.message || "Couldn't restore that node.", true);
+      break;
+    }
+  }
+  return tops;
+}
+
 
 //: The chevron: fold a branch away, or bring it back. `collapsed` is per-node
 //: view state in the object's own JSON blob (§9.1), so it survives a reload

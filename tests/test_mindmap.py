@@ -1788,3 +1788,34 @@ def test_a_map_with_no_cross_links_exports_exactly_as_it_did(client):
     for fmt, marker in (("freemind", "arrowlink"), ("opml", "_links")):
         text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
         assert marker not in text
+
+
+def test_a_topics_order_among_its_siblings_is_stored_and_read_back(client):
+    """Sibling order (INBOX 445; MINDMAP_PLAN §12.0's Ctrl+Shift+arrows): a
+    topic moved up among its siblings carries `data.order`, and the tree and
+    the exports read the siblings in that order, so it round-trips. Without
+    it the order was creation order and nothing could change it."""
+    board = _map(client, name="Order map")
+    root = _node(client, board["id"], text="Trunk")
+    first = _node(client, board["id"], parent_id=root["id"], text="First")
+    _node(client, board["id"], parent_id=root["id"], text="Second")
+    third = _node(client, board["id"], parent_id=root["id"], text="Third")
+
+    def kids(board_id):
+        tree = client.get(f"/whiteboard/boards/{board_id}/tree").json()
+        return [n["text"] for n in tree["roots"][0]["children"]]
+
+    assert kids(board["id"]) == ["First", "Second", "Third"]
+    # Third to the top: its key goes below First's, which is First's id.
+    moved = {**third, "data": {**third["data"], "order": first["id"] - 0.5}}
+    put = client.put(f"/whiteboard/objects/{third['id']}", json=moved)
+    assert put.status_code == 200, put.text
+    assert put.json()["data"]["order"] == first["id"] - 0.5
+    assert kids(board["id"]) == ["Third", "First", "Second"]
+
+    outline = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert outline.index("Third") < outline.index("First") < outline.index("Second")
+    opml = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    again = client.post("/whiteboard/boards/import", json={"format": "opml", "content": opml})
+    assert again.status_code == 201, again.text
+    assert kids(again.json()["id"]) == ["Third", "First", "Second"]

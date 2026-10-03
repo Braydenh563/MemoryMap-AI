@@ -310,7 +310,12 @@ let wbUndoStack = [];
 // since redoing something that predates a new action would resurrect a
 // version of the board the newer action never saw.
 let wbRedoStack = [];
-const WB_UNDO_MAX = 20;
+//: **A hundred steps, not twenty** (INBOX 445). Building a sixty-topic map
+//: by keys pushes two entries a topic (the create and the rename), so twenty
+//: reached back ten topics; Excalidraw keeps about a hundred and tldraw more.
+//: An entry is a payload of one row (a deleted map branch, its rows), so the
+//: whole stack stays well under a megabyte at a hundred.
+const WB_UNDO_MAX = 100;
 // Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
 // same still-on-screen item before its first DELETE round-trip resolves (a
 // slow request, or the pointer wobbling back over it), without this a
@@ -5718,6 +5723,29 @@ async function wbApplyHistoryEntry(from, to) {
     to.push({ action: "reparent", kind: entry.kind, id: entry.id, parentId: current });
     return true;
   }
+  //: A map branch deleted with Delete (`wbMapDeleteSubtree`): the rows the
+  //: server handed back, restored parents first with their parent links
+  //: remapped, which a "delete" entry's flat POST cannot do. Its reverse
+  //: deletes the restored tops again and keeps what came back for the redo.
+  if (entry.action === "subtree") {
+    const tops = await wbMapRestoreRows(entry.rows);
+    await wbRefreshMapState();
+    to.push({ action: "unsubtree", kind: "object", ids: tops });
+    return true;
+  }
+  if (entry.action === "unsubtree") {
+    const rows = [];
+    for (const id of entry.ids) {
+      if (!(wbState.objects || []).some((o) => o.id === id)) continue;
+      const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
+      rows.push(...(Array.isArray(res.deleted) ? res.deleted : []));
+    }
+    const gone = new Set(rows.map((row) => row.id));
+    wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+    if (wbSelectedItem && gone.has(wbSelectedItem.id)) clearWbSelection();
+    to.push({ action: "subtree", kind: "object", rows });
+    return true;
+  }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
@@ -8033,7 +8061,7 @@ async function initWhiteboard() {
   // reload instead of resetting to "no fill, solid" every session.
   const fillColorInput = document.getElementById("wb-fill-color");
   const fillOpacityInput = document.getElementById("wb-fill-opacity");
-  const fillNoneInput = document.getElementById("wb-fill-none");
+  const fillOnInput = document.getElementById("wb-fill-on");
   const strokeStyleSelect = document.getElementById("wb-stroke-style");
   const strokeNoneInput = document.getElementById("wb-stroke-none");
 
@@ -8057,11 +8085,16 @@ async function initWhiteboard() {
       localStorage.setItem("wb-fill-opacity", e.target.value);
     });
   }
-  if (fillNoneInput) {
-    fillNoneInput.checked = window.currentFillNone;
-    fillNoneInput.addEventListener("change", (e) => {
-      window.currentFillNone = e.target.checked;
-      localStorage.setItem("wb-fill-none", e.target.checked ? "on" : "off");
+  //: **The switch says Fill, so on means filled** (INBOX 445). It was the
+  //: "no fill" checkbox drawn as a switch labelled Fill: on by default, which
+  //: read as "shapes are filled" and drew them hollow, and turning it off
+  //: filled them. The stored preference keeps its old meaning (`wb-fill-none`,
+  //: "on" for hollow), so nobody's saved choice flips.
+  if (fillOnInput) {
+    fillOnInput.checked = !window.currentFillNone;
+    fillOnInput.addEventListener("change", (e) => {
+      window.currentFillNone = !e.target.checked;
+      localStorage.setItem("wb-fill-none", e.target.checked ? "off" : "on");
     });
   }
   if (strokeStyleSelect) {
@@ -9127,9 +9160,20 @@ async function initWhiteboard() {
         else wbMapAddChild(mapNode.id);
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        wbMapAddSibling(mapNode.id);
+        wbMapAddSibling(mapNode.id, { above: e.shiftKey });
+        return;
+      }
+      //: Ctrl+Shift+arrows move the topic among its siblings (§12.0's keys;
+      //: missing until INBOX 445). Up and Left are earlier, Down and Right
+      //: later, so the keys read the same in a tree laid out across.
+      if (
+        (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey
+        && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+      ) {
+        e.preventDefault();
+        wbMapMoveAmongSiblings(mapNode.id, e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1);
         return;
       }
       if (e.key === "F2") {

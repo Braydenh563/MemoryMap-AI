@@ -34,7 +34,7 @@ def test_a_split_is_sent_once_and_survives_a_note_without_text() -> None:
     # Two presses of Move to new category asked the server to split notes
     # already moved; a note with no `content` (an image) threw while the
     # sheet was being built, so it never opened.
-    assert "if (apply.disabled) return;" in CATEGORIES and "apply.disabled = false;" in CATEGORIES
+    assert "if (apply.disabled) return;" in CATEGORIES and "setBusy(apply, false);" in CATEGORIES
     assert 'String(entry.content || "").slice(0, 240)' in CATEGORIES
     assert "entry.content.slice(" not in CATEGORIES
 

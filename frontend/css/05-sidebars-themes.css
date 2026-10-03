@@ -841,6 +841,25 @@ button.map-chip:focus-visible {
    for "more similar design styles elsewhere in the app" of exactly this
    menu. Only the anatomy lives here; where a picker sits and how wide it is
    stay with that picker (`.editor-menu-list` above, `#palette-list`). */
+/* The tag list under a tags field (tag-suggest.js, INBOX 435): a child of
+   <body> while open, placed in window coordinates under (or over) the field
+   at the field's own width; the escaped menus' tier, so it shows over the
+   edit form inside a sheet or a dialog as well. */
+.tag-suggest {
+  position: fixed;
+  z-index: 2550;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.tag-suggest > .rich-picker-list {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
 .rich-picker-list {
   margin: 0;
   padding: var(--space-1);

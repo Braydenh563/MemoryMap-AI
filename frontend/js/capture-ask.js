@@ -2874,3 +2874,14 @@ async function loadAskHistoryBadge() {
   badge.textContent = stats.total > 99 ? "99+" : String(stats.total);
   badge.classList.remove("hidden");
 }
+
+//: Every tags field gets the tag list under it (tag-suggest.js, lazy: the
+//: first focus loads it). It replaced a `<datalist>`, whose arrow and list
+//: Chromium drew at its own size and alignment (INBOX 435).
+//: Typing or a press after Escape opens it again in the field that kept the
+//: focus.
+for (const type of ["focusin", "input", "click"]) {
+  document.addEventListener(type, (event) => {
+    if (event.target.matches?.("#entry-tags, .note-edit-tags")) openTagSuggest(event.target);
+  });
+}

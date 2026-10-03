@@ -535,7 +535,7 @@ function renderEditForm(li, entry) {
   tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
   tagsInput.className = "note-edit-tags";
   tagsInput.setAttribute("aria-label", "Tags, comma separated");
-  tagsInput.setAttribute("list", "tag-suggestions");
+  tagsInput.autocomplete = "off";
   tagsInput.addEventListener("input", () => { noteFormDirty = true; });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
@@ -3322,7 +3322,6 @@ async function _loadEntries() {
     renderEntries();
     ensureMapChipsFor(results, generation);
     fillCategoryOptions($("entry-category"), null);
-    refreshTagSuggestions();
     return;
   }
 
@@ -3376,7 +3375,6 @@ async function _loadEntries() {
       // light up a moment later.
       loadCategories();
       fillCategoryOptions($("entry-category"), null);
-      refreshTagSuggestions();
     }
     first = false;
     if (page.length === 0) break; // safety: never loop forever on a stale total

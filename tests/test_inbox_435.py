@@ -62,3 +62,18 @@ def test_an_unfiled_note_offers_one_tap_categories():
 def test_the_needle_caveat_says_it_is_offline_and_nothing_is_asked():
     extras = (ROOT / "src" / "memorymap" / "core" / "extras.py").read_text(encoding="utf-8")
     assert "Runs offline, inside the app." in extras and "Nothing for you to do." in extras
+
+
+def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="tag-suggestions"' not in html and 'list="tag-suggestions"' not in html
+    code = app_js_text()
+    assert 'tagSuggest: ["/js/tag-suggest.js"]' in code and 'tagSuggest: ["openTagSuggest"]' in code
+    assert 'event.target.matches?.("#entry-tags, .note-edit-tags")' in code
+    suggest = (ROOT / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
+    # Sized and placed to the field, a combobox, one open at a time.
+    assert "box.style.width = `${Math.min(field.width" in suggest
+    assert 'input.setAttribute("role", "combobox")' in suggest
+    assert "if (tagSuggestOpening === input) return;" in suggest
+    css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert ".tag-suggest {" in css

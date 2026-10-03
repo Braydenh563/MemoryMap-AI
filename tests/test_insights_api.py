@@ -339,6 +339,34 @@ def test_dashboard_layout_roundtrip(client):
     assert saved["sizes"] == {}
 
 
+def test_the_activity_counts_do_not_read_every_note_body(client):
+    """Performance pass, 2026-10-03 (INBOX 441, item 6). `/insights/stats` and
+    `/insights/heatmap` run at every unlock and only need a note's day, but
+    loaded each recent note as a whole object, its text included: 5,000 recent
+    notes cost 208 ms and 204 ms of object building apiece. A statement that
+    reads `entries.content` is the regression."""
+    from sqlalchemy import event
+
+    from memorymap.core import deps
+
+    for i in range(3):
+        client.post("/entries", json={"content": f"a note about gardens {i}"})
+    seen: list[str] = []
+
+    def _record(_conn, _cursor, statement, *_args, **_kwargs):
+        seen.append(statement)
+
+    engine = deps.get_db().engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        assert client.get("/insights/heatmap").json()["total"] == 3
+        assert sum(client.get("/insights/stats").json()["per_day"]) == 3
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+    reading_bodies = [s for s in seen if "entries.content" in s]
+    assert not reading_bodies, reading_bodies
+
+
 def test_dashboard_layout_wide_widgets_persist(client):
     layout = {"order": ["stats"], "hidden": [], "wide": ["digest", "art"]}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()

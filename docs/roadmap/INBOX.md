@@ -171,7 +171,9 @@ with its owner named in the entry.
      Sonnet agents. **Done so far**: (1) hover and Enter; (2) one `.spinner`
      ring and `setBusy` (merged bca3962); (3) time words with their distance
      from today on every AI path; (5) in part: kept suggestions and the
-     visible confidence.
+     visible confidence; (4) category colours (merged 1ee38de); (6) measured
+     optimisation pass (reference counts 242 to 6 statements, six indexes;
+     WORLD_CLASS_PLAN H7).
 
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran

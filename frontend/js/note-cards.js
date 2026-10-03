@@ -1560,11 +1560,8 @@ function entryItem(entry, options = {}) {
     if (options.actions) tagChip.title = `Show every note tagged #${tag}`;
     meta.appendChild(tagChip);
   }
-  //: **The tags filing suggested, kept on the note** (INBOX 440, the owner:
-  //: "pre suggested tags that are made and kept when filing for the user to
-  //: easily choose or discard"). A press takes one, its × discards it for
-  //: good; from the model when it filed the note, else from the notebook's
-  //: own tags (`lexical_filing.suggest_tags`).
+  //: Tags filing suggested, kept on the note (INBOX 440): a press takes one,
+  //: its × discards it for good.
   const suggestions = options.actions && !entry.is_board ? entry.suggested_tags || [] : [];
   for (const tag of suggestions) {
     const take = chip(`ph:plus ${tag}`, "tag suggested-tag", (event) => {
@@ -1660,9 +1657,7 @@ function entryItem(entry, options = {}) {
   const categoryChip = meta.querySelector(".chip.category");
   if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
     categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
-    //: And said on the card, quietly, beside what it is about (INBOX 440:
-    //: "a way to see the ai confidence score"): a tooltip is not a way to
-    //: see anything on touch, or at a glance.
+    //: Shown, not only a tooltip (INBOX 440).
     const byWords = entry.filing_state === "words";
     const who = byWords ? "your notebook's words" : "Atlas";
     if (byWords) categoryChip.title = `Filed from your notebook's words, ${entry.ai_confidence}% sure`;

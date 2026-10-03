@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links
@@ -1885,9 +1885,12 @@ def entry_reference_counts(
         select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted.is_(False))
     ).all()
     counts: dict[str, dict[str, int]] = {}
+    #: The whole page in one go (`_reference_rows_batch`): the per-note reader
+    #: this called was four statements a card, and sixty cards at every unlock.
+    page = _reference_rows_batch(session, list(entries))
     for entry in entries:
         by_kind: dict[str, int] = {}
-        for row in _reference_rows(session, entry):
+        for row in page[entry.id]:
             by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
         by_kind["total"] = sum(by_kind.values())
         counts[str(entry.id)] = by_kind
@@ -2165,9 +2168,9 @@ REFERENCE_SOURCES_MAX = 400
 REFERENCE_ROWS_MAX = 60
 
 
-def _board_reference_rows(session: Session, entry: Entry) -> list[dict]:
-    """The boards and maps a note is on, one row per board, boards and maps
-    told apart.
+def _board_reference_rows_batch(session: Session, entry_ids: list[int]) -> dict[int, list[dict]]:
+    """The boards and maps each of these notes is on, one row per board,
+    boards and maps told apart. Two statements for the whole page.
 
     Two tables hold "this note is on that board", and a reader that knows
     one of them is wrong half the time (INBOX 246's first gap). A whiteboard
@@ -2183,65 +2186,80 @@ def _board_reference_rows(session: Session, entry: Entry) -> list[dict]:
     schema was tightened can hold anything. Shared by the Referenced-by row,
     the Connections dialog and the card's counts, so the three cannot
     disagree about what a board reference is.
+
+    **A page at a time** (the performance pass, 2026-10-03). This was a pair
+    of statements per note, so sixty cards were a hundred and twenty trips,
+    each scanning `whiteboard_nodes` (no index on `entry_id`) and every
+    `note` object of every map. `IN (...)` over the page is the same two
+    scans once. Rows are read in id order, which is the order the per-note
+    reads happened to return them in, and which makes the order a fact
+    rather than the planner's choice.
     """
     from memorymap.entry.manager import plain_label
 
-    seen_boards: set[int] = set()
-    found: list[tuple[int, Entry]] = []
-    for board_id, board in session.execute(
-        select(WhiteboardNode.board_id, Entry)
+    wanted = set(entry_ids)
+    seen_boards: dict[int, set[int]] = {i: set() for i in wanted}
+    found: dict[int, list[tuple[int, Entry]]] = {i: [] for i in wanted}
+    if not wanted:
+        return {}
+    for entry_id, board_id, board in session.execute(
+        select(WhiteboardNode.entry_id, WhiteboardNode.board_id, Entry)
         .join(Entry, Entry.id == WhiteboardNode.board_id)
         .where(
-            WhiteboardNode.entry_id == entry.id,
+            WhiteboardNode.entry_id.in_(wanted),
             Entry.is_deleted.is_(False),
         )
-        .limit(REFERENCE_ROWS_MAX)
+        .order_by(WhiteboardNode.id)
     ).all():
-        if board_id is None or board_id in seen_boards:
+        if board_id is None or board_id in seen_boards[entry_id]:
             continue
-        seen_boards.add(board_id)
-        found.append((board_id, board))
+        seen_boards[entry_id].add(board_id)
+        found[entry_id].append((board_id, board))
     for board_id, board, raw in session.execute(
         select(WhiteboardObject.board_id, Entry, WhiteboardObject.data)
         .join(Entry, Entry.id == WhiteboardObject.board_id)
         .where(
             WhiteboardObject.kind == "note",
-            func.json_extract(WhiteboardObject.data, "$.ref_id") == entry.id,
+            func.json_extract(WhiteboardObject.data, "$.ref_id").in_(wanted),
             Entry.is_deleted.is_(False),
         )
-        .limit(REFERENCE_ROWS_MAX)
+        .order_by(WhiteboardObject.id)
     ).all():
-        if board_id is None or board_id in seen_boards:
-            continue
         try:
             ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
         except (ValueError, AttributeError):
             continue
-        if ref_id != entry.id:
+        if board_id is None or not isinstance(ref_id, int) or ref_id not in wanted:
             continue
-        seen_boards.add(board_id)
-        found.append((board_id, board))
+        if board_id in seen_boards[ref_id]:
+            continue
+        seen_boards[ref_id].add(board_id)
+        found[ref_id].append((board_id, board))
 
-    rows: list[dict] = []
-    for board_id, board in found:
-        #: `board_settings` says whether this is a whiteboard or a mind map,
-        #: and the owner asked for both by name, so the row says which.
-        #: Through `manager.board_type_of` rather than parsed here: this app
-        #: already reads that column in four places and CodeQL caught the
-        #: fifth arriving with a bare `except: pass`, which is fair. One
-        #: reader, one decision about what a malformed value means.
-        kind = manager.board_type_of(board)
-        rows.append({
-            "kind": kind,
-            "id": board_id,
-            "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
-            "how": "on it",
-        })
-    return rows[:REFERENCE_ROWS_MAX]
+    out: dict[int, list[dict]] = {}
+    for entry_id, boards in found.items():
+        rows: list[dict] = []
+        for board_id, board in boards:
+            #: `board_settings` says whether this is a whiteboard or a mind map,
+            #: and the owner asked for both by name, so the row says which.
+            #: Through `manager.board_type_of` rather than parsed here: this app
+            #: already reads that column in four places and CodeQL caught the
+            #: fifth arriving with a bare `except: pass`, which is fair. One
+            #: reader, one decision about what a malformed value means.
+            kind = manager.board_type_of(board)
+            rows.append({
+                "kind": kind,
+                "id": board_id,
+                "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
+                "how": "on it",
+            })
+        out[entry_id] = rows[:REFERENCE_ROWS_MAX]
+    return out
 
 
-def _reference_rows(session: Session, entry: Entry) -> list[dict]:
-    """Everything that points at this note: documents, notes, boards, maps.
+def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, list[dict]]:
+    """Everything that points at each of these notes: documents, notes,
+    boards, maps. Four statements for the whole page, whatever its size.
 
     INBOX 246, the owner's second sentence: "I want it to show in notes if
     they are attached to or referenced in/by a document, note, whiteboard, or
@@ -2258,64 +2276,105 @@ def _reference_rows(session: Session, entry: Entry) -> list[dict]:
     A note with no label to be named by (an image-only note, a note that
     starts with a heading marker and nothing else) still gets its board rows:
     a card on a board is a reference whether or not the note has a name.
+
+    **One scan for the page, not one per note** (the performance pass,
+    2026-10-03, INBOX 441). The text half used to be two LIKE scans per note,
+    each reading every note's and document's text: sixty cards at boot were
+    two hundred and forty statements and 172 ms on 500 notes, growing with
+    the notebook. Now each table is read once, with one `LIKE` flag column per
+    distinct label, so SQLite still decides what matches (same ASCII case
+    folding, same escaped wildcards, nothing re-implemented in Python) and
+    only rows that match some label come back. The per-label caps and the
+    order are the old ones: documents newest-updated first, notes newest
+    first, `REFERENCE_SOURCES_MAX` each, the note itself never its own source.
     """
     from memorymap.entry.manager import plain_label
 
-    rows: list[dict] = []
+    result = _board_reference_rows_batch(session, [entry.id for entry in entries])
+    label_of: dict[int, str] = {}
+    for entry in entries:
+        label = plain_label(entry.content, 60).strip()
+        if label:
+            label_of[entry.id] = label
+    distinct = sorted(set(label_of.values()))
 
-    #: **The boards first**, because they are exact and because a note that
-    #: is on a board is on it whatever it says.
-    rows.extend(_board_reference_rows(session, entry))
+    document_hits: dict[str, list[tuple[int, str, str]]] = {label: [] for label in distinct}
+    note_hits: dict[str, list[tuple[int, str]]] = {label: [] for label in distinct}
+    if distinct:
+        #: `like`, not `ilike`: on SQLite a plain LIKE already folds ASCII case
+        #: (the pragma that turns that off is never set here), and `ilike`
+        #: compiles to `lower(x) LIKE lower(?)`, which copies every row's text
+        #: once per label. Measured over 60 labels on 500 notes, same answers:
+        #: 74 ms per call with `ilike`, 35 ms with `like`
+        #: (`test_a_mention_matches_whatever_the_case...` pins the folding).
+        flags = [Document.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
+        for row in session.execute(
+            select(Document.id, Document.title, Document.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+            .where(Document.archived_at.is_(None), or_(*flags))
+            .order_by(Document.updated_at.desc(), Document.id.desc())
+        ):
+            for i, label in enumerate(distinct):
+                if row[3 + i] and len(document_hits[label]) < REFERENCE_SOURCES_MAX:
+                    document_hits[label].append((row[0], row[1] or "Untitled", row[2] or ""))
+        flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
+        for row in session.execute(
+            select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+            .where(
+                Entry.is_deleted.is_(False),
+                #: A private note is encrypted at rest, so its content could not
+                #: match the LIKE anyway; the filter is here so that stays true
+                #: by decision rather than by side effect. The same sentence
+                #: `routes_documents._backlinks` carries, for the same reason.
+                Entry.is_private.is_(False),
+                or_(*flags),
+            )
+            .order_by(Entry.id.desc())
+        ):
+            for i, label in enumerate(distinct):
+                #: One over the cap, because the note itself can be among its
+                #: own label's matches and is dropped per note below: the cap
+                #: is on sources other than the note, as it always was.
+                if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
+                    note_hits[label].append((row[0], row[1] or ""))
 
-    label = plain_label(entry.content, 60).strip()
-    if not label:
-        return rows[:REFERENCE_ROWS_MAX]
+    for entry in entries:
+        rows = list(result.get(entry.id, []))
+        label = label_of.get(entry.id)
+        if label is None:
+            result[entry.id] = rows[:REFERENCE_ROWS_MAX]
+            continue
+        wiki = f"[[{label}]]".casefold()
+        candidates: list[tuple[str, int, str, str]] = []
+        for document_id, title, content in document_hits[label]:
+            candidates.append(("document", document_id, title, content))
+        others = [(nid, content) for nid, content in note_hits[label] if nid != entry.id]
+        for note_id, content in others[:REFERENCE_SOURCES_MAX]:
+            candidates.append(("note", note_id, plain_label(content, 60) or "Untitled note", content))
+        for kind, source_id, source_label, content in candidates:
+            rows.append({
+                "kind": kind,
+                "id": source_id,
+                "label": source_label,
+                #: A link is a decision someone made; a mention is a coincidence
+                #: until they make it. Saying which is what stops this row being
+                #: a list of every note that happens to share a word.
+                "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+            })
+        #: Links before mentions, so the rows someone chose come first, and the
+        #: boards before both because they are exact.
+        rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
+        result[entry.id] = rows[:REFERENCE_ROWS_MAX]
+    return result
 
-    like = f"%{like_escape(label)}%"
-    wiki = f"[[{label}]]".casefold()
-    candidates: list[tuple[str, int, str, str]] = []
-    for document in session.scalars(
-        select(Document)
-        .where(
-            Document.archived_at.is_(None),
-            Document.content.ilike(like, escape=LIKE_ESCAPE),
-        )
-        .order_by(Document.updated_at.desc(), Document.id.desc())
-        .limit(REFERENCE_SOURCES_MAX)
-    ):
-        candidates.append(("document", document.id, document.title or "Untitled", document.content or ""))
-    for other in session.scalars(
-        select(Entry)
-        .where(
-            Entry.id != entry.id,
-            Entry.is_deleted.is_(False),
-            #: A private note is encrypted at rest, so its content could not
-            #: match the LIKE anyway; the filter is here so that stays true
-            #: by decision rather than by side effect. The same sentence
-            #: `routes_documents._backlinks` carries, for the same reason.
-            Entry.is_private.is_(False),
-            Entry.content.ilike(like, escape=LIKE_ESCAPE),
-        )
-        .order_by(Entry.id.desc())
-        .limit(REFERENCE_SOURCES_MAX)
-    ):
-        candidates.append(("note", other.id, plain_label(other.content, 60) or "Untitled note", other.content or ""))
 
-    for kind, source_id, source_label, content in candidates:
-        rows.append({
-            "kind": kind,
-            "id": source_id,
-            "label": source_label,
-            #: A link is a decision someone made; a mention is a coincidence
-            #: until they make it. Saying which is what stops this row being
-            #: a list of every note that happens to share a word.
-            "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
-        })
+def _reference_rows(session: Session, entry: Entry) -> list[dict]:
+    """Everything that points at this note: documents, notes, boards, maps.
 
-    #: Links before mentions, so the rows someone chose come first, and the
-    #: boards before both because they are exact.
-    rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
-    return rows[:REFERENCE_ROWS_MAX]
+    The page reader (`_reference_rows_batch`) asked about one note, so the
+    Referenced-by row, the Connections dialog and the card's chip are the
+    same code and cannot disagree.
+    """
+    return _reference_rows_batch(session, [entry])[entry.id]
 
 
 @router.get("/{entry_id}/references")

@@ -306,3 +306,100 @@ def test_connections_show_what_the_chip_counts(client):
     assert counts == {"document": 1, "note": 1, "total": 2}
     assert out["total"] == counts["total"]
 
+
+# --- the counts for a page cost a handful of statements, not four a card ----
+#
+# Performance pass, 2026-10-03 (INBOX 441, item 6). `GET /entries/reference-
+# counts` runs on every unlock for the first sixty cards, and it asked the
+# database four questions per card (two board lookups and two LIKE scans, one
+# over documents and one over notes): measured on a 500-note notebook, 242
+# statements and 172 ms for sixty ids. The cost that matters is the LIKE
+# scans, which read every note's text once per card, so it grows with the
+# notebook as well as the page. One scan answers the whole page.
+
+
+def _statement_count(client, path: str) -> int:
+    from sqlalchemy import event
+
+    from memorymap.core import deps
+
+    seen: list[str] = []
+
+    def _record(_conn, _cursor, statement, *_args, **_kwargs):
+        seen.append(statement)
+
+    engine = deps.get_db().engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        assert client.get(path).status_code == 200
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+    return len(seen)
+
+
+def test_the_counts_cost_the_same_statements_for_five_cards_and_forty(client):
+    notes = [_note(client, f"Distinct label number {i} about the house") for i in range(40)]
+    ids = [n["id"] for n in notes]
+    small = _statement_count(client, "/entries/reference-counts?ids=" + ",".join(map(str, ids[:5])))
+    large = _statement_count(client, "/entries/reference-counts?ids=" + ",".join(map(str, ids)))
+    assert large <= small + 2, f"{large} statements for 40 cards against {small} for 5"
+    assert large <= 10, f"{large} statements for one page of counts"
+
+
+def test_a_mention_matches_whatever_the_case_and_a_wildcard_is_only_itself(client):
+    """The one scan must keep the per-card scan's semantics: SQLite's LIKE is
+    case-insensitive for ASCII, and `%` and `_` in a label are text."""
+    plain = _note(client, "The Roof Quote")
+    odd = _note(client, "50% off sale")
+    decoy = _note(client, "50 percent off sale")
+    _note(client, "told them about the roof QUOTE yesterday")
+    _note(client, "got the 50% off sale at last")
+
+    counts = _counts(client, [plain["id"], odd["id"], decoy["id"]])
+    assert counts[str(plain["id"])] == {"note": 1, "total": 1}
+    assert counts[str(odd["id"])] == {"note": 1, "total": 1}
+    assert counts[str(decoy["id"])] == {"total": 0}
+
+
+def test_two_cards_in_one_page_point_at_each_other_and_not_at_themselves(client):
+    a = _note(client, "Alpha plan for the garden")
+    b = _note(client, "Beta plan, see [[Alpha plan for the garden]]")
+    counts = _counts(client, [a["id"], b["id"]])
+    assert counts[str(a["id"])] == {"note": 1, "total": 1}
+    assert counts[str(b["id"])] == {"total": 0}
+    assert _refs(client, a["id"])[0]["how"] == "links to it"
+
+
+def test_an_archived_document_and_a_deleted_note_are_not_references_in_a_batch(client):
+    note = _note(client, "The roof quote")
+    doc = client.post("/documents", json={"title": "Old", "content": "The roof quote again"}).json()
+    gone = _note(client, "Mentions The roof quote then dies")
+    assert client.put(f"/documents/{doc['id']}/archive").status_code == 200
+    client.delete(f"/entries/{gone['id']}")
+    assert _counts(client, [note["id"]])[str(note["id"])] == {"total": 0}
+
+
+def test_a_board_page_counts_each_card_on_its_own_boards(client):
+    one = _note(client, "Card one")
+    two = _note(client, "Card two")
+    board = _board(client, "Jobs")
+    the_map = _board(client, "Plans", board_type="map")
+    _place(client, board["id"], one["id"])
+    _place(client, board["id"], two["id"])
+    _map_node(client, the_map["id"], two["id"])
+    counts = _counts(client, [one["id"], two["id"]])
+    assert counts[str(one["id"])] == {"board": 1, "total": 1}
+    assert counts[str(two["id"])] == {"board": 1, "map": 1, "total": 2}
+
+
+def test_a_note_in_another_space_is_not_a_reference_from_this_one(client):
+    """The page scan reads column lists, not whole entities; the space filter
+    must still reach them, or a note in Uni would count on a Home card."""
+    assert client.post("/spaces", json={"name": "Uni"}).json()["id"] == "uni"
+    home = {"X-Workspace-ID": "default"}
+    uni = {"X-Workspace-ID": "uni"}
+    note = client.post("/entries", json={"content": "The roof quote"}, headers=home).json()
+    client.post("/entries", json={"content": "Lecture on The roof quote"}, headers=uni)
+    counts = client.get(f"/entries/reference-counts?ids={note['id']}", headers=home).json()["counts"]
+    assert counts[str(note["id"])] == {"total": 0}
+

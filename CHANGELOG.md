@@ -91,6 +91,11 @@ below). Versioning is `0.x` while the app stabilises.
 ### Added
 
 - A category's colour can be chosen: in Manage categories (and a category's ⋯ menu in the sidebar), Colour opens twelve swatches that each read as a dot in light and dark, plus Automatic to go back to the name-based colour. The choice shows at once on the category's dots and chips, its graph nodes and legend, the timeline and the dashboard, and is kept with the category through a rename.
+- Speed: the reference chips on the note cards (asked for at every unlock) are read for a whole page of notes at once instead of four database queries per note, so sixty cards cost 6 statements rather than 242 and about a third of the time on 500 notes (172 to 53 ms), and 5.8 times less on 5,000 notes (2,267 to 388 ms, same machine and load); what they count is unchanged.
+- Speed: the dashboard's activity strip and heatmap read each recent note's day as a column instead of loading every note whole, text included; on 5,000 notes made within the year the heatmap went from 179 to 24 ms and the stats from 184 to 55 ms (same machine, interleaved runs).
+- Speed: the Library's Files & Images list (and the pickers that offer your uploads) works out where each file is used by asking the database for the notes, documents and board objects that mention `/media/` instead of loading every one; on 5,000 notes 140 ms became 9 ms (same machine, interleaved runs), with the same answers.
+- Speed: the first click of a session (the unlock) no longer waits for the reminder chime's audio device to open; it is made just after, when the browser is idle. The click's handlers went from 44 to 56 ms (the longest script on the lock screen) to under 1 ms in headless Chromium, and the chime still works (the context is running afterwards).
+- Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 
 ## [0.3.32] - 2026-09-28
 

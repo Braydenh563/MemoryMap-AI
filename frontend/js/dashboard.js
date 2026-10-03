@@ -2471,6 +2471,17 @@ function miniEntryList(body, entries, emptyText) {
     li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
+    //: A row that opens on a click opens on Enter too (INBOX 446 (5), axe's
+    //: "scrollable region must have keyboard access" on Recently added):
+    //: nothing in the list could take focus, so a keyboard could neither
+    //: open a note from the widget nor scroll it.
+    li.tabIndex = 0;
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target === li) {
+        e.preventDefault();
+        flashEntry(entry.id);
+      }
+    });
     ul.appendChild(li);
   }
   body.appendChild(ul);

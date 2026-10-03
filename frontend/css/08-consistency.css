@@ -4890,13 +4890,26 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--error);
 }
 
-/* With a mouse the x is the 1rem square above; a finger keeps the 28px
-   target floor `.unlink` sets, and the chip grows around it there. */
-@media (pointer: fine) {
-  .chip > .unlink:last-child {
-    min-width: 0;
-    min-height: 0;
-  }
+/* **The x is drawn 1rem everywhere; its target is not its ink** (INBOX 446
+   (5)). Under a coarse pointer the x used to keep `.unlink`'s 44px floor
+   as its own box, and the grey disc behind it grew to match: on a phone
+   every suggested tag on a note was a 50px slab with a 44px grey ball over
+   its end, two or three rows of them per card (measured at 390, before and
+   after this pass, scratchpad/ui-sweeps/out/density-*-notes-*-390.png).
+   The box is the 1rem disc on every pointer now, and the target floor is
+   an invisible `::before` centred on it, `--target-min` square (28px with
+   a mouse, 44px under a finger), so the hit area is unchanged and the
+   chip no longer grows around it. */
+.chip > .unlink:last-child {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chip > .unlink:last-child::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--target-min) - 1rem) / -2);
 }
 
 /* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its

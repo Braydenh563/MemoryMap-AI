@@ -50,41 +50,6 @@ with its owner named in the entry.
      and mind map audited (controls, missing or broken features, render cost
      per frame), then fixed: an agent; both after the running agents land.
 
-441. **The owner, 2026-10-03, verbatim, with screenshots (the tags list
-     under Capture's tags field; "Atlas is reading..." with its spinner; an
-     Ask answer to "What have I saved recently?" that cites a note saying
-     the IT assignment is due "this Friday"; that note, "Mentions 21 Sept,
-     25 Sept, 2 weeks ago").** "no changing hover states for this dropdown
-     menu and no way to navigate with keyboard. also make sure all these
-     loading spinners are consistent across the app. also the ask tab ai
-     didnt recognise timeword meaning as in I had a note I made two weeks
-     ago that mentioned "this friday" but the ai didnt recognise that
-     timeword meaning in relation to two weeks ago and now even though the
-     app recognises and logs it in the metadata. also there is no way to
-     customise the colour of categories. and I still feel like note metadata
-     needs a better design and more expansion. also are there any more ways
-     to optimise the application?? continue everything I have asked
-     autonomously . feel free to use more agents at a time but only if they
-     are sonnet5.5 as it is supposedly a lot better at coding now and still
-     cheaper. I will be sleeping so impress me with all the improvements and
-     fixes and expansions and enhancements. improve and redesign the ui/ux
-     for the application." (with the eight design skills named again).
-     Placed: (1) the tags list: hover lights a row, keys verified in the
-     browser: the orchestrator; (2) one loading spinner recipe app-wide,
-     with a lint: a Sonnet agent; (3) Ask gives the model each note's saved
-     date and its resolved dates ("this Friday" written 22 Sept is 26 Sept,
-     past), and "what have I saved recently" lists recent notes: the
-     orchestrator; (4) category colours chosen by the person: a Sonnet
-     agent; (5) note metadata redesigned and expanded, with INBOX 440 (1):
-     the orchestrator; (6) a measured optimisation pass (boot, payload,
-     queries, indexes): a Sonnet agent. Agent cap raised by the owner for
-     Sonnet agents. **Done so far**: (1) hover and Enter; (2) one `.spinner`
-     ring and `setBusy` (merged bca3962); (3) time words with their distance
-     from today on every AI path; (5) in part: kept suggestions and the
-     visible confidence; (4) category colours (merged 1ee38de); (6) measured
-     optimisation pass (reference counts 242 to 6 statements, six indexes;
-     WORLD_CLASS_PLAN H7).
-
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran
      like the search reindexing etc." Placed: every maintenance action that

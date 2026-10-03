@@ -7548,23 +7548,30 @@ function nameMarkBuddyHide(buddy) {
     for (const stray of document.querySelectorAll("#nm-buddy, .nmb-burst")) stray.remove();
     nameMarkBuddyGone();
   });
-  if (typeof toast === "function") toast("Companion hidden. Ctrl+Shift+Y or Settings, Appearance brings it back.");
+  //: The chord as it is bound now (it is rebindable), not as it shipped.
+  const keys = typeof shortcuts === "object" ? shortcuts?.toggleCompanion?.keys : "";
+  if (typeof toast === "function") toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
 }
 
-//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
-//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
-//: in the shortcut registry), the command palette and Find anything. Hidden,
-//: it comes back as whichever companion it was (`nm-buddy-last`), or Atlas.
-function nameMarkBuddyToggle() {
-  const buddy = document.getElementById("nm-buddy");
+//: Whether it is out: chosen in Appearance, or still on the page.
+function nameMarkBuddyShowing() {
   let choice = "off";
   try {
     choice = localStorage.getItem("avatar-buddy") || "off";
   } catch (e) {
     choice = "off";
   }
-  if (choice !== "off" || buddy) {
-    nameMarkBuddyHide(buddy);
+  return choice !== "off" || !!document.getElementById("nm-buddy");
+}
+
+//: **Show or hide it from anywhere** (INBOX 430, the owner: "a show/hide
+//: companion hotkey, and palette action"): Ctrl+Shift+Y (`toggleCompanion`
+//: in the shortcut registry), the command palette and Find anything, whose
+//: row says which it will do (`nameMarkBuddyShowing`). Hidden, it comes back
+//: as whichever companion it was (`nm-buddy-last`), or Atlas.
+function nameMarkBuddyToggle() {
+  if (nameMarkBuddyShowing()) {
+    nameMarkBuddyHide(document.getElementById("nm-buddy"));
     return;
   }
   let back = "atlas";

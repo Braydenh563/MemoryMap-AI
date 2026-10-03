@@ -2199,6 +2199,8 @@ const LAZY_MODULES = {
   attachments: ["/js/attachment-actions.js"],
   //: Tesseract's status line (INBOX 443 (3)): see ocr-engine.js.
   ocrEngine: ["/js/ocr-engine.js"],
+  //: Quick note and the note outbox (INBOX 434): see quick-note.js.
+  quickNote: ["/js/quick-note.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2438,9 +2440,11 @@ const LAZY_ENTRY_POINTS = {
   chipMenus: ["openCategoryChipMenu", "openTagChipMenu"],
   attachments: ["attachmentAction"],
   ocrEngine: ["ocrEngineMount"],
+  quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",
+    "openGraphControlsSheet",
     "closeGraphPopup",
     "exportGraphPng",
     "openGraphNewNote",
@@ -2508,3 +2512,6 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
     window[name] = standIn;
   }
 }
+//: Fetched soon after boot, not on first use: the outbox is for the moment
+//: the server is gone, when no script can be fetched (quick-note.js).
+setTimeout(() => ensureModule("quickNote"), 3000);

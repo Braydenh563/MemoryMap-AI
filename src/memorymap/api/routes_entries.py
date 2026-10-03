@@ -13,6 +13,7 @@ import logging
 import threading
 import re
 from datetime import date, timedelta
+from collections import OrderedDict
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -56,6 +57,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
 from memorymap.search import search_manager
 
@@ -528,8 +530,38 @@ def _queue_filing(entry) -> None:
     )
 
 
+#: client_key -> (workspace, entry id) for the notes the offline queue has
+#: delivered, newest last. In memory and bounded: the window it covers is one
+#: resend of a save whose answer was lost, seconds to minutes, and a
+#: process that restarted in between is the one case it cannot see (said in
+#: INBOX 434's report, not hidden).
+_DELIVERED: OrderedDict[str, tuple[str, int]] = OrderedDict()
+_DELIVERED_MAX = 512
+
+
+def _already_delivered(session: Session, key: str | None):
+    if not key or key not in _DELIVERED:
+        return None
+    workspace, entry_id = _DELIVERED[key]
+    entry = session.get(Entry, entry_id)
+    if entry is None or (getattr(entry, "workspace_id", "default") or "default") != workspace:
+        return None
+    return entry
+
+
+def _remember_delivery(key: str | None, entry) -> None:
+    if not key:
+        return
+    _DELIVERED[key] = (getattr(entry, "workspace_id", "default") or "default", entry.id)
+    while len(_DELIVERED) > _DELIVERED_MAX:
+        _DELIVERED.popitem(last=False)
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
+    earlier = _already_delivered(session, body.client_key)
+    if earlier is not None:
+        return _to_out(session, earlier, filed_by=None, similar=None)
     parent = None
     if body.parent_id is not None:
         parent = _existing_entry(session, body.parent_id)
@@ -556,11 +588,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     else:
         category, confidence, filed_by = _file_entry_now(session, body.content)
 
+    tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
     entry = manager.create_entry(
         session,
         content=body.content,
         category_name=category,
-        tags=body.tags,
+        tags=tags,
         ai_confidence=confidence,
     )
     if parent is not None:
@@ -634,6 +667,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # visible to its own session.
     if defer:
         _queue_filing(entry)
+    _remember_delivery(body.client_key, entry)
 
     return out
 

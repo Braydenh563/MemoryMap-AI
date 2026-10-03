@@ -1030,6 +1030,7 @@ function noteServerUp() {
     dismissToast(serverDownNote);
     serverDownNote = null;
   }
+  flushNoteOutbox(); // notes kept on this device while it was gone
 }
 
 function scheduleServerDownRetry() {

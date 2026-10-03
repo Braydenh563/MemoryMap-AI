@@ -538,7 +538,8 @@ function resetCaptureForm(contentBox, titleBox) {
   if (titleBox) titleBox.value = "";
   renderEntryAttachmentChips();
   autoGrow(contentBox); // the box shrinks back with its content
-  localStorage.removeItem("captureDraft"); // it's saved for real now
+  // It's saved for real now: the words, the title and the tags.
+  for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) localStorage.removeItem(key);
   $("entry-count").textContent = "0 characters";
   $("entry-tags").value = "";
   $("entry-category").value = "";
@@ -588,6 +589,7 @@ function renderCaptureTagSuggestions(tags) {
       const box = $("entry-tags");
       const have = box.value.split(",").map((t) => t.trim()).filter(Boolean);
       if (!have.includes(tag)) box.value = [...have, tag].join(", ");
+      box.dispatchEvent(new Event("input")); // kept with the draft
       tagChip.remove();
       if (!row.querySelector(".chip")) row.classList.add("hidden");
     });
@@ -637,6 +639,23 @@ function clearCaptureStatusOnInput() {
   };
   $("entry-content")?.addEventListener("input", clear, { once: true });
   $("entry-title")?.addEventListener("input", clear, { once: true });
+}
+
+//: **The server is gone, not the note** (INBOX 434): held in the outbox
+//: (quick-note.js) and the box cleared. Staged files cannot be held, so then
+//: the words stay, saying why. Answers whether it said anything.
+async function heldOffline(error, body, contentBox, titleBox) {
+  if (!(error instanceof TypeError)) return false;
+  const status = $("save-status");
+  if (captureStagedImages.length || captureStagedFiles.length || !(await noteOutboxAdd({ ...body, inline_tags: true }))) {
+    status.textContent = "The server is not answering. Your note is kept here; save again when it is back.";
+    status.classList.add("error");
+    return true;
+  }
+  resetCaptureForm(contentBox, titleBox);
+  focusCaptureBox();
+  status.textContent = "Saved on this device. It goes into your notebook as soon as the server answers.";
+  return true;
 }
 
 async function saveEntry() {
@@ -704,6 +723,7 @@ async function saveEntry() {
         category,
         document_ids: [...captureDocuments],
         defer_filing: deferFiling,
+        inline_tags: true,
       }),
     });
     clearStagedImages();
@@ -747,6 +767,8 @@ async function saveEntry() {
     // teleporting away after each one would fight that.
     offerJumpToNewNote(saved, status);
   } catch (error) {
+    const body = { content, tags, category, document_ids: [...captureDocuments], defer_filing: deferFiling };
+    if (await heldOffline(error, body, contentBox, titleBox)) return;
     status.textContent = error.message;
     status.classList.add("error");
   } finally {
@@ -797,6 +819,7 @@ async function saveEntryAsDraft() {
         tags,
         document_ids: [...captureDocuments],
         is_draft: true,
+        inline_tags: true,
       }),
     });
     clearStagedImages();
@@ -810,6 +833,7 @@ async function saveEntryAsDraft() {
     uploadStagedFiles(saved.id);
     await loadEntries();
   } catch (error) {
+    if (await heldOffline(error, { content, tags, document_ids: [...captureDocuments], is_draft: true }, contentBox, titleBox)) return;
     status.textContent = error.message;
     status.classList.add("error");
   } finally {

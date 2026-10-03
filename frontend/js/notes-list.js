@@ -1119,58 +1119,23 @@ function matchesSearch(entry) {
   return query.words.every((word) => haystack.includes(word));
 }
 
-// Inline markdown in note text, and deliberately only the inline kind.
+// Inline markdown in note text, deliberately only the inline kind: block
+// markdown (headings, tables, lists) makes a list of notes very tall, and
+// what people type in a note is bold, a little italic, the odd `code`.
 //
-// Reported: notes show raw `**text**` while chat answers, documents and the
-// dashboard digest all render markdown. They render it with renderMarkdown,
-// which also does headings, tables, lists and fenced code, and a list of
-// notes rendered that way gets very tall very fast, which is a worse problem
-// than the one being fixed. What people actually type in a note is bold, a
-// little italic, and the odd `code` span.
-//
-// Order matters: code spans are matched first and their contents are never
-// looked at again, so `**not bold**` inside backticks stays literal.
-// Underscore italics are left out on purpose, snake_case_names are common in
-// notes and `_` italics would eat them.
-//
-// Images and links, added after the original four groups rather than before
-// them, so existing callers keyed to `m[1]`–`m[4]` (`notePreviewText` below)
-// keep working unchanged. This is what an uploaded image actually looks like
-// once pasted/dropped/attached (`![name](/media/hash.ext)`, per
-// `handleFileUpload`), and until now nothing in the note-card list rendered
-// either form at all, so it showed as the literal markdown source, brackets
-// and all. Both accept a same-origin relative URL as well as `https?://`:
-// unlike `appendInline`'s own link pattern (chat/documents, which only ever
-// links *out*), a note's images live at `/media/...` on this same server.
-//
-// **The two link/image alternatives are length-bounded, and that is not
-// cosmetic.** `\[([^\]\n]+)\]\(...\)` against text with an unclosed `[`
-// makes the engine consume to the end of the line and back off one
-// character at a time looking for a `]` that isn't there: once per start
-// position, so O(n²) on a note that is entirely user-controlled text. That
-// is CodeQL's `js/polynomial-redos`, and this file's own `[[wiki link]]`
-// pattern already bounds itself (`{1,120}`) for exactly this reason. The
-// caps are far past any real link (200 characters of link text, 500 of
-// URL) and turn the per-position work into a constant.
-// `==highlighted text==`, asked for directly ("a highlighting text
-// feature in notes and documents"). An inline markdown convention, not a
-// new data model: the same choice every other bit of note formatting here
-// already made (**bold**, ~~strike~~, [[wiki links]]): a highlight is
-// still just characters in the note's own plain-text `content`, so it
-// needs no new column, no span-range table, and works everywhere that
-// content already goes (search, the AI's own reading of a note, export).
-// Bounded the same way `~~…~~` is (excludes its own delimiter and `\n`
-// inside the class) rather than the link/image alternatives' explicit
-// length caps: the reason those need one (an unbounded `[^\]\n]+` against
-// unclosed `[` is O(n²), CodeQL's js/polynomial-redos) doesn't apply to a
-// class that already excludes its own closing character.
-// The colour set here is the same eight the toolbars offer (MD_COLOURS in
-// documents.js) and the same eight that have stylesheet rules. Keeping the
-// three in step matters: this listed only six for a while, so picking Red or
-// Grey from the highlight menu wrote `==red|text==`, the optional-colour group
-// declined to match "red|", and the note rendered the literal text "red|text"
-// in a yellow highlight. Adding a colour means all three, or the new one
-// silently prints its own name. tests/test_highlight_colours.py pins them.
+// Code spans match first and are never re-read, so `**x**` in backticks stays
+// literal; `_` italics are left out because snake_case is common in notes.
+// Images and links come after the original four groups so callers keyed to
+// m[1]..m[4] (`notePreviewText`) keep working; both accept a same-origin
+// `/media/...` URL, where a note's uploads live.
+// **The link and image groups are length-bounded on purpose**: an unbounded
+// `[^\]\n]+` against an unclosed `[` is O(n²) per line (CodeQL's
+// js/polynomial-redos); 200 and 500 characters are far past any real link.
+// `==text==` highlights are characters in `content`, like every other mark,
+// so search, export and the AI read them with no new column; bounded by
+// excluding their own delimiter. The eight colours are the toolbars' eight
+// (MD_COLOURS, documents.js) and the stylesheet's: a missing one printed its
+// own name ("red|text"). tests/test_highlight_colours.py pins all three.
 const INLINE_MD =
   /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==(?:(yellow|green|blue|pink|purple|orange|red|grey)\|)?([^=\n]+?)==|\+\+(yellow|green|blue|pink|purple|orange|red|grey)\|([^+\n]+?)\+\+|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 

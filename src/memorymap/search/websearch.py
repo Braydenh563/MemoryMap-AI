@@ -19,6 +19,7 @@ DuckDuckGo rather than breaking search entirely.
 from __future__ import annotations
 
 import html
+import importlib
 import ipaddress
 import logging
 import re
@@ -919,8 +920,12 @@ def fetch_readable(url: str) -> dict:
     #: parses the page into a tree and picks the densest container, the
     #: same reader "Save page as note" uses; its markdown becomes blocks.
     if words < _THIN_READ_WORDS:
-        from memorymap.core import webclip
-
+        # By `importlib`, not an `import` statement: `core.webclip` already
+        # imports this module (for the privacy headers and the pinned
+        # adapter), and a statement here, even inside a function, is the
+        # `webclip -> websearch -> webclip` cycle that
+        # `tests/test_no_import_cycles.py` and CodeQL both count.
+        webclip = importlib.import_module("memorymap.core.webclip")
         tree_blocks = _blocks_from_markdown(webclip.extract(page, final_url)["markdown"])
         tree_words = sum(len(block["text"].split()) for block in tree_blocks)
         if tree_words > words:

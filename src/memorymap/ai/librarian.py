@@ -410,6 +410,32 @@ def _written_hint(note: dict) -> str:
     return f" (written {written})" if written else ""
 
 
+def _dates_hint(note: dict) -> str:
+    """' (its time words: "this Friday" meant Friday 25 September 2026, 8 days
+    ago)', or "" when the note has none.
+
+    INBOX 441: a note written two weeks ago said "this Friday"; the app had
+    resolved the phrase against the day the note was written and showed it,
+    but the model only saw the words and read them as this week's Friday. The
+    caller passes each phrase already worded (routes_chat, with the reader's
+    "ago" or "from now"); a bare dict, as a test or another caller may pass,
+    is worded here without the distance.
+    """
+    worded = []
+    for item in note.get("dates") or []:
+        if isinstance(item, str):
+            worded.append(item)
+            continue
+        when = item.get("at")
+        if not when:
+            continue
+        precision = item.get("precision") or "day"
+        day = f"{when:%A} {when.day} {when:%B %Y}"
+        span = day if precision == "day" else f"the {precision} of {day}"
+        worded.append(f'"{item.get("phrase", "")}" meant {span}')
+    return f" (its time words: {'; '.join(worded[:4])})" if worded else ""
+
+
 def _match_info_hint(match_info: dict | None) -> str:
     """" (similarity: 0.81)" or " (matched: gym, membership)", a short,
     honest note on *why* this result showed up, the same reasoning the
@@ -570,6 +596,7 @@ def build_messages(
         # digest, reported 2026-09-23). Optional, so every other caller's
         # prompt is exactly what it was.
         f"{_written_hint(note)}"
+        f"{_dates_hint(note)}"
         f"{' (my newest note)' if note.get('newest') else ''}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"

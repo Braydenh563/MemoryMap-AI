@@ -4,6 +4,7 @@ notes, and every note in the prompt carries the day it was written (and
 edited)."""
 
 import time
+from pathlib import Path
 
 from memorymap.search import search_manager
 
@@ -70,3 +71,53 @@ def test_the_recency_pattern_stays_linear_on_long_whitespace():
     assert not _RECENCY_ASK.search(hostile)
     assert time.perf_counter() - started < 0.5
     assert _RECENCY_ASK.search("what did I write last  ?  ")
+
+
+def test_saved_recently_is_a_recency_question():
+    """INBOX 441: "What have I saved recently?" went to a topic search for the
+    word "saved", and the answer said the notes said nothing about saving."""
+    for q in (
+        "What have I saved recently?",
+        "what did I write lately",
+        "What have I been writing recently?",
+        "what have I added recently",
+    ):
+        assert search_manager._RECENCY_ASK.search(q), q
+    for q in ("what have I written about golf recently?", "recently I saved money on bread"):
+        assert not search_manager._RECENCY_ASK.search(q), q
+
+
+def test_a_notes_time_words_reach_the_model_with_their_dates():
+    """INBOX 441: a note written two weeks ago said "this Friday"; the app
+    resolved it to Friday 25 September and showed it, the model never saw it
+    and read it as this week's Friday."""
+    from datetime import datetime
+
+    from memorymap.ai import librarian
+
+    note = {
+        "category": "Academics",
+        "content": "I need to finish my IT assignment, due this Friday.",
+        "written": "Tuesday 22 September 2026, 10:00",
+        "dates": [{"phrase": "this Friday", "at": datetime(2026, 9, 25), "precision": "day"}],
+    }
+    messages = librarian.build_messages("what is due?", [note])
+    text = messages[-1]["content"]
+    assert '"this Friday" meant Friday 25 September 2026' in text
+
+
+def test_every_note_path_carries_time_words_with_their_distance():
+    """INBOX 441: "make sure the other agents like the popup and chat are aware
+    of time relativity as well". Ask, the chat agent, the agent's note tools
+    and the digest all say what a note's time words meant, relative to today."""
+    from datetime import date
+
+    from memorymap.core.config import days_from_today
+
+    assert days_from_today(date(2026, 9, 25), date(2026, 10, 3)) == "8 days ago"
+    assert days_from_today(date(2026, 10, 4), date(2026, 10, 3)) == "tomorrow"
+    root = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    assert "librarian._dates_hint(note)" in (root / "ai" / "agent.py").read_text(encoding="utf-8")
+    assert '"when": days_from_today(' in (root / "ai" / "tools" / "_common.py").read_text(encoding="utf-8")
+    assert "days_from_today(d.at.date(), now.date())" in (root / "api" / "routes_insights.py").read_text(encoding="utf-8")
+    assert '"dates": _time_words(' in (root / "api" / "routes_chat.py").read_text(encoding="utf-8")

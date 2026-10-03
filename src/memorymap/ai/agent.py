@@ -1152,6 +1152,9 @@ def build_agent_messages(
         # `prepared["notes"]` already carries this from routes_chat.py; the
         # agent path just never read it before.
         f"{i}. (note id {note.get('id', '?')}) [{note['category']}]"
+        #: When it was written and what its time words meant (INBOX 441: the
+        #: chat read a two-week-old "this Friday" as this week's).
+        f"{librarian._written_hint(note)}{librarian._dates_hint(note)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{librarian._match_info_hint(note.get('match_info'))} "

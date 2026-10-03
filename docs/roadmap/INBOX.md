@@ -34,6 +34,28 @@ with its owner named in the entry.
 
 ## Open items
 
+446. **The owner, 2026-10-03, verbatim.** "make sure the other agents like
+     the popup and chat are aware of time relativity as well" / "maybe for
+     the suggested models as well there can be a way to enter custom model
+     names for downloading as well??" / "continue regular bug scans to make
+     sure you havent missed anything and make sure all the main features
+     actually work. make the note filing and how the user can make notes the
+     fastest, most reliable and easiest thing to use the user has ever seen.
+     the user needs to choose to use this app. the app needs to be worthy."
+     / "Im wondering if we should tighten and shrink some of the ui down a
+     little as I still think it takes up excessive space and something about
+     the whole ui design still feels very demo, vibe coded and not like an
+     official app...". Placed: (1) time relativity: Ask, the chat agent's
+     notes, its note tools and the digest all carry each time word's date and
+     its distance from today: **fixed** (`days_from_today`, config.py);
+     (2) custom model names: sent to the Settings agent (INBOX 444); (3) a
+     feature smoke sweep (every main flow driven end to end) run at each
+     merge: the orchestrator; (4) note making and filing: continues INBOX
+     434; (5) a density pass (type scale, control heights, paddings, gaps
+     measured app-wide against native apps, then tightened through the
+     tokens) plus a de-vibe audit: an Opus agent once the CSS-heavy agents
+     have landed.
+
 445. **The owner, 2026-10-03, verbatim.** "I was also wondering if the
      bookmarks and contents library pages as well as maybe others like the
      ai skills page and stuff might be better designed, and expanded in
@@ -79,7 +101,12 @@ with its owner named in the entry.
      click it to view it in the enlarged window, I want it to keep doing
      that action unless poked or something else happens". Placed: (5) the
      enlarged view carries the companion's current action over and keeps
-     it until a poke or a new event: the orchestrator.
+     it until a poke or a new event. Then: "also the companion perches and
+     action surfaces and stuff needs to be properly done for the chat tab.
+     and the regular companion expanded popup window needs more life and not
+     just a statue" (screenshot: the enlarged dialog, a still figure).
+     Placed: (5) and (6), Chat perches and an enlarged view that lives: an
+     Opus agent.
 
 441. **The owner, 2026-10-03, verbatim, with screenshots (the tags list
      under Capture's tags field; "Atlas is reading..." with its spinner; an

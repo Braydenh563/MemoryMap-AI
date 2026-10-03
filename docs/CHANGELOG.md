@@ -13,6 +13,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask, Chat and the weekly digest know what a note's time words meant: "this Friday" in a note written two weeks ago reaches the model as "Friday 25 September 2026, 8 days ago", not as this week's Friday.
+- "What have I saved recently?" (and "what did I write lately") lists your newest notes instead of searching for the word "saved".
 - A picture in a note stays visible while you edit its line (under its markdown), so the graph popup's Edit no longer turns a sketch into a bare link.
 - Loading placeholders show the shape of what is coming (a title line and a text line) with a visible sweep; with reduced motion they breathe gently instead of sitting blank.
 - The tags list under a tags field lights the row under the pointer, and Enter or Tab takes a row reached with the arrows or the pointer.

@@ -18,7 +18,7 @@ from memorymap.ai import librarian
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
-from memorymap.core.config import user_now
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
@@ -492,12 +492,18 @@ def _digest_notes(session: Session) -> list[dict]:
         )
     )
     category_names = manager.bulk_category_names(session, entries)
-    zone = user_now(deps.get_config()).tzinfo
+    now = user_now(deps.get_config())
+    zone = now.tzinfo
+    time_words = manager.entry_dates_bulk(session, [e.id for e in entries])
     return [
         {
             "content": e.content,
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "written": _written_label(e.created_at, zone),
+            "dates": [
+                f'"{d.phrase}" meant {d.at:%A} {d.at.day} {d.at:%B %Y}, {days_from_today(d.at.date(), now.date())}'
+                for d in time_words.get(e.id, [])
+            ],
         }
         for e in entries
     ]

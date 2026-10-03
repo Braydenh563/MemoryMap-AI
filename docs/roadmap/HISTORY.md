@@ -131,6 +131,233 @@ y=715 to 463. Distinct accent colours and font weights unchanged (2 to 4, 4
 to 5 across both); the page area's filled primary is still the one New note
 tile. Sweeps against the after server, light and dark where they take a theme: errors.js (1440, 390) 0 errors and 0 layout findings, contrast.js every surface ok (the dashboard 51 text elements, was 70), axe.js ONLY=dashboard 0 findings (incomplete nodes 13 to 6), a11yname.js 0 findings; the same four on the base commit were also clean, so nothing is new. Not verified: the desktop window, a real screen reader, and a human eye on the menu at 1024 and 820.
 
+## Moved from the plans, 2026-10-03 (the documents pass)
+
+### From DOCUMENTS_PLAN.md section 18: the slash menus as one system
+
+The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
+commands in the notes and documents, I want them to be properly structured
+elements ... proper objects, they need to make the user's live really easy
+and also they need to be discoverable by the user as well."
+
+**Read the code before believing the brief.** "Not properly structured" is
+not what is there. `EDITOR_SURFACES` in `frontend/js/editor.js` is an
+id-to-context table, and each context has its own command list whose rows
+carry an id, a group, a label, a hint, search keywords, a `primary` flag and
+a `run`. That is a reasonable object already, and the documents side has a
+second one, `DOC_COMMANDS` in `frontend/js/documents.js`, 34 rows of id, icon,
+label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
+can read its shape without a browser. So this section is not a rewrite of a
+mess. It is the work of making two good tables into one system, and of
+telling anybody that the feature exists.
+
+**Measured on the branch head, 2026-09-21:**
+
+| What | Reading |
+| --- | --- |
+| Contexts with their own commands | note, document, chat, skill |
+| Command groups declared in editor.js | 45 |
+| Labels written as emoji | 38 |
+| Labels written as the app's icon tokens | 10 |
+| Separate command tables | 2, editor.js's per-context lists and documents.js's `DOC_COMMANDS` |
+| Discoverability affordance | none found: the menu exists only once "/" is typed |
+
+The emoji count is the finding. This app ships a vendored icon set and names
+icons as `ph:` tokens everywhere else, and `tests/test_no_glyph_icons.py`
+exists precisely to keep typed characters out of the interface. The slash
+menus are where that rule was never applied: 38 rows against 10. A menu that
+draws its own icons in a different alphabet from every other menu is exactly
+the "not proper objects" the owner is reacting to, even though the data
+behind it is fine.
+
+**Decisions made.**
+
+1. One table shape for every context, and the row is the object: id, icon as
+   a `ph:` token, label, hint, keywords, group, `primary`, chord, `run`. The
+   document table and the editor tables meet at that shape rather than one
+   absorbing the other, because they are reached differently and always will
+   be.
+2. Icons come from the vendored set. No emoji in a command row, held by
+   extending `tests/test_no_glyph_icons.py` to cover the command tables, so
+   the next row added cannot reintroduce them.
+3. A command is discoverable three ways or it is not discoverable: the hint
+   on the surface, the menu itself, and search by keyword rather than by the
+   app's internal vocabulary. The keywords field already exists and is
+   already used for the second of those.
+4. The affordance is shown, not documented. Whatever says "/" is available
+   appears on an empty surface and gets out of the way once there is text,
+   rather than being a line in a help panel nobody opens.
+5. Nothing is added to the chrome, per section 17's rule, and any new recipe
+   arrives with its lint in the same commit (standing order 11).
+
+**Phases, each with its gate.**
+
+- ~~**18a. One row shape.**~~ **Built 2026-09-21**, and the difference
+  between the two shapes turned out not to be cosmetic. `DOC_COMMANDS` kept
+  its icon in an `icon` field; editor.js's four lists packed theirs into the
+  front of `label`, as a string the row builder printed whole. Two
+  consequences, both fixed by the split:
+
+  * it is *why* the eight callout commands reached for emoji. The row builder
+    used `textContent`, so a `ph:` token in a label would have printed as the
+    literal text "ph:note Note box"; an emoji was the only mark that could go
+    there at all.
+  * it quietly broke the menu's own ranking. `editorRankCommands` scores
+    `label.startsWith(query)` first, and no label started with a letter, so
+    that branch could never fire: typing the first word of a command ranked
+    it no better than a keyword hit.
+
+  39 rows split (38 plain, one template literal), the icon joined to the
+  label at render rather than stored joined, so a row can be read for its
+  icon without parsing its label. `tests/test_command_row_shape.py` reads
+  both tables from source with no browser and asserts every row carries an
+  `icon`, that no `label` opens with a token, and that no `label` opens with
+  a character outside ASCII (the shape check that backs
+  `test_no_glyph_icons.py`'s named-character one). Two of its three fail
+  against the code before the split.
+- ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
+  open at all.** The 38 are `ph:` tokens; the menu row builds its label
+  through `setLabel` like every other menu in the app, which it did not
+  before and which is why a token could not be written in one; the rendered
+  callout heads with an `<i class="ph">`, since `CALLOUT_KINDS` is read by
+  the renderer as well as by the menu. The Library's create table, the chat
+  attachment close, a note embed's marker and two graph arrows went with
+  them. `tests/test_no_glyph_icons.py` now decodes `\uXXXX` and `\u{...}`
+  before looking, which is the hole the 38 sat in: they were escapes, so a
+  lint reading the source text of the literal saw backslashes.
+  `scratchpad/ui-sweeps/slashicons.js` is the probe, in the gate: 14 rows, 0
+  printing a literal token, 14 of 14 carrying an icon element (4 of 14
+  before), 0 opening with a character outside ASCII.
+
+  **The finding that matters more than the icons.** Opening the menu to
+  count its rows is how this was found: 0 rows. `editorSurfaceFor` needs
+  `asSurface`, which documents.js defines, and documents.js is in the
+  Library's lazy bundle, so on every fresh load the "/" menu did nothing in
+  the note capture box, the note edit box, the chat composer and the skill
+  steps box until the person happened to open Library or Documents. Four of
+  the five surfaces. The guard that hid it said the case "cannot happen in
+  the browser (the script order is fixed)"; the script order had stopped
+  being fixed under it. Fixed by warming the bundle when an editing surface
+  takes focus and replaying the keystroke that arrived first, and held by
+  `tests/test_lazy_bundle_calls.py`, which accounts for every call a
+  boot-loaded file makes into a lazy bundle.
+
+  **The rule this leaves behind, which is the point of writing it down:** a
+  `typeof x === "function"` guard around a feature is not a safety net, it is
+  a silent off switch. A bare call would have thrown on the first press and
+  been fixed that day.
+- ~~**18c. Discoverability.**~~ **Built 2026-09-21.** Three ways, which is
+  what decision 3 asks for and what the surface had one of:
+
+  1. **The placeholder**, on every surface in `EDITOR_SURFACES`: "Press / for
+     blocks and commands." Applied from editor.js rather than written into
+     the markup, because one of the four (`entry-edit-content`) is built in
+     JS every time a note is opened, and three boxes that say it beside one
+     that does not teaches that the feature is per-box. Measured: 4 of 4
+     hinted, and the engine carries it through to `aria-placeholder` when it
+     is mounted over the composer.
+  2. **Ctrl+/**, through `DEFAULT_SHORTCUTS` and `runShortcut` (app.js), not
+     through a listener of editor.js's own. That makes it rebindable like
+     every other chord and, more to the point, puts it in the shortcuts cheat
+     sheet, which is where somebody looks for what an app can do. A second
+     listener would also have fired alongside app.js's chorded dispatcher and
+     inserted two slashes.
+  3. The menu itself, which is what 18a and 18b were about.
+
+  **Decision taken, recorded rather than remade** (standing order 3): 18c's
+  gate asked for a "visible route", and decision 5 forbids adding to the
+  chrome. The note toolbar already carries twelve controls; a thirteenth
+  teaches nothing and costs the one thing section 17 is protecting. So the
+  visible thing is the placeholder, which is copy rather than chrome and is
+  on screen at exactly the moment it is useful and gone the moment it is not,
+  and the route it names is a chord that the cheat sheet also lists.
+
+  The chord writes a real "/" into the text rather than faking the menu open:
+  the menu filters on what follows the slash and closes when it is deleted,
+  so both routes have to leave the surface in the same state or Escape and
+  Backspace would behave differently depending on how it was opened.
+
+  `scratchpad/ui-sweeps/slashicons.js` covers all of it: 4 of 4 surfaces
+  hinted, the menu open with 14 rows from the chord alone, and
+  `shortcuts.editorMenu` present so the cheat sheet lists it.
+- **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
+  what happens on no match, and keyboard behaviour end to end. Gate: arrow
+  keys move through the rows, Escape closes and returns focus to the surface,
+  a no-match state says so rather than showing an empty box, and every
+  context is measured at 1440 and 390.
+
+### From DOCUMENTS_PLAN.md section 19: a board or a map as an object in a note, and a note's reminders
+
+The owner, INBOX 309, verbatim: "there is also no way to attach a whiteboard
+or mindmap to a note as like an object in the notes. or to link reminders to
+notes". Two halves of one idea: this note and that thing are the same piece
+of work.
+
+**What the read found before anything was built.** Half of it existed and
+was not drawn, and one sentence of the brief was simply wrong, which is why
+section 1 of CLAUDE.md says to grep first.
+
+| Claim | What is actually there |
+| --- | --- |
+| A note cannot hold a board | A note's typed objects are markdown constructs, and `mdEmbedElement` (app.js) is the single renderer for `![[name]]` behind both `renderNoteText` (note cards) and `renderMarkdown` (documents and chat). `resolveWikiTarget` has resolved a board since the map chips were built, and `renderNoteInline` already drew an inline `mapChip` for `[[My map]]`. What `mdEmbedElement` did with a board was fall through to "Nothing called House jobs yet", measured on 8793 before the change: the embed of a live board claimed it did not exist |
+| There is no preview to reuse | `mapPreview(board, {size})` is the one miniature renderer (MINDMAP_PLAN §5 item 12), fed by `preview_items` from `/whiteboard/boards` through `loadMapBoardIndex` |
+| "A reminder row has no column naming the note it came from" | It has had one since reminders existed: `Reminder.entry_id`, with `entry_preview` on every reminder read, a chip on the reminder row that opens the note, `entry_id` on `POST /reminders`, `note_id` on the `set_reminder` tool, and the note card's own "Remind me" passing `entry.id`. **No migration was needed and none was written.** What was missing was the other direction: no way to ask for one note's reminders, and nothing on the note |
+
+**Built.**
+
+- `![[board:12|House jobs]]` (and `map:`) renders a preview card: the kind,
+  the board's own miniature from `mapPreview`, its title and `mapCountLabel`,
+  the whole card a `<button>` that opens the board. A plain `![[House jobs]]`
+  that happens to name a board renders the same card, which is the bug above
+  fixed in the same place.
+- Both doorways the brief asked for: the "/" menu's "Board or mind map" in
+  Links and references, and "Add to a note" on the board itself (the Board
+  menu's `#wb-add-to-note`, and the Library card's kebab). Both write through
+  `boardEmbedMarkdown`, and the board side appends through
+  `appendSelectionToNote`, so there is one spelling and one undo.
+- `GET /reminders?entry_id=` and `GET /reminders/counts?ids=`, then a
+  `2 reminders` chip on the note card that opens a panel listing them, each
+  pressing through to `flashReminder`.
+
+**Decisions made** (standing order 3: each was missing, each got a one-line
+recommendation, each was taken).
+
+1. **A board object is addressed by id, with its title carried beside it**
+   (`![[board:12|House jobs]]`), not by title alone like every other wiki
+   link. A title-addressed object breaks silently on a rename, and worse, a
+   renamed board and a deleted one look identical to the resolver. The title
+   travels anyway because it is what the tombstone says, and because
+   `_reference_rows` in routes_entries.py finds a board's references with a
+   LIKE over note content for its label, so the card's "on 1 board" chip
+   keeps working with no backend change.
+2. **A deleted board leaves a tombstone**, `.board-embed-gone` naming what
+   was there, rather than the object vanishing. Content that disappears
+   silently teaches the reader the note was always like that.
+   **And a miss is not a tombstone until the index has been refreshed once**:
+   `loadMapBoardIndex(true)`, because a board made a minute ago is missing
+   from an index built before it existed, and "this board is no longer in
+   your notebook" over a board somebody just made is the worst thing this
+   card could say.
+3. **The slash command is "Board or mind map"**, in Links and references,
+   `primary` so it is in the shortlist with nothing typed. Named for the two
+   things it inserts, in the app's own words for them.
+4. **A note's reminders are a chip on the facts line, not a section.** The
+   card is a title, a body and one line of facts; a block under every note
+   with a reminder would push the next note off the screen for a fact that is
+   usually four words long. The chip opens the same `.entry-links` panel
+   "Referenced by" and "Similar notes" use, which is also what keeps one
+   panel open per card.
+5. **The board picker is `pickLibraryItemDialog`'s fifth source, opt in.**
+   A fifth chooser for a fifth kind is the failure this app already has a
+   rule against. It is opt in because that dialog's first caller feeds a map
+   reference node, and `MAP_REFERENCE_KINDS` has no board in it: a board
+   offered there would be a row that cannot be saved.
+
+**Not done, and deliberately.** No backfill of `Reminder.entry_id` for
+reminders made before the link was drawn: there is nothing to backfill from.
+A reminder written by hand in the Reminders tab never named a note, and
+guessing one from the text would invent a link the person did not make.
+
 ## Moved from the plans, 2026-09-27
 
 ### From WORLD_CLASS_PLAN.md 22.1 item 5: two windows, one note

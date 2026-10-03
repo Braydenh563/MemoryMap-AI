@@ -217,13 +217,22 @@ server works too: LM Studio, llama.cpp's `llama-server`, Jan, vLLM.
 category by meaning, or asks you in guided mode, and says which. Free text
 can be split into separate, auto-linked notes. Notes take Markdown inline,
 including `[[wiki links]]`, `~~strikethrough~~` and `==highlights==` in
-six colours.
+six colours. Quick note (`Alt`+`N`, or the palette) opens over any tab and
+saves without leaving it; `#word` in the text tags the note. A note saved
+while the server is away is kept on this device, shown in the list as
+"Waiting to save" and sent by itself when the server is back, once.
 
 **Ask.** A question returns a conversational answer and the notes behind
 it, side by side, with each sentence linked to the note it came from. Chat
 is saved and resumable. In Agent mode the assistant has 58 tools to
 search, link, organise and act on your notebook; anything destructive
 asks first, and every step it takes is shown.
+
+**Keep it tidy.** Each note shows how sure the filing was and the tags it
+suggested, one press to keep each (with no AI they come from your own tags
+on the notes most like it). A tag manager renames, merges and removes tags
+across every note with one Undo, a category chip moves its note in one
+click, and each category can have a colour of its own.
 
 **See the shape of it.** The Graph draws your notes as a map, coloured by
 category and linked by meaning, with the reason for each link written
@@ -237,16 +246,21 @@ can click on, version history, and code files with line numbers.
 
 **Think on a canvas.** The Whiteboard holds sketches, shapes, images and
 note cards on a pannable surface. A board can be a **mind map**: a root
-topic with branches you grow by hand or from your notes, exportable as
-Markdown or OPML.
+topic with branches you grow by hand or from your notes (Tab adds a
+child, Enter a sibling, Ctrl+D copies, Ctrl+Z restores a deleted branch),
+exportable as Markdown or OPML.
 
 **Keep everything in one Library.** Notes, documents, chats, files, tags,
-bookmarks, the recycle bin and the activity log. Every image you add is
+bookmarks (a reading list with Unread and Pinned filters), a Contents tree
+of documents and their headings, the AI skills page, the recycle bin and
+the activity log. Every image you add is
 read three ways where each is available (a caption, a vision-model
 transcription and Tesseract OCR), all editable, all searchable. Attach any
 file to a chat message: images go to a vision model, and documents,
 spreadsheets, PDFs and code are imported with their text extracted.
-Scanned PDFs are read page by page by an OCR model.
+Scanned PDFs are read page by page by an OCR model. The OCR workspace
+says whether Tesseract can read, in which language, and installs it from
+the same place.
 
 **Remember.** Reminders with priority, repeats and snooze, or type "call
 Sam tomorrow evening" and let the AI schedule it.
@@ -254,7 +268,9 @@ Sam tomorrow evening" and let the AI schedule it.
 **Automate.** 20 built-in skills (and your own) run multi-step jobs over
 the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
-duplicates on a schedule you set. It never deletes anything.
+duplicates on a schedule you set. It never deletes anything. Every
+background job shows when it last ran and how it went, beside its control
+and in Settings, Background tasks.
 
 **Meet Atlas.** The notebook's own guide, who files your notes, answers
 "how do I" questions from the app's own documentation, and can keep you
@@ -270,6 +286,10 @@ default. On a computer only you use, Settings, Account and security can turn
 that off: the app opens straight in on this computer, another device on your
 network still needs the password, and private notes stay encrypted until you
 unlock them.
+
+Built to be reached by keyboard and screen reader: one main landmark per
+tab, named controls, 4.5:1 contrast, a layout that holds at 200% and 400%
+zoom, and a switch for single-key shortcuts (WCAG 2.1.4).
 
 Also: a command palette (`Ctrl`/`Cmd`+`K`), a popup agent, read-aloud,
 opt-in web search, thirteen themes, each in light or dark,
@@ -349,15 +369,16 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 ## Developing
 
 ```
-pytest                          # 5,600+ tests, about ten minutes on four cores (-n auto), fully offline
+pytest                          # 5,700+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
 node --check frontend/js/app.js    # the frontend has no build step: check each file you touch
 ```
 
-The frontend is about 45 plain scripts that share one global scope, loaded
-in the order `frontend/index.html` lists them; the app's own code is
-`app.js` and the 22 files after it, one 50,000-line file until 0.3.3.
+The frontend is 61 plain scripts in `frontend/js/` that share one global
+scope: 37 load at boot in the order `frontend/index.html` lists them, the
+rest on first use; the app's own boot code is `app.js` and the 24 files after
+it, one 50,000-line file until 0.3.3.
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) says how load order and the
 lazily loaded tabs work.
 

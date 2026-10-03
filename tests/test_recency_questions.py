@@ -57,3 +57,16 @@ def test_the_newest_is_marked_in_the_prompt():
     user = messages[-1]["content"]
     assert "(written Saturday 3 October 2026, 09:56) (my newest note)" in user
     assert user.index("the newest") < user.index("older")
+
+
+def test_the_recency_pattern_stays_linear_on_long_whitespace():
+    # CodeQL 443: `\s*[?.!]?\s*$` backtracked polynomially on a run of tabs.
+    import time
+
+    from memorymap.search.search_manager import _RECENCY_ASK
+
+    hostile = "wrote last" + "\t" * 20000 + "x"
+    started = time.perf_counter()
+    assert not _RECENCY_ASK.search(hostile)
+    assert time.perf_counter() - started < 0.5
+    assert _RECENCY_ASK.search("what did I write last  ?  ")

@@ -885,7 +885,7 @@ def _rank_inner(
 
 _RECENCY_ASK = re.compile(
     r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
-    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*[?.!]?\s*$",
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*(?:[?.!]\s*)?$",
     re.IGNORECASE,
 )
 
@@ -914,7 +914,10 @@ def _retrieve(
     #: about entries; the question is about when. The newest notes, newest
     #: first, and the prompt now carries each note's dates, so the answer
     #: can say which is newest written and which was last edited.
-    if _RECENCY_ASK.search(query):
+    #: Read on the first 300 characters only: a recency question is short,
+    #: and the bound keeps the match linear on a pasted wall of text
+    #: (CodeQL 443 flagged the old tail, two `\s*` around an optional mark).
+    if _RECENCY_ASK.search(query[:300]):
         return _without_private(recent_entries(session, limit=min(limit, RECENT_FALLBACK_LIMIT))), "recent"
     if asked.time_only:
         # Nothing but a date range: list it. Ranking by similarity here would

@@ -3636,6 +3636,7 @@ function ensureOneCardCount(list, generation, source) {
         const entry = allEntries.find((e) => e.id === id);
         const built = entry && source.chip(entry);
         if (built) meta.insertBefore(built, meta.querySelector(":scope > .entry-date, :scope > .entry-meta-end"));
+        if (built) fitNoteMetas([meta]);
       }
       // The page may hold more than one batch; the next call finds the rest.
       if (list.querySelectorAll("li[data-id]").length > wanted.length) {

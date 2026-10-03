@@ -72,6 +72,15 @@ one of them and is judged by a count, not by looking at a screenshot.
 Standing order 3: a decision recorded here is not re-opened. A missing one
 becomes an INBOX entry with a one-line recommendation, which is then taken.
 
+- **A note's time ends its details line, and the line never wraps** (INBOX
+  455 (1), 2026-10-03). Chosen over the head row beside the actions: Linear
+  and Notion draw a row's date as its last property on the one line of
+  facts, and Apple Notes puts it on the details line under the title; the
+  head row's corner belongs to the card's actions, and a time that faded
+  there on hover is exactly what INBOX 446 reported. What does not fit folds
+  into "+N", then to icons, then ellipsis (DESIGN.md, the recipe index), so
+  the time is at one x and one distance from the card's bottom on every card.
+
 - **The default look is Quiet utilitarian; the old default is a palette**
   (the owner, 2026-09-23, asked against the unslop audit, which found the
   identity itself to be the tell: indigo accent, purple-blue emblem, lavender

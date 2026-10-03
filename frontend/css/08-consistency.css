@@ -3002,7 +3002,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* A suggestion is drawn in a box, and two boxes need a visible gap between
    them where two bare words need none: 6.4px of box, not 0. */
-.entry-meta.note-meta > .chip.tag + .chip.suggested-tag {
+.entry-meta.note-meta > .chip.tag ~ .chip.suggested-tag {
   margin-inline-start: calc(var(--space-2) - var(--space-6) + var(--space-1));
 }
 
@@ -3071,6 +3071,62 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta > .chip.chip-busy,
 .entry-meta.note-meta > .chip.untagged-ai {
   color: var(--accent-text);
+}
+
+/* **One line, never two** (INBOX 455 (1)). The line is `nowrap`; tags and
+   suggestions that do not fit fold into the "+N" (`fitNoteMetas`,
+   note-cards.js, which measures with `.is-measuring` on, every fact at its
+   own width). Past that, the facts that are words (the dates mentioned,
+   links, reminders, the space, a document) ellipsise, the whole phrase on
+   their `title`; the category, the score, the "+N" and the time never do,
+   so the time is always the line's last fact at its right edge. */
+.entry-meta.note-meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.entry-meta.note-meta > * {
+  flex-shrink: 0;
+}
+
+.entry-meta.note-meta:not(.is-measuring) > :is(.when, .refs, .reminders, .review, .untagged, .untagged-ai, .source-path, .tag:not(.hashtag, .suggested-tag)) {
+  flex-shrink: 5;
+  min-width: 2.5em;
+  overflow: hidden;
+}
+
+/* The category gives way last, and keeps a word of itself. Its factor is
+   the smaller one rather than under 1: a line whose shrinking items sum
+   under 1 only gives that fraction of its overflow back (CSS Flexbox 9.7). */
+.entry-meta.note-meta:not(.is-measuring) > .chip.category {
+  flex-shrink: 1;
+  min-width: 5em;
+}
+
+.entry-meta.note-meta > .chip > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Past the "+N", a fact keeps its icon and loses its words (`is-icon`,
+   `fitNoteMetas`); the words stay on its `title`. */
+.entry-meta.note-meta > .chip.is-icon > .ph-text {
+  display: none;
+}
+
+.entry-meta.note-meta > .chip.is-icon > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* The "+N" is one of the tags it stands for: the group's own 8px. */
+.entry-meta.note-meta > .chip.hashtag:not([hidden]) ~ .note-meta-more {
+  margin-inline-start: calc(var(--space-3) - var(--space-6) - var(--space-1));
+}
+
+.entry-meta.note-meta > .note-meta-more {
+  font-variant-numeric: tabular-nums;
 }
 
 /* The note's links and files, the row under the facts: the same quiet

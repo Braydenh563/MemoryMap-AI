@@ -1240,6 +1240,105 @@ function renderAttachmentCards(entry, editable) {
   return row;
 }
 
+//: **A note's details line is one line** (INBOX 455 (1), the owner: "note
+//: metadata wraps now and needs a better redesign"). Measured at 1100 before:
+//: six of ten seeded cards wrapped, and the time sat on a line of its own on
+//: some and beside the facts on others. The line is `nowrap`; what does not
+//: fit folds, from the end, into one "+N" chip: suggestions first, then tags.
+//: The other facts ellipsise if it is still too long (08-consistency.css).
+//: Every line on a resize is reset in one pass, read in one layout and folded
+//: in a third, so a list of a hundred cards costs two layouts, not a hundred.
+const noteMetaFit = new ResizeObserver((seen) => fitNoteMetas(seen.map((s) => s.target)));
+//: The icon font landing changes a chip's width but not the line's.
+document.fonts?.addEventListener("loadingdone", () => fitNoteMetas([...document.querySelectorAll(".note-meta")]));
+
+function fitNoteMetas(metas) {
+  const lines = [];
+  for (const meta of metas) {
+    const more = meta.querySelector(":scope > .note-meta-more");
+    if (!meta.isConnected) noteMetaFit.unobserve(meta);
+    else if (more) lines.push({ meta, more, folds: [...meta.querySelectorAll(":scope > [data-tag]")] });
+  }
+  for (const { meta, more, folds } of lines) {
+    for (const el of folds) el.hidden = false;
+    for (const el of meta.querySelectorAll(":scope > .is-icon")) el.classList.remove("is-icon");
+    more.hidden = !folds.length;
+    more.firstChild.textContent = `+${folds.length}`;
+    meta.classList.add("is-measuring");
+  }
+  const right = (el) => el.getBoundingClientRect().right;
+  for (const line of lines) {
+    let over = line.meta.scrollWidth - line.meta.clientWidth;
+    line.fold = [];
+    line.icons = [];
+    for (let i = line.folds.length - 1; i >= 0 && over > 0; i--) {
+      const el = line.folds[i];
+      over -= right(el) - right(el.previousElementSibling);
+      line.fold.push(el);
+    }
+    //: With every tag gone the "+N" stands alone, a group's gap from the
+    //: score rather than a tag's from the tag before it.
+    const first = line.meta.querySelector(":scope > .hashtag");
+    if (first && line.fold.includes(first)) {
+      const gap = (el) => el.getBoundingClientRect().left - right(el.previousElementSibling);
+      over += gap(first) - gap(line.more);
+    }
+    //: Still too long (a phone, with its ⋯ on the line): the facts after
+    //: the tags keep their icon and lose their words, the words on the
+    //: title, from the end; the low-score warning goes last.
+    const isReview = (text) => text.parentElement.classList.contains("review");
+    const words = [...line.meta.querySelectorAll(":scope > .chip:not(.category, .filing-sure, [data-tag]) > .ph-text")]
+      .reverse().sort((x, y) => isReview(x) - isReview(y));
+    for (const text of words) {
+      if (over <= 0) break;
+      over -= right(text) - right(text.previousElementSibling);
+      line.icons.push(text.parentElement);
+    }
+  }
+  for (const { meta, more, fold, icons } of lines) {
+    for (const el of fold) el.hidden = true;
+    for (const el of icons) {
+      el.classList.add("is-icon");
+      el.title ||= el.textContent;
+    }
+    more.hidden = !fold.length;
+    more.firstChild.textContent = `+${fold.length}`;
+    more.setAttribute("aria-label", `${fold.length} more tags`);
+    more.title = fold.map((el) => `#${el.dataset.tag}`).reverse().join(" ");
+    meta.classList.remove("is-measuring");
+  }
+}
+
+async function publishDraft(entry) {
+  try {
+    await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ is_draft: false }) });
+    entry.is_draft = false;
+    await loadEntries();
+    toast("Published.");
+  } catch (error) {
+    toast(error.message || "Couldn't publish that draft.", true);
+  }
+}
+
+//: The "+N" itself: a press lists what folded, each row doing what its chip
+//: does (a tag shows its notes, a suggestion is taken).
+function noteMetaMore(entry) {
+  const more = chip("+0", "note-meta-more", (event) => {
+    event.stopPropagation();
+    const at = more.getBoundingClientRect();
+    const items = [...more.parentElement.querySelectorAll(":scope > [data-tag][hidden]")].map((el) => {
+      const tag = el.dataset.tag;
+      return el.classList.contains("suggested-tag")
+        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerSuggestedTags(entry, { take: [tag] }) }
+        : { label: `ph:hash ${tag}`, title: `Show every note tagged #${tag}`, group: "Tags", run: () => filterNotesByTag(tag) };
+    });
+    openMenuAtPoint(items, "More tags", at.left, at.bottom);
+  });
+  more.setAttribute("aria-haspopup", "menu");
+  more.hidden = true;
+  return more;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1508,7 +1607,9 @@ function entryItem(entry, options = {}) {
     //: category rule was "a chip with none of these variants", which caught
     //: every variant added after it and drew "No tags yet" and "Linked by 5
     //: notes" as accent pills too.
-    const categoryEl = chip(entry.category, "category");
+    //: The name in a `.ph-text` span, so a narrow line can ellipsise it.
+    const categoryEl = chip("", "category");
+    categoryEl.append(Object.assign(document.createElement("span"), { className: "ph-text", textContent: entry.category }));
     paintCategoryDot(categoryEl, entry.category);
     //: The drag handle for moving this note to another category (INBOX 431
     //: (e), `wireCategoryDropTarget`): only in a list with actions.
@@ -1575,8 +1676,11 @@ function entryItem(entry, options = {}) {
         openTagChipMenu(tagChip, entry, tag);
       });
     }
+    tagChip.dataset.tag = tag;
     meta.appendChild(tagChip);
   }
+  //: Where the tags that do not fit go (INBOX 455 (1), `fitNoteMetas`).
+  meta.appendChild(noteMetaMore(entry));
   //: Tags filing suggested, kept on the note (INBOX 440): a press takes one,
   //: its × discards it for good.
   const suggestions = options.actions && !entry.is_board ? entry.suggested_tags || [] : [];
@@ -1585,6 +1689,7 @@ function entryItem(entry, options = {}) {
     //: holding a button (axe nested-interactive, found by the density pass).
     const group = chip("", "tag suggested-tag");
     group.replaceChildren();
+    group.dataset.tag = tag;
     const take = document.createElement("span");
     take.className = "suggested-tag-take";
     setLabel(take, `ph:plus ${tag}`);
@@ -1607,19 +1712,11 @@ function entryItem(entry, options = {}) {
     group.appendChild(discard);
     meta.appendChild(group);
   }
-  //: **A note with no tags says so, where the tags would be** (INBOX 162:
-  //: "notes with no tags or other things arent highlighted"). Only on a real
-  //: note in a list that offers actions: a board is not filed by tag and a
-  //: draft has not been filed at all. The chip is the fix as well as the
-  //: flag: it opens the edit form with the cursor in the tags field, where
-  //: the AI's suggestions appear as you type, so the person is one click
-  //: from tagged rather than being told and left there.
+  //: **A note with no tags says so, where the tags would be** (INBOX 162),
+  //: and the chip is the fix: the edit form, cursor in the tags field.
   if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
       && (options.actions || options.facts)) {
-    //: On a read-only row the flag is a **fact and nothing more**: the
-    //: handler below opens the edit form in the note list, which is not the
-    //: surface a search result is being read on, so wiring it here would be a
-    //: chip that looks pressable and does nothing visible (INBOX 297).
+    //: On a read-only row it is a fact only (INBOX 297).
     const untagged = options.actions
       ? chip("ph:tag Add tags", "untagged", (event) => {
         event.stopPropagation();
@@ -1630,22 +1727,9 @@ function entryItem(entry, options = {}) {
       ? "Add tags to this note"
       : "This note has no tags yet";
     meta.appendChild(untagged);
-    //: **And the offer to have them written for you, in the one place a
-    //: person is thinking about tags** (INBOX 292, the owner: "half the time
-    //: when there are no tags on a note, i want the ai to generate them for
-    //: me ... i want it to be more evident that it is an option and to be
-    //: offered to the user"). The action already existed, one row deep in
-    //: this note's menu under a name that did not mention tags, which is
-    //: exactly the kind of thing nobody finds.
-    //:
-    //: Rendered rather than gated, because a chip is a `<span role="button">`
-    //: and `syncModelGatedControls` closes controls by setting `disabled`,
-    //: which does nothing to a span. An offer that cannot be honoured is
-    //: worse than no offer, so with no model answering there is simply the
-    //: flag above and the manual route it already opens.
-    //: `options.actions` again: the offer is a model call, which is an
-    //: action, so it stays off a read-only row even though the flag above it
-    //: is now drawn on one.
+    //: **And the offer to have them written** (INBOX 292). Left out rather
+    //: than gated with no model answering: `disabled` does nothing to a
+    //: span, and an offer that cannot be honoured is worse than none.
     if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
       const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
         event.stopPropagation();
@@ -1674,16 +1758,11 @@ function entryItem(entry, options = {}) {
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
   const confidenceHint = "How sure Atlas was when it picked this note's category.";
-  //: **Confident filing is a fact about the category, not a line item.**
-  //: A score above the review line asks nothing of anyone, and as its own
-  //: pill it was one more badge on every card (owner: "a better ui/ux and
-  //: more modern and professional way to ... display all the metadata,
-  //: links, badges"). It rides on the category's tooltip instead; the low
-  //: score keeps its own mark, because that one is a request to check.
+  //: A confident score is quiet text beside the category (INBOX 440); a low
+  //: one is the warn mark, because that one is a request to check.
   const categoryChip = meta.querySelector(".chip.category");
   if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
     categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
-    //: Shown, not only a tooltip (INBOX 440).
     const byWords = entry.filing_state === "words";
     const who = byWords ? "your notebook's words" : "Atlas";
     if (byWords) categoryChip.title = `Filed from your notebook's words, ${entry.ai_confidence}% sure`;
@@ -1694,7 +1773,7 @@ function entryItem(entry, options = {}) {
   }
   const confidenceChip = aiDidFile && entry.ai_confidence < REVIEW_THRESHOLD
     ? // Low confidence from a real attempt, worth a human look (Phase 3).
-      chip(`AI ${entry.ai_confidence}%: check this`, "review")
+      chip(`ph:warning AI ${entry.ai_confidence}%: check this`, "review")
     : null;
   if (confidenceChip) confidenceChip.title = confidenceHint;
   // Flash the badge once when this note's confidence just changed, so the
@@ -1706,7 +1785,8 @@ function entryItem(entry, options = {}) {
     flashed.classList.add("badge-flash");
     flashConfidenceId = null;
   }
-  if (confidenceChip) meta.appendChild(confidenceChip);
+  //: Beside the category, as the high score is: how sure leads the line.
+  if (confidenceChip) categoryChip ? categoryChip.after(confidenceChip) : meta.appendChild(confidenceChip);
 
   // The documents this note feeds. Notes and documents are separate things
   // on purpose; this is the one place that says they are about the same one.
@@ -1782,40 +1862,17 @@ function entryItem(entry, options = {}) {
     meta.appendChild(mark);
   }
 
-  //: **Which space this note is actually filed in (INBOX 1a/38).** "Notes
-  //: from a deleted space appear in All spaces" turned out to be
-  //: unanswerable without this: there was no way to tell a survivor's real
-  //: space apart from a note that always lived in Default Space, so a
-  //: report and a non-bug looked identical. Shown whenever the picker at
-  //: the top of the tab does not already say it: every card while "All
-  //: spaces" is selected, or a card whose own space differs from the one
-  //: picked. `spacesCache` is the same list the switcher menu reads, so a
-  //: name/icon here can never disagree with the one shown there.
-  //: **`spacesCache.length` is not decoration: an empty cache means "not
-  //: loaded yet", not "there are no spaces".** `loadSpaces()` fills it from
-  //: `GET /spaces` after boot, and the note list renders before that lands, so
-  //: without this guard every card drew the chip below with the name it falls
-  //: back to and said, of an ordinary note in the Default Space, that it was
-  //: "filed in a space that no longer exists". Caught in a README screenshot,
-  //: where fifty-seven cards said it at once. Saying nothing until the answer
-  //: is known is the honest state; `loadSpaces` re-renders the list once it
-  //: has it (see its own comment), so the chip appears a moment later rather
-  //: than never.
-  //: Only when there is more than one space: with one, "Default Space" on
-  //: every note said nothing (owner's screenshots).
-  //: **And only when the notes in view come from more than one space**
-  //: (INBOX 432). A fresh notebook has four spaces and every note in
-  //: Default Space, so "All spaces" drew "Default Space" on every card, a
-  //: chip that told nobody anything; one note filed elsewhere brings them all
-  //: back, which is when they start to mean something.
+  //: **Which space this note is filed in (INBOX 1a/38)**, wherever the
+  //: picker does not already say it. An empty `spacesCache` means "not
+  //: loaded yet" (`loadSpaces` re-renders), not "no spaces": without the
+  //: guard 57 cards said "a space that no longer exists" in a README shot.
+  //: Only when the notes in view span spaces (INBOX 432): "Default Space"
+  //: on every card told nobody anything.
   if (entry.workspace_id && spacesCache.length > 1 && notesSpanSpaces()) {
     const active = activeSpaceId();
     if (active === SPACE_ALL || entry.workspace_id !== active) {
       const space = spacesCache.find((s) => s.id === entry.workspace_id);
-      // Stored as "ph-house" (a full class name, see the switcher's own
-      // `iconEl.className`), not the "ph:house" `setLabel` shorthand
-      // expects; stripping the prefix once here is cheaper than a second
-      // icon convention.
+      // Stored as a class name ("ph-house"), not the `setLabel` "ph:house".
       const iconName = (space?.icon || "ph-circles-four").replace(/^ph-/, "");
       const spaceName = space ? space.name : "a space that no longer exists";
       const spaceChip = chip(`ph:${iconName} ${spaceName}`, "tag", () =>
@@ -1835,10 +1892,7 @@ function entryItem(entry, options = {}) {
     meta.appendChild(busy);
   }
 
-  // The date and the action buttons share one right-aligned group. They used
-  // to carry a `margin-left: auto` each, and two auto margins in a flex row
-  // split the free space between them, which put the timestamp at a
-  // different x on every card, depending on how wide its chips were.
+  //: The actions' corner (`.entry-meta-end`, 08-consistency.css).
   const metaEnd = document.createElement("span");
   metaEnd.className = "entry-meta-end";
 
@@ -1852,11 +1906,10 @@ function entryItem(entry, options = {}) {
   date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
   date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
     (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
-  //: **The time is a fact on the details line, always shown** (INBOX 446,
-  //: the owner: "there is no timestamps"). It sat in the card's corner and
-  //: faded out whenever the card was pointed at, to make room for the
-  //: actions, so the one moment a person looked at a note its time went.
-  //: An edited note says so, whichever order the list is in.
+  //: **The time ends the details line, on every card** (INBOX 446: the
+  //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
+  //: that wrapped put it on a line of its own). The line never wraps now
+  //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
   if (edited && !byEdit) date.textContent += " · edited";
   meta.appendChild(date);
   meta.appendChild(metaEnd);
@@ -1887,28 +1940,9 @@ function entryItem(entry, options = {}) {
       //: note's unsaved changes.
       smallButton("ph:pencil-simple", "Edit this entry", () => openNoteEditor(entry.id))
     );
-    // Publishing already worked via the "draft" chip below (click it to
-    // clear is_draft): reported again anyway ("needs to be...a button for
-    // editing a draft and publishing"), so the chip alone wasn't read as an
-    // action. An explicit, always-visible button next to Edit for drafts
-    // only (a published note has nothing to publish) says the same thing
-    // the chip's tooltip already did, just as a button instead of a tag.
+    // And a button beside Edit, since the chip alone was not read as one.
     if (entry.is_draft) {
-      actions.appendChild(
-        smallButton("ph:check-circle", "Publish this draft as a proper note", async () => {
-          try {
-            await apiJson(`/entries/${entry.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ is_draft: false }),
-            });
-            entry.is_draft = false;
-            await loadEntries();
-            toast("Published.");
-          } catch (error) {
-            toast(error.message || "Couldn't publish that draft.", true);
-          }
-        })
-      );
+      actions.appendChild(smallButton("ph:check-circle", "Publish this draft as a proper note", () => publishDraft(entry)));
     }
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
@@ -1922,53 +1956,27 @@ function entryItem(entry, options = {}) {
     meta.insertBefore(lockedChip, meta.firstChild);
   }
   if (entry.pinned) meta.insertBefore(chip("ph:star favourite"), meta.firstChild);
-  // Set either by the text-selection popup's "Save as draft note" (not yet
-  // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
-  // however much it was edited before saving), asked for directly: both
-  // should be findable as drafts, not just marked in passing. The note stays
-  // in its normal place in the list either way; the sidebar/Library Drafts
-  // filter (renderSidebar, and the Library's Drafts chip: the old
-  // `library-view-drafts` sub-tab it used to name is gone) is what makes them
-  // findable as a group.
-  //
-  // **The chip is also how a draft becomes a real note**, and saying so is the
-  // fix: it was labelled "draft" with the tooltip "click to clear the label",
-  // which describes the mechanism and not the outcome, reported as "there is
-  // no way to edit and finalise drafts, or to publish one as a proper note",
-  // when publishing was one click away the whole time and simply unlabelled.
+  // A draft (the selection popup's "Save as draft note", the Writing Room's
+  // "Save as note"): the Drafts filter finds them, and **the chip publishes**,
+  // said on it, since "click to clear the label" read as no way to publish.
   if (entry.is_draft) {
-    const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
+    const draftChip = chip("ph:pencil-simple-line draft", "draft", (event) => {
       event.stopPropagation();
-      try {
-        await apiJson(`/entries/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ is_draft: false }),
-        });
-        entry.is_draft = false;
-        await loadEntries();
-      } catch (error) {
-        toast(error.message || "Couldn't update that note.", true);
-      }
+      publishDraft(entry);
     });
     draftChip.title =
       "This is a draft, click to publish it as a proper note. It stays where it is either way; only the Drafts filter changes.";
     meta.insertBefore(draftChip, meta.firstChild);
   }
-  //: **Where an imported note came from.** A vault file has a name, the
-  //: thing its `[[wiki links]]` use: and this app has no title field to put
-  //: it in, so without this the name is invisible: the note shows its opening
-  //: words like every other note, and nothing on screen says it is one of a
-  //: thousand files someone imported from a folder.
-  //:
-  //: A chip rather than a heading written into the note: the importer must
-  //: not rewrite the file it imported (see `_run_directory_import`, an
-  //: earlier attempt did, and three tests caught it).
+  //: **Where an imported note came from**: the file name its `[[links]]`
+  //: use. A chip, because the importer must not rewrite the file.
   if (entry.source_path) {
     const fileChip = chip(`ph:file-md ${entry.source_path.split("/").pop()}`, "source-path");
     fileChip.title = `Imported from ${entry.source_path}`;
-    meta.appendChild(fileChip);
+    meta.insertBefore(fileChip, date);
   }
   li.appendChild(meta);
+  noteMetaFit.observe(meta);
 
   // "Why this result" is its own line under the note, not another chip in
   // the meta lane. Measured: in the compact rows view that lane is a

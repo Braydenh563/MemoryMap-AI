@@ -1780,9 +1780,11 @@ header#top-bar,
     padding-top: var(--space-4);
   }
 
+  /* No auto margin: the time before it has one (08-consistency.css), and
+     two in one row split the room, which moved the time on every card. */
   #entry-list > li .entry-actions {
     position: static;
-    margin-left: auto;
+    margin-left: 0;
     background: none;
     opacity: 1;
   }

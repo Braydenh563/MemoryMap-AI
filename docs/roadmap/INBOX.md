@@ -115,6 +115,8 @@ with its owner named in the entry.
      ragged second line, tags that collapse to "+N", the date in one place
      on every card): an Opus agent when a slot frees; (2) companion
      transitions between perches and across tabs: an Opus agent after (1).
+     (1) built 2026-10-03 (DESIGN.md's note details line recipe, the
+     decision in UI_MODERNISATION_PLAN); (2) open.
 
 454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
      open, all, and done button sections in reminders, the skeleton loaders

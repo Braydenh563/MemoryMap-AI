@@ -366,15 +366,9 @@ function noteEditToolbar(boxId) {
     clone.className = "doc-toolbar note-toolbar note-edit-toolbar";
     clone.setAttribute("aria-label", "Formatting");
     for (const extra of clone.querySelectorAll("[data-md-extra]")) extra.remove();
-    //: **The Preview button stays in the strip.** It used to be cut out of
-    //: the clone because the edit form carried a separate Write / Preview
-    //: pill of its own -- which is precisely what the report was about:
-    //: "if the formatting bar was the same, the preview button would be in
-    //: it". Counted in the browser, the clone came out at 60 controls
-    //: against the capture strip's 61, and Preview was the one missing. It
-    //: is marked here because the id is stripped two lines down, and
-    //: renderEditForm needs to find it again to wire it to *this* note's
-    //: preview pane.
+    //: **The Source button stays in the strip**, marked because the id is
+    //: stripped two lines down and renderEditForm wires it (INBOX 430: it was
+    //: Preview, a pane the box already is).
     clone.querySelector("#entry-preview-toggle")?.setAttribute("data-note-preview", "1");
     //: **Every id goes.** A clone carries the capture strip's ids, and two
     //: elements with one id means `document.getElementById` hands back the
@@ -639,45 +633,14 @@ function renderEditForm(li, entry) {
   //: cloned strip's own Preview button is the switch, exactly as in the
   //: capture box and the document editor, and it renders the textarea's
   //: current text with the same renderer every note card uses.
-  const previewBtn = toolbarEl.querySelector("[data-note-preview]");
-  const preview = document.createElement("div");
-  preview.className = "markdown-body note-edit-preview hidden";
-  const setView = (mode) => {
-    const showPreview = mode === "preview";
-    if (showPreview) renderMarkdown(preview, textarea.value);
-    preview.classList.toggle("hidden", !showPreview);
-    textarea.classList.toggle("hidden", showPreview);
-    //: The numbered wrapper goes with the box it numbers (owner, 0.3.32:
-    //: "the preview ... crushes the numbers column"): the preview replaces
-    //: the whole writing area, gutter included, never sits beside a strip.
-    const wrap = textarea.closest(".gutter-wrap");
-    if (wrap) wrap.classList.toggle("hidden", showPreview);
-    if (previewBtn) {
-      //: `is-active` is what the stylesheet paints a pressed toolbar toggle
-      //: with (`.doc-toolbar-toggle.is-active`, 01-forms-settings.css) and what
-      //: the capture strip's own button carries; `active` was a second name for
-      //: the same state that nothing draws, so this button looked unpressed in
-      //: preview while the capture one looked pressed. Both are written, since
-      //: the clone can arrive carrying either.
-      previewBtn.classList.toggle("is-active", showPreview);
-      previewBtn.classList.toggle("active", showPreview);
-      previewBtn.setAttribute("aria-pressed", String(showPreview));
-    }
-    if (!showPreview) textarea.focus();
-  };
-  previewBtn?.addEventListener("click", () => setView(previewBtn.getAttribute("aria-pressed") === "true" ? "write" : "preview"));
-  //: **The clone carries the capture strip's state, including this button's.**
-  //: This toolbar is a `cloneNode(true)` of `#note-toolbar` (see
-  //: `noteEditToolbar`), so a form opened while the capture box is in preview
-  //: arrives with Preview already pressed while showing the textarea, and the
-  //: first click on it then reads as doing nothing. Measured while
-  //: reproducing INBOX 119 on :8895: `aria-pressed="true"` on a form whose
-  //: box was visible. The state is reset rather than `setView("write")` called:
-  //: that would focus the textarea, and opening a note for editing does not
-  //: otherwise move the caret into it.
-  if (previewBtn?.getAttribute("aria-pressed") === "true") {
-    previewBtn.classList.remove("is-active", "active");
-    previewBtn.setAttribute("aria-pressed", "false");
+  //: The cloned strip's Source button (wiring.js `setNoteSource`): the same
+  //: one choice as Capture's, for every note box. The edit box renders as you
+  //: type, so there is no Preview to switch to (INBOX 430).
+  const sourceBtn = toolbarEl.querySelector("[data-note-preview]");
+  sourceBtn?.addEventListener("click", () => setNoteSource(!noteSourceOn()));
+  if (sourceBtn) {
+    sourceBtn.setAttribute("aria-pressed", String(noteSourceOn()));
+    sourceBtn.classList.toggle("is-active", noteSourceOn());
   }
   //: Attachment cards for whatever this note already carries: rename its
   //: caption, generate one, or remove it, and removing takes the markdown
@@ -685,7 +648,7 @@ function renderEditForm(li, entry) {
   const chipsHost = document.createElement("div");
   chipsHost.className = "row attachment-chips hidden";
   chipsHost.id = "entry-edit-attachment-chips";
-  li.append(titleInput, toolbarEl, textarea, preview, chipsHost, meta);
+  li.append(titleInput, toolbarEl, textarea, chipsHost, meta);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

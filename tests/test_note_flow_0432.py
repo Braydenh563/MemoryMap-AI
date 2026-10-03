@@ -258,3 +258,20 @@ def test_the_selection_bar_does_what_one_notes_menu_does():
     assert "pushUndo(label, undo, redo)" in _function(skills, "batchEach")
     assert "fillBatchMore();" in _function(skills, "enterSelectMode")
     assert 'id="batch-more-host"' in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+
+def test_note_boxes_are_live_with_a_source_switch_not_a_preview():
+    """INBOX 430, the owner: "note forms use the live view with a source
+    toggle, no Preview". Measured: Live hides `**` and `[[`, Source shows the
+    markdown as typed, the same text and caret either way."""
+    docs = _read("documents.js")
+    ext = _function(docs, "noteSurfaceExtensions")
+    assert "host.noteLiveSlot.of(noteSourceWanted() ? [] : live)" in ext
+    assert "noteLiveSlot.reconfigure" in _function(docs, "setNoteSurfaceSource")
+    wiring = _read("wiring.js")
+    assert "function setNoteSource(on)" in wiring and "paintEntryPreview" not in wiring
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="entry-preview"' not in html and "<span class=\"toolbar-word\">Source</span>" in html
+    assert "setNoteSource(!noteSourceOn())" in _function(_read("notes-list.js"), "renderEditForm")
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert ":not(#entry-preview-toggle):not([data-note-preview])" in css

@@ -20,6 +20,7 @@ below). Versioning is `0.x` while the app stabilises.
 - The popup agent with a small model: a reply that only says what it will do ("I'll count the notes in Work") is asked once to do it, and the model's quoting markers no longer show in answers.
 - Settings: Import .md files works again; the search engine line says how many notes search by meaning can find and how the last search found its notes; Chat's Web and Plan pills keep their icon when on.
 - The rows view is one line per note (47px a row, was 74).
+- Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
 
 ### Added
 

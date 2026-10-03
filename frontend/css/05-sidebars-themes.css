@@ -2067,8 +2067,16 @@ body.resizing-sidebar {
    rest of its height back to the thing you are writing. Not `display: none` on
    the toolbar itself: a control that hides the control that brings it back is
    a trap. */
-.doc-toolbar.is-collapsed > *:not(.doc-toolbar-tools) {
+.doc-toolbar.is-collapsed > *:not(.doc-toolbar-tools):not(#entry-preview-toggle):not([data-note-preview]) {
   display: none;
+}
+
+/* A note strip's Live/Source switch stays out while the strip is folded
+   (INBOX 430): it is how the box reads, not a formatting tool, and folding
+   the tools (the default) would otherwise hide the one way to the source. */
+.doc-toolbar.is-collapsed > :is(#entry-preview-toggle, [data-note-preview]) {
+  order: 2;
+  margin-left: var(--space-2);
 }
 
 /* The collapsed strip keeps its smaller base term and adds what is under a
@@ -2097,7 +2105,8 @@ body.resizing-sidebar {
    the label rather than floating in from the right. */
 .doc-toolbar.is-collapsed .doc-toolbar-tools {
   margin-left: 0;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: space-between;
   background: none;
   padding-left: 0;

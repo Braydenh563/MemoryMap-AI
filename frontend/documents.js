@@ -10974,10 +10974,18 @@ function noteSurfaceMeta(host) {
 //: is about, the Live decorations, the markdown grammar, undo, the selection,
 //: and this app's own theme and chords.
 function noteSurfaceExtensions(CM, host, options) {
+  //: **Live or Source, one box** (INBOX 430, the owner: "note forms use the
+  //: live view with a source toggle, no Preview"). The rendering and the
+  //: grammar sit in a compartment of their own, so the strip's Source button
+  //: swaps them out for the plain markdown and back without a remount, the
+  //: text and the caret untouched (`setNoteSurfaceSource`).
+  const live = options.live ? [docLiveExtensions(CM), noteGrammarPlugin(CM)] : [];
+  host.noteLiveSlot = new CM.state.Compartment();
+  host.noteLiveExtensions = live;
   return [
-    options.live ? docLiveExtensions(CM) : [],
-    //: Grammar, the note's own list (PROSE-TOOLS, `noteGrammarPlugin`).
-    options.live ? noteGrammarPlugin(CM) : [],
+    //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
+    //: `noteGrammarPlugin`).
+    host.noteLiveSlot.of(noteSourceWanted() ? [] : live),
     //: **No findings plugin here, and that is the option the plan names
     //: rather than an omission.** `docProseFound` is the *document's* list of
     //: prose findings, at the document's offsets; drawn over a note it would
@@ -11085,6 +11093,26 @@ function noteSurfaceKeymap(host) {
     //: line in the *document's* comment marker before the menu wrote "/"
     //: over it (INBOX 402).
   ];
+}
+
+//: The Source choice is one for every note box, remembered: a person who
+//: writes in raw markdown wants it in the edit form as much as in Capture.
+const NOTE_SOURCE_KEY = "note-source-view";
+
+function noteSourceWanted() {
+  try {
+    return localStorage.getItem(NOTE_SOURCE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+//: Swap one mounted box between Live and Source. Answers whether it could.
+function setNoteSurfaceSource(host, source) {
+  const view = noteSurfaceViews.get(host);
+  if (!view || !host.noteLiveSlot) return false;
+  view.dispatch({ effects: host.noteLiveSlot.reconfigure(source ? [] : host.noteLiveExtensions || []) });
+  return true;
 }
 
 //: The view changed: mirror it out, and run the pipelines a typed character

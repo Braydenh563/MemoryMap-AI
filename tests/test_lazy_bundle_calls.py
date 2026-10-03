@@ -128,6 +128,9 @@ REACHED_AFTER_LOAD = {
     #: focusCaptureBox (capture-ask.js): with the bundle absent no editor view
     #: is mounted over the capture box, so focusing the textarea itself, the
     #: guarded fallback, is the right thing rather than a silent no-op.
+    #: setNoteSource (wiring.js): only a mounted box can be switched, and a box
+    #: mounts only with the bundle in; one mounted later reads the choice.
+    "setNoteSurfaceSource": "library, a mounted editor view exists only once the bundle is in; a later mount reads the remembered choice",
     "noteSurfaceFor": "library, a mounted editor view exists only once the bundle is in; without it the textarea fallback runs",
     "docSurfaceById": "library, called from the document editor's own handlers",
     "docPaletteCommands": "library, the palette asks only once documents.js is in",

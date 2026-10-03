@@ -1175,24 +1175,17 @@
               <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Task</span></button>
               <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
-              <!-- Asked for directly: a way to see highlights and text colours
-                   while writing, and to click a word to edit it. The document
-                   editor's Live view already does this for documents; the note
-                   composer had no preview at all. -->
+              <!-- Live or Source (INBOX 430): the box renders as you type; this
+                   shows the markdown as typed instead (wiring.js setNoteSource). -->
               <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
-                aria-pressed="false" aria-controls="entry-preview"
-                title="Preview: see highlights and colours as they will look">
-                <i class="ph ph-eye ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Preview</span>
+                aria-pressed="false"
+                title="Source: the markdown as you typed it, without the live formatting">
+                <i class="ph ph-code ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Source</span>
               </button>
             </div>
             <textarea id="entry-content" rows="3" class="autogrow"
               placeholder="Type anything: a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
-            <!-- The rendered note, shown instead of the box while Preview is on.
-                 Clicking it goes back to editing with the caret placed at the
-                 words that were clicked - see enterEntryPreview in app.js. -->
-            <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
-              aria-label="Preview of this note, click any text to edit it"></div>
             <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           </div>
           <!-- Reported directly: an uploaded/pasted image only shows as raw

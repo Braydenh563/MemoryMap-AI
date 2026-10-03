@@ -961,77 +961,44 @@ $("persona-select").addEventListener("change", async () => {
     renderChatEmptyState();
   }
 });
-// **Preview for the note composer.** Asked for directly: a way to see the
-// highlight and text colours while writing, and to click a word to edit it.
-//
-// Reuses `liveMarkdownRenderer` (debounced, already used by the streaming
-// answer pane) and `renderMarkdown` rather than growing a second renderer, 
-// the document editor's Live view proves that path already renders
-// everything, colours included.
-//
-// Deliberately *not* a copy of that Live view's per-block click-to-edit. That
-// machinery is built around a full-page editor with `docLiveBlocks`,
-// `docLiveActive` and a per-block textarea; a three-row composer does not
-// need a block model, and a second copy of one would be the third place in
-// this app that decides what a block is. The click behaviour people actually
-// want from a preview, "let me fix that word", is served by going back to
-// the box with the caret already on the words that were clicked.
-let entryPreviewRender = null;
-
-function entryPreviewOn() {
-  return !$("entry-preview").classList.contains("hidden");
-}
-
-function paintEntryPreview() {
-  if (!entryPreviewOn()) return;
-  entryPreviewRender ??= liveMarkdownRenderer($("entry-preview"));
-  const text = $("entry-content").value;
-  entryPreviewRender(text.trim() ? text : "_Nothing to preview yet._");
-}
-
-function setEntryPreview(on) {
-  const preview = $("entry-preview");
-  const box = $("entry-content");
-  const toggle = $("entry-preview-toggle");
-  preview.classList.toggle("hidden", !on);
-  box.classList.toggle("hidden", on);
-  toggle.setAttribute("aria-pressed", String(on));
-  toggle.classList.toggle("is-active", on);
-  if (on) {
-    paintEntryPreview();
-  } else {
-    box.focus();
+//: **Live or Source, never a separate Preview** (INBOX 430, the owner: "note
+//: forms use the live view with a source toggle, no Preview"). The note box
+//: already renders as you type (documents.js, the note surface's Live
+//: rendering), so a Preview pane was a second copy of what the box shows, in
+//: a box you could not type in. The strip's toggle is Source now: the
+//: markdown as typed, without the live formatting, and back. One choice for
+//: every note box, remembered (`noteSourceWanted`).
+function noteSourceOn() {
+  try {
+    return localStorage.getItem("note-source-view") === "1";
+  } catch {
+    return false;
   }
 }
 
-// Put the caret where the click landed. There is no exact mapping from a
-// rendered node back to an offset in the source, the markup that produced it
-// has been consumed: so this looks up the clicked node's own text in the
-// source and lands on it. Wrong only when the same words appear twice, where
-// it picks the first, which still beats the caret going to position zero.
-function caretAtClickedText(node) {
-  const box = $("entry-content");
-  const clicked = (node?.textContent || "").trim().slice(0, 60);
-  const at = clicked ? box.value.indexOf(clicked) : -1;
-  setEntryPreview(false);
-  if (at === -1) return;
-  box.setSelectionRange(at, at + clicked.length);
+function syncNoteSourceButtons() {
+  for (const button of document.querySelectorAll("#entry-preview-toggle, [data-note-preview]")) {
+    button.setAttribute("aria-pressed", String(noteSourceOn()));
+    button.classList.toggle("is-active", noteSourceOn());
+  }
 }
 
-$("entry-preview-toggle")?.addEventListener("click", () => setEntryPreview(!entryPreviewOn()));
-$("entry-preview")?.addEventListener("click", (event) => {
-  if (event.target.closest?.("summary, a, button, input, label, select, textarea, audio, video")) return;
-  caretAtClickedText(event.target);
-});
-$("entry-preview")?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    setEntryPreview(false);
+function setNoteSource(on) {
+  try {
+    localStorage.setItem("note-source-view", on ? "1" : "0");
+  } catch {
+    /* storage blocked: this box only */
   }
-});
-// Typing with the preview open (via the toolbar, which writes into the box
-// while it is hidden) must still repaint it.
-$("entry-content")?.addEventListener("input", paintEntryPreview);
+  //: A box not mounted yet reads the choice when it mounts.
+  for (const id of ["entry-content", "entry-edit-content"]) {
+    const host = $(id);
+    if (host && typeof setNoteSurfaceSource === "function") setNoteSurfaceSource(host, on);
+  }
+  syncNoteSourceButtons();
+}
+
+$("entry-preview-toggle")?.addEventListener("click", () => setNoteSource(!noteSourceOn()));
+syncNoteSourceButtons();
 
 //: The persona the greeting speaks as: the override, or Chat's own when the
 //: override is "Same as Chat", or the assistant's name when Chat has none.

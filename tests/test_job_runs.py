@@ -204,10 +204,13 @@ def test_a_failed_backup_shows_why(client, monkeypatch):
     from memorymap.core import backup
 
     def full(*_a, **_k):
-        raise OSError("No space left on device")
+        raise OSError(28, "No space left on device")
 
     monkeypatch.setattr(backup, "backup_now", full)
-    assert client.post("/backups").status_code == 500
+    response = client.post("/backups")
+    # Said in words for the toast, not the bare "Internal error" a 500 was.
+    assert response.status_code == 507
+    assert response.json()["detail"] == "Couldn't save the backup: No space left on device."
     row = _runs(client)["backup"]
     assert row["status"] == "failed" and "No space left" in row["error"]
 

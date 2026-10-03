@@ -26,7 +26,9 @@ if (!fs.existsSync(AXE_JS)) {
 }
 const AXE = fs.readFileSync(AXE_JS, 'utf8');
 const TABS = ['dashboard', 'notes', 'library', 'chat', 'graph', 'timeline', 'reminders', 'documents', 'whiteboard'];
-const SUBTABS = { notes: ['browse', 'capture', 'writing-room', 'ask'], library: ['docs', 'boards', 'images', 'files', 'skills', 'links', 'contents'] };
+//: Library's sub-tabs are `data-target="library-view-*"`, not `data-section`;
+//: the old names here matched nothing, so Library was only ever scanned on All.
+const SUBTABS = { notes: ['browse', 'capture', 'writing-room', 'ask'], library: ['docs', 'whiteboard', 'media', 'skills', 'links', 'contents'] };
 const SECTIONS = ['account', 'privacy', 'learned', 'appearance', 'preferences', 'models', 'tools', 'skills', 'personas', 'templates', 'websearch', 'memory', 'tasks', 'data', 'logs', 'shortcuts', 'extras', 'help', 'about'];
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const want = (name) => !ONLY.length || ONLY.some((o) => name.startsWith(o));
@@ -79,7 +81,7 @@ async function scan(page, where, context, seen, out) {
       await page.evaluate((name) => switchTab(name), t); await page.waitForTimeout(900);
       incomplete += await scan(page, t, null, seen, out);
       for (const s of SUBTABS[t] || []) {
-        const ok = await page.click(`#tab-${t} [data-section="${s}"], #tab-${t} [data-view="${s}"]`, { timeout: 1500 }).then(() => true).catch(() => false);
+        const ok = await page.click(`#tab-${t} [data-section="${s}"], #tab-${t} [data-view="${s}"], #library-subtabs [data-target="library-view-${s}"]`, { timeout: 1500 }).then(() => true).catch(() => false);
         if (!ok) continue;
         await page.waitForTimeout(600);
         incomplete += await scan(page, `${t}/${s}`, null, seen, out);

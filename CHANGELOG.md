@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.
 - Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.
 - Settings: a section's jump strip marks the heading you chose, even near the end of a short page where it used to mark the last one.
 - Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".

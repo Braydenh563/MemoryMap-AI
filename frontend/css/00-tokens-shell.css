@@ -1223,7 +1223,11 @@ header#top-bar {
      rather than cramped, still leaves the bar shorter than its 3.7rem
      height, and every control in the bar moves together because they all
      read this one token. */
-  --header-control-h: var(--control-h-lg);
+  /* **One height for everything in the bar** (INBOX 465, the owner: "make
+     all the elements in the top bar consistent in size and height"): the
+     tab strip's, 36px tabs in their 4px well. Measured before: logo 34,
+     space picker 32, tab strip 44, the five icon buttons 32. */
+  --header-control-h: calc(var(--control-h-body) + 0.5rem);
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */
@@ -1331,6 +1335,22 @@ header#top-bar h1 {
 @media (max-width: 720px) {
   header#top-bar h1 {
     display: none;
+  }
+}
+
+/* The wordmark gives way before the tabs do (INBOX 465): with every control
+   at the bar's one 44px height the strip wrapped to a second row at 1280.
+   The logo stays, so the bar still says whose it is; the name is in the
+   window title and the logo's own label. */
+@media (max-width: 1439.98px) and (min-width: 1100px) {
+  header#top-bar h1 {
+    display: none;
+  }
+
+  /* And the tabs' sides close in by a step (16px to 12px a side, the 36px
+     height and 16px labels kept): 1280 was still 56px short of one row. */
+  header#top-bar #tab-bar button {
+    padding-inline: var(--space-5);
   }
 }
 

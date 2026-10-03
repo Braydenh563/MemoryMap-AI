@@ -34,6 +34,18 @@ with its owner named in the entry.
 
 ## Open items
 
+466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
+     categories: a count pill on every row; the expanded companion with its
+     resize ring at the top right).** "I think there should also be a clear
+     button on the note capture tab and in other main text areas where the
+     user might want to quick clear their work... also it is wierd with all
+     these numbers floating int he manage categories popup. also the
+     companion resize circle appears still on the expanded companion popup
+     panel". Placed: (1) Clear on Capture, Quick note, Ask, Chat's composer
+     and the popup agent's box, with Undo; (2) the counts as quiet text
+     beside the name, not pills; (3) the resize ring hidden in the enlarged
+     viewer: the orchestrator.
+
 464. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's active Library button: its icon faint on the accent
      fill).** "there is still some colour contrast issues. do another round

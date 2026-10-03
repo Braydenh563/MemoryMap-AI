@@ -36782,3 +36782,13 @@ width, 47% of the column at 1440.
      every row (the row recipe draws it on hover), Write with Atlas has two
      filled buttons (Draft, Save as note).
 
+465. **The owner, 2026-10-03 night, verbatim, with a screenshot of the top
+     bar.** "actually just make all the elements in the top bar consistent in
+     size and height". Also: "still note metadata wrap" (with 455 (1)).
+     **Fixed**: one height, the tab strip's 44px, for the logo, the space
+     picker, the strip and the five icon buttons (were 34, 32, 44, 32),
+     every centre on one line; the icon buttons are 44px squares. To keep
+     one row from 1100 to 1439 the wordmark gives way (the logo stays) and
+     the tabs' sides close by a step (16 to 12.8px; 36px tall, 16px labels):
+     one row at 1200, 1280, 1366, 1440, 1920.
+

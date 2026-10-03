@@ -357,3 +357,33 @@ def test_the_last_run_survives_the_task_history_being_cleared(client):
     taskhistory.record("extra", "Installing x", "completed", "x installed")
     client.post("/tasks/history/clear")
     assert _runs(client)["extra"]["result"] == "x installed"
+
+
+# -- the lints the DOM-less suite needs ---------------------------------------
+
+
+def test_every_last_run_line_in_the_page_names_a_known_kind():
+    import re
+    from pathlib import Path
+
+    html = (Path(__file__).resolve().parent.parent / "frontend" / "index.html").read_text(encoding="utf-8")
+    lines = set(re.findall(r'data-job-line="([a-z-]+)"', html))
+    assert lines, "the page has no last-run lines"
+    assert lines <= set(jobruns.KINDS), lines - set(jobruns.KINDS)
+    # The js builds the overview and the runtime lines from the same attribute.
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    assert set(re.findall(r'jobLineEl\("([a-z-]+)"\)', js)) <= set(jobruns.KINDS)
+
+
+def test_every_kind_in_the_overview_is_written_by_some_job():
+    """A kind nothing writes shows "Not run yet" for ever, which reads as a
+    job that never works. Each must be opened by `job_run`/`begin` somewhere
+    in `src`, or be a `taskhistory` bridge."""
+    import re
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    text = "\n".join(p.read_text(encoding="utf-8") for p in src.rglob("*.py") if p.name != "jobruns.py")
+    written = set(re.findall(r'(?:job_run|begin)\("([a-z-]+)"', text))
+    written |= set(taskhistory.LAST_RUN_KINDS.values())
+    assert set(jobruns.KINDS) <= written, set(jobruns.KINDS) - written

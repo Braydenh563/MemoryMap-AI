@@ -85,14 +85,6 @@ with its owner named in the entry.
      optimisation pass (reference counts 242 to 6 statements, six indexes;
      WORLD_CLASS_PLAN H7).
 
-438. **The owner, 2026-10-03, verbatim.** "I also think there should be
-     timestamps and success status for when various things were last ran
-     like the search reindexing etc." Placed: every maintenance action that
-     runs on demand or in the background (search reindex, embeddings
-     backfill, backups, filing re-evaluation, duplicate scan, OCR, imports)
-     shows "Last run: <when>, <succeeded / failed: why>" beside its control,
-     from one record the backend keeps per job kind: the orchestrator.
-
 437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
      Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,
      Top-k slider, a "you set this" badge, the value 124 twice).** "the

@@ -36276,3 +36276,16 @@ width, 47% of the column at 1440.
      cards above the fold, was 4); (7) You, Atlas, You and Atlas on every
      history row. (4) continues as INBOX 434.
 
+438. **The owner, 2026-10-03, verbatim.** "I also think there should be
+     timestamps and success status for when various things were last ran
+     like the search reindexing etc." Placed: every maintenance action that
+     runs on demand or in the background (search reindex, embeddings
+     backfill, backups, filing re-evaluation, duplicate scan, OCR, imports)
+     shows "Last run: <when>, <succeeded / failed: why>" beside its control,
+     from one record the backend keeps per job kind: the orchestrator.
+     Fixed: `core/jobruns.py` (one `job_runs` row per kind, `job_run`), `GET /jobs/last-runs`,
+     a last-run line beside each control, the Background jobs list in Settings, Background tasks;
+     measured with scratchpad/ui-sweeps/joblines.js (a re-index and a backup updated their lines, a
+     forced backup failure showed its reason in red). Not verified: a job running long enough to
+     watch the ring and the 2 s poll live (the ring was painted from a simulated running row).
+

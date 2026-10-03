@@ -8173,6 +8173,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <p id="reindex-blurb" class="muted text-sm">Rebuilds the word index and what semantic search matches on.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
               </div>
+              <!-- Last-run lines (INBOX 438): filled by refreshJobRuns() in
+                   settings.js from GET /jobs/last-runs. The second is the
+                   check that runs at start for notes saved before the model
+                   was ready; it has no button, so this is its only home. -->
+              <p class="status job-line" role="status" data-job-line="reindex"></p>
+              <p class="status job-line" role="status" data-job-line="embeddings-backfill"></p>
             </div>
             <div class="settings-group">
             <!-- Asked for directly, after a live report of an unrelated note
@@ -8559,6 +8565,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button type="button" id="learned-run-now" class="small">Read my notes now</button>
                 <span class="muted" id="learned-run-note"></span>
               </div>
+              <p class="status job-line" role="status" data-job-line="night-shift"></p>
             </div>
 
             <div class="settings-group">
@@ -9981,6 +9988,33 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- When each kind of job last ran and how it went (INBOX 438).
+                 Unlike "Recently finished" above, this is kept in the
+                 notebook, so it still answers after a restart: the question
+                 is usually "did last night's backup work?". The rows are
+                 built by renderJobOverview() in settings.js. -->
+            <div class="settings-group" id="job-runs-group">
+              <div class="row help-head">
+                <h3>Background jobs</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="job-runs-help" aria-controls="job-runs-help" aria-expanded="false"
+                  title="About background jobs" aria-label="About background jobs">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">When each job last ran, and whether it worked.</p>
+              <div class="help-body hidden" id="job-runs-help" role="dialog" aria-label="About background jobs">
+                <p>
+                  One line per kind of job: the last time it ran, whether it
+                  succeeded, and what it did or why it failed. Unlike the
+                  list above, this is remembered after you restart. A job that
+                  has never run says so. Hover a line for the exact time and
+                  how long it took.
+                </p>
+              </div>
+              <ul id="job-runs-list" class="entry-list"></ul>
+            </div>
+
             <div class="settings-group">
               <div class="row help-head">
                 <h3>Autonomous background AI</h3>
@@ -10113,6 +10147,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <div class="row row-top-gap">
                   <button id="autonomous-trigger" class="small ghost"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Run optimization now</button>
                 </div>
+                <p class="status job-line" role="status" data-job-line="autonomous"></p>
 
                 <!-- What the last pass actually did. This is the answer to
                      "you are asking me to let an agent edit my notebook while
@@ -10270,6 +10305,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="duplicate-threshold-value" class="muted">72%</span>
               </div>
               <p id="duplicate-status" class="status" role="status"></p>
+              <p class="status job-line" role="status" data-job-line="duplicate-scan"></p>
               <div id="duplicate-groups"></div>
             </div>
 
@@ -10326,6 +10362,7 @@ Link to another note with [[its first few words]]."></textarea>
                   otherwise. Needs the markitdown extra below.
                 </p>
               </div>
+              <p class="status job-line" role="status" data-job-line="import"></p>
             </div>
 
             <div class="settings-group">
@@ -10350,6 +10387,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="backup-now" class="small">Back up now</button>
                 <span id="backup-status" class="status" role="status"></span>
               </div>
+              <p class="status job-line" role="status" data-job-line="backup"></p>
               <ul id="backup-list" class="entry-list"></ul>
               <!-- Asked about directly: "backup retention should be a
                    setting: backups accumulate with no cap the user can see

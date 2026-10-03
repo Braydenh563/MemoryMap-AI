@@ -167,6 +167,9 @@ function showSettingsSection(name) {
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
   if (name === "about") renderHealthBlock().catch(() => {});
+  //: The "Last run" lines on this section's controls, and the Background jobs
+  //: overview (INBOX 438): one fetch fills every line on the page.
+  if (typeof refreshJobRuns === "function") refreshJobRuns();
 }
 
 // Peek fades the settings panel so a colour change is visible on the page
@@ -4802,3 +4805,150 @@ function wireFoldHelps() {
 wireFoldHelps();
 
 wireSettingsFolds();
+
+// --- Last run of each job (INBOX 438) ------------------------------------------
+//
+// The owner: "there should be timestamps and success status for when various
+// things were last ran like the search reindexing etc." The backend keeps one
+// record per job kind (`core/jobruns.py`, `GET /jobs/last-runs`); this paints
+// it. Every `[data-job-line="<kind>"]` in the page is filled from that one
+// list, so a control gets its line by carrying the attribute and nothing else,
+// and the Background jobs overview in Settings is the same lines in a column.
+//
+// One fetch serves them all. It runs when Settings changes section, after a
+// button inside a block that has a line is pressed (a beat later, and again
+// once the job has had time to finish), and every two seconds while any line
+// on screen says "Running…". It stops by itself: no visible line, no timer.
+
+const JOB_STATUS_WORDS = { ok: "succeeded", failed: "failed", cancelled: "stopped" };
+
+let jobRunsList = null;
+let jobRunsTimer = 0;
+let jobRunsInFlight = false;
+
+function jobDurationWords(ms) {
+  if (typeof ms !== "number" || ms < 0) return "";
+  if (ms < 1000) return "under a second";
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)} s`;
+  const minutes = Math.round(seconds / 60);
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+// The words of one job's line, and what it should look like. `bare` leaves off
+// the "Last run" lead for the overview, where the row's own name leads.
+function jobRunLine(run, bare) {
+  if (!run || !run.ran) {
+    // Beside a control the line has to say which job it is about: the import
+    // line sits under three different importers.
+    const text = bare || !run ? "Not run yet." : `${run.label}: not run yet.`;
+    return { text, title: "", failed: false, running: false };
+  }
+  if (run.status === "running") {
+    return {
+      text: "ph:spin Running…",
+      title: run.started_at ? `Started ${new Date(run.started_at).toLocaleString()}` : "",
+      failed: false,
+      running: true,
+    };
+  }
+  const when = relativeTime(run.finished_at || run.started_at) || "at an unknown time";
+  const head = bare ? when.charAt(0).toUpperCase() + when.slice(1) : `Last run ${when}`;
+  const stamp = new Date(run.finished_at || run.started_at).toLocaleString();
+  const took = jobDurationWords(run.duration_ms);
+  const title = took ? `${stamp}, took ${took}` : stamp;
+  if (run.status === "failed") {
+    return { text: `${head} · failed: ${run.error || "no reason was recorded"}`, title, failed: true, running: false };
+  }
+  const word = JOB_STATUS_WORDS[run.status] || run.status;
+  return {
+    text: `${head} · ${word}${run.result ? ` · ${run.result}` : ""}`,
+    title,
+    failed: false,
+    running: false,
+  };
+}
+
+function paintJobLine(el) {
+  if (!jobRunsList) return;
+  const run = jobRunsList.find((item) => item.kind === el.dataset.jobLine);
+  const line = jobRunLine(run, el.dataset.jobBare === "1");
+  // Skip a repaint that would say the same thing: a polite live region
+  // re-reads whatever is replaced under it, and the timer fires every two
+  // seconds for as long as a job runs.
+  const signature = `${line.text}|${line.title}|${line.failed}`;
+  if (el.dataset.jobSig === signature) return;
+  el.dataset.jobSig = signature;
+  el.dataset.jobRunning = line.running ? "1" : "";
+  el.classList.toggle("error", line.failed);
+  el.title = line.title;
+  setLabel(el, line.text);
+}
+
+// A line for code that builds its control at runtime. Painted at once from
+// what is already known, and a refresh is asked for.
+function jobLineEl(kind) {
+  const el = document.createElement("p");
+  el.className = "status job-line";
+  el.setAttribute("role", "status");
+  el.dataset.jobLine = kind;
+  paintJobLine(el);
+  refreshJobRuns();
+  return el;
+}
+
+async function refreshJobRuns() {
+  if (jobRunsInFlight) return;
+  jobRunsInFlight = true;
+  try {
+    const body = await apiJson("/jobs/last-runs", { silent: true });
+    jobRunsList = body.jobs || [];
+  } catch {
+    return; // a missing line is better than a toast over a status nicety
+  } finally {
+    jobRunsInFlight = false;
+  }
+  renderJobOverview();
+  const lines = [...document.querySelectorAll("[data-job-line]")];
+  for (const el of lines) paintJobLine(el);
+  clearTimeout(jobRunsTimer);
+  const running = lines.some((el) => el.offsetParent !== null && el.dataset.jobRunning === "1");
+  if (running) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
+}
+
+// Settings → Background tasks → Background jobs: every kind in one column,
+// the ones that have never run included, so the absence of a job reads as
+// "not run yet" rather than "this app cannot do that".
+function renderJobOverview() {
+  const list = $("job-runs-list");
+  if (!list || !jobRunsList) return;
+  if (list.children.length === jobRunsList.length) return;
+  list.replaceChildren();
+  for (const run of jobRunsList) {
+    const li = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = run.label;
+    const line = document.createElement("p");
+    line.className = "status job-line";
+    line.setAttribute("role", "status");
+    line.dataset.jobLine = run.kind;
+    line.dataset.jobBare = "1";
+    li.append(name, line);
+    list.appendChild(li);
+  }
+}
+
+// A beat after a button inside a block with a line is pressed, and again once
+// the job has had time to finish: the line then shows "Running…" and keeps
+// itself fresh, or shows the ending of something quick.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest && event.target.closest("button");
+  if (!button) return;
+  for (let node = button.parentElement; node && node !== document.body; node = node.parentElement) {
+    if (node.querySelector("[data-job-line]")) {
+      setTimeout(refreshJobRuns, 500);
+      setTimeout(refreshJobRuns, 3000);
+      return;
+    }
+  }
+});

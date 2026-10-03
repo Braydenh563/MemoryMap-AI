@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Toasts: a toast fades and lets clicks through while the focused control is under it (WCAG 2.4.11; at 200% and 400% zoom a lasting "3 reminders are due" hid the Tab stop on six tabs), and the toast box no longer swallows clicks beside a narrow toast below 1100px.
 - Bookmarks: pinned links lead every order but By site (the list's own sort used to discard the pin).
 - Background jobs: a failed run's last-run line says why in a few words ("No space left on device", "File exists"), not the operating system's text with an error number and the path of your folders.
 - Bookmarks: a test now holds that GET /bookmarks pages tile one order, pinned first across every page (it already did: the order is applied before the page is cut).

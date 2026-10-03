@@ -3110,6 +3110,20 @@ li.link-source {
   flex-direction: column;
   gap: 0.5rem;
   z-index: 1050;
+  /* The box spans the width below 1100px: only its toasts take clicks, so
+     the strip beside a narrow toast does not eat clicks meant for the page. */
+  pointer-events: none;
+}
+
+#toast-box > .toast {
+  pointer-events: auto;
+}
+
+/* Over the focused control it would hide (status.js, WCAG 2.4.11). */
+#toast-box.is-yielding > .toast.toast {
+  opacity: 0.12;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .toast {

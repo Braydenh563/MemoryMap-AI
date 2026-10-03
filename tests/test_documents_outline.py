@@ -34,3 +34,11 @@ def test_a_code_document_has_no_headings(client):
 
 def test_outline_is_not_swallowed_by_the_document_id_route(client):
     assert client.get("/documents/outline").status_code == 200
+
+
+def test_outline_carries_the_creation_date_for_by_month_grouping(client):
+    """The Contents index's By month mode puts a document under the month it
+    was created in, as notes are, so the row needs `created_at`."""
+    client.post("/documents", json={"title": "Dated", "content": "# A\n"})
+    row = client.get("/documents/outline").json()[0]
+    assert row["created_at"][:4].isdigit() and "T" in row["created_at"]

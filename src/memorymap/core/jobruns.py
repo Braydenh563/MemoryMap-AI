@@ -77,6 +77,19 @@ def _clip(text: object) -> str:
     return one_line if len(one_line) <= _MAX_TEXT else one_line[: _MAX_TEXT - 1] + "…"
 
 
+def _failure_reason(exc: BaseException) -> str:
+    """The short worded reason an exception leaves on the last-run line.
+
+    An `OSError`'s `str()` is "[Errno 28] No space left on device: '/home/x/
+    backups/memorymap-...db'": the person's own path and an errno, on a line
+    meant for a sentence. Its `strerror` is the sentence ("No space left on
+    device"), so that is what is kept; the full text stays in the log.
+    """
+    if isinstance(exc, OSError) and exc.strerror:
+        return str(exc.strerror)
+    return str(exc) or type(exc).__name__
+
+
 #: Where the app's own database comes from when a caller does not hold one.
 #: `core/deps.py` sets it at import. Not an import of `deps` from here:
 #: `deps` reaches the AI modules, and the AI modules record their jobs, so the
@@ -221,7 +234,7 @@ def job_run(kind: str, db=None):  # noqa: ANN001, ANN201
     except BaseException as exc:
         # GeneratorExit and KeyboardInterrupt are not "failed", but nothing
         # may leave the row saying "running" forever either.
-        run.fail(str(exc) or type(exc).__name__)
+        run.fail(_failure_reason(exc))
         run.finish()
         raise
     run.finish()

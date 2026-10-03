@@ -2529,6 +2529,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       source: e.source.id != null ? e.source.id : e.source,
       target: e.target.id != null ? e.target.id : e.target,
       kind: e.kind,
+      //: A link somebody gave a reason for sits a little closer (the worker's
+      //: `KIND_LENGTH`).
+      curated: e.kind === "link" && Boolean(e.reason),
       //: A similarity line's score or a deduced link's confidence, for
       //: Length by similarity. The worker was never sent it, so that switch
       //: changed nothing on this renderer (INBOX 412, measured).
@@ -2569,7 +2572,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
   const sig = JSON.stringify([
     init.perf,
     init.nodes.map((n) => [n.id, n.fx, n.fy, n.r]),
-    init.edges.map((e) => [e.source, e.target, e.kind, e.score]),
+    init.edges.map((e) => [e.source, e.target, e.kind, e.score, e.curated]),
     init.params,
     world,
   ]);

@@ -109,7 +109,24 @@ const DRAG_ALPHA = 0.3;
 //: +24, which on a 2,000-note map is a collision field an order of magnitude
 //: wider than the node and pushes the layout into a lattice against its own
 //: world walls. Six is "labels do not sit on top of each other".
-const COLLIDE_PAD = 6;
+//:
+//: **Twelve on a notebook of up to 150 notes, easing to six by 600** (INBOX 443
+//: (1), "uneven spacing"). Measured on the 60-note fixture
+//: (`scratchpad/ui-sweeps/graphlook.js`), the spread of each linked dot's gap
+//: to its nearest neighbour (coefficient of variation) fell with the pad:
+//: 0.44 at 6, 0.40 at 12, 0.32 at 16, while crossings rose 18, 21, 24. Twelve
+//: is the knee. The pad shrinks with the count because the collision field is
+//: what a big map spends its span on (the +24 above): six is the number that
+//: was measured for the 300 to 2,000 note fixtures.
+const COLLIDE_PAD_MAX = 12;
+const COLLIDE_PAD_MIN = 6;
+let COLLIDE_PAD = COLLIDE_PAD_MAX;
+function collidePadFor(count) {
+  const n = Math.max(1, Number(count) || 1);
+  if (n <= 150) return COLLIDE_PAD_MAX;
+  if (n >= 600) return COLLIDE_PAD_MIN;
+  return COLLIDE_PAD_MAX - ((COLLIDE_PAD_MAX - COLLIDE_PAD_MIN) * Math.log2(n / 150)) / 2;
+}
 
 //: **How far the map spreads, and why it must depend on how many notes there
 //: are.** Reported as "the max gravity in the graph is quite separated", and
@@ -138,6 +155,31 @@ const DENSITY_EXPONENT = 0.42;
 //: alone: at 35 notes the fit zoom was 0.8, which is not "a note is a note"
 //: either, it is a map framed a fifth smaller than the screen it is on.
 const SPREAD_TRIM = 0.78;
+
+//: **A link's kind says how close its ends want to be** (INBOX 443 (1)).
+//: Every line but a similarity was one length, so a note filed under another,
+//: a hand-made link with a reason and a loose thread all pulled the same.
+//: Now: a reasoned link (somebody said why) and a thread reply sit a little
+//: closer, an entity or document tie closer still, a filing or a board's
+//: reference looser. The factors are small on purpose: the shape is still
+//: decided by the links, this only separates the kinds by a tenth or two.
+const KIND_LENGTHS = { thread: 0.9, entity: 0.9, document: 0.9, map: 1.1, filing: 1.2 };
+function KIND_LENGTH(edge) {
+  if (edge.curated) return 0.92;
+  return KIND_LENGTHS[edge.kind] || 1;
+}
+//: Springs weaker for the kinds that are context rather than structure, so a
+//: board's reference or a filing line does not drag a cluster out of shape.
+const KIND_STRENGTHS = { map: 0.8, filing: 0.6 };
+//: d3's own 1/min(degree) stays the base. A floor under it (0.15, 0.3, 0.5)
+//: was measured and rejected: 0.5 evened a hub's spokes (length CV 0.38 to
+//: 0.27) but took the crossings from 18 to 25, and a crossing reads worse than
+//: a spoke a few pixels long.
+function linkStrength(edge) {
+  const a = edge.source.degree || 1;
+  const b = edge.target.degree || 1;
+  return (1 / Math.min(a, b)) * (KIND_STRENGTHS[edge.kind] || 1);
+}
 
 function densityScale(count) {
   const n = Math.max(Number(count) || 1, 1);
@@ -183,7 +225,7 @@ function tuning(params) {
     //: line with no score keeps the base length. Until INBOX 412 this
     //: renderer was never sent a score, so the switch did nothing here.
     linkDistance: (edge) => {
-      const base = (edge.kind === "similar" ? 130 : 80) * density * spreadScale;
+      const base = (edge.kind === "similar" ? 130 : 80) * KIND_LENGTH(edge) * density * spreadScale;
       const score = params && params.lengthByScore === false ? null : edge.score;
       if (typeof score !== "number" || Number.isNaN(score)) return base;
       return base * (1.3 - 0.6 * Math.max(0, Math.min(1, score)));
@@ -548,9 +590,10 @@ self.onmessage = (event) => {
       world = message.world || null;
       orbit.reach = null;
       orbit.items = [];
+      COLLIDE_PAD = collidePadFor(nodes.length);
       const edges = (message.edges || [])
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
-        .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score }));
+        .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score, curated: e.curated === true }));
       for (const edge of edges) {
         nodes[indexById.get(edge.source)].degree += 1;
         nodes[indexById.get(edge.target)].degree += 1;
@@ -566,6 +609,7 @@ self.onmessage = (event) => {
             .forceLink(edges)
             .id((d) => d.id)
             .distance(tuned.linkDistance)
+            .strength(linkStrength)
         )
         .force(
           "charge",

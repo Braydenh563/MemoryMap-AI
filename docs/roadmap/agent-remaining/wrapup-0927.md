@@ -51,8 +51,14 @@ work starts.
    after, 0px at 1440 and 900, the button 8px before it; a phone draws the
    table, no heads) "Start today's note"
    sits beside "Today": decide left or right against the Timeline's
-   other heads, and measure; (c) the reminder steppers float mid-row with a
-   gap: align them to the row's grid next to the time readout; (d) mind
+   other heads, and measure; (c) done (index.html: Quick set,
+   steppers, Reset, readout, in that order; the readout's 15rem reserve and
+   the pair's auto margin gone. At 1440 the pair sat at the row's end, 725px
+   past the readout text, and moved 101.5px left when Reset appeared; after,
+   it follows Quick set by 8px at x 139.9 in every state, centres level
+   (cy 16), the readout 8px after; at 1093 (the sheet) and 390 it wraps
+   left-aligned, nothing overflowing) the reminder steppers float mid-row
+   with a gap: align them to the row's grid next to the time readout; (d) mind
    map node background fill: nodes are outline-only; add a fill option
    (done: mind map topics have a Fill, alone or with the branch) (the node colour recipe, a tinted fill) if it does not exist; (e) the
    owner says the README shots were not retaken: they were in c947ebe on

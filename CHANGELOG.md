@@ -14,6 +14,7 @@ below). Versioning is `0.x` while the app stabilises.
 - The Web search panel's "..." menu is there the moment the panel opens, instead of after the engine's status check.
 - A note card's labels row keeps the same room under the text as under "Show more".
 - Timeline: on a day with notes, today's count stays at the end of its heading like every other day's, with "Start today's note" just before it, instead of floating in the middle.
+- Reminders: the 15 min and 1 day steppers sit right after Quick set, with the time they add up to after them, and no longer move when Reset appears.
 
 ## [0.3.32] - 2026-09-28
 

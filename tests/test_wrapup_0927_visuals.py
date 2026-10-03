@@ -11,6 +11,7 @@ Each test pins the shape of the fix; the numbers are in the ledger entry.
 * 10c(3): the Web panel's "..." waited for the engine status call.
 * 10(d): a note card's meta row sat 6.4px under its text, 8px under "Show more".
 * 8(b): today's count floated mid-head beside "Start today's note".
+* 8(c): the reminder steppers sat apart from the readout they move.
 """
 
 from pathlib import Path
@@ -66,3 +67,20 @@ def test_today_keeps_its_count_in_the_column_of_counts():
         ".timeline-bucket-head:has(> .timeline-today-action) > .timeline-bucket-count {\n"
         "  order: 1;\n  margin-left: 0;\n}"
     ) in css
+
+
+def test_the_reminder_steppers_follow_quick_set_and_lead_the_readout():
+    """8(c): at 1440 the steppers sat at the row's end, 725px past the readout
+    text, and moved 101.5px left when Reset appeared; after, they follow
+    Quick set by 8px at one place whatever the readout says, and the readout
+    follows them by 8px."""
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    row = html[html.index('id="reminder-due-row"') :]
+    row = row[: row.index('<p class="muted reminder-hint">')]
+    assert row.index('id="reminder-presets-menu"') < row.index('class="stepper-pair"') < row.index('id="reminder-due-readout"')
+    pair = _read("css/01-forms-settings.css")
+    pair = pair[pair.index(".stepper-pair {") :]
+    assert "margin-inline-start: auto" not in pair[: pair.index("}")]
+    widgets = _read("css/03-dashboard-widgets.css")
+    readout = widgets[widgets.index("#reminder-due-readout {") :]
+    assert "min-width" not in readout[: readout.index("}")]

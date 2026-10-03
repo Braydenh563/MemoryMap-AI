@@ -4594,7 +4594,6 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="doc-dock-menu-item" data-preset="nextweek">Next week</button>
             </div>
           </details>
-          <span class="muted" id="reminder-due-readout" role="status"></span>
           <!-- Two steppers (DESIGN.md "Stepper"): a minus and a plus around
                the unit they move by, in one quiet pill with no dividers.
                They were four joined boxes, "−15m | +15m | −1d | +1d", which
@@ -4617,6 +4616,12 @@ Link to another note with [[its first few words]]."></textarea>
                 title="A day later" aria-label="A day later"><i class="ph ph-plus" aria-hidden="true"></i></button>
             </div>
           </div>
+          <!-- The readout after the steppers, not between them and Quick set
+               (wrapup-0927 8(c)): presets land near the time, the steppers
+               settle it, the readout says what that adds up to. The steppers
+               then stand at one place whatever the readout says, so it needs
+               no reserved width, which was the gap they floated across. -->
+          <span class="muted" id="reminder-due-readout" role="status"></span>
         </div>
       </div>
       <p class="muted reminder-hint">Notifications fire while the app is open, or hit Remind on any note.</p>

@@ -265,6 +265,13 @@ class Category(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    #: The colour the person chose for this category (INBOX 441 (4)): a palette
+    #: key the swatch picker offers ("teal") or a `#rrggbb` hex, validated in
+    #: `routes_categories.py`. NULL is "automatic": every surface then draws
+    #: the colour it always did. Kept on the row, not in preferences, so a
+    #: rename keeps it, a merge keeps the target's and a delete drops it with
+    #: no clean-up pass. `_rebuild_categories_unique_constraint` copies it.
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -1973,6 +1980,7 @@ class DatabaseManager:
                     " id INTEGER NOT NULL PRIMARY KEY,"
                     " name VARCHAR(100) NOT NULL,"
                     " description TEXT,"
+                    " colour VARCHAR(16),"
                     " created_at DATETIME,"
                     " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
                     " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
@@ -1980,8 +1988,8 @@ class DatabaseManager:
                 )
                 connection.exec_driver_sql(
                     'INSERT INTO "categories_rebuilt" '
-                    " (id, name, description, created_at, workspace_id)"
-                    " SELECT id, name, description, created_at,"
+                    " (id, name, description, colour, created_at, workspace_id)"
+                    " SELECT id, name, description, colour, created_at,"
                     "        COALESCE(workspace_id, 'default') FROM categories"
                 )
                 connection.exec_driver_sql('DROP TABLE "categories"')

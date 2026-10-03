@@ -6298,6 +6298,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-r { animation: nmb-hide-r 2.4s ease-in-out; }
     &.nmb-act-hide .name-mark .nm-eyes { animation: nmb-hide-eyes 2.4s ease-in-out; }
     &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 0.9s ease-in-out; }
+    &.nmb-act-nod .nm-buddy-head { animation: nmb-nod-yes 0.3s ease-in-out 4 alternate; }
     &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
     &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
     &.nmb-act-feet .nm-buddy-char { animation: nmb-feet 7s ease-in-out; }
@@ -6359,6 +6360,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 @keyframes nmb-glow {
   from { opacity: 0.55; }
   to { opacity: 1; }
+}
+/* A nod: the head dips twice and comes back (avatars.js, the "nod" act). */
+@keyframes nmb-nod-yes {
+  from { translate: 0 0; rotate: 0deg; }
+  to { translate: 0 2px; rotate: 4deg; }
 }
 @keyframes nmb-nod {
   from { translate: 0 0; }

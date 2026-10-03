@@ -3461,6 +3461,8 @@ const NAME_MARK_BUDDY_ACTS = {
   lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   hide: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  //: Pleased with a piece of work the app finished (`nameMarkBuddyWork`).
+  nod: { ms: 1200, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
 //: The sudden or large acts the calm budget holds back
@@ -7047,12 +7049,153 @@ function nameMarkBuddyCue(cue, from = "") {
     }
     if (cue === "startle") nmb.startledAt = Date.now();
     buddy.classList.remove("nmb-drowsy");
-    const face = { cheer: ["excited", 2400], carry: ["happy", 2400], startle: ["surprised", 1600], bell: ["surprised", 1200], wave: ["happy", 2000] }[cue];
+    const face = { cheer: ["excited", 2400], carry: ["happy", 2400], startle: ["surprised", 1600], bell: ["surprised", 1200], wave: ["happy", 2000], nod: ["happy", 2000], shrug: ["confused", 2400] }[cue];
     if (face) nameMarkBuddyExpress(face[0], face[1]);
     if (cue === "bell" && nameMarkBuddyBellErrand()) return;
     const calm = cue === "bell" || nameMarkBuddyCalmAllows(Date.now(), nmb.loudAt || 0, nmb.loudGap || NMB_LOUD_GAP_MS, nmb.keyAt || 0, nameMarkBuddyScrollAgo());
     if (NAME_MARK_BUDDY_ACTS[cue] && (calm || !NMB_LOUD_ACTS.includes(cue))) nameMarkBuddyAct(cue);
   }, 1500);
+}
+
+// --- what the app's AI is doing -----------------------------------------------
+//: **It does what Atlas is doing** (INBOX 443, the owner: "the companion
+//: doesnt change action for related actions when things are happening like
+//: for the tag and file with atlas note function running with atlas reading
+//: the note"). A note card said "Atlas is reading…" while the companion
+//: stood idle beside it.
+//:
+//: **One hook, not a call in every feature**: every model call the app
+//: makes goes out through `fetch`, so this watches `fetch` once and knows
+//: the work by its address (`NMB_WORK`). A new model feature joins by a row
+//: here, not by a line in its own file. The request itself is untouched:
+//: the same call, the same promise, the same response; for a streamed
+//: answer the body is handed on chunk by chunk as it is read, so the end of
+//: the stream (or its cancel, or its error) is seen without reading it twice.
+//: A note being filed is seen on the save's own answer (`filing_state:
+//: "pending"`) and on the filing poll's (`/entries/<id>/filing`), whose
+//: last answer says how it went.
+//:
+//: While work runs it reads (glasses on, and its book out where it stands or
+//: sits: re-evaluate, Tag with Atlas, the tag offer, OCR, filing) or thinks
+//: (the dots: chat, Ask, Improve writing, a draft); a caption is a look. When
+//: the last piece ends it nods, pleased, or holds up the note it filed; a
+//: failure is a puzzled face and a shrug. Atlas wears the same mood on every
+//: Atlas the app draws. Under Reduce motion, Avatar animation Off or a
+//: hidden companion it does nothing (the cue and act gates below).
+const NMB_WORK = [
+  ["POST", /^\/entries\/[^/]+\/reevaluate$/, "read"],
+  ["POST", /^\/entries\/suggest-tags$/, "read"],
+  ["POST", /^\/entries\/improve$/, "think"],
+  ["POST", /^\/(?:media|files)\/[^/]+\/(?:ocr|vision-ocr|ocr-range-read|ocr-page-read|region-read)$/, "read"],
+  ["POST", /^\/(?:media|files)\/[^/]+\/(?:caption|page-caption)$/, "look"],
+  ["POST", /^\/(?:chat|help\/ask|drafts\/compose)\/stream$/, "think", "stream"],
+];
+const nmbWork = new Map();
+let nmbWorkSeq = 0;
+function nameMarkBuddyWorkFor(method, path) {
+  for (const [m, pattern, kind, how] of NMB_WORK) if (m === method && pattern.test(path)) return { kind, how: how || "" };
+  return null;
+}
+function nameMarkBuddyWork(id, kind, phase) {
+  if (phase === "start") nmbWork.set(id, kind);
+  else if (!nmbWork.delete(id)) return;
+  const buddy = document.getElementById("nm-buddy");
+  const atlas = !!buddy && isAtlasSeed(buddy.dataset.seed || "");
+  if (nmbWork.size) {
+    const kinds = new Set(nmbWork.values());
+    if (atlas && typeof setAtlasMood === "function") setAtlasMood("thinking", 0, { quiet: true });
+    if (!buddy) return;
+    if (kinds.has("think")) nameMarkBuddyCue("think");
+    if (kinds.has("read") || kinds.has("file")) {
+      buddy.classList.add("nmb-reading");
+      nameMarkBuddyHold("serious");
+      //: Its book out, for as long as the reading takes (ended below).
+      if (!nmb.workAct && !nmb.act && !nmb.visit && !nameMarkBuddyStill() && !nameMarkBuddyAsleep(buddy)
+        && NAME_MARK_BUDDY_ACTS.read.poses.includes(nmb.pose) && !nameMarkBuddyActOff("read")) {
+        nameMarkBuddyAct("read", 10 * 60 * 1000);
+        nmb.workAct = "read";
+      }
+    } else if (kinds.has("look") && !nmb.act) nameMarkBuddyAct("look");
+    return;
+  }
+  //: The last piece of work ended: back from reading, then a reaction.
+  if (atlas && typeof setAtlasMood === "function") setAtlasMood(phase === "done" ? "happy" : phase === "failed" ? "confused" : "calm", 4000, { quiet: true });
+  if (!buddy) return;
+  //: "rest" takes the thinking dots, the glasses and a reading errand off
+  //: and gives its face back (`nameMarkBuddyCue`).
+  nameMarkBuddyCue("rest");
+  if (nmb.workAct && nmb.act === nmb.workAct) nameMarkBuddyAct("");
+  nmb.workAct = "";
+  if (phase === "done") nameMarkBuddyCue(kind === "file" ? "carry" : "nod");
+  else if (phase === "failed") nameMarkBuddyCue("shrug");
+}
+if (typeof window.fetch === "function") {
+  const send = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    const url = typeof input === "string" ? input : input?.url || "";
+    let path = "";
+    try {
+      path = new URL(url, location.href).pathname;
+    } catch (e) {
+      return send(input, init);
+    }
+    const method = String(init?.method || input?.method || "GET").toUpperCase();
+    const filing = method === "GET" && /^\/entries\/[^/]+\/filing$/.test(path);
+    const saving = method === "POST" && path === "/entries";
+    const work = filing || saving ? null : nameMarkBuddyWorkFor(method, path);
+    if (!work && !filing && !saving) return send(input, init);
+    const id = work ? `w${(nmbWorkSeq += 1)}` : "";
+    if (work) nameMarkBuddyWork(id, work.kind, "start");
+    return send(input, init).then((response) => {
+      if (filing || saving) {
+        //: The filing's state, from its own answer (a copy of it: the app
+        //: reads the original).
+        if (response.ok) {
+          response.clone().json().then((data) => {
+            const entryId = filing ? path.split("/")[2] : data?.id;
+            const state = data?.filing_state;
+            if (state === "pending") nameMarkBuddyWork(`f${entryId}`, "file", "start");
+            else if (state) nameMarkBuddyWork(`f${entryId}`, "file", state === "failed" || data?.filed_by === "none" ? "failed" : "done");
+          }, () => {});
+        }
+        return response;
+      }
+      if (!response.ok) {
+        nameMarkBuddyWork(id, work.kind, "failed");
+        return response;
+      }
+      if (work.how !== "stream" || !response.body || typeof ReadableStream !== "function") {
+        nameMarkBuddyWork(id, work.kind, "done");
+        return response;
+      }
+      //: The stream handed on as it is read: its end, error or cancel is
+      //: the work's end. The app's own reader sees the same chunks.
+      const reader = response.body.getReader();
+      const body = new ReadableStream({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              controller.close();
+              nameMarkBuddyWork(id, work.kind, "done");
+            } else controller.enqueue(value);
+          } catch (error) {
+            nameMarkBuddyWork(id, work.kind, error?.name === "AbortError" ? "stopped" : "failed");
+            controller.error(error);
+          }
+        },
+        cancel(reason) {
+          nameMarkBuddyWork(id, work.kind, "stopped");
+          return reader.cancel(reason);
+        },
+      });
+      Object.defineProperty(response, "body", { value: body });
+      return response;
+    }, (error) => {
+      if (work) nameMarkBuddyWork(id, work.kind, error?.name === "AbortError" ? "stopped" : "failed");
+      throw error;
+    });
+  };
 }
 
 //: Input keeps the idle clock at zero; a click is also something it may

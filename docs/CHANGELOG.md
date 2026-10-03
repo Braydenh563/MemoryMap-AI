@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion: it does what the app's AI is doing. While Atlas reads a note (Re-evaluate, Tag with Atlas, the tag offer, filing a new note, OCR) it puts its glasses on and gets its book out; while it writes (chat, Ask, Improve writing, a draft) it thinks; a caption is a look. When the work ends it nods, or holds up the note it filed, and a failure gets a puzzled face.
 - Companion: double-click it and the large view shows the companion itself, still doing what it was doing (reading, asleep, sitting on its ledge) until you poke it or the act ends; in there it plays every few seconds, follows the pointer with its eyes, perks up when you hover, says its lines now and then, and only blinks under reduced motion. The view's head is the dialog-head recipe (name and an icon Close) over one line of description.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 

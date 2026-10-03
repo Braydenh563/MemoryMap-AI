@@ -1264,3 +1264,28 @@ def test_a_double_click_does_not_poke_it_and_no_move_leaves_it_gone() -> None:
     go = _fn("nameMarkBuddyGo")
     assert go.count("nameMarkBuddyCrossfade(buddy, dx, dy,") == 2
     assert "{ opacity: 0, translate:" not in go
+
+
+def test_it_does_what_the_apps_model_work_is_doing() -> None:
+    # INBOX 443, the owner: "the companion doesnt change action for related
+    # actions when things are happening like for the tag and file with atlas
+    # note function running with atlas reading the note". One hook (fetch,
+    # watched once) and a table of the model's addresses, not a call in each
+    # feature. Measured by scratchpad/ui-sweeps/companionwork.js.
+    table = AV[AV.index("const NMB_WORK = [") : AV.index("];", AV.index("const NMB_WORK = ["))]
+    for address in ("reevaluate", "suggest-tags", "improve", "vision-ocr", "caption", "chat|help\\/ask|drafts\\/compose"):
+        assert address in table, address
+    assert "window.fetch = (input, init = {}) =>" in AV and AV.count("window.fetch = (") == 1
+    # The filing is read from the save's answer and the filing poll's.
+    assert '/^\\/entries\\/[^/]+\\/filing$/.test(path)' in AV and 'state === "pending"' in AV
+    # A stream's end is seen as it is read, its cancel passed on.
+    assert "return reader.cancel(reason);" in AV and 'Object.defineProperty(response, "body", { value: body });' in AV
+    work = _fn("nameMarkBuddyWork")
+    assert 'nameMarkBuddyAct("read", 10 * 60 * 1000);' in work and 'nameMarkBuddyCue("think")' in work
+    assert 'nameMarkBuddyCue(kind === "file" ? "carry" : "nod")' in work and 'nameMarkBuddyCue("shrug")' in work
+    assert 'nameMarkBuddyCue("rest");' in work
+    assert "nod: { ms: 1200, w: 0" in AV and "&.nmb-act-nod .nm-buddy-head" in CSS08
+    # No feature file calls it: the hook is the only way in.
+    for path in (ROOT / "frontend" / "js").glob("*.js"):
+        if path.name != "avatars.js":
+            assert "nameMarkBuddyWork(" not in path.read_text(encoding="utf-8"), path.name

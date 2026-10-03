@@ -36312,3 +36312,19 @@ width, 47% of the column at 1440.
      WORLD_CLASS_PLAN H7); (5) the rest: the details line grouped and spaced,
      the time always shown, edit authorship in the history. **All fixed.**
 
+445. **The owner, 2026-10-03, verbatim.** "I was also wondering if the
+     bookmarks and contents library pages as well as maybe others like the
+     ai skills page and stuff might be better designed, and expanded in
+     utility, capability, features, ui/ux and more. same with the
+     whiteboard and mindmap, are they up to scratch?? can the controls and
+     tools and functions and features be better designed?? is anything from
+     them missing or not working as they should. are there large excessive
+     volumes of calculations slowing things down?? is all the ui and ux
+     correct?? can there be more utility, accessibility, features and
+     more?? everything needs to be refined and polished". Then: agents may
+     be Opus or Sonnet, a few at a time, each committing per step; concise
+     style, recorded in CLAUDE.md order 4. Placed: (1) Library Bookmarks,
+     Contents and AI skills audited and redesigned: an agent; (2) whiteboard
+     and mind map audited (controls, missing or broken features, render cost
+     per frame), then fixed: an agent; both after the running agents land.
+

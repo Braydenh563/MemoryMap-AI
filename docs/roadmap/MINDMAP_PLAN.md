@@ -1293,3 +1293,15 @@ the phase.
     one claim that must be measured before anything is designed.
     **Placed 2026-09-21 into MINDMAP_PLAN section 13**, which carries the
     measured read, the decisions and the gated phases.
+
+## Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed)
+
+Open, each small and named; fix in one pass with `scratchpad/ui-sweeps/wbmapaudit.js` and `wbkeywalk.js` green after:
+
+- A deleted branch restored by Ctrl+Z comes back without its cross-links.
+- Undo after a restore can go stale: restored topics get new ids, so older stack entries point at nothing.
+- Shift+Tab (outdent) adds no undo step.
+- After undoing a create, nothing is selected; select the parent.
+- Tab on the canvas with a topic selected adds a topic, so a keyboard user cannot Tab past the map without Escape first.
+- Decision taken (order 3): Delete removes the whole branch, as the code and server already do, now that it is one undo step; §12.0's "re-parents children" line is superseded.
+- Existing sweeps `wbphase4.js` (7/19) and `whiteboard.js` (rail children) fail identically on base 64efb97: re-baseline or fix.

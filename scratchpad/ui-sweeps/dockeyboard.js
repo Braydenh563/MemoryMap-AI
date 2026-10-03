@@ -118,8 +118,10 @@ const DOC = ["# A page to type on", "", "The first line of text, which is the on
   //: to a base term, so theirs grows by it.
   ok(
     "the thumb bar rides above the keyboard",
-    after.thumbBarPad === KEYBOARD,
-    `${before.thumbBarPad}px to ${after.thumbBarPad}px`
+    //: Measured where it ends, not how: it may be lifted by its padding or
+    //: by its position, and either way its foot must meet the keyboard.
+    after.thumbBar && Math.abs(after.thumbBar.bottom - after.visual) <= 2,
+    `bottom ${after.thumbBar && after.thumbBar.bottom} against the keyboard's edge at ${after.visual}`
   );
   ok(
     "the chat composer takes the same inset, on top of its own padding",

@@ -2756,14 +2756,17 @@ async function renderQuickCaptureWidget(body) {
     smallButton("Save", "", async () => {
       const content = textarea.value.trim();
       if (!content) return;
-      setLabel(status, "ph:spin Filing…");
+      status.textContent = "Saving…";
       try {
+        //: Saved at once and filed in the background, `#tags` read from the
+        //: text, as Capture's are (INBOX 434). It waited on the model before.
         const saved = await apiJson("/entries", {
           method: "POST",
-          body: JSON.stringify({ content, tags: [] }),
+          body: JSON.stringify({ content, tags: [], defer_filing: true, inline_tags: true }),
         });
-        status.textContent = `Filed under “${saved.category}”.`;
+        status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
         textarea.value = "";
+        if (saved.filing_state === "pending") watchFiling(saved);
         loadEntries();
       } catch (error) {
         status.textContent = error.message;

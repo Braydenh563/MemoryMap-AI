@@ -122,6 +122,20 @@ if(want('graph')){
   const l=await timeToList(m,t0); const fl=l.id?await timeToFiled(l.id):{};
   row('graph new note',{focus:f,list_ms:l.ms,filed_ms:fl.ms,cat:fl.cat});
 }
+// 6b. The dashboard's Quick capture widget, when it is on the dashboard.
+if(want('dash')){
+  await goDash();
+  const box=await page.$('textarea[aria-label="Quick capture"]');
+  if(!box){row('dashboard widget',{present:'no'});}
+  else{
+    const m='dw'+stamp();
+    await box.fill(`Dashboard thought on kites ${m} #outdoors`);
+    const t0=await mark(); await box.press('Control+Enter');
+    const l=await timeToList(m,t0); const fl=l.id?await timeToFiled(l.id):{};
+    const tags=await page.evaluate((id)=>(typeof allEntries!=='undefined'?allEntries:[]).find(e=>e.id===id)?.tags,l.id);
+    row('dashboard widget',{list_ms:l.ms,filed_ms:fl.ms,tags:JSON.stringify(tags)});
+  }
+}
 // 7. Server down mid-save, from Capture.
 if(want('offline')){
   await page.evaluate(()=>startNewNote()); await page.waitForTimeout(800);

@@ -11,6 +11,7 @@ through `POST /tags/rename`.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 #: A tag is a label. 50,000 characters was once accepted as one, which is a
@@ -46,3 +47,36 @@ def normalise_tags(tags: Iterable[object] | None) -> list[str]:
         seen.add(key)
         out.append(tag)
     return out
+
+
+#: `#word` written in a note's own text (INBOX 434: "tag with #", the way
+#: Bear, Obsidian and Drafts all read a note). A tag starts with a letter, so
+#: `#42` (an issue number) and `# Heading` (a space after the mark) are not
+#: tags; the mark must follow the start of a line, a space or an opening
+#: bracket, so a URL's `page#section`, an HTML entity's `&#39;` and the
+#: second `#` of `##` are not either. Letters, digits, `_`, `-` and `/` after
+#: that, so `#project/garden` nests the way the tag list already draws it.
+_INLINE_TAG = re.compile(r"(?:(?<=^)|(?<=[\s\[]))#([^\W\d_][\w/-]*)", re.MULTILINE)
+#: Code is quoted text, never the writer's labels: a fenced block's
+#: `#include` or a `#define` in backticks must not become a tag.
+_FENCED = re.compile(r"^(`{3,}|~{3,})[^\n]*\n.*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
+_CODE_SPAN = re.compile(r"`[^`\n]*`")
+#: A colour (`#3b82f6`, `#ff0000`) is a value, not a label. Only hex with a
+#: digit in it: `#cafe` and `#bed` are words a person may well tag with.
+_HEX_COLOUR = re.compile(r"^(?=[0-9a-fA-F]*\d)(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+
+
+def inline_tags(text: str | None) -> list[str]:
+    """The `#tags` written in `text`, in the order they appear, each once.
+
+    The marks stay in the text (as in Bear): the note reads as it was
+    written, and the tag list is where the label is kept and searched."""
+    if not text:
+        return []
+    body = _CODE_SPAN.sub(" ", _FENCED.sub(" ", text))
+    found = []
+    for match in _INLINE_TAG.finditer(body):
+        tag = match.group(1).rstrip("-/")
+        if tag and not _HEX_COLOUR.match(tag):
+            found.append(tag)
+    return normalise_tags(found)

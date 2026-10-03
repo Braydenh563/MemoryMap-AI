@@ -100,6 +100,17 @@ class EntryCreate(BaseModel):
     #: Ignored when `category` or `parent_id` decides the category anyway, 
     #: there is nothing to defer in either case.
     defer_filing: bool = False
+    #: Read `#word` in the text as tags as well (INBOX 434). Opt-in, sent by
+    #: the boxes a person writes a note in (Capture, Quick note, the graph's
+    #: new note), never by an import or the AI, whose text is not a person
+    #: labelling their own thought.
+    inline_tags: bool = False
+    #: The same note sent twice is saved once. The offline queue
+    #: (quick-note.js) gives every note it holds a key and resends it until
+    #: an answer arrives, so a save whose answer was lost on the way back
+    #: (the server stopped after the commit) is answered with the note it
+    #: already made rather than a second copy.
+    client_key: str | None = Field(default=None, max_length=80)
 
 
 class EntryUpdate(BaseModel):

@@ -4082,10 +4082,13 @@ async function saveGraphNewNote() {
   status.classList.remove("error");
   status.textContent = "Adding…";
   try {
+    //: Filed in the background and `#tags` read from the text, as Capture's
+    //: are (INBOX 434): the map draws the note at once, wherever it lands.
     const created = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags }),
+      body: JSON.stringify({ content, tags, defer_filing: true, inline_tags: true }),
     });
+    if (created.filing_state === "pending") watchFiling(created);
     if (graphNewLinkFrom !== null) {
       await apiJson(`/entries/${graphNewLinkFrom}/links`, {
         method: "POST",

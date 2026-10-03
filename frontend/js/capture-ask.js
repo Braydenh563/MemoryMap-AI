@@ -704,6 +704,7 @@ async function saveEntry() {
         category,
         document_ids: [...captureDocuments],
         defer_filing: deferFiling,
+        inline_tags: true,
       }),
     });
     clearStagedImages();
@@ -797,6 +798,7 @@ async function saveEntryAsDraft() {
         tags,
         document_ids: [...captureDocuments],
         is_draft: true,
+        inline_tags: true,
       }),
     });
     clearStagedImages();

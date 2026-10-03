@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas's feminine look wears a flowing gown below the waist: one A-line with a softly waved hem and four folds on it, instead of five wavy ribbons hanging past a pointed hem (which read as tentacles); her comet tail is unchanged.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed

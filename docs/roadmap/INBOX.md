@@ -117,7 +117,8 @@ with its owner named in the entry.
      visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
      workspace: a Sonnet agent; (4) the feminine Atlas's lower body, flowing
      like a gown's hem rather than tentacles, kept elegant: the orchestrator,
-     after the masculine tail's agent work is merged.
+     after the masculine tail's agent work is merged. **(4) Fixed**: a gown (A-line, waved hem, four
+     folds), measured extent 9.4..49.8 x 49..97 (was to y 102 with 24 paths).
      Then: "also if the companion is doing a specific action and i double
      click it to view it in the enlarged window, I want it to keep doing
      that action unless poked or something else happens". Placed: (5) the

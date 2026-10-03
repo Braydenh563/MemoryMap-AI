@@ -2805,7 +2805,7 @@ Link to another note with [[its first few words]]."></textarea>
            of nine controls at two heights, a labelled View select, Today,
            Options (a panel of three more selects under the strip), a labelled
            Highlight field, a count and help. Now the four zones: identity
-           (Timeline, the count as its context), find (the highlight field),
+           (Timeline, the count as the Graph's `.dock-chip`), find (the highlight field),
            arrange (the view as an icon segment, the app's one control for
            "how am I looking at this", and one Options menu holding bucket,
            bands and range), actions (Today as the one filled control, help).
@@ -2814,7 +2814,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="dock" data-dock-name="timeline" role="toolbar" aria-label="Timeline controls">
         <div class="dock-identity">
           <h2>Timeline</h2>
-          <span id="timeline-count" class="muted dock-context"></span>
+          <span id="timeline-count" class="dock-chip"></span>
         </div>
         <div class="dock-group dock-find">
           <!-- "Find", not "highlight": it filters the rows now rather than

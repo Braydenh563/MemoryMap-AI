@@ -1236,16 +1236,16 @@ header#top-bar,
     min-width: 0;
   }
 
-  .dock .dock-identity > :is(h1, h2, h3, .dock-context) {
+  .dock .dock-identity > :is(h1, h2, h3, .dock-chip) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* The context line gives way before the name does ("17 notes · by date"
+  /* The count gives way before the name does ("17 notes · by date"
      beside "Timeline" ran 68px into the Options menu at 390). */
-  .dock .dock-identity > .dock-context {
+  .dock .dock-identity > .dock-chip {
     flex: 0 1000 auto;
   }
 }

@@ -2510,7 +2510,7 @@ header#top-bar select,
   min-height: var(--control-h);
 }
 
-/* Group headings read as section labels with a count pill. */
+/* Group headings read as section labels with their count beside them. */
 .reminder-group-head {
   display: flex;
   align-items: center;
@@ -2526,20 +2526,19 @@ header#top-bar select,
   margin-top: 0.25rem;
 }
 
+/* **A count is muted figures, not a pill** (INBOX 437 (4)): every other
+   group head in the app (the Timeline's days, Find anything's groups, the
+   writing panel's, Models') prints its count as plain muted numbers; this
+   one was the only filled lozenge, a badge recipe of its own. */
 .reminder-group-head .group-count {
-  padding: 0.05rem 0.4rem;
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
-  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
 
-.reminder-group-head.group-overdue {
-  color: var(--warn);
-}
-
+.reminder-group-head.group-overdue,
 .reminder-group-head.group-overdue .group-count {
-  background: var(--warn-soft);
   color: var(--warn);
 }
 

@@ -9037,6 +9037,10 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 /* Today's note button sits at the day head's end, like the other days' counts. */
 .timeline-bucket-head > .timeline-today-action {
   margin-inline-start: auto;
+  /* Into the head's own padding, so today's head is as tall as every other
+     day's (INBOX 437 (4): 47px against 35, the one head in the list a row
+     taller because a 32px button sat inside 8px of padding each side). */
+  margin-block: calc(-1 * var(--space-2));
 }
 
 /* ...and on a today that has rows, its count stays in the column every other

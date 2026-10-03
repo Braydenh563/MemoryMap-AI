@@ -11767,11 +11767,6 @@ input[type="file"] {
   pointer-events: none;
 }
 
-.dock-context {
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
 .dock-menu-section .timeline-custom-range {
   margin: var(--space-2) 0 0;
 }

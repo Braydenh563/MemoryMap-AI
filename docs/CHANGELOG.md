@@ -9,10 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion: double-click it and the large view shows the companion itself, still doing what it was doing (reading, asleep, sitting on its ledge) until you poke it or the act ends; in there it plays every few seconds, follows the pointer with its eyes, perks up when you hover, says its lines now and then, and only blinks under reduced motion. The view's head is the dialog-head recipe (name and an icon Close) over one line of description.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
 
+- Companion on Chat: it perches on the composer dock, reads along on it while an answer is written and cheers when it lands, and never covers the input, Send, Stop or the latest message (Atlas's tail hung over Stop and the input). A double-click no longer pokes it first, and with reduced motion a move is a crossfade rather than a fade to nothing and back.
 - A picture in a note stays visible while you edit its line (under its markdown), so the graph popup's Edit no longer turns a sketch into a bare link.
 - Loading placeholders show the shape of what is coming (a title line and a text line) with a visible sweep; with reduced motion they breathe gently instead of sitting blank.
 - The tags list under a tags field lights the row under the pointer, and Enter or Tab takes a row reached with the arrows or the pointer.

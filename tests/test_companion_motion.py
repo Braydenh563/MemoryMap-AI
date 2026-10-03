@@ -70,8 +70,9 @@ def test_no_move_is_a_fade_to_somewhere_else() -> None:
     move = _fn("nameMarkBuddyGo")
     assert "distance > 700" not in move
     # The two fades left: Reduce motion's, in place of the travel, and
-    # being carried asleep (a sleeper is not woken to walk).
-    assert move.count("opacity: 0") == 4 and "if (nameMarkBuddyNoTravel()) {" in move
+    # being carried asleep (a sleeper is not woken to walk). Each is a
+    # crossfade now (INBOX 443), never a fade to nothing and back.
+    assert move.count("nameMarkBuddyCrossfade(buddy, dx, dy,") == 2 and "if (nameMarkBuddyNoTravel()) {" in move
     assert "if (nameMarkBuddyAsleep(buddy)) {" in move
 
 
@@ -576,7 +577,8 @@ def test_reduce_actions_and_atlas_stances_at_rest():
     for value in ('value="off"', 'value="fewer"', 'value="normal"'):
         assert value in HTML[HTML.index('id="avatar-buddy-actions"') :][:400]
     decide = _fn("nameMarkBuddyDecide")
-    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;" in decide
+    # Fewer is a third, except in its large view, where it is watched.
+    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: nmb.visit ? 1 : 0.33, normal: 1 }[actions] ?? 0.33;" in decide
     assert "if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;" in decide
     for stance, look in (("fold", "masculine"), ("hip", "masculine"), ("clasp", "feminine"), ("sway", "feminine")):
         assert f'{stance}: {{ ms:' in AV and f'look: "{look}" }}' in AV
@@ -840,7 +842,10 @@ def test_its_gaze_has_one_reach_for_every_kind_and_drifts_back() -> None:
     # Atlas and as you): 20, 60 and 150px look that way (eyes 0.7, 2 and
     # 3.4px), 400px has let go and drifted back to 0; one code path.
     notice = _fn("nameMarkBuddyNotice")
-    assert "const reach = Math.max(0.7, nmb.scale || 1);" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    # Its reach is its size, read where its head is drawn (INBOX 443: in its
+    # large view, 2.2 times).
+    assert "const reach = size;" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    assert "Math.max(0.7, nmb.scale || 1)];" in _fn("nameMarkBuddyHeadAt")
     release = _fn("nameMarkBuddyRelease")
     assert 'buddy.style.setProperty("--nmb-ex", "0");' in release
     assert "#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }" in CSS08
@@ -1175,3 +1180,87 @@ def test_a_woken_atlas_companion_wakes_atlas_too() -> None:
     # more (the click lands on the face's box, not `.nm-atlas`). Now its
     # eyes are open 1255ms after the poke.
     assert 'if (slept && nameMarkBuddyHasAtlas(buddy) && typeof atlasWake === "function") atlasWake();' in _fn("nameMarkBuddyWake")
+
+
+def test_the_chat_tab_is_a_perch_that_keeps_its_controls_clear() -> None:
+    # INBOX 443 (a), the owner: "the companion perches and action surfaces
+    # and stuff needs to be properly done for the chat tab". Measured before
+    # (companionchat.js, 1440): Atlas sat tucked on the chat dock with its
+    # tail curled 22px below its seat, over the input by 13px, and while an
+    # answer was written its reading errand put the tail 27 to 29px over
+    # Stop. A tucked Atlas still has a tail, so the tail is in its shape.
+    shape = _fn("nameMarkBuddyShapeAt1")
+    assert 'legs !== "tuck" && document.querySelector("#nm-buddy .atl-figure-box")' not in shape
+    assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in shape
+    # The latest message is never covered, and the chat's dock is its first
+    # perch: as a card it was past the dozen card edges looked at (the
+    # sidebar's saved chats came first) and was never considered.
+    obstacles = _fn("nameMarkBuddyObstacles")
+    assert '#chat-messages .msg' in obstacles
+    surfaces = AV[AV.index("const NAME_MARK_BUDDY_SURFACES = [") : AV.index("].join", AV.index("const NAME_MARK_BUDDY_SURFACES = ["))]
+    assert '".chat-dock"' in surfaces
+    assert '.dash-toolbar, .chat-dock") ? "dock" : "card"' in AV
+    assert 'chat: ["dock", "card", "under", "hang", "bar"]' in AV
+    # Reading along while an answer is written: a clean place on the dock's
+    # top edge, searched along it, never a fixed x that lands on Stop.
+    errand = _fn("nameMarkBuddyChatErrand")
+    assert ".chat-dock" in errand and "nameMarkBuddyHits(" in errand
+    assert "box.right - NMB_W - 72" not in errand
+
+
+def test_its_enlarged_view_is_itself_alive_and_still_doing_what_it_was() -> None:
+    # INBOX 443 (b), (c), the owner: "the regular companion expanded popup
+    # window needs more life and not just a statue"; "if the companion is
+    # doing a specific action and i double click it to view it in the
+    # enlarged window, I want it to keep doing that action unless poked or
+    # something else happens". Measured in a browser by
+    # scratchpad/ui-sweeps/companionviewer.js.
+    viewer = _fn("openNameMarkViewer")
+    # The companion's own element visits the view, so its act, face, props,
+    # sleep and pose carry over, and its own timer ends the act.
+    assert 'openNameMarkViewer(buddy.dataset.seed || "", { visit: true })' in AV
+    assert "nameMarkBuddyVisit(figure)" in viewer and "if (home) home();" in viewer
+    visit = _fn("nameMarkBuddyVisit")
+    assert "host.appendChild(buddy);" in visit and "anim.finish()" in visit
+    assert "visit.home.insertBefore(buddy" in _fn("nameMarkBuddyHome")
+    # While it visits nothing moves it, and it cannot be carried off.
+    for name in ("nameMarkBuddyMoveTo", "nameMarkBuddyCheck", "nameMarkBuddyFollow", "nameMarkBuddyErrand",
+                 "nameMarkBuddyWander", "nameMarkBuddyRide", "nameMarkBuddyDodge", "nameMarkBuddyBeat",
+                 "nameMarkBuddyTabChanged", "nameMarkBuddyRefit", "nameMarkBuddyLieRoom"):
+        assert "nmb.visit" in _fn(name), name
+    assert 'if (event.button !== 0 || nmb.visit) return;' in AV
+    # Watched, it plays: a quicker beat, neither Fewer nor the calm budget
+    # holding it back, its eyes on the pointer from where it is drawn, and
+    # its lines now and then. Reduced motion: a blink and nothing more.
+    assert "nmb.visit ? 2500 + Math.random() * 3500" in _fn("nameMarkBuddySchedule")
+    decide = _fn("nameMarkBuddyDecide")
+    assert "const calm = !!nmb.visit ||" in decide and "fewer: nmb.visit ? 1 : 0.33" in decide
+    assert "nameMarkBuddyHeadAt()" in _fn("nameMarkBuddyNotice") and "nameMarkBuddyHeadAt()" in _fn("nameMarkBuddyAim")
+    assert "nameMarkSay(host, nameMarkLine(seed))" in viewer
+    assert "nameMarkViewerBlinks(figure)" in viewer and "nameMarkIdleQuiet()" in viewer
+    # Any other face: the view's quicker beat, and it looks about and fidgets.
+    assert "viewer ? 2500 + Math.random() * 3000" in _fn("nameMarkIdleTick")
+    assert 'acts.push("look", "shift")' in _fn("nameMarkIdleAct")
+    # The dialog's head recipe and one line of description.
+    assert 'head.className = "dialog-head nm-viewer-head"' in viewer and '"dialog-head-btn"' in viewer
+    assert "Click it to say hello." not in viewer and "nm-viewer-hint" not in viewer
+    css = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "css").glob("*.css")))
+    assert ".nm-viewer-figure > #nm-buddy {" in css and "--nmb-scale: 2.2 !important;" in css
+
+
+def test_a_double_click_does_not_poke_it_and_no_move_leaves_it_gone() -> None:
+    # INBOX 443: the first click of the double-click that enlarges it used
+    # to poke it, ending the act the large view was to carry; and the owner:
+    # "I also want companion transitions to be better even with reduced
+    # motion on". Without travel a move faded out, left nothing, and faded
+    # in: now a copy fades out where it was while it fades in where it is.
+    assert "pokeTimer = setTimeout(poke, 280);" in AV
+    assert "if (!nmb.visit && event.detail >= 2) return;" in AV
+    assert "clearTimeout(pokeTimer);\n    pokeTimer = 0;\n    openNameMarkViewer(" in AV
+    assert "if (!nmb.act || NMB_FACELESS_ACTS.includes(nmb.act)) nameMarkBuddyAct(\"wiggle\");" in _fn("nameMarkBuddyPet")
+    fade = _fn("nameMarkBuddyCrossfade")
+    assert "buddy.cloneNode(true)" in fade and "ghost.inert = true;" in fade and "buddy.after(ghost);" in fade
+    assert "[{ opacity: 1 }, { opacity: 0 }]" in fade and "[{ opacity: 0 }, { opacity: 1 }]" in fade
+    go = _fn("nameMarkBuddyGo")
+    assert go.count("nameMarkBuddyCrossfade(buddy, dx, dy,") == 2
+    assert "{ opacity: 0, translate:" not in go

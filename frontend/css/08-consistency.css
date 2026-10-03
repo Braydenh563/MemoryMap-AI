@@ -5233,17 +5233,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border-radius: var(--radius-pill);
 }
 
+/* Its name is the dialog's head (the dialog-head recipe), the width of the
+   card, over the figure. */
+.nm-viewer-head { justify-self: stretch; }
+.nm-viewer-name { overflow-wrap: anywhere; }
+
 /* A step more than the card's gap above it: the figure's margins
    (avatars.js, `nameMarkViewerFit`) reach to the drawing's lowest point at
    rest, and a mood's loop dips a few px below that. */
-.nm-viewer-name {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-lg);
-  overflow-wrap: anywhere;
-}
-
-.nm-viewer-reading { margin: 0; }
-.nm-viewer-hint { margin: 0; font-size: var(--text-sm); }
+.nm-viewer-reading { margin: var(--space-2) 0 0; }
 
 /* The speech bubble a poked face says its line in. */
 .nm-say {
@@ -5681,6 +5679,54 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   scale: 2.2;
   transform-origin: 50% 98%;
 }
+
+/* **The companion visiting its large view** (avatars.js,
+   `nameMarkBuddyVisit`, INBOX 443): its own element, still doing what it
+   was doing, placed in the figure's box rather than on its perch and drawn
+   at the same 2.2 times, about the line it stands or sits on
+   (`--nmb-edge`), so its feet or seat land where the plain figure's feet
+   do, 224px down. Hanging, its hands hold a bar near the top; floating,
+   its middle is the box's. `!important` because its perch's place and its
+   own size are written on the element by avatars.js, and are kept there
+   for when it goes home. */
+.nm-viewer-figure > #nm-buddy {
+  --nmb-scale: 2.2 !important;
+  left: calc((141px - 64px) / 2);
+  top: calc(224px - var(--nmb-edge));
+  transform: none !important;
+  translate: none !important;
+}
+.nm-viewer-figure > #nm-buddy[data-pose="hang"] { top: 22px; }
+.nm-viewer-figure > #nm-buddy[data-pose="float"] { top: 82px; }
+.nm-viewer-figure > #nm-buddy .nm-buddy-face { cursor: pointer; }
+
+/* What it sits on or hangs from in there: a quiet bar, only for those
+   poses (standing, the card is its floor). */
+.nm-viewer-ledge {
+  position: absolute;
+  left: -24px;
+  right: -24px;
+  top: 224px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+.nm-viewer-figure:has(> #nm-buddy[data-pose="sit"]) .nm-viewer-ledge { opacity: 1; }
+.nm-viewer-figure:has(> #nm-buddy[data-pose="hang"]) .nm-viewer-ledge { opacity: 1; top: 24px; }
+
+/* Its lines, said from its head's upper corner (its box is the size of
+   its perch, its drawing 2.2 times that). */
+.nm-viewer-figure > #nm-buddy > .nm-say {
+  top: calc(var(--nmb-edge) * -1.2);
+  bottom: auto;
+  left: 100%;
+  translate: -30% 0;
+  z-index: 3;
+}
+/* Hanging, its head is under its hands and the bar: beside its face. */
+.nm-viewer-figure > #nm-buddy[data-pose="hang"] > .nm-say { top: 48px; }
 
 /* Limbs turn where they join the body: each carries its hip or shoulder
    as its `transform-origin` (avatars.js, `data-pivot`). */
@@ -7671,6 +7717,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-sleep .nm-atlas { --atl-tail: -72deg; }
 #nm-buddy.nmb-music .nm-atlas { --atl-tail: 26deg; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-tail: 18deg; }
+/* Standing, it reads with its tail where it was (INBOX 443): lowered, the
+   tail hung 16px under its soles, 3px into Stop under the chat's dock it
+   reads an answer from (companionchat.js), where its shape (avatars.js,
+   `nameMarkBuddyShapeAt1`) gives it 6. */
+#nm-buddy[data-pose="stand"].nmb-reading .nm-atlas { --atl-tail: 0deg; }
 #nm-buddy.nm-buddy-dragging .nm-atlas { --atl-tail: -30deg; }
 /* Drowsy (round 9, the owner: "the half lidded eyes look a little
    creepy"): the lids droop in soft arcs (`--atl-softlid`), the pupils are
@@ -8880,8 +8931,10 @@ input[type="file"]::file-selector-button:hover {
 /* While a modal dialog is up (Find anything, Settings, any sheet), the
    companion steps out instead of floating in the dimmed page beside it
    (reported at release). No transition declared here: #nm-buddy's own
-   transitions drive its movement and must not be overridden. */
-body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)) #nm-buddy {
+   transitions drive its movement and must not be overridden. Not when the
+   dialog is its own large view, which it has come into (INBOX 443,
+   avatars.js `nameMarkBuddyVisit`). */
+body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)) #nm-buddy:not(.nm-viewer-figure > *) {
   opacity: 0;
   pointer-events: none;
 }

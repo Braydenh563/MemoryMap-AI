@@ -1048,7 +1048,7 @@ async function saveMeetingNote() {
   const button = $("meeting-save");
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Summarizing…";
+  setLabel(status, "ph:spin Summarizing…");
   try {
     // Best-effort, same contract as suggest-tags: a model that's offline or
     // errors must never block filing the note, so any failure here just
@@ -1064,7 +1064,7 @@ async function saveMeetingNote() {
       summary = "";
     }
 
-    status.textContent = "Filing…";
+    setLabel(status, "ph:spin Filing…");
     // Tagged, not force-categorised: filing still goes through the same
     // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
     // meeting about a specific project lands there rather than in a generic

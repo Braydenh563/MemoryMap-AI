@@ -1608,9 +1608,13 @@ function setLabel(el, label) {
     el.textContent = text;
     return withTail(el);
   }
-  const icon = document.createElement("i");
-  icon.className = `ph ph-${match[1]}`;
-  icon.setAttribute("aria-hidden", "true");
+  //: `ph:spin` is the working ring (`spinnerEl`), not an icon.
+  const spin = match[1] === "spin";
+  const icon = spin ? spinnerEl() : document.createElement("i");
+  if (!spin) {
+    icon.className = `ph ph-${match[1]}`;
+    icon.setAttribute("aria-hidden", "true");
+  }
   const rest = text.slice(match[0].length);
   // **The gap is a margin, not a space, and it has to be.** A plain " " text
   // node between the icon and the label is what this did first, and it worked
@@ -1689,19 +1693,40 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
-// The one reusable "something is loading" mark (ROADMAP Priority 0 #14), 
-// asked for directly, since before this every call site (re-evaluate, per-
-// card AI work) built its own one-off spinner chip by hand. The .spinner
-// CSS class (01-forms-settings.css, beside .chip-busy which it was
-// extracted from) carries the animation and the prefers-reduced-motion
-// fallback; aria-hidden because this is a visual accent only, the loading
-// state itself belongs in a visible/aria-live status line at the call site,
-// the same pattern #meeting-status and its siblings already use.
+//: The one "working" ring (DESIGN.md, "Something is working on it"): in a
+//: label write `ph:spin Working…`. All of it is the `.spinner` class.
 function spinnerEl() {
   const el = document.createElement("span");
   el.className = "spinner";
   el.setAttribute("aria-hidden", "true");
   return el;
+}
+
+//: A busy button: disabled, `aria-busy`, the ring first. `label` swaps the
+//: words meanwhile; off puts back exactly what was there. Idempotent.
+function setBusy(button, busy, label = null) {
+  if (!button) return;
+  if (busy) {
+    if (!button._busyWas) {
+      button._busyWas = { kids: [...button.childNodes], disabled: button.disabled };
+    }
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    if (label !== null) {
+      setLabel(button, `ph:spin ${label}`);
+    } else if (!button.querySelector(":scope > .spinner")) {
+      const ring = spinnerEl();
+      ring.classList.add("ph-lead");
+      button.prepend(ring);
+    }
+    return;
+  }
+  const was = button._busyWas;
+  button.removeAttribute("aria-busy");
+  if (!was) return;
+  button._busyWas = null;
+  button.replaceChildren(...was.kids);
+  button.disabled = was.disabled;
 }
 
 // The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own

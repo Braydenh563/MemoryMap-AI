@@ -940,7 +940,7 @@ async function saveWebSearchSettings() {
 async function checkForUpdate(silent = false) {
   const status = $("update-check-status");
   const applyBtn = $("update-apply-now");
-  if (!silent && status) status.textContent = "Checking…";
+  if (!silent && status) setLabel(status, "ph:spin Checking…");
   let result;
   try {
     result = await apiJson("/update/check", { silent: true });

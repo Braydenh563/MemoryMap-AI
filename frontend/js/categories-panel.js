@@ -477,11 +477,10 @@ function splitCategoryFromPanel(meta) {
         //: The model can take a while on a big category: the button says it
         //: is working and cannot be pressed twice meanwhile.
         const button = ai ? askAi : suggest;
-        button.disabled = true;
-        button.setAttribute("aria-busy", "true");
+        setBusy(button, true);
         const proposal = await apiJson(`/categories/${meta.id}/split/propose${ai ? "?ai=true" : ""}`, { method: "POST" })
           .catch((e) => { toast(e.message, true); return null; })
-          .finally(() => { button.disabled = false; button.removeAttribute("aria-busy"); });
+          .finally(() => setBusy(button, false));
         if (!proposal) return;
         suggestions.replaceChildren();
         //: One line, whichever way it went: two stacked paragraphs ("couldn't
@@ -529,8 +528,7 @@ function splitCategoryFromPanel(meta) {
         //: One split per press: a second Enter or click while the first is
         //: on its way asked the server to split notes already moved.
         if (apply.disabled) return;
-        apply.disabled = true;
-        apply.setAttribute("aria-busy", "true");
+        setBusy(apply, true);
         try {
           const result = await apiJson(`/categories/${meta.id}/split`, { method: "POST", body: JSON.stringify({ name, entry_ids: ids }) });
           close();
@@ -544,8 +542,7 @@ function splitCategoryFromPanel(meta) {
         } catch (error) {
           toast(error.message, true);
         } finally {
-          apply.disabled = false;
-          apply.removeAttribute("aria-busy");
+          setBusy(apply, false);
         }
       });
       card.appendChild(form);

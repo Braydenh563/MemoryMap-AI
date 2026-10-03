@@ -2657,10 +2657,9 @@ async function renderDigestWidget(body) {
   const runGeneration = () => {
     const thinking = document.createElement("p");
     thinking.className = "muted";
-    // One indicator, one sentence, in both motion modes.
-    thinking.append(typingLine("Thinking about your week…"));
+    setLabel(thinking, "ph:spin Thinking about your week…");
     body.replaceChildren(thinking);
-    // Live-render the text as it streams in; the dots stay until the first
+    // Live-render the text as it streams in; the ring stays until the first
     // token arrives, then the words take over.
     const live = document.createElement("div");
     let started = false;
@@ -2728,7 +2727,7 @@ async function renderQuickCaptureWidget(body) {
     smallButton("Save", "", async () => {
       const content = textarea.value.trim();
       if (!content) return;
-      status.textContent = "Filing…";
+      setLabel(status, "ph:spin Filing…");
       try {
         const saved = await apiJson("/entries", {
           method: "POST",

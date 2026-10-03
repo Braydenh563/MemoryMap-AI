@@ -258,7 +258,7 @@ async function importDirectory() {
     status.textContent = "Please enter a directory path.";
     return;
   }
-  status.textContent = "Starting import…";
+  setLabel(status, "ph:spin Starting import…");
   try {
     const response = await apiJson("/import/directory", {
       method: "POST",

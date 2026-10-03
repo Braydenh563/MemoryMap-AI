@@ -2898,16 +2898,17 @@ kbd {
   animation: generating-sweep 2.6s linear infinite !important;
 }
 
-:root[data-progress-motion="always"] .chip.filing .ph {
-  animation: chip-filing-spin 1.1s linear infinite !important;
+/* The spinner recipe's two overrides, in one place. The app's own Reduce
+   motion (`data-motion="reduced"`, the blanket above) would stop the ring
+   dead, so unless progress motion is "always" the ring breathes through it,
+   as it does under the OS setting (01-forms-settings.css); and "always"
+   turns it regardless, last, so it wins when both are set. */
+:root[data-motion="reduced"]:not([data-progress-motion="always"]) .spinner {
+  animation: spinner-pulse var(--spinner-pulse) ease-in-out infinite !important;
 }
 
 :root[data-progress-motion="always"] .spinner {
-  animation: chip-spin 0.7s linear infinite !important;
-}
-
-:root[data-progress-motion="always"] .ph-circle-notch {
-  animation: chip-spin 1.1s linear infinite !important;
+  animation: spinner-turn var(--spinner-turn) linear infinite !important;
 }
 
 :root[data-progress-motion="always"] .skeleton,
@@ -5248,24 +5249,10 @@ mark.lightbox-hit {
   color: var(--ink);
 }
 
-/* The spinner glyph, while the group is still collecting steps. A group that
-   has finished says so with a tick instead, so this only ever runs on live
-   work: `groupSummary` in app.js swaps the icon. */
-.ph-circle-notch {
-  display: inline-block;
-  animation: chip-spin 1.1s linear infinite;
-}
-
-/* Reduced motion keeps the glyph and stops the turn: it is the difference
-   between "still working" and "finished", so removing it would take the
-   information away rather than the movement. The progress-motion counter-rule
-   further up this file overrides this when the user has asked for movement
-   regardless: a spinner is feedback, not decoration. */
-@media (prefers-reduced-motion: reduce) {
-  .ph-circle-notch {
-    animation: none;
-  }
-}
+/* While the group is still collecting steps its summary carries the `.spinner`
+   ring (the `ph:spin` marker in `groupSummary`, chat-agent.js); a group that
+   has finished says so with a tick instead. No rules of its own: the ring is
+   the one recipe, reduced motion included. */
 
 .agent-step-group-body {
   display: flex;

@@ -414,7 +414,7 @@ function agentTimeline(holder) {
     const word = n === 1 ? "step" : "steps";
     setLabel(
       entry.summary,
-      entry.done ? `ph:check-circle Finished ${n} ${word}` : `ph:circle-notch Working: ${n} ${word}`,
+      entry.done ? `ph:check-circle Finished ${n} ${word}` : `ph:spin Working: ${n} ${word}`,
     );
   };
 
@@ -1270,7 +1270,7 @@ function cardTextPreview(item, holder, empty) {
 //: not as it was, and a turn that touched six notes does not put six note
 //: bodies into the message that stores it.
 async function toolPreviewBody(item, holder) {
-  holder.replaceChildren(typingDots("Loading…"));
+  setLabel(holder, "ph:spin Loading…");
   try {
     if (item.kind === "document") {
       const doc = await apiJson(`/documents/${item.id}`);
@@ -2476,7 +2476,7 @@ async function composeDraft() {
   }
   const instruction = $("draft-instruction").value.trim();
   setDraftStatus("");
-  setLabel($("draft-status"), draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
+  setLabel($("draft-status"), draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…");
   const thinking = $("draft-thinking");
   const thinkingText = $("draft-thinking-text");
   thinkingText.textContent = "";
@@ -2640,7 +2640,7 @@ async function suggestDraftTitle() {
   }
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Thinking of a title…";
+  setLabel(status, "ph:spin Thinking of a title…");
   try {
     const body = await apiJson("/drafts/title", {
       method: "POST",

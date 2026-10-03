@@ -890,21 +890,18 @@ function toastProgress(message) {
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = "toast";
-  const spinner = typingDots(message);
   const text = document.createElement("span");
-  text.textContent = message;
-  note.append(spinner, text);
+  setLabel(text, `ph:spin ${message}`);
+  note.append(text);
   box.appendChild(note);
   return {
     say(next) {
-      text.textContent = next;
-      spinner.setStatus?.(next);
+      setLabel(text, `ph:spin ${next}`);
     },
     //: `done` swaps the spinner for the outcome and starts the ordinary
     //: 5.5-second life every other toast has, so a finished job does not
     //: leave a permanent line on screen.
     done(finalMessage, { isError = false, actionLabel = null, onAction = null } = {}) {
-      spinner.remove();
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
@@ -2191,7 +2188,7 @@ async function applyBackendChoice() {
   const provider = $("llm-provider-select").value;
   const baseUrl = $("llm-base-url").value.trim();
   const note = $("llm-provider-status");
-  note.textContent = "Connecting…";
+  setLabel(note, "ph:spin Connecting…");
   try {
     const body = await apiJson("/models/provider", {
       method: "POST",
@@ -2723,7 +2720,7 @@ async function renderEmbedModels() {
     if (model.downloading) {
       const busy = document.createElement("span");
       busy.className = "muted";
-      busy.textContent = "Downloading…";
+      setLabel(busy, "ph:spin Downloading…");
       title.appendChild(busy);
     } else if (model.installed) {
       const done = document.createElement("span");

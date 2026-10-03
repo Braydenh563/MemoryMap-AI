@@ -709,7 +709,7 @@ function renderEditForm(li, entry) {
 async function renderRelatedWhileEditing(li, entry) {
   const panel = document.createElement("div");
   panel.className = "entry-related-live muted text-sm";
-  panel.textContent = "Finding related notes…";
+  setLabel(panel, "ph:spin Finding related notes…");
   li.appendChild(panel);
   let related;
   try {

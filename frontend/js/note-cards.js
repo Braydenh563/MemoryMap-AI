@@ -1458,7 +1458,7 @@ function entryItem(entry, options = {}) {
   // background pass lands reads as the AI having failed. Say what is
   // actually happening instead.
   if (entry.filing_state === "pending") {
-    const filing = chip("ph:circle-notch Filing…", "filing");
+    const filing = chip("ph:spin Filing…", "filing");
     filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
     //: Any pending card is watched, not only the one just saved: a note
@@ -1809,12 +1809,8 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("Atlas is reading…", "busy");
+    const busy = chip("ph:spin Atlas is reading…", "busy");
     busy.classList.add("chip-busy");
-    // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
-    // one-off ring: .chip's own `gap` handles the spacing and vertical
-    // centring, so no extra margin is needed.
-    busy.prepend(spinnerEl());
     meta.appendChild(busy);
   }
 

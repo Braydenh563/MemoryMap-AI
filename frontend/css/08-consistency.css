@@ -2991,8 +2991,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    their filled tabs exactly (the owner's "the current look" option). */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notes-subtabs button.active,
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg:not(.doc-sidebar-tabs) button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
+  /* Not the document sidebar's Documents/Outline strip (INBOX 446 (5)): it
+     is an underline tab strip (07-whiteboard-misc.css), and this rule
+     painted its selected tab a grey slab and took its accent underline
+     away, the one tab strip in the flat looks drawn both ways at once. */
   border-color: transparent;
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);

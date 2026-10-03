@@ -108,8 +108,10 @@ def test_one_note_moves_from_its_chip_and_its_menu():
     assert "function chooseNoteCategory(" in _read("categories-panel.js")
     assert '"chooseNoteCategory"' in _read("app.js")
     cards = _read("note-cards.js")
-    chip_block = cards[cards.index('const categoryEl = chip(entry.category, "category")'):][:2600]
-    assert "chooseNoteCategory([entry.id], entry.category)" in chip_block
+    chip_block = cards[cards.index('const categoryEl = chip(entry.category, "category")'):][:3200]
+    # INBOX 447 (5): the chip opens a menu (chip-menus.js), whose second row is the move.
+    assert "openCategoryChipMenu(categoryEl, entry)" in chip_block
+    assert "chooseNoteCategory([entry.id], name)" in _read("chip-menus.js")
     assert 'setAttribute("role", "button")' in chip_block
     assert "Move to category" in _read("menus.js")
 
@@ -154,9 +156,13 @@ def test_a_selection_is_of_what_is_on_screen():
 
 
 def test_batch_tag_splits_on_commas_and_can_be_undone():
-    batch = _function(_read("skills.js"), "batchTag")
-    assert '.split(",")' in batch
-    assert "pushUndo(" in batch and "settleUndoFromToast" in batch
+    # INBOX 447 (4): the bar's Tags button opens the bulk dialog (tag-manager.js,
+    # lazy), whose one action is one `POST /tags/bulk` with one Undo.
+    assert "openBulkTags(ids)" in _function(_read("skills.js"), "batchTag")
+    bulk = _function(_read("tag-manager.js"), "openBulkTags")
+    assert '.split(",")' in bulk and '"/tags/bulk"' in bulk
+    edit = _function(_read("tag-manager.js"), "runTagEdit")
+    assert "pushUndo(" in edit and "settleUndoFromToast" in edit and '"/tags/restore"' in edit
 
 
 def test_a_to_z_sorts_by_the_name_a_card_shows():
@@ -253,7 +259,7 @@ def test_a_row_is_one_line_with_the_time_at_its_end():
 
 def test_the_selection_bar_does_what_one_notes_menu_does():
     skills = _read("skills.js")
-    for name in ("batchFavourite", "batchArchive", "batchPublish", "batchRemoveTag"):
+    for name in ("batchFavourite", "batchArchive", "batchPublish"):
         assert f"function {name}(" in skills, name
     assert "pushUndo(label, undo, redo)" in _function(skills, "batchEach")
     assert "fillBatchMore();" in _function(skills, "enterSelectMode")
@@ -281,10 +287,10 @@ def test_note_boxes_are_live_with_a_source_switch_not_a_preview():
 def test_tags_have_a_place_in_the_notes_sidebar():
     side = _function(_read("notes-list.js"), "renderSidebar")
     assert 'setLabel(tagName, "ph:hash Tags")' in side and "openTagsSheet()" in side
-    panel = _read("categories-panel.js")
-    for name in ("openTagsSheet", "renameTagEverywhere", "removeTagEverywhere"):
+    panel = _read("tag-manager.js")
+    for name in ("openTagsSheet", "renameTagEverywhere", "removeTagsEverywhere", "mergeTagsInto"):
         assert f"function {name}(" in panel, name
-    assert "pushUndo(" in _function(panel, "renameTagEverywhere")
+    assert "pushUndo(" in _function(panel, "runTagEdit")
     assert '"openTagsSheet"' in _read("app.js")
 
 

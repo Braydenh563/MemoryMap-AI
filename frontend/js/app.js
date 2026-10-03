@@ -2186,6 +2186,10 @@ const LAZY_MODULES = {
   lightbox: ["/js/lightbox-view.js"],
   editConflict: ["/js/edit-conflict.js"],
   categories: ["/js/categories-panel.js"],
+  //: The tag manager and the bulk tag dialog (INBOX 447): see tag-manager.js.
+  tagManager: ["/js/tag-manager.js"],
+  //: The menus a note card's category and tag chips open: see chip-menus.js.
+  chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js"],
   settingsData: ["/js/settings-data.js"],
@@ -2425,10 +2429,12 @@ const LAZY_ENTRY_POINTS = {
     "deleteCategory",
     "restoreCategoryMoves",
     "chooseNoteCategory",
-    "openTagsSheet",
+    "showCategoryNotes",
     "moveNotesToCategory",
     "pickCategoryColour",
   ],
+  tagManager: ["openTagsSheet", "openBulkTags", "renameTagEverywhere", "removeTagFromNote"],
+  chipMenus: ["openCategoryChipMenu", "openTagChipMenu"],
   attachments: ["attachmentAction"],
   graph: [
     "clearTrace",

@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Atlas's feminine look wears a flowing gown below the waist: one A-line with a softly waved hem and four folds on it, instead of five wavy ribbons hanging past a pointed hem (which read as tentacles); her comet tail is unchanged.
+- Tags: a tag manager (Notes ⋯ menu, Settings, the Tags row, the command palette): every tag with its note count, rename, merge into another tag, and remove from all notes, one or several at a time, each in one transaction with a revision and an event per note (so note history shows it) and one Undo. The Notes selection bar's Tags button adds tags to and removes tags from every selected note in one action. A tag chip's right-click or menu key opens Show notes, Rename in all notes, Remove from this note and Manage tags. A category chip now opens a small menu: Show notes in the category, Move to another category, Manage categories. New routes: POST /tags/merge, /tags/bulk and /tags/restore; /tags/delete takes several names.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed

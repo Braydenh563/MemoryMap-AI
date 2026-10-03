@@ -1450,9 +1450,52 @@ def all_tags(session: Session) -> dict[str, int]:
     return result
 
 
-def rename_tag(session: Session, old: str, new: str) -> int:
-    """Rename (or merge, if `new` already exists) a tag everywhere.
-    Returns how many entries changed. Commits.
+@events.writes("entry", "edited")
+def _retag_entry(session: Session, entry: Entry, tags: list[str]) -> None:
+    """One note's tags set to `tags`: a revision first, then the edit and its
+    event, the way `PUT /entries/{id}` does it, and no commit (the caller
+    commits the whole batch once, so a batch is one transaction).
+
+    The revision is taken before the scope opens here, by the caller, so it
+    keeps its own `revised` event rather than being folded into this one.
+    """
+    was = events.entry_state(entry)
+    entry.tags = json.dumps(tags)
+    mark_edited(entry)
+    log_action(
+        session,
+        "edited",
+        "entry",
+        entry.id,
+        "tags",
+        payload=events.changed(was, events.entry_state(entry)),
+    )
+
+
+def _retag(session: Session, entries, change) -> dict[int, list[str]]:
+    """Apply `change(entry, tags) -> tags` to each entry, in one transaction.
+
+    Returns `{entry id: the tags it had}` for the notes that actually changed,
+    which is exactly what an undo needs to put back (`restore_tags`). A note
+    whose tags come out the same is left alone: no revision, no event, no
+    `edited_at` bump for a no-op.
+    """
+    before: dict[int, list[str]] = {}
+    for entry in entries:
+        old = entry_tags(entry)
+        new = normalise_tags(change(entry, list(old)))
+        if new == old:
+            continue
+        record_revision(session, entry)
+        _retag_entry(session, entry, new)
+        before[entry.id] = old
+    session.commit()
+    return before
+
+
+def rename_tags(session: Session, olds: list[str], new: str) -> dict[int, list[str]]:
+    """Rename (or merge, if `new` already exists, or if several `olds` are
+    given) tags everywhere, in one transaction. See `rename_tag`.
 
     `new` is held to the tag rule (`normalise_tags`): a blank name is refused
     with ValueError rather than written, because "   " used to arrive here
@@ -1465,32 +1508,69 @@ def rename_tag(session: Session, old: str, new: str) -> int:
     if not cleaned:
         raise ValueError("A tag needs a name")
     new = cleaned[0]
-    changed = 0
-    for entry in session.scalars(select(Entry)):
-        tags = entry_tags(entry)
-        if old in tags:
-            merged = [t for t in tags if t != old]
-            merged.append(new)
-            entry.tags = json.dumps(normalise_tags(merged))
-            changed += 1
-    if changed:
-        log_action(session, "edited", "tags", detail=f"rename {old} -> {new} ({changed})")
-    session.commit()
-    return changed
+    wanted = set(olds)
+    if not wanted:
+        return {}
+
+    def change(entry: Entry, tags: list[str]) -> list[str]:
+        if not wanted.intersection(tags):
+            return tags
+        return [t for t in tags if t not in wanted] + [new]
+
+    holders = [e for e in session.scalars(select(Entry)) if wanted.intersection(entry_tags(e))]
+    return _retag(session, holders, change)
+
+
+def rename_tag(session: Session, old: str, new: str) -> int:
+    """Rename (or merge, if `new` already exists) a tag everywhere.
+    Returns how many entries changed. Commits."""
+    return len(rename_tags(session, [old], new))
+
+
+def remove_tags(session: Session, names: list[str]) -> dict[int, list[str]]:
+    """Remove tags from every note that carries them. Notes are untouched."""
+    doomed = set(names)
+    if not doomed:
+        return {}
+    holders = [e for e in session.scalars(select(Entry)) if doomed.intersection(entry_tags(e))]
+    return _retag(session, holders, lambda _e, tags: [t for t in tags if t not in doomed])
 
 
 def delete_tag(session: Session, name: str) -> int:
     """Remove a tag from every entry. Returns entries changed. Commits."""
-    changed = 0
-    for entry in session.scalars(select(Entry)):
-        tags = entry_tags(entry)
-        if name in tags:
-            entry.tags = json.dumps([t for t in tags if t != name])
-            changed += 1
-    if changed:
-        log_action(session, "edited", "tags", detail=f"deleted {name} ({changed})")
-    session.commit()
-    return changed
+    return len(remove_tags(session, [name]))
+
+
+def edit_tags_on_notes(
+    session: Session, ids: list[int], add: list[str], remove: list[str]
+) -> dict[int, list[str]]:
+    """Add tags to, and remove tags from, the chosen notes, in one transaction.
+
+    Removal is case-insensitive (tags are stored once whatever the case, so
+    "Food" on one note and "food" on another are one tag to the person),
+    and the add runs after it, so a name in both lists ends up added.
+    """
+    drop = {t.casefold() for t in normalise_tags(remove)}
+    put = normalise_tags(add)
+    if not ids or not (drop or put):
+        return {}
+    entries = list(
+        session.scalars(select(Entry).where(Entry.id.in_(ids), Entry.is_deleted == False))  # noqa: E712
+    )
+
+    def change(entry: Entry, tags: list[str]) -> list[str]:
+        return [t for t in tags if t.casefold() not in drop] + put
+
+    return _retag(session, entries, change)
+
+
+def undo_tag_edit(session: Session, by_id: dict[int, list[str]]) -> dict[int, list[str]]:
+    """Put each note's tags back to the given lists (an undo), in one
+    transaction. Returns what they were, so a redo is the same call."""
+    if not by_id:
+        return {}
+    entries = list(session.scalars(select(Entry).where(Entry.id.in_(list(by_id)))))
+    return _retag(session, entries, lambda entry, _tags: by_id[entry.id])
 
 
 # How close two notes' embeddings must be, cosine-wise, before a link left

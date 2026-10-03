@@ -1521,22 +1521,26 @@ function entryItem(entry, options = {}) {
     //: (e), `wireCategoryDropTarget`): only in a list with actions.
     if (options.actions && !entry.is_board) {
       categoryEl.draggable = true;
-      categoryEl.title = `${entry.category}: click to move this note, or drag it onto a category in the sidebar`;
+      categoryEl.title = `${entry.category}: click for options, or drag it onto a category in the sidebar`;
       categoryEl.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/x-memorymap-note", String(entry.id));
         event.dataTransfer.effectAllowed = "move";
       });
     }
-    //: A click moves it (INBOX 432): the chip is the category, so it is the
+    //: A click opens its menu (INBOX 432, 447): the chip is the category, so it is the
     //: obvious place to change it, and it was a label that did nothing.
     if (options.actions && !entry.is_board && entry.id && !entry.deleted_at) {
       categoryEl.classList.add("is-action");
       categoryEl.setAttribute("role", "button");
       categoryEl.tabIndex = 0;
-      categoryEl.setAttribute("aria-label", `Category ${entry.category}: change`);
+      categoryEl.setAttribute("aria-haspopup", "menu");
+      categoryEl.setAttribute("aria-label", `Category ${entry.category}: show notes, move or manage`);
+      //: A click opens a menu (INBOX 447 (5)): show the notes in this
+      //: category, move this note, manage categories. It went straight to
+      //: Move before (INBOX 432), which left no way to just look.
       const move = (event) => {
         event.stopPropagation();
-        chooseNoteCategory([entry.id], entry.category);
+        openCategoryChipMenu(categoryEl, entry);
       };
       categoryEl.addEventListener("click", move);
       categoryEl.addEventListener("keydown", (event) => {
@@ -1557,7 +1561,27 @@ function entryItem(entry, options = {}) {
         filterNotesByTag(tag);
       })
       : chip(tag, "tag hashtag");
-    if (options.actions) tagChip.title = `Show every note tagged #${tag}`;
+    if (options.actions) {
+      tagChip.title = `Show every note tagged #${tag}. Right-click for more.`;
+      tagChip.setAttribute("aria-haspopup", "menu");
+      //: The chip's own menu (INBOX 447 (4)): Show notes, Rename, Remove from
+      //: this note. Right-click and the menu keys; a plain click still filters.
+      tagChip.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openTagChipMenu(tagChip, entry, tag, event.clientX, event.clientY);
+      });
+      //: A hold on a phone is the same menu, and takes the hold away from the
+      //: note's own menu (`rowMenuAtEvent` leaves `[data-chip-menu]` alone).
+      tagChip.dataset.chipMenu = "tag";
+      wireLongPress(tagChip, (event, point) => openTagChipMenu(tagChip, entry, tag, point.x, point.y));
+      tagChip.addEventListener("keydown", (event) => {
+        if (event.key !== "ContextMenu"&& !(event.key === "F10" && event.shiftKey)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openTagChipMenu(tagChip, entry, tag);
+      });
+    }
     meta.appendChild(tagChip);
   }
   //: Tags filing suggested, kept on the note (INBOX 440): a press takes one,

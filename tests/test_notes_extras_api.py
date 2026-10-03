@@ -277,12 +277,10 @@ def test_tag_rename_merge_delete(client):
     assert client.get("/tags").json() == {"joke": 1, "jokes": 1, "work": 1}
 
     # Rename "joke" → "jokes" merges them.
-    assert client.post("/tags/rename", json={"old": "joke", "new": "jokes"}).json() == {
-        "changed": 1
-    }
+    assert client.post("/tags/rename", json={"old": "joke", "new": "jokes"}).json()["changed"] == 1
     assert client.get("/tags").json() == {"jokes": 2, "work": 1}
 
-    assert client.post("/tags/delete", json={"name": "work"}).json() == {"changed": 1}
+    assert client.post("/tags/delete", json={"name": "work"}).json()["changed"] == 1
     assert "work" not in client.get("/tags").json()
 
 

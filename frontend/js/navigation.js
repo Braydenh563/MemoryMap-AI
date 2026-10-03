@@ -126,7 +126,7 @@ function rowMenuAtEvent(event) {
   //: Where the browser's menu is the right one, it stays: a field (spelling,
   //: paste), a link (the link menu above), a menu already open, and a
   //: selection somebody made to copy.
-  if (target.closest("input, textarea, select, [contenteditable='true'], a[href], .wiki-link, .action-menu")) {
+  if (target.closest("input, textarea, select, [contenteditable='true'], a[href], .wiki-link, .action-menu, [data-chip-menu]")) {
     return null;
   }
   if (String(window.getSelection?.() || "").trim()) return null;

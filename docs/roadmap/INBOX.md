@@ -53,6 +53,10 @@ with its owner named in the entry.
      (groups, spacing, hierarchy): the orchestrator; (4) a tag manager
      (rename, merge, delete, bulk add or remove across selected notes) and
      (5) "Show this category" on the category chip's menu: an agent.
+     **Done**: (1) the popup renders (Source limited to toggled boxes);
+     (3) the line grouped and spaced, the time always shown; (4) and (5)
+     the tag manager, bulk tags and the category chip's menu (tag-manager.js,
+     chip-menus.js). Open: (2), with the companion agent.
 
 446. **The owner, 2026-10-03, verbatim.** "make sure the other agents like
      the popup and chat are aware of time relativity as well" / "maybe for

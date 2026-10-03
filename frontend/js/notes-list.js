@@ -3228,7 +3228,7 @@ function renderSidebar() {
   tagName.className = "category-name";
   setLabel(tagName, "ph:hash Tags");
   tagRow.append(tagName);
-  tagRow.title = "Every tag: see its notes, rename it or remove it";
+  tagRow.title = "Every tag: see its notes, rename, merge or remove it";
   tagRow.addEventListener("click", () => openTagsSheet());
   wireSidebarRowKeys(tagRow);
   ul.appendChild(tagRow);

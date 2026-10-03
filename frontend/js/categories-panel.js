@@ -225,13 +225,23 @@ function drawManageCategoryRows(list, footer, state) {
   drawManageCategoryFooter(footer, state, () => drawManageCategoryRows(list, footer, state));
 }
 
-function showCategoryNotes(name) {
+//: The assignments a click on the sidebar's row makes (`renderSidebar`), for
+//: the panel's Enter and the category chip's "Show notes in" (INBOX 447 (5)).
+//: `clearSearch` empties the box first: from a card that is showing a search
+//: or a tag, "show this category" means this category, not its overlap.
+function showCategoryNotes(name, { clearSearch = false } = {}) {
   //: The notes are behind the panel, so the panel gets out of their way
   //: (INBOX 432: the list filtered under an open modal).
   document.querySelector('.sheet-overlay[data-sheet="categories"] .sheet-close')?.click();
+  if (clearSearch) {
+    noteSearch = "";
+    const box = $("note-search");
+    if (box) box.value = "";
+  }
   activeCategory = name;
   draftsOnly = false;
   favouritesOnly = false;
+  if (localStorage.getItem("activeTab") !== "notes") switchTab("notes");
   showNotesSection("browse");
   renderSidebar();
   renderEntries();
@@ -681,101 +691,8 @@ function chooseNoteCategory(ids, current = "") {
   });
 }
 
-//: **Tags, from the Notes sidebar** (INBOX 432: the only list of tags was in
-//: the Library, and renaming or removing one had no way back). Every tag with
-//: its count, most used first; a row shows its notes, and its two buttons
-//: rename (onto an existing tag, a merge) or remove it everywhere. Undo for
-//: both is what the notes carried before, put back note by note.
-async function openTagsSheet() {
-  const counts = await apiJson("/tags?limit=5000").catch(() => ({}));
-  const names = Object.keys(counts);
-  openSheet({
-    label: "Tags",
-    sub: names.length ? `${names.length} tag${names.length === 1 ? "" : "s"}, most used first. Choose one to see its notes.` : "",
-    name: "tags",
-    build: (card, close) => {
-      const list = document.createElement("div");
-      list.className = "sheet-list";
-      if (!names.length) {
-        const none = document.createElement("p");
-        none.className = "muted";
-        none.textContent = "No tags yet. Add some to a note, or let Atlas suggest them as you write.";
-        list.appendChild(none);
-      }
-      for (const name of names) {
-        const row = document.createElement("div");
-        row.className = "row tag-list-row";
-        const open = sheetRow("ph ph-hash", `${name} (${counts[name]})`, () => {
-          close();
-          filterNotesByTag(name);
-        });
-        row.append(
-          open,
-          smallButton("ph:pencil-simple", `Rename ${name}`, () => {
-            close();
-            renameTagEverywhere(name);
-          }),
-          smallButton("ph:trash", `Remove ${name} from every note`, () => {
-            close();
-            removeTagEverywhere(name);
-          })
-        );
-        list.appendChild(row);
-      }
-      card.appendChild(list);
-    },
-  });
-}
-
-//: The notes that carry a tag and the tags each had, for an undo.
-function tagHolders(tag) {
-  const lower = tag.toLowerCase();
-  return allEntries.filter((e) => (e.tags || []).some((t) => t.toLowerCase() === lower)).map((e) => [e.id, e.tags]);
-}
-
-async function putTagsBack(holders) {
-  for (const [id, tags] of holders) await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags }) });
-  await loadEntries();
-}
-
-async function renameTagEverywhere(tag) {
-  const next = await promptDialog(`Rename the tag “${tag}” to (an existing tag merges):`, tag, { confirmLabel: "Rename" });
-  if (!next || next === tag) return;
-  const holders = tagHolders(tag);
-  try {
-    const result = await apiJson("/tags/rename", { method: "POST", body: JSON.stringify({ old: tag, new: next }) });
-    await loadEntries();
-    const action = pushUndo(`Renamed the tag ${tag}`, () => putTagsBack(holders), async () => {
-      await apiJson("/tags/rename", { method: "POST", body: JSON.stringify({ old: tag, new: next }) });
-      await loadEntries();
-    });
-    toastAction(`Renamed “${tag}” to “${next}” on ${result.changed} note${result.changed === 1 ? "" : "s"}.`, "Undo", async () => {
-      settleUndoFromToast(action);
-      await putTagsBack(holders);
-    });
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
-
-async function removeTagEverywhere(tag) {
-  if (!(await confirmDialog(`Remove the tag “${tag}” from every note?\n\nThe notes are untouched.`, { confirmLabel: "Remove" }))) return;
-  const holders = tagHolders(tag);
-  try {
-    const result = await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name: tag }) });
-    await loadEntries();
-    const action = pushUndo(`Removed the tag ${tag}`, () => putTagsBack(holders), async () => {
-      await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name: tag }) });
-      await loadEntries();
-    });
-    toastAction(`Removed “${tag}” from ${result.changed} note${result.changed === 1 ? "" : "s"}.`, "Undo", async () => {
-      settleUndoFromToast(action);
-      await putTagsBack(holders);
-    });
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
+//: The tag manager (openTagsSheet and the tag edits) moved to tag-manager.js
+//: (INBOX 447): it grew past a sheet of rows, and it is its own lazy piece.
 
 //: Moving chosen notes, from the batch bar's Move to or a drop: one call,
 //: one toast, one undo.

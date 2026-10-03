@@ -855,6 +855,11 @@ button.map-chip:focus-visible {
   box-shadow: var(--shadow-lg);
 }
 
+/* A row is taken with a press, so it looks pressable (INBOX 441). */
+.tag-suggest .rich-picker-row {
+  cursor: pointer;
+}
+
 .tag-suggest > .rich-picker-list {
   min-height: 0;
   flex: 1 1 auto;

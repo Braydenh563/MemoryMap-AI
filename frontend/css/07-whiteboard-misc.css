@@ -743,6 +743,28 @@
   margin-bottom: var(--row-gap);
 }
 
+/* A Library card names itself at its foot, under the preview: so do its
+   placeholder's lines. */
+.library-grid > .skeleton::before {
+  top: auto;
+  bottom: 1.7rem;
+}
+
+.library-grid > .skeleton::after {
+  top: auto;
+  bottom: 0.9rem;
+}
+
+/* One line fits a timeline row: the title bar, centred. */
+.timeline-feed > .skeleton::before {
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.timeline-feed > .skeleton::after {
+  display: none;
+}
+
 @media (hover: hover) {
   .card.interactive:hover,
   .wb-card:hover:not(.dragging) {

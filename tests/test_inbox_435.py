@@ -97,3 +97,13 @@ def test_lazily_loaded_lists_show_placeholders_while_they_load():
         assert container in code, container
         assert fetch in code, fetch
     assert code.count("clearSkeletons(") >= 9
+
+
+def test_the_tags_list_follows_the_pointer_and_takes_a_chosen_row():
+    """INBOX 441: "no changing hover states for this dropdown menu and no way
+    to navigate with keyboard". Pointing lights a row as the arrows do, and
+    Enter takes a row chosen either way, not only once something is typed."""
+    suggest = (ROOT / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
+    assert 'row.addEventListener("pointermove"' in suggest
+    assert "(state.moved || tagSuggestToken(input).token)" in suggest
+

@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Loading placeholders show the shape of what is coming (a title line and a text line) with a visible sweep; with reduced motion they breathe gently instead of sitting blank.
+- The tags list under a tags field lights the row under the pointer, and Enter or Tab takes a row reached with the arrows or the pointer.
 - Settings, Templates, Skills and Personas: Edit, Reset and Delete sit in their own column, centred on the item and always shown (they were hidden until pointed at and hugged the card's top corner); the Built-in label is one line beside the name.
 - Badges: "Built-in", "Edited", "Yours" and the Models sliders' "you set this" are drawn one way everywhere (the Library's skill cards showed bare text and the sliders a third style); the Library's skill facts are one height.
 - Privacy: the search-by-meaning model goes online only to download itself the first time; once on this computer it loads from disk with no connection, and if its files will not load it says to reinstall it instead of quietly fetching it again.

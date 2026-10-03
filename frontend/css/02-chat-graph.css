@@ -2452,28 +2452,74 @@ button.recording.live-level {
    height is the list's; each list says its own below. */
 .skeleton,
 .entry-list li.skeleton {
+  /* **A placeholder that looks like it is working** (INBOX 441, the owner:
+     "the skeleton loaders are really boarinf and have no loading animation
+     to them, they are just blank shapes"). Two causes, both measured: the
+     sweep ran from `--chip-bg` to `--inner`, a step of 2 to 3 levels in
+     dark that nobody could see, and under Windows' "animation effects" off
+     (prefers-reduced-motion) it stopped outright, leaving blank boxes. Now
+     the box carries the shape of what is coming, a title line and a text
+     line (`::before`, `::after`), a sheen of 7% ink sweeps across it with a
+     rest between passes (the band starts and ends outside the box), and
+     reduced motion keeps a slow breathe of the bars below instead of
+     nothing. */
+  --sk-bar: color-mix(in srgb, var(--ink) 10%, transparent);
+  --sk-sheen: color-mix(in srgb, var(--ink) 7%, transparent);
+  position: relative;
+  overflow: hidden;
   height: 3.2rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: linear-gradient(90deg, var(--chip-bg) 25%, var(--inner) 50%, var(--chip-bg) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.2s linear infinite;
+  background: linear-gradient(100deg, transparent 35%, var(--sk-sheen) 50%, transparent 65%) var(--card);
+  background-size: 250% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
   margin-bottom: 0.5rem;
+}
+
+.skeleton::before,
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--sk-bar);
+}
+
+.skeleton::before {
+  top: 0.8rem;
+  width: min(38%, 14rem);
+  height: 0.7rem;
+}
+
+.skeleton::after {
+  top: 1.9rem;
+  width: min(68%, 26rem);
+  height: 0.5rem;
 }
 
 /* Found by the reduced-motion lint the moment it was written, which is the
    argument for having it: a full-width bar sweeping a gradient forever is
    one of the least comfortable things a page can do for someone sensitive to
-   motion, and it had shipped unnoticed.
-
-   The gradient stays: it is what says "there is a note here, still
-   loading", and per DESIGN.md the branch keeps the information, it just
-   stops moving, resting at the position the sweep starts from. */
+   motion, and it had shipped unnoticed. The sweep stops; the bars breathe in
+   opacity, which moves nothing across the screen, so the placeholder still
+   says "loading" rather than "empty" (DESIGN.md: the branch keeps the
+   information). */
 @media (prefers-reduced-motion: reduce) {
   .skeleton,
   .entry-list li.skeleton {
     animation: none;
     background-position: 200% 0;
+  }
+
+  .skeleton::before,
+  .skeleton::after {
+    animation: skeleton-breathe 1.6s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes skeleton-breathe {
+  to {
+    opacity: 0.45;
   }
 }
 
@@ -2889,7 +2935,7 @@ kbd {
 
 :root[data-progress-motion="always"] .skeleton,
 :root[data-progress-motion="always"] .entry-list li.skeleton {
-  animation: shimmer 1.2s linear infinite !important;
+  animation: shimmer 1.8s ease-in-out infinite !important;
 }
 
 :root[data-progress-motion="always"] button.recording {

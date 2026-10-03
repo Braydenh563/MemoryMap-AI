@@ -77,6 +77,16 @@ function fillTagSuggest() {
       id: `tag-suggest-${i}`,
     });
     row.dataset.tag = tag;
+    //: Pointing lights the row, as the arrow keys do (INBOX 441: "no
+    //: changing hover states for this dropdown menu"): one lit row, whichever
+    //: way it was reached, so Enter takes what the pointer is on.
+    row.addEventListener("pointermove", () => {
+      if (!tagSuggest || tagSuggest.active === i) return;
+      tagSuggest.active = i;
+      tagSuggest.moved = true;
+      richPickerSetActive(list, rows, i);
+      input.setAttribute("aria-activedescendant", row.id);
+    });
     row.addEventListener("pointerdown", (event) => {
       event.preventDefault(); // keep the focus in the field
       takeTagSuggest(tag);
@@ -85,6 +95,7 @@ function fillTagSuggest() {
   });
   list.replaceChildren(...rows);
   tagSuggest.rows = rows;
+  tagSuggest.moved = false;
   tagSuggest.active = rows.length ? 0 : -1;
   richPickerSetActive(list, rows, tagSuggest.active);
   input.setAttribute("aria-activedescendant", rows.length ? rows[0].id : "");
@@ -135,12 +146,14 @@ async function openTagSuggest(input) {
     if (step) {
       event.preventDefault();
       state.active = (state.active + step + state.rows.length) % state.rows.length;
+      state.moved = true;
       const lit = richPickerSetActive(state.list, state.rows, state.active);
       input.setAttribute("aria-activedescendant", lit?.id || "");
       lit?.scrollIntoView({ block: "nearest" });
-    } else if ((event.key === "Enter" || event.key === "Tab") && state.active >= 0 && tagSuggestToken(input).token) {
-      //: Enter or Tab takes the lit row only once something is typed, so
-      //: Enter on an empty token still does what the field's own Enter does.
+    } else if ((event.key === "Enter" || event.key === "Tab") && state.active >= 0 && (state.moved || tagSuggestToken(input).token)) {
+      //: Enter or Tab takes the lit row once something is typed or a row was
+      //: chosen with the keys or the pointer; Enter on an untouched list
+      //: still does what the field's own Enter does.
       event.preventDefault();
       event.stopPropagation();
       takeTagSuggest(state.rows[state.active].dataset.tag);
@@ -157,6 +170,6 @@ async function openTagSuggest(input) {
   input.addEventListener("blur", onBlur);
   window.addEventListener("resize", onWindow);
   window.addEventListener("scroll", onWindow, true);
-  tagSuggest = { input, box, list, counts, rows: [], active: -1, onInput, onKey, onBlur, onWindow };
+  tagSuggest = { input, box, list, counts, rows: [], active: -1, moved: false, onInput, onKey, onBlur, onWindow };
   fillTagSuggest();
 }

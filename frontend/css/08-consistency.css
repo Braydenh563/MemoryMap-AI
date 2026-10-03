@@ -8843,6 +8843,17 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   margin-block: var(--space-2) var(--space-3);
 }
 
+/* One gap above a card's metadata row, whatever sits above it (wrapup-0927
+   10(d), "a small gap between a note card's text and its metadata row").
+   Measured in card view: 6.4px under the text, 8px under "Show more" (the
+   rule above), 6.4px under a file row. The owner's ask at the same release
+   was for room around "Show more", so its `--space-3` is the gap and the
+   other two take it; the margin collapses with whatever the row above
+   keeps, so this is the gap rather than an addition to it. */
+#entry-list:not(.is-rows) > li > .entry-meta {
+  margin-top: var(--space-3);
+}
+
 /* Improve writing's two actions at one height (the owner at release: the
    filled and the ghost button drew 40 and 42px side by side). */
 :is(#improve-apply, #improve-retry) {

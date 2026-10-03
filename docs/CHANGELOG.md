@@ -12,6 +12,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).
 - A chip's leading icon sits level with its words (the clock on the "Ask again" chips sat 1.5px high).
 - The Web search panel's "..." menu is there the moment the panel opens, instead of after the engine's status check.
+- A note card's labels row keeps the same room under the text as under "Show more".
 
 ## [0.3.32] - 2026-09-28
 

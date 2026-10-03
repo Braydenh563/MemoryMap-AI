@@ -64,7 +64,12 @@ work starts.
     blocks below; make sections collapsible (or cap the reading and scroll);
     (c) Atlas floats in empty space when the Find anything dialog is open;
     it should hide, or perch on the dialog's edge, while a modal is up;
-    (d) a small gap between a note card's text and its metadata row;
+    (d) done (08-consistency.css: the card view's meta row takes
+    `--space-3` above it whatever sits there; box gap 6.4px under the text,
+    8 under Show more, 6.4 under a file row before, 8 under each after;
+    decided as "too tight" because the owner's same-release ask was room
+    around Show more): a small gap between a note card's text and its
+    metadata row;
     (e) the note edit form's "fit toolbar on one row" toggle does nothing;
     (f) related-note badges and their Link buttons are different heights;
     (g) help answers, "From the help": the entry title ("Skills") is tiny

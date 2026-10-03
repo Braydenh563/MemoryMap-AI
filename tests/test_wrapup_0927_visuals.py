@@ -9,6 +9,7 @@ Each test pins the shape of the fix; the numbers are in the ledger entry.
 * 10c(2): a chip's leading icon sat 1.5px above the chip's centre (a flex
   child ignores `vertical-align`); nudged 0.1em down.
 * 10c(3): the Web panel's "..." waited for the engine status call.
+* 10(d): a note card's meta row sat 6.4px under its text, 8px under "Show more".
 """
 
 from pathlib import Path
@@ -45,3 +46,11 @@ def test_the_web_panel_draws_its_menu_before_the_status_call():
     body = chat[chat.index("function toggleWebPanel") :]
     body = body[: body.index("\n}\n")]
     assert body.index("renderWebPanelMenu(webEngineInfo);") < body.index("refreshWebSearxngStrip();")
+
+
+def test_a_note_card_keeps_one_gap_above_its_metadata_row():
+    """10(d): card view, box gap above the meta row: 6.4px under the text,
+    8 under "Show more", 6.4 under a file row before; 8 (`--space-3`) under
+    each after. The rows view is untouched (its meta sits beside the text)."""
+    css = _read("css/08-consistency.css")
+    assert "#entry-list:not(.is-rows) > li > .entry-meta {\n  margin-top: var(--space-3);\n}" in css

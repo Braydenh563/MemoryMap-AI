@@ -34,6 +34,18 @@ with its owner named in the entry.
 
 ## Open items
 
+448. **The owner, 2026-10-03 night, verbatim.** "I feel like the help
+     settings as well as the help info available to the agents needs more
+     expansion for all the new features both large and small so people can
+     easily find out about all the features. also make sure the docs are all
+     up to date. continue with all the open items and the rest of my
+     requests". Placed: (1) Settings, Help and the agents' help topics
+     (`ai/help_chat.py` HELP_TOPICS, read by Chat and the popup agent)
+     cover every feature in CHANGELOG's Unreleased and 0.3.x, large and
+     small, each findable by the words a person would search: an Opus
+     agent; (2) README, ARCHITECTURE, DESIGN and the plans checked against
+     the code and brought current: a Sonnet agent.
+
 
 437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
      Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,

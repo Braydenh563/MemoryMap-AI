@@ -9674,11 +9674,11 @@ function filterBookmarks() {
   noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
   const count = $("bookmark-count");
   if (count) {
-    count.textContent = bookmarksCache.length === 0
+    //: Only a narrowed list says how far: the whole list's size is already
+    //: the All chip's count just above (INBOX 437 (4)).
+    count.textContent = visible.length === bookmarksCache.length
       ? ""
-      : visible.length === bookmarksCache.length
-        ? `${bookmarksCache.length} bookmark${bookmarksCache.length === 1 ? "" : "s"}`
-        : `Showing ${visible.length} of ${bookmarksCache.length}`;
+      : `Showing ${visible.length} of ${bookmarksCache.length}`;
   }
 }
 
@@ -10610,6 +10610,10 @@ async function renderContents() {
     }
     summary.textContent = bits.join(" · ");
   }
+  //: The jump bar earns its row from four groups, the threshold of Settings'
+  //: own index: with two or three, every head is already on screen and the
+  //: bar only repeated each one's name and count (INBOX 437 (4)).
+  jump?.classList.toggle("hidden", jump.childElementCount < 4);
   //: One door into the tab order: the first item. Roving from there.
   outline.querySelector('[role="treeitem"]')?.setAttribute("tabindex", "0");
 }

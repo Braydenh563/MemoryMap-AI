@@ -4716,6 +4716,14 @@ textarea.autogrow {
   letter-spacing: 0.06em;
 }
 
+/* A Files row already names the kind first on its facts line, beside a
+   glyph that spells it (PDF, CSV, DOC): the label under the glyph made it
+   three times on one row (INBOX 437 (4)). The grid tile, which has no facts
+   line, keeps it. */
+.library-file-rows .library-file-thumb-kind {
+  display: none;
+}
+
 /* Direction on a link chip. Colour is deliberately *not* the only signal, 
    the arrow glyph carries it, and DESIGN.md's contrast rule (and WCAG's
    "don't convey information by colour alone") both say so. The tint is a

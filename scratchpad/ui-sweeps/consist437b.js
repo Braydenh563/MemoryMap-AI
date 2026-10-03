@@ -55,11 +55,13 @@ const PART = process.env.PART || 'settings,reminders,library,notes,docs';
 
   if (PART.includes('library')) {
     await tab('library');
-    for (const sub of ['bookmarks', 'contents', 'skills', 'media', 'boards', 'maps']) {
-      const ok = await page.evaluate((s) => { const b = document.querySelector(`#library-subtabs [data-sub="${s}"], #library-subtabs [data-subtab="${s}"], #library-subtabs [data-view="${s}"]`); if (b) { b.click(); return true; } return false; }, sub);
-      await page.waitForTimeout(1200);
-      await m('library ' + sub + (ok ? '' : ' (no tab)'), audit, '#tab-library');
-      await m('library ' + sub + ' rows', () => { const host = document.querySelector('#tab-library'); const rows = [...host.querySelectorAll('[role=row], li, article, .library-row, .timeline-row')].filter((e) => e.getClientRects().length && e.getBoundingClientRect().height > 20 && !e.closest('nav, .dock, .kebab-menu, [role=menu]')); const hs = rows.slice(0, 12).map((e) => Math.round(e.getBoundingClientRect().height)); return `n=${rows.length} h=${hs.join('/')} cls=${rows[0] ? rows[0].className.split(' ').slice(0, 2).join('.') : '-'}`; });
+    for (const [view, kind] of [['links'], ['contents'], ['skills'], ['media', 'images'], ['media', 'files'], ['whiteboard'], ['docs'], ['documents']]) {
+      const sel = `#library-subtabs [data-target="library-view-${view}"]` + (kind ? `[data-media-kind="${kind}"]` : '');
+      await page.evaluate((sel) => document.querySelector(sel)?.click(), sel); await page.waitForTimeout(1300);
+      const name = view + (kind ? '/' + kind : '');
+      await m('library ' + name, audit, '#library-view-' + view);
+      await m('library ' + name + ' rows', (view) => { const host = document.getElementById('library-view-' + view); const rows = [...host.querySelectorAll('[role=row], [role=treeitem], li, article, .bookmark-row, .library-image-tile')].filter((e) => e.getClientRects().length && e.getBoundingClientRect().height > 20 && !e.closest('nav, .dock, [role=menu], .select-menu')); const hs = rows.slice(0, 10).map((e) => Math.round(e.getBoundingClientRect().height)); const c = rows[0] && getComputedStyle(rows[0]); return `n=${rows.length} h=${hs.join('/')} cls=${rows[0] ? rows[0].tagName + '.' + rows[0].className.split(' ').slice(0, 2).join('.') : '-'} pad=${c ? c.paddingTop + ' ' + c.paddingLeft : '-'} border=${c ? c.borderTopWidth + ' ' + c.borderTopColor : '-'} bg=${c ? c.backgroundColor : '-'}`; }, view);
+      await m('library ' + name + ' head', (view) => { const host = document.getElementById('library-view-' + view); const d = host.querySelector('.dock, .library-toolbar, [class*=toolbar]'); if (!d) return '-'; return [...d.querySelectorAll('button, summary, input, .select-opener')].filter((e) => e.getClientRects().length && !e.closest('.seg')).map((e) => `${(e.id || e.className.split(' ')[0] || e.tagName).slice(0, 18)}=${Math.round(e.getBoundingClientRect().height)}`).join(' '); }, view);
     }
   }
 

@@ -2340,16 +2340,25 @@ button:not(.ghost) > .spinner {
 /* The facts line of a row, which is the same object as a Files row's and is
    styled by the rule they share (`.library-file-meta`, 07-whiteboard-misc.css).
    All it needs here is to stay on one line: a long note is a fact about the
-   link, not a paragraph the list has to make room for. */
-.bookmark-meta {
+   link, not a paragraph the list has to make room for. Two classes, because
+   the shared rule loads later at the same weight and its `wrap` won: on a
+   phone "example.com ·" and "Reading" broke onto two lines, the dot left at
+   the end of the first (INBOX 437 (4)). A fact gives way by ellipsis, the
+   site first. */
+.library-file-meta.bookmark-meta {
   flex-wrap: nowrap;
   overflow: hidden;
   white-space: nowrap;
 }
 
-.bookmark-meta > span {
+.library-file-meta.bookmark-meta > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.library-file-meta.bookmark-meta > .library-file-meta-sep {
+  flex: 0 0 auto;
 }
 
 /* Pinned is a state, so the control that holds it is coloured by it rather
@@ -2392,6 +2401,10 @@ button:not(.ghost) > .spinner {
 
 .bookmark-count {
   margin: 0 0 var(--space-2);
+}
+
+.bookmark-count:empty {
+  display: none;
 }
 
 /* The "By site" grouping: a heading and its rows, folding like a Contents

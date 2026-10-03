@@ -1052,6 +1052,25 @@ summary > .ph-lead,
   color: var(--muted);
 }
 
+/* **The card's gap is its only rhythm** (INBOX 437 (4); DESIGN.md, "zero the
+   margins, not just the heights"). The card is a flex column on one gap,
+   but the title kept an 8px bottom margin inside its head, the description
+   a paragraph's 12px each side and the run line 11.2px each side, so the
+   steps between the parts ran 28, 20, 19 and 27px for no reason a reader
+   could see. The footer keeps its own hairline and the space above it. */
+.skill-card .skill-card-header > .skill-card-title,
+.skill-card > .skill-card-desc,
+.skill-card > .skill-card-when {
+  margin: 0;
+}
+
+/* Its menu beside Run is Run's height, not the 28px of a lone icon; never
+   under the touch floor, which is the larger of the two on a phone. */
+.skill-card-footer .skill-card-more > button {
+  min-width: max(var(--control-h-lg), var(--target-min));
+  min-height: max(var(--control-h-lg), var(--target-min));
+}
+
 /* The card's own "Built-in" marker is the same fact the persona list states,
    so it says it the same way. `--accent-soft` is this app's *selected* tone
    (DESIGN.md), and nothing about a built-in skill is selected. */
@@ -4432,11 +4451,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    rest, heavier than the words it selects. The target has to stay 44px; the
    drawing does not. So the input keeps its size and loses its own frame,
    and the box is drawn half that size in its middle, where the checkmark
-   already sits. */
+   already sits. `.doc-list-tick` (a Bookmarks or Documents row) joined in
+   INBOX 437 (4): on a phone its 44px frame stood on every link at rest. */
 @media (pointer: coarse) {
   .library-card-tick,
+  .doc-list-tick,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only),
   .library-card-tick:checked,
+  .doc-list-tick:checked,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked {
     border-color: transparent;
     background: transparent;
@@ -4444,6 +4466,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 
   .library-card-tick::before,
+  .doc-list-tick::before,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only)::before {
     content: "";
     position: absolute;
@@ -4463,6 +4486,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 
   .library-card-tick:checked::before,
+  .doc-list-tick:checked::before,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked::before {
     background: var(--accent);
     border-color: var(--accent);

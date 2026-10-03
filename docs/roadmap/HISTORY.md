@@ -36340,3 +36340,44 @@ width, 47% of the column at 1440.
      forced backup failure showed its reason in red). Not verified: a job running long enough to
      watch the ring and the 2 s poll live (the ring was painted from a simulated running row).
 
+435. **The owner, 2026-10-03, verbatim, with screenshots (the Capture tags
+     row with its open list; CodeQL alerts 439 to 441; Atlas; a drawing).**
+     "the dropdown arrow on the tags row in the capture subtab is not aligned
+     vertically and the popup is awkwardly sized. there was a couple codeql
+     stuff that got flagged and im not sure if they are fixed or not. also on
+     the masculine atlas lower body looks like a tripod and very straight
+     pencil-y, I was thinking like a thicker main whispy tail in the mddle
+     like a snake and then the smaller ones on the side like the shoddy
+     drawing I attached. continue what you are doing."
+     Placed: (1) the tags field's native `<datalist>` arrow and list
+     (Chromium draws both; neither takes the app's styles) become the app's
+     own suggestion menu, aligned and sized to the field: the orchestrator;
+     (2) CodeQL 439 to 441, "Cyclic import" notes in core/webclip.py and
+     search/websearch.py (main, five days old): broken, the orchestrator;
+     CodeQL 442 and 443 (this PR) were fixed and resolved; (3) the masculine
+     lower body (wrapup-0927 item 7, now with the drawing): one thick
+     S-curved central wisp tapering like a snake's tail, two or three thinner
+     curved strands peeling off each side, a slow sway, no hard points: an
+     Opus agent on atlas.js.
+     **Added the same hour, verbatim, with a screenshot (the companion on
+     the status bar, drawn over the AI status popup "Checking..."):** "the
+     companion also clashes with some popups and the ai status icon isnt
+     centred". Placed: (4) popups stand above the companion (or it steps
+     aside) and (5) the AI status dot's glyph centred, measured: the
+     orchestrator.
+
+     **Added (6), verbatim:** "also there is no clear skeleton loaders for
+     many features that are lazily loaded like the boards and maps in the
+     library and other places". Placed: every surface that fetches before it
+     draws gets DESIGN.md's `showSkeletons` recipe, found by a sweep that
+     opens each lazily loaded view on a cold load: the orchestrator.
+     **Added (7), verbatim, with a screenshot (Settings, Models: "Can't reach
+     the MemoryMap server."):** "the models settings notice just appeared
+     with no indication that it was working on something and said that the
+     server cant be reached even though the app is running so incorrect or
+     misleading message". **Done 2026-10-03** (`tests/test_inbox_435.py`).
+     **Added (8), verbatim:** "also why does telemetry and do not track needs
+     to be disabled for needle?? isnt it offline??" Answered (it is offline;
+     needle's own tools default telemetry on, this app uses only its engine,
+     which has no network code) and the caveat reworded. **Done.**
+

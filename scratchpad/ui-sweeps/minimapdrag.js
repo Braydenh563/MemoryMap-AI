@@ -263,7 +263,9 @@ async function measure(page, cdp, label) {
   await page.waitForTimeout(400);
   const f0 = await metrics(cdp);
   await startRecording(page);
-  await page.click("#wb-navigator-fit");
+  // FITJUMP=1: the same fit with no animation, for comparing the two.
+  if (process.env.FITJUMP) await page.evaluate(() => wbZoomToFit({ animate: false }));
+  else await page.click("#wb-navigator-fit");
   await page.waitForTimeout(700);
   const frec = await stopRecording(page);
   const f1 = await metrics(cdp);
@@ -274,6 +276,9 @@ async function measure(page, cdp, label) {
     scriptMs: r1((f1.script - f0.script) * 1000),
   };
   console.log(`${label} fit   ${JSON.stringify(out.fit)}`);
+  // FRAMES=1: every frame interval of the fit, to tell one heavy frame from
+  // a run of slow ones.
+  if (process.env.FRAMES) console.log(`${label} fit frames ${frec.frames.map((x) => Math.round(x)).join(" ")}`);
   return out;
 }
 

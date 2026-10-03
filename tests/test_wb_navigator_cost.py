@@ -82,6 +82,16 @@ def test_frame_reads_the_canvas_size_before_it_writes() -> None:
     assert "wbNavigatorUpdateViewport(t, size)" in frame
 
 
+def test_an_animated_fit_draws_its_destination_once_and_holds_the_cull() -> None:
+    fit = code(function_text("wbZoomToFit"))
+    # The destination is drawn before the animation starts, and the hold is
+    # lifted on both ways an animation stops.
+    assert fit.index("wbCullNow(target)") < fit.rindex(".transition()")
+    assert '.on("end.cullhold", release)' in fit
+    assert '.on("interrupt.cullhold", release)' in fit
+    assert "if (wbCullHeld) return;" in code(function_text("wbCullNow"))
+
+
 def test_the_inverse_zoom_is_written_onto_the_grips_that_read_it() -> None:
     """Every rule that reads `--wb-inv-zoom` is a grip the sheet writes to.
 

@@ -563,6 +563,10 @@ function wbFlushZoomFrame() {
 //: once per pan frame, in the frame's own rAF.
 const WB_CULL_MARGIN = 0.5;
 let wbCullFrame = 0;
+//: Non-zero while an animated fit runs: the cull has drawn the fit's
+//: destination and does nothing until it lands (`wbZoomToFit`).
+let wbCullHeld = 0;
+let wbCullHoldCount = 0;
 
 function wbScheduleCull() {
   if (wbCullFrame) return;
@@ -573,6 +577,7 @@ function wbScheduleCull() {
 }
 
 function wbCullNow(transform, size) {
+  if (wbCullHeld) return;
   const container = document.getElementById("whiteboard-container");
   const layer = document.getElementById("wb-html-layer");
   if (!container || !layer) return;
@@ -1468,7 +1473,40 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
   const target = d3.zoomIdentity
     .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
     .scale(k);
-  (animate ? sel.transition().duration(350) : sel).call(wbZoom.transform, target);
+  if (!animate) {
+    sel.call(wbZoom.transform, target);
+    return;
+  }
+  //: **The cull draws the destination once, then holds** (INBOX 431: the
+  //: overview's Fit "reallllly glitchy and laggy"). A fit ends with
+  //: everything on screen, so everything has to be drawn by its last frame
+  //: whatever happens on the way. Culled frame by frame, a fit that zooms
+  //: out brought a few more items in on every frame of its 350ms, so every
+  //: frame restyled, laid out and painted, and on a 150-topic map at a 4x
+  //: throttle the animation managed 12 frames, p95 233ms. Drawn against the
+  //: destination first, the frames between restyle nothing (the zoom still
+  //: re-rasters the board at each scale); the hold lifts when the animation
+  //: ends or anything interrupts it. Measured against culling every frame,
+  //: with everything else equal: the map's heavy frames went from five
+  //: (100 to 233ms) to one at the press and a run of 50 to 83ms.
+  //:
+  //: The hold is this fit's own: a fit started over a running one
+  //: interrupts it, and that one's release must not lift the new hold.
+  wbCullHeld = 0;
+  wbCullNow(target);
+  const hold = ++wbCullHoldCount;
+  wbCullHeld = hold;
+  const release = () => {
+    if (wbCullHeld !== hold) return;
+    wbCullHeld = 0;
+    wbScheduleCull();
+  };
+  sel
+    .transition()
+    .duration(350)
+    .on("end.cullhold", release)
+    .on("interrupt.cullhold", release)
+    .call(wbZoom.transform, target);
 }
 
 //: A fit tighter than this is a map you cannot read: the nodes are there, the

@@ -36695,3 +36695,15 @@ width, 47% of the column at 1440.
      16px labels (were 13.6), a 4px well (was 2.4), the bar 54px (was 48);
      measured at 1440, 1280 and 1100, no overflow, no wrap.
 
+451. **The owner, 2026-10-03 night, verbatim, with screenshots (the
+     Library, Notes, Timeline and Reminders view toggles; the Timeline tab;
+     the notifications panel).** "these toggle options are touching the
+     bottom of the pill, some of the highlights are cut off. also in the
+     notifications panel, the unread blue dot and the radio button on the
+     right arent properly padded from the edges". **(1) fixed**: a dock
+     segment fills its well's inside (24px in a 32px well, 4px all round,
+     was 28px flush on the bottom); by touch the well grows to its 44px
+     buttons (was 32px with 16px spilling out). **(2) fixed**: every
+     notification row is inset 8px on both sides; the unread dot sat at 0px
+     from the left and the read toggle at 0px from the right.
+

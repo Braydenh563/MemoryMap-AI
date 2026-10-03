@@ -34,6 +34,13 @@ with its owner named in the entry.
 
 ## Open items
 
+457. **The owner, 2026-10-03 night, verbatim, with a screenshot (the popup
+     agent: a Thinking fold and its open text drawn above Atlas's name and
+     avatar, the bubble's "Stargazing / Thinking..." line below).** "the
+     thinking box appears above the atlas message bubble title and avatar in
+     the popup agent. also make sure all the thinking boxes are the same
+     style and consistent". Placed: the orchestrator.
+
 456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
      windows and panels are the same design and style." Placed: every
      dialog, sheet, popover and side panel inventoried and measured against
@@ -64,16 +71,6 @@ with its owner named in the entry.
      in the app rn?? what is left and still open??" Placed: the sidebar
      toggle in focus mode, the orchestrator; the question answered from the
      plans' open phases, with agents on the top items.
-
-451. **The owner, 2026-10-03 night, verbatim, with screenshots (the
-     Library, Notes, Timeline and Reminders view toggles; the Timeline tab;
-     the notifications panel).** "these toggle options are touching the
-     bottom of the pill, some of the highlights are cut off. also in the
-     notifications panel, the unread blue dot and the radio button on the
-     right arent properly padded from the edges". **(1) fixed**: a dock
-     segment fills its well's inside (24px in a 32px well, 4px all round,
-     was 28px flush on the bottom); by touch the well grows to its 44px
-     buttons (was 32px with 16px spilling out). (2) the orchestrator.
 
 450. **The owner, 2026-10-03 night, verbatim, with four screenshots of
      Library, AI skills.** "these chips arent aligned and could you improve

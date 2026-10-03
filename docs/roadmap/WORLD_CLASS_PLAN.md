@@ -295,6 +295,8 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 **State 2026-09-24:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table) and the layout editor exists (`dash-edit`, `moveDashWidget`); drag-to-reorder on the grid itself was not found. The recipe-count gate was not re-run. S, `dashboard.js`.
 
+**The first screen, INBOX 436 (2026-10-03):** built; the diagnosis, the target and the before and after numbers are in HISTORY.md ("Moved from the plans, 2026-10-03").
+
 ### D2 Notes: list, capture, edit (L, Opus)
 
 Exists: the list with card/list views, filters, select mode, capture with

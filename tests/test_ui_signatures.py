@@ -61,7 +61,9 @@ SURFACE_SELECTOR = re.compile(
 # formatting strips (`.doc-toolbar`, `.note-toolbar`, 60 controls each, where
 # an 8px gap would cost 240px of width). A fourth value is drift.
 ROW_GAP_CEILING = 3
-ROW_PADDING_CEILING = 11
+# 10 since INBOX 436: the dashboard's stat tiles and quick links took two
+# paddings with them.
+ROW_PADDING_CEILING = 10
 SURFACE_RADIUS_CEILING = 4
 
 

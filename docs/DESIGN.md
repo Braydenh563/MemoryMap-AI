@@ -675,7 +675,7 @@ Jump to row (actions), and every category and fact chip. The rule:
 | What it is | Corner |
 | --- | --- |
 | A navigation or filter row you pick one of (`.library-chip`: the Library kinds, the Boards filter, Reminders' Open/All/Done) | `--radius-md`, the button's corner, with the selected one filled |
-| An action (`.quick-pill`, the Write tab's starters) | `--radius-md`: it is a button |
+| An action (the Write tab's starters) | `--radius-md`: it is a button |
 | A label: a category, a tag, a fact (`.chip`, `.dock-chip`, the skill facts, a legend entry) | `--radius-sm` |
 | A capsule | Only where `PILL_CONTROLS` in `tests/test_ui_recipes.py` names it with its reason: the chat composer's row, a round icon button, a floating bar over a canvas, a count badge, a switch |
 
@@ -828,7 +828,7 @@ ratchets the counts so they cannot drift back.
   between groups. The two 60-control formatting strips (`.doc-toolbar`,
   `.note-toolbar`) are the one `--space-1` exception.
 - **One button radius**: `--radius-md`, from the base `button` rule. Tiles
-  (`.quick-link`, `.stat-tile`, `.start-step`) are one recipe: `--card` fill,
+  (`.quick-link`, `.start-step`) are one recipe: `--card` fill,
   `--glass-border`, `--radius-md`, no shadow, `--accent-soft` on hover; a tile
   inside a card is `--surface-2`.
 - **The interactive filter chip** (`.library-chip`, the chat composer's

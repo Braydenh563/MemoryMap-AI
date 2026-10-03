@@ -135,23 +135,6 @@ with its owner named in the entry.
      the named skills, surface by surface, each change measured: the
      orchestrator, with agents per surface.
 
-436. **The owner, 2026-10-03, verbatim (user feedback).** "I also got a bit
-     of user feedback that there is quite a lot going on visually on the
-     dashboard when the user opens the application. I think the dashboard ui
-     needs a more modern and professional redesign with top tier and
-     maximised ux design principles and techniques. I like the top hero
-     section though and I think the widgets section is fine..."
-     Placed: a measured audit of what the dashboard shows on first open
-     (counts of elements, colours, motion, competing calls to action above
-     the fold at 1440, 1280 and 390), then a redesign of everything between
-     the hero and the widgets (kept as they are): one primary action, a
-     clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
-     Then, verbatim: "also i didnt mind this start something row on the
-     dashboard. get the agent to research and compare vother various
-     dashboard designs and ideas for inspiration" (screenshot: the five
-     Start something cards). Placed: the row stays; the agent compares
-     named dashboards before changing the layout and reports the comparison.
-
 435. **The owner, 2026-10-03, verbatim, with screenshots (the Capture tags
      row with its open list; CodeQL alerts 439 to 441; Atlas; a drawing).**
      "the dropdown arrow on the tags row in the capture subtab is not aligned

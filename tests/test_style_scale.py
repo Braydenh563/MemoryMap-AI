@@ -249,8 +249,8 @@ PAGE_CONTAINERS = (
     ".reminders-card",
     "#graph-card",
     ".dash-quicklinks",
-    ".dash-stats",
-    ".dash-toolbar",
+    ".dash-dock",
+    ".dash-editbar",
     "#dash-grid",
 )
 
@@ -266,7 +266,9 @@ PAGE_CONTAINERS = (
 #: distinction a container that paints owns its padding. The membership test is
 #: "does it have a background", not "is it on the Dashboard": moving it is the
 #: rule being applied, not widened.
-PURE_WRAPPERS = frozenset({".layout", ".doc-layout", ".dash-quicklinks", ".dash-stats", "#dash-grid"})
+#: The stat strip, a pure wrapper, left the page with INBOX 436; the edit
+#: line that replaced the toolbar is one too.
+PURE_WRAPPERS = frozenset({".layout", ".doc-layout", ".dash-quicklinks", ".dash-editbar", "#dash-grid"})
 
 
 def test_no_page_draws_its_own_outer_gutter():

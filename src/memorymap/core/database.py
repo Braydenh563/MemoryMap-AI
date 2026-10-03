@@ -325,6 +325,19 @@ class Entry(Base, WorkspaceMixin):
     #: opened *since the app learned to remember* has no opening to report,
     #: and every reader below falls back to `updated_at` for it.
     last_opened_at: Mapped[datetime | None] = mapped_column(SaDateTime, default=None)
+    #: **When a person last changed what the note says**: its text (and so
+    #: its title), its tags or its category. Not `updated_at`, which has
+    #: `onupdate=utcnow` and so moves when the note is merely opened (the
+    #: open bumps `access_count`) or filed by the AI: a list sorted by that
+    #: reorders itself on every click. Set by `manager.mark_edited` at each
+    #: per-note edit path and nowhere else; never on view, filing, pinning,
+    #: a privacy toggle or a notebook-wide tag or category rename. Null on
+    #: a note never edited since it was written (and on every row older than
+    #: the column), so a reader sorts by `edited_at` falling back to
+    #: `created_at`. This module's UTC `DateTime`, not the plain one: the
+    #: plain type reads back naive, so the PUT response and a later GET
+    #: disagreed by the "Z" (measured while writing its test).
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)

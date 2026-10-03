@@ -69,6 +69,21 @@ def _existing_category(session: Session, category_id: int) -> Category:
     return category
 
 
+def _same_space(source: Category, target: Category) -> None:
+    """Refuse folding a category into one of another space.
+
+    Only the "All spaces" view can even name both, and a merge there would
+    point one space's notes at a category their own space cannot list: in
+    that space they would read as Uncategorised (measured 2026-10-03). Moving
+    notes between spaces is the space picker's job, not a category merge's.
+    """
+    if (source.workspace_id or "default") != (target.workspace_id or "default"):
+        raise HTTPException(
+            status_code=400,
+            detail="Those categories are in different spaces, so they can't be merged",
+        )
+
+
 def _ids_in(session: Session, category_id: int) -> list[int]:
     return list(session.scalars(select(Entry.id).where(Entry.category_id == category_id)))
 
@@ -126,6 +141,7 @@ def merge_category(category_id: int, body: MergeBody, session: Session = Depends
     """Fold this category into another (the agent's `merge_categories`)."""
     source = _existing_category(session, category_id)
     target = _existing_category(session, body.into)
+    _same_space(source, target)
     moved_ids = _ids_in(session, source.id)
     try:
         result = _merge_categories(session, {"from": source.name, "into": target.name})
@@ -289,6 +305,7 @@ def delete_category(
         target = _existing_category(session, into)
         if target.id == category.id:
             raise HTTPException(status_code=400, detail="A category cannot be moved into itself")
+        _same_space(category, target)
         try:
             manager.rename_category(session, category.id, target.name)
         except ValueError as exc:

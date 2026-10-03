@@ -35,6 +35,24 @@ def test_binned_notes_are_not_counted(client):
     assert survivor.status_code == 200
 
 
+def test_count_matches_the_notes_list_under_the_category(client):
+    """Archived notes and drafts are not in the Notes list, so not in the count.
+
+    Measured 2026-10-03: Health read 4 in the sidebar and 5 in the panel with
+    one archived note; Work 5 and 6 with one draft. The sidebar counts what
+    `GET /entries` returns, less drafts; the panel's number came from
+    `GET /categories`.
+    """
+    _make(client, "kept", "Health")
+    archived = _make(client, "archived", "Health")
+    client.post(f"/entries/{archived['id']}/archive")
+    draft = client.post("/entries", json={"content": "a draft", "category": "Health", "is_draft": True}).json()
+    assert draft["is_draft"] is True
+
+    listed = [e for e in client.get("/entries").json() if e["category"] == "Health" and not e["is_draft"]]
+    assert _categories(client)["Health"]["count"] == len(listed) == 1
+
+
 def test_rename_category(client):
     _make(client, "a note", "Wrok")
     cats = _categories(client)

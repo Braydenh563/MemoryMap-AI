@@ -136,6 +136,7 @@ def merge_notes(body: MergeBody, session: Session = Depends(get_session)) -> dic
 
     keeper.content = preview["merged"]
     keeper.tags = json.dumps(tags)
+    manager.mark_edited(keeper)
     manager.log_action(
         session, "edited", "entry", keeper.id, f"merged {len(entries)} notes"
     )

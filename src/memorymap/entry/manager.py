@@ -44,6 +44,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.entry import timewords
+from memorymap.entry.tagnames import normalise_tags
 
 # Where entries land when no AI is available or the AI can't decide.
 UNCATEGORISED = "Uncategorised"
@@ -82,6 +83,30 @@ def log_action(
     )
 
 
+def category_space(session: Session, workspace_id: str | None = None) -> str:
+    """The one space a category lookup or insert belongs to.
+
+    Given a space, that one. Otherwise the session's own when a request scoped
+    it to a single space, and "default" when it did not ("All spaces", or a
+    background pass with no request): that is where an unscoped insert lands
+    anyway (`WorkspaceMixin`'s column default), so a lookup that answers for
+    the same space can never find a row the insert would not have made.
+    Callers filing an existing note pass the note's own space instead
+    (`entry_space`), which is the only right answer in the "all" view.
+    """
+    if workspace_id:
+        return workspace_id
+    ambient = session.info.get("workspace_id")
+    if ambient and ambient != "all":
+        return ambient
+    return "default"
+
+
+def entry_space(entry: Entry) -> str:
+    """A note's own space, for filing it: the space its category must be in."""
+    return getattr(entry, "workspace_id", None) or "default"
+
+
 def get_or_create_category(
     session: Session, name: str, workspace_id: str | None = None
 ) -> Category:
@@ -111,20 +136,31 @@ def get_or_create_category(
     the row: SQLite allows one writer at a time, so the other transaction had
     to have committed for its row to be what this one collided with.
     """
+    # **Always one space, never "whichever space has that name".** With no
+    # space given, the lookup used to be by name alone, which is right only
+    # while the session itself is scoped to a space (the statement filter in
+    # `core/database.py` then adds the space for us). In the "All spaces"
+    # view the filter is off, so filing a note of space "uni" under "Kids"
+    # found the default space's "Kids" and pointed the uni note at it; uni's
+    # own view could not list that category and the note read as
+    # Uncategorised (measured 2026-10-03). The insert half already landed in
+    # one space (the session's, or the column default); the lookup now asks
+    # the same space the insert would write to.
+    workspace_id = category_space(session, workspace_id)
+
     def _find() -> Category | None:
-        query = select(Category).where(Category.name == name)
-        if workspace_id is not None:
-            query = query.where(Category.workspace_id == workspace_id)
-        return session.scalar(query)
+        return session.scalar(
+            select(Category).where(
+                Category.name == name, Category.workspace_id == workspace_id
+            )
+        )
 
     category = _find()
     if category is not None:
         return category
     try:
         with session.begin_nested():
-            category = Category(name=name)
-            if workspace_id is not None:
-                category.workspace_id = workspace_id
+            category = Category(name=name, workspace_id=workspace_id)
             session.add(category)
             session.flush()  # assigns category.id without committing yet
     except IntegrityError:
@@ -134,6 +170,19 @@ def get_or_create_category(
         return existing
     log_action(session, "created", "category", category.id, name)
     return category
+
+
+def mark_edited(entry: Entry) -> None:
+    """Record that a person just changed what this note says.
+
+    Called at each per-note edit of the text, title, tags or category, and
+    only there; see `Entry.edited_at` for why `updated_at` cannot answer
+    "recently edited". Not called by filing (`record_filing`), opening,
+    pinning, a privacy toggle, or a notebook-wide tag or category rename:
+    those change a note without anyone editing it, and a list sorted by
+    "recently edited" that jumped on them would be sorting by noise.
+    """
+    entry.edited_at = utcnow()
 
 
 def set_category(session: Session, entry: Entry, name: str) -> Entry:
@@ -161,7 +210,7 @@ def set_category(session: Session, entry: Entry, name: str) -> Entry:
     # and the value is the honest thing to pass anyway. It is one fact, the
     # note's own space, travelling to the one place that needs it.
     entry.category_id = get_or_create_category(
-        session, name, workspace_id=entry.workspace_id or "default"
+        session, name, workspace_id=entry_space(entry)
     ).id
     session.flush()
     return entry
@@ -180,7 +229,9 @@ def create_entry(
     entry = Entry(
         content=content,
         category_id=category.id,
-        tags=json.dumps(tags or []),
+        # The schema normalises an HTTP write; this is every other writer
+        # (the AI tools, imports, passive capture), held to the same rule.
+        tags=json.dumps(normalise_tags(tags)),
         ai_confidence=ai_confidence,
     )
     session.add(entry)
@@ -417,7 +468,9 @@ def record_filing(session: Session, entry: Entry, category_name: str, by: str | 
     note's History could not rebuild the category it had between capture and
     now, and "undo auto-filing" had nothing to find.
     """
-    category = get_or_create_category(session, category_name)
+    # The note's own space: the filer runs off the request thread, so the
+    # session's space is not the note's (see `category_space`).
+    category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
     if category.id == entry.category_id:
         return False
     before = entry.category_id
@@ -500,7 +553,9 @@ def _update_entry_fields(
         entry.content = content
         changed.append("content")
     if category_name is not None:
-        category = get_or_create_category(session, category_name)
+        # In the note's own space, never the view's: from "All spaces" the
+        # view is every space at once (see `category_space`).
+        category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
         if category.id != entry.category_id:
             entry.category_id = category.id
             # A manual move means the user decided, the janitor stays
@@ -508,8 +563,10 @@ def _update_entry_fields(
             entry.user_filed = True
             changed.append(f"category={category_name}")
     if tags is not None:
-        entry.tags = json.dumps(tags)
+        entry.tags = json.dumps(normalise_tags(tags))
         changed.append("tags")
+    if changed:
+        mark_edited(entry)
     if "content" in changed:
         # The text is what carries the phrases, so a rewrite re-reads them.
         # Resolved against *now*, not the original capture: the user is
@@ -1391,15 +1448,26 @@ def all_tags(session: Session) -> dict[str, int]:
 
 def rename_tag(session: Session, old: str, new: str) -> int:
     """Rename (or merge, if `new` already exists) a tag everywhere.
-    Returns how many entries changed. Commits."""
+    Returns how many entries changed. Commits.
+
+    `new` is held to the tag rule (`normalise_tags`): a blank name is refused
+    with ValueError rather than written, because "   " used to arrive here
+    intact and put an empty-string tag on every note that had `old`
+    (measured: four notes). The result on each note is normalised too, so
+    renaming onto a tag the note already has in another case ("Food" onto a
+    note with "food") folds into that one instead of leaving both.
+    """
+    cleaned = normalise_tags([new])
+    if not cleaned:
+        raise ValueError("A tag needs a name")
+    new = cleaned[0]
     changed = 0
     for entry in session.scalars(select(Entry)):
         tags = entry_tags(entry)
         if old in tags:
             merged = [t for t in tags if t != old]
-            if new not in merged:
-                merged.append(new)
-            entry.tags = json.dumps(merged)
+            merged.append(new)
+            entry.tags = json.dumps(normalise_tags(merged))
             changed += 1
     if changed:
         log_action(session, "edited", "tags", detail=f"rename {old} -> {new} ({changed})")
@@ -1807,17 +1875,25 @@ def entry_tags(entry: Entry) -> list[str]:
 def all_categories(session: Session) -> list[dict]:
     """Every category with how many live entries sit in it, biggest first.
 
-    Binned entries aren't counted: the number should match what the sidebar
-    shows, and the sidebar only ever lists notes you can still see.
+    The number is the Notes list's own under that category, so it counts
+    exactly what the list shows: not binned, not archived, not a draft (the
+    list keeps drafts in their own view), not a board. It used to exclude
+    only the bin, and two numbers for one category disagreed on screen:
+    Health 4 in the sidebar and 5 in Manage categories with one archived
+    note, Work 5 and 6 with one draft (measured 2026-10-03). The where-clause
+    is `_list_entries_filter`'s, the same one `GET /entries` uses, so the two
+    cannot drift apart again by one of them gaining a filter.
     """
     rows = list(session.scalars(select(Category).order_by(Category.name)))
+    query = _list_entries_filter(
+        select(Entry.category_id, func.count(Entry.id)),
+        include_deleted=False,
+        include_archived=False,
+        boards=BOARDS_EXCLUDE,
+    ).where(Entry.is_draft == False)  # noqa: E712
     counts = {
         category_id: total
-        for category_id, total in session.execute(
-            select(Entry.category_id, func.count(Entry.id))
-            .where(Entry.is_deleted == False)  # noqa: E712
-            .group_by(Entry.category_id)
-        )
+        for category_id, total in session.execute(query.group_by(Entry.category_id))
     }
     out = [
         {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}
@@ -1881,7 +1957,17 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     if new_name == category.name:
         return {"renamed": False, "merged": False, "moved": 0}
 
-    existing = session.scalar(select(Category).where(Category.name == new_name))
+    # Only a same-named category in *this one's own space* is a merge. By
+    # name alone, renaming uni's "Lectures" to "Garden" from the "All spaces"
+    # view merged it into the default space's "Garden" and both uni notes
+    # then read as Uncategorised in uni (measured 2026-10-03). In another
+    # space the name is simply free, so this is a plain rename.
+    existing = session.scalar(
+        select(Category).where(
+            Category.name == new_name,
+            Category.workspace_id == category_space(session, category.workspace_id),
+        )
+    )
     if existing is not None and existing.id != category.id:
         # Merge: move the entries across, then drop the now-empty category.
         moved = _reassign(session, category.id, existing.id)
@@ -1911,7 +1997,11 @@ def delete_category(session: Session, category_id: int) -> dict:
     if category.name == UNCATEGORISED:
         raise ValueError("Uncategorised is where notes go; it can't be removed")
 
-    fallback = get_or_create_category(session, UNCATEGORISED)
+    # The deleted category's own Uncategorised, not the view's: a note must
+    # stay filed in a category its own space can list.
+    fallback = get_or_create_category(
+        session, UNCATEGORISED, workspace_id=category_space(session, category.workspace_id)
+    )
     moved = _reassign(session, category.id, fallback.id)
     log_action(session, "deleted", "category", category.id, category.name)
     session.delete(category)

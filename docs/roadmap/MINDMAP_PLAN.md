@@ -1058,6 +1058,20 @@ topic: a control that wide has nowhere to go.
    `_parse_markdown_outline`, which reads indentation and nothing else, so
    one map's two links would return as two topics. Two of three formats is
    the honest answer, and `maptwokinds.js` asserts both halves.
+13. **Delete removes the whole branch** (taken 2026-10-03, order 3). The code
+   and the server already did, and now that it is one undo step (the
+   topics and their cross-links, `wbMapRestoreRows`) there is nothing to
+   soften; §12.0's "re-parents children" line is superseded.
+14. **Tab adds a topic only when the map was engaged** (taken 2026-10-03).
+   Tab on a selected topic added a child from anywhere, so a keyboard user
+   could not Tab past the map without Escape first, and the Tab that carried
+   focus in added a topic nobody asked for. `wbMapKeysArmed` (whiteboard.js)
+   is set by a pointer press on the canvas, by selecting a topic and by any
+   map key, and cleared when focus lands on a control outside the canvas.
+   Not armed, or focus on another control: Tab is Tab (and so is Shift+Tab).
+   The alternative, Tab always walking the topics like a board's items, was
+   refused because it takes away the one key every mind map builds with.
+   Escape then Tab still leaves from an armed map.
 
 ### Phases, each with the gate it is finished against
 
@@ -1296,12 +1310,4 @@ the phase.
 
 ## Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed)
 
-Open, each small and named; fix in one pass with `scratchpad/ui-sweeps/wbmapaudit.js` and `wbkeywalk.js` green after:
-
-- A deleted branch restored by Ctrl+Z comes back without its cross-links.
-- Undo after a restore can go stale: restored topics get new ids, so older stack entries point at nothing.
-- Shift+Tab (outdent) adds no undo step.
-- After undoing a create, nothing is selected; select the parent.
-- Tab on the canvas with a topic selected adds a topic, so a keyboard user cannot Tab past the map without Escape first.
-- Decision taken (order 3): Delete removes the whole branch, as the code and server already do, now that it is one undo step; §12.0's "re-parents children" line is superseded.
-- Existing sweeps `wbphase4.js` (7/19) and `whiteboard.js` (rail children) fail identically on base 64efb97: re-baseline or fix.
+Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MINDMAP_PLAN.md: the second audit's open items"). Its two decisions are 13 and 14 above.

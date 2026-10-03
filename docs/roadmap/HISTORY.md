@@ -9,6 +9,50 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-10-03
 
+### From MINDMAP_PLAN.md: the second audit's open items (INBOX 445 (2))
+
+Six items found and left by the 445 (2) audit, fixed in one pass and driven
+with real keys by `scratchpad/ui-sweeps/wbmapundo.js` (18 checks; the same
+sweep on the code before: item 1 fails, item 2 fails, items 3 to 5 fail 7 of
+11, measured 2026-10-03), with `wbmapaudit.js` (25/25) and `wbkeywalk.js`
+(10/10) green after.
+
+- **A deleted branch restored by Ctrl+Z came back without its cross-links.**
+  `DELETE /whiteboard/objects/{id}` returned the topic rows and dropped the
+  link sketches silently; it now returns them as `links` (sketch rows,
+  collected by `_forget_links_to(..., into=)`), the undo entry keeps them, and
+  `wbMapRestoreRows` writes them again with each end inside the branch
+  translated to its new id (an end outside keeps its own). Redo carries them
+  too. Before: 1 link, Delete, Ctrl+Z, 0 links. After: 1, restored between the
+  new topic and the old one.
+- **Undo after a restore went stale.** Restored topics have new ids; the
+  create, rename and reparent entries under them named the old ones, so the
+  next Ctrl+Z hit a row that was gone (measured: "Couldn't undo that" toast,
+  topic left behind). `wbRemapUndoIds` rewrites both stacks (batches, reparent
+  targets, restored row ids and parents, a link's two ends). Restoring with
+  the original ids was refused: the create route assigns ids.
+- **Shift+Tab added no undo step.** `wbMapOutdent` pushes the reparent plus
+  the places the tidy moved, as one batch (0 steps before, 1 after; Ctrl+Z
+  puts it back under its parent, Ctrl+Shift+Z outdents again).
+- **After undoing a create nothing was selected.** `wbUndo` selects the first
+  parent of the removed topics that is still on the board (before: a stale
+  selection of the removed topic; after: the parent).
+- **Tab on the canvas added a topic from anywhere.** See MINDMAP_PLAN decision
+  14. Before: Tab from the top bar with a topic selected added one (5 to 6);
+  sixty Tabs from the top bar added fifteen. After: 5 to 5, focus moves on.
+- **Sweeps `wbphase4.js` (7/19) and `whiteboard.js` (rail children)** were the
+  sweeps, not the app. A branch is a closed ribbon (`wbMapRibbonD`), so the
+  probe that read the path's last point as the child's end measured the
+  parent twice (477px "gap"), and the hit twin is the open centreline by
+  design; it now samples the ribbon about a pixel apart and checks the twin's
+  ends against the nodes (19/19). The rail's second painted child was the
+  tool that had just lost `active`, still fading its fill out at alpha 0.011,
+  80ms after the key walk; the sweep waits the transition out.
+- **Found on the way:** focus mode (`wbMapFocusHidden`) read the tree's
+  cross-links as `source_id`/`target_id` while the server sends `from_id` and
+  `to_id`, so a cross-link never kept its far topic in view. Fixed, with a
+  test.
+
 ### From WORLD_CLASS_PLAN.md D1: the dashboard's first screen (INBOX 436)
 
 **The first screen, INBOX 436 (2026-10-03).** User feedback, through the

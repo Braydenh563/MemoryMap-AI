@@ -1420,7 +1420,19 @@ function notesPaletteCommands(query = "") {
       about: one ? `Now in ${one.category}.` : `${ids.length} selected notes.`,
       run: paletteLater(() => chooseNoteCategory(ids, one?.category || "")),
     });
+    rows.push({
+      group: "This note",
+      label: `ph:tag Add or remove tags on ${one ? "this note" : "these notes"}`,
+      about: one ? `${one.tags.length ? one.tags.map((t) => `#${t}`).join(" ") : "No tags yet."}` : `${ids.length} selected notes.`,
+      run: paletteLater(() => openBulkTags(ids)),
+    });
   }
+  rows.push({
+    group: "Tags",
+    label: "ph:hash Manage tags",
+    about: "Rename, merge or remove tags across every note.",
+    run: paletteLater(() => openTagsSheet()),
+  });
   rows.push({
     group: "Categories",
     label: "ph:sliders-horizontal Manage categories",

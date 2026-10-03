@@ -1613,6 +1613,13 @@ $("select-btn").addEventListener("click", () =>
 $("manage-categories-btn").addEventListener("click", () => openManageCategories());
 $("manage-categories-foot").addEventListener("click", () => openManageCategories());
 $("settings-manage-categories").addEventListener("click", () => openManageCategories());
+//: The tag manager (tag-manager.js, lazy): the Notes ⋯ menu and Settings
+//: (INBOX 447 (4)); the sidebar's Tags row and the palette open it too.
+$("notes-manage-tags").addEventListener("click", () => {
+  $("notes-more-menu")?.removeAttribute("open");
+  openTagsSheet();
+});
+$("settings-manage-tags").addEventListener("click", () => openTagsSheet());
 
 //: **Select all, as one toggle** (owner: "no select all option??"). Every
 //: note the current filter shows, across pages, since the batch actions act

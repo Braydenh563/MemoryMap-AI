@@ -5651,6 +5651,32 @@ input.doc-title-input::placeholder {
   color: var(--accent-text);
 }
 
+/* The tag manager's row carries a hash where a category carries its dot. */
+.manage-tag-glyph {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+/* The bulk tag dialog (tag-manager.js): the add field over the tick list. */
+.bulk-tags-field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bulk-tags-remove {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.bulk-tags-remove > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
 .manage-cat-dot {
   width: 0.625rem;
   height: 0.625rem;

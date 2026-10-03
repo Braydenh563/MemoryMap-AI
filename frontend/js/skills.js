@@ -1320,50 +1320,13 @@ async function batchMove(category) {
   await moveNotesToCategory(ids, category);
 }
 
-async function batchTag() {
+//: Tags for the selected notes (INBOX 447 (4)): add some, remove some, one
+//: action with one Undo, in tag-manager.js (lazy). It was a prompt that
+//: added one comma list a note at a time, and a second prompt to remove one
+//: tag, each a PUT per note.
+function batchTag() {
   const ids = batchSelection();
-  if (!ids.length) return;
-  const answer = await promptDialog("Tags to add to the selected notes, comma separated:", "", { confirmLabel: "Add tags" });
-  //: Split on commas as the edit form does (INBOX 432: "alpha, beta" became
-  //: one tag), and kept once per note whatever its case.
-  const added = [...new Set((answer || "").split(",").map((t) => t.trim()).filter(Boolean))];
-  if (!added.length) return;
-  const before = new Map();
-  for (const id of ids) {
-    const entry = allEntries.find((e) => e.id === id);
-    if (!entry) continue;
-    const have = new Set(entry.tags.map((t) => t.toLowerCase()));
-    const tags = [...entry.tags, ...added.filter((t) => !have.has(t.toLowerCase()))];
-    if (tags.length === entry.tags.length) continue;
-    before.set(id, entry.tags);
-    await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags }) });
-  }
-  exitSelectMode();
-  await loadEntries();
-  const words = added.map((t) => `“${t}”`).join(", ");
-  if (!before.size) {
-    toast(`Every selected note already had ${words}.`);
-    return;
-  }
-  //: Undoable like every other batch action (it was the one that was not).
-  const putBack = async () => {
-    for (const [id, tags] of before) await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags }) });
-    await loadEntries();
-  };
-  const putAgain = async () => {
-    for (const id of before.keys()) {
-      const entry = allEntries.find((e) => e.id === id);
-      if (!entry) continue;
-      const have = new Set(entry.tags.map((t) => t.toLowerCase()));
-      await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: [...entry.tags, ...added.filter((t) => !have.has(t.toLowerCase()))] }) });
-    }
-    await loadEntries();
-  };
-  const action = pushUndo(`Tagged ${before.size} note${before.size === 1 ? "" : "s"}`, putBack, putAgain);
-  toastAction(`Tagged ${before.size} note${before.size === 1 ? "" : "s"} with ${words}.`, "Undo", async () => {
-    settleUndoFromToast(action);
-    await putBack();
-  });
+  if (ids.length) openBulkTags(ids);
 }
 
 //: **The rest of what one note's menu does, for many** (INBOX 432: the
@@ -1419,29 +1382,6 @@ async function batchPublish() {
   await batchEach(`Published ${batchNoun(ids)}`, ids, batchPut({ is_draft: false }), batchPut({ is_draft: true }));
 }
 
-async function batchRemoveTag() {
-  const ids = batchSelection();
-  if (!ids.length) return;
-  const tags = [...new Set(ids.flatMap((id) => allEntries.find((e) => e.id === id)?.tags || []))].sort(compareCategoryNames);
-  if (!tags.length) return toast("None of them has a tag.");
-  const answer = await promptDialog(`Tag to remove (they carry: ${tags.slice(0, 12).join(", ")}${tags.length > 12 ? ", …" : ""}):`, "", { confirmLabel: "Remove" });
-  const tag = (answer || "").trim().replace(/^#/, "").toLowerCase();
-  if (!tag) return;
-  const before = new Map();
-  for (const id of ids) {
-    const entry = allEntries.find((e) => e.id === id);
-    if (entry && entry.tags.some((t) => t.toLowerCase() === tag)) before.set(id, entry.tags);
-  }
-  if (!before.size) return toast(`None of them is tagged “${tag}”.`);
-  const targets = [...before.keys()];
-  await batchEach(
-    `Removed “${tag}” from ${batchNoun(targets)}`,
-    targets,
-    (id) => apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: before.get(id).filter((t) => t.toLowerCase() !== tag) }) }),
-    (id) => apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: before.get(id) }) })
-  );
-}
-
 function fillBatchMore(hostId = "batch-more-host") {
   const host = $(hostId);
   if (!host || host.childElementCount) return;
@@ -1450,7 +1390,6 @@ function fillBatchMore(hostId = "batch-more-host") {
       [
         { label: "ph:star Add to Favourites", run: () => batchFavourite(true), group: "mark" },
         { label: "ph:star-half Remove from Favourites", run: () => batchFavourite(false), group: "mark" },
-        { label: "ph:tag-simple Remove a tag…", run: batchRemoveTag, group: "mark" },
         { label: "ph:paper-plane-tilt Publish drafts", run: batchPublish, group: "state" },
         { label: "ph:archive Archive", run: batchArchive, group: "state" },
       ],

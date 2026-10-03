@@ -126,3 +126,13 @@ def test_restore_is_its_own_redo(client):
     undone = client.post("/tags/restore", json={"notes": done["before"]}).json()
     client.post("/tags/restore", json={"notes": undone["before"]})
     assert _tags(client, a) == ["z"]
+
+
+def test_delete_takes_several_tags_in_one_go_and_needs_a_name(client):
+    a = _note(client, "one", ["x", "y", "keep"])
+    b = _note(client, "two", ["y"])
+    done = client.post("/tags/delete", json={"names": ["x", "y"]}).json()
+    assert done["changed"] == 2
+    assert _tags(client, a) == ["keep"]
+    assert _tags(client, b) == []
+    assert client.post("/tags/delete", json={}).status_code == 400

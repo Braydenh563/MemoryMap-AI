@@ -24,7 +24,9 @@ class RenameBody(BaseModel):
 
 
 class DeleteBody(BaseModel):
-    name: str = Field(min_length=1)
+    #: One tag (`name`) or several (`names`), taken off in one transaction.
+    name: str = ""
+    names: list[str] = Field(default_factory=list, max_length=200)
 
 
 #: How many tags one response carries. Higher than the other page sizes on
@@ -93,7 +95,10 @@ def merge_tags(body: MergeBody, session: Session = Depends(get_session)) -> dict
 @router.post("/delete")
 def delete_tag(body: DeleteBody, session: Session = Depends(get_session)) -> dict:
     """Take a tag off every note that has it. The notes stay."""
-    return _answer(manager.remove_tags(session, [body.name]))
+    wanted = [t for t in [body.name, *body.names] if t.strip()]
+    if not wanted:
+        raise HTTPException(status_code=400, detail="Say which tag to remove")
+    return _answer(manager.remove_tags(session, wanted))
 
 
 @router.post("/bulk")

@@ -44,6 +44,20 @@ work starts.
    sides". Today it is several parallel straight spikes. Target: one thick
    central wisp that tapers softly, with thinner curved strands peeling off
    both sides, all with gentle S-curves and a slow sway; no hard points.
+   **Done 2026-10-03 (INBOX 435 (3), with the owner's four follow-ups:
+   thicker sub-wisps, clean joins, "not spider legs", full hip width and a
+   dominant middle).** One S-curved main wisp leaving the torso at the
+   hips' width (18.3px against the hips' 18.6px at Large) and two
+   sub-wisps branching from it at y 71 and 82, each half the trunk's width
+   there (ratio 2.03 both), one arc each, different lengths; every wisp one
+   silhouette (one path per paint, nonzero), so no join shows; Bezier
+   stems with round tips, no `L`. Sway: the lower layer's existing
+   compositor drift, all wisps together (a second layer for the sub-wisps
+   would stack translucency at the joins). `test_atlas_shape.py` (two
+   tests, one measuring the built paths in node); proofs
+   `scratchpad/shots/atlas-tail/` (`atlaswisp.js`), before and after,
+   light and dark, Medium and Large, twelve poses, the large view and
+   join close-ups.
 8. **The owner at release, with screenshots:** (a) verified 2026-10-03
    (PR 162: active Select reads 7.69:1 light, 8.01:1 dark); was: the notes dock's Select
    toggle when active has poor contrast (a filled accent square with a

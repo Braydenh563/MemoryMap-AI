@@ -9,10 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The whole app is tighter and calmer: controls are 32px (were 36), the top bar 48px (was 56), interface text 14.7px where most of it inherited 16px, panels 16/20px inside, the greeting and its clock 24px; five note cards fit above the fold at 1440x900 instead of four, with a two-line preview. Toolbar buttons without a border read at a regular weight, and the dashboard's start tiles line up at the left.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
 
+- On a phone a note's suggested tags are 24px chips again: each one's dismiss button had grown into a 44px grey disc. The graph labels a note by its first line, not its title run into its body. The document sidebar's Documents/Outline tabs keep their underline in the Paper, Utilitarian and Mono looks. Recently added on the dashboard can be opened from the keyboard. The Reminders form is one height with every other form.
 - A note's history says whose each change was: You, Atlas, or You and Atlas (a save that includes an applied Improve writing suggestion), with the exact time on hover; any earlier version can be put back.
 - Selected text, Search the notebook: says which notes it is showing, with Clear, instead of filtering the list silently.
 - A note's details line has room again: where it is filed and how sure, its tags, then what points at it, 16px apart (they sat 6px apart, overlapping, in the Notes list).

@@ -73,8 +73,13 @@ with its owner named in the entry.
      merge: the orchestrator; (4) note making and filing: continues INBOX
      434; (5) a density pass (type scale, control heights, paddings, gaps
      measured app-wide against native apps, then tightened through the
-     tokens) plus a de-vibe audit: an Opus agent once the CSS-heavy agents
-     have landed.
+     tokens) plus a de-vibe audit: **built** 2026-10-03, measured with
+     `scratchpad/ui-sweeps/density.js` (controls 36 to 32px, top bar 56 to
+     48px, body text at --text-lg, Notes chrome 203 to 178px and five cards
+     above the fold at 1440x900, not four; DESIGN.md's token tables say the
+     same); left open: the Library sub-tabs' 6.5rem min-width spacing, the
+     suggested-tag x's 16px box under axe's target-size, and "Browse all in
+     Library" wrapping in a 240px sidebar.
      Then, of the selected-text menu's "Save as a note": "it did do smth but
      i had to hard reset the app to see it and there was no indication of
      it or updating ro anythinf. there is no timestamps. note edit history

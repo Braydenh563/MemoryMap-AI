@@ -28,22 +28,21 @@ BACKLOG; nothing was dropped in the move.
 Eleven plans and a handful of reference files live under `docs/roadmap/`.
 Work from the plans, in this order; look things up in the rest.
 
-| Work from these (in this order) | Where it stands, 2026-09-14 |
+| Work from these (in this order) | Where it stands, 2026-10-03 |
 | --- | --- |
-| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line, and "How to proceed after PR 149". Read first, every session. |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line (2026-10-03 night: Library pages, job last-run status, note making, the zoom sweep merged; UI consistency pass 2 running), and the plan-progress table. Read first, every session. |
 | [roadmap/INBOX.md](roadmap/INBOX.md) | The owner's open reports, each with an owner. Bugs first. Under twenty items by lint. |
-| [roadmap/agent-remaining/OPEN.md](roadmap/agent-remaining/OPEN.md) | Every open item the agent files left, by surface, with file, id and next step. The 38 finished files are in `roadmap/archive/agent-remaining/`. |
-| [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The consistency contract (all lints), the backend moves (B1, B3, B5 built; B2 half built; B4, B6 to B8 open), the inventions (I4 built, I9 built including its Settings section; I1 first pass with its
-manual run wired; I2, I3, I5 to I8 open), the audit A1 to A9 (this PR), and section 18, the next horizon H1 to H8. |
-| [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | The operating protocol and one brief per session. Brief 33 is the PR after this one. |
-| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 10 built. Open: Phase 8's three docks over the seven-control ceiling, Phase 11 items 1 to 9 (the phone done properly). |
-| [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0 to 3 built. Open: Phase 3 item 4's Library filter, Phase 4 (the connected document), Phases 5 to 8. |
-| [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | Phases 1 to 4 and 6 built. Open: Phase 5 (positions on views, the `?since=` cursor), Phase 6's node panel redesign, the local pane's Show switches, 6b the minimap. |
-| [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 1 to 5 built; the ring and control audit of 2026-09-13 night landing in this PR. Open: what the mapux agent's remaining file lists. |
-| [roadmap/CHAT_PLAN.md](roadmap/CHAT_PLAN.md) | Phases 1 to 4 built except Phase 1's other half (which note grounds a sentence, blocked on Brief 12's eval fixtures) and Phase 4's harness items. |
-| [roadmap/TIMELINE_PLAN.md](roadmap/TIMELINE_PLAN.md) | Phases 1 to 4 built. Open: section 7's two measurements. |
-| [roadmap/WHITEBOARD_PLAN.md](roadmap/WHITEBOARD_PLAN.md) | Phases 1 to 4 built. Open: decision 7's other half, the phone context bar comparison, sketch handles at zoom, the arrange panel items. |
-| [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phases A to D built; D unverified against a real model (section 9 of WORLD_CLASS_PLAN, the dev-only runner, is the blocker). |
+| [roadmap/agent-remaining/OPEN.md](roadmap/agent-remaining/OPEN.md) | Every open item the agent files left, by surface, with file, id and next step. The finished files are in `roadmap/archive/agent-remaining/`. |
+| [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The consistency contract (all lints), the competitor gap table, the backend moves and inventions, the security review, section 18's horizon. Every row was read against the code on 2026-09-24 (INBOX 399): the built ones are in HISTORY, each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of section 8. Built since: F3 (`semantic_search` on a matrix), `similar_pairs` cached, S1 to S3, S5 and S6's redirect half; the dev-only llama.cpp runner (section 9, `scratchpad/llama-dev.sh`). Open at the top: Brief 15's LAN hardening tail, B2 durable jobs, D2's connections rail, I1's night runs, chunk vectors then I6's evidence cards. |
+| [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | The operating protocol and one brief per session (Briefs 1 to 34; the last is Brief 34, characters, faces, the companion and Atlas). |
+| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 11 built (Phase 8's docks re-measured under the ceiling, the phone done properly on 2026-09-20), plus the Settings information architecture (INBOX 444) and the 2026-10-03 consistency passes. Open: Phase 11 item 11's screenshot set, the consistency pass 2 surfaces (Settings shell, Reminders on a phone, Library, Notes and Documents chrome), and Phase 10's `.glass-clear`. |
+| [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0 to 8 built (CodeMirror 6 as the surface, blocks, the connected document, review and history, export, one editor everywhere), plus the slash menus as one system (section 18) and boards and maps as objects in a note (section 19). Open: the Phase 2, 6 and 8 tails, the engine's three deliberate omissions, the bottom formatting bar on a phone. |
+| [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | Phases 1 to 6 built, the minimap (6b) and the local pane included, and the 2026-10-03 shape work (categories gather, the unlinked on a ring). Open: the `?since=` cursor (nothing polls `/graph` yet) and the local pane's Show switches, left by decision. |
+| [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 1 to 5 built, and section 12's controls and structure; section 13's render pass met its gate at 500 topics. Open: the audit's found-not-fixed list placed on 2026-10-03 (445 (2)) and the mapux agent's leftovers in `OPEN.md`. |
+| [roadmap/CHAT_PLAN.md](roadmap/CHAT_PLAN.md) | Phases 1 to 4 built (Phase 1's grounding closed 2026-09-20 to 2026-09-23, Phase 4's harness items 2026-09-20). Open: the `evals` breadth (WORLD_CLASS_PLAN 9) and the 2026-10-03 chat stutter (INBOX 413) notes. |
+| [roadmap/TIMELINE_PLAN.md](roadmap/TIMELINE_PLAN.md) | Phases 1 to 4 built, section 7's two measurements taken (2026-09-20, each found and fixed a bug). Open: the "auto" scale thresholds, which want a real notebook. |
+| [roadmap/WHITEBOARD_PLAN.md](roadmap/WHITEBOARD_PLAN.md) | Phases 1 to 4 built. Open: decision 7's other half, the phone context bar comparison, sketch handles at zoom, the arrange panel items, the 2026-09-23 to 09-27 placed items. |
+| [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phases A to D built; D verified against a real model on 2026-09-20 (`scratchpad/llama-dev.sh`, `tests/test_skills_evals.py`). Open: the same gate at 3B and 4B and an eval each for the rest of CLAUDE.md section 4's unproven list. |
 
 | Reference (look things up, do not start from) | |
 | --- | --- |
@@ -51,7 +50,7 @@ manual run wired; I2, I3, I5 to I8 open), the audit A1 to A9 (this PR), and sect
 | [roadmap/PLAN.md](roadmap/PLAN.md), [roadmap/AUDIT.md](roadmap/AUDIT.md), [roadmap/REDESIGN.md](roadmap/REDESIGN.md), [roadmap/FABLE_BRIEF.md](roadmap/FABLE_BRIEF.md) | Superseded; each says so in its first line. |
 | [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](ARCHITECTURE.md) | The design system (lint-enforced) and how the pieces fit. |
 
-## How to proceed after PR 149
+## How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line)
 
 PR 144 (0.3.0) closed the UI modernisation, the per-surface redesigns, the
 audit of 2026-09-13 and the owner's reports to INBOX 222. **PR 149 closed
@@ -122,11 +121,11 @@ no new plan documents; every claim carries a number from a sweep.
 
 ## How to work on this repo
 
-- `pytest tests/`: 3,500+ tests in 294 files, fully offline, no Ollama needed
+- `pytest tests/`: 5,700+ tests in 502 files, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`); ten to fifteen minutes, so the
   routine local gate is `bash scripts/gate.sh --changed` and CI runs the rest.
 - `ruff check .` — matches CI.
-- `node --check frontend/js/app.js` — one large plain-JS file; run after every edit.
+- `node --check frontend/js/<file>.js` — the frontend is plain JS with no bundler (61 files in `frontend/js/`); run it on each file you touch.
 - **Install non-ML deps by hand** (see root `CLAUDE.md`) — do not install
   `torch` or `sentence-transformers`; both have failed to install cleanly in
   past sessions and the suite passes without them (semantic search falls

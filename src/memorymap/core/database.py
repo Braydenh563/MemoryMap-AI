@@ -1893,6 +1893,21 @@ class DatabaseManager:
         # then throws it away. The index is the half that makes the LIMIT
         # mean something.
         ("ix_note_scores_rank", "note_scores (score DESC, entry_id DESC)"),
+        # The foreign keys a note is looked up by that still carried no index
+        # (the performance pass, 2026-10-03, INBOX 441). Each is "this note's
+        # ...": its replies (`entries.parent_id`), the boards it is on and a
+        # board's cards (`whiteboard_nodes`), a board's sketches, its
+        # reminders and its bookmarks. SQLite also reads the child column of
+        # every foreign key on every delete of the parent, so with
+        # `foreign_keys=ON` an unindexed one is a table scan per deleted note.
+        # Measured on 5,000 notes with 4,000 board cards and 1,500 reminders:
+        # 900 lookups by these columns, 604 ms unindexed, 2.9 ms indexed.
+        ("ix_entries_parent", "entries (parent_id)"),
+        ("ix_whiteboard_nodes_entry", "whiteboard_nodes (entry_id)"),
+        ("ix_whiteboard_nodes_board", "whiteboard_nodes (board_id)"),
+        ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
+        ("ix_reminders_entry", "reminders (entry_id)"),
+        ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
     )
 
     def _ensure_indexes(self) -> None:

@@ -9647,7 +9647,11 @@ function filterBookmarks() {
   //: On a copy, for the reason the media gallery's own sort records: `visible`
   //: can be the cache itself when nothing is filtered, and sorting in place
   //: would reorder the array every other reader shares.
-  const ordered = [...visible].sort(BOOKMARK_SORTS[bookmarkSort()]);
+  //: Pinned links lead every order but "By site", which groups by place: a
+  //: pin is the person saying "keep this at the top", and the server's
+  //: pinned-first order was being thrown away by the client sort.
+  const by = BOOKMARK_SORTS[bookmarkSort()];
+  const ordered = [...visible].sort(bookmarkSort() === "site" ? by : (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || by(a, b));
   if (bookmarkSort() === "site") {
     //: **"By site" groups, it does not only order.** Sorted by host the rows
     //: of one site already sat together, but nothing said so and nothing

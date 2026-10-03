@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Bookmarks: pinned links lead every order but By site (the list's own sort used to discard the pin).
 - Background jobs: a failed run's last-run line says why in a few words ("No space left on device", "File exists"), not the operating system's text with an error number and the path of your folders.
 - Bookmarks: a test now holds that GET /bookmarks pages tile one order, pinned first across every page (it already did: the order is applied before the page is cut).
 - Library: Bookmarks, By site, groups a link with no host under what it is: mailto: links under "Email", other schemes (tel:, file:) under the scheme name, instead of a section named by the raw address. The By site sort uses the same key, so a group is always one run of rows.

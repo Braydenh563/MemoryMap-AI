@@ -3648,9 +3648,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 .entry-meta > .chip.suggested-tag:hover,
-.entry-meta > .chip.suggested-tag:focus-visible {
+.entry-meta > .chip.suggested-tag:focus-within {
   background: var(--chip-bg);
   color: var(--ink);
+}
+
+.entry-meta > .chip.suggested-tag > .suggested-tag-take {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .entry-meta > .chip.filing-sure {

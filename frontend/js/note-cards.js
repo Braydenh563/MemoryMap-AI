@@ -1591,11 +1591,20 @@ function entryItem(entry, options = {}) {
   //: its × discards it for good.
   const suggestions = options.actions && !entry.is_board ? entry.suggested_tags || [] : [];
   for (const tag of suggestions) {
-    const take = chip(`ph:plus ${tag}`, "tag suggested-tag", (event) => {
+    //: Two sibling buttons in one chip, take and discard, not a button
+    //: holding a button (axe nested-interactive, found by the density pass).
+    const group = chip("", "tag suggested-tag");
+    group.replaceChildren();
+    const take = document.createElement("span");
+    take.className = "suggested-tag-take";
+    setLabel(take, `ph:plus ${tag}`);
+    take.title = `Suggested: add #${tag}`;
+    take.addEventListener("click", (event) => {
       event.stopPropagation();
       answerSuggestedTags(entry, { take: [tag] });
     });
-    take.title = `Suggested: add #${tag}`;
+    makeUnlinkAccessible(take);
+    group.appendChild(take);
     const discard = document.createElement("span");
     discard.className = "unlink";
     setLabel(discard, "ph:x");
@@ -1605,8 +1614,8 @@ function entryItem(entry, options = {}) {
       answerSuggestedTags(entry, { discard: [tag] });
     });
     makeUnlinkAccessible(discard);
-    take.appendChild(discard);
-    meta.appendChild(take);
+    group.appendChild(discard);
+    meta.appendChild(group);
   }
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real

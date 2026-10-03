@@ -288,6 +288,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   //: cards arrive with the first open (app.js `LAZY_MODULES.settingsUi`);
   //: every call into them is behind a `typeof` guard.
   if (typeof ensureModule === "function") await ensureModule("settingsUi");
+  //: Settings, Help's topics, from the Guide's own table (settings-find.js).
+  if (typeof renderHelpTopics === "function") renderHelpTopics();
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely

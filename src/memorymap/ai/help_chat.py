@@ -26,13 +26,12 @@ model "don't invent a feature you're not sure exists" and gave it nothing
 else to go on, for a small local model that has never heard of MemoryMap,
 that is an instruction with no way to follow it: refusing to guess and
 guessing wrong look identical from inside the prompt. `HELP_TOPICS` below is
-the fix: a short, factual reference entry per feature area, the same
-material the Help accordion already shows in `frontend/index.html`. The
-question is matched against it by keyword, and whichever entries match get
-attached to the prompt as the only material the model is allowed to answer
-from. Keeping `HELP_TOPICS` in step with the accordion (and the accordion in
-step with the app) is what "the chatbot's information is up to date" means
-in practice, and it is why this module, not the docs alone, is the thing
+the fix: a short, factual reference entry per feature area, and what
+Settings, Help lists (drawn from this table since INBOX 448). The question is
+matched against it by keyword, and whichever entries match get attached to
+the prompt as the only material the model is allowed to answer from. Keeping
+`HELP_TOPICS` in step with the app is what "the chatbot's information is up
+to date" means in practice, and it is why this module, not the docs alone, is the thing
 future sessions should re-check first when a feature's behaviour changes.
 
 No persistence: nothing here writes to the database. The caller (the
@@ -50,7 +49,7 @@ from collections.abc import Iterator
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
 from memorymap.ai import presets
-from memorymap.ai.help_topics_more import MORE_TOPICS, TOPIC_META
+from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
@@ -101,11 +100,9 @@ OFFLINE_MESSAGE = (
 )
 
 # One factual entry per feature area, the model's *only* source of facts
-# about the app, and the same ground truth the Help accordion shows in
-# `frontend/index.html`'s `#settings-help` (kept in sync by hand: there is
-# no shared data file behind both, since the accordion is static HTML and
-# a build step to generate it from Python would be more machinery than a
-# help page has earned). `keywords` decide which entries a question pulls
+# about the app, and what Settings, Help lists (`#settings-help`, drawn from
+# `help_listing` through `GET /help/topics` since INBOX 448; it was thirteen
+# hand-copied topics that had drifted from this table). `keywords` decide which entries a question pulls
 # in; `badge` is the quick-access chip attached to the reply when this
 # entry gets used, so "how do I set a reminder" both answers correctly and
 # offers one tap into the Reminders tab.
@@ -261,7 +258,9 @@ HELP_TOPICS: list[dict] = [
             "A space is a separate notebook inside the same app: notes, "
             "documents, chats and tags kept apart from other spaces. Switch or "
             "create one from the picker at the top of the sidebar; \"All "
-            "spaces\" shows everything together."
+            "spaces\" shows everything together. Deleting a space asks what "
+            "happens to its contents: delete everything in it, or move "
+            "everything to another space (a category both have is merged)."
         ),
         "badge": {"label": "Spaces", "section": "account"},
     },
@@ -276,7 +275,9 @@ HELP_TOPICS: list[dict] = [
             "Settings -> Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
-            "accessibility. Performance mode (Effects & accessibility) turns off "
+            "accessibility. Density's Auto, the default, is Compact on a window "
+            "700px tall or less and the look's own spacing on a taller one. "
+            "Performance mode (Effects & accessibility) turns off "
             "the frosted-glass blur, the animations and the animated background "
             "and slows the graph physics, for a slow or small machine; Auto "
             "switches it on by itself on a machine with 2 cores or 4 GB or fewer, "
@@ -377,7 +378,9 @@ HELP_TOPICS: list[dict] = [
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
             "telemetry, and nothing leaves your machine unless you explicitly "
-            "turn on web search."
+            "turn on web search. Settings, Privacy, Where your data went lists "
+            "every connection the app made, recorded as it happened, Since "
+            "launch or All time; \"Nothing left this computer.\" means none."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },
@@ -642,7 +645,7 @@ _KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
     "models": ("ai model", "llm", "connect a model", "turn off the ai", "without the ai", "no ai", "local model", "which model"),
     "storage": ("where is my data kept", "back up", "disk space", "disk", "where is my data", "data stored", "export everything", "move my notes"),
     "websearch": ("internet", "web", "google", "browse the web", "search the internet", "search online"),
-    "privacy": ("private", "leave my computer", "data leave", "sent anywhere", "privacy", "spy"),
+    "privacy": ("private", "leave my computer", "left my computer", "left this computer", "where your data went", "data leave", "sent anywhere", "privacy", "spy"),
     "undo-bin": ("delete", "by mistake", "bin", "get back", "recover"),
     "voice": ("speak", "speech", "record", "meeting notes"),
     "autonomous": ("background", "automatically", "overnight"),
@@ -657,7 +660,7 @@ _KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
 _KEYWORDS_REMOVE: dict[str, tuple[str, ...]] = {
     "capture": ("note", "tag", "category", "categorise", "template", "dictate", "write"),
     "graph": ("mind map", "mindmap"),
-    "library": ("search", "find", "filter", "look for"),
+    "library": ("search", "find", "filter", "look for", "bookmark", "contents"),
     "privacy": ("password", "lock", "private note", "encrypt", "security"),
     "appearance": ("slow", "laggy"),
     "guide": ("atlas",),
@@ -696,6 +699,8 @@ HELP_TOPICS.extend(
                 "Settings, Account and security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
                 "now, and it locks itself after the idle time you choose there. "
+                "While it is locked, an open dialog or popover is put away, and "
+                "it comes back as it was after you unlock. "
                 "Private notes are encrypted with that password and are never sent "
                 "to the AI. There is no reset without the password, so keep it safe."
             ),
@@ -792,15 +797,21 @@ HELP_TOPICS.extend(
             "body": (
                 "Capture has templates: pick one from No template above the box and "
                 "the note starts with its outline. Save your own from Settings, "
-                "Templates. A new document offers its own gallery of templates too."
+                "Templates, where Draft with Atlas writes a template from its name "
+                "and one line (press it again for another version; nothing is saved "
+                "until you add it). The picker's Manage templates opens that page. A "
+                "new document offers its own gallery of templates too."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },
         {
             "id": "tags-categories",
-            "keywords": ("tag", "tagging", "category", "categories", "categorise", "categorize", "filing", "file a note", "file my notes", "files my notes", "refile", "move to category", "rename category", "organise"),
+            "keywords": ("tag", "tagging", "hashtag", "add a tag", "tag a note", "category", "categories", "categorise", "categorize", "filing", "file a note", "file my notes", "files my notes", "refile", "move to category", "rename category", "organise"),
             "body": (
-                "Atlas files each note into a category and suggests tags. Change "
+                "Atlas files each note into a category and suggests tags. Type "
+                "#word anywhere in a note to tag it as you write, and the tags "
+                "field completes from the tags you use (the arrows, then Enter or "
+                "Tab, take one). Change "
                 "either from the note's own row (press the category or Add tags), or "
                 "choose a category yourself in Capture's Filing menu. The categories "
                 "are the sidebar of Your notes. Settings, Skills has Reorganise my "
@@ -913,15 +924,16 @@ HELP_TOPICS.extend(
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
                 "zooms, Space and drag pans with any tool, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits everything, Shift+N shows the "
-                "overview, / or Ctrl+F finds a card. Selection: Shift+click adds, "
+                "overview, / or Ctrl+F finds a card, and Tab walks the board's "
+                "items from the keyboard, each one announced. Selection: Shift+click adds, "
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+C, Ctrl+X and Ctrl+V paste at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] send back and bring "
                 "forward, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
-                "drag or goes back to Select. Ctrl+Z undoes and Ctrl+Shift+Z "
-                "redoes. Double-click empty board for a text box, right-click (or "
+                "drag or goes back to Select. Ctrl+Z undoes (up to 100 steps) and "
+                "Ctrl+Shift+Z redoes. Double-click empty board for a text box, right-click (or "
                 "press and hold on touch) for the menu, double-click a line to bend "
                 "it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
@@ -936,17 +948,24 @@ HELP_TOPICS.extend(
             "keywords": (
                 "cross-link", "cross link", "outdent", "fold", "unfold", "radial",
                 "ring", "opml", "freemind", "colour by", "color by", "focus on a branch",
-                "tidy", "layout of the map",
+                "tidy", "layout of the map", "duplicate a topic", "copy a topic",
+                "undo steps", "how many undo", "topic before", "topic after",
+                "move a topic", "reorder topics",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and maps). "
-                "With a topic selected: Tab adds a child, Enter a sibling, "
+                "With a topic selected: Tab adds a child, Enter adds a topic right "
+                "after it and Shift+Enter right before it (what you type next is "
+                "the new topic's words), Ctrl+D copies it as the next sibling, "
+                "Ctrl+Shift and the arrows move it among its siblings, "
                 "Shift+Tab outdents it, the arrow keys walk the tree, F2 or "
                 "double-click renames, Delete removes the topic and everything "
                 "under it, C folds or unfolds its branch (or click the chevron), "
                 "Shift+C draws a cross-link to another topic, F shows only this "
                 "branch and its neighbours (F again shows all), and Shift+F10 or "
-                "the context menu key opens every action. Right-click a topic for "
+                "the context menu key opens every action. Ctrl+Z undoes, up to 100 "
+                "steps (a deleted branch comes back with its styling and "
+                "cross-links), and Ctrl+Shift+Z redoes. Right-click a topic for "
                 "the ring: Add child, Add beside, Fold, Delete, Cross-link and "
                 "More; hold Alt on the ring to remove instead of add. Dragging a "
                 "topic onto another moves its whole branch; double-click a line to "
@@ -1042,11 +1061,13 @@ HELP_TOPICS.extend(
             "id": "chat-controls",
             "keywords": (
                 "fork", "compress", "regenerate", "plan first", "attach a note",
-                "context window", "export the chat", "stop the answer",
+                "context window", "export the chat", "stop the answer", "stop an answer",
+                "source mark", "numbers in an answer", "numbered", "citation number",
+                "footnote",
             ),
             "body": (
                 "Chat keys and controls. Enter sends and Shift+Enter starts a new "
-                "line; Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
+                "line; Escape or Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
                 "Ctrl+Shift+G turns agent mode on or off, Ctrl+Shift+P clips a note "
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
@@ -1056,7 +1077,10 @@ HELP_TOPICS.extend(
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
                 "messages (Undo goes back), show how full the model's context is, "
-                "switch the model, and export the chat as Markdown."
+                "switch the model, and export the chat as Markdown. A numbered "
+                "source mark in an answer shows a preview of its note on hover or "
+                "focus (the title and the passage the sentence came from, marked), "
+                "a press keeps it open, and Open note goes there."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },
@@ -1066,7 +1090,8 @@ HELP_TOPICS.extend(
                 "search syntax", "search operator", "filter syntax", "is:favourite",
                 "tag:", "cat:", "exact phrase", "select several", "batch",
                 "move several", "several notes", "multiple notes", "bulk", "notes filter",
-                "filter notes", "blocks menu", "slash menu",
+                "filter notes", "blocks menu", "slash menu", "several notes at once",
+                "filter by date", "is:draft", "title:", "before:",
             ),
             "body": (
                 "Notes keys and controls. In Capture a thought, Ctrl+Enter saves, "
@@ -1076,10 +1101,14 @@ HELP_TOPICS.extend(
                 "starts a note, Ctrl+D opens today's note and Ctrl+Shift+R records a "
                 "meeting. The filter box understands, with no AI: two words (both, "
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
+                "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
-                "tags:<2 (also <=, > and >=), and -word to leave a word out. Select "
-                "ticks several notes to move to a category, tag or delete together, "
-                "and Select all ticks the whole page."
+                "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
+                "out. Select ticks several notes to move to a category, tag or "
+                "delete together, and Select all ticks the whole page; the "
+                "selection bar's Tags adds or removes tags on every selected note, "
+                "and its ... menu adds to or removes from Favourites, archives, "
+                "publishes drafts or removes a tag, each undoable."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1088,7 +1117,7 @@ HELP_TOPICS.extend(
             "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
             "body": (
                 "Library controls. The sub-tabs are All (everything you have made), "
-                "Documents, Boards and maps, Images, Files, AI skills, Links and "
+                "Documents, Boards and maps, Images, Files, AI skills, Bookmarks and "
                 "Contents. Search, then sort newest first, oldest first, A to Z or "
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
@@ -1120,7 +1149,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "reminders-controls",
-            "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend"),
+            "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
                 "tomorrow evening, high priority\") and works out the time and the "
@@ -1129,14 +1158,16 @@ HELP_TOPICS.extend(
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
                 "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
-                "done; completed ones page at the foot. Press m then r to jump here "
-                "from anywhere."
+                "done; completed ones page at the foot. Add to calendar (.ics), on "
+                "a reminder's menu, saves it as a calendar file, and Add all to "
+                "calendar (.ics) in the More menu saves every upcoming one. Press m "
+                "then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
         },
         {
             "id": "dashboard-controls",
-            "keywords": ("quick start", "focused view", "full view", "tools & features", "tools and features"),
+            "keywords": ("quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
             "body": (
                 "Dashboard controls. Under the greeting is the search box (Ctrl+P) "
                 "with a ... menu beside it: Continue (the note you opened or "
@@ -1518,6 +1549,35 @@ def system_answer(topics: list[dict]) -> dict:
 
 def source_names(topics: list[dict]) -> list[str]:
     return [topic["id"].replace("-", " ").capitalize() for topic in topics]
+
+
+def help_listing() -> dict:
+    """Every entry, in `HELP_GROUPS` order, for Settings, Help (INBOX 448).
+
+    `find` is the entry's keywords, which the Settings search reads beside the
+    title so a row is found by the words a person types ("percentage") and not
+    only by its name; `link` is the entry's badge, the same tab or section an
+    answer's chip opens."""
+    by_id = {topic["id"]: topic for topic in HELP_TOPICS}
+    groups = []
+    for title, ids in HELP_GROUPS:
+        topics = []
+        for topic_id in ids:
+            topic = by_id.get(topic_id)
+            if topic is None:
+                continue
+            topics.append(
+                {
+                    "id": topic_id,
+                    "title": topic_title(topic),
+                    "path": TOPIC_META.get(topic_id, {}).get("path", ""),
+                    "body": topic["body"],
+                    "find": " ".join(topic["keywords"]),
+                    "link": topic["badge"],
+                }
+            )
+        groups.append({"title": title, "topics": topics})
+    return {"groups": groups}
 
 
 def badges_for(topics: list[dict]) -> list[dict]:

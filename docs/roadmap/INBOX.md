@@ -96,6 +96,13 @@ with its owner named in the entry.
      small, each findable by the words a person would search: an Opus
      agent; (2) README, ARCHITECTURE, DESIGN and the plans checked against
      the code and brought current: a Sonnet agent.
+     **Progress 2026-10-03 ((1) done):** 95 help entries (17 new, 14
+     widened or corrected); `tests/test_help_coverage.py` holds 52
+     features from the CHANGELOG, each found by a person's question (4
+     before, 52 now; inventory in `scratchpad/help-inventory.md`).
+     Settings, Help is drawn from the table (`GET /help/topics`, twelve
+     groups) and its search finds a topic by its words, measured by
+     `scratchpad/ui-sweeps/help448.js`. Left: (2).
 
 
 437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,

@@ -49,6 +49,13 @@ class AskBody(BaseModel):
     context: str | None = Field(default=None, max_length=help_chat.MAX_CONTEXT_CHARS)
 
 
+@router.get("/topics")
+def topics() -> dict:
+    """Every help entry, grouped, for Settings, Help to list (INBOX 448): one
+    source for the page and the Guide, where the page used to be a copy."""
+    return help_chat.help_listing()
+
+
 @router.post("/ask")
 def ask(body: AskBody) -> dict:
     return help_chat.answer(

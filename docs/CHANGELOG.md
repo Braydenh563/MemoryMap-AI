@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).
 - Backups: a manual backup that the disk refuses says why ("Couldn't save the backup: No space left on device.") instead of "Internal error".
 - Documents: the outline breadcrumb starts with a "Top" mark instead of repeating the title that sits in the dock just above it.
 - Mind map: Ctrl+Z after Delete on a branch brings its cross-links back (the delete response now returns the links it dropped), and the undo history no longer goes stale after a restore (ids are remapped); Shift+Tab is one undo step; undoing a create selects the parent; Tab adds a topic only after the map was clicked or keyed in, so it can leave the map (INBOX 445 (2)). Focus mode now keeps cross-linked topics in view.

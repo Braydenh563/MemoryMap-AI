@@ -3467,6 +3467,32 @@ async function wbMapAddSibling(id, { above = false } = {}) {
   return wbMapAddChild(parentId, { order });
 }
 
+//: Ctrl+D on a topic: the same text and look, right after it among its
+//: siblings, one undo step (the create), the copy selected. Its children are
+//: not copied: a duplicate branch is Copy and Paste's job, and a key that
+//: quietly copied forty topics would be a surprise.
+async function wbMapDuplicateTopic(node) {
+  const index = wbMapIndex();
+  const parentId = node.parent_id != null && index.byId.has(node.parent_id) ? node.parent_id : null;
+  const created = await wbMapCreateNode({
+    parentId, kind: node.kind, text: node.data?.text ?? "", refId: node.data?.ref_id ?? null,
+  });
+  if (!created) return null;
+  const siblings = wbMapSiblingsOf(index, node);
+  const neighbour = siblings[siblings.findIndex((s) => s.id === node.id) + 1];
+  //: Its look comes along; whether it is folded and where it sorts do not.
+  const look = { ...(node.data || {}) };
+  delete look.collapsed;
+  delete look.order;
+  created.data = { ...look, ...created.data, text: node.data?.text ?? "" };
+  if (neighbour) created.data.order = wbMapKeyBetween(node, neighbour);
+  await wbSaveObject(created);
+  selectWbItem("object", created.id);
+  await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  return created;
+}
+
 //: Shift+Tab: outdent: this node becomes a sibling of its own parent.
 //:
 //: Through `/move`, never `PUT /objects/{id}`, because the move endpoint is

@@ -192,14 +192,20 @@ async function timedKey(page, key, until) {
   await page.keyboard.press("Control+d");
   await page.waitForTimeout(1200);
   const n1 = (await state(page)).n;
-  ok("Ctrl+D duplicates the branch", n1 > n0, `${n0} -> ${n1}`);
+  ok("Ctrl+D duplicates the topic", n1 > n0, `${n0} -> ${n1}`);
+  const dup = await page.evaluate((src) => {
+    const all = wbState.objects || [];
+    const s = all.find((o) => o.id === src);
+    const d = all.find((o) => o.id === wbSelectedItem?.id);
+    return { srcParent: s?.parent_id ?? null, dupParent: d?.parent_id ?? null, same: d?.id !== src, text: d?.data?.text, srcText: s?.data?.text };
+  }, second.sel);
+  ok("the copy is a sibling, selected, with the same words", dup.same && dup.dupParent === dup.srcParent && dup.dupParent !== null && dup.text === dup.srcText, JSON.stringify(dup));
   await page.keyboard.press("Control+z");
   await page.waitForTimeout(1200);
   const n2 = (await state(page)).n;
   ok("Ctrl+Z takes the duplicate back", n2 === n0, `${n1} -> ${n2}`);
   const selAfterUndo = (await state(page)).sel;
-  // Informational: undoing a create leaves nothing selected (the item is gone).
-  console.log(`INFO selection after undoing a duplicate: ${selAfterUndo}`);
+  ok("undoing the duplicate selects its parent", selAfterUndo === dup.srcParent, `${selAfterUndo}`);
   await page.evaluate((id) => selectWbItem("object", id), second.sel);
   await page.keyboard.press("Delete");
   await page.waitForTimeout(1000);

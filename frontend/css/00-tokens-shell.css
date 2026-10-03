@@ -207,7 +207,7 @@ select optgroup {
      still tracks the bar's height on narrow windows, and because anything
      positioned against the *window* (a future bottom bar, §36D) needs it. */
   /* --header-h: 4.4rem; */
-  --header-h: calc(3.7rem + 1px);
+  --header-h: calc(3rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   /* Deeper than before (0.20 / 0.14). A frosted pane over a featureless
      field is a flat tinted rectangle, and that is what both modes read as in
@@ -420,7 +420,10 @@ select optgroup {
   /* prose */
   --text-h3: 1.15rem;
   --text-h2: 1.3rem;
-  --text-h1: 1.7rem;
+  --text-h1: 1.5rem;
+  /* 24px, was 1.7rem (27.2px) before INBOX 446 (5): the dashboard greeting
+     and its clock, the only users, were the largest type in the app and the
+     first "demo" tell the owner named. Still a full step over --text-h2. */
   --text-display: 2.2rem;
 
   /* How tall the scrolling page area is, the viewport minus the top bar.
@@ -512,7 +515,19 @@ select optgroup {
      `min-height` that read it was dropped as invalid, measured that way
      once, on this very row, before it moved here. A shared measurement
      belongs at the root; the header now reads this token too. */
-  --control-h-lg: 2.25rem;
+  /* 2rem (32px), was 2.25rem (INBOX 446 (5)): the owner, repeatedly, "the ui
+     takes up excessive space ... feels very demo". Measured at 1440x900, 36px
+     was the commonest control height on every tab, against 28 to 32px in
+     Apple Notes, Things, Linear and Obsidian. 32px still clears WCAG 2.2's
+     24px target floor with room; under a coarse pointer the 44px floor
+     (`--target-min`) still governs. */
+  --control-h-lg: 2rem;
+  /* The composers' own control height, one step above the strips (INBOX
+     446 (5)): Capture, Write with AI, Ask, the note composer, a document's
+     AI card and the reminder list bar act on what you write, and DESIGN.md
+     gives them a taller row than the toolbars around them. It was a literal
+     2.5rem (40px) in seven rules; 36px keeps the step at the new scale. */
+  --control-h-body: 2.25rem;
   /* The shared control height, at the root (2026-09-24 polish pass). It was
      declared only on four containers (.library-controls, .library-head,
      .library-toolbar, .dock), and 70 rules read it, so everywhere outside
@@ -1097,6 +1112,13 @@ body {
   margin: 0;
   font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   color: var(--ink);
+  /* The interface's own reading size (INBOX 446 (5)). Nothing set it, so
+     every element without a size of its own (tab labels, empty states,
+     sidebar rows, the sub-tab strips, prose that inherits) drew at the
+     browser's 16px default, the largest text on most screens and the one
+     size no native notes app uses for chrome. `--text-lg` is 14.7px at the
+     default root; rem-based sizes and the zoom setting are untouched. */
+  font-size: var(--text-lg);
   line-height: 1.5;
   height: 100vh;
   /* dvh where it exists: on mobile 100vh is the *largest* viewport, so the
@@ -1233,7 +1255,7 @@ header#top-bar {
      inline the two bands disagreed about the *bottom*, 0.6rem above the
      logo and 0.4rem below it, on a phone, from two rules that each looked
      right on its own. */
-  --header-pad-y: var(--space-4);
+  --header-pad-y: var(--space-2);
   --header-pad-x: var(--page-gutter);
   padding: var(--header-pad-y) var(--header-pad-x);
   background: var(--card);
@@ -1793,7 +1815,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      the timer runs, so the flicker is not in the app's own repainting. Whole
      multiples (2.25rem = 36px, and 36 × 1.25 = 45, × 1.5 = 54, × 2 = 72) take
      the fractional case away entirely. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
 }
 
 /* **Every Library sub-tab's header row is one height now.** Reported: "the
@@ -2333,7 +2355,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-card-icon {
   flex: 0 0 auto;
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
 }
 
 .library-card-title {
@@ -2343,7 +2365,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      match every other truncated element in this app, even though Chromium's
      -webkit-line-clamp already ellipsizes without it, reported live as
      missing, not reproduced here, cheap enough to harden regardless. */
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
   font-weight: 600;
   min-width: 0;
   overflow: hidden;
@@ -3968,8 +3990,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
+  gap: 0.15rem;
+  padding: 0.15rem;
   border-radius: var(--radius-lg);
   /* A well, not a slab. Every raised surface in the app now carries a lit top
      edge; a bar of tabs is the opposite kind of thing, a channel the active
@@ -4022,8 +4044,14 @@ header#top-bar.tabs-wrapped #tab-bar {
      one of them centred on the same line and none of them agreeing with
      another. That is exactly the "nothing lines up" complaint, in the most
      looked-at strip in the app. */
-  height: var(--header-control-h);
-  padding: 0 var(--space-6);
+  /* The tabs sit in a 2.4px well and take the hit-target floor rather than
+     the bar's control height, so the strip and the icon buttons beside it
+     are one height (INBOX 446 (5)): the strip was 44px against 36px
+     buttons, the tallest thing in the bar. 13.6px labels, as in every
+     native tab strip, where they had inherited 16px. */
+  height: var(--target-min);
+  padding: 0 var(--space-5);
+  font-size: var(--text-md);
   box-shadow: none;
 }
 
@@ -4314,8 +4342,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      one thing, and so anything that has to *cancel* the padding to bleed
      to the card edge, the sidebar's head row, a full-width strip, can
      reference the real value instead of guessing which step it was. */
-  --card-pad-y: var(--space-7);
-  --card-pad-x: var(--space-8);
+  /* 16/20, was 20/24 (INBOX 446 (5)): a panel's inset is the frame, not the
+     content, and the bigger pair cost every tab 8px of height and 8px a side
+     for nothing a reader could name. */
+  --card-pad-y: var(--space-6);
+  --card-pad-x: var(--space-7);
   padding: var(--card-pad-y) var(--card-pad-x);
   margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's

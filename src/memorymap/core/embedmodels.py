@@ -339,7 +339,7 @@ def start(model_id: str) -> tuple[bool, str]:
     if not can_download():
         return False, (
             "Downloading a model needs the huggingface_hub library, which "
-            "arrives with “Search by meaning” in Optional extras. Install "
+            "arrives with “Search by meaning” in Settings, Packages. Install "
             "that first."
         )
     with _lock:

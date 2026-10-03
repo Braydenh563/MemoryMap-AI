@@ -861,7 +861,7 @@ input[type="checkbox"] {
    now-shorter box instead of being squeezed against it. */
 .settings-group .row,
 .focus-presets {
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
 }
 
 .settings-group .row select,
@@ -3994,7 +3994,7 @@ html.modal-open body {
 }
 
 .dash-big {
-  font-size: 1.7rem;
+  font-size: var(--text-h1);
   font-weight: 700;
   margin: 0 0 0.5rem;
 }

@@ -644,12 +644,15 @@
    size setting instead of being pinned to a pixel height.
 
    Lowered from 8, then 4, then 2, with `LONG_NOTE_LINES` (note-cards.js) so
-   the two agree: a card that decided it is long shows the same one line
-   its own threshold promised, not more than that. */
+   the two agree: a card that decided it is long shows the lines its own
+   threshold promised, not more than that. It had drifted back to 3, and
+   the third line of a titled note was most often the blank line before its
+   second paragraph, drawn as a lone "..." (INBOX 446 (5): 146px cards, four
+   above the fold at 1440x900); 2 again. */
 .entry-content.entry-clamped {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 

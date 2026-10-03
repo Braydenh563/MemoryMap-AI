@@ -2991,8 +2991,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    their filled tabs exactly (the owner's "the current look" option). */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notes-subtabs button.active,
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg:not(.doc-sidebar-tabs) button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
+  /* Not the document sidebar's Documents/Outline strip (INBOX 446 (5)): it
+     is an underline tab strip (07-whiteboard-misc.css), and this rule
+     painted its selected tab a grey slab and took its accent underline
+     away, the one tab strip in the flat looks drawn both ways at once. */
   border-color: transparent;
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);
@@ -3257,7 +3261,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 #tab-reminders .reminder-text {
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
 }
 
 /* --- settings, de-vibecoded ---------------------------------------------------
@@ -3644,9 +3648,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 .entry-meta > .chip.suggested-tag:hover,
-.entry-meta > .chip.suggested-tag:focus-visible {
+.entry-meta > .chip.suggested-tag:focus-within {
   background: var(--chip-bg);
   color: var(--ink);
+}
+
+.entry-meta > .chip.suggested-tag > .suggested-tag-take {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .entry-meta > .chip.filing-sure {
@@ -4890,13 +4901,46 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--error);
 }
 
-/* With a mouse the x is the 1rem square above; a finger keeps the 28px
-   target floor `.unlink` sets, and the chip grows around it there. */
-@media (pointer: fine) {
-  .chip > .unlink:last-child {
-    min-width: 0;
-    min-height: 0;
-  }
+/* **The x is drawn 1rem everywhere; its target is not its ink** (INBOX 446
+   (5)). Under a coarse pointer the x used to keep `.unlink`'s 44px floor
+   and paint its grey disc across all of it: on a phone every suggested tag
+   on a note was a 50px slab with a 44px grey ball over its end, two or
+   three rows of them per card (scratchpad/ui-sweeps/out/density-*-notes-*-
+   390.png). The box is still `--target-min` square (28px with a mouse, 44px
+   under a finger, which iconfloor.js and axe's target-size measure), but
+   negative margins take the overhang back out of the layout, so the chip
+   is laid out around a 1rem x and stays 24px tall; the disc is a 1rem
+   `::before` in the middle of the box, and the glyph sits above it. */
+.chip > .unlink:last-child {
+  position: relative;
+  width: var(--target-min);
+  height: var(--target-min);
+  min-width: 0;
+  min-height: 0;
+  margin-block: calc((1rem - var(--target-min)) / 2);
+  margin-inline: calc(var(--space-1) - (var(--target-min) - 1rem) / 2) calc((1rem - var(--target-min)) / 2);
+  background: transparent;
+}
+
+.chip > .unlink:last-child::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--target-min) - 1rem) / 2);
+  border-radius: var(--radius-pill);
+  background: var(--ghost-btn-bg);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.chip > .unlink:last-child > i {
+  position: relative;
+}
+
+.chip > .unlink:last-child:is(:hover, :focus-visible) {
+  background: transparent;
+}
+
+.chip > .unlink:last-child:is(:hover, :focus-visible)::before {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
 /* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its
@@ -9163,4 +9207,20 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 #status-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-popup.pinned, [aria-expanded="true"]),
 header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-popup.pinned, [aria-expanded="true"], .space-menu:not(.hidden)) {
   z-index: 51;
+}
+
+/* **A toolbar's quiet buttons read at 500** (INBOX 446 (5), the density and
+   de-vibe pass). `button.ghost` is 600 so a bordered "Add" never reads as a
+   second input; that reason is the border's, and these strips have none.
+   Measured (bold, borderless, unselected buttons per tab): the note's
+   formatting strip ("List", "Task", "Source"), the Capture box's "Add to
+   this note" row (Attach, From library, Sketch, Dictate, Improve) and the
+   chat composer's Skills, Web and Plan all drew their labels bold, so a
+   row of tools shouted as loudly as the Save beside it. Selected state
+   keeps its own weight; "B" keeps its <strong>. */
+.doc-toolbar button:not(.active):not([aria-pressed="true"]),
+.capture-tools-row > button.ghost,
+#entry-document-adder :is(button, summary).ghost,
+.chat-tool-group > button.ghost:not([aria-pressed="true"]) {
+  font-weight: 500;
 }

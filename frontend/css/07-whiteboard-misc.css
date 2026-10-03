@@ -2103,7 +2103,9 @@ body.has-agent-monitor #timeline-scroll {
   backdrop-filter: blur(16px);
   border-radius: var(--radius-strip);
   padding: var(--space-1);
-  box-shadow: var(--shadow-sm);
+  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
+     it, and its border is the edge; a shadow here was depth with no meaning. */
+  box-shadow: none;
   border: 1px solid var(--border);
 }
 
@@ -2123,8 +2125,9 @@ body.has-agent-monitor #timeline-scroll {
   flex: 0 0 auto;
   text-align: center;
   /* Same height as the Notes strip's buttons: see `.notes-subtabs button`. */
-  height: var(--control-h-lg);
-  padding: 0 1.25rem;
+  height: var(--target-min);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
   /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
      (04-chat-dock-appearance.css) is the only other rule of equal
      specificity (class + element) that sets border-radius, and it loads
@@ -3269,7 +3272,7 @@ dialog::backdrop {
      right edge instead of dropping to a second line. Reported live as
      "overflowing text at the bottom in the capture tab". */
   flex-wrap: wrap;
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
   /* The two rows had gap *within* themselves (label→control→button) but
      nothing *between* them: neither row carries its own margin, so "Add to
      document" sat flush against "File under" below it. Reported live. */
@@ -3327,10 +3330,10 @@ dialog::backdrop {
    exactly this failure at a quarter of the scale.
 
    The two heights are the tokens the app already has, used for what each is
-   for. `--control-h-lg` (2.25rem) is the *secondary strip*: the card head
+   for. `--control-h-lg` (2rem) is the *secondary strip*: the card head
    row, whose height DESIGN.md already fixes, and the formatting toolbar,
    which is chrome for the box below it and must not out-weigh it.
-   `--control-h` at 2.5rem is the *body*: every field, picker and button you
+   `--control-h-body` (2.25rem) is the *body*: every field, picker and button you
    act on, which is what `.capture-field-row`, `.draft-controls` and
    `.ask-query-row` above already declare. The writing surfaces are the
    deliberate exception: a textarea is sized by what you are writing, not by
@@ -3359,7 +3362,7 @@ dialog::backdrop {
    strip *outside* it, with its own card background, and the box it formats
    was 89px tall on a 498px card. */
 .note-composer {
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-4);
@@ -3603,7 +3606,7 @@ dialog::backdrop {
 }
 
 .ask-query-row {
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* **One step between the blocks of this card, the step the other two sub-tabs
@@ -6444,7 +6447,7 @@ button.connection-row {
      `.library-head`, for the same reason its comment gives: one card, one
      control height. 2.25rem = 36px, a whole multiple at 125% and 150% display
      scaling, which is what keeps a 1px border off a half pixel. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

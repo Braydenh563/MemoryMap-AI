@@ -342,6 +342,18 @@ def client_edges(client, similarity: bool) -> list[dict]:
     return client.get(url).json()["edges"]
 
 
+def test_graph_label_is_the_notes_first_line_not_its_body(client):
+    """INBOX 446 (5), found by the density pass: a titled note was labelled
+    "Tomato soup A few lin…" on the graph, its heading run into its body,
+    while a longer title clipped before the body showed alone. The label is
+    the first line, as the docstring always said and the dashboard's rows
+    and the Notes list already draw it."""
+    client.post("/entries", json={"content": "# Tomato soup\n\nA few lines about soup."})
+    client.post("/entries", json={"content": "\n\nCall the dentist\nask about the retainer"})
+    previews = sorted(n["preview"] for n in client.get("/graph").json()["nodes"])
+    assert previews == ["Call the dentist", "Tomato soup"]
+
+
 def test_graph_previews_show_words_not_markdown_markers(client):
     """Reported: "**note" showing in graph titles when a note starts with a
     header or bolded word. Labels clip at ~40 characters, so markers are

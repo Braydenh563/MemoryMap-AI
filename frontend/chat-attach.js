@@ -33,7 +33,7 @@ async function openExtractPreview(text, { sourceEntryIds = [], sourceDocumentId 
   $("extract-commit").disabled = true;
   const status = $("extract-status");
   status.classList.remove("error");
-  setLabel(status, "ph:magic-wand Reading it over…");
+  setLabel(status, "ph:spin Reading it over…");
   try {
     const body = await apiJson("/entries/extract/preview", {
       method: "POST",

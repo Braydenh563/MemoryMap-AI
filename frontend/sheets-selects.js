@@ -2226,7 +2226,7 @@ async function renderPersonas() {
         "Ask the local model for about sixteen, in this persona's voice",
         async () => {
           suggestBtn.disabled = true;
-          wordsStatus.textContent = "Asking the model…";
+          setLabel(wordsStatus, "ph:spin Asking the model…");
           try {
             const promptNow = textarea.value.trim() || persona.prompt;
             const reply = await apiJson("/personas/suggest-thinking-words", {

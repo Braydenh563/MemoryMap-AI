@@ -2391,8 +2391,7 @@ function inlineAiOpen(textarea, instruction = "") {
   const input = $("inline-ai-input");
   input.disabled = false;
   input.value = instruction;
-  $("inline-ai-run").disabled = false;
-  $("inline-ai-run").textContent = "Ask";
+  setBusy($("inline-ai-run"), false);
   inlineAiDescribeScope();
   inlineAiPosition();
   input.focus();
@@ -2453,8 +2452,7 @@ async function inlineAiSubmit() {
   inlineAiState.instruction = instruction;
   inlineAiState.phase = "working";
   const run = $("inline-ai-run");
-  run.disabled = true;
-  run.textContent = "Writing…";
+  setBusy(run, true, "Writing…");
   $("inline-ai-input").disabled = true;
   $("inline-ai-scope").textContent = "Thinking locally… Esc to cancel.";
 
@@ -2475,8 +2473,7 @@ async function inlineAiSubmit() {
     //: user has to read somewhere else while their sentence is gone.
     if (data.ollama_running === false) {
       inlineAiState.phase = "asking";
-      run.disabled = false;
-      run.textContent = "Ask";
+      setBusy(run, false);
       $("inline-ai-input").disabled = false;
       $("inline-ai-scope").textContent = data.message || "The local model isn't running.";
       inlineAiPosition();
@@ -2485,8 +2482,7 @@ async function inlineAiSubmit() {
     const revised = String(data.revised ?? "");
     if (!revised.trim()) {
       inlineAiState.phase = "asking";
-      run.disabled = false;
-      run.textContent = "Ask";
+      setBusy(run, false);
       $("inline-ai-input").disabled = false;
       $("inline-ai-scope").textContent = "The model returned nothing. Try asking differently.";
       return;
@@ -2506,8 +2502,7 @@ async function inlineAiSubmit() {
     $("inline-ai-review").classList.remove("hidden");
     $("inline-ai-scope").textContent =
       data.thinking ? `Done. ${data.thinking}` : "Done: keep it, ask again, or undo.";
-    run.disabled = false;
-    run.textContent = "Ask";
+    setBusy(run, false);
     inlineAiPosition();
     //: Focus the primary action, so Enter keeps and Esc keeps-and-closes. The
     //: textarea keeps the selection either way.
@@ -2515,8 +2510,7 @@ async function inlineAiSubmit() {
   } catch (error) {
     if (controller.signal.aborted) return;
     inlineAiState.phase = "asking";
-    run.disabled = false;
-    run.textContent = "Ask";
+    setBusy(run, false);
     $("inline-ai-input").disabled = false;
     $("inline-ai-scope").textContent = error?.message || "That didn't work. Try again.";
   } finally {

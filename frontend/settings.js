@@ -1151,13 +1151,7 @@ async function clearLogs() {
 // crash reporting the roadmap turned down.
 async function downloadSupportBundle() {
   const button = $("logs-bundle");
-  button.disabled = true;
-  //: The label is an icon plus words, so it is saved and restored as one:
-  //: `textContent` alone read back "Support bundle" and put it back without
-  //: the glyph, so the button lost its icon the first time anyone built a
-  //: bundle and never got it back until a reload.
-  const original = button.textContent.trim();
-  setLabel(button, "ph:hourglass-medium Collecting…");
+  setBusy(button, true, "Collecting…");
   try {
     const response = await fetch("/support-bundle", {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
@@ -1168,8 +1162,7 @@ async function downloadSupportBundle() {
   } catch (error) {
     toast(error.message || "Couldn't build the support bundle.", true);
   } finally {
-    button.disabled = false;
-    setLabel(button, `ph:download-simple ${original}`);
+    setBusy(button, false);
   }
 }
 

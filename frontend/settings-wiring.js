@@ -258,7 +258,7 @@ $("searxng-reinstall").addEventListener("click", async () => {
     return;
   const status = $("searxng-host-status");
   status.classList.remove("error");
-  status.textContent = "Removing the old install…";
+  setLabel(status, "ph:spin Removing the old install…");
   try {
     await apiJson("/websearch/searxng/reinstall", { method: "POST" });
     status.textContent = "Reinstalling: this takes a few minutes.";
@@ -1126,8 +1126,8 @@ function renderOnboardingActions(models, notebook) {
         "Download a starter model",
         "Pull llama3.2 (~2.2 GB) with Ollama, in the background",
         async (event) => {
-          event.target.disabled = true;
-          event.target.textContent = "Downloading in the background…";
+          const offer = event.currentTarget;
+          setBusy(offer, true, "Downloading in the background…");
           try {
             await api("/models/pull", {
               method: "POST",
@@ -1135,8 +1135,7 @@ function renderOnboardingActions(models, notebook) {
             });
             refreshModelStatus();
           } catch (error) {
-            event.target.disabled = false;
-            event.target.textContent = "Download a starter model";
+            setBusy(offer, false);
             toast(error.message || "Couldn't start the download.", true);
           }
         },
@@ -1196,7 +1195,7 @@ function renderOnboardingSlide() {
   }
   $("onboarding-title").textContent = slide.title;
   if (slide.dynamic) {
-    $("onboarding-text").textContent = "Checking Ollama and where your notebook lives…";
+    setLabel($("onboarding-text"), "ph:spin Checking Ollama and where your notebook lives…");
     loadOnboardingDiagnostics(onboardingIndex);
   } else {
     $("onboarding-text").textContent = slide.text;

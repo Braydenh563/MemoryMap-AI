@@ -9675,7 +9675,7 @@ async function runDocAiEdit() {
     return;
   }
   status.classList.remove("error");
-  setLabel(status, "ph:magic-wand Thinking…");
+  setLabel(status, "ph:spin Thinking…");
   docAiController = new AbortController();
   $("doc-ai-run").classList.add("hidden");
   $("doc-ai-cancel-run").classList.remove("hidden");

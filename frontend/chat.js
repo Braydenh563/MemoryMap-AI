@@ -1543,7 +1543,7 @@ async function runWebSearch() {
   box.replaceChildren();
   webSearchPending = [];
   status.classList.remove("error");
-  status.textContent = "Searching the web…";
+  setLabel(status, "ph:spin Searching the web…");
   const controller = webRequestStart();
   let body;
   try {
@@ -2313,9 +2313,7 @@ async function compressChatContext() {
     return;
   }
   const button = $("chat-compress");
-  button.disabled = true;
-  const previous = button.textContent;
-  button.textContent = "Summarising…";
+  setBusy(button, true, "Summarising…");
   try {
     const result = await apiJson("/chat/compress", {
       method: "POST",
@@ -2323,8 +2321,7 @@ async function compressChatContext() {
     });
     showCompressReview(result, covered);
   } finally {
-    button.disabled = false;
-    button.textContent = previous;
+    setBusy(button, false);
   }
 }
 
@@ -2874,17 +2871,6 @@ function progressLine(initial = "Thinking…", opts = {}) {
     indicator.setStatus?.(next);
   };
   label.classList.add("is-shown");
-  return wrap;
-}
-
-// "⋯ Thinking about your week…" as one node: animated dots plus the sentence
-// when motion is allowed, and the sentence alone when it isn't: never both
-// the default label and a caller's, which is what produced the doubled
-// "Thinking… Thinking about your week…" in the digest widget.
-function typingLine(label) {
-  const wrap = document.createElement("span");
-  wrap.appendChild(typingDots(label));
-  wrap.append(` ${label}`);
   return wrap;
 }
 

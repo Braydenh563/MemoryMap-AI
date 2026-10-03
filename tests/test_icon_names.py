@@ -28,8 +28,9 @@ PHOSPHOR_CSS = FRONTEND / "vendor" / "phosphor" / "style.css"
 
 #: `ph-lead` is this app's own utility class for the margin between an icon
 #: and its label (see `setLabel` in app.js): it rides on the same element and
-#: is deliberately not an icon.
-NOT_ICONS = {"lead"}
+#: is deliberately not an icon. `ph:spin` is the working ring (`spinnerEl`),
+#: not a glyph called "spin" (DESIGN.md, "Something is working on it").
+NOT_ICONS = {"lead", "spin"}
 
 
 def _available() -> set[str]:

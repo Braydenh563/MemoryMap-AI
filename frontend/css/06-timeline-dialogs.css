@@ -3698,12 +3698,6 @@ aside[data-resizable="1"] {
   margin-inline-end: auto;
 }
 
-.tensions-status.is-busy {
-  /* The app's own generating pulse, so a slow local model reads as working
-     rather than as stuck, the same signal the chat dock uses. */
-  animation: pulse-fade 1.6s ease-in-out infinite;
-}
-
 .tensions-results {
   display: flex;
   flex-direction: column;
@@ -3783,18 +3777,6 @@ aside[data-resizable="1"] {
 .dash-tension-explain {
   font-size: var(--text-xs);
   margin: var(--space-2) 0 var(--space-3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* DESIGN.md's rule for this branch: stop the motion, keep the information.
-     The pulse says "still working" during a pass that can run for a minute,
-     so it is replaced by a static emphasis rather than removed, someone who
-     has asked for less motion still needs to know the review is running. */
-  .tensions-status.is-busy {
-    animation: none;
-    font-weight: 600;
-    color: var(--ink);
-  }
 }
 
 /* The per-row read/unread toggle. Asked for directly: "also allow marking

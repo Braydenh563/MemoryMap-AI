@@ -388,7 +388,7 @@ async function openChatModelPanel() {
   list.className = "chat-model-facts";
   const loading = document.createElement("p");
   loading.className = "muted";
-  loading.textContent = "Reading the model's own specification…";
+  setLabel(loading, "ph:spin Reading the model's own specification…");
   panel.append(list, loading);
   panel.classList.remove("hidden");
   placeChatModelPanel();
@@ -1480,7 +1480,7 @@ async function runImprove() {
   }
   result.textContent = "";
   setLabel($("improve-retry"), "ph:arrow-clockwise Try again");
-  status.textContent = "Atlas is editing…";
+  setLabel(status, "ph:spin Atlas is editing…");
   status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
@@ -1541,11 +1541,9 @@ function openTensions() {
 function setTensionsStatus(text, busy = false) {
   const el = document.getElementById("tensions-status");
   if (!el) return;
-  el.textContent = text;
-  // `aria-live="polite"` is on the element itself, so a screen reader gets
-  // the progress line without the focus being moved off the button that
-  // started it.
-  el.classList.toggle("is-busy", busy);
+  //: `aria-live="polite"` is on the element, so focus stays on the button.
+  if (busy && text) setLabel(el, `ph:spin ${text}`);
+  else el.textContent = text;
 }
 
 const TENSION_STATUS_TEXT = {
@@ -1702,7 +1700,7 @@ function tensionSide(label, when, excerpt, entryId) {
 async function loadLinkSuggestions() {
   const box = $("link-suggestions");
   box.classList.remove("hidden");
-  box.textContent = "Looking for notes worth connecting…";
+  setLabel(box, "ph:spin Looking for notes worth connecting…");
   const suggestions = await apiJson("/entries/link-suggestions").catch(() => []);
   box.replaceChildren();
   if (!suggestions.length) {
@@ -1747,8 +1745,7 @@ async function loadLinkSuggestions() {
     "ph:lightbulb Explain your existing links",
     "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking Atlas to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
     async () => {
-      backfill.disabled = true;
-      setLabel(backfill, "ph:lightbulb Working…");
+      setBusy(backfill, true, "Working…");
       const result = await apiJson("/entries/links/backfill-reasons", {
         method: "POST",
         body: JSON.stringify({ ai: true }),
@@ -1756,8 +1753,7 @@ async function loadLinkSuggestions() {
         toast(e.message, true);
         return null;
       });
-      backfill.disabled = false;
-      setLabel(backfill, "ph:lightbulb Explain your existing links");
+      setBusy(backfill, false);
       if (!result) return;
       const parts = [];
       if (result.updated) parts.push(`marked ${result.updated}`);
@@ -1793,8 +1789,7 @@ async function loadLinkSuggestions() {
         toast("Every visible suggestion already has a reason.");
         return;
       }
-      suggestReasons.disabled = true;
-      setLabel(suggestReasons, "ph:sparkle Working…");
+      setBusy(suggestReasons, true, "Working…");
       const result = await apiJson("/entries/link-suggestions/reasons", {
         method: "POST",
         body: JSON.stringify({
@@ -1804,8 +1799,7 @@ async function loadLinkSuggestions() {
         toast(e.message, true);
         return null;
       });
-      suggestReasons.disabled = false;
-      setLabel(suggestReasons, "ph:sparkle Suggest reasons");
+      setBusy(suggestReasons, false);
       if (!result) return;
       const byPair = new Map(
         result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])

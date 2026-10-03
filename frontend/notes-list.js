@@ -632,7 +632,7 @@ function renderEditForm(li, entry) {
 async function renderRelatedWhileEditing(li, entry) {
   const panel = document.createElement("div");
   panel.className = "entry-related-live muted text-sm";
-  panel.textContent = "Finding related notes…";
+  setLabel(panel, "ph:spin Finding related notes…");
   li.appendChild(panel);
   let related;
   try {
@@ -2914,29 +2914,6 @@ async function renameCategory(meta, currentName) {
     });
     if (activeCategory === currentName) activeCategory = name;
     toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
-    await loadEntries();
-    await loadCategories();
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
-
-//: Kept for the keyboard's Delete on a focused row and older callers; the
-//: sidebar's ⋯ now goes through `deleteCategoryFromPanel`, which asks where
-//: the notes go.
-async function deleteCategory(meta, name, count) {
-  const ok = (await confirmDialog(
-    `Delete the category "${name}"?\n\n` +
-      (count
-        ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
-          `Uncategorised: deleting a category never deletes notes.`
-        : "It has no notes in it.")
-  ));
-  if (!ok) return;
-  try {
-    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
-    if (activeCategory === name) activeCategory = null;
-    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
     await loadEntries();
     await loadCategories();
   } catch (error) {

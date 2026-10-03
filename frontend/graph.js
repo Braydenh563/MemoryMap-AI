@@ -3509,16 +3509,14 @@ function openGraphLinkPanel(edge, nodes) {
   generateBtn.className = "ghost";
   setLabel(generateBtn, "ph:magic-wand Generate");
   generateBtn.addEventListener("click", async () => {
-    generateBtn.disabled = true;
-    generateBtn.textContent = "Generating…";
+    setBusy(generateBtn, true, "Generating…");
     try {
       const res = await apiJson(`/entries/${sourceId}/links/${edge.id}/generate-reason`, { method: "POST" });
       textarea.value = res.reason;
     } catch (e) {
       toast(e.message, true);
     } finally {
-      generateBtn.disabled = false;
-      setLabel(generateBtn, "ph:magic-wand Generate");
+      setBusy(generateBtn, false);
     }
   });
 

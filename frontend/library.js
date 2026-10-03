@@ -7175,7 +7175,7 @@ function filterLibraryImagesGallery() {
       // just sat unchanged for however long the model took, asked for
       // directly, a visible "generating" state while one is in flight.
       const previousCaptionText = captionText.textContent;
-      captionText.replaceChildren(typingDots("Generating a description…"));
+      setLabel(captionText, "ph:spin Generating a description…");
       try {
         // force: true: a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
@@ -7338,7 +7338,7 @@ function filterLibraryImagesGallery() {
       event.stopPropagation();
       ocrBtn.disabled = true;
       const previousOcrText = ocrText.textContent;
-      ocrText.replaceChildren(typingDots("Reading text…"));
+      setLabel(ocrText, "ph:spin Reading text…");
       try {
         const updated = await analyseMediaRow(image, "ocr");
         setOcrState(updated.ocr_text);
@@ -7516,7 +7516,7 @@ function filterLibraryImagesGallery() {
       //: Same reason as `ocrBtn`'s: the spinner has to be somewhere visible.
       revealReading();
       visionOcrBtn.disabled = true;
-      visionOcrText.replaceChildren(typingDots("Reading text…"));
+      setLabel(visionOcrText, "ph:spin Reading text…");
       try {
         // force: true: a manual click always re-reads, the same "the user
         // pressed the button" reasoning captionBtn's own force:true uses.

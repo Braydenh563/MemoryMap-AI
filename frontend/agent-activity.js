@@ -94,7 +94,7 @@ function stepStateWords(state, event = {}) {
 //: The icon and word for a whole run, in the same "ph:icon Text" shape every
 //: other label in this app uses (`setLabel` resolves it).
 function runStateLabel(state) {
-  if (state === "running") return "ph:circle-notch Running";
+  if (state === "running") return "ph:spin Running";
   if (state === "done") return "ph:check-circle Done";
   if (state === "failed") return "ph:x-circle Failed";
   if (state === "stalled") return "ph:pause-circle Stalled";

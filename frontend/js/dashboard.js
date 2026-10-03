@@ -404,7 +404,6 @@ function paintDashClock() {
   const dateEl = $("dash-clock-date");
   if (!timeEl || !dateEl) return;
   const now = new Date();
-  //: "numeric" as the Reminders clock, not "08:11" beside its "8:11" (437).
   timeEl.textContent = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",

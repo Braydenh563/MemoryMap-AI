@@ -255,7 +255,7 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest -n auto tests/`: 2,800+ tests, all green; about 25
+- `python -m pytest -n auto tests/`: 5,700+ tests, all green; about 25
   minutes serial, under 9 across four cores (pytest-xdist, in
   requirements.txt; `gate.sh --full` and CI use it). Keep it that way, but run it locally only when absolutely
   needed (`scripts/gate.sh --full`: the end of a large agent task, the
@@ -277,7 +277,7 @@ new" is a fact rather than a guess.
 - `node --check frontend/js/<file>.js` after any JS edit; there is no bundler.
   The scripts live in `frontend/js/`; only `frontend/sw.js` stays at the root,
   because a service worker only controls pages under its own path.
-- **`app.js` is 23 files** (2026-09-26): `app.js` through `spaces-find.js`
+- **`app.js` is 25 files** (2026-09-26): `app.js` through `agent-activity.js`
   in index.html's order, one global scope, a file calling only upwards at
   load. A test that means "the app's code" reads `app_js_text()` from
   `tests/_app_js.py`, never `frontend/js/app.js`, which is now only the head

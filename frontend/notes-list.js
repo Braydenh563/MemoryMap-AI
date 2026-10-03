@@ -472,9 +472,22 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
 function renderEditForm(li, entry) {
   const draft = noteFormDraft && noteFormDraft.id === entry.id ? noteFormDraft : null;
   noteFormDirty = Boolean(draft);
+  //: **A title field, as Capture has** (INBOX 432: renaming a note meant
+  //: finding and editing its "# " line by hand). Not a stored field: the
+  //: leading heading is split off into it and put back on save, the shape
+  //: `withTitle` writes in Capture, so the two cannot disagree.
+  const heading = /^#[ \t]+([^\n]+)\n*/.exec(entry.content || "");
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.maxLength = 200;
+  titleInput.className = "note-edit-title";
+  titleInput.placeholder = "Title";
+  titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
+  titleInput.value = draft ? draft.title : heading ? heading[1].trim() : "";
+  titleInput.addEventListener("input", () => { noteFormDirty = true; });
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
-  textarea.value = draft ? draft.content : entry.content;
+  textarea.value = draft ? draft.content : heading ? entry.content.slice(heading[0].length) : entry.content;
   textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu
   //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
@@ -522,9 +535,9 @@ function renderEditForm(li, entry) {
   }
   categorySelect.addEventListener("change", () => { noteFormDirty = true; });
   const keepDraft = () => {
-    noteFormDraft = { id: entry.id, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
+    noteFormDraft = { id: entry.id, title: titleInput.value, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
   };
-  for (const field of [textarea, tagsInput]) field.addEventListener("input", keepDraft);
+  for (const field of [titleInput, textarea, tagsInput]) field.addEventListener("input", keepDraft);
   categorySelect.addEventListener("change", keepDraft);
 
   const row = document.createElement("div");
@@ -539,13 +552,14 @@ function renderEditForm(li, entry) {
         //: An emptied box used to save as "Note saved." while quietly
         //: keeping the old text (INBOX 432). Said instead, with the way to
         //: actually remove a note.
-        if (!textarea.value.trim()) {
+        const written = withTitle(textarea.value.trim(), titleInput.value);
+        if (!written.trim()) {
           toast("A note needs some text. To remove it, use Move to bin in its menu.", true);
           return;
         }
         const before = { content: entry.content, category: entry.category, tags: entry.tags };
         const after = {
-          content: textarea.value.trim(),
+          content: written,
           category,
           tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
         };
@@ -569,7 +583,9 @@ function renderEditForm(li, entry) {
             }
             if (answer === "theirs") {
               Object.assign(entry, current);
-              textarea.value = current.content || "";
+              const theirs = /^#[ \t]+([^\n]+)\n*/.exec(current.content || "");
+              titleInput.value = theirs ? theirs[1].trim() : "";
+              textarea.value = theirs ? current.content.slice(theirs[0].length) : current.content || "";
               noteFormDirty = false;
             }
             return;
@@ -669,7 +685,7 @@ function renderEditForm(li, entry) {
   const chipsHost = document.createElement("div");
   chipsHost.className = "row attachment-chips hidden";
   chipsHost.id = "entry-edit-attachment-chips";
-  li.append(toolbarEl, textarea, preview, chipsHost, meta);
+  li.append(titleInput, toolbarEl, textarea, preview, chipsHost, meta);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

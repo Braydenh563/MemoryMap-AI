@@ -13778,3 +13778,13 @@ button.finder-row:hover,
 .finder-group:first-child {
   margin-top: 0;
 }
+
+/* The edit form's title (INBOX 432): the capture title's shape, a control
+   height and the weight of a heading, full width above the strip. */
+.entry-list input.note-edit-title {
+  width: 100%;
+  height: var(--control-h);
+  padding-inline: var(--space-4);
+  margin-bottom: var(--space-3);
+  font-weight: 600;
+}

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
 - Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.
 - Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.

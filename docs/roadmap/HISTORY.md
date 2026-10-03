@@ -36792,3 +36792,7 @@ width, 47% of the column at 1440.
      the tabs' sides close by a step (16 to 12.8px; 36px tall, 16px labels):
      one row at 1200, 1280, 1366, 1440, 1920.
 
+454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
+     open, all, and done button sections in reminders, the skeleton loaders
+     keep flickering in and out". Placed: the orchestrator.
+

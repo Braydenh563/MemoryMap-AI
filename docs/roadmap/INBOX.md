@@ -174,10 +174,6 @@ with its owner named in the entry.
      on every card): an Opus agent when a slot frees; (2) companion
      transitions between perches and across tabs: an Opus agent after (1).
 
-454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
-     open, all, and done button sections in reminders, the skeleton loaders
-     keep flickering in and out". Placed: the orchestrator.
-
 453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
      be a way to open and close the documents editor sidebar when in full
      screen mode". Then: "keep bug fixing and finishing all open requests and

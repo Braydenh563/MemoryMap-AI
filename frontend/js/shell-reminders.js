@@ -816,8 +816,13 @@ async function loadReminders() {
   //: A sentinel, not `[]`: "you have no reminders" and "the reminders could
   //: not be read" are different facts and only one of them is about the
   //: person. See `surfaceFailed`.
-  showSkeletons($("reminder-groups"), 3);
+  //: Placeholders on the first load only (INBOX 454: flicking Open, All and
+  //: Done flashed them in and out, because a filter with nothing in it is an
+  //: empty list and every reload drew them into it). A reload keeps what is
+  //: on screen until the answer replaces it.
+  if (!loadReminders.loaded) showSkeletons($("reminder-groups"), 3);
   const all = await apiPagedList("/reminders", 200).catch(() => null);
+  if (all) loadReminders.loaded = true;
   clearSkeletons($("reminder-groups"));
   if (!all) {
     surfaceFailed($("reminders-empty"), "reminders", loadReminders);

@@ -48,7 +48,10 @@ with its owner named in the entry.
      Recommendation taken (order 3): yes, "Quick access", the five as the
      default set, chosen from the command catalogue, reordered and reset
      from its own menu. Placed: (1) badges with 455 (1), an Opus agent; (2)
-     Quick access, an agent.
+     Quick access built on its worktree branch (`dashboard_quick_access`
+     preference, lazy `quick-access.js`, `tests/test_quick_access.py`,
+     `scratchpad/ui-sweeps/quickaccess.js`), awaiting the merge; move this
+     item to HISTORY when (1) lands too.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

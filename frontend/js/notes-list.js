@@ -590,7 +590,10 @@ function renderEditForm(li, entry) {
         let base = entry.content_hash;
         for (;;) {
           try {
-            await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ ...after, base_hash: base }) });
+            await api(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...after, base_hash: base, ai_assisted: textarea.dataset.aiTouched === "1" }),
+            });
             break;
           } catch (error) {
             if (!isEditConflict(error)) throw error;

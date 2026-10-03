@@ -1504,6 +1504,8 @@ async function runImprove() {
 function applyImprove() {
   if (improveTarget) {
     improveTarget.value = $("improve-result").textContent;
+    //: The save that follows is the person's and Atlas's (INBOX 446).
+    improveTarget.dataset.aiTouched = "1";
     improveTarget.dispatchEvent(new Event("input")); // refresh char count
   }
   closeImprove();

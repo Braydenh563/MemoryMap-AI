@@ -13,6 +13,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note's history says whose each change was: You, Atlas, or You and Atlas (a save that includes an applied Improve writing suggestion), with the exact time on hover; any earlier version can be put back.
+- Selected text, Search the notebook: says which notes it is showing, with Clear, instead of filtering the list silently.
 - A note's details line has room again: where it is filed and how sure, its tags, then what points at it, 16px apart (they sat 6px apart, overlapping, in the Notes list).
 - The graph's note popup renders markdown and pictures again: choosing Source in Capture had switched every note box to raw markdown, including the popup, which has no Source button to switch back.
 - Selected text, Save as a note: says "Saving…" at once and "Saved as a note" with Open when done, and files in the background instead of waiting on the model.

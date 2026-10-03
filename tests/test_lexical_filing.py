@@ -100,3 +100,20 @@ def test_it_stays_fast_on_a_large_notebook(client):
         started = time.perf_counter()
         lexical_filing.lexical_category(session, "alpha gamma note")
         assert time.perf_counter() - started < 0.5
+
+
+def test_an_unfiled_note_offers_categories_to_choose(client):
+    _seed(client)
+    status, _ = _file(client, "garlic for the weekend")
+    if status["category"] == "Uncategorised":
+        assert status["suggestions"][0] == "Recipes"
+    status, _ = _file(client, "call the plumber about the boiler")
+    assert status["category"] == "Uncategorised"
+    # Nothing in its words: the categories used most recently.
+    assert set(status["suggestions"]) <= {"Gym", "Recipes"} and status["suggestions"]
+
+
+def test_a_filed_note_offers_nothing(client):
+    _seed(client)
+    status, _ = _file(client, "squats and deadlifts again, felt strong")
+    assert status["suggestions"] == []

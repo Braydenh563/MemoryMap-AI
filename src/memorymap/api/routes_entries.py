@@ -862,13 +862,28 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
                 "preview": _preview(manager.readable_content(other)),
             }
     state = getattr(entry, "filing_state", "done") or "done"
+    category = manager.category_name_for(session, entry)
+    filed_by = _filed_by(entry, state)
+    #: Nothing was sure enough to file it: up to three categories to offer as
+    #: one-tap choices (INBOX 434), the ones its words lean to first.
+    suggestions: list[str] = []
+    if filed_by == "none" and category == manager.UNCATEGORISED:
+        from memorymap.ai import lexical_filing
+
+        try:
+            suggestions = lexical_filing.suggest_categories(
+                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id
+            )
+        except Exception:  # noqa: BLE001 - a hint never fails the status
+            logger.debug("no category suggestions for entry %s", entry.id, exc_info=True)
     return {
         "id": entry.id,
         "filing_state": state,
-        "category": manager.category_name_for(session, entry),
+        "category": category,
         "ai_confidence": entry.ai_confidence,
         "similar": similar,
-        "filed_by": _filed_by(entry, state),
+        "filed_by": filed_by,
+        "suggestions": suggestions,
     }
 
 

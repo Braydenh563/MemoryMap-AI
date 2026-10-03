@@ -119,6 +119,58 @@ def lexical_category(
     session: Session, content: str, exclude_entry_id: int | None = None
 ) -> LexicalMatch | None:
     """The category the notebook's own words point to, or None to abstain."""
+    tally = _tally(session, content, exclude_entry_id)
+    if tally is None:
+        return None
+    votes, supporters = tally
+    if not votes:
+        return None
+    ranked = sorted(votes.items(), key=lambda pair: pair[1], reverse=True)
+    best_name, best = ranked[0]
+    share = best / sum(votes.values())
+    margin = best - (ranked[1][1] if len(ranked) > 1 else 0.0)
+    if best < MIN_VOTE or share < MIN_SHARE or supporters[best_name] < MIN_SUPPORT:
+        return None
+    #: Confidence from how much of the vote the winner took, kept between 50
+    #: and 85: this is word overlap, and saying so keeps it below anything a
+    #: model reports.
+    confidence = max(50, min(85, round(40 + 50 * share)))
+    return LexicalMatch(name=best_name, confidence=confidence, margin=margin)
+
+
+def suggest_categories(
+    session: Session, content: str, exclude_entry_id: int | None = None, limit: int = 3
+) -> list[str]:
+    """Up to `limit` categories to offer as one-tap choices when nothing was
+    sure enough to file the note (INBOX 434): the categories its words lean
+    to, best first, then the ones used most recently. A guess shown as a
+    choice costs a glance; a guess filed is a note lost."""
+    out: list[str] = []
+    tally = _tally(session, content, exclude_entry_id)
+    if tally is not None:
+        votes, _supporters = tally
+        out.extend(name for name, _ in sorted(votes.items(), key=lambda pair: pair[1], reverse=True))
+    if len(out) < limit:
+        recent = session.execute(
+            select(Category.name)
+            .join(Entry, Entry.category_id == Category.id)
+            .where(Entry.is_deleted == False, Category.name != UNCATEGORISED)  # noqa: E712
+            .order_by(Entry.id.desc())
+            .limit(200)
+        ).scalars()
+        for name in recent:
+            if name not in out:
+                out.append(name)
+            if len(out) >= limit:
+                break
+    return out[:limit]
+
+
+def _tally(
+    session: Session, content: str, exclude_entry_id: int | None
+) -> tuple[dict[str, float], dict[str, int]] | None:
+    """Each category's vote for `content` and how many notes (or its name)
+    stand behind it; None when there is nothing to count."""
     wanted = tokens(content)
     if not wanted:
         return None
@@ -201,16 +253,4 @@ def lexical_category(
             votes[name] = votes.get(name, 0.0) + NAME_VOTE
             supporters[name] = supporters.get(name, 0) + MIN_SUPPORT
 
-    if not votes:
-        return None
-    ranked = sorted(votes.items(), key=lambda pair: pair[1], reverse=True)
-    best_name, best = ranked[0]
-    share = best / sum(votes.values())
-    margin = best - (ranked[1][1] if len(ranked) > 1 else 0.0)
-    if best < MIN_VOTE or share < MIN_SHARE or supporters[best_name] < MIN_SUPPORT:
-        return None
-    #: Confidence from how much of the vote the winner took, kept between 50
-    #: and 85: this is word overlap, and saying so keeps it below anything a
-    #: model reports.
-    confidence = max(50, min(85, round(40 + 50 * share)))
-    return LexicalMatch(name=best_name, confidence=confidence, margin=margin)
+    return votes, supporters

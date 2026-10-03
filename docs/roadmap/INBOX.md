@@ -44,8 +44,10 @@ with its owner named in the entry.
      source metadata needs improving ui/ux wise, there needs to be better
      spacing and positioning around and for the thinking and skills
      dropdowns in the assistant bubbles with the title and avatar. also note
-     characters preview counts are severely shortened again." Placed: the
-     preview bug, the orchestrator, now; the bubble parts with 457 (thinking
+     characters preview counts are severely shortened again." **Preview
+     fixed**: every blank line after a title goes, and a clamped card runs
+     its paragraphs together, so its two lines are text (was one line and a
+     lone "...", or "..." alone). The bubble parts with 457 (thinking
      under the name, one thinking fold style, skills/steps fold spacing,
      scroll-up while streaming, action row clash, sources redesign): an
      Opus agent.

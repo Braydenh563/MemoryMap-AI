@@ -1373,11 +1373,16 @@ function entryItem(entry, options = {}) {
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML, 
   // note text is user content and must never be parsed as markup.
-  renderNoteText(
+  //: A clamped card's two lines are text, not the blank line between its
+  //: paragraphs (INBOX 458: "Tonight, I have work." then a lone "..."):
+  //: folded, the paragraphs run on one line each; opened, the note as written.
+  const body = entry.title ? bodyWithoutTitleLine(entry.content) : entry.content;
+  const fillContent = () => renderNoteText(
     content,
-    entry.title ? bodyWithoutTitleLine(entry.content) : entry.content,
+    content.classList.contains("entry-clamped") ? body.replace(/\n[ \t\r]*(?:\n[ \t\r]*)+/g, "\n") : body,
     searchHighlightTerms()
   );
+  fillContent();
   content.addEventListener("remove-inline-image", async (e) => {
     e.stopPropagation();
     if (!(await confirmDialog("Remove this image from the note?"))) return;
@@ -1403,6 +1408,7 @@ function entryItem(entry, options = {}) {
       if (expandedNotes.has(entry.id)) expandedNotes.delete(entry.id);
       else expandedNotes.add(entry.id);
       content.classList.toggle("entry-clamped", !expandedNotes.has(entry.id));
+      fillContent();
       toggle.textContent = label();
     });
     li.appendChild(toggle);
@@ -1429,6 +1435,7 @@ function entryItem(entry, options = {}) {
       if (!content.isConnected || expandedNotes.has(entry.id)) return;
       if (content.clientHeight > 0 && content.scrollHeight <= content.clientHeight + 2) {
         content.classList.remove("entry-clamped");
+        fillContent();
         toggle.remove();
       }
     });

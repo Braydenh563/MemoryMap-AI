@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".
 - Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.
 - View toggles (Library, Notes, Timeline, Reminders): the selected segment sits inside its well with 4px all round; it was 4px down, flush on the well's bottom edge, and by touch it spilled 16px out.
 - Top bar: the tabs are back to their first size (36px, 16px labels, a 4px well); the density pass had made them 32px with 13.6px labels.

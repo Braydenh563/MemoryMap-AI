@@ -1886,7 +1886,9 @@ function bodyWithoutTitleLine(content) {
   while (i < lines.length && lines[i].trim() === "") i++;
   if (i >= lines.length) return content;
   lines.splice(i, 1);
-  if (lines[i] !== undefined && lines[i].trim() === "") lines.splice(i, 1);
+  //: Every blank line after the title, not one: a second left the clamped
+  //: preview with nothing but its "..." (INBOX 458).
+  while (lines[i] !== undefined && lines[i].trim() === "") lines.splice(i, 1);
   return lines.join("\n");
 }
 

@@ -694,6 +694,32 @@
   border-radius: var(--radius-sm);
 }
 
+/* An icon segment keeps that inset too (INBOX 451, the owner: the view
+   toggles' highlight "touching the bottom of the pill"). Measured: the
+   icon-button floor (`--target-min`, 28px) held the Library, Notes,
+   Timeline and Reminders view toggles at 28px inside the 32px well's 24px,
+   so they sat 4px down, flush on its bottom edge. With a pointer the floor
+   is the well's, not the button's; touch keeps its own floor and well. */
+@media (pointer: fine) and (min-width: 820px) {
+  .dock .seg > button,
+  .dock .segmented-control > button {
+    min-height: 0;
+    /* The well is a wrapping flex box, where `stretch` takes the line's
+       height (the button's own 28px), not the well's: 100% of the well's
+       definite inside is the inset the rule above means. */
+    height: 100%;
+  }
+}
+
+/* By touch the buttons keep their 44px floor, so the well grows to hold
+   them rather than staying the 32px control height they spilled 16px out of. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .dock .seg,
+  .dock .segmented-control {
+    height: auto;
+  }
+}
+
 /* The help dot is the app's one round control and stays round, but it sizes
    itself to the row like everything else rather than sitting 4px shorter
    than its neighbours (32px against 36px, measured on three docks). */

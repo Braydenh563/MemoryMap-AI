@@ -34,6 +34,29 @@ with its owner named in the entry.
 
 ## Open items
 
+454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
+     open, all, and done button sections in reminders, the skeleton loaders
+     keep flickering in and out". Placed: the orchestrator.
+
+453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
+     be a way to open and close the documents editor sidebar when in full
+     screen mode". Then: "keep bug fixing and finishing all open requests and
+     items". And: "can you improve, extend, expand, optimise, and add to the
+     mindmap, whiteboard, or documents editor at all?? what is most lacking
+     in the app rn?? what is left and still open??" Placed: the sidebar
+     toggle in focus mode, the orchestrator; the question answered from the
+     plans' open phases, with agents on the top items.
+
+451. **The owner, 2026-10-03 night, verbatim, with screenshots (the
+     Library, Notes, Timeline and Reminders view toggles; the Timeline tab;
+     the notifications panel).** "these toggle options are touching the
+     bottom of the pill, some of the highlights are cut off. also in the
+     notifications panel, the unread blue dot and the radio button on the
+     right arent properly padded from the edges". **(1) fixed**: a dock
+     segment fills its well's inside (24px in a 32px well, 4px all round,
+     was 28px flush on the bottom); by touch the well grows to its 44px
+     buttons (was 32px with 16px spilling out). (2) the orchestrator.
+
 450. **The owner, 2026-10-03 night, verbatim, with four screenshots of
      Library, AI skills.** "these chips arent aligned and could you improve
      that section of buttons and dropdowns in the skill cards on the ai

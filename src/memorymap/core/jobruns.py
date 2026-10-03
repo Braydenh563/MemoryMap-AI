@@ -30,9 +30,10 @@ else. That is also why it reads `deps.peek_db()` and never `get_db()`: a
 helper run without an app (a test, a script) records nothing rather than
 creating a data directory to hold its note.
 
-**Overlapping runs of one kind** (two imports at once): the row follows the
-newest *start*. An older run finishing while a newer one is going leaves the
-row saying "running", because that is true.
+**Overlapping runs of one kind** (two imports at once): an older run
+finishing while a newer one is still going leaves the row saying "running",
+because that is true; once nothing is running, the last to finish is the last
+run.
 """
 
 from __future__ import annotations
@@ -59,7 +60,8 @@ KINDS: dict[str, str] = {
     "resurface": "Resurfacing",
     "link-reasons": "Link reasons",
     "filing": "Filing re-evaluation",
-    "ocr": "OCR pass",
+    "ocr": "Reading text from images",
+    "caption": "Image captions",
     "model-download": "Model download",
     "embedding-model": "Embedding model download",
     "extra": "Package install",
@@ -75,12 +77,23 @@ def _clip(text: object) -> str:
     return one_line if len(one_line) <= _MAX_TEXT else one_line[: _MAX_TEXT - 1] + "…"
 
 
-def _database(db):  # noqa: ANN001, ANN202
-    if db is not None:
-        return db
-    from memorymap.core import deps
+#: Where the app's own database comes from when a caller does not hold one.
+#: `core/deps.py` sets it at import. Not an import of `deps` from here:
+#: `deps` reaches the AI modules, and the AI modules record their jobs, so the
+#: name would close a cycle (`tests/test_no_import_cycles.py`). Until it is
+#: set, and in a process with no app, nothing is recorded.
+_peek_db = lambda: None  # noqa: E731
 
-    return deps.peek_db()
+
+def set_database_source(peek) -> None:  # noqa: ANN001
+    """Called once by `core/deps.py`: a zero-argument callable returning the
+    app's `DatabaseManager`, or None when it has not been created."""
+    global _peek_db
+    _peek_db = peek
+
+
+def _database(db):  # noqa: ANN001, ANN202
+    return db if db is not None else _peek_db()
 
 
 class Run:
@@ -94,6 +107,16 @@ class Run:
         self._db = db
         self._status = "ok"
         self._error = ""
+        self._skipped = False
+        self._finished = False
+        #: What the row said before this run began, for `skip`.
+        self._before: dict | None = None
+
+    def skip(self) -> None:
+        """This was not a run after all (the switch is off, nothing was due):
+        put the row back as it was. The start was written first so a running
+        job shows as running; a no-op must not overwrite the last real run."""
+        self._skipped = True
 
     def cancel(self, detail: str = "") -> None:
         """Record a stop the person asked for. Not a failure, never red."""
@@ -104,11 +127,11 @@ class Run:
         """Record a failure the job handled itself (it returned an error
         value instead of raising), so the reason still reaches the screen."""
         self._status = "failed"
-        self._error = _clip(reason)
+        self._error = _clip(reason) or "It stopped without saying why."
 
     # -- the two writes -------------------------------------------------------
 
-    def _write_start(self) -> None:
+    def start(self) -> None:
         if self._db is None:
             return
         try:
@@ -119,6 +142,12 @@ class Run:
                 if row is None:
                     row = JobRun(kind=self.kind)
                     session.add(row)
+                else:
+                    self._before = {
+                        "started_at": row.started_at, "finished_at": row.finished_at,
+                        "status": row.status, "result": row.result, "error": row.error,
+                        "duration_ms": row.duration_ms,
+                    }
                 row.started_at = self.started_at
                 row.finished_at = None
                 row.status = "running"
@@ -129,19 +158,35 @@ class Run:
         except Exception:  # noqa: BLE001  # bookkeeping must never break the job
             logger.debug("could not record the start of %r", self.kind, exc_info=True)
 
-    def _write_finish(self) -> None:
-        if self._db is None:
+    def finish(self) -> None:
+        """Write the ending. Idempotent: the second call is a no-op, so a
+        caller that finishes by hand can still sit inside a `finally`."""
+        if self._db is None or self._finished:
             return
+        self._finished = True
         try:
             from memorymap.core.database import JobRun
 
             with self._db.session() as session:
                 row = session.get(JobRun, self.kind)
+                if self._skipped:
+                    if row is not None and row.started_at == self.started_at:
+                        if self._before is None:
+                            session.delete(row)
+                        else:
+                            for name, value in self._before.items():
+                                setattr(row, name, value)
+                        session.commit()
+                    return
                 if row is None:
                     row = JobRun(kind=self.kind, started_at=self.started_at)
                     session.add(row)
-                elif row.started_at is not None and row.started_at > self.started_at:
-                    return  # a newer run owns the row (see the module docstring)
+                elif (
+                    row.status == "running"
+                    and row.started_at is not None
+                    and row.started_at > self.started_at
+                ):
+                    return  # a newer run is still going and owns the row
                 row.started_at = self.started_at
                 row.finished_at = datetime.now(timezone.utc)
                 row.status = self._status
@@ -149,8 +194,17 @@ class Run:
                 row.error = self._error
                 row.duration_ms = round((time.monotonic() - self._t0) * 1000, 1)
                 session.commit()
-        except Exception:  # noqa: BLE001  # see _write_start
+        except Exception:  # noqa: BLE001  # see start
             logger.debug("could not record the end of %r", self.kind, exc_info=True)
+
+
+def begin(kind: str, db=None) -> Run:  # noqa: ANN001
+    """Start a run you will `finish()` yourself, for a job whose body is too
+    long to indent into a `with` (a route that already has three try blocks).
+    The caller owns calling `finish()` on every way out."""
+    run = Run(kind, _database(db))
+    run.start()
+    return run
 
 
 @contextmanager
@@ -161,16 +215,16 @@ def job_run(kind: str, db=None):  # noqa: ANN001, ANN201
     (a worker thread); everyone else gets the app's own, if it has one.
     """
     run = Run(kind, _database(db))
-    run._write_start()
+    run.start()
     try:
         yield run
     except BaseException as exc:
         # GeneratorExit and KeyboardInterrupt are not "failed", but nothing
         # may leave the row saying "running" forever either.
         run.fail(str(exc) or type(exc).__name__)
-        run._write_finish()
+        run.finish()
         raise
-    run._write_finish()
+    run.finish()
 
 
 def note_finished(
@@ -198,7 +252,7 @@ def note_finished(
         run.cancel(detail)
     else:
         run.result = detail
-    run._write_finish()
+    run.finish()
 
 
 def mark_interrupted(db=None) -> int:  # noqa: ANN001
@@ -268,3 +322,19 @@ def last_runs(db=None) -> list[dict]:  # noqa: ANN001
         )
     out.extend(seen.values())
     return out
+
+
+def describe_night_pass(run: "Run", outcome: dict) -> None:
+    """Put a night-shift pass's counts on its run record. `facts.run` answers
+    `{"paused": true}` when the switch is off, which is not a run."""
+    if outcome.get("paused"):
+        run.skip()
+        return
+    scanned = int(outcome.get("scanned") or 0)
+    derived = int(outcome.get("derived") or 0)
+    run.result = (
+        f"read {scanned} note{'' if scanned == 1 else 's'}, "
+        f"found {derived} fact{'' if derived == 1 else 's'}"
+    )
+    if outcome.get("stopped_reason") == "budget":
+        run.result += " (stopped at its budget)"

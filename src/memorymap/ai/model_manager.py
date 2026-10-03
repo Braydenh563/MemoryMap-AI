@@ -20,7 +20,7 @@ from sqlalchemy import delete, select
 
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.config import ConfigManager
-from memorymap.core import taskhistory
+from memorymap.core import jobruns, taskhistory
 from memorymap.core.database import DatabaseManager, EmbeddingRecord, Entry
 from memorymap.entry.manager import log_action
 
@@ -863,6 +863,16 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
 
 
 def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
+    """The thread body: the pass itself, recorded as the last "reindex" run
+    (INBOX 438). The pass catches its own errors for the job registry, so it
+    tells `run` about them rather than raising."""
+    with jobruns.job_run("reindex", db=db) as run:
+        _reindex_pass(db, embeddings, job, run)
+
+
+def _reindex_pass(
+    db: DatabaseManager, embeddings: Embedder, job: Job, run: "jobruns.Run"
+) -> None:
     started = time.monotonic()
     session = db.session()
     try:
@@ -888,6 +898,7 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         for entry in entries:
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
+                run.cancel(f"stopped after {job.done} of {job.total} notes")
                 taskhistory.record(
                     "reindex",
                     "Re-indexing your notes",
@@ -912,6 +923,7 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         )
         session.commit()
         job.status = "success"
+        run.result = f"{job.done} notes indexed"
         taskhistory.record(
             "reindex",
             "Re-indexing your notes",
@@ -925,6 +937,7 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         logging.getLogger("memorymap.search").warning("re-index failed", exc_info=True)
         job.status = "error"
         job.error = str(exc)
+        run.fail(exc)
         # The ending that mattered most and was hardest to see: a re-index that
         # dies halfway used to leave exactly the same empty screen as one that
         # finished, with the reason only in the log console.

@@ -1,0 +1,359 @@
+"""Last run of each job: `core/jobruns.py` and `GET /jobs/last-runs` (INBOX 438).
+
+The owner: "there should be timestamps and success status for when various
+things were last ran like the search reindexing etc." One row per job kind,
+written through one helper from every job's start and end. These tests pin
+the helper's contract once, then that each job really records through it,
+because a job that never calls the helper shows "Not run yet" for ever and
+nothing else notices.
+"""
+
+from __future__ import annotations
+
+import pytest
+from sqlalchemy import select
+
+from memorymap.ai import embeddings as embeddings_module
+from memorymap.ai import model_manager
+from memorymap.core import deps, jobruns, taskhistory
+from memorymap.core.database import EmbeddingRecord, JobRun
+
+
+def _runs(client) -> dict[str, dict]:
+    body = client.get("/jobs/last-runs").json()
+    return {row["kind"]: row for row in body["jobs"]}
+
+
+# -- the helper ---------------------------------------------------------------
+
+
+def test_every_kind_is_listed_even_before_it_has_run(client):
+    runs = _runs(client)
+    assert set(runs) >= set(jobruns.KINDS)
+    never = runs["reindex"]
+    assert never["ran"] is False and never["status"] == "never"
+    assert never["label"] == "Search index rebuild"
+
+
+def test_a_clean_block_records_ok_with_its_result_and_duration(client):
+    with jobruns.job_run("reindex") as run:
+        run.result = "412 notes indexed"
+    row = _runs(client)["reindex"]
+    assert row["ran"] and row["status"] == "ok"
+    assert row["result"] == "412 notes indexed" and row["error"] == ""
+    assert row["started_at"] and row["finished_at"]
+    assert row["duration_ms"] is not None and row["duration_ms"] >= 0
+
+
+def test_an_exception_is_recorded_as_a_failure_and_still_raised(client):
+    with pytest.raises(RuntimeError, match="disk is full"):
+        with jobruns.job_run("backup"):
+            raise RuntimeError("disk is full")
+    row = _runs(client)["backup"]
+    assert row["status"] == "failed"
+    assert row["error"] == "disk is full" and row["result"] == ""
+
+
+def test_a_stop_is_cancelled_not_failed(client):
+    with jobruns.job_run("autonomous") as run:
+        run.cancel("stopped after 3 of 9")
+    row = _runs(client)["autonomous"]
+    assert row["status"] == "cancelled" and row["result"] == "stopped after 3 of 9"
+    assert row["error"] == ""
+
+
+def test_the_row_says_running_while_the_block_is_open(client):
+    with jobruns.job_run("import"):
+        row = _runs(client)["import"]
+        assert row["status"] == "running" and row["finished_at"] is None
+    assert _runs(client)["import"]["status"] == "ok"
+
+
+def test_one_row_per_kind_and_the_second_run_replaces_the_first(client, session):
+    with jobruns.job_run("backup") as run:
+        run.result = "first"
+    with jobruns.job_run("backup") as run:
+        run.result = "second"
+    assert len(list(session.scalars(select(JobRun).where(JobRun.kind == "backup")))) == 1
+    assert _runs(client)["backup"]["result"] == "second"
+
+
+def test_a_skipped_run_puts_the_last_real_one_back(client):
+    with jobruns.job_run("night-shift") as run:
+        run.result = "read 4 notes, found 2 facts"
+    with jobruns.job_run("night-shift") as run:
+        run.skip()
+    assert _runs(client)["night-shift"]["result"] == "read 4 notes, found 2 facts"
+    with jobruns.job_run("resurface") as run:
+        run.skip()
+    assert _runs(client)["resurface"]["ran"] is False
+
+
+def test_an_older_run_finishing_does_not_overwrite_a_newer_one_in_flight(client):
+    older = jobruns.begin("import")
+    with jobruns.job_run("import"):
+        older.result = "old"
+        older.finish()
+        assert _runs(client)["import"]["status"] == "running"
+
+
+def test_a_long_or_multiline_reason_is_kept_to_one_short_line(client):
+    with pytest.raises(ValueError):
+        with jobruns.job_run("backup"):
+            raise ValueError("line one\nline two " + "x" * 900)
+    error = _runs(client)["backup"]["error"]
+    assert "\n" not in error and len(error) <= 300 and error.endswith("…")
+
+
+def test_recording_with_no_app_is_a_quiet_no_op(monkeypatch):
+    monkeypatch.setattr(jobruns, "_peek_db", lambda: None)
+    with jobruns.job_run("backup") as run:
+        run.result = "nowhere to write this"
+    jobruns.note_finished("extra", "failed", "no database either")
+
+
+def test_a_broken_database_never_breaks_the_job(client, monkeypatch):
+    class Broken:
+        def session(self):
+            raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(jobruns, "_peek_db", lambda: Broken())
+    ran = []
+    with jobruns.job_run("backup"):
+        ran.append(True)
+    assert ran == [True]
+
+
+def test_a_run_left_running_by_a_closed_app_is_marked_interrupted(client):
+    jobruns.begin("reindex")  # the process dies here, never finishing
+    assert jobruns.mark_interrupted() == 1
+    row = _runs(client)["reindex"]
+    assert row["status"] == "failed" and "closed" in row["error"]
+
+
+# -- each job -----------------------------------------------------------------
+
+
+class _Embedder:
+    def __init__(self, boom: bool = False) -> None:
+        self.boom = boom
+
+    def backend_id(self) -> str:
+        return "fake:test"
+
+    def store_for_entry(self, session, entry) -> bool:  # noqa: ANN001
+        if self.boom:
+            raise RuntimeError("the embedding model went away")
+        return True
+
+
+def test_reindex_records_how_many_notes_it_indexed(client):
+    for text in ("one", "two", "three"):
+        client.post("/entries", json={"content": text})
+    model_manager._run_reindex(deps.get_db(), _Embedder(), model_manager.Job(kind="reindex"))
+    row = _runs(client)["reindex"]
+    assert row["status"] == "ok" and row["result"] == "3 notes indexed"
+
+
+def test_a_failed_reindex_shows_its_reason(client):
+    client.post("/entries", json={"content": "one"})
+    model_manager._run_reindex(
+        deps.get_db(), _Embedder(boom=True), model_manager.Job(kind="reindex")
+    )
+    row = _runs(client)["reindex"]
+    assert row["status"] == "failed"
+    assert row["error"] == "the embedding model went away"
+
+
+def test_a_stopped_reindex_is_cancelled(client):
+    client.post("/entries", json={"content": "one"})
+    job = model_manager.Job(kind="reindex")
+    job.cancel_requested = True
+    model_manager._run_reindex(deps.get_db(), _Embedder(), job)
+    assert _runs(client)["reindex"]["status"] == "cancelled"
+
+
+def test_the_reindex_endpoint_records_a_run(ai_client):
+    ai_client.post("/entries", json={"content": "a funny scarecrow joke"})
+    assert ai_client.post("/models/reindex").status_code in (200, 202)
+    import time
+
+    deadline = time.time() + 5
+    while time.time() < deadline and _runs(ai_client)["reindex"]["status"] != "ok":
+        time.sleep(0.05)
+    assert _runs(ai_client)["reindex"]["status"] == "ok"
+
+
+def test_a_manual_backup_records_the_file_it_wrote(client):
+    name = client.post("/backups").json()["name"]
+    row = _runs(client)["backup"]
+    assert row["status"] == "ok" and name in row["result"]
+
+
+def test_the_startup_backup_is_a_run_only_when_one_is_taken(client):
+    from memorymap.api import app as app_module
+
+    app_module._backup_if_due()  # none exists yet: taken
+    first = _runs(client)["backup"]
+    assert first["status"] == "ok" and "daily backup" in first["result"]
+    app_module._backup_if_due()  # one is fresh: nothing to record
+    assert _runs(client)["backup"]["started_at"] == first["started_at"]
+
+
+def test_a_failed_backup_shows_why(client, monkeypatch):
+    from memorymap.core import backup
+
+    def full(*_a, **_k):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(backup, "backup_now", full)
+    assert client.post("/backups").status_code == 500
+    row = _runs(client)["backup"]
+    assert row["status"] == "failed" and "No space left" in row["error"]
+
+
+def test_the_duplicate_scan_records_its_count_on_the_first_page_only(client):
+    client.post("/entries", json={"content": "the quick brown fox jumps over the lazy dog"})
+    client.post("/entries", json={"content": "the quick brown fox jumps over the lazy dog again"})
+    assert client.get("/duplicates").status_code == 200
+    first = _runs(client)["duplicate-scan"]
+    assert first["status"] == "ok" and "duplicate" in first["result"]
+    client.get("/duplicates?offset=500")
+    assert _runs(client)["duplicate-scan"]["started_at"] == first["started_at"]
+
+
+def test_resurface_compute_records_a_run(client):
+    client.post("/entries", json={"content": "something to score"})
+    client.post("/resurface/compute")
+    row = _runs(client)["resurface"]
+    assert row["status"] == "ok" and row["result"].startswith("scored")
+
+
+def test_the_night_shift_records_its_counts_and_a_paused_runner_records_nothing(
+    ai_client, fake_ollama
+):
+    ai_client.post(
+        "/entries",
+        json={"content": "The batch size should stay at 32. Who owns the rollback plan?"},
+    )
+    reply = ai_client.post("/night/run", json={"budget": 2000}).json()
+    row = _runs(ai_client)["night-shift"]
+    assert row["status"] == "ok"
+    assert row["result"].startswith(f"read {reply['scanned']} note")
+    deps.get_config().set_preference("learn.night_shift.enabled", False)
+    before = row["started_at"]
+    assert ai_client.post("/night/run", json={}).json() == {"paused": True}
+    assert _runs(ai_client)["night-shift"]["started_at"] == before
+
+
+def test_a_markdown_upload_records_an_import(client):
+    files = [("files", ("a.md", b"# hello\nsome words", "text/markdown"))]
+    assert client.post("/import/markdown", files=files).status_code == 201
+    row = _runs(client)["import"]
+    assert row["status"] == "ok" and row["result"] == "imported 1 note"
+
+
+def test_a_folder_import_records_an_import(client, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "vault").mkdir(parents=True)
+    (home / "vault" / "n.md").write_text("inside the vault", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    assert client.post("/import/directory", json={"path": str(home / "vault")}).status_code == 202
+    assert _runs(client)["import"]["result"] == "imported 1 note from a folder"
+
+
+def test_an_unreadable_document_records_a_failed_import(client, monkeypatch):
+    from memorymap.api import routes_settings
+
+    monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
+
+    def boom(_path):
+        raise ValueError("corrupt zip")
+
+    monkeypatch.setattr(routes_settings.importer, "convert_to_markdown", boom)
+    response = client.post("/import/document", files={"file": ("deck.pptx", b"junk", "application/x")})
+    assert response.status_code == 422
+    row = _runs(client)["import"]
+    assert row["status"] == "failed" and "deck.pptx" in row["error"] and "corrupt zip" in row["error"]
+
+
+def test_link_reasons_records_a_run(client):
+    assert client.post("/entries/links/backfill-reasons", json={"ai": False}).status_code == 200
+    row = _runs(client)["link-reasons"]
+    assert row["status"] == "ok" and row["result"].startswith("checked 0 links")
+
+
+def test_re_evaluating_a_note_records_the_filing_run(ai_client, fake_ollama):
+    note = ai_client.post("/entries", json={"content": "buy milk and eggs"}).json()
+    assert ai_client.post(f"/entries/{note['id']}/reevaluate").status_code == 200
+    row = _runs(ai_client)["filing"]
+    assert row["status"] in ("ok", "failed")
+    assert row["started_at"]
+
+
+def test_re_evaluating_with_no_ai_records_why_it_could_not(client):
+    note = client.post("/entries", json={"content": "buy milk and eggs"}).json()
+    assert client.post(f"/entries/{note['id']}/reevaluate").status_code == 200
+    row = _runs(client)["filing"]
+    assert row["status"] == "failed" and row["error"]
+
+
+def test_the_embeddings_backfill_records_what_it_filled(client, session, fake_embeddings):
+    client.post("/entries", json={"content": "first note"})
+    session.query(EmbeddingRecord).delete()
+    session.commit()
+    assert embeddings_module.backfill_missing(fake_embeddings, lambda: session) == 1
+    row = _runs(client)["embeddings-backfill"]
+    assert row["status"] == "ok" and row["result"] == "embedded 1 note that had no vector"
+
+
+def test_the_embeddings_backfill_is_not_a_run_while_the_model_is_not_ready(client, session):
+    from tests.fakes import FakeEmbeddingService
+
+    embeddings_module.backfill_missing(FakeEmbeddingService(available=False), lambda: session)
+    assert _runs(client)["embeddings-backfill"]["ran"] is False
+
+
+def test_the_autonomous_pass_records_a_skip_honestly(client):
+    from memorymap.ai import autonomous
+
+    deps.get_config().set_preference("battery_efficient_mode", True)
+    autonomous._run_optimization()
+    row = _runs(client)["autonomous"]
+    assert row["status"] == "ok" and row["result"].startswith("Skipped")
+
+
+def test_a_failed_autonomous_pass_shows_the_reason(client, monkeypatch):
+    from memorymap.ai import agent, autonomous
+
+    def boom(**_kw):
+        raise RuntimeError("the model refused to start")
+
+    monkeypatch.setattr(agent, "run_agent", boom)
+    config = deps.get_config()
+    config.set_preference("auto_tag_enabled", True)
+    autonomous._run_optimization()
+    row = _runs(client)["autonomous"]
+    assert row["status"] == "failed" and row["error"] == "the model refused to start"
+
+
+@pytest.mark.parametrize(
+    ("history_kind", "job_kind"),
+    [("pull", "model-download"), ("extra", "extra"), ("searxng", "searxng"),
+     ("embedding-model", "embedding-model"), ("vision_ocr", "ocr"), ("caption", "caption")],
+)
+def test_jobs_that_report_to_the_task_history_also_keep_a_last_run(client, history_kind, job_kind):
+    taskhistory.record(history_kind, "Doing the thing", "failed", "the connection dropped")
+    row = _runs(client)[job_kind]
+    assert row["status"] == "failed" and row["error"] == "the connection dropped"
+    taskhistory.record(history_kind, "Doing the thing", "completed", duration_ms=1500)
+    row = _runs(client)[job_kind]
+    assert row["status"] == "ok" and row["result"] == "Doing the thing"
+    assert row["duration_ms"] is not None and row["duration_ms"] >= 1500
+
+
+def test_the_last_run_survives_the_task_history_being_cleared(client):
+    taskhistory.record("extra", "Installing x", "completed", "x installed")
+    client.post("/tasks/history/clear")
+    assert _runs(client)["extra"]["result"] == "x installed"

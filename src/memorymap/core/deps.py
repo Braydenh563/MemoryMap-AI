@@ -24,6 +24,7 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import Provider
+from memorymap.core import jobruns
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -305,6 +306,10 @@ def peek_db() -> DatabaseManager | None:
     directory to put its note in.
     """
     return _db
+
+
+#: The job records (`core/jobruns.py`) find the database through this.
+jobruns.set_database_source(peek_db)
 
 
 def get_ollama() -> Provider:

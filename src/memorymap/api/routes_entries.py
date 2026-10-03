@@ -35,7 +35,7 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, jobs, vault
+from memorymap.core import deps, events, jobruns, jobs, vault
 from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
@@ -1140,6 +1140,10 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
     # 1. Re-file: refresh confidence, and the category if the AI owns it.
     filed_by = None
     recategorised_to = None
+    # The last "filing" run (INBOX 438). This step swallows its own errors so a
+    # down model never fails the re-evaluation, which is exactly why the record
+    # has to be told about them: `refiling` is how the screen hears.
+    refiling = jobruns.begin("filing")
     try:
         category, confidence, filed_by = janitor.categorise(
             session,
@@ -1164,9 +1168,18 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
                 if janitor.settled_state(filed_by) != "done":
                     entry.filing_state = janitor.settled_state(filed_by)
             session.commit()
-    except Exception:
+            refiling.result = (
+                f"note {entry.id} moved to {recategorised_to}"
+                if recategorised_to
+                else f"note {entry.id} re-read, category kept"
+            )
+        else:
+            refiling.fail("No filing model or embeddings were available.")
+    except Exception as exc:
         logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
+        refiling.fail(exc)
+    refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
     suggested_tags: list[str] = []
@@ -1605,6 +1618,19 @@ def backfill_link_reasons(
     why a failure here is reported in the result rather than raised.
     """
     options = body or BackfillReasonsBody()
+    with jobruns.job_run("link-reasons") as run:
+        result = _backfill_reasons(session, options)
+        run.result = (
+            f"checked {result.get('checked', 0)} links, "
+            f"added {result.get('updated', 0)} reasons, "
+            f"reworded {result['rewritten']}"
+        )
+        if result.get("ai_unavailable"):
+            run.result += " (the model was not available)"
+    return result
+
+
+def _backfill_reasons(session: Session, options: "BackfillReasonsBody") -> dict:
     result = manager.backfill_link_reasons(session)
 
     result["rewritten"] = 0

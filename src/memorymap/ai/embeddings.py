@@ -243,16 +243,25 @@ def backfill_missing(
     Private notes are skipped, deliberately: store_for_entry refuses them, and
     a vector would leak what the note is about.
     """
+    if not service.is_ready():
+        return 0
+    from memorymap.core import jobruns
+
+    with jobruns.job_run("embeddings-backfill") as run:
+        fixed = _backfill_missing(service, session_factory, limit, run)
+    return fixed
+
+
+def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa: ANN001
     from sqlalchemy import select
 
     from memorymap.core.database import EmbeddingRecord, Entry
 
-    if not service.is_ready():
-        return 0
     fixed = 0
     try:
         session = session_factory()
     except Exception:  # noqa: BLE001  # startup helper, never fatal
+        run.fail("Could not open the database.")
         return 0
     try:
         missing = session.scalars(
@@ -273,8 +282,14 @@ def backfill_missing(
             logging.getLogger("memorymap.embeddings").info(
                 "backfilled %d note(s) that had no embedding", fixed
             )
-    except Exception:  # noqa: BLE001  # a failed backfill must not stop startup
+        run.result = (
+            f"embedded {fixed} note{'' if fixed == 1 else 's'} that had no vector"
+            if fixed
+            else "every note already had a vector"
+        )
+    except Exception as exc:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
+        run.fail(exc)
     finally:
         session.close()
     return fixed

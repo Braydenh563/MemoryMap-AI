@@ -75,6 +75,7 @@ from memorymap.core import (
     diskspace,
     egress,
     events,
+    jobruns,
     jobs,
     logbuffer,
     security,
@@ -315,7 +316,10 @@ def _backup_if_due() -> None:
     try:
         config = deps.get_config()
         keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
-        backup.backup_if_due(config.db_path, config.data_dir, keep)
+        if backup.backup_is_due(config.db_path, config.data_dir):
+            with jobruns.job_run("backup") as run:
+                path = backup.backup_now(config.db_path, config.data_dir, keep)
+                run.result = f"saved {path.name} (the daily backup at start)"
     except Exception:  # noqa: BLE001  # a failed backup must never block startup
         # This one matters more than it looks: the user believes they have
         # daily local backups, and without this line a backup that has been
@@ -661,6 +665,9 @@ def create_app() -> FastAPI:
     # without `--desktop`), since nothing else ever calls get_phase().
     startup_status.set_phase("Setting up your notebook…")
     init_app_state()
+    # A job record still saying "running" belongs to the process that just
+    # ended; say so before anything new can be mistaken for it.
+    jobruns.mark_interrupted()
     ledger_path = deps.get_config().data_dir / egress.LEDGER_NAME
     _purge_expired_bin_entries()
     _compact_event_log()

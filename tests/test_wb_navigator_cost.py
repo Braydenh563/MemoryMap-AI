@@ -71,3 +71,12 @@ def test_pan_frame_moves_the_rectangle_and_does_not_redraw() -> None:
 
 def test_a_render_marks_the_overview_stale() -> None:
     assert "wbNavState.stale = true" in code(function_text("renderWhiteboard"))
+
+
+def test_frame_reads_the_canvas_size_before_it_writes() -> None:
+    frame = code(function_text("wbZoomFrameWork"))
+    read = frame.index("clientWidth")
+    for write in ("wbSyncGridToTransform(", "wbCullNow(", "wbNavigatorUpdateViewport("):
+        assert read < frame.index(write), f"{write} runs before the size read"
+    assert "wbCullNow(t, size)" in frame
+    assert "wbNavigatorUpdateViewport(t, size)" in frame

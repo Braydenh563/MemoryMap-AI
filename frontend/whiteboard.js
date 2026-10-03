@@ -498,16 +498,32 @@ function wbZoomFrameWork() {
   const t = wbZoomPending;
   wbZoomPending = null;
   if (!t) return;
+  //: **The canvas size is read once, before anything here writes** (INBOX
+  //: 431). The grid writes three custom properties on the container and the
+  //: cull toggles classes on the items it brings into view; a size read
+  //: after either forced the browser to restyle the board inside this
+  //: callback, and the overview read it last, after both. Traced on a
+  //: 150-topic map at a 4x throttle, an overview drag spent 1.3s of its 4.7s
+  //: in that forced restyle. Read first, the restyle happens once, in the
+  //: frame's own rendering step.
+  //:
+  //: An overview drag measured the canvas at its press, and the canvas
+  //: cannot change size while a pointer is held on the overview.
+  const container = document.getElementById("whiteboard-container");
+  const drag = wbNavState.drag;
+  const size = drag
+    ? { width: drag.width, height: drag.height }
+    : container ? { width: container.clientWidth, height: container.clientHeight } : null;
   wbSyncGridToTransform(t);
   //: In the same frame as the transform it answers, so a topic panned into
   //: view is drawn on the frame it arrives in rather than one later.
-  wbCullNow(t);
+  wbCullNow(t, size);
   wbUpdateSelectionBar();
   // The overview's viewport rectangle is only true for one transform, so it
   // moves with every pan and zoom; the items in it do not, and are not
   // redrawn (`wbNavigatorUpdateViewport`). It returns immediately when the
   // overview is closed, which is the common case.
-  wbNavigatorUpdateViewport(t);
+  wbNavigatorUpdateViewport(t, size);
 }
 
 //: Run a queued zoom frame now rather than on the next one: for a transform
@@ -556,12 +572,14 @@ function wbScheduleCull() {
   });
 }
 
-function wbCullNow(transform) {
+function wbCullNow(transform, size) {
   const container = document.getElementById("whiteboard-container");
   const layer = document.getElementById("wb-html-layer");
   if (!container || !layer) return;
-  const w = container.clientWidth;
-  const h = container.clientHeight;
+  //: `size` when the caller has read it before writing anything this frame
+  //: (`wbZoomFrameWork`); a read here otherwise.
+  const w = size ? size.width : container.clientWidth;
+  const h = size ? size.height : container.clientHeight;
   //: A hidden board (another tab, the boards gallery) has no window to cull
   //: against; leave it as it is rather than culling everything.
   if (!w || !h) return;
@@ -1674,10 +1692,10 @@ function wbNavigatorPlaceViewport(svg, proj) {
 /**
  * The per-frame update from a pan or a zoom: the rectangle and the mapping,
  * never the items, and no measurement of the board. The bounds are the ones
- * the items were drawn from; the canvas size is the container's, which the
- * cull earlier in the same frame has already read.
+ * the items were drawn from; the canvas size is `size`, which the zoom frame
+ * read before it wrote anything (a read here only without it).
  */
-function wbNavigatorUpdateViewport(t) {
+function wbNavigatorUpdateViewport(t, size) {
   const svg = document.getElementById("wb-navigator-map");
   if (!svg || !wbNavigatorOpen()) return;
   const drag = wbNavState.drag;
@@ -1694,7 +1712,12 @@ function wbNavigatorUpdateViewport(t) {
   const transform = t || d3.zoomTransform(container);
   const proj = drag
     ? wbNavigatorFrozenProjection(drag, transform)
-    : wbNavigatorProjectionFor(wbNavState.content.bounds, transform, container.clientWidth, container.clientHeight);
+    : wbNavigatorProjectionFor(
+      wbNavState.content.bounds,
+      transform,
+      size ? size.width : container.clientWidth,
+      size ? size.height : container.clientHeight,
+    );
   if (!proj) return;
   const key = wbNavigatorSelectionKey();
   if (key !== wbNavState.selectionKey) {
@@ -1732,7 +1755,8 @@ function wbNavigatorDragStart(event) {
   const container = document.getElementById("whiteboard-container");
   if (!svg || !container) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
-  if (wbNavState.drag) wbNavigatorDragEnd(event);
+  // A second pointer pressing mid-drag (a second finger) takes the drag over.
+  if (wbNavState.drag) wbNavigatorDragEnd();
   if (wbNavState.stale || !wbNavState.content) wbRenderNavigator();
   if (!wbNavState.content) return;
   const t = d3.zoomTransform(container);

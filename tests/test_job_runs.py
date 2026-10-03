@@ -19,6 +19,12 @@ from memorymap.core import deps, jobruns, taskhistory
 from memorymap.core.database import EmbeddingRecord, JobRun
 
 
+def _fail(exc: Exception) -> None:
+    """Raise from a call rather than inline: CodeQL reads an inline `raise`
+    inside `pytest.raises` as making the asserts after it unreachable."""
+    raise exc
+
+
 def _runs(client) -> dict[str, dict]:
     body = client.get("/jobs/last-runs").json()
     return {row["kind"]: row for row in body["jobs"]}
@@ -48,7 +54,7 @@ def test_a_clean_block_records_ok_with_its_result_and_duration(client):
 def test_an_exception_is_recorded_as_a_failure_and_still_raised(client):
     with pytest.raises(RuntimeError, match="disk is full"):
         with jobruns.job_run("backup"):
-            raise RuntimeError("disk is full")
+            _fail(RuntimeError("disk is full"))
     row = _runs(client)["backup"]
     assert row["status"] == "failed"
     assert row["error"] == "disk is full" and row["result"] == ""
@@ -100,7 +106,7 @@ def test_an_older_run_finishing_does_not_overwrite_a_newer_one_in_flight(client)
 def test_a_long_or_multiline_reason_is_kept_to_one_short_line(client):
     with pytest.raises(ValueError):
         with jobruns.job_run("backup"):
-            raise ValueError("line one\nline two " + "x" * 900)
+            _fail(ValueError("line one\nline two " + "x" * 900))
     error = _runs(client)["backup"]["error"]
     assert "\n" not in error and len(error) <= 300 and error.endswith("…")
 

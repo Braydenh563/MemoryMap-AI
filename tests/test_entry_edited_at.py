@@ -12,6 +12,7 @@ nothing else. Null means never edited since it was written; a list sorts by
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
 from memorymap.core.database import DatabaseManager, Entry, _ensure_alembic_baseline
 from memorymap.entry import manager
@@ -65,6 +66,18 @@ def test_the_migration_upgrades_over_the_auto_migrator(tmp_path):
 
     conn = sqlite3.connect(str(db_path))
     try:
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("e5a9d1c3b7f2",)]  # the head; category colour follows edited_at
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [(_alembic_head(),)]
     finally:
         conn.close()
+
+
+def _alembic_head() -> str:
+    """The migrations' head, read rather than written here: a pinned id goes
+    stale the moment the next migration lands (two did, the same day)."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    return ScriptDirectory.from_config(config).get_current_head()

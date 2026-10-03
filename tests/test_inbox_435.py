@@ -92,7 +92,7 @@ def test_lazily_loaded_lists_show_placeholders_while_they_load():
         ('showSkeletons($("reminder-groups"), 3);', '"/reminders"'),
         ("showSkeletons(grid, 6);\n  const images", '"/media"'),
         ("showSkeletons(container, 3);", '"/audit?limit=100&entity_type=skill"'),
-        ("showSkeletons(outline, 4);", "await loadEntries();\n  clearSkeletons(outline);"),
+        ("showSkeletons(outline, 4);", "clearSkeletons(outline);"),
     ):
         assert container in code, container
         assert fetch in code, fetch

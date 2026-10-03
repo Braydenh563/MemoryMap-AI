@@ -2631,6 +2631,8 @@ async function renderGraphSvg() {
   if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
   const lengthBox = $("graph-length-score");
   if (lengthBox) lengthBox.checked = localStorage.getItem("graph-length-score") !== "0";
+  const groupBox = $("graph-group");
+  if (groupBox) groupBox.checked = localStorage.getItem("graph-group") !== "0";
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -5054,6 +5056,11 @@ $("graph-length-score")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
+//: Group by category changes the forces too (graph-worker.js `applyGrouping`).
+$("graph-group")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-group", event.target.checked ? "1" : "0");
+  renderGraph();
+});
 
 //: The Match strength row shows only while Similarity is on (INBOX 412): a
 //: cutoff for lines that are not drawn is a control that does nothing. Its
@@ -5134,6 +5141,7 @@ const GRAPH_DEFAULTS = {
   "graph-curved": false,
   "graph-nebula": true,
   "graph-length-score": true,
+  "graph-group": true,
   "graph-time-slider": "max",
   "graph-minimap-corner": "tl",
   "graph-minimap-size": "sm",

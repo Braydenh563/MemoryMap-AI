@@ -3381,6 +3381,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Length by similarity</span>
                 <input type="checkbox" id="graph-length-score" checked>
               </label>
+              <!-- INBOX 431 (6): a category's notes gather, loose notes with
+                   them rather than in a ring round the map. -->
+              <label class="graph-option-row tools-toggle" title="Each category's notes gather in a place of their own; a note with no links sits with its category instead of on the edge of the map">
+                <span>Group by category</span>
+                <input type="checkbox" id="graph-group" checked>
+              </label>
               <!-- INBOX 407: the cutoff for similarity lines, in the grid's
                    free cell beside Length by similarity, and shown only while
                    Similarity is on (graph.js, `graphSyncSimilarityRow`): a

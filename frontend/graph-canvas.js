@@ -2523,6 +2523,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       fx: n.fx == null ? null : n.fx,
       fy: n.fy == null ? null : n.fy,
       r: n.r,
+      group: n.category || "",
     })),
     edges: edges.map((e) => ({
       source: e.source.id != null ? e.source.id : e.source,
@@ -2537,6 +2538,10 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       gravity: Number(localStorage.getItem("graph-gravity") || 50),
       spread: Number(localStorage.getItem("graph-spread") || 50),
       lengthByScore: localStorage.getItem("graph-length-score") !== "0",
+      //: The tab's map only: a local map of one note's neighbours is
+      //: arranged by its links, and a ring of category places would pull
+      //: three notes apart.
+      groupBy: s.size === "full" && localStorage.getItem("graph-group") !== "0",
     },
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout

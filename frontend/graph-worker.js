@@ -211,8 +211,53 @@ function portraitPull() {
   return Math.min(4, (0.02 / 0.015) * aspect * aspect);
 }
 
+//: **Notes of a category gather** (INBOX 431 (6), the owner: the default
+//: layout "looks messy and is distributed weirdly"). Measured on a
+//: 150-note, 8-category fixture: every note with no link was pushed out by
+//: the repulsion into a sparse ring round the whole map, a quarter of the
+//: notes as loose dots with nothing to say where they belong, and a
+//: category's notes were spread across the map wherever their links took
+//: them. Each category now has a place on a ring round the centre, in order
+//: of size, and its notes lean toward it: a loose note firmly (it has
+//: nothing else to hold it), a linked one gently (its links still decide
+//: its neighbourhood). Off with "Group by category" in the View menu, which
+//: puts back the single centre exactly.
+function groupAnchors(width) {
+  const sizes = new Map();
+  for (const node of nodes) sizes.set(node.group, (sizes.get(node.group) || 0) + 1);
+  const groups = [...sizes.keys()].sort((a, b) => sizes.get(b) - sizes.get(a) || a.localeCompare(b));
+  const anchors = new Map();
+  if (groups.length < 2) return anchors;
+  const radius = width;
+  groups.forEach((group, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / groups.length;
+    anchors.set(group, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+  });
+  return anchors;
+}
+
+function applyGrouping(params) {
+  if (!simulation || !simulation.force("groupX")) return;
+  const on = !params || params.groupBy !== false;
+  const cx = world ? (world.left + world.right) / 2 : 0;
+  const cy = world ? (world.top + world.bottom) / 2 : 0;
+  const spread = 0.5 + Number(params && params.spread != null ? params.spread : 50) / 50;
+  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * 22 * spread) : new Map();
+  const at = (node) => anchors.get(node.group);
+  const pull = (node) => (at(node) ? (node.degree === 0 ? 0.12 : 0.025) : 0);
+  simulation
+    .force("groupX")
+    .x((node) => cx + (at(node) ? at(node).x : 0))
+    .strength(pull);
+  simulation
+    .force("groupY")
+    .y((node) => cy + (at(node) ? at(node).y : 0))
+    .strength(pull);
+}
+
 function applyForces(params) {
   if (!simulation) return;
+  applyGrouping(params);
   const tuned = tuning(params);
   simulation.force("charge").strength(tuned.charge);
   simulation.force("link").distance(tuned.linkDistance);
@@ -354,12 +399,18 @@ self.onmessage = (event) => {
         fx: n.fx == null ? null : n.fx,
         fy: n.fy == null ? null : n.fy,
         r: n.r || 8,
+        group: n.group || "",
+        degree: 0,
       }));
       indexById = new Map(nodes.map((n, i) => [n.id, i]));
       world = message.world || null;
       const edges = (message.edges || [])
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
         .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score }));
+      for (const edge of edges) {
+        nodes[indexById.get(edge.source)].degree += 1;
+        nodes[indexById.get(edge.target)].degree += 1;
+      }
       const tuned = tuning(message.params);
       simulation = d3
         .forceSimulation(nodes)
@@ -411,6 +462,8 @@ self.onmessage = (event) => {
         // is 1x up to the reference count, so a small notebook is untouched.
         .force("x", d3.forceX(0).strength(tuned.pullX))
         .force("y", d3.forceY(0).strength(tuned.pullY))
+        .force("groupX", d3.forceX(0).strength(0))
+        .force("groupY", d3.forceY(0).strength(0))
         .force(
           "collide",
           d3.forceCollide().radius((d) => (d.r || 8) + COLLIDE_PAD)
@@ -424,6 +477,7 @@ self.onmessage = (event) => {
         simulation.force("x").x(cx);
         simulation.force("y").y(cy);
       }
+      applyGrouping(message.params);
       simulation.alpha(message.alpha == null ? 1 : message.alpha);
       run();
       break;

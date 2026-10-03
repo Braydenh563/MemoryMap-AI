@@ -118,7 +118,10 @@ work starts.
     words' ink centre -1.84/-2.00/-0.84px before, -0.50/-0.66/+0.50 after,
     dark within 0.67): chat "Ask again:" chips: history icon and text not
     vertically centred;
-    (3) the Web search sidebar's "..." button appears seconds after the
+    (3) done (chat.js `toggleWebPanel` draws the menu from the last known
+    engine before the status call; built in the opening task, visible 5ms
+    after open, from 44 to 108ms here and seconds on a Docker machine):
+    the Web search sidebar's "..." button appears seconds after the
     sidebar opens (built after an async status fetch; build it with the head);
     (4) dragging the companion to hang from the top bar drops it onto the
     elements below (`nameMarkBuddyDrop`: a drop under the header's bottom

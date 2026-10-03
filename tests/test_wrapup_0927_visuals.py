@@ -8,6 +8,7 @@ Each test pins the shape of the fix; the numbers are in the ledger entry.
   wider.
 * 10c(2): a chip's leading icon sat 1.5px above the chip's centre (a flex
   child ignores `vertical-align`); nudged 0.1em down.
+* 10c(3): the Web panel's "..." waited for the engine status call.
 """
 
 from pathlib import Path
@@ -34,3 +35,13 @@ def test_a_chip_leading_icon_is_dropped_onto_its_words():
     -1.84, -2.00, -0.84px before; -0.50, -0.66, +0.50 after (dark within 0.67)."""
     css = _read("css/08-consistency.css")
     assert ".chip > .ph-lead {\n  translate: 0 0.1em;\n}" in css
+
+
+def test_the_web_panel_draws_its_menu_before_the_status_call():
+    """10c(3): the "..." was built only after /websearch/searxng/status
+    answered (44 to 108ms here, seconds while Docker answers); now it is
+    built in the same task that opens the panel (visible in 5ms)."""
+    chat = _read("chat.js")
+    body = chat[chat.index("function toggleWebPanel") :]
+    body = body[: body.index("\n}\n")]
+    assert body.index("renderWebPanelMenu(webEngineInfo);") < body.index("refreshWebSearxngStrip();")

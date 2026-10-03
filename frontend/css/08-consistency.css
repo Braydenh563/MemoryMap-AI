@@ -9130,6 +9130,7 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
    keeps its own weight; "B" keeps its <strong>. */
 .doc-toolbar button:not(.active):not([aria-pressed="true"]),
 .capture-tools-row > button.ghost,
+#entry-document-adder :is(button, summary).ghost,
 .chat-tool-group > button.ghost:not([aria-pressed="true"]) {
   font-weight: 500;
 }

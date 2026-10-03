@@ -2471,13 +2471,14 @@ function miniEntryList(body, entries, emptyText) {
     li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
-    //: A row that opens on a click opens on Enter too (INBOX 446 (5), axe's
+    //: A row that opens on a click opens on Enter and Space too, as the
+    //: boards widget's rows below do (INBOX 446 (5), axe's
     //: "scrollable region must have keyboard access" on Recently added):
     //: nothing in the list could take focus, so a keyboard could neither
     //: open a note from the widget nor scroll it.
     li.tabIndex = 0;
     li.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target === li) {
+      if ((e.key === "Enter" || e.key === " ") && e.target === li) {
         e.preventDefault();
         flashEntry(entry.id);
       }
@@ -3421,7 +3422,15 @@ async function renderBoardsWidget(body) {
   const boards = mapBoardRows();
   const usable = boards.filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
   if (!usable.length) {
-    dashEmpty(body, "Draw a board or build a concept map and it will show up here.");
+    //: An empty board is left out of the ranking, so a notebook with only
+    //: empty boards used to be told to draw one (INBOX 446 (5), seen with a
+    //: board called "Launch plan" sitting in the Library).
+    dashEmpty(
+      body,
+      boards.length
+        ? "Nothing on your boards yet. Add a card or a sketch to one and it shows up here."
+        : "Draw a board or build a concept map and it will show up here."
+    );
     return;
   }
   // Busiest first. `GET /whiteboard/boards` has no updated_at to sort on, and

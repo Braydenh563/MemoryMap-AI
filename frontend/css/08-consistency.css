@@ -3490,6 +3490,41 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 }
 
+/* --- a fold head's '?', beside its <summary> (INBOX 433) ---------------------
+   A button inside a summary is a control inside a control (axe-core's
+   nested-interactive, WCAG 4.1.2). The '?' is the wrapper's first child and
+   `placeFoldHelp` (settings.js) puts it over the empty slot the summary
+   keeps where it was: the same box as `button.graph-help-toggle` (2rem, the
+   touch floor under a finger; 07-whiteboard-misc.css), pushed to the row's
+   end as that button is, so the head is laid out exactly as it was. The
+   wrapper has no box of its own: the fold's margins pass through it. */
+.fold-help-wrap {
+  position: relative;
+}
+
+.fold-help-wrap > .fold-help {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.fold-help-slot {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin-left: auto;
+  visibility: hidden;
+}
+
+/* The head's hover fill stays under the '?' while the pointer is on it, as
+   it did when the '?' was inside the head. */
+.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button) {
+  background: var(--ghost-btn-bg);
+}
+
 /* The shortcut rows are ruled rows, so the divider is their separation: the
    6.4px margin 02-chat-graph.css gives every `.shortcut-list li` (written
    for the unruled overlay list) stacked on the rule and the row's own

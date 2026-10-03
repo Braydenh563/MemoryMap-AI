@@ -8045,15 +8045,17 @@ Link to another note with [[its first few words]]."></textarea>
 
                  Collapsed by default: this is genuinely advanced, and the
                  honest default for all of it is "whatever the model says". -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="sampling-help" aria-controls="sampling-help" aria-expanded="false"
+                title="About these settings" aria-label="About these settings">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details id="sampling-box" class="settings-group">
               <summary>
                 <div class="row help-head">
                   <h3 class="inline-h3">Advanced response settings</h3>
-                  <button type="button" class="icon-only ghost small graph-help-toggle"
-                    data-help-for="sampling-help" aria-controls="sampling-help" aria-expanded="false"
-                    title="About these settings" aria-label="About these settings">
-                    <i class="ph ph-question" aria-hidden="true"></i>
-                  </button>
+                  <span class="fold-help-slot" aria-hidden="true"></span>
                 </div>
               </summary>
               <p class="muted">Each row starts at what the model recommends for itself.</p>
@@ -8074,6 +8076,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p id="sampling-note" class="muted text-sm"></p>
             </details>
+            </div>
             <div id="installed-box" class="hidden settings-group">
               <h3>Installed models</h3>
               <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
@@ -8171,15 +8174,17 @@ Link to another note with [[its first few words]]."></textarea>
             <label class="muted" for="skill-inputs">Ask me for: one per line, as <code>name</code> or <code>name: question</code> (optional)</label>
             <textarea id="skill-inputs" rows="2"
               placeholder="tag: Which tag should I file?"></textarea>
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="skill-tools-help" aria-controls="skill-tools-help" aria-expanded="false"
+                title="About tool choice" aria-label="About tool choice">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-fold">
               <summary>
                 <div class="row help-head">
                   <span>Tools this skill may use (optional)</span>
-                  <button type="button" class="icon-only ghost small graph-help-toggle"
-                    data-help-for="skill-tools-help" aria-controls="skill-tools-help" aria-expanded="false"
-                    title="About tool choice" aria-label="About tool choice">
-                    <i class="ph ph-question" aria-hidden="true"></i>
-                  </button>
+                  <span class="fold-help-slot" aria-hidden="true"></span>
                 </div>
               </summary>
               <p class="muted">Ticking a few leaves far more room in a small model's context.</p>
@@ -8194,6 +8199,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <div id="skill-tool-list" class="tool-picker"></div>
             </details>
+            </div>
             <!-- The postcondition (CHAT_PLAN decision 10b). The block has been
                  readable and writable through `skills.normalise` since the
                  harness landed and was offered nowhere, so only the built-in
@@ -8201,15 +8207,17 @@ Link to another note with [[its first few words]]."></textarea>
                  with whatever the model said about it. Same fold recipe as the
                  tools picker above it, one line of description, the longer
                  answer behind the '?'. -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="skill-verify-help" aria-controls="skill-verify-help" aria-expanded="false"
+                title="About checking a skill" aria-label="About checking a skill">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-fold">
               <summary>
                 <div class="row help-head">
                   <span>Check it worked (optional)</span>
-                  <button type="button" class="icon-only ghost small graph-help-toggle"
-                    data-help-for="skill-verify-help" aria-controls="skill-verify-help" aria-expanded="false"
-                    title="About checking a skill" aria-label="About checking a skill">
-                    <i class="ph ph-question" aria-hidden="true"></i>
-                  </button>
+                  <span class="fold-help-slot" aria-hidden="true"></span>
                 </div>
               </summary>
               <p class="muted">When the run ends, the app reads one number back out of your notebook and checks it.</p>
@@ -8244,6 +8252,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Count only the notes with no tags</span>
               </label>
             </details>
+            </div>
             <!-- Measured live during a spacing audit: this row sat flush
                  against the </details> above it (0px gap), unlike the
                  matching "last field → Add X row" transition in both
@@ -8602,14 +8611,16 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-appearance">
 
             <!-- ---------- Curated themes ---------- -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="themes-help" aria-controls="themes-help" aria-expanded="false"
+                title="About themes" aria-label="About themes">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="appearance-themes" open>
               <summary><div class="row help-head">
                 <h3 class="inline-h3">Themes</h3>
-                <button type="button" class="icon-only ghost small graph-help-toggle"
-                  data-help-for="themes-help" aria-controls="themes-help" aria-expanded="false"
-                  title="About themes" aria-label="About themes">
-                  <i class="ph ph-question" aria-hidden="true"></i>
-                </button>
+                <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
               <p class="muted">A theme sets everything below in one go, and you can still override any of it.</p>
               <div class="help-body hidden" id="themes-help" role="dialog" aria-label="About themes">
@@ -8666,6 +8677,7 @@ Link to another note with [[its first few words]]."></textarea>
                   Clear my changes, keep the theme</button>
               </div>
             </details>
+            </div>
 
             <!-- ---------- Theme & colour ---------- -->
             <details class="settings-group settings-fold" data-fold-key="appearance-colour">
@@ -9244,14 +9256,16 @@ Link to another note with [[its first few words]]."></textarea>
                  Stored as the list of things *hidden*, not the list shown, so
                  a slot added in a later version appears by default instead of
                  being invisible to everyone who ever touched this screen. -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="statusbar-help" aria-controls="statusbar-help" aria-expanded="false"
+                title="About the status bar" aria-label="About the status bar">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="appearance-statusbar">
               <summary><div class="row help-head">
                 <h3 class="inline-h3">Status bar</h3>
-                <button type="button" class="icon-only ghost small graph-help-toggle"
-                  data-help-for="statusbar-help" aria-controls="statusbar-help" aria-expanded="false"
-                  title="About the status bar" aria-label="About the status bar">
-                  <i class="ph ph-question" aria-hidden="true"></i>
-                </button>
+                <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
               <p class="muted">What shows in the strip along the bottom of every screen.</p>
               <div class="help-body hidden" id="statusbar-help" role="dialog" aria-label="About the status bar">
@@ -9281,19 +9295,22 @@ Link to another note with [[its first few words]]."></textarea>
                 </label>
               </div>
             </details>
+            </div>
 
             <!-- ---------- Advanced ---------- -->
             <details class="settings-group settings-fold" data-fold-key="appearance-advanced">
               <summary><h3 class="inline-h3">Advanced</h3></summary>
+              <div class="fold-help-wrap">
+                <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                  data-help-for="custom-css-help" aria-controls="custom-css-help" aria-expanded="false"
+                  title="About custom CSS" aria-label="About custom CSS">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
               <details class="advanced-css">
                 <summary>
                   <div class="row help-head">
                     <span>Custom CSS</span>
-                    <button type="button" class="icon-only ghost small graph-help-toggle"
-                      data-help-for="custom-css-help" aria-controls="custom-css-help" aria-expanded="false"
-                      title="About custom CSS" aria-label="About custom CSS">
-                      <i class="ph ph-question" aria-hidden="true"></i>
-                    </button>
+                    <span class="fold-help-slot" aria-hidden="true"></span>
                   </div>
                 </summary>
                 <p class="muted">For tinkerers: bad CSS only affects how things look.</p>
@@ -9312,6 +9329,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span id="custom-css-status" class="status" role="status"></span>
                 </div>
               </details>
+              </div>
             </details>
 
             <div class="row">
@@ -9329,14 +9347,16 @@ Link to another note with [[its first few words]]."></textarea>
                terminal and a README, which for a local-first app is the same
                as not having the feature at all. -->
           <section class="settings-section hidden" id="settings-extras">
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="packages-help" aria-controls="packages-help" aria-expanded="false"
+                title="About packages" aria-label="About packages">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="extras-packages" open>
               <summary><div class="row help-head">
                 <h3 class="inline-h3">Packages</h3>
-                <button type="button" class="icon-only ghost small graph-help-toggle"
-                  data-help-for="packages-help" aria-controls="packages-help" aria-expanded="false"
-                  title="About packages" aria-label="About packages">
-                  <i class="ph ph-question" aria-hidden="true"></i>
-                </button>
+                <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
               <p class="muted">Things MemoryMap can do with one more package installed.</p>
               <div class="help-body hidden" id="packages-help" role="dialog" aria-label="About packages">
@@ -9368,6 +9388,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
             </details>
+            </div>
 
             <!-- Embedding models. On this screen rather than its own, because
                  the question it answers, "what has this app put on my disk,
@@ -9378,14 +9399,16 @@ Link to another note with [[its first few words]]."></textarea>
                  Asked for after a look at Settings → Logs, where the hub's
                  cache-validation requests on every start read as a re-download.
                  They are not one; the note below says so where it will be read. -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="embedding-models-help" aria-controls="embedding-models-help" aria-expanded="false"
+                title="About embedding models" aria-label="About embedding models">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="extras-embeddings">
               <summary><div class="row help-head">
                 <h3 class="inline-h3">Embedding models</h3>
-                <button type="button" class="icon-only ghost small graph-help-toggle"
-                  data-help-for="embedding-models-help" aria-controls="embedding-models-help" aria-expanded="false"
-                  title="About embedding models" aria-label="About embedding models">
-                  <i class="ph ph-question" aria-hidden="true"></i>
-                </button>
+                <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
               <p class="muted">What “search by meaning” uses to understand a note.</p>
               <div class="help-body hidden" id="embedding-models-help" role="dialog" aria-label="About embedding models">
@@ -9401,6 +9424,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="embed-models-cache" class="muted extras-meta"></p>
               <p id="embed-models-status" class="status" role="status"></p>
             </details>
+            </div>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">
@@ -9419,14 +9443,16 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </details>
 
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="always-available-help" aria-controls="always-available-help" aria-expanded="false"
+                title="Why these aren't rebindable" aria-label="Why these aren't rebindable">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="shortcuts-always">
               <summary><div class="row help-head">
                 <h3 class="inline-h3">Always available</h3>
-                <button type="button" class="icon-only ghost small graph-help-toggle"
-                  data-help-for="always-available-help" aria-controls="always-available-help" aria-expanded="false"
-                  title="Why these aren't rebindable" aria-label="Why these aren't rebindable">
-                  <i class="ph ph-question" aria-hidden="true"></i>
-                </button>
+                <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
               <p class="muted">These follow the conventions every app shares, so they aren't rebindable.</p>
               <div class="help-body hidden" id="always-available-help" role="dialog" aria-label="Why these aren't rebindable">
@@ -9447,6 +9473,7 @@ Link to another note with [[its first few words]]."></textarea>
                   wiki-link suggestions</span></li>
               </ul>
             </details>
+            </div>
 
             <!-- The "g" chord. Not in the rebindable list above and the reason
                  is in app.js beside TAB_JUMP_KEYS: a two-key chord needs

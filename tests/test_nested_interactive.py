@@ -104,3 +104,64 @@ def test_the_overlay_covers_the_card_and_the_controls_sit_above_it():
         assert control in lifted.group(1), control
     # The card still shows where the keyboard is: the ring the card had.
     assert ":has(.card-open:focus-visible)" in CSS
+
+
+# --- a fold head's '?' is beside its <summary>, not in it -------------------
+#
+# Six Settings fold heads (and three more axe could not see, inside closed
+# folds) were `<summary>`s holding their '?'. The '?' is the first child of
+# a `.fold-help-wrap` now, the summary keeps an empty `.fold-help-slot` where
+# it was, and `placeFoldHelp` (settings.js) draws the button over the slot.
+# `scratchpad/ui-sweeps/foldhelp.js` measured all nine at 1440 and 390:
+# identical to the tenth of a pixel to the old positions.
+
+INDEX = (FRONTEND / "index.html").read_text(encoding="utf-8")
+SETTINGS = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+
+# A summary that carries its one action (DESIGN.md's fold recipe allowed it)
+# is still a control inside a control; this is the one left, a ratchet that
+# may only shrink.
+SUMMARY_CONTROLS_ALLOWED = {"graph-unpin-all"}
+
+
+def _summaries() -> list[str]:
+    return re.findall(r"<summary\b[^>]*>(.*?)</summary>", INDEX, re.S)
+
+
+def test_no_summary_in_the_markup_holds_a_help_button():
+    offenders = [body for body in _summaries() if "data-help-for" in body]
+    assert not offenders, offenders[0][:200]
+
+
+def test_no_summary_holds_any_other_control_but_the_ratchet():
+    found = set()
+    for body in _summaries():
+        for tag in re.finditer(r"<(?:button|input|select|textarea|a\s[^>]*href)\b[^>]*>|tabindex=", body):
+            ident = re.search(r'id="([^"]+)"', tag.group(0))
+            found.add(ident.group(1) if ident else tag.group(0)[:60])
+    assert found <= SUMMARY_CONTROLS_ALLOWED, found - SUMMARY_CONTROLS_ALLOWED
+
+
+def test_each_fold_help_sits_beside_its_fold_over_a_slot():
+    wraps = re.findall(
+        r'<div class="fold-help-wrap">\s*<button\b([^>]*)>.*?</button>\s*<details\b[^>]*>\s*<summary>(.*?)</summary>',
+        INDEX,
+        re.S,
+    )
+    assert len(wraps) == 9, len(wraps)
+    for attrs, summary in wraps:
+        assert "fold-help" in attrs and "data-help-for=" in attrs, attrs
+        assert '<span class="fold-help-slot" aria-hidden="true"></span>' in summary
+
+
+def test_the_button_is_placed_over_its_slot_and_still_opens_its_fold():
+    place = _function(SETTINGS, "placeFoldHelp")
+    assert ".fold-help-slot" in place and "getBoundingClientRect" in place
+    assert "ResizeObserver" in _function(SETTINGS, "wireFoldHelps")
+    assert "wireFoldHelps();" in SETTINGS
+    folds = _function(SETTINGS, "wireSettingsFolds")
+    assert ":scope.fold-help-wrap > .fold-help" in folds
+    assert re.search(r"\.fold-help-wrap\s*\{[^}]*position:\s*relative", CSS)
+    assert re.search(r"\.fold-help-wrap > \.fold-help\s*\{[^}]*position:\s*absolute", CSS)
+    slot = re.search(r"\.fold-help-slot\s*\{([^}]*)\}", CSS)
+    assert slot and "visibility: hidden" in slot.group(1) and "var(--target-min)" in slot.group(1)

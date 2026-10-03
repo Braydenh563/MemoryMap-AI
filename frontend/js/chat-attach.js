@@ -1167,14 +1167,35 @@ async function renderNotePickerList() {
     const text = document.createElement("span");
     text.className = "note-picker-text";
     text.textContent = noteLabel(entry, 70);
+    //: The category is a dot and quiet text on the row's second line (the
+    //: Library card's own shape, `.library-card-category`), not a filled
+    //: badge on the first: INBOX 467, "need[s] a redesign to be consistent
+    //: with the others". `paintCategoryDot` is the one place a category's
+    //: colour is read, so a colour the person chose shows here too.
     const cat = document.createElement("span");
-    cat.className = "chip";
+    cat.className = "note-picker-category";
     cat.textContent = entry.category;
-    label.append(box, text, cat);
+    if (typeof paintCategoryDot === "function") paintCategoryDot(cat, entry.category);
+    label.className = "note-picker-row";
+    label.append(box, notePickerLines(text, cat));
     li.appendChild(label);
     list.appendChild(li);
   }
   updateNotePickerCount();
+}
+
+// A row's text column: the name over one line of what it is. The second line
+// is optional only for a row with nothing to say; every source in the picker
+// has something, so the rows stay one height.
+function notePickerLines(text, meta) {
+  const lines = document.createElement("span");
+  lines.className = "note-picker-lines";
+  lines.append(text);
+  if (meta) {
+    meta.classList.add("note-picker-meta");
+    lines.append(meta);
+  }
+  return lines;
 }
 
 async function renderNotePickerOtherSource(query, list) {
@@ -1219,8 +1240,9 @@ async function renderNotePickerOtherSource(query, list) {
     text.className = "note-picker-text";
     text.textContent = shape.label(row);
     const kind = document.createElement("span");
-    kind.className = "chip";
+    kind.className = "note-picker-kind";
     kind.textContent = shape.note(row);
+    label.className = "note-picker-row";
     //: **A row that shows the thing, for the sources where the name is not the
     //: thing.** Reported with a screenshot of this list's Images tab: "images
     //: just show as their names but the user might not be able to tell what
@@ -1262,11 +1284,8 @@ async function renderNotePickerOtherSource(query, list) {
     }
     const caption = shape.caption?.(row);
     if (caption !== undefined) {
-      //: Two lines in one column so the caption wraps under the name and not
-      //: under the checkbox, and so the chip stays on the row's own centre line
-      //: rather than beside the first of the two lines.
-      const lines = document.createElement("span");
-      lines.className = "note-picker-lines";
+      //: The caption is the row's second line, under the name and not under
+      //: the checkbox.
       const cap = document.createElement("span");
       cap.className = "note-picker-caption";
       //: An uncaptioned image says so instead of collapsing to a one-line row:
@@ -1277,15 +1296,14 @@ async function renderNotePickerOtherSource(query, list) {
       cap.textContent = caption || "No caption yet";
       cap.classList.toggle("is-empty", !caption);
       if (caption) cap.title = caption;
-      lines.append(text, cap);
-      label.append(lines);
+      label.append(notePickerLines(text, cap));
     } else {
-      label.append(text);
+      //: Every row is two lines, so the list scans down one left edge: a
+      //: source with no caption puts its one-word fact (Document, pdf, "12
+      //: nodes") on the second line as quiet text, never a filled badge. A
+      //: source with neither (Images with no fact) has the caption branch.
+      label.append(notePickerLines(text, kind.textContent ? kind : null));
     }
-    //: A chip with nothing in it is a pill of empty space at the end of the
-    //: row, so a source that has no one-word fact to add (Images, whose fact
-    //: is the picture itself) simply does not get one.
-    if (kind.textContent) label.append(kind);
     li.appendChild(label);
     list.appendChild(li);
   }

@@ -2485,12 +2485,13 @@ Link to another note with [[its first few words]]."></textarea>
                     placeholder="Search your notes…" aria-label="Search what to attach">
                 </div>
                 <ul id="note-picker-list" class="note-picker-list"></ul>
-                <div class="row space-between note-picker-foot">
+                <!-- The dialog footer recipe (`.space-dialog-actions`): what is
+                     held on the left in quiet text, the actions at the right
+                     edge, a ghost then the one filled one. -->
+                <div class="row space-dialog-actions note-picker-foot">
                   <span id="note-picker-count" class="muted"></span>
-                  <span class="row">
-                    <button id="note-picker-clear" class="ghost small" type="button">Clear</button>
-                    <button id="note-picker-done" class="small" type="button">Done</button>
-                  </span>
+                  <button id="note-picker-clear" class="ghost" type="button">Clear</button>
+                  <button id="note-picker-done" class="accent" type="button">Done</button>
                 </div>
               </div>
             </div>

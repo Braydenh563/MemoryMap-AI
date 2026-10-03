@@ -3333,7 +3333,8 @@ def test_the_dialog_head_title_is_one_size_whatever_tag_carries_it() -> None:
 # concatenated 00 to 10), so that is the one asserted.
 DIALOG_TIER = {"modal-card", "space-dialog", "sheet-card", "sheet-card-corner", "command-palette-card",
                "finder-card", "confirm-card"}
-PANEL_TIER = {"notif-panel", "agent-monitor", "graph-popup", "graph-new", "tour-card", "wb-navigator"}
+PANEL_TIER = {"notif-panel", "note-picker-panel", "agent-monitor", "graph-popup", "graph-new", "tour-card",
+              "wb-navigator"}
 
 
 def _last_radius_by_class() -> dict[str, str]:
@@ -3377,6 +3378,28 @@ def test_the_panel_tier_is_padded_by_one_token() -> None:
     assert "padding: var(--panel-pad)" in rule
     chat = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
     assert "--graph-popup-pad: var(--panel-pad)" in chat
+    assert "note-picker-panel" in next(sel for sel, _ in _rules(consistency) if ".card.agent-monitor" in sel)
+    assert "padding: var(--panel-pad)" in re.search(r"\.note-picker-panel \{[^}]*\}", chat).group(0)
+
+
+def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
+    """INBOX 467, the owner: the Attach picker "need[s] a redesign to be
+    consistent with the others". Its head is the dialog head, its segment the
+    app's `.seg`, its rows the name over one muted line with the category as a
+    dot and quiet text (never a filled badge), its footer the dialog footer
+    recipe (`.space-dialog-actions`, a ghost then the one filled action)."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    start = html.index('id="note-picker-panel"')
+    panel = html[start : html.index('id="chat-model-panel"', start) if 'id="chat-model-panel"' in html[start:] else start + 6000]
+    assert 'class="dialog-head"' in panel and "dialog-head-btn" in panel
+    assert 'class="seg seg-compact note-picker-sources"' in panel
+    assert 'class="row space-dialog-actions note-picker-foot"' in panel
+    assert 'id="note-picker-clear" class="ghost"' in panel and 'id="note-picker-done" class="accent"' in panel
+    js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert 'cat.className = "chip"' not in js and 'kind.className = "chip"' not in js, (
+        "a picker row's category or kind is quiet text on the second line, not a filled chip"
+    )
+    assert "note-picker-category" in js and "paintCategoryDot(cat, entry.category)" in js
 
 
 def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:

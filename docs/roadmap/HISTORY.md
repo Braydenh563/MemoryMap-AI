@@ -36700,4 +36700,14 @@ width, 47% of the column at 1440.
      dialog, sheet, popover and side panel inventoried and measured against
      DESIGN.md's dialog and panel recipes (radius, padding, head, close
      control, shadow, scrim, width steps), then brought onto them: an agent.
+     Fixed 2026-10-03: 42 surfaces measured at 1440 and 390, light and dark
+     (`scratchpad/popup-inventory.md`, `scratchpad/ui-sweeps/popupinv.js`).
+     Three tiers (dialog and sheet, panel, popover) in DESIGN.md's recipe
+     index, each with one shell, and one head for the first two. Distinct
+     values at 1440 light, before to after: dialog close widths 3 to 1, title
+     sizes 2 to 1, head heights 3 to 2; panel radii 2 to 1, paddings 5 to 1,
+     close widths 3 to 1, title sizes 4 to 2; the dim behind a dialog 4 values
+     to the one token, and Find anything dims the app instead of replacing
+     it. Small dialogs are one width (the storage dialog was 1332px). INBOX
+     467 (the Attach picker) brought onto the same recipe in the same pass.
 

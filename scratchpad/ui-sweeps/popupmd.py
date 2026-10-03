@@ -3,6 +3,8 @@
     python3 scratchpad/ui-sweeps/popupmd.py
 """
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "popup-inventory.md"
@@ -72,7 +74,7 @@ def pad(v):
 
 
 def short(v):
-    return str(v).replace("rgba(", "rgba").replace("rgb(", "rgb").replace(", ", ",").replace(" ", " ")
+    return str(v).replace(", ", ",")
 
 
 def ground(v):
@@ -151,6 +153,14 @@ cards in the page and keep the panel-head recipe. They are listed in the DESIGN.
 for name, (sel, opener, tier) in SURFACES.items():
     md.append(f"| {name} | `{sel}` | {opener} | {tier} |")
 
+md.append("\n## Distinct values per property inside each tier, before and after\n")
+md.append("Counts of distinct values (`popupcmp.py`); fewer is more alike, one is identical. Dialog+sheet is 23 surfaces, "
+          "palette 4, panel 6 (the welcome wizard, the confirm alert, the Ctrl+K palette, the OCR workspace, the popovers and "
+          "the lightbox are outside the counts, by design).\n\n```")
+for w_, t_ in CONFIGS:
+    md.append(subprocess.run([sys.executable, str(Path(__file__).with_name("popupcmp.py")), w_, t_], capture_output=True, text=True, check=True).stdout)
+md.append("```")
+
 md.append("\n## After (the branch head)\n")
 for w, theme in CONFIGS:
     md.append(f"### {w}px, {theme}\n")
@@ -161,6 +171,12 @@ for w, theme in CONFIGS:
     md.append(f"### {w}px, {theme}\n")
     md.append(table(w, theme, "before"))
     md.append("")
+
+md.append("\n## The Attach picker (INBOX 467), before and after\n")
+md.append("Measured with `pickerinv.js` through the real `openNotePicker()` on the Chat tab (a sheet below 600), three notes "
+          "seeded, one ticked. It is a panel (floating, with the dialog head), so its shell is the panel tier's; what changed is "
+          "the rows (a second muted line, the category as a dot and quiet text instead of a filled chip) and the footer.")
+md.append(subprocess.run([sys.executable, str(Path(__file__).with_name("pickercmp.py"))], capture_output=True, text=True, check=True).stdout)
 
 OUT.write_text("\n".join(md) + "\n", encoding="utf-8")
 print("wrote", OUT, OUT.stat().st_size, "bytes")

@@ -3420,3 +3420,24 @@ def test_a_settings_section_has_at_most_one_filled_button() -> None:
     over = {s: ids for s, ids in parser.filled.items()
             if len([i for i in ids if i not in only_on_error]) > 1}
     assert not over, f"more than one filled button on a Settings page: {over}"
+
+
+def test_a_facts_row_opens_its_lists_below_itself() -> None:
+    """DESIGN.md, "A row of facts about a card where some facts open a list"
+    (INBOX 450). The skill card's steps and tools are toggles in the facts row
+    whose panels sit after the row, so opening one never reflows the row; no
+    `<details>` is built into it; every fact is one height; and the cards are
+    dealt into columns rather than laid in a grid whose rows stretch."""
+    code = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    start = code.index("function skillCard(")
+    card = code[start:code.index("\n}\n", start)]
+    assert 'createElement("details")' not in card, "a facts row toggle is a button, not a <details>"
+    assert '"ghost small skill-fact skill-fact-toggle"' in card
+    assert 'setAttribute("aria-controls"' in card and 'setAttribute("aria-expanded"' in card
+    assert "card.append(facts, ...panels)" in card, "the panels follow the row, never sit inside it"
+    assert "--skill-fact-h" in _css_block(".skill-card")
+    facts = _css_block(".skill-card .skill-card-facts > :is(.chip, button).skill-fact")
+    assert "height: var(--skill-fact-h)" in facts and "white-space: nowrap" in facts
+    render = code[code.index("function renderSkillCards("):]
+    assert "skillColumnCount(grid)" in render[:4000], "skill cards are dealt into columns"
+    assert "display: flex" in _css_block(".skills-grid")

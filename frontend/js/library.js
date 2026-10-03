@@ -2058,6 +2058,8 @@ updateLibraryCreateButton();
 //: The skill cards currently on screen, so the search box can filter without
 //: another round trip. Rebuilt by `renderSkillsDashboard`.
 let skillCardsCache = [];
+//: Ids for the facts panels, unique across every render of the page.
+let skillPanelSeq = 0;
 
 function skillLastRunIndex(rows) {
   //: name → the most recent audit row for it. The rows arrive newest-first,
@@ -2100,41 +2102,48 @@ function skillCard(skill, lastRun) {
   const steps = (skill.steps || []).length;
   const tools = (skill.tools || []).length;
   const inputs = (skill.inputs || []).length;
-  // Steps and tools expand in place, reported directly: "allow dropdown
-  // expansions for the steps and tools in each." A hover title said the same
-  // thing before, which is both unreachable on touch and one line, hidden
-  // until you happened to rest a cursor on a chip that never looked
-  // hoverable. `<details>` opens on click and on Enter/Space and needs no
-  // JS to track its own state, the same choice the gallery kebab menu
-  // already made for the same reason.
-  const expandableFact = (icon, count, noun, items, ordered) => {
-    const wrap = document.createElement("details");
-    wrap.className = "skill-fact-expand";
-    const summary = document.createElement("summary");
-    summary.className = "chip skill-fact";
-    setLabel(summary, `${icon} ${count} ${noun}${count === 1 ? "" : "s"}`);
-    // Steps run in order, so they're numbered; tools are just a set the
-    // model may reach for, in no particular order.
+  //: **A toggle in the row, its list under the row** (INBOX 450). Steps and
+  //: tools were `<details>` inside the facts row, so the row mixed a 20px
+  //: chip with two 22px disclosures on two baselines, and an open one put its
+  //: list *inside* the row: "3 steps" opened and "4 tools" was pushed onto a
+  //: line of its own under it. Now every fact is one height on one line, a
+  //: toggle is a button carrying `aria-expanded`, and what it opens is a
+  //: panel after the row, the card's full width, so the row never moves.
+  //: Both may be open; they stack in the row's order.
+  const panels = [];
+  const expandableFact = (count, noun, items, ordered) => {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "ghost small skill-fact skill-fact-toggle";
+    //: The caret is its glyph: a list glyph as well made four facts too
+    //: wide for a card's one line (398px of facts in a 311px row).
+    setLabel(toggle, `${count} ${noun}${count === 1 ? "" : "s"} ph:caret-down`);
+    const panel = document.createElement("div");
+    panel.className = "skill-fact-panel";
+    panel.id = `skill-${noun}s-${skillPanelSeq++}`;
+    panel.hidden = true;
+    toggle.setAttribute("aria-controls", panel.id);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    // Steps run in order, so they're numbered; tools are a set the model may
+    // reach for, in no particular order.
     const list = document.createElement(ordered ? "ol" : "ul");
-    // Steps and tools are different kinds of thing and now look it. A step is
-    // a sentence and reads as numbered prose; a tool is an identifier, so it
-    // gets the monospace chip treatment the rest of the app already gives
-    // code-ish tokens instead of sitting as a bare bullet. Reported twice as
-    // these lists being "still not properly designed UI wise".
+    // A step is a sentence and reads as numbered prose; a tool is an
+    // identifier, so it is a code chip.
     list.className = ordered
       ? "skill-fact-list skill-fact-list-steps"
       : "skill-fact-list skill-fact-list-tools";
+    list.setAttribute("aria-label", `${skill.name}: ${noun}s`);
     for (const item of items) {
       const li = document.createElement("li");
       if (ordered) {
-        // The number is a real element, not `::marker`. Three rounds of
-        // padding tweaks failed to stop the generated markers from sitting
-        // on (and being clipped by) the panel's left border, because an
-        // `outside` marker is positioned relative to the item's content box
-        // and hangs into the padding by an amount the page does not control.
-        // A two-column grid with the number in its own gutter is
-        // deterministic: it cannot overhang anything, and multi-line steps
-        // align under their own text rather than under the number.
+        // The number is a real element, not `::marker`: an `outside` marker
+        // hangs into the padding by an amount the page does not control, and
+        // a two-column grid keeps a long step under its own text.
         const n = document.createElement("span");
         n.className = "skill-step-n";
         n.textContent = `${list.childElementCount + 1}.`;
@@ -2149,8 +2158,9 @@ function skillCard(skill, lastRun) {
       }
       list.appendChild(li);
     }
-    wrap.append(summary, list);
-    return wrap;
+    panel.appendChild(list);
+    panels.push(panel);
+    return toggle;
   };
   //: The fact that decides whether to press Run, first: does it write to the
   //: notebook, or only read it. `changes` comes from the server (it checks the
@@ -2160,16 +2170,8 @@ function skillCard(skill, lastRun) {
   effect.title = skill.changes ? "Can create, edit or delete notes when it runs" : "Reads your notebook and changes nothing";
   setLabel(effect, skill.changes ? "ph:pencil-simple Changes notes" : "ph:eye Reads only");
   facts.appendChild(effect);
-  if (steps) facts.appendChild(expandableFact("ph:list-numbers", steps, "step", skill.steps, true));
-  if (tools) facts.appendChild(expandableFact("ph:wrench", tools, "tool", skill.tools, false));
-  if (inputs) {
-    const chip_ = document.createElement("span");
-    chip_.className = "chip skill-fact";
-    chip_.title = "Asks you for these before it runs";
-    setLabel(chip_, `ph:textbox ${inputs} input${inputs === 1 ? "" : "s"}`);
-    facts.appendChild(chip_);
-  }
-
+  if (steps) facts.appendChild(expandableFact(steps, "step", skill.steps, true));
+  if (tools) facts.appendChild(expandableFact(tools, "tool", skill.tools, false));
   //: **When it last ran and how that went**, in one line with a glyph that
   //: says the result without colour: a tick for a run that finished, a stop
   //: for one that stopped at a step, a pause for one waiting on you. The
@@ -2185,6 +2187,15 @@ function skillCard(skill, lastRun) {
     setLabel(when, `ph:${glyph} Ran ${relativeTime(lastRun.created_at)}${outcome ? `: ${outcome}` : ""}`);
   } else {
     setLabel(when, "ph:clock-countdown Never run");
+  }
+  //: What it will ask for before it runs is said on the line about running
+  //: (INBOX 450): as a fourth fact it took the facts row past a card's width
+  //: and onto a second line.
+  if (inputs) {
+    const asks = document.createElement("span");
+    asks.textContent = ` · asks for ${inputs} input${inputs === 1 ? "" : "s"}`;
+    asks.title = "Asks you for these before it runs";
+    when.appendChild(asks);
   }
 
   const footer = document.createElement("div");
@@ -2233,7 +2244,7 @@ function skillCard(skill, lastRun) {
   footer.appendChild(more);
 
   card.append(header, desc);
-  if (facts.children.length) card.appendChild(facts);
+  if (facts.children.length) card.append(facts, ...panels);
   card.append(when, footer);
   return card;
 }
@@ -2322,6 +2333,29 @@ async function deleteSkillWithUndo(skill) {
   });
 }
 
+//: How many 18.75rem columns the skills grid holds at its width (the card's
+//: old `minmax(300px, 1fr)`), one on a phone.
+function skillColumnCount(grid) {
+  const width = grid.clientWidth;
+  if (!width || window.innerWidth < 600) return 1;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const gap = parseFloat(getComputedStyle(grid).columnGap) || rem;
+  return Math.max(1, Math.floor((width + gap) / (18.75 * rem + gap)));
+}
+
+//: Re-deals when the width changes the count (a resize, the logs sidebar
+//: folding), and only then.
+let skillColumnsObserver = null;
+function watchSkillColumns(grid) {
+  if (typeof ResizeObserver !== "function") return;
+  skillColumnsObserver?.disconnect();
+  skillColumnsObserver = new ResizeObserver(() => {
+    if (!grid.isConnected) return skillColumnsObserver.disconnect();
+    if (String(skillColumnCount(grid)) !== grid.dataset.cols) renderSkillCards($("skills-search")?.value || "");
+  });
+  skillColumnsObserver.observe(grid);
+}
+
 function renderSkillCards(query = "") {
   const grid = document.getElementById("skills-grid");
   const empty = document.getElementById("skills-empty");
@@ -2339,7 +2373,21 @@ function renderSkillCards(query = "") {
       )
     : byKind
   ).sort(SKILL_SORTS[skillSort()]);
-  grid.replaceChildren(...matches.map(({ skill, lastRun }) => skillCard(skill, lastRun)));
+  //: **Dealt into columns, in reading order** (INBOX 450), the Library grid's
+  //: own move (`libraryColumnCount`): card i goes to column i mod n. A grid
+  //: row is as tall as its tallest card, so a short card stood over a gap
+  //: down to the next row, and opening one card's steps made every card in
+  //: its row that tall and empty. A column grows alone.
+  const cols = skillColumnCount(grid);
+  grid.dataset.cols = cols;
+  const columns = Array.from({ length: cols }, () => {
+    const col = document.createElement("div");
+    col.className = "skills-col";
+    return col;
+  });
+  matches.forEach(({ skill, lastRun }, i) => columns[i % cols].appendChild(skillCard(skill, lastRun)));
+  grid.replaceChildren(...columns);
+  watchSkillColumns(grid);
 
   //: The segment carries its counts, so "Yours 0" says why the page looks the
   //: way it does before anyone clicks it.

@@ -19,7 +19,7 @@ if curl -s -o /dev/null "http://127.0.0.1:$PORT/"; then
   echo "something already answers on :$PORT — pick another port" >&2; exit 1
 fi
 cd "$ROOT"
-setsid env PYTHONPATH=src MEMORYMAP_DATA_DIR="$DIR" "$VENV/bin/python" -m uvicorn \
+setsid env PYTHONPATH=src MEMORYMAP_NO_AUTO_INSTALL=1 MEMORYMAP_DATA_DIR="$DIR" "$VENV/bin/python" -m uvicorn \
   memorymap.api.app:create_app --factory --port "$PORT" > "$DIR/server.log" 2>&1 < /dev/null &
 for _ in $(seq 1 40); do
   sleep 0.5

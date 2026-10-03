@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 import logging
+import os
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -671,6 +672,12 @@ class EmbeddingService:
         just a source checkout.
         """
         if self._auto_install_attempted:
+            return
+        # A developer's checkout and every UI sweep run with this set
+        # (scratchpad/ui-sweeps/serve.sh): CLAUDE.md section 7 forbids torch
+        # in the sandbox, and the first note a sweep saved used to start a
+        # multi-gigabyte pip install behind it.
+        if os.environ.get("MEMORYMAP_NO_AUTO_INSTALL"):
             return
         if not isinstance(exc, ModuleNotFoundError) or "sentence_transformers" not in str(exc):
             return

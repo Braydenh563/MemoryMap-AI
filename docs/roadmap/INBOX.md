@@ -34,6 +34,21 @@ with its owner named in the entry.
 
 ## Open items
 
+432. **The owner, 2026-10-03, verbatim.** "So there are a bunch of issues,
+     bugs, not working main features and messy stuff and stuff left untouched
+     it poorly fixed from the last session. I need you to refine, redesign and
+     rebuild now notes are created logged, sorted and managed. Fix all the
+     bugs, look at the notes from last session, follow Claude.md, design.md
+     and more. Miss no bugs. Identify and fix UX issues and missing or poorly
+     implemented features that everyone expects to be there or act a specific
+     way but aren't there or don't work that way. Continue with all the open
+     stuff autonomously as I am at work."
+     Placed: this is 431's item (2), the note flow as one brief, taken now
+     with (1) the real-model pass beside it: every step of creating, filing,
+     re-filing, sorting, tagging, editing and managing a note driven in
+     Chromium against the running app, each defect fixed with a test, then
+     431's remaining order.
+
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise
      the colour the fill of mind map nodes?? Also for the mindmap export to

@@ -34,6 +34,18 @@ with its owner named in the entry.
 
 ## Open items
 
+455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
+     details line: category, 85%, eight hashtags, the date alone on a line
+     under them; four notes whose dates sit at different heights).** "note
+     metadata wraps now and needs a better redesign and structure. also I
+     think the note date should be consistent in where it is on the notes.
+     also I want more and better transitions between positions and moving
+     across different and the same tab(s) for the companion". Placed: (1)
+     the details line redesigned (a fixed structure that never wraps into a
+     ragged second line, tags that collapse to "+N", the date in one place
+     on every card): an Opus agent when a slot frees; (2) companion
+     transitions between perches and across tabs: an Opus agent after (1).
+
 454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
      open, all, and done button sections in reminders, the skeleton loaders
      keep flickering in and out". Placed: the orchestrator.

@@ -924,7 +924,11 @@ document.addEventListener("keydown", (e) => {
       }
       // Not a recognised second key, fall through and let this keypress do
       // whatever it would have done anyway.
-    } else if (singleKeys && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    } else if (
+      singleKeys && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey
+      //: An open board's M is its highlighter (`wbOwnsChord`, whiteboard.js).
+      && !(typeof wbOwnsChord === "function" && wbOwnsChord(e))
+    ) {
       tabJumpArmedAt = performance.now();
       //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":

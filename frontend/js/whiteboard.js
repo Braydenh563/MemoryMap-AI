@@ -2922,6 +2922,16 @@ function wbOwnsChord(e) {
   const typing = field && field.offsetParent !== null
     && (["INPUT", "TEXTAREA"].includes(field.tagName) || field.isContentEditable);
   if (typing) return false;
+  //: **Bare M is the highlighter on a board, never the "m" quick-nav chord**
+  //: (INBOX 445, measured 2026-10-03). Both listeners answered the one key:
+  //: the tool changed and the chord armed, so the chord guide's panel opened
+  //: over the canvas, took the stroke's pointerup (the stroke was never
+  //: saved), and the next tool letter inside the chord's window was read as
+  //: a destination: M then D, the diamond, left the board for the Dashboard.
+  //: On a map the highlighter does not exist, so the chord keeps the key.
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "m") {
+    return !wbIsMap();
+  }
   return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "g";
 }
 
@@ -9349,6 +9359,13 @@ async function initWhiteboard() {
     // A shifted letter with no pair still picks the unshifted tool, which is
     // what it did before this table existed: Shift+P has always been the pen.
     const mapped = (e.shiftKey && WB_TOOL_SHIFT_KEYS[letter]) || WB_TOOL_KEYS[letter];
+    //: **A map's keys never pick a tool its rail does not show** (INBOX 445).
+    //: R, P, M and the rest are hidden from a map's rail (`WB_BOARD_ONLY_TOOLS`)
+    //: but their letters still chose them: measured, R on a map left the rect
+    //: tool live, the board's stroke bar showing and the topic deselected, and
+    //: a word typed on a map walked through a dozen hidden tools. The letter
+    //: falls through instead, so M on a map is the app's quick-nav chord again.
+    if (mapped && wbIsMap() && WB_BOARD_ONLY_TOOLS.has(mapped)) return;
     if (mapped) {
       if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
       selectWbTool(mapped);
@@ -9356,6 +9373,9 @@ async function initWhiteboard() {
     }
     if (WB_ACTION_KEYS[letter]) {
       const btn = document.getElementById(WB_ACTION_KEYS[letter]);
+      //: The same rule for the action keys: I's picture button lives in the
+      //: rail's board-only Add section, so on a map it is not there to press.
+      if (btn && btn.closest('[data-wb-surface="board"]') && wbIsMap()) return;
       if (btn) {
         e.preventDefault();
         btn.click();
@@ -13579,6 +13599,18 @@ function renderWbObjects(canvas) {
       content.on("keydown", function (event) {
         if (!this.isContentEditable) return;
         event.stopPropagation();
+        //: **Escape ends the edit and leaves the box selected** (INBOX 445),
+        //: what Excalidraw, tldraw and Figma all do. The line above stopped
+        //: every key, Escape with them, so the caret stayed in the box after
+        //: Escape and the next tool letter (T, R) was typed into the sticky
+        //: instead of picking the tool. Blurring runs the save above.
+        if (event.key === "Escape") {
+          event.preventDefault();
+          this.blur();
+          selectWbItem("object", d.id);
+          document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+          return;
+        }
         if (event.key === "Tab" && !event.ctrlKey && !event.altKey && !event.metaKey) {
           if (wbIndentEditableLines(this, event.shiftKey)) event.preventDefault();
         }

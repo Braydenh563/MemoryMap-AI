@@ -306,7 +306,15 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-27, v0.3.3 released from `fix/gemini-fixes-5`, PR 157):** start the
+**Now (2026-10-03, PR 162, branch `claude/notes-flow-rebuild`):** the note
+flow (INBOX 432, in HISTORY "INBOX resolved, 2026-10-03") is fixed end to end
+and measured; a real model runs in the sandbox (`scratchpad/llama-dev.sh`,
+llama.cpp built from source, Qwen2.5-1.5B), so drive the popup agent and
+filing against it before claiming either works. Open after it: INBOX 431
+(5) companion stacking, (6) graph default forces, the companion motion
+work, then 430. Then, as before:
+
+**Before that (2026-09-27, v0.3.3 released from `fix/gemini-fixes-5`, PR 157):** start the
 next PR from the "Carry-over to the next PR (0.3.4)" list at the top of
 [`agent-remaining/wrapup-0927.md`](agent-remaining/wrapup-0927.md), item 1
 first (the `frontend/js/` move).

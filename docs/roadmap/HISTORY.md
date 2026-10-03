@@ -35982,3 +35982,53 @@ its text (`chatmarks.js`). The 70% became the shared cap every bubble has,
 `min(82%, var(--measure))` (02-chat-graph.css, a reading measure on a wide
 window rather than a share of it); a one-line question takes its text's
 width, 47% of the column at 1440.
+## INBOX resolved, 2026-10-03
+
+432. **The owner, 2026-10-03, verbatim.** "So there are a bunch of issues,
+     bugs, not working main features and messy stuff and stuff left untouched
+     it poorly fixed from the last session. I need you to refine, redesign and
+     rebuild now notes are created logged, sorted and managed. Fix all the
+     bugs, look at the notes from last session, follow Claude.md, design.md
+     and more. Miss no bugs. Identify and fix UX issues and missing or poorly
+     implemented features that everyone expects to be there or act a specific
+     way but aren't there or don't work that way. Continue with all the open
+     stuff autonomously as I am at work."
+     Placed: this is 431's item (2), the note flow as one brief, taken now
+     with (1) the real-model pass beside it: every step of creating, filing,
+     re-filing, sorting, tagging, editing and managing a note driven in
+     Chromium against the running app, each defect fixed with a test, then
+     431's remaining order.
+     **Done 2026-10-03, PR 162** (branch `claude/notes-flow-rebuild`): two
+     audits in Chromium (the list and its management; categories, tags and
+     the keyboard) found 30+ defects, and the real-model pass ran against
+     Qwen2.5-1.5B on llama.cpp (`pytest -m evals`: 4 passed, 3 skipped). Fixed,
+     each with a test in `tests/test_note_flow_0432.py` unless named:
+     Ctrl+Enter saves from capture and the edit form (the editor view
+     swallowed it); the caret returns after a save; an unfiled note says so
+     once with Choose category ("Uncategorised (0% sure)" twice before;
+     `filed_by` on `/entries/{id}/filing`); one note moves from its category
+     chip or menu; an open edit keeps its text through redraws, Escape and
+     Cancel ask, an emptied note is refused; the edit form has a title;
+     selection only of what is on screen; batch Tag splits and undoes; A to
+     Z by title, Recently edited (`edited_at`, new column), sort remembered;
+     the sidebar lights one row, lists empty categories, sorts by name,
+     takes the keyboard, scrolls its list under a fixed head, remembers its
+     fold; tag chips filter, the box takes #tag, title:, before:, after:,
+     in:, is:draft; the rail opens on an open only; rename and merge undo;
+     Archive undo; Duplicate titles the copy; Copy [[link]]; Home, End,
+     Delete, F2 on a row; rows view 74 to 47px; the space chip only when
+     notes span spaces; housekeeping jobs stop opening Agent activity.
+     Backend (agent): categories never cross spaces from "All spaces"
+     (`tests/test_category_space_integrity.py`), counts match the list,
+     tags normalised (`tests/test_tag_normalisation.py`), wiki links are
+     outgoing connections, "close to this" never lists drafts or unrelated
+     notes, the webclip import cycle. Agent: a reply that only announces an
+     action is nudged once to take it, fence markers are scrubbed from
+     answers (`tests/test_fence_scrub.py`), both measured on the real model.
+     Also: Settings' Import .md files works again (the click event was the
+     input id; `tests/test_listener_arguments.py`). Placed, still open: the
+     phone list and drawer and palette commands (an agent, this PR); the
+     minimap drag (431 (4), an agent); the model's own filing accuracy on a
+     1.5B model (13/16 on a fixed set, names only; examples made it worse,
+     11/16), a property of the model, not the prompt.
+

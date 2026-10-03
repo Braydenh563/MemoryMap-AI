@@ -101,7 +101,7 @@ initHelpToggle("search-help", "search-help-hint");
 initHelpToggle("capture-help", "capture-help-hint");
 
 
-$("prefs-save").addEventListener("click", savePrefs);
+$("prefs-save").addEventListener("click", () => savePrefs());
 wirePrefsDirtyMarks();
 
 //: **Ctrl+S on the Preferences section**, which the section's own copy has
@@ -2441,7 +2441,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
 })();
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
-$("import-md").addEventListener("click", importMarkdown);
+$("import-md").addEventListener("click", () => importMarkdown());
 //: The folder picker posts through the same function, the only difference
 //: is which input it reads, so `importMarkdown` takes the id rather than
 //: growing a second copy of the upload/report/refresh sequence.

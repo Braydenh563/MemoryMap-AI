@@ -2209,6 +2209,7 @@ const LAZY_MODULES = {
   categories: ["/categories-panel.js"],
   noteHistory: ["/note-history.js"],
   askHistory: ["/ask-history.js"],
+  settingsData: ["/settings-data.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2412,6 +2413,16 @@ const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory"],
+  settingsData: [
+    "renderPrivacyRange",
+    "renderPrivacyReceipt",
+    "renderBackups",
+    "renderBackupRetention",
+    "backupNow",
+    "importDirectory",
+    "importMarkdown",
+    "importDocument",
+  ],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

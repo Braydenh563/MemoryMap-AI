@@ -1737,8 +1737,13 @@ function entryItem(entry, options = {}) {
   const date = document.createElement("span");
   date.className = "entry-date";
   const stamp = entry.created_at;
-  date.textContent = relativeTime(stamp);
-  date.title = `Written ${new Date(stamp).toLocaleString()}`; // exact on hover
+  //: Sorted by "Recently edited", the date is the edit's (INBOX 432); the
+  //: tooltip always carries both when they differ.
+  const edited = entry.edited_at && entry.edited_at !== stamp ? entry.edited_at : null;
+  const byEdit = edited && noteSort === "edited";
+  date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
+  date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
+    (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
   metaEnd.appendChild(date);
   meta.appendChild(metaEnd);
 

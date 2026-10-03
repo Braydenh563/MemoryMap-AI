@@ -212,3 +212,14 @@ def test_archive_and_duplicate_behave():
     assert "pushUndo(" in archive
     duplicate = menus[menus.index('label: "ph:copy Duplicate"'):][:1500]
     assert "(copy)" in duplicate and "title:" not in duplicate.split("body: JSON.stringify(")[1][:400]
+
+
+def test_recently_edited_sort_copy_link_and_list_keys():
+    notes = _read("notes-list.js")
+    assert "edited: (a, b) => noteEditedTime(b) - noteEditedTime(a)" in _function(notes, "sortEntries")
+    assert '<option value="edited">Recently edited</option>' in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    keys = _function(notes, "initEntryListKeyboardNav")
+    for key in ('"Home"', '"End"', '"Delete"', '"F2"'):
+        assert key in keys, key
+    assert "binNoteWithUndo(entry)" in keys
+    assert "Copy [[link]]" in _read("menus.js")

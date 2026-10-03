@@ -8256,7 +8256,7 @@ onDomReady(() => {
       });
     });
   }
-  $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-images-refresh")?.addEventListener("click", () => renderLibraryImagesGallery());
   $("library-media-bulk-delete")?.addEventListener("click", bulkDeleteLibraryMedia);
   $("library-media-clear-selection")?.addEventListener("click", clearLibraryMediaSelection);
   //: Debounced like the Library's own search: every keystroke rebuilt every

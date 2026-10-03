@@ -2320,6 +2320,10 @@ async function refreshNoteSearchWhy() {
 
 // Sort comparator for the chosen mode (Wave J). Pinned always floats to
 // the top first, matching the server's own ordering.
+function noteEditedTime(entry) {
+  return Date.parse(entry.edited_at || entry.created_at || "") || 0;
+}
+
 function noteSortName(entry) {
   return (entry.title || notePreviewText(entry.content || "") || "").replace(/^[#\s]+/, "").trim();
 }
@@ -2329,6 +2333,10 @@ function sortEntries(entries) {
   const modes = {
     newest: (a, b) => b.id - a.id,
     oldest: (a, b) => a.id - b.id,
+    //: `edited_at` is set only when a person changes the text, title, tags or
+    //: category (not on opening or filing); a note never edited counts from
+    //: when it was written (INBOX 432).
+    edited: (a, b) => noteEditedTime(b) - noteEditedTime(a) || b.id - a.id,
     //: By what the card shows as its name, not the raw text (INBOX 432:
     //: every "# " heading sorted first), and "note 2" before "note 10".
     az: (a, b) => noteSortName(a).localeCompare(noteSortName(b), undefined, { numeric: true, sensitivity: "base" }),
@@ -2880,7 +2888,11 @@ function applyEntryListTabOrder(list) {
 function initEntryListKeyboardNav() {
   const list = $("entry-list");
   list.addEventListener("keydown", (event) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+    //: Home/End, Delete (to the bin, with Undo) and F2 (edit) on a focused
+    //: row, as a notes list answers them everywhere else (INBOX 432: only
+    //: the arrows and Enter did anything).
+    const keys = ["ArrowDown", "ArrowUp", "Enter", "Home", "End", "Delete", "F2"];
+    if (!keys.includes(event.key)) return;
     //: A note's own ⋯ menu lives inside its row, so its arrow keys bubble
     //: here too: ArrowDown in the menu moved to the next item and then this
     //: moved the focus out of the menu onto the row (measured, menus.js).
@@ -2890,12 +2902,24 @@ function initEntryListKeyboardNav() {
     const index = current ? items.indexOf(current) : -1;
     if (index === -1) return;
 
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (event.target === current && (event.key === "Delete" || event.key === "F2")) {
+      const entry = allEntries.find((e) => e.id === Number(current.dataset.id));
+      if (!entry || editingId === entry.id) return;
       event.preventDefault();
-      const nextIndex = Math.min(
-        Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0),
-        items.length - 1
-      );
+      const next = items[index + 1] || items[index - 1];
+      if (event.key === "F2") openNoteEditor(entry.id);
+      else binNoteWithUndo(entry).then(() => {
+        const again = next && document.querySelector(`#entry-list li[data-id="${next.dataset.id}"]`);
+        again?.focus();
+      });
+      return;
+    }
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const nextIndex =
+        event.key === "Home" ? 0
+          : event.key === "End" ? items.length - 1
+            : Math.min(Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0), items.length - 1);
       items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
       items[nextIndex].focus();
       // .focus() alone scrolls in most browsers, but not predictably, 

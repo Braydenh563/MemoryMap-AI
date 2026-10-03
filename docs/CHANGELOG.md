@@ -76,6 +76,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Speed: the reference chips on the note cards (asked for at every unlock) are read for a whole page of notes at once instead of four database queries per note, so sixty cards cost 6 statements rather than 242 and about a third of the time on 500 notes (172 to 53 ms), and 5.8 times less on 5,000 notes (2,267 to 388 ms, same machine and load); what they count is unchanged.
 - Speed: the dashboard's activity strip and heatmap read each recent note's day as a column instead of loading every note whole, text included; on 5,000 notes made within the year the heatmap went from 179 to 24 ms and the stats from 184 to 55 ms (same machine, interleaved runs).
 - Speed: the Library's Files & Images list (and the pickers that offer your uploads) works out where each file is used by asking the database for the notes, documents and board objects that mention `/media/` instead of loading every one; on 5,000 notes 140 ms became 9 ms (same machine, interleaved runs), with the same answers.
+- Speed: the first click of a session (the unlock) no longer waits for the reminder chime's audio device to open; it is made just after, when the browser is idle. The click's handlers went from 44 to 56 ms (the longest script on the lock screen) to under 1 ms in headless Chromium, and the chime still works (the context is running afterwards).
 
 ## [0.3.32] - 2026-09-28
 

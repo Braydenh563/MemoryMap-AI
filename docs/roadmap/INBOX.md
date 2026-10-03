@@ -54,6 +54,13 @@ with its owner named in the entry.
      badge recipe across the app, with a lint; (4) a UI/UX pass guided by
      the named skills, surface by surface, each change measured: the
      orchestrator, with agents per surface.
+     **Progress 2026-10-03 (consistency agent, (4)):** Chat (with its
+     sidebar and More panel), Dashboard, Timeline, Reminders, Graph's dock,
+     zoom and options, Settings' Background tasks and Import & export
+     passed, measured by `scratchpad/ui-sweeps/consist437probe.js` at 1440
+     and 390 (before and after in the CHANGELOG line). Left for (4): the
+     Settings chrome (search 42px, nav rows 35px) and Reminders' rows on a
+     phone (128px each, actions on a second line).
 
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user

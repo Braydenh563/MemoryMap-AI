@@ -2911,6 +2911,13 @@ header#top-bar select,
   color: var(--accent-text);
 }
 
+/* The weight is the name's, not the row's (INBOX 437 (4)): `font-weight: 600`
+   on the chosen row reached its date line too, the only meta line in the app
+   drawn bold. */
+#conversation-list li.active-conv .conv-meta {
+  font-weight: 400;
+}
+
 /* The whole row is the target now, so it must say so on the way in. */
 #conversation-list li {
   cursor: pointer;

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Consistency pass on Chat, Dashboard, Timeline, Reminders, Graph and two Settings sections (INBOX 437 (4)): Chat's message row is 36px like Capture and Ask (was 44) and its control strip, sidebar sort and More selects share the 32px control height (were 30 and 37), and the chosen chat's date line is no longer bold; the graph's zoom strip is 32px (was 34) and its options panel no longer cuts off the right column of switches; the Dashboard clock reads 8:11 like the Reminders one (was 08:11) and the name offer's two buttons are one height; today's day head on the Timeline is as tall as every other day (35px, was 47) and its count is the Graph's dock chip; Reminders' group counts are plain figures like every other group head, and from 1100px up the list no longer repeats the form's filled Add; Background jobs is a list of rows, not cards (659px, was 1,226), the file pickers match their buttons, and the four exports sit on one row with help that no longer repeats the line above it.
 - Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.
 - Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).
 - Backups: a manual backup that the disk refuses says why ("Couldn't save the backup: No space left on device.") instead of "Internal error".

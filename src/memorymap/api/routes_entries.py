@@ -396,9 +396,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # hand legible as a correction, and it is terminal for every
                 # reader, the composer's poller stops on anything but
                 # `pending`.
-                entry.filing_state = (
-                    manager.AUTO_FILED if janitor.is_ai_method(filed_by) else "done"
-                )
+                entry.filing_state = janitor.settled_state(filed_by)
                 # A model answer is still coming: the note is a stand-in
                 # until it lands, and is retried next launch if it never does.
                 if late.is_waiting and filed_by != "llm":
@@ -521,8 +519,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.source_title = body.source_title
     if defer:
         entry.filing_state = "pending"
-    elif janitor.is_ai_method(filed_by):
-        entry.filing_state = manager.AUTO_FILED
+    elif janitor.settled_state(filed_by) != "done":
+        entry.filing_state = janitor.settled_state(filed_by)
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible
@@ -885,6 +883,8 @@ def _filed_by(entry, state: str) -> str:  # noqa: ANN001
     """
     if getattr(entry, "user_filed", False):
         return "user"
+    if state == manager.WORDS_FILED:
+        return "words"
     if state in (manager.AUTO_FILED, manager.STAND_IN):
         return "ai"
     if state == "pending":
@@ -991,8 +991,8 @@ def add_context(
                 # The same two lines as the create paths: a category the AI
                 # chose here is one a later move by hand corrects, and without
                 # the flag that correction went unrecorded (Brief 13).
-                if janitor.is_ai_method(filed_by):
-                    entry.filing_state = manager.AUTO_FILED
+                if janitor.settled_state(filed_by) != "done":
+                    entry.filing_state = janitor.settled_state(filed_by)
                 session.commit()
         except Exception:
             logger.warning("re-filing after new context failed", exc_info=True)
@@ -1050,8 +1050,8 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
                     recategorised_to = category
                 # As on adding context: the AI owns this category now, so a
                 # move by hand is a correction the filing loop should read.
-                if janitor.is_ai_method(filed_by):
-                    entry.filing_state = manager.AUTO_FILED
+                if janitor.settled_state(filed_by) != "done":
+                    entry.filing_state = janitor.settled_state(filed_by)
             session.commit()
     except Exception:
         logger.warning("re-evaluation's filing step failed", exc_info=True)

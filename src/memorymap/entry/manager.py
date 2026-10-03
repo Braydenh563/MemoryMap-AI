@@ -447,6 +447,10 @@ AUTO_FILED = "auto"
 #: Filed by meaning because the model missed the wait; its answer replaces
 #: this when it lands, or on the next launch if the app closed first.
 STAND_IN = "standin"
+#: Filed by the notebook's own words with no model (`ai/lexical_filing.py`,
+#: INBOX 434): not the AI's decision, and said so, but like one in that a
+#: later move by hand is a correction the next filing learns from.
+WORDS_FILED = "words"
 #: Filing stopped by hand: nothing files it again unless asked (re-evaluate).
 FILING_STOPPED = "stopped"
 
@@ -512,7 +516,7 @@ def update_entry(
     it.
     """
     before_category = category_name_for(session, entry)
-    was_auto = (getattr(entry, "filing_state", "") or "") in (AUTO_FILED, STAND_IN)
+    was_auto = (getattr(entry, "filing_state", "") or "") in (AUTO_FILED, STAND_IN, WORDS_FILED)
     excerpt = readable_content(entry) or ""
     _update_entry_fields(session, entry, content, category_name, tags)
     after_category = category_name_for(session, entry)

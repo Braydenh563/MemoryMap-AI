@@ -34,6 +34,27 @@ with its owner named in the entry.
 
 ## Open items
 
+434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
+     the frontend, backend, function, utility and process for how the user
+     can write notes and make a note is insanely easy and fast?? It needs to
+     be world class. It it the whole reason for this notebook after all. It
+     needs to be very accurate, fast, easy, not complicated but with advanced
+     features, very robust and to actually work. It needs to be better than
+     all other notebooks out there, have multiple ways it can be done, have
+     extensive capabilities, and be the absolute gem of the app. It needs to
+     be this amazing even when the ai isn't available or accessible and then
+     even better with it."
+     Placed (one brief, after the frontend/js move lands): (1) a measured
+     audit of every way a note is made (Capture, New note, palette, keys,
+     paste, drop, share, templates, daily note, from a selection, desktop
+     quick capture) against Apple Notes, Obsidian, Bear, Keep and Drafts:
+     time from intent to typing, keystrokes to saved, what is lost on a
+     crash or a dead server; (2) filing without a model (local rules from
+     the notebook's own categories and tags, so "no AI" still files well),
+     better with one; (3) robustness (draft kept through reloads and
+     crashes, offline save queued, never a lost keystroke); (4) the gaps
+     the audit finds, fixed by impact, each measured.
+
 433. **The owner, 2026-10-03, verbatim.** "Also go through and make sure
      the whole app follows the Australia WCAG 2.2 accessibility standards.
      Use zoom testing, screen reader testing, and accessibility scans like
@@ -722,25 +743,6 @@ with its owner named in the entry.
     it is still elsewhere (with a `Tour:` log line when it is). Headless
     walks of all 15 steps at 1.25x scale, with and without real scrollbars,
     were correct before and after, so the owner's run is the test.
-
-393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
-    improvements, remove any trace of vibe coded stuff in elements, designs,
-    aesthetics styles, form, function, layout, structure. vendor and use skills
-    to help with ui and ux design. find bugs in usability. improve and expand
-    learnability and information architecture. further modernise and
-    professionalise the app. I lose trust in and refuse to use applications
-    with poor ui design and ui/ux issues as they make me feel like the app is
-    unreliable ... there needs to be more integration between all the main
-    features. and there needs to be more optimisiation." Placed: the identity
-    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
-    utilitarian"), built by a theme agent with the vendored design skills and
-    unslop-ui. Recommendation for the integration half, taken: one "act on
-    this" vocabulary for every object (note, document, board, map, file,
-    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
-    Link to, reached the same way from its card menu, the command palette and
-    a right-click, audited surface by surface against a table in
-    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
-    menu carries the shared rows.
 
 391. **The owner, 2026-09-23, with the Gemini/Antigravity pass on
     `fix/gemini-fixes-5` (1e63d87, 2c3e16e): "fix and refine the changes

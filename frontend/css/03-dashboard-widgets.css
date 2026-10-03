@@ -1677,6 +1677,74 @@ header#top-bar select,
   }
 }
 
+/* --- Quick access, and arranging it (INBOX 461) ------------------------------
+   The head is the label and the section's one menu (`kebabMenu`); while
+   arranging, it carries the count and Done instead. The tiles are the tiles
+   above, unchanged: arranging wraps each in a row with its own menu beside it
+   (Move left, Move right, Remove, the keyboard's way to reorder) and lets a
+   pointer drag it. The tile itself stops taking presses, so a drag never
+   opens the feature it started on. */
+.launch-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.launch-head .launch-label {
+  margin-right: auto;
+}
+
+.launch-count {
+  font-size: var(--text-sm);
+}
+
+.quick-edit-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  cursor: grab;
+}
+
+/* The menu sits inside the tile's right edge, where the hand already is, and
+   the tile keeps room for it so no hint runs under the glyph. */
+.quick-edit-tile > .quick-link {
+  flex: 1 1 auto;
+  padding-right: var(--space-9);
+  pointer-events: none;
+}
+
+.quick-edit-tile > .menu-wrap {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.quick-edit-tile.dragging {
+  opacity: 0.5;
+}
+
+.quick-edit-add {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.quick-pick-search {
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+.quick-pick-list {
+  max-height: min(24rem, 55vh);
+  overflow-y: auto;
+}
+
+.quick-pick-empty {
+  list-style: none;
+  padding: var(--space-4);
+}
+
 /* --- tools & features browser ---------------------------------------------- */
 #features-card {
   max-width: 46rem;

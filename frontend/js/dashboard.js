@@ -683,10 +683,15 @@ async function openAskFromDashboard() {
   }
 }
 
-//: The Start something tiles: what you can begin from here, each a verb with
-//: a line saying what happens. New note is the page's one primary.
+//: **Quick access's default five** (they were the "Start something" tiles):
+//: what you can begin from here, each a verb with a line saying what happens.
+//: New note is the page's one primary. The `id`s are what the stored list
+//: (`dashboard_quick_access`) holds; the person's own choices are added from
+//: the command palette's catalogue (`quickCatalogue`), never typed in here.
+const QUICK_ACCESS_MAX = 8;
 const QUICK_START = [
   {
+    id: "new-note",
     icon: "ph:pencil-simple",
     label: "New note",
     hint: "Atlas files it for you",
@@ -694,13 +699,15 @@ const QUICK_START = [
     run: () => startNewNote(),
   },
   {
+    id: "ask-ai",
     icon: "ph:chat-circle",
     label: "Ask AI",
     hint: "Answered from your notes",
     run: () => openAskFromDashboard(),
   },
-  { icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
+  { id: "sketch", icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
   {
+    id: "remind-me",
     icon: "ph:alarm",
     label: "Remind me",
     hint: "Say when, in plain words",
@@ -710,6 +717,7 @@ const QUICK_START = [
     },
   },
   {
+    id: "meeting-notes",
     icon: "ph:microphone",
     label: "Meeting notes",
     hint: "Record and transcribe",
@@ -1052,21 +1060,80 @@ function quickLinkButton(link) {
   return button;
 }
 
-//: **Start something** (the owner, of INBOX 436's first cut: keep the row,
-//: five icon cards with a title and a line under it, five across). Built from
-//: `QUICK_START` so the tiles and the Guide's description cannot drift.
+//: **Quick access** (INBOX 461; the owner of the Start something row: "make
+//: this a quick access section ... what is there can be default"). Up to
+//: `QUICK_ACCESS_MAX` tiles, the same five as before until the person
+//: arranges them. A tile is one of `QUICK_START` or a command from the
+//: palette's own registry (`paletteCommands`, settings-panes.js): any row that
+//: declares a `tab` or `reveal` has a stable key (`tab:x`, `reveal:x`) and the
+//: one line it already says about itself, so nothing here is a second list of
+//: what the app can do. A key that no longer names a command is dropped, and a
+//: list that resolves to nothing is the default five.
+function quickCatalogue() {
+  const out = new Map();
+  const abouts = paletteAbouts();
+  let rows = [];
+  try {
+    rows = paletteCommands();
+  } catch {
+    // A command that cannot be built must not take the dashboard with it.
+  }
+  for (const row of rows) {
+    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : "";
+    const parts = key && paletteRowParts(row, abouts);
+    if (parts && parts.about && !out.has(key)) out.set(key, { id: key, icon: parts.icon.replace(/^(ph:)?/, "ph:"), label: parts.label, hint: parts.about, run: row.run });
+  }
+  return out;
+}
+
+function quickAccessItems(saved, catalogue) {
+  const links = [];
+  for (const id of Array.isArray(saved) ? saved : []) {
+    const link = QUICK_START.find((l) => l.id === id) || catalogue.get(id);
+    if (link && !links.includes(link)) links.push(link);
+  }
+  return (links.length ? links : QUICK_START).slice(0, QUICK_ACCESS_MAX);
+}
+
+async function saveQuickAccess(ids) {
+  prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_quick_access: ids }) }).catch(() => prefsCache);
+}
+
+//: True while the row is being arranged: the editing view and its picker are
+//: quick-access.js (lazy: only a person who customises pays for it).
+let quickEditing = false;
+
+function quickAccessCurrent() {
+  return quickAccessItems(prefsCache?.dashboard_quick_access, quickCatalogue());
+}
+
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
+  if (quickEditing) return quickAccessEdit();
   const heading = document.createElement("p");
   heading.className = "launch-label";
-  heading.textContent = "Start something";
+  heading.textContent = "Quick access";
+  const menu = kebabMenu(
+    [
+      { label: "ph:sliders-horizontal Customise", title: "Add, remove and reorder these", run: () => { quickEditing = true; renderQuickLinks(); } },
+      {
+        label: "ph:arrow-counter-clockwise Reset to default",
+        title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes",
+        run: async () => { await saveQuickAccess([]); renderQuickLinks(); },
+      },
+    ],
+    "Quick access options",
+  );
+  const head = document.createElement("div");
+  head.className = "launch-head";
+  head.append(heading, menu);
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
-  for (const link of QUICK_START) row.appendChild(quickLinkButton(link));
+  for (const link of quickAccessCurrent()) row.appendChild(quickLinkButton(link));
   const group = document.createElement("div");
   group.className = "launch-group";
-  group.append(heading, row);
+  group.append(head, row);
   box.replaceChildren(group);
 }
 

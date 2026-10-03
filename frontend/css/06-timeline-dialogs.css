@@ -3274,12 +3274,32 @@
 }
 
 .wb-library-item {
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-4);
   background: var(--inner);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: grab;
   font-size: var(--text-md);
   user-select: none;
+  /* Two lines, cut at a word with an ellipsis (INBOX 463); never squeezed
+     by the list's column. */
+  flex: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+/* A row you can pick up says so under the pointer (INBOX 463: "no hover
+   state"), the same lift every other list row in the app gives. */
+.wb-library-item:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--border);
+}
+
+.wb-library-item:active {
+  cursor: grabbing;
 }
 
 .wb-card {

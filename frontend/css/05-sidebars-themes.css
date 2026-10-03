@@ -4496,6 +4496,14 @@ textarea.autogrow {
 
 #top-bar #brand-logo {
   flex: 0 0 auto;
+  width: var(--header-control-h);
+  height: var(--header-control-h);
+}
+
+/* The bar's icon buttons are squares of the bar's one height. */
+#top-bar :is(.header-cluster, .notif-wrap) > button.icon-only {
+  width: var(--header-control-h);
+  min-width: var(--header-control-h);
 }
 
 

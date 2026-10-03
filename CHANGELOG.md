@@ -10,6 +10,9 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Notes (INBOX 455 (1)): a note's details line is one line on every card. Tags and suggestions that do not fit fold into one "+N" that lists them (a tag filters, a suggestion is taken), then the other facts keep only their icon; the time is always the line's last fact at its right edge (at 1100, 6 of 10 seeded cards wrapped and the time sat on a line of its own on some; now none, one date x per width at 1440, 1100, 820 and 390). The low-score warning sits beside the category.
+- Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.
+- Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.
+- Settings: a section's jump strip marks the heading you chose, even near the end of a short page where it used to mark the last one.
 - Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".
 - Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.
 - View toggles (Library, Notes, Timeline, Reminders): the selected segment sits inside its well with 4px all round; it was 4px down, flush on the well's bottom edge, and by touch it spilled 16px out.

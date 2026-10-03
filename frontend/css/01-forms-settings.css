@@ -586,6 +586,13 @@ button.ghost:not(.icon-only, .icon-button) > .ph-lead {
   color: var(--accent-text);
 }
 
+/* Unless the button is on: then its fill is the accent (or an accent tint)
+   and an accent icon on it all but vanished (INBOX 464, the whiteboard's
+   Library button). The icon takes the label's colour, whatever paints it. */
+button.ghost:is(.active, .is-on, [aria-pressed="true"], [aria-expanded="true"]):not(.icon-only, .icon-button) > .ph-lead {
+  color: inherit;
+}
+
 /* Not on a destructive one: Stop's square was accent blue beside red text,
    and sat off the text's centre line (release). A danger button's icon takes
    its own colour and the row centres it. */

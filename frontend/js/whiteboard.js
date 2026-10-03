@@ -10780,7 +10780,9 @@ function renderWbLibrary() {
     // whiteboard's own card renderer two hundred lines up included, so this
     // was the last place a note's markdown leaked into a label.
     const text = notePreviewText(entry.content || entry.preview || "");
-    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "…" : text) : entry.id;
+    //: Two lines cut by the stylesheet at a word, not 40 characters cut by
+    //: code mid-word ("This g...", INBOX 463).
+    li.textContent = text ? text.replace(/\s+/g, " ").trim().slice(0, 240) : entry.id;
     li.title = text || String(entry.id);
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {

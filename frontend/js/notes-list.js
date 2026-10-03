@@ -590,7 +590,10 @@ function renderEditForm(li, entry) {
         let base = entry.content_hash;
         for (;;) {
           try {
-            await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ ...after, base_hash: base }) });
+            await api(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...after, base_hash: base, ai_assisted: textarea.dataset.aiTouched === "1" }),
+            });
             break;
           } catch (error) {
             if (!isEditConflict(error)) throw error;
@@ -3030,12 +3033,54 @@ function initEntryListKeyboardNav() {
   });
 }
 
+//: **A category's colour, from one function.** The one the person chose
+//: (Manage categories, Colour; `categoryMeta`, just below, carries it as a palette key or a
+//: `#rrggbb`), else `automatic`, which each surface passes in because they
+//: have always drawn their own: a hash of the name into the ten hues the
+//: graph's legend uses for a dot, the place in the sorted list for a graph
+//: node. Every dot, chip, node and legend swatch asks here, so a choice
+//: shows everywhere at once. A dot carries it, never the text, so the name
+//: stays at full contrast. The twelve hues are the swatches the picker draws
+//: and each reads at 3:1 or better as a dot on the lightest and darkest
+//: surface of both themes (tests/test_category_colour.py computes it);
+//: routes_categories.py holds the same keys.
+const CATEGORY_PALETTE = {
+  red: "#da5252", orange: "#ba6d36", amber: "#9e7c17", lime: "#6d8a14", green: "#15952b", teal: "#159172",
+  cyan: "#178ca3", blue: "#387fe3", indigo: "#6a74ea", violet: "#9b63e9", magenta: "#d332e2", pink: "#ce5591",
+};
+const CATEGORY_AUTO_COLOURS = [
+  "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
+  "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#8cd17d",
+];
+function categoryColour(name, automatic = null) {
+  const chosen = categoryMeta.get(name)?.colour;
+  if (chosen) return Object.hasOwn(CATEGORY_PALETTE, chosen) ? CATEGORY_PALETTE[chosen] : chosen;
+  return automatic;
+}
+function categoryAutoDot(name) {
+  let h = 0;
+  for (const ch of String(name || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return CATEGORY_AUTO_COLOURS[h % CATEGORY_AUTO_COLOURS.length];
+}
+const categoryDotColour = (name) => categoryColour(name, categoryAutoDot(name));
+//: A dot that can be repainted: it remembers whose it is, so a colour chosen
+//: while it is on screen reaches it without a redraw of the list.
+function paintCategoryDot(el, name) {
+  el.dataset.categoryDot = name;
+  el.style.setProperty("--category-dot", categoryDotColour(name));
+}
+function categoryColoursChanged() {
+  for (const el of document.querySelectorAll("[data-category-dot]")) paintCategoryDot(el, el.dataset.categoryDot);
+  document.dispatchEvent(new Event("categorycolours"));
+}
+
 // name -> {id, count}. Needed because renaming and deleting work on ids,
 // while the sidebar itself is built from the entries already in memory.
 let categoryMeta = new Map();
 
 async function loadCategories() {
   const rows = await apiJson("/categories", { silent: true }).catch(() => []);
+  const was = categoryMeta;
   //: In All spaces two spaces can each have a "Work"; the server lists the
   //: bigger first, and the first is kept (INBOX 432: the empty one used to
   //: overwrite it, so the panel said "Work, 0 notes" and renamed the wrong
@@ -3043,6 +3088,9 @@ async function loadCategories() {
   categoryMeta = new Map();
   for (const row of rows) if (!categoryMeta.has(row.name)) categoryMeta.set(row.name, row);
   renderSidebar();
+  //: Only when a colour moved: this runs after every category change, and the
+  //: map and the dashboard redraw when told.
+  if (rows.some((c) => (c.colour || null) !== (was.get(c.name)?.colour || null))) categoryColoursChanged();
 }
 
 function renderSidebar() {
@@ -3260,6 +3308,7 @@ let manageCategoriesRedraw = null;
 function categoryMenuItems(meta, { inPanel = false } = {}) {
   const items = [
     { label: "ph:pencil-simple Rename…", title: `Rename ${meta.name}`, run: () => renameCategory(meta, meta.name) },
+    { label: "ph:palette Colour…", title: `Choose the colour of ${meta.name}`, run: () => pickCategoryColour(meta) },
     { label: "ph:arrows-merge Merge into…", title: `Move every note in ${meta.name} into another category`, run: () => mergeCategoryFromPanel(meta) },
     { label: "ph:arrows-split Split…", title: `Move some of ${meta.name}'s notes into a new category`, run: () => splitCategoryFromPanel(meta) },
     { label: "ph:trash Delete…", title: `Delete ${meta.name}; its notes are kept`, danger: true, group: "danger", run: () => deleteCategoryFromPanel(meta) },
@@ -3289,27 +3338,6 @@ function wireCategoryDropTarget(li, category) {
     event.preventDefault();
     await moveNotesToCategory([id], category);
   });
-}
-
-//: Moving chosen notes, from the batch bar's Move to or a drop: one call,
-//: one toast, one undo.
-async function moveNotesToCategory(ids, category) {
-  try {
-    const result = await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
-    const previous = result.previous;
-    if (previous.length) {
-      offerCategoryUndo(
-        `Moved ${previous.length} note${previous.length === 1 ? "" : "s"} to "${category}".`,
-        () => restoreCategoryMoves(previous),
-        () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: previous.map((p) => p.id), category }) })
-      );
-    }
-    await refreshAfterCategoryChange();
-    return result;
-  } catch (error) {
-    toast(error.message, true);
-    return null;
-  }
 }
 
 // Loading skeletons (Wave I): shimmer placeholders instead of a blank

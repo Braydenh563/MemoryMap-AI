@@ -1900,7 +1900,7 @@ def all_categories(session: Session) -> list[dict]:
         for category_id, total in session.execute(query.group_by(Entry.category_id))
     }
     out = [
-        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}
+        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0), "colour": c.colour}
         for c in rows
     ]
     out.sort(key=lambda c: (-c["count"], c["name"].lower()))

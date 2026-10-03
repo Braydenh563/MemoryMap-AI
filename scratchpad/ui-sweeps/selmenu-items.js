@@ -15,16 +15,35 @@ const { boot } = require('./lib.js');
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
 
   const select = async () => {
-    await page.keyboard.press('Escape');
-    await page.evaluate(() => { switchTab('notes'); document.querySelector('[data-section="browse"]')?.click(); });
+    //: Back to a clean Notes list without a reload (a reload locks the app):
+    //: close whatever the last item opened, then select the first note's
+    //: opening words with the real mouse.
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Escape');
+    await page.evaluate(() => {
+      document.querySelectorAll('.modal:not(.hidden), .overlay:not(.hidden)').forEach((m) => m.classList.add('hidden'));
+      switchTab('notes');
+      document.querySelector('[data-section="browse"]')?.click();
+      getSelection().removeAllRanges();
+      if (typeof noteSearch !== 'undefined' && noteSearch) { noteSearch = ''; document.getElementById('note-search').value = ''; renderEntries(); }
+    });
     await page.waitForTimeout(1200);
-    const el = await page.$('#entry-list > li');
-    const b = await el.boundingBox();
-    await page.mouse.move(b.x + 20, b.y + 18);
+    const box = await page.evaluate(() => {
+      const li = document.querySelector('#entry-list > li');
+      const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.textContent.trim().length > 12 && !n.parentElement.closest('button, .entry-meta, .entry-actions') ? 1 : 3) });
+      const node = walker.nextNode();
+      if (!node) return null;
+      const range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, Math.min(node.textContent.length, 20));
+      const r = range.getBoundingClientRect();
+      return { x: r.left, y: r.top + r.height / 2, w: r.width };
+    });
+    if (!box) throw new Error('no text in the first note');
+    await page.mouse.move(box.x + 1, box.y);
     await page.mouse.down();
-    await page.mouse.move(b.x + 260, b.y + 22, { steps: 8 });
+    await page.mouse.move(box.x + box.w - 1, box.y, { steps: 8 });
     await page.mouse.up();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
     const opener = await page.$('.selection-popup:not(.hidden) [aria-haspopup]');
     if (!opener) throw new Error('no ⋯ after selecting');
     await opener.click();

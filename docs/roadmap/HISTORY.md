@@ -36157,3 +36157,17 @@ width, 47% of the column at 1440.
      confidence fact on the card; (2) one `.att-card` recipe, its actions in
      one menu (attachment-actions.js, lazy).
 
+444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
+     a major expansion, improvement and modern/professional ui/ux modern
+     redesign of the models settings page suggested downloads section. also
+     just how the settings operate. the settings needs better designing,
+     rearrangement, better internal navigation and cleaning up." Placed: a
+     measured audit of Settings (sections, groups, controls per section,
+     scroll depth, duplicated controls), then a rearranged information
+     architecture, internal navigation (search, a section index, deep links)
+     and the Models suggested downloads redesigned as model cards: a Sonnet
+     agent. **Fixed**: six nav groups, a Search and index section, setting
+     search and section index (settings-find.js), model cards with fit,
+     memory and one action, and "Download another model" (settings-models.js);
+     UI_MODERNISATION_PLAN, Settings information architecture.
+

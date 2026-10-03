@@ -889,7 +889,7 @@ _RECENCY_ASK = re.compile(
     #: "What have I saved recently?" (INBOX 441): the whole question is the
     #: verb and the time word, nothing between them to search for. A topic
     #: in between ("written about golf recently") stays a search.
-    r"|^\s*what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)\s*[?.!]?\s*$",
+    r"|^\s*what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)\s*(?:[?.!]\s*)?$",
     re.IGNORECASE,
 )
 

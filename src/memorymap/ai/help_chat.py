@@ -746,7 +746,7 @@ HELP_TOPICS.extend(
                 "Appearance: it switches off the glass, the background art and most "
                 "animation. The built-in search engine uses about 650 MB of memory "
                 "while the app is open; choosing Ollama's nomic-embed-text for "
-                "embeddings in Settings, Models keeps MemoryMap itself near 100 MB."
+                "embeddings in Settings, Search and index keeps MemoryMap itself near 100 MB."
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },

@@ -1650,6 +1650,20 @@ function graphRenderer() {
   return localStorage.getItem("graph-renderer") === "svg" ? "svg" : "canvas";
 }
 
+//: **The map's category colours.** Its own ordinal scale supplies the
+//: automatic colour (a category's place in the sorted list, so the same
+//: notebook always draws the same), and `categoryColour` (notes-list.js) puts the one
+//: the person chose over it, so the legend, the nodes, the minimap and the
+//: local map all agree with the dots in Notes. A colour chosen while the map
+//: is on screen redraws it.
+function graphCategoryScale(categories) {
+  const scale = d3.scaleOrdinal(categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  return (name) => categoryColour(name, scale(name));
+}
+document.addEventListener("categorycolours", () => {
+  if (document.getElementById("graph-canvas")?.checkVisibility?.()) renderGraph();
+});
+
 async function renderGraph() {
   const svg = document.getElementById("graph-svg");
   const canvas = document.getElementById("graph-canvas");
@@ -1725,10 +1739,7 @@ async function renderGraphSvg() {
   graphMinimapShown(data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
-  const color = d3.scaleOrdinal(
-    data.categories,
-    d3.schemeTableau10.concat(d3.schemeSet3)
-  );
+  const color = graphCategoryScale(data.categories);
   const clusterColour = d3.scaleOrdinal(
     d3.schemeTableau10.concat(d3.schemeSet3)
   );

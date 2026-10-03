@@ -37,8 +37,6 @@ from memorymap.core.security import UnsafeUrl, is_internal_address, public_addre
 from memorymap.core import webclip
 from memorymap.core.privacy_http import (  # noqa: F401 - the old names stay importable from here
     PRIVACY_HEADERS,
-    TRACKING_PARAMS as _TRACKING_PARAMS,
-    USER_AGENT,
     PinnedAdapter as _PinnedAdapter,
     pin_url as _pin_url,
     strip_tracking,

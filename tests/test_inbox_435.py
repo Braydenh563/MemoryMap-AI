@@ -116,3 +116,11 @@ def test_an_image_line_being_edited_keeps_its_picture():
     docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     assert "new DocImageWidget(src, text.slice(2, close), true), side: 1" in docs
     assert '".cm-md-image-under"' in docs
+
+
+def test_the_source_choice_stays_with_the_boxes_that_have_the_toggle():
+    """INBOX 447: Source pressed in Capture was remembered for every note box,
+    so the graph popup (no toggle) showed raw markdown and image links."""
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    assert 'NOTE_SOURCE_HOSTS = new Set(["entry-content", "entry-edit-content"])' in docs
+    assert "noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live" in docs

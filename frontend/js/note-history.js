@@ -65,6 +65,7 @@ async function openEntryHistory(entry) {
     const head = document.createElement("p");
     head.className = "muted";
     head.textContent = `${HISTORY_ACTION_WORDS[item.action] || item.action} ${relativeTime(item.created_at)}`;
+    head.title = new Date(item.created_at).toLocaleString(); // the exact time, on hover and to a reader
     const actor = historyActorLabel(item.actor);
     if (actor) {
       const chip = document.createElement("span");

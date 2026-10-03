@@ -1239,7 +1239,10 @@ const HISTORY_ACTION_WORDS = {
 function historyActorLabel(actor) {
   // "ai:summarise" and "system:auto-file" carry the half worth reading after
   // the colon; "user" is everything a person did and needs no chip at all.
-  if (!actor || actor === "user") return "";
+  //: Every change says whose it was (INBOX 446, the owner: "I cant
+  //: distinguish between personal or ai edits or mixed edits").
+  if (!actor || actor === "user") return "You";
+  if (actor === "user+ai") return "You and Atlas";
   const [kind, rest] = [actor.slice(0, actor.indexOf(":")), actor.slice(actor.indexOf(":") + 1)];
   //: `ai:<tool>@<model>` since 0.3.32: which model made the change.
   if (kind === "ai") {

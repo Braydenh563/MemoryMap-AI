@@ -59,11 +59,16 @@ class Embedder(Protocol):
 # approximate. They matter more than the parameter count here: a 7B at Q4 and
 # a 3B at Q8 land in the same place on an 8 GB machine.
 #
+# An entry may carry `ram_gb`, the memory the purpose line says it needs
+# ("Needs ~16 GB"); without it `model_cards.ram_needed_gb` estimates one from
+# the download size. Everything else a card shows (what it is good at, the
+# starting pick, whether it fits this computer) is derived in `model_cards`.
+#
 # This is a hand-maintained list against a registry that moves, so a tag here
 # can go stale. That fails safely and legibly: the pull returns Ollama's own
 # "model not found" and the Models screen shows it, rather than the app
 # pretending to know something it doesn't. Nothing else reads these names.
-SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
+SUGGESTED_MODELS: dict[str, list[dict]] = {
     # Split by type (text / vision / embedding / moe), asked for directly, 
     # this dict drives the Settings -> Models suggested-downloads list
     # generically (frontend/js/ai-tools.js's renderSuggested() does a plain
@@ -117,8 +122,8 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
          "purpose": "MoE, quantisation-aware 4-bit: e2b answers at roughly half the download"},
         {"name": "hf.co/unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL", "size": "~5.3 GB",
          "purpose": "MoE, quantisation-aware 4-bit: e4b answers at roughly half the download"},
-        {"name": "gemma4:26b", "size": "~19 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
-        {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
+        {"name": "gemma4:26b", "size": "~19 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB", "ram_gb": 16},
+        {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB", "ram_gb": 24},
     ],
     "embedding": [
         {"name": "nomic-embed-text", "size": "~274 MB", "purpose": "Solid general-purpose embeddings"},
@@ -155,7 +160,7 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "llava", "size": "~4.7 GB", "purpose": "General-purpose vision, the longest-established option"},
         {"name": "qwen2.5vl:7b", "size": "~6.0 GB", "purpose": "Strong all-round vision and text reading"},
         {"name": "qwen3-vl:8b", "size": "~6.1 GB", "purpose": "The largest of the small Qwen3-VL tags"},
-        {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
+        {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB", "ram_gb": 24},
     ],
     # Document readers, as opposed to the general vision models above. Asked
     # for by name (deepseek-ocr, glm-ocr, qwen3-vl).
@@ -186,7 +191,7 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "hf.co/unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M", "size": "~2.5 GB",
          "purpose": "Reads documents and answers about them, a VLM as well as a reader"},
         {"name": "hf.co/ggml-org/DeepSeek-OCR-GGUF:Q8_0", "size": "~3.6 GB",
-         "purpose": "The most accurate on dense and handwritten pages. Needs ~8 GB"},
+         "purpose": "The most accurate on dense and handwritten pages. Needs ~8 GB", "ram_gb": 8},
     ],
 }
 

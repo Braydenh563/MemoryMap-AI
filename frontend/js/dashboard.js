@@ -1313,7 +1313,8 @@ function featureCatalog() {
       { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", reveal: "set-export" },
       { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", reveal: "set-import-md" },
       { name: "Backups", desc: "Snapshot your notebook and restore it later.", reveal: "set-backups" },
-      { name: "Models", desc: "Choose the chat, utility and embedding models.", reveal: "settings:models" },
+      { name: "Models", desc: "Choose the chat, utility, vision and reading models, and download more.", reveal: "settings:models" },
+      { name: "Search and index", desc: "The search engine, the index it builds, and how strict a match must be.", reveal: "settings:searchindex" },
       { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", reveal: "settings:tools" },
       { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", reveal: "settings:tasks" },
       { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", reveal: "settings:extras" },
@@ -1959,6 +1960,22 @@ function hueFor(name) {
   return hash;
 }
 
+//: The constellation paints in hue, so a colour the person chose (Manage
+//: categories, Colour) gives its hue and an automatic one keeps `hueFor`.
+function categoryHue(name) {
+  const hex = categoryColour(name);
+  if (!hex) return hueFor(name);
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const spread = Math.max(r, g, b) - Math.min(r, g, b);
+  if (!spread) return 0;
+  const sector = Math.max(r, g, b) === r ? ((g - b) / spread) % 6 : Math.max(r, g, b) === g ? (b - r) / spread + 2 : (r - g) / spread + 4;
+  return Math.round(sector * 60 + 360) % 360;
+}
+//: A colour chosen while the dashboard is showing redraws it.
+document.addEventListener("categorycolours", () => {
+  if ($("dash-grid")?.checkVisibility?.()) renderDashboard();
+});
+
 // A deterministic seed from the category names + counts: the sky is
 // stable for a given notebook, and shifts only as the notebook changes.
 function artSeed(categories) {
@@ -1993,7 +2010,7 @@ function buildArtParticles(p, categories, total, width, height) {
   const groups = categories.length ? categories : [{ name: "Notes", count: 1 }];
   const particles = [];
   for (const group of groups) {
-    const hue = hueFor(group.name);
+    const hue = categoryHue(group.name);
     // 3 base stars, plus more for a bigger share of the notebook (capped).
     const count = Math.max(3, Math.min(16, Math.round((group.count / total) * 70) + 3));
     const cx = p.random(width * 0.15, width * 0.85);
@@ -2057,7 +2074,7 @@ async function renderArtWidget(body) {
         item.className = "art-legend-item";
         const dot = document.createElement("span");
         dot.className = "art-legend-dot";
-        dot.style.background = `hsl(${hueFor(cat.name)}, 70%, 55%)`;
+        dot.style.background = categoryColour(cat.name, `hsl(${hueFor(cat.name)}, 70%, 55%)`);
         item.append(dot, document.createTextNode(`${cat.name} · ${cat.count}`));
         legend.appendChild(item);
       }
@@ -2921,6 +2938,9 @@ async function renderCategoriesWidget(body) {
     track.className = "cat-track";
     const fill = document.createElement("span");
     fill.className = "cat-fill";
+    //: Accent unless the person gave this category a colour.
+    const chosen = categoryColour(name);
+    if (chosen) fill.style.setProperty("--cat-fill", chosen);
     fill.style.width = `${Math.max(6, (count / max) * 100)}%`;
     track.appendChild(fill);
     const num = document.createElement("span");

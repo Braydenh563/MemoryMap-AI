@@ -5007,6 +5007,23 @@ Link to another note with [[its first few words]]."></textarea>
               <input id="skills-search" class="skills-search" type="search"
                 placeholder="Search skills…" aria-label="Search your skills">
             </div>
+            <!-- The arrange zone the comment above said a skill library did not
+                 have. It has one now: 24 built-in skills drown the handful
+                 someone wrote, so the two kinds are a segment (INBOX 445 (1))
+                 and the order is one select. Both are drawn and wired by
+                 `renderSkillsDashboard`'s counts; the ids are stable. -->
+            <div class="dock-group dock-arrange">
+              <div class="seg" id="skills-kind" role="group" aria-label="Which skills to show">
+                <button type="button" class="active" data-kind="all" aria-pressed="true"><i class="ph ph-stack ph-lead" aria-hidden="true"></i> All <span data-count></span></button>
+                <button type="button" data-kind="yours" aria-pressed="false"><i class="ph ph-user ph-lead" aria-hidden="true"></i> Yours <span data-count></span></button>
+                <button type="button" data-kind="builtin" aria-pressed="false"><i class="ph ph-package ph-lead" aria-hidden="true"></i> Built-in <span data-count></span></button>
+              </div>
+              <select id="skills-sort" aria-label="Sort skills" title="Sort skills">
+                <option value="yours">Yours first</option>
+                <option value="az">Name A → Z</option>
+                <option value="recent">Recently run</option>
+              </select>
+            </div>
             <div class="dock-actions">
               <button id="skills-add-new" class="small" type="button"
                 title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
@@ -6831,8 +6848,10 @@ Link to another note with [[its first few words]]."></textarea>
           <details class="doc-dock-menu dock-menu dock-more" id="contents-more">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">
+              <button id="contents-expand" class="doc-dock-menu-item" type="button"
+                title="Open every section, and every document's headings"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i> Expand all</button>
               <button id="contents-collapse" class="doc-dock-menu-item" type="button"
-                title="Collapse or expand every section"><i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> <span data-collapse-label>Collapse all</span></button>
+                title="Fold every section and every document's headings"><i class="ph ph-arrows-in-line-vertical ph-lead" aria-hidden="true"></i> Collapse all</button>
             </div>
           </details>
         </div>
@@ -6842,12 +6861,14 @@ Link to another note with [[its first few words]]."></textarea>
         vault. Filter it, fold a section away, or jump straight to one. For the
         visual map of how notes link to each other, see the Graph tab.</p>
       <nav id="contents-jump" class="contents-jump" aria-label="Jump to a section"></nav>
-      <div id="contents-outline" class="contents-outline"></div>
+      <p id="contents-summary" class="muted text-xs contents-summary" role="status" aria-live="polite"></p>
+      <p id="contents-hint" class="muted contents-folder-hint hidden"></p>
+      <div id="contents-outline" class="contents-outline" role="tree" aria-label="Notebook index"></div>
       <p id="contents-no-match" class="muted hidden"></p>
       <div id="contents-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">Nothing to outline yet</p>
-        <p>Write a few notes and they'll show up here, grouped and linked.</p>
+        <p>Write a few notes or documents and they'll show up here, grouped and linked.</p>
         <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
       </div>
     </section>

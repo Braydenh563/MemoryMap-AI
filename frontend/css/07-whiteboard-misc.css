@@ -1012,6 +1012,36 @@
   flex: 1;
 }
 
+/* Does it write? The same warn ink Settings gives "Changes notes"
+   (`.item-writes`, 08-consistency.css); a read-only skill stays muted. */
+.skill-fact-writes {
+  color: var(--warn);
+}
+
+/* The outcome of the last run, by glyph and by ink: a finished run in the
+   accent, one that stopped at a step in the warn ink. Never colour alone: the
+   glyph and the words both say it. */
+.skill-card-when[data-state="ok"] {
+  color: var(--accent-text);
+}
+
+.skill-card-when[data-state="stopped"] {
+  color: var(--warn);
+}
+
+/* The card's ⋯ sits at the footer's far end, after Run and Edit. */
+.skill-card-more {
+  margin-inline-start: auto;
+}
+
+.skills-workers-state {
+  margin-inline-start: auto;
+}
+
+#skills-empty {
+  margin-top: var(--space-6);
+}
+
 .skill-card-footer {
   display: flex;
   /* Run first and on the left. It is the reason the card exists, and a
@@ -2084,7 +2114,13 @@ body.has-agent-monitor #timeline-scroll {
    without touching `.seg` generally, which other, already-similar-length
    segmented controls (Open/All/Done, List/Calendar) don't need. */
 .library-subtabs button {
-  min-width: 6.5rem;
+  /* **Content-sized, like the Notes strip.** This had a 6.5rem width floor, made
+     for the three-letter "All", and it made the gaps between labels
+     uneven: "All", "Files" and "Images" sat in 104px boxes with 30 to 40px of
+     air either side of the word, while "Boards & maps" had 20px. The tab-strip
+     recipe is one padding either side of the word (`.notes-subtabs button`),
+     so the space between any two neighbouring labels is the same 2 x padding. */
+  flex: 0 0 auto;
   text-align: center;
   /* Same height as the Notes strip's buttons: see `.notes-subtabs button`. */
   height: var(--control-h-lg);

@@ -2620,6 +2620,54 @@ button:not(.ghost) > .spinner {
   padding: var(--space-2);
 }
 
+/* **Documents in the index, with their headings under them.** A document row
+   is a tree item like a note's; when it has headings it carries a caret and
+   opens in place. Open, it takes the whole row of the multi-column list (a
+   subtree squeezed into one 24rem track reads as a column of fragments), and
+   its headings are a plain indented column under it, deeper headings one
+   step further in (`--depth`, set by the builder). */
+.contents-summary {
+  margin: var(--space-3) 0 0;
+}
+
+.contents-doc {
+  flex-wrap: wrap;
+}
+
+.contents-doc.is-open {
+  grid-column: 1 / -1;
+}
+
+.contents-doc-icon {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.contents-doc:not(.is-open) .contents-doc-caret {
+  transform: rotate(-90deg);
+}
+
+.contents-subtree {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contents-list li a.contents-heading-row {
+  /* The builder sets this on the element (how many levels deeper than the
+     document's top heading); 0 is the resting value. */
+  --depth: 0;
+  padding-inline-start: calc(var(--space-9) + var(--depth) * var(--space-6));
+}
+
+/* The tree's focused item must be findable without the pointer: the hover
+   ground alone is a 1.1:1 change on some looks, so the focus ring is drawn. */
+.contents-outline [role="treeitem"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* The jump bar: one chip per section, so a long index has a top-level index
    of its own. Scrolls sideways rather than wrapping to four rows on a
    notebook with thirty categories. */

@@ -34,7 +34,9 @@ work starts.
    the easing between lie and curl frames; the desktop window (webview) and
    the tour; error states, long lists and every notice kind (the seeded
    notebook never reaches them); the Documents dock with a document open.
-6. **Found, not fixed:** the "Show more" link on one-line note cards; the
+6. **Found, not fixed:** the "Show more" link on one-line note cards
+   (not reproduced 2026-10-03: no visible Show more on any short card at
+   1440, PR 162); the
    round capsule on note link chips (a deliberate design, review it).
 7. **Masculine Atlas lower body** (the owner, at release, with a close-up):
    "too straight and pointy and not flowy, it should be a main thick whisp in
@@ -42,7 +44,8 @@ work starts.
    sides". Today it is several parallel straight spikes. Target: one thick
    central wisp that tapers softly, with thinner curved strands peeling off
    both sides, all with gentle S-curves and a slow sway; no hard points.
-8. **The owner at release, with screenshots:** (a) the notes dock's Select
+8. **The owner at release, with screenshots:** (a) verified 2026-10-03
+   (PR 162: active Select reads 7.69:1 light, 8.01:1 dark); was: the notes dock's Select
    toggle when active has poor contrast (a filled accent square with a
    faint check); check every toggled icon button; (b) "Start today's note"
    sits beside "Today": decide left or right against the Timeline's
@@ -65,7 +68,8 @@ work starts.
     (c) Atlas floats in empty space when the Find anything dialog is open;
     it should hide, or perch on the dialog's edge, while a modal is up;
     (d) a small gap between a note card's text and its metadata row;
-    (e) the note edit form's "fit toolbar on one row" toggle does nothing;
+    (e) verified working 2026-10-03 (PR 162: the edit form's strip 88 to
+    46px and back): the note edit form's "fit toolbar on one row" toggle does nothing;
     (f) related-note badges and their Link buttons are different heights;
     (g) help answers, "From the help": the entry title ("Skills") is tiny
     against the body; give it heading size;
@@ -82,7 +86,8 @@ work starts.
     add hysteresis (a dead zone past the midpoint and a short dwell);
     (l) the companion's perch in the chat sidebar looked unsupported
     (floating beside a conversation row); check the perch edges there.
-    (n) "Show me my last entry" answered with an older note (the owner at
+    (n) **done 2026-10-03, PR 162** (`tests/test_recency_questions.py`;
+    the prompt is right, a 1.5B model still misreads it): "Show me my last entry" answered with an older note (the owner at
     release): chat and Ask give the model no dates for their notes (only
     the weekly digest passes `written`, librarian.py `_written_hint`), so it
     guesses from the source numbering. Pass created and edited dates for
@@ -126,7 +131,8 @@ work starts.
     prefer the status bar's own `legs`/stand spot there, which never scrolls;
     (6) graph labels: with Labels on the map is busy; consider labelling
     only notes with 2+ links unless zoomed in;
-    (7) Notes, Capture: Preview crushes the line-number gutter to a sliver
+    (7) gone 2026-10-03: Preview is replaced by the Live/Source switch
+    (PR 162). Was: Notes, Capture: Preview crushes the line-number gutter to a sliver
     (the gutter keeps its column in preview, or hides with it).
     Done at release: thinking words rotate 1.5x slower; "Writing the answer"
     sits beside the dots, tips under them; Name with Atlas toasts its start

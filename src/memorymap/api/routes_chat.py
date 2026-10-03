@@ -67,7 +67,7 @@ from memorymap.core.database import (
     Reminder,
     like_escape,
 )
-from memorymap.core.config import user_now
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -875,6 +875,20 @@ def _note_dates(entry, zone) -> str:  # noqa: ANN001
     return f"{written}, edited {edited}" if edited and edited != written else written
 
 
+def _time_words(dates, today) -> list[str]:  # noqa: ANN001
+    """Each resolved time phrase in a note, worded for the model with how far
+    it is from today: '"this Friday" meant Friday 25 September 2026, 8 days
+    ago' (INBOX 441). The app resolves the phrase against the day the note was
+    written; without this the model read "this Friday" as this week's."""
+    out = []
+    for item in dates:
+        when = item.at
+        day = f"{when:%A} {when.day} {when:%B %Y}"
+        span = day if item.precision == "day" else f"the {item.precision} of {day}"
+        out.append(f'"{item.phrase}" meant {span}, {days_from_today(when.date(), today)}')
+    return out
+
+
 def _media_readings(session: Session, content: str) -> str:
     """What the app already knows about the pictures inside a note.
 
@@ -1097,9 +1111,12 @@ def _prepare(
             #: with no dates a model guessed "your last entry" from the order
             #: the notes were listed in.
             "written": _note_dates(entry, zone),
+            "dates": _time_words(time_words.get(entry.id, []), today),
         }
 
-    zone = user_now(deps.get_config()).tzinfo
+    now = user_now(deps.get_config())
+    zone, today = now.tzinfo, now.date()
+    time_words = manager.entry_dates_bulk(session, [entry.id for entry in entries])
     notes = [as_note(entry) for entry in entries]
     #: Listed newest first for "my last note": said on the first, which a
     #: small model otherwise ignores the order of (measured on a 1.5B model).

@@ -1264,6 +1264,11 @@ class MediaUploadOut(BaseModel):
     #: is already here, and a byte count would cost one `stat` per row on
     #: every gallery load for a number nobody asked for.
     created_at: str = ""
+    #: Bytes on disk, filled by `media_meta` only (one `stat` for the one file
+    #: asked about, which the listing above declines to pay per row). The
+    #: attachment card states it beside the kind (INBOX 440 (2)); 0 means
+    #: unknown or gone, and the card then says nothing rather than "0 B".
+    size: int = 0
     #: **Where this file is actually used**, one entry per note, document or
     #: board that references it, as `{kind, id, label}`. The gallery showed a
     #: thumbnail, a filename and two empty prompts and could not answer the
@@ -1484,7 +1489,16 @@ def media_meta(filename: str, session: Session = Depends(get_session)) -> MediaU
         vision_ocr_text=upload.vision_ocr_text or "",
         vision_ocr_model=upload.vision_ocr_model or "",
         created_at=upload.created_at.isoformat() if upload.created_at else "",
+        size=_media_size(upload.filename),
     )
+
+
+def _media_size(filename: str) -> int:
+    """Bytes on disk for one upload, or 0 when it is gone or unreadable."""
+    try:
+        return _within_dir(deps.get_config().data_dir / "media", filename).stat().st_size
+    except (OSError, HTTPException):
+        return 0
 
 
 @router.get("/media/text/{filename}", response_model=AttachedFileTextOut)

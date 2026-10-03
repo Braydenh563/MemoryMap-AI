@@ -24,13 +24,15 @@ def test_the_feminine_look_has_no_legs_and_a_skirt_of_ribbons():
     feminine = _look("feminine")
     assert "legs: false," in feminine
     assert "skirt: \"M" in feminine
-    assert feminine.count("{ seg: [[") >= 5 + 7  # five ribbons, and the hair's locks
+    assert feminine.count("{ seg: [[") >= 4 + 7  # four folds of the gown (INBOX 443), and the hair's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
     # The ribbons end in soft points, not round caps.
-    assert "fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false })" in ATLAS
+    assert "fill: atlasStem(seg, w, { samples: 14, cap: false })" in ATLAS
+    #: The folds end soft (INBOX 443: hair-fine tips read as tentacles).
+    assert "const ribbon = (w, tip = 0.18) => (t) => tip + (w - tip)" in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -115,8 +117,9 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
-    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
-    assert widths[0] == widths[4] == 6.4 and min(widths[1:4]) >= 7.2, widths
+    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), (?:tip: [0-9.]+, )?specks", feminine)[:4]]
+    #: INBOX 443: four folds of a gown, the outer two lit, wider in the middle.
+    assert widths[0] == widths[3] == 7.4 and min(widths[1:3]) >= 8.4, widths
     # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
     assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
@@ -399,7 +402,7 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
     for key in ("hairline: \"M", "rootDust: [", "circlet: ["):
         assert key in feminine, key
     locks = feminine[feminine.index("frontLocks: ["):]
-    locks = locks[: locks.index("],\n    lowers")]
+    locks = locks[: locks.index("lowers: [")]
     for w in re.findall(r"w: ([0-9.]+)", locks):
         assert float(w) <= 1.5, "a front strand wider than 1.5 is a lock, the curtains again"
     for seg in re.findall(r"seg: \[\[([^\]]+)\]\]", locks):
@@ -577,7 +580,7 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
     assert all(b - a >= 2 for a, b in zip(lengths, lengths[1:])), lengths
 
     # Her ribbons are what they were: five, ending in soft points.
-    assert len(got["feminine"]) == 5 and not any(p["main"] for p in got["feminine"])
+    assert len(got["feminine"]) == 4 and not any(p["main"] for p in got["feminine"])  # the gown's folds (INBOX 443)
 
 
 def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():

@@ -456,7 +456,7 @@ function cmdPaletteReset() {
 async function cmdPaletteSaveAsChat() {
   if (!cmdPaletteTurns.length) return;
   const status = $("command-palette-status");
-  setLabel(status, "ph:circle-notch Saving…");
+  setLabel(status, "ph:spin Saving…");
   try {
     const [first, ...rest] = cmdPaletteTurns;
     const conversation = await apiJson("/conversations", {
@@ -538,7 +538,7 @@ function cmdPaletteBusy(busy) {
   //: from the spinner. `cmdPaletteAsk` now writes the question, then each
   //: tool as it runs, then what the turn came to; all this does is clear a
   //: line left over from the run before.
-  if (busy) setLabel($("command-palette-status"), "ph:circle-notch Working…");
+  if (busy) setLabel($("command-palette-status"), "ph:spin Working…");
   if (!busy) cmdPaletteInput.focus();
 }
 
@@ -996,7 +996,7 @@ async function cmdPaletteAsk(text) {
     const word = stepCount === 1 ? "step" : "steps";
     setLabel(
       stepsFold.querySelector("summary"),
-      done ? `ph:check-circle Finished ${stepCount} ${word}` : `ph:circle-notch Working: ${stepCount} ${word}`,
+      done ? `ph:check-circle Finished ${stepCount} ${word}` : `ph:spin Working: ${stepCount} ${word}`,
     );
   };
   const addStep = (event) => {
@@ -1098,7 +1098,7 @@ async function cmdPaletteAsk(text) {
   //: it is busy; this is the app saying what it is busy with, which is the
   //: difference between waiting and wondering.
   const shortAsk = text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
-  setLabel($("command-palette-status"), `ph:circle-notch Working on: ${shortAsk}`);
+  setLabel($("command-palette-status"), `ph:spin Working on: ${shortAsk}`);
   try {
     await streamChat({
       question: text,

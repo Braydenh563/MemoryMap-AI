@@ -118,6 +118,19 @@ const MAP_PREVIEW_TEXT_WIDTHS = new Map();
 const MAP_PREVIEW_MEASURE_SIZE = 100;
 let mapPreviewMeasureText = null;
 
+//: Take or discard the tags filing suggested (INBOX 440); the list redraws
+//: from the server's answer, so the card and every other view agree.
+async function answerSuggestedTags(entry, body) {
+  try {
+    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
+    await loadEntries();
+    const tag = (body.take || body.discard || [])[0];
+    toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
+  } catch (error) {
+    toast(error.message || "Couldn't change the tags.", true);
+  }
+}
+
 function mapPreviewTextWidth(text, fontSize) {
   const body = String(text || "");
   if (!body) return 0;
@@ -1195,6 +1208,35 @@ function notesSpanSpaces() {
   return notesSpanMemo.many;
 }
 
+//: A note's own attached files (the `Attachment` table, `/files/{id}`), one
+//: card each, in a wrapping grid. Pictures page through the lightbox
+//: together; the bytes need the auth header, so a picture's src is a blob url
+//: (`attachmentObjectUrl`). `editable` is the note list's own actions flag:
+//: a card on a read-only surface offers no Rename or Remove.
+function renderAttachmentCards(entry, editable) {
+  const row = document.createElement("div");
+  row.className = "att-cards";
+  const images = entry.attachments.filter((a) => a.is_image);
+  for (const attachment of entry.attachments) {
+    row.append(attachmentCard({
+      name: attachment.filename,
+      url: `/files/${attachment.id}`,
+      size: attachment.size,
+      added: attachment.created_at,
+      attachment,
+      onChange: editable ? () => loadEntries() : null,
+      thumb: attachment.is_image ? () => attachmentObjectUrl(attachment) : null,
+      gallery: attachment.is_image
+        ? () => ({
+          items: images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+          index: images.indexOf(attachment),
+        })
+        : null,
+    }));
+  }
+  return row;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1416,7 +1458,7 @@ function entryItem(entry, options = {}) {
   // background pass lands reads as the AI having failed. Say what is
   // actually happening instead.
   if (entry.filing_state === "pending") {
-    const filing = chip("ph:circle-notch Filing…", "filing");
+    const filing = chip("ph:spin Filing…", "filing");
     filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
     //: Any pending card is watched, not only the one just saved: a note
@@ -1474,7 +1516,7 @@ function entryItem(entry, options = {}) {
     //: every variant added after it and drew "No tags yet" and "Linked by 5
     //: notes" as accent pills too.
     const categoryEl = chip(entry.category, "category");
-    categoryEl.style.setProperty("--category-dot", categoryDotColour(entry.category));
+    paintCategoryDot(categoryEl, entry.category);
     //: The drag handle for moving this note to another category (INBOX 431
     //: (e), `wireCategoryDropTarget`): only in a list with actions.
     if (options.actions && !entry.is_board) {
@@ -1518,6 +1560,27 @@ function entryItem(entry, options = {}) {
     if (options.actions) tagChip.title = `Show every note tagged #${tag}`;
     meta.appendChild(tagChip);
   }
+  //: Tags filing suggested, kept on the note (INBOX 440): a press takes one,
+  //: its × discards it for good.
+  const suggestions = options.actions && !entry.is_board ? entry.suggested_tags || [] : [];
+  for (const tag of suggestions) {
+    const take = chip(`ph:plus ${tag}`, "tag suggested-tag", (event) => {
+      event.stopPropagation();
+      answerSuggestedTags(entry, { take: [tag] });
+    });
+    take.title = `Suggested: add #${tag}`;
+    const discard = document.createElement("span");
+    discard.className = "unlink";
+    setLabel(discard, "ph:x");
+    discard.title = `Not #${tag}: stop suggesting it for this note`;
+    discard.addEventListener("click", (event) => {
+      event.stopPropagation();
+      answerSuggestedTags(entry, { discard: [tag] });
+    });
+    makeUnlinkAccessible(discard);
+    take.appendChild(discard);
+    meta.appendChild(take);
+  }
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real
   //: note in a list that offers actions: a board is not filed by tag and a
@@ -1525,7 +1588,7 @@ function entryItem(entry, options = {}) {
   //: flag: it opens the edit form with the cursor in the tags field, where
   //: the AI's suggestions appear as you type, so the person is one click
   //: from tagged rather than being told and left there.
-  if (!entry.tags.length && !entry.is_board && !entry.is_draft
+  if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
       && (options.actions || options.facts)) {
     //: On a read-only row the flag is a **fact and nothing more**: the
     //: handler below opens the edit form in the note list, which is not the
@@ -1594,6 +1657,14 @@ function entryItem(entry, options = {}) {
   const categoryChip = meta.querySelector(".chip.category");
   if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
     categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
+    //: Shown, not only a tooltip (INBOX 440).
+    const byWords = entry.filing_state === "words";
+    const who = byWords ? "your notebook's words" : "Atlas";
+    if (byWords) categoryChip.title = `Filed from your notebook's words, ${entry.ai_confidence}% sure`;
+    const sure = chip(`${byWords ? "ph:text-aa" : "ph:sparkle"} ${entry.ai_confidence}%`, "item-fact filing-sure");
+    sure.title = `How sure ${who} ${byWords ? "were" : "was"} when filing this in “${entry.category}”`;
+    sure.setAttribute("aria-label", `Filed by ${who}, ${entry.ai_confidence}% sure`);
+    categoryChip.after(sure);
   }
   const confidenceChip = aiDidFile && entry.ai_confidence < REVIEW_THRESHOLD
     ? // Low confidence from a real attempt, worth a human look (Phase 3).
@@ -1733,12 +1804,8 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("Atlas is reading…", "busy");
+    const busy = chip("ph:spin Atlas is reading…", "busy");
     busy.classList.add("chip-busy");
-    // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
-    // one-off ring: .chip's own `gap` handles the spacing and vertical
-    // centring, so no extra margin is needed.
-    busy.prepend(spinnerEl());
     meta.appendChild(busy);
   }
 
@@ -1888,82 +1955,11 @@ function entryItem(entry, options = {}) {
     li.appendChild(line);
   }
 
-  // Attachments (Wave B; images become thumbnails in Wave M).
-  if (entry.attachments.length > 0) {
-    const fileRow = document.createElement("div");
-    fileRow.className = "entry-links";
-    for (const attachment of entry.attachments) {
-      const removeButton = () => {
-        const remove = document.createElement("span");
-        remove.className = "unlink";
-        setLabel(remove, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
-        remove.title = "Remove this file";
-        remove.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          if (!(await confirmDialog(`Remove ${attachment.filename}?`))) return;
-          await api(`/files/${attachment.id}`, { method: "DELETE" });
-          await loadEntries();
-        });
-        makeUnlinkAccessible(remove);
-        return remove;
-      };
-
-      if (attachment.is_image) {
-        // Show the picture itself, not a chip, click for full size.
-        const wrap = document.createElement("span");
-        wrap.className = "thumb-wrap";
-        const img = document.createElement("img");
-        img.className = "attachment-thumb";
-        img.alt = attachment.filename;
-        img.title = `${attachment.filename}: click to view full size`;
-        attachmentObjectUrl(attachment)
-          .then((url) => (img.src = url))
-          .catch(() => wrap.remove());
-        img.addEventListener("click", () => {
-          const images = entry.attachments.filter((a) => a.is_image);
-          openLightbox(
-            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
-            images.indexOf(attachment)
-          );
-        });
-        wrap.appendChild(img);
-        if (options.actions) wrap.appendChild(removeButton());
-        fileRow.appendChild(wrap);
-      } else {
-        // Opens the lightbox's document viewer, not a download, this used
-        // to go straight to `downloadAttachment`, the one file surface that
-        // never got the fileCard treatment §... unified everywhere else.
-        // Reported directly: "I tried to open and view a file i attached to
-        // a note, instead it just downloaded it." `mediaSrc()` already knows
-        // how to token-gate a `/files/{id}` url the same way it does
-        // `/media/{name}`; `show()` below is what learned to read one.
-        const fileChip = chip(`ph:file-text ${attachment.filename}`, "link", () =>
-          openLightbox(
-            [{ filename: attachment.filename, getUrl: () => mediaSrc(`/files/${attachment.id}`) }],
-            0
-          )
-        );
-        fileChip.title = `${attachment.filename}: ${Math.max(1, Math.round(attachment.size / 1024))} KB`;
-        const downloadBtn = document.createElement("span");
-        downloadBtn.className = "unlink";
-        setLabel(downloadBtn, "ph:download-simple");
-        downloadBtn.title = `Save “${attachment.filename}” to disk`;
-        downloadBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          downloadAttachment(attachment);
-        });
-        makeUnlinkAccessible(downloadBtn);
-        fileChip.appendChild(downloadBtn);
-        if (options.actions) fileChip.appendChild(removeButton());
-        fileRow.appendChild(fileChip);
-      }
-    }
-    // Before `meta` (the category/date/pin/actions footer), not after, 
-    // reported directly: a sketch or attached image sat below the note's
-    // own metadata row, sandwiched between the footer and whatever came
-    // after it, rather than reading as part of the note's own content.
-    li.insertBefore(fileRow, meta);
-  }
+  // A note's own files, as attachment cards (INBOX 440 (2)). Before `meta`
+  // (the category/date/pin/actions footer), not after, reported directly: a
+  // sketch or attached image sat below the note's own metadata row rather
+  // than reading as part of the note's own content.
+  if (entry.attachments.length > 0) li.insertBefore(renderAttachmentCards(entry, options.actions), meta);
 
   // Inline add-context / continue-thought forms (Wave B).
   if (options.actions && inlineAction && inlineAction.id === entry.id) {

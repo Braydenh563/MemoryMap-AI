@@ -1351,7 +1351,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       find.classList.remove("hidden");
       showZoomControls(hasPages);
       if (!hasPages) setZoom(1);
-      docBody.textContent = "Reading…";
+      setLabel(docBody, "ph:spin Reading…");
       let payload = null;
       // See the doc-viewer comment block above `doc`'s own creation: a
       // native document already has its text, set by the Documents list's

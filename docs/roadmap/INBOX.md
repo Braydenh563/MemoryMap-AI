@@ -34,6 +34,60 @@ with its owner named in the entry.
 
 ## Open items
 
+447. **The owner, 2026-10-03, verbatim, with screenshots (the graph popup
+     showing `**Current Commitments**` and `![Gary...](/media/...)` raw; a
+     note card's meta line run together: "Courses & Study 73% Add tags Tag
+     with Atlas Atlas is reading...").** "the popup in the graph still doesnt
+     render images or sketches" / "md isnt rendered either?? i dont think the
+     md is rendered at all in the graph popups" / "the companion doesnt
+     change action for related actions when things are hallening like for
+     the tag and file with atlas note function running with atlas reading
+     the note" / "there's no spacing between note metadata and it still
+     needfs to be improved ui/ux wise" / "There also needs to be a way to
+     more easily manage tags in, between, and across indivisual and multiple
+     notes. like a tag manager. also when clicking on the categories in note
+     metadata, there should also be the option to view that category as
+     well, not just manage it." Placed: (1) the graph popup renders markdown
+     and pictures: the orchestrator, reproduced first; (2) companion reacts to
+     AI work: sent to the companion agent; (3) the note meta line redesigned
+     (groups, spacing, hierarchy): the orchestrator; (4) a tag manager
+     (rename, merge, delete, bulk add or remove across selected notes) and
+     (5) "Show this category" on the category chip's menu: an agent.
+
+446. **The owner, 2026-10-03, verbatim.** "make sure the other agents like
+     the popup and chat are aware of time relativity as well" / "maybe for
+     the suggested models as well there can be a way to enter custom model
+     names for downloading as well??" / "continue regular bug scans to make
+     sure you havent missed anything and make sure all the main features
+     actually work. make the note filing and how the user can make notes the
+     fastest, most reliable and easiest thing to use the user has ever seen.
+     the user needs to choose to use this app. the app needs to be worthy."
+     / "Im wondering if we should tighten and shrink some of the ui down a
+     little as I still think it takes up excessive space and something about
+     the whole ui design still feels very demo, vibe coded and not like an
+     official app...". Placed: (1) time relativity: Ask, the chat agent's
+     notes, its note tools and the digest all carry each time word's date and
+     its distance from today: **fixed** (`days_from_today`, config.py);
+     (2) custom model names: sent to the Settings agent (INBOX 444); (3) a
+     feature smoke sweep (every main flow driven end to end) run at each
+     merge: the orchestrator; (4) note making and filing: continues INBOX
+     434; (5) a density pass (type scale, control heights, paddings, gaps
+     measured app-wide against native apps, then tightened through the
+     tokens) plus a de-vibe audit: an Opus agent once the CSS-heavy agents
+     have landed.
+     Then, of the selected-text menu's "Save as a note": "it did do smth but
+     i had to hard reset the app to see it and there was no indication of
+     it or updating ro anythinf. there is no timestamps. note edit history
+     doens allow me to go back on manual edits and I cant distinguish between
+     personal or ai edits or mixed edits." and "make sure the other highlight
+     text popup meatball menu items work properly with proper learnability
+     and indicators as well". Placed: (6) Save as a note says "Saving…" at
+     once, then where it went with Open, and refreshes the list: **fixed**;
+     every other item in that menu swept for a visible answer
+     (`selmenu-items.js`): the orchestrator; (7) note edit history: a version
+     on every manual save too, each marked as yours, Atlas's or both, with
+     its time, restorable: an agent.
+
 445. **The owner, 2026-10-03, verbatim.** "I was also wondering if the
      bookmarks and contents library pages as well as maybe others like the
      ai skills page and stuff might be better designed, and expanded in
@@ -50,17 +104,6 @@ with its owner named in the entry.
      and mind map audited (controls, missing or broken features, render cost
      per frame), then fixed: an agent; both after the running agents land.
 
-444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
-     a major expansion, improvement and modern/professional ui/ux modern
-     redesign of the models settings page suggested downloads section. also
-     just how the settings operate. the settings needs better designing,
-     rearrangement, better internal navigation and cleaning up." Placed: a
-     measured audit of Settings (sections, groups, controls per section,
-     scroll depth, duplicated controls), then a rearranged information
-     architecture, internal navigation (search, a section index, deep links)
-     and the Models suggested downloads redesigned as model cards: a Sonnet
-     agent.
-
 443. **The owner, 2026-10-03, verbatim, with screenshots (the graph; the
      Library's Boards and maps placeholders; the feminine Atlas's lower
      body).** "the graph shape could look nicer as well. also the skeleton
@@ -74,12 +117,18 @@ with its owner named in the entry.
      visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
      workspace: a Sonnet agent; (4) the feminine Atlas's lower body, flowing
      like a gown's hem rather than tentacles, kept elegant: the orchestrator,
-     after the masculine tail's agent work is merged.
+     after the masculine tail's agent work is merged. **(4) Fixed**: a gown (A-line, waved hem, four
+     folds), measured extent 9.4..49.8 x 49..97 (was to y 102 with 24 paths).
      Then: "also if the companion is doing a specific action and i double
      click it to view it in the enlarged window, I want it to keep doing
      that action unless poked or something else happens". Placed: (5) the
      enlarged view carries the companion's current action over and keeps
-     it until a poke or a new event: the orchestrator.
+     it until a poke or a new event. Then: "also the companion perches and
+     action surfaces and stuff needs to be properly done for the chat tab.
+     and the regular companion expanded popup window needs more life and not
+     just a statue" (screenshot: the enlarged dialog, a still figure).
+     Placed: (5) and (6), Chat perches and an enlarged view that lives: an
+     Opus agent.
 
 441. **The owner, 2026-10-03, verbatim, with screenshots (the tags list
      under Capture's tags field; "Atlas is reading..." with its spinner; an
@@ -109,19 +158,12 @@ with its owner named in the entry.
      agent; (5) note metadata redesigned and expanded, with INBOX 440 (1):
      the orchestrator; (6) a measured optimisation pass (boot, payload,
      queries, indexes): a Sonnet agent. Agent cap raised by the owner for
-     Sonnet agents.
-
-440. **The owner, 2026-10-03, verbatim, with a screenshot (a note's image
-     attachment card: a drawing, a truncated title "Gary The Moss Mons...",
-     three bare icon buttons).** "also I feel like on notes there should be
-     a way to see the ai confidence score as well as pre suggested tags that
-     are made and kept when filing for the user to easily choose or discard.
-     also all of the attachment cards ui and ux and utility need a massive
-     redesign and upgrade." Placed: (1) filing keeps its confidence and its
-     suggested tags on the note; the note shows them, each tag one tap to
-     keep or discard: the orchestrator; (2) the attachment card redesigned
-     (layout, naming, actions with labels, open, download, rename, replace,
-     preview): an Opus agent.
+     Sonnet agents. **Done so far**: (1) hover and Enter; (2) one `.spinner`
+     ring and `setBusy` (merged bca3962); (3) time words with their distance
+     from today on every AI path; (5) in part: kept suggestions and the
+     visible confidence; (4) category colours (merged 1ee38de); (6) measured
+     optimisation pass (reference counts 242 to 6 statements, six indexes;
+     WORLD_CLASS_PLAN H7).
 
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran

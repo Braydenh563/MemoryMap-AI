@@ -265,6 +265,13 @@ class Category(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    #: The colour the person chose for this category (INBOX 441 (4)): a palette
+    #: key the swatch picker offers ("teal") or a `#rrggbb` hex, validated in
+    #: `routes_categories.py`. NULL is "automatic": every surface then draws
+    #: the colour it always did. Kept on the row, not in preferences, so a
+    #: rename keeps it, a merge keeps the target's and a delete drops it with
+    #: no clean-up pass. `_rebuild_categories_unique_constraint` copies it.
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -280,6 +287,11 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Tags offered when the note was filed, kept for the person to take or
+    #: discard (INBOX 440), and the ones they discarded, never offered again.
+    #: JSON string arrays like `tags`; additive, so old rows backfill to [].
+    suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
+    discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 
@@ -1893,6 +1905,21 @@ class DatabaseManager:
         # then throws it away. The index is the half that makes the LIMIT
         # mean something.
         ("ix_note_scores_rank", "note_scores (score DESC, entry_id DESC)"),
+        # The foreign keys a note is looked up by that still carried no index
+        # (the performance pass, 2026-10-03, INBOX 441). Each is "this note's
+        # ...": its replies (`entries.parent_id`), the boards it is on and a
+        # board's cards (`whiteboard_nodes`), a board's sketches, its
+        # reminders and its bookmarks. SQLite also reads the child column of
+        # every foreign key on every delete of the parent, so with
+        # `foreign_keys=ON` an unindexed one is a table scan per deleted note.
+        # Measured on 5,000 notes with 4,000 board cards and 1,500 reminders:
+        # 900 lookups by these columns, 604 ms unindexed, 2.9 ms indexed.
+        ("ix_entries_parent", "entries (parent_id)"),
+        ("ix_whiteboard_nodes_entry", "whiteboard_nodes (entry_id)"),
+        ("ix_whiteboard_nodes_board", "whiteboard_nodes (board_id)"),
+        ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
+        ("ix_reminders_entry", "reminders (entry_id)"),
+        ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
     )
 
     def _ensure_indexes(self) -> None:
@@ -1986,6 +2013,7 @@ class DatabaseManager:
                     " id INTEGER NOT NULL PRIMARY KEY,"
                     " name VARCHAR(100) NOT NULL,"
                     " description TEXT,"
+                    " colour VARCHAR(16),"
                     " created_at DATETIME,"
                     " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
                     " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
@@ -1993,8 +2021,8 @@ class DatabaseManager:
                 )
                 connection.exec_driver_sql(
                     'INSERT INTO "categories_rebuilt" '
-                    " (id, name, description, created_at, workspace_id)"
-                    " SELECT id, name, description, created_at,"
+                    " (id, name, description, colour, created_at, workspace_id)"
+                    " SELECT id, name, description, colour, created_at,"
                     "        COALESCE(workspace_id, 'default') FROM categories"
                 )
                 connection.exec_driver_sql('DROP TABLE "categories"')

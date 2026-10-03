@@ -1427,7 +1427,7 @@ function docEmmetInfo(preview) {
   const pre = document.createElement("pre");
   pre.className = "cm-emmet-preview";
   const lines = preview.split("\n");
-  pre.textContent = lines.length > 20 ? [...lines.slice(0, 20), "..."].join("\n") : preview;
+  pre.textContent = lines.length > 20 ? [...lines.slice(0, 20), "…"].join("\n") : preview;
   return pre;
 }
 
@@ -2100,7 +2100,7 @@ function docCodeSymbols(CM, state, ext) {
         case "SupportsStatement": {
           const block = node.getChild("Block");
           label = state.sliceDoc(node.from, block ? block.from : node.to).replace(/\s+/g, " ").trim();
-          if (label.length > 60) label = `${label.slice(0, 57)}...`;
+          if (label.length > 60) label = `${label.slice(0, 57)}…`;
           break;
         }
         default:

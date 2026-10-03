@@ -885,7 +885,11 @@ def _rank_inner(
 
 _RECENCY_ASK = re.compile(
     r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
-    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*(?:[?.!]\s*)?$",
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)\b\s*(?:[?.!]\s*)?$"
+    #: "What have I saved recently?" (INBOX 441): the whole question is the
+    #: verb and the time word, nothing between them to search for. A topic
+    #: in between ("written about golf recently") stays a search.
+    r"|^\s*what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)\s*(?:[?.!]\s*)?$",
     re.IGNORECASE,
 )
 

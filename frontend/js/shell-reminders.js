@@ -1555,7 +1555,7 @@ async function magicAddReminder() {
   const text = input.value.trim();
   if (!text) return;
   status.classList.remove("error");
-  setLabel(status, "ph:magic-wand Parsing…");
+  setLabel(status, "ph:spin Parsing…");
   try {
     const reminder = await apiJson("/reminders/parse", {
       method: "POST",

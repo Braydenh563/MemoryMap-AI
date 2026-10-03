@@ -477,17 +477,44 @@ function askNotificationPermission() {
 // `checkDueReminders` runs off a timer with no gesture of its own. The
 // context, once unlocked this way, keeps working for timer-driven calls for
 // the rest of the session, the unlock is per-context, not per-call.
+//
+//: **Built just after the gesture, not inside it** (the performance pass,
+//: 2026-10-03). `new AudioContext()` opens the audio device synchronously, and
+//: as the first pointerdown of a session it was the longest single piece of
+//: script in the whole unlock: 44 to 56 ms of that click's handlers (the
+//: unlock button's own click, in practice), measured with an event-timing
+//: observer on the lock screen. Chromium lets a context start once the page
+//: has had any user activation, not only inside the gesture, so it is made
+//: when the browser is idle a moment later. A browser that insists on the
+//: gesture itself (WebKit) is covered by the listeners staying on: every
+//: gesture asks a suspended context to resume, which is the unlock it needs,
+//: and they take themselves off once it is running.
 let reminderAudioCtx = null;
+let reminderAudioBuilding = false;
 function primeReminderAudio() {
-  if (reminderAudioCtx) return;
-  try {
-    reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  } catch {
-    // No Web Audio support, reminders still show as a toast/notification.
+  if (reminderAudioCtx) {
+    if (reminderAudioCtx.state === "running") {
+      document.removeEventListener("pointerdown", primeReminderAudio);
+      document.removeEventListener("keydown", primeReminderAudio);
+    } else {
+      reminderAudioCtx.resume().catch(() => {});
+    }
+    return;
   }
+  if (reminderAudioBuilding) return;
+  reminderAudioBuilding = true;
+  const build = () => {
+    try {
+      reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch {
+      // No Web Audio support, reminders still show as a toast/notification.
+    }
+  };
+  if (window.requestIdleCallback) window.requestIdleCallback(build, { timeout: 1500 });
+  else setTimeout(build, 300);
 }
-document.addEventListener("pointerdown", primeReminderAudio, { once: true });
-document.addEventListener("keydown", primeReminderAudio, { once: true });
+document.addEventListener("pointerdown", primeReminderAudio, { passive: true });
+document.addEventListener("keydown", primeReminderAudio, { passive: true });
 
 function playReminderChime() {
   if (!reminderAudioCtx) return;
@@ -890,21 +917,18 @@ function toastProgress(message) {
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = "toast";
-  const spinner = typingDots(message);
   const text = document.createElement("span");
-  text.textContent = message;
-  note.append(spinner, text);
+  setLabel(text, `ph:spin ${message}`);
+  note.append(text);
   box.appendChild(note);
   return {
     say(next) {
-      text.textContent = next;
-      spinner.setStatus?.(next);
+      setLabel(text, `ph:spin ${next}`);
     },
     //: `done` swaps the spinner for the outcome and starts the ordinary
     //: 5.5-second life every other toast has, so a finished job does not
     //: leave a permanent line on screen.
     done(finalMessage, { isError = false, actionLabel = null, onAction = null } = {}) {
-      spinner.remove();
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
@@ -1825,7 +1849,7 @@ function nudgeEmbeddingProblem() {
     key: `embedding:${error}`,
     action: { settings: "models" },
   });
-  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("models", "embedding-model-select"));
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("searchindex", "embedding-model-select"));
 }
 
 // --- the status bar (§36D) ---------------------------------------------------
@@ -2191,7 +2215,7 @@ async function applyBackendChoice() {
   const provider = $("llm-provider-select").value;
   const baseUrl = $("llm-base-url").value.trim();
   const note = $("llm-provider-status");
-  note.textContent = "Connecting…";
+  setLabel(note, "ph:spin Connecting…");
   try {
     const body = await apiJson("/models/provider", {
       method: "POST",
@@ -2310,7 +2334,7 @@ function renderSettings() {
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
-    renderSuggested(status);
+    if (typeof renderSuggested === "function") renderSuggested(status);
     renderModelSpec(status.chat_model);
   } else {
     $("installed-box").classList.add("hidden");
@@ -2723,7 +2747,7 @@ async function renderEmbedModels() {
     if (model.downloading) {
       const busy = document.createElement("span");
       busy.className = "muted";
-      busy.textContent = "Downloading…";
+      setLabel(busy, "ph:spin Downloading…");
       title.appendChild(busy);
     } else if (model.installed) {
       const done = document.createElement("span");

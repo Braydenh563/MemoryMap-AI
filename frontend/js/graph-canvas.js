@@ -2734,7 +2734,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: changed nothing on screen (measured).
   graphMinimapShown(data.nodes.length > 0);
 
-  const colour = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  const colour = graphCategoryScale(data.categories);
   const clusterColour = d3.scaleOrdinal(d3.schemeTableau10.concat(d3.schemeSet3));
   const colourMode = graphColourMode();
   graphStructure =
@@ -3413,7 +3413,7 @@ function graphPaneEnsure() {
 //: and the cluster structure the reader chose.
 function graphPaneColour(data) {
   if (gcTab.nodes.length) return gcTab.colourOf;
-  const scale = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  const scale = graphCategoryScale(data.categories);
   return (node) => scale(node.category);
 }
 

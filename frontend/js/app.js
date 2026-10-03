@@ -1608,9 +1608,13 @@ function setLabel(el, label) {
     el.textContent = text;
     return withTail(el);
   }
-  const icon = document.createElement("i");
-  icon.className = `ph ph-${match[1]}`;
-  icon.setAttribute("aria-hidden", "true");
+  //: `ph:spin` is the working ring (`spinnerEl`), not an icon.
+  const spin = match[1] === "spin";
+  const icon = spin ? spinnerEl() : document.createElement("i");
+  if (!spin) {
+    icon.className = `ph ph-${match[1]}`;
+    icon.setAttribute("aria-hidden", "true");
+  }
   const rest = text.slice(match[0].length);
   // **The gap is a margin, not a space, and it has to be.** A plain " " text
   // node between the icon and the label is what this did first, and it worked
@@ -1654,20 +1658,6 @@ function settingsModalOpen() {
   return Boolean(modal) && !modal.classList.contains("hidden");
 }
 
-//: A category's own colour, the same for the same name on every card and
-//: every visit: a hash of the name into ten hues chosen to read on both
-//: grounds (the Tableau 10 set the graph's legend already draws from). A dot
-//: carries it, never the text, so the name stays at full contrast.
-const CATEGORY_DOT_COLOURS = [
-  "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-  "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#8cd17d",
-];
-function categoryDotColour(name) {
-  let h = 0;
-  for (const ch of String(name || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-  return CATEGORY_DOT_COLOURS[h % CATEGORY_DOT_COLOURS.length];
-}
-
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
@@ -1689,19 +1679,40 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
-// The one reusable "something is loading" mark (ROADMAP Priority 0 #14), 
-// asked for directly, since before this every call site (re-evaluate, per-
-// card AI work) built its own one-off spinner chip by hand. The .spinner
-// CSS class (01-forms-settings.css, beside .chip-busy which it was
-// extracted from) carries the animation and the prefers-reduced-motion
-// fallback; aria-hidden because this is a visual accent only, the loading
-// state itself belongs in a visible/aria-live status line at the call site,
-// the same pattern #meeting-status and its siblings already use.
+//: The one "working" ring (DESIGN.md, "Something is working on it"): in a
+//: label write `ph:spin Working…`. All of it is the `.spinner` class.
 function spinnerEl() {
   const el = document.createElement("span");
   el.className = "spinner";
   el.setAttribute("aria-hidden", "true");
   return el;
+}
+
+//: A busy button: disabled, `aria-busy`, the ring first. `label` swaps the
+//: words meanwhile; off puts back exactly what was there. Idempotent.
+function setBusy(button, busy, label = null) {
+  if (!button) return;
+  if (busy) {
+    if (!button._busyWas) {
+      button._busyWas = { kids: [...button.childNodes], disabled: button.disabled };
+    }
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    if (label !== null) {
+      setLabel(button, `ph:spin ${label}`);
+    } else if (!button.querySelector(":scope > .spinner")) {
+      const ring = spinnerEl();
+      ring.classList.add("ph-lead");
+      button.prepend(ring);
+    }
+    return;
+  }
+  const was = button._busyWas;
+  button.removeAttribute("aria-busy");
+  if (!was) return;
+  button._busyWas = null;
+  button.replaceChildren(...was.kids);
+  button.disabled = was.disabled;
 }
 
 // The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
@@ -2178,7 +2189,11 @@ const LAZY_MODULES = {
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js"],
   settingsData: ["/js/settings-data.js"],
+  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
+  //: What a click on an attachment card does (INBOX 440 (2)): see
+  //: attachment-actions.js's header.
+  attachments: ["/js/attachment-actions.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2411,7 +2426,10 @@ const LAZY_ENTRY_POINTS = {
     "restoreCategoryMoves",
     "chooseNoteCategory",
     "openTagsSheet",
+    "moveNotesToCategory",
+    "pickCategoryColour",
   ],
+  attachments: ["attachmentAction"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

@@ -52,13 +52,9 @@ full text, with the reasons, is the block at the top of
 3. **Decisions are not remade.** Every plan has a "Decisions made"
    section. A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.
-4. **Agents, by specialty, about five at once at most** (the owner,
-   2026-10-03: Opus and Sonnet agents both allowed, "dont use too many
-   agents at a time though and make sure they regularly commit their work
-   so usage limits dont result in lost work"; a commit per step is
-   mandatory in every brief). Orchestrator and agents both use a concise,
-   token-efficient style: terse briefs, five-line reports, no narration.
-   Formerly: at most two at once. Sonnet: the mechanical
+4. **Agents: two Opus at once, plus one or two Sonnet when usage allows**
+   (the owner, 2026-10-03). Every brief requires a commit per step, so a
+   usage limit never loses work. Sonnet: the mechanical
    and verifiable (lints, copy moves, fixture edits, sweeps, bugs whose fix
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).
@@ -80,6 +76,11 @@ full text, with the reasons, is the block at the top of
      session before the PR closes (HANDOVER done-when item 7), or when a
      change touches something the targeted tests cannot see (migrations,
      the event bus, conftest). Never per step, never per merge.
+   - **Agents never run the full suite** (the owner, 2026-10-03: "some of
+     the agents are struggling with the full suite"; four cores, load over
+     100 with six agents testing). Agents run targeted tests serially plus
+     `gate.sh --staged`; CI runs the suite on every push, and the
+     orchestrator runs it at most once, alone, at the end of a session.
    - A brief names the files, selectors and line areas, the plan's
      measured numbers, and the sweep script to run, so the agent starts
      at the change, not at orientation. Most agent tokens otherwise go to
@@ -123,6 +124,11 @@ full text, with the reasons, is the block at the top of
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.
+
+12. **Concise response style, to save tokens** (the owner, 2026-10-03),
+   for the orchestrator and every agent: no preamble, recap or narration;
+   terse status lines; bullets over prose; five-line reports; briefs that
+   name files and numbers rather than explain.
 
 ## 3. Where things are written down
 

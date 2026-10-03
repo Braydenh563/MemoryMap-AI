@@ -325,6 +325,19 @@ class ConfigManager:
         atomic_write_json(self.preferences_path, self._preferences)
 
 
+def days_from_today(day, today) -> str:  # noqa: ANN001
+    """'8 days ago', 'today', 'in 3 days': a resolved date said relative to the
+    reader's today, for every prompt that hands a model a note's time words
+    (INBOX 441: a two-week-old note's "this Friday" read as this week's). A
+    small model computes weekday distances badly; it reads this correctly."""
+    gap = (day - today).days
+    if gap == 0:
+        return "today"
+    if gap in (1, -1):
+        return "tomorrow" if gap == 1 else "yesterday"
+    return f"in {gap} days" if gap > 0 else f"{-gap} days ago"
+
+
 def user_now(config: "ConfigManager") -> datetime:
     """Right now, on the user's own clock.
 

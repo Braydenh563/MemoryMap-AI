@@ -127,6 +127,10 @@ class EntryUpdate(BaseModel):
     #: than silently overwriting it (api/edit_conflicts.py). Optional: a
     #: writer that sends none is not checked.
     base_hash: str | None = Field(default=None, max_length=64)
+    #: The text includes an Atlas suggestion the person applied before saving
+    #: (Improve writing in the form): the edit is recorded as theirs and
+    #: Atlas's together, so the history can say so (INBOX 446).
+    ai_assisted: bool = False
 
 
 class ContextBody(BaseModel):
@@ -160,6 +164,10 @@ class AttachmentOut(BaseModel):
     filename: str
     size: int
     is_image: bool
+    #: When it was attached, ISO-8601. The attachment card's facts line is
+    #: kind, size and the day it came (INBOX 440 (2)); the row has always had
+    #: the date, the note's payload never carried it. "" for a row without one.
+    created_at: str = ""
 
 
 class SimilarOut(BaseModel):
@@ -204,6 +212,8 @@ class EntryOut(BaseModel):
     category: str
     tags: list[str]
     ai_confidence: int
+    #: Offered at filing, not yet taken or discarded (INBOX 440).
+    suggested_tags: list[str] = []
     access_count: int = 0
     last_opened_at: datetime | None = None
     #: When a person last changed the text, title, tags or category; null if

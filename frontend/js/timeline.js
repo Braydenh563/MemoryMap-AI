@@ -1035,7 +1035,7 @@ function timelineRowElement(row, density) {
     //: unset category is left out rather than printed on every row.
     if (row.category && row.category !== "Uncategorised") {
       const cat = chip(row.category, "category");
-      cat.style.setProperty("--category-dot", categoryDotColour(row.category));
+      paintCategoryDot(cat, row.category);
       meta.appendChild(cat);
     }
     for (const tag of row.tags.slice(0, density === "full" ? 3 : 2)) {

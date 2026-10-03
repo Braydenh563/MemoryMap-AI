@@ -388,7 +388,7 @@ async function openChatModelPanel() {
   list.className = "chat-model-facts";
   const loading = document.createElement("p");
   loading.className = "muted";
-  loading.textContent = "Reading the model's own specification…";
+  setLabel(loading, "ph:spin Reading the model's own specification…");
   panel.append(list, loading);
   panel.classList.remove("hidden");
   placeChatModelPanel();
@@ -1182,95 +1182,9 @@ function renderInstalledModels(status) {
   }
 }
 
-//: Human-readable section headings for SUGGESTED_MODELS' own dict keys
-//: (model_manager.py): asked for directly: the list read as one long,
-//: undifferentiated column with the type buried inside each row's own
-//: "kind · size · purpose" text, so nothing set "the small, fast ones"
-//: apart from "the one that reads images" at a glance. Order matches the
-//: backend dict's own insertion order (Object.entries preserves it),
-//: which is already curated small-to-large within each group, grouping
-//: here doesn't re-sort that, only labels the breaks between groups.
-const SUGGESTED_KIND_LABELS = {
-  text: "Text",
-  moe: "Mixture-of-experts (MoE): big download, small working set",
-  embedding: "Embeddings: for semantic search",
-  vision: "Vision: can see images",
-};
-
-function renderSuggested(status) {
-  const list = $("suggested-list");
-  if (!suggestedCatalog) return;
-  list.replaceChildren();
-  const installedNames = new Set(
-    status.installed_models.flatMap((m) => [m.name, m.name.split(":")[0]])
-  );
-
-  for (const [kind, models] of Object.entries(suggestedCatalog)) {
-    if (!models.length) continue;
-    const heading = document.createElement("li");
-    heading.className = "suggested-group-label";
-    heading.textContent = SUGGESTED_KIND_LABELS[kind] || kind;
-    list.appendChild(heading);
-    for (const model of models) {
-      const li = document.createElement("li");
-      const name = document.createElement("span");
-      name.className = "model-name";
-      name.textContent = model.name;
-      const info = document.createElement("span");
-      info.className = "model-info";
-      // "~2.0 GB" for a figure we shipped and cannot check, the exact size for
-      // one the backend has actually measured (§35J). The tilde is the whole
-      // signal: this number is the one someone checks their free disk against
-      // before committing to a multi-gigabyte download, so presenting a stale
-      // guess as fact is the part that was wrong, not the guess itself.
-      const approximate = model.size_source !== "measured";
-      const size = approximate ? `~${String(model.size).replace(/^~/, "")}` : model.size;
-      // No longer repeats `kind` here: the group heading above says it once
-      // for the whole section instead of on every single row under it.
-      info.textContent = `${size} · ${model.purpose}`;
-      info.title = approximate
-        ? "Approximate download size: the exact figure shows once it's installed."
-        : "Measured on your machine.";
-      li.append(name, info);
-
-      const pull = (status.pulls || {})[model.name];
-      if (installedNames.has(model.name)) {
-        li.appendChild(chip("ph:check installed", "confidence"));
-      } else if (pull && pull.status === "running") {
-        const progress = document.createElement("progress");
-        progress.max = Math.max(pull.total, 1);
-        progress.value = pull.done;
-        progress.style.width = "120px";
-        li.appendChild(progress);
-      } else {
-        if (pull && pull.status === "error") {
-          li.appendChild(chip("failed: retry?", "review"));
-        }
-        li.appendChild(
-          smallButton(
-            "Download",
-            `Download ${model.name} with Ollama`,
-            async (event) => {
-              event.target.disabled = true;
-              try {
-                await api("/models/pull", {
-                  method: "POST",
-                  body: JSON.stringify({ name: model.name }),
-                });
-                refreshModelStatus();
-              } catch (error) {
-                toast(error.message, true);
-                event.target.disabled = false;
-              }
-            },
-            false
-          )
-        );
-      }
-      list.appendChild(li);
-    }
-  }
-}
+//: The Models screen's suggested downloads are model cards now: `renderSuggested`
+//: lives in settings-models.js (INBOX 444), loaded with the first open of
+//: Settings, and status.js calls it behind a `typeof` guard.
 
 // One click for the sentence #embedding-error already prints: download
 // nomic-embed-text (skipped if it's already installed), then switch the
@@ -1480,7 +1394,7 @@ async function runImprove() {
   }
   result.textContent = "";
   setLabel($("improve-retry"), "ph:arrow-clockwise Try again");
-  status.textContent = "Atlas is editing…";
+  setLabel(status, "ph:spin Atlas is editing…");
   status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
@@ -1504,6 +1418,8 @@ async function runImprove() {
 function applyImprove() {
   if (improveTarget) {
     improveTarget.value = $("improve-result").textContent;
+    //: The save that follows is the person's and Atlas's (INBOX 446).
+    improveTarget.dataset.aiTouched = "1";
     improveTarget.dispatchEvent(new Event("input")); // refresh char count
   }
   closeImprove();
@@ -1541,11 +1457,9 @@ function openTensions() {
 function setTensionsStatus(text, busy = false) {
   const el = document.getElementById("tensions-status");
   if (!el) return;
-  el.textContent = text;
-  // `aria-live="polite"` is on the element itself, so a screen reader gets
-  // the progress line without the focus being moved off the button that
-  // started it.
-  el.classList.toggle("is-busy", busy);
+  //: `aria-live="polite"` is on the element, so focus stays on the button.
+  if (busy && text) setLabel(el, `ph:spin ${text}`);
+  else el.textContent = text;
 }
 
 const TENSION_STATUS_TEXT = {
@@ -1702,7 +1616,7 @@ function tensionSide(label, when, excerpt, entryId) {
 async function loadLinkSuggestions() {
   const box = $("link-suggestions");
   box.classList.remove("hidden");
-  box.textContent = "Looking for notes worth connecting…";
+  setLabel(box, "ph:spin Looking for notes worth connecting…");
   const suggestions = await apiJson("/entries/link-suggestions").catch(() => []);
   box.replaceChildren();
   if (!suggestions.length) {
@@ -1747,8 +1661,7 @@ async function loadLinkSuggestions() {
     "ph:lightbulb Explain your existing links",
     "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking Atlas to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
     async () => {
-      backfill.disabled = true;
-      setLabel(backfill, "ph:lightbulb Working…");
+      setBusy(backfill, true, "Working…");
       const result = await apiJson("/entries/links/backfill-reasons", {
         method: "POST",
         body: JSON.stringify({ ai: true }),
@@ -1756,8 +1669,7 @@ async function loadLinkSuggestions() {
         toast(e.message, true);
         return null;
       });
-      backfill.disabled = false;
-      setLabel(backfill, "ph:lightbulb Explain your existing links");
+      setBusy(backfill, false);
       if (!result) return;
       const parts = [];
       if (result.updated) parts.push(`marked ${result.updated}`);
@@ -1793,8 +1705,7 @@ async function loadLinkSuggestions() {
         toast("Every visible suggestion already has a reason.");
         return;
       }
-      suggestReasons.disabled = true;
-      setLabel(suggestReasons, "ph:sparkle Working…");
+      setBusy(suggestReasons, true, "Working…");
       const result = await apiJson("/entries/link-suggestions/reasons", {
         method: "POST",
         body: JSON.stringify({
@@ -1804,8 +1715,7 @@ async function loadLinkSuggestions() {
         toast(e.message, true);
         return null;
       });
-      suggestReasons.disabled = false;
-      setLabel(suggestReasons, "ph:sparkle Suggest reasons");
+      setBusy(suggestReasons, false);
       if (!result) return;
       const byPair = new Map(
         result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])

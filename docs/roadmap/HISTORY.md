@@ -36143,3 +36143,31 @@ width, 47% of the column at 1440.
      the hero and the widgets (kept as they are): one primary action, a
      clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
 
+440. **The owner, 2026-10-03, verbatim, with a screenshot (a note's image
+     attachment card: a drawing, a truncated title "Gary The Moss Mons...",
+     three bare icon buttons).** "also I feel like on notes there should be
+     a way to see the ai confidence score as well as pre suggested tags that
+     are made and kept when filing for the user to easily choose or discard.
+     also all of the attachment cards ui and ux and utility need a massive
+     redesign and upgrade." Placed: (1) filing keeps its confidence and its
+     suggested tags on the note; the note shows them, each tag one tap to
+     keep or discard: the orchestrator; (2) the attachment card redesigned
+     (layout, naming, actions with labels, open, download, rename, replace,
+     preview): an Opus agent. **Fixed, both**: (1) kept suggestions and the
+     confidence fact on the card; (2) one `.att-card` recipe, its actions in
+     one menu (attachment-actions.js, lazy).
+
+444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
+     a major expansion, improvement and modern/professional ui/ux modern
+     redesign of the models settings page suggested downloads section. also
+     just how the settings operate. the settings needs better designing,
+     rearrangement, better internal navigation and cleaning up." Placed: a
+     measured audit of Settings (sections, groups, controls per section,
+     scroll depth, duplicated controls), then a rearranged information
+     architecture, internal navigation (search, a section index, deep links)
+     and the Models suggested downloads redesigned as model cards: a Sonnet
+     agent. **Fixed**: six nav groups, a Search and index section, setting
+     search and section index (settings-find.js), model cards with fit,
+     memory and one action, and "Download another model" (settings-models.js);
+     UI_MODERNISATION_PLAN, Settings information architecture.
+

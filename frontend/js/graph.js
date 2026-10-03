@@ -1650,6 +1650,20 @@ function graphRenderer() {
   return localStorage.getItem("graph-renderer") === "svg" ? "svg" : "canvas";
 }
 
+//: **The map's category colours.** Its own ordinal scale supplies the
+//: automatic colour (a category's place in the sorted list, so the same
+//: notebook always draws the same), and `categoryColour` (notes-list.js) puts the one
+//: the person chose over it, so the legend, the nodes, the minimap and the
+//: local map all agree with the dots in Notes. A colour chosen while the map
+//: is on screen redraws it.
+function graphCategoryScale(categories) {
+  const scale = d3.scaleOrdinal(categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  return (name) => categoryColour(name, scale(name));
+}
+document.addEventListener("categorycolours", () => {
+  if (document.getElementById("graph-canvas")?.checkVisibility?.()) renderGraph();
+});
+
 async function renderGraph() {
   const svg = document.getElementById("graph-svg");
   const canvas = document.getElementById("graph-canvas");
@@ -1725,10 +1739,7 @@ async function renderGraphSvg() {
   graphMinimapShown(data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
-  const color = d3.scaleOrdinal(
-    data.categories,
-    d3.schemeTableau10.concat(d3.schemeSet3)
-  );
+  const color = graphCategoryScale(data.categories);
   const clusterColour = d3.scaleOrdinal(
     d3.schemeTableau10.concat(d3.schemeSet3)
   );
@@ -3511,16 +3522,14 @@ function openGraphLinkPanel(edge, nodes) {
   generateBtn.className = "ghost";
   setLabel(generateBtn, "ph:magic-wand Generate");
   generateBtn.addEventListener("click", async () => {
-    generateBtn.disabled = true;
-    generateBtn.textContent = "Generating…";
+    setBusy(generateBtn, true, "Generating…");
     try {
       const res = await apiJson(`/entries/${sourceId}/links/${edge.id}/generate-reason`, { method: "POST" });
       textarea.value = res.reason;
     } catch (e) {
       toast(e.message, true);
     } finally {
-      generateBtn.disabled = false;
-      setLabel(generateBtn, "ph:magic-wand Generate");
+      setBusy(generateBtn, false);
     }
   });
 
@@ -3642,13 +3651,9 @@ function graphPopupMediaRefs(entry) {
 //: thumbnail" without opening it. `formatFileSize` returns "" for an unknown
 //: or zero size, which is why nothing is appended in that case rather than a
 //: claim the panel cannot make.
+//: The attachment card states it itself now (INBOX 440 (2)), given the size.
 function graphPopupFileCard(name, url, size) {
-  const card = fileCard(name, url);
-  const label = typeof formatFileSize === "function" ? formatFileSize(size) : "";
-  if (!label) return card;
-  const kind = card.querySelector(".file-card-kind");
-  if (kind) kind.textContent = `${kind.textContent} \u00b7 ${label}`;
-  return card;
+  return fileCard(name, url, size);
 }
 
 function renderGraphPopupMedia(entry) {

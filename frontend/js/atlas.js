@@ -573,7 +573,14 @@ const ATLAS_LOOKS = {
     //: sways on its root; each pose shapes it from the group inside
     //: (`.atl-lower`, the CSS), which turns about the waist (`lowerPivot`).
     lowerPivot: [31, 56],
-    skirt: "M24.8 50.6C22.4 58.6 18 66.4 15.4 73.8C13.6 79 13.4 83.6 11.6 88.2C14.8 86.4 17.4 84.4 20 84.8C21.4 86.8 21.8 89.2 21.6 91.6C24.2 89.4 26.4 87 28.6 87.2C30 89.2 30.8 91.4 31 93.4C31.4 91.2 32.4 89 34 87.2C36.2 87.2 38.4 89.4 40.6 91.4C40.4 89 41 86.6 42.6 84.8C45.2 84.6 47.8 86.4 50.8 88C49 83.4 48.8 78.8 47 73.6C44.4 66.2 40 58.6 37.6 50.6C33.6 48.8 28.8 48.8 24.8 50.6Z",
+    //: **A gown, not a jellyfish** (INBOX 443, the owner: "can the feminine
+    //: atlas lower body also be improved a little as well to not look so
+    //: tentacle-y?? I still want that really nice look to it"). The hem was a
+    //: row of six points with a wavy ribbon hanging out of each, which is
+    //: what a jellyfish looks like. Now one A-line from the waist, its hem
+    //: three soft waves that sweep a little to her right as if the gown is
+    //: moving, and the folds below lie on it rather than dangling past it.
+    skirt: "M25 50.6C22.6 58 19.4 66 17 73.6C14.8 80.4 12.4 86.8 9.4 92.2C13.8 92.8 17.6 94.6 21.6 95.8C25.4 97 29 97.4 32.4 96.6C36.2 95.8 40.2 94 44.6 92.4C46.6 91.8 48.2 91.6 49.8 91.8C47.6 85.2 46.2 79 44.6 73.4C42.6 66.2 39.6 58.4 37.6 50.6C33.6 48.8 28.8 48.8 25 50.6Z",
     //: Round 8 (the owner: "make the middle strands thicker and longer
     //: (reaching lower), keeping the outer ones as they are, so it reads
     //: as a trail rather than tentacles"): the three middle ribbons are a
@@ -609,12 +616,15 @@ const ATLAS_LOOKS = {
       { seg: [[28.8, 12.8, 32, 9.8, 37.6, 9.2, 43, 11.8]], w: 1.2 },
       { seg: [[33.4, 12.6, 36.8, 11.2, 40.8, 12.2, 43.8, 15.4]], w: 1 },
     ],
+    //: Her folds: four wide ribbons that follow the gown's flow, each one
+    //: smooth sweep with no S in it, ending softly at the hem (`tip`: a
+    //: fold of cloth does not end in a hair-fine curl), the outer two lit
+    //: along their edge. The comet tail behind her is the one flourish.
     lowers: [
-      { seg: [[26.4, 55, 22.6, 62.4, 19.6, 69, 17.8, 76], [17.8, 76, 16, 83, 19.4, 87.4, 13.6, 90.4], [13.6, 90.4, 11.8, 91.4, 10.4, 92.6, 9.2, 94.4]], w: 6.4, specks: [[20.4, 68.4, 0.32], [16.6, 84, 0.28]], edge: true },
-      { seg: [[28.8, 56, 29.8, 64.4, 23.8, 71.4, 24.6, 79], [24.6, 79, 25.2, 85.4, 28.8, 88.8, 25.6, 94.6], [25.6, 94.6, 23.8, 97.4, 26.2, 98.4, 25, 100.4]], w: 7.2, specks: [[26, 74.4, 0.3], [26.4, 92.4, 0.26]] },
-      { seg: [[31.2, 56.4, 34, 64.4, 28, 72.2, 30.6, 80], [30.6, 80, 33, 86.6, 29, 90.4, 32.4, 95.4], [32.4, 95.4, 34.2, 98.4, 30.6, 99.8, 31.8, 102]], w: 7.8, specks: [[30.4, 70, 0.3], [31.2, 88.4, 0.32], [32.4, 97.8, 0.26]] },
-      { seg: [[33.6, 56, 33.2, 64.6, 39.8, 71.4, 38.6, 79], [38.6, 79, 37.6, 85.2, 34.4, 88.8, 37.8, 94.4], [37.8, 94.4, 39.6, 97.2, 36.8, 98.4, 38, 100.4]], w: 7.2, specks: [[37.4, 75.4, 0.3], [37.6, 92, 0.26]] },
-      { seg: [[35.8, 55, 39.6, 62.4, 42.8, 69, 44.4, 76.2], [44.4, 76.2, 46, 83.2, 42.8, 87.4, 48.6, 90.4], [48.6, 90.4, 50.4, 91.4, 51.8, 92.6, 53, 94.2]], w: 6.4, specks: [[41.8, 67.8, 0.3], [45.6, 83.4, 0.32]], edge: true },
+      { seg: [[26.4, 55, 24.6, 64, 20.6, 74, 16.4, 83.6], [16.4, 83.6, 14.4, 87.8, 12.6, 90.4, 11, 92]], w: 7.4, tip: 1.4, specks: [[21.6, 70.4, 0.32], [15.2, 86.2, 0.28]], edge: true },
+      { seg: [[29, 56, 28.4, 66, 25.8, 77, 23.8, 87.6], [23.8, 87.6, 23.2, 90.8, 22.8, 93.4, 22.6, 95.4]], w: 8.4, tip: 1.6, specks: [[26.8, 72.4, 0.3], [23.6, 90.2, 0.26]] },
+      { seg: [[32.4, 56.2, 33, 66, 33.4, 78, 32.6, 88.6], [32.6, 88.6, 32.3, 91.6, 32, 94.4, 31.8, 96.6]], w: 8.8, tip: 1.6, specks: [[33, 69, 0.3], [32.6, 84.4, 0.32]] },
+      { seg: [[35.6, 55, 38, 64.4, 41.4, 74.6, 44, 84], [44, 84, 44.8, 87.4, 45.8, 90, 47.2, 91.8]], w: 7.4, tip: 1.4, specks: [[39.8, 70.6, 0.3], [44.6, 86.4, 0.3]], edge: true },
     ],
     arm: [[35.6, 40.4, 41, 41.8, 46.2, 41.2, 50.2, 39.4]],
     armL: [[26.4, 40.4, 21.6, 41.8, 18.6, 46.6, 18.2, 53.6]],
@@ -941,13 +951,15 @@ function atlasBuild() {
         //: A ribbon's width (the feminine skirt): full at the waist, a
         //: slight swell as it leaves the body, then a long taper to a
         //: hair-fine wisp, no round end.
-        const ribbon = (w) => (t) => 0.18 + (w - 0.18) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
+        //: `tip` is how wide it ends (a fold of the gown ends soft, 1.4 to
+        //: 1.6; the old ribbons ran to a 0.18 hair, which read as tentacles).
+        const ribbon = (w, tip = 0.18) => (t) => tip + (w - tip) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
         const weave = 0.22;
-        spec.lowerPaths = spec.lowers.map(({ seg: drawn, w, specks, edge }) => ({ seg: rooted(drawn), w, specks, edge })).map(({ seg, w, specks, edge }) => ({
+        spec.lowerPaths = spec.lowers.map(({ seg: drawn, w, tip, specks, edge }) => ({ seg: rooted(drawn), w: ribbon(w, tip), specks, edge })).map(({ seg, w, specks, edge }) => ({
           side: 0,
-          fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false }),
-          stream: atlasStem(seg, (t) => ribbon(w)(t) * 0.26, { samples: 14, cap: false, shift: (t) => ribbon(w)(t) * weave * Math.sin(Math.PI * 2.2 * t + 0.4) }),
-          edge: edge ? atlasStemEdge(seg, ribbon(w), 14) : "",
+          fill: atlasStem(seg, w, { samples: 14, cap: false }),
+          stream: atlasStem(seg, (t) => w(t) * 0.26, { samples: 14, cap: false, shift: (t) => w(t) * weave * Math.sin(Math.PI * 2.2 * t + 0.4) }),
+          edge: edge ? atlasStemEdge(seg, w, 14) : "",
           specks,
         }));
       }

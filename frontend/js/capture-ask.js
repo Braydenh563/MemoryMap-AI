@@ -675,13 +675,17 @@ async function saveEntry() {
 
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = category
-    ? "Saving…"
-    : deferFiling
-      ? "Saving…"
-      : modelStatus && !modelStatus.embedding_ready
-        ? "Filing… (the search AI is still warming up, this first one can take longer)"
-        : "Filing… (Atlas is reading and categorising your note)";
+  //: Saving settles at once, so it stays words; the model's wait has the ring.
+  if (category || deferFiling) {
+    status.textContent = "Saving…";
+  } else {
+    setLabel(
+      status,
+      modelStatus && !modelStatus.embedding_ready
+        ? "ph:spin Filing… (the search AI is still warming up, this first one can take longer)"
+        : "ph:spin Filing… (Atlas is reading and categorising your note)",
+    );
+  }
   try {
     //: **The pictures go up before the note does.** They were staged as
     //: `staged:<key>` urls while the note had no id (see `captureStagedImages`);

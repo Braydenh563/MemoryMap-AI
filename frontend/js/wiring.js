@@ -477,7 +477,7 @@ $("chat-new").addEventListener("click", newChatConversation);
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
 $("chat-tune-search").addEventListener("click", () => {
   closeChatDockMore();
-  openSettingsModal("general", "search-relevance-group");
+  openSettingsModal("searchindex", "search-relevance-group");
 });
 // Searching your chats lives in the Library now (§36F): with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said

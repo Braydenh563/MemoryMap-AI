@@ -9698,7 +9698,7 @@ async function runDocAiEdit() {
     return;
   }
   status.classList.remove("error");
-  setLabel(status, "ph:magic-wand Thinking…");
+  setLabel(status, "ph:spin Thinking…");
   docAiController = new AbortController();
   $("doc-ai-run").classList.add("hidden");
   $("doc-ai-cancel-run").classList.remove("hidden");
@@ -11008,7 +11008,7 @@ function noteSurfaceExtensions(CM, host, options) {
   return [
     //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
     //: `noteGrammarPlugin`).
-    host.noteLiveSlot.of(noteSourceWanted() ? [] : live),
+    host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live),
     //: **No findings plugin here, and that is the option the plan names
     //: rather than an omission.** `docProseFound` is the *document's* list of
     //: prose findings, at the document's offsets; drawn over a note it would
@@ -11136,6 +11136,12 @@ function noteSurfaceKeymap(host) {
 //: The Source choice is one for every note box, remembered: a person who
 //: writes in raw markdown wants it in the edit form as much as in Capture.
 const NOTE_SOURCE_KEY = "note-source-view";
+//: **Only the boxes that carry the Source toggle** (INBOX 447, the owner:
+//: "i dont think the md is rendered at all in the graph popups"). Source
+//: pressed once in Capture was remembered for every note box, so the graph
+//: popup, which has no toggle to press back, showed raw `**` and
+//: `![...](...)` for good. A box without the toggle always renders.
+const NOTE_SOURCE_HOSTS = new Set(["entry-content", "entry-edit-content"]);
 
 function noteSourceWanted() {
   try {
@@ -17525,7 +17531,7 @@ function docCmTheme(CM) {
       //: and a minimap is `width: 100%` of whatever box it is handed.
       ".cm-md-embed .entry-list": { width: "min(420px, 100%)", margin: "0", padding: "0" },
       ".cm-md-embed .doc-embed-map": { display: "block", width: "min(320px, 100%)" },
-      ".cm-md-embed .file-card": { maxWidth: "min(360px, 100%)" },
+      ".cm-md-embed .att-card": { width: "min(360px, 100%)" },
       ".cm-md-math": { cursor: "text" },
       ".cm-md-math-block": { display: "block", textAlign: "center", margin: "0.2em 0" },
       ".cm-md-footnote": {

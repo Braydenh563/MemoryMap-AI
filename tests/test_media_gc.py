@@ -304,3 +304,38 @@ def test_a_private_note_contributes_the_link_but_not_its_words(ai_client, sessio
     assert [u["kind"] for u in row["used_by"]] == ["note"]
     assert row["used_by"][0]["label"] == "Private note"
     assert "SECRET" not in str(row["used_by"])
+
+
+def test_the_gallery_reads_only_rows_that_could_name_a_file(ai_client):
+    """Performance pass, 2026-10-03 (INBOX 441, item 6). `GET /media` built
+    its "used in" map by loading every note, document and board object as a
+    whole object and running a regex over each: 177 ms on 5,000 notes with no
+    uploads at all. A row whose text has no `/media/` in it cannot name a file,
+    so the scan asks the database for the rows that do (and for private notes,
+    whose stored text is ciphertext and has to be opened to be read), and the
+    answer is the same: this note is still found, and the statements say why
+    the others are not loaded."""
+    from sqlalchemy import event
+
+    from memorymap.core import deps
+
+    uploaded = _upload(ai_client)
+    ai_client.post("/entries", json={"content": f"uses it ![i]({uploaded['url']})"})
+    for i in range(5):
+        ai_client.post("/entries", json={"content": f"a plain note {i}"})
+    seen: list[str] = []
+
+    def _record(_conn, _cursor, statement, *_args, **_kwargs):
+        seen.append(statement)
+
+    engine = deps.get_db().engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        rows = ai_client.get("/media").json()
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+    assert [u["kind"] for u in next(m for m in rows if m["url"] == uploaded["url"])["used_by"]] == ["note"]
+    for table in ("entries", "documents", "whiteboard_objects"):
+        scans = [s for s in seen if f"FROM {table} " in s and f"{table}.id" in s and "count(" not in s]
+        assert scans, f"no scan of {table} seen"
+        assert all("LIKE" in s for s in scans), scans

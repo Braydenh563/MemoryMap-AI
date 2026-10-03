@@ -29,7 +29,7 @@ const TABS = ['dashboard', 'notes', 'library', 'chat', 'graph', 'timeline', 'rem
 //: Library's sub-tabs are `data-target="library-view-*"`, not `data-section`;
 //: the old names here matched nothing, so Library was only ever scanned on All.
 const SUBTABS = { notes: ['browse', 'capture', 'writing-room', 'ask'], library: ['docs', 'whiteboard', 'media', 'skills', 'links', 'contents'] };
-const SECTIONS = ['account', 'privacy', 'learned', 'appearance', 'preferences', 'models', 'tools', 'skills', 'personas', 'templates', 'websearch', 'memory', 'tasks', 'data', 'logs', 'shortcuts', 'extras', 'help', 'about'];
+const SECTIONS = ['searchindex', 'account', 'privacy', 'learned', 'appearance', 'preferences', 'models', 'tools', 'skills', 'personas', 'templates', 'websearch', 'memory', 'tasks', 'data', 'logs', 'shortcuts', 'extras', 'help', 'about'];
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const want = (name) => !ONLY.length || ONLY.some((o) => name.startsWith(o));
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];

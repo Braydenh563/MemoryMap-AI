@@ -3041,21 +3041,6 @@ span > .chip {
   white-space: nowrap;
 }
 
-.entry-attachment-chip-actions {
-  justify-content: center;
-}
-
-.attachment-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0 0 var(--space-3);
-}
-
-.attachment-chips.hidden {
-  display: none;
-}
-
 .attachment-remove {
   border: 0;
   background: none;
@@ -5672,6 +5657,86 @@ input.doc-title-input::placeholder {
   border-radius: 50%;
   flex: 0 0 auto;
   background: var(--category-dot);
+}
+
+/* The swatch picker (DESIGN.md, "A choice among colours"): a radiogroup of
+   round swatches, six to a row, and one worded Automatic below them. The hue
+   is `--swatch`, set through the CSSOM by swatchPicker (categories-panel.js).
+   The checked swatch wears a ring in the body ink outside a gap in the card's
+   own ground, so the choice is a shape and not only a colour; the focus ring
+   sits outside that ring so a checked, focused swatch shows both. */
+.swatch-card .swatch-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  font-weight: 500;
+}
+
+.swatch-card .swatch-preview::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+.swatch-picker {
+  display: grid;
+  grid-template-columns: repeat(6, max-content);
+  justify-content: start;
+  gap: var(--space-4);
+  padding: var(--space-2);
+}
+
+.swatch-option {
+  --swatch: transparent;
+  width: max(2rem, var(--target-min));
+  height: max(2rem, var(--target-min));
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.swatch-option:hover:not([aria-checked="true"]) {
+  box-shadow: 0 0 0 var(--space-1) var(--modal-bg-opaque), 0 0 0 calc(var(--space-1) + 2px) var(--muted);
+}
+
+.swatch-option[aria-checked="true"] {
+  box-shadow: 0 0 0 var(--space-1) var(--modal-bg-opaque), 0 0 0 calc(var(--space-1) + 2px) var(--ink);
+}
+
+.swatch-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: calc(var(--space-1) + 4px);
+}
+
+.swatch-option.swatch-auto {
+  grid-column: 1 / -1;
+  justify-self: start;
+  width: auto;
+  height: auto;
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.swatch-option.swatch-auto[aria-checked="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.swatch-option.swatch-auto:focus-visible {
+  outline-offset: 2px;
 }
 
 .manage-cat-name {

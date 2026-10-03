@@ -1025,7 +1025,18 @@ for no reason**, which reads as an accident rather than a distinction.
 
 Text contrast is 4.5:1 minimum for body copy (WCAG AA), 3:1 for large text
 and for the boundary of a control you are meant to find. `--muted` on
-`--card` is the pair to check when adding a theme.
+`--card` is the pair to check when adding a theme. **Dim by colour, never by
+`opacity`**: a label at 0.6 or 0.75 opacity over a light card fell to 3.2 to
+4.2:1 (INBOX 433); `--muted` is the quiet colour that still passes.
+
+**WCAG 2.2 AA is the bar** (the level Australian government guidance points
+to). Three sweeps check it against a running app, each saying what it cannot
+see: `scratchpad/ui-sweeps/axe.js` (axe-core over every tab, sub-tab and
+Settings section, both themes), `zoom.js` (200% and 400% reflow, WCAG text
+spacing, focus not obscured) and `srtree.js` (Chromium's accessibility tree:
+landmarks, headings, live regions, the skip link, dialog focus). No real screen
+reader runs in the sandbox; what NVDA, JAWS or VoiceOver say aloud is not
+verified by any of them. `tests/test_a11y_wcag22.py` pins what they found.
 
 ### A: Alignment
 

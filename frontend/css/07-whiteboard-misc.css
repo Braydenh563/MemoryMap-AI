@@ -6089,7 +6089,15 @@ button.connection-row > .ph-text {
 .connection-row-cue {
   margin-left: auto;
   padding-left: var(--space-2);
-  flex: none;
+  /* Gives way with an ellipsis rather than running past the row: a long
+     cue ("Ideas, Oct 3, 8:35 AM, note 22") spilled out of the 1280px rail
+     (notesrail.js, 2026-10-03). Never more than half the row. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-xs);
   color: var(--muted);
 }

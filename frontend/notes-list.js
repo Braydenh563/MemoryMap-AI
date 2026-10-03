@@ -3666,10 +3666,11 @@ function syncNotesRailToggle() {
   const toggle = $("notes-rail-toggle");
   if (!toggle) return;
   toggle.classList.toggle("hidden", !notesRailWide.matches);
-  setLabel(
-    toggle,
-    notesRailHiddenByChoice() ? "ph:sidebar-simple Show connections" : "ph:sidebar-simple Hide connections"
-  );
+  //: A setting, said as one (INBOX 432): "Hide connections" read as an
+  //: action on a column that was not there when no note was open.
+  const on = !notesRailHiddenByChoice();
+  setLabel(toggle, `${on ? "ph:check-square" : "ph:square"} Connections beside an open note`);
+  toggle.setAttribute("aria-pressed", String(on));
 }
 
 async function renderNotesRail() {

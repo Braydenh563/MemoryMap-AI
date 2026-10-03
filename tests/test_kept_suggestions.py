@@ -78,3 +78,13 @@ def test_the_card_offers_them_and_shows_the_confidence():
     assert 'chip(`ph:plus ${tag}`, "tag suggested-tag"' in js
     assert "answerSuggestedTags(entry, { discard: [tag] })" in js
     assert '"item-fact filing-sure"' in js
+
+
+def test_the_note_line_is_spaced_in_groups():
+    """INBOX 447: "there's no spacing between note metadata". An id rule set
+    the Notes list's line to 6.4px and the chips' hover bleed overlapped
+    them; one rule now spaces every note line, 16px between groups."""
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parent.parent / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert ":is(#entry-list, #raw-results, .timeline-feed, body) .entry-meta.note-meta {\n  column-gap: var(--space-6);" in css

@@ -127,6 +127,10 @@ class EntryUpdate(BaseModel):
     #: than silently overwriting it (api/edit_conflicts.py). Optional: a
     #: writer that sends none is not checked.
     base_hash: str | None = Field(default=None, max_length=64)
+    #: The text includes an Atlas suggestion the person applied before saving
+    #: (Improve writing in the form): the edit is recorded as theirs and
+    #: Atlas's together, so the history can say so (INBOX 446).
+    ai_assisted: bool = False
 
 
 class ContextBody(BaseModel):

@@ -1611,7 +1611,7 @@ Link to another note with [[its first few words]]."></textarea>
                  changes how a search behaves could only be reached *after*
                  running one. -->
             <button type="button" id="ask-search-tune" class="ghost small icon-only"
-              title="Tune how strict semantic search is (Settings → General)"
+              title="Tune how strict semantic search is (Settings → Search and index)"
               aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
@@ -7590,7 +7590,7 @@ Link to another note with [[its first few words]]."></textarea>
              clue which screen held what, so finding anything meant reading
              every label. The groups answer "what am I changing?" first. -->
         <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
-          <!-- Eighteen sections, grouped four ways. Grouping helps and is only
+          <!-- Twenty-one sections, grouped six ways. Grouping helps and is only
                ever right for some people: "where do I turn off web search?" is
                a guess between The AI and System until you have learned the
                layout. Searching the sections' actual contents turns that guess
@@ -7600,16 +7600,20 @@ Link to another note with [[its first few words]]."></textarea>
             aria-describedby="settings-search-count">
           <p id="settings-search-count" class="muted settings-search-count hidden"
             role="status"></p>
-          <p class="nav-group-label" id="nav-group-ai">Atlas</p>
+          <!-- The settings the typed words match, one line each with the
+               section and group it is in (settings-find.js). -->
+          <ul id="settings-results" class="settings-results hidden" aria-label="Matching settings"></ul>
+          <!-- Six groups (INBOX 444), by what the person is doing rather than
+               by what the code calls it: shaping the AI, looking after the
+               notebook, how it looks and feels, who can get in and what
+               leaves, the machine underneath, and help. Measured before the
+               regroup: scratchpad/ui-sweeps/settingsia.js, nine concerns set
+               from two or three sections. Every data-section and id is kept:
+               other code deep-links to them. -->
+          <p class="nav-group-label" id="nav-group-ai">AI</p>
           <div role="group" aria-labelledby="nav-group-ai">
             <button id="settings-nav-models" data-section="models" class="active">Models</button>
-            <!-- The owner's decision: Preferences became the person's own
-                 local profile (a name, an "About me" Atlas reads, the mark
-                 drawn from the name) and moved up to sit right after the
-                 first section. Its id stays `preferences`, because every
-                 `openSettingsModal("preferences", ...)` jump in the app names
-                 it. -->
-            <button data-section="preferences">Profile</button>
+            <button data-section="searchindex">Search and index</button>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
@@ -7618,25 +7622,39 @@ Link to another note with [[its first few words]]."></textarea>
             <button data-section="websearch">Web search</button>
           </div>
 
-          <p class="nav-group-label" id="nav-group-you">Your notebook</p>
+          <p class="nav-group-label" id="nav-group-you">Notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
+            <!-- The owner's decision: Preferences became the person's own
+                 local profile (a name, an "About me" Atlas reads, the mark
+                 drawn from the name). Its id stays `preferences`, because
+                 every `openSettingsModal("preferences", ...)` jump in the app
+                 names it. -->
+            <button data-section="preferences">Profile</button>
             <button data-section="general">General</button>
-            <button id="settings-nav-appearance" data-section="appearance">Appearance</button>
             <button data-section="templates">Templates</button>
-            <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="data">Import &amp; export</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-look">Look and feel</p>
+          <div role="group" aria-labelledby="nav-group-look">
+            <button id="settings-nav-appearance" data-section="appearance">Appearance</button>
+            <button data-section="shortcuts">Keyboard shortcuts</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-security">Privacy and security</p>
+          <div role="group" aria-labelledby="nav-group-security">
+            <button data-section="account">Account &amp; security</button>
+            <button data-section="privacy">Privacy</button>
           </div>
 
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
-            <button data-section="account">Account &amp; security</button>
-            <button data-section="privacy">Privacy</button>
             <button data-section="extras">Packages</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
           </div>
 
-          <p class="nav-group-label" id="nav-group-about">Getting help</p>
+          <p class="nav-group-label" id="nav-group-about">Help and About</p>
           <div role="group" aria-labelledby="nav-group-about">
             <button id="settings-nav-help" data-section="help">Help</button>
             <button data-section="about">About</button>
@@ -7647,21 +7665,6 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Models -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status"></p>
-            <p id="search-engine-health" class="status"></p>
-            <p id="embedding-error" class="status error hidden"></p>
-            <!-- The text above already told people the fix ("switch to an
-                 Ollama embedding model, download nomic-embed-text"), this
-                 is that fix as a button instead of a set of instructions to
-                 follow by hand across three different controls. Asked for
-                 directly: automate the whole thing behind one click, only
-                 shown when there's actually a fix to offer (Ollama has to
-                 be running to pull or use an Ollama model at all). -->
-            <div id="embedding-error-fix-row" class="row hidden">
-              <button id="embedding-error-fix" class="small" type="button">
-                Switch to nomic-embed-text (Ollama)
-              </button>
-              <span id="embedding-error-fix-status" class="muted"></span>
-            </div>
             <!-- One line, and the rest of what used to be here is in the
                  Model backend "?" below. Asked for directly: "areas with
                  excessive paragraph text… replace them with the circle
@@ -7737,7 +7740,8 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div id="models-config" class="hidden settings-group">
-              <h3>Chat model (answers your questions: switches instantly)</h3>
+              <h3>Chat model</h3>
+              <p class="muted">Answers your questions, and switches instantly.</p>
               <div class="row">
                 <select id="chat-model-select" aria-label="Model used for chat" title="Model used for chat"></select>
                 <button id="chat-model-apply" class="small">Use this model</button>
@@ -7790,7 +7794,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
               </div>
               <div class="row help-head">
-                <h3>Utility model (filing, digest &amp; writing fixes)</h3>
+                <h3>Utility model</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="utility-model-help" aria-controls="utility-model-help" aria-expanded="false"
                   title="About the utility model" aria-label="About the utility model">
@@ -7811,7 +7815,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Use smart model routing for background jobs</span>
                 </label>
               </div>
-              <p class="muted">A small fast model handles background jobs, so the chat model stays free to answer.</p>
+              <p class="muted">A small fast model does the filing, the digest and writing fixes, so the chat model stays free.</p>
               <div class="help-body hidden" id="utility-model-help" role="dialog" aria-label="About the utility model">
                 <p>
                   Quick background jobs run on this model, so a big slow
@@ -7827,7 +7831,7 @@ Link to another note with [[its first few words]]."></textarea>
                    than falling back to the chat model, a vision model is
                    usually a different, heavier one kept just for photos. -->
               <div class="row help-head">
-                <h3>Vision model (used when an image is attached in chat)</h3>
+                <h3>Vision model</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="vision-model-help" aria-controls="vision-model-help" aria-expanded="false"
                   title="About the vision model" aria-label="About the vision model">
@@ -7839,7 +7843,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="vision-model-apply" class="small">Use this model</button>
               </div>
               <p id="vision-model-note" class="status"></p>
-              <p class="muted">“Auto-detect” uses the first installed model that reports it can see images.</p>
+              <p class="muted">Used for images in chat. Auto-detect picks one that can see.</p>
               <div class="help-body hidden" id="vision-model-help" role="dialog" aria-label="About the vision model">
                 <p>
                   “Auto-detect” uses the first installed model that reports
@@ -7857,7 +7861,7 @@ Link to another note with [[its first few words]]."></textarea>
                    moondream for a scanned invoice and it describes the
                    invoice. -->
               <div class="row help-head">
-                <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+                <h3>Reading text</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="ocr-model-help" aria-controls="ocr-model-help" aria-expanded="false"
                   title="About reading text" aria-label="About reading text">
@@ -7869,7 +7873,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="ocr-model-apply" class="small">Use this model</button>
               </div>
               <p id="ocr-model-note" class="status"></p>
-              <p class="muted">Left on “Automatic”, this prefers a dedicated document reader when you have one.</p>
+              <p class="muted">OCR for scanned PDFs and text in images. Automatic prefers a dedicated reader.</p>
               <div class="help-body hidden" id="ocr-model-help" role="dialog" aria-label="About reading text">
                 <p>
                   Left on “Automatic”, this prefers a document reader
@@ -7908,7 +7912,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="feature-models-list" class="feature-models"></div>
               <div class="row">
                 <button id="feature-models-reset" class="ghost small" type="button"
-                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature to its default model</button>
+                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature</button>
               </div>
               <p id="feature-models-reset-note" class="muted"></p>
               <div class="help-body hidden" id="feature-models-help" role="dialog" aria-label="About a model per feature">
@@ -7930,6 +7934,128 @@ Link to another note with [[its first few words]]."></textarea>
                   says how many it will clear.
                 </p>
               </div>
+            </div>
+
+            <!-- Advanced response settings. Asked for directly: expose top-k,
+                 top-p, repeat penalty and the rest, because different models
+                 need different values for the same result, and detect them
+                 per model if that is possible.
+
+                 It is. A GGUF carries its author's recommended parameters and
+                 Ollama reports them in /api/show, so every row starts at what
+                 the model itself asks for and says so. Changing one stores
+                 only that one, which is why switching model still picks up the
+                 new model's own recommendations for everything untouched.
+
+                 Collapsed by default: this is genuinely advanced, and the
+                 honest default for all of it is "whatever the model says". -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="sampling-help" aria-controls="sampling-help" aria-expanded="false"
+                title="About these settings" aria-label="About these settings">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            <details id="sampling-box" class="settings-group">
+              <summary>
+                <div class="row help-head">
+                  <h3 class="inline-h3">Advanced response settings</h3>
+                  <span class="fold-help-slot" aria-hidden="true"></span>
+                </div>
+              </summary>
+              <p class="muted">Each row starts at what the model recommends for itself.</p>
+              <div class="help-body hidden" id="sampling-help" role="dialog" aria-label="About these settings">
+                <p>
+                  How the model picks its words. Each row starts at what
+                  this model recommends for itself, change one only if you
+                  have a reason, and Reset puts it back.
+                </p>
+              </div>
+              <p id="sampling-model" class="muted text-sm"></p>
+              <div id="sampling-rows"></div>
+              <div class="row gap">
+                <button id="sampling-reset" class="ghost small" type="button">
+                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i>
+                  Reset all to the model's own
+                </button>
+              </div>
+              <p id="sampling-note" class="muted text-sm"></p>
+            </details>
+            </div>
+            <div id="installed-box" class="hidden settings-group">
+              <h3>Installed models</h3>
+              <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
+              <ul id="installed-list"></ul>
+            </div>
+            <!-- Suggested downloads as model cards (INBOX 444): grouped by what
+                 the model is for, one starting pick per group, each card saying
+                 what it needs and whether it fits this computer, with its own
+                 progress and Cancel. Built by `renderSuggested`
+                 (settings-models.js, loaded on the first open of Settings). -->
+            <div id="suggested-box" class="hidden settings-group">
+              <div class="row help-head">
+                <h3>Suggested downloads</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="suggested-help" aria-controls="suggested-help" aria-expanded="false"
+                  title="About these downloads" aria-label="About these downloads">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p id="suggested-hardware" class="muted">Models Ollama can download for you.</p>
+              <div class="help-body hidden" id="suggested-help" role="dialog" aria-label="About these downloads">
+                <p>
+                  Each card says how much memory the model asks for and whether
+                  that fits this computer: Fits is under 60% of its memory,
+                  Tight is up to 85%, and Too big is more than that. It counts
+                  system memory only; a graphics card with enough memory of its
+                  own runs the same model faster than the badge suggests.
+                </p>
+                <p>
+                  Sizes with a ~ are the download size we shipped and have not
+                  checked; they turn exact once the model is installed. The
+                  starting pick in each group is ours, chosen for being small
+                  and dependable, not the result of a benchmark.
+                </p>
+              </div>
+              <label class="setting-check" id="suggested-hide-wrap">
+                <input type="checkbox" id="suggested-hide-big">
+                <span>Hide models too big for this computer</span>
+              </label>
+              <div id="suggested-list" class="model-groups"></div>
+              <div id="custom-download" class="custom-download">
+                <h4>Download another model</h4>
+                <p class="muted">An Ollama name such as qwen2.5:3b, or a Hugging Face GGUF link.</p>
+                <div class="row">
+                  <input id="custom-model-name" type="text" spellcheck="false" autocomplete="off"
+                    autocapitalize="off" aria-label="Model name or link" aria-describedby="custom-model-note"
+                    placeholder="qwen2.5:3b">
+                  <button id="custom-model-check" class="ghost small" type="button">Check name</button>
+                </div>
+                <p id="custom-model-note" class="status" role="status" aria-live="polite"></p>
+                <div id="custom-model-cards" class="model-grid"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Search and index (INBOX 444). The engine that makes the vectors,
+               the index it fills and the relevance floor that decides what comes
+               back used to be three places: Models (engine, index) and General
+               (relevance). Models was 4,737px with them. Measured:
+               scratchpad/ui-sweeps/settingsia.js. -->
+          <section class="settings-section hidden" id="settings-searchindex">
+            <p id="search-engine-health" class="status"></p>
+            <p id="embedding-error" class="status error hidden"></p>
+            <!-- The text above already told people the fix ("switch to an
+                 Ollama embedding model, download nomic-embed-text"), this
+                 is that fix as a button instead of a set of instructions to
+                 follow by hand across three different controls. Asked for
+                 directly: automate the whole thing behind one click, only
+                 shown when there's actually a fix to offer (Ollama has to
+                 be running to pull or use an Ollama model at all). -->
+            <div id="embedding-error-fix-row" class="row hidden">
+              <button id="embedding-error-fix" class="small" type="button">
+                Switch to nomic-embed-text (Ollama)
+              </button>
+              <span id="embedding-error-fix-status" class="muted"></span>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,
@@ -8028,59 +8154,52 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
               </div>
             </div>
-            <!-- Advanced response settings. Asked for directly: expose top-k,
-                 top-p, repeat penalty and the rest, because different models
-                 need different values for the same result, and detect them
-                 per model if that is possible.
-
-                 It is. A GGUF carries its author's recommended parameters and
-                 Ollama reports them in /api/show, so every row starts at what
-                 the model itself asks for and says so. Changing one stores
-                 only that one, which is why switching model still picks up the
-                 new model's own recommendations for everything untouched.
-
-                 Collapsed by default: this is genuinely advanced, and the
-                 honest default for all of it is "whatever the model says". -->
-            <div class="fold-help-wrap">
-              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
-                data-help-for="sampling-help" aria-controls="sampling-help" aria-expanded="false"
-                title="About these settings" aria-label="About these settings">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
-            <details id="sampling-box" class="settings-group">
-              <summary>
-                <div class="row help-head">
-                  <h3 class="inline-h3">Advanced response settings</h3>
-                  <span class="fold-help-slot" aria-hidden="true"></span>
-                </div>
-              </summary>
-              <p class="muted">Each row starts at what the model recommends for itself.</p>
-              <div class="help-body hidden" id="sampling-help" role="dialog" aria-label="About these settings">
-                <p>
-                  How the model picks its words. Each row starts at what
-                  this model recommends for itself, change one only if you
-                  have a reason, and Reset puts it back.
-                </p>
-              </div>
-              <p id="sampling-model" class="muted text-sm"></p>
-              <div id="sampling-rows"></div>
-              <div class="row gap">
-                <button id="sampling-reset" class="ghost small" type="button">
-                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i>
-                  Reset all to the model's own
+            <div class="settings-group">
+            <!-- Asked for directly, after a live report of an unrelated note
+                 scoring 57% "similar", see search_manager.py's own comment
+                 on why a flat floor isn't enough for the current embedding
+                 model. Exposed rather than left as a code constant so a
+                 notebook whose real behaviour still looks off has a lever
+                 without a code change. -->
+            <div id="search-relevance-group" class="flash-target">
+              <div class="row space-between help-head">
+                <h3>Search relevance</h3>
+                <!-- Same pattern as #draft-help/#graph-help-toggle: the
+                     button's own `title` is a real hover tooltip, and a
+                     click opens the same text as a panel. Reachable from
+                     here, and jumped to (scrolled + flashed) from the
+                     Dashboard, Ask sub-tab and Chat via
+                     openSettingsModal("searchindex", "search-relevance-group"). -->
+                <button type="button" id="search-relevance-help" class="icon-only ghost small graph-help-toggle"
+                  aria-expanded="false" aria-controls="search-relevance-intro"
+                  title="Minimum similarity: a semantic match below this score is dropped, however few results that leaves. Above-average margin: on top of that floor, a note also has to beat the rest of this search's own results by this many standard deviations, the app's own defence against a model that scores everything in a narrow band, so a flat floor alone lets unrelated notes through. Raise either number for fewer, more confident results; lower them if search feels too strict. Reset to default undoes both."
+                  aria-label="What do these numbers mean?">
+                  <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
-              <p id="sampling-note" class="muted text-sm"></p>
-            </details>
+              <p class="muted graph-help-panel hidden" id="search-relevance-intro" role="dialog" aria-label="What do these numbers mean?">
+                Minimum similarity: a semantic match below this score is
+                dropped, however few results that leaves. Above-average
+                margin: on top of that floor, a note also has to beat the
+                rest of this search's own results by this many standard
+                deviations: the app's own defence against a model that
+                scores everything in a narrow band, so a flat floor alone
+                lets unrelated notes through. Raise either number for fewer,
+                more confident results; lower them if search feels too
+                strict. Reset to default undoes both.
+              </p>
+              <div class="row">
+                <label for="pref-search-min-sim" class="muted">Minimum similarity</label>
+                <input id="pref-search-min-sim" type="number" min="0" max="1" step="0.01">
+              </div>
+              <div class="row">
+                <label for="pref-search-z-margin" class="muted">Above-average margin</label>
+                <input id="pref-search-z-margin" type="number" min="0" max="3" step="0.1">
+              </div>
+              <div class="row">
+                <button id="pref-search-reset" class="ghost small" type="button">Reset to default</button>
+              </div>
             </div>
-            <div id="installed-box" class="hidden settings-group">
-              <h3>Installed models</h3>
-              <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
-              <ul id="installed-list"></ul>
-            </div>
-            <div id="suggested-box" class="hidden settings-group">
-              <h3>Suggested downloads</h3>
-              <ul id="suggested-list"></ul>
             </div>
           </section>
 
@@ -8091,6 +8210,19 @@ Link to another note with [[its first few words]]."></textarea>
               in your notes. Pick the active one in the Chat tab.
             </p>
             <ul id="persona-list" class="entry-list"></ul>
+            <h3>Answer style</h3>
+            <p class="muted">How Atlas words its answers, whichever persona is active.</p>
+              <!-- A labelled row like every other field in this pane: the
+                   select sat alone under its heading, off the pane's
+                   label-left, field-right grid. -->
+              <div class="row">
+                <label for="pref-style" class="muted">How Atlas writes its answers</label>
+                <select id="pref-style" title="Writing style Atlas uses">
+                  <option value="friendly">Friendly (default)</option>
+                  <option value="concise">Concise</option>
+                  <option value="detailed">Detailed</option>
+                </select>
+              </div>
             <h3>Dashboard greeting</h3>
             <p class="muted">
               Give the dashboard's welcome message its own persona, independent
@@ -9608,63 +9740,6 @@ Link to another note with [[its first few words]]."></textarea>
                    was the one unit too long for the row, and it wrapped onto a
                    line of its own under the input. -->
               <p class="muted text-sm">0 keeps every chat. Pinned chats are never deleted, however old they are.</p>
-              <h3>AI answer style</h3>
-              <!-- A labelled row like every other field in this pane: the
-                   select sat alone under its heading, off the pane's
-                   label-left, field-right grid. -->
-              <div class="row">
-                <label for="pref-style" class="muted">How Atlas writes its answers</label>
-                <select id="pref-style" title="Writing style Atlas uses">
-                  <option value="friendly">Friendly (default)</option>
-                  <option value="concise">Concise</option>
-                  <option value="detailed">Detailed</option>
-                </select>
-              </div>
-              <!-- Asked for directly, after a live report of an unrelated note
-                   scoring 57% "similar", see search_manager.py's own comment
-                   on why a flat floor isn't enough for the current embedding
-                   model. Exposed rather than left as a code constant so a
-                   notebook whose real behaviour still looks off has a lever
-                   without a code change. -->
-              <div id="search-relevance-group" class="flash-target">
-                <div class="row space-between help-head">
-                  <h3>Search relevance</h3>
-                  <!-- Same pattern as #draft-help/#graph-help-toggle: the
-                       button's own `title` is a real hover tooltip, and a
-                       click opens the same text as a panel. Reachable from
-                       here, and jumped to (scrolled + flashed) from the
-                       Dashboard, Ask sub-tab and Chat via
-                       openSettingsModal("preferences", "search-relevance-group"). -->
-                  <button type="button" id="search-relevance-help" class="icon-only ghost small graph-help-toggle"
-                    aria-expanded="false" aria-controls="search-relevance-intro"
-                    title="Minimum similarity: a semantic match below this score is dropped, however few results that leaves. Above-average margin: on top of that floor, a note also has to beat the rest of this search's own results by this many standard deviations, the app's own defence against a model that scores everything in a narrow band, so a flat floor alone lets unrelated notes through. Raise either number for fewer, more confident results; lower them if search feels too strict. Reset to default undoes both."
-                    aria-label="What do these numbers mean?">
-                    <i class="ph ph-question" aria-hidden="true"></i>
-                  </button>
-                </div>
-                <p class="muted graph-help-panel hidden" id="search-relevance-intro" role="dialog" aria-label="What do these numbers mean?">
-                  Minimum similarity: a semantic match below this score is
-                  dropped, however few results that leaves. Above-average
-                  margin: on top of that floor, a note also has to beat the
-                  rest of this search's own results by this many standard
-                  deviations: the app's own defence against a model that
-                  scores everything in a narrow band, so a flat floor alone
-                  lets unrelated notes through. Raise either number for fewer,
-                  more confident results; lower them if search feels too
-                  strict. Reset to default undoes both.
-                </p>
-                <div class="row">
-                  <label for="pref-search-min-sim" class="muted">Minimum similarity</label>
-                  <input id="pref-search-min-sim" type="number" min="0" max="1" step="0.01">
-                </div>
-                <div class="row">
-                  <label for="pref-search-z-margin" class="muted">Above-average margin</label>
-                  <input id="pref-search-z-margin" type="number" min="0" max="3" step="0.1">
-                </div>
-                <div class="row">
-                  <button id="pref-search-reset" class="ghost small" type="button">Reset to default</button>
-                </div>
-              </div>
             </div>
             <div class="settings-group">
               <div class="row help-head">

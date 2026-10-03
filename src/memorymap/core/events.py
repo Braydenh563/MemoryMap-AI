@@ -59,6 +59,10 @@ from memorymap.core.database import (
 #: every row written before this module existed.
 ACTOR_USER = "user"
 
+#: A person saved text that includes an Atlas suggestion they applied (the
+#: edit form's Improve writing): both of them, said as both (INBOX 446).
+ACTOR_USER_AND_AI = "user+ai"
+
 #: Actions that are bookkeeping rather than news: they exist so a version can
 #: be rebuilt, and they always accompany an `edited` event that says the same
 #: thing in the user's language. The activity feed hides them; `/audit`, which

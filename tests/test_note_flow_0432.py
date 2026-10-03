@@ -266,7 +266,8 @@ def test_note_boxes_are_live_with_a_source_switch_not_a_preview():
     markdown as typed, the same text and caret either way."""
     docs = _read("documents.js")
     ext = _function(docs, "noteSurfaceExtensions")
-    assert "host.noteLiveSlot.of(noteSourceWanted() ? [] : live)" in ext
+    #: INBOX 447: the Source choice only applies where the toggle is.
+    assert "host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live)" in ext
     assert "noteLiveSlot.reconfigure" in _function(docs, "setNoteSurfaceSource")
     wiring = _read("wiring.js")
     assert "function setNoteSource(on)" in wiring and "paintEntryPreview" not in wiring

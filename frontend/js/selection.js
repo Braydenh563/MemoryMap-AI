@@ -830,6 +830,15 @@ function selectionMenuItems() {
       $("save-search").classList.remove("hidden");
       renderEntries();
       if ($("semantic-search-toggle")?.checked) loadEntries();
+      //: Said, with the way back (INBOX 446): on the Notes list already, the
+      //: list filtered under the person with nothing to say it had.
+      const shown = text.length > 40 ? `${text.slice(0, 40)}…` : text;
+      toastAction(`Showing notes with “${shown}”.`, "Clear", () => {
+        noteSearch = "";
+        $("note-search").value = "";
+        $("save-search").classList.add("hidden");
+        renderEntries();
+      });
     }),
     makeMenuItem("ph:bell Set a reminder", "Read a reminder out of the selection", () =>
       remindFromSelection(text)

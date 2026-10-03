@@ -2193,6 +2193,7 @@ const LAZY_MODULES = {
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js"],
   settingsData: ["/js/settings-data.js"],
+  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   //: What a click on an attachment card does (INBOX 440 (2)): see
   //: attachment-actions.js's header.

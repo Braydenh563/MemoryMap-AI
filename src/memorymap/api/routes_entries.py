@@ -7,6 +7,7 @@ calls run (plan §4).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import threading
@@ -35,6 +36,7 @@ from memorymap.api.schemas import (
     SimilarOut,
 )
 from memorymap.core import deps, events, jobs, vault
+from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
     Bookmark,
@@ -2012,17 +2014,19 @@ def update_entry(
         )
     content_changed = body.content is not None and body.content != entry.content
     tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
-    # Snapshot BEFORE the change, so the newest revision is always the version
-    # being replaced rather than the one replacing it.
-    if content_changed or tags_changed:
-        manager.record_revision(session, entry)
-    manager.update_entry(
-        session,
-        entry,
-        content=body.content,
-        category_name=body.category,
-        tags=body.tags,
-    )
+    #: A save that carries an applied Atlas suggestion is both of theirs.
+    with events.acting_as(ACTOR_USER_AND_AI) if body.ai_assisted else contextlib.nullcontext():
+        # Snapshot BEFORE the change, so the newest revision is always the
+        # version being replaced rather than the one replacing it.
+        if content_changed or tags_changed:
+            manager.record_revision(session, entry)
+        manager.update_entry(
+            session,
+            entry,
+            content=body.content,
+            category_name=body.category,
+            tags=body.tags,
+        )
     if body.pinned is not None and body.pinned != entry.pinned:
         entry.pinned = body.pinned
         manager.log_action(

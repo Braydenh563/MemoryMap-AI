@@ -969,6 +969,42 @@ def suggest_tags(
     return tags[:limit]
 
 
+def draft_template(
+    name: str,
+    description: str,
+    current: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+) -> str:
+    """A note template's body from its name and one line about it: "Draft
+    with Atlas" in Settings, Templates (INBOX 430, the owner: "AI templates
+    (generate, edit, regenerate)"). `current` is the body as it stands, so a
+    second press is a different take rather than the same one. Plain
+    markdown, short, with `{date}` where a date belongs (the app fills it in
+    when the template is applied). Raises OllamaError when no model is up.
+    """
+    system = (
+        "You write note templates: a short markdown skeleton a person fills "
+        "in. Headings or labelled lines with empty space after them, a "
+        "checklist where one fits, no example content, no explanation, no "
+        "code fence. Write {date} at most once, where the day it is written belongs. At most 15 lines."
+    )
+    ask = f"Template name: {name}."
+    if description:
+        ask += f" What it is for: {description}."
+    if current.strip():
+        ask += "\nWrite a different version from this one:\n" + current.strip()[:1500]
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [{"role": "system", "content": system}, {"role": "user", "content": ask}],
+    )
+    body = str(reply.get("content") or "").strip()
+    #: A model that fenced it anyway: the fence is not the template.
+    if body.startswith("```"):
+        body = body.strip("`").split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return body[:2000]
+
+
 #: The `PersonaItem.thinking_words` field's own rules (routes_settings.py),
 #: kept alongside the one place that generates a list rather than accepting
 #: one by hand: a model-written word that fails validation there is dropped

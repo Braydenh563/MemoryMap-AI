@@ -28,6 +28,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Notes: Recently edited sort, a title field when editing, Copy [[link]] in a note's menu, and Home, End, Delete and F2 on a focused note.
 - Category rename and merge can be undone, and deleting a category always offers to keep its notes in Uncategorised.
 - Selected notes can be added to or removed from Favourites, archived, published (drafts) or have a tag removed, from the selection bar's ⋯, each undoable.
+- Settings, Templates: Draft with Atlas writes a template from its name and one line, and pressing it again gives another version; nothing is saved until you add it.
 - Graph: each category's notes gather in a place of their own, and notes with no links sit with their category rather than in a ring round the map (View, Group by category).
 
 ## [0.3.32] - 2026-09-28

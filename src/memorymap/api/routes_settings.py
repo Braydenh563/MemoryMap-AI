@@ -201,6 +201,27 @@ def suggest_persona_thinking_words(body: SuggestThinkingWordsBody) -> dict:
     return {"thinking_words": words}
 
 
+class DraftTemplateBody(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    description: str = Field(default="", max_length=200)
+    current: str = Field(default="", max_length=2000)
+
+
+@router.post("/templates/draft")
+def draft_template(body: DraftTemplateBody) -> dict:
+    """"Draft with Atlas" in Settings, Templates: a body from the name and
+    the one line, or another take on the one in the box. A model that is
+    down answers with an empty body and a reason, never an error page."""
+    try:
+        text = librarian.draft_template(
+            body.name, body.description, body.current, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception as exc:  # noqa: BLE001 - said in the panel, logged here
+        logging.getLogger("memorymap.templates").warning("template draft failed", exc_info=True)
+        return {"content": "", "reason": librarian.model_error_message(deps.get_model_manager().utility_model(), exc)}
+    return {"content": text, "reason": "" if text else "The model wrote nothing. Try again."}
+
+
 class CustomThemeItem(BaseModel):
     """One saved look: the appearance settings the browser would have applied.
 

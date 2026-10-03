@@ -223,3 +223,18 @@ def test_recently_edited_sort_copy_link_and_list_keys():
         assert key in keys, key
     assert "binNoteWithUndo(entry)" in keys
     assert "Copy [[link]]" in _read("menus.js")
+
+
+def test_the_notes_chrome_says_less():
+    # The space chip only when the notes in view span spaces.
+    cards = _read("note-cards.js")
+    assert "spacesCache.length > 1 && notesSpanSpaces()" in cards
+    # Housekeeping does not open the activity panel or toast its finish.
+    status = _read("status.js")
+    assert 'QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"])' in status
+    assert "if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);" in status
+    # The sidebar fold is remembered and its peek icon is a pin.
+    sheets = _read("sheets-selects.js")
+    assert "sidebarCollapsed:${aside.id}" in sheets and "ph-push-pin icon-peek" in sheets
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert "#sidebar #category-list {\n    max-height:" in css

@@ -1185,6 +1185,16 @@ async function binNoteWithUndo(entry) {
   });
 }
 
+let notesSpanMemo = { list: null, many: false };
+
+function notesSpanSpaces() {
+  if (notesSpanMemo.list !== allEntries) {
+    const first = allEntries[0]?.workspace_id;
+    notesSpanMemo = { list: allEntries, many: allEntries.some((e) => e.workspace_id && e.workspace_id !== first) };
+  }
+  return notesSpanMemo.many;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1696,7 +1706,12 @@ function entryItem(entry, options = {}) {
   //: than never.
   //: Only when there is more than one space: with one, "Default Space" on
   //: every note said nothing (owner's screenshots).
-  if (entry.workspace_id && spacesCache.length > 1) {
+  //: **And only when the notes in view come from more than one space**
+  //: (INBOX 432). A fresh notebook has four spaces and every note in
+  //: Default Space, so "All spaces" drew "Default Space" on every card, a
+  //: chip that told nobody anything; one note filed elsewhere brings them all
+  //: back, which is when they start to mean something.
+  if (entry.workspace_id && spacesCache.length > 1 && notesSpanSpaces()) {
     const active = activeSpaceId();
     if (active === SPACE_ALL || entry.workspace_id !== active) {
       const space = spacesCache.find((s) => s.id === entry.workspace_id);

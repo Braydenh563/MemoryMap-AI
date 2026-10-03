@@ -2361,6 +2361,14 @@ function taskKey(task) {
   return `${task.kind || "job"}:${task.name || ""}`;
 }
 
+//: **Housekeeping is listed, not announced** (INBOX 432). Warming the filing
+//: model at launch opened the Agent activity panel over the notes and then
+//: flew "Finished: Warming up the filing model" past the corner, two signals
+//: for work nobody asked for and nothing waits on; filing a note already has
+//: its own line under the composer. They still get a row in the run list and
+//: still say so when they fail.
+const QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"]);
+
 function noticeTaskTransitions(running, history) {
   const now = new Map(running.map((task) => [taskKey(task), task]));
 
@@ -2389,7 +2397,7 @@ function noticeTaskTransitions(running, history) {
     run.progress = typeof task.progress === "number" ? task.progress : null;
     renderAgentRunSummary(run);
     backgroundRunRows.set(key, run);
-    openPanelForRun(run);
+    if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);
     recordNotification({
       kind: "task",
       title: `Started: ${task.label}`,
@@ -2426,7 +2434,7 @@ function noticeTaskTransitions(running, history) {
       continue;
     } else {
       endAgentRun(row, { state: "done" });
-      agentActivityNotice(`Finished: ${(ended && ended.label) || task.label}`);
+      if (!QUIET_TASK_KINDS.has(task.kind)) agentActivityNotice(`Finished: ${(ended && ended.label) || task.label}`);
     }
   }
 }

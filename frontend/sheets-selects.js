@@ -322,11 +322,10 @@ function makeSidebarResizable(aside) {
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
       <line x1="15" y1="3" x2="15" y2="21"></line>
     </svg>
-    <svg class="icon-peek" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="12" y1="17" x2="12" y2="22"></line>
-      <path d="M5 17h14v-1.5c0-1.5-1.5-2-1.5-4v-3c0-3-2-5-5.5-5S6.5 5.5 6.5 8.5v3c0 2-1.5 2.5-1.5 4V17z"></path>
-    </svg>
+    <i class="ph ph-push-pin icon-peek" aria-hidden="true"></i>
   `;
+  //: The peek's icon is a pin, "keep it open": it was drawn as a bell, the
+  //: notifications glyph (INBOX 432).
   collapseBtn.addEventListener("click", () => {
     // Stacked, this same button is the sheet's opener. The desktop classes
     // are not applied in that band (applySidebarSheetMode takes them off), so
@@ -337,8 +336,14 @@ function makeSidebarResizable(aside) {
       collapseBtn.setAttribute("aria-expanded", String(open));
       return;
     }
-    aside.classList.toggle("sidebar-collapsed");
-    aside.parentElement.classList.toggle("layout-sidebar-collapsed");
+    const folded = aside.classList.toggle("sidebar-collapsed");
+    aside.parentElement.classList.toggle("layout-sidebar-collapsed", folded);
+    //: Remembered, like its width (INBOX 432: a reload unfolded it).
+    try {
+      localStorage.setItem(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
+    } catch {
+      /* storage blocked: this session only */
+    }
 
     // The grid column, for whichever side this sidebar is on (INBOX 430):
     // routed through applySidebarWidth so the left/right branch lives in one
@@ -348,6 +353,13 @@ function makeSidebarResizable(aside) {
     applySidebarWidth(aside, saved, { remember: false });
   });
   aside.appendChild(collapseBtn);
+  let foldedBefore = false;
+  try {
+    foldedBefore = localStorage.getItem(`sidebarCollapsed:${aside.id}`) === "1";
+  } catch {
+    /* storage blocked */
+  }
+  if (foldedBefore && !layoutIsStacked() && !aside.classList.contains("sidebar-collapsed")) collapseBtn.click();
 
   //: What a folded sidebar shows (INBOX 425, the owner: the collapsed
   //: sidebars were "white plain"). A 48px column with one button in it read

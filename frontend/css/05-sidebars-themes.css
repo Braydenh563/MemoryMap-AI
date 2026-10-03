@@ -6302,3 +6302,17 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 .doc-dock .doc-dock-identity > .doc-back.ghost:hover {
   background: var(--chip-bg);
 }
+
+/* **The list scrolls, the head stays** (INBOX 432). With 36 categories the
+   whole Notes sidebar scrolled as one block, and its head, All, Drafts and
+   Favourites went off the top (head at -427px). On a desktop layout the
+   category list is its own scroller instead, capped so the local map and
+   Most used below it stay reachable. */
+@media (min-width: 820px) {
+  #sidebar #category-list {
+    max-height: min(60vh, 36rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}

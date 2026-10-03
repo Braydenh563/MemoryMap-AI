@@ -613,7 +613,7 @@ Three tiers, and a view should be readable from them alone:
 
 | Tier | Recipe | Use |
 | --- | --- | --- |
-| **Filled** | `button`: accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog, a dashboard of widgets has one per widget (Save, Start), not one for the page. |
+| **Filled** | `button`: accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog, a dashboard of widgets has one per widget (Save, Start), not one for the page. A Settings page is one surface however many groups it has: one filled at most, the rest `ghost` (`tests/test_ui_recipes.py`; Import & export had five). |
 | **Tonal** (quiet since 2026-09-27) | `button.ghost`: a `--btn-quiet-bg` face (the field's white in light, a breath of white in dark), a 1px `--ghost-btn-border` edge measured to 3:1 against its ground, no shadow; `--ghost-btn-bg` under the pointer, `--ghost-btn-bg-hover` pressed, a 2px accent ring on focus-visible; a 32px floor (`--button-min-h`, 44 under touch). An `.icon-only`/`.icon-button` standing alone is a ghost: no fill, no edge, the glyph in `--muted`, the tint and `--ink` on hover | Every other action that stands on its own: a card's one-off control, a panel, a popover, a dialog. |
 | **Quiet** | the same button inside something that already frames it, a dock, a card's `.entry-actions` run, a floating whiteboard panel: no fill, no edge, no shadow, a tint and an edge under the pointer | A *run* of actions. The container is the affordance; the tint is the state. |
 | **Plain** | tab-bar buttons, `.linklike`, `.status-item`: no fill at rest, a tint on hover | Navigation and inline actions that sit in running text or a strip that is already a well. |

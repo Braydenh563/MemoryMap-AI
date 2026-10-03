@@ -3086,7 +3086,17 @@ function renderSidebar() {
     if (category === activeCategory && !draftsOnly && !favouritesOnly) markSidebarRowCurrent(li);
     const name = document.createElement("span");
     name.className = "category-name";
-    name.textContent = label;
+    //: Every name on one edge (INBOX 437 (4)): All takes a glyph as Drafts
+    //: does, a category its colour dot, as on a note's own chip.
+    if (!category) setLabel(name, `ph:stack ${label}`);
+    else {
+      name.textContent = label;
+      const dot = document.createElement("i");
+      dot.className = "ph category-row-dot ph-lead";
+      dot.setAttribute("aria-hidden", "true");
+      paintCategoryDot(dot, category);
+      name.prepend(dot);
+    }
     name.title = label;
     const badge = document.createElement("span");
     badge.className = "count";

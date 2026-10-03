@@ -2769,3 +2769,41 @@ header#top-bar,
     flex: 0 0 auto;
   }
 }
+
+/* **The skill library's kind segment on a phone** (INBOX 437 (4), touch.js).
+   Its dock has no ... menu, so the arrange fold above never takes the zone,
+   and at 390 the three segments (All, Yours, Built-in, each with a count)
+   wrapped inside a one-row well: Built-in fell out of it and lay over the
+   search field (`elementFromPoint` at its centre was #skills-search). The
+   zone's box steps aside so the segment can take a row of its own and the
+   sort shares the next with New skill and help; the segment's cells share
+   their row, on the touch floor like a `.seg-multi`; the glyphs go, the
+   words and counts stay. */
+@media (max-width: 599.98px) {
+  .dock[data-dock-name="library-skills"] > .dock-arrange {
+    display: contents;
+  }
+
+  .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
+    flex: 1 1 6rem;
+    min-width: 0;
+  }
+
+  .dock #skills-kind {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    height: var(--target-min);
+    padding: 0;
+  }
+
+  .dock #skills-kind > button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+
+  .dock #skills-kind > button > .ph-lead {
+    display: none;
+  }
+}

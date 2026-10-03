@@ -2340,16 +2340,25 @@ button:not(.ghost) > .spinner {
 /* The facts line of a row, which is the same object as a Files row's and is
    styled by the rule they share (`.library-file-meta`, 07-whiteboard-misc.css).
    All it needs here is to stay on one line: a long note is a fact about the
-   link, not a paragraph the list has to make room for. */
-.bookmark-meta {
+   link, not a paragraph the list has to make room for. Two classes, because
+   the shared rule loads later at the same weight and its `wrap` won: on a
+   phone "example.com ·" and "Reading" broke onto two lines, the dot left at
+   the end of the first (INBOX 437 (4)). A fact gives way by ellipsis, the
+   site first. */
+.library-file-meta.bookmark-meta {
   flex-wrap: nowrap;
   overflow: hidden;
   white-space: nowrap;
 }
 
-.bookmark-meta > span {
+.library-file-meta.bookmark-meta > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.library-file-meta.bookmark-meta > .library-file-meta-sep {
+  flex: 0 0 auto;
 }
 
 /* Pinned is a state, so the control that holds it is coloured by it rather
@@ -2392,6 +2401,10 @@ button:not(.ghost) > .spinner {
 
 .bookmark-count {
   margin: 0 0 var(--space-2);
+}
+
+.bookmark-count:empty {
+  display: none;
 }
 
 /* The "By site" grouping: a heading and its rows, folding like a Contents
@@ -3558,6 +3571,9 @@ mark.global-find-hit.global-find-current {
 .theme-presets {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  /* Every row as tall as the tallest card: a one-line name in a row of its
+     own (Lagoon) stood 79px under rows of 96 (INBOX 437 (4)). */
+  grid-auto-rows: 1fr;
   gap: 0.5rem;
   margin: 0.5rem 0;
 }
@@ -5705,20 +5721,14 @@ select {
 }
 
 #backup-list .entry-actions button {
-  /* 2.25rem, matching the panel's one control height above rather than
-     picking a second one here -- that rule's `:not()` chain out-specifies
-     anything shorter this rule could say, so a smaller number would only
-     apply to the icon-only button and re-create the mismatch it is fixing.
-     Measured before: Restore 70x36 beside a 30x30 "x". */
-  height: 2.25rem;
+  /* The panel's one control height, the token rather than a number: a
+     literal 2.25rem here outlived the token's move to 32px and left the
+     "x" 36px beside a 32px Restore (INBOX 437 (4)). Measured before that:
+     Restore 70x36 beside a 30x30 "x". */
+  height: var(--settings-control-h);
   padding-block: 0;
   font-size: var(--text-md);
   line-height: 1;
-}
-
-#backup-list .entry-actions button.icon-only {
-  width: 2.25rem;
-  padding-inline: 0;
 }
 
 /* A link inside a sentence is not a control, whatever element it is made of.
@@ -5909,6 +5919,34 @@ select {
    drawn at a size of their own and the label around them is the hit area.
    That is why the label recipes are named here instead: raising the row is
    what makes the switch reachable. */
+/* **The nav column is on the panel's one control height too** (INBOX 437
+   (4)). The search field was the base field's 42px and every section row
+   35px (6.4px of padding round a line), beside a pane whose every control
+   is `--settings-control-h`, so the column read as a different, looser kit
+   from the page it opens. The same token, so the coarse-pointer block below
+   still raises all of it to the hit floor in one place. An icon button that
+   sits in a settings row (a slider's reset, the zoom steppers, a backup's
+   delete) takes the row's height as a square rather than the 28px of
+   `.small.icon-only`, which stood 4px short of the field beside it. */
+#settings-modal .settings-search {
+  /* The floor as well as the height: the nav is a scrolling flex column,
+     and a field with a height alone was shrunk to its 18px line. */
+  height: var(--settings-control-h);
+  min-height: var(--settings-control-h);
+  padding-block: 0;
+}
+
+#settings-modal .modal-nav button {
+  min-height: var(--settings-control-h);
+  padding-block: 0;
+}
+
+#settings-modal :is(.sampling-controls, .setting-control, #backup-list .entry-actions) > button:is(.icon-only, .icon-button) {
+  width: var(--settings-control-h);
+  height: var(--settings-control-h);
+  padding: 0;
+}
+
 @media (max-width: 819.98px), (pointer: coarse) {
 
   :root {

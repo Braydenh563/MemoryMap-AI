@@ -3368,3 +3368,55 @@ def test_a_model_card_is_the_surface_three_tile_with_one_primary_action() -> Non
     assert "innerHTML" not in code
     # Fit is the server's verdict, never recomputed in the page.
     assert "fit_for" not in code and "FITS_BELOW" not in code
+
+
+class _SettingsFilledButtons(HTMLParser):
+    """Counts the filled buttons written into each Settings section's markup:
+    a `<button>` that is not ghost, a link, an icon, a switch, part of a
+    segmented well, hidden, or a card/tile/swatch that only looks like one."""
+
+    QUIET = {"ghost", "linklike", "icon-only", "icon-button", "hidden", "doc-dock-menu-item"}
+    WELLS = {"seg", "segmented-control", "accent-swatches", "theme-presets", "theme-grid"}
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[tuple[str, set[str], str | None]] = []
+        self.filled: dict[str, list[str]] = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        classes = set((a.get("class") or "").split())
+        section = a.get("id") if tag == "section" and "settings-section" in classes else None
+        if tag == "button":
+            owner = next((s for _, _, s in reversed(self.stack) if s), None)
+            in_well = any(c & self.WELLS for _, c, _ in self.stack)
+            looks_like = any(k in c for c in classes for k in ("card", "tile", "swatch", "color"))
+            if owner and not in_well and not looks_like and not classes & self.QUIET \
+                    and a.get("role") != "switch":
+                self.filled.setdefault(owner, []).append(a.get("id") or "?")
+        if tag not in self.VOID:
+            self.stack.append((tag, classes, section))
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                return
+
+
+def test_a_settings_section_has_at_most_one_filled_button() -> None:
+    """DESIGN.md's button ramp: the filled tier is the one action a surface is
+    for, one per page. Import & export carried five (Export full backup, Find
+    duplicates, both Imports, Back up now), Appearance four, Personas and
+    What it learned two each (INBOX 437 (4)); every other action on a
+    Settings page is the tonal `ghost`."""
+    # Shown only while the embedding model is broken, when the fix is the one
+    # thing the page is for; the row is hidden otherwise.
+    only_on_error = {"embedding-error-fix"}
+    parser = _SettingsFilledButtons()
+    parser.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    assert parser.filled, "the parser found no Settings sections"
+    over = {s: ids for s, ids in parser.filled.items()
+            if len([i for i in ids if i not in only_on_error]) > 1}
+    assert not over, f"more than one filled button on a Settings page: {over}"

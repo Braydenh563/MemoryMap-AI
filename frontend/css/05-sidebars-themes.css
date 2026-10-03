@@ -3850,6 +3850,9 @@ button.outline-twist:focus-visible {
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  /* One card height for the whole grid, as `.theme-presets` (INBOX 437 (4)):
+     the rows were 162 and 146px by how long each row's longest line ran. */
+  grid-auto-rows: 1fr;
   gap: 0.6rem;
   margin: 0.4rem 0 1rem;
 }
@@ -4711,6 +4714,14 @@ textarea.autogrow {
   color: var(--muted);
   font-size: var(--text-sm);
   letter-spacing: 0.06em;
+}
+
+/* A Files row already names the kind first on its facts line, beside a
+   glyph that spells it (PDF, CSV, DOC): the label under the glyph made it
+   three times on one row (INBOX 437 (4)). The grid tile, which has no facts
+   line, keeps it. */
+.library-file-rows .library-file-thumb-kind {
+  display: none;
 }
 
 /* Direction on a link chip. Colour is deliberately *not* the only signal, 

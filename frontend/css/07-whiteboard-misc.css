@@ -2207,8 +2207,12 @@ body.scroll-top-visible .skills-split > .tab-main {
   accent-color: var(--accent);
 }
 
+/* No margin of its own: the grid is the last thing in its card, so its
+   32px stood on top of the card's padding as a 48px band under the last
+   row of boards, where every other Library list ends on the padding alone
+   (INBOX 437 (4)). The pagination under the All grid brings its own. */
 .library-grid {
-  margin-bottom: var(--space-9);
+  margin-bottom: 0;
 }
 
 .skills-split {

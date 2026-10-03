@@ -3200,6 +3200,13 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding: 0 var(--space-4) var(--space-4);
 }
 
+/* With every field in it hidden (an image with no description asked for),
+   the box was its bottom padding alone: a 10px blank band under each
+   picture's caption (INBOX 437 (4)). */
+.library-image-fields:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
 /* **One disclosure, on the app's own <details> recipe** (details.tool-chip,
    02-chat-graph.css): the marker is replaced by a caret that turns, and the
    body is hidden by an author rule when closed rather than by trusting the

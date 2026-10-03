@@ -2733,6 +2733,20 @@ span > .chip {
   text-overflow: ellipsis;
 }
 
+/* A category's mark in the sidebar: its colour dot, the one a note's chip
+   and the Manage categories panel already draw, in a box the width of the
+   glyph Drafts and Favourites lead with, so every name in the list starts on
+   one edge (INBOX 437 (4): All and the categories began 23px left of Drafts,
+   Favourites and Tags). */
+.category-row-dot {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--category-dot) 0 30%, transparent calc(30% + 0.5px));
+}
+
 /* Absolutely positioned, so it overlays the row on hover instead of sitting
    in the flow. `opacity: 0` hides it but keeps its width, so every category
    row reserved space for buttons nobody could see, and "All", which has no

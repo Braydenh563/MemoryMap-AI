@@ -1052,6 +1052,25 @@ summary > .ph-lead,
   color: var(--muted);
 }
 
+/* **The card's gap is its only rhythm** (INBOX 437 (4); DESIGN.md, "zero the
+   margins, not just the heights"). The card is a flex column on one gap,
+   but the title kept an 8px bottom margin inside its head, the description
+   a paragraph's 12px each side and the run line 11.2px each side, so the
+   steps between the parts ran 28, 20, 19 and 27px for no reason a reader
+   could see. The footer keeps its own hairline and the space above it. */
+.skill-card .skill-card-header > .skill-card-title,
+.skill-card > .skill-card-desc,
+.skill-card > .skill-card-when {
+  margin: 0;
+}
+
+/* Its menu beside Run is Run's height, not the 28px of a lone icon; never
+   under the touch floor, which is the larger of the two on a phone. */
+.skill-card-footer .skill-card-more > button {
+  min-width: max(var(--control-h-lg), var(--target-min));
+  min-height: max(var(--control-h-lg), var(--target-min));
+}
+
 /* The card's own "Built-in" marker is the same fact the persona list states,
    so it says it the same way. `--accent-soft` is this app's *selected* tone
    (DESIGN.md), and nothing about a built-in skill is selected. */
@@ -2588,12 +2607,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    `#writing-room > .row:has(> h2) button` (an id, a class and an element)
    outranks `.graph-help-toggle`'s own 2rem and sets only the height. An id
    plus a class ties that selector and wins on file order, which this file
-   is for; 2.25rem is the size every other copy of the button measured. */
+   is for. The head's own height, `--control-h-lg`, not the 2.25rem every
+   copy measured before the controls came down to 32px: in Capture's head
+   it stood 36px beside a 32px Template (INBOX 437 (4)). */
 #capture .graph-help-toggle,
 #writing-room .graph-help-toggle,
 #ask .graph-help-toggle {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
   padding: 0;
 }
 
@@ -4432,11 +4453,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    rest, heavier than the words it selects. The target has to stay 44px; the
    drawing does not. So the input keeps its size and loses its own frame,
    and the box is drawn half that size in its middle, where the checkmark
-   already sits. */
+   already sits. `.doc-list-tick` (a Bookmarks or Documents row) joined in
+   INBOX 437 (4): on a phone its 44px frame stood on every link at rest. */
 @media (pointer: coarse) {
   .library-card-tick,
+  .doc-list-tick,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only),
   .library-card-tick:checked,
+  .doc-list-tick:checked,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked {
     border-color: transparent;
     background: transparent;
@@ -4444,6 +4468,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 
   .library-card-tick::before,
+  .doc-list-tick::before,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only)::before {
     content: "";
     position: absolute;
@@ -4463,6 +4488,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 
   .library-card-tick:checked::before,
+  .doc-list-tick:checked::before,
   #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked::before {
     background: var(--accent);
     border-color: var(--accent);
@@ -4668,6 +4694,58 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
   #reminder-groups li:is(:hover, :focus-within) .entry-meta > .entry-actions {
     pointer-events: auto;
+  }
+}
+
+/* **A phone row is two lines, not three bands** (INBOX 437 (4)). Below 600
+   the actions already take their own line (INBOX 433), but the row stacked
+   a 44px tick line, a 9px gap and a 44px action line inside 11px of padding
+   on each side: 119px a reminder, three to a screen, and the actions sat
+   under the tick box rather than under the words they act on. The row is
+   now the list-row recipe's grid: the tick spans both lines as the mark, the
+   words and the time are the first line, the actions (44px targets, kept)
+   the second, starting under the words. The repeat chip, when there is one,
+   sits before the time. */
+@media (max-width: 599.98px) {
+  #reminder-groups .entry-list li {
+    padding-block: var(--space-1);
+  }
+
+  #reminder-groups .entry-list li > .entry-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "tick text rep when"
+      "tick acts acts acts";
+    column-gap: var(--space-3);
+    row-gap: 0;
+    align-items: center;
+  }
+
+  #reminder-groups .entry-meta > input[type="checkbox"] {
+    grid-area: tick;
+    margin: 0;
+  }
+
+  #reminder-groups .entry-meta > .reminder-text {
+    grid-area: text;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .entry-date {
+    grid-area: when;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .chip {
+    grid-area: rep;
+    padding-top: var(--space-2);
+  }
+
+  #reminder-groups .entry-meta > .entry-actions {
+    grid-area: acts;
+    justify-self: start;
+    margin: 0;
   }
 }
 

@@ -326,6 +326,17 @@
   }
 }
 
+/* **The popup agent keeps that room on every device** (INBOX 458, the owner:
+   "the bottom popup buttons on the agent bubble clash with the text"). Its
+   results list is a 12px-gap column, so a row hanging 2px under a bubble lay
+   over whatever came next: measured 10px over the "Found in N notes" heading,
+   and over the next question once the sources moved inside the bubble. One
+   control's height below each bubble is the row's own place; the column's
+   gap is the space between it and the next message. */
+.command-palette-results > .msg:has(> .msg-actions) {
+  margin-bottom: var(--target-min);
+}
+
 /* Welcome shown in an empty chat so the page isn't a blank rectangle. */
 /* The welcome. 34ch was a 326px column of centred text in a 1062px pane
    (measured), which reads as a leftover rather than as an invitation, and the
@@ -5080,7 +5091,7 @@ mark.lightbox-hit {
      button (`center`) won this. Measured: a long, truncated title read
      centred with its ellipsis in the middle of the visible run rather than
      at its end, the "clip and centre" report. The chip recipe used
-     everywhere else in this app (`.cmd-source-row` above) is left-aligned;
+     everywhere else in this app (`.chat-source-row`) is left-aligned;
      matched here too. */
   text-align: left;
 }
@@ -5223,7 +5234,36 @@ mark.lightbox-hit {
   margin: var(--space-2) 0;
 }
 
-.agent-step-group-summary {
+/* Outside a step column (Ask's answer, the writing room, the Guide) the
+   fold keeps the column's gap below it on its own. */
+.thinking-fold {
+  margin: 0 0 var(--space-2);
+}
+
+/* **One spacing inside the step column** (INBOX 458: "better spacing and
+   positioning around and for the thinking and skills dropdowns"). The
+   column's own gap is the space between any two steps; a fold carrying a
+   margin of its own on top of it put 14px above "Finished 1 step" and 6px
+   above the answer, in the same bubble. `details` in the selector is what
+   outranks `.msg.assistant details` (its 4px margin, above). */
+.agent-steps > details.agent-step-group,
+.agent-steps > details.thinking-fold {
+  margin: 0;
+}
+
+/* And the head sits the same gap above the column's first step (it was the
+   role label's own 4px). With the rail drawn, the nodes run under the avatar
+   and a fold's icon starts where the name does. */
+.msg.assistant > .msg-role:has(+ .agent-steps) {
+  margin-bottom: var(--space-2);
+}
+
+/* `.fold-summary` is the Thinking fold's summary (`thinkingFold`,
+   chat-agent.js): the same disclosure as the steps fold and the Sources
+   fold, an icon and a word, muted, a ground under the pointer (INBOX 457:
+   "make sure all the thinking boxes are the same style and consistent"). */
+.agent-step-group-summary,
+.fold-summary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -5238,16 +5278,19 @@ mark.lightbox-hit {
   list-style: none;
 }
 
-.agent-step-group-summary::-webkit-details-marker {
+.agent-step-group-summary::-webkit-details-marker,
+.fold-summary::-webkit-details-marker {
   display: none;
 }
 
-.agent-step-group-summary:hover {
+.agent-step-group-summary:hover,
+.fold-summary:hover {
   background: var(--chip-bg);
   color: var(--ink);
 }
 
-.agent-step-group[open] > .agent-step-group-summary {
+.agent-step-group[open] > .agent-step-group-summary,
+.thinking-fold[open] > .fold-summary {
   color: var(--ink);
 }
 
@@ -5305,6 +5348,76 @@ mark.lightbox-hit {
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-2) 0 var(--space-1);
+}
+
+/* **The compact list** (`cmdSourceRow`, palette.js; INBOX 458): the
+   popup agent's sources, one quiet row each on `.timeline-row`'s shape. The
+   category dot, the title (the only column that grows, cut with an
+   ellipsis, whole on the row's tooltip) and the date, on one line. No
+   border at rest; the ground arrives with the pointer, and a transparent
+   border keeps that from moving anything. */
+.chat-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.chat-source-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: stretch;
+  gap: var(--space-3);
+  min-height: var(--target-min);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.chat-source-row:hover,
+.chat-source-row:focus-visible {
+  background: var(--chip-bg);
+  border-color: var(--border);
+}
+
+.chat-source-row-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+.chat-source-row-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.chat-source-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-source-row-date {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chat-sources-more {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
 }
 
 /* **The sources, as cards.** Reported twice, "improve the ui of the sources
@@ -5584,58 +5697,6 @@ mark.lightbox-hit {
 }
 
 
-/* **The popup agent's provenance lists.** Reported with a screenshot: chips of
-   whatever width their own text happened to be, wrapping into a ragged block,
-   each truncated at a different point, and the second list's rows a different
-   size from the first's. A fixed grid gives every row one width, so the eye
-   reads down a column instead of hunting, and the truncation lands in one
-   place. Two across at a comfortable width, one across when the popup is
-   narrow: `auto-fill` decides, so there is no breakpoint to keep in step. */
-.cmd-source-block {
-  margin-top: var(--space-3);
-}
-
-.cmd-source-head {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-sm);
-}
-
-.cmd-source-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--space-1);
-}
-
-.cmd-source-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--inner);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--text-sm);
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.cmd-source-row:hover,
-.cmd-source-row:focus-visible {
-  border-color: var(--accent);
-  background: var(--chip-bg);
-}
-
-.cmd-source-more {
-  margin-top: var(--space-1);
-  font-size: var(--text-sm);
-}
-
 /* --- what the answering model is ---------------------------------------------
    Asked for: "in chat I want more details in features, including model
    attributes, token expense distribution, more features." Fed by
@@ -5773,24 +5834,6 @@ mark.lightbox-hit {
   background:
     linear-gradient(var(--accent-soft), var(--accent-soft)),
     var(--modal-bg-opaque);
-}
-
-/* The chip's text lives in the span `setNoteLabel` builds, a flex child of a
-   `<button>`, and this app's buttons centre their content. A label longer than
-   the chip was therefore cut at both ends (reported with a screenshot reading
-   "ct I, Scene I Two noble knights of wit, let us partak"): the button's own
-   `text-overflow` cannot reach a child, so the child gets it, and the row
-   starts at the left like every other list row here. */
-.cmd-source-row {
-  justify-content: flex-start;
-}
-
-.cmd-source-row > span,
-.cmd-source-row > .ph-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The dots only exist while a turn is running; an empty span must not open a

@@ -2751,28 +2751,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-bottom: var(--space-2);
 }
 
-/* The Guide's thinking while it is thinking, above the answer it is working
-   towards (`helpChatStreamTurn`).
-
-   **It is the chat transcript's own reasoning block now, not a clipped div**
-   (INBOX 287). This rule used to be the whole treatment: `max-height: 2.6em`
-   with `overflow: hidden`, measured mid-stream at 29px tall over 262px of
-   text, unlabelled, with no way to open it. The markup carries
-   `details.agent-step.step-thinking` and a `.thinking` body, so the summary,
-   the caret and the scrolling body all come from the rules those two families
-   already have (02-chat-graph.css, 01-forms-settings.css) and this rule is
-   only what is different here: it sits in a narrow panel, so its body is held
-   to a few lines rather than the transcript's fourteen. */
-.help-chat-think {
-  margin-bottom: var(--space-2);
-}
-
-.help-chat-think .thinking {
-  max-height: 7rem;
-  font-size: var(--text-xs);
-  line-height: 1.3;
-}
-
 /* --- a notice: one line the app says about what is on screen -----------------
    DESIGN.md's recipe index, added 2026-09-21 with CHAT_PLAN Phase 1's
    low-support line, which is the second surface to need this and the first to

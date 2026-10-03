@@ -131,7 +131,7 @@ function chatTurnTranscript(bubble, text) {
   for (const node of nodes) {
     if ([...seen].some((s) => s.contains(node))) continue;
     seen.add(node);
-    if (node.classList.contains("step-thinking")) {
+    if (node.classList.contains("thinking-fold")) {
       if (!node.open) continue;
       const body = node.querySelector(".thinking")?.innerText.trim();
       if (body) parts.push(`Thinking:\n${body}`);
@@ -499,7 +499,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
   }
   if (model) {
     row.appendChild(
-      metaItem(model, { title: "The model that answered", kind: "model" })
+      metaItem(model, { title: `The model that answered: ${model}`, kind: "model" })
     );
   }
   if (toolCount) {

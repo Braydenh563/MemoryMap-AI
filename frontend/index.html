@@ -1555,10 +1555,7 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="Your draft will appear here as Atlas writes it. You can edit it directly."></textarea>
               <!-- Open while a pass runs and closed once it lands: the
                    thinking is worth watching and not worth keeping. -->
-              <details id="draft-thinking" class="hidden">
-                <summary class="muted">What Atlas was thinking</summary>
-                <pre id="draft-thinking-text" class="thinking-text"></pre>
-              </details>
+              <div id="draft-thinking" class="hidden"></div>
               <!-- Every draft this session produced, newest last, on the
                    `.library-chip` recipe. Undo steps back one pass; these are
                    the way back to any of them, which is what a desk full of
@@ -1762,10 +1759,9 @@ Link to another note with [[its first few words]]."></textarea>
               </h3>
               <!-- What was asked, echoed above the answer it produced. -->
               <p id="asked-question" class="asked-question hidden"></p>
-              <details id="thinking-box" class="hidden">
-                <summary>Model's thinking</summary>
-                <div id="ai-thinking" class="thinking"></div>
-              </details>
+              <!-- The app's one Thinking fold goes in here, built by
+                   `thinkingFoldIn` (chat-agent.js; INBOX 457). -->
+              <div id="thinking-box" class="hidden"></div>
               <div id="ai-answer" class="answer"></div>
               <!-- ROADMAP.md item 36: which note backs which sentence of a
                    direct Q&A answer, one badge per grounded sentence, never

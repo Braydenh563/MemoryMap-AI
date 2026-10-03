@@ -177,9 +177,11 @@ HELP_TOPICS: list[dict] = [
         "id": "dashboard",
         "keywords": ("dashboard", "widget", "streak", "digest"),
         "body": (
-            "The Dashboard is the at-a-glance home: capture streak, stats, a "
-            "weekly AI digest, pinned notes, reminders, and more. Click \"Edit "
-            "layout\" to show, hide and rearrange widgets; the layout is "
+            "The Dashboard is the at-a-glance home: a greeting with your note "
+            "count and what is due, a search box, the Start something tiles, "
+            "and widgets such as reminders, recent notes, the weekly AI digest, "
+            "stats and your streak. The ... menu beside the search box has Edit "
+            "layout and Widgets to show, hide and rearrange them; the layout is "
             "remembered per user."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
@@ -1135,13 +1137,15 @@ HELP_TOPICS.extend(
             "id": "dashboard-controls",
             "keywords": ("quick start", "focused view", "full view", "tools & features", "tools and features"),
             "body": (
-                "Dashboard controls. View switches between Full, Compact and "
-                "Focused. Widgets and Edit layout show, hide and rearrange widgets, "
-                "remembered per user. The quick start row has New note, Ask AI, "
-                "Sketch, Remind me, Meeting notes, Search notes, Tools & features "
-                "(a searchable list of everything the app can do) and Commands "
-                "(the command palette). Press m then d to come back here from "
-                "anywhere."
+                "Dashboard controls. Under the greeting is the search box (Ctrl+P) "
+                "with a ... menu beside it: Continue (the note you opened or "
+                "edited last), your two most recent skills and All skills, Tools "
+                "& features (a searchable list of everything the app can do), "
+                "Commands (the command palette), View (Full, Compact or Focused), "
+                "Widgets and Edit layout, which show, hide and rearrange widgets, "
+                "remembered per user. Below it, Start something has New note, Ask "
+                "AI, Sketch, Remind me and Meeting notes. Press m then d to come "
+                "back here from anywhere."
             ),
             "badge": {"label": "Dashboard", "tab": "dashboard"},
         },
@@ -1170,7 +1174,7 @@ HELP_TOPICS.extend(
                 "from the keyboard: the arrows move, Home and End jump, Enter picks "
                 "and Esc closes. Select in Notes, the Timeline and the Library acts "
                 "on many items at once, the notes filter takes tag:, cat: and is: "
-                "operators, the dashboard's Tools & features lists everything the "
+                "operators, the dashboard's ... menu has Tools & features, which lists everything the "
                 "app can do, and each section's ? explains itself."
             ),
             "badge": {"label": "Shortcuts", "section": "shortcuts"},

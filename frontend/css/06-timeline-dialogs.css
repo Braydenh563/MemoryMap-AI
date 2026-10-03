@@ -1577,27 +1577,10 @@
     display: none;
   }
 
-
   .chat-tool-group-end {
     margin-left: 0;
   }
 }
-
-/* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
-   button that runs a job on your notebook should not look identical to one
-   that just switches tab, the two rows either side of it do nothing on their
-   own, and this one might tag forty notes. Its lightning icon is the mark
-   (03-dashboard-widgets.css, INBOX 394 h: no dashed edge). */
-.quick-link-skill {
-  max-width: 14rem;
-}
-
-.quick-link-skill span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 
 /* --- the note card's metadata, ordered (§36B) -------------------------------
    Screenshotted: a note with six chips in a row, category, four tags, an AI

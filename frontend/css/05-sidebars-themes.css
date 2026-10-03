@@ -3751,7 +3751,7 @@ button.outline-twist:focus-visible {
 
 /* The mono look's one rule beyond colour: numbers and small print in the
    monospace face, with figures that line up. */
-:root[data-palette="mono"] :is(.muted, time, .chip, .status-bar, .stat-value, [class$="-count"]) {
+:root[data-palette="mono"] :is(.muted, time, .chip, .status-bar, [class$="-count"]) {
   font-family: var(--mono, ui-monospace, "Cascadia Code", Consolas, monospace);
   font-variant-numeric: tabular-nums;
 }

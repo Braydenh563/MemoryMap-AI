@@ -511,6 +511,12 @@ async function renderDashSubmessage() {
   if (stats && stats.per_day) {
     const streak = dashStreak(stats.per_day);
     if (streak > 1) bits.push(`${streak}-day capture streak`);
+    //: Atlas celebrates a streak of three days or more, once a day at most
+    //: (atlas.js, `atlasStreak`), and the companion cheers once when it grows
+    //: (avatars.js). Here since INBOX 436 took the stat strip that used to
+    //: carry both calls off the first screen: this line reads the same figure.
+    if (typeof atlasStreak === "function") atlasStreak(streak);
+    if (typeof nameMarkBuddyStreak === "function") nameMarkBuddyStreak(streak);
   }
   el.textContent = bits.join(" · ");
 }
@@ -638,182 +644,22 @@ function watchDashWidgets() {
   }
   sizeDashWidgets();
 }
-// --- at-a-glance strip (page furniture, not a hideable widget) ---------------
 
-async function renderDashStats() {
-  const box = $("dash-stats");
-  if (!box) return;
-  const [stats, reminders] = await Promise.all([
-    fetchDashStats().catch(() => null),
-    // To the end, same reason as the widget above. A sentinel rather than an
-    // empty list, for the reason below.
-    dashReminders().catch(() => null),
-  ]);
-  //: **A tile that could not read its number says so, instead of saying 0.**
-  //: Measured with every request failing: the notes tile already fell back to
-  //: an em-dash, and the other three printed a confident "0 this week",
-  //: "0 day streak", "0 reminders" computed from empty arrays. A zero is a
-  //: claim about the person's week; a dash is a claim about the app, and only
-  //: one of them is true here. Same distinction `surfaceFailed` draws for a
-  //: whole surface, at the scale a tile can manage.
-  const unknown = "\u2013";
-
-  const now = new Date();
-  const perDay = (stats && stats.per_day) || [];
-  const streak = dashStreak(perDay);
-  //: Atlas celebrates a streak of three days or more, once a day at most
-  //: (atlas.js, `atlasStreak`).
-  if (stats && typeof atlasStreak === "function") atlasStreak(streak);
-  //: The companion cheers once when the streak grows (avatars.js).
-  if (stats && typeof nameMarkBuddyStreak === "function") nameMarkBuddyStreak(streak);
-  const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
-  const open = (reminders || []).filter((r) => !r.done);
-  const due = open.filter((r) => new Date(r.due_at) <= now).length;
-  const why = "This figure could not be read just now. It is not zero.";
-
-  const tiles = [
-    // Both of these are counts of notes, so they belong on the list that
-    // shows them: not on whichever Notes sub-tab happened to be open last.
-    //: One of each reads in the singular ("1 note", "1 reminder"): the tile
-    //: said "1 reminders" (the devibe pass, a 1440 dark still).
-    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: stats && stats.total_entries === 1 ? "note" : "notes",
-      title: stats ? "" : why,
-      go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:calendar", value: stats ? thisWeek : unknown, label: "this week",
-      title: stats ? "" : why,
-      go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
-      //: The days a streak counts are the Timeline's days; this tile used to
-      //: "go" to the dashboard it sits on, a button that did nothing.
-      title: stats ? "" : why, go: () => switchTab("timeline") },
-    {
-      icon: due ? "ph:alarm" : "ph:check-circle",
-      value: reminders ? due || open.length : unknown,
-      label: due ? "due now" : reminders && open.length === 1 ? "reminder" : "reminders",
-      title: reminders ? "" : why,
-      go: () => switchTab("reminders"),
-      alert: Boolean(due),
-    },
-  ];
-
-  box.replaceChildren();
-  //: **An empty notebook has no figures to show.** A first visit read four
-  //: zeros (notes, this week, day streak, reminders) above the welcome card
-  //: that already says the notebook is empty and what to do first: numbers
-  //: about nothing, before the one thing worth reading. The strip comes back
-  //: with the first note or reminder. A failed read is not empty, so it
-  //: still shows its dashes.
-  const empty = stats && stats.total_entries === 0 && reminders && !reminders.length;
-  box.classList.toggle("hidden", Boolean(empty));
-  for (const tile of tiles) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
-    //: Why a dash rather than a number, for anyone who hovers or reads it
-    //: with a screen reader: the tile itself has room for neither.
-    if (tile.title) button.title = tile.title;
-    const icon = document.createElement("span");
-    icon.className = "stat-icon";
-    setLabel(icon, tile.icon);
-    icon.setAttribute("aria-hidden", "true");
-    const value = document.createElement("span");
-    value.className = "stat-value";
-    setLabel(value, tile.value);
-    const label = document.createElement("span");
-    label.className = "stat-label";
-    setLabel(label, tile.label);
-    button.append(icon, value, label);
-    button.addEventListener("click", tile.go);
-    box.appendChild(button);
-  }
-  //: **The four tiles and the sparkline are two independent things to
-  //: render, and one throwing used to take the other down with it.**
-  //: `renderDashStats` is one function with no `try` anywhere in it: an
-  //: exception in the block below (a malformed `per_day` entry, a
-  //: `days.join` on something unexpected) would abort the whole call
-  //: after the tiles loop had already run, leaving exactly four tiles
-  //: and a silently missing fifth chip -- a row that reads as "bland"
-  //: with nothing in the console to say why, reported as "the section
-  //: of the dashboard needs something more". The `try` below cannot make
-  //: bad data good, but it stops one bar chart's problem from being the
-  //: whole row's problem, and a caught failure is at least visible in
-  //: the console rather than a wordless gap.
-  try {
-
-  // **The shape of the fortnight, where the empty half of the strip was.**
-  // Measured before this (`scratchpad/ui-sweeps/dashstart.js`, 1440x900): the
-  // four tiles used 573px of a 1408px strip and left 835px empty, which is
-  // the "most of its width empty" half of INBOX 60. Four numbers cannot say
-  // whether this week was one burst or seven steady days, and that is exactly
-  // what the empty space had room for.
-  //
-  // A figure, not a control: a chip is a fact, and this is a fact. It carries
-  // its own text alternative because fourteen unlabelled bars are nothing at
-  // all to a screen reader.
-  if (perDay.length) {
-    const spark = document.createElement("div");
-    spark.className = "stat-spark";
-    const days = perDay.slice(-14);
-    const peak = Math.max(1, ...days);
-    const bars = document.createElement("div");
-    bars.className = "stat-spark-bars";
-    for (const count of days) {
-      const bar = document.createElement("span");
-      // A percentage, so the strip's own height decides how tall the chart
-      // is and no number here has to know it. The floor is what keeps an
-      // empty day a visible baseline rather than a gap in the row.
-      bar.style.height = `${Math.max(12, Math.round((count / peak) * 100))}%`;
-      bar.classList.toggle("empty", count === 0);
-      bars.appendChild(bar);
-    }
-    const caption = document.createElement("span");
-    caption.className = "stat-spark-label";
-    caption.textContent = `${days.length} days`;
-    spark.replaceChildren(bars, caption);
-    spark.setAttribute("role", "img");
-    spark.setAttribute(
-      "aria-label",
-      `Notes captured on each of the last ${days.length} days: ${days.join(", ")}`
-    );
-    box.appendChild(spark);
-  }
-  } catch (err) {
-    console.error("dashboard sparkline failed to render", err);
-  }
-}
-
-// --- dashboard quick links ---------------------------------------------------
-
-// Anything targeting the Notes tab must name its sub-tab.
+// --- the dashboard's menu: everything one press away (INBOX 436) -------------
 //
-// The tab is split into capture / ask / browse and *remembers the last one
-// used*, so "switchTab('notes') then focus" only works if you happened to
-// leave it on the right section. "Search notes" was fixed after being
-// reported; an audit of every button here, clicking each one from all three
-// starting sections: found "New note" failing in exactly the same way from
-// two of the three, with the capture box hidden and nothing focused. It is
-// the most-used button on the dashboard.
-// **Three groups, because there were three kinds of button pretending to be
-// one.** Reported: *"can you just completely redo, improve on and expand that
-// whole top section."*
+// Six bands stood between the hero and the first widget at 1440, 462px of
+// them (`scratchpad/ui-sweeps/dash436.js`): the search, Start something, Jump
+// to, Run a skill, four stat tiles and a sparkline, and a "Your dashboard"
+// bar. Two stay: the search, now with the page's one menu beside it, and the
+// Start something tiles, which the owner asked to keep as they are. Jump to,
+// Run a skill and the layout bar are that menu's groups (`dashMoreItems`); the
+// stat tiles' figures are the hero's line, the status bar and three widgets.
 //
-// What was there was one grid of seven identical chips. "Graph" only changes
-// which tab you are looking at; "New note" puts a cursor in an empty box;
-// "Skill Clean up my tags" sends a message to a model and waits for it. Those are
-// three different commitments and they were drawn the same, in one row, sorted
-// by a use counter that mixed them together, so the row said nothing about
-// what pressing anything in it would do, and the only way to find out was to
-// press it.
+// Anything targeting the Notes tab must name its sub-tab: the tab remembers
+// the last of capture, ask and browse, so "switchTab('notes') then focus"
+// only works if it was left on the right one (an audit found New note failing
+// from two of the three).
 //
-// Now: **Start** something (an action, and the row that owns the accent),
-// **Jump to** somewhere (navigation, quiet pills: nothing happens that you
-// cannot undo by pressing the tab you came from), and **Run a skill** (the
-// expensive one, marked Skill, and the only group that talks to the model).
-//
-// The use-ordering that was here stays, but it is applied *inside* Jump to
-// only. That was the point of it, the middle of a navigation row is exactly
-// where reordering helps and never surprises, and applying it across the
-// whole strip is what let an action drift into the middle of the navigation.
 //: **"Ask" goes where a question can be answered today** (INBOX 266 part 1).
 //: Both of the dashboard's asking doors went to the Chat tab, and with no
 //: model running the Chat composer is disabled (`data-needs-model`): driven
@@ -837,6 +683,8 @@ async function openAskFromDashboard() {
   }
 }
 
+//: The Start something tiles: what you can begin from here, each a verb with
+//: a line saying what happens. New note is the page's one primary.
 const QUICK_START = [
   {
     icon: "ph:pencil-simple",
@@ -869,71 +717,17 @@ const QUICK_START = [
   },
 ];
 
+//: What the tab bar cannot do: open the features browser and the command
+//: palette (findable only by already knowing Ctrl+K; a row is how you learn
+//: a shortcut). Every tab is one click away in the tab bar.
 const QUICK_GO = [
-  {
-    icon: "ph:magnifying-glass",
-    label: "Search notes",
-    run: () => {
-      switchTab("notes");
-      // The search box lives in the "browse" sub-tab; focusing it while that
-      // section is display:none silently does nothing (user-reported).
-      showNotesSection("browse");
-      $("note-search").focus();
-    },
-  },
-  // **The six chips that named tabs are gone**, and the reason is the ask
-  // they came from being wrong about what the row is for. It said: "a quick
-  // access strip that skips three of the app's seven tabs is a strip that
-  // has stopped being an index of the app", and completing the index is
-  // exactly what made the Dashboard show its own navigation three times.
-  // Measured on one 1440x900 screen: the tab bar, a "Start something" row of
-  // five action cards, and a "Jump to" row of eight chips, six of which
-  // named *the same tabs as the tab bar two inches above them*. Three ways
-  // to reach the same seven places, none of them obviously the one to use, 
-  // reported as "a lot of ui elements arent where they should be from a
-  // learnability and ux point of view. it doesnt feel intuitive."
-  //
-  // What survives is what the tab bar cannot do: focus the search box,
-  // open the features modal, and open the command palette (which was
-  // findable only by already knowing Ctrl+K, a button is how you learn a
-  // shortcut). Every tab is still one click away, in the one place that has
-  // always been for tabs.
-  { icon: "ph:toolbox", label: "Tools & features", run: () => openFeatures() },
-  // The palette is the fastest route to anything at all, and it was findable
-  // only by already knowing Ctrl+K. A button is how you learn a shortcut.
-  { icon: "ph:command", label: "Commands", run: () => openPalette() },
+  { icon: "ph:toolbox", label: "Tools & features", hint: "Everything the app can do, searchable", run: () => openFeatures() },
+  { icon: "ph:command", label: "Commands", hint: "The command palette (Ctrl+K)", run: () => openPalette() },
 ];
 
-// --- quick access that follows what you actually do (§36D) ------------------------
-//
-// These are the first thing on the first screen, and they were a fixed list
-// chosen early. Someone who lives in the graph and someone who never opens it
-// got the same row.
-//
-// The row is ordered by use now, with two fixed points: **New note stays
-// first** and **Tools & features stays last**. That is deliberate: a row that
-// reorders completely is a row you have to re-read every time, and the whole
-// value of a fixed position is that your hand learns it. Only the middle
-// moves, and only by how often you actually press it.
-const QUICK_USE_KEY = "quickLinkUse";
-//: How many recently-run skills get a button. Two, because they are competing
-//: for the same row as the fixed actions and a skill you ran once last month
-//: is not quick access to anything.
+//: How many recently-run skills get a row in the menu. Two: a skill you ran
+//: once last month is not quick access to anything.
 const QUICK_SKILL_SLOTS = 2;
-
-function quickLinkUse() {
-  try {
-    return JSON.parse(localStorage.getItem(QUICK_USE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function noteQuickLinkUse(label) {
-  const counts = quickLinkUse();
-  counts[label] = (counts[label] || 0) + 1;
-  localStorage.setItem(QUICK_USE_KEY, JSON.stringify(counts));
-}
 
 //: Skills that have actually been run, most recent first. Written by
 //: `startSkill`, so it covers both the dropdown and a run the agent started
@@ -977,7 +771,7 @@ function noteSkillRun(name) {
   // The damage then surfaced nowhere near here: `recentSkillLinks` below
   // reads that array on every dashboard render, and `withoutLeadingEmoji`
   // calls `.replace()` on the `null`. That throw propagated out of
-  // `renderQuickLinks` -> `renderDashboard` -> `refreshActiveTab`, i.e. it
+  // the quick links -> `renderDashboard` -> `refreshActiveTab`, i.e. it
   // escaped *before* `grid.replaceChildren()` and the widget loop had run, so
   // the reported symptoms were "the dashboard widgets are completely broken"
   // and a toast reading "Couldn't load this tab: Cannot read properties of
@@ -1071,69 +865,6 @@ function recentSkillLinks() {
       else switchTab("chat");
     },
   }));
-}
-
-// Navigation only: see the note on QUICK_START. Search stays first because it
-// is the one entry in the row that is a *destination for anything*, and a
-// fixed first position is what lets a hand learn it.
-function orderedGoLinks() {
-  const counts = quickLinkUse();
-  const [first, ...rest] = QUICK_GO;
-  // Stable sort: equal counts keep the order they were declared in, so an
-  // untouched dashboard looks exactly as it always did.
-  rest.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
-  return [first, ...rest];
-}
-
-function quickLinkButton(link, className) {
-  const button = document.createElement("button");
-  button.className = className + (link.primary ? " quick-link-primary" : "");
-  button.type = "button";
-  // Every chip gets a title, not only the skills: the labels truncate, so
-  // hovering has to be able to finish the sentence. A chip whose label fits
-  // shows a tooltip repeating it, which is harmless; a chip whose label does
-  // not fit and has no tooltip is a button you cannot read at all.
-  button.title = link.skill
-    ? `Run the skill “${link.skillName}”: it answers in the chat`
-    : link.hint || link.label;
-  const icon = document.createElement("span");
-  icon.className = "quick-link-icon";
-  setLabel(icon, link.icon);
-  icon.setAttribute("aria-hidden", "true");
-  const text = document.createElement("span");
-  text.className = "quick-link-text";
-  const label = document.createElement("span");
-  label.className = "quick-link-label";
-  setLabel(label, link.label);
-  text.appendChild(label);
-  // The hint is what turns a row of verbs into a row you can choose from
-  // without pressing anything. Only the Start group carries one, the
-  // navigation pills say where they go by being named after the tab, and a
-  // sentence under each would be six sentences saying "goes to the tab".
-  if (link.hint) {
-    const hint = document.createElement("span");
-    hint.className = "quick-link-hint";
-    setLabel(hint, link.hint);
-    text.appendChild(hint);
-  }
-  button.append(icon, text);
-  button.addEventListener("click", () => {
-    noteQuickLinkUse(link.skillName || link.label);
-    link.run();
-  });
-  return button;
-}
-
-function launchGroup(label, className) {
-  const group = document.createElement("div");
-  group.className = "launch-group";
-  const heading = document.createElement("p");
-  heading.className = "launch-label";
-  heading.textContent = label;
-  const row = document.createElement("div");
-  row.className = className;
-  group.append(heading, row);
-  return { group, row };
 }
 
 //: **How much of the dashboard is chrome, as the reader's choice.**
@@ -1281,14 +1012,6 @@ function applyDashDensity(value, { persist = true } = {}) {
   //: something tiles and the stats at full size. Focused stays Focused.
   const appCompact = document.documentElement.dataset.density === "compact";
   if (page) page.dataset.density = density === "full" && appCompact ? "compact" : density;
-  //: **A dropdown, not a segmented control.** Reported with a screenshot:
-  //: the three segments sat taller than the two ghost buttons beside them
-  //: and none of them looked chosen, so the row read as three buttons that
-  //: did nothing. A `.seg` is right for two to four choices that are all
-  //: worth showing; here the two that are not current are noise in a
-  //: toolbar, and a select says which one is on by saying its name.
-  const picker = document.getElementById("dash-density");
-  if (picker && picker.value !== density) picker.value = density;
   //: The mark is the one part of the banner CSS cannot resize (see
   //: `DASH_EMBLEM_SIZE`), so the level change redraws it, but only once the
   //: dashboard has drawn one: this function also runs at wiring time, before
@@ -1296,136 +1019,147 @@ function applyDashDensity(value, { persist = true } = {}) {
   if (page && dashEmblemDrawn) paintDashEmblem();
 }
 
+//: Once: the level is applied to the page before the first render reads it.
+//: The choice itself is a row of the menu (`dashMoreItems`), which applies it
+//: and rebuilds the menu so its tick moves.
 function wireDashDensity() {
-  const seg = document.getElementById("dash-density");
-  if (!seg || seg._wired) return;
-  seg._wired = true;
-  seg.addEventListener("change", () => applyDashDensity(seg.value));
+  if (wireDashDensity.done) return;
+  wireDashDensity.done = true;
   applyDashDensity(dashDensity(), { persist: false });
 }
 
+function quickLinkButton(link) {
+  const button = document.createElement("button");
+  button.className = "quick-link quick-action" + (link.primary ? " quick-link-primary" : "");
+  button.type = "button";
+  // The label truncates in a narrow tile, so hovering finishes the sentence.
+  button.title = link.hint || link.label;
+  const icon = document.createElement("span");
+  icon.className = "quick-link-icon";
+  setLabel(icon, link.icon);
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "quick-link-text";
+  const label = document.createElement("span");
+  label.className = "quick-link-label";
+  setLabel(label, link.label);
+  const hint = document.createElement("span");
+  hint.className = "quick-link-hint";
+  setLabel(hint, link.hint);
+  text.append(label, hint);
+  button.append(icon, text);
+  button.addEventListener("click", () => link.run());
+  return button;
+}
+
+//: **Start something** (the owner, of INBOX 436's first cut: keep the row,
+//: five icon cards with a title and a line under it, five across). Built from
+//: `QUICK_START` so the tiles and the Guide's description cannot drift.
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
-  box.replaceChildren();
-
-  const start = launchGroup("Start something", "launch-row launch-row-start");
-  for (const link of QUICK_START) {
-    start.row.appendChild(quickLinkButton(link, "quick-link quick-action"));
-  }
-  box.appendChild(start.group);
-
-  const go = launchGroup("Jump to", "launch-row launch-row-go");
-  for (const link of orderedGoLinks()) {
-    go.row.appendChild(quickLinkButton(link, "quick-link quick-pill"));
-  }
-  box.appendChild(go.group);
-  // Filled in when the notes arrive; see `renderContinueLink`. The row is
-  // built synchronously because everything else in it is a constant, and a
-  // row that waits for a fetch before drawing anything is a row that flickers
-  // on every dashboard load.
-  renderContinueLink(go.row);
-
-  // The skills group is only drawn when there is a skill to put in it. An
-  // empty "Run a skill" heading over one "Choose a skill…" button is a section
-  // that exists to advertise itself, and this strip is already the busiest
-  // thing on the page.
-  const skills = recentSkillLinks();
-  const skillGroup = launchGroup("Run a skill", "launch-row launch-row-skills");
-  for (const link of skills) {
-    skillGroup.row.appendChild(quickLinkButton(link, "quick-link quick-pill quick-link-skill"));
-  }
-  if (skills.length) {
-    skillGroup.row.appendChild(
-      quickLinkButton(
-        {
-          icon: "ph:lightning",
-          label: "All skills…",
-          hint: "Every skill, in the chat's skill picker",
-          run: () => switchTab("chat"),
-        },
-        "quick-link quick-pill quick-link-more"
-      )
-    );
-    box.appendChild(skillGroup.group);
-  }
+  const heading = document.createElement("p");
+  heading.className = "launch-label";
+  heading.textContent = "Start something";
+  const row = document.createElement("div");
+  row.className = "launch-row launch-row-start";
+  for (const link of QUICK_START) row.appendChild(quickLinkButton(link));
+  const group = document.createElement("div");
+  group.className = "launch-group";
+  group.append(heading, row);
+  box.replaceChildren(group);
 }
 
-// **Continue where you left off**, the fourth thing INBOX 60 asked for. The
-// navigation row is three pills wide and the strip is not: measured at 1440,
-// it used 476px of 1408 and left 932px empty. The answer is not more pills
-// naming tabs, which is a decision this file already took and wrote down
-// above; it is the one destination the tab bar cannot offer, because it
-// depends on what you were doing rather than on what the app contains.
-//
-// Most recently *touched*, where touching is opening or editing, and not
-// created. Reported: "the opens a note you opened or edited most recently
-// button doesnt update and just shows my latest note". The pill said "opened
-// or edited" and ranked on `updated_at` alone, which only moves when the text
-// changes, so reading an old note left this pointing at whatever was newest
-// and the one case it exists for, coming back to something you were reading,
-// was the one case it could not serve. `last_opened_at` is stamped by
-// `GET /entries/{id}` beside the access count it already kept (routes_entries),
-// and the pill takes whichever of the two is later.
-async function renderContinueLink(row) {
-  if (!row || !row.isConnected) return;
-  let entries = [];
-  try {
-    entries = await dashEntries();
-  } catch {
-    return; // a dashboard that cannot reach the notes still draws the rest
-  }
-  if (!Array.isArray(entries) || !entries.length || !row.isConnected) return;
-  //: Null for every note nobody has opened since the column existed, which
-  //: is why this is a max rather than a preference: an old notebook would
-  //: otherwise rank every one of its notes at the epoch and the pill would go
-  //: blank until something was opened.
+//: **The note you were last in**, the menu's Continue row (INBOX 60). Most
+//: recently *touched*, where touching is opening or editing, and not created.
+//: Reported: "the opens a note you opened or edited most recently button
+//: doesnt update and just shows my latest note". It ranked on `updated_at`
+//: alone, which only moves when the text changes, so reading an old note left
+//: it pointing at whatever was newest. `last_opened_at` is stamped by
+//: `GET /entries/{id}` beside the access count (routes_entries), and the row
+//: takes whichever of the three is latest: null for every note nobody has
+//: opened since the column existed, which is why this is a max and not a
+//: preference.
+function dashContinueNote(entries) {
+  if (!Array.isArray(entries)) return null;
   const touched = (entry) => {
     const times = [entry.last_opened_at, entry.updated_at, entry.created_at]
       .map((value) => (value ? new Date(value).getTime() : 0))
       .filter((value) => Number.isFinite(value));
     return Math.max(0, ...times);
   };
-  const newest = [...entries]
-    .filter((entry) => entry && !entry.is_draft)
-    .sort((a, b) => touched(b) - touched(a))[0];
-  if (!newest) return;
-  // One line of the note, short enough to sit in a pill beside three others.
-  // Cut at a word with an ellipsis: a bare 42-character slice ended the pill
-  // on "responds to the blu", which reads as a typo rather than as more text.
-  const preview = clipText(notePreviewText(newest.content || ""), 42) || "your last note";
-  //: **The note's own line is the label, not the hint.** 10-responsive.css
-  //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
-  //: why: "Continue is the one pill whose text is a note's own first line, so
-  //: it is the one that needs room". It was not: the line was passed as the
-  //: hint, and `.quick-pill .quick-link-hint { display: none }` (a pill is one
-  //: line by definition) hid every pill's hint, this one included. Measured on
-  //: the dashboard: a 535.1px pill holding 68.7px of centred text reading
-  //: "Continue", beside three 281.4px pills. Double the width was being held
-  //: for a string nothing drew.
-  //:
-  //: So the line goes where the width was reserved for it, and the word the
-  //: label used to be becomes the tooltip, which is what a pill's explanation
-  //: is for everywhere else in this row. The u-turn icon and the "Jump to"
-  //: heading are what say this is a place to go back to.
-  const button = quickLinkButton(
-    {
-      icon: "ph:arrow-u-up-left",
-      label: preview,
-      //: **Says the rule, not an idiom.** Asked directly: "what does left off
-      //: mean?? should it be something else??" It meant "the note you edited
-      //: most recently", which is a fact this pill can simply state; "where
-      //: you left off" is a phrase that assumes the reader already knows the
-      //: app picked a note for them, and reads as a place rather than as a
-      //: note. A tooltip is where a control explains itself, so it explains.
-      hint: "Opens the note you opened or edited most recently",
-      run: () => flashEntry(newest.id),
-    },
-    "quick-link quick-pill quick-link-continue"
-  );
-  // First in the row: it is the only entry whose usefulness decays, and the
-  // three beside it are constants that can be learned by position.
-  row.prepend(button);
+  return [...entries].filter((entry) => entry && !entry.is_draft).sort((a, b) => touched(b) - touched(a))[0] || null;
+}
+
+const DASH_VIEW_LABELS = { full: "Full", compact: "Compact", focused: "Focused" };
+
+//: **What the first screen used to spell out in bands, one press away.** Four
+//: groups, drawn as hairlines (`kebabMenu`'s `group`): go back to the last
+//: note, run a skill, find a feature, arrange this page. Fixed order, no use
+//: counter: a menu whose rows move is a menu you re-read.
+//:
+//: Below 600 the view is not offered, the decision the old picker took: a
+//: phone's Full is already the compact layout (10-responsive.css).
+function dashMoreItems(entries) {
+  const row = (link, group) => ({ label: `${link.icon} ${link.label}`, title: link.hint || link.label, group, run: link.run });
+  const items = [];
+  const last = dashContinueNote(entries);
+  if (last) {
+    // Cut at a word with an ellipsis: a bare slice ended on "responds to the
+    // blu", which reads as a typo rather than as more text.
+    const preview = clipText(notePreviewText(last.content || ""), 36) || "your last note";
+    items.push({
+      label: `ph:arrow-u-up-left Continue: ${preview}`,
+      title: "Opens the note you opened or edited most recently",
+      group: "resume",
+      run: () => flashEntry(last.id),
+    });
+  }
+  for (const link of recentSkillLinks()) {
+    // The full name is in the title; the row says when it last ran, which is
+    // the question asked before spending a model call (INBOX 60).
+    items.push({ ...row(link, "skills"), title: `Run the skill \u201c${link.skillName}\u201d: it answers in the chat. ${link.hint}` });
+  }
+  items.push({ label: "ph:lightning All skills\u2026", title: "Every skill, in the chat's skill picker", group: "skills", run: () => switchTab("chat") });
+  for (const link of QUICK_GO) items.push(row(link, "find"));
+  if (!window.matchMedia("(max-width: 599.98px)").matches) {
+    const current = dashDensity();
+    items.push({
+      label: "ph:layout View",
+      group: "page",
+      items: DASH_DENSITIES.map((value) => ({
+        label: `${current === value ? "ph:check" : "ph:dot-outline"} ${DASH_VIEW_LABELS[value]}`,
+        title: `Show the dashboard ${DASH_VIEW_LABELS[value].toLowerCase()}`,
+        run: () => {
+          applyDashDensity(value);
+          renderDashMore();
+        },
+      })),
+    });
+  }
+  items.push({ label: "ph:squares-four Widgets\u2026", title: "Add, remove or widen any widget", group: "page", run: () => $("dash-widgets-open").click() });
+  items.push({
+    label: dashEditMode ? "ph:check Done editing" : "ph:arrows-out-cardinal Edit layout",
+    title: "Move, widen and remove the widgets on this page",
+    group: "page",
+    run: () => $("dash-edit").click(),
+  });
+  return items;
+}
+
+//: Built at once from what is loaded, so the row never waits on a fetch and
+//: the dock never shifts, then again when a cold start's notes arrive (the
+//: Continue row is the only part that needs them).
+let dashMoreSerial = 0;
+async function renderDashMore() {
+  const host = $("dash-more");
+  if (!host) return;
+  const serial = ++dashMoreSerial;
+  const build = (entries) => host.replaceChildren(kebabMenu(dashMoreItems(entries), "More actions"));
+  build(entriesEverLoaded ? allEntries : []);
+  if (entriesEverLoaded) return;
+  const entries = await dashEntries().catch(() => []);
+  if (serial === dashMoreSerial && host.isConnected) build(entries);
 }
 
 // --- the "everything this app does" browser ----------------------------------
@@ -1695,10 +1429,6 @@ function gettingStartedCard() {
   const card = document.createElement("section");
   card.className = "card dash-widget dash-getting-started";
 
-  const emblem = document.createElement("div");
-  emblem.className = "emblem emblem-centred";
-  emblem.setAttribute("aria-hidden", "true");
-
   const title = document.createElement("h2");
   title.textContent = "Your notebook is empty, here's the whole idea";
 
@@ -1777,8 +1507,10 @@ function gettingStartedCard() {
     "Your dashboard fills itself in as you go, streaks, tags, a map of your " +
     "notes and a dozen other panels appear once there's something to put in them.";
 
-  card.append(emblem, title, blurb, steps, footer);
-  return { card, mount: () => renderEmblem(emblem, 56, { animate: true }) };
+  //: No mark of its own (INBOX 436): the hero directly above already turns
+  //: the app's emblem, and two turning marks on one screen is one too many.
+  card.append(title, blurb, steps, footer);
+  return card;
 }
 
 async function renderDashboard() {
@@ -1790,16 +1522,12 @@ async function renderDashboard() {
   // start made it every time (WORLD_CLASS_PLAN A2).
   await loadPreferences().catch(() => null);
   renderDashboardGreeting();
-  renderDashStats().catch(() => {});
   renderQuickLinks();
-  //: After the quick links, because Compact and Focused are about them; on
-  //: every render rather than once at boot, so a density chosen on another
-  //: device and synced, or one set before this grid existed, is applied to
-  //: what is actually on screen now.
+  renderDashMore();
   wireDashDensity();
   const grid = $("dash-grid");
   grid.replaceChildren();
-  $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
+  $("dash-editbar").classList.toggle("hidden", !dashEditMode); // only while editing
   const layout = dashLayout();
 
   // A brand-new notebook filled this grid with a dozen cards each politely
@@ -1811,12 +1539,7 @@ async function renderDashboard() {
   // comes back these are indistinguishable, and guessing "empty" paints the
   // brand-new-notebook card over a notebook full of notes.
   if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
-    // The emblem draws into a canvas, which p5 can only size once the element
-    // is actually in the document, rendering it while the card is still
-    // detached leaves a blank gap where the mark should be.
-    const { card, mount } = gettingStartedCard();
-    grid.appendChild(card);
-    mount();
+    grid.appendChild(gettingStartedCard());
     return;
   }
 
@@ -3567,14 +3290,18 @@ async function renderFocusTimerWidget(body) {
 // at registration time, so they were never actually at risk, but keeping
 // the whole related group together here is clearer than splitting it by
 // which handlers happen to be safe.
-$("dash-edit").addEventListener("click", () => {
+//: Edit layout is a row of the dock's menu; Done is the edit line's own
+//: button, the one way out of the mode, so it is the only place this id is.
+$("dash-edit").addEventListener("click", async () => {
+  const leaving = dashEditMode;
   dashEditMode = !dashEditMode;
-  $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
-  // Done is the way out of a mode, so it is the one filled button in the
-  // bar while the mode is on (the badge beside it says which mode).
-  $("dash-edit").classList.toggle("ghost", !dashEditMode);
-  renderDashboard();
+  //: The button just pressed is hidden with its line: the focus goes back to
+  //: the menu it came from rather than to the page's body, once the render
+  //: has rebuilt that menu (it replaces the opener).
+  await renderDashboard();
+  if (leaving) $("dash-more")?.querySelector("button")?.focus();
 });
+
 // Widget picker modal (roadmap §26): a dedicated surface alongside "Edit
 // layout" above, not a replacement for it.
 $("dash-widgets-open").addEventListener("click", () => {

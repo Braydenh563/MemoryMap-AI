@@ -3727,22 +3727,19 @@ html.modal-open body {
   }
 }
 
-.dash-toolbar {
+/* Edit mode's line (INBOX 436): only while the layout is being edited, where
+   the "Your dashboard" bar used to stand at all times. The hint takes the
+   slack, Widgets and Done sit at the end; no card of its own, because the
+   grid under it is what is being edited. */
+.dash-editbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--space-4);
-  /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
-  padding: 0 0 var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
-/* Was `justify-content: space-between` over three loose children (spacer,
-   Widgets, Edit layout): with the hint hidden outside edit mode that put
-   Widgets floating alone in the middle with a big empty gap either side.
-   The spacer eats the slack instead; Widgets and Edit layout sit together as
-   one group, pinned to the end. */
-#dash-hint-spacer {
-  flex: 1 1 auto;
+.dash-editbar.hidden {
+  display: none;
 }
 
 /* Edit mode's hint: one line, never the reason the bar wraps. The items wrap
@@ -3762,10 +3759,6 @@ html.modal-open body {
 }
 
 .dash-hint.hidden {
-  display: none;
-}
-
-.dash-hint:not(.hidden) + #dash-hint-spacer {
   display: none;
 }
 
@@ -3790,19 +3783,6 @@ html.modal-open body {
   align-items: center;
   height: 1.75rem;
   white-space: nowrap;
-}
-
-@media (min-width: 900px) {
-  .dash-toolbar {
-    flex-wrap: nowrap;
-  }
-}
-
-.dash-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex: 0 0 auto;
 }
 
 /* Masonry-style packing: a fine row unit plus a JS-measured row span per card

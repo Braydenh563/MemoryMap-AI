@@ -13533,17 +13533,6 @@ button.finder-row:hover,
   display: none;
 }
 
-#tab-dashboard[data-density="compact"] .dash-stats {
-  gap: var(--space-2);
-}
-
-#tab-dashboard[data-density="compact"] .stat-tile {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
 /* Measured: with only the tiles and the stats folded, Compact saved 50px of
    the 610px above the widget grid, which is not a decluttering anybody would
    notice. The rest of that height is the hero's own banner and the two pill
@@ -13586,11 +13575,6 @@ button.finder-row:hover,
 
 #tab-dashboard[data-density="compact"] .dash-clock-time {
   font-size: var(--text-h2);
-}
-
-#tab-dashboard[data-density="compact"] .quick-pill {
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
 }
 
 #tab-dashboard[data-density="compact"] .launch-row {
@@ -13654,7 +13638,6 @@ button.finder-row:hover,
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
-#tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
 #tab-dashboard[data-density="focused"] .dash-wordmark {
   display: none;
@@ -13770,25 +13753,6 @@ button.finder-row:hover,
 
 @media (max-width: 600px) {
   #tab-dashboard[data-density="focused"] .dash-clock {
-    display: none;
-  }
-}
-
-/* The picker sits in the toolbar with Widgets and Edit layout, so it lines up
-   on their baseline and takes their scale rather than a height of its own.
-   Reported with a screenshot: as a `.seg` it sat taller than both of them and
-   showed no chosen state at all. */
-.dash-density {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-@media (max-width: 600px) {
-  /* Three words plus two other controls do not fit a phone toolbar. The
-     density is still settable by rotating or on a wider screen, and the
-     phone's own layout is already the compact one. */
-  .dash-density {
     display: none;
   }
 }

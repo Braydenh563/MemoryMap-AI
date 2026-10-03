@@ -74,6 +74,9 @@ ON_THE_GRAMMAR = {
     # settings modal, which is why `scratchpad/ui-sweeps/docks.js` (which walks
     # the seven tabs) does not see it and `logsdock.js` measures it instead.
     "settings-logs",
+    # The Dashboard's one row between the hero and the widgets (INBOX 436):
+    # the search doorway, New note and the menu that holds everything else.
+    "dashboard",
 }
 
 

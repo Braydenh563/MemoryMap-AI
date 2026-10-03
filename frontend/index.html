@@ -933,59 +933,52 @@
          first, which is exactly how the Notes filter and the Library filter
          came to disagree. The first keystroke is carried into the dialog, so
          it reads as a field to use and behaves as one. -->
-    <button type="button" id="dash-find" class="dash-find" aria-haspopup="dialog">
-      <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-      <span class="dash-find-text">Search your notes, documents, files and the app</span>
-      <span class="dash-find-keys" aria-hidden="true"></span>
-    </button>
+    <!-- **One row between the hero and the widgets** (INBOX 436, user
+         feedback through the owner: "quite a lot going on visually on the
+         dashboard when the user opens the application"). Measured at 1440
+         before (scratchpad/ui-sweeps/dash436.js): six bands, 462px, 73
+         elements and 20 controls between the hero and the first widget, the
+         note count three times on one screen and the due reminder five. Now
+         the tab's control bar is the dock every other tab has: the way in
+         (the search doorway) and one menu (`dashMoreItems`, dashboard.js)
+         holding what the Jump to and Run a skill rows and the layout bar
+         held: Continue, the skills, Tools & features, Commands, the view and
+         the layout. Under it, the Start something tiles, kept as the owner
+         asked, with New note the page's one primary. The figures the stat
+         tiles drew are the hero's own line, the status bar and the Stats,
+         Streak and Writing pace widgets. -->
+    <div class="dock dash-dock" data-dock-name="dashboard" role="toolbar" aria-label="Dashboard">
+      <div class="dock-group dock-find">
+        <button type="button" id="dash-find" class="ghost dash-find" aria-haspopup="dialog">
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <span class="dash-find-text">Search your notes, documents, files and the app</span>
+          <span class="dash-find-keys" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="dock-actions">
+        <!-- The menu (`kebabMenu`, built by `renderDashMore`): grouped, an
+             action sheet on a phone, keyboard from the recipe. -->
+        <span id="dash-more" class="dock-more dash-more"></span>
+      </div>
     </div>
-    <!-- One-tap shortcuts to the things people do most -->
-    <div class="dash-quicklinks" id="dash-quicklinks" role="group"
-      aria-label="Quick actions"></div>
-    <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
-    <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
-    <div class="dash-toolbar">
-      <span class="muted dash-toolbar-label">Your dashboard</span>
-      <!-- Edit mode's hint (INBOX 425, the owner: the sentence that was here
-           "is unprofessional and could be displayed better", and it wrapped
-           the whole bar onto two lines). A state badge and three short
-           gestures, each with the icon the card's own control carries; the
-           row is one line tall and gestures that do not fit are dropped
-           from the end rather than wrapping the bar. Adding is the Widgets
-           button beside it, and saving is automatic, so neither is said. -->
-      <span class="dash-hint hidden" id="dash-hint" role="status">
+    </div>
+    <!-- Start something (`renderQuickLinks`): five icon cards, a title and a
+         line each. -->
+    <div class="dash-quicklinks" id="dash-quicklinks" role="group" aria-label="Start something"></div>
+    <!-- Edit mode's line (INBOX 425, the owner: the sentence that was here
+         "is unprofessional and could be displayed better"). A state badge and
+         three short gestures, each with the icon the card's own control
+         carries, then the two things the mode needs: adding a widget and the
+         way out. Shown only while editing; the menu's Edit layout opens it. -->
+    <div class="dash-editbar hidden" id="dash-editbar">
+      <span class="dash-hint" id="dash-hint" role="status">
         <span class="dash-hint-badge">Editing layout</span>
         <span class="dash-hint-item"><i class="ph ph-dots-six-vertical ph-lead" aria-hidden="true"></i>Drag a card to move it</span>
         <span class="dash-hint-item"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i>Wide or narrow</span>
         <span class="dash-hint-item"><i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove</span>
       </span>
-      <span id="dash-hint-spacer"></span>
-      <div class="dash-toolbar-actions">
-        <!-- **How much of the page is chrome** (INBOX 270, the owner: "is
-             there a way to declutter the dashboard a bit or spread things
-             out a bit?? idk it looks good but a lot is happening on it.
-             maybe something like the feed layout options with msn on
-             microsoft bing??"). Measured from their screenshot: above the
-             widget grid sat five Start something tiles, four Jump to pills,
-             three skill chips, four stat tiles and a sparkline, six bands
-             before a single widget was visible.
-
-             A `.seg` because it is three exclusive choices, which is the
-             recipe for exactly that (docs/DESIGN.md). Nothing is deleted by
-             any of them: a layout choice that removes a feature is a feature
-             somebody cannot find again, so Compact folds and Focused hides,
-             and Full is still one press away. -->
-        <label class="dash-density" for="dash-density">
-          <span class="muted text-sm">View</span>
-          <select id="dash-density" class="ghost small" aria-label="How much to show">
-            <option value="full">Full</option>
-            <option value="compact">Compact</option>
-            <option value="focused">Focused</option>
-          </select>
-        </label>
-        <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
-        <button id="dash-edit" class="ghost small">Edit layout</button>
-      </div>
+      <button type="button" id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
+      <button type="button" id="dash-edit" class="small">Done</button>
     </div>
     <div id="dash-grid"></div>
   </div>

@@ -327,22 +327,24 @@ light, 1440x900 unless named:
 
 **Target** (the principles: one primary action, hierarchy from size and
 weight with colour kept for meaning, progressive disclosure, the spacing
-tokens, calm motion, DESIGN.md's recipes): hero, then **one dock row**, then
-the widgets. The row is the tab's control bar (`.dock`, the grammar every
-other tab uses): the search doorway (`#dash-find`, the one control people
-reach for), **New note** as the one filled button (on a phone the dock's
-floated `+`, as on Notes), a **More** `details.dock-menu` holding Ask, Sketch,
-Remind me, Meeting notes, Continue (the last note touched), the recently run
-skills and All skills, Tools & features and Commands, and a **Customise**
-`dock-more` menu holding View (Full, Compact, Focused), Widgets and Edit
-layout. The four stat tiles and the sparkline leave the first screen: the
-figures are the hero's own line and the status bar, and the Stats, Streak and
-Writing pace widgets (the picker) hold the rest. Edit layout shows a one-line
-bar above the grid with its Done. The empty notebook's welcome card loses its
-second emblem. Gate: band at most 70px at 1440, at most 4 controls in it, one
-filled button on the screen's dashboard area, the first widget above the fold
-at 390x844, no new findings from errors, contrast, axe (dashboard) and
-a11yname.
+tokens, calm motion, DESIGN.md's recipes; and a comparison of Notion Home,
+Obsidian homepages, Apple Notes, Reflect, Mem, Capacities, Linear's inbox,
+Arc and Raycast, Things 3 Today and Craft, whose common shape is one way in,
+one primary, customisation behind a single ⋯): hero, then **one dock row**,
+then the **Start something** tiles (kept whole, the owner's instruction:
+New note, Ask AI, Sketch, Remind me, Meeting notes, five icon cards with a
+line each, New note the one primary), then the widgets. The row is the tab's
+control bar (`.dock`, the grammar every other tab uses): the search doorway
+(`#dash-find`) and one grouped `kebabMenu` holding what Jump to, Run a skill
+and the layout bar held: Continue (the last note touched), the two recent
+skills and All skills, Tools & features, Commands, View (Full, Compact,
+Focused), Widgets and Edit layout. The four stat tiles and the sparkline
+leave the first screen: the figures are the hero's own line and the status
+bar, and the Stats, Streak and Writing pace widgets hold the rest. Edit
+layout shows a one-line bar above the grid with its Done. The empty
+notebook's welcome card loses its second emblem. Gate: the band at most half
+of what it was at every width, the first widget above the fold at 390x844,
+no new findings from errors, contrast, axe (dashboard) and a11yname.
 
 ### D2 Notes: list, capture, edit (L, Opus)
 

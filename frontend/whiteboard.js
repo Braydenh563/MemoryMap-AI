@@ -1562,6 +1562,11 @@ function wbNavigatorProjectionFor(bounds, t, width, height) {
   const k = Math.min((WB_NAV_W - WB_NAV_PAD * 2) / w, (WB_NAV_H - WB_NAV_PAD * 2) / h);
   const offX = WB_NAV_PAD + ((WB_NAV_W - WB_NAV_PAD * 2) - w * k) / 2;
   const offY = WB_NAV_PAD + ((WB_NAV_H - WB_NAV_PAD * 2) - h * k) / 2;
+  return wbNavigatorMapping({ k, minX, minY, offX, offY }, view);
+}
+
+//: A projection from its five numbers and the viewport it shows.
+function wbNavigatorMapping({ k, minX, minY, offX, offY }, view) {
   return {
     k,
     minX,
@@ -1574,12 +1579,14 @@ function wbNavigatorProjectionFor(bounds, t, width, height) {
   };
 }
 
-/** The projection for the board as it is now, or null on an empty board. */
-function wbNavigatorProjection() {
-  const container = document.getElementById("whiteboard-container");
-  if (!container) return null;
-  const rect = container.getBoundingClientRect();
-  return wbNavigatorProjectionFor(wbContentBounds(), d3.zoomTransform(container), rect.width, rect.height);
+//: The drag's projection: the mapping frozen at the press, the viewport live.
+function wbNavigatorFrozenProjection(drag, t) {
+  return wbNavigatorMapping(drag.mapping, {
+    minX: (0 - t.x) / t.k,
+    minY: (0 - t.y) / t.k,
+    maxX: (drag.width - t.x) / t.k,
+    maxY: (drag.height - t.y) / t.k,
+  });
 }
 
 function wbNavigatorSelectionKey() {
@@ -1673,45 +1680,144 @@ function wbNavigatorPlaceViewport(svg, proj) {
 function wbNavigatorUpdateViewport(t) {
   const svg = document.getElementById("wb-navigator-map");
   if (!svg || !wbNavigatorOpen()) return;
-  // A render since the items were drawn: redraw them.
-  if (wbNavState.stale || !wbNavState.content) {
+  const drag = wbNavState.drag;
+  // A render since the items were drawn: redraw them. Not mid-drag, where
+  // the pointer is aiming with the mapping the items were drawn in; the
+  // drag's end redraws.
+  if (!drag && (wbNavState.stale || !wbNavState.content)) {
     wbRenderNavigator();
     return;
   }
+  if (!wbNavState.content) return;
   const container = document.getElementById("whiteboard-container");
   if (!container) return;
   const transform = t || d3.zoomTransform(container);
-  const proj = wbNavigatorProjectionFor(
-    wbNavState.content.bounds, transform, container.clientWidth, container.clientHeight,
-  );
+  const proj = drag
+    ? wbNavigatorFrozenProjection(drag, transform)
+    : wbNavigatorProjectionFor(wbNavState.content.bounds, transform, container.clientWidth, container.clientHeight);
   if (!proj) return;
   const key = wbNavigatorSelectionKey();
   if (key !== wbNavState.selectionKey) {
     wbNavState.selectionKey = key;
     for (const el of svg.firstElementChild?.children || []) {
-      const cut = (el.getAttribute("data-key") || "").indexOf(":");
-      const kind = el.getAttribute("data-key").slice(0, cut);
-      const id = el.getAttribute("data-key").slice(cut + 1);
-      const on = wbNavigatorIsSelected(kind, id);
+      const itemKey = el.getAttribute("data-key") || "";
+      const cut = itemKey.indexOf(":");
+      const on = cut > 0 && wbNavigatorIsSelected(itemKey.slice(0, cut), itemKey.slice(cut + 1));
       if (el.classList.contains("is-selected") !== on) el.classList.toggle("is-selected", on);
     }
   }
   wbNavigatorPlaceViewport(svg, proj);
 }
 
-/** Move the viewport so its centre lands where the navigator was clicked. */
-function wbNavigatorJump(event) {
-  const svg = document.getElementById("wb-navigator-map");
-  const proj = wbNavigatorProjection();
-  if (!svg || !proj) return;
-  const rect = svg.getBoundingClientRect();
+//: **Dragging the overview** (INBOX 431: "glitchy and laggy"). What a drag
+//: did before, on every pointer event: measured the content bounds from the
+//: DOM (a size read per card), measured the overview's own box and the
+//: canvas, built a projection that could rescale under the pointer whenever
+//: the view crossed the content's edge, and set the transform, whose frame
+//: then redrew the whole overview. And a press on the rectangle jumped its
+//: centre to the pointer, so picking it up by a corner moved the board
+//: before the hand did.
+//:
+//: Now the press measures, once: the overview's box, the canvas size and the
+//: mapping (frozen, so the map under the pointer holds still until the
+//: release, which redraws it). A press on the rectangle keeps the grab point;
+//: a press elsewhere still jumps the view there, which is what a click on an
+//: overview means. Moves are coalesced into one animation frame, which sets
+//: the transform and runs the zoom frame's work at once (`wbFlushZoomFrame`),
+//: so the board, the grid, the cull and the rectangle all land in that frame.
+//: Pointer capture keeps the drag when the pointer leaves the small box; the
+//: drag ends on up, cancel and a lost capture alike.
+function wbNavigatorDragStart(event) {
+  const svg = event.currentTarget;
+  const container = document.getElementById("whiteboard-container");
+  if (!svg || !container) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (wbNavState.drag) wbNavigatorDragEnd(event);
+  if (wbNavState.stale || !wbNavState.content) wbRenderNavigator();
+  if (!wbNavState.content) return;
+  const t = d3.zoomTransform(container);
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const proj = wbNavigatorProjectionFor(wbNavState.content.bounds, t, width, height);
+  if (!proj) return;
   // The SVG is laid out at exactly WB_NAV_W x WB_NAV_H, but a browser zoom or
-  // a future responsive tweak could scale it, divide through by the real
+  // a future responsive tweak could scale it: divide through by the real
   // rendered size rather than trusting the constants.
-  const nx = ((event.clientX - rect.left) / rect.width) * WB_NAV_W;
-  const ny = ((event.clientY - rect.top) / rect.height) * WB_NAV_H;
-  const [bx, by] = proj.toBoard(nx, ny);
-  wbCenterOn({ minX: bx, minY: by, maxX: bx, maxY: by }, { animate: false, minScale: 0 });
+  const box = svg.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const nx = ((event.clientX - box.left) / box.width) * WB_NAV_W;
+  const ny = ((event.clientY - box.top) / box.height) * WB_NAV_H;
+  const [x0, y0] = proj.toNav(proj.view.minX, proj.view.minY);
+  const [x1, y1] = proj.toNav(proj.view.maxX, proj.view.maxY);
+  const onRect = nx >= x0 && nx <= x1 && ny >= y0 && ny <= y1;
+  const grab = onRect ? { x: nx - (x0 + x1) / 2, y: ny - (y0 + y1) / 2 } : { x: 0, y: 0 };
+  wbNavState.drag = {
+    pointerId: event.pointerId,
+    svg,
+    box,
+    width,
+    height,
+    k: t.k,
+    mapping: { k: proj.k, minX: proj.minX, minY: proj.minY, offX: proj.offX, offY: proj.offY },
+    grab,
+    pending: { x: event.clientX, y: event.clientY },
+    frame: 0,
+  };
+  try {
+    svg.setPointerCapture(event.pointerId);
+  } catch {
+    /* a synthetic event with no live pointer: the drag still works inside the box */
+  }
+  svg.classList.add("is-dragging");
+  event.preventDefault();
+  wbNavigatorDragFrame();
+}
+
+function wbNavigatorDragMove(event) {
+  const drag = wbNavState.drag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  drag.pending = { x: event.clientX, y: event.clientY };
+  if (!drag.frame) drag.frame = requestAnimationFrame(wbNavigatorDragFrame);
+}
+
+function wbNavigatorDragFrame() {
+  const drag = wbNavState.drag;
+  if (!drag) return;
+  drag.frame = 0;
+  const p = drag.pending;
+  drag.pending = null;
+  const container = document.getElementById("whiteboard-container");
+  if (!p || !container) return;
+  const nx = ((p.x - drag.box.left) / drag.box.width) * WB_NAV_W - drag.grab.x;
+  const ny = ((p.y - drag.box.top) / drag.box.height) * WB_NAV_H - drag.grab.y;
+  const m = drag.mapping;
+  const bx = m.minX + (nx - m.offX) / m.k;
+  const by = m.minY + (ny - m.offY) / m.k;
+  // The zoom is kept: the overview moves the view, it never rescales it.
+  const target = d3.zoomIdentity
+    .translate(drag.width / 2 - drag.k * bx, drag.height / 2 - drag.k * by)
+    .scale(drag.k);
+  d3.select(container).call(wbZoom.transform, target);
+  wbFlushZoomFrame();
+}
+
+function wbNavigatorDragEnd(event) {
+  const drag = wbNavState.drag;
+  if (!drag || (event && event.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
+  // The last move lands before the drag ends, rather than being dropped.
+  if (drag.frame) {
+    cancelAnimationFrame(drag.frame);
+    wbNavigatorDragFrame();
+  }
+  wbNavState.drag = null;
+  drag.svg.classList.remove("is-dragging");
+  try {
+    if (drag.svg.hasPointerCapture(drag.pointerId)) drag.svg.releasePointerCapture(drag.pointerId);
+  } catch {
+    /* the pointer was already gone */
+  }
+  // The mapping was frozen for the gesture; let it follow the view again.
+  wbRenderNavigator();
 }
 
 function wbToggleNavigator(force) {
@@ -1719,6 +1825,8 @@ function wbToggleNavigator(force) {
   const button = document.getElementById("wb-navigator-toggle");
   if (!panel) return;
   const open = force === undefined ? panel.classList.contains("hidden") : force;
+  // Shift+N mid-drag: the drag ends with the panel, not with a later pointer.
+  if (!open && wbNavState.drag) wbNavigatorDragEnd();
   panel.classList.toggle("hidden", !open);
   if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
   try {
@@ -6979,28 +7087,13 @@ async function initWhiteboard() {
   if (navMap) {
     // Pointer events rather than mouse events, so a pen or a touch drag on a
     // tablet moves the viewport too, this is a drawing app, and the board is
-    // reachable from a touchscreen.
-    let navDragging = false;
-    navMap.addEventListener("pointerdown", (event) => {
-      navDragging = true;
-      navMap.setPointerCapture(event.pointerId);
-      wbNavigatorJump(event);
-      event.preventDefault();
-    });
-    navMap.addEventListener("pointermove", (event) => {
-      if (navDragging) wbNavigatorJump(event);
-    });
-    const endNavDrag = (event) => {
-      if (!navDragging) return;
-      navDragging = false;
-      try {
-        navMap.releasePointerCapture(event.pointerId);
-      } catch {
-        /* the pointer was already gone */
-      }
-    };
-    navMap.addEventListener("pointerup", endNavDrag);
-    navMap.addEventListener("pointercancel", endNavDrag);
+    // reachable from a touchscreen. The drag itself, and why it is shaped as
+    // it is, is at `wbNavigatorDragStart`.
+    navMap.addEventListener("pointerdown", wbNavigatorDragStart);
+    navMap.addEventListener("pointermove", wbNavigatorDragMove);
+    navMap.addEventListener("pointerup", wbNavigatorDragEnd);
+    navMap.addEventListener("pointercancel", wbNavigatorDragEnd);
+    navMap.addEventListener("lostpointercapture", wbNavigatorDragEnd);
   }
   try {
     if (localStorage.getItem("wb-navigator-open") === "1") wbToggleNavigator(true);

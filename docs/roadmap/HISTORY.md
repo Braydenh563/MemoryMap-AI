@@ -36461,3 +36461,10 @@ width, 47% of the column at 1440.
      findings to 0; zoom.js reads a clip per axis. **Every tab 0 at 200% and
      400%.**
 
+449. **The owner, 2026-10-03 night, verbatim, with a screenshot of the top
+     bar's tabs.** "I feel like the tabs in the topbar are too small and
+     should probably be back to their original size..." **Fixed**: the
+     density pass's (446 (5)) tab sizes reverted: 36px tabs (were 32),
+     16px labels (were 13.6), a 4px well (was 2.4), the bar 54px (was 48);
+     measured at 1440, 1280 and 1100, no overflow, no wrap.
+

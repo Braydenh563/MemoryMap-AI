@@ -207,7 +207,7 @@ select optgroup {
      still tracks the bar's height on narrow windows, and because anything
      positioned against the *window* (a future bottom bar, §36D) needs it. */
   /* --header-h: 4.4rem; */
-  --header-h: calc(3rem + 1px);
+  --header-h: calc(3.7rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   /* Deeper than before (0.20 / 0.14). A frosted pane over a featureless
      field is a flat tinted rectangle, and that is what both modes read as in
@@ -1255,7 +1255,7 @@ header#top-bar {
      inline the two bands disagreed about the *bottom*, 0.6rem above the
      logo and 0.4rem below it, on a phone, from two rules that each looked
      right on its own. */
-  --header-pad-y: var(--space-2);
+  --header-pad-y: var(--space-4);
   --header-pad-x: var(--page-gutter);
   padding: var(--header-pad-y) var(--header-pad-x);
   background: var(--card);
@@ -3996,8 +3996,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
   display: flex;
-  gap: 0.15rem;
-  padding: 0.15rem;
+  gap: 0.25rem;
+  padding: 0.25rem;
   border-radius: var(--radius-lg);
   /* A well, not a slab. Every raised surface in the app now carries a lit top
      edge; a bar of tabs is the opposite kind of thing, a channel the active
@@ -4050,14 +4050,15 @@ header#top-bar.tabs-wrapped #tab-bar {
      one of them centred on the same line and none of them agreeing with
      another. That is exactly the "nothing lines up" complaint, in the most
      looked-at strip in the app. */
-  /* The tabs sit in a 2.4px well and take the hit-target floor rather than
-     the bar's control height, so the strip and the icon buttons beside it
-     are one height (INBOX 446 (5)): the strip was 44px against 36px
-     buttons, the tallest thing in the bar. 13.6px labels, as in every
-     native tab strip, where they had inherited 16px. */
-  height: var(--target-min);
-  padding: 0 var(--space-5);
-  font-size: var(--text-md);
+  /* **Back to their first size** (INBOX 449, the owner: "the tabs in the
+     topbar are too small and should probably be back to their original
+     size"). The density pass (446 (5)) had taken them to the hit-target
+     floor with 13.6px labels in a 2.4px well; the main way around the app
+     is the one strip that should not be dense. 36px tabs, 16px labels, a
+     4px well, as before. */
+  height: var(--control-h-body);
+  padding: 0 var(--space-6);
+  font-size: var(--text-body);
   box-shadow: none;
 }
 

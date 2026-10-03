@@ -4134,6 +4134,14 @@ html.modal-open body {
   border-color: var(--accent);
 }
 
+/* The icon too (owner, INBOX 431: "colour contrast issues on the plan and
+   web polls when active"): a ghost button's icon keeps the accent, which on
+   the accent fill measured 1.00:1, so the globe and the compass vanished. */
+#web-search-toggle.active i,
+#chat-plan.active i {
+  color: inherit;
+}
+
 /* Web search off (the far more common state, it's opt-in, off by default):
    asked for directly, a plain `.ghost` button here read as no different from
    Skills/Ask/Plan next to it, every one of them equally clickable, equally
@@ -5946,4 +5954,11 @@ select {
 
 .privacy-row-meta {
   margin: var(--space-1) 0 0;
+}
+
+/* The fix button under a failed embedding model sat flush on the Model
+   backend box (owner, INBOX 431: "no gap below the 'use nomic-embed-text'
+   button"; measured 0px). The row keeps the section's own rhythm. */
+#embedding-error-fix-row {
+  margin-block-end: var(--space-6);
 }

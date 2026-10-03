@@ -206,6 +206,10 @@ class EntryOut(BaseModel):
     ai_confidence: int
     access_count: int = 0
     last_opened_at: datetime | None = None
+    #: When a person last changed the text, title, tags or category; null if
+    #: never since it was written. Sort "recently edited" by this falling back
+    #: to `created_at`. See `Entry.edited_at` for why not `updated_at`.
+    edited_at: datetime | None = None
     parent_id: int | None = None
     pinned: bool = False
     user_filed: bool = False

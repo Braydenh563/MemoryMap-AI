@@ -172,6 +172,19 @@ def get_or_create_category(
     return category
 
 
+def mark_edited(entry: Entry) -> None:
+    """Record that a person just changed what this note says.
+
+    Called at each per-note edit of the text, title, tags or category, and
+    only there; see `Entry.edited_at` for why `updated_at` cannot answer
+    "recently edited". Not called by filing (`record_filing`), opening,
+    pinning, a privacy toggle, or a notebook-wide tag or category rename:
+    those change a note without anyone editing it, and a list sorted by
+    "recently edited" that jumped on them would be sorting by noise.
+    """
+    entry.edited_at = utcnow()
+
+
 def set_category(session: Session, entry: Entry, name: str) -> Entry:
     """Put a note in a category by name, creating the category if it is new.
 
@@ -552,6 +565,8 @@ def _update_entry_fields(
     if tags is not None:
         entry.tags = json.dumps(normalise_tags(tags))
         changed.append("tags")
+    if changed:
+        mark_edited(entry)
     if "content" in changed:
         # The text is what carries the phrases, so a rewrite re-reads them.
         # Resolved against *now*, not the original capture: the user is

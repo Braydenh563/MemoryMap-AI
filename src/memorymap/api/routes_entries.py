@@ -115,6 +115,7 @@ def _to_out(
         ai_confidence=entry.ai_confidence,
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
+        edited_at=getattr(entry, "edited_at", None),
         parent_id=entry.parent_id,
         pinned=entry.pinned,
         user_filed=entry.user_filed,
@@ -928,6 +929,7 @@ def add_context(
     entry themselves, the category is left alone, their call stands."""
     entry = _existing_entry(session, entry_id)
     entry.content = f"{entry.content}\n\n--- added context ---\n{body.text.strip()}"
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "context added")
     session.commit()
 
@@ -2317,6 +2319,7 @@ def restore_event(
         entry.content = state["content"]
     if "tags" in state:
         entry.tags = json.dumps(state["tags"])
+    manager.mark_edited(entry)
     manager.log_action(
         session,
         "restored",
@@ -2353,6 +2356,7 @@ def restore_revision(
     manager.record_revision(session, entry)
     entry.content = revision.content
     entry.tags = revision.tags
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "restored an earlier version")
     session.commit()
     session.refresh(entry)
@@ -2418,6 +2422,7 @@ def generate_entry_title(
 
     manager.record_revision(session, entry)
     entry.content = manager.apply_title(content, title)
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, f"generated title: {title}")
     session.commit()
     session.refresh(entry)
@@ -2442,6 +2447,7 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     if stripped != content:
         manager.record_revision(session, entry)
         entry.content = stripped
+        manager.mark_edited(entry)
         manager.log_action(session, "edited", "entry", entry.id, "removed the title")
         session.commit()
         session.refresh(entry)

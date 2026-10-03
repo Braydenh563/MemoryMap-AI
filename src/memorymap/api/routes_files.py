@@ -442,6 +442,8 @@ def analyse_attachment(
         # scan is one of the slowest things this app does, and "is it working
         # or is it stuck" is the same question whether the work is a model or
         # a binary.
+        if is_image and (reason := ocr.unavailable_reason()):
+            raise HTTPException(status_code=409, detail=reason)
         with filejobs.reading("ocr", attachment.id, attachment.filename):
             if is_image:
                 text = ocr.extract_text(path)
@@ -1896,6 +1898,11 @@ def ocr_media(
         upload.ocr_text = body.text.strip() or None
         session.commit()
     else:
+        #: A missing engine used to come back as a 200 with no text, which the
+        #: workspace painted as "Read <file>." over an empty panel. Say so.
+        reason = ocr.unavailable_reason()
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
         media_dir = deps.get_config().data_dir / "media"
         ocr.extract_and_store(upload.id, media_dir / upload.filename)
         session.refresh(upload)
@@ -2044,7 +2051,7 @@ def _pdf_regions_for(
             pages=0,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     count = pdfpages.page_count(path)
@@ -2417,7 +2424,7 @@ def _vision_read_page(path: Path, index: int, reader: str = "vision") -> OcrPage
             page=index,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     if not deps.get_ollama().is_running():
@@ -2800,7 +2807,7 @@ def _describe_page(
             page=index,
             message=(
                 "Describing a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     if not deps.get_ollama().is_running():
@@ -2857,15 +2864,12 @@ def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
             page=index,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
-    if not ocr.tesseract_available():
-        raise HTTPException(
-            status_code=409,
-            detail="Tesseract isn't installed. Install the “OCR” extra in "
-            "Settings → Optional extras, or read this page with the AI instead.",
-        )
+    reason = ocr.unavailable_reason()
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
     count = pdfpages.page_count(path)
     if count <= 0:
         return OcrPageReadOut(page=index, message="That PDF could not be opened.")
@@ -2912,7 +2916,12 @@ class OcrReadersOut(BaseModel):
     #: that named the other. Empty when there is no second choice to make.
     ocr: bool = False
     ocr_model: str = ""
-    ocr_reason: str = ''
+    ocr_reason: str = ""
+    #: The Tesseract engine in full (`ocr.engine_status`): both halves, the
+    #: version, the language packs and the one in use, and the one fix. The
+    #: workspace's status line and Settings' Packages row read the same
+    #: object, so they cannot disagree about what is installed.
+    engine: dict = {}
 
 
 @router.get("/ocr-readers", response_model=OcrReadersOut)
@@ -2943,15 +2952,37 @@ def ocr_readers() -> OcrReadersOut:
     #: with one vision model both resolvers return it, and offering the same
     #: model twice under two names is a worse picker than offering it once.
     second = other if (other and other != model) else ""
+    engine = ocr.engine_status()
     return OcrReadersOut(
-        tesseract=ocr.tesseract_available(),
+        #: Ready, not merely "the program exists": a program with no Python
+        #: wrapper offered as a reader fails on the first page.
+        tesseract=engine["ready"],
         vision=bool(model),
         vision_model=model or "",
         vision_reason=reason,
         ocr=bool(second),
         ocr_model=second,
         ocr_reason="" if second else reason,
+        engine=engine,
     )
+
+
+class OcrLanguageBody(BaseModel):
+    #: A Tesseract language code (`eng`, `deu`, `eng+deu`), or "" for the
+    #: engine's default.
+    language: str = Field(default="", max_length=80)
+
+
+@router.post("/ocr/language")
+def set_ocr_language(body: OcrLanguageBody) -> dict:
+    """Remember which language Tesseract reads in. One setting for every read
+    (see `ocr.LANGUAGE_PREFERENCE`); the answer is the engine status, so the
+    caller repaints from the truth rather than from what it sent."""
+    try:
+        ocr.set_language(body.language)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return ocr.engine_status()
 
 
 class OcrRangeReadOut(BaseModel):
@@ -3027,7 +3058,7 @@ def _read_range(
         return OcrRangeReadOut(
             message=(
                 "Reading a PDF needs the small PDF rasteriser: install the "
-                "“PDF pages” extra in Settings → Optional extras."
+                "“PDF pages” package in Settings, Packages."
             )
         )
     count = pdfpages.page_count(path)
@@ -3233,12 +3264,9 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     if mode == "read":
         reader = _checked_reader(reader)
     if mode == "read" and reader == "tesseract":
-        if not ocr.tesseract_available():
-            raise HTTPException(
-                status_code=409,
-                detail="Tesseract isn't installed. Install the “OCR” extra in "
-                "Settings → Optional extras, or read this region with the AI instead.",
-            )
+        reason = ocr.unavailable_reason()
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
     else:
         if not deps.get_ollama().is_running():
             raise HTTPException(status_code=409, detail="The AI model isn't running.")

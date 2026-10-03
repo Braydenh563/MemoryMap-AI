@@ -28,12 +28,14 @@ from __future__ import annotations
 
 import functools
 import importlib
+import importlib.util
 import logging
 import os
 import re
 import shutil
 import subprocess  # noqa: S404  # fixed args from a hardcoded table below, no shell, no user input
 import sys
+import time
 from pathlib import Path
 
 from memorymap.core import jobs
@@ -178,6 +180,210 @@ def tesseract_available() -> bool:
     return False
 
 
+#: The preference the person's language choice is kept under. One setting for
+#: every read (the workspace, the background pass after an upload, a PDF page),
+#: because "remember my language" that only the button you pressed obeyed would
+#: be a setting that quietly stops applying (INBOX 443 (3)).
+LANGUAGE_PREFERENCE = "ocr_language"
+
+#: A Tesseract language is a code such as `eng` or `chi_sim`, and several join
+#: with a plus (`eng+deu`). Checked before it is stored or handed to the
+#: program as an argument: this string ends up on a command line.
+_LANGUAGE_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{1,19}(\+[A-Za-z][A-Za-z0-9_]{1,19}){0,3}$")
+
+#: What each common code is called, so the picker says "German" and not
+#: `deu`. A code not listed is shown as itself.
+LANGUAGE_NAMES = {
+    "eng": "English", "deu": "German", "fra": "French", "spa": "Spanish",
+    "ita": "Italian", "por": "Portuguese", "nld": "Dutch", "swe": "Swedish",
+    "nor": "Norwegian", "dan": "Danish", "fin": "Finnish", "pol": "Polish",
+    "ces": "Czech", "hun": "Hungarian", "ron": "Romanian", "tur": "Turkish",
+    "ell": "Greek", "rus": "Russian", "ukr": "Ukrainian", "heb": "Hebrew",
+    "ara": "Arabic", "hin": "Hindi", "tha": "Thai", "vie": "Vietnamese",
+    "jpn": "Japanese", "kor": "Korean", "chi_sim": "Chinese (simplified)",
+    "chi_tra": "Chinese (traditional)", "lat": "Latin",
+}
+
+#: The list of installed languages is asked of the program, which is a process
+#: start; the workspace asks on every open, so the answer is kept briefly.
+_LANGUAGES_TTL_SECONDS = 30.0
+_languages_cache: dict[str, tuple[float, list[str]]] = {}
+
+
+def installed_languages() -> list[str]:
+    """The language packs the `tesseract` program has, as it reports them.
+
+    Empty when the program is missing or does not answer. `osd` is dropped: it
+    is the orientation detector, not a language anyone reads.
+    """
+    binary = shutil.which("tesseract")
+    if not binary:
+        return []
+    now = time.monotonic()
+    cached = _languages_cache.get(binary)
+    if cached and now - cached[0] < _LANGUAGES_TTL_SECONDS:
+        return list(cached[1])
+    languages: list[str] = []
+    try:
+        result = subprocess.run(  # noqa: S603  # fixed args, the binary found on PATH, no shell
+            [binary, "--list-langs"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=NO_WINDOW,
+        )
+        # Some builds print the list on stderr; read both.
+        for line in (result.stdout + "\n" + result.stderr).splitlines():
+            line = line.strip()
+            if line.lower().startswith("list of"):
+                continue
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", line) and line != "osd":
+                languages.append(line)
+    except (OSError, subprocess.SubprocessError):
+        logger.info("could not list tesseract languages", exc_info=True)
+    _languages_cache[binary] = (now, languages)
+    return list(languages)
+
+
+def clear_language_cache() -> None:
+    _languages_cache.clear()
+
+
+def tesseract_version() -> str:
+    """`5.3.4` from `tesseract --version`, or "" when it cannot be asked."""
+    binary = shutil.which("tesseract")
+    if not binary:
+        return ""
+    try:
+        result = subprocess.run(  # noqa: S603  # fixed args, the binary found on PATH, no shell
+            [binary, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=NO_WINDOW,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    first = ((result.stdout or result.stderr).strip().splitlines() or [""])[0]
+    match = re.search(r"(\d+\.\d+(?:\.\d+)?)", first)
+    return match.group(1) if match else ""
+
+
+def saved_language() -> str:
+    """The language the person chose, or "" for Tesseract's own default."""
+    deps = importlib.import_module("memorymap.core.deps")
+    try:
+        value = str(deps.get_config().get_preference(LANGUAGE_PREFERENCE, "") or "")
+    except Exception:  # noqa: BLE001  # no app state (a bare import): the default
+        return ""
+    return value if _LANGUAGE_PATTERN.match(value) else ""
+
+
+def set_language(code: str) -> str:
+    """Remember a language. "" goes back to the default. Raises `ValueError`
+    for a code that is malformed or whose pack is not installed, with a
+    message that says what to do."""
+    code = (code or "").strip()
+    if code:
+        if not _LANGUAGE_PATTERN.match(code):
+            raise ValueError("That is not a language code. Pick one from the list.")
+        have = installed_languages()
+        missing = [part for part in code.split("+") if part not in have]
+        if missing:
+            raise ValueError(
+                f"The {', '.join(missing)} language pack isn't installed for Tesseract. "
+                "Install it with your package manager (for example tesseract-ocr-deu), "
+                "then reopen this list."
+            )
+    deps = importlib.import_module("memorymap.core.deps")
+    deps.get_config().set_preference(LANGUAGE_PREFERENCE, code)
+    return code
+
+
+def effective_language() -> str:
+    """The saved language when its packs are all still installed, else "".
+
+    A pack removed since it was chosen must not turn every read into a
+    failure: the default language reads, and the status says it fell back.
+    """
+    code = saved_language()
+    if not code:
+        return ""
+    have = installed_languages()
+    return code if have and all(part in have for part in code.split("+")) else ""
+
+
+def _language_kwargs() -> dict:
+    """`{"lang": code}` only when a language is chosen, so the default call is
+    exactly the call it always was."""
+    code = effective_language()
+    return {"lang": code} if code else {}
+
+
+def packages_available() -> bool:
+    """Whether `pytesseract` and Pillow can be imported (a look, not an import)."""
+    try:
+        return (
+            importlib.util.find_spec("pytesseract") is not None
+            and importlib.util.find_spec("PIL") is not None
+        )
+    except (ImportError, ValueError):
+        return False
+
+
+def engine_status() -> dict:
+    """One honest answer to "can Tesseract read here, and how".
+
+    `binary` and `package` are the two halves OCR needs, reported separately
+    because they are fixed by different things (`attempt_binary_install` for
+    one, pip for the other) and "not installed" names neither. `fix` is the
+    one action that mends it, which the workspace and Settings both offer.
+    """
+    binary = tesseract_available()
+    package = packages_available()
+    ready = binary and package
+    if ready:
+        reason = ""
+    elif not binary and not package:
+        reason = "Tesseract isn't installed."
+    elif not binary:
+        reason = "The Tesseract program isn't installed. Its Python part is."
+    else:
+        reason = "The Python part of Tesseract OCR (pytesseract and Pillow) is missing."
+    languages = installed_languages() if binary else []
+    saved = saved_language()
+    chosen = effective_language()
+    note = ""
+    if saved and not chosen and binary:
+        note = f"The saved language ({saved}) is no longer installed, so the default is used."
+    return {
+        "ready": ready,
+        "binary": binary,
+        "package": package,
+        "version": tesseract_version() if binary else "",
+        "languages": [
+            {"code": code, "name": LANGUAGE_NAMES.get(code, code)} for code in languages
+        ],
+        "language": chosen,
+        "language_note": note,
+        "reason": reason,
+        "fix": "" if ready else "install",
+    }
+
+
+def unavailable_reason() -> str:
+    """Why Tesseract cannot read right now, in a sentence that says what to
+    do, or "" when it can. Used where a route used to return nothing and let
+    a missing engine look like a page with no text on it."""
+    status = engine_status()
+    if status["ready"]:
+        return ""
+    return (
+        f"{status['reason']} Install it in Settings, Packages (Search inside images), "
+        "or read this with the AI vision model instead."
+    )
+
+
 def _one_thread_for_tesseract() -> None:
     """Pin Tesseract's OpenMP to one thread unless the person set it.
 
@@ -235,7 +441,7 @@ def extract_text(image_path: Path) -> str:
     _one_thread_for_tesseract()
     try:
         with Image.open(image_path) as img:
-            text = pytesseract.image_to_string(img)
+            text = pytesseract.image_to_string(img, **_language_kwargs())
         return text.strip()
     except Exception:
         # A single unreadable image (corrupt file, an animated GIF Tesseract
@@ -295,7 +501,9 @@ def extract_regions(image_path: Path) -> dict | None:
     try:
         with Image.open(image_path) as img:
             width, height = img.size
-            data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+            data = pytesseract.image_to_data(
+                img, output_type=pytesseract.Output.DICT, **_language_kwargs()
+            )
     except Exception:
         logger.warning("OCR regions failed for %s", image_path.name, exc_info=True)
         return None

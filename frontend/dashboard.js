@@ -3637,6 +3637,11 @@ function dashActionRow(ul, { title, meta, onOpen, hint, thumb, chip = null }) {
   // Tab.
   li.tabIndex = 0;
   li.setAttribute("role", "button");
+  //: A list may hold only list items (WCAG 1.3.1, INBOX 433: axe's `list`
+  //: rule on Recent documents), and these rows are buttons, so the list is
+  //: said as what it is, a group of them. Inner wrappers were the other way,
+  //: and would have moved every row's focus ring off the row it styles.
+  if (!ul.hasAttribute("role")) ul.setAttribute("role", "group");
   const go = () => onOpen();
   li.addEventListener("click", go);
   li.addEventListener("keydown", (event) => {
@@ -4420,6 +4425,7 @@ function renderOnThisDayWidget(body) {
   }
   const list = document.createElement("ul");
   list.className = "dash-list";
+  list.setAttribute("role", "group"); // rows are buttons (dashActionRow says why)
   for (const { entry, when } of shown) {
     const li = document.createElement("li");
     li.setAttribute("role", "button");

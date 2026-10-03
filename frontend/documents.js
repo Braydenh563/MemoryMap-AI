@@ -11019,7 +11019,22 @@ function noteSurfaceExtensions(CM, host, options) {
       ...CM.commands.defaultKeymap,
     ]),
     CM.view.EditorView.updateListener.of((update) => noteSurfaceUpdate(host, update)),
+    CM.view.EditorView.contentAttributes.of({ "aria-label": noteSurfaceName(host) }),
   ];
+}
+
+//: **The box keeps its name** (WCAG 4.1.2, INBOX 433). The view is mounted
+//: over a labelled textarea and hides it, and the editable it puts in its
+//: place had no name: a screen reader said "edit text" in Capture, the edit
+//: form and every other note box. The name is the textarea's own, in the
+//: order a browser would compute it.
+function noteSurfaceName(host) {
+  const labelled = host.getAttribute("aria-labelledby");
+  const byId = labelled ? labelled.split(/\s+/).map((id) => document.getElementById(id)?.textContent.trim()).filter(Boolean).join(" ") : "";
+  const forLabel = host.id ? document.querySelector(`label[for="${CSS.escape(host.id)}"]`)?.textContent.trim() : "";
+  //: A placeholder is the last resort, and only its first line: Capture's runs
+  //: to three lines of tips, which is not a name.
+  return byId || host.getAttribute("aria-label") || forLabel || host.title || (host.placeholder || "").split("\n")[0].trim() || "Note text";
 }
 
 //: **The document's chords, aimed at this box.** `docCmKeymap` cannot be
@@ -15195,6 +15210,9 @@ function docProseResizeHandle() {
   handle.setAttribute("aria-label", "Resize the suggestions: arrow keys, or drag");
   handle.title = "Drag to resize, double-click to reset";
   const panel = () => $("doc-prose-panel");
+  //: The value it says (WCAG 4.1.2): the panel's own width, at most half the
+  //: editor, so the stated maximum is the window's half.
+  if ($("doc-prose-panel")) trackSeparatorValue(handle, $("doc-prose-panel"), DOC_PROSE_WIDTH_MIN, Math.max(DOC_PROSE_WIDTH_MIN, Math.round(window.innerWidth / 2)));
   handle.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -17966,6 +17984,9 @@ function docCmExtensions(CM) {
     //: alone, so the browser's goes off the moment the list is ready and
     //: comes back if it never loads.
     docCmParts.spell.of(docCmSpellcheck(CM)),
+    //: Named (WCAG 4.1.2, INBOX 433: axe, aria-input-field-name): the
+    //: editable had a role of textbox and no name at all.
+    CM.view.EditorView.contentAttributes.of({ "aria-label": "Document text" }),
   ];
 }
 

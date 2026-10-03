@@ -481,6 +481,7 @@ function renderEditForm(li, entry) {
   titleInput.addEventListener("input", () => { noteFormDirty = true; });
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
+  textarea.setAttribute("aria-label", "Note text"); // its editor takes this name (noteSurfaceName)
   textarea.value = draft ? draft.content : heading ? entry.content.slice(heading[0].length) : entry.content;
   textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu

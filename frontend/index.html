@@ -1189,7 +1189,7 @@
                 <i class="ph ph-code ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Source</span>
               </button>
             </div>
-            <textarea id="entry-content" rows="3" class="autogrow"
+            <textarea id="entry-content" rows="3" class="autogrow" aria-label="New note"
               placeholder="Type anything: a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
             <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
@@ -1673,7 +1673,7 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Close question history" aria-label="Close question history">
                 <i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
-            <ul id="ask-history-list" class="ask-history-list"></ul>
+            <ul id="ask-history-list" class="ask-history-list" role="group" aria-label="Earlier questions"></ul>
             <p id="ask-history-empty" class="muted hidden">
               Questions you ask will be saved here so you can browse back
               through them later, the way you'd browse your notes.</p>
@@ -8123,7 +8123,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <h3>Add your own</h3>
             <input id="persona-name" aria-label="Persona name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
-            <textarea id="persona-prompt" rows="2" maxlength="2000"
+            <textarea id="persona-prompt" rows="2" maxlength="2000" aria-label="Persona system prompt"
               placeholder="System prompt, e.g. You are a cheerful pirate captain."></textarea>
             <p class="muted text-sm" id="persona-placeholder-hint">Write <code>{ai_name}</code> where the name should go and it is replaced with Atlas. Optional.</p>
             <div class="row">
@@ -8297,10 +8297,10 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <ul id="template-list" class="entry-list"></ul>
             <h3>Add your own</h3>
-            <input id="template-name" type="text" maxlength="40" placeholder="Name (e.g. Book notes)">
-            <input id="template-description" type="text" maxlength="200"
+            <input id="template-name" type="text" maxlength="40" aria-label="Template name" placeholder="Name (e.g. Book notes)">
+            <input id="template-description" type="text" maxlength="200" aria-label="Template description"
               placeholder="One line about what it's for (optional)">
-            <textarea id="template-body" rows="4" maxlength="2000"
+            <textarea id="template-body" rows="4" maxlength="2000" aria-label="Template text"
               placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
             <p class="muted">
               Tip: write <code>{date}</code> anywhere in the template and it's

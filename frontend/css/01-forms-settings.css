@@ -4153,7 +4153,10 @@ html.modal-open body {
    `button:disabled` look above, which reads as busy/unavailable rather than
    off. */
 #web-search-toggle:not(.active) {
-  opacity: 0.6;
+  /* Dimmed by colour, not opacity: 0.6 put its label at 4.22:1 in light
+     (axe, WCAG 1.4.3, INBOX 433). Muted text still reads "off" beside the
+     armed accent fill, and stays readable. */
+  color: var(--muted);
 }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */

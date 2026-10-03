@@ -292,6 +292,28 @@ const SIDEBAR_RAIL_NAMES = {
   "skills-sidebar": "Skill logs",
 };
 
+//: **A resize grip says its value** (WCAG 4.1.2, INBOX 433): a focusable
+//: separator is a widget, and its role requires `aria-valuenow`; without it
+//: a screen reader announced "separator" and nothing about how wide the
+//: panel now is after an arrow key (axe, aria-required-attr, on all three
+//: sidebars). The value is the panel's drawn width, read by an observer, so
+//: every way of resizing (drag, keys, reset, a window re-fit, a folded
+//: sidebar) is covered without each setter remembering to report it.
+function trackSeparatorValue(handle, panel, min, max) {
+  handle.setAttribute("aria-valuemin", String(min));
+  handle.setAttribute("aria-valuemax", String(max));
+  const write = (width) => {
+    const now = Math.round(width);
+    if (!now) return; // hidden or folded away: keep the last real value
+    handle.setAttribute("aria-valuenow", String(Math.min(Math.max(now, min), max)));
+    handle.setAttribute("aria-valuetext", `${now} pixels wide`);
+  };
+  write(panel.getBoundingClientRect().width || min);
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver((entries) => write(entries[entries.length - 1].borderBoxSize?.[0]?.inlineSize ?? panel.getBoundingClientRect().width)).observe(panel);
+  }
+}
+
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
@@ -305,6 +327,7 @@ function makeSidebarResizable(aside) {
   handle.setAttribute("tabindex", "0");
   handle.setAttribute("aria-label", "Resize the sidebar: arrow keys, or drag");
   aside.appendChild(handle);
+  trackSeparatorValue(handle, aside, SIDEBAR_MIN, SIDEBAR_MAX);
 
   const collapseBtn = document.createElement("button");
   collapseBtn.className = "sidebar-collapse-toggle";
@@ -530,6 +553,7 @@ function makeWebPanelResizable(panel) {
   handle.setAttribute("tabindex", "0");
   handle.setAttribute("aria-label", "Resize the web panel, arrow keys, or drag");
   panel.appendChild(handle);
+  trackSeparatorValue(handle, panel, WEB_PANEL_MIN, WEB_PANEL_MAX);
 
   const startDrag = (event) => {
     event.preventDefault();

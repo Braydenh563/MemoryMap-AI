@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Accessibility: sidebar and panel resize grips say how wide the panel is; the document editor and every note box have a name; Library chip counts and the Web toggle meet 4.5:1 contrast; dashboard rows that are buttons are announced as a group; Capture, persona and template fields have labels, not only placeholders.
 - Companion: perched on a chat message, a library card or a note card, it now scrolls under the top bar with its perch instead of staying in front of it (62px of figure over the bar before, 103px at Large); perched on the bar itself it stays in front.
 - Companion: the palette row says Hide companion or Show companion, whichever it will do, and the hide toast names the shortcut as currently bound.
 - Accessibility: the app has one main landmark around its tab pages, so a screen reader's jump to main content works on every tab (it found nothing on five).

@@ -2647,3 +2647,148 @@ twenty). It is the bar every pass in this plan is measured against.
     label drag drifting and starting a selection box; the chat header naming
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
+
+## Placed from INBOX, 2026-10-03 (the tray at its cap)
+
+Open, moved whole from INBOX so the tray stays under twenty; each is worked from here by impact.
+
+410. **The owner, 2026-09-24, verbatim, with screenshots of the writing
+    dictionary, New from a template, the map's radial menus and two linked
+    map nodes.** "also improve how the \"check with ai\" feature works in the
+    documents editor, allow the suggestions panel to be docked on the right
+    instead if the user wishes and redesign the dictionary panel as it is
+    ugly and needs a proper professional modern redesign." "also when
+    selecting a template, I want to be able to confirm my template
+    selection, not have it instantly be made when I press it" "is there a
+    way to make these mind map item radial options fit better in the
+    radials?? also what if the user asks the guide for all the hidden
+    features, keybinds, controls, utility and more for features like the
+    whiteboard, mindmap and documents editor etc. can it answer those??"
+    "also fix the ci and codeql errors" "when I relink or newly link two
+    mindmap nodes, they clump together??" "drag selection on the whiteboard
+    and mindmap is laggy as well". Read from the screenshots: the radial's
+    labelled pills overhang the ring (a 2-item edge ring and the 6-item node
+    ring both); a relinked node lands on top of its new parent instead of
+    being laid out as its child. CI: four routing rows fixed 2026-09-24 (three
+    moved to topics added that day, "Can Atlas write for me?" gets a new
+    write-with-atlas topic). Placed: documents (check with AI, dockable
+    suggestions, dictionary), templates (confirm), the Guide's per-surface
+    controls reference, map (radial fit, relink layout, marquee lag), in
+    agent briefs as slots free.
+    **Templates (confirm) built 2026-09-24** (bf54953): a click chooses,
+    Use this template, Enter or a double click makes it; sweep
+    `templatepick.js`. 
+    **The Guide's part built 2026-09-24** (guide-controls agent): a controls
+    reference per surface and a hidden features entry, routed by what the
+    question asks c05c684; 55 bank questions (177, top-1 99.4%, top-3 100%)
+    1385b0e; a freshness test against every bound key a164dc2; the caps
+    (a 422 after a long answer and on the fifth question, the reply cut
+    mid-list) 5cb7f8f. Map part built (radial fit 13c41d7, relink b449623, marquee 18b8c15).
+    **The documents' part built 2026-09-24** (the documents agent): Check
+    with AI runs in place, streamed into the suggestions panel with Apply,
+    Dismiss and Stop, a no-model notice with Settings, Models, and Discuss in
+    chat with no long prompt (so no skill nudge, the INBOX 413 half)
+    (cd5dec1, `aicheck.js`); the panel docks at the bottom or on the right,
+    resizable, remembered, always bottom at 720px and below (a8c822a,
+    `prosedock.js`); the dictionary as a settings sheet (bbeda8e,
+    `dictsheet.js`); the Capture box's templates confirm too (26e8d9b,
+    `notetemplatepick.js`). Nothing of 410 is open now; it stays for the
+    orchestrator to resolve with 413.
+
+421. **The owner, 2026-09-24, verbatim, with screenshots (placed in agent
+    briefs, two at a time).** (a) "in the radials on the mind map, the items
+    like "add beside" and "cross-link" are very close to the edges (inner and
+    outer) of the radial and arent centered nicely. also when I press the
+    more button the dropdown menu appears in the top left of my screen"
+    (desktop app; the pie-ring agent could not reproduce the corner with a
+    real click). **(a) built** (INBOX 421 agent): labels centred with 10px to
+    both arcs and dividers (1.4 -> 11.4px, mapradialfit.js); More anchors to
+    the sector read at pointerdown, (0,0) refused and logged, the canvas host
+    no longer scrolls on focus (mapradialmore.js 33/33). The desktop corner
+    itself was still not reproduced headless: the console now names any
+    corner placement, so the owner's log will say which route it was. (b) "the / command blocks and frames need a massive
+    redesign, expansion and improvement, the icons dont render in the live
+    view in the documents editor ... they need ot be impressive and an actual
+    proper thing the user's can use to properly structure out their
+    documents and notes." (live-view callout icon fixed 6e072b2; built
+    2026-09-24: the grouped block inserter, 14 callout kinds, columns in
+    notes, contents, rules, cited quotes, maths, the block bar and document
+    cards, `slashmenu.js`, `blocksrender.js`, `blockbar.js`.) (c)
+    "sometimes document editor dropdowns appear at the top of the screen and
+    other times it is fine, sometimes it doesnt open at all" (the spelling
+    menu, top of the window; fixed 2026-09-24: placed from the
+    finding, never a detached element's empty box; the double-click's first
+    press; the "/" menu follows a scroll; `menuanchor.js` 15/15). (d) "there's no 'x' close button on the trace
+    popup row in the graph" (**built**: an X at the strip's end that leaves
+    trace mode; Done only cleared the ends; graphtraceclose.js). (e) OCR: "I cant delete the ocr entry in the
+    workspace or the lightbox and the text in the lightbox doesnt even appear
+    in the ocr workspace" (workspace delete fixed 6e072b2; the lightbox
+    showed a vision reading of "Test, Test, ..." hundreds of times, a
+    degenerate model loop the app should cut; **built**: loops cut where a
+    reading is produced, each lightbox reading deletable, the workspace shows
+    both stored readings and no longer blanks a stored one when the reader
+    is the model; ocrreadings.js 6/6). (f) The file row in the
+    Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
+    in"): "needs a bit more modern and ui refinement and the second row
+    elements arent aligned and dont really match" (fixed: one size, one
+    line box, middot groups, "Read this" a link). (g) "the lightbox buttons
+    below the image are greyed out?? i opened the image from within a note".
+    (**built**: not disabled, the row was the theme's ghost ink on the dark
+    scrim, 1.37:1 in light from every door; now the scrim's own recipe,
+    8.28:1; lightboxentry.js) (h) View toggles with no clear active state (fixed c920174). (i) "have
+    you included all the new optional packages in the packages settings
+    page??" and "move the preferences settings page up a bit and maybe also
+    turn it a bit into the user's own personal local profile where they can
+    put info about themselves and their name for the ai to use as context
+    and there can also be the generated profile image". (j) "I clicked a note
+    linked in the sources of an ai chat reply and it took me to that note,
+    but when I pressed the back navigation button it opened the settings
+    panel??" (not reproduced: chat then flashEntry then Back lands on chat,
+    also with chat opened from inside Settings; needs the exact path).
+
+423. **Found, not fixed, by the agents of 2026-09-24 (placed for the next
+    pass; one line each, recommendation first).** (a) The mind map's pie
+    ring does not take focus when it opens, so Enter and the arrows still
+    act on the board while it shows: recommend it takes focus when opened
+    from the keyboard only. (b) DOCX export writes `:::columns`, `[TOC]` and
+    `[!kind]` as plain text: map them to Word columns, a TOC field and a
+    shaded box. (c) Inline `$x$` maths is plain symbols in Read view: render
+    it through the same TeX-to-MathML path as `$$`. (fixed: `INLINE_MATH_RE`
+    (app.js) now claims a `$…$` span with no space inside either delimiter
+    and no digit right after the close; `unlatex` carries it through
+    untouched instead of symbol-swapping it, and `renderInlineMarkdown` cuts
+    it out and draws it with `mdInlineMathElement`, the same `docMathRender`
+    the `$$` blocks use. `tests/test_inline_math.py`.) (d) The OCR workspace's
+    message for a vision reading still suggests installing Tesseract: word
+    it by reader. (fixed: `_regions_for` (routes_files.py) checks
+    `ocr.tesseract_available()` before wording the "no page positions"
+    message; installed but not chosen now says "Switch to Tesseract", missing
+    still says "Install Tesseract". `tests/test_ocr_regions.py`.) (e) At
+    150% zoom the lightbox picture overlaps its caption
+    line. (f) Stored readings that already contain a repeated-line loop are
+    not cleaned: offer "Clean up" in the reading menu. (fixed: a broom
+    button beside Delete reading, in the OCR workspace and the lightbox's
+    other-readings list, POSTs `/files/{id}/ocr-clean-loops` or
+    `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
+    whichever of `vision_ocr_text`/`ocr_text` are set and saves what
+    changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()`
+    treats any MemoryMap on the port as ours, whatever its data dir: compare
+    the data dir in `/instance` first. (h) Chat replies saved before
+    2026-09-24 always show Atlas's mark (their persona was never stored).
+    (i) The server-mode process takes 5 to 9s to exit after uvicorn
+    finishes: find the thread that holds it. (fixed: every sync route
+    (almost all of them) runs on one of anyio's own "AnyIO worker thread"
+    objects, which is not a daemon thread and only stops itself on a
+    done-callback that can miss `uvicorn.run()` tearing the loop down;
+    measured leaving one alive, `daemon=False`, right after "Finished
+    server process". `_stop_lingering_worker_threads` (`__main__.py`,
+    called right after `uvicorn.run()` returns) asks it to stop and bounds
+    the wait to 1s. `tests/test_server_shutdown.py` reproduces the leftover
+    thread with a real `uvicorn.Server` running `create_app()` and checks
+    the fix clears it.)
+    (j) `gate.sh --sweeps` on 25d7d56 (fixture data dir /tmp/mm-me):
+    asktab.js 3 findings, libreadingfoot.js "reading visible: false" and
+    "no card with a reading", tagoffer.js 2 failures (manual route and the
+    empty tag row flag). Triage each as app bug or stale sweep before
+    fixing; the reader's 36px page box is fixed (25d7d56).

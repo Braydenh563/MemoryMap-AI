@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.
 - Settings: a section's jump strip marks the heading you chose, even near the end of a short page where it used to mark the last one.
 - Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".
 - Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.

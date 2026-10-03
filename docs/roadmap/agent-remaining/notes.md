@@ -6,7 +6,7 @@ Items, in order: 239, 240, 241, 238, 232.
 ## Landed
 
 - 239, the table full view has no way out. `3dc956e`, docs `c1e0bd8`.
-  `frontend/app.js` `buildTableBlock` (an X in the bar, focus in and out) and
+  `frontend/js/app.js` `buildTableBlock` (an X in the bar, focus in and out) and
   `wireEscapedActionMenu`'s `place()` (an escaped menu is lifted one tier above
   its opener's surface), `frontend/css/05-sidebars-themes.css` (the seam after
   the menu wrap), `scratchpad/ui-sweeps/tablefullclose.js` (new).
@@ -15,7 +15,7 @@ Items, in order: 239, 240, 241, 238, 232.
   pointer before (menu 1020 under panel 2400) and `BUTTON.menu-item` after
   (2401 over 2400); all three exits land the focus back on the opener.
 - 240, the Writing Room boxes shrink on focus. `bf1452e`.
-  `frontend/documents.js` `mountNoteSurface`, `frontend/css/09-editor.css`
+  `frontend/js/documents.js` `mountNoteSurface`, `frontend/css/09-editor.css`
   (`.note-surface-stretch`), `scratchpad/ui-sweeps/draftboxes.js` (new).
   Measured: 330.3 to 146 before (both boxes, a loss of 184.3), 330.3 to 339.9
   and 330.3 to 330.0 after, columns level at 468, an 80-line draft scrolls
@@ -25,7 +25,7 @@ Items, in order: 239, 240, 241, 238, 232.
   `src/memorymap/core/database.py` (`AskTurn.grounding`),
   `migrations/versions/d3b7c2a91e45_ask_turn_grounding.py`,
   `src/memorymap/api/routes_chat.py` (`_save_ask_turn`),
-  `routes_ask_history.py` (`_live_grounding`), `frontend/app.js`
+  `routes_ask_history.py` (`_live_grounding`), `frontend/js/app.js`
   (`viewAskHistoryTurn`), `tests/test_ask_history.py` (two),
   `tests/test_ask_answer_object.py` (one),
   `scratchpad/ui-sweeps/askhistorycite.js` and `scratchpad/seed_ask_turn.py`
@@ -54,7 +54,7 @@ work. What the reading found is below so the next session starts at the change.
 1. **238, board and map note objects.** INBOX 238, still open. Three parts.
    - *The text leaves the card.* A card's size is stored
      (`WhiteboardNode.width/height`) and written as an inline `width`/`height`
-     in `renderWhiteboard` (`frontend/whiteboard.js` around 12695), and
+     in `renderWhiteboard` (`frontend/js/whiteboard.js` around 12695), and
      `.wb-card` (`frontend/css/06-timeline-dialogs.css` around 3169) has no
      `overflow`, so expanding past `.wb-card-content-clamped`'s 8-line clamp
      (around 3274) spills the note over the border. Recommended fix, not yet
@@ -82,7 +82,7 @@ work. What the reading found is below so the next session starts at the change.
 2. **232, the documents live view's markdown**, code blocks first: hide the
    fence marker lines when the caret is outside the block, a header row with
    the language and a copy button, and check tables, blockquotes and task
-   lists. `frontend/documents.js` live plugin plus `frontend/css/09-editor.css`.
+   lists. `frontend/js/documents.js` live plugin plus `frontend/css/09-editor.css`.
    Untouched, nothing read yet.
 3. **246, boards and maps on a note.** Not to be built now, by the
    orchestrator's instruction; the facts are filed in

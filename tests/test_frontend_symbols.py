@@ -15,7 +15,7 @@ A `ReferenceError` is the one class of frontend defect that can be found
 without running anything, because the app's files are classic scripts
 sharing one global scope (index.html loads them in order, and the surface
 bundles are fetched into that same scope later). So the union of every
-declaration across `frontend/*.js` is the namespace, and a bare `name(`
+declaration across `frontend/js/*.js` is the namespace, and a bare `name(`
 that resolves nowhere in it is a crash waiting for whoever opens that
 screen.
 
@@ -268,7 +268,7 @@ SCREAMING = re.compile(r"(?<![\w$.?])([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b")
 def _sources() -> dict[str, str]:
     return {
         path.name: _strip(path.read_text(encoding="utf-8"))
-        for path in sorted(FRONTEND.glob("*.js"))
+        for path in sorted((FRONTEND / "js").glob("*.js"))
     }
 
 
@@ -342,7 +342,7 @@ TOP_LEVEL = re.compile(
 
 def _top_level_declarations() -> dict[str, list[str]]:
     owners: dict[str, list[str]] = {}
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         if path.name in WORKER_FILES:
             continue
         text = _strip(path.read_text(encoding="utf-8"))

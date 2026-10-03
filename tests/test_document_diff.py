@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
 EDITOR_CSS = ROOT / "frontend" / "css" / "09-editor.css"
 
 BEGIN = "// DOC-DIFF-BEGIN"

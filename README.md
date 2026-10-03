@@ -352,7 +352,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 pytest                          # 4,600+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
-node --check frontend/app.js    # the frontend has no build step: check each file you touch
+node --check frontend/js/app.js    # the frontend has no build step: check each file you touch
 ```
 
 The frontend is about 45 plain scripts that share one global scope, loaded
@@ -374,7 +374,7 @@ src/memorymap/
   ai/             model clients, filing, the agent and its tools, skills, embeddings, voice
   search/         full-text and semantic search, opt-in web search
   api/            the FastAPI app, one router per feature
-frontend/         plain HTML, CSS and JavaScript, served as-is, no bundler
+frontend/         plain HTML, CSS and JavaScript (scripts in js/), served as-is, no bundler
 tools/            developer tools for tuning the characters (source checkouts only)
 tests/            pytest, every AI call faked
 docs/             user documentation, architecture, design system, roadmap

@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 #: Every script, not one file: whiteboard.js is being split, and a rule about
 #: a function should not break because the function moved house.
-JS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend").glob("*.js")))
+JS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "js").glob("*.js")))
 
 
 def _body(name: str) -> str:

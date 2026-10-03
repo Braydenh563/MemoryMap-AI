@@ -14,7 +14,7 @@ blocks it.
 
 ## Done
 
-- **Chaining** (`frontend/tour.js`, `dad2ff6`): a run is every section from
+- **Chaining** (`frontend/js/tour.js`, `dad2ff6`): a run is every section from
   the one it starts at to the end; the count is per section; a section's
   last card says "Next: <section>" beside Finish; Back walks into the
   previous section.

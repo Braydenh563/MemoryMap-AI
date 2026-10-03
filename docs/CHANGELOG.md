@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- Code layout: the frontend's scripts live in `frontend/js/` (50 files, beside `css/` and `vendor/`), not loose in `frontend/`. `sw.js` stays at the frontend root, because a service worker only controls pages under its own path. Nothing about the app changes; the script URLs are `/js/<name>.js`, a test checks that every script path in `index.html`, the lazy loader and the workers resolves to a real file.
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

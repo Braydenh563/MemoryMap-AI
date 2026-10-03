@@ -367,7 +367,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     from memorymap.api.app import FRONTEND_DIR
 
     # setGraphPhysicsEnabled's *definition* moved out of app.js into
-    # frontend/graph.js in the frontend refactor path's graph-view extraction
+    # frontend/js/graph.js in the frontend refactor path's graph-view extraction
     # (the step after whiteboard.js), see index.html and graph.js's own
     # header for why that file has to load *before* app.js, unlike
     # whiteboard.js. Its call sites did not move with it: `switchTab`'s
@@ -375,7 +375,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     # app.js, so the count below needs both files' text, the same way
     # test_frontend_ids.py/test_frontend_handlers.py read app.js +
     # whiteboard.js + graph.js together rather than any one file alone.
-    graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
+    graph_source = (FRONTEND_DIR / "js" / "graph.js").read_text(encoding="utf-8")
     app_source = app_js_text()
     start = graph_source.index("function setGraphPhysicsEnabled(")
     body = graph_source[start : start + 1400]

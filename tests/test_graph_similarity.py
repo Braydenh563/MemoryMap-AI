@@ -36,9 +36,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-CANVAS_JS = ROOT / "frontend" / "graph-canvas.js"
-WORKER_JS = ROOT / "frontend" / "graph-worker.js"
-GRAPH_JS = ROOT / "frontend" / "graph.js"
+CANVAS_JS = ROOT / "frontend" / "js" / "graph-canvas.js"
+WORKER_JS = ROOT / "frontend" / "js" / "graph-worker.js"
+GRAPH_JS = ROOT / "frontend" / "js" / "graph.js"
 INDEX = ROOT / "frontend" / "index.html"
 
 BEGIN = "// GRAPH-SIM-BEGIN"

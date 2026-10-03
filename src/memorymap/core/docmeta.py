@@ -12,7 +12,7 @@ whose result rides along on the row.
 **Read-only, and that is the whole safety story.** The editable model, the one
 that turns a keystroke in the properties panel into a list of `{from, to,
 insert}` edits covering nothing but the value's own span, is in
-`frontend/documents.js` between `DOC-FRONTMATTER-BEGIN` and
+`frontend/js/documents.js` between `DOC-FRONTMATTER-BEGIN` and
 `DOC-FRONTMATTER-END`, and `tests/test_doc_frontmatter.py` runs it in node. It
 is not duplicated here, and it must not be: two implementations of a *writer*
 are two ways to reformat somebody's file. This one only ever reads, so the

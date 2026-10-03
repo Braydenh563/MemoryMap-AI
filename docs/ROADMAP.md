@@ -126,7 +126,7 @@ no new plan documents; every claim carries a number from a sweep.
   (`pytest.ini` sets `pythonpath = src`); ten to fifteen minutes, so the
   routine local gate is `bash scripts/gate.sh --changed` and CI runs the rest.
 - `ruff check .` — matches CI.
-- `node --check frontend/app.js` — one large plain-JS file; run after every edit.
+- `node --check frontend/js/app.js` — one large plain-JS file; run after every edit.
 - **Install non-ML deps by hand** (see root `CLAUDE.md`) — do not install
   `torch` or `sentence-transformers`; both have failed to install cleanly in
   past sessions and the suite passes without them (semantic search falls

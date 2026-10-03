@@ -63,7 +63,7 @@ def test_documents_js_no_longer_has_its_own_docdirty_only_guard() -> None:
     documents.js, not just duplicated alongside the new one."""
     from tests._app_js import FRONTEND_DIR
 
-    documents_js = (FRONTEND_DIR / "documents.js").read_text(encoding="utf-8")
+    documents_js = (FRONTEND_DIR / "js" / "documents.js").read_text(encoding="utf-8")
     assert 'addEventListener("beforeunload"' not in documents_js
 
 

@@ -33,7 +33,7 @@ import pytest
 # separately confirms every split file individually resolves to 200.
 @pytest.mark.parametrize(
     "path",
-    ["/", "/app.js", "/whiteboard.js", "/graph.js", "/css/00-tokens-shell.css", "/index.html"],
+    ["/", "/js/app.js", "/js/whiteboard.js", "/js/graph.js", "/css/00-tokens-shell.css", "/index.html"],
 )
 def test_the_frontend_must_be_revalidated(ai_client, path):
     response = ai_client.get(path)
@@ -44,7 +44,7 @@ def test_the_frontend_must_be_revalidated(ai_client, path):
 def test_it_is_no_cache_and_not_no_store(ai_client):
     """The difference matters: `no-store` would re-download 650KB of app.js on
     every navigation of a local-first app that is meant to be instant."""
-    header = ai_client.get("/app.js").headers.get("cache-control", "")
+    header = ai_client.get("/js/app.js").headers.get("cache-control", "")
     assert "no-store" not in header
 
 
@@ -52,7 +52,7 @@ def test_the_validators_are_still_there(ai_client):
     """`no-cache` means "ask first", and asking is only cheap if there is
     something to ask with. Without a validator every check would be a full
     re-download."""
-    headers = ai_client.get("/app.js").headers
+    headers = ai_client.get("/js/app.js").headers
     assert headers.get("etag") or headers.get("last-modified")
 
 

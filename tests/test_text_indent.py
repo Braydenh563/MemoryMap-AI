@@ -12,7 +12,7 @@ from pathlib import Path
 from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-WB = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
+WB = (FRONTEND / "js" / "whiteboard.js").read_text(encoding="utf-8")
 APP = app_js_text()
 
 

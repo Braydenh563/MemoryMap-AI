@@ -35,12 +35,12 @@ class BookmarkUpdate(BaseModel):
     group_name: str | None = Field(default=None, max_length=120)
 
 
-#: The same allowlist `safeHref()` in frontend/app.js applies to markdown
+#: The same allowlist `safeHref()` in frontend/js/app.js applies to markdown
 #: links (`tests/test_markdown_link_schemes.py`): web, mail, phone. A bare
 #: host with no scheme at all ("google.com") is not on this list because it
 #: never reaches it, see below.
 ALLOWED_URL_SCHEMES = ("http", "https", "mailto", "tel")
-#: Same shape as the scheme frontend/notes-list.js's `safeHref()` looks for
+#: Same shape as the scheme frontend/js/notes-list.js's `safeHref()` looks for
 #: (`^[a-z][a-z0-9+.-]*:`): anything before the first colon that reads as a
 #: URI scheme, case-insensitively.
 _SCHEME_RE = re.compile(r"^([a-z][a-z0-9+.-]*):", re.IGNORECASE)

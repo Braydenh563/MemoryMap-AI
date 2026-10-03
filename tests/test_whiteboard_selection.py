@@ -12,7 +12,7 @@ from pathlib import Path
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
-WB = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+WB = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
 
 

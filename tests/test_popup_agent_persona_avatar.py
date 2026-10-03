@@ -22,7 +22,7 @@ from pathlib import Path
 #: comment), not one of the 23 always-loaded scripts `app_js_text()` covers
 #: (`app.js` through `agent-activity.js`, tests/_app_js.py), so it is read
 #: directly here rather than through that helper.
-PALETTE_JS = (Path(__file__).resolve().parents[1] / "frontend" / "palette.js").read_text(
+PALETTE_JS = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "palette.js").read_text(
     encoding="utf-8"
 )
 

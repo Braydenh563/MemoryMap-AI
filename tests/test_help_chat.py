@@ -269,7 +269,7 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
     app_js = app_js_text()
-    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+    settings_js = (frontend / "js" / "settings.js").read_text(encoding="utf-8")
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     assert help_chat.GUIDE_NAME == "Atlas"
@@ -329,7 +329,7 @@ def test_the_empty_chat_says_what_it_is_and_the_first_turn_retires_it():
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
     index = (frontend / "index.html").read_text(encoding="utf-8")
-    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+    settings_js = (frontend / "js" / "settings.js").read_text(encoding="utf-8")
 
     assert 'id="help-chat-empty"' in index
     assert "cannot read your notes or your documents" in index
@@ -404,7 +404,7 @@ def test_atlas_has_a_stop_while_a_question_is_out():
     aborts instead of submitting."""
     from pathlib import Path
 
-    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert "helpChatAbort = new AbortController()" in js
     ask = js[js.index('apiJson("/help/ask"'):]
     assert "signal," in ask[:200]
@@ -417,7 +417,7 @@ def test_atlas_has_a_stop_while_a_question_is_out():
 def test_new_chat_is_offered_after_a_stopped_question():
     from pathlib import Path
 
-    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert 'const said = helpChatHistory.length > 0 || Boolean($("help-chat-messages")?.querySelector(".help-chat-msg"))' in js
     finally_block = js[js.index("    helpChatSetBusy(false);") :]
     assert "renderHelpChatMenu();" in finally_block[:120]
@@ -819,7 +819,7 @@ def test_every_question_the_app_offers_to_ask_atlas_is_answerable():
     """A suggested question the corpus cannot answer is a promise the guide
     breaks on the first tap, and "Where do reminders live?" was the first
     starter in the panel. Held here rather than by care: the table is in
-    `frontend/app.js` and the corpus is in Python, so nothing else sees both.
+    `frontend/js/app.js` and the corpus is in Python, so nothing else sees both.
     """
     questions = _atlas_questions()
     assert len(questions) >= 25, questions

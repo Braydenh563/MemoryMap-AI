@@ -3,7 +3,7 @@
 Worktree cut from `fix/gemini-fixes-5`, port 8802, data `/tmp/mm-agentP2`.
 The brief: the prose side of INBOX 404 (plain text, markdown, docx-imported
 documents), with INBOX 401's Harper first. A second agent owns the code side
-of `frontend/documents.js` (completions, emmet, run console); everything this
+of `frontend/js/documents.js` (completions, emmet, run console); everything this
 agent wrote there sits between `// PROSE-TOOLS-BEGIN` and `// PROSE-TOOLS-END`
 (after `renderDocProse`), plus one-line hooks named below.
 

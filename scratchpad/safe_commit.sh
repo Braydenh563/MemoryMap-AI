@@ -17,7 +17,7 @@
 #   SAFE_COMMIT_INDEX=/tmp/.../idx-mine \
 #     bash scratchpad/safe_commit.sh <message-file> <spec> [spec...]
 #
-# A spec is either a whole path:            frontend/graph.js
+# A spec is either a whole path:            frontend/js/graph.js
 # or a path and a regex, for one file's own hunks in a file others are editing:
 #                                           CHANGELOG.md::the minimap's size
 #

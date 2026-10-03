@@ -88,7 +88,7 @@ const REFERENCE_KIND_LABELS = {
 
 //: **The faded notes nearest this one** (INBOX 261). `GET
 //: /resurface/near/{entry_id}` shipped with the rest of resurfacing and no
-//: `frontend/*.js` ever named it: found by `scratchpad/probe_dead_routes.py`,
+//: `frontend/js/*.js` ever named it: found by `scratchpad/probe_dead_routes.py`,
 //: the same scan that found WORLD_CLASS_PLAN I9's whole backend built with no
 //: screen at all. A ranking nobody can read is a ranking that does not exist.
 //:

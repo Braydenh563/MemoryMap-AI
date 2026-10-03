@@ -9,7 +9,7 @@ reports the ones over 120 characters.
 Deliberately narrow. It will not see prose assembled through a helper, so
 treat the number as a floor, not a census.
 
-Run: python3 scratchpad/help-audit/countjs.py frontend/app.js ...
+Run: python3 scratchpad/help-audit/countjs.py frontend/js/app.js ...
 """
 import re
 import sys

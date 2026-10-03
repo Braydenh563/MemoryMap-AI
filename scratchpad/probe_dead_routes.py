@@ -101,7 +101,7 @@ def _read_path(source: str, at: int) -> str:
 def frontend_paths() -> set[str]:
     """Every path-ish literal the frontend mentions, `${…}` as a wildcard."""
     seen: set[str] = set()
-    for file in sorted((ROOT / "frontend").glob("*.js")):
+    for file in sorted((ROOT / "frontend" / "js").glob("*.js")):
         source = file.read_text(encoding="utf-8")
         #: From the quote, not from a slash: the frontend routinely builds a
         #: path as `` `${base}/page-reads` ``, where `base` is
@@ -156,7 +156,7 @@ def main() -> int:
     every = routes(app)
     seen = frontend_paths()
     orphans = [(path, methods) for path, methods in every if not called(path, seen)]
-    print(f"{len(every)} routes, {len(orphans)} with no literal match in frontend/*.js\n")
+    print(f"{len(every)} routes, {len(orphans)} with no literal match in frontend/js/*.js\n")
     for path, methods in sorted(orphans):
         print(f"  {','.join(methods):12} {path}")
     return 0

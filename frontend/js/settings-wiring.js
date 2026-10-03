@@ -1036,7 +1036,7 @@ const ONBOARDING_SLIDES = [
     dynamic: true,
   },
   // **The seven slides that used to follow this one are the guided tour now**
-  // (frontend/tour.js). They described a tab in prose, "the Graph tab draws
+  // (frontend/js/tour.js). They described a tab in prose, "the Graph tab draws
   // how your notes connect", "press Ctrl+K anywhere", from the middle of a
   // screen that was covering the tab bar those words were about, which is the
   // gap the owner named: "there is no guided tour and introduction, with
@@ -2580,6 +2580,7 @@ if ("serviceWorker" in navigator) {
   // on the first install, whose clients.claim() also fires controllerchange
   // and would reload the page mid-setup (Wave O fix).
   const hadController = Boolean(navigator.serviceWorker.controller);
+  // sw.js stays at the root, not in js/: a worker only controls its own path.
   navigator.serviceWorker.register("/sw.js").catch(() => {});
   let swReloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -2595,7 +2596,7 @@ if ("serviceWorker" in navigator) {
 // renderEmblem() moved, so calling it from this bare line, before
 // settings.js has loaded: threw ReferenceError. See settings.js's header.
 
-// Whiteboard subsystem moved to frontend/whiteboard.js (loaded via a
+// Whiteboard subsystem moved to frontend/js/whiteboard.js (loaded via a
 // second <script> tag in index.html, after this file). Everything that
 // used to live here, board/card CRUD, sketch drawing, mind-mapping,
 // export, move/resize: is defined there now, in the same shared global

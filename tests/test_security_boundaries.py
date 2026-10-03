@@ -251,7 +251,7 @@ def test_custom_css_does_not_inject_a_style_tag():
 
     # applyCustomCss/applyCustomCssLegacy moved to settings.js with the rest
     # of appearance (§88.3 item 4, the app.js split's fourth and last file).
-    source = (FRONTEND_DIR / "settings.js").read_text(encoding="utf-8")
+    source = (FRONTEND_DIR / "js" / "settings.js").read_text(encoding="utf-8")
     start = source.index("function applyCustomCss(")
     end = source.index("function applyCustomCssLegacy(")
     main_path = source[start:end]

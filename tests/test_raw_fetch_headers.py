@@ -31,7 +31,7 @@ FETCH = re.compile(r"""fetch\(\s*(["'`])(/[^"'`]*)""")
 
 
 def _raw_fetches():
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         text = path.read_text(encoding="utf-8")
         for match in FETCH.finditer(text):
             route = match.group(2)

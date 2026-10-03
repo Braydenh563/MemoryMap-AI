@@ -172,16 +172,16 @@ not confirm it. Never widen a lint; a failing lint found something.
 
 **Where each open section-A item lives** (INBOX number: file, area,
 diagnosis):
-- 66 lightbox in graph fullscreen: `frontend/app.js` lightbox mount (grep
+- 66 lightbox in graph fullscreen: `frontend/js/app.js` lightbox mount (grep
   `lightbox`), `#graph-card` is the fullscreen element; mount the dialog
   inside `document.fullscreenElement` while it is set.
-- 69 agent panel rows: `frontend/app.js` ~35850 (`agent-run-summary`,
+- 69 agent panel rows: `frontend/js/app.js` ~35850 (`agent-run-summary`,
   `agent-run-name`); the caret's toggle handler is per-row and lost on
   re-render; delegate it on the panel.
 - 70 notifications combobox: the panel's outside-click guard closes on a
   click inside `.select-menu` (enhanceSelect at `app.js` ~18359); exclude
   it.
-- 73 mute toggle resets: `frontend/settings.js`, grep `mute`; write the
+- 73 mute toggle resets: `frontend/js/settings.js`, grep `mute`; write the
   value into `prefsCache` before the save round-trip, not after.
 - 74 profile panels and Ctrl+S: `frontend/index.html` "About you
   (optional)" group; a `keydown` on `#settings-modal` for Ctrl/Cmd+S that
@@ -195,7 +195,7 @@ diagnosis):
 - 83 Tools paragraphs: `frontend/index.html` Settings > Tools, "How many
   are offered at once" and "Small model mode"; one line each, the rest
   behind `data-help-for` (pattern at index.html ~5321).
-- 84 marquee behind objects: `frontend/whiteboard.js`, the selection
+- 84 marquee behind objects: `frontend/js/whiteboard.js`, the selection
   rectangle is drawn on the object canvas; draw it on the overlay canvas
   (the one the guides use).
 - 86 zoom popup under dialogs: the zoom indicator's z-index (grep
@@ -209,10 +209,10 @@ diagnosis):
   `:root[data-glass-sheen="on"] .card` (3389); the card blur is off unless
   `data-bg-art="on"` (INBOX 49), which is why "blur does nothing" on a
   still page.
-- 96 drag without pin: `frontend/graph-canvas.js` drag end (grep `fx =`
+- 96 drag without pin: `frontend/js/graph-canvas.js` drag end (grep `fx =`
   and `gcTogglePin`); on drop set `x/y`, clear `fx/fy`, reheat at
   alpha 0.1; pin only on Shift+drag or the menu.
-- 67 gravity: `frontend/graph-worker.js` `tuning()`; `pull` is 0.25x to
+- 67 gravity: `frontend/js/graph-worker.js` `tuning()`; `pull` is 0.25x to
   3.25x; if still spread at 100 on the owner's build, raise to 5x and add
   the component ring.
 

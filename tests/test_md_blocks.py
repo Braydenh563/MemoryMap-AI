@@ -28,8 +28,8 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_JS = ROOT / "frontend" / "app.js"
-EDITOR_JS = ROOT / "frontend" / "editor.js"
+APP_JS = ROOT / "frontend" / "js" / "app.js"
+EDITOR_JS = ROOT / "frontend" / "js" / "editor.js"
 
 
 def region(path: Path, name: str) -> str:

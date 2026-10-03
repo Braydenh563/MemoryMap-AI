@@ -368,7 +368,7 @@ next run starts past it rather than at it:
   found its one real cost exactly that way: a document-wide query at 0.46ms
   per frame against 0.013ms for the grid sync beside it.
 - The drag handlers are worth reading first for the same shape:
-  `frontend/whiteboard.js` around the `.on("drag")` handlers does a
+  `frontend/js/whiteboard.js` around the `.on("drag")` handlers does a
   `document.querySelector` per event to find the element it is moving, and
   calls `wbUpdateSelectionBar()` on every event.
 

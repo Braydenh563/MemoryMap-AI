@@ -45,25 +45,25 @@ FRONTEND = ROOT / "frontend"
 def _boot_scripts() -> list[str]:
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     names = []
-    for src in re.findall(r'<script src="/([A-Za-z0-9._-]+\.js)', html):
-        if (FRONTEND / src).exists():
+    for src in re.findall(r'<script src="/js/([A-Za-z0-9._-]+\.js)', html):
+        if (FRONTEND / "js" / src).exists():
             names.append(src)
     return names
 
 
 def _lazy_files() -> dict[str, list[str]]:
     """`LAZY_MODULES` as written in app.js: bundle name to its files."""
-    source = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     block = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", source, re.S)
     assert block, "LAZY_MODULES not found in app.js; has the loader moved?"
     out: dict[str, list[str]] = {}
     for name, files in re.findall(r"^\s*(\w+):\s*\[(.*?)\],", block.group(1), re.M | re.S):
-        out[name] = re.findall(r'"/([A-Za-z0-9._-]+\.js)"', files)
+        out[name] = re.findall(r'"/js/([A-Za-z0-9._-]+\.js)"', files)
     return out
 
 
 def _entry_points() -> dict[str, set[str]]:
-    source = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     block = re.search(r"const LAZY_ENTRY_POINTS = \{(.*?)\n\};", source, re.S)
     assert block, "LAZY_ENTRY_POINTS not found in app.js"
     out: dict[str, set[str]] = {}
@@ -164,12 +164,12 @@ def test_no_boot_file_silently_depends_on_a_lazy_bundle():
 
     boot_defined: set[str] = set()
     for name in boot:
-        boot_defined |= _declared_anywhere(FRONTEND / name)
+        boot_defined |= _declared_anywhere(FRONTEND / "js" / name)
 
     lazy_defined: dict[str, str] = {}
     for bundle, files in lazy.items():
         for file_name in files:
-            for symbol in _top_level_functions(FRONTEND / file_name):
+            for symbol in _top_level_functions(FRONTEND / "js" / file_name):
                 lazy_defined.setdefault(symbol, bundle)
 
     candidates = {s: b for s, b in lazy_defined.items() if s not in boot_defined}
@@ -178,7 +178,7 @@ def test_no_boot_file_silently_depends_on_a_lazy_bundle():
 
     unaccounted: list[str] = []
     for name in boot:
-        lines = (FRONTEND / name).read_text(encoding="utf-8").split("\n")
+        lines = (FRONTEND / "js" / name).read_text(encoding="utf-8").split("\n")
         for number, line in enumerate(lines, 1):
             if line.lstrip().startswith(("//", "*", "/*")):
                 continue
@@ -254,7 +254,7 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
 
     The second is the general fix and this test holds it in place too.
     """
-    nav = (FRONTEND / "navigation.js").read_text(encoding="utf-8")
+    nav = (FRONTEND / "js" / "navigation.js").read_text(encoding="utf-8")
     assert "lazyPage.inert = true" in nav and "lazyPage.inert = false" in nav, (
         "switchTab no longer keeps a lazy tab's page inert while its bundle loads; "
         "every control drawn on that page is then live before its code exists"
@@ -265,11 +265,11 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
     boot = _boot_scripts()
     boot_defined: set[str] = set()
     for name in boot:
-        boot_defined |= _declared_anywhere(FRONTEND / name)
+        boot_defined |= _declared_anywhere(FRONTEND / "js" / name)
     lazy_only: dict[str, str] = {}
     for bundle, files in lazy.items():
         for file_name in files:
-            for symbol in _top_level_functions(FRONTEND / file_name):
+            for symbol in _top_level_functions(FRONTEND / "js" / file_name):
                 if symbol not in boot_defined and symbol not in entries.get(bundle, set()):
                     lazy_only.setdefault(symbol, bundle)
     call = re.compile(r"(?<![\w$.])(" + "|".join(sorted(map(re.escape, lazy_only))) + r")\s*\(")
@@ -279,7 +279,7 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
     offenders: list[str] = []
     checked = 0
     for name in boot:
-        lines = (FRONTEND / name).read_text(encoding="utf-8").split("\n")
+        lines = (FRONTEND / "js" / name).read_text(encoding="utf-8").split("\n")
         i = 0
         while i < len(lines):
             match = LISTENER.match(lines[i])
@@ -322,6 +322,6 @@ def test_the_graph_canvas_is_not_desynchronized():
     until a menu over it forced ordinary compositing."""
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parent.parent / "frontend" / "graph-canvas.js").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8")
     code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("//"))
     assert "desynchronized" not in code

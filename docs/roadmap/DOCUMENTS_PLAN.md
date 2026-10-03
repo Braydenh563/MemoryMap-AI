@@ -30,7 +30,7 @@ plan fixes by *exposure* rather than by building again.
 
 ## 2. What exists (checked in the code, not assumed)
 
-`frontend/documents.js` (~5,000 lines), the `.doc-dock` markup in
+`frontend/js/documents.js` (~5,000 lines), the `.doc-dock` markup in
 `index.html` (lines ~2200–2620) and `05-sidebars-themes.css` /
 `07-whiteboard-misc.css`.
 
@@ -512,9 +512,9 @@ Settings. One `Extra(...)` there and the message can point at it.
 
 ## 7. Files this will touch
 
-`frontend/documents.js` (split into `documents/{surface,chrome,findings,
+`frontend/js/documents.js` (split into `documents/{surface,chrome,findings,
 blocks,connections}.js` — served as-is, `test_frontend_load_order.py`
-enforces order), `frontend/editor.js` (the adapter), `frontend/vendor/
+enforces order), `frontend/js/editor.js` (the adapter), `frontend/vendor/
 codemirror/`, `index.html` (`.doc-dock`), `05-sidebars-themes.css`,
 `07-whiteboard-misc.css`, `src/memorymap/api/routes_documents.py`
 (properties, comments, block ids), `core/docview.py` (export), tests
@@ -1143,11 +1143,11 @@ elements ... proper objects, they need to make the user's live really easy
 and also they need to be discoverable by the user as well."
 
 **Read the code before believing the brief.** "Not properly structured" is
-not what is there. `EDITOR_SURFACES` in `frontend/editor.js` is an
+not what is there. `EDITOR_SURFACES` in `frontend/js/editor.js` is an
 id-to-context table, and each context has its own command list whose rows
 carry an id, a group, a label, a hint, search keywords, a `primary` flag and
 a `run`. That is a reasonable object already, and the documents side has a
-second one, `DOC_COMMANDS` in `frontend/documents.js`, 34 rows of id, icon,
+second one, `DOC_COMMANDS` in `frontend/js/documents.js`, 34 rows of id, icon,
 label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
 can read its shape without a browser. So this section is not a rewrite of a
 mess. It is the work of making two good tables into one system, and of
@@ -1304,7 +1304,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
     the live view and make it better for professional use and impressive as
     both a tool, utility and aesthetic?"
-    The documents live view (the CodeMirror surface, `frontend/documents.js`
+    The documents live view (the CodeMirror surface, `frontend/js/documents.js`
     and its theme around the `.cm-md-*` decorations). Scope is a plan
     section rather than an INBOX fix: it wants a measured read of what the
     surface is today against what a professional editor gives, a decision

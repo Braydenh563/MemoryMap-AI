@@ -16,11 +16,11 @@ left to be tackled and finished top priority at the start of the next pr".
 Every item below is finished, measured and ticked before any other plan
 work starts.
 
-1. **frontend/js/ move.** Done as a WIP at `50a41d0` on the local branch
-   `worktree-agent-a3d063b0e2b8673ac` (paths, lazy modules, tests updated;
-   boots with 0 console errors, both lazy bundles load), but its final
-   `gate.sh --changed` never finished. The branch is local to the old
-   container only; if it is gone, redo it from the checklist below.
+1. [x] **frontend/js/ move.** Done 2026-10-03, redone from the checklist (the
+   old WIP branch was gone): 50 scripts in `frontend/js/`, `sw.js` stays at the
+   root (a service worker only controls pages under its own path). Paths,
+   lazy modules, workers, tests, gate, CI and docs updated;
+   `tests/test_script_paths.py` checks every script path resolves.
 2. **Full local suite** (`scripts/gate.sh --full`) was not run at release;
    CI ran the suite on every push and was green on 8c5afd6.
 3. **Not reproduced, need the owner's case:** the Atlas guide panel's '?'
@@ -496,7 +496,7 @@ not merged). Finish, verify and merge it first thing next session.
 
 ## Was: last, once no agent is editing JS
 
-- [ ] Move `frontend/*.js` into `frontend/js/`, one mechanical commit:
+- [x] Move `frontend/*.js` into `frontend/js/`, one mechanical commit:
   index.html script tags and `?v=` stamps, `LAZY_MODULES` paths, the static
   route, `tests/_app_js.py` and every test reading a frontend file by path,
   the tools pages, packaging; a test that every script path resolves; the

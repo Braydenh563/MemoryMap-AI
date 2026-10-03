@@ -11,7 +11,7 @@ Back to [../ROADMAP.md](../ROADMAP.md).
 
 ## 1. What exists (checked in the code)
 
-`frontend/whiteboard.js` (9,767 lines) draws an infinite dotted canvas with
+`frontend/js/whiteboard.js` (9,767 lines) draws an infinite dotted canvas with
 object kinds `note`, `document`, `file`, `image`, `sketch`, `text`, `square`,
 `circle`, `arrow`, `topic`/`node`/`radial` (mind maps) and `object`. Chrome:
 a top bar on the Phase 8 grammar (Boards, board picker, rename, add, Map

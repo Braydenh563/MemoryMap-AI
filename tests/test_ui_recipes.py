@@ -26,7 +26,7 @@ from tests._app_js import app_js_family, app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
-JS = sorted((ROOT / "frontend").glob("*.js"))
+JS = sorted((ROOT / "frontend" / "js").glob("*.js"))
 
 # The families DESIGN.md names as glass on purpose; anything else must be on
 # the glass-off list by its own name.
@@ -138,7 +138,7 @@ def test_a_long_kebab_menu_is_grouped() -> None:
     is a JavaScript array literal of objects each carrying `id:`, which is a
     shape this file can count without running anything.
     """
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     table = docs[docs.index("const DOC_TABLE_COMMANDS = ["):]
     table = table[: table.index("\n];")]
     rows = re.findall(r'^\s{2}\{\n\s+id: "([a-z-]+)",\n\s+group: "([a-z]+)",', table, re.M)
@@ -374,7 +374,7 @@ def test_a_fixed_filter_set_is_one_well_rather_than_a_row_of_chips() -> None:
 # the caption on the closed button is what says it when the menu is shut.
 def test_a_multi_toggle_filter_set_says_which_of_its_members_are_on() -> None:
     #: timeline.js since the Timeline tab was split out of app.js.
-    app = (ROOT / "frontend" / "timeline.js").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "js" / "timeline.js").read_text(encoding="utf-8")
     start = app.index("function renderTimelineKinds(")
     body = app[start : app.index("\n}\n", start)]
     assert 'type = "checkbox"' in body, (
@@ -656,7 +656,7 @@ def test_the_radial_band_is_cut_to_its_tiles() -> None:
     """
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     #: The map layer is whiteboard-map.js since the split; read both.
-    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
     assert band, "the radial's band rule is gone"
     assert "--wb-radial-outer" in band[0] and "--wb-radial-inner" in band[0], (
@@ -681,7 +681,7 @@ def test_the_radial_is_one_ring_cut_into_sectors() -> None:
     as a tile, or a fit that stops writing the clip, is the old ring again.
     """
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
-    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     slot = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial .wb-map-radial-slot"]
     assert slot, "the sector rule is gone"
     assert "calc(var(--wb-radial-outer) * 2)" in slot[0], "a sector is the whole ring's square, clipped"
@@ -726,7 +726,7 @@ def test_every_board_tool_names_its_own_cursor() -> None:
     that means "drag the canvas".
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     tools = set(re.findall(r'data-tool="([a-z-]+)"', html))
     assert len(tools) >= 18, tools
     body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
@@ -771,7 +771,7 @@ def test_the_boards_selector_says_which_kind_each_board_is() -> None:
     chat). A native `<option>` cannot hold that chip's icon, so the group
     heading carries it, the way three other selects in this app already do.
     """
-    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     body = js[js.index("async function refreshBoardList") : js.index("async function renameCurrentBoard")]
     assert 'createElement("optgroup")' in body
@@ -1191,7 +1191,7 @@ def test_a_facts_line_chip_opens_a_surface_rather_than_the_card() -> None:
     pressable chip rather than a hand-built one, and the picture card's facts
     line holds no disclosure.
     """
-    library = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    library = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
     assert 'textChip.className = "library-chip library-image-text-chip"' in library, (
         "the picture card's reading chip is `.library-chip`, the app's own "
         "pressable chip (DESIGN.md, the recipe index)"
@@ -1245,7 +1245,7 @@ def test_a_list_row_answers_in_place_rather_than_opening_a_popover() -> None:
     3. the answers must come from the one builder the menu also uses, because
        two sets of the same four actions is how the panel came to have none.
     """
-    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
 
     for name in ("docProseGroupList", "docProseRowAnswers"):
@@ -1304,7 +1304,7 @@ def test_every_selection_bar_is_one_sticky_recipe() -> None:
        for exactly that ("the bar is clear so it is hard to see").
     """
     markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    library = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    library = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
 
     # Every bar in the markup that shows a selection count, by the two id
@@ -1368,7 +1368,7 @@ def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
        is cause-agnostic: the next property CSS invents that creates a
        containing block is covered the day it ships.
     """
-    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     app = app_js_text()
 
     lifts = {
@@ -1417,7 +1417,7 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
     are built once (`docSuggestAnswers`), so the panel row and the floating menu
     cannot drift apart again by being edited one at a time.
     """
-    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
 
     for name in ("docProseGroupList", "openDocSuggest"):
         assert "docFindingLine(" in _function_body(js, name), (
@@ -1483,19 +1483,19 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
 #: too, and this fails the moment one is unwired, which is the direction that
 #: matters. The names are here so a rename has to come past this test.
 FAILING_SURFACES = {
-    "frontend/app.js": ("notes", "reminders"),
-    "frontend/timeline.js": ("timeline",),
-    "frontend/graph.js": ("map",),
-    "frontend/graph-canvas.js": ("map",),
-    "frontend/library.js": ("library",),
-    "frontend/documents.js": ("documents",),
+    "frontend/js/app.js": ("notes", "reminders"),
+    "frontend/js/timeline.js": ("timeline",),
+    "frontend/js/graph.js": ("map",),
+    "frontend/js/graph-canvas.js": ("map",),
+    "frontend/js/library.js": ("library",),
+    "frontend/js/documents.js": ("documents",),
 }
 
 
 def test_every_wired_surface_still_reports_its_own_failures() -> None:
     for name, whats in FAILING_SURFACES.items():
-        #: "frontend/app.js" is the app's code, every piece of it.
-        js = app_js_text() if name == "frontend/app.js" else (ROOT / name).read_text(encoding="utf-8")
+        #: "frontend/js/app.js" is the app's code, every piece of it.
+        js = app_js_text() if name == "frontend/js/app.js" else (ROOT / name).read_text(encoding="utf-8")
         for what in whats:
             assert f'"{what}"' in js and "surfaceFailed(" in js, (
                 f"{name} no longer reports a failed read for {what!r}: a surface "
@@ -1536,7 +1536,7 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
     short of where the probe asked it to scroll, not the map.
     """
     app_js = app_js_text()
-    documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    documents_js = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     assert "dataset.srcLine = String(" in app_js, (
         "renderMarkdown must stamp each block with the source line it came "
         "from, or the split view has nothing to line its panes up by"
@@ -1592,7 +1592,7 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
 
 # --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
 
-TOUR_JS = ROOT / "frontend" / "tour.js"
+TOUR_JS = ROOT / "frontend" / "js" / "tour.js"
 TOUR_TABLE = re.compile(r"const TOUR_SECTIONS = \[(.*?)\n\];", re.S)
 TOUR_STEP = re.compile(r"\{\s*target: \"([^\"]+)\",\s*side: \"([a-z]+)\",(.*?)\n      \}", re.S)
 
@@ -2250,7 +2250,7 @@ def test_a_folded_settings_group_is_keyed_and_remembered() -> None:
         pane = key.split("-")[0]
         firsts.setdefault(pane, " open" in attrs)
     assert all(firsts.values()), f"a pane whose first fold starts closed: {firsts}"
-    js = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert "wireSettingsFolds();" in js, "the folds' open state is remembered by wireSettingsFolds"
 
 
@@ -2321,7 +2321,7 @@ GRIP_CLASSES = ("wb-rotate-handle-stem", "wb-sketch-rotate-handle")
 
 
 def test_every_inverse_scaled_grip_sets_its_own_anchor():
-    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     drawn = sum(js.count(f'"{name}"') for name in GRIP_CLASSES)
     anchored = js.count('.style("transform-origin"')
     assert drawn == 4, (
@@ -2448,7 +2448,7 @@ def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() ->
     one.
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    board = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    board = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     app = app_js_text()
 
     menus = re.findall(r'<div id="(wb-[a-z-]+-menu)" class="wb-board-menu', html)
@@ -2539,7 +2539,7 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     saying what was there.
     """
     app = app_js_text()
-    editor = (ROOT / "frontend" / "editor.js").read_text(encoding="utf-8")
+    editor = (ROOT / "frontend" / "js" / "editor.js").read_text(encoding="utf-8")
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
 
     assert "function boardEmbedElement(" in app and "function boardEmbedFill(" in app, (
@@ -2694,7 +2694,7 @@ def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
     #: documents.js (the theme) and documents-code.js (docCodeTools, split
     #: out of documents.js on 2026-09-24), joined.
     docs = "\n".join(
-        (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
         for name in ("documents.js", "documents-code.js")
     )
     theme = docs.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
@@ -2892,7 +2892,7 @@ def test_a_template_preview_is_the_page_the_row_would_make() -> None:
     the preview is drawn by the function that creates the thing, so it cannot
     describe a template differently from what it is, and it is inert and
     hidden from a screen reader, which has each row's own hint."""
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     body = _function_body(docs, "showDocTemplatePreview")
     assert "docTemplateFill(template)" in body and "renderMarkdown(" in body
     page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -2971,7 +2971,7 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
     app = app_js_text()
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     #: The builder is avatars.js's since the faces were split out of app.js.
-    avatars = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+    avatars = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
     assert avatars.count("function nameMark(") == 1, "the name mark is no longer drawn in one place"
     for path in JS:
         if path.name != "avatars.js":
@@ -2994,7 +2994,7 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
     assert "userMarkEl()" in bubble and "dataset.userMark" in mark and "nameMark(userMarkSeed()" in mark, (
         "the user's chat bubble no longer carries the profile's mark"
     )
-    palette = (ROOT / "frontend" / "palette.js").read_text(encoding="utf-8")
+    palette = (ROOT / "frontend" / "js" / "palette.js").read_text(encoding="utf-8")
     assert "userMarkEl()" in palette, "the popup agent's bubble lost the profile's mark"
     assert '"ph:user"' not in bubble, "the user's chat bubble went back to a generic glyph"
     # Painted when the preferences arrive and after a save.
@@ -3046,7 +3046,7 @@ def test_a_whole_window_mode_leaves_one_fading_dock_with_a_way_out() -> None:
         assert props <= {"opacity", "pointer-events"}, f"the idle dock changes more than its opacity: {props}"
     assert reduced, "the floating dock's fade has no reduced-motion block"
 
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     handler = docs.split('if (event.key !== "Escape" || event.defaultPrevented) return;', 1)
     assert len(handler) == 2, "focus mode's Escape no longer checks that the editor did not spend it"
     body = handler[1].split("});", 1)[0]
@@ -3061,7 +3061,7 @@ def test_a_citation_mark_previews_its_source_on_the_help_popover_recipe() -> Non
     as a `.help-popover` placed by `placeHelpPopover`, so the peek cannot
     grow a shell, caret or tier of its own. Measured by
     `scratchpad/ui-sweeps/citepeek.js` at 1440 and 390."""
-    source = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    source = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     marker = source[source.index("function citationMarker(") :]
     marker = marker[: marker.index("\n}\n")]
     assert "flashEntry(" not in marker, "a citation mark navigates on its own press again"

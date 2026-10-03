@@ -68,7 +68,7 @@ rebuilt existing work here.
   (task #103). **Read what it does before designing a second one** — the
   likeliest right answer is that "mindmap" and "concept map" become one feature,
   not two.
-- **The graph already renders note-to-note structure** (`frontend/graph.js`),
+- **The graph already renders note-to-note structure** (`frontend/js/graph.js`),
   and the Library already has a Boards & maps sub-tab (the user's own preferred
   home for this).
 
@@ -180,7 +180,7 @@ Recorded because Coggle is the reference the user actually meant:
    Copy Obsidian Canvas Mindmap's set; it is the de-facto standard.
 6. **Auto-layout** via Reingold–Tilford with variable node sizes (d3-flextree's
    algorithm, implemented locally — **no CDN, the app is offline-first**;
-   `frontend/graph.js` already hand-rolls layout, so this is a sibling of
+   `frontend/js/graph.js` already hand-rolls layout, so this is a sibling of
    existing code, not a new dependency).
 7. **Collapse/expand a branch**, with a count badge on the collapsed node.
 8. **Styling that carries meaning, not decoration**: per-node colour, shape and
@@ -244,10 +244,10 @@ Recorded because Coggle is the reference the user actually meant:
 - `src/memorymap/api/routes_whiteboard.py` — map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
 - `src/memorymap/ai/tools*.py` — the four map tools, contract-shaped.
-- `frontend/whiteboard.js` (and `frontend/graph.js` for layout precedent) — the
+- `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent) — the
   map mode, keyboard editing, auto-layout, collapse.
-- `frontend/library.js` — the Maps filter and the upgraded preview.
-- `frontend/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
+- `frontend/js/library.js` — the Maps filter and the upgraded preview.
+- `frontend/js/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
   attachment, dashboard widget, timeline row.
 - `docs/DESIGN.md` — the node/edge visual language, once, so it is not
   reinvented per surface.

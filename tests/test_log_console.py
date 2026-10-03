@@ -313,7 +313,7 @@ def _app_js() -> str:
 def _settings_js() -> str:
     from memorymap.api.app import FRONTEND_DIR
 
-    return (FRONTEND_DIR / "settings.js").read_text(encoding="utf-8")
+    return (FRONTEND_DIR / "js" / "settings.js").read_text(encoding="utf-8")
 
 
 def _function_body(source: str, name: str) -> str:

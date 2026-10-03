@@ -166,7 +166,7 @@ def test_root_custom_properties_written_from_script_are_known():
         r"(?:document\.documentElement|\broot|\b_r)\.style\.setProperty\(\s*[\"'](--[\w-]+)"
     )
     found = {}
-    for path in sorted(FRONTEND_DIR.glob("*.js")):
+    for path in sorted((FRONTEND_DIR / "js").glob("*.js")):
         for name in pattern.findall(path.read_text(encoding="utf-8")):
             found.setdefault(name, path.name)
     unknown = {k: v for k, v in found.items() if k not in ROOT_CUSTOM_PROPERTIES}
@@ -290,7 +290,7 @@ def test_no_loop_reads_layout_after_writing_style():
     dirtied. Profiled on a switch to the dashboard, 14.7ms of a 22ms switch.
     """
     offenders = []
-    for path in sorted(FRONTEND_DIR.glob("*.js")):
+    for path in sorted((FRONTEND_DIR / "js").glob("*.js")):
         if path.name in ("sw.js", "graph-worker.js"):
             continue
         # Comments blanked to the same length, so offsets still give lines.

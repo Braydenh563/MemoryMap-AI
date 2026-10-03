@@ -20,7 +20,7 @@ from pathlib import Path
 
 from memorymap.api.routes_settings import DASHBOARD_LAYOUT_MAX
 
-DASHBOARD_JS = Path(__file__).resolve().parents[1] / "frontend" / "dashboard.js"
+DASHBOARD_JS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js"
 
 
 def widget_names() -> list[str]:

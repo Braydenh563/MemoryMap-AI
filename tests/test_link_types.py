@@ -3,7 +3,7 @@
 `LINK_TYPES` lives in `core/database.py` because the column, the traversal and
 the AI pass all read it there. The graph's drag-to-link dialog needs the same
 list *before* any request has been made, a picker that waits on the network to
-learn what it can offer opens empty, so `frontend/graph.js` carries its own
+learn what it can offer opens empty, so `frontend/js/graph.js` carries its own
 copy as `GRAPH_LINK_TYPES`.
 
 Two copies of one vocabulary is exactly the shape that rots: someone adds a
@@ -18,7 +18,7 @@ from pathlib import Path
 
 from memorymap.core.database import LINK_TYPES
 
-GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
+GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph.js"
 
 
 def _frontend_types() -> list[str]:

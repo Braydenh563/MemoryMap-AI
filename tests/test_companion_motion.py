@@ -32,9 +32,9 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 APP = app_js_text()
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 
@@ -399,7 +399,7 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
         assert f"{kind}: {{ cool:" in AV, kind
     # The streak: once, and only for a count longer than the last seen.
     assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
-    dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
+    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert "nameMarkBuddyStreak(streak)" in dashboard
     # Night: a tick yawns, and the yawn's early return comes after the mood
     # has moved, so a tick that yawns still tires it at night (review, round 6).
@@ -438,7 +438,7 @@ def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
     # momentum, a smooth scroll) opened a menu that closeActionMenusOnScroll
     # shut a moment later: 17 of 20 such right-clicks showed no menu, 0 of
     # 80 after this.
-    menus = (ROOT / "frontend" / "menus.js").read_text(encoding="utf-8")
+    menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
     on_scroll = menus[menus.index("function closeActionMenusOnScroll(") :]
     on_scroll = on_scroll[: on_scroll.index("\n}\n")]
     assert "performance.now() - (window._menuOpenedAt || 0) < 200" in on_scroll
@@ -463,7 +463,7 @@ def test_every_way_to_a_note_counts_as_opening_it() -> None:
     # graph and chat all go to a note through flashEntry (capture-ask.js);
     # the companion reads along from there too (companionreact.js: the
     # palette's jump to a long note reads along).
-    ask = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    ask = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     flash = ask[ask.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
     assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash
@@ -495,7 +495,7 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
     # height of 0, is one: it was replaced by a whole 20px Atlas, in the
     # page's flow under everything, and the next look's defs made the next
     # head. strayheads.js: one head per change, at x 0 and y 840, 860, 880.
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
     start = atlas.index("function atlasRepaint(")
     body = atlas[start : atlas.index("\n}\n", start)]
     loop = body[: body.index("svg.replaceWith(")]
@@ -504,10 +504,10 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
 
 def test_the_companion_shows_and_hides_from_anywhere() -> None:
     # INBOX 430: a hotkey, a palette action, and so a Find anything action.
-    wiring = (ROOT / "frontend" / "settings-wiring.js").read_text(encoding="utf-8")
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
     assert 'toggleCompanion: { keys: "Ctrl+Shift+Y"' in wiring
     assert "nameMarkBuddyToggle()" in wiring
-    panes = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
+    panes = (ROOT / "frontend" / "js" / "settings-panes.js").read_text(encoding="utf-8")
     assert "Show or hide the companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
     assert 'localStorage.getItem("nm-buddy-last")' in toggle
@@ -588,7 +588,7 @@ def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     # feminine, which companion is displayed". Submenus are the kebab
     # recipe's own (`items` on a row, `buildMenuGroupButton`), and each choice
     # goes through the Appearance control it mirrors.
-    kebab = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+    kebab = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
     assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
     menu = _fn("nameMarkBuddyMenu")
     for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
@@ -722,7 +722,7 @@ def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
     assert "const NMB_RESTING_ACTS = new Set([" in AV
     # Every doing has a switch, and what is off is never picked.
     assert 'id="avatar-buddy-activities"' in HTML
-    assert "mountBuddyActivities()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "mountBuddyActivities()" in (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert "if (nameMarkBuddyActOff(act, off)) continue;" in _fn("nameMarkBuddyDecide")
     table = AV[AV.index("const NMB_ACTIVITIES = [") : AV.index("];", AV.index("const NMB_ACTIVITIES = ["))]
     for act in ("wave", "peek", "peekdown", "lie", "read", "beanbag", "chair", "facepalm", "shrug"):
@@ -1033,7 +1033,7 @@ def test_companions_can_be_saved_applied_renamed_and_deleted() -> None:
     for key in ('"avatar-buddy"', '"atlas-look"', '"avatar-buddy-custom"', '"avatar-buddy-size"', '"avatar-buddy-acts-off"', '"avatar-buddy-motion"'):
         assert key in AV[AV.index("const NMB_PRESET_KEYS = [") :][:400], key
     assert "p.name !== nmbPresetRenaming" in _fn("nameMarkBuddySavePreset")
-    assert "mountBuddyPresets()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "mountBuddyPresets()" in (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")

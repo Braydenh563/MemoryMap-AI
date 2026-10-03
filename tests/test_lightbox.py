@@ -115,7 +115,7 @@ def test_the_upload_list_carries_the_date_the_panel_shows():
     routes = Path("src/memorymap/api/routes_files.py").read_text(encoding="utf-8")
     assert "created_at: str = \"\"" in routes
     assert "created_at=u.created_at.isoformat()" in routes
-    library = Path("frontend/library.js").read_text(encoding="utf-8")
+    library = Path("frontend/js/library.js").read_text(encoding="utf-8")
     assert "addedAt: i.created_at" in library
 
 
@@ -132,7 +132,7 @@ def test_every_other_caller_still_passes_only_what_it_always_did():
     passes `{filename, getUrl}` must get exactly the dialog it got before."""
     assert "item.caption || \"\"" in LIGHTBOX
     assert "item.text || \"\"" in LIGHTBOX
-    for other in ("frontend/graph.js", "frontend/dashboard.js"):
+    for other in ("frontend/js/graph.js", "frontend/js/dashboard.js"):
         source = Path(other).read_text(encoding="utf-8")
         if "openLightbox(" in source:
             assert "getUrl" in source
@@ -199,7 +199,7 @@ def test_the_workspace_opens_at_the_page_on_screen():
     """Phase 7.1's "a way into the OCR Workspace at that page"."""
     assert "const atPage = docPageCount ? docPage : 0;" in LIGHTBOX
     assert "window.openOcrWorkspace(target, [], atPage);" in LIGHTBOX
-    library = Path("frontend/library.js").read_text(encoding="utf-8")
+    library = Path("frontend/js/library.js").read_text(encoding="utf-8")
     assert "function openOcrWorkspace(image, images, page = 0)" in library
     assert "ocrLoadPage(image, startPage)" in library
 

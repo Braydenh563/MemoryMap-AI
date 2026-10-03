@@ -150,7 +150,7 @@ def test_a_long_history_pages_and_says_so(client):
     """A note edited past one page hands back a cursor, and the next page
     continues from it without repeating or skipping an event.
 
-    The sheet in `frontend/app.js` reads both: before this was wired up it
+    The sheet in `frontend/js/app.js` reads both: before this was wired up it
     took the first page and dropped the cursor, so a note with more changes
     than one page showed its newest fifty and looked complete.
     """

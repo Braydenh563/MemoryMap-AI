@@ -9,8 +9,8 @@ the All view's sort was the one Library sort not kept across a reload.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LIBRARY = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
-NAVIGATION = (ROOT / "frontend" / "navigation.js").read_text(encoding="utf-8")
+LIBRARY = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+NAVIGATION = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
 
 def _function(name: str) -> str:
@@ -65,7 +65,7 @@ def test_the_archive_and_drafts_empty_states_are_sentences_without_a_false_offer
 
 
 def test_the_timeline_grouping_is_remembered_and_its_band_filter_is_not():
-    timeline = (ROOT / "frontend" / "timeline.js").read_text(encoding="utf-8")
+    timeline = (ROOT / "frontend" / "js" / "timeline.js").read_text(encoding="utf-8")
     assert 'const TIMELINE_GROUP_KEY = "timeline-group";' in timeline
     assert "localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value)" in timeline
     assert "localStorage.getItem(TIMELINE_GROUP_KEY)" in timeline

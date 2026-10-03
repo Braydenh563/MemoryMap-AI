@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-JS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend").glob("*.js")))
+JS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "js").glob("*.js")))
 
 
 def _body(name: str) -> str:
@@ -63,7 +63,7 @@ def test_a_nodes_own_colour_survives_into_its_branch_and_export() -> None:
     it. Verified live: picking #ff3366 on a topic wrote `node.data.color`
     and the exported SVG carried a `fill="#ff3366"` rect for that node's
     branch bar."""
-    wiring = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("frontend/*.js")))
+    wiring = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("frontend/js/*.js")))
     start = wiring.index('$("wb-map-strip-color")?.addEventListener("change"')
     strip_change = wiring[start : start + 600]
     assert "node.data = { ...node.data, color: e.target.value }" in strip_change

@@ -27,7 +27,7 @@
 //: a control. The outermost match wins (a `label.setting-check` contains its
 //: own `span`), and a label inside a help popover, the nav or a hidden group is
 //: not one.
-const SETTING_ROW_SELECTOR = "h3, h4, label, .setting-check, .check-row, .checkbox-label, legend, .setting-label";
+const SETTING_ROW_SELECTOR = "h3, h4, label, .setting-check, .check-row, .checkbox-label, legend, .setting-label, #help-topics summary";
 
 //: A row's visible words: its text without the helper copy beside it.
 function settingRowText(el) {
@@ -59,9 +59,12 @@ function settingRows() {
       if (text.length < 3 || text.length > 110) continue;
       const group = el.closest(".settings-group, details.settings-fold");
       const head = el.matches("h3, h4") ? null : group?.querySelector("h3, h4, summary h3");
-      const where = head ? head.textContent.replace(/\s+/g, " ").trim() : "";
-      const haystack = `${text} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""}`.toLowerCase();
-      rows.push({ section: name, sectionLabel, where, text, haystack, el, isHead: el.matches("h3, h4") });
+      //: A help topic says which group of topics it is in (INBOX 448).
+      const where = head ? head.textContent.replace(/\s+/g, " ").trim() : el.closest("[data-help-group]")?.dataset.helpGroup || "";
+      //: `data-keys` and `data-find`: a help topic's keywords and text, so it is found by
+      //: the words a person types, not only by its title.
+      const haystack = `${text} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""} ${el.dataset.keys || ""} ${el.dataset.find || ""}`.toLowerCase();
+      rows.push({ section: name, sectionLabel, where, text, haystack, keys: el.dataset.keys || "", el, isHead: el.matches("h3, h4") });
     }
   }
   return rows;
@@ -84,21 +87,35 @@ function findSettings(query, limit = 8) {
       else if (lower.includes(` ${w}`)) score += 2;
       else if (lower.includes(w)) score += 1;
     }
+    //: Among help topics, one whose keywords hold the words as typed
+    //: outranks one whose text merely contains them somewhere ("suggested
+    //: downloads" is the model topic's phrase, and only scattered words in the
+    //: editor's). Settings rows have no keywords, and are listed first anyway.
+    const phrase = words.join(" ");
+    if (row.keys.includes(phrase)) score += 3;
+    else if (row.haystack.includes(phrase)) score += 1;
     scored.push({ row, score });
   }
   scored.sort((a, b) => b.score - a.score);
   //: One line per text and section: "Models" is a head and also the first
   //: word of a label, and the same words twice is not two settings.
   const seen = new Set();
-  const out = [];
+  const settings = [];
+  const topics = [];
   for (const { row } of scored) {
     const key = `${row.section}|${row.text.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(row);
-    if (out.length >= limit) break;
+    (row.keys ? topics : settings).push(row);
   }
-  return out;
+  //: **Settings first, then help topics** (INBOX 448): "password" is a
+  //: question about the password settings before it is one about the help
+  //: entry on passwords, so a topic never outranks a setting. Two places are
+  //: kept for topics when both match, so a word that names a setting still
+  //: shows where its help is.
+  const room = topics.length ? Math.max(limit - 2, limit - topics.length) : limit;
+  const out = settings.slice(0, room);
+  return out.concat(topics.slice(0, limit - out.length));
 }
 
 //: Open the section and bring the setting into view. `flashRevealed` scrolls
@@ -313,4 +330,81 @@ function settingsIndexWatchSection(name) {
     timer = setTimeout(build, 250);
   });
   settingsIndexWatch.observe(pane, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "open"] });
+}
+
+// --- the help topics (INBOX 448 (1)) ----------------------------------------------
+//
+// Settings, Help lists every entry the Guide reads (`GET /help/topics`, from
+// `help_chat.HELP_TOPICS`), grouped, instead of thirteen hand-copied topics
+// that had drifted from it. Each group is a head and a `.help-accordion`, the
+// recipe the page already used; a topic is a `details` whose summary carries
+// the entry's keywords in `data-keys` and its text in `data-find`, so the
+// search above finds "percentage"
+// or "bookmarks" as a row and a press opens that topic. Fetched once per page
+// load; a failed fetch is tried again on the next open.
+
+let helpTopicsLoad = null;
+
+function helpTopicLink(link) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "linklike";
+  if (link.tab) button.dataset.gotoTab = link.tab;
+  if (link.section) button.dataset.gotoSection = link.section;
+  if (link.target) button.dataset.gotoTarget = link.target;
+  button.textContent = `Open ${link.label}`;
+  return button;
+}
+
+function helpTopicRow(topic) {
+  const details = document.createElement("details");
+  details.dataset.topic = topic.id;
+  const summary = document.createElement("summary");
+  summary.textContent = topic.title;
+  summary.dataset.keys = topic.find.toLowerCase();
+  summary.dataset.find = topic.body.toLowerCase();
+  const body = document.createElement("p");
+  body.textContent = topic.body;
+  details.append(summary, body);
+  //: A link to Help from inside Help goes nowhere.
+  const link = topic.link && topic.link.section !== "help" ? topic.link : null;
+  if (topic.path || link) {
+    const where = document.createElement("p");
+    where.className = "help-topic-links muted";
+    if (topic.path) where.append(`Where: ${topic.path}`);
+    if (topic.path && link) where.append(" · ");
+    if (link) where.appendChild(helpTopicLink(link));
+    details.appendChild(where);
+  }
+  return details;
+}
+
+function renderHelpTopics() {
+  const box = $("help-topics");
+  if (!box || helpTopicsLoad) return helpTopicsLoad;
+  helpTopicsLoad = apiJson("/help/topics")
+    .then((data) => {
+      const parts = [];
+      for (const group of data.groups || []) {
+        const head = document.createElement("h3");
+        head.textContent = group.title;
+        const list = document.createElement("div");
+        list.className = "help-accordion";
+        list.dataset.helpGroup = group.title;
+        for (const topic of group.topics) list.appendChild(helpTopicRow(topic));
+        parts.push(head, list);
+      }
+      box.replaceChildren(...parts);
+      box.removeAttribute("aria-busy");
+      if (typeof currentSettingsSection !== "undefined" && currentSettingsSection === "help") settingsIndexBuild("help");
+    })
+    .catch(() => {
+      helpTopicsLoad = null;
+      const line = document.createElement("p");
+      line.className = "muted";
+      line.textContent = "The help topics did not load. Ask Atlas below, or reopen Settings to try again.";
+      box.replaceChildren(line);
+      box.removeAttribute("aria-busy");
+    });
+  return helpTopicsLoad;
 }

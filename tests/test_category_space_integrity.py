@@ -105,7 +105,8 @@ def test_delete_from_all_view_leaves_notes_uncategorised_in_their_space(client):
     note = _note(client, "lecture one", "Lectures", UNI)
     lectures = next(c for c in client.get("/categories", headers=UNI).json() if c["name"] == "Lectures")
 
-    assert client.delete(f"/categories/{lectures['id']}", headers=ALL).status_code == 200
+    resp = client.delete(f"/categories/{lectures['id']}", headers=ALL)
+    assert resp.status_code == 200
     assert _category_in(client, note, UNI) == "Uncategorised"
     assert "Uncategorised" in _names(client, UNI)
 

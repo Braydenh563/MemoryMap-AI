@@ -26,6 +26,8 @@ below). Versioning is `0.x` while the app stabilises.
 - Notes: a category chip moves its note in one click (also Move to category in a note's menu); a tag chip shows that tag's notes; the filter box takes #tag, title:, before:, after:, in: and is:draft.
 - Notes: Recently edited sort, a title field when editing, Copy [[link]] in a note's menu, and Home, End, Delete and F2 on a focused note.
 - Category rename and merge can be undone, and deleting a category always offers to keep its notes in Uncategorised.
+- Selected notes can be added to or removed from Favourites, archived, published (drafts) or have a tag removed, from the selection bar's ⋯, each undoable.
+- Graph: each category's notes gather in a place of their own, and notes with no links sit with their category rather than in a ring round the map (View, Group by category).
 
 ## [0.3.32] - 2026-09-28
 

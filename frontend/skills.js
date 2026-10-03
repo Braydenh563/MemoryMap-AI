@@ -1280,6 +1280,7 @@ function enterSelectMode() {
   selectMode = true;
   selectedIds.clear();
   fillBatchCategories();
+  fillBatchMore();
   fillBatchCategories("timeline-batch-category-host");
   updateBatchCount();
   show("batch-bar");
@@ -1362,6 +1363,99 @@ async function batchTag() {
     settleUndoFromToast(action);
     await putBack();
   });
+}
+
+//: **The rest of what one note's menu does, for many** (INBOX 432: the
+//: selection bar could move, tag and delete, and nothing else). One PUT or
+//: POST per note, one toast, one undo, the shape `batchTag` has.
+async function batchEach(label, ids, forward, backward) {
+  for (const id of ids) await forward(id);
+  exitSelectMode();
+  await loadEntries();
+  const undo = async () => {
+    for (const id of ids) await backward(id);
+    await loadEntries();
+  };
+  const redo = async () => {
+    for (const id of ids) await forward(id);
+    await loadEntries();
+  };
+  const action = pushUndo(label, undo, redo);
+  toastAction(`${label}.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await undo();
+  });
+}
+
+function batchPut(body) {
+  return (id) => apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+function batchNoun(ids) {
+  return `${ids.length} note${ids.length === 1 ? "" : "s"}`;
+}
+
+async function batchFavourite(on) {
+  const ids = batchSelection().filter((id) => Boolean(allEntries.find((e) => e.id === id)?.pinned) !== on);
+  if (!ids.length) return toast(on ? "They are all Favourites already." : "None of them is a Favourite.");
+  await batchEach(`${on ? "Added" : "Removed"} ${batchNoun(ids)} ${on ? "to" : "from"} Favourites`, ids, batchPut({ pinned: on }), batchPut({ pinned: !on }));
+}
+
+async function batchArchive() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  await batchEach(
+    `Archived ${batchNoun(ids)}`,
+    ids,
+    (id) => apiJson(`/entries/${id}/archive`, { method: "POST" }),
+    (id) => apiJson(`/entries/${id}/unarchive`, { method: "POST" })
+  );
+}
+
+async function batchPublish() {
+  const ids = batchSelection().filter((id) => allEntries.find((e) => e.id === id)?.is_draft);
+  if (!ids.length) return toast("None of them is a draft.");
+  await batchEach(`Published ${batchNoun(ids)}`, ids, batchPut({ is_draft: false }), batchPut({ is_draft: true }));
+}
+
+async function batchRemoveTag() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  const tags = [...new Set(ids.flatMap((id) => allEntries.find((e) => e.id === id)?.tags || []))].sort(compareCategoryNames);
+  if (!tags.length) return toast("None of them has a tag.");
+  const answer = await promptDialog(`Tag to remove (they carry: ${tags.slice(0, 12).join(", ")}${tags.length > 12 ? ", …" : ""}):`, "", { confirmLabel: "Remove" });
+  const tag = (answer || "").trim().replace(/^#/, "").toLowerCase();
+  if (!tag) return;
+  const before = new Map();
+  for (const id of ids) {
+    const entry = allEntries.find((e) => e.id === id);
+    if (entry && entry.tags.some((t) => t.toLowerCase() === tag)) before.set(id, entry.tags);
+  }
+  if (!before.size) return toast(`None of them is tagged “${tag}”.`);
+  const targets = [...before.keys()];
+  await batchEach(
+    `Removed “${tag}” from ${batchNoun(targets)}`,
+    targets,
+    (id) => apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: before.get(id).filter((t) => t.toLowerCase() !== tag) }) }),
+    (id) => apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: before.get(id) }) })
+  );
+}
+
+function fillBatchMore(hostId = "batch-more-host") {
+  const host = $(hostId);
+  if (!host || host.childElementCount) return;
+  host.appendChild(
+    kebabMenu(
+      [
+        { label: "ph:star Add to Favourites", run: () => batchFavourite(true), group: "mark" },
+        { label: "ph:star-half Remove from Favourites", run: () => batchFavourite(false), group: "mark" },
+        { label: "ph:tag-simple Remove a tag…", run: batchRemoveTag, group: "mark" },
+        { label: "ph:paper-plane-tilt Publish drafts", run: batchPublish, group: "state" },
+        { label: "ph:archive Archive", run: batchArchive, group: "state" },
+      ],
+      "More for the selected notes"
+    )
+  );
 }
 
 async function batchDelete() {

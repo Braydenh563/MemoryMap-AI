@@ -249,3 +249,12 @@ def test_a_row_is_one_line_with_the_time_at_its_end():
     assert "padding-top: 1.4em;" not in css
     assert "#entry-list.entry-list.is-rows > li:not(:has(textarea)) {\n    padding-inline-end: 6.5rem;" in css
     assert ":not(:has(> .entry-title)) > .entry-content {\n  grid-column: 1 / 3;" in css
+
+
+def test_the_selection_bar_does_what_one_notes_menu_does():
+    skills = _read("skills.js")
+    for name in ("batchFavourite", "batchArchive", "batchPublish", "batchRemoveTag"):
+        assert f"function {name}(" in skills, name
+    assert "pushUndo(label, undo, redo)" in _function(skills, "batchEach")
+    assert "fillBatchMore();" in _function(skills, "enterSelectMode")
+    assert 'id="batch-more-host"' in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

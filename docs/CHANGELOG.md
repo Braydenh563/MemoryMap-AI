@@ -7,6 +7,28 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Notes: Ctrl+Enter (Cmd+Enter) saves from the capture box and from a note being edited, and the caret stays in the box after a save, so the next thought goes straight in.
+- A note no AI could file says so once, "Saved in Uncategorised: no AI model is running to file it", with Choose category beside it, instead of "Filed under Uncategorised (0% sure)" twice.
+- A note being edited keeps what you typed when the list redraws (a star pressed elsewhere, a filter, a background filing); Escape and Cancel ask before dropping changes, and an emptied note is refused rather than quietly kept.
+- Selecting notes, then changing category or filter, no longer leaves hidden notes selected for Tag or Delete.
+- A to Z sorts by a note's title, with "note 2" before "note 10"; the sort is remembered.
+- The Notes sidebar lights one row at a time, lists categories with no notes yet, sorts names the way people read them, and every row is reachable by keyboard; its fold is remembered.
+- In "All spaces", moving or renaming a category never files a note under another space's category; category counts match the notes list; tags are stored once each, whatever their case.
+- The Connections column lists a note's own [[links]], and "Forgotten, and close to this" never lists drafts or unrelated notes.
+- The popup agent with a small model: a reply that only says what it will do ("I'll count the notes in Work") is asked once to do it, and the model's quoting markers no longer show in answers.
+- Settings: Import .md files works again; the search engine line says how many notes search by meaning can find and how the last search found its notes; Chat's Web and Plan pills keep their icon when on.
+- The rows view is one line per note (47px a row, was 74).
+
+### Added
+
+- Notes: a category chip moves its note in one click (also Move to category in a note's menu); a tag chip shows that tag's notes; the filter box takes #tag, title:, before:, after:, in: and is:draft.
+- Notes: Recently edited sort, a title field when editing, Copy [[link]] in a note's menu, and Home, End, Delete and F2 on a focused note.
+- Category rename and merge can be undone, and deleting a category always offers to keep its notes in Uncategorised.
+- Selected notes can be added to or removed from Favourites, archived, published (drafts) or have a tag removed, from the selection bar's ⋯, each undoable.
+- Graph: each category's notes gather in a place of their own, and notes with no links sit with their category rather than in a ring round the map (View, Group by category).
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

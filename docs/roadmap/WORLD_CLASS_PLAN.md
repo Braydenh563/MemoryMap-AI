@@ -295,56 +295,7 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 **State 2026-09-24:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table) and the layout editor exists (`dash-edit`, `moveDashWidget`); drag-to-reorder on the grid itself was not found. The recipe-count gate was not re-run. S, `dashboard.js`.
 
-**The first screen, INBOX 436 (2026-10-03).** User feedback, through the
-owner: "quite a lot going on visually on the dashboard when the user opens
-the application"; the hero and the widget grid stay as they are, everything
-between and around them is redesigned. Measured with
-`scratchpad/ui-sweeps/dash436.js` (33 notes in five categories, three
-reminders, two documents, a board, two skills run; and a fresh notebook),
-light, 1440x900 unless named:
-
-- **The band between hero and grid is half the window.** The hero ends at
-  y=211 and the first widget starts at y=673: 462px of chrome (1280x720: 47px
-  of widget on screen; 390x844: the first widget at y=749, under the 60px tab
-  bar, so none). 73 visible elements and 20 controls in the band, 176 and 50
-  on the whole first screen; 7 font sizes in the band alone.
-- **What competes.** Six bands (search, Start something, Jump to, Run a skill,
-  four stat tiles and a sparkline, a "Your dashboard" bar) and four kinds of
-  chip, each asking to be pressed: five large tiles with a hint each, four
-  pills, three skill pills, four stat buttons, three toolbar controls. In
-  dark, three of them draw as primaries at once (the tinted New note, a
-  stat tile, a filled toolbar button).
-- **What repeats.** The note count three times (the hero's line, a stat tile,
-  the status bar); the due reminder five times (hero line, stat tile in an
-  amber edge, status bar, the Reminders tab badge, the bell); search three
-  times (the field, a "Search notes" pill, the status bar's Find); Commands
-  and Ask twice each (a pill or tile, and the status bar). On an empty
-  notebook the welcome card repeats New note and Ask under the tiles that
-  already say them, and turns a second emblem under the hero's.
-- **What is noise.** Three eyebrows naming rows that already say what they
-  are; the "Your dashboard" bar, a full card for three settings-level
-  controls (View, Widgets, Edit layout) that are used once a month.
-
-**Target** (the principles: one primary action, hierarchy from size and
-weight with colour kept for meaning, progressive disclosure, the spacing
-tokens, calm motion, DESIGN.md's recipes; and a comparison of Notion Home,
-Obsidian homepages, Apple Notes, Reflect, Mem, Capacities, Linear's inbox,
-Arc and Raycast, Things 3 Today and Craft, whose common shape is one way in,
-one primary, customisation behind a single ⋯): hero, then **one dock row**,
-then the **Start something** tiles (kept whole, the owner's instruction:
-New note, Ask AI, Sketch, Remind me, Meeting notes, five icon cards with a
-line each, New note the one primary), then the widgets. The row is the tab's
-control bar (`.dock`, the grammar every other tab uses): the search doorway
-(`#dash-find`) and one grouped `kebabMenu` holding what Jump to, Run a skill
-and the layout bar held: Continue (the last note touched), the two recent
-skills and All skills, Tools & features, Commands, View (Full, Compact,
-Focused), Widgets and Edit layout. The four stat tiles and the sparkline
-leave the first screen: the figures are the hero's own line and the status
-bar, and the Stats, Streak and Writing pace widgets hold the rest. Edit
-layout shows a one-line bar above the grid with its Done. The empty
-notebook's welcome card loses its second emblem. Gate: the band at most half
-of what it was at every width, the first widget above the fold at 390x844,
-no new findings from errors, contrast, axe (dashboard) and a11yname.
+**The first screen, INBOX 436 (2026-10-03):** built; the diagnosis, the target and the before and after numbers are in HISTORY.md ("Moved from the plans, 2026-10-03").
 
 ### D2 Notes: list, capture, edit (L, Opus)
 

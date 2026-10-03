@@ -7,6 +7,86 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-03
+
+### From WORLD_CLASS_PLAN.md D1: the dashboard's first screen (INBOX 436)
+
+**The first screen, INBOX 436 (2026-10-03).** User feedback, through the
+owner: "quite a lot going on visually on the dashboard when the user opens
+the application"; the hero and the widget grid stay as they are, everything
+between and around them is redesigned. Measured with
+`scratchpad/ui-sweeps/dash436.js` (33 notes in five categories, three
+reminders, two documents, a board, two skills run; and a fresh notebook),
+light, 1440x900 unless named:
+
+- **The band between hero and grid is half the window.** The hero ends at
+  y=211 and the first widget starts at y=673: 462px of chrome (1280x720: 47px
+  of widget on screen; 390x844: the first widget at y=749, under the 60px tab
+  bar, so none). 73 visible elements and 20 controls in the band, 176 and 50
+  on the whole first screen; 7 font sizes in the band alone.
+- **What competes.** Six bands (search, Start something, Jump to, Run a skill,
+  four stat tiles and a sparkline, a "Your dashboard" bar) and four kinds of
+  chip, each asking to be pressed: five large tiles with a hint each, four
+  pills, three skill pills, four stat buttons, three toolbar controls. In
+  dark, three of them draw as primaries at once (the tinted New note, a
+  stat tile, a filled toolbar button).
+- **What repeats.** The note count three times (the hero's line, a stat tile,
+  the status bar); the due reminder five times (hero line, stat tile in an
+  amber edge, status bar, the Reminders tab badge, the bell); search three
+  times (the field, a "Search notes" pill, the status bar's Find); Commands
+  and Ask twice each (a pill or tile, and the status bar). On an empty
+  notebook the welcome card repeats New note and Ask under the tiles that
+  already say them, and turns a second emblem under the hero's.
+- **What is noise.** Three eyebrows naming rows that already say what they
+  are; the "Your dashboard" bar, a full card for three settings-level
+  controls (View, Widgets, Edit layout) that are used once a month.
+
+**Target** (the principles: one primary action, hierarchy from size and
+weight with colour kept for meaning, progressive disclosure, the spacing
+tokens, calm motion, DESIGN.md's recipes; and a comparison of Notion Home,
+Obsidian homepages, Apple Notes, Reflect, Mem, Capacities, Linear's inbox,
+Arc and Raycast, Things 3 Today and Craft, whose common shape is one way in,
+one primary, customisation behind a single ⋯): hero, then **one dock row**,
+then the **Start something** tiles (kept whole, the owner's instruction:
+New note, Ask AI, Sketch, Remind me, Meeting notes, five icon cards with a
+line each, New note the one primary), then the widgets. The row is the tab's
+control bar (`.dock`, the grammar every other tab uses): the search doorway
+(`#dash-find`) and one grouped `kebabMenu` holding what Jump to, Run a skill
+and the layout bar held: Continue (the last note touched), the two recent
+skills and All skills, Tools & features, Commands, View (Full, Compact,
+Focused), Widgets and Edit layout. The four stat tiles and the sparkline
+leave the first screen: the figures are the hero's own line and the status
+bar, and the Stats, Streak and Writing pace widgets hold the rest. Edit
+layout shows a one-line bar above the grid with its Done. The empty
+notebook's welcome card loses its second emblem. Gate: the band at most half
+of what it was at every width, the first widget above the fold at 390x844,
+no new findings from errors, contrast, axe (dashboard) and a11yname.
+
+**Built (2026-10-03).** Hero, then one dock row (`data-dock-name="dashboard"`:
+`#dash-find` and one grouped `kebabMenu`, `dashMoreItems` in dashboard.js),
+then the Start something tiles (kept whole), then the widgets. Edit layout is
+`#dash-editbar` above the grid with its Done (`#dash-edit`). The streak cheer
+moved to `renderDashSubmessage`. About 1,000 lines of CSS and the strip's JS
+went (dashboard.js 4.9 KB smaller gzipped). Pinned by
+`tests/test_inbox_436_dashboard.py`; measured with
+`scratchpad/ui-sweeps/dash436.js` (the first screen) and `dash436menu.js` (the
+menu, Edit layout and Done, View, New note, at 1440 and 390), before against
+a server on the base commit with a copy of the same data. Seeded notebook,
+light and dark the same unless named:
+
+| Width | Band hero to grid | First widget y | Elements on screen | Controls on screen | Elements / controls in the band | Font sizes in the band |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1440x900 | 462 to 205px | 673 to 417 | 176 to 145 | 50 to 39 | 73/20 to 27/7 | 7 to 4 |
+| 1280x720 | 462 to 205px | 673 to 416 | 155 to 128 | 47 to 36 | 73/20 to 27/7 | 7 to 4 |
+| 390x844 | 552 to 205px | 749 to 401 (dark 789 to 401) | 84 to 65 | 26 to 17 | 44/13 to 14/4 | 4 to 2 |
+
+A fresh notebook: band 410 to 205px at 1440 and 458 to 205 at 390, turning
+emblems on screen 3 to 2 (the welcome card's second mark is gone; the hero's
+and the status bar's remain, the owner's choice), first content at 390 from
+y=715 to 463. Distinct accent colours and font weights unchanged (2 to 4, 4
+to 5 across both); the page area's filled primary is still the one New note
+tile. Sweeps against the after server, light and dark where they take a theme: errors.js (1440, 390) 0 errors and 0 layout findings, contrast.js every surface ok (the dashboard 51 text elements, was 70), axe.js ONLY=dashboard 0 findings (incomplete nodes 13 to 6), a11yname.js 0 findings; the same four on the base commit were also clean, so nothing is new. Not verified: the desktop window, a real screen reader, and a human eye on the menu at 1024 and 820.
+
 ## Moved from the plans, 2026-09-27
 
 ### From WORLD_CLASS_PLAN.md 22.1 item 5: two windows, one note
@@ -36031,4 +36111,16 @@ width, 47% of the column at 1440.
      minimap drag (431 (4), an agent); the model's own filing accuracy on a
      1.5B model (13/16 on a fixed set, names only; examples made it worse,
      11/16), a property of the model, not the prompt.
+
+436. **The owner, 2026-10-03, verbatim (user feedback).** "I also got a bit
+     of user feedback that there is quite a lot going on visually on the
+     dashboard when the user opens the application. I think the dashboard ui
+     needs a more modern and professional redesign with top tier and
+     maximised ux design principles and techniques. I like the top hero
+     section though and I think the widgets section is fine..."
+     Placed: a measured audit of what the dashboard shows on first open
+     (counts of elements, colours, motion, competing calls to action above
+     the fold at 1440, 1280 and 390), then a redesign of everything between
+     the hero and the widgets (kept as they are): one primary action, a
+     clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
 

@@ -96,7 +96,10 @@ if (shots) fs.mkdirSync(shots, { recursive: true });
               if (inBand(el)) bandAccents.add(k);
             }
           }
-          if (isCtl(el) && chroma(cs.backgroundColor)) primary.push((el.id || el.className || el.tagName).toString().slice(0, 40));
+          // A fill can be a gradient (the filled button's glow), so the
+          // image's colours count as well as the background colour.
+          const fills = [cs.backgroundColor, ...(cs.backgroundImage.match(/rgba?\([^)]+\)/g) || [])];
+          if (isCtl(el) && fills.some((c) => chroma(c))) primary.push((el.id || el.className || el.tagName).toString().slice(0, 40));
         }
         const textEls = vis.filter(ownText);
         const sizes = new Set(textEls.map((el) => getComputedStyle(el).fontSize));

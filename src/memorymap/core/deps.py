@@ -296,6 +296,17 @@ def get_db() -> DatabaseManager:
     return _db
 
 
+def peek_db() -> DatabaseManager | None:
+    """The database if the app has one, without creating it.
+
+    `get_db` initialises the app state on first use, which is right for a
+    request and wrong for bookkeeping: a job record written from a helper
+    that a test (or a script) runs without an app must not conjure a data
+    directory to put its note in.
+    """
+    return _db
+
+
 def get_ollama() -> Provider:
     """The chat backend, whichever dialect it speaks.
 

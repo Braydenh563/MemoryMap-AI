@@ -1391,6 +1391,33 @@ class MediaUpload(Base, WorkspaceMixin):
     size_bytes: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
+class JobRun(Base):
+    """The last run of each kind of background or on-demand job (INBOX 438).
+
+    **One row per `kind`, not one per run.** The question this answers is
+    "when did the search index last rebuild, and did it work?", which is a
+    lookup by kind; a history of every run is `core/taskhistory.py`'s ring
+    and the audit log's job, and a table that grows by one row per upload
+    would need a cleanup job this one does not. Written only through
+    `core/jobruns.py`'s `job_run`, so every job reports the same shape.
+
+    `status` is "running", "ok", "failed" or "cancelled". A person stopping a
+    job is not a failure, and reporting it in red teaches people to ignore
+    red. `result` is the one-line success summary ("indexed 412 notes") and
+    `error` the one-line reason a run failed; at most one of them is set.
+    """
+
+    __tablename__ = "job_runs"
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    status: Mapped[str] = mapped_column(String(12), default="running")
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    duration_ms: Mapped[float | None] = mapped_column(Float, default=None)
+
+
 class UserPreference(Base):
     """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
 

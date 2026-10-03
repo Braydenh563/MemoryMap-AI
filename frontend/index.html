@@ -6714,10 +6714,13 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="bookmark-group-input" type="text" list="bookmark-group-options"
           placeholder="Group (optional, e.g. Work/Reading)" aria-label="Bookmark group">
         <datalist id="bookmark-group-options"></datalist>
+        <input id="bookmark-note-input" type="text"
+          placeholder="Note (optional)" aria-label="Bookmark note" maxlength="2000">
         <button type="submit" class="small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
         <button type="button" id="bookmark-form-done" class="ghost small" title="Fold the form away (Esc)">Done</button>
       </form>
-      <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
+      <div id="bookmark-group-chips" class="row bookmark-group-chips" role="group" aria-label="Filter bookmarks"></div>
+      <p id="bookmark-count" class="muted text-xs bookmark-count" role="status" aria-live="polite"></p>
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
@@ -6725,7 +6728,12 @@ Link to another note with [[its first few words]]."></textarea>
         <p>Add a website to keep it a click away.</p>
         <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a bookmark</button>
       </div>
-      <p id="bookmark-no-match" class="muted hidden">No bookmarks match your search.</p>
+      <div id="bookmark-no-match" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">No bookmarks match</p>
+        <p id="bookmark-no-match-text">Nothing fits the search and filters you have on.</p>
+        <button id="bookmark-no-match-clear" class="ghost small" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear search and filters</button>
+      </div>
     </section>
   </div>
 

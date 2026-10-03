@@ -2309,6 +2309,89 @@ button:not(.ghost) > .spinner {
   color: var(--accent-text);
 }
 
+/* **Read state.** Unread is the shelf's reading list, so it is drawn three
+   ways that do not lean on colour alone: a heavier title, a dot on the tile,
+   and (for a reader with neither) the word "Unread" before the title. A read
+   link is the same row at body weight with no dot. */
+.bookmark-mark {
+  position: relative;
+}
+
+/* The dot makes the mark a positioned box, which paints over the tick that
+   shares its grid cell (the tick takes the mark's place on hover, 08-
+   consistency.css). The tick sits above it so the click lands on the tick. */
+.bookmark-row > .doc-list-tick {
+  position: relative;
+  z-index: 1;
+}
+
+.bookmark-row:not(.is-read) .bookmark-title {
+  font-weight: 650;
+}
+
+.bookmark-row:not(.is-read) .bookmark-mark::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-1) * -0.5);
+  right: calc(var(--space-1) * -0.5);
+  width: var(--space-3);
+  height: var(--space-3);
+  border: 1px solid var(--card);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.bookmark-count {
+  margin: 0 0 var(--space-2);
+}
+
+/* The "By site" grouping: a heading and its rows, folding like a Contents
+   section. The heading is `.contents-heading` (sticky, on the glass-off
+   list); its bottom margin is the gap between it and its first row. */
+.bookmark-site {
+  display: flex;
+  flex-direction: column;
+}
+
+.bookmark-site-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.bookmark-site.is-folded .contents-caret {
+  transform: rotate(-90deg);
+}
+
+/* The details panel a row opens in place: it spans the row's grid under the
+   title, and stays out of the way of the controls above it. */
+.bookmark-detail {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.bookmark-detail-url {
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.bookmark-detail-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bookmark-row.is-open {
+  background: var(--surface-2);
+  border-color: var(--divider);
+}
+
 /* **Deleted deliberately, and this comment is the reason.**
    `#bookmark-search { margin-bottom: var(--space-3) }` dates from when this
    field sat alone above the list. It now sits in `.library-toolbar`, which is

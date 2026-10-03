@@ -763,6 +763,11 @@ class Bookmark(Base, WorkspaceMixin):
     # hierarchy: without a second data model. Scalar default so the
     # additive auto-migrator backfills existing rows to "" (ungrouped).
     group_name: Mapped[str] = mapped_column(String(120), default="")
+    #: A link you have been through. Set when it is opened from the list or
+    #: ticked by hand; an "Unread" filter is the reading list a saved link is
+    #: usually for. Scalar default so the additive auto-migrator backfills
+    #: existing rows to unread.
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

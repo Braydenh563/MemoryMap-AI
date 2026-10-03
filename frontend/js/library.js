@@ -8590,12 +8590,16 @@ onDomReady(() => {
       const created = await apiJson("/bookmarks", {
         method: "POST",
         body: JSON.stringify({
-          url, title: titleInput.value.trim(), group_name: groupInput.value.trim(),
+          url,
+          title: titleInput.value.trim(),
+          group_name: groupInput.value.trim(),
+          note: ($("bookmark-note-input")?.value || "").trim(),
         }),
       });
       urlInput.value = "";
       titleInput.value = "";
       groupInput.value = "";
+      if ($("bookmark-note-input")) $("bookmark-note-input").value = "";
       urlInput.focus();
       if (created.duplicate_of) {
         toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
@@ -8631,7 +8635,22 @@ onDomReady(() => {
     search.dispatchEvent(new Event("input", { bubbles: true }));
     search.focus();
   });
-  $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  //: Typing filters in memory, so a debounce is only for the repaint of a
+  //: long list: 30 rows is free, 900 is not.
+  let bookmarkSearchTimer = null;
+  $("bookmark-search")?.addEventListener("input", () => {
+    clearTimeout(bookmarkSearchTimer);
+    bookmarkSearchTimer = setTimeout(filterBookmarks, 120);
+  });
+  $("bookmark-no-match-clear")?.addEventListener("click", () => {
+    const search = $("bookmark-search");
+    if (search) search.value = "";
+    bookmarkGroupFilter = null;
+    bookmarkStateFilter = "all";
+    renderBookmarkGroupChips();
+    filterBookmarks();
+    search?.focus();
+  });
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
   $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
   $("contents-refresh")?.addEventListener("click", renderContents);
@@ -8927,6 +8946,25 @@ onDomReady(() => {
   if (linksList && !document.getElementById("library-links-selectbar")) {
     const bar = createLibrarySelectbar("library-links", "Actions for the selected bookmarks", "bookmark-list");
     linksList.parentNode.insertBefore(bar, linksList);
+    //: The verbs a pile of links wants besides Delete, in front of it (the
+    //: bar's own order: the useful ones, then the destructive one, then Done).
+    const linksEnd = bar.querySelector(".library-contextbar-end");
+    const linksDelete = document.getElementById("library-links-bulk-delete");
+    const linkVerb = (id, label, title, run) => {
+      const button = document.createElement("button");
+      button.id = id;
+      button.type = "button";
+      button.className = "ghost small";
+      button.title = title;
+      setLabel(button, label);
+      button.addEventListener("click", run);
+      linksEnd.insertBefore(button, linksDelete);
+    };
+    linkVerb("library-links-bulk-move", "ph:folder-simple Move to group", "Put the ticked bookmarks in a group", bulkMoveLibraryLinks);
+    linkVerb("library-links-bulk-read", "ph:check-circle Mark read", "Mark the ticked bookmarks as read", () =>
+      bulkUpdateLibraryLinks({ is_read: true }, (n) => `Marked ${n} bookmark${n === 1 ? "" : "s"} as read.`));
+    linkVerb("library-links-bulk-pin", "ph:push-pin Pin", "Pin the ticked bookmarks to the top", () =>
+      bulkUpdateLibraryLinks({ pinned: true }, (n) => `Pinned ${n} bookmark${n === 1 ? "" : "s"}.`));
     document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
   }
@@ -8943,11 +8981,30 @@ onDomReady(() => {
 
 let bookmarksCache = [];
 let bookmarkGroupFilter = null; // null = all groups
+let bookmarkStateFilter = "all"; // "all" | "unread" | "pinned"
+//: Sites folded away in the "By site" grouping, for this visit.
+const bookmarkFoldedSites = new Set();
 
 //: Which links are ticked, keyed by bookmark id, its own Map so a selection
 //: here can never leak into another sub-tab's bulk delete, the same reasoning
 //: mediaRowKey's own comment gives for libraryMediaSelection.
 const libraryLinksSelection = new Map();
+
+//: **Every page, not the first.** `GET /bookmarks` answers 200 links a page
+//: (`BOOKMARKS_PAGE_SIZE`) and this list asked once, so the 201st link saved
+//: was in the notebook and nowhere on this page: no search found it, because
+//: the search filters what was fetched. Pages of the endpoint's maximum until
+//: one comes back short.
+async function fetchAllBookmarks() {
+  const size = 1000;
+  const all = [];
+  for (let offset = 0; ; offset += size) {
+    const page = await apiJson(`/bookmarks?limit=${size}&offset=${offset}`);
+    all.push(...page);
+    if (page.length < size) break;
+  }
+  return all;
+}
 
 async function renderBookmarks() {
   const list = $("bookmark-list");
@@ -8955,7 +9012,7 @@ async function renderBookmarks() {
   if (!list) return;
   showSkeletons(list, 4);
   try {
-    bookmarksCache = await apiJson("/bookmarks");
+    bookmarksCache = await fetchAllBookmarks();
   } catch (error) {
     toast(error.message, true);
     return;
@@ -8981,14 +9038,17 @@ function clearLibraryLinksSelection() {
   renderBookmarks();
 }
 
-async function bulkDeleteLibraryLinks() {
-  const links = [...libraryLinksSelection.values()];
-  if (!links.length) return;
-  if (
-    !(await confirmDialog(`Delete ${links.length} selected bookmark${links.length === 1 ? "" : "s"}?`))
-  ) {
-    return;
-  }
+//: **Delete says Undo, not "Are you sure".** Every other delete in the
+//: Library that can be taken back (a note to the bin, a document) offers Undo
+//: on its toast; the links alone asked first and then could not return. A
+//: bookmark has no bin, so Undo saves the same fields again (the id is new,
+//: nothing refers to a link by id except a note's attached references, which
+//: the delete route already removes). Pin and read state travel with it.
+async function deleteBookmarksWithUndo(links) {
+  const kept = links.map((b) => ({
+    url: b.url, title: b.title, note: b.note, group_name: b.group_name,
+    pinned: Boolean(b.pinned), is_read: Boolean(b.is_read),
+  }));
   let deleted = 0;
   for (const bookmark of links) {
     try {
@@ -8999,10 +9059,74 @@ async function bulkDeleteLibraryLinks() {
     }
   }
   libraryLinksSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} bookmark${deleted === 1 ? "" : "s"}.`);
   const failed = links.length - deleted;
   if (failed) toast(`${failed} bookmark${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
-  renderBookmarks();
+  await renderBookmarks();
+  if (!deleted) return;
+  const restore = async () => {
+    for (const body of kept) {
+      await apiJson("/bookmarks", { method: "POST", body: JSON.stringify(body) }).catch((e) => toast(e.message, true));
+    }
+    await renderBookmarks();
+  };
+  const noun = deleted === 1 ? "bookmark" : "bookmarks";
+  const action = pushUndo(`Deleted ${deleted} ${noun}`, restore, async () => {
+    // Redo finds the links again by address: their ids changed on restore.
+    const urls = new Set(kept.map((b) => b.url));
+    for (const live of bookmarksCache.filter((b) => urls.has(b.url))) {
+      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch(() => {});
+    }
+    await renderBookmarks();
+  });
+  toastAction(deleted === 1 ? "Bookmark deleted." : `${deleted} bookmarks deleted.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await restore();
+    toast(deleted === 1 ? "Bookmark restored." : `${deleted} bookmarks restored.`);
+  });
+}
+
+async function bulkDeleteLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  await deleteBookmarksWithUndo(links);
+}
+
+//: The other bulk verbs, one pass each over what is ticked. `changes` is the
+//: body of a `PUT /bookmarks/{id}`; the selection survives (it is pruned by
+//: `renderBookmarks`), so "Move to group" then "Mark read" is two presses, not
+//: a re-select.
+async function bulkUpdateLibraryLinks(changes, done) {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  let changed = 0;
+  for (const bookmark of links) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(changes) });
+      changed++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryLinksSelection.clear();
+  if (changed) toast(done(changed));
+  await renderBookmarks();
+}
+
+async function bulkMoveLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  const value = await promptDialog(
+    `Group for ${links.length} bookmark${links.length === 1 ? "" : "s"} (e.g. Work/Reading, blank clears it):`,
+    ""
+  );
+  //: Cancel and an empty field both resolve "" (see `moveToGroup`), so a bulk
+  //: move to "no group" is not offered here: clearing many groups at once on
+  //: an accidental Enter is the worse trade. Manage groups does that on purpose.
+  if (!value) return;
+  await bulkUpdateLibraryLinks(
+    { group_name: value.trim() },
+    (n) => `Moved ${n} bookmark${n === 1 ? "" : "s"} to “${value.trim()}”.`
+  );
 }
 
 //: **A group is a name on a bookmark, not a row in a table.** There is no
@@ -9221,25 +9345,61 @@ function renderBookmarkGroupChips() {
     ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
   );
   box.replaceChildren();
-  if (groups.length === 0) {
+  if (bookmarksCache.length === 0) {
     bookmarkGroupFilter = null;
+    bookmarkStateFilter = "all";
     return;
   }
-  const allChip = document.createElement("button");
-  allChip.type = "button";
-  allChip.className = `library-chip${bookmarkGroupFilter === null ? " active" : ""}`;
-  allChip.textContent = "All";
-  allChip.addEventListener("click", () => { bookmarkGroupFilter = null; renderBookmarkGroupChips(); filterBookmarks(); });
-  box.appendChild(allChip);
+  //: A group that has gone (renamed, emptied) cannot stay the filter.
+  if (bookmarkGroupFilter !== null && !groups.includes(bookmarkGroupFilter)) bookmarkGroupFilter = null;
+  const apply = () => { renderBookmarkGroupChips(); filterBookmarks(); };
+  const chip = (label, count, active, onPress) => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = `library-chip${active ? " active" : ""}`;
+    el.setAttribute("aria-pressed", active ? "true" : "false");
+    el.append(document.createTextNode(label));
+    if (count !== null) {
+      const n = document.createElement("span");
+      n.className = "library-chip-count";
+      n.textContent = count;
+      el.append(" ", n);
+    }
+    el.addEventListener("click", onPress);
+    box.appendChild(el);
+    return el;
+  };
+  //: **A reading list is the point of a bookmark shelf**, so the state
+  //: filters come first and carry their counts (Raindrop and Pocket both
+  //: open on "Unread"): All resets everything, Unread and Pinned narrow it,
+  //: and the groups below narrow it further.
+  const unread = bookmarksCache.filter((b) => !b.is_read).length;
+  const pinned = bookmarksCache.filter((b) => b.pinned).length;
+  chip("All", bookmarksCache.length, bookmarkStateFilter === "all" && bookmarkGroupFilter === null, () => {
+    bookmarkStateFilter = "all";
+    bookmarkGroupFilter = null;
+    apply();
+  });
+  chip("Unread", unread, bookmarkStateFilter === "unread", () => {
+    bookmarkStateFilter = bookmarkStateFilter === "unread" ? "all" : "unread";
+    apply();
+  });
+  if (pinned) {
+    chip("Pinned", pinned, bookmarkStateFilter === "pinned", () => {
+      bookmarkStateFilter = bookmarkStateFilter === "pinned" ? "all" : "pinned";
+      apply();
+    });
+  } else if (bookmarkStateFilter === "pinned") {
+    bookmarkStateFilter = "all";
+  }
   for (const group of groups) {
-    const chipEl = document.createElement("button");
-    chipEl.type = "button";
-    chipEl.className = `library-chip${bookmarkGroupFilter === group ? " active" : ""}`;
+    const count = bookmarksCache.filter((b) => b.group_name === group).length;
     // "Work/Reading" renders as "Work / Reading", the "/" is a grouping
     // convention for the user to type, not meant to display as a raw slash.
-    chipEl.textContent = group.split("/").join(" / ");
-    chipEl.addEventListener("click", () => { bookmarkGroupFilter = group; renderBookmarkGroupChips(); filterBookmarks(); });
-    box.appendChild(chipEl);
+    chip(group.split("/").join(" / "), count, bookmarkGroupFilter === group, () => {
+      bookmarkGroupFilter = bookmarkGroupFilter === group ? null : group;
+      apply();
+    });
   }
 }
 
@@ -9298,21 +9458,119 @@ function filterBookmarks() {
   const query = ($("bookmark-search")?.value || "").trim().toLowerCase();
   const visible = bookmarksCache.filter((b) => {
     if (bookmarkGroupFilter !== null && b.group_name !== bookmarkGroupFilter) return false;
+    if (bookmarkStateFilter === "unread" && b.is_read) return false;
+    if (bookmarkStateFilter === "pinned" && !b.pinned) return false;
     if (!query) return true;
+    //: Group names too: "recipes" finds the Recipes group's links, which is
+    //: what typing a group's name into a search box means.
     return (
       b.title.toLowerCase().includes(query) ||
       b.url.toLowerCase().includes(query) ||
-      b.note.toLowerCase().includes(query)
+      b.note.toLowerCase().includes(query) ||
+      (b.group_name || "").toLowerCase().includes(query)
     );
   });
   list.replaceChildren();
   //: On a copy, for the reason the media gallery's own sort records: `visible`
   //: can be the cache itself when nothing is filtered, and sorting in place
   //: would reorder the array every other reader shares.
-  for (const bookmark of [...visible].sort(BOOKMARK_SORTS[bookmarkSort()])) {
-    list.appendChild(bookmarkRow(bookmark));
+  const ordered = [...visible].sort(BOOKMARK_SORTS[bookmarkSort()]);
+  if (bookmarkSort() === "site") {
+    //: **"By site" groups, it does not only order.** Sorted by host the rows
+    //: of one site already sat together, but nothing said so and nothing
+    //: could fold them. A heading per site with its count, the same
+    //: heading the Contents index uses, which folds.
+    let section = null;
+    let sectionHost = null;
+    for (const bookmark of ordered) {
+      const host = bookmarkAddress(bookmark.url).host || "(no address)";
+      if (host !== sectionHost) {
+        sectionHost = host;
+        section = bookmarkSiteSection(host, ordered.filter((b) => (bookmarkAddress(b.url).host || "(no address)") === host).length);
+        list.appendChild(section.root);
+      }
+      section.body.appendChild(bookmarkRow(bookmark));
+    }
+  } else {
+    for (const bookmark of ordered) list.appendChild(bookmarkRow(bookmark));
   }
   noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
+  const count = $("bookmark-count");
+  if (count) {
+    count.textContent = bookmarksCache.length === 0
+      ? ""
+      : visible.length === bookmarksCache.length
+        ? `${bookmarksCache.length} bookmark${bookmarksCache.length === 1 ? "" : "s"}`
+        : `Showing ${visible.length} of ${bookmarksCache.length}`;
+  }
+}
+
+function bookmarkSiteSection(host, total) {
+  const root = document.createElement("section");
+  root.className = "bookmark-site";
+  const folded = bookmarkFoldedSites.has(host);
+  const heading = document.createElement("button");
+  heading.type = "button";
+  heading.className = "contents-heading bookmark-site-heading";
+  heading.setAttribute("aria-expanded", folded ? "false" : "true");
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down contents-caret";
+  caret.setAttribute("aria-hidden", "true");
+  const name = document.createElement("span");
+  name.className = "contents-heading-name";
+  name.textContent = host;
+  const n = document.createElement("span");
+  n.className = "contents-count";
+  n.textContent = total;
+  heading.append(caret, name, n);
+  const body = document.createElement("div");
+  body.className = "bookmark-site-body";
+  body.hidden = folded;
+  root.classList.toggle("is-folded", folded);
+  heading.addEventListener("click", () => {
+    const now = !bookmarkFoldedSites.has(host);
+    if (now) bookmarkFoldedSites.add(host);
+    else bookmarkFoldedSites.delete(host);
+    body.hidden = now;
+    root.classList.toggle("is-folded", now);
+    heading.setAttribute("aria-expanded", now ? "false" : "true");
+  });
+  root.append(heading, body);
+  return { root, body };
+}
+
+//: What kind of thing a link points at, from its address alone: this app
+//: fetches nothing from the internet, so there is no favicon, but a tile that
+//: says "video", "code", "PDF" or "email" tells a list of links apart at a
+//: glance, which is what a favicon column is for. Hosts are matched at their
+//: tail so "m.youtube.com" and "www.youtube.com" are one kind.
+const BOOKMARK_KINDS = [
+  { key: "email", icon: "ph:envelope-simple", label: "Email address", test: (u) => u.protocol === "mailto:" },
+  { key: "phone", icon: "ph:phone", label: "Phone number", test: (u) => u.protocol === "tel:" },
+  { key: "pdf", icon: "ph:file-pdf", label: "PDF", test: (u) => /\.pdf$/i.test(u.pathname) },
+  {
+    key: "video", icon: "ph:play-circle", label: "Video",
+    test: (u) => /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com)$/.test(u.hostname),
+  },
+  {
+    key: "code", icon: "ph:code", label: "Code",
+    test: (u) => /(^|\.)(github\.com|gitlab\.com|bitbucket\.org|codeberg\.org|stackoverflow\.com|developer\.mozilla\.org|docs\.python\.org)$/.test(u.hostname),
+  },
+  {
+    key: "reference", icon: "ph:book-open", label: "Reference",
+    test: (u) => /(^|\.)(wikipedia\.org|arxiv\.org|wikimedia\.org|britannica\.com)$/.test(u.hostname),
+  },
+];
+const BOOKMARK_KIND_DEFAULT = { key: "link", icon: "ph:globe", label: "Web page" };
+
+function bookmarkKind(url) {
+  const raw = String(url || "").trim();
+  try {
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    return BOOKMARK_KINDS.find((kind) => kind.test(parsed)) || BOOKMARK_KIND_DEFAULT;
+  } catch {
+    return BOOKMARK_KIND_DEFAULT;
+  }
 }
 
 function bookmarkRow(bookmark) {
@@ -9342,11 +9600,18 @@ function bookmarkRow(bookmark) {
   //: this app fetches nothing from the internet: a favicon is a request to
   //: every site you have ever saved, which is the one thing an offline
   //: notebook must not do.
+  //: **The tile says what kind of link it is** (`bookmarkKind`: video, code,
+  //: PDF, email, reference, page), and a pinned link keeps the pin. Its
+  //: words are on the tooltip; the row's own text says the rest.
+  const kind = bookmarkKind(bookmark.url);
   const mark = document.createElement("span");
-  mark.className = "bookmark-mark";
+  mark.className = `bookmark-mark bookmark-mark-${kind.key}`;
   mark.setAttribute("aria-hidden", "true");
-  setLabel(mark, bookmark.pinned ? "ph:push-pin" : "ph:link-simple");
+  mark.title = kind.label;
+  setLabel(mark, bookmark.pinned ? "ph:push-pin" : kind.icon);
   row.appendChild(mark);
+  row.classList.toggle("is-read", Boolean(bookmark.is_read));
+  row.dataset.bookmarkId = bookmark.id;
 
   const main = document.createElement("div");
   main.className = "bookmark-main";
@@ -9372,6 +9637,29 @@ function bookmarkRow(bookmark) {
   link.rel = "noopener noreferrer";
   link.textContent = bookmark.title || address.host;
   link.title = bookmark.url;
+  //: **Opening a link reads it.** A plain click and a middle click both go to
+  //: the new tab on their own; this only notes it, in the cache and on the
+  //: row at once and on the server behind them, so "Unread" is a reading list
+  //: that empties as it is read rather than one you tick by hand.
+  const noteRead = () => {
+    if (bookmark.is_read) return;
+    bookmark.is_read = true;
+    row.classList.add("is-read");
+    row.querySelector(".bookmark-unread-word")?.remove();
+    apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify({ is_read: true }), silent: true })
+      .then(renderBookmarkGroupChips)
+      .catch(() => {});
+  };
+  if (!bookmark.is_read) {
+    //: Unread is also a weight and a dot (CSS); this is its words, for a
+    //: reader that has neither.
+    const word = document.createElement("span");
+    word.className = "visually-hidden bookmark-unread-word";
+    word.textContent = "Unread: ";
+    link.prepend(word);
+  }
+  link.addEventListener("click", noteRead);
+  link.addEventListener("auxclick", (event) => { if (event.button === 1) noteRead(); });
   main.append(
     link,
     metaLine(
@@ -9454,6 +9742,10 @@ function bookmarkRow(bookmark) {
     const urlInput = field("URL", bookmark.url, "https://example.com");
     // Blank is meaningful here and always was: it means "no group".
     const groupInput = field("Group", bookmark.group_name, "e.g. Work/Reading");
+    //: The note had no way in once a link was saved: the Add form never asked
+    //: for one and this form never showed it, though the row and the search
+    //: both read it.
+    const noteInput = field("Note", bookmark.note, "Why you saved it");
 
     const buttons = document.createElement("div");
     buttons.className = "row bookmark-edit-actions";
@@ -9501,6 +9793,7 @@ function bookmarkRow(bookmark) {
             title: titleInput.value.trim(),
             url,
             group_name: groupInput.value.trim(),
+            note: noteInput.value.trim(),
           }),
         });
         renderBookmarks();
@@ -9535,12 +9828,55 @@ function bookmarkRow(bookmark) {
     renderBookmarks();
   };
 
-  const removeBookmark = async () => {
-    const ok = await confirmDialog(`Delete "${bookmark.title || bookmark.url}"?`);
-    if (!ok) return;
-    await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+  const removeBookmark = () => deleteBookmarksWithUndo([bookmark]);
+
+  const toggleRead = async () => {
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ is_read: !bookmark.is_read }),
+    });
     renderBookmarks();
   };
+
+  //: **A look at the link without leaving the list.** An offline notebook
+  //: cannot render the page, so the preview is everything the notebook knows
+  //: about it: the whole address (the row shows only the host), the note,
+  //: the group and when it was saved, with the two things you would do next.
+  const toggleDetails = () => {
+    const open = row.querySelector(".bookmark-detail");
+    if (open) {
+      open.remove();
+      row.classList.remove("is-open");
+      return;
+    }
+    const box = document.createElement("div");
+    box.className = "bookmark-detail";
+    const addr = document.createElement("code");
+    addr.className = "bookmark-detail-url";
+    addr.textContent = bookmark.url;
+    const facts = [kind.label];
+    if (bookmark.group_name) facts.push(bookmark.group_name.split("/").join(" / "));
+    const saved = new Date(bookmark.created_at);
+    if (!Number.isNaN(saved.getTime())) facts.push(`saved ${saved.toLocaleDateString()}`);
+    facts.push(bookmark.is_read ? "read" : "unread");
+    const meta = metaLine(facts, "bookmark-detail-meta");
+    box.append(addr, meta);
+    if (bookmark.note) {
+      const note = document.createElement("p");
+      note.className = "bookmark-detail-note";
+      note.textContent = bookmark.note;
+      box.appendChild(note);
+    }
+    row.appendChild(box);
+    row.classList.add("is-open");
+  };
+
+  //: The row's own click opens the details, on the empty part of the row
+  //: only: the title, the tick and the controls keep their own meaning.
+  row.addEventListener("dblclick", (event) => {
+    if (event.target.closest("a, button, input, .menu-wrap, form, .bookmark-detail")) return;
+    toggleDetails();
+  });
 
   //: **Two controls on a row at rest, not four** (the owner, 2026-09-13:
   //: "redesign the links cards/rows ... to make them look nicer and more
@@ -9553,15 +9889,36 @@ function bookmarkRow(bookmark) {
   //: Library could get a URL back out of the notebook.
   const menu = kebabMenu(
     [
-      makeMenuItem("ph:pencil-simple Edit this bookmark", "Change the title, address or group", startEditing),
-      makeMenuItem("ph:folder-simple Move to group", "Move this bookmark to a group", moveToGroup),
-      makeMenuItem("ph:copy Copy address", "Copy the address to the clipboard", async () => {
-        //: `copyToClipboard` flashes the button it is given, and a menu row is
-        //: gone by the time it would: it says so in a toast instead, the same
-        //: way every other copy in a menu does.
-        if (await copyToClipboard(bookmark.url)) toast("Address copied.");
-      }),
-      { ...makeMenuItem("ph:trash Delete", "Delete this bookmark", removeBookmark), danger: true },
+      //: Seven rows is past the menu ceiling (DESIGN.md), so they are grouped:
+      //: look at it, change it, remove it.
+      {
+        ...makeMenuItem("ph:arrow-square-out Open", "Open this link in a new tab", () => {
+          noteRead();
+          window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer");
+        }),
+        group: "look",
+      },
+      { ...makeMenuItem("ph:eye Details", "Show the whole address, the note and when it was saved", toggleDetails), group: "look" },
+      {
+        ...makeMenuItem(
+          bookmark.is_read ? "ph:circle Mark as unread" : "ph:check-circle Mark as read",
+          bookmark.is_read ? "Put this back on the reading list" : "Take this off the reading list",
+          toggleRead
+        ),
+        group: "look",
+      },
+      { ...makeMenuItem("ph:pencil-simple Edit this bookmark", "Change the title, address, group or note", startEditing), group: "change" },
+      { ...makeMenuItem("ph:folder-simple Move to group", "Move this bookmark to a group", moveToGroup), group: "change" },
+      {
+        ...makeMenuItem("ph:copy Copy address", "Copy the address to the clipboard", async () => {
+          //: `copyToClipboard` flashes the button it is given, and a menu row is
+          //: gone by the time it would: it says so in a toast instead, the same
+          //: way every other copy in a menu does.
+          if (await copyToClipboard(bookmark.url)) toast("Address copied.");
+        }),
+        group: "change",
+      },
+      { ...makeMenuItem("ph:trash Delete", "Delete this bookmark", removeBookmark), danger: true, group: "danger" },
     ],
     `Actions for ${bookmark.title || bookmark.url}`,
   );

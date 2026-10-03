@@ -7945,9 +7945,37 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    the title starts under it (the owner at release: "the date clashes with
    the metadata below, needs to be a vertical gap"); the lane was centred on
    the row, so the two drew over each other. */
+/* **One line, the time at its end** (INBOX 432). The gap above put the date
+   on a line of its own and made every row 74px, nine to a screen at 1440
+   against seven cards, which is no denser than the cards. The time is the
+   row's last column instead: its corner centred on the row, and the lane
+   beside the title stops short of it by the time's own width. */
 #entry-list.is-rows > li:not(:has(textarea)) > .entry-meta {
-  align-self: start;
-  padding-top: 1.4em;
+  align-self: center;
+}
+
+#entry-list.entry-list.is-rows > li:not(:has(textarea)) {
+  /* The card padding (`#entry-list li`, an id) won over the rows' own. */
+  padding-block: var(--space-3);
+}
+
+@media (hover: hover) {
+  #entry-list.entry-list.is-rows > li:not(:has(textarea)) {
+    padding-inline-end: 6.5rem;
+  }
+}
+
+@media (hover: hover) {
+  #entry-list.is-rows > li:not(:has(textarea)) .entry-meta-end {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+/* A row with no title starts its text where a title would, not one column
+   gap to the right of an empty column (measured 375 against 365px). */
+#entry-list.is-rows > li:not(:has(textarea)):not(:has(> .entry-title)) > .entry-content {
+  grid-column: 1 / 3;
 }
 
 #entry-list > li .entry-date {

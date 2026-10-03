@@ -34,6 +34,12 @@ with its owner named in the entry.
 
 ## Open items
 
+456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
+     windows and panels are the same design and style." Placed: every
+     dialog, sheet, popover and side panel inventoried and measured against
+     DESIGN.md's dialog and panel recipes (radius, padding, head, close
+     control, shadow, scrim, width steps), then brought onto them: an agent.
+
 455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
      details line: category, 85%, eight hashtags, the date alone on a line
      under them; four notes whose dates sit at different heights).** "note

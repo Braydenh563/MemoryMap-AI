@@ -238,8 +238,13 @@ function gcMaxDegree(s, nodes) {
   for (const node of nodes) if (!node.isGroup) max = Math.max(max, (s.adj.get(node.id) || { size: 0 }).size);
   return max;
 }
-const GC_MIN_RADIUS = 4;
-const GC_MAX_RADIUS = 18;
+//: **One size scale, [5, 15]** (INBOX 443 (1), "a few large nodes with glow
+//: halos"; was [4, 18]). The busiest note drew at 18 beside a leaf at 6.5 and
+//: an unlinked note at 4, which put the biggest dot at nine times the
+//: smallest one's area; now the biggest is five times it (15 against 6.5 and
+//: 5), still plainly the hub, no longer a blob that its own glow doubled.
+const GC_MIN_RADIUS = 5;
+const GC_MAX_RADIUS = 15;
 function gcRadius(node, degree, maxDegree = 0) {
   if (node.isGroup) return node.id === "root" ? 14 : 11;
   //: By the View menu's Size rule (`graphSizeRadius`, graph.js): connections
@@ -301,7 +306,7 @@ function gcReadTokens(s = gcTab) {
 //: `.graph-edge-similar` in the DOM to run `getComputedStyle` against. The
 //: colours still come from tokens (above), so a theme change moves both.
 const GC_EDGE_STYLES = {
-  link: { width: 1.4, alpha: 0.42, dash: null, colour: "muted" },
+  link: { width: 1.3, alpha: 0.4, dash: null, colour: "muted" },
   thread: { width: 1.4, alpha: 0.55, dash: [7, 4], colour: "muted" },
   similar: { width: 1.2, alpha: 0.55, dash: [2, 5], colour: "accent" },
   map: { width: 1.3, alpha: 0.7, dash: [1, 4], colour: "accent" },
@@ -309,6 +314,17 @@ const GC_EDGE_STYLES = {
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
 };
+//: **A link between two notes of one colour takes that colour** (INBOX 443
+//: (1), the owner: "the graph shape could look nicer"; the edges were all one
+//: blue-grey). The line inside a category now says which category it is in, so
+//: the clusters read as clusters before a label does, and the neutral grey
+//: lines are left to mean what they should: a bridge between two. Bucketed by
+//: colour, so the stroke state is still set once per colour (five categories
+//: is five buckets, not five hundred strokes). The kinds that are not a
+//: relation between two notes of a colour (a similarity, a board's reference,
+//: a filing line, a contradiction) keep their own recipe. The number is the
+//: least opacity a tinted line of that kind is drawn at.
+const GC_EDGE_TINTED = { link: 0.55, thread: 0.6, entity: 0.55, document: 0.55 };
 // GRAPH-SIM-BEGIN
 //: **Similarity is a backbone, not every pair** (INBOX 412, the owner: "when
 //: I tick similarity on the graph, this happens, is there a way to make it
@@ -523,8 +539,33 @@ function gcSimilarityCutoff() {
   return Math.max(GC_SIM_FLOOR, Math.min(0.95, value / 100));
 }
 
-const GC_EDGE_REASONED = { width: 1.5, alpha: 0.5, dash: null, colour: "accent" };
+const GC_EDGE_REASONED = { width: 1.9, alpha: 0.62, dash: null, colour: "accent" };
 const GC_EDGE_CONTRADICTS = { width: 2.2, alpha: 0.85, dash: [6, 4], colour: "error" };
+
+//: **Curved links are the default** (INBOX 443 (1), the owner: "the graph
+//: shape could look nicer"; the lines were straight). Read from the switch
+//: itself, like the labels, so what the menu shows and what is drawn cannot
+//: disagree (the owner: "it is showing curved links even when it is visibly
+//: off??"); the stored value only stands in for a pane, which has no switch,
+//: and a notebook that never touched it is on.
+function gcCurvedLinks(s = gcTab) {
+  const box = s.size === "full" ? gcEl("graph-curved") : null;
+  return box ? box.checked : localStorage.getItem("graph-curved") !== "0";
+}
+
+//: A quadratic curve bowed to one side by a seventh of its length (48px at
+//: most), the side chosen by the endpoints' ids so the same link bows the
+//: same way whichever end the simulation lists first, and a link that is
+//: drawn twice (both directions) lands on itself. Shared by the paint and the
+//: pointer's hit test, which has to find the line where it is drawn.
+function gcBowPoint(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const side = String(a.id) < String(b.id) ? 1 : -1;
+  const bow = Math.min(len * 0.14, 48) * side;
+  return { x: (a.x + b.x) / 2 - (dy / len) * bow, y: (a.y + b.y) / 2 + (dx / len) * bow };
+}
 
 function gcEdgeStyle(edge) {
   if (edge.link_type === "contradicts") return GC_EDGE_CONTRADICTS;
@@ -652,7 +693,11 @@ function gcNodeSprite(colour, radiusPx, hub) {
   //: bowling ball". Neither belongs in an interface of flat glass.
   //: Every node glows a little (the owner: "I didnt mind the soft glow");
   //: a hub's glow is wider and a shade stronger, which is how a hub is told.
-  const glow = hub ? Math.round(r * 1.2) + 4 : Math.round(r * 0.7) + 2;
+  //: **Calmer** (INBOX 443 (1)): the bloom reached 1.2 radii past a hub at
+  //: 24% and 0.7 past a leaf at 16%, so on 30 dots the glows overlapped into a
+  //: haze. Now 0.8 and 0.45 radii at 15% and 9%; a hub is still told by the
+  //: wider, stronger one, and the hover lights the halo back up.
+  const glow = hub ? Math.round(r * 0.8) + 3 : Math.round(r * 0.45) + 2;
   const ring = Math.max(1, Math.round(r * 0.18));
   const half = r + ring + glow + 1;
   const size = half * 2;
@@ -663,7 +708,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
   if (gcHexToRgb(colour)) {
     const bloom = c.createRadialGradient(half, half, r * 0.9, half, half, half);
     const rgb = gcHexToRgb(colour).join(", ");
-    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.24 : 0.16})`);
+    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.15 : 0.09})`);
     bloom.addColorStop(1, `rgba(${rgb}, 0)`);
     c.fillStyle = bloom;
     c.beginPath();
@@ -964,8 +1009,7 @@ function gcDraw(s = gcTab) {
   //: shows and what is drawn cannot disagree (the owner: "it is showing
   //: curved links even when it is visibly off??"); the stored value only
   //: stands in for a pane, which has no switch.
-  const curvedBox = s.size === "full" ? gcEl("graph-curved") : null;
-  const curvedLinks = curvedBox ? curvedBox.checked : localStorage.getItem("graph-curved") === "1";
+  const curvedLinks = gcCurvedLinks(s);
 
   // --- edges -------------------------------------------------------------
   // Bucketed by recipe and by whether they are dimmed, so the context's
@@ -1013,12 +1057,18 @@ function gcDraw(s = gcTab) {
     const dim = !(bySearch && byHover);
     const similar = edge.kind === "similar" && typeof edge.score === "number";
     const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
-    const style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
-    const key = `${edge.kind}|${style.colour}|${style.width}|${style.dash}|${dim}`;
+    let style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
+    //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
+    const tint =
+      !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
+        ? a.colour
+        : null;
+    if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
+    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${dim}`;
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
-      bucket = { style, dim, path: new Path2D() };
+      bucket = { style, dim, tint, path: new Path2D() };
       into.set(key, bucket);
     }
     if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
@@ -1035,19 +1085,9 @@ function gcDraw(s = gcTab) {
       }
       bucket.path.addPath(edge._path2d);
     } else if (curvedLinks) {
-      //: A quadratic curve bowed to one side by an eighth of its length, the
-      //: side chosen by the endpoints' ids so the same link bows the same way
-      //: whichever end the simulation lists first, and a link that is drawn
-      //: twice (both directions) lands on itself.
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const side = String(a.id) < String(b.id) ? 1 : -1;
-      const bow = Math.min(len * 0.14, 48) * side;
-      const cx = (a.x + b.x) / 2 - (dy / len) * bow;
-      const cy = (a.y + b.y) / 2 + (dx / len) * bow;
+      const bow = gcBowPoint(a, b);
       bucket.path.moveTo(a.x, a.y);
-      bucket.path.quadraticCurveTo(cx, cy, b.x, b.y);
+      bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
     } else {
       bucket.path.moveTo(a.x, a.y);
       bucket.path.lineTo(b.x, b.y);
@@ -1055,7 +1095,7 @@ function gcDraw(s = gcTab) {
   }
   const strokeBucket = (bucket) => {
     const style = bucket.style;
-    ctx.strokeStyle = gcTokens[style.colour] || gcTokens.muted;
+    ctx.strokeStyle = bucket.tint || gcTokens[style.colour] || gcTokens.muted;
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
     // a dimmed edge that is still readable defeats the spotlight.
     ctx.globalAlpha = bucket.dim ? 0.06 : style.alpha;
@@ -1531,10 +1571,36 @@ function gcLabelWidth(text, size) {
   return (width * size) / GC_LABEL_REF_PX;
 }
 
+//: **A name is cut at a word, and the pointed-at one is whole** (INBOX 443
+//: (1), "labels truncated with ..."): every label was the first 21 characters
+//: and an ellipsis, so "Fitness plan and the ..." and "Quarterly planning wi..."
+//: stopped mid-word or on a dangling "the". Now the cut falls on a space (when
+//: one is past the middle of the limit), a trailing small word or mark is
+//: dropped, and the note under the pointer or the keyboard is shown in full
+//: (up to GC_LABEL_FULL), which is where the full name is wanted.
+const GC_LABEL_FULL = 56;
+const GC_LABEL_SMALL_WORDS = new Set([
+  "a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "with", "from", "by", "is", "are", "how", "what", "why",
+]);
+
+function gcLabelCut(text, limit) {
+  //: The word cut is the app's own `clipText` (shell-reminders.js); this only
+  //: adds the small-word rule on top of it.
+  const clipped = clipText(text, limit);
+  if (!clipped.endsWith("…") || clipped === String(text).trim()) return clipped;
+  const words = clipped.slice(0, -1).split(" ");
+  while (words.length > 2 && GC_LABEL_SMALL_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
+  return `${words.join(" ")}…`;
+}
+
 function gcLabelText(node, s = gcTab) {
-  const limit = s.tree ? (s.tree.arc ? 12 : s.tree.radial ? 16 : 30) : 22;
+  //: A hub (four links or more) has the room of its own halo and is the name
+  //: the map is read by, so it keeps ten characters more than the crowd.
+  const hub = (s.adj.get(node.id) || { size: 0 }).size >= 4;
+  const limit = s.tree ? (s.tree.arc ? 12 : s.tree.radial ? 16 : 30) : hub ? 36 : 26;
   const text = node.preview || "";
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+  const pointed = !s.tree && (node.id === s.hoveredId || node.id === gcKeyboardId(s));
+  return gcLabelCut(text, pointed ? GC_LABEL_FULL : limit);
 }
 
 //: The trace overlay. Drawn from the same `graphTrace`/`graphTraceRoutes`
@@ -1623,17 +1689,32 @@ function gcEdgeAtWorld(x, y, s = gcTab) {
   const tolerance = 8 / ((s.transform && s.transform.k) || 1);
   let best = null;
   let bestDistance = tolerance;
+  const curved = !s.tree && gcCurvedLinks(s);
   for (const edge of s.edges) {
     if (edge.kind !== "link") continue;
     const a = edge.source;
     const b = edge.target;
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSq = dx * dx + dy * dy || 1;
-    let t = ((x - a.x) * dx + (y - a.y) * dy) / lengthSq;
-    t = Math.max(0, Math.min(1, t));
-    const distance = Math.hypot(a.x + t * dx - x, a.y + t * dy - y);
+    let distance;
+    if (curved) {
+      //: Sampled along the curve it is drawn as: eight steps are a pixel or
+      //: two of error on a 150px line, well inside the tolerance.
+      const c = gcBowPoint(a, b);
+      distance = Infinity;
+      for (let i = 0; i <= 8; i++) {
+        const u = i / 8;
+        const px = (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * c.x + u * u * b.x;
+        const py = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * c.y + u * u * b.y;
+        distance = Math.min(distance, Math.hypot(px - x, py - y));
+      }
+    } else {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const lengthSq = dx * dx + dy * dy || 1;
+      let t = ((x - a.x) * dx + (y - a.y) * dy) / lengthSq;
+      t = Math.max(0, Math.min(1, t));
+      distance = Math.hypot(a.x + t * dx - x, a.y + t * dy - y);
+    }
     if (distance < bestDistance) {
       bestDistance = distance;
       best = edge;
@@ -2529,6 +2610,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       source: e.source.id != null ? e.source.id : e.source,
       target: e.target.id != null ? e.target.id : e.target,
       kind: e.kind,
+      //: A link somebody gave a reason for sits a little closer (the worker's
+      //: `KIND_LENGTH`).
+      curated: e.kind === "link" && Boolean(e.reason),
       //: A similarity line's score or a deduced link's confidence, for
       //: Length by similarity. The worker was never sent it, so that switch
       //: changed nothing on this renderer (INBOX 412, measured).
@@ -2542,6 +2626,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       //: arranged by its links, and a ring of category places would pull
       //: three notes apart.
       groupBy: s.size === "full" && localStorage.getItem("graph-group") !== "0",
+      //: Unlinked notes take a seat on a ring round the cluster (the worker's
+      //: `orbitForce`); a local map has none to seat.
+      orbit: s.size === "full",
     },
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout
@@ -2566,7 +2653,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
   const sig = JSON.stringify([
     init.perf,
     init.nodes.map((n) => [n.id, n.fx, n.fy, n.r]),
-    init.edges.map((e) => [e.source, e.target, e.kind, e.score]),
+    init.edges.map((e) => [e.source, e.target, e.kind, e.score, e.curated]),
     init.params,
     world,
   ]);

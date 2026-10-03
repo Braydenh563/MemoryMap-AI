@@ -93,7 +93,9 @@ with its owner named in the entry.
      feminine atlas lower body also be improved a little as well to not
      look so tentacle-y?? I still want that really nice look to it. make it
      really attractive and and alluring". Placed: (1) the graph's layout
-     and look: a Sonnet agent; (2) skeletons: **fixed** (shaped bars, a
+     and look: **fixed** (60-note sweep `graphlook.js`: category purity 0.56 to 0.84,
+     unlinked notes' gap to the cluster 3.0 to 1.8, size scale 5 to 15, tinted
+     curved links, word-cut labels); (2) skeletons: **fixed** (shaped bars, a
      visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
      workspace: a Sonnet agent; (4) the feminine Atlas's lower body, flowing
      like a gown's hem rather than tentacles, kept elegant: the orchestrator,

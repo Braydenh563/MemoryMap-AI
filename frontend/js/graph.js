@@ -2637,7 +2637,7 @@ async function renderGraphSvg() {
   //: like the others, read by the canvas renderer on every frame, so the
   //: toggle is a redraw and never a rebuild of the simulation.
   const curvedBox = $("graph-curved");
-  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") === "1";
+  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") !== "0";
   const nebulaBox = $("graph-nebula");
   if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
   const lengthBox = $("graph-length-score");
@@ -3221,9 +3221,14 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   //: clamped. Skipping the fit leaves the camera where it is, which is what
   //: a fit that cannot be computed should do.
   if (!graphMinimapFinite(tx, ty, scale)) return;
+  //: The glide to the fitted view is travel, so a reader who asked for less
+  //: motion gets the framed map at once (INBOX 443 (1)): the fit lands twice
+  //: while a layout settles, and two half-second pans are the most movement
+  //: this tab makes on its own.
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   svg
     .transition()
-    .duration(500)
+    .duration(still ? 0 : 500)
     .call(
       zoomBehavior.transform,
       d3.zoomIdentity.translate(tx, ty).scale(scale)
@@ -5143,7 +5148,7 @@ const GRAPH_DEFAULTS = {
   "graph-maps": false,
   "graph-hide-orphans": false,
   "graph-labels": true,
-  "graph-curved": false,
+  "graph-curved": true,
   "graph-nebula": true,
   "graph-length-score": true,
   "graph-group": true,

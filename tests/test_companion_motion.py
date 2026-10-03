@@ -994,7 +994,7 @@ def test_it_never_perches_in_a_run_of_words() -> None:
     assert 'child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6")' in walk
     assert '!cs.display.startsWith("inline")' in walk
     choose = _fn("nameMarkBuddyChoose")
-    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return soiled || corner;" in choose
+    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "if (soiled) return soiled;" in choose
 
 
 def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
@@ -1115,7 +1115,7 @@ def test_perches_are_top_edges_outside_card_content_and_measured_for_words() -> 
     assert "cb.height > innerHeight * 0.6" in inside and "box.top > cb.top + 6" in inside
     choose = _fn("nameMarkBuddyChoose")
     assert "const words = nameMarkBuddyWordsUnder(perch.x, perch.y, perch.pose, perch.legs);" in choose
-    assert choose.index('legs: "peek"') < choose.index("return soiled || corner;")
+    assert choose.index('legs: "peek"') < choose.index("if (soiled) return soiled;")
     words = _fn("nameMarkBuddyWordsUnder")
     assert "seen < 400" in words and "nameMarkBuddyScroller(root)" in words
 
@@ -1289,3 +1289,12 @@ def test_it_does_what_the_apps_model_work_is_doing() -> None:
     for path in (ROOT / "frontend" / "js").glob("*.js"):
         if path.name != "avatars.js":
             assert "nameMarkBuddyWork(" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_its_last_resort_is_never_the_corner_over_a_control() -> None:
+    # INBOX 443: on the phone's Chat, an answer down to the dock left no
+    # clean edge, and the corner was taken over Send by 32px
+    # (companionchat.js, 390). Tucked behind the bottom bar instead.
+    choose = _fn("nameMarkBuddyChoose")
+    assert "return soiled || corner;" not in choose
+    assert "nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner" in choose

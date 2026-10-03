@@ -11,7 +11,8 @@
 //
 // Env: W (1440; 390 boots a phone), KIND (atlas), FAKE (8774), SHOT (a tag
 // for screenshots in out/buddy-chat-*.png). Exits 1 when the drawn figure
-// overlaps a protected control by more than 2px at any sample.
+// overlaps a protected control by more than 2px at any sample where it is
+// not on its way somewhere (a frame of a move is printed, marked moving).
 const { boot } = require("./lib.js");
 const path = require("path");
 
@@ -79,6 +80,9 @@ async function sample(page, label) {
       hits: nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles("chat"), nmb.legs),
       stopBox: r(box(document.getElementById("chat-stop"))),
       at: [nmb.x, nmb.y].map(Math.round),
+      //: On its way between two places (a walk, a poof, a crossfade): a
+      //: frame of the way, reported but not a place it sits.
+      moving: !!(nmb.anim && nmb.anim.playState === "running") || buddy.classList.contains("nmb-walking"),
     };
   }, label);
 }
@@ -117,8 +121,8 @@ async function sample(page, label) {
   let bad = false;
   for (const row of rows) {
     const o = Object.entries(row.over || {}).filter(([, v]) => parseFloat(v) > 2);
-    if (o.length) bad = true;
-    console.log(`${row.label}: ${row.perch}/${row.pose}${row.legs ? `/${row.legs}` : ""} act=${row.act || "-"}${row.think ? " think" : ""}${row.reading ? " reading" : ""} on ${row.on} (${row.where}) fig ${row.fig}${o.length ? `  OVER ${JSON.stringify(Object.fromEntries(o))} hits=${row.hits} at ${row.at} stop ${row.stopBox}` : ""}`);
+    if (o.length && !row.moving) bad = true;
+    console.log(`${row.label}: ${row.perch}/${row.pose}${row.legs ? `/${row.legs}` : ""} act=${row.act || "-"}${row.think ? " think" : ""}${row.reading ? " reading" : ""} on ${row.on} (${row.where}) fig ${row.fig}${o.length ? `  OVER ${JSON.stringify(Object.fromEntries(o))} hits=${row.hits}${row.moving ? " (moving)" : ""} at ${row.at} stop ${row.stopBox}` : ""}`);
   }
   const last = rows[rows.length - 1];
   console.log(`dock ${last.dock} pane ${last.pane} sidebar ${last.sidebar} input ${last.input} send ${last.send} latest ${last.latest} jump ${last.jump}`);

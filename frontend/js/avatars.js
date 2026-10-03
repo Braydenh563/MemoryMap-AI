@@ -4552,7 +4552,14 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
     if (spot.legs !== "peek" && nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs)) continue;
     if (nameMarkBuddyWordsUnder(spot.x, spot.y, spot.pose, spot.legs) <= NMB_WORDS_PX) return spot;
   }
-  return soiled || corner;
+  //: **Never the corner over a control** (INBOX 443): on the phone's Chat,
+  //: with an answer filling the pane down to the dock, there was no clean
+  //: edge and the corner was taken anyway, over Send by 32px
+  //: (companionchat.js, 390). Tucked behind the bottom bar, only its eyes
+  //: show, over words at worst and never over a control.
+  if (soiled) return soiled;
+  const tucked = fallbacks.find((spot) => spot.legs === "peek");
+  return tucked && nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner;
 }
 
 function nameMarkBuddySpots() {

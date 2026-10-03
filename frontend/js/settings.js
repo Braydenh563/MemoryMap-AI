@@ -41,6 +41,16 @@ let currentSettingsSection = "models";
 //: next pane and open it, Home and End to the first and last. Tab still
 //: leaves the list for the pane, so nothing a keyboard user relied on moves.
 document.getElementById("settings-nav")?.addEventListener("keydown", (event) => {
+  //: Page Up and Page Down still read the pane from the list (INBOX 426 u's
+  //: reading keys, now that a click leaves the focus here: INBOX 467).
+  if ((event.key === "PageDown" || event.key === "PageUp") && document.activeElement?.closest("#settings-nav")) {
+    const scroller = typeof settingsScroller === "function" ? settingsScroller(currentSettingsSection) : null;
+    if (scroller) {
+      event.preventDefault();
+      scroller.scrollBy({ top: (event.key === "PageDown" ? 1 : -1) * scroller.clientHeight * 0.9 });
+    }
+    return;
+  }
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
   const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")]
     .filter((b) => b.getClientRects().length);
@@ -2997,7 +3007,14 @@ function focusSettingsHeading(name) {
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", (event) => {
     showSettingsSection(button.dataset.section);
-    if (!settingsNavWalking) focusSettingsHeading(button.dataset.section);
+    //: **A pointer click keeps the focus in the list** (INBOX 467, the owner:
+    //: "I cant navigate on the settings navigation side bar with arrows"),
+    //: so Up and Down walk on from the section clicked, as in every settings
+    //: window's sidebar; a click in the pane gives the reading keys to the
+    //: pane. Enter or Space (`detail` 0) still hands the focus to the
+    //: section's heading, where a keyboard user reads on.
+    if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(button.dataset.section);
+    else if (!settingsNavWalking) button.focus({ preventScroll: true });
   });
 }
 $("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));

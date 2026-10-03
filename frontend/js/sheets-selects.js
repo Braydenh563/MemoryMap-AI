@@ -934,7 +934,14 @@ function enhanceSelect(select) {
 document.addEventListener("dblclick", (event) => {
   const slider = event.target;
   if (!(slider instanceof HTMLInputElement) || slider.type !== "range") return;
-  if (slider.disabled || slider.value === slider.defaultValue) return;
+  if (slider.disabled) return;
+  //: A slider whose "default" is not its markup value (the model's sampling
+  //: knobs: back to the model's own, by dropping your override) answers a
+  //: cancelable `rangereset` itself (INBOX 437: the value went back, the
+  //: "you set this" badge stayed, because the reset saved a new override).
+  const own = new CustomEvent("rangereset", { cancelable: true });
+  if (!slider.dispatchEvent(own)) return;
+  if (slider.value === slider.defaultValue) return;
   slider.value = slider.defaultValue;
   slider.dispatchEvent(new Event("input", { bubbles: true }));
   slider.dispatchEvent(new Event("change", { bubbles: true }));

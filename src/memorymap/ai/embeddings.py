@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import Attachment, Category, EmbeddingRecord, Entry
+from memorymap.core.logbuffer import safe_value
 
 if TYPE_CHECKING:
     # Only for the annotations below, which `from __future__ import
@@ -44,6 +45,11 @@ if TYPE_CHECKING:
 # from Hugging Face in the log. Anything that shows the name asks
 # `EmbeddingService.active_model()`.
 DEFAULT_ST_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+class EmbeddingCacheBroken(RuntimeError):
+    """The model is on disk but will not load; the app stays offline rather
+    than fetching it again unasked (`_load_st_model`)."""
 
 logger = logging.getLogger("memorymap.embeddings")
 
@@ -592,16 +598,38 @@ class EmbeddingService:
         problem entirely for the common case (already downloaded once);
         the online attempt below is now purely for the genuine first-ever
         download."""
+        #: **Online only for a first download** (INBOX 439, the owner's
+        #: privacy panel: "huggingface.co, Embedding model, connected 1 time"
+        #: with the model already on the machine). A cache lookup that failed
+        #: used to fall straight through to an online load, logged at debug,
+        #: so a model on disk whose files would not load (a newer library
+        #: wanting a file the old download lacks, an interrupted download)
+        #: went to the internet on every launch with nothing saying why. Now:
+        #: never downloaded, it downloads, said in the log; on disk and not
+        #: loading, it stays offline, says why, and Settings' Reinstall is the
+        #: one way back online, a choice the person makes.
+        os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
         from sentence_transformers import SentenceTransformer
 
         try:
             model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
             logger.info("embedding model loaded from local cache")
             return model
-        except Exception:  # noqa: BLE001  # not cached, stale or corrupt; fetch it
-            logger.debug(
-                "%s is not in the local cache, fetching it", DEFAULT_ST_MODEL, exc_info=True
-            )
+        except Exception as exc:  # noqa: BLE001  # not cached, stale or corrupt
+            from memorymap.core import embedmodels
+
+            if embedmodels.is_downloaded(DEFAULT_ST_MODEL):
+                logger.warning(
+                    "%s is on this computer but would not load (%s); staying offline. "
+                    "Reinstall it from Settings, Models to fetch it again.",
+                    DEFAULT_ST_MODEL,
+                    safe_value(str(exc), 200),
+                )
+                raise EmbeddingCacheBroken(
+                    "The search-by-meaning model's files on this computer would not load. "
+                    "Reinstall it from Settings, Models."
+                ) from exc
+        logger.info("%s is not on this computer yet: downloading it once", DEFAULT_ST_MODEL)
         return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:

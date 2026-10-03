@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Privacy: the search-by-meaning model goes online only to download itself the first time; once on this computer it loads from disk with no connection, and if its files will not load it says to reinstall it instead of quietly fetching it again.
+- Settings, Models: double-clicking a slider to reset it also resets its "you set this" badge, and the value no longer shows twice.
 - Loading: the Library's documents, boards and maps, images and files, AI skills, bookmarks and contents, Reminders, the chat list and the documents sidebar show placeholder rows while their data loads, instead of a blank area.
 - Tags fields (Capture and editing a note): the browser's dropdown arrow and list are replaced by the app's own list, under the field at its width, completing the tag after the last comma, leaving out tags already entered, showing how many notes use each; arrow keys, Enter, Tab and Escape work.
 - A note nothing could file offers its likely categories as one-tap buttons beside Choose category; a note filed from your notebook's words says so.

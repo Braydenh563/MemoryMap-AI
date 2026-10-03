@@ -34,6 +34,14 @@ with its owner named in the entry.
 
 ## Open items
 
+438. **The owner, 2026-10-03, verbatim.** "I also think there should be
+     timestamps and success status for when various things were last ran
+     like the search reindexing etc." Placed: every maintenance action that
+     runs on demand or in the background (search reindex, embeddings
+     backfill, backups, filing re-evaluation, duplicate scan, OCR, imports)
+     shows "Last run: <when>, <succeeded / failed: why>" beside its control,
+     from one record the backend keeps per job kind: the orchestrator.
+
 437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
      Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,
      Top-k slider, a "you set this" badge, the value 124 twice).** "the
@@ -65,6 +73,11 @@ with its owner named in the entry.
      the fold at 1440, 1280 and 390), then a redesign of everything between
      the hero and the widgets (kept as they are): one primary action, a
      clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
+     Then, verbatim: "also i didnt mind this start something row on the
+     dashboard. get the agent to research and compare vother various
+     dashboard designs and ideas for inspiration" (screenshot: the five
+     Start something cards). Placed: the row stays; the agent compares
+     named dashboards before changing the layout and reports the comparison.
 
 435. **The owner, 2026-10-03, verbatim, with screenshots (the Capture tags
      row with its open list; CodeQL alerts 439 to 441; Atlas; a drawing).**
@@ -876,113 +889,6 @@ with its owner named in the entry.
     label drag drifting and starting a selection box; the chat header naming
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
-
-266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
-    information architecture things are missing and can be added?? It's often
-    the small things that act up, are broken, unreliable, or missing with the
-    user needs to work which break the user's trust of the application and
-    make it feel less professional, unpolished, like a demo, and not
-    trustworthy to be actually used for legitimate work
-    Tar file for linus
-    Windows msi file
-    Version platform architecture for both windows and linux installers
-    Lightweight as possible
-    what happens if the user runs out of storage??
-    needs full backend professional design that accounts for everything
-    needs more optimisation
-    We need to do a full architecture analysis and make sure that we are
-    actually using the right architecture and backend functions. we need to
-    make sure that our choices are the best they can be. like why is storing
-    in an sqlite database the best way to store notes etc. are things running
-    when they arent necessary and taking up extra compute?? things like
-    containers are spun up as needed like serverless cloud architecture"
-    Open. Seven asks, and most are analysis rather than a fix: (1) the
-    usability and IA gaps that cost trust, (2) a `.tar.gz` for Linux, (3) an
-    `.msi` for Windows, (4) version, platform and architecture in every
-    installer's name, (5) lightweight, (6) what the app does when the disk
-    fills, (7) an architecture review with SQLite and idle compute named
-    specifically.
-    **(6) done 2026-09-21**, measured on a real full filesystem: an 80 MB
-    tmpfs mounted as the data dir and filled to 100%, the app driven against
-    it. Already right: saving answered 507 with a sentence about disk space,
-    and reading, searching and exporting kept working throughout. Three
-    things were not. **Unlocking answered 507**, so a full disk locked the
-    person out of their own notebook entirely, over the audit row written
-    beside it. **A failed backup left a zero-byte file named like a backup**,
-    which listed as one, passed `PRAGMA integrity_check` (an empty file is a
-    valid empty database) and would have replaced the whole notebook with
-    nothing if restored: a full disk turning into total loss through the
-    app's own restore button. **A failed upload or export left its
-    half-written file behind**, orphaned, holding the space the person was
-    short of. All three fixed, plus one ASGI `SpaceGuard` that refuses a
-    write bigger than the room left before a byte of it is read, so the app
-    can no longer fill the last megabyte and lock itself out. After, on the
-    same full tmpfs: unlock 200, reads 200, save 507 naming the folder and
-    `0 bytes free`, a 1 MB upload refused up front asking for 3.0 MB, backup
-    507 with nothing left behind, every write working again the moment space
-    was freed. The 507's sentence now reaches every toast in the app and
-    Settings, Data carries a `.notice notice-warn` line when space is low
-    (`scratchpad/ui-sweeps/diskspace.js`, PASS in both themes).
-    **(7) done 2026-09-21**, both halves. *Idle compute*: with no browser
-    attached the server is asleep, 0.04s of CPU across 23 threads in 30
-    seconds (0.13% of one core), because every background piece blocks
-    rather than polls. The cost is the open tab: two HH:MM clocks ticking
-    once a second and a model-status poll asking twice a minute for ever.
-    The clocks are scheduled on the wall-clock minute now and the poll
-    doubles to a two-minute ceiling while the answer does not change,
-    dropping back to 30s on any change, on returning to the tab, on opening
-    Settings or on starting a job. Measured with `idle.js` (which now counts
-    timer *fires*, not only live intervals) and the new `idlecpu.js`: **timer
-    wakes in an idle visible minute 124 to 5, requests 4 to 2, idle CPU
-    6.01%/6.11% of one core to 5.50%/5.59%.** Found, not fixed, and a
-    decision for the owner rather than an agent: nearly all of what is left
-    is the Dashboard's emblem animating at 24fps because it was asked to,
-    which the same probe prices at 5.55% on the Dashboard against 2.09%
-    parked on Notes. *SQLite*: the answer is written down as a decision in
-    `docs/ARCHITECTURE.md` ("Why SQLite holds the notes"), with its reasons,
-    its numbers and where it would stop being right, so it does not have to
-    be argued a fourth time. No migration started, and the serverless
-    question is answered in a paragraph there rather than left hanging.
-    **(1) done 2026-09-23**, the usability and IA read against the owner's
-    "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
-    dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
-    restoring from the bin at four on purpose (the table is in
-    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
-    both dashboard "Ask" doors opened a disabled Chat box when no model was
-    running (now Notes, Ask, which answers without one); the Chat tab never
-    said why its box was grey (now the same Connect-a-model line as Ask, the
-    agent and the writing desk); a new notebook's Library said "Nothing of
-    this kind yet" because the activity log counted as things made (now a
-    sentence and a Create button); Create offered no board and no upload
-    (now seven rows).
-    Checked, not built here (packaging is another agent's): (2) the
-    `.tar.gz` ships (`release.yml`, `MemoryMap-AI-<v>-linux-x86_64.tar.gz`);
-    (3) the `.msi` steps exist but are `if: false`, so no MSI ships; (4)
-    every installer name carries version, platform and arch
-    (`installer.iss`: `MemoryMap-AI-Setup-<v>-windows-x86_64`). Still open on
-    this entry: (3) and (5).
-    **Checked 2026-09-23.** (2) built: `release.yml` ships
-    `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
-    then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)
-    built: every artifact name carries version, platform and architecture
-    (`MemoryMap-AI-Setup-<version>-windows-x86_64` in `installer.iss`, the
-    MSI and both Linux archives in `release.yml`). Left: (1), the usability
-    and information-architecture read, and (5), lightweight, whose decided
-    shape is lazy imports (268).
-    **(5) measured 2026-09-23**, and the lazy-import work is already done
-    where it pays. `python -X importtime` over `create_app()`
-    (`scratchpad/oi_importtime.py` reads the output): the process imports
-    fastapi (402ms), SQLAlchemy (172ms), alembic (129ms) and requests (49ms)
-    and nothing heavier; numpy, torch, Pillow, pypdf and python-docx are not
-    in `sys.modules` after `create_app`, and peak RSS is 104MB. What makes a
-    running server large is the built-in embedding model: 774MB resident on
-    a notebook with notes, once `start_warmup` has loaded
-    sentence-transformers, and it already waits for the first page, for an
-    idle moment and for the notebook to have a note at all. The one lever
-    left is which backend embeds, a Settings choice that exists: Ollama's
-    `nomic-embed-text` keeps the model out of this process, and the search
-    engine's '?' on Settings, Models now says so with the number. So (5) is
-    answered; (1) is the one part of this entry left.
 
 268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
     screenshots.** "what is the difference between the exe and msi installer??

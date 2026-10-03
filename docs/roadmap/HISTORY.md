@@ -36032,3 +36032,13 @@ width, 47% of the column at 1440.
      1.5B model (13/16 on a fixed set, names only; examples made it worse,
      11/16), a property of the model, not the prompt.
 
+439. **The owner, 2026-10-03, verbatim, with a screenshot (Privacy:
+     "huggingface.co, Embedding model, connected 1 time").** "Also I thought
+     the embedding model was already installed on my computer since I was
+     using it previously. we needs to make sure that outside connections are
+     made only when necessary and not when unneeded". Fixed: the loader
+     tries the files on disk only, and goes online only when the model has
+     never been downloaded; files on disk that will not load stay offline
+     and say "Reinstall it from Settings, Models"; hub telemetry is off.
+     `tests/test_embedding_offline.py`.
+

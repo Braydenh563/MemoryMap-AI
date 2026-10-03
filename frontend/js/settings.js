@@ -3210,7 +3210,10 @@ function renderSamplingRows() {
       //: box would claim the app had chosen a value it has not.
       number.value = value === undefined ? "" : String(value);
       number.placeholder = value === undefined ? "auto" : "";
-      readout.textContent = value === undefined ? "backend default" : String(value);
+      //: The number field already shows the value; the readout only speaks
+      //: when there is none (INBOX 437: "124" twice on one row).
+      readout.textContent = value === undefined ? "backend default" : "";
+      readout.classList.toggle("hidden", value !== undefined);
       const from = samplingState.sources[knob.name];
       source.textContent =
         from === "you" ? "you set this" : from === "model" ? "from the model" : "default";
@@ -3218,6 +3221,11 @@ function renderSamplingRows() {
       reset.disabled = !overridden;
     };
     paint();
+    //: Double-click means "back to the model's", the reset button's meaning.
+    slider.addEventListener("rangereset", (event) => {
+      event.preventDefault();
+      if (!reset.disabled) reset.click();
+    });
 
     // Dragging a slider fires `input` on every pixel. Saved on a trailing
     // timer rather than per event, the same shape every other debounced

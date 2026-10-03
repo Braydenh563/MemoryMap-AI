@@ -46,7 +46,10 @@ def test_a_companion_shown_again_starts_fresh() -> None:
     gone = _fn(AV, "nameMarkBuddyGone")
     for part in ('nmb.act = "";', "clearTimeout(nmb.poutTimer);", "for (const t of nmb.poseSteps || []) clearTimeout(t);", "nmb.wokeAt = 0;"):
         assert part in gone, part
-    assert "if (!buddy.isConnected) return;\n        buddy.classList.remove(\"nmb-grumpy\");" in AV
+    # The click's poke is a closure now (INBOX 443: a double-click is not
+    # two pokes), one level deeper.
+    assert "if (!buddy.isConnected) return;\n          buddy.classList.remove(\"nmb-grumpy\");" in AV
+    assert "nmb.visit = null;" in gone
 
 
 NAV = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")

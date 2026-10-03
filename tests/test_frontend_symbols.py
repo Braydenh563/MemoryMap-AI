@@ -66,7 +66,7 @@ KNOWN_GLOBALS = frozenset(
     Headers Image Infinity Int32Array Intl IntersectionObserver JSON Map Math
     MediaRecorder MutationObserver NaN Notification Number Object Option Path2D
     Performance PerformanceObserver Promise Proxy Range RangeError
-    ReferenceError Reflect RegExp Request ResizeObserver Response ScrollTimeline Set
+    ReadableStream ReferenceError Reflect RegExp Request ResizeObserver Response ScrollTimeline Set
     SpeechSynthesisUtterance String Symbol SyntaxError TextDecoder TextEncoder
     TypeError URIError URL URLSearchParams Uint8Array Uint32Array WeakMap
     WeakRef WeakSet Worker XMLHttpRequest XMLSerializer AbortController

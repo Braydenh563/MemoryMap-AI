@@ -36171,3 +36171,28 @@ width, 47% of the column at 1440.
      memory and one action, and "Download another model" (settings-models.js);
      UI_MODERNISATION_PLAN, Settings information architecture.
 
+447. **The owner, 2026-10-03, verbatim, with screenshots (the graph popup
+     showing `**Current Commitments**` and `![Gary...](/media/...)` raw; a
+     note card's meta line run together: "Courses & Study 73% Add tags Tag
+     with Atlas Atlas is reading...").** "the popup in the graph still doesnt
+     render images or sketches" / "md isnt rendered either?? i dont think the
+     md is rendered at all in the graph popups" / "the companion doesnt
+     change action for related actions when things are hallening like for
+     the tag and file with atlas note function running with atlas reading
+     the note" / "there's no spacing between note metadata and it still
+     needfs to be improved ui/ux wise" / "There also needs to be a way to
+     more easily manage tags in, between, and across indivisual and multiple
+     notes. like a tag manager. also when clicking on the categories in note
+     metadata, there should also be the option to view that category as
+     well, not just manage it." Placed: (1) the graph popup renders markdown
+     and pictures: the orchestrator, reproduced first; (2) companion reacts to
+     AI work: sent to the companion agent; (3) the note meta line redesigned
+     (groups, spacing, hierarchy): the orchestrator; (4) a tag manager
+     (rename, merge, delete, bulk add or remove across selected notes) and
+     (5) "Show this category" on the category chip's menu: an agent.
+     **Done**: (1) the popup renders (Source limited to toggled boxes);
+     (3) the line grouped and spaced, the time always shown; (4) and (5)
+     the tag manager, bulk tags and the category chip's menu (tag-manager.js,
+     chip-menus.js); (2) the companion reacts to AI work (`NMB_WORK`, one
+     fetch hook). **Fixed, all five.**
+

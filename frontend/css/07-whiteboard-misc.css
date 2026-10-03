@@ -4241,7 +4241,6 @@ input[type="url"]:hover:not(:focus) {
 .extract-card,
 .extract-note-card,
 .wb-card,
-.file-card-text,
 .copy-fallback-card,
 .modal-card {
   align-items: stretch;

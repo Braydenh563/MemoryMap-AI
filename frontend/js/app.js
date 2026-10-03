@@ -2179,6 +2179,9 @@ const LAZY_MODULES = {
   askHistory: ["/js/ask-history.js"],
   settingsData: ["/js/settings-data.js"],
   tagSuggest: ["/js/tag-suggest.js"],
+  //: What a click on an attachment card does (INBOX 440 (2)): see
+  //: attachment-actions.js's header.
+  attachments: ["/js/attachment-actions.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2412,6 +2415,7 @@ const LAZY_ENTRY_POINTS = {
     "chooseNoteCategory",
     "openTagsSheet",
   ],
+  attachments: ["attachmentAction"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

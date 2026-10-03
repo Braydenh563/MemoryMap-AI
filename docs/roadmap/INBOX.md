@@ -150,18 +150,6 @@ with its owner named in the entry.
      queries, indexes): a Sonnet agent. Agent cap raised by the owner for
      Sonnet agents.
 
-440. **The owner, 2026-10-03, verbatim, with a screenshot (a note's image
-     attachment card: a drawing, a truncated title "Gary The Moss Mons...",
-     three bare icon buttons).** "also I feel like on notes there should be
-     a way to see the ai confidence score as well as pre suggested tags that
-     are made and kept when filing for the user to easily choose or discard.
-     also all of the attachment cards ui and ux and utility need a massive
-     redesign and upgrade." Placed: (1) filing keeps its confidence and its
-     suggested tags on the note; the note shows them, each tag one tap to
-     keep or discard: the orchestrator; (2) the attachment card redesigned
-     (layout, naming, actions with labels, open, download, rename, replace,
-     preview): an Opus agent.
-
 438. **The owner, 2026-10-03, verbatim.** "I also think there should be
      timestamps and success status for when various things were last ran
      like the search reindexing etc." Placed: every maintenance action that

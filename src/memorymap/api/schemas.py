@@ -160,6 +160,10 @@ class AttachmentOut(BaseModel):
     filename: str
     size: int
     is_image: bool
+    #: When it was attached, ISO-8601. The attachment card's facts line is
+    #: kind, size and the day it came (INBOX 440 (2)); the row has always had
+    #: the date, the note's payload never carried it. "" for a row without one.
+    created_at: str = ""
 
 
 class SimilarOut(BaseModel):

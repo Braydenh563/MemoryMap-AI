@@ -17525,7 +17525,7 @@ function docCmTheme(CM) {
       //: and a minimap is `width: 100%` of whatever box it is handed.
       ".cm-md-embed .entry-list": { width: "min(420px, 100%)", margin: "0", padding: "0" },
       ".cm-md-embed .doc-embed-map": { display: "block", width: "min(320px, 100%)" },
-      ".cm-md-embed .file-card": { maxWidth: "min(360px, 100%)" },
+      ".cm-md-embed .att-card": { width: "min(360px, 100%)" },
       ".cm-md-math": { cursor: "text" },
       ".cm-md-math-block": { display: "block", textAlign: "center", margin: "0.2em 0" },
       ".cm-md-footnote": {

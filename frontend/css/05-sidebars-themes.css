@@ -366,108 +366,172 @@ select.ai-unavailable {
   margin-right: var(--space-1);
 }
 
-/* A file attached to a note. Replaces the bare `<a href="/media/…">` that
-   used to render here, which navigated the whole app away to a 401 page
-   with no way back, see `fileCard` in notes-list.js for the full account.
+/* --- the attachment card (INBOX 440 (2), DESIGN.md "A file attached to a
+   note") ----------------------------------------------------------------
+   One card for every file attached to anything: a note's own files, a file
+   its text points at, a picture staged in Capture, a file waiting for Save,
+   and the read-only copies in a document, the graph's panel and the
+   timeline. Built by `attachmentCard` (notes-list.js).
 
-   `inline-flex`, not `block`: this is produced by the inline-markdown
-   renderer and can legitimately sit mid-sentence. Stacked one per line is
-   the common case and falls out of the flow anyway, because a note that
-   attaches files puts each on its own line. */
-.file-card {
-  display: inline-flex;
-  align-items: stretch;
-  gap: 0;
-  max-width: 100%;
-  margin: var(--space-2) var(--space-2) var(--space-2) 0;
+   The report it answers: a picture card in the edit form was a white
+   thumbnail, a bold name cut to "Gary The Moss Mons...", and three bare
+   glyphs floating under it. So: the tile and the words side by side (the
+   words are what you scan a list of files by), the whole name on up to two
+   lines, one line of facts, and one ⋯ for the seven things a file can have
+   done to it. The card is the button that opens the file. */
+.att-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.att-card {
+  --att-tint: var(--accent);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--chip-bg);
-  overflow: hidden;
-  vertical-align: middle;
+  background: var(--card);
+  transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+
+/* A card on its own, outside a row of them: a file linked in a note's text,
+   a document or an answer. A card's width, not the paragraph's, one per line. */
+:not(.att-cards) > .att-card {
+  max-width: 24rem;
+  margin: var(--space-2) 0;
+}
+
+/* The tint says the kind before the words do; the facts line says it in
+   words, so the colour is never the only signal. */
+.att-card[data-kind="pdf"] {
+  --att-tint: var(--error);
+}
+
+.att-card[data-kind="audio"] {
+  --att-tint: var(--warn);
+}
+
+.att-card[data-kind="video"] {
+  --att-tint: var(--ok);
 }
 
 @media (hover: hover) {
-  .file-card:hover {
+  .att-card:hover {
     border-color: var(--accent);
+    background: var(--hover-veil);
   }
 }
 
-.file-card-open {
-  display: flex;
+/* A file chosen in Capture and not uploaded yet: dashed, the same mark the
+   old staged file card carried, because it is a promise rather than a file. */
+.att-card[data-state="staged"] {
+  border-style: dashed;
+}
+
+.att-card-open {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
   height: auto;
-  padding: var(--space-3) var(--space-4);
-  border: 0;
-  border-radius: 0;
+  min-height: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink);
+  font-weight: 400;
   text-align: left;
-  cursor: pointer;
 }
 
-@media (hover: hover) {
-  .file-card-open:hover {
-    background: var(--accent-soft);
-  }
+.att-card-open:focus-visible {
+  outline-offset: -2px;
 }
 
-.file-card-icon {
-  flex: 0 0 auto;
-  font-size: var(--text-h3);
-  color: var(--accent-text);
+.att-card-open[aria-disabled="true"] {
+  cursor: default;
 }
 
-.file-card-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
-}
-
-/* The name is the thing being identified, so it gets the ellipsis rather
-   than the row: a long filename must not be allowed to widen the card past
-   the note it sits in. */
-.file-card-name {
+/* The picture fills the tile; until it decodes, and when it cannot, the
+   kind's glyph stands on the tint instead. */
+.att-card-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--att-tint) 14%, transparent);
+  color: var(--att-tint);
+  font-size: var(--text-h3);
+}
+
+.att-card-tile.has-thumb {
+  background: var(--surface-2);
+}
+
+.att-card-tile.has-thumb > i {
+  visibility: hidden;
+}
+
+.att-card-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.att-card-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* **The whole name, on up to two lines.** The old card cut it to one line
+   mid-word ("Gary The Moss Mons..."). Two lines hold about fifty characters
+   at the card's narrowest, a longer name ends in an ellipsis at a line's end
+   with the whole of it on the tooltip, and `anywhere` breaks a name with no
+   spaces in it rather than letting it push the card wide. */
+.att-card-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--text-md);
   font-weight: 500;
+  line-height: 1.3;
 }
 
-.file-card-kind {
-  color: var(--muted);
-  font-size: var(--text-sm);
+/* Three short facts on one line: wrapped, the line broke after a dot and
+   left it hanging at the end of the first line (measured at 1440 in Capture,
+   a 260px card). The facts are short enough that they fit at the narrowest
+   track, so they stay on one line. */
+.att-card-meta {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
-/* Its own border rather than a gap, so the two halves read as one object
-   with two actions instead of two buttons that happen to be adjacent. */
-.file-card-save,
-.file-card-remove {
-  flex: 0 0 auto;
-  align-self: stretch;
-  height: auto;
-  border: 0;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
+/* The ⋯: on the touch floor everywhere (44px below 820, 28px above). */
+.att-card-more {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin-right: var(--space-2);
 }
 
-/* The composer's own list of attached files. A wrapping row rather than a
-   grid: there are usually one or two, and a grid would leave an empty
-   column beside a single file. */
-.file-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-/* Inside the strip each card is its own row item, so the inline margin the
-   in-note version needs (it can sit mid-sentence) would double the gap. */
-.file-strip .file-card {
-  margin: 0;
+/* A recording opens out under its card, across the whole width. */
+.att-card-player {
+  grid-column: 1 / -1;
+  width: calc(100% - 2 * var(--space-3));
+  max-height: 18rem;
+  margin: 0 var(--space-3) var(--space-3);
+  border-radius: var(--radius-sm);
 }
 
 /* Swapped in for a note's own inline image once its file is gone, 
@@ -4620,22 +4684,6 @@ textarea.autogrow {
   color: var(--muted);
   font-size: var(--text-sm);
   letter-spacing: 0.06em;
-}
-
-/* A file staged in the composer: chosen, not yet uploaded, because the note
-   it belongs to has no id until Save. Dimmed rather than hidden, it is a
-   real commitment the user has made and should be able to see and undo. */
-.file-card-staged {
-  border-style: dashed;
-}
-
-.file-card-staged .file-card-open {
-  cursor: default;
-  opacity: 0.75;
-}
-
-.file-card-pending {
-  color: var(--accent-text);
 }
 
 /* Direction on a link chip. Colour is deliberately *not* the only signal, 

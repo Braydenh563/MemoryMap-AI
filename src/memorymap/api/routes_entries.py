@@ -156,6 +156,7 @@ def _to_out(
                 filename=a.filename,
                 size=a.size,
                 is_image=a.mime.startswith("image/"),
+                created_at=a.created_at.isoformat() if a.created_at else "",
             )
             for a in resolved_attachments
         ],

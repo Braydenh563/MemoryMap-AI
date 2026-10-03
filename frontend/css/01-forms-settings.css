@@ -1506,7 +1506,7 @@ progress {
    assume the full card. Hidden rather than shrunk, a 3px-tall thumbnail is
    worse than none, and the card view is one click away. */
 .entry-list.is-rows li:not(.row-expanded) .entry-content img,
-.entry-list.is-rows li:not(.row-expanded) .file-card,
+.entry-list.is-rows li:not(.row-expanded) .att-cards,
 .entry-list.is-rows li:not(.row-expanded) .entry-links,
 .entry-list.is-rows li:not(.row-expanded) .entry-more {
   display: none;

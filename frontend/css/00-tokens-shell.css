@@ -3865,6 +3865,39 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex: 0 0 auto;
 }
 
+/* Below 1024 the bar had no slack: at 820 its items filled it exactly, and
+   a background task (the filing model warming up adds a spinner and turns
+   "1 run" into "1 running", 62px) pushed the last zone 34px past the window,
+   so the whole page scrolled sideways (errors.js, 2026-10-03). The key hint
+   is the one thing here that is a reminder rather than a control: the
+   button keeps its "Commands" label and its title still names the keys. */
+@media (max-width: 1023.98px) {
+  #status-command .status-key {
+    display: none;
+  }
+
+  /* That alone was not enough at 721 (25px over, busy). Ask, Guide and Find
+     carry an icon each, so below 1024 they show only it; the word stays in
+     the accessibility tree (the visually-hidden recipe, not display: none)
+     so each keeps its name for a screen reader and for voice control, and
+     the title still says what it does. 112px back. Reminders and the
+     running count keep their icon and number, and their word goes the same
+     way ("open", "running"): 721 is where every control is 44px. */
+  #status-reminders > b + span,
+  #status-activity > b + span,
+  #status-agent > span,
+  #status-guide > span,
+  #status-find > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 720px) {
 
   /* A phone's scarce dimension is height, and two of these five are the two a

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Status bar: below 1024px wide the page no longer scrolls sideways while a background job runs; the key hint goes and Ask, Guide, Find, reminders and the running count show their icon and number, their words still read to a screen reader.
 - Notes: a filter still being typed (`tag:`, `in:`, `#`) no longer empties the list until its value is typed.
 - Notes: Ctrl+Enter (Cmd+Enter) saves from the capture box and from a note being edited, and the caret stays in the box after a save, so the next thought goes straight in.
 - A note no AI could file says so once, "Saved in Uncategorised: no AI model is running to file it", with Choose category beside it, instead of "Filed under Uncategorised (0% sure)" twice.

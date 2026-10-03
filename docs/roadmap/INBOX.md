@@ -139,6 +139,28 @@ with its owner named in the entry.
      better with one; (3) robustness (draft kept through reloads and
      crashes, offline save queued, never a lost keystroke); (4) the gaps
      the audit finds, fixed by impact, each measured.
+     **Progress 2026-10-03 (capture agent):** the audit is
+     `scratchpad/ui-sweeps/captureaudit.js` (every path: keys, ms to the
+     list, ms to filed, server down mid-save, reload). Fixed, each measured
+     before and after: an image pasted into Capture and a file dropped on it
+     vanished (0 cards; now 1 and 2); a save with the server down said
+     "Failed to fetch" and was never sent (now held on this device by the
+     outbox in quick-note.js, synced 144 ms after the server answers, saved
+     once by `client_key`); Quick note (Alt+N, palette) saves from any tab
+     without leaving it (caret 26 to 61 ms, in the list 145 to 266 ms; the
+     Drafts and Tana quick-capture shape); `#word` tags a note (was []);
+     the draft keeps its title and tags through a reload (both were lost);
+     the palette's New note began every note with a blank line; the graph's
+     new note and the dashboard widget waited on filing. A pasted link
+     offers the page as a note when the web is allowed (the clipper had no
+     door). Decided against: "/" for a category in the box, since "/" is
+     the blocks menu there. Open: deferred filing takes 1.2 to 2.5 s on this
+     sandbox with no chat model (the embedding pass, server side; the note
+     is in the list long before); held notes are not drawn in the list
+     until sent; staged pictures and files cannot be held offline (the
+     words stay in the box, saying so); the desktop window, real
+     clipboards and a real server crash between commit and answer are not
+     verified (the dedupe map is in memory).
 
 433. **The owner, 2026-10-03, verbatim.** "Also go through and make sure
      the whole app follows the Australia WCAG 2.2 accessibility standards.

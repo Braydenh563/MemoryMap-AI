@@ -48,6 +48,20 @@ def test_quick_note_is_a_shortcut_and_a_palette_row():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '<dialog id="quick-note" class="card space-dialog quick-note-dialog"' in html
     assert 'id="note-outbox-notice"' in html
+    # A modal dialog sits above the lock screen: a lock closes it (measured,
+    # open=false after lockNow, the words back on the next open).
+    quick = (JS / "quick-note.js").read_text(encoding="utf-8")
+    assert 'else $("quick-note").close();' in quick
+
+
+def test_a_pasted_link_offers_the_page_only_with_the_web_allowed():
+    """The web clipper (POST /links/clip) had no door in the interface. A bare
+    link pasted into Capture or Quick note now offers it, and only while the
+    web is allowed: measured, no toast with it off, one with it on."""
+    quick = (JS / "quick-note.js").read_text(encoding="utf-8")
+    assert 'apiJson("/links/clip"' in quick
+    assert "if (!(prefsCache && prefsCache.web_search_enabled)) return;" in quick
+    assert 'event.target.closest?.("#quick-note, #capture")' in quick
 
 
 def test_the_palettes_enter_does_not_reach_the_box_it_opens():

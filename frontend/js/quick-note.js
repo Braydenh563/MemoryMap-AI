@@ -270,6 +270,40 @@ function quickNoteToCapture() {
   clearQuickNote();
 }
 
+// --- A pasted link, offered as the page -------------------------------------
+//
+// A bare http(s) address pasted into Capture or Quick note stays as typed. When
+// the web is allowed (Settings, Web search; off by default, and this app goes
+// online for nothing else here) a toast offers to save the page itself as a
+// note, its title, its text and its address, through the web clipper
+// (`POST /links/clip`, core/webclip.py), which had no door in the interface at
+// all. The fetch is made only on that press. With the web off nothing is
+// offered, so the toast never promises what the app will then refuse.
+const PASTED_LINK = /^https?:\/\/\S+$/i;
+
+async function clipPastedLink(url) {
+  const progress = toastProgress("Reading the page…");
+  try {
+    const note = await apiJson("/links/clip", { method: "POST", body: JSON.stringify({ url }) });
+    progress.done(`Saved “${note.source_title || url}” as a note, filing it now.`, {
+      actionLabel: "Open",
+      onAction: () => flashEntry(note.id),
+    });
+    loadEntries().catch(() => {});
+    if (note.filing_state === "pending") watchFiling(note, { quiet: true });
+  } catch (error) {
+    progress.done(error.message || "Couldn't read that page.", { isError: true });
+  }
+}
+
+document.addEventListener("paste", (event) => {
+  if (!event.target.closest?.("#quick-note, #capture")) return;
+  if (!(prefsCache && prefsCache.web_search_enabled)) return;
+  const text = (event.clipboardData?.getData("text/plain") || "").trim();
+  if (text.length > 2000 || !PASTED_LINK.test(text)) return;
+  toastAction("That is a link. Save the page it points to as a note of its own?", "Clip the page", () => clipPastedLink(text));
+});
+
 (() => {
   const box = quickNoteBox();
   if (!box) return;
@@ -290,6 +324,17 @@ function quickNoteToCapture() {
   //: Back on the network the browser knows about (a laptop's wifi), as well
   //: as the server answering again.
   window.addEventListener("online", () => flushNoteOutbox());
+  //: A modal dialog is drawn in the top layer, above the lock screen, so a
+  //: lock closes Quick note (its words wait in storage, as Capture's draft
+  //: does) rather than leaving them readable over it; an unlock sends
+  //: whatever was held while the notebook was locked.
+  const lock = $("lock-overlay");
+  if (lock) {
+    new MutationObserver(() => {
+      if (lock.classList.contains("hidden")) flushNoteOutbox();
+      else $("quick-note").close();
+    }).observe(lock, { attributes: true, attributeFilter: ["class"] });
+  }
   renderNoteOutbox();
   flushNoteOutbox();
 })();

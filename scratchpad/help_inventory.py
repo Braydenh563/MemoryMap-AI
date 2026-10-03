@@ -29,15 +29,19 @@ SINCE_0332 = {"bookmark-link"}
 lines = [
     "# Help inventory (INBOX 448 (1))",
     "",
-    "Every user-facing feature from CHANGELOG's Unreleased and 0.3.x sections that a person "
-    "might need to find, the help entry (`HELP_TOPICS` id) that covered it before this pass, "
-    "and the one that covers it now. The checked form is `FEATURES` in "
-    "`tests/test_help_coverage.py`: some entry's body must hold the listed words, and the "
-    "question must reach that entry in the Guide's top three. Settings, Help lists every "
-    "entry (`GET /help/topics`), and its search finds an entry by title, keywords or text.",
+    (
+        "Every user-facing feature from CHANGELOG's Unreleased and 0.3.x sections that a person "
+        "might need to find, the help entry (`HELP_TOPICS` id) that covered it before this pass, "
+        "and the one that covers it now. The checked form is `FEATURES` in "
+        "`tests/test_help_coverage.py`: some entry's body must hold the listed words, and the "
+        "question must reach that entry in the Guide's top three. Settings, Help lists every "
+        "entry (`GET /help/topics`), and its search finds an entry by title, keywords or text."
+    ),
     "",
-    "Before: 5 of 52 genuinely covered (8 by the words, 3 of those by accident), 4 of 52 "
-    "reachable by the question. After: 52 of 52 covered and reachable.",
+    (
+        "Before: 5 of 52 genuinely covered (8 by the words, 3 of those by accident), 4 of 52 "
+        "reachable by the question. After: 52 of 52 covered and reachable."
+    ),
     "",
     "| Feature | Since | Question a person asks | Before | Now |",
     "| --- | --- | --- | --- | --- |",
@@ -48,10 +52,12 @@ for feature, words, question in cov.FEATURES:
     lines.append(f"| {feature} | {since} | {question} | {BEFORE.get(feature, 'none')} | {now} |")
 lines += [
     "",
-    "Existing entries corrected on the way: library-controls named a Links sub-tab (it is "
-    "Bookmarks); settings-overview listed four Settings groups (there are six); the old "
-    "Settings, Help accordion still taught \"g then a letter\" for the tab chord (it is m), "
-    "and is now drawn from the table itself.",
+    (
+        "Existing entries corrected on the way: library-controls named a Links sub-tab (it is "
+        "Bookmarks); settings-overview listed four Settings groups (there are six); the old "
+        "Settings, Help accordion still taught \"g then a letter\" for the tab chord (it is m), "
+        "and is now drawn from the table itself."
+    ),
     "",
 ]
 (ROOT / "scratchpad" / "help-inventory.md").write_text("\n".join(lines))

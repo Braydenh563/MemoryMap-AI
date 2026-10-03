@@ -34,6 +34,29 @@ with its owner named in the entry.
 
 ## Open items
 
+460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
+     jump when scrolling with two fingers on my trackpad?? idk". Placed: the
+     orchestrator (reproduce with synthetic wheel streams; suspects: a
+     scroll listener that writes scrollTop, scroll snapping, smooth
+     scroll-behaviour on a wheel-driven scroller, anchoring).
+
+459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
+     Personas: the jump strip "Answer style, Dashboard greeting, Add your
+     own, Share").** "some of the horizontal navigation bars at the top of
+     the settings pages skip multiple sections as they are too close, like
+     in the personas, it only goes on the first or last one. also can you
+     add some cheap css animations to things like the horizontal pill
+     selectors and sidebars etc like using anchor for smooth tab
+     transitions etc?? stuff like that to make it feel truly professional
+     and smooth but dont over do it in a vibecoded way. did you use all the
+     ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
+     section clicked and, scrolling, the last one whose head passed the
+     line (or the one at the end when the page can scroll no further): the
+     orchestrator; (2) a restrained motion pass (the selected pill and tab
+     indicator slide between options, sidebars ease, reduced motion
+     honoured, every duration and curve a token, no new decoration): an
+     Opus agent, with the named skills as checklists.
+
 458. **The owner, 2026-10-03 night, verbatim, with screenshots (the popup
      agent's copy and retry buttons over "Found in 5 notes"; the sources
      fold, "Opened 6 items" and the run facts; a Thinking fold above Atlas's

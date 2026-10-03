@@ -1195,14 +1195,10 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="Preview of this note, click any text to edit it"></div>
             <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           </div>
-          <!-- Reported directly: an uploaded/pasted image only shows as raw
-               `![name](/media/...)` text while composing, which reads as
-               "the image isn't rendered". A plain <textarea> genuinely can't
-               show an inline image, this is the actual preview, and its own
-               <i class="ph ph-x ph-lead" aria-hidden="true"></i> per chip is the "and can't be deleted" half: it detaches the
-               reference from this note's text (the underlying upload stays,
-               same as removing any other text does not delete a file). -->
-          <div id="entry-attachment-chips" class="attachment-chips hidden"></div>
+          <!-- The files this note's text points at, one attachment card each
+               (INBOX 440 (2), `renderEntryAttachmentChips`): pictures, staged
+               pictures, other files and files waiting for Save, in one row. -->
+          <div id="entry-attachment-chips" class="att-cards hidden" role="group" aria-label="Files in this note"></div>
           <!-- The tags field was a bare input in the column with nothing
                saying what it was but its own placeholder, between the note
                box and a labelled row. Every field below the composer is a
@@ -1265,16 +1261,6 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="capture-tools-sep" aria-hidden="true"></span>
             <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let Atlas proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
-          <!-- Files waiting to go onto this note when it saves. Reported
-               directly: "when I uplaod pdfs to a note, they are in pure md
-               with no visual card allowing me to delete the files. I cant
-               see, manage or view the files or documents anywhere." Before
-               this, a non-image file dropped here became a bare markdown
-               link and nothing else, no card, no size, no way to take it
-               back off, and clicking it navigated the whole app away to a
-               401 page with no way back. Empty and hidden until something
-               is staged; `renderCaptureFiles` fills it. -->
-          <div id="entry-file-strip" class="file-strip hidden" aria-label="Files attached to this note"></div>
           <!-- **Where this note goes**, both halves of it. A category and a
                document are the same question asked twice, so they are one
                row: the select holds a value and shows it, the adder holds a

@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- Files attached to a note are one card everywhere (the note, its edit form, Capture, a document, the graph and the timeline): the picture or a tinted kind icon, the whole name on up to two lines, and the kind, size and date. Click the card to open the file; its ⋯ menu has Open, Download, Rename, Describe with AI, Edit description, Annotate a copy, Copy as a link and Remove. Removing a file from a note's text can be undone, and its upload is only deleted once nothing else uses it.
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

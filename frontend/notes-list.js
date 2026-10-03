@@ -5,11 +5,6 @@
 // earlier file calls into it while the page loads (scratchpad/appjs-map.js
 // --check).
 
-async function downloadAttachment(attachment) {
-  const response = await api(`/files/${attachment.id}`);
-  await saveFile(attachment.filename, await response.blob());
-}
-
 //: **One open panel, named by which one it is.** Three menu items open a row
 //: under a note card: "Similar notes", "Referenced by" and "Forgotten notes
 //: like this". Each kept its own open-id, and two of them said in their own
@@ -591,12 +586,13 @@ function renderEditForm(li, entry) {
     previewBtn.classList.remove("is-active", "active");
     previewBtn.setAttribute("aria-pressed", "false");
   }
-  //: Attachment cards for whatever this note already carries: rename its
-  //: caption, generate one, or remove it, and removing takes the markdown
-  //: with it, in the edit form exactly as in the capture box.
+  //: Attachment cards for the files this note's text points at, the same
+  //: cards and the same menu as the capture box (INBOX 440 (2)).
   const chipsHost = document.createElement("div");
-  chipsHost.className = "row attachment-chips hidden";
+  chipsHost.className = "att-cards hidden";
   chipsHost.id = "entry-edit-attachment-chips";
+  chipsHost.setAttribute("role", "group");
+  chipsHost.setAttribute("aria-label", "Files in this note");
   li.append(toolbarEl, textarea, preview, chipsHost, meta);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
@@ -1137,21 +1133,7 @@ function fileKindLabel(url, name) {
   return FILE_KIND_LABELS[ext] || "File";
 }
 
-/** A file attached to a note, rendered as something you can see and act on.
- *
- * Three affordances, and each one is a thing that was missing rather than a
- * flourish: **open** (the card itself, into the lightbox's document viewer: 
- * the fix for the 401 dead end described at the call site), **save** (the
- * only way to get the bytes out, since a plain link cannot authenticate),
- * and the **type and name**, so a note full of files reads as a list of
- * files instead of a paragraph of blue text.
- *
- * Deliberately not a `<a>` at all. An anchor to `/media/…` is the bug; an
- * anchor with a token in the query string would put an unlock credential
- * into anything that logs or copies a URL. A button that fetches with the
- * header, like every other call in this app, has neither problem.
- */
-/** The one-line form of `fileCard`, for a surface too small for a card. */
+/** The one-line form of the attachment card, for a surface too small for a card. */
 function fileChip(name, url) {
   const label = name && name !== url ? name : url.split("/").pop();
   const chipEl = document.createElement("span");
@@ -1161,50 +1143,154 @@ function fileChip(name, url) {
   return chipEl;
 }
 
-function fileCard(name, url) {
-  const label = name && name !== url ? name : url.split("/").pop();
-  const card = document.createElement("span");
-  card.className = "file-card";
+//: **One card for every file attached to anything** (INBOX 440 (2), DESIGN.md
+//: "A file attached to a note"). The owner: "all of the attachment cards ui
+//: and ux and utility need a massive redesign and upgrade." One note measured
+//: five shapes for the same idea (an inline thumbnail with a round x, a file
+//: card with a save button, a bare thumbnail, two chips stretched to its
+//: height), and the edit form's picture card was the one in the report: a
+//: name cut to "Gary The Moss Mons...", three unlabelled glyphs under it, no
+//: kind, no size, no open, no download, no rename.
+//:
+//: Now: a tile (the picture, or the kind's glyph on a tint), the whole name
+//: on up to two lines, one line of facts, and the card itself is the button
+//: that opens the file. Everything else is one ⋯ menu, so a card with seven
+//: things it can do still shows one control. What a click *does* lives in
+//: attachment-actions.js, loaded on the first click (`attachmentAction` is a
+//: lazy entry point): the boot scripts were 79 bytes under their gzip total.
+//:
+//: `spec`: `name`, `url` (`/media/…`, `/files/{id}`, `staged:…` or "" for a
+//: file not uploaded yet), and what the surface knows: `size`, `added`,
+//: `thumb()` (a picture's src, for a `/files` image that needs a blob url),
+//: `gallery()` (`{items, index}` to page through in the lightbox), and where
+//: the file is written down, which is what decides Rename and Remove:
+//: `textarea` + `markdown` (the box it is a link in), `attachment` +
+//: `onChange` (a note's own file), `staged` (Capture, before Save).
+const ATT_KINDS = { pdf: "pdf", mp3: "audio", wav: "audio", ogg: "audio", m4a: "audio", flac: "audio", aac: "audio", opus: "audio", mp4: "video", mov: "video", webm: "video", mkv: "video", m4v: "video" };
+
+function attachmentExt(...sources) {
+  for (const source of sources) {
+    const match = /\.([a-z0-9]{1,5})(?:[?#].*)?$/i.exec(source || "");
+    if (match) return match[1].toLowerCase();
+  }
+  return "";
+}
+
+function attachmentKind(name, url) {
+  const ext = attachmentExt(name, url);
+  return /^(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|ico)$/.test(ext) ? "image" : ATT_KINDS[ext] || "file";
+}
+
+//: Facts already known are written at once; a `/media` file's size and day
+//: are asked of `/media/meta` once per url (the lightbox's own lookup).
+const attachmentMetaCache = new Map();
+
+function attachmentFacts(meta, ext, spec) {
+  const day = (iso) => {
+    const date = new Date(iso);
+    if (!iso || Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+    return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year });
+  };
+  const write = (size, added) => {
+    const parts = [ext ? ext.toUpperCase() : "File", formatFileSize(size), spec.staged ? "attaches on save" : day(added)];
+    meta.replaceChildren();
+    parts.filter(Boolean).forEach((part, i) => {
+      if (i) {
+        const dot = document.createElement("span");
+        dot.className = "library-file-meta-sep";
+        dot.textContent = "·";
+        dot.setAttribute("aria-hidden", "true");
+        meta.append(dot);
+      }
+      meta.append(part);
+    });
+  };
+  write(spec.size, spec.added);
+  meta.title = "Kind, size and the day it was added";
+  const stored = /^\/media\/([^/?#]+)$/.exec(spec.url || "");
+  if (!stored || spec.size) return;
+  if (!attachmentMetaCache.has(stored[1])) {
+    attachmentMetaCache.set(stored[1], apiJson(`/media/meta/${stored[1]}`).catch(() => null));
+  }
+  attachmentMetaCache.get(stored[1]).then((row) => row && write(row.size, row.created_at));
+}
+
+function attachmentCard(spec) {
+  const url = spec.url || "";
+  const label = spec.name && spec.name !== url ? spec.name : url.split("/").pop();
+  const ext = attachmentExt(label, url);
+  const kind = attachmentKind(label, url);
+  const card = document.createElement("div");
+  card.className = "att-card";
+  card.dataset.kind = kind;
+  if (spec.staged) card.dataset.state = "staged";
+  const run = (action) => () => attachmentAction(action, spec, card);
 
   const open = document.createElement("button");
   open.type = "button";
-  open.className = "file-card-open";
-  open.title = `Open “${label}”`;
-  const icon = document.createElement("i");
-  icon.className = `ph ${attachmentIconClass(url, name) || "ph-file"} file-card-icon`;
-  icon.setAttribute("aria-hidden", "true");
+  open.className = "att-card-open";
+  const playable = kind === "audio" || kind === "video";
+  const canOpen = !!url;
+  open.title = canOpen ? `${playable ? "Play" : "Open"} “${label}”` : `“${label}” attaches when you save`;
+  if (!canOpen) open.setAttribute("aria-disabled", "true");
+  else open.addEventListener("click", run("open"));
+  const tile = document.createElement("span");
+  tile.className = "att-card-tile";
+  tile.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = `ph ${attachmentIconClass(url, label) || "ph-file"}`;
+  tile.append(glyph);
+  if (kind === "image" && url) {
+    const img = document.createElement("img");
+    img.className = "att-card-thumb";
+    img.alt = "";
+    img.loading = "lazy";
+    img.addEventListener("load", () => tile.classList.add("has-thumb"));
+    img.addEventListener("error", () => img.remove());
+    Promise.resolve(spec.thumb ? spec.thumb() : mediaSrc(url)).then((src) => (img.src = src), () => img.remove());
+    tile.append(img);
+  }
   const text = document.createElement("span");
-  text.className = "file-card-text";
+  text.className = "att-card-text";
   const nameEl = document.createElement("span");
-  nameEl.className = "file-card-name";
+  nameEl.className = "att-card-name";
   nameEl.textContent = label;
-  const kindEl = document.createElement("span");
-  kindEl.className = "file-card-kind";
-  kindEl.textContent = fileKindLabel(url, name);
-  text.append(nameEl, kindEl);
-  open.append(icon, text);
-  open.addEventListener("click", () => {
-    openLightbox([{ filename: label, getUrl: () => mediaSrc(url) }], 0);
-  });
+  nameEl.title = label;
+  const meta = document.createElement("span");
+  meta.className = "library-file-meta att-card-meta";
+  attachmentFacts(meta, ext, spec);
+  text.append(nameEl, meta);
+  open.append(tile, text);
 
-  const save = document.createElement("button");
-  save.type = "button";
-  save.className = "ghost small icon-only file-card-save";
-  setLabel(save, "ph:download-simple");
-  save.title = `Save “${label}” to disk`;
-  save.setAttribute("aria-label", save.title);
-  save.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    try {
-      const response = await api(url);
-      await saveFile(label, await response.blob());
-    } catch (error) {
-      toast(error.message || `Couldn't save “${label}”.`, true);
-    }
-  });
-
-  card.append(open, save);
+  //: Grouped: past five rows a menu draws its breaks (DESIGN.md).
+  const items = [];
+  const add = (action, labelText, title, group, extra = {}) =>
+    items.push({ label: labelText, title, group, run: run(action), ...extra });
+  const stored = /^\/(?:media|files)\//.test(url) && !spec.staged;
+  const editable = !!(spec.textarea || spec.staged || (spec.attachment && spec.onChange));
+  if (canOpen) add("open", `ph:${playable ? "play" : "arrow-square-out"} ${playable ? "Play" : "Open"}`, open.title, "open");
+  if (stored) add("download", "ph:download-simple Download", `Save “${label}” to this computer`, "open");
+  if (spec.textarea || (spec.attachment && spec.onChange)) add("rename", "ph:pencil-simple-line Rename…", "Change the name this file is shown under", "edit");
+  if (stored && !playable) {
+    const off = aiIsOff();
+    add("describe", "ph:sparkle Describe with AI", off ? `Describing a file needs the local AI. ${AI_OFFLINE_HINT}.` : "Write a short description of this file with the local AI", "edit", { disabled: off });
+    add("caption", "ph:text-align-left Edit description…", "Type or change this file's description yourself", "edit");
+  }
+  if (kind === "image" && url) add("annotate", "ph:pencil-simple Annotate a copy", "Draw on a copy of this picture, saved as a new note", "edit");
+  if (stored) add("copy", "ph:link Copy as a link", "Copy the markdown that shows this file in a note or document", "share");
+  if (editable) add("remove", "ph:trash Remove", spec.attachment ? `Delete “${label}” from this note` : `Take “${label}” out of this note`, "remove", { danger: true });
+  const more = kebabMenu(items, `Actions for “${label}”`);
+  more.querySelector("button").classList.add("att-card-more");
+  card.append(open, more);
   return card;
+}
+
+//: The name every read-only surface already calls (a note's text, a
+//: document, the graph's panel, the timeline): the card, with no Rename or
+//: Remove, because none of those surfaces is where the file is written down.
+function fileCard(name, url, size) {
+  return attachmentCard({ name, url, size });
 }
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).

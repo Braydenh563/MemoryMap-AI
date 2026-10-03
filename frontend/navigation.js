@@ -108,6 +108,9 @@ wireLongPress(
 //: anywhere on one opens that same menu, so what the row can do is found the
 //: way people look for it first.
 const ROW_MENU_HOSTS = [
+  //: First, so a right-click on a file inside a note card opens the file's
+  //: menu rather than the note's (`closest` takes the nearest match).
+  ".att-card",
   ".library-card",
   ".doc-list-item",
   ".bookmark-row",

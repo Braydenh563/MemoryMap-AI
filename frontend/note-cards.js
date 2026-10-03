@@ -1185,6 +1185,35 @@ async function binNoteWithUndo(entry) {
   });
 }
 
+//: A note's own attached files (the `Attachment` table, `/files/{id}`), one
+//: card each, in a wrapping grid. Pictures page through the lightbox
+//: together; the bytes need the auth header, so a picture's src is a blob url
+//: (`attachmentObjectUrl`). `editable` is the note list's own actions flag:
+//: a card on a read-only surface offers no Rename or Remove.
+function renderAttachmentCards(entry, editable) {
+  const row = document.createElement("div");
+  row.className = "att-cards";
+  const images = entry.attachments.filter((a) => a.is_image);
+  for (const attachment of entry.attachments) {
+    row.append(attachmentCard({
+      name: attachment.filename,
+      url: `/files/${attachment.id}`,
+      size: attachment.size,
+      added: attachment.created_at,
+      attachment,
+      onChange: editable ? () => loadEntries() : null,
+      thumb: attachment.is_image ? () => attachmentObjectUrl(attachment) : null,
+      gallery: attachment.is_image
+        ? () => ({
+          items: images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+          index: images.indexOf(attachment),
+        })
+        : null,
+    }));
+  }
+  return row;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1848,82 +1877,11 @@ function entryItem(entry, options = {}) {
     li.appendChild(line);
   }
 
-  // Attachments (Wave B; images become thumbnails in Wave M).
-  if (entry.attachments.length > 0) {
-    const fileRow = document.createElement("div");
-    fileRow.className = "entry-links";
-    for (const attachment of entry.attachments) {
-      const removeButton = () => {
-        const remove = document.createElement("span");
-        remove.className = "unlink";
-        setLabel(remove, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
-        remove.title = "Remove this file";
-        remove.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          if (!(await confirmDialog(`Remove ${attachment.filename}?`))) return;
-          await api(`/files/${attachment.id}`, { method: "DELETE" });
-          await loadEntries();
-        });
-        makeUnlinkAccessible(remove);
-        return remove;
-      };
-
-      if (attachment.is_image) {
-        // Show the picture itself, not a chip, click for full size.
-        const wrap = document.createElement("span");
-        wrap.className = "thumb-wrap";
-        const img = document.createElement("img");
-        img.className = "attachment-thumb";
-        img.alt = attachment.filename;
-        img.title = `${attachment.filename}: click to view full size`;
-        attachmentObjectUrl(attachment)
-          .then((url) => (img.src = url))
-          .catch(() => wrap.remove());
-        img.addEventListener("click", () => {
-          const images = entry.attachments.filter((a) => a.is_image);
-          openLightbox(
-            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
-            images.indexOf(attachment)
-          );
-        });
-        wrap.appendChild(img);
-        if (options.actions) wrap.appendChild(removeButton());
-        fileRow.appendChild(wrap);
-      } else {
-        // Opens the lightbox's document viewer, not a download, this used
-        // to go straight to `downloadAttachment`, the one file surface that
-        // never got the fileCard treatment §... unified everywhere else.
-        // Reported directly: "I tried to open and view a file i attached to
-        // a note, instead it just downloaded it." `mediaSrc()` already knows
-        // how to token-gate a `/files/{id}` url the same way it does
-        // `/media/{name}`; `show()` below is what learned to read one.
-        const fileChip = chip(`ph:file-text ${attachment.filename}`, "link", () =>
-          openLightbox(
-            [{ filename: attachment.filename, getUrl: () => mediaSrc(`/files/${attachment.id}`) }],
-            0
-          )
-        );
-        fileChip.title = `${attachment.filename}: ${Math.max(1, Math.round(attachment.size / 1024))} KB`;
-        const downloadBtn = document.createElement("span");
-        downloadBtn.className = "unlink";
-        setLabel(downloadBtn, "ph:download-simple");
-        downloadBtn.title = `Save “${attachment.filename}” to disk`;
-        downloadBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          downloadAttachment(attachment);
-        });
-        makeUnlinkAccessible(downloadBtn);
-        fileChip.appendChild(downloadBtn);
-        if (options.actions) fileChip.appendChild(removeButton());
-        fileRow.appendChild(fileChip);
-      }
-    }
-    // Before `meta` (the category/date/pin/actions footer), not after, 
-    // reported directly: a sketch or attached image sat below the note's
-    // own metadata row, sandwiched between the footer and whatever came
-    // after it, rather than reading as part of the note's own content.
-    li.insertBefore(fileRow, meta);
-  }
+  // A note's own files, as attachment cards (INBOX 440 (2)). Before `meta`
+  // (the category/date/pin/actions footer), not after, reported directly: a
+  // sketch or attached image sat below the note's own metadata row rather
+  // than reading as part of the note's own content.
+  if (entry.attachments.length > 0) li.insertBefore(renderAttachmentCards(entry, options.actions), meta);
 
   // Inline add-context / continue-thought forms (Wave B).
   if (options.actions && inlineAction && inlineAction.id === entry.id) {

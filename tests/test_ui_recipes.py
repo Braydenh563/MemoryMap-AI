@@ -1126,7 +1126,7 @@ def test_a_list_row_sits_on_the_list_row_tokens() -> None:
 #: The Files rows earned it, the picture cards and the saved links share it.
 #: Each carries `.library-file-meta` for the rank and a handle of its own for
 #: whatever its layout needs, so this is the set of handles.
-FACTS_LINES = {".library-image-meta", ".bookmark-meta"}
+FACTS_LINES = {".library-image-meta", ".bookmark-meta", ".att-card-meta"}
 
 
 def test_the_facts_line_is_one_rule_rather_than_three() -> None:

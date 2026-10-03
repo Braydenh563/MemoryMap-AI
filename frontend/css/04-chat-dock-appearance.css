@@ -3041,21 +3041,6 @@ span > .chip {
   white-space: nowrap;
 }
 
-.entry-attachment-chip-actions {
-  justify-content: center;
-}
-
-.attachment-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0 0 var(--space-3);
-}
-
-.attachment-chips.hidden {
-  display: none;
-}
-
 .attachment-remove {
   border: 0;
   background: none;

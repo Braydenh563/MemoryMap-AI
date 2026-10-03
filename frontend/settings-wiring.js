@@ -2108,256 +2108,45 @@ $("notes-page-next").addEventListener("click", () => {
   renderEntries();
   $("entries-heading").scrollIntoView({ block: "start", behavior: "smooth" });
 });
-// Reported directly: an image just pasted/dropped/attached only shows as
-// raw `![name](/media/hash.ext)` text in the plain <textarea>, which reads
-// as "the image isn't rendered", and there was no way to remove one short of
-// hand-editing the markdown. Parses every image reference currently in the
-// box and renders a real thumbnail per one, each with its own ✕ that strips
-// just that reference back out of the text (the upload itself is untouched,
-// same as deleting any other line of text doesn't delete a file).
-// Shared by every attachment-chip action below that needs the real upload
-// row (id, caption) behind a markdown `/media/...` url: `GET /media`
-// isn't filterable by url, so this is one list-and-find rather than each
-// caller repeating it. Not cached: called only on a real user action
-// (caption, edit, remove), never on the per-keystroke render this chip
-// strip runs under.
-async function resolveMediaUploadByUrl(url) {
-  //: To the end: this resolves one url to its upload row, and an upload past
-  //: the first page would simply not resolve.
-  const uploads = await apiPagedList("/media", 200);
-  return uploads.find((u) => u.url === url) || null;
-}
-
-//: The capture box's attachment cards, reusable by any editing surface, 
-//: the note *edit* form had none, so an image, sketch or file attached to a
-//: note could not be seen, renamed or removed while editing it (reported).
-//: The pattern now also matches a plain link to `/media` or `/files`, which
-//: is how a non-image attachment is written into a note.
-//: Ids or elements: the note edit form builds its host and its textarea and
-//: calls this *before* the row is in the document, so a `getElementById`
-//: lookup would find neither (measured: zero chips on a note that has one).
+//: **The files a note's text points at, as attachment cards** (INBOX 440 (2)),
+//: in the Capture box and in a note's edit form alike. The text is where an
+//: attachment lives (what is saved, what the AI reads, what an export keeps),
+//: so the cards are drawn from it on every keystroke, and Rename and Remove
+//: edit that text rather than a second list beside it.
+//:
+//: One host for every kind, where there were two strips: pictures above the
+//: tags as thumbnail chips and other files below the attach row as file
+//: cards, and the chip strip's pattern matched links too, so a PDF was drawn
+//: in both (measured: two cards for one file in Capture). A picture staged
+//: in Capture (`staged:`, its bytes still in this tab) is a card too: it had
+//: none, because the pattern only knew `/media` and `/files`. And a file
+//: waiting for the note's id (`captureStagedFiles`) joins the same row,
+//: dashed, rather than standing in a third place.
+//:
+//: Ids or elements: the edit form builds its host and textarea and calls this
+//: *before* the row is in the document, so a lookup by id would find neither.
 function renderEntryAttachmentChips(boxId = "entry-content", hostId = "entry-attachment-chips") {
   const box = hostId instanceof HTMLElement ? hostId : $(hostId);
   const textarea = boxId instanceof HTMLElement ? boxId : $(boxId);
   if (!box || !textarea) return;
-  const pattern = /!?\[([^\]]{0,200})\]\(((?:\/media|\/files)\/[^)\s]{1,500})\)/g;
+  const pattern = /!?\[([^\]]{0,200})\]\(((?:\/media\/|\/files\/|staged:)[^)\s]{1,500})\)/g;
   const matches = [...textarea.value.matchAll(pattern)];
+  const staged = textarea.id === "entry-content" ? captureStagedFiles : [];
   box.replaceChildren();
-  box.classList.toggle("hidden", matches.length === 0);
-  for (const match of matches) {
-    const [full, name, url] = match;
-    const chip = document.createElement("span");
-    chip.className = "chip attachment-chip attachment-chip-image";
-    const isImage = full.startsWith("!") || /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(url);
-    const img = document.createElement(isImage ? "img" : "i");
-    if (isImage) {
-      img.src = mediaSrc(url);
-      img.alt = name;
-      img.loading = "lazy";
-      img.addEventListener("click", () =>
-        openLightbox([{ filename: name, getUrl: () => mediaSrc(url) }], 0)
-      );
-    } else {
-      img.className = attachmentIconClass(url, name);
-      img.setAttribute("aria-hidden", "true");
-    }
-    const label = document.createElement("span");
-    label.textContent = name || url;
-    label.title = name || url;
-    // Vision-capable models: manual caption generation "on notes in the
-    // notes page", asked for directly, alongside the same control already
-    // built into the Library's Image Gallery. Resolved to an id lazily on
-    // click, the same way `remove` below already does: this render runs on
-    // every keystroke, so an eager /media fetch per chip is not worth
-    // paying for a caption most of these images will never need.
-    const captionBtn = document.createElement("button");
-    captionBtn.className = "ghost small icon-only entry-attachment-caption-btn";
-    captionBtn.type = "button";
-    setLabel(captionBtn, "ph:sparkle");
-    captionBtn.title = `Generate an AI caption for "${name || url}"`;
-    captionBtn.setAttribute("aria-label", captionBtn.title);
-    captionBtn.addEventListener("click", async () => {
-      captionBtn.disabled = true;
-      try {
-        const match = await resolveMediaUploadByUrl(url);
-        if (!match) {
-          toast("Couldn't find that upload.", true);
-          return;
-        }
-        const updated = await apiJson(`/media/${match.id}/caption`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
-        toast(updated.caption ? `Caption: ${updated.caption}` : "No caption produced.");
-      } catch (error) {
-        toast(error.message || "Couldn't generate a caption.", true);
-      } finally {
-        captionBtn.disabled = false;
-      }
-    });
-    // Manual entry, asked for directly ("allow for manual input of image
-    // captions as well as" the AI-generate button above). `promptDialog` is
-    // the same custom text-entry modal the app already uses elsewhere (the
-    // "Title for the new document" dialog is the other example), kept
-    // deliberately separate from the sparkle button rather than merged into
-    // one control, matching the Library gallery's own click-the-text-vs-
-    // click-the-button split for the same two actions.
-    const editCaptionBtn = document.createElement("button");
-    editCaptionBtn.className = "ghost small icon-only entry-attachment-caption-edit-btn";
-    editCaptionBtn.type = "button";
-    setLabel(editCaptionBtn, "ph:pencil-simple");
-    editCaptionBtn.title = `Type a caption for "${name || url}"`;
-    editCaptionBtn.setAttribute("aria-label", editCaptionBtn.title);
-    editCaptionBtn.addEventListener("click", async () => {
-      editCaptionBtn.disabled = true;
-      try {
-        const match = await resolveMediaUploadByUrl(url);
-        if (!match) {
-          toast("Couldn't find that upload.", true);
-          return;
-        }
-        const typed = await promptDialog(
-          `Caption for "${name || url}"`,
-          match.caption || "",
-          { confirmLabel: "Save" }
-        );
-        // promptDialog resolves "" for both "cancelled" and "cleared the
-        // field on purpose", an already-blank caption makes that
-        // ambiguity harmless (there's nothing to lose either way), so no
-        // "did you mean to clear it?" check is needed here.
-        if (typed === "" && !match.caption) return;
-        const updated = await apiJson(`/media/${match.id}/caption`, {
-          method: "POST",
-          body: JSON.stringify({ text: typed }),
-        });
-        toast(updated.caption ? `Caption saved: ${updated.caption}` : "Caption cleared.");
-      } catch (error) {
-        toast(error.message || "Couldn't save that caption.", true);
-      } finally {
-        editCaptionBtn.disabled = false;
-      }
-    });
-    const remove = document.createElement("button");
-    remove.className = "attachment-remove";
-    remove.type = "button";
-    setLabel(remove, "ph:x");
-    remove.title = `Remove "${name || url}" from this note`;
-    remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", async () => {
-      textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      // Asked for directly: removing it here should delete the underlying
-      // upload too, not just detach the markdown reference, a note being
-      // drafted (never saved, so nothing else could reference this image
-      // yet) is exactly the case where leaving an orphan file behind in
-      // data/media serves no one. `/media` isn't filterable by url, so this
-      // resolves the id by listing and matching, one request, only when a
-      // chip is actually removed, not on every render.
-      try {
-        const match = await resolveMediaUploadByUrl(url);
-        if (match) await apiJson(`/media/${match.id}`, { method: "DELETE" });
-      } catch (err) {
-        console.error("Couldn't delete the underlying upload", err);
-      }
-    });
-    // .attachment-chip-image lays its children out in a column (the image
-    // stacked over its caption), so two sibling buttons would stack full-
-    // height rather than sit side by side, a small row keeps them paired.
-    const chipActions = document.createElement("span");
-    chipActions.className = "row entry-attachment-chip-actions";
-    chipActions.append(captionBtn, editCaptionBtn, remove);
-    chip.append(img, label, chipActions);
-    box.appendChild(chip);
+  box.classList.toggle("hidden", matches.length + staged.length === 0);
+  for (const [markdown, name, url] of matches) {
+    const image = stagedImageByUrl(url);
+    box.append(attachmentCard({ name, url, markdown, textarea, staged: !!image, size: image?.file.size }));
   }
-  renderCaptureFiles();
+  for (const file of staged) {
+    box.append(attachmentCard({ name: file.name, url: "", staged: true, file, size: file.size }));
+  }
 }
 
-/** The strip above, for files that are not images.
- *
- * The chip strip it sits under only ever matched image syntax
- * (`![name](/media/…)`), because it was written to show thumbnails. A PDF
- * or a spreadsheet is inserted with *link* syntax (`[name](/media/…)`) by
- * `handleFileUpload`, so it matched nothing and the composer showed no sign
- * a file had been attached at all, reported directly: "when I uplaod pdfs
- * to a note, they are in pure md with no visual card allowing me to delete
- * the files."
- *
- * Rendered *from the note's own text* rather than from a separate staging
- * list, and that is the design rather than an economy. The markdown is
- * where the attachment actually lives, it is what gets saved, what the AI
- * reads, and what survives an export. A parallel list of "staged files"
- * would be a second source of truth that a single edit to the textarea
- * could put out of sync, and removing a card would have to reconcile the
- * two. Here, removing a card *is* deleting that line, which is the only
- * thing removal could honestly mean.
- */
+//: What `capture-ask.js` and the staging code call when the list of files
+//: waiting for Save changes: they are drawn in the same row now.
 function renderCaptureFiles() {
-  const strip = $("entry-file-strip");
-  const textarea = $("entry-content");
-  if (!strip || !textarea) return;
-  // Link syntax only. The negative lookbehind is what keeps images out:
-  // `![x](/media/y.png)` also ends in `[x](/media/y.png)`, so without it
-  // every image would appear twice, once as a thumbnail chip and once here.
-  const pattern = /(?<!!)\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
-  const matches = [...textarea.value.matchAll(pattern)];
-  strip.replaceChildren();
-  strip.classList.toggle("hidden", matches.length === 0 && captureStagedFiles.length === 0);
-
-  // Files not yet uploaded, because this note has no id to attach them to.
-  // Rendered from the staging list rather than from the note text, they are
-  // deliberately *not* in the text (see `captureStagedFiles`), so there is no
-  // markdown to read them out of, and removing one is dropping it from the
-  // list rather than deleting anything on disk.
-  for (const file of captureStagedFiles) {
-    const card = fileCard(file.name, `/media/${file.name}`);
-    card.classList.add("file-card-staged");
-    const pending = document.createElement("span");
-    pending.className = "file-card-kind file-card-pending";
-    pending.textContent = "attaches on save";
-    card.querySelector(".file-card-text")?.appendChild(pending);
-    // A staged file has no url yet, so there is nothing to open or download.
-    card.querySelector(".file-card-open")?.setAttribute("disabled", "true");
-    card.querySelector(".file-card-save")?.remove();
-    const drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "ghost small icon-only file-card-remove";
-    setLabel(drop, "ph:x");
-    drop.title = `Don't attach “${file.name}”`;
-    drop.setAttribute("aria-label", drop.title);
-    drop.addEventListener("click", () => {
-      captureStagedFiles = captureStagedFiles.filter((f) => f !== file);
-      renderCaptureFiles();
-    });
-    card.appendChild(drop);
-    strip.appendChild(card);
-  }
-
-  for (const match of matches) {
-    const [full, name, url] = match;
-    const card = fileCard(name, url);
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "ghost small icon-only file-card-remove";
-    setLabel(remove, "ph:x");
-    remove.title = `Remove “${name || url}” from this note`;
-    remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", async () => {
-      textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      // Same reasoning as the image chip's own remove, directly above: a
-      // file attached to a note that has never been saved cannot be
-      // referenced from anywhere else yet, so detaching the markdown and
-      // leaving the bytes in data/media would only ever produce an orphan.
-      try {
-        const upload = await resolveMediaUploadByUrl(url);
-        if (upload) await apiJson(`/media/${upload.id}`, { method: "DELETE" });
-      } catch (err) {
-        console.error("Couldn't delete the underlying upload", err);
-      }
-    });
-    card.appendChild(remove);
-    strip.appendChild(card);
-  }
+  renderEntryAttachmentChips();
 }
 
 $("entry-content").addEventListener("input", (e) => {

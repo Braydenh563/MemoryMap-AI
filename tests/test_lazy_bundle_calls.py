@@ -108,6 +108,7 @@ REACHED_AFTER_LOAD = {
     "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
     "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
     "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
+    "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
     #: editConflictPrompt's Compare awaits `ensureModule("library")` on the
     #: line before, so the diff builder is in the page when it is called.
     "docRenderDiff": "library, called by editConflictPrompt only after it awaits ensureModule('library')",

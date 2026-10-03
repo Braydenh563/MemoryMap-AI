@@ -3172,7 +3172,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 :root[data-palette="utilitarian"] :is(
   .card h3, .eyebrow, .nav-group-label, .launch-label,
-  #suggested-list .suggested-group-label, .contents-heading, .msg-role,
+  .contents-heading, .msg-role,
   #palette-list li.palette-group-header, .features-group, .reminder-group-head,
   .rich-picker-group, .note-embed-head, .doc-prose-group,
   .wb-export-card .wb-export-label, .wb-tool-section-label,
@@ -4572,7 +4572,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    untouched. */
 :root[data-palette="utilitarian"] :is(
   .card h3, .eyebrow, .nav-group-label, .launch-label,
-  #suggested-list .suggested-group-label, .features-group, .reminder-group-head,
+  .features-group, .reminder-group-head,
   .dash-widgets-group-label, .connection-heading, .finder-group
 ) {
   color: var(--ink);

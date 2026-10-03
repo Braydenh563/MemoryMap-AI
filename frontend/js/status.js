@@ -2310,7 +2310,7 @@ function renderSettings() {
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
-    renderSuggested(status);
+    if (typeof renderSuggested === "function") renderSuggested(status);
     renderModelSpec(status.chat_model);
   } else {
     $("installed-box").classList.add("hidden");

@@ -3314,3 +3314,20 @@ def test_the_setting_search_results_are_quiet_rows() -> None:
     row = _css_block(".settings-result")
     assert "--accent-surface" not in row and "box-shadow" not in row
     assert "flex-direction: column" in row
+
+
+def test_a_model_card_is_the_surface_three_tile_with_one_primary_action() -> None:
+    """DESIGN.md, "A model you can download, install or use". The card sits on
+    the surface-3 tier inside the group's surface-2 and draws no border (the
+    border budget), and the code that builds it makes one primary action and
+    never a filled button of its own choosing: the filled tier is for the
+    group's starting pick."""
+    card = _css_block(".model-card")
+    assert "var(--surface-3)" in card
+    assert "border: 1px solid transparent" in card
+    code = (ROOT / "frontend" / "js" / "settings-models.js").read_text(encoding="utf-8")
+    assert code.count('classList.add("model-card-primary")') == 1, "one primary action per card"
+    assert "const filled = !!model.recommended || !!model.custom;" in code
+    assert "innerHTML" not in code
+    # Fit is the server's verdict, never recomputed in the page.
+    assert "fit_for" not in code and "FITS_BELOW" not in code

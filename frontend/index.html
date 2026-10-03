@@ -7931,7 +7931,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="feature-models-list" class="feature-models"></div>
               <div class="row">
                 <button id="feature-models-reset" class="ghost small" type="button"
-                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature to its default model</button>
+                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature</button>
               </div>
               <p id="feature-models-reset-note" class="muted"></p>
               <div class="help-body hidden" id="feature-models-help" role="dialog" aria-label="About a model per feature">
@@ -8005,9 +8005,53 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
               <ul id="installed-list"></ul>
             </div>
+            <!-- Suggested downloads as model cards (INBOX 444): grouped by what
+                 the model is for, one starting pick per group, each card saying
+                 what it needs and whether it fits this computer, with its own
+                 progress and Cancel. Built by `renderSuggested`
+                 (settings-models.js, loaded on the first open of Settings). -->
             <div id="suggested-box" class="hidden settings-group">
-              <h3>Suggested downloads</h3>
-              <ul id="suggested-list"></ul>
+              <div class="row help-head">
+                <h3>Suggested downloads</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="suggested-help" aria-controls="suggested-help" aria-expanded="false"
+                  title="About these downloads" aria-label="About these downloads">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p id="suggested-hardware" class="muted">Models Ollama can download for you.</p>
+              <div class="help-body hidden" id="suggested-help" role="dialog" aria-label="About these downloads">
+                <p>
+                  Each card says how much memory the model asks for and whether
+                  that fits this computer: Fits is under 60% of its memory,
+                  Tight is up to 85%, and Too big is more than that. It counts
+                  system memory only; a graphics card with enough memory of its
+                  own runs the same model faster than the badge suggests.
+                </p>
+                <p>
+                  Sizes with a ~ are the download size we shipped and have not
+                  checked; they turn exact once the model is installed. The
+                  starting pick in each group is ours, chosen for being small
+                  and dependable, not the result of a benchmark.
+                </p>
+              </div>
+              <label class="setting-check" id="suggested-hide-wrap">
+                <input type="checkbox" id="suggested-hide-big">
+                <span>Hide models too big for this computer</span>
+              </label>
+              <div id="suggested-list" class="model-groups"></div>
+              <div id="custom-download" class="custom-download">
+                <h4>Download another model</h4>
+                <p class="muted">An Ollama name such as qwen2.5:3b, or a Hugging Face GGUF link.</p>
+                <div class="row">
+                  <input id="custom-model-name" type="text" spellcheck="false" autocomplete="off"
+                    autocapitalize="off" aria-label="Model name or link" aria-describedby="custom-model-note"
+                    placeholder="qwen2.5:3b">
+                  <button id="custom-model-check" class="ghost small" type="button">Check name</button>
+                </div>
+                <p id="custom-model-note" class="status" role="status" aria-live="polite"></p>
+                <div id="custom-model-cards" class="model-grid"></div>
+              </div>
             </div>
           </section>
 

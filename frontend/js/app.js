@@ -2178,7 +2178,7 @@ const LAZY_MODULES = {
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js"],
   settingsData: ["/js/settings-data.js"],
-  settingsUi: ["/js/settings-find.js"],
+  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not

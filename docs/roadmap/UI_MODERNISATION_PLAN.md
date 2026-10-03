@@ -1500,3 +1500,37 @@ inside a 4,000px section.
 6. **No section is merged away this round.** Templates, Skills and Personas
    list rows and the sampling sliders were fixed and are guarded by
    `tests/test_badge_recipe.py`; they are not touched.
+7. **Internal navigation is one lazy file, `settings-find.js`** (loaded with
+   the first open of Settings, so outside the boot gzip budget, which sits
+   842 bytes under its cap). The nav search existed (it hid the sections whose
+   text lacked the word); it now also lists the matching settings (a group
+   head or a control's label, with the section and group), capped at eight,
+   and a press opens the section and rings the setting. A long section (four
+   group heads or more, at least 1.5 windows tall) gets a sticky index of its
+   heads with the current one in `aria-current="location"`. The hash route
+   `#/settings/<section>` already existed (router.js) and is kept as the only
+   deep link; no per-setting hash. Enter on a nav entry (or a click) puts the
+   focus on the section heading; the arrow keys still walk the list and keep
+   the focus in it. Recipes: two rows in DESIGN.md, linted.
+8. **Suggested downloads are model cards**, grouped by purpose (chat and
+   filing, bigger machines, search, images, reading text), `settings-models.js`.
+   One starting pick per group, in the catalogue's own words, labelled "our
+   starting pick" and not a benchmark; it is the one filled button in its
+   group. The server owns the numbers: the memory a model asks for
+   (`ram_gb`: stated where the catalogue says "Needs ~16 GB", else the
+   download size x 1.15 + 0.7 GB rounded up to a half), what it is good at,
+   and the fit verdict against this computer's memory (`GET /models/hardware`,
+   standard library only): Fits under 60% of memory, Tight to 85%, Too big
+   above. System memory only; a GPU's own memory is not measured, and the page
+   says so behind its '?'. A too-big download asks first. "Hide models too big
+   for this computer" is a per-viewer switch.
+9. **Download another model** takes an Ollama name or a Hugging Face link or
+   `hf.co/` name, says what it is before anything downloads
+   (`POST /models/inspect`, no network, no claim of a size), and then it is a
+   card like the others, with the same progress and Cancel. `/models/pull`
+   refuses what the check refuses. Only ollama.com and Hugging Face names are
+   accepted; a name carrying another registry's address is refused.
+10. **Not done, left open:** the Tools and Appearance panes are still long
+    (4,247px and 1,296px at desktop width) and are indexed rather than
+    split; a background-job model is still chosen in Models and in Background
+    tasks; the Installed models list is the old row list.

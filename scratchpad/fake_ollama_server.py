@@ -67,7 +67,11 @@ class Handler(BaseHTTPRequestHandler):
             total = 3_000_000_000
             try:
                 for step in range(0, 101):
-                    line = {"status": "pulling", "total": total, "completed": total * step // 100}
+                    # Padded past 512 bytes: the client reads the stream in
+                    # 512-byte chunks, and real Ollama's progress lines arrive
+                    # far faster than this fake's, so an unpadded one shows no
+                    # progress for several seconds.
+                    line = {"status": "pulling", "digest": "sha256:" + "0" * 480, "total": total, "completed": total * step // 100}
                     self.wfile.write((json.dumps(line) + "\n").encode())
                     self.wfile.flush()
                     time.sleep(0.4)

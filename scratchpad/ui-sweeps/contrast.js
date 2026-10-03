@@ -30,6 +30,7 @@ const SUBTABS={
   library:null,  // filled in from the strip itself: its ids move with the plan
 };
 const SECTIONS=['models','searchindex','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
+// ONLY=settings skips the tabs and measures the Settings sections alone.
 // WIDTH/HEIGHT, because this sweep took no viewport at all and had therefore
 // only ever run at `boot`'s default 1440x900 (UI_MODERNISATION_PLAN Phase 11
 // item 11 named it as open for exactly that reason). A phone is not the same
@@ -90,7 +91,7 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   console.log(`== ${label}: ${r.out.length?r.out.length+' low-contrast':'ok'} (${r.checked} text elements)`);r.out.forEach(l=>console.log('  '+l));
   if(!r.checked){console.log('  nothing was measured here, which is a finding about the sweep, not the surface');empty.push(label);}};
 const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
-for(const t of TABS){
+for(const t of (process.env.ONLY==='settings'?[]:TABS)){
   await go(t);
   // A tab that would not open is worth saying so about, rather than being
   // silently reported as clean.
@@ -117,7 +118,7 @@ for(const t of TABS){
 // Nothing is created here: a sweep that made a board on every run would fill
 // the data directory it shares with every other sweep. If there is no board
 // to open it says so rather than passing quietly.
-{
+if(process.env.ONLY!=='settings'){
   await go('library');
   const opened=await page.evaluate(async()=>{
     document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
@@ -139,7 +140,7 @@ for(const t of TABS){
 // The guide panel (INBOX 270 part 4): a sheet, so `.modal-overlay` already
 // puts it in scope; it only had to be opened. Empty, then with a conversation,
 // because the welcome and the bubbles are different text on different grounds.
-{
+if(process.env.ONLY!=='settings'){
   const opened=await page.evaluate(()=>{try{openHelpChat();return true;}catch(e){return false;}});
   if(opened){
     await page.waitForTimeout(500);await run('guide (empty)');

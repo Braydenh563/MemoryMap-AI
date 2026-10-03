@@ -31,6 +31,16 @@ const SECTIONS = ['account', 'privacy', 'learned', 'appearance', 'preferences', 
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const want = (name) => !ONLY.length || ONLY.some((o) => name.startsWith(o));
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+//: Findings checked by hand and kept, each with why. A new entry needs a
+//: reason a reviewer can verify, never "axe is wrong" alone.
+const ACCEPTED = {
+  //: The palette is a combobox: focus stays in its input and the arrow keys
+  //: move `aria-activedescendant` through the options, scrolling the lit one
+  //: into view (settings-panes.js), so every row is reached and announced by
+  //: keyboard (2.1.1). axe's rule wants the list itself focusable, which
+  //: would add a Tab stop where the arrow keys do nothing.
+  'scrollable-region-focusable|#palette-list': 'combobox with aria-activedescendant',
+};
 
 async function scan(page, where, context, seen, out) {
   await page.evaluate(AXE);
@@ -49,7 +59,7 @@ async function scan(page, where, context, seen, out) {
   for (const v of result.violations) {
     //: The same node failing the same rule on every tab (the header, the
     //: status bar) is one finding, not nine: report it where it is first seen.
-    const fresh = v.targets.filter((t) => !seen.has(v.id + '|' + t));
+    const fresh = v.targets.filter((t) => !seen.has(v.id + '|' + t) && !ACCEPTED[v.id + '|' + t]);
     fresh.forEach((t) => seen.add(v.id + '|' + t));
     if (!fresh.length) continue;
     out.push(`[${where}] ${v.impact} ${v.id} (${fresh.length}): ${v.help}\n      ${fresh.slice(0, 4).join('\n      ')}${v.summary ? `\n      why: ${v.summary.slice(0, 220)}` : ''}`);
@@ -84,6 +94,29 @@ async function scan(page, where, context, seen, out) {
         incomplete += await scan(page, `settings/${s}`, '#settings-modal', seen, out);
       }
       await page.keyboard.press('Escape');
+    }
+    //: Overlays: what a tab scan never sees because it is closed until asked
+    //: for. Each opens through the app's own function, is scanned whole
+    //: (an overlay is often a child of <body>, not of the tab), and closes.
+    if (want('overlays')) {
+      const OVERLAYS = [
+        ['manage categories', "openManageCategories()"],
+        ['tags sheet', "openTagsSheet()"],
+        ['move to category', "chooseNoteCategory([allEntries[0].id], allEntries[0].category)"],
+        ['note menu', "switchTab('notes'); document.querySelector('#entry-list .entry-overflow-btn, #entry-list [aria-label*=\"More actions\"]')?.click()"],
+        ['note edit form', "switchTab('notes'); openNoteEditor(allEntries[0].id)"],
+        ['palette', "document.getElementById('status-command').click()"],
+        ['find anything', "openFinder()"],
+        ['shortcuts', "document.getElementById('shortcuts-overlay')?.classList.remove('hidden')"],
+      ];
+      for (const [name, js] of OVERLAYS) {
+        await page.evaluate((code) => { try { (0, eval)(code); } catch (e) { console.warn(e.message); } }, js);
+        await page.waitForTimeout(900);
+        incomplete += await scan(page, `overlay/${name}`, null, seen, out);
+        await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+        await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+        await page.evaluate(() => typeof closeNoteForm === 'function' && closeNoteForm()).catch(() => {});
+      }
     }
     console.log(`== ${theme} ${width}px: ${out.length} findings, ${incomplete} nodes axe could not decide (incomplete)`);
     out.forEach((line) => console.log('  ' + line));

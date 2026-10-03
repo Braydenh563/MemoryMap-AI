@@ -88,3 +88,12 @@ def test_the_editors_have_names():
         tag = html[html.index(f'id="{field}"'):]
         assert "aria-label=" in tag[: tag.index(">")], field
     assert 'textarea.setAttribute("aria-label", "Note text")' in _read("notes-list.js")
+
+
+def test_find_anything_is_a_listbox_only_while_it_lists():
+    find = _read("spaces-find.js")
+    role = _function(find, "finderResultsRole")
+    assert 'listing ? "listbox" : "group"' in role
+    assert "finderResultsRole(results, false);" in _function(find, "finderRenderEmpty")
+    assert "finderResultsRole(results, rows.length > 0);" in _function(find, "finderRender")
+    assert 'id="finder-results" class="finder-results" role="group"' in _read("index.html")

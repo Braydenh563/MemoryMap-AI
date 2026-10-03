@@ -489,21 +489,50 @@ function handleWbZoom(e) {
   wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
   if (wbZoomFrame) return;
-  wbZoomFrame = requestAnimationFrame(() => {
-    wbZoomFrame = 0;
-    const t = wbZoomPending;
-    wbZoomPending = null;
-    if (!t) return;
-    wbSyncGridToTransform(t);
-    //: In the same frame as the transform it answers, so a topic panned into
-    //: view is drawn on the frame it arrives in rather than one later.
-    wbCullNow(t);
-    wbUpdateSelectionBar();
-    // The navigator's viewport rectangle is only true for one transform, so
-    // it is redrawn with every pan and zoom. `wbRenderNavigator` returns
-    // immediately when the navigator is closed, which is the common case.
-    wbRenderNavigator();
-  });
+  wbZoomFrame = requestAnimationFrame(wbZoomFrameWork);
+}
+
+//: Everything a pan or zoom costs beyond the transform itself, once a frame.
+function wbZoomFrameWork() {
+  wbZoomFrame = 0;
+  const t = wbZoomPending;
+  wbZoomPending = null;
+  if (!t) return;
+  //: **The canvas size is read once, before anything here writes** (INBOX
+  //: 431). The grid writes three custom properties on the container and the
+  //: cull toggles classes on the items it brings into view; a size read
+  //: after either forced the browser to restyle the board inside this
+  //: callback, and the overview read it last, after both. Traced on a
+  //: 150-topic map at a 4x throttle, an overview drag spent 1.3s of its 4.7s
+  //: in that forced restyle. Read first, the restyle happens once, in the
+  //: frame's own rendering step.
+  //:
+  //: An overview drag measured the canvas at its press, and the canvas
+  //: cannot change size while a pointer is held on the overview.
+  const container = document.getElementById("whiteboard-container");
+  const drag = wbNavState.drag;
+  const size = drag
+    ? { width: drag.width, height: drag.height }
+    : container ? { width: container.clientWidth, height: container.clientHeight } : null;
+  wbSyncGridToTransform(t);
+  //: In the same frame as the transform it answers, so a topic panned into
+  //: view is drawn on the frame it arrives in rather than one later.
+  wbCullNow(t, size);
+  wbUpdateSelectionBar();
+  // The overview's viewport rectangle is only true for one transform, so it
+  // moves with every pan and zoom; the items in it do not, and are not
+  // redrawn (`wbNavigatorUpdateViewport`). It returns immediately when the
+  // overview is closed, which is the common case.
+  wbNavigatorUpdateViewport(t, size);
+}
+
+//: Run a queued zoom frame now rather than on the next one: for a transform
+//: set from inside an animation frame (the overview's drag), whose own frame
+//: would otherwise land the grid, the cull and the rectangle one frame late.
+function wbFlushZoomFrame() {
+  if (!wbZoomFrame) return;
+  cancelAnimationFrame(wbZoomFrame);
+  wbZoomFrameWork();
 }
 
 //: **Only what is near the window is drawn** (MINDMAP_PLAN.md 13a-view,
@@ -534,6 +563,10 @@ function handleWbZoom(e) {
 //: once per pan frame, in the frame's own rAF.
 const WB_CULL_MARGIN = 0.5;
 let wbCullFrame = 0;
+//: Non-zero while an animated fit runs: the cull has drawn the fit's
+//: destination and does nothing until it lands (`wbZoomToFit`).
+let wbCullHeld = 0;
+let wbCullHoldCount = 0;
 
 function wbScheduleCull() {
   if (wbCullFrame) return;
@@ -543,12 +576,15 @@ function wbScheduleCull() {
   });
 }
 
-function wbCullNow(transform) {
+function wbCullNow(transform, size) {
+  if (wbCullHeld) return;
   const container = document.getElementById("whiteboard-container");
   const layer = document.getElementById("wb-html-layer");
   if (!container || !layer) return;
-  const w = container.clientWidth;
-  const h = container.clientHeight;
+  //: `size` when the caller has read it before writing anything this frame
+  //: (`wbZoomFrameWork`); a read here otherwise.
+  const w = size ? size.width : container.clientWidth;
+  const h = size ? size.height : container.clientHeight;
   //: A hidden board (another tab, the boards gallery) has no window to cull
   //: against; leave it as it is rather than culling everything.
   if (!w || !h) return;
@@ -648,9 +684,50 @@ function wbSyncGridToTransform(transform) {
   //: grips ride the board's scale for the length of the gesture and snap to
   //: their true size when it stops.
   const inv = String(1 / (t.k || 1));
-  if (el.style.getPropertyValue("--wb-inv-zoom") === inv) return;
   clearTimeout(wbInvZoomTimer);
-  wbInvZoomTimer = setTimeout(() => el.style.setProperty("--wb-inv-zoom", inv), 120);
+  if (wbInvZoomValue === inv) return;
+  wbInvZoomTimer = setTimeout(() => wbPublishInvZoom(el, inv), 120);
+}
+
+//: **Written onto the grips, not inherited down the whole board** (INBOX
+//: 431). Even once per zoom, the write above re-styled every element under
+//: the container, because an inherited custom property changed at the top of
+//: it: measured on a 150-topic map (4,212 elements) at a 4x throttle, 290ms
+//: for one write, and the largest single frame of every fit, the overview's
+//: included. A rule in a constructed sheet that names the grips sets the
+//: property on them alone, so a change re-styles what matches it: 40ms on
+//: the same map. A constructed sheet because the CSP refuses an injected
+//: `<style>` (as `applyCustomCss` in settings.js found). The selectors are
+//: every rule in 07-whiteboard-misc.css that reads the property, and
+//: `tests/test_wb_navigator_cost.py` keeps the two lists the same.
+const WB_INV_ZOOM_GRIPS = [
+  ".wb-resize-handle",
+  ".wb-rotate-handle",
+  ".wb-sketch-resize-handle",
+  ".wb-link-endpoint-handle",
+  ".wb-link-bend-handle",
+  ".wb-map-edge-handle",
+  ".wb-sketch-rotate-handle",
+  ".wb-rotate-handle-stem",
+];
+let wbInvZoomSheet = null;
+let wbInvZoomValue = "1";
+
+function wbPublishInvZoom(el, inv) {
+  wbInvZoomValue = inv;
+  const supported =
+    typeof CSSStyleSheet !== "undefined"
+    && "replaceSync" in CSSStyleSheet.prototype
+    && "adoptedStyleSheets" in Document.prototype;
+  if (!supported) {
+    el.style.setProperty("--wb-inv-zoom", inv);
+    return;
+  }
+  if (!wbInvZoomSheet) {
+    wbInvZoomSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, wbInvZoomSheet];
+  }
+  wbInvZoomSheet.replaceSync(`${WB_INV_ZOOM_GRIPS.join(", ")} { --wb-inv-zoom: ${inv}; }`);
 }
 
 function wbGridType() {
@@ -1396,7 +1473,40 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
   const target = d3.zoomIdentity
     .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
     .scale(k);
-  (animate ? sel.transition().duration(350) : sel).call(wbZoom.transform, target);
+  if (!animate) {
+    sel.call(wbZoom.transform, target);
+    return;
+  }
+  //: **The cull draws the destination once, then holds** (INBOX 431: the
+  //: overview's Fit "reallllly glitchy and laggy"). A fit ends with
+  //: everything on screen, so everything has to be drawn by its last frame
+  //: whatever happens on the way. Culled frame by frame, a fit that zooms
+  //: out brought a few more items in on every frame of its 350ms, so every
+  //: frame restyled, laid out and painted, and on a 150-topic map at a 4x
+  //: throttle the animation managed 12 frames, p95 233ms. Drawn against the
+  //: destination first, the frames between restyle nothing (the zoom still
+  //: re-rasters the board at each scale); the hold lifts when the animation
+  //: ends or anything interrupts it. Measured against culling every frame,
+  //: with everything else equal: the map's heavy frames went from five
+  //: (100 to 233ms) to one at the press and a run of 50 to 83ms.
+  //:
+  //: The hold is this fit's own: a fit started over a running one
+  //: interrupts it, and that one's release must not lift the new hold.
+  wbCullHeld = 0;
+  wbCullNow(target);
+  const hold = ++wbCullHoldCount;
+  wbCullHeld = hold;
+  const release = () => {
+    if (wbCullHeld !== hold) return;
+    wbCullHeld = 0;
+    wbScheduleCull();
+  };
+  sel
+    .transition()
+    .duration(350)
+    .on("end.cullhold", release)
+    .on("interrupt.cullhold", release)
+    .call(wbZoom.transform, target);
 }
 
 //: A fit tighter than this is a map you cannot read: the nodes are there, the
@@ -1468,13 +1578,68 @@ function wbNavigatorOpen() {
   return !!panel && !panel.classList.contains("hidden");
 }
 
-/** Board coordinates -> navigator coordinates, or null on an empty board. */
-function wbNavigatorProjection() {
-  const bounds = wbContentBounds();
-  const container = document.getElementById("whiteboard-container");
-  if (!bounds || !container) return null;
-  const rect = container.getBoundingClientRect();
-  const t = d3.zoomTransform(container);
+//: **What the overview costs, and when** (INBOX 431, the owner: "the fit drag
+//: mini fit map on the whiteboard and mindmap is reallllly glitchy and
+//: laggy"). Measured on a 150-card board at a 4x CPU throttle
+//: (`scratchpad/ui-sweeps/minimapdrag.js`) before this: a one-second drag of
+//: the viewport rectangle took 9.7 seconds to deliver, with 9,222 forced
+//: layouts and a p95 frame of 183ms. Two of the causes were in the drawing:
+//:
+//:   * The full redraw read each card's size (`offsetWidth`, inside
+//:     `wbItemBBox`) *between* appends to this SVG, and an append dirties
+//:     layout, so every item forced a layout of the page: 151 layouts for
+//:     one redraw of 150 items. `wbNavigatorSnapshot` now takes every
+//:     measurement in one pass, and the redraw writes once, a fragment.
+//:   * That redraw ran on every pan and zoom frame. The items cannot move
+//:     during a pan; only the rectangle can, and the mapping, when the view
+//:     leaves the content and the map rescales to keep it in. So a pan frame
+//:     runs `wbNavigatorUpdateViewport`: the rectangle's four attributes,
+//:     and one `transform` on the items group when the mapping changed. The
+//:     items are redrawn after a board render (`wbNavState.stale`), which is
+//:     what moves them.
+const wbNavState = {
+  //: What the items were last drawn from: `bounds` (board space) and
+  //: `drawn`, the mapping they were drawn with.
+  content: null,
+  //: A render since the last redraw: the items may have moved.
+  stale: true,
+  //: The live drag on the overview, or null (see `wbNavigatorDragStart`).
+  drag: null,
+  //: The selection the items were last classed for.
+  selectionKey: "",
+};
+
+//: Every item's box and the content bounds, in one pass of reads. Nothing in
+//: here writes, so the layout the first read flushes serves all the rest.
+function wbNavigatorSnapshot() {
+  const items = [];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [kind, list] of Object.entries(WB_LIST_BY_KIND)) {
+    for (const item of wbState[list] || []) {
+      const box = wbItemBBox(kind, item);
+      if (!box) continue;
+      items.push({ kind, id: item.id, box });
+      if (box.minX < minX) minX = box.minX;
+      if (box.minY < minY) minY = box.minY;
+      if (box.maxX > maxX) maxX = box.maxX;
+      if (box.maxY > maxY) maxY = box.maxY;
+    }
+  }
+  const bounds = Number.isFinite(minX)
+    ? { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
+    : null;
+  return { bounds, items };
+}
+
+/**
+ * Board coordinates -> navigator coordinates, from the content bounds, a zoom
+ * transform and the canvas size; null on an empty board.
+ */
+function wbNavigatorProjectionFor(bounds, t, width, height) {
+  if (!bounds) return null;
   // The navigator shows the content *and* wherever the viewport currently is,
   // so a viewport panned off into empty space still draws a rectangle you can
   // drag back: union the two before scaling, or the rectangle silently
@@ -1482,8 +1647,8 @@ function wbNavigatorProjection() {
   const view = {
     minX: (0 - t.x) / t.k,
     minY: (0 - t.y) / t.k,
-    maxX: (rect.width - t.x) / t.k,
-    maxY: (rect.height - t.y) / t.k,
+    maxX: (width - t.x) / t.k,
+    maxY: (height - t.y) / t.k,
   };
   const minX = Math.min(bounds.minX, view.minX);
   const minY = Math.min(bounds.minY, view.minY);
@@ -1494,72 +1659,268 @@ function wbNavigatorProjection() {
   const k = Math.min((WB_NAV_W - WB_NAV_PAD * 2) / w, (WB_NAV_H - WB_NAV_PAD * 2) / h);
   const offX = WB_NAV_PAD + ((WB_NAV_W - WB_NAV_PAD * 2) - w * k) / 2;
   const offY = WB_NAV_PAD + ((WB_NAV_H - WB_NAV_PAD * 2) - h * k) / 2;
+  return wbNavigatorMapping({ k, minX, minY, offX, offY }, view);
+}
+
+//: A projection from its five numbers and the viewport it shows.
+function wbNavigatorMapping({ k, minX, minY, offX, offY }, view) {
   return {
     k,
+    minX,
+    minY,
+    offX,
+    offY,
     view,
     toNav: (x, y) => [offX + (x - minX) * k, offY + (y - minY) * k],
     toBoard: (nx, ny) => [minX + (nx - offX) / k, minY + (ny - offY) / k],
   };
 }
 
+//: The drag's projection: the mapping frozen at the press, the viewport live.
+function wbNavigatorFrozenProjection(drag, t) {
+  return wbNavigatorMapping(drag.mapping, {
+    minX: (0 - t.x) / t.k,
+    minY: (0 - t.y) / t.k,
+    maxX: (drag.width - t.x) / t.k,
+    maxY: (drag.height - t.y) / t.k,
+  });
+}
+
+function wbNavigatorSelectionKey() {
+  const one = wbSelectedItem ? wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id) : "";
+  return wbMultiSelection.size ? `${one}|${[...wbMultiSelection].join(",")}` : one;
+}
+
+function wbNavigatorIsSelected(kind, id) {
+  return wbMultiSelection.has(wbMultiKey(kind, id))
+    || (!!wbSelectedItem && wbSelectedItem.kind === kind && String(wbSelectedItem.id) === String(id));
+}
+
 function wbRenderNavigator() {
   const svg = document.getElementById("wb-navigator-map");
   const empty = document.getElementById("wb-navigator-empty");
   if (!svg || !wbNavigatorOpen()) return;
-  const proj = wbNavigatorProjection();
-  const bounds = wbContentBounds();
-  svg.replaceChildren();
-  if (empty) empty.classList.toggle("hidden", !!bounds);
-  svg.classList.toggle("hidden", !bounds);
-  if (!proj || !bounds) return;
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  // Reads, all of them, before the first write.
+  const snap = wbNavigatorSnapshot();
+  const t = d3.zoomTransform(container);
+  const proj = wbNavigatorProjectionFor(snap.bounds, t, container.clientWidth, container.clientHeight);
   const NS = "http://www.w3.org/2000/svg";
-  const add = (tag, attrs) => {
+  const frag = document.createDocumentFragment();
+  // Attributes, never a `style` string: this app's CSP rejects inline
+  // styles outright, and thirty-five of them once shipped as silently dead
+  // markup (CLAUDE.md, "a policy silently refusing the work").
+  const make = (tag, attrs) => {
     const el = document.createElementNS(NS, tag);
-    // Attributes, never a `style` string: this app's CSP rejects inline
-    // styles outright, and thirty-five of them once shipped as silently dead
-    // markup (CLAUDE.md, "a policy silently refusing the work").
     for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
-    svg.append(el);
     return el;
   };
-  for (const [kind, list] of Object.entries(WB_LIST_BY_KIND)) {
-    for (const item of wbState[list] || []) {
-      const box = wbItemBBox(kind, item);
-      if (!box) continue;
+  if (proj) {
+    const group = make("g", { class: "wb-nav-items" });
+    for (const { kind, id, box } of snap.items) {
       const [x, y] = proj.toNav(box.minX, box.minY);
       const w = Math.max((box.maxX - box.minX) * proj.k, 2);
       const h = Math.max((box.maxY - box.minY) * proj.k, 2);
-      const selected = wbMultiSelection.has(wbMultiKey(kind, item.id))
-        || (wbSelectedItem && wbSelectedItem.kind === kind && wbSelectedItem.id === item.id);
-      add("rect", {
+      const rect = make("rect", {
         x, y, width: w, height: h, rx: 1,
-        class: `wb-nav-item wb-nav-item-${kind}${selected ? " is-selected" : ""}`,
+        class: `wb-nav-item wb-nav-item-${kind}${wbNavigatorIsSelected(kind, id) ? " is-selected" : ""}`,
+        "data-key": wbMultiKey(kind, id),
       });
+      group.append(rect);
     }
+    frag.append(group, make("rect", { class: "wb-nav-viewport" }));
   }
-  const [vx, vy] = proj.toNav(proj.view.minX, proj.view.minY);
-  add("rect", {
-    x: vx,
-    y: vy,
-    width: Math.max((proj.view.maxX - proj.view.minX) * proj.k, 4),
-    height: Math.max((proj.view.maxY - proj.view.minY) * proj.k, 4),
-    class: "wb-nav-viewport",
-  });
+  svg.replaceChildren(frag);
+  if (empty) empty.classList.toggle("hidden", !!snap.bounds);
+  svg.classList.toggle("hidden", !snap.bounds);
+  wbNavState.content = proj
+    ? { bounds: snap.bounds, drawn: { k: proj.k, minX: proj.minX, minY: proj.minY, offX: proj.offX, offY: proj.offY } }
+    : null;
+  wbNavState.stale = false;
+  wbNavState.selectionKey = wbNavigatorSelectionKey();
+  if (proj) wbNavigatorPlaceViewport(svg, proj);
 }
 
-/** Move the viewport so its centre lands where the navigator was clicked. */
-function wbNavigatorJump(event) {
+//: The rectangle for `proj`, and the items group's mapping from the one they
+//: were drawn with to `proj`. Writes only.
+function wbNavigatorPlaceViewport(svg, proj) {
+  const rect = svg.lastElementChild;
+  if (!rect || !rect.classList.contains("wb-nav-viewport")) return;
+  const [vx, vy] = proj.toNav(proj.view.minX, proj.view.minY);
+  rect.setAttribute("x", vx);
+  rect.setAttribute("y", vy);
+  rect.setAttribute("width", Math.max((proj.view.maxX - proj.view.minX) * proj.k, 4));
+  rect.setAttribute("height", Math.max((proj.view.maxY - proj.view.minY) * proj.k, 4));
+  const drawn = wbNavState.content?.drawn;
+  const group = svg.firstElementChild;
+  if (!drawn || !group || !group.classList.contains("wb-nav-items")) return;
+  // nav = off + (board - min) * k, so going from the drawn mapping to this
+  // one is a scale by k / k0 and a translate: identity when nothing rescaled.
+  const s = proj.k / drawn.k;
+  const tx = proj.offX - proj.minX * proj.k - s * (drawn.offX - drawn.minX * drawn.k);
+  const ty = proj.offY - proj.minY * proj.k - s * (drawn.offY - drawn.minY * drawn.k);
+  const same = Math.abs(s - 1) < 1e-6 && Math.abs(tx) < 0.01 && Math.abs(ty) < 0.01;
+  const value = same ? "" : `translate(${tx} ${ty}) scale(${s})`;
+  if ((group.getAttribute("transform") || "") !== value) {
+    if (value) group.setAttribute("transform", value);
+    else group.removeAttribute("transform");
+  }
+}
+
+/**
+ * The per-frame update from a pan or a zoom: the rectangle and the mapping,
+ * never the items, and no measurement of the board. The bounds are the ones
+ * the items were drawn from; the canvas size is `size`, which the zoom frame
+ * read before it wrote anything (a read here only without it).
+ */
+function wbNavigatorUpdateViewport(t, size) {
   const svg = document.getElementById("wb-navigator-map");
-  const proj = wbNavigatorProjection();
-  if (!svg || !proj) return;
-  const rect = svg.getBoundingClientRect();
+  if (!svg || !wbNavigatorOpen()) return;
+  const drag = wbNavState.drag;
+  // A render since the items were drawn: redraw them. Not mid-drag, where
+  // the pointer is aiming with the mapping the items were drawn in; the
+  // drag's end redraws.
+  if (!drag && (wbNavState.stale || !wbNavState.content)) {
+    wbRenderNavigator();
+    return;
+  }
+  if (!wbNavState.content) return;
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  const transform = t || d3.zoomTransform(container);
+  const proj = drag
+    ? wbNavigatorFrozenProjection(drag, transform)
+    : wbNavigatorProjectionFor(
+      wbNavState.content.bounds,
+      transform,
+      size ? size.width : container.clientWidth,
+      size ? size.height : container.clientHeight,
+    );
+  if (!proj) return;
+  const key = wbNavigatorSelectionKey();
+  if (key !== wbNavState.selectionKey) {
+    wbNavState.selectionKey = key;
+    for (const el of svg.firstElementChild?.children || []) {
+      const itemKey = el.getAttribute("data-key") || "";
+      const cut = itemKey.indexOf(":");
+      const on = cut > 0 && wbNavigatorIsSelected(itemKey.slice(0, cut), itemKey.slice(cut + 1));
+      if (el.classList.contains("is-selected") !== on) el.classList.toggle("is-selected", on);
+    }
+  }
+  wbNavigatorPlaceViewport(svg, proj);
+}
+
+//: **Dragging the overview** (INBOX 431: "glitchy and laggy"). What a drag
+//: did before, on every pointer event: measured the content bounds from the
+//: DOM (a size read per card), measured the overview's own box and the
+//: canvas, built a projection that could rescale under the pointer whenever
+//: the view crossed the content's edge, and set the transform, whose frame
+//: then redrew the whole overview. And a press on the rectangle jumped its
+//: centre to the pointer, so picking it up by a corner moved the board
+//: before the hand did.
+//:
+//: Now the press measures, once: the overview's box, the canvas size and the
+//: mapping (frozen, so the map under the pointer holds still until the
+//: release, which redraws it). A press on the rectangle keeps the grab point;
+//: a press elsewhere still jumps the view there, which is what a click on an
+//: overview means. Moves are coalesced into one animation frame, which sets
+//: the transform and runs the zoom frame's work at once (`wbFlushZoomFrame`),
+//: so the board, the grid, the cull and the rectangle all land in that frame.
+//: Pointer capture keeps the drag when the pointer leaves the small box; the
+//: drag ends on up, cancel and a lost capture alike.
+function wbNavigatorDragStart(event) {
+  const svg = event.currentTarget;
+  const container = document.getElementById("whiteboard-container");
+  if (!svg || !container) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  // A second pointer pressing mid-drag (a second finger) takes the drag over.
+  if (wbNavState.drag) wbNavigatorDragEnd();
+  if (wbNavState.stale || !wbNavState.content) wbRenderNavigator();
+  if (!wbNavState.content) return;
+  const t = d3.zoomTransform(container);
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const proj = wbNavigatorProjectionFor(wbNavState.content.bounds, t, width, height);
+  if (!proj) return;
   // The SVG is laid out at exactly WB_NAV_W x WB_NAV_H, but a browser zoom or
-  // a future responsive tweak could scale it, divide through by the real
+  // a future responsive tweak could scale it: divide through by the real
   // rendered size rather than trusting the constants.
-  const nx = ((event.clientX - rect.left) / rect.width) * WB_NAV_W;
-  const ny = ((event.clientY - rect.top) / rect.height) * WB_NAV_H;
-  const [bx, by] = proj.toBoard(nx, ny);
-  wbCenterOn({ minX: bx, minY: by, maxX: bx, maxY: by }, { animate: false, minScale: 0 });
+  const box = svg.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const nx = ((event.clientX - box.left) / box.width) * WB_NAV_W;
+  const ny = ((event.clientY - box.top) / box.height) * WB_NAV_H;
+  const [x0, y0] = proj.toNav(proj.view.minX, proj.view.minY);
+  const [x1, y1] = proj.toNav(proj.view.maxX, proj.view.maxY);
+  const onRect = nx >= x0 && nx <= x1 && ny >= y0 && ny <= y1;
+  const grab = onRect ? { x: nx - (x0 + x1) / 2, y: ny - (y0 + y1) / 2 } : { x: 0, y: 0 };
+  wbNavState.drag = {
+    pointerId: event.pointerId,
+    svg,
+    box,
+    width,
+    height,
+    k: t.k,
+    mapping: { k: proj.k, minX: proj.minX, minY: proj.minY, offX: proj.offX, offY: proj.offY },
+    grab,
+    pending: { x: event.clientX, y: event.clientY },
+    frame: 0,
+  };
+  try {
+    svg.setPointerCapture(event.pointerId);
+  } catch {
+    /* a synthetic event with no live pointer: the drag still works inside the box */
+  }
+  svg.classList.add("is-dragging");
+  event.preventDefault();
+  wbNavigatorDragFrame();
+}
+
+function wbNavigatorDragMove(event) {
+  const drag = wbNavState.drag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  drag.pending = { x: event.clientX, y: event.clientY };
+  if (!drag.frame) drag.frame = requestAnimationFrame(wbNavigatorDragFrame);
+}
+
+function wbNavigatorDragFrame() {
+  const drag = wbNavState.drag;
+  if (!drag) return;
+  drag.frame = 0;
+  const p = drag.pending;
+  drag.pending = null;
+  const container = document.getElementById("whiteboard-container");
+  if (!p || !container) return;
+  const nx = ((p.x - drag.box.left) / drag.box.width) * WB_NAV_W - drag.grab.x;
+  const ny = ((p.y - drag.box.top) / drag.box.height) * WB_NAV_H - drag.grab.y;
+  const m = drag.mapping;
+  const bx = m.minX + (nx - m.offX) / m.k;
+  const by = m.minY + (ny - m.offY) / m.k;
+  // The zoom is kept: the overview moves the view, it never rescales it.
+  const target = d3.zoomIdentity
+    .translate(drag.width / 2 - drag.k * bx, drag.height / 2 - drag.k * by)
+    .scale(drag.k);
+  d3.select(container).call(wbZoom.transform, target);
+  wbFlushZoomFrame();
+}
+
+function wbNavigatorDragEnd(event) {
+  const drag = wbNavState.drag;
+  if (!drag || (event && event.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
+  // The last move lands before the drag ends, rather than being dropped.
+  if (drag.frame) {
+    cancelAnimationFrame(drag.frame);
+    wbNavigatorDragFrame();
+  }
+  wbNavState.drag = null;
+  drag.svg.classList.remove("is-dragging");
+  try {
+    if (drag.svg.hasPointerCapture(drag.pointerId)) drag.svg.releasePointerCapture(drag.pointerId);
+  } catch {
+    /* the pointer was already gone */
+  }
+  // The mapping was frozen for the gesture; let it follow the view again.
+  wbRenderNavigator();
 }
 
 function wbToggleNavigator(force) {
@@ -1567,6 +1928,8 @@ function wbToggleNavigator(force) {
   const button = document.getElementById("wb-navigator-toggle");
   if (!panel) return;
   const open = force === undefined ? panel.classList.contains("hidden") : force;
+  // Shift+N mid-drag: the drag ends with the panel, not with a later pointer.
+  if (!open && wbNavState.drag) wbNavigatorDragEnd();
   panel.classList.toggle("hidden", !open);
   if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
   try {
@@ -6827,28 +7190,13 @@ async function initWhiteboard() {
   if (navMap) {
     // Pointer events rather than mouse events, so a pen or a touch drag on a
     // tablet moves the viewport too, this is a drawing app, and the board is
-    // reachable from a touchscreen.
-    let navDragging = false;
-    navMap.addEventListener("pointerdown", (event) => {
-      navDragging = true;
-      navMap.setPointerCapture(event.pointerId);
-      wbNavigatorJump(event);
-      event.preventDefault();
-    });
-    navMap.addEventListener("pointermove", (event) => {
-      if (navDragging) wbNavigatorJump(event);
-    });
-    const endNavDrag = (event) => {
-      if (!navDragging) return;
-      navDragging = false;
-      try {
-        navMap.releasePointerCapture(event.pointerId);
-      } catch {
-        /* the pointer was already gone */
-      }
-    };
-    navMap.addEventListener("pointerup", endNavDrag);
-    navMap.addEventListener("pointercancel", endNavDrag);
+    // reachable from a touchscreen. The drag itself, and why it is shaped as
+    // it is, is at `wbNavigatorDragStart`.
+    navMap.addEventListener("pointerdown", wbNavigatorDragStart);
+    navMap.addEventListener("pointermove", wbNavigatorDragMove);
+    navMap.addEventListener("pointerup", wbNavigatorDragEnd);
+    navMap.addEventListener("pointercancel", wbNavigatorDragEnd);
+    navMap.addEventListener("lostpointercapture", wbNavigatorDragEnd);
   }
   try {
     if (localStorage.getItem("wb-navigator-open") === "1") wbToggleNavigator(true);
@@ -11632,6 +11980,9 @@ function renderWhiteboard() {
   //: from the previous set is about to describe something that is gone.
   wbClearMapNodeSizeCache();
   wbItemElCache.clear();
+  //: And the overview's items were drawn from that set: the next pan frame
+  //: redraws them rather than only moving its rectangle.
+  wbNavState.stale = true;
   // Built once per render, not once per card: `allEntries.find(...)` inside
   // a per-card callback is O(cards × notebook size) on every single render
   //, for a large notebook that is real, measurable work paid on every

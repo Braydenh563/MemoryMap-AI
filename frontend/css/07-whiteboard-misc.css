@@ -7657,6 +7657,11 @@ button.connection-row {
   touch-action: none; /* so a touch drag pans the board, not the page */
 }
 
+/* Held: the rectangle is in the hand (`wbNavigatorDragStart`). */
+.wb-navigator-map.is-dragging {
+  cursor: grabbing;
+}
+
 .wb-navigator-empty,
 .wb-navigator-hint {
   margin: 0;

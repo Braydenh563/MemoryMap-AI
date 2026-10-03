@@ -204,7 +204,7 @@ def test_a_failed_backup_shows_why(client, monkeypatch):
     from memorymap.core import backup
 
     def full(*_a, **_k):
-        raise OSError(28, "No space left on device")
+        raise OSError(28, "No space left on device", "/home/someone/data/backups/memorymap.db")
 
     monkeypatch.setattr(backup, "backup_now", full)
     response = client.post("/backups")
@@ -212,7 +212,10 @@ def test_a_failed_backup_shows_why(client, monkeypatch):
     assert response.status_code == 507
     assert response.json()["detail"] == "Couldn't save the backup: No space left on device."
     row = _runs(client)["backup"]
-    assert row["status"] == "failed" and "No space left" in row["error"]
+    assert row["status"] == "failed"
+    # A short worded reason: not the errno, and not the path of the person's
+    # own folders.
+    assert row["error"] == "No space left on device"
 
 
 def test_the_duplicate_scan_records_its_count_on_the_first_page_only(client):

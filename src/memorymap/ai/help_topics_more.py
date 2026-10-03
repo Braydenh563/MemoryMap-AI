@@ -149,22 +149,53 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "general-settings",
         "keywords": (
-            "answer style", "concise", "detailed", "shorter answers", "longer answers",
-            "search relevance", "minimum similarity", "smart quotes", "auto clear",
+            "smart quotes", "auto clear",
             "empty the bin", "delete old chats", "chat history", "mute notifications",
             "general settings",
         ),
         "body": (
             "Settings, General. Recycle bin: auto-clear binned notes after a "
             "number of days. Chat history: delete saved chats after a number "
-            "of days (0 keeps every chat; pinned chats are never deleted). AI "
-            "answer style: Friendly (the default), Concise or Detailed. Search "
-            "relevance: Minimum similarity and Above-average margin; raise them "
-            "for fewer, surer results, lower them if search feels too strict, "
-            "and Reset to default undoes both. Notifications: mute everything "
-            "except reminders. Writing: smart quotes and dashes in documents."
+            "of days (0 keeps every chat; pinned chats are never deleted). "
+            "Notifications: mute everything except reminders. Writing: smart "
+            "quotes and dashes in documents. Answer style moved to Settings, "
+            "Personas, and Search relevance to Settings, Search and index."
         ),
         "badge": {"label": "General", "section": "general"},
+    },
+    {
+        "id": "search-index",
+        "keywords": (
+            "search relevance", "minimum similarity", "above-average margin",
+            "search engine", "semantic search", "embedding model", "re-index",
+            "rebuild search index", "search index", "search is wrong",
+            "too many results", "too few results", "search feels too strict",
+        ),
+        "body": (
+            "Settings, Search and index. Search engine: the built-in one "
+            "(recommended, about 650 MB of memory while the app is open) or an "
+            "Ollama embedding model such as nomic-embed-text; changing it "
+            "re-reads every note in the background and search uses keywords "
+            "until it finishes. Search index: Rebuild search index after an "
+            "update or a restore, or if search stops finding notes you know "
+            "are there. Search relevance: Minimum similarity and Above-average "
+            "margin; raise them for fewer, surer results, lower them if search "
+            "feels too strict, and Reset to default undoes both."
+        ),
+        "badge": {"label": "Search and index", "section": "searchindex"},
+    },
+    {
+        "id": "answer-style",
+        "keywords": (
+            "answer style", "concise", "detailed", "shorter answers",
+            "longer answers", "friendly",
+        ),
+        "body": (
+            "Settings, Personas, Answer style: how Atlas words its answers, "
+            "Friendly (the default), Concise or Detailed, whichever persona is "
+            "active."
+        ),
+        "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },
     {
         "id": "background-tasks",
@@ -388,6 +419,8 @@ TOPIC_META: dict[str, dict] = {
     "tools-setting": {"title": "Tools it can use", "path": "Settings, Tools it can use"},
     "learned": {"title": "What it learned", "path": "Settings, What it learned"},
     "general-settings": {"title": "General settings", "path": "Settings, General"},
+    "search-index": {"title": "Search and index", "path": "Settings, Search and index"},
+    "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},

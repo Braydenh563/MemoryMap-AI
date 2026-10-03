@@ -104,17 +104,6 @@ with its owner named in the entry.
      and mind map audited (controls, missing or broken features, render cost
      per frame), then fixed: an agent; both after the running agents land.
 
-444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
-     a major expansion, improvement and modern/professional ui/ux modern
-     redesign of the models settings page suggested downloads section. also
-     just how the settings operate. the settings needs better designing,
-     rearrangement, better internal navigation and cleaning up." Placed: a
-     measured audit of Settings (sections, groups, controls per section,
-     scroll depth, duplicated controls), then a rearranged information
-     architecture, internal navigation (search, a section index, deep links)
-     and the Models suggested downloads redesigned as model cards: a Sonnet
-     agent.
-
 443. **The owner, 2026-10-03, verbatim, with screenshots (the graph; the
      Library's Boards and maps placeholders; the feminine Atlas's lower
      body).** "the graph shape could look nicer as well. also the skeleton

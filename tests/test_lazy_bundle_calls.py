@@ -99,6 +99,16 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
+    #: before it shows any section, and every call below runs from a section
+    #: that is on screen or a search field inside the open dialog. With the
+    #: bundle absent (a failed fetch) Settings keeps its nav, the section filter
+    #: and the arrow keys, and these index and result extras are simply not
+    #: drawn, which is the intended degradation.
+    "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
+    "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
+    "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
+    "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
     #: editConflictPrompt's Compare awaits `ensureModule("library")` on the
     #: line before, so the diff builder is in the page when it is called.
     "docRenderDiff": "library, called by editConflictPrompt only after it awaits ensureModule('library')",

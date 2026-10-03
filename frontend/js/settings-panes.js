@@ -2044,7 +2044,7 @@ const REVEAL_TARGETS = {
   "set-companion": { settings: "appearance", el: "avatar-buddy-row" },
   "set-contrast": { settings: "appearance", el: "contrast-toggle" },
   "set-custom-css": { settings: "appearance", el: "custom-css" },
-  "set-search-relevance": { settings: "general", el: "search-relevance-group" },
+  "set-search-relevance": { settings: "searchindex", el: "search-relevance-group" },
   "set-export": { settings: "data", el: "export-json" },
   "set-import-md": { settings: "data", el: "import-md" },
   "set-backups": { settings: "data", el: "backup-now" },

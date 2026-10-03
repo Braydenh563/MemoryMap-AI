@@ -922,6 +922,8 @@ function initRowSwipe(list, actions) {
     const li = row;
     const travelled = dx;
     row = null;
+    // A tap never moved: settling it would mark it a swipe and eat its click.
+    if (!decided) return;
     settle(li);
     if (Math.abs(travelled) < ROW_SWIPE_ARM) return;
     if (travelled > 0) actions.right?.(li);

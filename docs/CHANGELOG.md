@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).
+
 ## [0.3.32] - 2026-09-28
 
 ### Added

@@ -107,7 +107,11 @@ work starts.
     content: draw every widget's empty state and fit the page to its
     content; (4) on an empty dashboard, offer a recommended layout in a popup.
 10c. **Last requests at release, not done (0.3.4, top of the list):**
-    (1) custom select menus narrower than their trigger (Library "Items per
+    (1) done (menus.js `wireEscapedActionMenu` floors an escaped
+    `.select-menu` at the trigger's width; measured on 13 selects across
+    Library, Timeline, Notes, Chat: ten narrower before, Items per page
+    131.5px under 215.6px, every one at least its trigger after, 216/215.6):
+    custom select menus narrower than their trigger (Library "Items per
     page"): every `enhanceSelect` menu at least the trigger's width;
     (2) chat "Ask again:" chips: history icon and text not vertically
     centred;

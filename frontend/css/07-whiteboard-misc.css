@@ -7104,8 +7104,7 @@ button.connection-row {
 
 /* **The engine line** (INBOX 443 (3)), drawn by ocr-engine.js under the
    toolbar and again, smaller, in the Packages row for Tesseract. A state chip
-   (the Packages row's own `.extras-installed` colours for ready, the warning
-   ink for not), one muted sentence, and the one control that fits the state:
+   (`chip item-label`, `is-ok` for ready and `is-warn` for not), one muted sentence, and the one control that fits the state:
    the language when it can read, Install when it cannot. It wraps rather than
    scrolls: unlike the toolbar above it, this line is words. */
 .ocr-engine:not([hidden]) {
@@ -7128,13 +7127,6 @@ button.connection-row {
   min-width: 0;
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
-}
-
-.ocr-engine-chip.is-warn {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  cursor: default;
 }
 
 .ocr-engine-lang-wrap {

@@ -2556,7 +2556,7 @@ async function renderExtras() {
       // buttons (reported: "poorly spaced and aligned and need affordance"):
       // a chip says "state", a button says "press me". "Installed" means it
       // works: the OCR row counts the Tesseract program too (core/extras.py).
-      const done = chip("ph:check-circle Installed", "extras-installed");
+      const done = chip("ph:check-circle Installed", "item-label is-ok");
       title.appendChild(done);
       // And a way back out of the state detection cannot see. `find_spec`
       // answers "is it there", not "is it sound", a half-finished download or
@@ -2618,7 +2618,7 @@ async function renderExtras() {
       actions.appendChild(blocked);
       // Same treatment as Installed, and for the same reason: it is the row's
       // state, so it sits with the name rather than in the action column.
-      title.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
+      title.appendChild(chip("ph:hourglass Not ready yet", "item-label extras-soon"));
     } else {
       actions.appendChild(
         smallButton("ph:download-simple Install", `Install ${extra.label}`, async () => {
@@ -2763,7 +2763,7 @@ async function renderEmbedModels() {
       title.appendChild(busy);
     } else if (model.installed) {
       const done = document.createElement("span");
-      done.className = "extras-installed";
+      done.className = "chip item-label is-ok";
       setLabel(done, `ph:check ${model.on_disk} on disk`);
       title.appendChild(done);
       // The same argument the packages' Reinstall makes: "the directory is

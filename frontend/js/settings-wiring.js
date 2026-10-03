@@ -222,7 +222,7 @@ async function refreshSearxngHost() {
       : info.state === "stopped"
         ? "Stopped"
         : "Not installed";
-  badge.className = `chip ${running ? "confidence" : ""}`.trim();
+  badge.className = `chip item-label${running ? " is-ok" : ""}`;
   start.disabled = running;
   stop.disabled = info.state === "absent";
   setLabel(start, info.state === "absent" ? "ph:play Install & start" : "ph:play Start SearXNG");

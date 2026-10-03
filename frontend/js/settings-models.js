@@ -116,9 +116,9 @@ function modelGb(value) {
 }
 
 const FIT_WORDS = {
-  fits: { chip: "ph:check-circle Fits", tone: "confidence" },
-  tight: { chip: "ph:warning Tight fit", tone: "review" },
-  too_big: { chip: "ph:warning Too big here", tone: "review" },
+  fits: { chip: "ph:check-circle Fits", tone: "item-label is-ok" },
+  tight: { chip: "ph:warning Tight fit", tone: "item-label is-warn" },
+  too_big: { chip: "ph:warning Too big here", tone: "item-label is-warn" },
 };
 
 function modelFitTitle(model) {
@@ -321,7 +321,7 @@ function buildModelCard(model, state) {
   name.title = model.name;
   head.appendChild(name);
   if (model.recommended) {
-    const pick = chip("ph:star Our starting pick", "");
+    const pick = chip("ph:star Our starting pick", "item-label");
     pick.title = "Chosen for being small and dependable for this job. Not a benchmark.";
     head.appendChild(pick);
   }
@@ -351,7 +351,9 @@ function buildModelCard(model, state) {
     card.appendChild(line);
   }
 
-  //: Badges: the fit, then what it is doing for you now.
+  //: Badges, on a row of their own above the actions (INBOX 468: in the foot
+  //: they wrapped into a ragged stack beside the button): the fit, then what
+  //: it is doing for you now. One recipe, `chip item-label`.
   const badges = document.createElement("div");
   badges.className = "model-card-badges";
   const fit = FIT_WORDS[model.fit];
@@ -360,10 +362,14 @@ function buildModelCard(model, state) {
     mark.title = modelFitTitle(model);
     badges.appendChild(mark);
   }
-  if (state.installed) badges.appendChild(chip("ph:check Installed", "tag"));
-  if (state.roles.length) badges.appendChild(chip(`In use for ${state.roles.join(" and ")}`, ""));
-  if (state.pull && state.pull.status === "cancelled" && state.kind === "available") badges.appendChild(chip("Download cancelled", "tag"));
-  const badgesNode = badges.children.length ? badges : null;
+  if (state.installed) badges.appendChild(chip("ph:check Installed", "item-label"));
+  if (state.roles.length) {
+    const using = chip(`ph:lightning In use for ${state.roles.join(" and ")}`, "item-label is-yours");
+    using.title = using.textContent;
+    badges.appendChild(using);
+  }
+  if (state.pull && state.pull.status === "cancelled" && state.kind === "available") badges.appendChild(chip("Download cancelled", "item-label"));
+  if (badges.children.length) card.appendChild(badges);
 
   if (state.kind === "downloading") {
     const box = document.createElement("div");
@@ -406,9 +412,6 @@ function buildModelCard(model, state) {
     actions.appendChild(primary);
   }
   if (state.kind !== "downloading") actions.appendChild(kebabMenu(modelMenuItems(model, state), `More for ${model.name}`));
-  //: The badges sit at the foot's far end, on the same row as the action, so a
-  //: card is one row shorter.
-  if (badgesNode) actions.appendChild(badgesNode);
   card.appendChild(actions);
   return card;
 }

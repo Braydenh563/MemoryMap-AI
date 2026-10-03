@@ -94,7 +94,7 @@ function ocrEnginePaint(host) {
   line.className = "ocr-engine-line";
 
   if (ocrEngineInstall.running) {
-    line.appendChild(chip("ph:spin Installing Tesseract", "ocr-engine-chip"));
+    line.appendChild(chip("ph:spin Installing Tesseract", "item-label ocr-engine-chip"));
     const step = document.createElement("span");
     step.className = "muted ocr-engine-detail";
     step.textContent = ocrEngineInstall.step || "Starting…";
@@ -108,7 +108,7 @@ function ocrEnginePaint(host) {
   if (engine.ready) {
     if (!opts.settings) {
       line.appendChild(
-        chip(`ph:check-circle Tesseract${engine.version ? ` ${engine.version}` : ""} is ready`, "extras-installed ocr-engine-chip")
+        chip(`ph:check-circle Tesseract${engine.version ? ` ${engine.version}` : ""} is ready`, "item-label is-ok ocr-engine-chip")
       );
     }
     line.appendChild(ocrEngineLanguagePicker(engine, opts));
@@ -130,7 +130,7 @@ function ocrEnginePaint(host) {
   //: Not ready: say which half is missing, what still works, and give the one
   //: action. The sentence about the AI reader is the fallback the owner asked
   //: for, stated before the failure rather than after it.
-  line.appendChild(chip("ph:warning Tesseract can't read yet", "ocr-engine-chip is-warn"));
+  line.appendChild(chip("ph:warning Tesseract can't read yet", "item-label is-warn ocr-engine-chip"));
   const detail = document.createElement("span");
   detail.className = "muted ocr-engine-detail";
   const ai = readers.vision ? readers.vision_model : "";

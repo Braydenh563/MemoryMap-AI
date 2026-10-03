@@ -81,8 +81,9 @@ with its owner named in the entry.
      like a quick access section?? what is there can be default".
      Recommendation taken (order 3): yes, "Quick access", the five as the
      default set, chosen from the command catalogue, reordered and reset
-     from its own menu. Placed: (1) badges with 455 (1), an Opus agent; (2)
-     Quick access, an agent.
+     from its own menu. Placed: (1) badges with 455 (1), an Opus agent: built
+     2026-10-03 with INBOX 468 (the model cards), DESIGN.md's label recipe;
+     (2) Quick access, an agent.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

@@ -793,6 +793,25 @@ async function ensureVaultOpen() {
   return unlockPrivateNotes();
 }
 
+//: Modal dialogs and popovers sit in the top layer, above the lock screen,
+//: and make it inert: a lock left them readable and the password field
+//: untypeable. They are put away while it shows and back, as they were,
+//: after it, so a half-written dialog loses nothing.
+let lockStash = [];
+new MutationObserver(() => {
+  if ($("lock-overlay").classList.contains("hidden")) {
+    for (const el of lockStash) {
+      try { if (el.isConnected) el.popover ? el.showPopover() : el.showModal(); } catch { /* reopened meanwhile */ }
+    }
+    lockStash = [];
+  } else {
+    for (const el of document.querySelectorAll("dialog:modal, :popover-open")) {
+      lockStash.push(el);
+      el.popover ? el.hidePopover() : el.close();
+    }
+  }
+}).observe($("lock-overlay"), { attributes: true, attributeFilter: ["class"] });
+
 function showLockScreen(setupMode) {
   settleLockPrompt(false);
   $("lock-overlay").classList.remove("hidden");

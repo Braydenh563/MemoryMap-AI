@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.
 - Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).
 - Backups: a manual backup that the disk refuses says why ("Couldn't save the backup: No space left on device.") instead of "Internal error".
 - Documents: the outline breadcrumb starts with a "Top" mark instead of repeating the title that sits in the dock just above it.

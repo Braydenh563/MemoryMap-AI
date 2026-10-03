@@ -10144,6 +10144,16 @@ const CONTENTS_GROUP_CAP = 200;
 //: 3. **There was no way to find anything.** An index of 400 rows without a
 //:    filter or a jump bar is a wall, so both are here now, plus grouping by
 //:    month: half of "where is that note" is *when* you wrote it.
+//: A sortable key ("2026-03") with a readable label built from it
+//: (`contentsSectionLabel`), so months order by time rather than
+//: alphabetically: "April" before "January" is the classic version of this bug.
+function contentsMonthKey(value) {
+  const when = new Date(value);
+  return Number.isNaN(when.valueOf())
+    ? "Undated"
+    : `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function contentsGroups(entries) {
   const groups = new Map();
   const addTo = (key, entry) => {
@@ -10175,14 +10185,7 @@ function contentsGroups(entries) {
     }
   } else if (contentsMode === "date") {
     for (const entry of entries) {
-      const when = new Date(entry.created_at || entry.updated_at || Date.now());
-      //: A sortable key ("2026-03") with a readable label built from it, so
-      //: months order by time rather than alphabetically, "April" before
-      //: "January" is the classic version of this bug.
-      const key = Number.isNaN(when.valueOf())
-        ? "Undated"
-        : `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}`;
-      addTo(key, entry);
+      addTo(contentsMonthKey(entry.created_at || entry.updated_at || Date.now()), entry);
     }
   } else {
     for (const entry of entries) addTo(entry.category || "Uncategorised", entry);
@@ -10548,14 +10551,31 @@ async function renderContents() {
     hint.classList.remove("hidden");
   }
 
+  //: **By month, documents sit in their month with the notes** (they used to
+  //: trail as one "Documents" section, so a month never showed everything
+  //: written in it). Every other grouping keeps that section, because a
+  //: document has no category, tag or folder to group by.
+  const monthDocs = new Map();
+  if (contentsMode === "date") {
+    for (const item of shownDocs) {
+      const key = contentsMonthKey(item.doc.created_at || item.doc.updated_at);
+      if (!monthDocs.has(key)) monthDocs.set(key, []);
+      monthDocs.get(key).push(item);
+    }
+    for (const key of monthDocs.keys()) if (!groups.has(key)) groups.set(key, []);
+  }
   for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);
+    const docsHere = monthDocs.get(key) || [];
     contentsBuildSection(outline, jump, {
       key,
       label: contentsSectionLabel(key),
-      total: members.length,
+      total: members.length + docsHere.length,
       fill: (list) => {
         for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) list.appendChild(contentsNoteRow(entry));
+        for (const { doc, heads, shallowest, forceOpen } of docsHere.slice(0, CONTENTS_GROUP_CAP)) {
+          list.appendChild(contentsDocRow(doc, heads, shallowest, forceOpen));
+        }
         if (members.length > CONTENTS_GROUP_CAP) {
           const more = document.createElement("li");
           more.setAttribute("role", "none");
@@ -10566,7 +10586,7 @@ async function renderContents() {
       },
     });
   }
-  if (shownDocs.length) {
+  if (shownDocs.length && contentsMode !== "date") {
     contentsBuildSection(outline, jump, {
       key: CONTENTS_DOCS_KEY,
       label: "Documents",

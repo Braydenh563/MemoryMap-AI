@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library: Contents, By month, puts each document under the month it was created in, with the notes of that month, instead of one "Documents" section after them (the other groupings keep that section). GET /documents/outline now carries `created_at`.
 - Notes: a note kept on this device while the server is away now shows in the notes list, at the top, as a card marked "Waiting to save" (no actions that need the server), and the card goes when the note is sent.
 - Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.
 - Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).

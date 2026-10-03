@@ -37,3 +37,11 @@ def test_the_list_render_asks_for_the_rows_only_when_something_is_held():
     render = notes.split("function renderEntries()")[1].split("const visible = libraryVisibleRows()")[0]
     assert 'localStorage.getItem("noteOutbox")' in render
     assert "renderPendingNoteRows();" in render
+
+
+def test_by_month_contents_puts_documents_in_their_month():
+    """lo12 item 2: the date mode used to trail one "Documents" section."""
+    lib = (JS / "library.js").read_text(encoding="utf-8")
+    render = lib.split("async function renderContents()")[1].split("function contentsSetAll")[0]
+    assert "contentsMonthKey(item.doc.created_at || item.doc.updated_at)" in render
+    assert 'if (shownDocs.length && contentsMode !== "date")' in render

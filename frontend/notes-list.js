@@ -432,12 +432,49 @@ function noteEditToolbar(boxId) {
 //: the DOM later. Reset to false at the top of every fresh form (only one is
 //: ever open, per the comment on `textarea.id` below) and on both ways out.
 let noteFormDirty = false;
+//: **The open form's unsaved fields, kept across redraws** (INBOX 432). The
+//: form is rebuilt from `entry` by every `renderEntries()`, and that runs on
+//: a star pressed elsewhere, a filter keystroke, a background filing, a tab
+//: switch: measured, two edits typed into an open note were silently put
+//: back to the saved text by the next redraw. Keyed by the note's id; cleared
+//: on Save and on Cancel, the only two ways the form closes on purpose.
+let noteFormDraft = null;
+
+//: Ask before throwing away a form with changes in it. Answers true when it
+//: is fine to leave (nothing changed, or the person agreed).
+async function noteFormMayClose() {
+  if (editingId === null || !noteFormDirty) return true;
+  return confirmDialog("Discard your changes to this note?", { confirmLabel: "Discard" });
+}
+
+function closeNoteForm() {
+  editingId = null;
+  noteFormDirty = false;
+  noteFormDraft = null;
+  renderEntries();
+}
+
+//: Every "edit this note" goes through here, so a form with changes is
+//: never swapped for another note's without asking.
+async function openNoteEditor(id, { focusTags = false } = {}) {
+  if (editingId !== null && editingId !== id && !(await noteFormMayClose())) return false;
+  if (editingId !== id) {
+    noteFormDirty = false;
+    noteFormDraft = null;
+  }
+  editingId = id;
+  if (focusTags) focusTagsAfterRender = id;
+  renderEntries();
+  requestAnimationFrame(() => scrollEditingEntryIntoView(id));
+  return true;
+}
 
 function renderEditForm(li, entry) {
-  noteFormDirty = false;
+  const draft = noteFormDraft && noteFormDraft.id === entry.id ? noteFormDraft : null;
+  noteFormDirty = Boolean(draft);
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
-  textarea.value = entry.content;
+  textarea.value = draft ? draft.content : entry.content;
   textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu
   //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
@@ -466,8 +503,10 @@ function renderEditForm(li, entry) {
   const tagsInput = document.createElement("input");
   tagsInput.type = "text";
   tagsInput.placeholder = "Tags, comma separated";
-  tagsInput.value = entry.tags.join(", ");
+  tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
   tagsInput.className = "note-edit-tags";
+  tagsInput.setAttribute("aria-label", "Tags, comma separated");
+  tagsInput.setAttribute("list", "tag-suggestions");
   tagsInput.addEventListener("input", () => { noteFormDirty = true; });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
@@ -477,7 +516,16 @@ function renderEditForm(li, entry) {
 
   const categorySelect = document.createElement("select");
   fillCategoryOptions(categorySelect, entry.category);
+  categorySelect.setAttribute("aria-label", "Category");
+  if (draft && [...categorySelect.options].some((o) => o.value === draft.category)) {
+    categorySelect.value = draft.category;
+  }
   categorySelect.addEventListener("change", () => { noteFormDirty = true; });
+  const keepDraft = () => {
+    noteFormDraft = { id: entry.id, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
+  };
+  for (const field of [textarea, tagsInput]) field.addEventListener("input", keepDraft);
+  categorySelect.addEventListener("change", keepDraft);
 
   const row = document.createElement("div");
   row.className = "row";
@@ -488,9 +536,16 @@ function renderEditForm(li, entry) {
       async () => {
         const category = await resolveCategoryChoice(categorySelect);
         if (category === undefined) return; // user cancelled the prompt
+        //: An emptied box used to save as "Note saved." while quietly
+        //: keeping the old text (INBOX 432). Said instead, with the way to
+        //: actually remove a note.
+        if (!textarea.value.trim()) {
+          toast("A note needs some text. To remove it, use Move to bin in its menu.", true);
+          return;
+        }
         const before = { content: entry.content, category: entry.category, tags: entry.tags };
         const after = {
-          content: textarea.value.trim() || entry.content,
+          content: textarea.value.trim(),
           category,
           tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
         };
@@ -522,6 +577,7 @@ function renderEditForm(li, entry) {
         }
         editingId = null;
         noteFormDirty = false;
+        noteFormDraft = null;
         toast("Note saved.");
         await loadEntries();
         pushEntryPutUndo(entry.id, "Edited a note", before, after);
@@ -538,11 +594,18 @@ function renderEditForm(li, entry) {
       saveButton.click();
     }
   });
+  //: Escape closes the form, asking first when it has changes (INBOX 432:
+  //: it did nothing). Bubbling, and only when nothing inside took it first,
+  //: so the "/" menu, the [[ list and the editor's own Escape still win.
+  li.addEventListener("keydown", async (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented || editingId !== entry.id) return;
+    if (document.querySelector(".action-menu:not(.hidden), #editor-menu:not(.hidden)")) return;
+    event.preventDefault();
+    if (await noteFormMayClose()) closeNoteForm();
+  });
   row.appendChild(
-    smallButton("Cancel", "Discard changes", () => {
-      editingId = null;
-      noteFormDirty = false;
-      renderEntries();
+    smallButton("Cancel", "Discard changes", async () => {
+      if (await noteFormMayClose()) closeNoteForm();
     })
   );
 
@@ -772,7 +835,10 @@ async function openBookmarkAttachPicker(entry, panel) {
 // Category <select> shared by capture (guided mode) and the edit form.
 function fillCategoryOptions(select, selected) {
   select.replaceChildren();
-  const names = [...new Set(allEntries.map((e) => e.category))].sort();
+  //: Every category, empty ones included, in the sidebar's order (INBOX 432).
+  const names = [...new Set([...categoryMeta.keys(), ...allEntries.map((e) => e.category)])]
+    .filter(Boolean)
+    .sort(compareCategoryNames);
   if (selected === null) {
     const auto = document.createElement("option");
     auto.value = "";
@@ -917,9 +983,22 @@ function parseNoteQuery(raw) {
     categories: [],
     flags: [],
     tagCount: null,
+    titles: [],
+    before: null,
+    after: null,
   };
+  //: `tag:"two words"` and `cat:"Home office"` first, then bare quoted
+  //: phrases, so neither's spaces become word breaks.
+  const named = (raw || "").replace(/\b(tag|cat|category|in|title):"([^"]+)"/gi, (_, key, value) => {
+    const v = value.toLowerCase().trim();
+    const k = key.toLowerCase();
+    if (k === "tag") query.tags.push(v);
+    else if (k === "title") query.titles.push(v);
+    else query.categories.push(v);
+    return " ";
+  });
   // Pull quoted phrases out first so their spaces don't become word breaks.
-  const remainder = (raw || "").replace(/"([^"]+)"/g, (_, phrase) => {
+  const remainder = named.replace(/"([^"]+)"/g, (_, phrase) => {
     query.phrases.push(phrase.toLowerCase().trim());
     return " ";
   });
@@ -927,9 +1006,18 @@ function parseNoteQuery(raw) {
     if (!token) continue;
     const lower = token.toLowerCase();
     const tagCountMatch = TAG_COUNT_RE.exec(lower);
-    if (lower.startsWith("tag:")) query.tags.push(lower.slice(4));
+    //: `#trip` is how a card shows a tag, so it is how people type one
+    //: (INBOX 432: it matched nothing); `tag:#trip` the same.
+    if (lower.startsWith("tag:")) query.tags.push(lower.slice(4).replace(/^#/, ""));
+    else if (lower.startsWith("#") && lower.length > 1) query.tags.push(lower.slice(1));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
     else if (lower.startsWith("cat:")) query.categories.push(lower.slice(4));
+    else if (lower.startsWith("in:")) query.categories.push(lower.slice(3));
+    else if (lower.startsWith("title:")) query.titles.push(lower.slice(6));
+    else if (/^(before|after):\d{4}-\d{2}(-\d{2})?$/.test(lower)) {
+      const [key, day] = lower.split(":");
+      query[key] = day.length === 7 ? `${day}-01` : day;
+    }
     else if (lower.startsWith("is:")) query.flags.push(lower.slice(3));
     else if (tagCountMatch) {
       query.tagCount = { op: tagCountMatch[1] || "=", n: Number(tagCountMatch[2]) };
@@ -947,7 +1035,10 @@ function noteQueryIsEmpty(query) {
     !query.tags.length &&
     !query.categories.length &&
     !query.flags.length &&
-    !query.tagCount
+    !query.tagCount &&
+    !query.titles.length &&
+    !query.before &&
+    !query.after
   );
 }
 
@@ -977,8 +1068,22 @@ function matchesSearch(entry) {
   const haystack = `${content} ${tags.join(" ")}`;
 
   // A tag: or cat: filter is a statement about which notes count at all.
-  if (query.tags.length && !query.tags.every((t) => tags.some((tag) => tag.includes(t)))) {
+  //: A tag matches whole, or as the parent of a nested one (`tag:home`
+  //: finds "home" and "home/garden", not "homework": INBOX 432).
+  if (query.tags.length && !query.tags.every((t) => tags.some((tag) => tag === t || tag.startsWith(`${t}/`)))) {
     return false;
+  }
+  if (query.titles.length) {
+    const title = noteSortName(entry).toLowerCase();
+    if (!query.titles.every((t) => title.includes(t))) return false;
+  }
+  //: Days compared as YYYY-MM-DD in local time, the date the card shows.
+  if (query.before || query.after) {
+    const made = entry.created_at ? new Date(entry.created_at) : null;
+    if (!made || Number.isNaN(made.getTime())) return false;
+    const day = `${made.getFullYear()}-${String(made.getMonth() + 1).padStart(2, "0")}-${String(made.getDate()).padStart(2, "0")}`;
+    if (query.before && !(day < query.before)) return false;
+    if (query.after && !(day > query.after)) return false;
   }
   if (query.categories.length && !query.categories.some((c) => category.includes(c))) {
     return false;
@@ -992,7 +1097,9 @@ function matchesSearch(entry) {
       return false;
     }
     if (flag === "private" && !entry.is_private) return false;
-    if (flag === "linked" && !(entry.links || []).length) return false;
+    //: A [[wiki link]] in the text is a link too (INBOX 432).
+    if (flag === "linked" && !(entry.links || []).length && !/\[\[[^\]\n]{1,120}\]\]/.test(entry.content || "")) return false;
+    if ((flag === "draft" || flag === "drafts") && !entry.is_draft) return false;
     if (flag === "untagged" && tags.length) return false;
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
@@ -2213,12 +2320,18 @@ async function refreshNoteSearchWhy() {
 
 // Sort comparator for the chosen mode (Wave J). Pinned always floats to
 // the top first, matching the server's own ordering.
+function noteSortName(entry) {
+  return (entry.title || notePreviewText(entry.content || "") || "").replace(/^[#\s]+/, "").trim();
+}
+
 function sortEntries(entries) {
   const byPinned = (a, b) => Number(b.pinned) - Number(a.pinned);
   const modes = {
     newest: (a, b) => b.id - a.id,
     oldest: (a, b) => a.id - b.id,
-    az: (a, b) => a.content.localeCompare(b.content),
+    //: By what the card shows as its name, not the raw text (INBOX 432:
+    //: every "# " heading sorted first), and "note 2" before "note 10".
+    az: (a, b) => noteSortName(a).localeCompare(noteSortName(b), undefined, { numeric: true, sensitivity: "base" }),
     "most-used": (a, b) => b.access_count - a.access_count || b.id - a.id,
     //: The server's own fading order, by position rather than by a score
     //: recomputed here: `ai/resurface.py` weighs age, links and opens, and a
@@ -2373,7 +2486,9 @@ function paginateNotesForDisplay(items) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   notesCurrentPage = Math.min(Math.max(1, notesCurrentPage), totalPages);
   const start = (notesCurrentPage - 1) * pageSize;
-  bar.classList.toggle("hidden", items.length === 0);
+  //: One page is not paging: "Page 1 of 1" under a single note was a bar
+  //: with nothing to do (INBOX 432).
+  bar.classList.toggle("hidden", totalPages <= 1);
   $("notes-page-status").textContent = `Page ${notesCurrentPage} of ${totalPages}`;
   $("notes-page-prev").disabled = notesCurrentPage <= 1;
   $("notes-page-next").disabled = notesCurrentPage >= totalPages;
@@ -2564,8 +2679,29 @@ function noteCountExcludingDrafts() {
   return n;
 }
 
+//: **A tag chip filters by its tag** (INBOX 432: it was inert, and the one
+//: way to see a tag's notes was typing `tag:` by hand). The box shows the
+//: query, so the filter is visible and editable; the tag chips on the
+//: dashboard use the same path.
+function filterNotesByTag(tag) {
+  const value = /\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`;
+  $("note-search").value = value;
+  noteSearch = value;
+  $("save-search")?.classList.remove("hidden");
+  draftsOnly = false;
+  favouritesOnly = false;
+  activeCategory = null;
+  notesCurrentPage = 1;
+  if (localStorage.getItem("activeTab") !== "notes") switchTab("notes");
+  showNotesSection("browse");
+  renderSidebar();
+  renderEntries();
+}
+
 function libraryVisibleRows() {
-  let visible = draftsOnly
+  //: `is:draft` in the box reaches the drafts the other views leave out.
+  const wantsDrafts = Boolean(noteSearch) && /(^|\s)is:drafts?(\s|$)/i.test(noteSearch);
+  let visible = draftsOnly || wantsDrafts
     ? allEntries.filter((e) => e.is_draft)
     : favouritesOnly
       ? allEntries.filter((e) => e.pinned && !e.is_draft)
@@ -2595,6 +2731,17 @@ function renderEntries() {
   // Drafts stay out of All/category views entirely, user-reported: they
   // should only show up in the Drafts filter until saved as a real note.
   const visible = libraryVisibleRows();
+  //: **A selection is of what is on screen** (INBOX 432). Ticking five notes
+  //: and then choosing a category left "5 selected" over two visible rows,
+  //: and Tag or Delete then acted on all five, three of them out of sight.
+  //: Notes leave the selection when the view leaves them. Only on the Notes
+  //: tab: the Timeline ticks into the same set (TIMELINE_PLAN decision 6).
+  if (selectMode && selectedIds.size && localStorage.getItem("activeTab") === "notes") {
+    const shown = new Set(visible.map((e) => e.id));
+    let dropped = 0;
+    for (const id of [...selectedIds]) if (!shown.has(id)) { selectedIds.delete(id); dropped++; }
+    if (dropped) updateBatchCount();
+  }
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count): this heading used to say "entries" (the API's
@@ -2772,7 +2919,12 @@ let categoryMeta = new Map();
 
 async function loadCategories() {
   const rows = await apiJson("/categories", { silent: true }).catch(() => []);
-  categoryMeta = new Map(rows.map((c) => [c.name, c]));
+  //: In All spaces two spaces can each have a "Work"; the server lists the
+  //: bigger first, and the first is kept (INBOX 432: the empty one used to
+  //: overwrite it, so the panel said "Work, 0 notes" and renamed the wrong
+  //: one). The other is still there in its own space's view.
+  categoryMeta = new Map();
+  for (const row of rows) if (!categoryMeta.has(row.name)) categoryMeta.set(row.name, row);
   renderSidebar();
 }
 
@@ -2783,6 +2935,10 @@ function renderSidebar() {
   // showing under All/category counts, undercutting the point of a
   // separate section): until saved as a real note, a draft doesn't count.
   const counts = new Map();
+  //: Every category the notebook has, not only the ones a loaded note is in:
+  //: one made in Manage categories was in the panel and nowhere else
+  //: (INBOX 432). Uncategorised only while something is in it.
+  for (const name of categoryMeta.keys()) if (name !== "Uncategorised") counts.set(name, 0);
   for (const entry of allEntries) {
     if (entry.is_draft) continue;
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
@@ -2793,7 +2949,9 @@ function renderSidebar() {
 
   const addRow = (label, count, category) => {
     const li = document.createElement("li");
-    if (category === activeCategory) li.classList.add("active");
+    //: "All" is the row for no filter at all, so it is not lit while Drafts
+    //: or Favourites is (INBOX 432: two rows looked chosen at once).
+    if (category === activeCategory && !draftsOnly && !favouritesOnly) markSidebarRowCurrent(li);
     const name = document.createElement("span");
     name.className = "category-name";
     name.textContent = label;
@@ -2833,6 +2991,7 @@ function renderSidebar() {
       li.appendChild(actions);
     }
     if (category) wireCategoryDropTarget(li, category);
+    wireSidebarRowKeys(li);
     ul.appendChild(li);
   };
 
@@ -2846,7 +3005,8 @@ function renderSidebar() {
   const draftCount = allEntries.filter((e) => e.is_draft).length;
   const draftRow = document.createElement("li");
   draftRow.className = "category-drafts-row";
-  if (draftsOnly) draftRow.classList.add("active");
+  if (draftsOnly) markSidebarRowCurrent(draftRow);
+  wireSidebarRowKeys(draftRow);
   const draftName = document.createElement("span");
   draftName.className = "category-name";
   setLabel(draftName, "ph:pencil-simple-line Drafts");
@@ -2875,7 +3035,8 @@ function renderSidebar() {
   const favouriteCount = allEntries.filter((e) => e.pinned && !e.is_draft).length;
   const favouriteRow = document.createElement("li");
   favouriteRow.className = "category-drafts-row";
-  if (favouritesOnly) favouriteRow.classList.add("active");
+  if (favouritesOnly) markSidebarRowCurrent(favouriteRow);
+  wireSidebarRowKeys(favouriteRow);
   const favouriteName = document.createElement("span");
   favouriteName.className = "category-name";
   setLabel(favouriteName, "ph:star Favourites");
@@ -2895,9 +3056,41 @@ function renderSidebar() {
   ul.appendChild(draftRow);
   ul.appendChild(favouriteRow);
 
-  for (const [category, count] of [...counts.entries()].sort()) {
+  //: One order everywhere a list of categories is shown: by name, ignoring
+  //: case and accents, numbers in number order (INBOX 432: a bare `.sort()`
+  //: put "Zebra" before "alpha" and "Émigré" last).
+  for (const [category, count] of [...counts.entries()].sort((a, b) => compareCategoryNames(a[0], b[0]))) {
     addRow(category, count, category);
   }
+}
+
+function compareCategoryNames(a, b) {
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function markSidebarRowCurrent(li) {
+  li.classList.add("active");
+  li.setAttribute("aria-current", "true");
+}
+
+//: **The rows are reachable by keyboard** (INBOX 432: a Tab walk reached
+//: only their ⋯ buttons). Each row is one tab stop that Enter or Space
+//: chooses, and the arrows walk the list, as a sidebar does in every
+//: notes app.
+function wireSidebarRowKeys(li) {
+  li.tabIndex = 0;
+  li.addEventListener("keydown", (event) => {
+    if (event.target !== li) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      li.click();
+      requestAnimationFrame(() => $("category-list").querySelector('li[aria-current="true"]')?.focus());
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = event.key === "ArrowDown" ? li.nextElementSibling : li.previousElementSibling;
+      next?.focus();
+    }
+  });
 }
 
 // --- Manage categories ----------------------------------------------------------
@@ -3585,6 +3778,12 @@ function setNotesRailHidden(hidden) {
     //: opener at 1440x600, over the rail). A menu acts on a note; it does not
     //: choose one to read.
     if (event.target.closest?.(".menu-wrap, .action-menu")) return;
+    //: **Focus follows an open rail; it does not open one** (INBOX 432).
+    //: Any click in a card (a star, a tag, the text) is focus in its row,
+    //: and the column appeared under the pointer: the list went from 1066
+    //: to 747px and the first note dropped 44px. Opening a note, expanding
+    //: a row or editing one opens the rail; walking the list then moves it.
+    if (notesRailId == null) return;
     const id = Number(li.dataset.id);
     if (!Number.isFinite(id) || id === notesRailId) return;
     notesRailId = id;

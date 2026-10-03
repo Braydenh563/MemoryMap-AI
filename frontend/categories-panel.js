@@ -199,6 +199,9 @@ function drawManageCategoryRows(list, footer, state) {
 }
 
 function showCategoryNotes(name) {
+  //: The notes are behind the panel, so the panel gets out of their way
+  //: (INBOX 432: the list filtered under an open modal).
+  document.querySelector('.sheet-overlay[data-sheet="categories"] .sheet-close')?.click();
   activeCategory = name;
   draftsOnly = false;
   favouritesOnly = false;
@@ -330,7 +333,12 @@ function chooseCategorySheet({ label, sub, exclude, excludeAll = [], includeUnca
       build: (card, close) => {
         const list = document.createElement("div");
         list.className = "sheet-list";
-        for (const meta of categoryMeta.values()) {
+        //: Uncategorised is offered whether or not it exists yet: deleting
+        //: a category on a fresh notebook had no "keep them unfiled" choice
+        //: (INBOX 432). In the sidebar's order, after it.
+        const metas = [...categoryMeta.values()].sort((a, b) => compareCategoryNames(a.name, b.name));
+        if (includeUncategorised && !categoryMeta.has("Uncategorised")) metas.push({ name: "Uncategorised", id: null, count: 0 });
+        for (const meta of metas) {
           if (meta.name === exclude || excludeAll.includes(meta.name)) continue;
           if (meta.name === "Uncategorised" && !includeUncategorised) continue;
           list.appendChild(sheetRow("ph ph-folder", `${meta.name} (${meta.count})`, () => { chosen = meta; close(); }));
@@ -521,20 +529,23 @@ function splitCategoryFromPanel(meta) {
 // reaches them through LAZY_ENTRY_POINTS (app.js).
 
 async function renameCategory(meta, currentName) {
-  const name = await promptDialog(`Rename "${currentName}" to:`, currentName);
+  const name = await promptDialog(`Rename "${currentName}" to:`, currentName, { confirmLabel: "Rename" });
   if (!name || name === currentName) return;
 
   // Renaming onto a category that already exists merges them, which is
   // usually the point: but it's destructive-looking, so it's confirmed.
-  if (categoryMeta.has(name)) {
-    const target = categoryMeta.get(name);
-    const ok = (await confirmDialog(
+  const target = categoryMeta.get(name);
+  if (target) {
+    const ok = await confirmDialog(
       `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
         `Its notes move across, nothing is deleted. "${name}" would then ` +
-        `hold ${target.count + meta.count} notes.`
-    ));
+        `hold ${target.count + meta.count} notes.`,
+      { confirmLabel: "Merge", danger: false }
+    );
     if (!ok) return;
   }
+  //: The notes it holds now, so a merge can be undone note by note.
+  const ids = allEntries.filter((e) => e.category === currentName).map((e) => e.id);
 
   try {
     const result = await apiJson(`/categories/${meta.id}`, {
@@ -542,9 +553,23 @@ async function renameCategory(meta, currentName) {
       body: JSON.stringify({ name }),
     });
     if (activeCategory === currentName) activeCategory = name;
-    toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
-    await loadEntries();
-    await loadCategories();
+    //: Undoable, and the open panel redrawn (INBOX 432: the panel kept the
+    //: old name, and neither a rename nor a merge offered Undo).
+    const renameTo = async (from, to) => {
+      await loadCategories();
+      const row = categoryMeta.get(from);
+      if (row) await apiJson(`/categories/${row.id}`, { method: "PUT", body: JSON.stringify({ name: to }) });
+    };
+    offerCategoryUndo(
+      result.merged ? `Merged "${currentName}" into "${name}".` : `Renamed "${currentName}" to "${name}".`,
+      () => (result.merged
+        ? (ids.length
+          ? apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category: currentName }) })
+          : apiJson("/categories", { method: "POST", body: JSON.stringify({ name: currentName }) }))
+        : renameTo(name, currentName)),
+      () => renameTo(currentName, name)
+    );
+    await refreshAfterCategoryChange();
   } catch (error) {
     toast(error.message, true);
   }

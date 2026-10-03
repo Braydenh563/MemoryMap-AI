@@ -1254,7 +1254,7 @@ function fillBatchCategories(hostId = "batch-category-host") {
   if (!host) return;
   //: Every category, not only those with a note on the loaded page: one
   //: made empty in Manage categories was missing from this menu (INBOX 432).
-  const names = [...new Set([...categoryMeta.keys(), ...allEntries.map((e) => e.category)])].filter(Boolean).sort();
+  const names = [...new Set([...categoryMeta.keys(), ...allEntries.map((e) => e.category)])].filter(Boolean).sort(compareCategoryNames);
   const items = names.map((name) =>
     makeMenuItem(`ph:folder ${name}`, `Move the selected notes to ${name}`, () =>
       batchMove(name)
@@ -1321,19 +1321,47 @@ async function batchMove(category) {
 async function batchTag() {
   const ids = batchSelection();
   if (!ids.length) return;
-  const tag = await promptDialog("Tag to add to the selected notes:", "", { confirmLabel: "Add tag" });
-  if (!tag) return;
+  const answer = await promptDialog("Tags to add to the selected notes, comma separated:", "", { confirmLabel: "Add tags" });
+  //: Split on commas as the edit form does (INBOX 432: "alpha, beta" became
+  //: one tag), and kept once per note whatever its case.
+  const added = [...new Set((answer || "").split(",").map((t) => t.trim()).filter(Boolean))];
+  if (!added.length) return;
+  const before = new Map();
   for (const id of ids) {
     const entry = allEntries.find((e) => e.id === id);
     if (!entry) continue;
-    await apiJson(`/entries/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ tags: [...new Set([...entry.tags, tag])] }),
-    });
+    const have = new Set(entry.tags.map((t) => t.toLowerCase()));
+    const tags = [...entry.tags, ...added.filter((t) => !have.has(t.toLowerCase()))];
+    if (tags.length === entry.tags.length) continue;
+    before.set(id, entry.tags);
+    await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags }) });
   }
-  toast(`Tagged ${ids.length} note${ids.length === 1 ? "" : "s"} with “${tag}”.`);
   exitSelectMode();
   await loadEntries();
+  const words = added.map((t) => `“${t}”`).join(", ");
+  if (!before.size) {
+    toast(`Every selected note already had ${words}.`);
+    return;
+  }
+  //: Undoable like every other batch action (it was the one that was not).
+  const putBack = async () => {
+    for (const [id, tags] of before) await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags }) });
+    await loadEntries();
+  };
+  const putAgain = async () => {
+    for (const id of before.keys()) {
+      const entry = allEntries.find((e) => e.id === id);
+      if (!entry) continue;
+      const have = new Set(entry.tags.map((t) => t.toLowerCase()));
+      await apiJson(`/entries/${id}`, { method: "PUT", body: JSON.stringify({ tags: [...entry.tags, ...added.filter((t) => !have.has(t.toLowerCase()))] }) });
+    }
+    await loadEntries();
+  };
+  const action = pushUndo(`Tagged ${before.size} note${before.size === 1 ? "" : "s"}`, putBack, putAgain);
+  toastAction(`Tagged ${before.size} note${before.size === 1 ? "" : "s"} with ${words}.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await putBack();
+  });
 }
 
 async function batchDelete() {

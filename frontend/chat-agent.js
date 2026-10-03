@@ -1143,8 +1143,7 @@ const CARD_KINDS = {
         //: `editingId` is what that render reads to open the editor. Set it
         //: first and the jump would clear it.
         flashEntry(item.id);
-        editingId = item.id;
-        renderEntries();
+        openNoteEditor(item.id);
       }),
     ],
   },

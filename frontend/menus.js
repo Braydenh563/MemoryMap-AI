@@ -1710,9 +1710,8 @@ function entryOverflowMenu(entry) {
       {
         label: "ph:magic-wand Improve writing",
         title: "Proofread or rewrite this note with AI",
-        run: () => {
-          editingId = entry.id;
-          renderEntries();
+        run: async () => {
+          if (!(await openNoteEditor(entry.id))) return;
           // The edit textarea now exists, improve it in place.
           const box = document.querySelector(`#entry-list li[data-id="${entry.id}"] textarea`);
           if (box) openImprove(box);
@@ -1810,8 +1809,12 @@ function entryOverflowMenu(entry) {
             const copy = await apiJson("/entries", {
               method: "POST",
               body: JSON.stringify({
-                content: entry.content,
-                title: entry.title ? `${entry.title} (Copy)` : undefined,
+                //: The copy's title is its first "# " line: the API takes no
+                //: `title`, so the "(Copy)" this sent was dropped and the two
+                //: notes were indistinguishable (INBOX 432).
+                content: /^#\s+\S/.test(entry.content || "")
+                  ? entry.content.replace(/^#\s+[^\n]*/, (line) => `${line.trimEnd()} (copy)`)
+                  : entry.content,
                 category: entry.category,
                 tags: entry.tags || [],
               }),
@@ -1819,9 +1822,8 @@ function entryOverflowMenu(entry) {
             await loadEntries();
             // Open the new note in edit mode straight away.
             if (copy && copy.id) {
-              editingId = copy.id;
-              renderEntries();
               flashEntry(copy.id);
+              await openNoteEditor(copy.id);
             }
             toast("Note duplicated.");
           } catch (err) {
@@ -1873,10 +1875,23 @@ function entryOverflowMenu(entry) {
       : {
           label: "ph:archive Archive",
           title: "Keep it, but out of the way, not the bin",
+          //: Undoable like Move to bin beside it (INBOX 432), and it says
+          //: where the note went, since nothing in the Notes tab shows it.
           run: async () => {
-            await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
-            await loadEntries();
-            toast("Archived.");
+            const archive = async () => {
+              await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
+              await loadEntries();
+            };
+            const unarchive = async () => {
+              await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+              await loadEntries();
+            };
+            await archive();
+            const action = pushUndo("Archived a note", unarchive, archive);
+            toastAction("Archived. Find it in Library, Archived.", "Undo", async () => {
+              settleUndoFromToast(action);
+              await unarchive();
+            });
           },
         };
 

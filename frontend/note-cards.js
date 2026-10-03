@@ -1498,7 +1498,16 @@ function entryItem(entry, options = {}) {
   }
   //: `hashtag` marks a real tag: `tag` alone is also the quiet look the
   //: documents, the source and the space borrow, and only a tag gets the #.
-  for (const tag of entry.tags) meta.appendChild(chip(tag, "tag hashtag"));
+  for (const tag of entry.tags) {
+    const tagChip = options.actions
+      ? chip(tag, "tag hashtag", (event) => {
+        event.stopPropagation();
+        filterNotesByTag(tag);
+      })
+      : chip(tag, "tag hashtag");
+    if (options.actions) tagChip.title = `Show every note tagged #${tag}`;
+    meta.appendChild(tagChip);
+  }
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real
   //: note in a list that offers actions: a board is not filed by tag and a
@@ -1515,10 +1524,7 @@ function entryItem(entry, options = {}) {
     const untagged = options.actions
       ? chip("ph:tag Add tags", "untagged", (event) => {
         event.stopPropagation();
-        editingId = entry.id;
-        focusTagsAfterRender = entry.id;
-        renderEntries();
-        requestAnimationFrame(() => scrollEditingEntryIntoView(entry.id));
+        openNoteEditor(entry.id, { focusTags: true });
       })
       : chip("ph:tag No tags yet", "untagged");
     untagged.title = options.actions
@@ -1757,15 +1763,10 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
-      smallButton("ph:pencil-simple", "Edit this entry", () => {
-        editingId = entry.id;
-        renderEntries();
-        //: Scroll the edit form into view after renderEntries rebuilds the
-        //: list, otherwise the list resets to the top and the editing note
-        //: may be off screen. Nearest scroller, not scrollIntoView: DESIGN.md
-        //: rule, scrollIntoView walks every ancestor to the page.
-        requestAnimationFrame(() => scrollEditingEntryIntoView(entry.id));
-      })
+      //: `openNoteEditor` scrolls the form into view after the redraw (the
+      //: nearest scroller, DESIGN.md) and asks before dropping another
+      //: note's unsaved changes.
+      smallButton("ph:pencil-simple", "Edit this entry", () => openNoteEditor(entry.id))
     );
     // Publishing already worked via the "draft" chip below (click it to
     // clear is_draft): reported again anyway ("needs to be...a button for

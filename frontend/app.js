@@ -2208,6 +2208,7 @@ const LAZY_MODULES = {
   editConflict: ["/edit-conflict.js"],
   categories: ["/categories-panel.js"],
   noteHistory: ["/note-history.js"],
+  askHistory: ["/ask-history.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2411,6 +2412,14 @@ const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory"],
+  askHistory: [
+    "toggleAskHistoryPanel",
+    "loadAskHistoryPage",
+    "clearAskHistory",
+    "viewAskHistoryTurn",
+    "toggleAskHistoryPin",
+    "deleteAskHistoryTurn",
+  ],
   categories: [
     "openManageCategories",
     "mergeCategoryFromPanel",

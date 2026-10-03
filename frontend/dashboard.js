@@ -2812,12 +2812,7 @@ async function renderTopTagsWidget(body) {
   const cloud = document.createElement("div");
   cloud.className = "entry-meta";
   for (const [tag, count] of top) {
-    const tagChip = chip(`${tag} · ${count}`, "tag", () => {
-      $("note-search").value = tag;
-      noteSearch = tag;
-      switchTab("notes");
-      renderEntries();
-    });
+    const tagChip = chip(`${tag} · ${count}`, "tag", () => filterNotesByTag(tag));
     tagChip.title = `Show notes tagged “${tag}”`;
     cloud.appendChild(tagChip);
   }
@@ -3453,12 +3448,7 @@ async function renderTagCloudWidget(body) {
   for (const { tag, count } of tags) {
     // Font size scales with frequency (0.8rem – 1.7rem).
     const weight = count / max;
-    const item = chip(tag, "tag", () => {
-      $("note-search").value = tag;
-      noteSearch = tag;
-      switchTab("notes");
-      renderEntries();
-    });
+    const item = chip(tag, "tag", () => filterNotesByTag(tag));
     item.style.fontSize = `${(0.8 + weight * 0.9).toFixed(2)}rem`;
     item.style.opacity = String(0.55 + weight * 0.45);
     item.title = `${count} note${count === 1 ? "" : "s"} tagged “${tag}”`;

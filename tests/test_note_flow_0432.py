@@ -117,3 +117,98 @@ def test_one_note_moves_from_its_chip_and_its_menu():
 def test_the_batch_move_lists_empty_categories():
     batch = _function(_read("skills.js"), "fillBatchCategories")
     assert "categoryMeta.keys()" in batch
+
+
+# --- the list and the sidebar (the second audit, 2026-10-03) ---------------
+
+
+def test_an_open_edit_keeps_its_text_through_a_redraw():
+    notes = _read("notes-list.js")
+    form = _function(notes, "renderEditForm")
+    assert "noteFormDraft.id === entry.id" in form
+    assert "draft ? draft.content : entry.content" in form
+    # Cleared only on purpose: Save and Cancel (closeNoteForm).
+    assert "noteFormDraft = null" in form
+    assert "noteFormDraft = null" in _function(notes, "closeNoteForm")
+
+
+def test_leaving_a_changed_form_asks_and_an_empty_one_is_refused():
+    notes = _read("notes-list.js")
+    form = _function(notes, "renderEditForm")
+    assert 'event.key !== "Escape"' in form and "noteFormMayClose()" in form
+    assert "A note needs some text" in form
+    assert "noteFormMayClose()" in _function(notes, "openNoteEditor")
+    # Every edit entry point goes through the guard.
+    for name in ("note-cards.js", "menus.js", "chat-agent.js"):
+        source = _read(name)
+        assert "openNoteEditor(" in source, name
+        assert not re.search(r"editingId = (entry|item|copy)\.id;\s*\n\s*renderEntries\(\)", source), name
+
+
+def test_a_selection_is_of_what_is_on_screen():
+    render = _function(_read("notes-list.js"), "renderEntries")
+    assert "selectedIds.delete(id)" in render
+    assert 'localStorage.getItem("activeTab") === "notes"' in render
+
+
+def test_batch_tag_splits_on_commas_and_can_be_undone():
+    batch = _function(_read("skills.js"), "batchTag")
+    assert '.split(",")' in batch
+    assert "pushUndo(" in batch and "settleUndoFromToast" in batch
+
+
+def test_a_to_z_sorts_by_the_name_a_card_shows():
+    notes = _read("notes-list.js")
+    assert "noteSortName(a).localeCompare(noteSortName(b), undefined, { numeric: true" in _function(notes, "sortEntries")
+    wiring = _read("settings-wiring.js")
+    assert 'localStorage.setItem("notes-sort", noteSort)' in wiring
+
+
+def test_the_sidebar_lights_one_row_lists_every_category_and_takes_the_keyboard():
+    notes = _read("notes-list.js")
+    side = _function(notes, "renderSidebar")
+    assert "!draftsOnly && !favouritesOnly" in side
+    assert "categoryMeta.keys()" in side
+    assert "compareCategoryNames" in side and "].sort()" not in side
+    assert side.count("wireSidebarRowKeys(") >= 3
+    assert 'setAttribute("aria-current", "true")' in _function(notes, "markSidebarRowCurrent")
+    assert "categoryMeta.keys()" in _function(notes, "fillCategoryOptions")
+    # The bigger of two same-named categories (two spaces) is the one kept.
+    assert "if (!categoryMeta.has(row.name))" in _function(notes, "loadCategories")
+
+
+def test_tags_filter_from_a_chip_and_from_the_box():
+    notes = _read("notes-list.js")
+    parse = _function(notes, "parseNoteQuery")
+    assert 'lower.startsWith("#")' in parse and "before|after" in parse and 'startsWith("title:")' in parse
+    match = _function(notes, "matchesSearch")
+    assert 'tag === t || tag.startsWith(`${t}/`)' in match
+    assert 'flag === "draft"' in match
+    cards = _read("note-cards.js")
+    assert "filterNotesByTag(tag)" in cards
+    assert "filterNotesByTag(tag)" in _read("dashboard.js")
+
+
+def test_the_rail_opens_on_an_open_not_on_any_click():
+    notes = _read("notes-list.js")
+    focus = notes[notes.index('list.addEventListener("focusin"'):]
+    focus = focus[: focus.index("\n  });\n")]
+    assert "if (notesRailId == null) return;" in focus
+
+
+def test_category_rename_and_merge_can_be_undone_and_redraw_the_panel():
+    panel = _read("categories-panel.js")
+    rename = _function(panel, "renameCategory")
+    assert "offerCategoryUndo(" in rename and "refreshAfterCategoryChange()" in rename
+    assert 'confirmLabel: "Merge"' in rename
+    chooser = _function(panel, "chooseCategorySheet")
+    assert 'metas.push({ name: "Uncategorised"' in chooser
+    assert ".sheet-close" in _function(panel, "showCategoryNotes")
+
+
+def test_archive_and_duplicate_behave():
+    menus = _read("menus.js")
+    archive = menus[menus.index('label: "ph:archive Archive"'):][:1200]
+    assert "pushUndo(" in archive
+    duplicate = menus[menus.index('label: "ph:copy Duplicate"'):][:1500]
+    assert "(copy)" in duplicate and "title:" not in duplicate.split("body: JSON.stringify(")[1][:400]

@@ -1625,9 +1625,10 @@ $("notes-new-note").addEventListener("click", () => {
   // this is its first showing or its fiftieth.
   const box = $("entry-content");
   box?.focus();
-  const mounted =
-    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
-  mounted.then((surface) => surface?.focus()).catch(() => {});
+  //: `mountNoteSurfaceNow` (app.js) fetches the editor's bundle when it is
+  //: not in yet; the bare `mountNoteSurface` is undefined until then, which
+  //: left the focus on the body on a fresh boot (INBOX 432, measured).
+  mountNoteSurfaceNow(box).then((surface) => surface?.focus()).catch(() => {});
 });
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()

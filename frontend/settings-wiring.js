@@ -2084,8 +2084,22 @@ async function loadForgottenOrder() {
   }
 }
 
+//: Remembered like the page size beside it (INBOX 432: it reset on reload).
+try {
+  const kept = localStorage.getItem("notes-sort");
+  if (kept && [...$("note-sort").options].some((o) => o.value === kept)) noteSort = kept;
+} catch {
+  /* storage blocked: newest, as before */
+}
+$("note-sort").value = noteSort;
+if (noteSort === "forgotten") loadForgottenOrder().then(() => renderEntries());
 $("note-sort").addEventListener("change", async (e) => {
   noteSort = e.target.value;
+  try {
+    localStorage.setItem("notes-sort", noteSort);
+  } catch {
+    /* storage blocked: this session only */
+  }
   notesCurrentPage = 1; // a re-sort can move a note off whatever page it was on
   //: Awaited before the render, not alongside it: painting the list in id
   //: order and re-sorting it a moment later is a list that jumps under the

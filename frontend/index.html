@@ -1809,7 +1809,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <input id="note-search" class="library-search" type="search"
                 placeholder="Filter notes"
-                aria-label="Filter notes. Supports tag:, cat:, is:favourite, -exclude and quoted phrases"
+                aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, -exclude and quoted phrases"
                 aria-describedby="search-help-hint">
               <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
                 <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
@@ -1928,9 +1928,11 @@ Link to another note with [[its first few words]]."></textarea>
             <ul class="search-help-list">
               <li><code>bread proving</code>, both words, in any order</li>
               <li><code>"proving times"</code>, that exact phrase</li>
-              <li><code>tag:work</code>, only notes carrying that tag</li>
-              <li><code>cat:recipes</code>, only that category</li>
-              <li><code>is:favourite</code>, your starred notes (<code>is:pinned</code> still works); also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code></li>
+              <li><code>tag:work</code> or <code>#work</code>, only notes carrying that tag (and its nested tags, like <code>work/meetings</code>)</li>
+              <li><code>cat:recipes</code> or <code>in:recipes</code>, only that category</li>
+              <li><code>title:budget</code>, a word in the note's title</li>
+              <li><code>before:2026-09-01</code>, <code>after:2026-08</code>, by the day it was written</li>
+              <li><code>is:favourite</code>, your starred notes (<code>is:pinned</code> still works); also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code>, <code>is:draft</code></li>
               <li><code>tags:&lt;2</code>, fewer than 2 tags (also <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, or a bare number for exactly that many)</li>
               <li><code>-picnic</code>, notes that do <em>not</em> mention it</li>
             </ul>

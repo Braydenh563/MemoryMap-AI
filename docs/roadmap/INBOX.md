@@ -105,42 +105,6 @@ with its owner named in the entry.
      clipboards and a real server crash between commit and answer are not
      verified (the dedupe map is in memory).
 
-433. **The owner, 2026-10-03, verbatim.** "Also go through and make sure
-     the whole app follows the Australia WCAG 2.2 accessibility standards.
-     Use zoom testing, screen reader testing, and accessibility scans like
-     with axe dev tools. Continue what you are doing and make sure nothing
-     is left half finished or not properly implemented. Can you also put
-     all the js files in the frontend folder into a js folder later when you
-     can?"
-     Placed: (1) WCAG 2.2 AA (the level the Australian Government's Digital
-     Service Standard and the DDA guidance point to): axe-core scan of every
-     tab, Settings section, sheet and dialog in both themes; zoom at 200%
-     and 400% (1.4.4, 1.4.10 reflow at 320 CSS px), text spacing (1.4.12);
-     the accessibility tree read as a screen reader would (Playwright's ARIA
-     snapshot; no real screen reader runs in the sandbox, so say so);
-     keyboard-only paths and 2.4.11 focus not obscured, 2.5.8 target size;
-     fixes per finding, a sweep kept in scratchpad/ui-sweeps; (2) "nothing
-     half finished": the open carry-over (wrapup-0927) ticked only when
-     measured; (3) the frontend/js/ move (wrapup-0927 1), done when no agent
-     is editing frontend files.
-     **Progress 2026-10-03 (PR 162):** (1) axe-core over every tab, Library
-     sub-tab, Settings section and overlay, both themes: 0 violations after
-     the fixes (main landmark, separator values, editor names, two contrast
-     pairs, button rows, Find anything's listbox, nested controls in Library
-     cards, Settings fold heads and Manage categories); `srtree.js` 0
-     (landmarks, headings, live regions, skip link, dialog focus);
-     `a11yname.js` 0; `contrast.js` 0 both themes; `notekeys.js` the notes
-     flow by keyboard clean (F2, Escape, chooser sheets fixed); `zoom.js` 0
-     on Notes and Library at 200% and 400% after the reflow fixes, the rest
-     of the tabs measured at the end. Not verified: a real screen reader
-     (none runs in the sandbox), the desktop window. (3) with an agent.
-     **Zoom, all tabs, 2026-10-03 evening** (`ONLY=<tab> node zoom.js`, one
-     tab per run: all tabs in one browser closes the page mid-run): a lasting
-     toast hid the Tab stop on six tabs, fixed (e86bd02); the consistency
-     agent took Chat, Timeline, Graph, Documents and Reminders from 14
-     findings to 0; zoom.js reads a clip per axis. **Every tab 0 at 200% and
-     400%.**
-
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise
      the colour the fill of mind map nodes?? Also for the mindmap export to

@@ -52,6 +52,10 @@ def test_what_does_not_fit_folds_into_one_more_chip():
     more = cards[cards.index("function noteMetaMore("):]
     assert "openMenuAtPoint(items" in more[:1500]
     assert "filterNotesByTag(tag)" in more[:1500] and "answerSuggestedTags(entry, { take: [tag] })" in more[:1500]
+    # A card off screen is fitted when it is drawn, not measured alone; a
+    # line that fits as drawn is left alone.
+    assert 'addEventListener("contentvisibilityautostatechange"' in fit
+    assert "const lines = drawn.filter(" in fit
     # A count chip patched in later is fitted again.
     assert "fitNoteMetas([meta])" in _read("notes-list.js")
 

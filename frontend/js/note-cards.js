@@ -1253,12 +1253,27 @@ const noteMetaFit = new ResizeObserver((seen) => fitNoteMetas(seen.map((s) => s.
 document.fonts?.addEventListener("loadingdone", () => fitNoteMetas([...document.querySelectorAll(".note-meta")]));
 
 function fitNoteMetas(metas) {
-  const lines = [];
+  const drawn = [];
   for (const meta of metas) {
     const more = meta.querySelector(":scope > .note-meta-more");
     if (!meta.isConnected) noteMetaFit.unobserve(meta);
-    else if (more) lines.push({ meta, more, folds: [...meta.querySelectorAll(":scope > [data-tag]")] });
+    else if (!more) continue;
+    //: A card a window off screen is not laid out (`content-visibility`,
+    //: 07-whiteboard-misc.css), and measuring it lays it out alone: 60 of
+    //: them cost 90ms. It is fitted when it is drawn.
+    else if (!meta.checkVisibility({ contentVisibilityAuto: true })) {
+      const row = meta.closest("li");
+      if (row && !row.metaWait) {
+        row.metaWait = 1;
+        row.addEventListener("contentvisibilityautostatechange", (event) => event.skipped || fitNoteMetas([meta]));
+      }
+    } else drawn.push({ meta, more, folds: [...meta.querySelectorAll(":scope > [data-tag]")] });
   }
+  //: Most lines fit as drawn: nothing folded, nothing cut, nothing over.
+  //: Those are left alone (one shared read), and only the rest are refitted.
+  const cut = (meta) => [...meta.querySelectorAll(":scope > .chip > .ph-text")].some((t) => t.scrollWidth > t.clientWidth);
+  const lines = drawn.filter(({ meta }) => meta.scrollWidth > meta.clientWidth
+    || meta.querySelector(":scope > [data-tag][hidden], :scope > .is-icon") || cut(meta));
   for (const { meta, more, folds } of lines) {
     for (const el of folds) el.hidden = false;
     for (const el of meta.querySelectorAll(":scope > .is-icon")) el.classList.remove("is-icon");

@@ -5385,7 +5385,8 @@ select {
   padding-block: 0;
 }
 
-#settings-modal .settings-section .settings-fold > summary > .help-head > span {
+/* The label, not the '?''s empty slot (08-consistency.css, INBOX 433). */
+#settings-modal .settings-section .settings-fold > summary > .help-head > span:not(.fold-help-slot) {
   flex: 1 1 auto;
   min-width: 0;
 }

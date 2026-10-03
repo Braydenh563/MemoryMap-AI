@@ -5637,7 +5637,23 @@ input.doc-title-input::placeholder {
   background: var(--ghost-btn-bg);
 }
 
-.manage-cat-row:focus-visible {
+/* The keyboard's stop is the row's first cell (a grid, INBOX 433): the dot,
+   the name and the count, laid out as the row laid them out, and the ring
+   stays the row's. */
+.manage-cat-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.manage-cat-main:focus-visible {
+  outline: none;
+}
+
+.manage-cat-row:has(> .manage-cat-main:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }

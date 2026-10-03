@@ -4773,13 +4773,59 @@ function wireSettingsFolds() {
         // A private window: the fold still works, it just is not remembered.
       }
     });
-    //: A '?' in a folded group's head explains what is inside it, and its
-    //: popover lives inside the fold, so pressing it opens the group too
-    //: (the popover's own handler keeps the press from toggling it shut).
-    fold.querySelector(":scope > summary [data-help-for]")?.addEventListener("click", () => {
+    //: A '?' on a folded group's head explains what is inside it, so
+    //: pressing it opens the group too. It sits beside the summary rather
+    //: than in it (`placeFoldHelp`), so the press cannot toggle the fold.
+    fold.parentElement?.querySelector(":scope.fold-help-wrap > .fold-help")?.addEventListener("click", () => {
       fold.open = true;
     });
   }
 }
+
+//: **A fold head's '?' is beside its `<summary>`, drawn where it was in it**
+//: (INBOX 433). A button inside a summary is a control inside a control:
+//: axe-core's nested-interactive (WCAG 4.1.2) counted six in Settings, and
+//: a screen reader announced the fold and could not reach its '?' as one.
+//: So the '?' is the wrapper's first child (before the fold, so the Tab
+//: order is the '?' and then the head, not the '?' after everything the
+//: open fold holds), and the summary keeps an empty `.fold-help-slot` of the
+//: button's size where the button was, so the head is laid out exactly as
+//: before. This puts the button over its slot. Measured, because the slot
+//: moves with the head's height, which differs by surface and by pointer
+//: (36px, 44, 46, 50 measured; `scratchpad/ui-sweeps/foldhelp.js`); a
+//: `ResizeObserver` on the wrapper and the summary re-places it whenever
+//: either changes size, which is also when a hidden pane is first shown.
+function placeFoldHelp(wrap) {
+  const help = wrap.querySelector(":scope > .fold-help");
+  const slot = wrap.querySelector(":scope > details > summary .fold-help-slot");
+  if (!help || !slot || !slot.offsetParent) return;
+  const box = wrap.getBoundingClientRect();
+  const at = slot.getBoundingClientRect();
+  help.style.top = `${at.top - box.top}px`;
+  help.style.left = `${at.left - box.left}px`;
+  help.style.right = "auto";
+}
+
+function wireFoldHelps() {
+  const wraps = document.querySelectorAll("#settings-modal .fold-help-wrap");
+  if (!wraps.length || typeof ResizeObserver !== "function") return;
+  const observer = new ResizeObserver((entries) => {
+    const seen = new Set();
+    for (const entry of entries) {
+      const wrap = entry.target.closest(".fold-help-wrap");
+      if (wrap && !seen.has(wrap)) {
+        seen.add(wrap);
+        placeFoldHelp(wrap);
+      }
+    }
+  });
+  for (const wrap of wraps) {
+    observer.observe(wrap);
+    const summary = wrap.querySelector(":scope > details > summary");
+    if (summary) observer.observe(summary);
+  }
+}
+
+wireFoldHelps();
 
 wireSettingsFolds();

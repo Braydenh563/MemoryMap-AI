@@ -3101,9 +3101,8 @@ RICH_PICKERS = [
 #: stay are not pickers of this shape: the document's word completion is an
 #: inline ghost of the next word, the enhanced select is a `<select>`'s own
 #: list, and a space's icon choice is a grid of glyphs. The Manage categories
-#: panel's rows (notes-list.js) are the managed-list recipe (DESIGN.md, "A
-#: list you manage"): nothing is picked from it, rows are selected to act on.
-HAND_BUILT_OPTION_ROWS = {"categories-panel.js": 1, "documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2}
+#: panel left this list for a grid (INBOX 433: an option may not hold its ⋯).
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2}
 
 
 def test_only_the_rich_picker_stamps_its_anatomy() -> None:

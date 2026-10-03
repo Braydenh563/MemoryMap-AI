@@ -97,7 +97,8 @@ def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     # The panel moved to its own lazy piece (categories-panel.js).
     notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'head.classList.add("dialog-head");' in notes
-    assert 'list.setAttribute("role", "listbox");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
+    # A grid since INBOX 433 (an option may not hold its ⋯; a grid cell may).
+    assert 'list.setAttribute("role", "grid");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes
     assert "function drawManageCategoryFooter(footer, state, redraw)" in notes
     assert 'filter.placeholder = "Filter categories";' in notes

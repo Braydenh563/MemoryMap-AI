@@ -1185,13 +1185,13 @@ const LIBRARY_EMPTY_SAYS = {
 function libraryCard(item) {
   // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
   // and a button inside a button is invalid markup that browsers resolve by
-  // dropping one of them. The click, the keyboard and the role are all here
-  // explicitly instead, which is what the button element was giving us.
+  // dropping one of them. Nor is it a button by role (INBOX 433): the title
+  // is the card's one control that opens it, stretched over the card
+  // (`cardOpener`, menus.js), and one card of the grid is a Tab stop
+  // (`setLibraryCardStop`).
   const card = document.createElement("article");
   card.className =
     `library-card library-${item.kind}` + (item.private ? " library-private" : "");
-  // Focusable, and one card of the grid a Tab stop: `setLibraryCardStop`.
-  card.setAttribute("role", "button");
   // Lets a caller (flashLibraryItem) find one specific card to scroll to and
   // highlight, the same way #entry-list li[data-id] already works for notes.
   card.dataset.id = item.id;
@@ -1359,7 +1359,9 @@ function libraryCard(item) {
 
   const kindWord = meta ? meta.label.replace(/s$/, "") : item.kind;
   card.title = `${kindWord} · ${item.title}`;
-  card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
+  //: Named on the control now, not the box: the title is what a screen
+  //: reader lands on, and it says the kind and the category as the card did.
+  cardOpener(title, () => openLibraryItem(item), `${kindWord}: ${item.title}. ${item.detail}.`);
 
   const actions = withLibraryCopyActions(libraryActions(item), item.kind, item.title);
   if (actions.length) {
@@ -1373,15 +1375,9 @@ function libraryCard(item) {
     card.appendChild(menu);
   }
 
+  //: A press on the title's overlay bubbles here, as one on the thumbnail
+  //: or a preview link does; the tick and the ⋯ stop theirs.
   card.addEventListener("click", () => openLibraryItem(item));
-  // An <article role="button"> gets neither of these for free, this is the
-  // half of the button element we gave up to be allowed a menu inside.
-  card.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    if (event.target !== card) return; // a key pressed inside the menu is the menu's
-    event.preventDefault();
-    openLibraryItem(item);
-  });
   card.dataset.stopKey = libraryKeyOf(item);
   setLibraryCardStop(card, false);
   return card;
@@ -1396,14 +1392,14 @@ function libraryCard(item) {
 //: move between cards (navigation.js, `ARROW_NAV_LISTS`), and whichever card
 //: takes the focus, by key or by click, becomes the stop. The same pattern
 //: as the Notes list and the Timeline's rows.
-const LIBRARY_CARD_STOPS = ".library-card-tick, .library-card-menu > button";
+//: The card itself is not a stop (INBOX 433): its title is (`cardOpener`).
+const LIBRARY_CARD_STOPS = ".card-open, .library-card-tick, .library-card-menu > button";
 function setLibraryCardStop(card, on) {
-  card.tabIndex = on ? 0 : -1;
   for (const control of card.querySelectorAll(LIBRARY_CARD_STOPS)) control.tabIndex = on ? 0 : -1;
 }
 //: After each chunk: the card last used, when it is drawn, or the first.
 function ensureLibraryGridStop(grid) {
-  if (grid.querySelector(".library-card[tabindex='0']")) return;
+  if (grid.querySelector(".library-card .card-open[tabindex='0']")) return;
   const keep = grid.dataset.stopKey;
   const card = (keep && [...grid.querySelectorAll(".library-card")].find((c) => c.dataset.stopKey === keep)) ||
     grid.querySelector(".library-card");
@@ -1411,9 +1407,11 @@ function ensureLibraryGridStop(grid) {
 }
 $("library-grid").addEventListener("focusin", (event) => {
   const card = event.target.closest?.(".library-card");
-  if (!card || card.tabIndex === 0) return;
+  if (!card || card.querySelector(".card-open")?.tabIndex === 0) return;
   const grid = event.currentTarget;
-  for (const other of grid.querySelectorAll(".library-card[tabindex='0']")) setLibraryCardStop(other, false);
+  for (const open of grid.querySelectorAll(".library-card .card-open[tabindex='0']")) {
+    setLibraryCardStop(open.closest(".library-card"), false);
+  }
   setLibraryCardStop(card, true);
   grid.dataset.stopKey = card.dataset.stopKey || "";
 });
@@ -2746,10 +2744,11 @@ async function renderLibraryDocuments() {
     // sitting inline in the header row, the kebab absolutely positioned
     // and hover/focus-revealed rather than two more permanent controls
     // squeezed in as flex siblings.
+    //: Not a button by role (INBOX 433): the title opens it, stretched over
+    //: the row (`cardOpener` below), so the tick and the ⋯ are not
+    //: controls inside a control.
     const open = document.createElement("article");
     open.className = "doc-list-item";
-    open.tabIndex = 0;
-    open.setAttribute("role", "button");
     const openDoc = () => {
       // switchTab first, then open. Reported as "the documents subtab document
       // cards don't even do anything": openDocument() loaded the document
@@ -2759,12 +2758,6 @@ async function renderLibraryDocuments() {
       openDocument(doc.id);
     };
     open.addEventListener("click", openDoc);
-    open.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (event.target !== open) return; // a key pressed inside the tick/menu is theirs
-      event.preventDefault();
-      openDoc();
-    });
 
     const top = document.createElement("div");
     top.className = "doc-list-top";
@@ -2790,6 +2783,7 @@ async function renderLibraryDocuments() {
     const title = document.createElement("span");
     title.className = "doc-list-title";
     title.textContent = doc.title || "Untitled";
+    cardOpener(title, openDoc);
     const meta = document.createElement("span");
     meta.className = "muted doc-list-meta";
     // Words and when it was last touched, the two facts that tell you which

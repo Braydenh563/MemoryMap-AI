@@ -183,9 +183,11 @@ document.addEventListener("keydown", (event) => {
 //: tiles are the same code. Only when the focus is on an item itself, so a
 //: field or a button inside one keeps its own keys.
 const ARROW_NAV_LISTS = [
-  ["#library-grid", ".library-card"],
-  ["#library-boards-grid", ".library-card"],
-  ["#library-docs-list", ".doc-list-item"],
+  //: A card's one stop is its title (`cardOpener`, INBOX 433), so that is
+  //: what the keys move between; the card is a box, not a control.
+  ["#library-grid", ".library-card .card-open"],
+  ["#library-boards-grid", ".library-card .card-open"],
+  ["#library-docs-list", ".doc-list-item .card-open"],
   ["#library-images-grid", ".library-image-tile [role='button'][tabindex='0']"],
   ["#bookmark-list", ".bookmark-title"],
   //: The Web panel's results: the title is each row's one tab stop, and the

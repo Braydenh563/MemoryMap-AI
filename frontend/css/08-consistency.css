@@ -5239,6 +5239,24 @@ main,
   overflow: clip;
 }
 
+/* The shutter (avatars.js, `nameMarkBuddyRideFrames`): riding, a clipping
+   box the band's own size that the area's scroll slides down (or up), so a
+   head the band was widened for at its perch goes under the bar with the
+   perch rather than over it. Not riding, a point with nothing clipped. */
+#nm-buddy-band .nm-buddy-shutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+#nm-buddy-band.nmb-riding .nm-buddy-shutter {
+  width: 100%;
+  height: 100%;
+  overflow: clip;
+}
+
 #nm-buddy-band .nm-buddy-rider {
   position: absolute;
   left: 0;

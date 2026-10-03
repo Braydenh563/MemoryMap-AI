@@ -331,6 +331,12 @@ class AttachmentAnalyseBody(BaseModel):
     #: analysis needs to be… modifyable by the user". `""` clears it back to
     #: "nothing here", the same as the `/media` endpoints this mirrors.
     text: str | None = Field(default=None, max_length=200_000)
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
     #: Re-run even when there is already a value (a caption is written once
     #: and left alone otherwise, so nothing an AI wrote and a person read can
     #: silently change under them).
@@ -429,7 +435,14 @@ def analyse_attachment(
             if not stripped:
                 attachment.vision_ocr_model = None
         session.commit()
-        _forget_regions(_page_read_key(attachment.id, None))
+        if body.edited and body.kind in {"ocr", "vision"}:
+            _set_edited_reading(
+                _page_read_key(attachment.id, None),
+                stripped,
+                "tesseract" if body.kind == "ocr" else "vision",
+            )
+        else:
+            _forget_regions(_page_read_key(attachment.id, None))
         return _attachment_out(session, attachment)
 
     if not path.is_file():
@@ -562,6 +575,7 @@ def analyse_attachment(
             )
         attachment.vision_ocr_text = (text or "").strip() or None
         attachment.vision_ocr_model = model if attachment.vision_ocr_text else None
+        _forget_regions(_page_read_key(attachment.id, None), only_source="edited-")
     session.commit()
     return _attachment_out(session, attachment)
 
@@ -1873,6 +1887,12 @@ class OcrBody(BaseModel):
     #: `CaptionBody.text`. `""` clears it back to "nothing extracted",
     #: matching `ocr_text`'s own null/"not run or found nothing" meaning.
     text: str | None = Field(default=None, max_length=10_000)
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
 
 
 @router.post("/media/{upload_id}/ocr", response_model=MediaUploadOut)
@@ -1899,7 +1919,10 @@ def ocr_media(
     if body.text is not None:
         upload.ocr_text = body.text.strip() or None
         session.commit()
-        _forget_regions(_page_read_key(None, upload.id))
+        if body.edited:
+            _set_edited_reading(_page_read_key(None, upload.id), upload.ocr_text, "tesseract")
+        else:
+            _forget_regions(_page_read_key(None, upload.id))
     else:
         #: A missing engine used to come back as a 200 with no text, which the
         #: workspace painted as "Read <file>." over an empty panel. Say so.
@@ -1981,7 +2004,7 @@ def _stored_readings(
                 source="vision",
                 label=f"Read by {vision_model or 'a vision model'}",
                 text=vision,
-                in_regions=regions_source == "reading",
+                in_regions=regions_source in {"reading", "edited-vision"},
             )
         )
     if tesseract:
@@ -1993,7 +2016,8 @@ def _stored_readings(
                 #: The sections are split from the vision reading when there
                 #: is one (`stored` prefers it), and are Tesseract's own boxes
                 #: when the source says so.
-                in_regions=regions_source == "tesseract" or (regions_source == "reading" and not vision),
+                in_regions=regions_source in {"tesseract", "edited-tesseract"}
+                or (regions_source == "reading" and not vision),
             )
         )
     return out
@@ -2182,7 +2206,7 @@ def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut
     rather than of the regions, and `_pdf_regions_for` sets both on the way
     out. Storing them would be a page count going stale in a cache.
     """
-    if not key or out.source != "tesseract":
+    if not key or out.source not in {"tesseract", "edited-tesseract", "edited-vision"}:
         return
     kind, source_id = key
     try:
@@ -2209,7 +2233,9 @@ def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut
         logger.debug("could not store the regions for a page", exc_info=True)
 
 
-def _forget_regions(key: tuple[str, int] | None, page: int = 0) -> None:
+def _forget_regions(
+    key: tuple[str, int] | None, page: int = 0, only_source: str | None = None
+) -> None:
     """Throw away the stored rectangles for a page whose text just changed.
 
     The cache describes the page as it was read. A re-read, or a correction
@@ -2232,10 +2258,44 @@ def _forget_regions(key: tuple[str, int] | None, page: int = 0) -> None:
                 .one_or_none()
             )
             if row is not None and row.regions:
+                if only_source and f'"source": "{only_source}' not in row.regions:
+                    return
                 row.regions = ""
                 session.commit()
     except Exception:  # noqa: BLE001 - a cache clear must never fail a read
         logger.debug("could not clear the stored regions for a page", exc_info=True)
+
+
+def _set_edited_reading(key: tuple[str, int] | None, text: str | None, field: str) -> None:
+    """A reading corrected by hand becomes what the workspace shows.
+
+    The sections are normally *derived*: Tesseract re-reads the picture, or
+    the stored text is split. A hand edit has to win over a re-derivation, or
+    the person saves a correction and sees the old words come back on the next
+    look (found driving the editor). So the corrected text is stored as the
+    page's sections, under the source "edited", and `_regions_for` serves it
+    first like any stored look. `field` ("tesseract" or "vision") says which
+    stored reading was edited, so Delete and the next edit write the same one.
+    Empty text is a delete, not an edit: the page goes back to unread.
+    """
+    if not key:
+        return
+    stripped = (text or "").strip()
+    if not stripped:
+        _forget_regions(key)
+        return
+    blocks = ocr.regions_from_reading(stripped)
+    _remember_regions(
+        key,
+        0,
+        OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[OcrRegionOut(**block) for block in blocks],
+            source=f"edited-{field}",
+            message="Edited by you. Read again to replace it with a fresh reading.",
+        ),
+    )
 
 
 def _regions_for(
@@ -2321,6 +2381,10 @@ def _regions_for(
     positions_offer = (
         "Install Tesseract to also see where each one sits on the page."
         if not ocr.tesseract_available()
+        #: Tesseract was the reader and still placed nothing: telling the
+        #: person to switch to what they already chose sent them in a circle.
+        else "Tesseract could not mark where each one sits on this page."
+        if auto
         else "Switch to Tesseract as the reader to also see where each one sits on the page."
     )
     return OcrRegionsOut(
@@ -3599,6 +3663,12 @@ class VisionOcrBody(BaseModel):
     #: `CaptionBody.force`, a manual re-read the user pressed the button
     #: for, not a background pass overwriting a reading they already saw.
     force: bool = False
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
     #: A correction typed by hand, exactly as `OcrBody.text` already allows for
     #: the Tesseract reading: `None` means "read it", any string sets it, and
     #: `""` clears it.
@@ -3641,6 +3711,12 @@ def vision_ocr_media(
             # under nothing is a claim about a reading that no longer exists.
             upload.vision_ocr_model = None
         session.commit()
+        if body.edited:
+            _set_edited_reading(_page_read_key(None, upload.id), upload.vision_ocr_text, "vision")
+        else:
+            #: A stored edit describes the text it was made on; any other
+            #: replacement (a clear, a fixture) makes it stale.
+            _forget_regions(_page_read_key(None, upload.id), only_source="edited-")
         return MediaUploadOut(
             id=upload.id,
             url=f"/media/{upload.filename}",
@@ -3664,6 +3740,8 @@ def vision_ocr_media(
     media_dir = deps.get_config().data_dir / "media"
     vision_ocr.vision_ocr_and_store(upload.id, media_dir / upload.filename, force=body.force)
     session.refresh(upload)
+    #: A fresh reading replaces a hand edit of the sections, same as Tesseract's.
+    _forget_regions(_page_read_key(None, upload.id), only_source="edited-")
     return MediaUploadOut(
         id=upload.id,
         url=f"/media/{upload.filename}",

@@ -234,7 +234,7 @@ def test_with_tesseract_already_installed_the_message_says_switch_not_install(cl
         json={"kind": "vision", "text": "A page read by the vision model."},
     )
 
-    body = client.get(f"/files/{attachment_id}/ocr-regions").json()
+    body = client.get(f"/files/{attachment_id}/ocr-regions?auto=false").json()
     assert body["source"] == "reading"
     assert "Switch to Tesseract" in body["message"]
     assert "Install" not in body["message"]

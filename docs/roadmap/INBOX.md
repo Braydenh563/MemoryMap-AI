@@ -119,7 +119,12 @@ with its owner named in the entry.
      really attractive and and alluring". Placed: (1) the graph's layout
      and look: a Sonnet agent; (2) skeletons: **fixed** (shaped bars, a
      visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
-     workspace: a Sonnet agent; (4) the feminine Atlas's lower body, flowing
+     workspace: **fixed** (one engine line with status, language and Install
+     with progress; a read that falls to the other engine and names it; Read
+     again that really reads again; an editable reading; add to a note; one
+     language setting; the Packages row means "can read"; driven by
+     `scratchpad/ui-sweeps/ocrflow.js`, measured with a stand-in program, not
+     the real one); (4) the feminine Atlas's lower body, flowing
      like a gown's hem rather than tentacles, kept elegant: the orchestrator,
      after the masculine tail's agent work is merged. **(4) Fixed**: a gown (A-line, waved hem, four
      folds), measured extent 9.4..49.8 x 49..97 (was to y 102 with 24 paths).

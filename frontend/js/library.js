@@ -3600,12 +3600,30 @@ function ocrRenderRegions(body) {
       ? "Read again: replaces the reading shown here"
       : "Transcribe what you are looking at";
   }
+  //: **Re-running is on demand, and the button says which it is** (INBOX 443
+  //: (3)). "Read this image" over a reading that is already there is the same
+  //: press as "Read again", and the person has to know it replaces the text
+  //: (and any edit). Nothing re-runs by itself: changing the reader or the
+  //: language only changes what the next press does.
+  const readLabel = $("ocr-read-page-label");
+  if (readLabel && hasReading && body.source !== "text-file") {
+    readLabel.textContent = ocrIsPdf(ocrWorkspaceCurrent) ? "Read this page again" : "Read again";
+  }
+  //: Editing is for a reading of one picture. A PDF's pages are separate
+  //: stored readings with no one field to write back to, so it is not offered
+  //: there rather than offered and then refused.
+  ocrSyncMoreMenu(hasReading && !ocrIsPdf(ocrWorkspaceCurrent), hasReading);
+  ocrCloseEdit();
 
   //: The badge is not decoration: a single whole-page region drawn from
   //: stored text is a *fallback*, and letting it look like something the
   //: reader found there would be a lie about where the text is.
   const labels = {
-    tesseract: "ph:scan Read on the page",
+    tesseract: "ph:scan Read by Tesseract",
+    //: A reading corrected by hand wins over a fresh derivation (the server
+    //: stores the sections under these sources, see `_set_edited_reading`).
+    "edited-tesseract": "ph:pencil-simple Edited by you",
+    "edited-vision": "ph:pencil-simple Edited by you",
     //: **"reading" is not a fallback badge any more, and it must not read as
     //: one.** It used to be "stored-text": one region covering the whole page,
     //: which really was a stand-in. Now the reading is split into its own
@@ -3628,8 +3646,21 @@ function ocrRenderRegions(body) {
   //: (asked for: readings "need to use the right models that are set in
   //: settings… properly manageable").
   if (body.source === "reading" || body.source === "vision") {
-    source.appendChild(document.createTextNode(` · ${ocrReaderName()}`));
-    source.title = `Read with ${ocrReaderName()}, change the reader above, or the model in Settings`;
+    //: The reader that wrote the text on screen, from the stored reading the
+    //: server marked as the source of these sections, not the picker's
+    //: current choice: the picker may name the other engine by now.
+    const shown = ocrWorkspaceReadings.find((r) => r.in_regions);
+    const by = shown
+      ? shown.source === "tesseract"
+        ? "Tesseract"
+        : shortModelName(String(shown.label || "").replace(/^Read by /, "")) || ocrReaderName()
+      : ocrReaderName();
+    source.appendChild(document.createTextNode(` · ${by}`));
+    source.title = `Read by ${by}. Change the reader above, or the model in Settings.`;
+  } else if (body.source === "tesseract") {
+    const name = ocrReaderNameFor("tesseract");
+    source.appendChild(document.createTextNode(` · ${name.replace(/^Tesseract ?/, "") || "default language"}`));
+    source.title = `Read by ${name}. Change the language in the line below the toolbar.`;
   }
   source.hidden = false;
   source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
@@ -4148,6 +4179,16 @@ async function ocrRunRegion(mode) {
   const rect = { ...ocrRegionRect };
   const page = ocrWorkspacePage;
   const buttons = [$("ocr-region-read"), $("ocr-region-describe")];
+  //: A describe is always the vision model; a read goes to the reader the
+  //: picker names, or to the one that can run when it cannot (see
+  //: `ocrChooseReader`).
+  const chosen = mode === "describe" ? { reader: ocrReader(), said: "" } : await ocrChooseReader();
+  if (!chosen.reader) {
+    $("ocr-message").textContent = chosen.said;
+    $("ocr-message").classList.remove("hidden");
+    toast(chosen.said, true);
+    return;
+  }
   buttons.forEach((b) => b && (b.disabled = true));
   const blob = await ocrRegionCrop();
   if (!blob) {
@@ -4159,7 +4200,7 @@ async function ocrRunRegion(mode) {
   form.append("crop", blob, "region.png");
   form.append("page", String(page));
   form.append("mode", mode);
-  form.append("reader", ocrReader());
+  form.append("reader", chosen.reader);
   const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
   const label = mode === "describe" ? "Describing that region…" : "Reading that region…";
   $("ocr-message").textContent = label;
@@ -5384,7 +5425,17 @@ let ocrReaders = {
   ocr_reason: "",
 };
 
-async function ocrLoadReaders() {
+//: The load in flight (or last done). A read asks the picker's answer, and a
+//: click in the first moments after the window opens must wait for it rather
+//: than read an empty one as "nothing is available".
+let ocrReadersLoading = Promise.resolve();
+
+function ocrLoadReaders() {
+  ocrReadersLoading = ocrLoadReadersNow();
+  return ocrReadersLoading;
+}
+
+async function ocrLoadReadersNow() {
   const select = $("ocr-reader");
   if (!select) return;
   try {
@@ -5443,7 +5494,14 @@ async function ocrLoadReaders() {
       : "Tesseract (not installed)";
     tess.title = ocrReaders.tesseract
       ? "No model needed: about a tenth of a second a page, and it says where each block sits."
-      : "Install the “OCR” extra in Settings → Optional extras.";
+      : "Not ready yet. Use Install Tesseract in the line below the toolbar.";
+  }
+  //: The engine's own line (ocr-engine.js, lazy): ready or not, which
+  //: language, and the one Install. Handed the answer just fetched, so opening
+  //: the window is one request, and told to reload this picker when it changes
+  //: the engine (an install finished, a language chosen).
+  if (ocrReaders.engine) {
+    ocrEngineMount($("ocr-engine"), { readers: ocrReaders, onChange: () => ocrLoadReaders() });
   }
   //: Fall to whichever one works rather than leaving a disabled option
   //: selected, which reads as "this is what will happen" and is not.
@@ -5463,11 +5521,48 @@ function ocrReader() {
   return value === "tesseract" || value === "ocr" ? value : "vision";
 }
 
+function ocrReaderNameFor(reader) {
+  if (reader === "tesseract") {
+    const code = ocrReaders.engine?.language;
+    const named = (ocrReaders.engine?.languages || []).find((l) => l.code === code);
+    return code ? `Tesseract (${named ? named.name : code})` : "Tesseract";
+  }
+  if (reader === "ocr") return shortModelName(ocrReaders.ocr_model) || "the vision model";
+  return shortModelName(ocrReaders.vision_model) || "the document reader";
+}
+
 function ocrReaderName() {
-  const reader = ocrReader();
-  if (reader === "tesseract") return "Tesseract";
-  if (reader === "ocr") return ocrReaders.ocr_model || "the vision model";
-  return ocrReaders.vision_model || "AI";
+  return ocrReaderNameFor(ocrReader());
+}
+
+//: **Which reader will actually run** (INBOX 443 (3), the owner: "when no OCR
+//: engine is available, fall back to the vision model if one is configured,
+//: and say which engine read the text"). The picker is the person's choice,
+//: but a choice that cannot run used to be sent anyway: Tesseract chosen with
+//: the program missing came back as an empty 200 and a toast saying the image
+//: was read. Now the other engine takes it, the picker is moved to show who
+//: really read, and the message names both. With neither, `reader` is "" and
+//: `said` is what to do.
+async function ocrChooseReader() {
+  await ocrReadersLoading;
+  const asked = ocrReader();
+  const can = (reader) =>
+    reader === "tesseract" ? ocrReaders.tesseract : reader === "ocr" ? ocrReaders.ocr : ocrReaders.vision;
+  if (can(asked)) return { reader: asked, said: "" };
+  const order = asked === "tesseract" ? ["vision", "ocr"] : ["tesseract", "vision", "ocr"];
+  const other = order.find((reader) => reader !== asked && can(reader));
+  if (!other) {
+    return {
+      reader: "",
+      said: ocrReaders.engine && !ocrReaders.engine.ready
+        ? "Nothing can read this yet. Install Tesseract with the button above, or start an AI model in Settings."
+        : "Nothing can read this right now. Start an AI model in Settings, or pick a reader above.",
+    };
+  }
+  const select = $("ocr-reader");
+  if (select) select.value = other;
+  const why = asked === "tesseract" ? "isn't installed" : "isn't available";
+  return { reader: other, said: `${ocrReaderNameFor(asked)} ${why}, so ${ocrReaderNameFor(other)} read this.` };
 }
 
 //: **Find, over the reading.** The point of transcribing a page is that its
@@ -5555,9 +5650,18 @@ function ocrApplyFind() {
 //: here has to appear on the gallery tile afterwards, which it does, because
 //: it is written to the same column.
 async function ocrReadImage(image, button) {
-  const reader = ocrReader();
-  const label = `Reading ${image.original_name || "this image"} with ${ocrReaderName()}…`;
-  button.disabled = true;
+  const chosen = await ocrChooseReader();
+  const reader = chosen.reader;
+  if (!reader) {
+    //: Said where the person is looking, with the way forward, instead of a
+    //: success toast over an empty panel.
+    $("ocr-message").textContent = chosen.said;
+    $("ocr-message").classList.remove("hidden");
+    toast(chosen.said, true);
+    return;
+  }
+  const label = `Reading ${image.original_name || "this image"} with ${ocrReaderNameFor(reader)}…`;
+  setBusy(button, true, "Reading…");
   $("ocr-message").textContent = label;
   $("ocr-message").classList.remove("hidden");
   const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
@@ -5571,7 +5675,15 @@ async function ocrReadImage(image, button) {
     //: one thing that knows how to turn either reader's answer into boxes, and
     //: a second renderer here would drift from it.
     await ocrLoadPage(image, 0);
-    progress?.done(`Read ${image.original_name || "the image"}.`);
+    //: Who read it, said on the result and not only in a toast that goes:
+    //: appended to whatever the regions response said about the page.
+    const by = `Read by ${ocrReaderNameFor(reader)}.${chosen.said ? ` ${chosen.said}` : ""}`;
+    const message = $("ocr-message");
+    message.textContent = [message.textContent.replace(/^This page hasn't been read yet.*$/, ""), by]
+      .filter(Boolean)
+      .join(" ");
+    message.classList.remove("hidden");
+    progress?.done(`Read ${image.original_name || "the image"} with ${ocrReaderNameFor(reader)}.`);
     //: The gallery behind this dialog is now stale, the tile it was opened
     //: from has a reading it is not showing. This is the same repaint the
     //: gallery's own row menu triggers after an analyse.
@@ -5581,8 +5693,57 @@ async function ocrReadImage(image, button) {
     $("ocr-message").classList.remove("hidden");
     progress?.done(error.message || "That image could not be read.", { isError: true });
   } finally {
-    button.disabled = false;
+    setBusy(button, false);
   }
+}
+
+//: The ⋯ menu beside the reading's actions (INBOX 443 (3)): Edit the text,
+//: and Add to an existing note, through the same picker and the same undo
+//: "Add to a note" uses on a selection (selection.js). Rebuilt on every
+//: render because a menu's items are fixed when it is built, and what is
+//: possible depends on the reading on screen.
+function ocrSyncMoreMenu(canEdit, canAdd) {
+  const slot = $("ocr-more");
+  if (!slot) return;
+  slot.replaceChildren(
+    kebabMenu(
+      [
+        {
+          label: "ph:pencil-simple Edit the text",
+          title: canEdit ? "Correct the text by hand" : "Nothing to edit yet, or this is a document read page by page",
+          disabled: !canEdit,
+          run: () => ocrOpenEdit(),
+        },
+        {
+          label: "ph:note-pencil Add to an existing note",
+          title: "Add the text to a note you already have",
+          disabled: !canAdd,
+          run: () => {
+            appendSelectionToNote(ocrAllText(), {
+              jump: false,
+              what: "the text",
+              message: `Add the text read from ${ocrWorkspaceCurrent?.original_name || "this image"} to which note?`,
+            });
+          },
+        },
+      ],
+      "More for this reading"
+    )
+  );
+}
+
+function ocrOpenEdit() {
+  const box = $("ocr-edit-box");
+  if (!box || !ocrWorkspaceRegions.length) return;
+  box.value = ocrAllText();
+  $("ocr-edit-panel")?.classList.remove("hidden");
+  $("ocr-region-list")?.classList.add("hidden");
+  box.focus();
+}
+
+function ocrCloseEdit() {
+  $("ocr-edit-panel")?.classList.add("hidden");
+  $("ocr-region-list")?.classList.remove("hidden");
 }
 
 function ocrAllText() {
@@ -5923,8 +6084,15 @@ onDomReady(() => {
     if (!ocrIsPdf(image)) return ocrReadImage(image, event.currentTarget);
     const button = event.currentTarget;
     const page = ocrWorkspacePage;
-    button.disabled = true;
-    const label = `Reading page ${page + 1} with ${ocrReaderName()}…`;
+    const chosen = await ocrChooseReader();
+    if (!chosen.reader) {
+      $("ocr-message").textContent = chosen.said;
+      $("ocr-message").classList.remove("hidden");
+      toast(chosen.said, true);
+      return;
+    }
+    setBusy(button, true, "Reading…");
+    const label = `Reading page ${page + 1} with ${ocrReaderNameFor(chosen.reader)}…`;
     $("ocr-message").textContent = label;
     $("ocr-message").classList.remove("hidden");
     //: Announced outside this window as well as in it, because the window can
@@ -5936,7 +6104,7 @@ onDomReady(() => {
       const body = await trackOcrRead(
         image,
         label,
-        apiJson(`${base}/ocr-page-read?page=${page}&reader=${ocrReader()}`, {
+        apiJson(`${base}/ocr-page-read?page=${page}&reader=${chosen.reader}`, {
           method: "POST",
           signal: controller.signal,
         }),
@@ -5952,7 +6120,7 @@ onDomReady(() => {
             { index: 0, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 } },
           ],
           source: "stored-text",
-          message: `Read by ${shortModelName(body.model || ocrReaderName())}, text only, no page positions.`,
+          message: `Read by ${shortModelName(body.model || ocrReaderNameFor(chosen.reader))}, text only, no page positions.${chosen.said ? ` ${chosen.said}` : ""}`,
           pages: ocrWorkspacePages,
           page,
         });
@@ -5972,7 +6140,7 @@ onDomReady(() => {
       $("ocr-message").textContent = error.message || "That page could not be read.";
       progress?.done(error.message || "That page could not be read.", { isError: true });
     } finally {
-      button.disabled = false;
+      setBusy(button, false);
     }
   });
   //: **Read a range, or the whole document.** Reported: the workspace could
@@ -5988,11 +6156,18 @@ onDomReady(() => {
     if (!image) return;
     const button = event.currentTarget;
     const spec = ($("ocr-read-pages")?.value || "all").trim() || "all";
-    button.disabled = true;
+    const chosen = await ocrChooseReader();
+    if (!chosen.reader) {
+      $("ocr-message").textContent = chosen.said;
+      $("ocr-message").classList.remove("hidden");
+      toast(chosen.said, true);
+      return;
+    }
+    setBusy(button, true, "Reading…");
     const label =
       spec === "all"
-        ? `Reading every page with ${ocrReaderName()}…`
-        : `Reading pages ${spec} with ${ocrReaderName()}…`;
+        ? `Reading every page with ${ocrReaderNameFor(chosen.reader)}…`
+        : `Reading pages ${spec} with ${ocrReaderNameFor(chosen.reader)}…`;
     $("ocr-message").textContent = label;
     $("ocr-message").classList.remove("hidden");
     const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
@@ -6003,7 +6178,7 @@ onDomReady(() => {
         image,
         label,
         apiJson(
-          `${base}/ocr-range-read?pages=${encodeURIComponent(spec)}&reader=${ocrReader()}`,
+          `${base}/ocr-range-read?pages=${encodeURIComponent(spec)}&reader=${chosen.reader}`,
           { method: "POST", signal: controller.signal }
         ),
         controller
@@ -6047,10 +6222,37 @@ onDomReady(() => {
       $("ocr-message").textContent = error.message || "Those pages could not be read.";
       progress?.done(error.message || "Those pages could not be read.", { isError: true });
     } finally {
-      button.disabled = false;
+      setBusy(button, false);
     }
   });
 
+  //: **Edit the reading** (INBOX 443 (3): "the result is editable and
+  //: copyable"). A textarea over the sections; Save writes the one stored
+  //: field the sections came from (the same choice Delete makes), and the
+  //: server drops the stale rectangles, so the sections are re-split from the
+  //: new text.
+  $("ocr-edit-cancel")?.addEventListener("click", () => ocrCloseEdit());
+  $("ocr-edit-save")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const image = ocrWorkspaceCurrent;
+    const box = $("ocr-edit-box");
+    if (!image || !box) return;
+    const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
+    const kind = shown
+      ? (shown === "tesseract" ? "ocr" : "vision-ocr")
+      : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
+    setBusy(button, true, "Saving…");
+    try {
+      await analyseMediaRow(image, kind, { text: box.value, edited: true });
+      renderLibraryImagesGallery();
+      toast("Saved your changes.");
+      await ocrLoadPage(image, ocrWorkspacePage);
+    } catch (error) {
+      toast(error.message || "Couldn't save that.", true);
+    } finally {
+      setBusy(button, false);
+    }
+  });
   $("ocr-to-note")?.addEventListener("click", async () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to save yet.", true);

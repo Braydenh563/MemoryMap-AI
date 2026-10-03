@@ -663,7 +663,9 @@ def status() -> list[dict]:
             "label": extra.label,
             "enables": extra.enables,
             "size": extra.size,
-            "caveat": extra.caveat,
+            #: The OCR caveat explains how the program gets installed; once it
+            #: can read, it is noise under a green "Installed".
+            "caveat": "" if extra.id == "ocr" and is_installed(extra) else extra.caveat,
             "unavailable": unavailable_reason(extra),
             "packages": list(extra.packages),
             "kind": extra.kind,

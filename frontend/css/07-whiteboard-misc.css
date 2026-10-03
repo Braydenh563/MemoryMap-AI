@@ -7056,6 +7056,113 @@ button.connection-row {
   margin: 0;
 }
 
+/* **The engine line** (INBOX 443 (3)), drawn by ocr-engine.js under the
+   toolbar and again, smaller, in the Packages row for Tesseract. A state chip
+   (the Packages row's own `.extras-installed` colours for ready, the warning
+   ink for not), one muted sentence, and the one control that fits the state:
+   the language when it can read, Install when it cannot. It wraps rather than
+   scrolls: unlike the toolbar above it, this line is words. */
+.ocr-engine:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ocr-engine-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ocr-engine-detail {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.ocr-engine-chip.is-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  cursor: default;
+}
+
+.ocr-engine-lang-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ocr-engine-lang-label {
+  font-size: var(--text-sm);
+}
+
+.ocr-engine-progress {
+  width: 10rem;
+  margin: 0;
+}
+
+.ocr-engine-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.ocr-engine-note.is-error {
+  color: var(--error);
+}
+
+/* **On a phone the reading's actions are icons, and keep their words for a
+   screen reader** (the `.toolbar-word` recipe, DESIGN.md: hidden, not
+   dropped). Measured at 390 with the ⋯ menu added: seven controls in the
+   thumb bar, "Describe" overlapped by "Copy all" and "Save as note" broken
+   over three lines, because three worded buttons shared the room four icons
+   had left. Each button's `title` still names it for a pointer. */
+.ocr-phone-bar .toolbar-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ocr-phone-bar button:has(> .toolbar-word) {
+  width: var(--target-min);
+  padding-inline: 0;
+}
+
+.ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* The reading as editable text, in place of the sections while it is open. */
+.ocr-edit-panel:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ocr-edit-box {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+}
+
+.ocr-edit-actions {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 /* **The picture's other stored reading** (INBOX 421 e), under the message:
    the region row's own card (border, radius, padding) without its pointer,
    because it is not a section of the page and does not select a box. Its

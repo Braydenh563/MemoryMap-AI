@@ -2195,9 +2195,10 @@ const LAZY_MODULES = {
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
-  //: What a click on an attachment card does (INBOX 440 (2)): see
-  //: attachment-actions.js's header.
+  //: An attachment card's click (INBOX 440 (2)): attachment-actions.js.
   attachments: ["/js/attachment-actions.js"],
+  //: Tesseract's status line (INBOX 443 (3)): see ocr-engine.js.
+  ocrEngine: ["/js/ocr-engine.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2436,6 +2437,7 @@ const LAZY_ENTRY_POINTS = {
   tagManager: ["openTagsSheet", "openBulkTags", "renameTagEverywhere", "removeTagFromNote"],
   chipMenus: ["openCategoryChipMenu", "openTagChipMenu"],
   attachments: ["attachmentAction"],
+  ocrEngine: ["ocrEngineMount"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

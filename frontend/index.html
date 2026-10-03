@@ -7229,6 +7229,11 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
         </div>
+        <!-- **The engine, said once** (INBOX 443 (3)). Whether Tesseract can
+             read, in which language, and when it cannot the one Install
+             button with its progress. Drawn by ocr-engine.js (lazy) from the
+             same status Settings, Packages reads. -->
+        <div id="ocr-engine" class="ocr-engine" role="status" aria-live="polite" hidden></div>
       </div>
       <div class="ocr-panes">
         <div class="ocr-rail-column">
@@ -7320,6 +7325,17 @@ Link to another note with [[its first few words]]."></textarea>
                from. -->
           <div id="ocr-region-results" class="ocr-region-results hidden"
             aria-label="Answers about regions you outlined"></div>
+          <!-- The reading, as text you can change (INBOX 443 (3)). A wrong
+               word on a scan is fixed here, not by reading it again. -->
+          <div id="ocr-edit-panel" class="ocr-edit-panel hidden">
+            <label class="visually-hidden" for="ocr-edit-box">Edit the text that was read</label>
+            <textarea id="ocr-edit-box" class="ocr-edit-box" rows="12" spellcheck="false"></textarea>
+            <div class="row ocr-edit-actions">
+              <button id="ocr-edit-save" class="small" type="button">Save changes</button>
+              <button id="ocr-edit-cancel" class="ghost small" type="button">Cancel</button>
+              <span class="muted text-sm">Your text replaces the sections below.</span>
+            </div>
+          </div>
           <ol id="ocr-region-list" class="ocr-region-list" aria-label="What was read, section by section"></ol>
           <!-- **The reading's own actions belong under the reading.**
                Measured: with these three in the header the tool row needed
@@ -7355,22 +7371,26 @@ Link to another note with [[its first few words]]."></textarea>
                  route, whose prompt asks about figures rather than "what does
                  this image show". -->
             <button id="ocr-describe" class="ghost small hidden" type="button"
-              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label">Describe</span></button>
+              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label" class="toolbar-word">Describe</span></button>
             <!-- Named, not just drawn. The control existed and the owner
                  still asked for it (2026-09-21, "there should be a way to copy
                  all extracted text in the ocr workspace and files subtab"): an
                  icon-only button among labelled ones is a button nobody reads.
                  Describe beside it carries its own word for the same reason. -->
             <button id="ocr-copy-all" class="ghost small" type="button"
-              title="Copy everything read, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> <span>Copy all</span></button>
+              title="Copy everything read, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Copy all</span></button>
             <!-- The reading is only worth having if it can leave this window.
                  A transcription you have to re-read in a dialog is a dead end;
                  the two things anyone does with one are ask about it and keep
                  it, so both are one press from where it was read. -->
+            <!-- Edit the text, Add to an existing note: a ⋯ menu (kebabMenu,
+                 filled by ocrSyncMoreMenu) rather than two more icons, because
+                 the phone's thumb bar already held every button it could. -->
+            <span id="ocr-more" class="ocr-more"></span>
             <button id="ocr-to-chat" class="ghost small icon-only" type="button"
               title="Ask about this reading in chat" aria-label="Ask about this reading in chat"><i class="ph ph-chat-circle-text" aria-hidden="true"></i></button>
             <button id="ocr-to-note" class="small" type="button"
-              title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
+              title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Save as note</span></button>
             <!-- **Delete, not just redo.** Reported directly: "there's also no
                  way to delete or redo ocr text extractions in the ocr
                  workspace." Redo already existed and was just unlabelled, 

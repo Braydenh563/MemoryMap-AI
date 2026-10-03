@@ -310,7 +310,12 @@ let wbUndoStack = [];
 // since redoing something that predates a new action would resurrect a
 // version of the board the newer action never saw.
 let wbRedoStack = [];
-const WB_UNDO_MAX = 20;
+//: **A hundred steps, not twenty** (INBOX 445). Building a sixty-topic map
+//: by keys pushes two entries a topic (the create and the rename), so twenty
+//: reached back ten topics; Excalidraw keeps about a hundred and tldraw more.
+//: An entry is a payload of one row (a deleted map branch, its rows), so the
+//: whole stack stays well under a megabyte at a hundred.
+const WB_UNDO_MAX = 100;
 // Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
 // same still-on-screen item before its first DELETE round-trip resolves (a
 // slow request, or the pointer wobbling back over it), without this a
@@ -572,7 +577,16 @@ function wbScheduleCull() {
   if (wbCullFrame) return;
   wbCullFrame = requestAnimationFrame(() => {
     wbCullFrame = 0;
-    wbCullNow();
+    //: **The canvas size from the gesture's cached box, never a fresh read**
+    //: (INBOX 445). A drag schedules this once a frame after it has written
+    //: every moved item's transform and every moved line's `d`, so reading
+    //: `clientWidth` here forced the browser to lay the board out again
+    //: inside the callback: measured on a 61-topic branch drag, 1.9ms a
+    //: frame, the largest single cost of the drag. `wbCanvasOriginRect` is
+    //: measured once per gesture, and the canvas cannot change size while a
+    //: pointer is down on it.
+    const rect = wbCanvasOriginRect();
+    wbCullNow(undefined, rect ? { width: rect.width, height: rect.height } : undefined);
   });
 }
 
@@ -2922,6 +2936,19 @@ function wbOwnsChord(e) {
   const typing = field && field.offsetParent !== null
     && (["INPUT", "TEXTAREA"].includes(field.tagName) || field.isContentEditable);
   if (typing) return false;
+  //: Every printable key while a new map topic is on its way: it is the
+  //: topic's text (`wbMapTypeahead`), not a shortcut.
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && wbMapTypeaheadLive()) return true;
+  //: **Bare M is the highlighter on a board, never the "m" quick-nav chord**
+  //: (INBOX 445, measured 2026-10-03). Both listeners answered the one key:
+  //: the tool changed and the chord armed, so the chord guide's panel opened
+  //: over the canvas, took the stroke's pointerup (the stroke was never
+  //: saved), and the next tool letter inside the chord's window was read as
+  //: a destination: M then D, the diamond, left the board for the Dashboard.
+  //: On a map the highlighter does not exist, so the chord keeps the key.
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "m") {
+    return !wbIsMap();
+  }
   return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "g";
 }
 
@@ -2981,12 +3008,35 @@ function wbNudgeSelection(dx, dy) {
 // for a mixed multi-selection. A node (note card) and an image object have
 // nothing here to edit yet (a card's own text is the note; an image has no
 // stroke/fill of its own), so the panel just stays hidden for those.
-// The tools that draw something with a colour and a thickness, the ones
-// whose settings the properties panel shows when nothing is selected.
-const WB_STYLE_TOOLS = new Set([
-  "draw", "highlighter", "eraser", "line", "arrow", "rect", "circle",
-  "triangle", "diamond", "text", "sticky", "link-straight", "link-curved", "bucket",
-]);
+//: **Which of the bar's tool settings each held tool actually reads**
+//: (INBOX 445), by the `data-wb-tool-setting` each control carries. The bar
+//: used to show all four for fourteen tools: the pen offered arrowheads and a
+//: fill, a link offered a size, a dash and a fill it never reads (a link takes
+//: the rail's ink and nothing else), and the eraser, the sticky, the text box
+//: and the fill bucket offered settings none of them use. A control that does
+//: nothing when changed reads as broken. A tool missing here shows no bar;
+//: the ink well on the rail is still its colour.
+const WB_TOOL_SETTINGS = {
+  draw: ["size", "dash"],
+  highlighter: ["size"],
+  line: ["size", "ends", "dash"],
+  arrow: ["size", "ends", "dash"],
+  rect: ["size", "dash", "fill"],
+  circle: ["size", "dash", "fill"],
+  triangle: ["size", "dash", "fill"],
+  diamond: ["size", "dash", "fill"],
+};
+
+function wbShowToolSettings(tool) {
+  const wanted = new Set(WB_TOOL_SETTINGS[tool] || []);
+  for (const el of document.querySelectorAll("#wb-context [data-wb-tool-setting]")) {
+    // An enhanced <select> is drawn by its shell; hiding the native one alone
+    // would leave the opener showing (`enhanceSelect`, sheets-selects.js).
+    const shown = el.closest(".select-shell") || el;
+    shown.classList.toggle("hidden", !wanted.has(el.dataset.wbToolSetting));
+  }
+  return wanted;
+}
 
 //: The two "what is selected, if it is of this kind" lookups. Module-level
 //: because both the properties panel's own controls and the copy-style
@@ -3160,6 +3210,25 @@ function wbApplyContextRow(row) {
   for (const id of ["wb-prop-nostroke-row", "wb-prop-md-row", "wb-prop-bullets-row", "wb-fill-opacity-row", "wb-stroke-none-row"]) {
     document.getElementById(id)?.classList.add("hidden");
   }
+  // What acts on a selection, back for every row that has one; the held-tool
+  // row takes them away again (`wbHideSelectionActions`).
+  for (const id of WB_SELECTION_ONLY_CONTROLS) document.getElementById(id)?.classList.remove("hidden");
+  wbContextMoreWrap()?.classList.remove("hidden");
+}
+
+//: **With a tool held and nothing selected, the bar has no selection to act
+//: on** (INBOX 445). Duplicate, Delete and the More menu's copy and paste of
+//: a style stayed on it and did nothing when pressed; the More menu itself is
+//: kept only for a shape tool, whose fill opacity and stroke live there.
+const WB_SELECTION_ONLY_CONTROLS = ["wb-selbar-duplicate", "wb-selbar-delete", "wb-copy-style-row"];
+
+function wbContextMoreWrap() {
+  return document.querySelector("#wb-context [data-wb-menu-toggle]")?.closest(".wb-board-menu-wrap") || null;
+}
+
+function wbHideSelectionActions(keepMore) {
+  for (const id of WB_SELECTION_ONLY_CONTROLS) document.getElementById(id)?.classList.add("hidden");
+  wbContextMoreWrap()?.classList.toggle("hidden", !keepMore);
 }
 
 //: **The bar with nothing selected sits over the rail.** Placed here rather
@@ -3232,9 +3301,12 @@ function wbFillContextBar() {
   // the pen's own thickness. This is the split every whiteboard app makes,
   // tools in the rail, their properties in the context surface.
   if (!wbSelectedItem) {
-    const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
+    const settings = wbShowToolSettings(window.currentTool);
+    const toolDraws = settings.size > 0;
     wbApplyContextRow(toolDraws ? WB_CONTEXT_CONTROLS.tool : null);
-    if (toolDraws) show("wb-fill-opacity-row", "wb-stroke-none-row");
+    // The More menu's two shape rows, for the tools that draw a shape.
+    if (settings.has("fill")) show("wb-fill-opacity-row", "wb-stroke-none-row");
+    if (toolDraws) wbHideSelectionActions(settings.has("fill"));
     if (!toolDraws) wbParkContextOnRail(false);
     return toolDraws ? "rail" : null;
   }
@@ -3737,10 +3809,94 @@ function selectWbItem(kind, id) {
 function wbSelectAllItems() {
   wbSelectedItem = null;
   wbMultiSelection.clear();
-  for (const [kind, item] of wbLinkCandidates()) wbMultiSelection.add(wbMultiKey(kind, item.id));
+  for (const [kind, item] of wbSelectableItems()) wbMultiSelection.add(wbMultiKey(kind, item.id));
   wbApplySelectionHighlight();
   wbUpdateContextBar();
   wbUpdateSelectionBar();
+}
+
+//: Everything a selection can hold: what a link can join, plus pictures.
+//: Select all read `wbLinkCandidates`, which leaves an image object out
+//: because a link cannot land on one, so Ctrl+A then Delete left every
+//: picture on the board (INBOX 445).
+function wbSelectableItems() {
+  const out = wbLinkCandidates();
+  for (const o of wbState.objects || []) if (o.kind === "image") out.push(["object", o]);
+  return out;
+}
+
+//: **Tab walks the board's items, and the board says which one** (INBOX
+//: 445). Nothing on a board could be reached from the keyboard: an item was
+//: selected by pointing at it or not at all, and a shape is an SVG path no
+//: screen reader names. With the canvas focused, Tab and Shift+Tab select
+//: the next or previous item in reading order (rows top to bottom, then left
+//: to right), bring it on screen when it is off it, and announce it in
+//: `#wb-announcer`; past the last item Tab leaves the canvas as it would any
+//: other control, so the walk is never a trap (WCAG 2.1.2). A map keeps its
+//: own keys: Tab adds a topic there, and the arrows walk the tree.
+const WB_SHAPE_NAMES = {
+  rect: "Rectangle", circle: "Ellipse", triangle: "Triangle", diamond: "Diamond",
+  line: "Line", arrow: "Arrow", draw: "Pen stroke", highlighter: "Highlighter stroke",
+};
+
+function wbItemSpokenName(kind, item) {
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    return WB_SHAPE_NAMES[parsed?.shape] || "Drawing";
+  }
+  if (kind === "node") {
+    const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
+    const title = entry ? String(entry.content || "").replace(/^#+\s*/, "").trim().split("\n")[0].slice(0, 60) : "";
+    return title ? `Note card: ${title}` : "Note card";
+  }
+  if (item.kind === "image") return "Picture";
+  const isTopic = WB_MAP_KINDS.has(item.kind);
+  const raw = isTopic ? wbMapLabel(item) : item.data?.content;
+  const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
+  const what = isTopic ? "Topic" : item.data?.bg ? "Sticky note" : "Text box";
+  return text ? `${what}: ${text}` : what;
+}
+
+function wbAnnounce(text) {
+  const el = document.getElementById("wb-announcer");
+  if (!el) return;
+  // Emptied first, so the same words twice (two stickies saying "Idea") are
+  // still read twice.
+  el.textContent = "";
+  requestAnimationFrame(() => {
+    el.textContent = text;
+  });
+}
+
+function wbWalkItems(dir) {
+  const rowOf = (box) => Math.round(box.minY / 60);
+  const items = wbSelectableItems()
+    .map(([kind, item]) => ({ kind, item, box: wbItemBBox(kind, item) }))
+    .filter((e) => e.box)
+    .sort((a, b) => rowOf(a.box) - rowOf(b.box) || a.box.minX - b.box.minX || a.box.minY - b.box.minY);
+  if (!items.length) return false;
+  const at = wbSelectedItem
+    ? items.findIndex((e) => e.kind === wbSelectedItem.kind && e.item.id === wbSelectedItem.id)
+    : -1;
+  const next = at === -1 ? (dir > 0 ? 0 : items.length - 1) : at + dir;
+  if (next < 0 || next >= items.length) return false;
+  const { kind, item, box } = items[next];
+  wbMultiSelection.clear();
+  selectWbItem(kind, item.id);
+  const container = document.getElementById("whiteboard-container");
+  if (container) {
+    const t = d3.zoomTransform(container);
+    const view = container.getBoundingClientRect();
+    const left = box.minX * t.k + t.x;
+    const top = box.minY * t.k + t.y;
+    const right = box.maxX * t.k + t.x;
+    const bottom = box.maxY * t.k + t.y;
+    if (left < 0 || top < 0 || right > view.width || bottom > view.height) {
+      wbCenterOn(box, { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches });
+    }
+  }
+  wbAnnounce(`${wbItemSpokenName(kind, item)}, ${next + 1} of ${items.length}, selected`);
+  return true;
 }
 
 function clearWbSelection() {
@@ -3917,8 +4073,11 @@ function wbUpdateSelectionBar() {
   // A multi-selection gets the bar above the whole group, that is where
   // Arrange's align/distribute and Export "just the selection" matter.
   let box = null;
+  const moving = multi ? wbBulkBarBounds : null;
   if (multi) {
-    const b = wbSelectionBounds();
+    const b = moving
+      ? { ...moving.box, minX: moving.box.minX + moving.dx, minY: moving.box.minY + moving.dy }
+      : wbSelectionBounds();
     if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
   } else {
     const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
@@ -3929,8 +4088,13 @@ function wbUpdateSelectionBar() {
     return;
   }
   const t = d3.zoomTransform(container);
-  const rect = container.getBoundingClientRect();
-  const hostRect = host.getBoundingClientRect();
+  //: During a group drag nothing measured below can change: the drag moves
+  //: the items, not the canvas, the host, the top bar or the bar itself. So
+  //: the first frame measures and the rest reuse it, and no frame of the
+  //: drag forces a layout here (`wbBulkBarBounds`, INBOX 445).
+  const held = moving?.origin?.barMeasure || null;
+  const rect = held ? held.rect : container.getBoundingClientRect();
+  const hostRect = held ? held.hostRect : host.getBoundingClientRect();
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
   const top = rect.top - hostRect.top + t.applyY(box.minY);
   const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
@@ -3948,7 +4112,8 @@ function wbUpdateSelectionBar() {
   if (!mapNode) wbMapStripNodeId = null;
   if (mapNode) wbSyncMapStrip(mapNode);
   active.classList.remove("hidden");
-  const w = active.offsetWidth, h = active.offsetHeight;
+  const w = held ? held.w : active.offsetWidth;
+  const h = held ? held.h : active.offsetHeight;
   // 44px above, not 10: the rotation handle sits 28px above a card or
   // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
   // the item covered it, reported: "I can't rotate objects because that
@@ -3958,7 +4123,8 @@ function wbUpdateSelectionBar() {
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
-  const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
+  const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
+  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
@@ -4271,8 +4437,24 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       });
     }
   }
+  //: The selection's box as the gesture found it, for the bar above it to
+  //: ride along on (`wbBulkBarBounds`).
+  if (keys === wbMultiSelection && wbMultiSelection.size > 1) origin.boundsAtStart = wbSelectionBounds();
   return origin;
 }
+
+//: **A dragged selection's bar moves by the drag, it is not re-measured**
+//: (INBOX 445). The bar over a multi-selection is placed from the union of
+//: every member's box, and `wbItemBBox` reads a text box's or card's rendered
+//: size, so each frame of a group drag measured all of them straight after
+//: the drag had written their transforms: a forced layout per frame, two
+//: per move counted, and on an 80-item drag 165ms of 40 moves in
+//: `wbUpdateSelectionBar` alone. The members move rigidly, so the box at the
+//: start plus the drag's delta is the same box. Set by `wbApplyBulkMove`,
+//: dropped when the pointer comes up, after which the bar measures again.
+let wbBulkBarBounds = null;
+window.addEventListener("pointerup", () => { wbBulkBarBounds = null; }, true);
+window.addEventListener("pointercancel", () => { wbBulkBarBounds = null; }, true);
 
 //: **The selection chrome travels with the drag** (INBOX 262: "if I drag the
 //: selected group, the group selection box doesnt move with the selected
@@ -4301,8 +4483,13 @@ function wbTranslateSelectionChrome(dx, dy, origin = null) {
   //: handle groups nothing re-renders mid-drag. The `isConnected` test is
   //: the same safety `wbBulkMoveElement` uses: a render that replaced one
   //: sends the next frame back to the query.
+  //: **"Found none" is an answer too** (INBOX 445). The test was `!groups ||
+  //: !groups.length`, so a drag with no handle groups at all, which is every
+  //: map topic and every card drag, cached an empty list and then read it as
+  //: "not looked yet" and walked the document again on every move: measured
+  //: on a 61-topic branch drag, 47ms of `querySelectorAll` in 40 moves.
   let groups = origin?.chromeGroups;
-  if (!groups || !groups.length || groups.some((group) => !group.isConnected)) {
+  if (!groups || groups.some((group) => !group.isConnected)) {
     groups = [...document.querySelectorAll(
       "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
     )];
@@ -4329,6 +4516,7 @@ function wbBulkMoveElement(entry, selector) {
 }
 
 function wbApplyBulkMove(origin, dx, dy) {
+  wbBulkBarBounds = origin.boundsAtStart ? { box: origin.boundsAtStart, dx, dy, origin } : null;
   wbTranslateSelectionChrome(dx, dy, origin);
   //: A branch carried into view from off screen is drawn on the next frame.
   wbScheduleCull();
@@ -4336,8 +4524,15 @@ function wbApplyBulkMove(origin, dx, dy) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
       const el = wbBulkMoveElement(entry, `.sketch-group[data-id="${entry.id}"]`);
-      el?.querySelector(".sketch-path")?.setAttribute("d", newD);
-      el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      //: The group's two paths, found once per gesture like the group itself
+      //: (INBOX 445): two queries per shape per frame were 37ms of a 40-move
+      //: drag of 80 items, 40 of them shapes.
+      if (el && (!entry.pathEl || !entry.pathEl.isConnected)) {
+        entry.pathEl = el.querySelector(".sketch-path");
+        entry.hitEl = el.querySelector(".sketch-hitbox");
+      }
+      entry.pathEl?.setAttribute("d", newD);
+      entry.hitEl?.setAttribute("d", newD);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
@@ -5706,6 +5901,29 @@ async function wbApplyHistoryEntry(from, to) {
     );
     Object.assign(item, moved);
     to.push({ action: "reparent", kind: entry.kind, id: entry.id, parentId: current });
+    return true;
+  }
+  //: A map branch deleted with Delete (`wbMapDeleteSubtree`): the rows the
+  //: server handed back, restored parents first with their parent links
+  //: remapped, which a "delete" entry's flat POST cannot do. Its reverse
+  //: deletes the restored tops again and keeps what came back for the redo.
+  if (entry.action === "subtree") {
+    const tops = await wbMapRestoreRows(entry.rows);
+    await wbRefreshMapState();
+    to.push({ action: "unsubtree", kind: "object", ids: tops });
+    return true;
+  }
+  if (entry.action === "unsubtree") {
+    const rows = [];
+    for (const id of entry.ids) {
+      if (!(wbState.objects || []).some((o) => o.id === id)) continue;
+      const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
+      rows.push(...(Array.isArray(res.deleted) ? res.deleted : []));
+    }
+    const gone = new Set(rows.map((row) => row.id));
+    wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+    if (wbSelectedItem && gone.has(wbSelectedItem.id)) clearWbSelection();
+    to.push({ action: "subtree", kind: "object", rows });
     return true;
   }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
@@ -8023,7 +8241,7 @@ async function initWhiteboard() {
   // reload instead of resetting to "no fill, solid" every session.
   const fillColorInput = document.getElementById("wb-fill-color");
   const fillOpacityInput = document.getElementById("wb-fill-opacity");
-  const fillNoneInput = document.getElementById("wb-fill-none");
+  const fillOnInput = document.getElementById("wb-fill-on");
   const strokeStyleSelect = document.getElementById("wb-stroke-style");
   const strokeNoneInput = document.getElementById("wb-stroke-none");
 
@@ -8047,11 +8265,16 @@ async function initWhiteboard() {
       localStorage.setItem("wb-fill-opacity", e.target.value);
     });
   }
-  if (fillNoneInput) {
-    fillNoneInput.checked = window.currentFillNone;
-    fillNoneInput.addEventListener("change", (e) => {
-      window.currentFillNone = e.target.checked;
-      localStorage.setItem("wb-fill-none", e.target.checked ? "on" : "off");
+  //: **The switch says Fill, so on means filled** (INBOX 445). It was the
+  //: "no fill" checkbox drawn as a switch labelled Fill: on by default, which
+  //: read as "shapes are filled" and drew them hollow, and turning it off
+  //: filled them. The stored preference keeps its old meaning (`wb-fill-none`,
+  //: "on" for hollow), so nobody's saved choice flips.
+  if (fillOnInput) {
+    fillOnInput.checked = !window.currentFillNone;
+    fillOnInput.addEventListener("change", (e) => {
+      window.currentFillNone = !e.target.checked;
+      localStorage.setItem("wb-fill-none", e.target.checked ? "off" : "on");
     });
   }
   if (strokeStyleSelect) {
@@ -8989,10 +9212,11 @@ async function initWhiteboard() {
   // focus, but a canvas is not focusable by default, so clicking it left
   // focus wherever it happened to be, on whatever control was touched last,
   // or on the lock screen's own password field for a freshly unlocked app.
-  // `tabindex="-1"` (index.html) plus this makes the board take focus the way
+  // A `tabindex` (index.html) plus this makes the board take focus the way
   // every other surface does, so the tool keys work after clicking the thing
-  // they act on. Out of the tab order deliberately: it is a canvas, not a
-  // stop on the keyboard path through the page.
+  // they act on. It was out of the tab order while Tab on it did nothing; it
+  // is a stop since INBOX 445, because Tab on it now walks the items
+  // (`wbWalkItems`), which is the only way to a shape without a pointer.
   container.node()?.addEventListener("pointerdown", (e) => {
     // Any editable body, not the two class names that were editable when
     // this was written: pulling focus to the canvas out from under a map
@@ -9034,6 +9258,7 @@ async function initWhiteboard() {
       && (tag === "input" || tag === "textarea" || active.isContentEditable)
       && active.offsetParent !== null;
     if (typing) return;
+    if (wbMapCatchTypeahead(e)) return;
     // **Shift+N for the overview, because bare N is the sticky note**
     // (WHITEBOARD_PLAN.md decision 8). This took the bare letter first,
     // "matching the single-letter tool keys this board already uses", and the
@@ -9107,6 +9332,15 @@ async function initWhiteboard() {
     // subtree, undoably" and the arrows mean "walk the tree", both of which
     // the generic handlers further down would otherwise have already claimed.
     // Every branch returns, so nothing here falls through to them.
+    //: Tab on a focused board canvas walks its items (`wbWalkItems`); off the
+    //: end it is left to the browser, so focus moves on.
+    if (
+      e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && !wbIsMap()
+      && document.activeElement?.id === "whiteboard-container"
+    ) {
+      if (wbWalkItems(e.shiftKey ? -1 : 1)) e.preventDefault();
+      return;
+    }
     const mapNode = wbSelectedMapNode();
     if (mapNode) {
       if (e.key === "Tab") {
@@ -9117,9 +9351,20 @@ async function initWhiteboard() {
         else wbMapAddChild(mapNode.id);
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        wbMapAddSibling(mapNode.id);
+        wbMapAddSibling(mapNode.id, { above: e.shiftKey });
+        return;
+      }
+      //: Ctrl+Shift+arrows move the topic among its siblings (§12.0's keys;
+      //: missing until INBOX 445). Up and Left are earlier, Down and Right
+      //: later, so the keys read the same in a tree laid out across.
+      if (
+        (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey
+        && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+      ) {
+        e.preventDefault();
+        wbMapMoveAmongSiblings(mapNode.id, e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1);
         return;
       }
       if (e.key === "F2") {
@@ -9349,6 +9594,13 @@ async function initWhiteboard() {
     // A shifted letter with no pair still picks the unshifted tool, which is
     // what it did before this table existed: Shift+P has always been the pen.
     const mapped = (e.shiftKey && WB_TOOL_SHIFT_KEYS[letter]) || WB_TOOL_KEYS[letter];
+    //: **A map's keys never pick a tool its rail does not show** (INBOX 445).
+    //: R, P, M and the rest are hidden from a map's rail (`WB_BOARD_ONLY_TOOLS`)
+    //: but their letters still chose them: measured, R on a map left the rect
+    //: tool live, the board's stroke bar showing and the topic deselected, and
+    //: a word typed on a map walked through a dozen hidden tools. The letter
+    //: falls through instead, so M on a map is the app's quick-nav chord again.
+    if (mapped && wbIsMap() && WB_BOARD_ONLY_TOOLS.has(mapped)) return;
     if (mapped) {
       if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
       selectWbTool(mapped);
@@ -9356,6 +9608,9 @@ async function initWhiteboard() {
     }
     if (WB_ACTION_KEYS[letter]) {
       const btn = document.getElementById(WB_ACTION_KEYS[letter]);
+      //: The same rule for the action keys: I's picture button lives in the
+      //: rail's board-only Add section, so on a map it is not there to press.
+      if (btn && btn.closest('[data-wb-surface="board"]') && wbIsMap()) return;
       if (btn) {
         e.preventDefault();
         btn.click();
@@ -13579,6 +13834,18 @@ function renderWbObjects(canvas) {
       content.on("keydown", function (event) {
         if (!this.isContentEditable) return;
         event.stopPropagation();
+        //: **Escape ends the edit and leaves the box selected** (INBOX 445),
+        //: what Excalidraw, tldraw and Figma all do. The line above stopped
+        //: every key, Escape with them, so the caret stayed in the box after
+        //: Escape and the next tool letter (T, R) was typed into the sticky
+        //: instead of picking the tool. Blurring runs the save above.
+        if (event.key === "Escape") {
+          event.preventDefault();
+          this.blur();
+          selectWbItem("object", d.id);
+          document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+          return;
+        }
         if (event.key === "Tab" && !event.ctrlKey && !event.altKey && !event.metaKey) {
           if (wbIndentEditableLines(this, event.shiftKey)) event.preventDefault();
         }

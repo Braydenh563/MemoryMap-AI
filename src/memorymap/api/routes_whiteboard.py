@@ -345,6 +345,12 @@ class WhiteboardObjectData(BaseModel):
     #: file somebody was sent is exactly the door an off-origin url would come
     #: through.
     image: str | None = Field(default=None, max_length=300)
+    #: A topic's place among its siblings (INBOX 445). Absent means the
+    #: topic's own id, so creation order is still the order of every map made
+    #: before this field existed; moving a topic up or down gives it a value
+    #: between its neighbours' keys. A key, not a rank, so one move writes one
+    #: or two rows rather than renumbering the whole branch.
+    order: float | None = Field(default=None, ge=-1e12, le=1e12)
 
     @field_validator("image")
     @classmethod
@@ -2678,14 +2684,31 @@ def _map_objects(db: Session, board_id: int | None) -> list[WhiteboardObject]:
     """Every object on a board, oldest first, creation order, which is the
     order a person built the map in and the only one an outline can be read
     in without surprises. Position decides where a node is *drawn*; it does
-    not decide what the map says."""
-    return list(
+    not decide what the map says.
+
+    **Unless a topic was moved among its siblings** (INBOX 445): then its
+    `data.order` is its key instead of its id, which is what `wbMapIndex`
+    sorts by on the canvas, so the tree, every export and the agent's outline
+    read the siblings in the order the person put them. Only siblings are
+    ever compared, because `_build_tree` appends children in this list's
+    order."""
+    objects = list(
         db.scalars(
             select(WhiteboardObject)
             .where(_board_filter(WhiteboardObject, board_id))
             .order_by(WhiteboardObject.id)
         )
     )
+    return sorted(objects, key=_sibling_key)
+
+
+def _sibling_key(obj: WhiteboardObject) -> tuple[float, int]:
+    try:
+        order = json.loads(obj.data or "{}").get("order")
+    except (TypeError, ValueError, AttributeError):
+        order = None
+    is_number = isinstance(order, (int, float)) and not isinstance(order, bool)
+    return (float(order) if is_number else float(obj.id), obj.id)
 
 
 def _cross_links(db: Session, board_id: int | None, node_ids: set[int]) -> list[dict]:

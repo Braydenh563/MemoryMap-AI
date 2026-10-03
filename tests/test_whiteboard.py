@@ -431,6 +431,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "edge_bend": None,
         "edge_slide": None,
         "image": None,
+        # And with a topic's place among its siblings (INBOX 445).
+        "order": None,
     }
 
     moved = board_client.put(

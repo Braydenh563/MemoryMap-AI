@@ -855,7 +855,10 @@ document.addEventListener("keydown", (e) => {
   //: Single-key shortcuts can be turned off (WCAG 2.1.4): speech input types
   //: letters.
   const singleKeys = singleKeysOn();
-  if (!typing && !overlayOpen && singleKeys) {
+  //: `boardOwns`: a key the open board answers itself (`wbOwnsChord`), such
+  //: as a letter typed while a new map topic is still being made.
+  const boardOwns = typeof wbOwnsChord === "function" && wbOwnsChord(e);
+  if (!typing && !overlayOpen && singleKeys && !boardOwns) {
     for (const [id, def] of Object.entries(shortcuts)) {
       const bare = !/\+/.test(def.keys);
       if (bare && matchesShortcut(e, def.keys)) {
@@ -924,7 +927,11 @@ document.addEventListener("keydown", (e) => {
       }
       // Not a recognised second key, fall through and let this keypress do
       // whatever it would have done anyway.
-    } else if (singleKeys && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    } else if (
+      singleKeys && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey
+      //: An open board's M is its highlighter (`wbOwnsChord`, whiteboard.js).
+      && !boardOwns
+    ) {
       tabJumpArmedAt = performance.now();
       //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":

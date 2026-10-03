@@ -449,6 +449,17 @@ extended with the numbers named.
   its parent it lands exactly on the middle of the line into it
   (`elementFromPoint` at the handle's centre returned the strip). Hover needs
   nothing selected, so it needs no strip.
+- **A topic's place among its siblings is a key, `data.order`, defaulting to
+  its id** (taken 2026-10-03, INBOX 445, building the Ctrl+Shift+arrows this
+  section names). A key rather than a rank, so a move writes two rows and an
+  insert one; the id default keeps every existing map in creation order; the
+  server sorts by the same key (`_sibling_key`), so the tree, the exports and
+  the agent's outline agree with the canvas, and the order round-trips as
+  outline order. Branch colours stay with the branch (the palette walks by
+  id), so moving a branch up does not repaint the map.
+- **Delete on a topic is one entry on the board's undo stack** (taken
+  2026-10-03): the toast's Undo and Ctrl+Z are the same entry, and the
+  restore writes the whole row back, not only the text and colour.
 
 ### 12.1 Phase 6a, the controls (1 session)
 

@@ -2030,6 +2030,14 @@ header#top-bar,
     max-width: none;
   }
 
+  /* Above the floating + too, not over it: measured at 390 on Notes, the
+     toast box stood on the tab bar (bottom 64px) and the New note button's
+     centre (y 752) answered the toast. The page's own fab sets the line:
+     its offset (07-whiteboard-misc.css's `.dock-fab`), its height, a step. */
+  body:not(:has(#tab-chat:not(.hidden))):has(.tab-page:not(.hidden) > .dock-fab) #toast-box {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px) + var(--target-min) + var(--space-2));
+  }
+
   .agent-monitor {
     bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
   }

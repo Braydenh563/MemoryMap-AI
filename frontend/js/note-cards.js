@@ -1826,7 +1826,13 @@ function entryItem(entry, options = {}) {
   date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
   date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
     (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
-  metaEnd.appendChild(date);
+  //: **The time is a fact on the details line, always shown** (INBOX 446,
+  //: the owner: "there is no timestamps"). It sat in the card's corner and
+  //: faded out whenever the card was pointed at, to make room for the
+  //: actions, so the one moment a person looked at a note its time went.
+  //: An edited note says so, whichever order the list is in.
+  if (edited && !byEdit) date.textContent += " · edited";
+  meta.appendChild(date);
   meta.appendChild(metaEnd);
 
   if (options.actions) {

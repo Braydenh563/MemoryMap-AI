@@ -8175,10 +8175,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   height: 1em;
 }
 
-@media (hover: hover) {
-  #entry-list > li:is(:hover, :focus-within) .entry-date {
-    opacity: 0;
-  }
+/* The time ends the details line, at the right, and stays when the card is
+   pointed at (INBOX 446); the corner above is the actions' alone. */
+#entry-list > li .entry-meta > .entry-date {
+  margin-inline-start: auto;
 }
 
 /* On touch the actions are always shown in that corner, so the time goes

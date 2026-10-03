@@ -14,6 +14,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note card's time stays on screen when you point at the card (it faded out to make room for the buttons), at the right of the details line, and says "edited" when the note has been.
 - With no AI running, Ask answers "What have I saved recently?" with your newest notes and when each was written, each cited, instead of saying the notes did not match the question.
 - A note's history says whose each change was: You, Atlas, or You and Atlas (a save that includes an applied Improve writing suggestion), with the exact time on hover; any earlier version can be put back.
 - Selected text, Search the notebook: says which notes it is showing, with Clear, instead of filtering the list silently.

@@ -112,7 +112,7 @@ def test_the_scale_did_not_quietly_grow():
 # --- type ---------------------------------------------------------------------
 
 #: The type scale, in rem. Mirrors the --text-* custom properties.
-TYPE_SCALE = {0.7, 0.75, 0.8, 0.85, 0.92, 1.0, 1.15, 1.3, 1.7, 2.2}
+TYPE_SCALE = {0.7, 0.75, 0.8, 0.85, 0.92, 1.0, 1.15, 1.3, 1.5, 2.2}
 
 #: Single hero elements, each the only thing at its size. A display size is a
 #: deliberate one-off, not a step other components should reach for.

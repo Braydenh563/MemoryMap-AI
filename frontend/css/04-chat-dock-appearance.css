@@ -1700,7 +1700,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   /* The strip declares its height and every control in it is that tall
      (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
      because these carry no label to widen them. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
 }
 
 .graph-popup-tool-group {
@@ -3088,7 +3088,7 @@ span > .chip {
      without repeating the number. `.draft-controls` declares the same value
      for its own controls; this is the one that reaches everything else in the
      column. */
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* **The box is what grows; everything else keeps its own height.** The two
@@ -3177,7 +3177,7 @@ span > .chip {
 .draft-controls {
   gap: 0.4rem;
   flex-wrap: wrap;
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 .draft-controls input,
@@ -3218,7 +3218,7 @@ span > .chip {
      against the Library's own 36px, from the root fallback. The `max()` keeps
      both bands honest at once, 36px where the Library's are and the touch
      floor below 820, without writing either number twice. */
-  --control-h: max(2.25rem, var(--target-min));
+  --control-h: max(var(--control-h-lg), var(--target-min));
 }
 
 /* The three selects and the adder are one family on one line, so they take
@@ -3670,7 +3670,7 @@ span > .chip {
 
 .doc-list-title {
   font-weight: 600;
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4419,7 +4419,7 @@ span > .chip {
      `0.5rem` of padding is what stops a wrapped label touching its own border
      in a narrow dialog. `--control-h-lg` was measured first and left the
      buttons 4px over the rest, which is the failure this is fixing. */
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* The field is single-line by nature and is pinned to the strip height; the

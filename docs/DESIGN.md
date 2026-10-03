@@ -74,7 +74,7 @@ because that is where interface spacing actually lives.
 --text-body:    1rem      prose, card titles
 --text-h3:      1.15rem   panel headings
 --text-h2:      1.3rem
---text-h1:      1.7rem
+--text-h1:      1.5rem   (was 1.7rem; INBOX 446 (5))
 --text-display: 2.2rem
 ```
 
@@ -867,6 +867,7 @@ ratchets the counts so they cannot drift back.
 
 ```
 --control-h-lg: 2rem    /* 32px, was 2.25rem (INBOX 446 (5)) */
+--control-h-body: 2.25rem /* 36px, the composers' rows (Capture, Write with AI, Ask, a document's AI card), was a literal 2.5rem */
 --target-min:   1.75rem /* 28px; 2.75rem (44px) under a coarse pointer or below 820 */
 ```
 

@@ -4293,7 +4293,9 @@ button.is-on {
   backdrop-filter: blur(16px);
   border-radius: var(--radius-strip);
   padding: var(--space-1);
-  box-shadow: var(--shadow-sm);
+  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
+     it, and its border is the edge; a shadow here was depth with no meaning. */
+  box-shadow: none;
   border: 1px solid var(--border);
 }
 

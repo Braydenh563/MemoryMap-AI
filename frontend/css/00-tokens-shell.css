@@ -420,7 +420,10 @@ select optgroup {
   /* prose */
   --text-h3: 1.15rem;
   --text-h2: 1.3rem;
-  --text-h1: 1.7rem;
+  --text-h1: 1.5rem;
+  /* 24px, was 1.7rem (27.2px) before INBOX 446 (5): the dashboard greeting
+     and its clock, the only users, were the largest type in the app and the
+     first "demo" tell the owner named. Still a full step over --text-h2. */
   --text-display: 2.2rem;
 
   /* How tall the scrolling page area is, the viewport minus the top bar.
@@ -519,6 +522,12 @@ select optgroup {
      24px target floor with room; under a coarse pointer the 44px floor
      (`--target-min`) still governs. */
   --control-h-lg: 2rem;
+  /* The composers' own control height, one step above the strips (INBOX
+     446 (5)): Capture, Write with AI, Ask, the note composer, a document's
+     AI card and the reminder list bar act on what you write, and DESIGN.md
+     gives them a taller row than the toolbars around them. It was a literal
+     2.5rem (40px) in seven rules; 36px keeps the step at the new scale. */
+  --control-h-body: 2.25rem;
   /* The shared control height, at the root (2026-09-24 polish pass). It was
      declared only on four containers (.library-controls, .library-head,
      .library-toolbar, .dock), and 70 rules read it, so everywhere outside
@@ -1806,7 +1815,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      the timer runs, so the flicker is not in the app's own repainting. Whole
      multiples (2.25rem = 36px, and 36 × 1.25 = 45, × 1.5 = 54, × 2 = 72) take
      the fractional case away entirely. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
 }
 
 /* **Every Library sub-tab's header row is one height now.** Reported: "the
@@ -2346,7 +2355,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-card-icon {
   flex: 0 0 auto;
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
 }
 
 .library-card-title {
@@ -2356,7 +2365,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      match every other truncated element in this app, even though Chromium's
      -webkit-line-clamp already ellipsizes without it, reported live as
      missing, not reproduced here, cheap enough to harden regardless. */
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
   font-weight: 600;
   min-width: 0;
   overflow: hidden;

@@ -1562,7 +1562,12 @@ header#top-bar select,
 
 .quick-link {
   display: flex;
-  padding: 0.8rem 1rem;
+  /* Start-aligned and 8/12.8px (INBOX 446 (5)): the button base centres
+     its content, so in a 1fr track the icon and its two lines floated in
+     the middle of a 68px tile, five centred islands in a row; the label
+     now begins where the tile does, as a list of actions reads. */
+  padding: var(--space-3) var(--space-5);
+  justify-content: flex-start;
   align-items: center;
   gap: var(--space-3);
   /* **The tile recipe**: shared with `.start-step`: a card
@@ -1647,7 +1652,9 @@ header#top-bar select,
    fixed height, because this one has two lines in it and a height would clip
    the second the moment the density setting or the font changed. */
 .quick-action {
-  padding: var(--space-5) var(--space-6);
+  /* 9.6/16px, was 12.8/16 (INBOX 446 (5)): 68px for two lines of copy was
+     the tallest control in the app. */
+  padding: var(--space-4) var(--space-6);
   font-size: var(--text-lg);
 }
 
@@ -2487,7 +2494,7 @@ header#top-bar select,
    `.capture-field-row` do it. Before: segments 40px, the page-size select
    35.59px, the heading 24px. */
 .reminder-listbar {
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 .reminder-listbar > .seg,
@@ -3135,7 +3142,7 @@ header#top-bar select,
      45px tall against 28-30px buttons beside them, the exact "stood four
      pixels taller" failure DESIGN.md names, just wider here because a full
      text input's padding is a bigger jump than a segmented control's. */
-  --control-h: 2rem;
+  --control-h: var(--control-h-lg);
 }
 
 .graph-toolbar h2 {

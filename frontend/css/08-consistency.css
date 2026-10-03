@@ -3232,7 +3232,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 #tab-reminders .reminder-text {
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
 }
 
 /* --- settings, de-vibecoded ---------------------------------------------------

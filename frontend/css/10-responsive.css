@@ -2697,6 +2697,56 @@ header#top-bar,
   .library-subtabs {
     position: static;
   }
+
+  /* **And Chat stops being a fixed-height pane** (INBOX 433, zoom.js at 200%,
+     640 by 400). The card is the page's height and the dock alone is taller
+     than what is left, so the message list was squeezed to its 6rem floor
+     with its welcome scrolled under the sticky head and the dock: the "Try
+     asking" chips and Ask Atlas took the keyboard's focus out of sight.
+     Below 420px tall the card flows like any page, the list at its own
+     height and the head scrolling away with it, and the tab scrolls. */
+  #tab-chat,
+  #tab-chat > .layout {
+    display: block;
+  }
+
+  #chat-main {
+    height: auto;
+  }
+
+  #tab-chat #chat-messages {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  #tab-chat .chat-toolbar {
+    position: static;
+  }
+
+  /* The Timeline's feed keeps its own scroll (it loads more from it), but
+     not at the dock's leftovers: at 400% (320 by 256) the dock took 158px of
+     a 144px page and the feed got 0px, every row unreachable but by Tab. With
+     a floor of its own the card grows past the page, the page scrolls the
+     dock away, and the feed has most of the window. */
+  #tab-timeline .timeline-scroll {
+    min-height: min(16rem, 70dvh);
+  }
+
+  /* The map is a surface you look at, so it keeps a usable height and the
+     page scrolls to it, rather than shrinking to what the chrome leaves: at
+     200% (640 by 400) the card was 218px, the zoom strip (178px of touch
+     buttons) rose under the wrapped dock, and the minimap sat on the legend.
+     26rem holds the dock, the strip and the legend apart; the minimap, an
+     overview of a map that is itself smaller than a phone's, goes. */
+  #graph-card {
+    min-height: 26rem;
+  }
+
+  #graph-minimap {
+    display: none;
+  }
 }
 
 /* --- the Dashboard's dock on a phone (INBOX 436) ----------------------------

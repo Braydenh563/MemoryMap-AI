@@ -72,7 +72,11 @@ async function clippedText(page) {
       //: A word kept for screen readers and hidden by the clip recipe (a dock
       //: label at a narrow width) is a 1px box on purpose, not lost text.
       if (e.clientWidth <= 1 && e.clientHeight <= 1) return false;
-      return e.scrollHeight > e.clientHeight + 2 || e.scrollWidth > e.clientWidth + 2;
+      //: Per axis: a feed that scrolls down and clips sideways (`overflow-x:
+      //: hidden; overflow-y: auto`, the Timeline's and Chat's) is a scroller
+      //: on the axis its text runs past, not a clip (INBOX 433).
+      const clipY = /^(hidden|clip)$/.test(cs.overflowY), clipX = /^(hidden|clip)$/.test(cs.overflowX);
+      return (clipY && e.scrollHeight > e.clientHeight + 2) || (clipX && e.scrollWidth > e.clientWidth + 2);
     }).slice(0, 6).map((e) => `${desc(e)} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
   });
 }

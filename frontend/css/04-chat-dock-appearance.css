@@ -977,8 +977,10 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      should not.
      `--control-h-lg` (32px), the height every other bar in the app uses
      (INBOX 437 (4)): a literal 1.875rem kept this strip at 30px, the one
-     row of controls left two pixels short after the density pass. */
-  --control-h: var(--control-h-lg);
+     row of controls left two pixels short after the density pass. The
+     `max` is the touch band's floor (44px below 820): at 200% zoom the mode
+     segment's 44px buttons sat in a 32px well and were cut off (INBOX 433). */
+  --control-h: max(var(--control-h-lg), var(--target-min));
 }
 
 /* **The free space between the left groups and the right pair, and all of

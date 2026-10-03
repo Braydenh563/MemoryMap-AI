@@ -1233,8 +1233,10 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 
 .graph-zoom-btn {
-  width: 34px;
-  height: 34px;
+  /* The app's control height (INBOX 437 (4)): a literal 34px left the zoom
+     strip two pixels off the 32px dock above it; a finger still gets 44. */
+  width: max(var(--control-h-lg), var(--target-min));
+  height: max(var(--control-h-lg), var(--target-min));
   display: grid;
   place-content: center;
   font-size: 1rem;

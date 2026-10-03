@@ -202,6 +202,17 @@ function atlasStemSides(segs, width, samples, shift) {
 
 const atlasFix = (v) => +v.toFixed(2);
 
+//: The point `t` of the way along a run of cubic segments, each segment an
+//: equal share of `t`, as `atlasStemSides` samples them: where a speck sits
+//: on a wisp, and what the shape test measures.
+function atlasSegsAt(segs, t) {
+  const k = Math.min(segs.length - 1, Math.floor(t * segs.length));
+  const s = segs[k];
+  const v = t * segs.length - k;
+  const u = 1 - v;
+  return [0, 1].map((i) => u * u * u * s[i] + 3 * u * u * v * s[2 + i] + 3 * u * v * v * s[4 + i] + v * v * v * s[6 + i]);
+}
+
 function atlasSmooth(pts) {
   const f = atlasFix;
   let d = "";
@@ -459,11 +470,11 @@ const ATLAS_LOOKS = {
     //: pillar legs with round feet, a blocky egg of a torso, straight tube
     //: arms with round paws, a wide fixed stare. Now the torso tapers from
     //: sloped shoulders to a waist and melts (the `waist` fade) into a trail
-    //: of three nebula wisps, no legs; the arms are slimmer, bend softly at
+    //: of nebula wisps, no legs; the arms are slimmer, bend softly at
     //: the elbow and end in small relaxed mittens; the eyes are a size
     //: smaller under a relaxed lid (the CSS); and the body sways gently at
-    //: rest. His wisps stream narrower and straighter than her skirt: a
-    //: comet's trail rather than a gown.
+    //: rest. His trail is one thick wisp with thin strands off it (`lowers`,
+    //: below): a comet's trail rather than her gown.
     //: **Hair on the head** (round 9, the owner: "have the hair start a
     //: little on the head, not have it look like a bald head with lots of
     //: hair coming from the back"): a short cap swept to his right over the
@@ -472,19 +483,35 @@ const ATLAS_LOOKS = {
     cap: "M18.4 20.6C17.8 12.6 23.4 6.8 31 6.8C38.6 6.8 44.2 12.6 43.8 20C42.6 16.2 40.2 13.4 37 12.2C36.4 13.6 35 14.6 33.6 14.8C33.8 13.8 33.6 13 33 12.4C31.6 14 29.6 15 27.6 15.2C28 14.4 28 13.6 27.6 13C25 14.4 22 16.8 18.4 20.6Z",
     legs: false,
     lowerPivot: [31, 58],
-    skirt: "M25.2 52C24.4 60 25.6 68 27.4 75C28.8 81 29.4 87 28.6 93C30.4 90.4 31.4 87.6 31.8 85C32.8 88.4 34 91 35.8 93.6C35 87.4 35.2 81.2 36.2 75C37.8 68 38.8 60 37 52Z",
-    //: **His wisps fall, hers flow** (the owner: the masculine lower body
-    //: should "read more masculine"). Three broad streams, near-straight,
-    //: overlapping at the waist as one mass that splits as it falls, each
-    //: holding its width and then tapering firmly to a point
-    //: (`lowerTaper: "firm"`), with a straight inner stream; not her five
-    //: S-curved ribbons. They sway heavier and slower too (the CSS,
-    //: `atl-lower-sway-heavy`).
-    lowerTaper: "firm",
+    //: **One snake of a wisp, sub-wisps branching off it** (INBOX 435 (3),
+    //: wrapup-0927 item 7; the owner: "on the masculine atlas lower body
+    //: looks like a tripod and very straight pencil-y, I was thinking like a
+    //: thicker main whispy tail in the middle like a snake and then the
+    //: smaller ones on the side", at release "too straight and pointy and
+    //: not flowy", then "the side whisps should be thicker and more like
+    //: proper sub whisps", "properly and cleanly integrated with the body
+    //: and not obviously separate shapes", "the subwhisps look like spider
+    //: or centipede legs" and "the bottom body whisps need to fit better to
+    //: the full width of the main body and also the middle isnt now really
+    //: bigger than the subwhisps"). Round 9 drew three near-straight
+    //: streams of one width over a veil cut into two points: five parallel
+    //: spikes. Now (`lowerTaper: "wisp"`):
+    //: - the main wisp (`main`) leaves the torso as wide as the hips
+    //:   (`hip`), flush with the body's flanks, narrows to a trunk (`w`)
+    //:   by y 70, swings left, back right and curls in at the tip in one S,
+    //:   and ends round, 1.6 across, not in a point;
+    //: - two sub-wisps (`side`, -1 the viewer's left), not a mirrored pair:
+    //:   each branches from inside the trunk at its own height (y 71 and
+    //:   82), half the trunk's width there, and flows down and a little
+    //:   out in one arc with no knee to a round tip, the two of different
+    //:   lengths, like curls peeling off a plume of smoke, not legs.
+    //: All of it is drawn as one silhouette (`spec.trail`, atlasBuild), so
+    //: no join shows. Specks are placed along each centreline as [t, r].
+    lowerTaper: "wisp",
     lowers: [
-      { seg: [[27.2, 56, 26.6, 65, 25.6, 73, 25.2, 80], [25.2, 80, 24.8, 86, 24.2, 90, 23.4, 94.4]], w: 8.2, specks: [[25.6, 72, 0.3], [24.4, 87.4, 0.26]] },
-      { seg: [[31, 57, 31.2, 66, 30.6, 75, 30.8, 83], [30.8, 83, 31, 89, 30.8, 94, 31, 99]], w: 9.6, specks: [[30.8, 70.4, 0.32], [30.9, 90.2, 0.3]] },
-      { seg: [[34.8, 56, 35.4, 65, 36.4, 73, 36.8, 80], [36.8, 80, 37.2, 86, 37.8, 90, 38.6, 94.4]], w: 8.2, specks: [[36.4, 72.4, 0.3], [37.6, 86.6, 0.26]], edge: true },
+      { main: true, seg: [[31, 56, 31, 63.5, 26, 68, 26.4, 75], [26.4, 75, 26.8, 82, 35.6, 83, 35.8, 90], [35.8, 90, 36, 95, 32.4, 98.2, 30.2, 96.2]], w: 11, hip: 16, specks: [[0.3, 0.34], [0.52, 0.3], [0.7, 0.32], [0.86, 0.26]] },
+      { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.8, specks: [[0.45, 0.24], [0.8, 0.2]] },
+      { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.9, specks: [[0.55, 0.22]] },
     ],
     torso: "M25.6 35.4C22.2 38.6 21.4 43.4 22 47.8C22.6 52.4 24.4 57.4 27.2 61C29.2 63.4 32.8 63.4 34.8 61C37.6 57.4 39.4 52.4 40 47.8C40.6 43.4 39.8 38.6 36.4 35.4Z",
     //: Arms hanging relaxed with a soft bend at the elbow, the forearm
@@ -855,16 +882,6 @@ function atlasBuild() {
     spec.torsoNow = atlasScalePathX(spec.torso || ATLAS_TORSO_PATH, tune.bodyWidth, 31);
     spec.torsoEdgeNow = atlasScalePathX(atlasTorsoEdge(spec.torso || ATLAS_TORSO_PATH), tune.bodyWidth, 31);
     if (spec.lowers) {
-      //: A ribbon's width: full at the waist, a slight swell as it leaves
-      //: the body, then a long taper to a hair-fine wisp, no round end.
-      //: A firm taper (the masculine streams) holds the width down most of
-      //: the fall and closes to a point at the end, and its inner stream
-      //: runs straight rather than weaving.
-      const firm = spec.lowerTaper === "firm";
-      const ribbon = firm
-        ? (w) => (t) => 0.16 + (w - 0.16) * (1 - t ** 1.6) ** 1.1
-        : (w) => (t) => 0.18 + (w - 0.18) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
-      const weave = firm ? 0.06 : 0.22;
       //: Every wisp starts 6 units higher, straight up inside the torso,
       //: so its root is under the body's fade (the `lowerin` mask) rather
       //: than a flat end showing through it at the waist.
@@ -872,12 +889,69 @@ function atlasBuild() {
         const [x, y] = seg[0];
         return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];
       };
-      spec.lowerPaths = spec.lowers.map(({ seg: drawn, w, specks, edge }) => ({ seg: rooted(drawn), w, specks, edge })).map(({ seg, w, specks, edge }) => ({
-        fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false }),
-        stream: atlasStem(seg, (t) => ribbon(w)(t) * 0.26, { samples: 14, cap: false, shift: (t) => ribbon(w)(t) * weave * Math.sin(Math.PI * 2.2 * t + 0.4) }),
-        edge: edge ? atlasStemEdge(seg, ribbon(w), 14) : "",
-        specks,
-      }));
+      if (spec.lowerTaper === "wisp") {
+        //: The masculine trail (`lowers`, above). The main wisp leaves the
+        //: torso as wide as the body is at the hips (`hip`, 16 inside the
+        //: torso, 14.3 at y 56 where the torso's flanks are 14.4 apart), so
+        //: its outline carries straight on from the body's with no pinch at
+        //: the waist (the owner: "the bottom body whisps need to fit better
+        //: to the full width of the main body"); the flare goes by a
+        //: quarter of the way down (y 70), and from there it is a trunk `w`
+        //: across tapering evenly to a round tip 1.6 across, twice the width
+        //: of each sub-wisp where that one branches ("the middle isnt now
+        //: really bigger than the subwhisps"). A sub-wisp is built the same
+        //: way at its own width: full where it leaves the main wisp,
+        //: tapering evenly to a round tip 0.9 across, from inside the main
+        //: wisp so its root is part of the trunk.
+        const ease = (a, b, t) => {
+          const k = Math.min(1, Math.max(0, (t - a) / (b - a)));
+          return k * k * (3 - 2 * k);
+        };
+        const main = (w, hip) => (t) => 1.6 + (w - 1.6) * (1 - t) ** 0.8 + (hip - w) * (1 - ease(0.28, 0.48, t));
+        const sub = (w) => (t) => 0.9 + (w - 0.9) * (1 - t) ** 0.95;
+        const parts = spec.lowers.map(({ main: isMain, side, seg: drawn, w, hip, specks }) => {
+          const seg = drawn[0][1] < 62 ? rooted(drawn) : drawn;
+          const width = isMain ? main(w, hip) : sub(w);
+          return {
+            side: side || 0,
+            seg,
+            width,
+            fill: atlasStem(seg, width, { samples: 14, cap: true }),
+            stream: atlasStem(seg, (t) => width(t) * 0.26, { samples: 14, cap: true, shift: (t) => width(t) * 0.2 * Math.sin(Math.PI * 2.4 * t + 0.4) }),
+            //: Specks ride the drawn centreline, at [t, r].
+            specks: specks.map(([t, r]) => [...atlasSegsAt(drawn, t).map(atlasFix), r]),
+          };
+        });
+        spec.lowerPaths = parts;
+        //: **One silhouette** (the owner: "make sure that they are properly
+        //: and cleanly integrated with the body and not obviously separate
+        //: shapes"). Each translucent paint is one path holding every
+        //: wisp as a subpath: every stem is walked the same way round, so
+        //: the nonzero fill paints where they overlap once, and a sub-wisp
+        //: grows out of the main wisp with no brighter band, no line and no
+        //: change of opacity at the join; drawn as separate paths, the
+        //: overlap of two translucent fills showed as a lighter patch where
+        //: each branch left the trunk. No veil: a haze round the trail drawn
+        //: as a wider shape showed its own edge a unit outside the wisps, a
+        //: second outline; and no lit edge is stroked along the main wisp
+        //: (it ran across the roots of the branches).
+        const join = (key) => parts.map((p) => p[key]).join("");
+        spec.trail = { fill: join("fill"), stream: join("stream"), specks: parts.flatMap((p) => p.specks) };
+        spec.skirt = "";
+      } else {
+        //: A ribbon's width (the feminine skirt): full at the waist, a
+        //: slight swell as it leaves the body, then a long taper to a
+        //: hair-fine wisp, no round end.
+        const ribbon = (w) => (t) => 0.18 + (w - 0.18) * (1 - t) ** 1.25 * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4)));
+        const weave = 0.22;
+        spec.lowerPaths = spec.lowers.map(({ seg: drawn, w, specks, edge }) => ({ seg: rooted(drawn), w, specks, edge })).map(({ seg, w, specks, edge }) => ({
+          side: 0,
+          fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false }),
+          stream: atlasStem(seg, (t) => ribbon(w)(t) * 0.26, { samples: 14, cap: false, shift: (t) => ribbon(w)(t) * weave * Math.sin(Math.PI * 2.2 * t + 0.4) }),
+          edge: edge ? atlasStemEdge(seg, ribbon(w), 14) : "",
+          specks,
+        }));
+      }
     }
     if (spec.arm) {
       //: The left arm hangs with the body on its right normal; the right
@@ -1684,6 +1758,14 @@ function atlasBody(parent, id, props, look, route = null) {
     //: of the tail's galaxy, a pale stream, a lit edge on two of them and a
     //: few star specks.
     if (spec.lowers && !edge) {
+      const ribbon = (host, part) => {
+        const g = atlasGroup(host, "atl-ribbon");
+        atlasMake("path", { class: "atl-ribbon-veil", d: part.fill }, g);
+        atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: part.fill }, g);
+        if (part.stream) atlasMake("path", { class: "atl-ribbon-stream", d: part.stream }, g);
+        if (part.edge) atlasMake("path", { class: "atl-ribbon-edge", d: part.edge }, g);
+        atlasSpecks(g, part.specks);
+      };
       const lower = atlasGroup(lowerAt[kind], "atl-lower", spec.lowerPivot);
       //: **No seam at the waist** (the owner: "smoothen and blend the line
       //: between the main body and the lower body whisps"). The torso fades
@@ -1694,17 +1776,14 @@ function atlasBody(parent, id, props, look, route = null) {
       //: band across the hips. The mask is in the group's own space, so it
       //: turns and sways with the wisps in every pose.
       lower.setAttribute("mask", `url(#${id}-lowerin)`);
-      const veil = atlasGroup(lower, "atl-skirt");
-      atlasMake("path", { class: "atl-skirt-veil", d: spec.skirt }, veil);
-      atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: spec.skirt }, veil);
-      for (const part of spec.lowerPaths) {
-        const g = atlasGroup(lower, "atl-ribbon");
-        atlasMake("path", { class: "atl-ribbon-veil", d: part.fill }, g);
-        atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: part.fill }, g);
-        atlasMake("path", { class: "atl-ribbon-stream", d: part.stream }, g);
-        if (part.edge) atlasMake("path", { class: "atl-ribbon-edge", d: part.edge }, g);
-        atlasSpecks(g, part.specks);
+      if (spec.skirt) {
+        const veil = atlasGroup(lower, "atl-skirt");
+        atlasMake("path", { class: "atl-skirt-veil", d: spec.skirt }, veil);
+        atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: spec.skirt }, veil);
       }
+      //: The masculine trail is one silhouette (`spec.trail`, atlasBuild);
+      //: her ribbons are each their own.
+      for (const part of spec.trail ? [spec.trail] : spec.lowerPaths) ribbon(lower, part);
     }
     (spec.legPaths || ATLAS_LIMBS.legs).forEach(([side, d], i) => {
       const leg = atlasGroup(legAt ? legAt[side][kind] : layer, legAt ? "atl-leg" : `nmb-leg nmb-leg-${side} atl-leg`);
@@ -1930,7 +2009,10 @@ function atlasBuildDefs(svg, id) {
   stops(chestGlow, [[0, "atl-st-chest-glow"], [1, "atl-st-chest-clear"]]);
   const chestShade = atlasMake("radialGradient", { id: `${id}-chestshade`, cx: 0.5, cy: 0.4, r: 0.6 }, defs);
   stops(chestShade, [[0, "atl-st-chest-shade"], [1, "atl-st-clear"]]);
-  const skirt = atlasMake("linearGradient", { id: `${id}-skirt`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 52, x2: 0, y2: 96 }, defs);
+  //: The masculine trail fades over a longer run (to 108, not 96), so the
+  //: main wisp's curled tip at 98 still shows rather than vanishing a few
+  //: units before its end (INBOX 435 (3)).
+  const skirt = atlasMake("linearGradient", { id: `${id}-skirt`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 52, x2: 0, y2: id.endsWith("masculine") ? 108 : 96 }, defs);
   stops(skirt, [[0, "atl-st-skirt0"], [0.45, "atl-st-skirt1"], [1, "atl-st-skirt2"]]);
   //: **Round 8, two fades** (the owner, of the feminine look: "the massive
   //: hair strands look separate from the head" and "the torso should flow

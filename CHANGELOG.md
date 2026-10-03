@@ -20,6 +20,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Search results open from the keyboard (Tab to one, Enter or Space), and the sidebars' "All in Library" link fits on one line.
 - A note card's time stays on screen when you point at the card (it faded out to make room for the buttons), at the right of the details line, and says "edited" when the note has been.
 - With no AI running, Ask answers "What have I saved recently?" with your newest notes and when each was written, each cited, instead of saying the notes did not match the question.
 - Companion on Chat: it perches on the composer dock, reads along on it while an answer is written and cheers when it lands, and never covers the input, Send, Stop or the latest message (Atlas's tail hung over Stop and the input). A double-click no longer pokes it first, and with reduced motion a move is a crossfade rather than a fade to nothing and back.

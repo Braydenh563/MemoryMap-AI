@@ -1023,6 +1023,14 @@ function clickableResult(entry) {
   li.classList.add("clickable-result");
   li.title = "Open this note in the Notes tab";
   li.addEventListener("click", () => flashEntry(entry.id));
+  //: Reachable and openable from the keyboard too (found by the density
+  //: pass: a result opened on a click only, like the dashboard rows did).
+  li.tabIndex = 0;
+  li.addEventListener("keydown", (event) => {
+    if (event.target !== li || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    flashEntry(entry.id);
+  });
   return li;
 }
 

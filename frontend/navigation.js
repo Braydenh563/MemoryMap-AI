@@ -1655,11 +1655,7 @@ document.addEventListener("click", (event) => {
   if (!button) return;
   const action = button.dataset.emptyAction;
   if (action === "capture") {
-    switchTab("notes");
-    showNotesSection("capture", { focus: true });
-    // The section reveal is a class toggle in the same task; focus a frame
-    // later so the box is visible when the caret lands in it.
-    requestAnimationFrame(() => $("entry-content")?.focus());
+    startNewNote();
   } else if (action === "reminder") {
     // The form is a sheet on a phone; `openReminderCompose` knows which.
     openReminderCompose();

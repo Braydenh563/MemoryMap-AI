@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Notes: Ctrl+Shift+N, the dashboard's New note and the empty states always open Capture with the caret in the box; with Notes last on Browse the shortcut used to focus nothing, and what you typed next was lost.
 - Filing with no AI: a new note is filed from your notebook's own words (the notes already in each category, their tags, your moves by hand and the category names), says so ("filed from your notebook's words"), and stays in Uncategorised when it is not sure; before, every note went to Uncategorised whenever no model was running.
 - Accessibility: Settings, Keyboard shortcuts has a switch for single-key shortcuts (the m chord, / and ?), so speech input or a stray key cannot trigger them (WCAG 2.1.4).
 - Zoom and keyboard: at 400% zoom or on a very short window the sub-tab strips scroll with the page and New note stays in its dock, so a focused control is never hidden under them; a closed sidebar drawer is no longer a Tab stop; a control reached by Tab scrolls clear of the floating button and the sticky strip.

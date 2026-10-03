@@ -1794,10 +1794,7 @@ function runShortcut(id) {
       }
     },
     help: openShortcuts,
-    newNote: () => {
-      switchTab("notes");
-      $("entry-content").focus();
-    },
+    newNote: () => startNewNote(),
     newDocument: () => {
       switchTab("documents");
       createDocument();

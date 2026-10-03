@@ -843,11 +843,7 @@ const QUICK_START = [
     label: "New note",
     hint: "Atlas files it for you",
     primary: true,
-    run: () => {
-      switchTab("notes");
-      showNotesSection("capture"); // or the box you're about to focus is hidden
-      $("entry-content").focus();
-    },
+    run: () => startNewNote(),
   },
   {
     icon: "ph:chat-circle",
@@ -1720,10 +1716,7 @@ function gettingStartedCard() {
       icon: "ph:pencil-simple",
       label: "Write your first note",
       note: "Anything at all: a half sentence is fine.",
-      run: () => {
-        switchTab("notes");
-        $("entry-content")?.focus();
-      },
+      run: () => startNewNote(),
     },
     {
       icon: "ph:chat-circle",

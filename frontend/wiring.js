@@ -1582,7 +1582,15 @@ $("notes-refresh")?.addEventListener("click", () => loadEntries());
 //: box ready to type in. `showNotesSection`'s own `focus` lands on the
 //: sub-tab button, which is right for a keyboard moving between sections
 //: and wrong here, where the press meant "I want to write".
-$("notes-new-note").addEventListener("click", () => {
+$("notes-new-note").addEventListener("click", () => startNewNote());
+
+//: **Every "new note" lands in the box, ready to type** (INBOX 434): the
+//: button, Ctrl+Shift+N, the dashboard's actions and the empty states all
+//: come here. Ctrl+Shift+N went to Notes and focused a box that was hidden
+//: whenever Notes was last on Browse: the focus fell to <body> and what was
+//: typed next went nowhere, or fired a single-key shortcut.
+function startNewNote() {
+  if ($("tab-notes").classList.contains("hidden")) switchTab("notes");
   showNotesSection("capture");
   // The box is a live editor (documents.js `mountNoteSurface`) that mounts
   // over the textarea the first time Capture shows, and the mount takes the
@@ -1596,7 +1604,7 @@ $("notes-new-note").addEventListener("click", () => {
   //: not in yet; the bare `mountNoteSurface` is undefined until then, which
   //: left the focus on the body on a fresh boot (INBOX 432, measured).
   mountNoteSurfaceNow(box).then((surface) => surface?.focus()).catch(() => {});
-});
+}
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );

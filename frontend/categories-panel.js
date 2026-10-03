@@ -9,7 +9,7 @@
 //: documents editor"). The head is DESIGN.md's dialog head (the Documents AI
 //: assistant's): the title, its '?' beside it, a ghost icon Close at the
 //: right. One line of description, then one tool row: a filter field and
-//: New category. The categories are a listbox of quiet rows (the colour dot,
+//: New category. The categories are a grid of quiet rows (the colour dot,
 //: the name, a muted count pill and a ghost ⋯ that shows on hover or focus,
 //: always on touch), with a roving focus: arrows and Home/End move, Space
 //: selects, Enter shows the category's notes, F2 renames, Delete deletes,
@@ -71,7 +71,11 @@ async function openManageCategories(focusName = null) {
       tools.append(search, create);
       const list = document.createElement("ul");
       list.className = "manage-cat-list";
-      list.setAttribute("role", "listbox");
+      //: A grid, not a listbox (INBOX 433): an option may hold nothing
+      //: interactive, and each row carries its ⋯ (axe-core's
+      //: nested-interactive, WCAG 4.1.2, counted 7). A grid's cell may: the
+      //: rows are selected as rows, the first cell is the roving stop.
+      list.setAttribute("role", "grid");
       list.setAttribute("aria-multiselectable", "true");
       list.setAttribute("aria-label", "Categories");
       const footer = document.createElement("div");
@@ -92,13 +96,13 @@ async function openManageCategories(focusName = null) {
       filter.addEventListener("keydown", (event) => {
         if (event.key === "ArrowDown") {
           event.preventDefault();
-          list.querySelector('[role="option"]')?.focus();
+          list.querySelector(".manage-cat-main")?.focus();
         }
       });
       wireManageCategoryKeys(list, state, redraw);
       redraw();
       //: After the sheet's own first-button focus, which would land on the '?'.
-      const start = focusName ? list.querySelector(`[data-category="${CSS.escape(focusName)}"]`) : null;
+      const start = focusName ? list.querySelector(`[data-category="${CSS.escape(focusName)}"] > .manage-cat-main`) : null;
       requestAnimationFrame(() => (start || filter).focus());
     },
   });
@@ -133,14 +137,21 @@ function manageCatHead(card, close) {
 }
 
 function drawManageCategoryRows(list, footer, state) {
-  const hadFocus = list.contains(document.activeElement) ? document.activeElement.dataset.category : null;
+  //: The focus is on a row's first cell (or its ⋯); the row says which.
+  const hadFocus = list.contains(document.activeElement)
+    ? document.activeElement.closest("[data-category]")?.dataset.category || null
+    : null;
   list.replaceChildren();
   const shown = [...categoryMeta.values()].filter((meta) => !state.filter || meta.name.toLowerCase().includes(state.filter));
   for (const name of [...state.selected]) if (!categoryMeta.has(name)) state.selected.delete(name);
   if (!shown.length) {
     const none = document.createElement("li");
     none.className = "muted manage-cat-empty";
-    none.textContent = state.filter ? "No category matches that." : "No categories yet.";
+    none.setAttribute("role", "row");
+    const cell = document.createElement("span");
+    cell.setAttribute("role", "gridcell");
+    cell.textContent = state.filter ? "No category matches that." : "No categories yet.";
+    none.appendChild(cell);
     list.appendChild(none);
   }
   const current = shown.some((meta) => meta.name === (hadFocus || state.active)) ? (hadFocus || state.active) : shown[0]?.name;
@@ -148,9 +159,14 @@ function drawManageCategoryRows(list, footer, state) {
     const li = document.createElement("li");
     li.className = "manage-cat-row";
     li.dataset.category = meta.name;
-    li.setAttribute("role", "option");
+    li.setAttribute("role", "row");
     li.setAttribute("aria-selected", String(state.selected.has(meta.name)));
-    li.tabIndex = meta.name === current ? 0 : -1;
+    //: The row's stop and its name: the dot, the name and the count, one
+    //: cell, so arrowing down the grid reads "Work, 3 notes" per row.
+    const main = document.createElement("span");
+    main.className = "manage-cat-main";
+    main.setAttribute("role", "gridcell");
+    main.tabIndex = meta.name === current ? 0 : -1;
     const dot = document.createElement("span");
     dot.className = "manage-cat-dot";
     dot.style.setProperty("--category-dot", categoryDotColour(meta.name));
@@ -163,18 +179,28 @@ function drawManageCategoryRows(list, footer, state) {
     count.className = "manage-cat-count";
     count.textContent = String(meta.count);
     count.title = `${meta.count} note${meta.count === 1 ? "" : "s"}`;
-    li.setAttribute("aria-label", `${meta.name}, ${meta.count} note${meta.count === 1 ? "" : "s"}`);
-    li.append(dot, name, count);
+    main.setAttribute("aria-label", `${meta.name}, ${meta.count} note${meta.count === 1 ? "" : "s"}`);
+    main.append(dot, name, count);
+    li.appendChild(main);
     if (meta.name !== "Uncategorised") {
       const menu = kebabMenu(categoryMenuItems(meta, { inPanel: true }), `Actions for ${meta.name}`);
       menu.classList.add("manage-cat-menu");
+      menu.setAttribute("role", "gridcell");
       menu.addEventListener("click", (event) => event.stopPropagation());
-      menu.addEventListener("keydown", (event) => event.stopPropagation());
+      menu.addEventListener("keydown", (event) => {
+        event.stopPropagation();
+        //: Left from the ⋯ goes back to the row's first cell, as Right
+        //: came here (`wireManageCategoryKeys`).
+        if (event.key === "ArrowLeft" && event.target === menu.querySelector(":scope > button")) {
+          event.preventDefault();
+          main.focus();
+        }
+      });
       li.appendChild(menu);
     } else {
       const spacer = document.createElement("span");
       spacer.className = "manage-cat-spacer";
-      spacer.setAttribute("aria-hidden", "true");
+      spacer.setAttribute("role", "gridcell");
       li.appendChild(spacer);
     }
     //: A click selects (with Ctrl or Shift it adds to the selection); a
@@ -189,12 +215,12 @@ function drawManageCategoryRows(list, footer, state) {
       else state.selected.add(meta.name);
       state.active = meta.name;
       drawManageCategoryRows(list, footer, state);
-      list.querySelector(`[data-category="${CSS.escape(meta.name)}"]`)?.focus();
+      list.querySelector(`[data-category="${CSS.escape(meta.name)}"] > .manage-cat-main`)?.focus();
     });
     li.addEventListener("dblclick", () => showCategoryNotes(meta.name));
     list.appendChild(li);
   }
-  if (hadFocus) list.querySelector(`[data-category="${CSS.escape(hadFocus)}"]`)?.focus();
+  if (hadFocus) list.querySelector(`[data-category="${CSS.escape(hadFocus)}"] > .manage-cat-main`)?.focus();
   drawManageCategoryFooter(footer, state, () => drawManageCategoryRows(list, footer, state));
 }
 
@@ -207,19 +233,22 @@ function showCategoryNotes(name) {
   renderEntries();
 }
 
-//: The listbox's keys, on the list so they survive every redraw.
+//: The grid's keys, on the list so they survive every redraw. They act from
+//: a row's first cell, `.manage-cat-main`, the one stop of the grid; the ⋯
+//: cell keeps its own keys (its menu stops them) bar Left, which comes back.
 function wireManageCategoryKeys(list, state, redraw) {
   list.addEventListener("keydown", (event) => {
-    const row = event.target.closest?.('[role="option"]');
+    if (!event.target.matches?.(".manage-cat-main")) return;
+    const row = event.target.closest("[data-category]");
     if (!row) return;
-    const rows = [...list.querySelectorAll('[role="option"]')];
+    const rows = [...list.querySelectorAll(".manage-cat-row")];
     const at = rows.indexOf(row);
     const move = (to) => {
       const next = rows[Math.max(0, Math.min(rows.length - 1, to))];
       if (!next) return;
-      rows.forEach((r) => { r.tabIndex = r === next ? 0 : -1; });
+      for (const r of rows) r.querySelector(":scope > .manage-cat-main").tabIndex = r === next ? 0 : -1;
       state.active = next.dataset.category;
-      next.focus();
+      next.querySelector(":scope > .manage-cat-main").focus();
       next.scrollIntoView({ block: "nearest" });
     };
     const meta = categoryMeta.get(row.dataset.category);
@@ -227,6 +256,7 @@ function wireManageCategoryKeys(list, state, redraw) {
     else if (event.key === "ArrowUp") move(at - 1);
     else if (event.key === "Home") move(0);
     else if (event.key === "End") move(rows.length - 1);
+    else if (event.key === "ArrowRight") row.querySelector(".manage-cat-menu > button")?.focus();
     else if (event.key === " ") {
       if (meta && meta.name !== "Uncategorised") {
         if (state.selected.has(meta.name)) state.selected.delete(meta.name);

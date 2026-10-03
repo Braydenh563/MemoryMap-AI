@@ -11,6 +11,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - A Library card, a board card and a Documents row are no longer a button holding buttons: the title is the control that opens them, so a screen reader reaches the tick and the menu as themselves. A click anywhere on the card still opens it.
 - A Settings group's '?' is no longer inside the group's heading, so a screen reader reaches it as its own button; it is drawn where it was, and pressing it still opens a closed group.
+- The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 
 ## [0.3.32] - 2026-09-28
 

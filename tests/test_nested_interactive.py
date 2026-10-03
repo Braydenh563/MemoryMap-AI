@@ -165,3 +165,37 @@ def test_the_button_is_placed_over_its_slot_and_still_opens_its_fold():
     assert re.search(r"\.fold-help-wrap > \.fold-help\s*\{[^}]*position:\s*absolute", CSS)
     slot = re.search(r"\.fold-help-slot\s*\{([^}]*)\}", CSS)
     assert slot and "visibility: hidden" in slot.group(1) and "var(--target-min)" in slot.group(1)
+
+
+# --- the Manage categories panel is a grid, not a listbox of buttons ---------
+#
+# Each row was `role="option"` holding its ⋯ (`tabindex="-1"` does not take a
+# control out of reach of a screen reader, so axe still counted 7). An option
+# may hold nothing interactive; a grid's cell may. The rows are `role="row"`
+# with `aria-selected` in a multiselectable `role="grid"`; the first cell
+# (dot, name, count) is the roving stop and the ⋯ is the last cell.
+
+CATEGORIES = (FRONTEND / "categories-panel.js").read_text(encoding="utf-8")
+
+
+def test_the_category_rows_are_grid_rows_with_the_menu_in_its_own_cell():
+    panel = _function(CATEGORIES, "openManageCategories")
+    assert 'list.setAttribute("role", "grid")' in panel
+    assert 'list.setAttribute("aria-multiselectable", "true")' in panel
+    assert '"listbox"' not in CATEGORIES and '"option"' not in CATEGORIES
+    rows = _function(CATEGORIES, "drawManageCategoryRows")
+    assert 'li.setAttribute("role", "row")' in rows
+    assert 'li.setAttribute("aria-selected"' in rows
+    assert "li.tabIndex" not in rows
+    assert 'main.setAttribute("role", "gridcell")' in rows
+    assert "main.tabIndex" in rows
+    assert 'menu.setAttribute("role", "gridcell")' in rows
+
+
+def test_the_category_keys_act_from_the_row_stop():
+    keys = _function(CATEGORIES, "wireManageCategoryKeys")
+    for key in ('"ArrowDown"', '"ArrowUp"', '"Home"', '"End"', '" "', '"Enter"', '"F2"', '"Delete"', '"ContextMenu"', '"F10"'):
+        assert key in keys, key
+    assert ".manage-cat-main" in keys
+    # The row shows the keyboard's place: the ring the focused row had.
+    assert ".manage-cat-row:has(> .manage-cat-main:focus-visible)" in CSS

@@ -159,3 +159,33 @@ def test_a_private_note_is_a_connection_without_its_words(ai_client, open_vault)
     assert out["outgoing"][0]["preview"] == "Private note"
     assert out["outgoing"][0]["is_private"] is True
     assert "SECRET" not in str(out)
+
+
+@pytest.mark.parametrize(
+    "target_text, target_first",
+    [
+        # The link written before the note it names existed: the save of the
+        # linking note found nothing to join, so no stored link was made.
+        ("Sourdough starter\nFeed it daily.", False),
+        # A note named by its heading: its text starts with "#", which the
+        # stored-link resolver does not read past.
+        ("# Sourdough starter\nFeed it daily.", True),
+    ],
+)
+def test_a_wiki_link_is_outgoing_on_the_note_that_writes_it(client, target_text, target_first):
+    """Measured 2026-10-03: a note with [[Sourdough starter]] in it had
+    `outgoing: []` (its rail said "Nothing is joined to this note yet") while
+    the target listed it as incoming. Both ends now say the same thing."""
+    if target_first:
+        target = client.post("/entries", json={"content": target_text}).json()
+    source = client.post("/entries", json={"content": "Bake with [[Sourdough starter]] on Sunday"}).json()
+    if not target_first:
+        target = client.post("/entries", json={"content": target_text}).json()
+
+    out = client.get(f"/entries/{source['id']}/connections").json()
+    assert [row["id"] for row in out["outgoing"]] == [target["id"]]
+    assert out["outgoing"][0]["reason"] == "Links to it"
+    assert out["total"] >= 1
+
+    back = client.get(f"/entries/{target['id']}/connections").json()
+    assert [row["id"] for row in back["incoming"]] == [source["id"]]

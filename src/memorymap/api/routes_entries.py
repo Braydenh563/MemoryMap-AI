@@ -2541,6 +2541,30 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "reason_confidence": None,
             })
 
+    #: **And this note's own `[[wiki links]]`, outgoing.** The block above
+    #: gives the *target* of a link its incoming row by reading the text of
+    #: the note that wrote it; nothing gave the writer the matching outgoing
+    #: row unless a stored `EntryLink` happened to exist, and one does not
+    #: when the link was typed before its target was made, or names a note
+    #: by its `# Heading` (the stored-link resolver matches the raw start of
+    #: the text). Measured 2026-10-03: "[[Sourdough starter]]" showed
+    #: `outgoing: []` and "Nothing is joined to this note yet" while the
+    #: target listed the note as incoming. Read the same way both ends now.
+    known_out = {row["id"] for row in outgoing}
+    for other in _wiki_link_targets_of(session, entry):
+        if other.id in known_out:
+            continue
+        known_out.add(other.id)
+        outgoing.append({
+            "link_id": None,
+            "id": other.id,
+            "preview": "Private note" if other.is_private else _connection_label(other),
+            "is_private": bool(other.is_private),
+            **_connection_cue(session, other),
+            "reason": "Links to it",
+            "reason_confidence": None,
+        })
+
     #: Boards and maps: `kind` is "board" or "map" so the dialog can say
     #: which (a map's own note node counts too). The unnamed scratch board
     #: (`board_id IS NULL`) is not an entry and so has no row there; it is a
@@ -2569,6 +2593,43 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
         "files": files,
         "total": len(outgoing) + len(incoming) + len(documents) + len(boards) + len(files),
     }
+
+
+def _wiki_link_targets_of(session: Session, entry: Entry) -> list[Entry]:
+    """The notes this note's `[[names]]` point at, in the order written.
+
+    `manager.find_by_wiki_name` first, the resolver a save uses to make
+    stored links, so a name means here what it means on the graph. Where it
+    finds nothing, the note whose plain label is exactly the name, which is
+    the rule `_reference_rows` applies from the other end ("links to it"
+    when the text holds `[[label]]`): without that second reading a note
+    named by its heading was incoming on the target and absent here.
+    """
+    from memorymap.entry.manager import plain_label
+
+    found: list[Entry] = []
+    for name in manager.wiki_link_targets(manager.readable_content(entry)):
+        target = manager.find_by_wiki_name(session, name)
+        if target is None:
+            wanted = name.strip().casefold()
+            pattern = "%" + like_escape(name.strip()) + "%"
+            for other in session.scalars(
+                select(Entry)
+                .where(
+                    Entry.id != entry.id,
+                    Entry.is_deleted.is_(False),
+                    Entry.is_private.is_(False),
+                    Entry.content.ilike(pattern, escape=LIKE_ESCAPE),
+                )
+                .order_by(Entry.id)
+                .limit(REFERENCE_SOURCES_MAX)
+            ):
+                if plain_label(other.content, 60).strip().casefold() == wanted:
+                    target = other
+                    break
+        if target is not None and target.id != entry.id and not target.is_deleted:
+            found.append(target)
+    return found
 
 
 def _connection_label(entry) -> str:  # noqa: ANN001

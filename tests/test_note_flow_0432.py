@@ -285,3 +285,33 @@ def test_tags_have_a_place_in_the_notes_sidebar():
         assert f"function {name}(" in panel, name
     assert "pushUndo(" in _function(panel, "renameTagEverywhere")
     assert '"openTagsSheet"' in _read("app.js")
+
+
+def test_a_filter_still_being_typed_narrows_nothing():
+    """`tag:` with nothing after it pushed an empty tag, and every tagged
+    note failed it: the list went blank while the filter was being typed."""
+    import json
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    notes = _read("notes-list.js")
+    regex = notes[notes.index("const TAG_COUNT_RE"):]
+    regex = regex[: regex.index("\n") + 1]
+    parse = "function parseNoteQuery(" + _function(notes, "parseNoteQuery") + "}\n"
+    script = regex + parse + (
+        "const out = {};"
+        "for (const q of ['tag:', 'tag:#', '#', 'in:', 'title:', 'is:', 'tag:trip in:home'])"
+        " out[q] = parseNoteQuery(q);"
+        "console.log(JSON.stringify(out));"
+    )
+    result = json.loads(subprocess.run([node, "-e", script], capture_output=True, text=True, check=True).stdout)
+    for partial in ("tag:", "tag:#", "#", "in:", "title:", "is:"):
+        q = result[partial]
+        assert not (q["tags"] or q["categories"] or q["titles"] or q["flags"] or q["words"]), partial
+    assert result["tag:trip in:home"]["tags"] == ["trip"]
+    assert result["tag:trip in:home"]["categories"] == ["home"]

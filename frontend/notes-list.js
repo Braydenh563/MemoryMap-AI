@@ -987,6 +987,9 @@ function parseNoteQuery(raw) {
     const tagCountMatch = TAG_COUNT_RE.exec(lower);
     //: `#trip` is how a card shows a tag, so it is how people type one
     //: (INBOX 432: it matched nothing); `tag:#trip` the same.
+    //: A bare `tag:` or `in:` is a filter still being typed: it narrows
+    //: nothing yet, rather than emptying the list under the cursor.
+    if (/^(tag:#?|#|category:|cat:|in:|title:|is:)$/.test(lower)) continue;
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4).replace(/^#/, ""));
     else if (lower.startsWith("#") && lower.length > 1) query.tags.push(lower.slice(1));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));

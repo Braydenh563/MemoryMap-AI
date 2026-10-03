@@ -2905,6 +2905,21 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 500;
 }
 
+/* A click on it moves the note (INBOX 432, `chooseNoteCategory`): it reads
+   as pressable on hover and keyboard focus, and stays a pill at rest. */
+.entry-meta.note-meta > .chip.category.is-action {
+  cursor: pointer;
+}
+
+.entry-meta.note-meta > .chip.category.is-action:hover {
+  border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+}
+
+.entry-meta.note-meta > .chip.category.is-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .entry-meta.note-meta > .chip.category::before {
   content: "";
   flex: 0 0 auto;

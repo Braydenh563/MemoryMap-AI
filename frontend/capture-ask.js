@@ -60,22 +60,23 @@ async function watchFiling(entry, { quiet = false } = {}) {
         return; // deleted, or the server went away, nothing to report
       }
       if (status.filing_state === "pending") continue;
-      settleCaptureStatus(status);
+      //: **Said once, where the person is looking** (INBOX 432). The
+      //: composer's line and a toast both carried the same sentence, so a
+      //: save from Capture read it twice; the toast is for someone who has
+      //: left the composer since.
+      const shown = settleCaptureStatus(status);
       if (quiet) return;
-      if (status.filing_state === "failed") {
-        toast(`Saved, but Atlas couldn't file it: it's in “${status.category}”.`, true);
-      } else {
-        toastAction(
-          `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
-          "Go to it",
-          () => flashEntry(entry.id)
-        );
-        // The near-duplicate search moved into the same background pass, so
-        // this warning arrives here now rather than on the create response.
-        // Still purely informational, still never blocking, the note saved.
-        if (status.similar) {
-          toast(`Heads up: this is close to an existing note, “${status.similar.preview}”`);
-        }
+      const text = filingOutcomeText(status);
+      if (status.filed_by === "none" || status.filing_state === "failed") {
+        if (!shown) toastAction(text, "Choose category", () => chooseNoteCategory([entry.id], status.category));
+      } else if (!shown) {
+        toastAction(text, "Go to it", () => flashEntry(entry.id));
+      }
+      // The near-duplicate search moved into the same background pass, so
+      // this warning arrives here now rather than on the create response.
+      // Still purely informational, still never blocking, the note saved.
+      if (status.similar) {
+        toastAction(`This is close to an existing note, “${status.similar.preview}”.`, "Open it", () => flashEntry(status.similar.id));
       }
       return;
     }
@@ -92,14 +93,44 @@ async function watchFiling(entry, { quiet = false } = {}) {
 //: says that, so a newer save's own status is never overwritten.
 function settleCaptureStatus(status) {
   //: The line's first node is the text; `offerJumpToNewNote` appends its
-  //: "Go to it" button after it, and that button stays.
-  const text = $("save-status")?.firstChild;
-  if (!text || text.nodeType !== Node.TEXT_NODE) return;
-  if (text.nodeValue !== filedByText({ filing_state: "pending" })) return;
-  text.nodeValue =
-    status.filing_state === "failed"
-      ? `Saved as “${status.category}”: ${aiNameNow()} couldn't file it`
-      : `Filed under “${status.category}” (${status.ai_confidence}% sure).`;
+  //: "Go to it" button after it, and that button stays. Answers whether the
+  //: line said it on screen, so the caller knows a toast would repeat it.
+  const line = $("save-status");
+  const text = line?.firstChild;
+  if (!text || text.nodeType !== Node.TEXT_NODE) return false;
+  if (text.nodeValue !== filedByText({ filing_state: "pending" })) return false;
+  if (line.dataset.entryId && line.dataset.entryId !== String(status.id)) return false;
+  text.nodeValue = filingOutcomeText(status);
+  //: Nothing filed it: the line's own button picks a category instead of
+  //: jumping to a note that is sitting in Uncategorised.
+  if (status.filed_by === "none" || status.filing_state === "failed") {
+    const jump = line.querySelector(".jump-to-note");
+    if (jump) {
+      const choose = jump.cloneNode(false);
+      setLabel(choose, "ph:folder-open Choose category");
+      choose.title = "Pick this note's category yourself";
+      choose.addEventListener("click", () => chooseNoteCategory([status.id], status.category));
+      jump.replaceWith(choose);
+    }
+  }
+  return line.offsetParent !== null;
+}
+
+//: Where a filed note landed, in words that are true for every way it can
+//: land. A confidence is only quoted when something actually decided.
+function filingOutcomeText(status) {
+  if (status.filing_state === "failed") {
+    return `Saved in “${status.category}”: ${aiNameNow()} couldn't file it.`;
+  }
+  if (status.filed_by === "none") {
+    return aiIsOff()
+      ? `Saved in “${status.category}”: no AI model is running to file it.`
+      : `Saved in “${status.category}”: ${aiNameNow()} couldn't decide where it goes.`;
+  }
+  if (status.filed_by === "user") return `Filed under “${status.category}”.`;
+  return status.ai_confidence
+    ? `Filed under “${status.category}” (${status.ai_confidence}% sure).`
+    : `Filed under “${status.category}”.`;
 }
 
 function filedByText(saved) {
@@ -474,6 +505,17 @@ function withTitle(content, title) {
 // somewhere. Pulled out rather than left duplicated, both paths need
 // exactly this, and it drifting between two copies is how one of them ends
 // up leaving a stale category or template selected after a save.
+//: **"Keep writing" means the caret is still there** (INBOX 432). The Save
+//: button took the focus and kept it, so the next thought typed after a save
+//: went nowhere: measured, the box stayed empty and its placeholder showed.
+//: The editor view when one is mounted, the textarea otherwise.
+function focusCaptureBox() {
+  const box = $("entry-content");
+  const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+  if (surface) surface.focus();
+  else box?.focus();
+}
+
 function resetCaptureForm(contentBox, titleBox) {
   contentBox.value = "";
   if (titleBox) titleBox.value = "";
@@ -645,6 +687,10 @@ async function saveEntry() {
     });
     clearStagedImages();
     status.textContent = filedByText(saved);
+    //: Which note this line is about: three notes saved in a row each poll
+    //: for their own filing, and the first answer used to overwrite the
+    //: line the third save had just written (measured, INBOX 432).
+    status.dataset.entryId = String(saved.id);
     if (saved.filing_state === "pending") watchFiling(saved);
     // The note finally has an id, which is the only thing the staged files
     // were ever waiting for. Not awaited: the composer is already clear and
@@ -659,6 +705,7 @@ async function saveEntry() {
       );
     }
     resetCaptureForm(contentBox, titleBox);
+    focusCaptureBox();
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
     pushUndo(
@@ -734,6 +781,7 @@ async function saveEntryAsDraft() {
     clearStagedImages();
     status.textContent = "Saved as a draft, find it later under Drafts in the sidebar.";
     resetCaptureForm(contentBox, titleBox);
+    focusCaptureBox();
     // A draft is still a note with an id, so staged files attach to it the
     // same way. Doing this here rather than in `resetCaptureForm` is what
     // keeps that function from having to know which of its two callers has

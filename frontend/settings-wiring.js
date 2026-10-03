@@ -513,7 +513,10 @@ $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
 });
 $("entry-content").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.ctrlKey) saveEntry();
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    saveEntry();
+  }
 });
 //: The `[[` list is the editor menu's (editor.js), as in every other surface.
 $("entry-content").addEventListener("input", () => {

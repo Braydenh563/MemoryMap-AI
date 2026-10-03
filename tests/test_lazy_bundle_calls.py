@@ -125,6 +125,10 @@ REACHED_AFTER_LOAD = {
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",
     "mountNoteSurface": "library, called once the note engine setting has loaded it",
+    #: focusCaptureBox (capture-ask.js): with the bundle absent no editor view
+    #: is mounted over the capture box, so focusing the textarea itself, the
+    #: guarded fallback, is the right thing rather than a silent no-op.
+    "noteSurfaceFor": "library, a mounted editor view exists only once the bundle is in; without it the textarea fallback runs",
     "docSurfaceById": "library, called from the document editor's own handlers",
     "docPaletteCommands": "library, the palette asks only once documents.js is in",
     "docEventFromCm": "library, only ever true when CodeMirror is mounted",

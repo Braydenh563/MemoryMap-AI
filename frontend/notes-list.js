@@ -481,7 +481,7 @@ function renderEditForm(li, entry) {
 
   const row = document.createElement("div");
   row.className = "row";
-  row.appendChild(
+  const saveButton = row.appendChild(
     smallButton(
       "Save changes",
       "Save your corrections",
@@ -522,13 +522,22 @@ function renderEditForm(li, entry) {
         }
         editingId = null;
         noteFormDirty = false;
-        toast("Entry updated.");
+        toast("Note saved.");
         await loadEntries();
         pushEntryPutUndo(entry.id, "Edited a note", before, after);
       },
       false
     )
   );
+  //: Ctrl+Enter saves, as it does in the capture box (INBOX 432): the edit
+  //: form had no chord at all, so a note opened from the list could only be
+  //: saved with the mouse. The editor view forwards the chord here.
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      saveButton.click();
+    }
+  });
   row.appendChild(
     smallButton("Cancel", "Discard changes", () => {
       editingId = null;
@@ -2891,59 +2900,6 @@ function renderSidebar() {
   }
 }
 
-async function renameCategory(meta, currentName) {
-  const name = await promptDialog(`Rename "${currentName}" to:`, currentName);
-  if (!name || name === currentName) return;
-
-  // Renaming onto a category that already exists merges them, which is
-  // usually the point: but it's destructive-looking, so it's confirmed.
-  if (categoryMeta.has(name)) {
-    const target = categoryMeta.get(name);
-    const ok = (await confirmDialog(
-      `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
-        `Its notes move across, nothing is deleted. "${name}" would then ` +
-        `hold ${target.count + meta.count} notes.`
-    ));
-    if (!ok) return;
-  }
-
-  try {
-    const result = await apiJson(`/categories/${meta.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ name }),
-    });
-    if (activeCategory === currentName) activeCategory = name;
-    toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
-    await loadEntries();
-    await loadCategories();
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
-
-//: Kept for the keyboard's Delete on a focused row and older callers; the
-//: sidebar's ⋯ now goes through `deleteCategoryFromPanel`, which asks where
-//: the notes go.
-async function deleteCategory(meta, name, count) {
-  const ok = (await confirmDialog(
-    `Delete the category "${name}"?\n\n` +
-      (count
-        ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
-          `Uncategorised: deleting a category never deletes notes.`
-        : "It has no notes in it.")
-  ));
-  if (!ok) return;
-  try {
-    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
-    if (activeCategory === name) activeCategory = null;
-    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
-    await loadEntries();
-    await loadCategories();
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
-
 // --- Manage categories ----------------------------------------------------------
 //: **Manage categories** (INBOX 431 (e), the owner: "a better, easier and more
 //: accessible and learnable way to [manually] edit categories like with
@@ -2958,18 +2914,6 @@ async function deleteCategory(meta, name, count) {
 //: Notes also move by ticking them in the list and choosing Move to (the
 //: batch bar), or by dragging a note's category label onto a category in
 //: the sidebar.
-
-//: Moves notes back to where they were, from the `previous` a move returned.
-async function restoreCategoryMoves(previous) {
-  const byCategory = new Map();
-  for (const { id, category } of previous) {
-    if (!byCategory.has(category)) byCategory.set(category, []);
-    byCategory.get(category).push(id);
-  }
-  for (const [category, ids] of byCategory) {
-    await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
-  }
-}
 
 //: After any change: the notes, the sidebar, and the open panel, redrawn.
 async function refreshAfterCategoryChange() {

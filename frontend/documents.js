@@ -11050,6 +11050,29 @@ function noteSurfaceKeymap(host) {
         return true;
       },
     },
+    //: **Ctrl+Enter is the box's own "done"** (INBOX 432). Every note box
+    //: that has one (capture saves, the thoughts pane drafts, the edit form
+    //: saves) listens for it on its textarea, and the textarea stops
+    //: hearing keys the moment this view is mounted over it: measured in
+    //: Chromium, Ctrl+Enter in the capture box saved nothing and the
+    //: engine's own binding inserted a blank line. So the chord is handed
+    //: back to the textarea as the same event, and answered here only when a
+    //: listener there took it.
+    {
+      key: "Mod-Enter",
+      run: () => {
+        const mac = /Mac|iP(hone|ad)/.test(navigator.platform || "");
+        const forwarded = new KeyboardEvent("keydown", {
+          key: "Enter",
+          ctrlKey: !mac,
+          metaKey: mac,
+          bubbles: true,
+          cancelable: true,
+        });
+        host.dispatchEvent(forwarded);
+        return forwarded.defaultPrevented;
+      },
+    },
     { key: "Mod-b", run: () => { wrapDocSelection("**", "bold text", host.id); return true; } },
     { key: "Mod-i", run: () => { wrapDocSelection("*", "italic text", host.id); return true; } },
     { key: "Mod-e", run: () => { wrapDocSelection("`", "", host.id); return true; } },

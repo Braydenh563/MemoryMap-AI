@@ -862,13 +862,35 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
                 "id": other.id,
                 "preview": _preview(manager.readable_content(other)),
             }
+    state = getattr(entry, "filing_state", "done") or "done"
     return {
         "id": entry.id,
-        "filing_state": getattr(entry, "filing_state", "done") or "done",
+        "filing_state": state,
         "category": manager.category_name_for(session, entry),
         "ai_confidence": entry.ai_confidence,
         "similar": similar,
+        "filed_by": _filed_by(entry, state),
     }
+
+
+def _filed_by(entry, state: str) -> str:  # noqa: ANN001
+    """Who decided, in the composer's three words (INBOX 432).
+
+    `ai` when the model or a match by meaning chose; `user` when the person
+    did; `none` when nothing could, which is a note left in Uncategorised
+    with no AI behind it. The composer said "Filed under Uncategorised (0%
+    sure)" for that last one, which reads as a decision when it is the
+    absence of one, and offered no way to pick a category instead.
+    """
+    if getattr(entry, "user_filed", False):
+        return "user"
+    if state in (manager.AUTO_FILED, manager.STAND_IN):
+        return "ai"
+    if state == "pending":
+        return "pending"
+    if state == "failed" or not (entry.ai_confidence or 0):
+        return "none"
+    return "ai"
 
 
 def _tag_vocabulary(session: Session) -> list[str]:

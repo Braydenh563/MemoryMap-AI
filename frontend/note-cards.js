@@ -1469,10 +1469,29 @@ function entryItem(entry, options = {}) {
     //: (e), `wireCategoryDropTarget`): only in a list with actions.
     if (options.actions && !entry.is_board) {
       categoryEl.draggable = true;
-      categoryEl.title = `${entry.category}: drag onto a category in the sidebar to move this note`;
+      categoryEl.title = `${entry.category}: click to move this note, or drag it onto a category in the sidebar`;
       categoryEl.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/x-memorymap-note", String(entry.id));
         event.dataTransfer.effectAllowed = "move";
+      });
+    }
+    //: A click moves it (INBOX 432): the chip is the category, so it is the
+    //: obvious place to change it, and it was a label that did nothing.
+    if (options.actions && !entry.is_board && entry.id && !entry.deleted_at) {
+      categoryEl.classList.add("is-action");
+      categoryEl.setAttribute("role", "button");
+      categoryEl.tabIndex = 0;
+      categoryEl.setAttribute("aria-label", `Category ${entry.category}: change`);
+      const move = (event) => {
+        event.stopPropagation();
+        chooseNoteCategory([entry.id], entry.category);
+      };
+      categoryEl.addEventListener("click", move);
+      categoryEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          move(event);
+        }
       });
     }
     meta.appendChild(categoryEl);

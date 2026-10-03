@@ -515,3 +515,113 @@ function splitCategoryFromPanel(meta) {
     },
   });
 }
+
+// --- Moved from notes-list.js (INBOX 432): category actions that only ever
+// run on a click, so they load with this panel instead of at boot. Boot code
+// reaches them through LAZY_ENTRY_POINTS (app.js).
+
+async function renameCategory(meta, currentName) {
+  const name = await promptDialog(`Rename "${currentName}" to:`, currentName);
+  if (!name || name === currentName) return;
+
+  // Renaming onto a category that already exists merges them, which is
+  // usually the point: but it's destructive-looking, so it's confirmed.
+  if (categoryMeta.has(name)) {
+    const target = categoryMeta.get(name);
+    const ok = (await confirmDialog(
+      `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
+        `Its notes move across, nothing is deleted. "${name}" would then ` +
+        `hold ${target.count + meta.count} notes.`
+    ));
+    if (!ok) return;
+  }
+
+  try {
+    const result = await apiJson(`/categories/${meta.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    if (activeCategory === currentName) activeCategory = name;
+    toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: Kept for the keyboard's Delete on a focused row and older callers; the
+//: sidebar's ⋯ now goes through `deleteCategoryFromPanel`, which asks where
+//: the notes go.
+async function deleteCategory(meta, name, count) {
+  const ok = (await confirmDialog(
+    `Delete the category "${name}"?\n\n` +
+      (count
+        ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
+          `Uncategorised: deleting a category never deletes notes.`
+        : "It has no notes in it.")
+  ));
+  if (!ok) return;
+  try {
+    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
+    if (activeCategory === name) activeCategory = null;
+    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: Moves notes back to where they were, from the `previous` a move returned.
+async function restoreCategoryMoves(previous) {
+  const byCategory = new Map();
+  for (const { id, category } of previous) {
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category).push(id);
+  }
+  for (const [category, ids] of byCategory) {
+    await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
+  }
+}
+
+//: **Moving one note is one click on its category** (INBOX 432). Before
+//: this, the only ways to change a single note's category were dragging its
+//: chip onto the sidebar or opening the whole edit form, and the card's ⋯
+//: menu (26 items) had no Move at all: the most common correction a notebook
+//: that files for you gets asked for was the hardest one to find. A sheet of
+//: every category with its count, the current one marked, and a new one by
+//: name; choosing is the move, with the same undo a drop gets.
+function chooseNoteCategory(ids, current = "") {
+  const noteIds = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
+  if (!noteIds.length) return;
+  const many = noteIds.length > 1;
+  openSheet({
+    label: many ? `Move ${noteIds.length} notes to` : "Move to category",
+    sub: current && !many ? `Now in ${current}.` : "",
+    name: "note-category",
+    build: (card, close) => {
+      const list = document.createElement("div");
+      list.className = "sheet-list";
+      const names = [...categoryMeta.keys()].sort((a, b) => a.localeCompare(b));
+      for (const name of names) {
+        const meta = categoryMeta.get(name);
+        const here = name === current;
+        const row = sheetRow(here ? "ph ph-check" : "ph ph-folder", `${name} (${meta?.count ?? 0})`, async () => {
+          close();
+          if (!here) await moveNotesToCategory(noteIds, name);
+        });
+        if (here) row.setAttribute("aria-current", "true");
+        list.appendChild(row);
+      }
+      list.appendChild(
+        sheetRow("ph ph-plus", "New category…", async () => {
+          close();
+          const name = await promptDialog("Name the new category:", "", { confirmLabel: "Move" });
+          if (name && name.trim()) await moveNotesToCategory(noteIds, name.trim());
+        })
+      );
+      card.appendChild(list);
+    },
+  });
+}

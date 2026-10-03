@@ -1252,7 +1252,9 @@ function updateBatchCount() {
 function fillBatchCategories(hostId = "batch-category-host") {
   const host = $(hostId);
   if (!host) return;
-  const names = [...new Set(allEntries.map((e) => e.category))].filter(Boolean).sort();
+  //: Every category, not only those with a note on the loaded page: one
+  //: made empty in Manage categories was missing from this menu (INBOX 432).
+  const names = [...new Set([...categoryMeta.keys(), ...allEntries.map((e) => e.category)])].filter(Boolean).sort();
   const items = names.map((name) =>
     makeMenuItem(`ph:folder ${name}`, `Move the selected notes to ${name}`, () =>
       batchMove(name)

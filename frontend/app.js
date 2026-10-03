@@ -2207,6 +2207,7 @@ const LAZY_MODULES = {
   lightbox: ["/lightbox-view.js"],
   editConflict: ["/edit-conflict.js"],
   categories: ["/categories-panel.js"],
+  noteHistory: ["/note-history.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2409,7 +2410,17 @@ document.addEventListener("keydown", (event) => {
 const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
-  categories: ["openManageCategories", "mergeCategoryFromPanel", "splitCategoryFromPanel", "deleteCategoryFromPanel"],
+  noteHistory: ["openEntryHistory"],
+  categories: [
+    "openManageCategories",
+    "mergeCategoryFromPanel",
+    "splitCategoryFromPanel",
+    "deleteCategoryFromPanel",
+    "renameCategory",
+    "deleteCategory",
+    "restoreCategoryMoves",
+    "chooseNoteCategory",
+  ],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Agent, small model on an OpenAI-compatible server (llama.cpp, LM Studio): an instruction to change the notebook ("Make a note: ...", "Remind me ...", "Pin my ...") asks the server for a tool call on its first round, since a 1.5B model otherwise answered most of them in prose; questions are never forced, and a server that does not know the option is asked again without it (INBOX 527).
 - Agent: "Add bring a rain jacket to my Snowdon trip note" (and "put ... in my ... note", "append ...") is offered the note editor; it cued nothing, so a small model rewrote the note in its answer and saved nothing (INBOX 527).
 - Agent: a reply that says it did something no tool did ("I've made a new note for you") is now asked, once, to actually do it, naming the tool, and the heads-up that it did not happen is kept for when the retry fails too, checked against everything said in the turn (INBOX 527).
 - Agent: when no note matches the words of a question, the prompt no longer says the notebook looks empty; it says nothing matched and that count_notes and search_notes know more (Qwen2.5-1.5B, with four notes saved, answered "How many notes do I have?" with "There are no notes in your notebook") (INBOX 527).

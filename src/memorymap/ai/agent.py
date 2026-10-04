@@ -1737,6 +1737,48 @@ def _prefetch_outbound(calls: list[dict]) -> None:
     tools.prefetch_web([(c["name"], c.get("arguments") or {}) for c in wanted])
 
 
+#: An instruction to change the notebook, said as one: "Make a note: ...",
+#: "Remind me ...", "Pin my ...". A question ("can you pin it?") is not one.
+_IMPERATIVE = re.compile(
+    r"^\s*(?:please\s+)?(?:make\s+a\s+note|note\s+down|jot\s+down|create|save|"
+    r"remind\s+me|set\s+a\s+reminder|tag|untag|pin|unpin|link|unlink|rename|"
+    r"add|append|put|write\s+down|file|move|mark)\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_a_call(question: str, plan: "_TurnPlan") -> bool:
+    """Whether the first round of a small model's turn must be a tool call.
+
+    INBOX 527, measured on Qwen2.5-1.5B under llama.cpp: asked "Make a note:
+    buy oat milk and eggs", "Remind me tomorrow at 9am...", "Tag my plumber
+    note", it answered in prose on most turns, sometimes claiming the work.
+    Asked with `tool_choice: "required"`, the same server answered "Make a
+    note" with `create_note {"content": "buy oat milk and eggs"}`. Only for an
+    imperative whose own tools are on offer, never a question, never a
+    skill's turn, and only the first round: what follows is the model's call.
+    """
+    text = (question or "").strip()
+    if plan.permitted is not None or not text or text.endswith("?"):
+        return False
+    if not _IMPERATIVE.match(text):
+        return False
+    offered = {t["function"]["name"] for t in plan.offered}
+    return bool(offered & _WRITE_TOOLS)
+
+
+def _round_stream(ollama, model, messages, offered, mode, required):
+    """One round's stream, with `tool_choice="required"` when asked and the
+    provider takes it (the OpenAI dialect); any other provider, or a test's
+    fake, is called as it always was."""
+    if required and offered:
+        try:
+            return ollama.chat_tools_stream(model, messages, offered, mode=mode, tool_choice="required")
+        except TypeError:
+            pass
+    return ollama.chat_tools_stream(model, messages, offered, mode=mode)
+
+
 def _dispatch_call(
     session: Session,
     plan: _TurnPlan,
@@ -2290,7 +2332,8 @@ def run_agent(
         reply: dict = {}
         streamed_any = False
         try:
-            for piece in ollama.chat_tools_stream(agent_model, state.messages, state.offered, mode=mode):
+            required = round_number == 0 and plan.small_model and _requires_a_call(question, plan)
+            for piece in _round_stream(ollama, agent_model, state.messages, state.offered, mode, required):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:

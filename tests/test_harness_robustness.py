@@ -348,3 +348,57 @@ def test_adding_to_a_note_is_offered_the_edit():
     ):
         assert "edit_note" in tools.focus_for(question), question
     assert "edit_note" not in tools.focus_for("Make a note: buy oat milk")
+
+
+# --- a small model's imperative: the first round must be a call ----------------
+
+
+class _SmallModels:
+    def chat_model(self):
+        return "qwen2.5:1.5b"
+
+    def utility_model(self):
+        return "qwen2.5:1.5b"
+
+
+def _small_turn(monkeypatch, openai_client, capture_post, question):
+    from fakes_http import FakeResponse, sse
+
+    capture_post.queue.extend([
+        FakeResponse(lines=sse({"choices": [{"delta": {"tool_calls": [
+            {"index": 0, "id": "a", "function": {"name": "create_note", "arguments": '{"content": "oat milk"}'}}
+        ]}}]})),
+        FakeResponse(lines=sse({"choices": [{"delta": {"content": "Saved."}}]})),
+    ])
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"id": 1, "label": "made"})
+    return list(agent.run_agent(_Session(), question, [], _SmallModels(), openai_client))
+
+
+def test_an_imperative_on_a_small_model_requires_a_first_call(monkeypatch, app_state, openai_client, capture_post):
+    """Measured on Qwen2.5-1.5B with llama.cpp: "Make a note: ..." got prose on
+    most turns; with tool_choice "required" the server answered create_note."""
+    _small_turn(monkeypatch, openai_client, capture_post, "Make a note: buy oat milk")
+    sent = [request["json"] for request in capture_post.sent]
+    assert sent[0].get("tool_choice") == "required"
+    assert "tool_choice" not in sent[1], "only the first round"
+
+
+def test_a_question_is_never_forced_into_a_call(monkeypatch, app_state, openai_client, capture_post):
+    for question in ("How many notes do I have?", "can you pin it?", "What did I write about milk"):
+        capture_post.sent.clear()
+        _small_turn(monkeypatch, openai_client, capture_post, question)
+        assert all("tool_choice" not in request["json"] for request in capture_post.sent), question
+        capture_post.queue.clear()
+
+
+def test_a_server_that_refuses_tool_choice_is_asked_again_without_it(openai_client, capture_post):
+    from fakes_http import FakeResponse, sse
+
+    capture_post.queue.extend([
+        FakeResponse(status=400, text="unknown field tool_choice"),
+        FakeResponse(lines=sse({"choices": [{"delta": {"content": "ok"}}]})),
+    ])
+    offered = [{"type": "function", "function": {"name": "create_note", "parameters": {}}}]
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], offered, tool_choice="required") if "final" in p][0]
+    assert final["content"] == "ok"
+    assert "tool_choice" not in capture_post.sent[1]["json"]

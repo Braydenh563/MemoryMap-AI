@@ -770,7 +770,9 @@ class OpenAICompatClient(Provider):
             except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
-    def _open_tools_stream(self, model: str, messages: list[dict], tools: list[dict], mode: str | None):
+    def _open_tools_stream(
+        self, model: str, messages: list[dict], tools: list[dict], mode: str | None, tool_choice: str | None = None
+    ):
         """The streamed tools request, opened, with one silent retry on a
         transient 5xx (INBOX 527: `chat` and `chat_stream` had one, the agent's
         own path did not, so llama-server's 503 while it loads a model ended
@@ -780,8 +782,15 @@ class OpenAICompatClient(Provider):
         payload = self._payload(
             model, messages, mode, stream=True, tools=tools, stream_options={"include_usage": True}
         )
+        if tool_choice and tools:
+            payload["tool_choice"] = tool_choice
         for attempt in range(2):
             response = self._post(payload, stream=True)
+            if 400 <= response.status_code < 500 and payload.pop("tool_choice", None):
+                # A server that does not know `tool_choice` (INBOX 527) is not a
+                # server without tools: ask again as an ordinary turn.
+                response.close()
+                response = self._post(payload, stream=True)
             if _looks_like_tools_rejection(response.status_code, response.text):
                 response.close()
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")
@@ -801,8 +810,13 @@ class OpenAICompatClient(Provider):
         messages: list[dict],
         tools: list[dict],
         mode: str | None = None,
+        tool_choice: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn: the agent loop's normal path.
+
+        `tool_choice="required"` asks the server to answer with a call (see
+        `agent._requires_a_call`); a server that refuses the field is asked
+        again without it.
 
         Yields, in order:
           {"thinking_delta": str}   zero or more
@@ -818,7 +832,7 @@ class OpenAICompatClient(Provider):
         started = time.monotonic()
         last: dict = {}
         try:
-            with self._open_tools_stream(model, messages, tools, mode) as response:
+            with self._open_tools_stream(model, messages, tools, mode, tool_choice) as response:
 
                 def emit(piece: dict) -> Iterator[dict]:
                     """Route one splitter piece, gating candidate tool-call text."""

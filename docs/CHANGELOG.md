@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Data, Clear app cache (INBOX 487, "should there be a way to clear the cache??"): unregisters the service worker, empties Cache Storage, drops the server's compressed copies and reloads, with a toast first; nothing in the notebook is touched. The Reload the app button and Ctrl+Alt+R clear the same things. Found by it: the emblem loaded p5 at the first idle moment, so on a slow load `renderEmblem` threw on `ACCENTS` before settings.js had run; it now waits for the load event.
 - Server: `POST /system/clear-static-cache` (behind the unlock) deletes the compressed static-file copies in `<data dir>/cache/static-gz` and empties the in-memory copy; nothing in the notebook is touched. The server half of Settings, Data, Clear app cache (INBOX 487).
 - Dialogs: a head keeps its height when the card fills, so Find anything's hairline no longer crosses its title and buttons, and its search field has room under the head.
 - The Guide: Atlas's reply bubble is full width from the first frame instead of a narrow box that widened as the answer came in.

@@ -65,13 +65,18 @@ function ensureP5() {
       //: emblem is drawn while the shell boots, and a dynamic script is off
       //: the parser's path but still on the network's.
       const later = window.requestIdleCallback || ((fn) => setTimeout(fn, 800));
-      later(() => {
-        const script = document.createElement("script");
-        script.src = "/vendor/p5.min.js";
-        script.onload = () => resolve(typeof p5 !== "undefined");
-        script.onerror = () => resolve(false);
-        document.head.appendChild(script);
-      });
+      const start = () =>
+        later(() => {
+          const script = document.createElement("script");
+          script.src = "/vendor/p5.min.js";
+          script.onload = () => resolve(typeof p5 !== "undefined");
+          script.onerror = () => resolve(false);
+          document.head.appendChild(script);
+        });
+      //: After the last script, not at the first idle moment: on a slow load
+      //: p5 finished first and `renderEmblem` threw on settings.js's `ACCENTS`.
+      if (document.readyState === "complete") start();
+      else window.addEventListener("load", start, { once: true });
     });
   }
   return p5Loading;
@@ -2130,7 +2135,9 @@ $("pref-show-console").addEventListener("change", async (e) => {
 // ROADMAP item C: "several extras only take effect on restart and the app
 // says so without offering one." This is that offer, a plain restart, not
 // tied to any preference changing, for Settings → About.
-async function forceReloadApp() {
+//: The app's own caches, forgotten (INBOX 487): service worker, Cache Storage,
+//: the server's compressed files. Each part is best effort; the caller reloads.
+async function clearAppCache() {
   try {
     const regs = await navigator.serviceWorker?.getRegistrations?.();
     await Promise.all((regs || []).map((r) => r.unregister()));
@@ -2139,8 +2146,24 @@ async function forceReloadApp() {
   } catch {
     // Nothing to clear, or storage refused, the reload alone still helps.
   }
+  try {
+    await apiJson("/system/clear-static-cache", { method: "POST" });
+  } catch {
+    // The server's copies are rebuilt per file version anyway.
+  }
+}
+async function forceReloadApp() {
+  await clearAppCache();
   location.reload();
 }
+//: Settings, Data: the same clearing with a word first, and a beat so the toast
+//: is read before the page goes.
+$("clear-app-cache")?.addEventListener("click", async (event) => {
+  event.currentTarget.disabled = true;
+  await clearAppCache();
+  toast("App cache cleared. Reloading.");
+  setTimeout(() => location.reload(), 900);
+});
 $("about-force-reload")?.addEventListener("click", forceReloadApp);
 
 //: `restartMemoryMap` (settings-panes.js): one restart mechanism shared with

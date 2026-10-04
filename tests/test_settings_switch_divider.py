@@ -6,7 +6,8 @@ the text edge; the row's top border went with it, 9px past the head's
 underline each side (464 (13), measured on 67 rows at 1440). The line is now
 an inset background image whose width takes back exactly what the hang adds,
 and the Tools grid's track can no longer be wider than a phone's column.
-The browser half is `divider.js`'s overhang, 0/0 on every row at 1440 and 390.
+The browser half is `scratchpad/ui-sweeps/switchdivider.js`'s overhang,
+0/0 on every row at 1440 and 390.
 """
 import re
 from pathlib import Path

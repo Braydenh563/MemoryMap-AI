@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Developer sweeps: switchdivider.js measures each Settings switch row's hairline against its group head; the INBOX 464 audit records items 9 to 20 as fixed, with their numbers.
 - Dashboard on a phone: the search field runs to its menu button with the bar's usual gap (it stopped 19px short).
 - Library, Bookmarks: the empty state no longer repeats the line under the bar; it is its title and Add a bookmark.
 - Settings, Data: importing markdown files, a folder or a document is one step: the button opens the picker and choosing starts the import, with Undo in the toast that moves exactly the imported notes to the recycle bin (it was choose, then a second Import button).

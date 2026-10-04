@@ -47,12 +47,17 @@ def test_the_page_is_hero_dock_start_row_then_the_grid():
         assert gone not in page, f"{gone} is back on the first screen"
 
 
-def test_the_dock_is_the_search_and_one_menu():
+def test_the_dock_is_the_search_customise_and_one_menu():
+    """INBOX 488: arranging the page is its own labelled menu (Customise)
+    beside the ⋯, which keeps the things you do; the Quick access row has no
+    ⋯ of its own any more, so no menu opens over another menu's button."""
     page = _dashboard_markup()
     dock = page[page.index('data-dock-name="dashboard"') : page.index('id="dash-quicklinks"')]
     assert 'id="dash-find"' in dock
     assert re.search(r'<span[^>]*id="dash-more"[^>]*class="[^"]*dock-more', dock)
-    assert len(re.findall(r"<button\b", dock)) == 1, "the dock is the search and the menu, nothing else"
+    assert dock.index('id="dash-customise"') < dock.index('id="dash-more"')
+    assert len(re.findall(r"<button\b", dock)) == 1, "the dock is the search and two menus, nothing else"
+    assert "kebabMenu(" not in _function("renderQuickLinks"), "Quick access has its own ⋯ again"
 
 
 def test_the_start_row_is_kept_whole_with_one_primary():
@@ -71,10 +76,13 @@ def test_everything_else_that_left_the_first_screen_is_one_menu_away():
     """Every action the removed bands offered is a row of the dock's menu,
     and the figures the stat tiles showed are widgets in the picker."""
     items = _function("dashMoreItems")
+    custom = _function("dashCustomiseItems")
     for row in ("Tools & features", "Commands", "All skills"):
         assert row in DASH, f"{row} is reachable from nowhere on the dashboard"
     assert "recentSkillLinks()" in items and "dashContinueNote(" in items and "QUICK_GO" in items
-    assert "Widgets" in items and "Edit layout" in items and "applyDashDensity(" in items
+    assert "Widgets" in custom and "Edit layout" in custom and "applyDashDensity(" in custom
+    assert "Edit quick access" in custom and "Reset quick access" in custom
+    assert "Widgets" not in items and "applyDashDensity(" not in items, "the ⋯ mixes doing and arranging again"
     assert "QUICK_START" not in items, "the menu repeats the tiles under it"
     for widget in ("stats:", "streak:", "pace:"):
         assert re.search(rf"^\s+{widget} \{{ title:", DASH, re.M), f"the {widget} widget is gone"
@@ -83,7 +91,9 @@ def test_everything_else_that_left_the_first_screen_is_one_menu_away():
 def test_a_long_menu_is_grouped():
     items = _function("dashMoreItems")
     groups = set(re.findall(r'(?:group: |row\(link, )"([a-z]+)"', items))
-    assert len(groups) >= 4, groups
+    assert len(groups) >= 3, groups
+    custom = set(re.findall(r'group: "([a-z]+)"', _function("dashCustomiseItems")))
+    assert len(custom) >= 2, custom
 
 
 def test_the_streak_still_reaches_atlas_and_the_companion():

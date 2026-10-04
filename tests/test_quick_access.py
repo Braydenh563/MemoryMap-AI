@@ -149,10 +149,15 @@ def test_the_row_draws_from_the_command_catalogue_not_a_list_of_its_own():
     assert "quickCatalogue()" in EDIT
 
 
-def test_customise_and_reset_are_a_section_kebab_menu():
+def test_customise_and_reset_are_rows_of_the_dashboard_customise_menu():
+    """INBOX 488: the row's own ⋯ sat under the dock's ⋯, whose menu opened
+    over it. Editing and resetting the row are rows of the dock's Customise
+    menu now, beside the view, the widgets and the layout."""
     draw = _block(DASH, "function renderQuickLinks()", "\n}\n")
-    assert "kebabMenu(" in draw and "Customise" in draw and "Reset to default" in draw
-    assert "saveQuickAccess([])" in draw
+    assert "kebabMenu(" not in draw
+    custom = _block(DASH, "function dashCustomiseItems()", "\n}\n")
+    assert "Edit quick access" in custom and "Reset quick access" in custom
+    assert "saveQuickAccess([])" in custom and "quickEditing = true" in custom
 
 
 def test_adding_uses_the_rich_picker_and_arranging_has_a_keyboard_route():

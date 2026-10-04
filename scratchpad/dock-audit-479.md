@@ -128,6 +128,20 @@ mark moved no wrap): a
     (38px of chrome, and the board's own Boards button already goes back).
     INBOX 476's decision; **open** there, not duplicated here.
 
+15. **The Dashboard's two stacked ⋯ menus** (INBOX 488, the owner:
+    "confusing to have the widget management stuff in the meatball menu button
+    above the meatball menu button which covers the quick access"). The dock's
+    ⋯ held doing (Continue, skills, Tools & features, Commands) and arranging
+    (View, Widgets, Edit layout) in one list, and opened straight down over
+    the Quick access row's own ⋯ (Customise, Reset to default) 52px below its
+    button. **Fixed**: the dock is search | Customise, ⋯. Customise (a labelled
+    ghost button, the `kebabMenu` recipe) holds View, Widgets, Edit layout,
+    Edit quick access and Reset quick access in two groups; the ⋯ keeps the
+    doing; the Quick access row has no menu of its own. Measured at 1440:
+    Customise 129x32 at x=1245, its menu 200x196 under it; 0 menus in the
+    Quick access row (was 1). At 390 Customise is its glyph, 44x44, beside
+    the ⋯. The Guide's dashboard topic says the same.
+
 Checked and consistent (no finding): one control height per dock at every width
 (32px desktop, 44px touch); zone order on every `.dock`; one filled control per
 dock; utilities in refresh, help, more order; the status bar's three zones at
@@ -142,7 +156,7 @@ corner at 390 and 820 (no overlap).
   lock, quit. Unchanged. Wrapped (600 to 1199): the strip on its own row,
   hugging its tabs, centred (planned).
 - **Status bar**: state | tools | control. Unchanged.
-- **Dashboard**: find doorway | ⋯. Unchanged.
+- **Dashboard**: find doorway | Customise, ⋯ (fixed, INBOX 488).
 - **Notes**: All notes | search, Filter | sort, view | Select, **New note**, '?',
   ⋯. Target: Select into ⋯ (seven).
 - **Notes, Write with Atlas**: title | model, **Draft**, Undo, '?', ⋯. Unchanged.

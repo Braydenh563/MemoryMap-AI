@@ -920,7 +920,7 @@ function beginOrCompleteLink(entry) {
     body: JSON.stringify({ target_id: target }),
   })
     .then((updated) => {
-      toast("Linked!");
+      toast("Linked.");
       let liveLinkId = updated.links.find((l) => l.entry_id === target)?.link_id;
       pushUndo(
         "Linked two notes",

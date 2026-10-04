@@ -2301,7 +2301,7 @@ async function streamChat({
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed (${response.status})`);
+    throw new Error(plainHttpError(response.status, detail.detail));
   }
 
   const reader = response.body.getReader();

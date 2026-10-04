@@ -8817,7 +8817,7 @@ onDomReady(() => {
           body: form,
         });
         const body = await response.json();
-        if (!response.ok) throw new Error(body.detail || `Upload failed (${response.status})`);
+        if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The upload did not work. Try again."));
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);

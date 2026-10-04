@@ -243,9 +243,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   //: The version alone: "46 entries loaded" was a debugging line (the
   //: client's cache size, drafts included) sitting beside the Health
   //: section's own count of the same thing, and the two disagreed.
-  $("about-version").textContent = `Version ${
-    (await apiJson("/health").catch(() => ({ version: "?" }))).version
-  }`;
+  const aboutHealth = await apiJson("/health").catch(() => null);
+  $("about-version").textContent = aboutHealth?.version ? `Version ${aboutHealth.version}` : "Version not available right now";
   if (typeof nameMarkBuddyMotion === "function") {
     const { mode, reason } = nameMarkBuddyMotion();
     const word = { full: "moves freely", fades: "fades only", still: "stays still" }[mode];
@@ -1121,7 +1120,7 @@ async function downloadSupportBundle() {
     const response = await fetch("/support-bundle", {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
     });
-    if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
+    if (!response.ok) throw new Error("Couldn't build the support bundle. Try again.");
     await saveFile("memorymap-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {

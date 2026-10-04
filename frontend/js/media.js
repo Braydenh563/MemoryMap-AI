@@ -684,7 +684,7 @@ async function toggleDictation(button, targetInput) {
         body: form,
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The transcription did not work. Try again."));
       const box = recorderTarget;
       box.value = box.value ? `${box.value.trimEnd()} ${body.text}` : body.text;
       box.focus();
@@ -947,7 +947,7 @@ async function toggleMeetingRecording() {
         body: form,
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The transcription did not work. Try again."));
       $("meeting-status").textContent = "Transcribed: review it below before saving.";
       $("meeting-transcript").value = body.text;
       $("meeting-transcript").classList.remove("hidden");

@@ -89,7 +89,7 @@
       "Something failed while starting: " +
         (event.message || "a script error") +
         ". Close MemoryMap and start it again. If it keeps happening this is " +
-        "a bug \u2014 the message above is the useful part of the report."
+        "a bug, and the message above is the useful part of the report."
     );
   });
 
@@ -106,7 +106,7 @@
       "The app blocked one of its own scripts (" +
         (event.violatedDirective || "script-src") +
         "). This usually means the MemoryMap server is still running from " +
-        "before an update \u2014 close MemoryMap completely and start it again."
+        "before an update. Close MemoryMap completely and start it again."
     );
   });
 

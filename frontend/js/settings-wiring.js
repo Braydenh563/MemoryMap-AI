@@ -2620,7 +2620,7 @@ async function uploadStagedFiles(entryId) {
     if (!response.ok) {
       failures++;
       const detail = await response.json().catch(() => ({}));
-      toast(detail.detail || `${file.name}: couldn't attach (${response.status})`, true);
+      toast(plainHttpError(response.status, detail.detail, `${file.name}: couldn't attach. Try again.`), true);
     }
   }
   // Only mentioned when it worked; a failure already said so, per file, and

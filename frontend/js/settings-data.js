@@ -310,7 +310,7 @@ async function importMarkdown(inputId = "import-md-files") {
       headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
-    if (!response.ok) throw new Error(`Import failed (${response.status})`);
+    if (!response.ok) throw new Error("The import did not work. Check the file and try again.");
     const result = await response.json();
     status.textContent =
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
@@ -346,7 +346,7 @@ async function importDocument() {
     });
     if (!response.ok) {
       const detail = await response.json().catch(() => ({}));
-      throw new Error(detail.detail || `Import failed (${response.status})`);
+      throw new Error(plainHttpError(response.status, detail.detail, "The import did not work. Check the file and try again."));
     }
     const result = await response.json();
     status.textContent =

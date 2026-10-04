@@ -299,21 +299,7 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 ### D2 Notes: list, capture, edit (L, Opus)
 
-Exists: the list with card/list views, filters, select mode, capture with
-templates, the edit form, connections. Wrong: a note shows no backlinks
-inline; `[[` has no autocomplete; the capture footer is two wrapped rows
-with a FAB over the Save button; the edit form's gutter drifts. Target:
-capture is one field with a slash menu and `[[` autocomplete, a one-row
-footer; a note's page has a connections rail (backlinks, links, related by
-similarity, in the same map) that is always visible on desktop and a sheet
-on phone. Brief: `[[` autocomplete over `/entries?q=` with keyboard
-selection; a `.connections-rail` component rendered from `/entries/{id}/links`
-(exists) and `/entries/{id}/related`; the footer on the bar recipe. Gate:
-typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
-renders for every note; the FAB never overlaps a primary (Playwright
-intersection check).
-
-**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
+**Built** (`[[` autocomplete, and the connections rail 2026-09-27). Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (D2 connections rail)", with the 2026-10-04 re-measure. Nothing of D2 is open here.
 
 ### D3 Chat (M, Opus)
 
@@ -543,17 +529,9 @@ on 2026-09-14 (INBOX 220) so they survive its archiving.
 
 ### B2 The job runtime: durable, resumable, observable
 
-Today long work runs in threads with no persistence (MODERNISATION_AUDIT
-D2). Move: a `jobs` table (`id, kind, state, progress, payload, result,
-error, attempts, run_after, heartbeat`), a single worker thread per process
-that leases jobs, a `@job` decorator that makes any function durable, and
-SSE `/jobs/stream` for the UI. Jobs: re-index, embed, OCR, caption,
-auto-file, skill run, import, backup, model download. Every job is
-cancellable, survives a restart, and reports progress in one shape the
-"Running now" panel renders. Gate: kill the server mid-OCR, restart, the
-job resumes; the panel shows it.
+**Built 2026-10-04 for the pool's kinds.** Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (B2 durable jobs)": the `jobs` table, leases with a heartbeat, resume after a kill (a real SIGKILL in `tests/test_jobstore.py`), `GET /jobs`, `GET /jobs/stream`, cancel of a queued job.
 
-**State 2026-09-24:** (b) the bounded pool is built (`core/jobs.py`, `tests/test_jobs_pool.py`, audit row A3); the durable half is not: no `jobs` table, no lease or heartbeat, no resume after a kill, no `/jobs/stream`. L, Opus.
+**Left:** the other kinds onto the table (re-index, embed, skill run, import, backup, model download: each runs in its own thread with its own cancel today and needs a handler that resumes from a cursor rather than from the start); the activity panel reading `/jobs/stream` instead of polling `/tasks`; a running job cannot be cancelled (cooperative stop per handler). M, Opus.
 
 ### B3 The retrieval engine: one index, three signals, explained
 
@@ -800,9 +778,9 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 | S | HISTORY; §12 |
-| 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
-| 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 (sized M 2026-10-04, §12 has the shape) | M | HISTORY; §12 |
+| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
+| 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
@@ -929,6 +907,16 @@ plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 **Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
 hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
 and the switch in Settings, Account and security. Left: IPv6 addresses.
+Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
+Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
+must bind its own `socket.create_server(("::", port), family=AF_INET6,
+dualstack_ipv6=True)` (falling back to 0.0.0.0 where
+`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
+sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
+as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
+bracketed (never link-local, which needs a zone id no browser takes); and
+`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
+over a v4 address against the same server. Windows is not testable here.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 

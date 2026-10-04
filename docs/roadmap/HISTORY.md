@@ -39583,3 +39583,93 @@ inside the 390 sheet (measured 44px each, none past the edge, after a first
 run found the property row running off it). The closed panel is 676px of
 list in its 492px box at 1440x900, 39px more than before the fold (it
 already scrolled, 637 in 492).
+
+
+## Moved from the plans, 2026-10-04 (B2 durable jobs)
+
+### From WORLD_CLASS_PLAN.md B2: the spec as written
+
+Today long work runs in threads with no persistence (MODERNISATION_AUDIT
+D2). Move: a `jobs` table (`id, kind, state, progress, payload, result,
+error, attempts, run_after, heartbeat`), a single worker thread per process
+that leases jobs, a `@job` decorator that makes any function durable, and
+SSE `/jobs/stream` for the UI. Jobs: re-index, embed, OCR, caption,
+auto-file, skill run, import, backup, model download. Every job is
+cancellable, survives a restart, and reports progress in one shape the
+"Running now" panel renders. Gate: kill the server mid-OCR, restart, the
+job resumes; the panel shows it.
+
+**State 2026-09-24:** (b) the bounded pool is built (`core/jobs.py`, `tests/test_jobs_pool.py`, audit row A3); the durable half is not: no `jobs` table, no lease or heartbeat, no resume after a kill, no `/jobs/stream`. L, Opus.
+
+### Built 2026-10-04: the durable half, for the pool's kinds
+
+- **`core/jobstore.py`** and a `jobs` table (`DurableJob`: kind, name,
+  state, JSON payload, dedupe key, attempts, owner, lease_until, heartbeat,
+  result, error, created/started/finished). A new table, so `create_all`
+  builds it on every notebook; no migration, the same as `job_runs`.
+- **What is durable:** a pool job (`core/jobs.py`) whose kind has a named
+  handler in `jobstore.HANDLERS` and whose arguments are plain data: OCR,
+  caption, vision, vision-pdf, document, file-entry. Each handler checks
+  its stored result first, so a repeat is safe. Handlers are named
+  ("module:function"), never pickled; a stand-in function (a test's
+  monkeypatch, a lambda) runs as before and is not remembered.
+- **Lease:** the worker claims a row with one atomic UPDATE (queued to
+  running, `owner` = pid plus a random tail, `lease_until` 30 s); a
+  heartbeat thread renews every 10 s while the process holds a lease and
+  stops when it holds none.
+- **Resume** (`jobs.resume()`, called by `create_app` after
+  `jobruns.mark_interrupted`): queued rows, and running rows whose lease
+  lapsed, are queued again; a lease still standing is waited out with a
+  timer (a second live server on the same file keeps its job). Three
+  tries at most, then `failed` with the reason; an unknown kind fails
+  alone. A resumed row the pool's dedupe matches is closed, never left
+  queued. Finished rows pruned at launch: a week, 500 at most.
+- **Routes:** `GET /jobs` (limit), `GET /jobs/stream` (server-sent events,
+  a snapshot on every change by a version counter, a ping every 15 s,
+  closes after 60 s for `EventSource` to reopen; `seconds=0` for one
+  snapshot), `POST /jobs/{id}/cancel` (queued only; a running job is not
+  interrupted and the answer says so). The activity panel's Quit now
+  appears on, and stops, a queued reading (`/tasks/cancel` with `job-<kind>`).
+- **Measured:** `tests/test_jobstore.py`, 17 tests; the gate is two real
+  processes: the first is SIGKILLed inside the job (row running, attempts
+  1), the second resumes it and finishes it (row done, attempts 2), 4.1 s.
+  In the real app on :8802: an upload recorded its three readings; with
+  the server killed and the OCR row set back to running under a lapsed
+  lease, the next launch ran it (done, attempts 2) and the queued caption.
+- **Not verified:** the panel showing a resumed job (the readings here
+  finish in milliseconds without Tesseract or a vision model); Windows.
+
+
+## Moved from the plans, 2026-10-04 (D2 connections rail)
+
+### From WORLD_CLASS_PLAN.md D2: the spec and its state line, moved whole
+
+Exists: the list with card/list views, filters, select mode, capture with
+templates, the edit form, connections. Wrong: a note shows no backlinks
+inline; `[[` has no autocomplete; the capture footer is two wrapped rows
+with a FAB over the Save button; the edit form's gutter drifts. Target:
+capture is one field with a slash menu and `[[` autocomplete, a one-row
+footer; a note's page has a connections rail (backlinks, links, related by
+similarity, in the same map) that is always visible on desktop and a sheet
+on phone. Brief: `[[` autocomplete over `/entries?q=` with keyboard
+selection; a `.connections-rail` component rendered from `/entries/{id}/links`
+(exists) and `/entries/{id}/related`; the footer on the bar recipe. Gate:
+typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
+renders for every note; the FAB never overlaps a primary (Playwright
+intersection check).
+
+**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
+
+### Re-measured 2026-10-04 (WORLD_CLASS_PLAN row 4)
+
+`scratchpad/ui-sweeps/notesrail.js` against the showcase notebook
+(`seed-showcase.py`, 71 notes) on the branch head: 30/30 checks light and
+30/30 dark, at 1440, 1280, 1024 and 390. At 1440 and 1280 the rail comes
+with an opened note, beside the list without overlap, the reading column
+at least 600px, nothing sideways, arrows and Escape, a row opens its note,
+hiding is remembered; at 1024 and 390 no rail and the Connections sheet
+opens. The rail at 1280 and wider (not at 1024) is the recorded decision:
+at 1024 a third column leaves the reading column under 600px. A notebook
+seeded by `seed.js` alone has one link and fails "selecting a linked note
+brings the rail" for want of a note with two connections, which is the
+fixture, not the rail.

@@ -1589,6 +1589,49 @@ class JobRun(Base):
     duration_ms: Mapped[float | None] = mapped_column(Float, default=None)
 
 
+class DurableJob(Base):
+    """One piece of queued background work that outlives the process
+    (WORLD_CLASS_PLAN B2). Written only through `core/jobstore.py`.
+
+    **One row per job, unlike `JobRun`'s one per kind**: the question here
+    is "what was still to do when the app closed", which is a row per thing
+    to do. Finished rows are pruned at launch (`jobstore.prune`), so the
+    table holds the work in hand plus a short tail of what ended.
+
+    `state` is "queued", "running", "done", "failed" or "cancelled". A row
+    is *running* only while `owner` (a process token) holds an unexpired
+    `lease_until`, which its heartbeat renews; a running row whose lease has
+    lapsed belongs to a process that is gone, and is queued again.
+    `payload` is the JSON arguments of the handler `kind` names in
+    `jobstore.HANDLERS`, never code. No `workspace_id`: a job's arguments
+    name rows by id, and the handler re-establishes the space itself, as
+    `_file_entry_in_background` already does.
+
+    A new table, so `create_all` builds it (and its indexes) on every
+    notebook, old and new: no migration is needed, the same as `job_runs`.
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    state: Mapped[str] = mapped_column(String(12), default="queued", index=True)
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    #: The pool's dedupe key as JSON, so a resumed job still dedupes against
+    #: a fresh request for the same picture.
+    dedupe_key: Mapped[str | None] = mapped_column(String(300), default=None)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    heartbeat: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
 class UserPreference(Base):
     """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
 

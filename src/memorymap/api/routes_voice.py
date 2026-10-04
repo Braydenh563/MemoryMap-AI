@@ -84,7 +84,7 @@ def _transcribe_upload(
 @router.post("/transcribe")
 def transcribe(file: UploadFile, session: Session = Depends(get_session)) -> dict:
     return _transcribe_upload(
-        file, session, MAX_AUDIO_BYTES, "Recording is larger than 25 MB"
+        file, session, MAX_AUDIO_BYTES, "That recording is larger than 25 MB."
     )
 
 
@@ -97,7 +97,7 @@ def transcribe_meeting(file: UploadFile, session: Session = Depends(get_session)
         file,
         session,
         MAX_MEETING_AUDIO_BYTES,
-        "Recording is larger than 300 MB",
+        "That recording is larger than 300 MB.",
     )
 
 

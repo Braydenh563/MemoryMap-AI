@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A test now holds the wording of every server error message (tests/test_server_detail_wording.py): each one has to read as a sentence with a full stop, with no field name, path, dash or exclamation mark, because the toast shows it as written; the voice and update messages were tidied to pass (INBOX 472)
 - Error sentences, whiteboards and mind maps: the messages that named fields ("needs a ref_id", "/media/... url", "No node with id 12") and the XML import message that printed a <!DOCTYPE> tag now say what to do in plain words (INBOX 472)
 - Error sentences, models, settings, spaces and the timeline: a model that is not running now says to start it, a space name or icon that is not accepted says what to do instead of naming the field, and the timeline's bad-value messages read "Pick one of: ..." (INBOX 472)
 - Error sentences, files, reminders and the learned page: "File is missing from disk", "No upload with that id", "no such derived fact", "as_of must be YYYY-MM-DD" and the image-reading hints now read as sentences a person can act on ("No installed model can read images. Install or pick one in Settings"), and no longer name a field (INBOX 472)

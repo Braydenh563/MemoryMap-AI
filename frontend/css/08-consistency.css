@@ -7349,8 +7349,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
 #nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); transition: translate var(--motion-fast) var(--ease-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out); }
 #nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
+/* **The pupils stay in the eyes** (INBOX 497, the owner: "when I have my
+   cursor to the top right of the companion or atlas, the pupils basically
+   go off the head and you can only see white eyes"). Four offsets added up
+   on Atlas's iris: the generated faces' `.nm-eyes` rules (the attend look,
+   3.4px by 2.6px; the list faces' pointer follow; reading), its own iris
+   rule above, the mood's `--atl-px`/`--atl-py` and the lean, measured at
+   up to 3.3 times the room the pupil has in its eye
+   (scratchpad/ui-sweeps/companioneyes.js). The room is the almond's, less
+   the pupil's own size, for the larger pupil a mood gives it (curious,
+   1.1): about 1.7 across and 1.1 up in the drawing, less on screen once
+   curious's tilt is on it, so the sweep, which tests every point of the
+   pupil against the white as drawn, is the judge. Now the generated faces' eye
+   moves are not Atlas's (it has its own eye rig), its look is held inside
+   that room (avatars.js `nameMarkBuddyAim` keeps the aim inside the unit
+   circle, and the rule above scales it to 1.2 by 0.75), and while it looks
+   at something the mood's and the lean's own placing of the pupil ease out
+   of the way (the pupil's transform transition) rather than adding to the
+   look. A look act moves the whole eye rig, so the iris holds still under
+   it. */
+#nm-buddy .nm-atlas .nm-eyes { translate: none !important; }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-pupil { --atl-px: 0px; --atl-py: 0px; --atl-lean-dir: 0; }
+#nm-buddy.nmb-act-look .nm-atlas .atl-iris { translate: none; }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *, .atl-lw), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):
@@ -7786,15 +7808,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-front-lock { opacity: 0.9; }
 .nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
 .nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
-/* The feminine brow (atlas.js, `hairline`, `browStar`; INBOX 480): the hair
-   meets the brow in a soft shade, the way hair lies on skin, and one small
-   star sits in the swept hair at its peak, in a faint halo of the hair's
-   light. It replaces a lit hairline, dust and a circlet on a thread, four
-   arcs of light from wing to wing that read as a stray headband. Static:
-   it adds nothing to the motion budget. */
-.nm-atlas .atl-hairline-shade { fill: none; stroke: var(--atl-dp); stroke-width: 1.3; stroke-linecap: round; opacity: 0.14; }
-.nm-atlas .atl-strand-light { fill: none; stroke: white; stroke-width: 0.3; stroke-linecap: round; opacity: 0.4; }
-.nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.7; }
+/* The feminine fringe (atlas.js, `cap`, `fringeShade`, `browStar`; INBOX
+   480, "it still looks like she's wearing a night cap"): the hair parts off
+   centre and sweeps across the brow in three soft locks with the forehead
+   showing between them; a fine shade up each notch parts the locks, and a
+   small star is pinned at the parting. It replaces a smooth dome with a lit
+   (then shaded) arc for a hairline and parallel strand lines over it.
+   Static: it adds nothing to the motion budget. */
+.nm-atlas .atl-fringe-shade { fill: none; stroke: var(--atl-rim); stroke-width: 0.45; stroke-linecap: round; opacity: 0.32; }
+.nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.6; }
 .nm-atlas .atl-brow-star { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
@@ -7937,12 +7959,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-gown-train-haze { opacity: 0.42; }
 /* Her ribbon tails (atlas.js, `lowers`; INBOX 480), over the gown: the
    back tier in the nebula's lilac, the front tier in her light, each
-   ribbon's own opacity its group's `opacity` attribute. A pale stream down
-   the middle, a lit edge. */
+   ribbon's own opacity its group's `opacity` attribute. Fills alone: no
+   stroke, which from the waist read as strings. */
 .nm-atlas .atl-tail-ribbon-fill { fill: var(--atl-hi); }
 .nm-atlas .atl-tail-ribbon-back .atl-tail-ribbon-fill { fill: var(--atl-neb-c); }
-.nm-atlas .atl-tail-ribbon-stream { fill: white; opacity: 0.3; }
-.nm-atlas .atl-tail-ribbon-edge { fill: none; stroke: white; stroke-width: 0.35; stroke-linecap: round; opacity: 0.5; }
+/* Her sash (atlas.js, `sash`; INBOX 480): the waist the gown hangs from, a
+   soft lilac band with a sheen, filled, no outline. */
+.nm-atlas .atl-sash-fill { fill: var(--atl-neb-c); opacity: 0.5; }
+.nm-atlas .atl-sash-sheen { fill: white; opacity: 0.32; }
 .nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
 .nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
 .nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }
@@ -8133,6 +8157,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
   transition: opacity var(--motion-base) var(--ease-out);
+}
+/* On the companion an expression settles rather than switches (INBOX 497,
+   the owner: "smooth life-like transitions and movement and expressions"):
+   0.2s read as a cut on a face that changes its mood by itself, so its
+   parts cross over 0.6s, eased in and out. The eased wake and doze below
+   (1.8s) still win. */
+#nm-buddy .nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail, .atl-star) {
+  transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);
+}
+#nm-buddy .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
+  transition: opacity calc(var(--motion-base) * 3) var(--ease-in-out);
 }
 /* A wake or a doze is seen happening (the owner, 2026-09-27: "it opens its
    eyes and mouth for a sec like it is startled but then falls back asleep

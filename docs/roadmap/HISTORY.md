@@ -37151,6 +37151,53 @@ width, 47% of the column at 1440.
      the constellation waits for p5 (`ensureP5`) rather than reporting it
      missing. `dashhang.js`: a held request ends on Retry; Retry draws.
 
+501. **The owner, 2026-10-04 evening, verbatim.** "also when atlas or the
+     companion appears on the screen it just kinda appears and there is no
+     smooth or creative animation for it to happen, or even differences on
+     how it gets there". With the Atlas agent (480).
+     Fixed: entrances vary by place and do not repeat, 210 to 290 ms fade.
+497. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
+     feminine Atlas, pointer above right, both eyes all white).** "when I
+     have my cursor to the top right of the companion or atlas, the pupils
+     basically go off the head and you can only see white eyes. make teh
+     atlas behaviour more smooth and less sudden beginning and stopping of
+     actions, smooth life-like transitions and movement and expressions and
+     actions". With the Atlas agent (480).
+     Fixed: pupils kept inside the eyes, 0 of 960 readings outside; acts ease back; expressions settle over 0.6 s.
+481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
+     companion's speech line "I'm not talking to you." spilling right over
+     the art, its dark bubble collapsed to a small rectangle behind the first
+     letter).** "also these messages on the companion dont render properly".
+     Agent (with 480).
+     Fixed: speech bubble width, 24/24 cases (`companionsay.js`).
+480. **The owner, 2026-10-04 evening, verbatim, with two crops (the feminine
+     Atlas's lower body: a pale flared skirt of thin strands over the nebula
+     ring; and a band of light with sparkles across the forehead between the
+     ears).** "also I want a better and more majestic and attractive female
+     atlas lower body as well as a redesign of whatever this is on the
+     forehead between the ears". Agent (Opus, atlas.js art).
+     Fixed: ribbon tails, gown with a train, soft sash at the waist (Atlas merge).
+472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
+     is left and still open. Use your ui UX design skills to improve ui UX.
+     Enhance the backend optimise, make things faster. Polish the app to be
+     official and not just a demo". Placed: the orchestrator takes the
+     backend speed pass (measure every hot endpoint on a seeded notebook,
+     fix the slowest, numbers before and after); the UI agents carry the
+     UI half (464 items); then a demo-to-product polish sweep (copy,
+     empty states, about/version, first run). **Backend pass, 2026-10-04**
+     (2,018-note seed; `apibench.js`, `asgi_bench.py`): static files are
+     compressed once per version and kept on disk (stylesheet 22 to 46 ms
+     per fetch to 4 to 6 ms, restart included); the last two
+     `BaseHTTPMiddleware` layers are pure ASGI (0.3 to 0.8 ms per request);
+     the unlock gate stops querying users on every request (0.4 ms); the
+     graph decrypts a private note once, not twice. Measured and left:
+     `/entries` is 21 ms per 200 notes (8 query, 12 model build); `/graph`
+     is 90 ms at 2,018 notes, over half of it ORM loading, kept because
+     rows would change what `paths.build` receives; larger background note
+     pages did not help (`notesfull.js`: 1,158 ms vs 1,335 ms to the whole
+     list). Product polish sweep: agent.
+     Polish rounds landed 2026-10-04; remaining polish lives in the placed queue (WORLD_CLASS_PLAN 484 to 507).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

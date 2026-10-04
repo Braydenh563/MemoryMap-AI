@@ -44,52 +44,6 @@ with its owner named in the entry.
      appealing where the lower body meets the main body" (with the Atlas
      agent). Badges and the Timeline rail: agent.
 
-501. **The owner, 2026-10-04 evening, verbatim.** "also when atlas or the
-     companion appears on the screen it just kinda appears and there is no
-     smooth or creative animation for it to happen, or even differences on
-     how it gets there". With the Atlas agent (480).
-
-497. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
-     feminine Atlas, pointer above right, both eyes all white).** "when I
-     have my cursor to the top right of the companion or atlas, the pupils
-     basically go off the head and you can only see white eyes. make teh
-     atlas behaviour more smooth and less sudden beginning and stopping of
-     actions, smooth life-like transitions and movement and expressions and
-     actions". With the Atlas agent (480).
-
-481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
-     companion's speech line "I'm not talking to you." spilling right over
-     the art, its dark bubble collapsed to a small rectangle behind the first
-     letter).** "also these messages on the companion dont render properly".
-     Agent (with 480).
-
-480. **The owner, 2026-10-04 evening, verbatim, with two crops (the feminine
-     Atlas's lower body: a pale flared skirt of thin strands over the nebula
-     ring; and a band of light with sparkles across the forehead between the
-     ears).** "also I want a better and more majestic and attractive female
-     atlas lower body as well as a redesign of whatever this is on the
-     forehead between the ears". Agent (Opus, atlas.js art).
-
-472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
-     is left and still open. Use your ui UX design skills to improve ui UX.
-     Enhance the backend optimise, make things faster. Polish the app to be
-     official and not just a demo". Placed: the orchestrator takes the
-     backend speed pass (measure every hot endpoint on a seeded notebook,
-     fix the slowest, numbers before and after); the UI agents carry the
-     UI half (464 items); then a demo-to-product polish sweep (copy,
-     empty states, about/version, first run). **Backend pass, 2026-10-04**
-     (2,018-note seed; `apibench.js`, `asgi_bench.py`): static files are
-     compressed once per version and kept on disk (stylesheet 22 to 46 ms
-     per fetch to 4 to 6 ms, restart included); the last two
-     `BaseHTTPMiddleware` layers are pure ASGI (0.3 to 0.8 ms per request);
-     the unlock gate stops querying users on every request (0.4 ms); the
-     graph decrypts a private note once, not twice. Measured and left:
-     `/entries` is 21 ms per 200 notes (8 query, 12 model build); `/graph`
-     is 90 ms at 2,018 notes, over half of it ORM loading, kept because
-     rows would change what `paths.build` receives; larger background note
-     pages did not help (`notesfull.js`: 1,158 ms vs 1,335 ms to the whole
-     list). Product polish sweep: agent.
-
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
      orchestrator (reproduce with synthetic wheel streams; suspects: a

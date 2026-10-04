@@ -473,8 +473,9 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
     # have it look like a bald head with lots of hair coming from the back").
     for look in ("masculine", "feminine"):
         assert "cap: \"M" in _look(look), look
-    # The feminine parting went with the owner's "school girl vibes": the
-    # hairline is one arc with no parting (see the astral crown test).
+    # The centred parting went with the owner's "school girl vibes"; the
+    # fringe's off-centre parting is in the cap's own edge (see the fringe
+    # test), not a drawn line.
     assert "capPart" not in _look("feminine") and "atl-cap-part" not in ATLAS
     assert "function atlasHairCap(parent, spec)" in ATLAS
     # Over the head, under the ears, so the ears rise out of it.
@@ -484,47 +485,37 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
     assert "function atlasScalp(" not in ATLAS and 'fade("scalp"' not in ATLAS
 
 
-def test_the_feminine_front_locks_are_soft_and_seamless():
-    # Round 9 (the owner: "this front part of the feminine atlas hair needs a
-    # fix and smoothen"): no blade wisps with square roots over the cap.
+def test_the_feminine_hair_is_a_side_swept_fringe_not_a_cap():
+    # Round 9 swept the strands back off the brow after "school girl vibes"
+    # (a centre parting and two rounded curtains). INBOX 480 took away the
+    # lit hairline and circlet that read as a headband, and then the owner
+    # of the smooth dome left: "it still looks like she's wearing a night cap
+    # :(". The cap's lower edge is now a fringe: parted off centre and swept
+    # across the brow in three locks of different lengths, each ending in a
+    # point, with the forehead showing in the notches between them. No
+    # parallel strand lines, no arc for a hairline, and the star is small
+    # and off centre, at the parting.
     feminine = _look("feminine")
-    assert "frontLocks: [" in feminine
-    assert "atlasStem(seg, (t) => 0.35 + w * Math.sin(Math.PI * Math.min(1, t * 1.02)) ** 0.8, { samples: 10, cap: true })" in ATLAS
-    assert 'class: "atl-skin atl-lock atl-front-lock"' in ATLAS
-    assert "frontLocks" not in _look("masculine")
-
-
-def test_the_feminine_crown_is_astral_not_a_fringe():
-    # The owner after 0bcfd1a: "I dont like the forehead hair part. it gives
-    # off school girl vibes and not astral cosmic beauty vibes", and "a bit
-    # more texture to the start of the long hair". The strands are fine and
-    # swept up and back. INBOX 480 (the owner: "a redesign of whatever this
-    # is on the forehead between the ears"): the lit hairline, the root dust
-    # and the circlet on its thread read as a stray headband; the hairline
-    # is a soft shade and one star sits in the hair at its peak.
-    feminine = _look("feminine")
-    for key in ("hairline: \"M", "browStar: ["):
-        assert key in feminine, key
+    cap = re.search(r'cap: "([^"]+)"', feminine).group(1)
+    nums = [float(v) for v in re.findall(r"-?[0-9.]+", cap)]
+    ys = nums[1::2]
+    # The lower edge dips and rises: lock tips at 17 and more, notches back
+    # up to 15 and less between them (a cap's arc never rises again).
+    edge = ys[ys.index(20.6) + 1:]
+    dips = [y for y in edge if y >= 17]
+    notches = [y for y in edge if y <= 15]
+    assert len(dips) >= 3 and len(notches) >= 3, edge
+    for gone in ("frontLocks:", "hairline:", "atl-strand-light", "atl-hairline-shade"):
+        assert gone not in feminine and gone not in CSS, gone
+    assert "fringeShade: \"M" in feminine and '"atl-fringe-shade"' in ATLAS
+    x, y, k = (float(v) for v in re.search(r"browStar: \[([^\]]+)\]", feminine).group(1).split(","))
+    assert abs(x - 31) >= 6 and k <= 1.2, "a small star off centre, an ornament at the parting, not a badge"
     for gone in ("rootDust:", "circlet:", "spec.rootDust", "spec.circlet"):
         assert gone not in ATLAS, gone
-    for gone in ("atl-circlet", "atl-root-dust", "atl-hairline-glow", ".atl-hairline {"):
-        assert gone not in CSS, gone
-    shade = re.search(r"\.atl-hairline-shade \{[^}]*stroke: var\(--atl-dp\);[^}]*opacity: ([0-9.]+)", CSS)
-    assert shade and float(shade.group(1)) <= 0.2, "the hairline is a shade, never a line of light"
-    x, y, k = (float(v) for v in re.search(r"browStar: \[([^\]]+)\]", feminine).group(1).split(","))
-    assert 29 <= x <= 33 and y < 12.4 and k <= 1.6, "one small star, centred, in the hair above the hairline"
     # Static: the brow adds nothing to the motion budget.
-    assert not re.search(r"atl-brow-(star|halo)[^{]*\{[^}]*animation", CSS)
-    locks = feminine[feminine.index("frontLocks: ["):]
-    locks = locks[: locks.index("lowers: [")]
-    for w in re.findall(r"w: ([0-9.]+)", locks):
-        assert float(w) <= 1.5, "a front strand wider than 1.5 is a lock, the curtains again"
-    for seg in re.findall(r"seg: \[\[([^\]]+)\]\]", locks):
-        nums = [float(n) for n in seg.split(",")]
-        # Swept back toward the mass, which streams off to her left (+x),
-        # and never falling over the brow: the curtains ended at y 17 to 19.
-        assert nums[-2] > nums[0] and nums[-1] < 16, "a swept strand runs back toward the mass, above the brow"
-    assert '"atl-glint atl-brow-star"' in ATLAS and '"atl-strand-light"' in ATLAS
+    assert not re.search(r"atl-(brow-star|brow-halo|fringe-shade)[^{]*\{[^}]*animation", CSS)
+    # The masculine look keeps its own crest.
+    assert "fringeShade" not in _look("masculine") and "browStar" not in _look("masculine")
 
 
 def test_the_masculine_waist_has_no_seam():
@@ -804,3 +795,21 @@ def test_the_feminine_ribbon_tails_sway_out_of_step_on_their_boxes():
         assert ".atl-lw-lower-" in rule and "svg" not in rule, rule
     # The masculine look keeps its one lower layer.
     assert '"lower-back"' not in _look("masculine")
+
+
+def test_the_feminine_waist_is_a_soft_sash_with_no_strings():
+    # INBOX 480, the owner: "there is two wierd thin string like appendages
+    # coming from the feminine atlas lower body up top, smoothen and make
+    # more appealing where the lower body meets the main body". The strings
+    # were the ribbon tails' lit edges and pale streams, white lines up from
+    # their roots; the tails are fills alone, and the waist is a filled sash
+    # with a sheen, outside the torso's fade mask, with no stroke.
+    feminine = _look("feminine")
+    assert 'sash: "M' in feminine and 'sashSheen: "M' in feminine
+    assert '"atl-tail-ribbon-stream"' not in ATLAS and '"atl-tail-ribbon-edge"' not in ATLAS
+    assert "atl-tail-ribbon-stream" not in CSS and "atl-tail-ribbon-edge" not in CSS
+    for cls in ("atl-sash-fill", "atl-sash-sheen"):
+        rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS).group(1)
+        assert "stroke" not in rule, cls
+    assert 'const sash = atlasGroup(layer, "atl-sash");' in ATLAS
+    assert "sash" not in _look("masculine")

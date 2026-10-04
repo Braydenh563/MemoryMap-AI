@@ -5327,8 +5327,9 @@ function nameMarkBuddyTempo() {
     //: compositor; stepping them here would put them back on the main
     //: thread, so only what animates inside a drawing is paced.
     //: Nor a transition (round 7: a limb easing into a new pose, 420ms,
-    //: which stepped at 10Hz juddered; it is over before it costs much).
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.playState !== "finished");
+    //: which stepped at 10Hz juddered; it is over before it costs much),
+    //: nor a move let go (`nameMarkBuddyBlend`, 480ms), for the same reason.
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.id !== "nmb-blend" && a.playState !== "finished");
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a
@@ -5884,7 +5885,7 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   const walk = nmb.anim;
   const done = () => {
     if (nmb.anim !== walk) return;
-    buddy.classList.remove("nmb-walking");
+    nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));
     delete buddy.dataset.turn;
     nameMarkBuddyTravel(buddy, "");
   };
@@ -6346,11 +6347,26 @@ function nameMarkBuddyEnter(buddy, spot) {
   nmb.cameFrom = 0;
   const fromLeft = side ? side < 0 : x < innerWidth / 2;
   const reach = fromLeft ? x : innerWidth - x - NMB_W;
-  let how = "materialise";
-  if (spot.kind === "hang" || spot.pose === "hang") how = "down";
-  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) how = "up";
-  else if (reach < edge) how = "walk";
-  else if (side && reach < innerWidth * 0.5) how = "glide";
+  //: **Not the same way twice** (INBOX 501, the owner: "it just kinda
+  //: appears and there is no smooth or creative animation for it to
+  //: happen, or even differences on how it gets there"). The same perch
+  //: chose the same entrance every time: on the dashboard, hanging from
+  //: the top bar, the climb down five times in five (companionarrive.js).
+  //: Each place now has the ways that suit it, and the one it used last is
+  //: left out when there is another: hanging, down from the bar or
+  //: gathering out of starlight; on the bottom bar, up over it or
+  //: gathering; near a side, walking on, gliding in or gathering; further
+  //: in, gliding in from the side it came from or gathering.
+  let ways;
+  if (spot.kind === "hang" || spot.pose === "hang") ways = ["down", "materialise"];
+  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) ways = ["up", "materialise"];
+  else if (reach < edge) ways = ["walk", "glide", "materialise"];
+  else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];
+  else ways = ["materialise"];
+  const fresh = ways.filter((w) => w !== nmb.lastEnter);
+  const pick = fresh.length ? fresh : ways;
+  const how = pick[Math.floor(Math.random() * pick.length)];
+  nmb.lastEnter = how;
   buddy.dataset.route = `enter-${how}`;
   if (how === "glide") {
     const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
@@ -6412,7 +6428,9 @@ function nameMarkBuddyEnter(buddy, spot) {
     const at = (t, frame) => ({ translate: `0px ${t}px`, clipPath: clip(t), ...frame });
     nmb.anim = buddy.animate([
       at(from, { opacity: 0 }),
-      at(Math.round(from * 0.45), { opacity: 1, offset: 0.3 }),
+      //: Faded up over its first half (INBOX 501): over a third, 216ms,
+      //: it read as appearing rather than climbing out.
+      at(Math.round(from * 0.35), { opacity: 1, offset: 0.5 }),
       at(how === "down" ? 4 : -5, { offset: 0.78 }),
       at(0, {}),
     ], { duration, easing: "ease-in-out" });
@@ -6532,7 +6550,7 @@ function nameMarkBuddyAct(act, ms) {
   //: (`nmb-easing`), not in the frame its class comes off. The small ones
   //: (a blink, a look) have no face of their own.
   if (was && was !== act && !NMB_FACELESS_ACTS.includes(was)) nameMarkBuddyEase(buddy, 1800);
-  if (was) buddy.classList.remove(`nmb-act-${was}`);
+  if (was) nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));
   if (was === "lie" && act !== "lie" && !buddy.classList.contains("nmb-sleep")) nameMarkBuddyGetUp(buddy);
   if (act !== "emerge") buddy.classList.remove("nmb-duck");
   if (was === "turn" || was === "glance") delete buddy.dataset.turn;
@@ -6692,8 +6710,16 @@ function nameMarkBuddyAim(point, near = false) {
     const dx = point[0] - cx;
     const dy = point[1] - cy;
     const reach = Math.max(160 * size, Math.hypot(dx, dy));
-    lx = Math.max(-1, Math.min(1, (dx / reach) * 1.6));
-    ly = Math.max(-1, Math.min(1, (dy / reach) * 1.6));
+    lx = (dx / reach) * 1.6;
+    ly = (dy / reach) * 1.6;
+    //: Inside the unit circle, not the square (INBOX 497): clamped on each
+    //: axis, a pointer up and to the right put the look at (1, -1), 1.41
+    //: times as far as any single direction, and the pupils left the eyes.
+    const len = Math.hypot(lx, ly);
+    if (len > 1) {
+      lx /= len;
+      ly /= len;
+    }
   }
   //: **Close by, it keeps its eyes on you** (the owner: "atlas doesnt
   //: follow my mouse pointer when it is close. should it??"). Near, the
@@ -7491,6 +7517,50 @@ function nameMarkBuddyAsleep(buddy) {
 }
 //: Its face eased for `ms` (the CSS's `nmb-easing`: eyes, lids and mouth
 //: cross over 1.8s), so a wake or a doze is seen happening.
+//: **Let go of a move, never drop it** (INBOX 497, the owner: "make the
+//: atlas behaviour more smooth and less sudden beginning and stopping of
+//: actions"). An act's or a walk's motion is a CSS animation keyed on a
+//: class; taking the class off mid-way put every part back at rest in one
+//: frame (companionblend.js: 7 to 22px in a frame, against at most 4px a
+//: frame while the act ran), and a CSS transition cannot ease it, because a
+//: value an animation drove never starts one. So before `change` takes a
+//: class off, the parts it moves are read where they are; afterwards each
+//: animation that went is replaced by a short one from there back to rest
+//: (an implicit end keyframe: the rest the CSS now gives), eased in and
+//: out, so it neither lurches off nor stops dead. Only
+//: when something was moving, and never under reduced motion, where the
+//: change is made as it was.
+const NMB_BLEND_MS = 480;
+const NMB_BLEND_PROPS = ["transform", "translate", "rotate", "scale", "opacity"];
+function nameMarkBuddyBlend(buddy, change) {
+  if (!buddy || typeof buddy.getAnimations !== "function" || nameMarkIdleQuiet()) {
+    change();
+    return;
+  }
+  const held = [];
+  for (const anim of buddy.getAnimations({ subtree: true })) {
+    //: Running, or held by the pacer (`nameMarkBuddyTempo` pauses what
+    //: animates inside a drawing and steps it by hand).
+    if (!(typeof CSSAnimation === "function" && anim instanceof CSSAnimation) || anim.playState === "finished" || anim.playState === "idle") continue;
+    const el = anim.effect && anim.effect.target;
+    if (!el) continue;
+    const props = new Set();
+    for (const frame of anim.effect.getKeyframes()) for (const key of Object.keys(frame)) if (NMB_BLEND_PROPS.includes(key)) props.add(key);
+    if (!props.size) continue;
+    const style = getComputedStyle(el);
+    const from = {};
+    for (const key of props) from[key] = style[key];
+    held.push({ anim, el, from });
+  }
+  change();
+  if (!held.length) return;
+  for (const { anim, el, from } of held) {
+    if (el.getAnimations().includes(anim)) continue;
+    //: `offset: 0`: a lone keyframe with none is the end, not the start.
+    el.animate([{ ...from, offset: 0 }], { duration: NMB_BLEND_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+  }
+}
+
 function nameMarkBuddyEase(buddy, ms) {
   const until = Date.now() + ms;
   //: A longer ease already running (a wake's) is not cut short.

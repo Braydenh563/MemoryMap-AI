@@ -595,6 +595,18 @@ const ATLAS_LOOKS = {
     skirtDrape: "M25.6 52C24.6 56 23.8 61 24 65C24.2 69 24.6 71.6 24 75C23.2 79 21 82 18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2C42.4 84 40.4 80 39.4 75.6C38.6 72 38.2 69 38.4 65C38.6 61 37.8 56 37 52C33.4 50.6 29.2 50.6 25.6 52Z",
     skirtDrapeEdge: "M18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2",
     skirtHem: "M11.4 90.6C15.8 93 20.4 93.8 24.8 93.2C29 92.6 32 95 36.4 95.6C41.6 96.2 47.2 94.4 52.4 92.4M13.4 88.6C20 95.4 30 98.4 40 98.8C48.6 99.2 56 97.8 61.2 95C64.6 93 65.6 89.8 63.8 87.8",
+    //: **The waist is a sash, not a seam** (INBOX 480, the owner: "there is
+    //: two wierd thin string like appendages coming from the feminine atlas
+    //: lower body up top, smoothen and make more appealing where the lower
+    //: body meets the main body"). A soft band of the nebula's lilac across
+    //: the waist, its ends on the body's flanks and its lower edge dipping a
+    //: little at the front, filled, with a sheen and no outline: the gathered
+    //: waist the gown hangs from, over the place where the torso fades into
+    //: it. The strings were the ribbon tails' lit edges and pale streams,
+    //: fine white lines running up from their roots; the tails are now fills
+    //: alone.
+    sash: "M23.4 54.4C27.2 56 34.8 56 38.6 54.4C38.6 56.4 38 58.2 37 59.4C33.8 61.2 28.2 61.2 25 59.4C24 58.2 23.4 56.4 23.4 54.4Z",
+    sashSheen: "M25 55.4C28.6 56.7 33.4 56.7 37 55.4C33.6 57.3 28.4 57.3 25 55.4Z",
     skirtStars: [[17.6, 87.4, 0.28], [23.4, 90.6, 0.22], [28.8, 88.4, 0.3], [35.2, 92, 0.26], [41.2, 89.8, 0.32], [46.4, 91.6, 0.22], [44, 85, 0.2], [26.2, 84.4, 0.18], [52.6, 95.6, 0.3], [57.8, 93.8, 0.24], [61.4, 90.4, 0.28], [36.4, 80.2, 0.18]],
     //: Round 8 (the owner: "make the middle strands thicker and longer
     //: (reaching lower), keeping the outer ones as they are, so it reads
@@ -612,30 +624,22 @@ const ATLAS_LOOKS = {
     //: hair is swept back off the brow: the cap's lower edge is one high,
     //: smooth arc (the hairline, no parting), and fine strands rise from it
     //: up and back over the crown into the mass that streams behind.
-    //: **One star in the hair, not a band** (INBOX 480, the owner: "a
-    //: redesign of whatever this is on the forehead between the ears"). The
-    //: hairline used to be lit, a white line over a glow, with dust at the
-    //: roots and a circlet of dots on a thread above it: four arcs of light
-    //: from wing to wing, which at the companion's size read as a stray
-    //: headband or a glitch. Now the hairline is a soft shade where the hair
-    //: lies over the brow (`hairline`), which is how hair sits on skin, and
-    //: the one ornament is a small four-point star set in the swept hair at
-    //: its peak, in a faint halo (`browStar`: x, y, size), echoing the two
-    //: at the wing tips.
-    cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C42.2 15.4 37.6 12.4 31.6 12.2C25.6 12 20.6 15 17.8 21Z",
-    hairline: "M19.4 19C21.8 15 26 12.8 31.4 12.7C36.6 12.8 40.6 14.9 42.8 18.2",
-    browStar: [31.2, 9.9, 1.35],
-    //: The swept strands (drawn by the front-lock builder: thin at the
-    //: root, swelling, a rounded tip), fine enough to read as texture
-    //: rather than as locks: hair-fine at the hairline, rising up and back
-    //: over the crown toward the mass, each a different length.
-    frontLocks: [
-      { seg: [[19.2, 19.2, 19.4, 13, 24.6, 8.4, 32, 6.8]], w: 1.1 },
-      { seg: [[21, 17, 23, 11.4, 29.6, 8, 37.4, 7.2]], w: 1.4 },
-      { seg: [[24.6, 14.2, 27.4, 9.8, 33.6, 7.8, 41.2, 8.6]], w: 1.3 },
-      { seg: [[28.8, 12.8, 32, 9.8, 37.6, 9.2, 43, 11.8]], w: 1.2 },
-      { seg: [[33.4, 12.6, 36.8, 11.2, 40.8, 12.2, 43.8, 15.4]], w: 1 },
-    ],
+    //: **Hair, not a night cap** (INBOX 480, the owner of a smooth dome with
+    //: one star: "it still looks like she's wearing a night cap :("). A
+    //: dome of hair whose lower edge runs in one smooth arc across the
+    //: forehead is a cap, whatever is drawn on it. Now the hair parts off
+    //: centre, over her right eye (the viewer's right, x 37.4), and sweeps
+    //: across the brow to her left in three soft locks of different
+    //: lengths, each ending in a point (17, 18.4, then down past the temple
+    //: at 21), with the forehead's skin showing in the notches between
+    //: them (up to 12.8 and 14.2): a side-swept fringe that flows into the
+    //: hair behind, not the parted curtains of round 9. A fine shade runs
+    //: up each notch so the locks read as separate (`fringeShade`), and
+    //: the star is a small ornament pinned at the parting (`browStar`),
+    //: off centre, not a badge in the middle of a cap.
+    cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C43.2 16.6 40.8 13 37.4 11.4C36.2 13.6 35 15.6 33 17C32.6 15.2 31.8 13.8 30.4 12.8C29.4 15.2 27.8 17.2 25.4 18.4C25.6 16.6 25.4 15.2 24.6 14.2C22.8 16.6 20.4 18.6 17.8 21Z",
+    fringeShade: "M37.2 11.8C35.8 10.6 33.6 10.2 31.4 10.6M30.6 13.2C30.2 11.6 29 10.6 27.4 10.4M24.8 14.6C24.2 13.2 23 12.4 21.4 12.4",
+    browStar: [39.6, 10.2, 1],
     //: **Ribbon tails, not a tripod** (INBOX 480, the owner: "make the
     //: feminine atlas's whispy lower body limbs less like a tripod and more
     //: like whispy ribbony/flowy tails", and "i like the dress as well";
@@ -985,16 +989,15 @@ function atlasBuild() {
         //: A ribbon tail (INBOX 480): full at its root, tapering to a wisp
         //: 0.22 across, and pinched to 58% twice along its run where it
         //: turns edge-on, which is what makes a band read as a ribbon and
-        //: not as a limb. A pale stream weaves down its middle and its
-        //: edge is lit.
+        //: not as a limb. A fill alone: a lit edge and a pale stream down
+        //: the middle were fine white lines, which from the waist read as
+        //: strings (INBOX 480).
         const tail = (w) => (t) => (0.22 + (w - 0.22) * (1 - t) ** 0.85) * (0.58 + 0.42 * Math.abs(Math.cos(Math.PI * (t * 1.6 + 0.15))));
         spec.lowerPaths = spec.lowers.map(({ seg, w, specks, op, back }) => {
           const width = tail(w);
           return {
             side: 0,
             fill: atlasStem(seg, width, { samples: 18, cap: true }),
-            stream: atlasStem(seg, (t) => width(t) * 0.24, { samples: 18, cap: true, shift: (t) => width(t) * 0.22 * Math.sin(Math.PI * 2.2 * t + 0.4) }),
-            edge: atlasStemEdge(seg, width, 18),
             specks,
             op,
             back: !!back,
@@ -1426,27 +1429,21 @@ function atlasEars(parent, level, edge, look) {
     out[side] = g;
   }
   const wisps = atlasGroup(parent, "atl-crest atl-wisps", ATLAS_GEO.hair);
-  if (spec.frontPaths && !tiny) {
-    //: The feminine front locks: the cap's paint, no outline in the edge
-    //: layer (a glow round a lock over the cap is a seam).
+  if ((spec.frontPaths || spec.fringeShade) && !tiny) {
+    //: The feminine front locks, if a look has them: the cap's paint, no
+    //: outline in the edge layer (a glow round a lock over the cap is a seam).
     if (!edge) {
-      for (const d of spec.frontPaths) {
+      for (const d of spec.frontPaths || []) {
         atlasMake("path", { class: "atl-skin atl-lock atl-front-lock", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-neb", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-root", d }, wisps);
       }
-      //: A fine light line down each swept strand: the texture the owner
-      //: asked for at the start of the long hair.
-      if (spec.hairline && spec.frontLocks) {
-        const d = spec.frontLocks.map(({ seg }) => seg.map(([x0, y0, ...c], i) => `${i ? "" : `M${x0} ${y0}`}C${c.join(" ")}`).join("")).join("");
-        atlasMake("path", { class: "atl-strand-light", d }, wisps);
-      }
-      //: The hair's edge on the brow: a soft shade, not a line of light
-      //: (INBOX 480). Then the one star set in the hair at its peak.
-      if (spec.hairline) atlasMake("path", { class: "atl-hairline-shade", d: spec.hairline }, wisps);
+      //: The fringe's locks parted by a fine shade up each notch, then the
+      //: one star pinned at the parting (INBOX 480).
+      if (spec.fringeShade) atlasMake("path", { class: "atl-fringe-shade", d: spec.fringeShade }, wisps);
       if (spec.browStar) {
         const [x, y, k] = spec.browStar;
-        atlasMake("circle", { class: "atl-brow-halo", cx: x, cy: y, r: k * 1.9 }, wisps);
+        atlasMake("circle", { class: "atl-brow-halo", cx: x, cy: y, r: k * 1.8 }, wisps);
         atlasSpark(wisps, x, y, k, "atl-glint atl-brow-star");
       }
     }
@@ -1825,8 +1822,6 @@ function atlasBody(parent, id, props, look, route = null) {
         for (const part of parts) {
           const r = atlasMake("g", { class: `atl-tail-ribbon${back ? " atl-tail-ribbon-back" : ""}`, opacity: part.op }, g);
           atlasMake("path", { class: "atl-tail-ribbon-fill", d: part.fill }, r);
-          atlasMake("path", { class: "atl-tail-ribbon-stream", d: part.stream }, r);
-          atlasMake("path", { class: "atl-tail-ribbon-edge", d: part.edge }, r);
           if (part.specks.length) atlasSpecks(r, part.specks);
         }
       };
@@ -1923,6 +1918,14 @@ function atlasBody(parent, id, props, look, route = null) {
       atlasMake("circle", { class: "atl-const-dot atl-const-heart", cx: hx, cy: hy, r: stars[0][2] }, star);
       //: The gloss on the gel: one specular on the upper left of the body.
       atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 25.6, cy: 42.6, rx: 1.1, ry: 2.8, transform: "rotate(14 25.6 42.6)" }, torso);
+    }
+    //: The sash at the waist (INBOX 480), over the torso's fade, outside
+    //: its mask; as wide as the body is (the lab's body width).
+    if (spec.sash && !edge) {
+      const k = atlasTune().bodyWidth;
+      const sash = atlasGroup(layer, "atl-sash");
+      atlasMake("path", { class: "atl-sash-fill", d: atlasScalePathX(spec.sash, k, 31) }, sash);
+      atlasMake("path", { class: "atl-sash-sheen", d: atlasScalePathX(spec.sashSheen, k, 31) }, sash);
     }
     for (const [side, d] of spec.armPaths || ATLAS_LIMBS.arms) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);

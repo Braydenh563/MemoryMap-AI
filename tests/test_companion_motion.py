@@ -562,7 +562,9 @@ def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
     assert "NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS" in changed
     assert "if (!nmb.tab || tab === nmb.tab)" in changed
     enter = _fn("nameMarkBuddyEnter")
-    for how in ('how = "down"', 'how = "up"', 'how = "walk"', 'let how = "materialise"'):
+    # The ways it can come (INBOX 501 made the choice varied; see the test
+    # of not the same way twice).
+    for how in ('"down"', '"up"', '"walk"', '"materialise"', 'how === "down"', 'how === "walk"'):
         assert how in enter, how
     for guard in ("nameMarkBuddyBeat", "nameMarkBuddyCheck"):
         assert "nmb.away" in _fn(guard), guard
@@ -1349,7 +1351,10 @@ def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
     # Into a tab from the side of the tab it left.
     assert "nmb.cameFrom = nameMarkBuddyTabSide(nmb.tab, tab);" in _fn("nameMarkBuddyTabChanged")
     enter = _fn("nameMarkBuddyEnter")
-    assert 'else if (side && reach < innerWidth * 0.5) how = "glide";' in enter
+    # The side it glides in from is the tab's it left (INBOX 501 lets it
+    # glide in from the nearer edge at a start too).
+    assert "const fromLeft = side ? side < 0 : x < innerWidth / 2;" in enter
+    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];' in enter
 
 
 def test_its_limbs_move_with_it() -> None:
@@ -1395,3 +1400,72 @@ def test_a_speech_line_is_as_wide_as_its_words_wherever_it_is_said() -> None:
     assert "white-space: nowrap" not in base
     viewer = _css_rule(css, ".nm-viewer-figure > #nm-buddy > .nm-say")
     assert "left: 100%" in viewer and "right: auto" in viewer
+
+
+def test_atlas_pupils_stay_inside_its_eyes():
+    """INBOX 497, the owner: "when I have my cursor to the top right of the
+    companion or atlas, the pupils basically go off the head and you can
+    only see white eyes". Four offsets added up on Atlas's iris, measured at
+    up to 3.3 times the room its pupil has (`companioneyes.js`, which walks
+    every pose, both looks and four moods with the gaze at the 8 compass
+    points and the window's corners). The aim is held inside the unit
+    circle, the generated faces' eye moves are not Atlas's, its look scales
+    to the room (2 across, 1 up or down), and the mood's own pupil placement
+    eases out of the way while it looks at something."""
+    aim = _fn("nameMarkBuddyAim")
+    assert "const len = Math.hypot(lx, ly);" in aim and "lx /= len;" in aim and "ly /= len;" in aim
+    assert "Math.max(-1, Math.min(1, (dx / reach)" not in aim
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "#nm-buddy .nm-atlas .nm-eyes { translate: none !important; }" in css
+    assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-pupil { --atl-px: 0px; --atl-py: 0px; --atl-lean-dir: 0; }" in css
+    iris = re.search(r"#nm-buddy:is\(\.nmb-attend, \.nmb-watch\) \.nm-atlas \.atl-iris \{ translate: calc\(var\(--nmb-ex\) \* ([0-9.]+)px\) calc\(var\(--nmb-ey\) \* ([0-9.]+)px\)", css)
+    assert iris, "the iris follows the aim"
+    gx, gy = float(iris.group(1)), float(iris.group(2))
+    # The pupil's room in the almond, less its own size at a mood's larger
+    # pupil (1.1), the tightest of the two mirrored eyes, by direction
+    # (measured in the eye's own units, companioneyes.js): 1.7 across, 1.26
+    # up, 1.12 on the upward diagonals. The look's ellipse stays inside it,
+    # and nothing else moves the pupil while it looks.
+    import math
+    room = {0: 1.7, 22.5: 1.68, 45: 1.44, 67.5: 1.38, 90: 1.44, 270: 1.26, 292.5: 1.12, 315: 1.14, 337.5: 1.28}
+    for deg, r in room.items():
+        a = math.radians(deg)
+        reach = 1 / math.sqrt((math.cos(a) / gx) ** 2 + (math.sin(a) / gy) ** 2)
+        assert reach <= r, (deg, reach, r)
+    assert "--atl-lean-dir: 0; }" in css
+
+
+def test_an_act_or_a_walk_is_let_go_not_dropped():
+    """INBOX 497, the owner: "make the atlas behaviour more smooth and less
+    sudden beginning and stopping of actions". Taking an act's class off
+    mid-way put every part back at rest in one frame (companionblend.js: 7
+    to 22px in a frame against 2 to 4px while the act ran). The parts it
+    moved are read first and eased back from there (an `offset: 0`
+    keyframe, since a lone keyframe is the end), off the pacer, and not
+    under reduced motion; the companion's expressions cross over 0.6s."""
+    blend = _fn("nameMarkBuddyBlend")
+    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert 'id: "nmb-blend"' in blend
+    assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
+    assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
+    assert 'a.id !== "nmb-blend"' in _fn("nameMarkBuddyTempo")
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);" in css
+
+
+def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
+    """INBOX 501, the owner: "when atlas or the companion appears on the
+    screen it just kinda appears and there is no smooth or creative
+    animation for it to happen, or even differences on how it gets there".
+    The same perch chose the same entrance every time (the climb down from
+    the top bar five times in five on the dashboard, faded up in 136 to
+    200ms; companionarrive.js). Each place has the ways that suit it, the
+    last one is left out when there is another, and the climb fades up over
+    its first half."""
+    enter = _fn("nameMarkBuddyEnter")
+    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise"]' in enter
+    assert 'ways = ["walk", "glide", "materialise"]' in enter
+    assert "const fresh = ways.filter((w) => w !== nmb.lastEnter);" in enter and "nmb.lastEnter = how;" in enter
+    assert "opacity: 1, offset: 0.5 }" in enter
+    # Reduced motion still fades in where it is.
+    assert "if (nameMarkBuddyNoTravel()) {" in enter

@@ -2169,6 +2169,16 @@ summary > .ph-lead,
   background: var(--chip-bg);
 }
 
+/* On a phone the offer takes a button's corner, not the pill (INBOX 464
+   (16)): a question that wraps inside a pill is a two-line capsule (Chat's
+   was 320x46 at 390, the Notes empty state's 332x46). `--radius-md` holds
+   one line or two, and is the corner the chips beside it in Chat have. */
+@media (max-width: 599.98px) {
+  .help-atlas > .atlas-suggest {
+    border-radius: var(--radius-md);
+  }
+}
+
 /* The head, on the agent activity panel's terms: the controls beside the title
    are quiet until the pointer or the focus reaches them, because the card is
    already the frame (the same rule `.monitor-header-actions` takes, 08 above),

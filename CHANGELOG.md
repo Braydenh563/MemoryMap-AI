@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat: the Ask Atlas offer in an empty chat is one line on a phone ("Ask Atlas what it can change"), and on a phone every Ask Atlas offer takes a button's corner rather than a pill, so a longer question no longer wraps into a capsule.
 - Library: Everything and Boards & maps count boards the same way; the empty default board no longer counts (or shows) as a board in one and not the other, and a notebook with no boards shows the New board empty state.
 - Folds in Settings, the help guide and task logs show the same caret as the Library's Contents and outlines, where they drew a small triangle of their own.
 - Settings: the line between two switch rows stops where its group head's underline does (it ran 9px past it on each side), and on a phone the Tools list no longer runs 4px past its pane.

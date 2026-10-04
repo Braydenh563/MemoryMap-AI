@@ -166,7 +166,10 @@ HELP_TOPICS: list[dict] = [
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
             "Done. Set a priority, snooze, edit inline, or make one recurring. "
             "You can also just say \"call mum tomorrow evening\" in a note and "
-            "let the AI schedule it. Notifications fire while the app is open."
+            "let the AI schedule it. In the chat, \"remind me two hours before "
+            "midnight\" works too: Atlas passes your words and the app works "
+            "out the time on your own clock. Notifications fire while the app "
+            "is open."
         ),
         "badge": {"label": "Reminders", "tab": "reminders"},
     },

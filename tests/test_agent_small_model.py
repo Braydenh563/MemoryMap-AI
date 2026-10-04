@@ -145,6 +145,27 @@ def test_a_small_model_gets_the_core_set_and_nothing_else(monkeypatch, app_state
     assert sorted(_names(small.offered[0])) == sorted(expected)
 
 
+def test_a_small_model_is_offered_the_tool_its_request_names(monkeypatch, app_state):
+    """INBOX 527, measured on Qwen2.5-1.5B: the core alone holds one write, so
+    "Pin my dentist note" had no `pin_note` and the model wrote a duplicate
+    note. The request's cued groups ride after the stable core; orchestration
+    stays out."""
+    for question, needed in (
+        ("Pin my dentist note", "pin_note"),
+        ("Remind me tomorrow at 9 to call the dentist", "set_reminder"),
+        ("Tag my plumber note with urgent", "tag_note"),
+    ):
+        fake = _Recorder([], content="done")
+        monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"ok": True})
+        list(agent.run_agent(_Session(), question, [], _Models("qwen3.5:4b"), fake))
+        offered = _names(fake.offered[0])
+        assert needed in offered, (question, offered)
+        assert offered[: len(offered) - len(set(offered) - set(agent.tools.CORE_TOOLS))] == [
+            name for name in offered if name in agent.tools.CORE_TOOLS
+        ], "the core comes first"
+        assert not set(offered) & set(agent.tools.ORCHESTRATION_TOOLS)
+
+
 def test_a_small_model_gets_the_short_descriptions(monkeypatch, app_state):
     """Compaction is unconditional for a small model, not "once it overflows":
     on an 8k window the focused set measured 4,827 chars inside a 7,901-char
@@ -204,7 +225,11 @@ def test_a_small_model_stops_at_four_rounds(monkeypatch, app_state):
         rounds=rounds,
         results=[{"notes": [{"id": index}]} for index in range(12)],
     )
-    assert len(small.offered) <= agent.SMALL_MODEL_MAX_ROUNDS, len(small.offered)
+    # Tool rounds: the one after them (INBOX 527) offers no tools and only
+    # answers from what was found.
+    tool_rounds = [offered for offered in small.offered if offered]
+    assert len(tool_rounds) <= agent.SMALL_MODEL_MAX_ROUNDS, len(tool_rounds)
+    assert small.offered[-1] == []
     assert len(executed) <= agent.SMALL_MODEL_MAX_ROUNDS
 
 
@@ -345,6 +370,11 @@ def test_what_counts_as_an_announced_action():
         "To count notes in the Work category, I will use the count_notes function.",
         "Let me search your notes for that.",
         "I am going to create a note for this.",
+        # INBOX 527, Qwen2.5-1.5B: the note written out as markdown, the act
+        # announced in the middle, nothing called.
+        "Understood. I'll create a new note for you. Here it is:\n\n**Content:** "
+        + "buy oat milk and eggs. " * 20
+        + "\n\nI will call the tool to save the note for you.",
     ):
         assert agent.announces_unacted_tool(text, offered), text
     for text in (
@@ -354,6 +384,7 @@ def test_what_counts_as_an_announced_action():
         "",
         # A long answer is an answer, even if it promises more at the end.
         "Sourdough needs a starter fed daily. " * 20 + "I'll search for more if you like.",
+        "Sourdough needs a starter fed daily. " * 20 + "I'll list the steps below: feed, wait.",
     ):
         assert not agent.announces_unacted_tool(text, offered), text
     # Nothing to call, nothing to nudge toward.

@@ -247,3 +247,95 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", AGENT_SKILLS_REFORM.md)
     `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
     AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
     model on 2026-09-20; what that plan still holds is its evals breadth.
+
+## Harness robustness, 2026-10-04 (INBOX 527)
+
+The owner, verbatim: "use the available agentic harness skills to make sure
+the agentic harness is world class and unbelievably robust, good at its job,
+capable and more" / "just improve and refine the agentic harness to make sure
+it is the best the world has ever seen". And: "does the ai know that it can
+have images in its response??"
+
+**How it was measured.** A real model this time, not only fakes:
+Qwen2.5-1.5B-Instruct Q4_K_M under llama-server `--jinja` (the dev build in
+`/tmp/memorymap-llama`), four contended cores, 20 to 100 s a turn.
+`tests/test_harness_evals.py` (`evals`; tool choice, finishing, argument
+validity, picture placement over ten everyday requests),
+`scratchpad/harness_probe.py` (one turn printed: tools offered, calls,
+answer), `scratchpad/harness_argmeasure.py` (no model: argument errors,
+coercion, malformed JSON). The built record, with every before and after, is
+in HISTORY.md, "Moved from the plans, 2026-10-04 (the harness)".
+
+**Ranked defects, highest impact first.** All sixteen are fixed; the rows
+stay here only as the audit's index, one line each.
+
+| # | Defect | Where | Evidence |
+| --- | --- | --- | --- |
+| 1 | A small model's toolbox held one write (`create_note`) whatever was asked | `agent._prepare_turn` | 1.5B, "Pin my dentist note": no `pin_note` offered, wrote a duplicate note, then "has been created and pinned" |
+| 2 | A reminder's date-time without an offset was stored as UTC | `tools._set_reminder` | 9:00 fires at 19:00 at UTC+10 |
+| 3 | Reminder arithmetic left to the model (decided 2026-09-21, unbuilt) | `set_reminder` schema, `TOOLS_GUIDE` | "two hours before midnight" a day out (owner's transcript) |
+| 4 | No matching note was told to the model as an empty notebook | `agent.build_agent_messages` | 1.5B with four notes: "There are no notes in your notebook" |
+| 5 | Malformed tool JSON silently became `{}` | `provider.normalise_tool_calls` | 0 of 5 ordinary slips read |
+| 6 | No argument check before a handler; errors named nothing | `tools.execute_tool` | 11 of 31 named the missing parameter; `pin_note` read "false" as true; `{"id": 1}` failed |
+| 7 | A claimed act with no call got a heads-up and no second chance; the passive voice was missed | `agent.run_agent`, `unsupported_claims` | 1.5B: "I've made a new note for you", no call |
+| 8 | A long reply announcing an act was never nudged | `agent.announces_unacted_tool` | 1.5B wrote the note out as markdown, then "I will call the tool" |
+| 9 | Running out of rounds ended with no answer | end of `run_agent` | a small model, capped at four rounds, said only "I stopped after 4 rounds" |
+| 10 | The tools-on prompt never said which notes have pictures | `agent.build_agent_messages` | the owner's question; Chat and Ask had it (526) |
+| 11 | The agent's OpenAI-dialect path did not retry a 5xx, and sent `tools: []` | `openai_client.chat_tools_stream`, `_payload` | llama-server answers 503 while a model loads |
+| 12 | A tool result over the turn's budget was dropped whole | `agent._dispatch_call` | a 20-note page with 3,000 characters left: nothing read, tools withdrawn |
+| 13 | Calls in one reply parked each other; web reads ran in series | `agent._dispatch_call` (the 430 guard) | the second search of "search X and Y" parked; three pages 1.2 s |
+| 14 | Schema words a 1.5B misreads | `pin_note`, `tag_note` | unpinned when asked to pin; "I can't tag" with `tag_note` offered |
+| 15 | A small model answered most imperatives in prose | first round of `run_agent` | "Make a note", "Remind me", "Tag": no call; with `tool_choice: "required"` llama-server answered `create_note` |
+| 16 | "Add X to my Y note" cued no edit tool | `tools.focus_detail` | 1.5B rewrote the note in prose, saved nothing |
+
+**Audited and sound, no change.** Streamed calls by index, an indexless
+fragment included (`openai_client._accumulate_tool_calls`); six text dialects
+of a call (`provider.extract_text_tool_calls`); doom loops (identical-failure
+interception, `MAX_TOOL_FAILURES`, earned rounds, the duplicate-write and
+fresh-read interceptions); approval (destructive tools park,
+`MAX_PARKED_CONFIRMS`, `undo` on every change event); injected text fenced
+(`fence.fence_result`); the window budget (`context.plan`) and its log lines;
+a run's token and time budget (`ai/budget.py`); Stop closes the generator and
+the stream with it. The plan tracker exists for `make_plan` and skills
+(`chat-agent.js` `startPlan`/`markStep`), not for an ordinary turn (H1).
+
+**What the real model says now, honestly.** Before (the ten cases): a right
+first tool 2 of 10, finished 2 of 10, arguments valid 2 of 2, a picture
+placed 0 of 3. After the toolbox and nudges: still 2 of 10 first calls (the
+1.5B answers most requests in prose), but the case the harness had made
+impossible now runs (`pin_note` offered and called), and a claimed note is
+caught and asked for. With the forced first call (the real system prompt and
+tools, `scratchpad/harness_forced.py`): 2 of 3 imperatives answered with a
+call, `tag_note {"note_id": 1, "add": ["urgent"]}` exactly right, against 0
+of 3 unforced. The full ten-case rerun after every change was stopped: on
+these cores one turn ("Make a note") ran 948 s to the 2,048-token reply cap
+and made no call, the model rambling past the grammar; that cap is H4's.
+
+**Not verified.** Every real-model number is one 1.5B on contended cores; 3B
+and 4B were not run (none on disk). Ollama's native dialect and concurrent
+calls at index 1+ have no real-model eval. The wrap-up answer and the claim
+retry were not looked at in a browser (no UI changed: they are answer text).
+
+**Phases, open (Opus-sized, tests first).**
+
+- **H1. A plan for every multi-step turn.** Today the tracker draws only for
+  `make_plan` and skills, and a small model is never offered `make_plan`.
+  When a turn's second round starts, draw the calls so far and the request as
+  a plan card from the harness's own ledger (no model call). Done when: a
+  three-round turn shows a card with three ticked rows, live and reopened;
+  `chat-agent.js` reuses `startPlan`; the Guide's Chat topic says so.
+- **H2. Verify against sources before answering.** A numeric or named claim
+  in the answer that no tool result or quoted note contains is flagged the
+  way an unsupported act is (`unsupported_claims` is the cheap shape to
+  copy). Done when: a fixture of twenty answers scores at least 18 right with
+  no false flag on the twelve true ones; no second model round.
+- **H3. Tiers by model size.** Under 3B, 3B to 8B, 8B and up, each with its
+  toolbox, rounds, schema length and nudges in one table read by
+  `_prepare_turn` (today one boolean). Done when: the table is the only
+  place a size decision lives, and the evals below run per tier.
+- **H4. Evals breadth.** The same ten cases at 3B and 4B, and the
+  required first call measured over twenty imperatives and ten questions,
+  with a tighter reply cap on a small model's tool rounds (one ran 948 s to
+  2,048 tokens on these cores); Ollama's native
+  dialect; two calls in one reply on a real model; picture placement over
+  ten tries. Done when: each has a number in this section.

@@ -76,6 +76,31 @@ centreSpace)` in `shell-reminders.js` is now state-free, rounded to whole
 pixels; the same sweep reports no width with two modes. The mode is not
 monotone in width on purpose: the tab labels widen at 1100 and 1200 and
 the wordmark appears at 1500, each taking room the strip then lacks.
+## Moved from the plans, 2026-10-04 (the harness)
+
+### From AGENT_SKILLS_REFORM.md, "Harness robustness, 2026-10-04 (INBOX 527)"
+
+The audit's sixteen defects, each a commit with its test. Real model:
+Qwen2.5-1.5B-Instruct Q4_K_M, llama-server `--jinja`, contended cores.
+
+| Step | Before | After | Gate |
+| --- | --- | --- | --- |
+| Malformed JSON read leniently (`provider.loads_lenient`); unreadable marked `invalid_arguments` and said so with an example | 0/5 slips read | 5/5 | `test_harness_robustness.py` |
+| `tools.check_arguments` before every handler: spellings folded, types read, missing named with an example | 11/31 named; 3/4 coerced; "false" read as true | 30/31 (web search off); 4/4 | same, `test_security_hardening.py` |
+| Small model: core plus the request's cued groups (`agent._prepare_turn`) | "Pin my dentist note": no `pin_note`, duplicate note made | `pin_note` offered and called | `test_agent_small_model.py` |
+| Long reply announcing an unconditional act nudged | not nudged over 400 chars | nudged once | same |
+| Passive claims on a turn that wrote | "has been created and pinned" passed | "pinned a note" flagged | `test_claimed_work.py` |
+| Pictures in the agent prompt (`librarian._pictures_hint`) | none | `[picture N]` offered per note with pictures | `test_answer_pictures_502.py` |
+| `ai/when.py`; `set_reminder` takes `when` | ISO only, arithmetic by the model; naive stored as UTC | 35 phrasings resolved, no model; local time; past refused | `test_when.py`, `test_clock_weekday.py` |
+| Out of rounds: one tools-withdrawn round answers | "I stopped after N rounds" only | an answer, then the stop and Continue | `test_harness_robustness.py`, `test_long_runs.py` |
+| OpenAI tools stream retries a 5xx; no `tools: []` | turn ended on 503 | one retry | `test_harness_robustness.py` |
+| Over-budget result shortened (`agent._fit_result`) | dropped whole | 3+ notes of 20 within 3,000 chars, with a note | same |
+| Same-reply calls untainted; web reads prefetched in threads | 2nd search parked; 3 pages 1.2 s | both run; under 1 s | same |
+| No match is not "notebook looks empty" | 1.5B: "no notes" with four saved | says count_notes knows | same |
+| Claimed act retried once (`CLAIM_RETRY_NUDGE`) | heads-up only | asked once, heads-up on a second miss | same |
+| Schema words (`pinned`, `add`, aliases) | 1.5B unpinned; "can't tag" | clearer words; `tags` reaches `add` | same |
+| "Add X to my Y note" offers `edit_note` (`_ADD_TO_NOTE`) | no edit tool offered | offered | same |
+| Small model's imperative: first round `tool_choice: "required"` (OpenAI dialect) | 0/3 imperatives called a tool | 2/3 with the real prompt (`tag_note` exactly right); ten-case rerun stopped, see the plan | same |
 
 ## Moved from the plans, 2026-10-04 (the documents tails)
 

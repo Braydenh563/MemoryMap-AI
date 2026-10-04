@@ -83,6 +83,21 @@ EMPTY_ROUND_NUDGE = (
     "or call the one tool that does what I asked."
 )
 
+#: Sent, with the tools withdrawn, when a turn runs out of rounds (see the end
+#: of `run_agent`): what it found is worth an answer even if the job is not done.
+WRAP_UP_NUDGE = (
+    "You have used all your tool calls for this turn. Answer my request now, "
+    "from what your tool results above show. Say plainly what you did and "
+    "what is still not done. Do not claim anything you did not do."
+)
+
+#: Sent once after a reply that claims an act no tool performed (see
+#: `unsupported_claims` and the end of a round in `run_agent`).
+CLAIM_RETRY_NUDGE = (
+    "You wrote that you {claims}, but no tool ran, so it has not happened. "
+    "Do it now by calling {tools}, or say plainly that it was not done."
+)
+
 #: Sent after a round whose words only announce an action ("I'll count the
 #: notes in Work", "I will use the count_notes function") and that called no
 #: tool (see `announces_unacted_tool`). Measured with Qwen2.5-1.5B through
@@ -108,6 +123,12 @@ _INTENT_PATTERN = re.compile(
 #: announcement standing in for one.
 _INTENT_MAX_CHARS = 400
 
+#: What makes an announced act an offer ("if you like", "would you") or the
+#: answer itself ("I'll list them below").
+_CONDITIONAL = re.compile(
+    r"\b(?:if|would|could|want|wish|prefer|should|below|above|following)\b", re.IGNORECASE
+)
+
 
 def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
     """Whether a reply with no tool call only says it is about to act.
@@ -117,8 +138,19 @@ def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
     since then there is nothing to nudge the model toward.
     """
     text = (answer or "").strip()
-    if not text or len(text) > _INTENT_MAX_CHARS or not offered:
+    if not text or not offered:
         return False
+    if len(text) > _INTENT_MAX_CHARS:
+        #: **A long reply counts when one of its sentences announces an act
+        #: outright** (INBOX 527, Qwen2.5-1.5B): asked "Make a note: buy oat
+        #: milk", it wrote the note out as markdown, said "I will call the
+        #: tool to save the note for you", and called nothing. A promise with
+        #: a condition ("I'll search for more if you like") is an offer, and a
+        #: long answer making one is still an answer.
+        return any(
+            _INTENT_PATTERN.search(sentence) and not _CONDITIONAL.search(sentence)
+            for sentence in re.split(r"[.!?\n]+", text)
+        )
     names = {t.get("function", {}).get("name", "") for t in offered}
     if any(name and re.search(rf"\b{re.escape(name)}\b", text) for name in names):
         return True
@@ -191,14 +223,11 @@ TOOLS_GUIDE = (
     "it), and their saved skills (list_skills, save_skill; run_skill starts "
     "one and takes over from you, so use it when a saved skill already "
     "describes the job). "
-    # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
-    # that it must be computed from the clock given below. Without that, a
-    # model resolves "in 10 minutes" against whatever it imagines the time is,
-    # which is how a reminder set for five minutes' time read as ten hours
-    # overdue the moment it was saved.
-    "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
-    "set_reminder with due_at computed from the current time given below, as "
-    "an ISO 8601 datetime. "
+    # The arithmetic left the prompt (INBOX 527; AGENT_SKILLS_REFORM, decided
+    # 2026-09-21): set_reminder takes the user's words in `when` and the app
+    # resolves them (`ai/when.py`). This only says so.
+    "For \"remind me… in 10 minutes / tomorrow at 9\", call set_reminder "
+    "with when in the user's own words; the app works out the date. "
     # Both halves of this earned their place and both were briefly cut. Without
     # the first the model acts and then says nothing, so the user watches tool
     # chips scroll past and gets no answer; without the second it narrates work
@@ -276,7 +305,7 @@ COMPACT_TOOLS_GUIDE = (
     "notebook. Use count_notes for totals, list_notes to walk through, "
     "get_note to read one in full. Never state a total from a page of "
     "results. Private notes are invisible to you; say so if asked. "
-    "For reminders, compute due_at from the current time below as ISO 8601. "
+    "For reminders, pass when in the user's own words. "
     "NEVER say you created, saved, edited, deleted, tagged or linked "
     "anything unless you actually called the tool, claiming work you did "
     "not do is the worst thing you can write. Planning ahead is fine: say "
@@ -982,6 +1011,23 @@ _CLAIM_MATCHERS = tuple(
     for label, verb, needs in _CLAIMED_ACTIONS
 )
 
+#: **The passive voice** (INBOX 527, Qwen2.5-1.5B): asked to pin a note, it
+#: created a duplicate instead and wrote "Your dentist appointment note has
+#: been created and pinned". No "I", so nothing matched. Read only on a turn
+#: that ran or parked some write, because "has been tagged" also describes a
+#: note as it already is, and a heads-up on a plain answer would be the net
+#: crying wolf; on a turn that changed something it is a report of that turn.
+_PASSIVE = r"(?:has|have|is now|are now)\s+(?:now\s+|just\s+|also\s+)?(?:been\s+)?(?:successfully\s+)?"
+_PASSIVE_MATCHERS = tuple(
+    re.compile(
+        r"\bremind\w*\s+(?:has|have|is|are)\s+(?:now\s+)?(?:been\s+)?(?:set|scheduled|added|created)\b"
+        if label == "set a reminder"
+        else rf"\b{_PASSIVE}{verb}\b",
+        re.IGNORECASE,
+    )
+    for label, verb, _needs in _CLAIMED_ACTIONS
+)
+
 # Kept because it is the cheapest check for the commonest case, a model that
 # describes a note it never saved, and it catches phrasings with no claimant
 # at all. Widened from the original to cover "we" as well as "I".
@@ -1003,10 +1049,11 @@ def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
     # Whether this answer speaks in the claiming voice at all. A carried-on
     # verb is only a claim inside a sentence that already made one, so this is
     # checked first and gates the looser half of every matcher below.
-    claiming = any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
+    passive = [m.search(answer) if ran else None for m in _PASSIVE_MATCHERS]
+    claiming = any(passive) or any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
     said = []
-    for label, direct, carried, needs in _CLAIM_MATCHERS:
-        hit = direct.search(answer) or (claiming and carried.search(answer))
+    for (label, direct, carried, needs), by_passive in zip(_CLAIM_MATCHERS, passive):
+        hit = direct.search(answer) or by_passive or (claiming and carried.search(answer))
         if hit and not (needs & ran):
             said.append(label)
     return said
@@ -1085,10 +1132,9 @@ def build_agent_messages(
     #: characters against `PROSE_BUDGET_CHARS` and removes a whole class of
     #: wrong answer.
     #:
-    #: The "still today" sentence is there because of the specific slip
-    #: above: a time worked out by subtracting from tonight's midnight lands
-    #: on today, and the model moved it to tomorrow. Saying so once is
-    #: cheaper than a reminder set on the wrong night.
+    #: The "still today" sentence that followed is gone (INBOX 527): it taught
+    #: reminder arithmetic, which `ai/when.py` now does. The week stays,
+    #: because placing a note's "due Friday" is reading, not a tool argument.
     #: The day number by hand, not `%-d`: that flag is glibc's, and Windows'
     #: strftime raises "Invalid format string" on it, which took every agent
     #: turn down on the owner's machine before the first event.
@@ -1105,8 +1151,6 @@ def build_agent_messages(
     #: it caught this being written the other way round.
     now_hint = (
         f" Today is {local.strftime('%A')}, and the next seven days are {week}."
-        " Today ends at midnight tonight, so a time you reach by counting back"
-        " from that midnight is still today's date, not tomorrow's."
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
@@ -1155,13 +1199,27 @@ def build_agent_messages(
         #: When it was written and what its time words meant (INBOX 441: the
         #: chat read a two-week-old "this Friday" as this week's).
         f"{librarian._written_hint(note)}{librarian._dates_hint(note)}"
+        #: INBOX 527, the owner: "does the ai know that it can have images in
+        #: its response??" Chat and Ask did (526); this prompt, the default
+        #: with tools on, did not. N is the note's number here, which is its
+        #: place in the turn's `raw_results`, where the bubble looks it up.
+        f"{librarian._pictures_hint(note, i)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{librarian._match_info_hint(note.get('match_info'))} "
         f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
-    body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"
+    #: **No match is not an empty notebook** (INBOX 527, Qwen2.5-1.5B): with
+    #: four notes saved, "How many notes do I have?" matched none of them by
+    #: its words, the prompt said "My notebook looks empty", and the model
+    #: answered "There are no notes in your notebook". Retrieval cannot see the
+    #: notebook's size; count_notes can.
+    body = (
+        f"My notes:\n{numbered}\n\n"
+        if notes
+        else "(No notes matched these words. That says nothing about how many I have: count_notes and search_notes do.)\n\n"
+    )
     if dropped_notes:
         # Said rather than silently done. A model that knows its notes were
         # cut short can search for the rest; one that doesn't will answer as
@@ -1392,8 +1450,18 @@ def _prepare_turn(
         # A skill's declared list is exempt (`allowed_tools is not None`): it
         # asked for exactly those tools, and dropping one breaks the run
         # rather than simplifying it.
+        #:
+        #: **Plus the tools the request itself names** (INBOX 527, measured on
+        #: Qwen2.5-1.5B): the core alone holds one write, `create_note`, so
+        #: "Pin my dentist note" was offered no `pin_note` and the model wrote
+        #: a duplicate note instead; 2 of 10 everyday requests chose a right
+        #: tool. The cued groups are added after the core, which stays first
+        #: and stable; a broad request (None) still gets the core alone.
+        cued = _focus(question, history) or []
         focus_names = [
-            name for name in tools.CORE_TOOLS if name not in tools.ORCHESTRATION_TOOLS
+            name
+            for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
+            if name not in tools.ORCHESTRATION_TOOLS
         ]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
@@ -1576,6 +1644,11 @@ class _TurnState:
     #: Has this turn read something from outside the notebook (a page, a
     #: search result, a file)? Then reaching out again needs a confirm.
     outside: bool = False
+    #: `outside` as it stood when this round's calls were chosen: what parks
+    #: an outbound call. A call in the same reply as the first web read was
+    #: decided before anything outside was read, so no page can have asked
+    #: for it (INBOX 527: "search for X and Y" parked the second search).
+    tainted: bool = False
     #: Calls that already succeeded: a repeat of one is not progress either.
     done_calls: set[tuple[str, str]] = field(default_factory=set)
     #: Reads whose result is already in `messages` and still current.
@@ -1586,6 +1659,124 @@ class _TurnState:
     def count_failure(self, tool_name: str) -> int:
         self.tool_failures[tool_name] = self.tool_failures.get(tool_name, 0) + 1
         return self.tool_failures[tool_name]
+
+
+#: Below this much room a shortened result is too thin to answer from.
+MIN_FITTED_CHARS = 400
+
+#: Said inside a result that was shortened to fit (see `_fit_result`).
+SHORTENED_NOTE = (
+    "Shortened to fit what is left of this conversation: {what}. Answer from "
+    "this; get_note reads one note in full if you need it."
+)
+
+
+def _clip_strings(value, limit: int):
+    """`value` with every string over `limit` characters cut to it."""
+    if isinstance(value, str):
+        return value if len(value) <= limit else value[:limit] + "…"
+    if isinstance(value, dict):
+        return {k: _clip_strings(v, limit) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clip_strings(v, limit) for v in value]
+    return value
+
+
+def _fit_result(result: dict, name: str, room: int) -> str | None:
+    """The result as the model will read it, shortened to `room` characters
+    if it must be, or None when no honest shortening fits (INBOX 527).
+
+    Before, a result over the turn's budget was dropped whole and the tools
+    withdrawn: on a 4k-window model one `search_notes` page of long notes
+    could end the turn's reading with nothing read. Now its long text is
+    clipped (400, then 160, then 60 characters) and then its lists kept from
+    the front (10, 5, 3, 1 items), whole objects every time, with a note
+    saying what was cut; only when one item does not fit is it refused.
+    """
+    payload = json.dumps(fence.fence_result(result, name))
+    if len(payload) <= room:
+        return payload
+    if room < MIN_FITTED_CHARS or not isinstance(result, dict):
+        return None
+    lists = [k for k, v in result.items() if isinstance(v, list) and len(v) > 1]
+    for limit in (400, 160, 60):
+        for keep in (None, 10, 5, 3, 1):
+            if keep is not None and not lists:
+                break
+            shorter = _clip_strings(result, limit)
+            dropped = 0
+            if keep is not None:
+                for key in lists:
+                    dropped += max(0, len(shorter[key]) - keep)
+                    shorter[key] = shorter[key][:keep]
+            what = f"long text clipped to {limit} characters"
+            if dropped:
+                what += f", {dropped} item{'s' if dropped != 1 else ''} left out"
+            shorter["shortened"] = SHORTENED_NOTE.format(what=what)
+            payload = json.dumps(fence.fence_result(shorter, name))
+            if len(payload) <= room:
+                return payload
+    return None
+
+
+def _prefetch_outbound(calls: list[dict]) -> None:
+    """Fetch a round's web reads side by side, before they run one by one.
+
+    **Parallel independent tool calls** (INBOX 527). A model that asks for
+    three pages in one reply waited for them in series: three network
+    round trips, each seconds, where the tool calls themselves are
+    milliseconds. The calls still run in order through `_dispatch_call`,
+    every guard and the session untouched; this only warms the in-process
+    caches `websearch` already keeps, from threads that touch no database.
+    Only for a round chosen before anything outside was read (the caller
+    checks), so no page can start a fetch, and only when web access is on.
+    """
+    wanted = [c for c in calls if c.get("name") in _OUTBOUND_TOOLS and not c.get("invalid_arguments")]
+    if len(wanted) < 2:
+        return
+    tools.prefetch_web([(c["name"], c.get("arguments") or {}) for c in wanted])
+
+
+#: An instruction to change the notebook, said as one: "Make a note: ...",
+#: "Remind me ...", "Pin my ...". A question ("can you pin it?") is not one.
+_IMPERATIVE = re.compile(
+    r"^\s*(?:please\s+)?(?:make\s+a\s+note|note\s+down|jot\s+down|create|save|"
+    r"remind\s+me|set\s+a\s+reminder|tag|untag|pin|unpin|link|unlink|rename|"
+    r"add|append|put|write\s+down|file|move|mark)\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_a_call(question: str, plan: "_TurnPlan") -> bool:
+    """Whether the first round of a small model's turn must be a tool call.
+
+    INBOX 527, measured on Qwen2.5-1.5B under llama.cpp: asked "Make a note:
+    buy oat milk and eggs", "Remind me tomorrow at 9am...", "Tag my plumber
+    note", it answered in prose on most turns, sometimes claiming the work.
+    Asked with `tool_choice: "required"`, the same server answered "Make a
+    note" with `create_note {"content": "buy oat milk and eggs"}`. Only for an
+    imperative whose own tools are on offer, never a question, never a
+    skill's turn, and only the first round: what follows is the model's call.
+    """
+    text = (question or "").strip()
+    if plan.permitted is not None or not text or text.endswith("?"):
+        return False
+    if not _IMPERATIVE.match(text):
+        return False
+    offered = {t["function"]["name"] for t in plan.offered}
+    return bool(offered & _WRITE_TOOLS)
+
+
+def _round_stream(ollama, model, messages, offered, mode, required):
+    """One round's stream, with `tool_choice="required"` when asked and the
+    provider takes it (the OpenAI dialect); any other provider, or a test's
+    fake, is called as it always was."""
+    if required and offered:
+        try:
+            return ollama.chat_tools_stream(model, messages, offered, mode=mode, tool_choice="required")
+        except TypeError:
+            pass
+    return ollama.chat_tools_stream(model, messages, offered, mode=mode)
 
 
 def _dispatch_call(
@@ -1656,6 +1847,27 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
+    elif spec is not None and call.get("invalid_arguments") is not None:
+        #: The JSON did not read even leniently (`provider.loads_lenient`).
+        #: Said as that, with a shape to copy: running the tool with `{}`
+        #: told the model "missing something" and it retried the same JSON.
+        result = {
+            "error": f"{name}: the arguments were not valid JSON, so nothing ran",
+            "what_to_do": (
+                f"Call {name} again with its arguments as one JSON object, "
+                f"for example {tools.example_arguments(name)}."
+            ),
+        }
+        state.failed_calls.add(signature)
+        state.count_failure(name)
+        yield {
+            "type": "tool",
+            "tool": name,
+            "label": f"ph:warning {name.replace('_', ' ')}, arguments unreadable",
+            "ok": False,
+            "error": result["error"],
+            "arguments": {"unreadable": call["invalid_arguments"]},
+        }
     elif spec is not None and spec.ends_turn:
         # `ask_user` and `run_skill`. The turn stops here, and in both
         # cases that is the feature rather than a limitation: the model
@@ -1700,7 +1912,7 @@ def _dispatch_call(
             return False
         yield handover
         return True
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
         # rather than a result, which is honest but is not a *stop*:
@@ -1729,7 +1941,7 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)):
+    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)):
         # Park it for the user, never auto-run a destructive tool, nor a
         # tool that reaches out once the turn has read from outside.
         # The confirm card is the honest signal, so count it as an
@@ -1983,18 +2195,17 @@ def _dispatch_call(
     #: Someone else's words in the result (a note's body, a page's text, a
     #: snippet) go to the model fenced as quoted data (`fence`, INBOX 430);
     #: the app's own fields (`what_to_do`, labels, ids) do not.
-    payload = json.dumps(fence.fence_result(result, name))
-    # The window's share, but never more than the absolute ceiling, 
+    # The window's share, but never more than the absolute ceiling,
     # a 128k model would otherwise be allowed tens of thousands of
     # tokens of tool output, which is prefill time on every subsequent
     # round for material the model has usually finished with.
     result_cap = min(plan.budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
-    if state.spent + len(payload) > result_cap:
-        # Over budget. Hand back the notice instead of the result and
-        # withdraw the tools, so the next round has to be an answer.
-        # Dropping the result rather than truncating it is deliberate:
-        # half a JSON object is worse than none, the model reads it
-        # as data and answers from a note that got cut mid-sentence.
+    payload = _fit_result(result, name, result_cap - state.spent)
+    if payload is None:
+        # Not even a shortened copy fits. Hand back the notice instead and
+        # withdraw the tools, so the next round has to be an answer. Never
+        # a cut string: half a JSON object is worse than none, the model
+        # reads it as data and answers from a note cut mid-sentence.
         payload = json.dumps(BUDGET_EXHAUSTED)
         state.offered = []
     state.spent += len(payload)
@@ -2082,6 +2293,10 @@ def run_agent(
     nudged_empty = False
     #: And one for a round that only said what it would do.
     nudged_intent = False
+    #: And one for a reply that claimed an act no tool performed.
+    nudged_claim = False
+    #: The replies a nudge set aside, for the claim check at the turn's end.
+    said_before = ""
     #: Only a turn that has done nothing at all is nudged: a skill step that
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
@@ -2117,7 +2332,8 @@ def run_agent(
         reply: dict = {}
         streamed_any = False
         try:
-            for piece in ollama.chat_tools_stream(agent_model, state.messages, state.offered, mode=mode):
+            required = round_number == 0 and plan.small_model and _requires_a_call(question, plan)
+            for piece in _round_stream(ollama, agent_model, state.messages, state.offered, mode, required):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
@@ -2213,7 +2429,35 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(answer, state.ran_writes)
+            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes)
+            #: **Reflect and retry: a claimed act is asked for once** (INBOX
+            #: 527, Qwen2.5-1.5B): "Make a note: buy oat milk" got "I've made a
+            #: new note for you" and no call, and the heads-up below was all
+            #: the user got. Now the model is told what it claimed and which
+            #: tool does it, once, while it still has a round; the heads-up is
+            #: what is left when the retry does not do it either, checked
+            #: against everything said this turn, not only the last reply.
+            needed = [
+                tool
+                for label, _verb, needs in _CLAIMED_ACTIONS
+                if label in unsupported
+                for tool in sorted(needs)
+                if tool in {t["function"]["name"] for t in state.offered}
+            ]
+            if unsupported and needed and not nudged_claim and round_number + 1 < allowance:
+                nudged_claim = True
+                said_before += f"{answer}\n"
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append(
+                    {
+                        "role": "user",
+                        "content": CLAIM_RETRY_NUDGE.format(
+                            claims=", ".join(unsupported), tools=" or ".join(needed)
+                        ),
+                    }
+                )
+                yield {"type": "answer", "delta": "\n\n"}
+                continue
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
                 # is useless when the answer claimed five different things, 
@@ -2291,6 +2535,9 @@ def run_agent(
                 )
                 state.offered = every_tool
 
+        state.tainted = state.outside
+        if not state.tainted:
+            _prefetch_outbound(calls)
         for call in calls:
             # One call, its guards and its result; True when the tool ended the
             # turn (the handover tools). See `_dispatch_call`.
@@ -2314,11 +2561,39 @@ def run_agent(
         "rounds": round_number + 1,
         "wrote": sorted(state.ran_writes),
     }
+    wrapped = ""
+    if exhausted_note is None and not (spend is not None and spend.exceeded()):
+        # **One more round, with the tools withdrawn, for an answer** (INBOX
+        # 527). Before, a turn that ran out handed the user only "I stopped
+        # after 4 rounds", however much it had found: a small model capped at
+        # four rounds that had read the right note gave no answer from it.
+        # A skill step passes its own note and is left alone: the runner
+        # reads the stop, not prose, to mark the step stalled.
+        state.messages.append({"role": "user", "content": WRAP_UP_NUDGE})
+        try:
+            for piece in ollama.chat_tools_stream(agent_model, state.messages, [], mode=mode):
+                if "content_delta" in piece:
+                    wrapped += piece["content_delta"]
+                    yield {"type": "answer", "delta": piece["content_delta"]}
+                elif "final" in piece and not piece["final"].get("streamed"):
+                    late = (piece["final"].get("content") or "").strip()
+                    if late and not wrapped:
+                        wrapped = late
+                        yield {"type": "answer", "delta": late}
+        except (OllamaError, ToolsUnsupportedError) as exc:
+            logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
+        unsupported = unsupported_claims(wrapped, state.ran_writes)
+        if unsupported:
+            yield {
+                "type": "answer",
+                "delta": f"\n\nHeads up: I said I {', '.join(unsupported)}, but that tool never ran, so it did not happen.",
+            }
     yield {
         "type": "answer",
         "delta": exhausted_note
         or (
-            "I stopped after "
+            ("\n\n" if wrapped.strip() else "")
+            + "I stopped after "
             f"{round_number + 1} rounds of tool calls, here's where things "
             "stand. Continue and I'll pick up from here."
         ),

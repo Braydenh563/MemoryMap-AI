@@ -48,9 +48,18 @@ def test_the_prompt_names_the_week_ahead(system_prompt):
     assert len(found) >= 7, f"only {len(found)} of the coming days are named: {found}"
 
 
-def test_the_prompt_says_a_time_before_midnight_is_still_today(system_prompt):
-    """The exact slip in his transcript, stated once so it cannot recur."""
-    assert "still today's date" in system_prompt
+def test_the_slip_in_his_transcript_is_the_app_s_arithmetic_now(system_prompt, session):
+    """INBOX 527: the "still today" sentence taught the model arithmetic; the
+    tool now takes his words and the app resolves them, so the prompt no
+    longer teaches it and the reminder lands on the right night."""
+    from zoneinfo import ZoneInfo
+
+    from memorymap.ai import when
+
+    assert "still today's date" not in system_prompt
+    assert "compute" not in system_prompt.split("set_reminder", 1)[1][:120]
+    now = datetime(2026, 9, 21, 15, 55, tzinfo=ZoneInfo("Australia/Brisbane"))
+    assert when.resolve("two hours before midnight", now).strftime("%d %H:%M") == "21 22:00"
 
 
 def test_the_clock_is_still_the_last_thing(system_prompt):

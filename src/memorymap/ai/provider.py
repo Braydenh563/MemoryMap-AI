@@ -1059,7 +1059,7 @@ def extract_text_tool_calls(
 
     def _consume(blob: str, whole: str) -> bool:
         try:
-            data = json.loads(blob)
+            data = loads_lenient(blob)
         except ValueError:
             return False
         candidates = data if isinstance(data, list) else [data]
@@ -1075,7 +1075,7 @@ def extract_text_tool_calls(
                 args = fn.get("arguments") or fn.get("parameters") or {}
                 if isinstance(args, str):
                     try:
-                        args = json.loads(args)
+                        args = loads_lenient(args)
                     except ValueError:
                         args = {}
                 calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
@@ -1123,7 +1123,7 @@ def extract_text_tool_calls(
                 continue
             begin, end, blob = nearby
             try:
-                arguments = json.loads(blob)
+                arguments = loads_lenient(blob)
             except ValueError:
                 continue
             if not isinstance(arguments, dict):
@@ -1209,6 +1209,76 @@ def split_thinking(text: str) -> tuple[str, str | None]:
     return "".join(answer).strip(), thinking or None
 
 
+
+def _unfence(text: str) -> str:
+    """The inside of a ```json ... ``` fence, by string ops (no regex for a
+    CodeQL to call polynomial), or `text` itself."""
+    if not text.startswith("```"):
+        return text
+    body = text[3:].lstrip("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").rstrip()
+    return (body[:-3] if body.endswith("```") else body).strip()
+
+#: A comma left before a closing brace or bracket: `{"a": 1,}`.
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def _close_open_json(text: str) -> str:
+    """`text` with an unterminated string and any unclosed brackets closed, in
+    the order they opened: the shape of a call cut off by the output cap."""
+    stack: list[str] = []
+    in_string = escape = False
+    for ch in text:
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack:
+            stack.pop()
+    tail = '"' if in_string else ""
+    return text.rstrip().rstrip(",") + tail + "".join(reversed(stack))
+
+
+def loads_lenient(text: str) -> object:
+    """JSON a small model wrote, read the way it meant it (INBOX 527).
+
+    Measured before this existed: none of five ordinary slips survived
+    (a trailing comma, single quotes, Python's True, a fence, a call cut
+    off by the output cap). Each became `{}`, and the model was told its
+    arguments were "missing something" with no hint that it was the JSON.
+    Tried in order, strictest first, so valid JSON is never reinterpreted:
+    as written; the first object of several; trailing commas dropped;
+    a Python literal (`ast.literal_eval`, literals only); brackets closed.
+    Raises ValueError when none of them reads.
+    """
+    raw = _unfence(str(text).strip())
+    try:
+        return json.loads(raw)
+    except ValueError:
+        pass
+    try:
+        return json.JSONDecoder().raw_decode(raw)[0]
+    except ValueError:
+        pass
+    tidy = _TRAILING_COMMA_RE.sub(r"\1", raw)
+    for attempt in (tidy, _close_open_json(tidy)):
+        try:
+            return json.loads(attempt)
+        except ValueError:
+            pass
+        try:
+            return ast.literal_eval(attempt)
+        except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+            pass
+    raise ValueError("not JSON, even read leniently")
+
+
 def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
     """`[{"function": {...}}]` in either dialect -> `[{"name", "arguments"}]`.
 
@@ -1216,22 +1286,30 @@ def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
     object: but Ollama models are inconsistent among themselves and some send
     the string too, which is why this already handled both before there was a
     second provider. One dialect fewer to add.
+
+    A string read with `loads_lenient`; one that still does not read, or reads
+    as something other than an object, comes back with `invalid_arguments`
+    (what the model wrote, clipped) so the agent loop can say *the JSON* was
+    wrong rather than run the tool with nothing.
     """
     calls: list[dict] = []
     for item in raw_calls or []:
         function = item.get("function") or {}
         arguments = function.get("arguments") or {}
+        invalid = None
         if isinstance(arguments, str):
             try:
-                arguments = json.loads(arguments)
+                arguments = loads_lenient(arguments)
             except ValueError:
+                invalid = function.get("arguments")
                 arguments = {}
-        calls.append(
-            {
-                "name": function.get("name", ""),
-                "arguments": arguments if isinstance(arguments, dict) else {},
-            }
-        )
+        if not isinstance(arguments, dict):
+            invalid = invalid or str(function.get("arguments"))
+            arguments = {}
+        call = {"name": function.get("name", ""), "arguments": arguments}
+        if invalid is not None:
+            call["invalid_arguments"] = str(invalid)[:300]
+        calls.append(call)
     return calls
 
 
@@ -1256,6 +1334,7 @@ __all__ = [
     "detect_provider",
     "extract_text_tool_calls",
     "normalise_tool_calls",
+    "loads_lenient",
     "offered_tool_names",
     "split_thinking",
 ]

@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Callable
 
 from datetime import timedelta
@@ -1500,15 +1499,37 @@ def _restore_note(session: Session, args: dict) -> dict:
 
 
 def _set_reminder(session: Session, args: dict) -> dict:
+    """A reminder at a time the app works out (INBOX 527; AGENT_SKILLS_REFORM,
+    decided 2026-09-21): `when` is the user's own words, resolved by
+    `ai/when.py` against their clock; `due_at` stays as an escape hatch. Both
+    without an offset mean the user's local time. Measured before: `due_at`
+    "2026-10-05T09:00" was stored as 09:00 UTC, 19:00 for a user at UTC+10.
+    """
+    from memorymap.ai import when as when_words
+    from memorymap.core.config import user_now
+
     text = str(args["text"]).strip()
     if not text:
         raise ToolError("The reminder text is empty")
-    try:
-        due_at = datetime.fromisoformat(str(args["due_at"]))
-    except ValueError as exc:
+    now = user_now(deps.get_config())
+    said = str(args.get("when") or "").strip()
+    exact = str(args.get("due_at") or "").strip()
+    due_at = when_words.resolve(said, now) if said else None
+    if due_at is None and exact:
+        due_at = when_words.resolve(exact, now)
+    if due_at is None:
         raise ToolError(
-            "due_at must be an ISO date-time like 2026-07-19T09:00"
-        ) from exc
+            f"Couldn't read '{said or exact}' as a time. Put the user's own "
+            "words in `when`, like 'tomorrow at 9am', 'in 20 minutes' or "
+            "'Friday evening'."
+            if said or exact
+            else "Say when in `when`, in the user's words, like 'tomorrow at 9am'."
+        )
+    if due_at < now - timedelta(minutes=1):
+        raise ToolError(
+            f"{due_at.strftime('%A %d %B %H:%M')} has already passed. Ask the "
+            "user for a time that has not happened yet."
+        )
     entry_id = args.get("note_id")
     if entry_id is not None:
         _require_note(session, {"note_id": entry_id})  # validates it exists
@@ -1525,7 +1546,10 @@ def _set_reminder(session: Session, args: dict) -> dict:
         "id": reminder.id,
         "text": text,
         "due_at": due_at.isoformat(),
-        "label": f"⏰ Set a reminder for {due_at.strftime('%d %b %Y %H:%M')}",
+        #: Said back in words, so the answer repeats the app's reading of the
+        #: time rather than the model's own arithmetic.
+        "due": due_at.strftime("%A %d %B %Y, %H:%M"),
+        "label": f"⏰ Set a reminder for {due_at.strftime('%a %d %b %Y %H:%M')}",
     }
 
 
@@ -1640,6 +1664,40 @@ def _web_search(session: Session, args: dict) -> dict:
 READ_URL_MAX_CHARS = 6000
 
 
+#: How many web reads one round may run side by side.
+PREFETCH_WORKERS = 4
+
+
+def prefetch_web(calls: list[tuple[str, dict]]) -> None:
+    """Run these `web_search` / `read_url` calls' network halves in parallel,
+    filling `websearch`'s caches so the calls themselves, run afterwards in
+    order, are answered from memory (INBOX 527; see `agent._prefetch_outbound`).
+    Nothing here raises: a failed fetch is simply not cached, and the real
+    call meets the same failure and reports it the ordinary way.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
+        return
+    searxng_url, provider = websearch.settings_from(config)
+
+    def one(call: tuple[str, dict]) -> None:
+        name, args = call
+        try:
+            if name == "read_url" and str(args.get("url") or "").strip():
+                websearch.prefetch_readable(str(args["url"]).strip())
+            elif name == "web_search" and str(args.get("query") or "").strip():
+                websearch.search_web(str(args["query"]), limit=5, searxng_url=searxng_url or None, provider=provider)
+        except Exception:  # noqa: BLE001  # the real call reports it
+            return
+
+    with ThreadPoolExecutor(max_workers=min(PREFETCH_WORKERS, len(calls))) as pool:
+        list(pool.map(one, calls))
+
+
 def _read_url(session: Session, args: dict) -> dict:
     """Fetch one web page and hand back its readable text.
 
@@ -1661,7 +1719,7 @@ def _read_url(session: Session, args: dict) -> dict:
     if not url:
         raise ToolError("No URL was given")
     try:
-        page = websearch.fetch_readable(url)
+        page = websearch.fetch_readable_cached(url)
     except websearch.WebSearchError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -3162,7 +3220,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "items": {"type": "integer"},
                         "description": "IDs of multiple notes to tag (optional)",
                     },
-                    "add": {"type": "array", "items": {"type": "string"}},
+                    "add": {"type": "array", "items": {"type": "string"}, "description": "Tags to add"},
                     "remove": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [],
@@ -3182,7 +3240,7 @@ TOOLS: dict[str, ToolSpec] = {
                 "type": "object",
                 "properties": {
                     "note_id": _NOTE_ID,
-                    "pinned": {"type": "boolean", "description": "false to unpin"},
+                    "pinned": {"type": "boolean", "description": "Leave out to pin; false only to unpin"},
                 },
                 "required": ["note_id"],
             },
@@ -3264,15 +3322,19 @@ TOOLS: dict[str, ToolSpec] = {
             #: reminder Atlas makes while reading a note is exactly the case
             #: the link is for, and "optionally attached to a note" does not
             #: tell a small model that.
-            "Create a reminder. When the reminder comes out of a note you "
+            "Create a reminder; put when in the user's own words. If it comes out of a note you "
             "have just read, pass that note's id so the two stay joined.",
             {
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "What to remind about"},
+                    "when": {
+                        "type": "string",
+                        "description": "The user's words, e.g. 'tomorrow 9am', 'in 20 minutes'",
+                    },
                     "due_at": {
                         "type": "string",
-                        "description": "ISO date-time, e.g. 2026-07-19T09:00",
+                        "description": "An exact ISO date-time, only if you have one",
                     },
                     "note_id": {
                         "type": "integer",
@@ -3284,7 +3346,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "description": "Priority (optional, defaults to normal)",
                     },
                 },
-                "required": ["text", "due_at"],
+                "required": ["text"],
             },
             _set_reminder,
         ),
@@ -3575,6 +3637,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("edit_note", "pin_note"),
         (
             "edit", "change", "update", "rewrite", "fix", "correct", "amend",
+            "append",
             "pin", "unpin", "reword", "shorten", "expand",
         ),
     ),
@@ -3716,6 +3779,13 @@ def is_follow_through(question: str) -> bool:
     return any(cue in text for cue in FOLLOW_THROUGH)
 
 
+#: "add …/put …/write … to/in/into my|the|that … note": an edit.
+_ADD_TO_NOTE = re.compile(
+    r"\b(?:add|put|write|stick|include)\b[^.?!\n]{1,80}?\b(?:to|in|into|onto)\s+(?:my|the|that|this)\b[^.?!\n]{0,40}?\bnote\b",
+    re.IGNORECASE,
+)
+
+
 def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 
@@ -3775,6 +3845,11 @@ def focus_detail(question: str, recent: str = "") -> toolwords.Focus:
             if asking and name in WRITE_TOOLS:
                 continue
             wanted.append(name)
+
+    # "Add X to my Y note" is an edit, and no single cue word says so (INBOX
+    # 527: Qwen2.5-1.5B, offered no edit_note, rewrote the note in prose).
+    if not asking and _ADD_TO_NOTE.search(asked):
+        wanted.append("edit_note")
 
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
@@ -4143,6 +4218,192 @@ def _ai_actor(name: str, model: str | None) -> str:
     return actor
 
 
+#: Words read as a boolean (INBOX 527). Before `check_arguments`, `pin_note`
+#: read the string "false" as true.
+_TRUE_WORDS = frozenset({"true", "yes", "y", "on", "1"})
+_FALSE_WORDS = frozenset({"false", "no", "n", "off", "0", "none", ""})
+_INT_TEXT = re.compile(r"#?-?\d{1,12}")
+
+
+def _fold_key(key: str) -> str:
+    """`noteId`, `Note-ID`, `note id` -> `note_id`."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key))
+    return re.sub(r"[^a-z0-9]+", "_", spaced.lower()).strip("_")
+
+
+def _coerce_array(value: object, schema: dict) -> tuple[object, bool]:
+    items = schema.get("items") or {}
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                value = json.loads(text)
+            except ValueError:
+                return value, False
+        elif items.get("type") == "string":
+            value = [part.strip() for part in text.split(",") if part.strip()]
+        else:
+            value = [value]
+    if not isinstance(value, list):
+        value = [value]
+    if not items.get("type"):
+        return value, True
+    out = []
+    for item in value:
+        coerced, ok = _coerce(item, items)
+        if not ok:
+            return value, False
+        out.append(coerced)
+    return out, True
+
+
+def _coerce(value: object, schema: dict) -> tuple[object, bool]:
+    """(value as the schema's type, True), or (value, False) when it cannot be
+    read as that type without guessing."""
+    kind = schema.get("type")
+    if kind == "integer":
+        if isinstance(value, bool):
+            return value, False
+        if isinstance(value, int):
+            return value, True
+        if isinstance(value, float) and value.is_integer():
+            return int(value), True
+        if isinstance(value, str) and _INT_TEXT.fullmatch(value.strip()):
+            return int(value.strip().lstrip("#")), True
+        return value, False
+    if kind == "number":
+        if isinstance(value, bool):
+            return value, False
+        if isinstance(value, (int, float)):
+            return value, True
+        try:
+            return float(str(value).strip()), True
+        except ValueError:
+            return value, False
+    if kind == "boolean":
+        if isinstance(value, bool):
+            return value, True
+        word = str(value).strip().lower()
+        if word in _TRUE_WORDS or word in _FALSE_WORDS:
+            return word in _TRUE_WORDS, True
+        return value, False
+    if kind == "string":
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            value = str(value)
+        if not isinstance(value, str):
+            return value, False
+        enum = schema.get("enum")
+        if enum and value not in enum:
+            folded = {str(e).lower(): e for e in enum}
+            hit = folded.get(value.strip().lower())
+            return (hit, True) if hit is not None else (value, False)
+        return value, True
+    if kind == "array":
+        return _coerce_array(value, schema)
+    if kind == "object":
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return value, False
+        return value, isinstance(value, dict)
+    return value, True
+
+
+def _describe_param(key: str, schema: dict) -> str:
+    """`note_id (integer)`, `tags (list of strings)`, `priority ('low' or ...)`."""
+    kind = schema.get("type", "value")
+    if kind == "array":
+        kind = f"list of {(schema.get('items') or {}).get('type', 'value')}s"
+    if schema.get("enum"):
+        kind = " or ".join(repr(e) for e in schema["enum"])
+    return f"{key} ({kind})"
+
+
+def example_arguments(name: str) -> str:
+    """One valid call's required arguments for `name`, as JSON: what a failed
+    call is shown, so the retry copies a shape rather than parses a rule."""
+    spec = TOOLS.get(name)
+    if spec is None:
+        return "{}"
+    props = spec.parameters.get("properties") or {}
+    samples = {"integer": 12, "number": 1, "boolean": True, "string": "...", "object": {}}
+    example: dict = {}
+    for key in spec.parameters.get("required") or []:
+        schema = props.get(key) or {}
+        if schema.get("enum"):
+            example[key] = schema["enum"][0]
+        elif schema.get("type") == "array":
+            example[key] = [samples.get((schema.get("items") or {}).get("type"), "...")]
+        else:
+            example[key] = samples.get(schema.get("type"), "...")
+    return json.dumps(example)
+
+
+#: Names a model reaches for that no spelling rule reaches: Qwen2.5-1.5B
+#: asked to tag a note looked for `tags` and, finding `add`, said it could
+#: not tag (INBOX 527).
+_PARAM_ALIASES = {"tags": "add", "tag": "add", "untag": "remove"}
+
+
+def _schema_key(key: str, props: dict, given: dict) -> str:
+    """The schema's own name for a key the model spelled its own way, or the
+    key unchanged. `id` folds to the tool's one `*_id` parameter only."""
+    if key in props:
+        return key
+    alias = _PARAM_ALIASES.get(_fold_key(key))
+    if alias in props and alias not in given:
+        return alias
+    by_fold = {_fold_key(k): k for k in props}
+    folded = _fold_key(key)
+    target = by_fold.get(folded) or by_fold.get(f"{folded}s") or by_fold.get(folded[:-1] if folded.endswith("s") else "")
+    ids = [k for k in props if k.endswith("_id")]
+    if target is None and folded == "id" and len(ids) == 1:
+        target = ids[0]
+    return target if target and target not in given else key
+
+
+def check_arguments(name: str, arguments: dict) -> tuple[dict, str | None]:
+    """(the arguments in the schema's names and types, None), or (them, the
+    one-line reason they cannot run), before any handler sees them (INBOX 527).
+
+    Measured before: 20 of 31 tools with a required parameter answered a
+    missing one with "the arguments were missing something", naming nothing,
+    and `get_note {"id": 1}` failed outright. Now a spelling is folded
+    (`noteId`, `id` for the one id parameter, `tag` for `tags`), a value is
+    read as its schema types it ("12", "false", one tag for a list, an enum in
+    any case), and every missing required parameter is named with its type
+    and an example call. A key the schema does not name is kept: a few
+    handlers read internal ones.
+    """
+    spec = TOOLS.get(name)
+    if spec is None or not isinstance(arguments, dict):
+        return dict(arguments or {}), None
+    props = spec.parameters.get("properties") or {}
+    args = {_schema_key(key, props, arguments): value for key, value in arguments.items()}
+    wrong = []
+    for key, schema in props.items():
+        if args.get(key) is None:
+            continue
+        coerced, ok = _coerce(args[key], schema)
+        if ok:
+            args[key] = coerced
+        else:
+            shown = json.dumps(args[key], default=str)[:40]
+            wrong.append(f"{_describe_param(key, schema)} not {shown}")
+    missing = [
+        _describe_param(key, props.get(key) or {})
+        for key in spec.parameters.get("required") or []
+        if args.get(key) in (None, "", [])
+    ]
+    problems = (["missing " + ", ".join(missing)] if missing else []) + (
+        ["wrong type: " + "; ".join(wrong)] if wrong else []
+    )
+    if not problems:
+        return args, None
+    return args, f"{name}: {'; '.join(problems)}. Example: {example_arguments(name)}"
+
+
 def execute_tool(
     session: Session,
     name: str,
@@ -4165,8 +4426,13 @@ def execute_tool(
         return {"error": f"Unknown tool '{name}'"}
     if not tool_enabled(name):
         return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
+    args, problem = check_arguments(name, dict(arguments or {}))
+    if problem:
+        # Logged like a handler's argument failure, so Settings → Logs shows
+        # what the model sent; the text is the app's own, safe to hand back.
+        logging.getLogger("memorymap.tools").warning("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
     try:
-        args = dict(arguments or {})
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
         # Every write the handler makes, however deep in the managers it

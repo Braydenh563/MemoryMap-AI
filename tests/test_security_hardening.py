@@ -70,7 +70,8 @@ def test_an_unexpected_exception_does_not_leak_its_text(session, app_state, capl
 
     assert "invalid literal" not in result["error"]
     assert "int()" not in result["error"]
-    assert "Re-read the tool's schema" in result["error"]
+    # INBOX 527: refused before the handler, naming the parameter and its type.
+    assert "note_id (integer)" in result["error"]
     # …and it is not simply discarded.
     assert any(r.name == "memorymap.tools" for r in caplog.records)
 

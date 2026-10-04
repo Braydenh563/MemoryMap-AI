@@ -34,6 +34,16 @@ with its owner named in the entry.
 
 ## Open items
 
+527. **The owner, 2026-10-04, verbatim.** "use the available agentic
+     harness skills to make sure the agentic harness is world class and
+     unbelievably robust, good at its job, capable and more" / "just improve
+     and refine the agentic harness to make sure it is the best the world
+     has ever seen" / "does the ai know that it can have images in its
+     response??" Placed: AGENT_SKILLS_REFORM.md, "Harness robustness,
+     2026-10-04 (INBOX 527)": fourteen defects audited and fixed against a
+     real 1.5B (the agent prompt now offers `[picture N]` too); phases H1 to
+     H5 open there.
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

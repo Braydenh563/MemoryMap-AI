@@ -1022,6 +1022,18 @@ function mapBoardRows() {
   return mapBoardIndexCache ? [...mapBoardIndexCache.values()] : [];
 }
 
+//: **Which boards the Library counts** (INBOX 464 (15)): `/whiteboard/boards`
+//: always returns the default scratch board (`id: null`), and `/library`
+//: lists boards that are notes, which it is not, so Everything said "Boards 1"
+//: where Boards & maps said "All 2". The default board is listed when
+//: something is on it (its content is reachable only there) and not when it
+//: is empty. Every Library view of boards, its counts and the dashboard's
+//: widget go through this one predicate.
+function libraryListsBoard(board) {
+  if (board.id !== null && board.id !== undefined) return true;
+  return (board.node_count || 0) + (board.sketch_count || 0) + (board.object_count || 0) > 0;
+}
+
 //: ---------------------------------------------------------------------------
 //: **Shared by surfaces that are not loaded yet** (WORLD_CLASS_PLAN A1). Five
 //: files now arrive on first use rather than at boot (`ensureModule` below),

@@ -3498,7 +3498,7 @@ async function renderBoardsWidget(body) {
   // counts up to the index's eight seconds old, which is the age at which a
   // board's node count changes the order of a five-row list and nothing more.
   await loadMapBoardIndex().catch(() => null);
-  const boards = mapBoardRows();
+  const boards = mapBoardRows().filter(libraryListsBoard);
   const usable = boards.filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
   if (!usable.length) {
     //: An empty board is left out of the ranking, so a notebook with only

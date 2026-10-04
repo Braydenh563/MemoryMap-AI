@@ -3637,6 +3637,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("edit_note", "pin_note"),
         (
             "edit", "change", "update", "rewrite", "fix", "correct", "amend",
+            "append",
             "pin", "unpin", "reword", "shorten", "expand",
         ),
     ),
@@ -3778,6 +3779,13 @@ def is_follow_through(question: str) -> bool:
     return any(cue in text for cue in FOLLOW_THROUGH)
 
 
+#: "add …/put …/write … to/in/into my|the|that … note": an edit.
+_ADD_TO_NOTE = re.compile(
+    r"\b(?:add|put|write|stick|include)\b[^.?!\n]{1,80}?\b(?:to|in|into|onto)\s+(?:my|the|that|this)\b[^.?!\n]{0,40}?\bnote\b",
+    re.IGNORECASE,
+)
+
+
 def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 
@@ -3837,6 +3845,11 @@ def focus_detail(question: str, recent: str = "") -> toolwords.Focus:
             if asking and name in WRITE_TOOLS:
                 continue
             wanted.append(name)
+
+    # "Add X to my Y note" is an edit, and no single cue word says so (INBOX
+    # 527: Qwen2.5-1.5B, offered no edit_note, rewrote the note in prose).
+    if not asking and _ADD_TO_NOTE.search(asked):
+        wanted.append("edit_note")
 
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-

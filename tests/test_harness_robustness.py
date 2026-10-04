@@ -336,3 +336,15 @@ def test_a_second_false_claim_still_gets_the_heads_up(monkeypatch, app_state):
     answer = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
     assert fake.replies == 2, "asked once, not twice"
     assert "Heads up: I said I saved a note" in answer
+
+
+def test_adding_to_a_note_is_offered_the_edit():
+    """Qwen2.5-1.5B, "Add 'bring a rain jacket' to my Snowdon trip note": no
+    edit_note offered, so it rewrote the note in prose and saved nothing."""
+    for question in (
+        "Add 'bring a rain jacket' to my Snowdon trip note",
+        "put the new address in my plumber note",
+        "append this to the shopping note",
+    ):
+        assert "edit_note" in tools.focus_for(question), question
+    assert "edit_note" not in tools.focus_for("Make a note: buy oat milk")

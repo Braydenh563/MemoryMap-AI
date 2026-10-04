@@ -20,6 +20,10 @@ from __future__ import annotations
 
 import re
 
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from memorymap.core.database import NoteType
 from memorymap.core.docmeta import MAX_FENCE_LINES, properties as read_block
 
 _FENCE = re.compile(r"^---[ \t]*$")
@@ -89,3 +93,26 @@ def write(text: str, props: dict[str, object]) -> str:
     if not lines:
         return body
     return "---\n" + "\n".join(lines) + "\n---\n" + body
+
+
+def find_type(session: Session, name: str | None) -> NoteType | None:
+    if not name:
+        return None
+    return session.scalar(select(NoteType).where(func.lower(NoteType.name) == name.strip().lower()))
+
+
+def with_type_fields(session: Session, content: str, type_name: str) -> str:
+    """`content` with `type:` and the type's fields first in its block (KG4).
+    A field the note already has keeps its value; an unknown type is written
+    as the type alone, which is what an imported vault's notes do."""
+    row = find_type(session, type_name)
+    found, _ = split(content)
+    props: dict[str, object] = {"type": row.name if row else type_name.strip()}
+    for field in (row.fields or []) if row else []:
+        name = field.get("name")
+        if name and name not in found:
+            props[name] = [] if field.get("kind") == "list" else ""
+    for key, values in found.items():
+        if key != "type":
+            props[key] = values if len(values) != 1 else values[0]
+    return write(content, props)

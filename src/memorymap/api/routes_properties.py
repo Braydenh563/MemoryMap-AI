@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.api import routes_entries
@@ -41,36 +41,13 @@ def _type_row(row: NoteType) -> dict:
     }
 
 
-def _find_type(session: Session, name: str | None) -> NoteType | None:
-    if not name:
-        return None
-    return session.scalar(select(NoteType).where(func.lower(NoteType.name) == name.strip().lower()))
-
-
-def with_type_fields(session: Session, content: str, type_name: str) -> str:
-    """`content` with `type:` and the type's fields first in its block (KG4).
-    A field the note already has keeps its value; an unknown type is written
-    as the type alone, which is what an imported vault's notes do."""
-    row = _find_type(session, type_name)
-    found, _ = note_properties.split(content)
-    props: dict[str, object] = {"type": row.name if row else type_name.strip()}
-    for field in (row.fields or []) if row else []:
-        name = field.get("name")
-        if name and name not in found:
-            props[name] = [] if field.get("kind") == "list" else ""
-    for key, values in found.items():
-        if key != "type":
-            props[key] = values if len(values) != 1 else values[0]
-    return note_properties.write(content, props)
-
-
 @router.get("/entries/{entry_id}/properties")
 def entry_properties(entry_id: int, session: Session = Depends(get_session)) -> dict:
     """The note's properties, its type, and that type's fields in order."""
     entry = routes_entries._existing_entry(session, entry_id)
     found, _ = note_properties.split(manager.readable_content(entry))
     kind = note_properties.note_type(found)
-    row = _find_type(session, kind)
+    row = note_properties.find_type(session, kind)
     return {"properties": found, "type": kind, "fields": list(row.fields or []) if row else []}
 
 
@@ -144,7 +121,7 @@ def create_note_type(body: NoteTypeIn, session: Session = Depends(get_session)) 
     name = " ".join(body.name.split())
     if not name:
         raise HTTPException(status_code=422, detail="A note type needs a name.")
-    if _find_type(session, name) is not None:
+    if note_properties.find_type(session, name) is not None:
         raise HTTPException(status_code=409, detail="There is already a note type with that name.")
     row = NoteType(name=name, icon=body.icon, colour=body.colour, fields=_fields(body.fields) or None)
     session.add(row)
@@ -167,7 +144,7 @@ def patch_note_type(type_id: int, body: NoteTypePatch, session: Session = Depend
     sent = body.model_fields_set
     if "name" in sent and body.name is not None:
         name = " ".join(body.name.split())
-        other = _find_type(session, name)
+        other = note_properties.find_type(session, name)
         if not name or (other is not None and other.id != row.id):
             raise HTTPException(status_code=409, detail="There is already a note type with that name.")
         row.name = name

@@ -76,10 +76,12 @@ def test_deleting_a_custom_type_leaves_its_links_untyped(client, session):
     client.post("/relation-types", json={"name": "Cites", "inverse": "Cited by"})
     a, b = _note(client, "paper"), _note(client, "source")
     client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"], "link_type": "cites"})
-    assert client.delete("/relation-types/cites").status_code == 200
+    deleted = client.delete("/relation-types/cites")
+    assert deleted.status_code == 200
     session.expire_all()
     assert session.query(EntryLink).one().link_type is None
-    assert client.delete("/relation-types/supports").status_code == 400
+    built_in = client.delete("/relation-types/supports")
+    assert built_in.status_code == 400
 
 
 def test_a_custom_type_survives_a_backup_round_trip(client):

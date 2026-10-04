@@ -538,15 +538,19 @@ class LinkReason(TypeDecorator):
 
     impl = Text
     cache_ok = True
+    #: Set by `core.vault` when it loads (`set_key_source`), so this module
+    #: never imports the vault, which imports this one for its `Vault` row.
+    #: Until then no vault can be open, and no key is exactly what it says.
+    key_source = staticmethod(lambda: None)
 
     def process_result_value(self, value, dialect):
         if not value:
             return value
-        from memorymap.core import crypto, vault
+        from memorymap.core import crypto
 
         if not crypto.is_encrypted(value):
             return value
-        key = vault.key()
+        key = LinkReason.key_source()
         if key is None:
             return None
         try:

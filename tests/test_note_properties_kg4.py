@@ -36,8 +36,10 @@ def test_write_changes_the_block_and_never_the_body():
     out = properties.write(NOTE, {"status": "done", "due": "2026-10-10", "tags": ["a", "c"]})
     assert out.endswith("# Kiln plan\n\nFire on Thursday.")
     assert properties.split(out)[0] == {"status": ["done"], "due": ["2026-10-10"], "tags": ["a", "c"]}
-    assert properties.write(NOTE, {}) == "# Kiln plan\n\nFire on Thursday."
-    assert properties.write("plain note", {"status": "new"}) == "---\nstatus: new\n---\nplain note"
+    cleared = properties.write(NOTE, {})
+    assert cleared == "# Kiln plan\n\nFire on Thursday."
+    added = properties.write("plain note", {"status": "new"})
+    assert added == "---\nstatus: new\n---\nplain note"
 
 
 # --- the notes ---------------------------------------------------------------------

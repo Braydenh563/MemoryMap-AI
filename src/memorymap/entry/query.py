@@ -30,7 +30,17 @@ from memorymap.core.database import Entity, EntityMention, Entry, EntryLink, Ent
 
 STRUCTURAL = ("type", "prop", "links", "rel", "entity")
 _TOKEN = re.compile(r'(-?)(?:(\w+):)?(\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+)')
-_COMPARE = re.compile(r"^([^=<>!]{1,60})(!=|>=|<=|=|>|<)(.*)$")
+_OPERATORS = ("!=", ">=", "<=", "=", ">", "<")
+
+
+def _split_compare(text: str) -> tuple[str, str, str] | None:
+    """`key<op>value`, split at the first operator character: a plain scan
+    rather than a regex, which a scanner reads as a markup filter."""
+    at = next((i for i, ch in enumerate(text) if ch in "=<>!"), -1)
+    if not 1 <= at <= 60:
+        return None
+    op = next((o for o in _OPERATORS if text.startswith(o, at)), None)
+    return (text[:at], op, text[at + len(op):]) if op else None
 
 
 @dataclass(frozen=True)
@@ -56,9 +66,10 @@ def parse(raw: str) -> list[Term]:
     for match in _TOKEN.finditer(raw or ""):
         negate, kind, rest = match.group(1) == "-", (match.group(2) or "").lower(), match.group(3)
         if kind == "prop":
-            compare = _COMPARE.match(_unwrap(rest)) if not rest.startswith('"') else None
+            compare = _split_compare(_unwrap(rest)) if not rest.startswith('"') else None
             if compare:
-                terms.append(Term("prop", _unwrap(compare.group(3)), compare.group(1).strip().lower(), compare.group(2), negate))
+                key, op, value = compare
+                terms.append(Term("prop", _unwrap(value), key.strip().lower(), op, negate))
             elif _unwrap(rest):
                 terms.append(Term("prop", "", _unwrap(rest).lower(), "has", negate))
         elif kind in ("type", "links", "rel", "entity", "tag"):

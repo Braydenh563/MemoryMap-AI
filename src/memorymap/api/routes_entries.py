@@ -605,9 +605,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     content = body.content
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
-        from memorymap.api.routes_properties import with_type_fields
-
-        content = with_type_fields(session, content, body.note_type)
+        content = note_properties.with_type_fields(session, content, body.note_type)
     entry = manager.create_entry(
         session,
         content=content,

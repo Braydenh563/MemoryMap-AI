@@ -451,3 +451,19 @@ INBOX 443 (1) (the owner: "the graph shape could look nicer"), measured with
      sliders for text fade threshold (`GC_LABEL_ZOOM` is fixed at 1.4), link
      thickness and link force; (6) attachments (images, files) as nodes.
      Opus, after the graph-look agent lands (same files).
+
+518. **From the backend audit (INBOX 517), found and not fixed.** (1) Wiki
+     links only ever add: deleting `[[Name]]` from a note keeps the edge, and
+     renaming a note leaves `[[Old name]]` pointing at it with stale text.
+     Needs the link's origin stored (a column; `link_type` is the semantic
+     kind and must not carry it), then sync removes wiki-origin links whose
+     name left the text, and offers to rewrite `[[Old]]` on a rename. (2)
+     `/graph` rebuilds every node from every note's full text on each call
+     (90 ms at 2,018 notes; linear); only centrality and similarity are
+     cached. Cache the node payload by the same fingerprint. (3) The
+     fingerprint (count, max updated_at, link count) misses a link removed
+     and another added between two calls: same counts, stale centrality; add
+     max(link id) or a links version. (4) Similarity is all-pairs cosine,
+     O(n^2) memory at build (fine at 2k, 10k is 100M floats): chunk it or
+     take each note's top-k from the retrieval matrix. (5) `/graph/local`
+     takes `depth` but the UI fixes it (514 covers the control).

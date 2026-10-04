@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Links: [[Name]] links to a note that opens with a "# Name" heading, and a link written before its note exists connects as soon as that note is saved.
+- Library: pressing the Library tab inside an open board or mind map goes back to the Library.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.

@@ -37231,6 +37231,22 @@ width, 47% of the column at 1440.
      sash removed, the torso fades into the gown; `atlaswaistjoin.js` 4x
      stand pose, dark, shows no band and no strings.
 
+516. **The owner, 2026-10-04, verbatim.** "when I am in a whiteboard or
+     mindmap, I cant click the library tab menu item to go back to the
+     library". Fixed: the board is drawn inside the Library tab, so the press
+     switched to the tab already showing; a press while a board or map is
+     open now returns to the landing (`libtab.js`: open before, landing after,
+     board and map).
+517. **The owner, 2026-10-04, verbatim.** "what about the actual backend
+     functionality or how the graph actually is made and can be used?? is
+     anyuthing missing or sub par??" Audit found two link bugs, fixed:
+     `[[Name]]` never linked to a note opening `# Name` (the match read the
+     raw text from its first character), and a link written before its note
+     existed never resolved (only the linking note's save synced). Now the
+     opening line, heading stripped, names a note, and saving a note links
+     every note already naming it (`test_wiki_links_headings.py`, 4). The
+     rest placed in GRAPH_PLAN as 518.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

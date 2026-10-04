@@ -37082,6 +37082,17 @@ width, 47% of the column at 1440.
      emblem's loader now waits for the page, the second cause of "ACCENTS is
      not defined" (`test_clear_app_cache.py`).
 
+505. **The owner, 2026-10-04 evening, verbatim, with two screenshots (note
+     cards: the text, then a row of category pill, confidence, hashtags,
+     a date-mention chip and the date, then rows of link chips, all at
+     similar weight; the text starting 28px in from the card's edge).** "in
+     the notes, the metadata clashes with the note contents visually a bit
+     too much. I also feel like the text and note contents can go a bit more
+     to the right". Orchestrator. **Fixed**: the text starts 21px in (was
+     14px), the metadata a step lower, the category pill in muted ink at the
+     body weight (dot keeps its colour), link chips muted with a fainter edge
+     until pointed at (`notecardmeta.js`).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

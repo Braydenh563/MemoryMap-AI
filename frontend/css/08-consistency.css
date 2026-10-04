@@ -10266,3 +10266,41 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #reminder-due-row>details>summary {
   border-radius: var(--radius-pill);
 }
+
+/* --- A note card's text leads; its metadata steps back (INBOX 505) ---
+   The owner: "the metadata clashes with the note contents visually a bit
+   too much. I also feel like the text and note contents can go a bit more
+   to the right". Measured at 1440: the text 14px in from the card's edge,
+   the metadata 6px under it, the category pill in full ink at weight 500
+   with a fill and a hairline, link chips as outlined pills in the body's
+   ink: four rows of equal voice. Now the card's inset is 20px, the metadata
+   starts a step further down, the category reads in the muted ink at the
+   body weight (its dot keeps the colour), and a link chip is muted with a
+   fainter edge until pointed at. One rule set, here, last. */
+#entry-list > li:not(.list-window-sentinel) {
+  padding-inline: calc(var(--space-7) + var(--space-2)) var(--space-6);
+}
+
+#entry-list > li:not(.list-window-sentinel) > .entry-meta.entry-meta {
+  margin-top: var(--space-4);
+}
+
+#entry-list .entry-meta.note-meta > .chip.category {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#entry-list .entry-meta.note-meta > .chip.category.is-action:hover {
+  color: var(--ink);
+}
+
+#entry-list .chip.link {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+#entry-list .chip.link:hover,
+#entry-list .chip.link:focus-within {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}

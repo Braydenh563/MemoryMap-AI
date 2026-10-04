@@ -1464,6 +1464,34 @@ _PICTURE_WORDS = re.compile(
 )
 
 
+_PREFERENCE_CUE = re.compile(
+    r"\b(?:remember|prefer|preference|from now on|always|never|call me|my name|i like|i don'?t like|i hate|i love)\b",
+    re.I,
+)
+_FENCE_TEXT = re.compile(r"<<<(?:end data|data[^<>\n]{0,40})>>>")
+
+
+def _copies_what_was_read(arguments: dict, messages: list[dict], wrote: bool) -> bool:
+    """**A `create_note` that is a copy of a note this turn already has.**
+
+    Qwen2.5-3B, H4: "Pin my dentist note" pinned it and then made a new note
+    of the same text with the prompt's fence markers in it; "Add 'bring a rain
+    jacket' to my Snowdon note" edited it and then made a copy of the edited
+    note. Prompt markers in a new note are always a copy; otherwise, after a
+    write, a new note whose first line (20 characters or more) is already in
+    a note or tool result this turn is the same note again.
+    """
+    content = str(arguments.get("content") or "")
+    if _FENCE_TEXT.search(content):
+        return True
+    first = content.strip().split("\n", 1)[0].strip()
+    if not wrote or len(first) < 20:
+        return False
+    return any(
+        first in str(m.get("content") or "") for m in messages[1:] if m.get("role") in ("user", "tool")
+    )
+
+
 def _picture_in_hand(question: str, notes: list[dict]) -> bool:
     """**A picture question whose picture is already in the prompt.**
 
@@ -1649,10 +1677,15 @@ def _prepare_turn(
         #: tool. The cued groups are added after the core, which stays first
         #: and stable; a broad request (None) still gets the core alone.
         cued = _focus(question, history) or []
+        #: `save_user_preference` only when the request is about the user
+        #: (H4, Qwen2.5-3B under the forced first call: "Note down: ...",
+        #: "Save this: ..." and "Put ... in my note" saved a preference, 3/20).
+        keep_pref = bool(_PREFERENCE_CUE.search(question or ""))
         focus_names = [
             name
             for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
             if name not in tools.ORCHESTRATION_TOOLS
+            and (keep_pref or name != "save_user_preference")
         ]
     if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
         focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
@@ -2194,6 +2227,17 @@ def _dispatch_call(
             "label": f"ph:warning {name.replace('_', ' ')}, repeated failure",
             "ok": False,
             "error": "Repeated failure intercepted",
+        }
+    elif name == "create_note" and _copies_what_was_read(arguments, state.messages, state.did_write):
+        result = {
+            "error": "That note already exists: this is a copy of a note you read or changed this turn.",
+            "what_to_do": "Do not make a new note. Tell the user what you did to the existing note.",
+        }
+        yield {
+            "type": "tool",
+            "label": "ph:warning create note, a copy of an existing note",
+            "ok": False,
+            "error": "Copy of an existing note intercepted",
         }
     elif signature in state.done_calls and name in _WRITE_TOOLS:
         # --- NEW INTERCEPTION: Duplicate Writes ---

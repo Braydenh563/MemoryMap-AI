@@ -134,12 +134,15 @@ def test_a_small_model_gets_no_orchestration_tools(monkeypatch, app_state):
 def test_a_small_model_gets_the_core_set_and_nothing_else(monkeypatch, app_state):
     """`CORE_TOOLS` minus `ORCHESTRATION_TOOLS`, exactly. Not a trim of
     whatever the question's cue words happened to pull in: the point is that
-    the set is the same every turn, so the model sees one stable toolbox."""
+    the set is the same every turn, so the model sees one stable toolbox.
+    Less `save_user_preference` unless the request is about the user (H4,
+    `test_harness_tiers.py`)."""
     small, _, _ = _run(monkeypatch, "qwen3.5:4b", content="done")
     expected = [
         name
         for name in agent.tools.CORE_TOOLS
         if name not in agent.tools.ORCHESTRATION_TOOLS
+        and name != "save_user_preference"
         and agent.tools.tool_enabled(name)
     ]
     assert sorted(_names(small.offered[0])) == sorted(expected)

@@ -326,3 +326,32 @@ retry were not looked at in a browser (no UI changed: they are answer text).
   2,048 tokens on these cores); Ollama's native
   dialect; two calls in one reply on a real model; picture placement over
   ten tries. Done when: each has a number in this section.
+
+  **Measured 2026-10-04, Qwen2.5-3B-Instruct Q4_K_M** (llama-server
+  `--jinja`, started in under two minutes with `scratchpad/llama-dev.sh
+  serve`; four contended cores, 4 to 400 s a round):
+  - The ten cases (`scratchpad/harness_probe.py`): a right first tool 9 of
+    10 ("Make a note" opened with `get_current_time`, then made the note),
+    finished 10 of 10, every turn ended in
+    words. Two of them then made a copy of the note they had just pinned or
+    edited (one with the prompt's fence markers in it): fixed, a copy is now
+    refused (`agent._copies_what_was_read`).
+  - The required first call (`scratchpad/harness_firstcall.py`): the rule
+    forces 20 of 20 imperatives and 0 of 10 questions; forced, a right first
+    tool 14 of 20 (3 of the misses were `save_user_preference`, now offered
+    to a small model only when the request is about the user); unforced
+    questions 10 of 10.
+  - Two calls in one reply: 2 of 20 imperatives and 1 of 5 two-part requests
+    ("Make a note ... and remind me ..." gave `create_note` and
+    `set_reminder` in one reply, both right).
+  - Picture placement: 0 of 3 in the eval before the H3/H4 picture fix (one
+    probe placed the note on a whiteboard instead); 5 of 5 after, each time
+    as the note's own `![alt](/media/...)`, which the bubble draws as an
+    image (checked in the browser), never as `[picture N]`.
+  - The reply cap (H3) never fired at 3B: no tool round wrote past 2,400
+    characters (the largest round was 129 tokens).
+  - **Not run:** 4B (only 1.5B and 3B on disk; at 3B a full ten-case pass took
+    about 50 minutes on these cores, so a 4B pass was left for a quieter
+    machine); Ollama's native dialect (no Ollama binary in the sandbox;
+    installing one was not attempted); ten picture tries (five were run).
+

@@ -229,6 +229,75 @@ class _CreateWithTags:
         yield {"final": {"content": "I've created the note and tagged it todo.", "tool_calls": []}}
 
 
+class _ThenCopies:
+    """Qwen2.5-3B, H4: a successful write, then `create_note` holding the
+    note it just changed (once with the prompt's fence markers in it)."""
+
+    def __init__(self, first, copy):
+        self.calls = [first, copy]
+
+    def chat_tools_stream(self, model, messages, offered, mode=None):
+        if self.calls:
+            yield {"final": {"content": "", "tool_calls": [self.calls.pop(0)], "raw_tool_calls": []}}
+            return
+        yield {"final": {"content": "Done.", "tool_calls": []}}
+
+
+_SNOWDON = "Snowdon trip: carry the new boots, start at Pen-y-Pass at 7am"
+
+
+def _copy_turn(monkeypatch, first, copy):
+    ran = []
+
+    def execute(session, name, arguments, **kwargs):
+        ran.append((name, arguments))
+        return {"id": 3, "title": "Snowdon trip", "content": _SNOWDON}
+
+    monkeypatch.setattr(agent.tools, "execute_tool", execute)
+    list(agent.run_agent(_Session(), "q", [{"id": 3, "title": "Snowdon trip", "content": _SNOWDON, "category": "Travel", "tags": []}], _Named("qwen2.5-3b"), _ThenCopies(first, copy)))
+    return [name for name, _ in ran]
+
+
+def test_a_copy_of_the_note_just_changed_is_not_made(monkeypatch, app_state):
+    ran = _copy_turn(
+        monkeypatch,
+        {"name": "edit_note", "arguments": {"note_id": 3, "content": f"{_SNOWDON}\nbring a rain jacket"}},
+        {"name": "create_note", "arguments": {"content": f"{_SNOWDON}\nbring a rain jacket"}},
+    )
+    assert ran == ["edit_note"]
+
+
+def test_a_note_holding_the_prompt_s_fence_is_not_made(monkeypatch, app_state):
+    ran = _copy_turn(
+        monkeypatch,
+        {"name": "pin_note", "arguments": {"note_id": 3, "pinned": True}},
+        {"name": "create_note", "arguments": {"content": f"<<<data note>>>\n{_SNOWDON}\n<<<end data>>>"}},
+    )
+    assert ran == ["pin_note"]
+
+
+def test_a_new_note_after_a_write_is_still_made(monkeypatch, app_state):
+    ran = _copy_turn(
+        monkeypatch,
+        {"name": "pin_note", "arguments": {"note_id": 3, "pinned": True}},
+        {"name": "create_note", "arguments": {"content": "Buy oat milk and eggs for the trip"}},
+    )
+    assert ran == ["pin_note", "create_note"]
+
+
+def test_a_small_model_s_toolbox_holds_preferences_only_when_asked(monkeypatch, app_state):
+    """H4, Qwen2.5-3B under the forced first call: "Note down: ...", "Save
+    this: ..." and "Put ... in my note" called `save_user_preference` (3 of 20)."""
+    for question, wanted in (
+        ("Note down: call Sam about the van", False),
+        ("Save this: the plumber is free on Thursday", False),
+        ("Remember that I prefer short answers", True),
+        ("From now on call me Bray", True),
+    ):
+        offered = _offered_for(monkeypatch, [], question=question)
+        assert ("save_user_preference" in offered) is wanted, (question, offered)
+
+
 def test_a_note_made_with_tags_was_tagged(monkeypatch, app_state):
     """H4, Qwen2.5-3B: `create_note` with `tags`, then "tagged as todo", got
     "Heads up: I said I tagged a note, but I didn't actually run the tool"."""

@@ -518,7 +518,7 @@ reasons are the signals, not a model's prose; properties live in the note's
 text and the table is an index; components stay the clusters, topics are a
 labelled second layer; the structural signals work with embeddings off; one
 mention scanner for notes and documents; a moved span is refused, never
-guessed.
+guessed; a link's properties on a link with a private end are sealed exactly like its reason (encrypted at rest, read while unlocked, absent while locked), because they are free text a person wrote about the notes (sweep 1004).
 
 **Not to build:** a block model (notes are short and `[[Note#Heading]]`
 exists); a second canvas (the whiteboard is one); model-extracted

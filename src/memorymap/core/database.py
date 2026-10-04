@@ -14,6 +14,7 @@ need a real migration tool, so don't do those casually.
 from __future__ import annotations
 
 import importlib
+import json
 import logging
 import os
 import sys
@@ -559,6 +560,42 @@ class LinkReason(TypeDecorator):
             return None
 
 
+class LinkProps(TypeDecorator):
+    """`entry_links.props`: a JSON object, or a JSON string of ciphertext on a
+    link touching a private note, read back as the object while the vault is
+    open and as `None` while it is locked.
+
+    Props are short values a person wrote about the two notes, so they get
+    `LinkReason`'s treatment (sweep 1004; GRAPH_PLAN KG decisions). The same
+    division of labour: `manager` decides what to seal and writes the stored
+    form, this type only reads it, so every reader of `link.props` is
+    unchanged. The sealed form is the encrypted `json.dumps` of the object,
+    stored as a JSON string, which a plain object can never be mistaken for.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self):
+        super().__init__(none_as_null=True)
+
+    def process_result_value(self, value, dialect):
+        if not isinstance(value, str):
+            return value
+        from memorymap.core import crypto
+
+        if not crypto.is_encrypted(value):
+            return value
+        key = LinkReason.key_source()
+        if key is None:
+            return None
+        try:
+            parsed = json.loads(crypto.decrypt(key, value))
+        except (crypto.DecryptionError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+
 class EntryLink(Base, WorkspaceMixin):
     """A user- or AI-made connection between two entries."""
 
@@ -603,7 +640,7 @@ class EntryLink(Base, WorkspaceMixin):
     origin: Mapped[str | None] = mapped_column(String(8), default=None)
     #: GRAPH_PLAN KG3: properties on the link itself (a JSON object of short
     #: scalar values: "count": 4, "since": "2026"), null for none.
-    props: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), default=None)
+    props: Mapped[dict | None] = mapped_column(LinkProps(), default=None)
 
 
 class RelationType(Base):

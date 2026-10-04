@@ -132,7 +132,10 @@ def _extract_json_object(text: str) -> dict:
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end <= start:
         raise ValueError(f"no JSON object in reply: {text!r}")
-    parsed = json.loads(text[start : end + 1])
+    try:
+        parsed = json.loads(text[start : end + 1])
+    except RecursionError as exc:
+        raise ValueError("reply JSON is nested too deeply") from exc
     if not isinstance(parsed, dict):
         raise ValueError("reply JSON is not an object")
     return parsed

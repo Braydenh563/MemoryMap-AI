@@ -16,24 +16,24 @@ S608 hits are constant placeholders.
 
 ## Not fixed
 
-1. **Link properties are not sealed on a link with a private end.** A link's
+1. **FIXED (`LinkProps`, tests/test_private_link_props.py): link properties are not sealed on a link with a private end.** A link's
    `reason` is encrypted (`manager._seal_reason`) but `entry_links.props`
    (up to 20 values of 200 characters) is stored in the clear. Props are
    short and free text a person wrote about the two notes, so the same rule
    applies; sealing needs an encrypted JSON column or a string envelope plus a
    reader. Decision for the owner: seal (a `LinkProps` type like `LinkReason`)
    or state that props are metadata, like the link and its kind.
-2. **An entity that only private notes ever named is still fetchable by id.**
+2. **FIXED (`entity_page` 404s, tests/test_entity_page_private.py): an entity that only private notes ever named is still fetchable by id.**
    `GET /entities/{id}` returns its name and aliases with zero notes (the list
    hides it). The name was lifted from a note when it was readable. Cheapest
    fix: 404 an entity with no visible mention, as the list does.
-3. **Other model-JSON readers catch only ValueError.** `extractor.py:135`,
+3. **FIXED (tests/test_model_json_deep_nesting.py): other model-JSON readers catch only ValueError.** `extractor.py:135`,
    `janitor.py:638`, `passive_capture.py:146`, `reminder_parser.py:165` parse
    the span between a reply's first `{` and last `}`; a reply of several
    thousand nested braces raises RecursionError there. They run in background
    passes with their own outer guards (not checked each); the tool path, which
    had none, is fixed.
-4. **`_coerce` accepts `nan` and `inf` for a `number` parameter**
+4. **FIXED (tests/test_coerce_number_finite.py): `_coerce` accepts `nan` and `inf` for a `number` parameter**
    (`float("nan")`). No current tool has a `number` parameter whose handler
    would misbehave; noted for the next one.
 5. **A dismissed reminder notification never returns** (`status.js`
@@ -42,3 +42,5 @@ S608 hits are constant placeholders.
    the owner snoozes reminders.
 6. **Not verified in a browser:** nothing here changed the UI; the notification
    dismissal was read, not run.
+
+7. **FIXED (tests/test_reevaluate_private.py, orchestrator add-on): `reevaluate` sent a private note's text to the model and the search index.** It now refuses a private note with a 400, like generate-title. Found-not-fixed: the note menu still offers "Tag and file with Atlas" on a private note (the toast shows the refusal); hiding it is a frontend change not made here.

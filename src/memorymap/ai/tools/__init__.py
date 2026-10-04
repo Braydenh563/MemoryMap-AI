@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from typing import Callable
 
@@ -4274,12 +4275,17 @@ def _coerce(value: object, schema: dict) -> tuple[object, bool]:
     if kind == "number":
         if isinstance(value, bool):
             return value, False
-        if isinstance(value, (int, float)):
+        # Finite only: "nan" and "inf" parse as floats, and a handler that
+        # compares or divides by one misbehaves without saying so (sweep 1004).
+        if isinstance(value, int):
             return value, True
+        if isinstance(value, float):
+            return (value, True) if math.isfinite(value) else (value, False)
         try:
-            return float(str(value).strip()), True
+            number = float(str(value).strip())
         except ValueError:
             return value, False
+        return (number, True) if math.isfinite(number) else (value, False)
     if kind == "boolean":
         if isinstance(value, bool):
             return value, True

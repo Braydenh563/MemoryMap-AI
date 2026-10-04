@@ -163,7 +163,7 @@ def _extract_json(content: str) -> dict | None:
         return None
     try:
         parsed = json.loads(content[start : end + 1])
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return None
     return parsed if isinstance(parsed, dict) else None
 

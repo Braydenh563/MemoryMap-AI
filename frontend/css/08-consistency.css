@@ -10343,3 +10343,93 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   color: var(--ink);
   border-color: color-mix(in srgb, var(--ink) 22%, transparent);
 }
+
+/* --- The Ask tab's records speak in the Notes list's voice (INBOX 510) ---
+   The owner: "redesign or fix the metadata, badges and links etc in the ask
+   subtab matching records notes column". Measured at 1440
+   (`scratchpad/ui-sweeps/askcards.js`): the text 12.8px in from the card's
+   edge against the list's 26.4px; the category in full ink at 500; link
+   chips filled in the accent wash at 600; the match reason a filled green
+   600 pill on a row of its own; the citation number a box on a plain card
+   and nothing on the cited one, whose wash is its own colour. Now the
+   card's inset and the metadata's voice are the list's (the block above);
+   the reason is one more fact in the facts line, after the date, an icon in
+   its kind's colour and words in the muted ink (capture-ask.js moves it
+   there); the links are the list's quiet outlined row; and the number
+   carries an edge of its own, so it is the same box on either ground. */
+#raw-results > li[data-id] {
+  padding-left: calc(var(--space-7) + var(--space-2));
+}
+
+#raw-results > li[data-id] > .entry-meta.entry-meta {
+  margin-top: var(--space-4);
+}
+
+#raw-results .entry-meta.note-meta > .chip.category {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* The list's pill: the edge on the connection, the chip inside it bare, so
+   the pill's edge is the card's text edge (the chip's own 1.8px hover bleed
+   had it 2px in). */
+#raw-results .link-connection {
+  gap: 0;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  border-radius: var(--radius-pill);
+}
+
+#raw-results .link-connection > .chip.link {
+  margin: 0;
+  border: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* One line, cut with an ellipsis: at 390 the linked note's words wrapped to
+   two lines inside a pill one line tall. */
+#raw-results .link-connection > .chip.link > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#raw-results .chip.link {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#raw-results .link-connection:hover,
+#raw-results .link-connection:focus-within {
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+#raw-results .chip.link:hover,
+#raw-results .chip.link:focus-within {
+  color: var(--ink);
+}
+
+#raw-results .entry-meta > .result-reason-chip {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding-inline: 0;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#raw-results .entry-meta > .result-reason-chip > .ph {
+  color: var(--ok);
+}
+
+#raw-results .entry-meta > :is(.result-reason-connected, .result-reason-connected_2hop) > .ph {
+  color: var(--accent-text);
+}
+
+#raw-results li > .record-index {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
+}

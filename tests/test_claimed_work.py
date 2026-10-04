@@ -201,3 +201,20 @@ def test_a_read_only_answer_is_never_warned_about(ai_client, fake_ollama):
     events = _events(ai_client, "what did I write about beans", use_tools=True)
     text = "".join(e["delta"] for e in events if e["type"] == "answer")
     assert "Heads up" not in text
+
+
+def test_a_passive_claim_on_a_turn_that_wrote_is_checked():
+    """INBOX 527, Qwen2.5-1.5B: asked to pin, it created a duplicate and wrote
+    "has been created and pinned". The create was real, the pin was not."""
+    answer = "Your dentist appointment note has been created and pinned for easy reference."
+    assert agent.unsupported_claims(answer, {"create_note"}) == ["pinned a note"]
+    assert agent.unsupported_claims("Your reminder has been set for 9am.", {"create_note"}) == [
+        "set a reminder"
+    ]
+    assert agent.unsupported_claims("Your note has been tagged urgent.", {"tag_note"}) == []
+
+
+def test_a_passive_description_on_a_plain_answer_is_left_alone():
+    """"has been tagged" also describes a note as it is; with nothing written
+    this turn it is not read as a claim."""
+    assert agent.unsupported_claims("Your plumber note has been tagged urgent since May.", set()) == []

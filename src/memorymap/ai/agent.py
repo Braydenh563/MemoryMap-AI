@@ -108,6 +108,12 @@ _INTENT_PATTERN = re.compile(
 #: announcement standing in for one.
 _INTENT_MAX_CHARS = 400
 
+#: What makes an announced act an offer ("if you like", "would you") or the
+#: answer itself ("I'll list them below").
+_CONDITIONAL = re.compile(
+    r"\b(?:if|would|could|want|wish|prefer|should|below|above|following)\b", re.IGNORECASE
+)
+
 
 def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
     """Whether a reply with no tool call only says it is about to act.
@@ -117,8 +123,19 @@ def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
     since then there is nothing to nudge the model toward.
     """
     text = (answer or "").strip()
-    if not text or len(text) > _INTENT_MAX_CHARS or not offered:
+    if not text or not offered:
         return False
+    if len(text) > _INTENT_MAX_CHARS:
+        #: **A long reply counts when one of its sentences announces an act
+        #: outright** (INBOX 527, Qwen2.5-1.5B): asked "Make a note: buy oat
+        #: milk", it wrote the note out as markdown, said "I will call the
+        #: tool to save the note for you", and called nothing. A promise with
+        #: a condition ("I'll search for more if you like") is an offer, and a
+        #: long answer making one is still an answer.
+        return any(
+            _INTENT_PATTERN.search(sentence) and not _CONDITIONAL.search(sentence)
+            for sentence in re.split(r"[.!?\n]+", text)
+        )
     names = {t.get("function", {}).get("name", "") for t in offered}
     if any(name and re.search(rf"\b{re.escape(name)}\b", text) for name in names):
         return True
@@ -982,6 +999,23 @@ _CLAIM_MATCHERS = tuple(
     for label, verb, needs in _CLAIMED_ACTIONS
 )
 
+#: **The passive voice** (INBOX 527, Qwen2.5-1.5B): asked to pin a note, it
+#: created a duplicate instead and wrote "Your dentist appointment note has
+#: been created and pinned". No "I", so nothing matched. Read only on a turn
+#: that ran or parked some write, because "has been tagged" also describes a
+#: note as it already is, and a heads-up on a plain answer would be the net
+#: crying wolf; on a turn that changed something it is a report of that turn.
+_PASSIVE = r"(?:has|have|is now|are now)\s+(?:now\s+|just\s+|also\s+)?(?:been\s+)?(?:successfully\s+)?"
+_PASSIVE_MATCHERS = tuple(
+    re.compile(
+        r"\bremind\w*\s+(?:has|have|is|are)\s+(?:now\s+)?(?:been\s+)?(?:set|scheduled|added|created)\b"
+        if label == "set a reminder"
+        else rf"\b{_PASSIVE}{verb}\b",
+        re.IGNORECASE,
+    )
+    for label, verb, _needs in _CLAIMED_ACTIONS
+)
+
 # Kept because it is the cheapest check for the commonest case, a model that
 # describes a note it never saved, and it catches phrasings with no claimant
 # at all. Widened from the original to cover "we" as well as "I".
@@ -1003,10 +1037,11 @@ def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
     # Whether this answer speaks in the claiming voice at all. A carried-on
     # verb is only a claim inside a sentence that already made one, so this is
     # checked first and gates the looser half of every matcher below.
-    claiming = any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
+    passive = [m.search(answer) if ran else None for m in _PASSIVE_MATCHERS]
+    claiming = any(passive) or any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
     said = []
-    for label, direct, carried, needs in _CLAIM_MATCHERS:
-        hit = direct.search(answer) or (claiming and carried.search(answer))
+    for (label, direct, carried, needs), by_passive in zip(_CLAIM_MATCHERS, passive):
+        hit = direct.search(answer) or by_passive or (claiming and carried.search(answer))
         if hit and not (needs & ran):
             said.append(label)
     return said
@@ -1155,6 +1190,11 @@ def build_agent_messages(
         #: When it was written and what its time words meant (INBOX 441: the
         #: chat read a two-week-old "this Friday" as this week's).
         f"{librarian._written_hint(note)}{librarian._dates_hint(note)}"
+        #: INBOX 527, the owner: "does the ai know that it can have images in
+        #: its response??" Chat and Ask did (526); this prompt, the default
+        #: with tools on, did not. N is the note's number here, which is its
+        #: place in the turn's `raw_results`, where the bubble looks it up.
+        f"{librarian._pictures_hint(note, i)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{librarian._match_info_hint(note.get('match_info'))} "
@@ -1392,8 +1432,18 @@ def _prepare_turn(
         # A skill's declared list is exempt (`allowed_tools is not None`): it
         # asked for exactly those tools, and dropping one breaks the run
         # rather than simplifying it.
+        #:
+        #: **Plus the tools the request itself names** (INBOX 527, measured on
+        #: Qwen2.5-1.5B): the core alone holds one write, `create_note`, so
+        #: "Pin my dentist note" was offered no `pin_note` and the model wrote
+        #: a duplicate note instead; 2 of 10 everyday requests chose a right
+        #: tool. The cued groups are added after the core, which stays first
+        #: and stable; a broad request (None) still gets the core alone.
+        cued = _focus(question, history) or []
         focus_names = [
-            name for name in tools.CORE_TOOLS if name not in tools.ORCHESTRATION_TOOLS
+            name
+            for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
+            if name not in tools.ORCHESTRATION_TOOLS
         ]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a

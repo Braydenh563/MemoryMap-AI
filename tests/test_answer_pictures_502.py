@@ -143,6 +143,24 @@ def test_picture_sizes_ride_the_answer_and_the_saved_turn(ai_client, fake_ollama
     assert messages[1]["picture_sizes"] == {"/media/sz123.png": [800, 600]}
 
 
+def test_the_agent_prompt_names_the_pictures_too():
+    """INBOX 527, the owner: "does the ai know that it can have images in its
+    response??" The tools-on prompt (the default) said nothing about them, so
+    only a no-tools chat could place one. Numbered as `raw_results` is."""
+    from memorymap.ai import agent
+
+    messages = agent.build_agent_messages(
+        "what is on the whiteboard?",
+        [
+            {"id": 4, "content": "words", "category": "Work"},
+            {"id": 9, "content": "![](/media/a.png) ![](/media/b.png)", "category": "Work", "pictures": 2},
+        ],
+    )
+    prompt = messages[-1]["content"]
+    assert "(note id 9) [Work] (has 2 pictures: write [picture 2] or [picture 2.2]" in prompt
+    assert "(note id 4) [Work] <<<data" in prompt, "a note without pictures says nothing about them"
+
+
 def test_a_note_with_two_pictures_offers_the_second_token():
     from memorymap.ai.librarian import _pictures_hint
 

@@ -34,6 +34,23 @@ with its owner named in the entry.
 
 ## Open items
 
+489. **The owner, 2026-10-04 evening, verbatim, with a screenshot (an open
+     Thinking fold: a bordered "Thinking" pill, then the model's reasoning as
+     loose text beside a thin left rule, raw `**bold**`, `*` bullets and a
+     `<<<data note>>>` marker showing).** "can you improve like the borders
+     of the thinking boxes or smth?? it looks wiers with text just appearing
+     in thagt blank space. make it consistent across the app". Orchestrator:
+     one contained panel for an open thinking fold (`thinkingFold()`), the
+     reasoning rendered as Markdown, prompt scaffolding markers stripped.
+
+488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
+     dashboard: the search bar's kebab holds Continue, skills, Tools,
+     Commands, View, Widgets and Edit layout, and its menu opens over the
+     Quick access row, which has a kebab of its own with Customise and Reset
+     to default).** "I think it is confusing to have the widget management
+     stuff in the meatball menu button above the meatball menu button which
+     covers the quick access??" With the dock-bar agent (479).
+
 486. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a callout
      block in the editor: a note icon, "Note Note", then "> What matters
      about this?").** "I have no clue how to use these things and they are

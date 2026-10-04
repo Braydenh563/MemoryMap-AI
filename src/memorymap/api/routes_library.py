@@ -680,6 +680,19 @@ _ENTITY_WORDS = {
     "preferences": "your settings",
     "user": "the notebook",
     "recycle_bin": "the bin",
+    #: The boards' and the rest of the app's own types, which reached the
+    #: README's Activity shot as "Edited whiteboard_object" (INBOX 431 (g));
+    #: `tests/test_library.py` now fails on a logged type with no phrase.
+    "board": "a board",
+    "whiteboard_object": "a board item",
+    "whiteboard_node": "a board item",
+    "whiteboard_sketch": "a drawing on a board",
+    "bookmark": "a bookmark",
+    "model": "a model",
+    "data": "your notebook's data",
+    "vault": "your private notes",
+    "voice": "a recording",
+    "embeddings": "the search index",
 }
 
 

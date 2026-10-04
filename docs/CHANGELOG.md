@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Activity: a change to a board, a board item, a drawing, a bookmark, a model, your private notes, a recording, the search index or your notebook's data now reads in words ("Edited a board item"), where it read "Edited whiteboard_object" or "Edited board"; a test fails on any logged kind with no phrase (INBOX 431 (g)).
 - Developer sweeps: `seed-showcase.py` builds the README's notebook on a fresh data dir through the API: 75 notes in seven categories over seven weeks, 87 links (39 with a reason) in two dense clusters, a looser one, a sparse web and loose notes, reminders, three documents, a board with shape text and labelled connectors, a mind map with tasks, notes and numbered branches, and saved chats (INBOX 431 (g)).
 - Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.

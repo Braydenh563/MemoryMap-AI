@@ -1,7 +1,8 @@
 // Companion main-thread cost: idle 2.6s, and a float (Atlas) or walk (as you)
 // between two places, from CDP Performance.getMetrics deltas (style recalc
 // ms and count, layouts, task ms). Env: BASE, KIND (atlas|me), REPS (3), ROUTE
-// (float, glide, leap, ... forced for every move; the default is the real pick).
+// (float, glide, leap, ... forced for every move; the default is the real pick),
+// LOOK (masculine, the default, or feminine).
 const { boot } = require('./lib.js');
 const KIND = process.env.KIND || 'atlas';
 const REPS = Number(process.env.REPS || 3);
@@ -10,10 +11,10 @@ const REPS = Number(process.env.REPS || 3);
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Performance.enable');
   const metric = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((m) => [m.name, m.value]));
-  await page.evaluate((k) => {
-    localStorage.setItem('atlas-look', 'masculine'); localStorage.removeItem('nm-buddy-spots');
+  await page.evaluate(([k, look]) => {
+    localStorage.setItem('atlas-look', look); localStorage.removeItem('nm-buddy-spots');
     const b = document.getElementById('avatar-buddy'); b.value = k; b.dispatchEvent(new Event('change', { bubbles: true }));
-  }, KIND);
+  }, [KIND, process.env.LOOK || 'masculine']);
   await page.waitForTimeout(3000);
   await page.evaluate((r) => {
     clearTimeout(nmb.timer);

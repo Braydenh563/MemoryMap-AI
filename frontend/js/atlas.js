@@ -595,16 +595,21 @@ const ATLAS_LOOKS = {
     //: soft locks curving down out of the parting over the brow: a centre
     //: parting and two rounded curtains, which is the schoolgirl. Now the
     //: hair is swept back off the brow: the cap's lower edge is one high,
-    //: smooth arc (the hairline, no parting), fine strands rise from it up
-    //: and back over the crown into the mass that streams behind, the
-    //: hairline itself is lit (`hairline`, a soft band and a fine bright
-    //: line), star dust glints at the roots (`rootDust`), and a circlet of
-    //: tiny stars on a hair-fine thread sits just above it (`circlet`), its
-    //: middle star the largest.
+    //: smooth arc (the hairline, no parting), and fine strands rise from it
+    //: up and back over the crown into the mass that streams behind.
+    //: **One star in the hair, not a band** (INBOX 480, the owner: "a
+    //: redesign of whatever this is on the forehead between the ears"). The
+    //: hairline used to be lit, a white line over a glow, with dust at the
+    //: roots and a circlet of dots on a thread above it: four arcs of light
+    //: from wing to wing, which at the companion's size read as a stray
+    //: headband or a glitch. Now the hairline is a soft shade where the hair
+    //: lies over the brow (`hairline`), which is how hair sits on skin, and
+    //: the one ornament is a small four-point star set in the swept hair at
+    //: its peak, in a faint halo (`browStar`: x, y, size), echoing the two
+    //: at the wing tips.
     cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C42.2 15.4 37.6 12.4 31.6 12.2C25.6 12 20.6 15 17.8 21Z",
-    hairline: "M18.6 19.6C21.2 15 25.8 12.5 31.4 12.4C36.8 12.5 41.2 14.8 43.6 18.6",
-    rootDust: [[20.4, 16.8, 0.3], [23.6, 14, 0.24], [27.6, 12.6, 0.28], [35.4, 12.8, 0.24], [39.4, 14.2, 0.3], [42.4, 16.6, 0.22]],
-    circlet: [[20.8, 15], [25, 11.4], [31, 10.2], [37, 11.2], [41.4, 14.2]],
+    hairline: "M19.4 19C21.8 15 26 12.8 31.4 12.7C36.6 12.8 40.6 14.9 42.8 18.2",
+    browStar: [31.2, 9.9, 1.35],
     //: The swept strands (drawn by the front-lock builder: thin at the
     //: root, swelling, a rounded tip), fine enough to read as texture
     //: rather than as locks: hair-fine at the hairline, rising up and back
@@ -1403,26 +1408,13 @@ function atlasEars(parent, level, edge, look) {
         const d = spec.frontLocks.map(({ seg }) => seg.map(([x0, y0, ...c], i) => `${i ? "" : `M${x0} ${y0}`}C${c.join(" ")}`).join("")).join("");
         atlasMake("path", { class: "atl-strand-light", d }, wisps);
       }
-      //: The astral crown over the strands: the lit hairline, the dust at
-      //: its roots, the circlet of stars.
-      if (spec.hairline) {
-        atlasMake("path", { class: "atl-hairline-glow", d: spec.hairline }, wisps);
-        atlasMake("path", { class: "atl-hairline", d: spec.hairline }, wisps);
-      }
-      if (spec.rootDust) atlasSpecks(wisps, spec.rootDust, "atl-speck atl-root-dust");
-      if (spec.circlet) {
-        const pts = spec.circlet;
-        let d = `M${pts[0][0]} ${pts[0][1]}`;
-        for (let i = 1; i < pts.length; i++) {
-          const [px, py] = pts[i - 1];
-          const [x, y] = pts[i];
-          d += `Q${(px + x) / 2} ${Math.min(py, y) - 0.5} ${x} ${y}`;
-        }
-        atlasMake("path", { class: "atl-thread atl-circlet", d }, wisps);
-        pts.forEach(([x, y], i) => {
-          if (i === (pts.length - 1) / 2) atlasSpark(wisps, x, y, 1.1, "atl-glint atl-circlet-star");
-          else atlasMake("circle", { class: "atl-node-dot atl-circlet-dot", cx: x, cy: y, r: i === 0 || i === pts.length - 1 ? 0.34 : 0.46 }, wisps);
-        });
+      //: The hair's edge on the brow: a soft shade, not a line of light
+      //: (INBOX 480). Then the one star set in the hair at its peak.
+      if (spec.hairline) atlasMake("path", { class: "atl-hairline-shade", d: spec.hairline }, wisps);
+      if (spec.browStar) {
+        const [x, y, k] = spec.browStar;
+        atlasMake("circle", { class: "atl-brow-halo", cx: x, cy: y, r: k * 1.9 }, wisps);
+        atlasSpark(wisps, x, y, k, "atl-glint atl-brow-star");
       }
     }
     out.wisps = wisps;

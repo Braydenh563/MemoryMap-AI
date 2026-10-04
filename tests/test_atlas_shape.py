@@ -491,11 +491,23 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
     # The owner after 0bcfd1a: "I dont like the forehead hair part. it gives
     # off school girl vibes and not astral cosmic beauty vibes", and "a bit
     # more texture to the start of the long hair". The strands are fine and
-    # swept up and back, the hairline
-    # is lit, dust glints at the roots and a circlet of stars sits above it.
+    # swept up and back. INBOX 480 (the owner: "a redesign of whatever this
+    # is on the forehead between the ears"): the lit hairline, the root dust
+    # and the circlet on its thread read as a stray headband; the hairline
+    # is a soft shade and one star sits in the hair at its peak.
     feminine = _look("feminine")
-    for key in ("hairline: \"M", "rootDust: [", "circlet: ["):
+    for key in ("hairline: \"M", "browStar: ["):
         assert key in feminine, key
+    for gone in ("rootDust:", "circlet:", "spec.rootDust", "spec.circlet"):
+        assert gone not in ATLAS, gone
+    for gone in ("atl-circlet", "atl-root-dust", "atl-hairline-glow", ".atl-hairline {"):
+        assert gone not in CSS, gone
+    shade = re.search(r"\.atl-hairline-shade \{[^}]*stroke: var\(--atl-dp\);[^}]*opacity: ([0-9.]+)", CSS)
+    assert shade and float(shade.group(1)) <= 0.2, "the hairline is a shade, never a line of light"
+    x, y, k = (float(v) for v in re.search(r"browStar: \[([^\]]+)\]", feminine).group(1).split(","))
+    assert 29 <= x <= 33 and y < 12.4 and k <= 1.6, "one small star, centred, in the hair above the hairline"
+    # Static: the brow adds nothing to the motion budget.
+    assert not re.search(r"atl-brow-(star|halo)[^{]*\{[^}]*animation", CSS)
     locks = feminine[feminine.index("frontLocks: ["):]
     locks = locks[: locks.index("lowers: [")]
     for w in re.findall(r"w: ([0-9.]+)", locks):
@@ -505,7 +517,7 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
         # Swept back toward the mass, which streams off to her left (+x),
         # and never falling over the brow: the curtains ended at y 17 to 19.
         assert nums[-2] > nums[0] and nums[-1] < 16, "a swept strand runs back toward the mass, above the brow"
-    assert 'class: "atl-thread atl-circlet"' in ATLAS and '"atl-strand-light"' in ATLAS
+    assert '"atl-glint atl-brow-star"' in ATLAS and '"atl-strand-light"' in ATLAS
 
 
 def test_the_masculine_waist_has_no_seam():

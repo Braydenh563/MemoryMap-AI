@@ -46,9 +46,11 @@ def test_markdown_import_with_frontmatter(client):
     body = "---\ncategory: Recipes\ntags: [dinner, easy]\n---\n\nPasta: boil, sauce, eat."
     response = _upload(client, [("pasta.md", body)])
     assert response.status_code == 201
-    assert response.json() == {"imported": 1, "skipped": []}
+    result = response.json()
+    assert {k: result[k] for k in ("imported", "skipped")} == {"imported": 1, "skipped": []}
 
     entry = client.get("/entries").json()[0]
+    assert result["ids"] == [entry["id"]]  # what the Undo bins (INBOX 464 (18))
     assert entry["content"] == "Pasta: boil, sauce, eat."
     assert entry["category"] == "Recipes"
     assert entry["tags"] == ["dinner", "easy"]

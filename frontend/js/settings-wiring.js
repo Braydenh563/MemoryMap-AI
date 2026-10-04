@@ -2252,14 +2252,18 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
 }
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
-$("import-md").addEventListener("click", () => importMarkdown());
-//: The folder picker posts through the same function, the only difference
-//: is which input it reads, so `importMarkdown` takes the id rather than
-//: growing a second copy of the upload/report/refresh sequence.
-$("import-md-folder-btn").addEventListener("click", () => importMarkdown("import-md-folder"));
+//: One step (INBOX 464 (18)): the button opens its picker and choosing
+//: starts the import. The folder picker posts through the same function,
+//: the only difference is which input it reads, so `importMarkdown` takes
+//: the id rather than growing a second copy of the upload/report sequence.
+$("import-md").addEventListener("click", () => $("import-md-files").click());
+$("import-md-files").addEventListener("change", () => importMarkdown());
+$("import-md-folder-btn").addEventListener("click", () => $("import-md-folder").click());
+$("import-md-folder").addEventListener("change", () => importMarkdown("import-md-folder"));
 $("import-dir")?.addEventListener("click", importDirectory);
 $("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
-$("import-document").addEventListener("click", importDocument);
+$("import-document").addEventListener("click", () => $("import-document-file").click());
+$("import-document-file").addEventListener("change", () => importDocument());
 $("backup-now").addEventListener("click", backupNow);
 
 $("palette-input").addEventListener("input", () => {

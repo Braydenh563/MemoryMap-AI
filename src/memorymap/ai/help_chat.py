@@ -1069,7 +1069,7 @@ HELP_TOPICS.extend(
                 "save a view", "graph view", "graph options",
                 "display options", "trace", "unpin", "pin a note", "cluster glow",
                 "entities", "hide unlinked", "minimap", "export as png", "lasso",
-                "zoom", "pan",
+                "zoom", "pan", "link reason", "why linked", "connection",
             ),
             "body": (
                 "Graph keys and controls. Click the map, then the arrow keys move "
@@ -1078,7 +1078,10 @@ HELP_TOPICS.extend(
                 "arrows pan, Esc leaves. Drag a note to pin it where you put it "
                 "(double-click it to hand it back to the layout), drop one note "
                 "onto another to link them, double-click empty space to add a note "
-                "there, hover to spotlight a note's connections, and click a legend "
+                "there, hover to spotlight a note's connections, point at a line to light "
+                "it and click it to see what it is (a link, a thread, a similarity), "
+                "its reason and how sure, the two notes, and for a link Edit reason "
+                "and Remove, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
                 "notes, and the selection bar can Tag, Link together or make a Mind "
                 "map of them. Display options, the gear, opens with View: Layout "

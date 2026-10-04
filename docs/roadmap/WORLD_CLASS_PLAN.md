@@ -3120,12 +3120,6 @@ breadcrumbs).
      a follow-up chain came from, each a link back to its turn. Next Opus
      slot.
 
-493. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the graph:
-     coloured dots, curved links, labels in white over the lines).** "is
-     there a way to make my graphed notes look nicer??" Next Opus slot
-     (GRAPH_PLAN): labels that do not sit on lines, node and link styling,
-     a calmer palette.
-
 496. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Library,
      Contents: a filter, four grouping buttons, a scrolling strip of category
      chips, then sections of three-column note rows).** "also I feel like the

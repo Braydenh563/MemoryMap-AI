@@ -411,7 +411,7 @@ function gcSimilarityBand(score, lo, hi) {
 //: map that is clickable. Measured before: 13 of 18 placed labels sat on a
 //: dot. The dots go into a grid so a big map costs a few cell reads per
 //: label rather than a scan of every note.
-function gcPlaceLabels(items, discs) {
+function gcPlaceLabels(items, discs, lineCount = null) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -460,29 +460,157 @@ function gcPlaceLabels(items, discs) {
     return false;
   };
   const placed = [];
+  //: **A name never sits on a line when it has anywhere else to go** (INBOX
+  //: 493, the owner's screenshot: "labels in white over the lines"). Of its
+  //: places (built in `gcDraw`) that are free of every placed label and
+  //: every other dot, the first that crosses no line wins; with none, the
+  //: one crossing the fewest, earlier places breaking a tie. Without a line
+  //: count that is the first free place, the rule this always had. The box
+  //: moves there whole, so `labelBoxes` still says exactly where the text
+  //: is, and the plate it is drawn on (`gcDrawLabels`) hides any line left
+  //: beneath it.
+  const best = (spots, ok) => {
+    let pick = null;
+    let fewest = Infinity;
+    for (const spot of spots) {
+      if (!ok(spot)) continue;
+      //: Past six lines a place is simply crowded; counting on would only
+      //: rank two bad places, at a cost every frame.
+      const lines = lineCount ? lineCount(spot, Math.min(fewest, 6)) : 0;
+      if (lines === 0) return spot;
+      if (lines < fewest) {
+        fewest = lines;
+        pick = spot;
+      }
+    }
+    return pick;
+  };
   for (const box of items) {
+    const spots = [box, ...(box.alts || []).map((spot) => ({ ...box, ...spot, alts: undefined }))];
     if (box.force) {
-      placed.push(box);
+      //: Asked for by name: drawn whatever it lands on, at the clearest
+      //: place that covers no label and no dot if there is one.
+      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || box);
       continue;
     }
     const covers = box.landmark ? () => false : coversDisc;
-    if (!clashes(box) && !covers(box)) {
-      placed.push(box);
-      continue;
-    }
-    //: The label's other places, in order (built in `gcDraw`); the first one
-    //: free of every placed label and every other dot wins, and the box moves
-    //: there whole, so `labelBoxes` still says exactly where the text is.
-    for (const spot of box.alts || []) {
-      const moved = { ...box, ...spot, alts: undefined };
-      if (!clashes(moved) && !covers(moved)) {
-        placed.push(moved);
-        break;
-      }
-    }
+    const pick = best(spots, (spot) => !clashes(spot) && !covers(spot));
+    if (pick) placed.push(pick);
   }
   return placed;
 }
+//: **The drawn links as a grid of short segments**, for `gcPlaceLabels` to
+//: ask whether a name would sit on one. World units, so a zoom keeps it; it
+//: is rebuilt only when a position, the link set or the curve switch moved
+//: (the signature is one pass of additions over the dots, far cheaper than
+//: the rebuild it saves on every hover frame of a settled map). A curved
+//: link is cut into eight chords of its bow, a long straight one into
+//: pieces no longer than a cell, and each piece is filed under the cells its
+//: box touches.
+const GC_LINE_CELL = 48;
+
+function gcLineGrid(s, curved) {
+  let sig = s.nodes.length * 7 + s.edges.length * 13 + (curved ? 1 : 0) + (s.timeCutoff || 0);
+  for (const node of s.nodes) if (Number.isFinite(node.x)) sig += node.x * 1.618 + node.y;
+  if (s.lineGrid && s.lineGrid.sig === sig) return s.lineGrid;
+  const cells = new Map();
+  const file = (ax, ay, bx, by) => {
+    const x0 = Math.floor(Math.min(ax, bx) / GC_LINE_CELL);
+    const x1 = Math.floor(Math.max(ax, bx) / GC_LINE_CELL);
+    const y0 = Math.floor(Math.min(ay, by) / GC_LINE_CELL);
+    const y1 = Math.floor(Math.max(ay, by) / GC_LINE_CELL);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = cx * 100003 + cy;
+        let list = cells.get(key);
+        if (!list) cells.set(key, (list = []));
+        list.push(ax, ay, bx, by);
+      }
+    }
+  };
+  for (const edge of s.edges) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    if (!gcVisibleAtTime(a, s) || !gcVisibleAtTime(b, s)) continue;
+    let px = a.x;
+    let py = a.y;
+    if (curved) {
+      const c = gcBowPoint(a, b);
+      for (let i = 1; i <= 8; i++) {
+        const u = i / 8;
+        const x = (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * c.x + u * u * b.x;
+        const y = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * c.y + u * u * b.y;
+        file(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    } else {
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / GC_LINE_CELL));
+      for (let i = 1; i <= n; i++) {
+        const x = a.x + ((b.x - a.x) * i) / n;
+        const y = a.y + ((b.y - a.y) * i) / n;
+        file(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    }
+  }
+  s.lineGrid = { sig, cells };
+  return s.lineGrid;
+}
+
+//: How many filed segments pass through the box (a Liang-Barsky clip,
+//: written out so a frame of a few hundred labels allocates nothing),
+//: counting no further than `limit`: the caller only wants to know whether a
+//: place beats the best one so far. A segment filed under two cells the box
+//: spans counts once per cell, which only makes a crowded place look more so.
+function gcClipEdge(p, q, t) {
+  if (p === 0) return q >= 0;
+  const r = q / p;
+  if (p < 0) {
+    if (r > t[1]) return false;
+    if (r > t[0]) t[0] = r;
+  } else {
+    if (r < t[0]) return false;
+    if (r < t[1]) t[1] = r;
+  }
+  return true;
+}
+const gcClipT = [0, 1];
+function gcBoxLineCount(grid, box, limit = Infinity) {
+  let count = 0;
+  const x0 = Math.floor(box.left / GC_LINE_CELL);
+  const x1 = Math.floor(box.right / GC_LINE_CELL);
+  const y0 = Math.floor(box.top / GC_LINE_CELL);
+  const y1 = Math.floor(box.bottom / GC_LINE_CELL);
+  const t = gcClipT;
+  for (let cx = x0; cx <= x1; cx++) {
+    for (let cy = y0; cy <= y1; cy++) {
+      const list = grid.cells.get(cx * 100003 + cy);
+      if (!list) continue;
+      for (let i = 0; i < list.length; i += 4) {
+        const ax = list[i];
+        const ay = list[i + 1];
+        const dx = list[i + 2] - ax;
+        const dy = list[i + 3] - ay;
+        t[0] = 0;
+        t[1] = 1;
+        if (
+          gcClipEdge(-dx, ax - box.left, t) &&
+          gcClipEdge(dx, box.right - ax, t) &&
+          gcClipEdge(-dy, ay - box.top, t) &&
+          gcClipEdge(dy, box.bottom - ay, t)
+        ) {
+          count += 1;
+          if (count >= limit) return count;
+        }
+      }
+    }
+  }
+  return count;
+}
+
 //: Where a score pill goes on a line from the note in focus (`a`) to one of
 //: its matches (`b`): the first spot along the line, nearer the match than
 //: the middle so the number reads as belonging to that note, where the pill
@@ -823,6 +951,51 @@ function gcHoverStep(s = gcTab) {
   return true;
 }
 
+//: **What the hover changes fades; nothing pops** (the owner, 2026-10-04:
+//: "when I hover over parts of the graph, the labels and stuff just suddenly
+//: appear and it is very visually confronting"). The node growth above eased,
+//: but everything else a hover changes flipped in one frame: every dot and
+//: line outside the neighbourhood dropped to its dim alpha, the names of the
+//: dimmed notes vanished, the hovered note's name and its similarity scores
+//: appeared, and its ring was drawn at full strength (measured,
+//: `scratchpad/ui-sweeps/graphfade.js`: each went from rest to its end in the
+//: first frame, nothing in between). Now every one of them carries a
+//: lit-ness (0 dim or gone, 1 full) that travels toward its target by the
+//: frame's share of GC_FADE_MS and is drawn through a smoothstep, so a fast
+//: sweep across a cluster reverses from wherever each one had got to rather
+//: than restarting. A label that moves to another of its four places, or
+//: changes its words (the hovered note's whole title), cross-fades: the old
+//: one is left as a ghost fading out where it was. Reduced motion lands
+//: every one of them on the first frame.
+const GC_FADE_MS = 180;
+
+function gcSmooth(t) {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+}
+
+function gcFadeToward(value, target, step) {
+  if (value == null) return target;
+  return value < target ? Math.min(target, value + step) : Math.max(target, value - step);
+}
+
+//: The alpha a dot (or its ring) is drawn at for a lit-ness.
+function gcLitAlpha(lit) {
+  return GC_DIM_ALPHA + (1 - GC_DIM_ALPHA) * gcSmooth(lit);
+}
+
+//: This frame's step. A draw after an idle spell (the first frame of a hover)
+//: counts as one ordinary frame, so a fade never starts by jumping a third of
+//: the way; a slow frame mid-fade still advances by its real time, capped.
+function gcFadeStep(s, still) {
+  const now = performance.now();
+  const last = s.fadeLast || 0;
+  s.fadeLast = now;
+  if (still) return 1;
+  const dt = now - last > 100 ? 16.7 : Math.min(now - last, 64);
+  return dt / GC_FADE_MS;
+}
+
 // --- the draw ------------------------------------------------------------------
 
 function gcRequestDraw(s = gcTab) {
@@ -974,6 +1147,8 @@ function gcDraw(s = gcTab) {
   //: Advanced once, before anything is measured, so every radius in this frame
   //: agrees, and another frame is asked for only while it is still moving.
   const easing = gcHoverStep(s);
+  const fadeStep = gcFadeStep(s, window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  let fading = false;
   const ctx = s.ctx;
   const t = s.transform || d3.zoomIdentity;
   const k = t.k;
@@ -1055,6 +1230,10 @@ function gcDraw(s = gcTab) {
     const byHover =
       !hl.hovering || a.id === s.hoveredId || b.id === s.hoveredId;
     const dim = !(bySearch && byHover);
+    edge._lit = gcFadeToward(edge._lit, dim ? 0 : 1, fadeStep);
+    if (edge._lit !== (dim ? 0 : 1)) fading = true;
+    //: Eleven steps of lit-ness, so a fade still strokes in buckets.
+    const level = Math.round(gcSmooth(edge._lit) * 10);
     const similar = edge.kind === "similar" && typeof edge.score === "number";
     const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
     let style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
@@ -1064,11 +1243,11 @@ function gcDraw(s = gcTab) {
         ? a.colour
         : null;
     if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
-    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${dim}`;
+    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
-      bucket = { style, dim, tint, path: new Path2D() };
+      bucket = { style, level, tint, path: new Path2D() };
       into.set(key, bucket);
     }
     if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
@@ -1098,7 +1277,7 @@ function gcDraw(s = gcTab) {
     ctx.strokeStyle = bucket.tint || gcTokens[style.colour] || gcTokens.muted;
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
     // a dimmed edge that is still readable defeats the spotlight.
-    ctx.globalAlpha = bucket.dim ? 0.06 : style.alpha;
+    ctx.globalAlpha = 0.06 + (style.alpha - 0.06) * (bucket.level / 10);
     ctx.lineWidth = style.width / k;
     ctx.setLineDash(style.dash ? style.dash.map((v) => v / k) : []);
     ctx.stroke(bucket.path);
@@ -1107,6 +1286,8 @@ function gcDraw(s = gcTab) {
   for (const bucket of buckets.values()) strokeBucket(bucket);
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
+
+  if (gcDrawEdgeHover(ctx, s, k, fadeStep, curvedLinks)) fading = true;
 
   // --- the traced path ----------------------------------------------------
   gcDrawTrace(ctx, k, s);
@@ -1126,7 +1307,9 @@ function gcDraw(s = gcTab) {
     if (!gcVisibleAtTime(node, s)) continue;
     if (!inView(node)) continue;
     const dim = !(hl.searchOk(node) && hl.hoverOk(node.id));
-    const key = `${node.colour}|${dim}`;
+    node._lit = gcFadeToward(node._lit, dim ? 0 : 1, fadeStep);
+    if (node._lit !== (dim ? 0 : 1)) fading = true;
+    const key = node.colour;
     let halo = haloByColour.get(key);
     if (!halo) {
       //: Four batched fills per colour, not two: a soft glow outside the halo
@@ -1135,7 +1318,7 @@ function gcDraw(s = gcTab) {
       //: "more visually pleasing while keeping it professional"). Batched
       //: per colour like the halo, so the cost is two fills per colour per
       //: frame rather than two per node.
-      halo = { colour: node.colour, dim, nodes: [] };
+      halo = { colour: node.colour, nodes: [] };
       haloByColour.set(key, halo);
     }
     //: The hover growth, applied once and remembered on the node, so the core,
@@ -1155,10 +1338,15 @@ function gcDraw(s = gcTab) {
     drawn.push(node);
     node._dim = dim;
     const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
+    //: The node the pointer just left keeps its ring while it shrinks back,
+    //: fading with it, and the one it arrived on fades its ring in.
+    const leaving = !focused && node.id === s.hoverFrom && heat > 0;
+    const ringFade = leaving || (focused && node.id === s.hoverTo) ? heat : 1;
     const matched = hl.active && hl.searchOk(node);
     const onPath = hl.onPath ? hl.onPath.has(node.id) : false;
     const special =
       focused ||
+      leaving ||
       matched ||
       onPath ||
       node.pinned ||
@@ -1167,7 +1355,7 @@ function gcDraw(s = gcTab) {
       node.type === "document" ||
       node === s.dropTarget;
     if (special) {
-      ringed.push({ node, focused, matched, onPath, dim });
+      ringed.push({ node, focused: focused || leaving, ringFade, matched, onPath, dim });
     } else if (!dim && (s.adj.get(node.id) || { size: 0 }).size >= 3) {
       // **A hub's ring is batched, not drawn per node.** Average degree in a
       // real notebook is about four, so "degree >= 3" is most of the map: one
@@ -1218,8 +1406,8 @@ function gcDraw(s = gcTab) {
   //: a few dozen entries per colour.
   const pixelScale = k * (s.dpr || 1);
   for (const halo of haloByColour.values()) {
-    ctx.globalAlpha = halo.dim ? GC_DIM_ALPHA : 1;
     for (const node of halo.nodes) {
+      ctx.globalAlpha = gcLitAlpha(node._lit);
       const rWorld = node.r + node._grow;
       const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
       const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
@@ -1237,7 +1425,7 @@ function gcDraw(s = gcTab) {
   //: including on the node being left, whose `heat` is counting down.
   for (const hot of hotHalos) {
     if (hot.node._dim) continue;
-    ctx.globalAlpha = 0.16 * hot.heat;
+    ctx.globalAlpha = 0.16 * hot.heat * gcSmooth(hot.node._lit);
     ctx.fillStyle = hot.node.colour;
     ctx.beginPath();
     ctx.arc(
@@ -1261,7 +1449,7 @@ function gcDraw(s = gcTab) {
   gcDrawSelection(ctx, k, s);
   for (const item of ringed) {
     const node = item.node;
-    ctx.globalAlpha = item.dim ? GC_DIM_ALPHA : 1;
+    ctx.globalAlpha = gcLitAlpha(node._lit) * item.ringFade;
     ctx.beginPath();
     ctx.arc(node.x, node.y, node.r + (node._grow || 0), 0, Math.PI * 2);
     if (node === s.dropTarget) {
@@ -1316,6 +1504,7 @@ function gcDraw(s = gcTab) {
   // just been switched off would otherwise report the boxes of the last frame
   // that had any.
   s.labelBoxes = [];
+  let placedLabels = [];
   if (labelled.length) {
     const size = 12 / k;
     // Divided by the zoom so a label is a constant size on screen: the whole
@@ -1432,6 +1621,13 @@ function gcDraw(s = gcTab) {
             { x: node.x, y: node.y - r - 13 / k, align: "center" },
             { x: node.x + r + 6 / k, y: node.y, align: "left" },
             { x: node.x - r - 6 / k, y: node.y, align: "right" },
+            //: The four corners (INBOX 493), off the dot's diagonal: a hub's
+            //: lines leave it in every direction, and between two of them is
+            //: often the only place its name can stand clear of all of them.
+            { x: node.x + r * 0.72 + 3 / k, y: node.y + r * 0.72 + 9 / k, align: "left" },
+            { x: node.x - r * 0.72 - 3 / k, y: node.y + r * 0.72 + 9 / k, align: "right" },
+            { x: node.x + r * 0.72 + 3 / k, y: node.y - r * 0.72 - 9 / k, align: "left" },
+            { x: node.x - r * 0.72 - 3 / k, y: node.y - r * 0.72 - 9 / k, align: "right" },
           ].map((spot) => {
             const l = spot.align === "center" ? spot.x - width / 2 : spot.align === "left" ? spot.x : spot.x - width;
             return { ...spot, left: l - padX, right: l + width + padX, top: spot.y - half, bottom: spot.y + half };
@@ -1466,15 +1662,17 @@ function gcDraw(s = gcTab) {
     }));
     // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
     // label stays legible over an edge or another node.
-    const placed = gcPlaceLabels(items, discs);
-    for (const item of placed) {
-      ctx.textAlign = item.align;
-      ctx.strokeText(item.text, item.x, item.y);
-      ctx.fillText(item.text, item.x, item.y);
-    }
+    //: Not while the layout is still moving (or a dot is being dragged):
+    //: every position would change the grid each frame, at 1.5ms a build on
+    //: 1,100 links, for names that are moving anyway. The names step to
+    //: their clear places when it settles, cross-fading (`gcDrawLabels`).
+    const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null);
+    placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
   }
+  if (gcDrawLabels(ctx, s, placedLabels, fadeStep, k)) fading = true;
 
   // --- the pointed-at note's similarity scores -------------------------------
   //: Kumu's focus and Obsidian's hover both answer "what is this one joined
@@ -1483,7 +1681,30 @@ function gcDraw(s = gcTab) {
   //: similarity lines, at the middle, as a small pill over everything else
   //: (the lines it sits on are the only ones not dimmed). A percentage
   //: rather than a cosine, because "72%" reads and "0.72" is a statistic.
+  //: The pills fade in with the note they belong to, and the last note's
+  //: fade out where they were (see GC_FADE_MS).
+  if (scoreFor !== s.pillFor) {
+    if (s.pillDrawn?.length && s.pillA > 0) s.pillGhost = { list: s.pillDrawn, a: s.pillA };
+    s.pillA = 0;
+    s.pillFor = scoreFor;
+    s.pillDrawn = [];
+  }
+  if (s.pillGhost) {
+    s.pillGhost.a = gcFadeToward(s.pillGhost.a, 0, fadeStep);
+    if (s.pillGhost.a > 0) {
+      fading = true;
+      ctx.font = `600 ${11 / k}px ${gcTokens.font}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const pill of s.pillGhost.list) gcDrawPill(ctx, pill, k, gcSmooth(s.pillGhost.a));
+    } else {
+      s.pillGhost = null;
+    }
+  }
   if (s.simScoreLabels.length) {
+    s.pillA = gcFadeToward(s.pillA || 0, 1, fadeStep);
+    if (s.pillA < 1) fading = true;
+    s.pillDrawn = [];
     const size = 11 / k;
     ctx.font = `600 ${size}px ${gcTokens.font}`;
     ctx.textAlign = "center";
@@ -1507,17 +1728,9 @@ function gcDraw(s = gcTab) {
       if (!spot.placed) continue;
       boxes.push(spot);
       s.simScoreLabels.push({ id: pill.to.id, score: pill.score, ...spot });
-      ctx.globalAlpha = 0.94;
-      ctx.fillStyle = gcTokens.card;
-      ctx.beginPath();
-      ctx.roundRect(spot.left, spot.top, w, h, h / 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = 1 / k;
-      ctx.strokeStyle = gcTokens.accent;
-      ctx.stroke();
-      ctx.fillStyle = gcTokens.accent;
-      ctx.fillText(text, spot.x, spot.y);
+      const drawn = { spot, w, h, text };
+      s.pillDrawn.push(drawn);
+      gcDrawPill(ctx, drawn, k, gcSmooth(s.pillA));
     }
   }
 
@@ -1534,7 +1747,149 @@ function gcDraw(s = gcTab) {
   //: One more frame while the hover is still growing or shrinking. Nothing
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
-  if (easing) gcRequestDraw(s);
+  if (easing || fading) gcRequestDraw(s);
+}
+
+//: The line under the pointer, drawn again over the rest, wider and in its
+//: own colour, at its own lit-ness (GC_FADE_MS), so pointing at a line lights
+//: it the way pointing at a note lights the note; the one just left fades out.
+function gcDrawEdgeHover(ctx, s, k, fadeStep, curved) {
+  const hot = (s.edgeHot || []).filter((item) => item.edge !== s.hoverEdge);
+  const current = (s.edgeHot || []).find((item) => item.edge === s.hoverEdge);
+  if (s.hoverEdge) hot.push(current || { edge: s.hoverEdge, a: 0 });
+  let fading = false;
+  s.edgeHot = hot.filter((item) => {
+    item.a = gcFadeToward(item.a, item.edge === s.hoverEdge ? 1 : 0, fadeStep);
+    if (item.a > 0 && item.a < 1) fading = true;
+    return item.a > 0;
+  });
+  for (const { edge, a: lit } of s.edgeHot) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    const style = edge.kind === "similar" ? GC_SIMILAR_BANDS[2] : gcEdgeStyle(edge);
+    const tint = edge.kind !== "similar" && a.colour && a.colour === b.colour ? a.colour : null;
+    ctx.strokeStyle = tint || gcTokens[style.colour] || gcTokens.muted;
+    ctx.globalAlpha = 0.9 * gcSmooth(lit);
+    ctx.lineWidth = (style.width + 2) / k;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (s.tree && edge._path2d) {
+      ctx.stroke(edge._path2d);
+      continue;
+    }
+    ctx.moveTo(a.x, a.y);
+    if (curved && !s.tree) {
+      const bow = gcBowPoint(a, b);
+      ctx.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
+    } else ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  return fading;
+}
+
+//: One similarity score pill, at `alpha` of its full strength.
+function gcDrawPill(ctx, pill, k, alpha) {
+  const { spot, w, h, text } = pill;
+  ctx.globalAlpha = 0.94 * alpha;
+  ctx.fillStyle = gcTokens.card;
+  ctx.beginPath();
+  ctx.roundRect(spot.left, spot.top, w, h, h / 2);
+  ctx.fill();
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 1 / k;
+  ctx.strokeStyle = gcTokens.accent;
+  ctx.stroke();
+  ctx.fillStyle = gcTokens.accent;
+  ctx.fillText(text, spot.x, spot.y);
+  ctx.globalAlpha = 1;
+}
+
+//: Paints the labels, each at its own lit-ness (see GC_FADE_MS): the ones
+//: placed this frame fade toward full, the ones placed last frame and not now
+//: fade out where they were (held as an offset from their dot, so a settling
+//: layout carries them), and a label that changed place or words leaves a
+//: ghost of its old self fading out. The collision pass only ever sees this
+//: frame's labels: a name on its way out holds no space. Says whether
+//: anything is still mid-fade.
+function gcDrawLabels(ctx, s, placed, fadeStep, k) {
+  const lit = s.labelLit || new Map();
+  if (!s.labelGhosts) s.labelGhosts = [];
+  const next = new Map();
+  let fading = false;
+  const draws = [];
+  for (const item of placed) {
+    const node = s.byId.get(item.id);
+    if (!node) continue;
+    const dy = item.y - node.y;
+    const key = `${item.align}|${Math.abs(dy) < 1e-6 ? 0 : Math.sign(dy)}|${item.text}`;
+    if (node._labelSpot && node._labelA > 0 && node._labelSpot.key !== key) {
+      s.labelGhosts.push({ node, spot: node._labelSpot, a: node._labelA });
+      node._labelA = 0;
+    }
+    node._labelSpot = {
+      key,
+      dx: item.x - node.x,
+      dy,
+      align: item.align,
+      text: item.text,
+      box: { l: item.left - node.x, t: item.top - node.y, w: item.right - item.left, h: item.bottom - item.top },
+    };
+    node._labelA = gcFadeToward(node._labelA || 0, 1, fadeStep);
+    if (node._labelA < 1) fading = true;
+    next.set(node.id, node);
+    draws.push({ node, spot: node._labelSpot, a: node._labelA, x: item.x, y: item.y });
+  }
+  const leaving = [];
+  for (const [id, node] of lit) {
+    if (next.has(id) || !node._labelSpot || !Number.isFinite(node.x)) continue;
+    node._labelA = gcFadeToward(node._labelA || 0, 0, fadeStep);
+    if (node._labelA <= 0) continue;
+    fading = true;
+    next.set(id, node);
+    leaving.push({ node, spot: node._labelSpot, a: node._labelA });
+  }
+  s.labelGhosts = (s.labelGhosts || []).filter((ghost) => {
+    ghost.a = gcFadeToward(ghost.a, 0, fadeStep);
+    if (ghost.a <= 0 || !Number.isFinite(ghost.node.x)) return false;
+    fading = true;
+    leaving.push(ghost);
+    return true;
+  });
+  s.labelLit = next;
+  if (!draws.length && !leaving.length) return fading;
+  ctx.font = `500 ${12 / k}px ${gcTokens.font}`;
+  ctx.textBaseline = "middle";
+  //: **A name stands on a plate, not a halo** (INBOX 493: "labels in white
+  //: over the lines"). The 3px card-coloured stroke around each glyph left
+  //: every line that ran under a name showing between the letters, chopped
+  //: into a white outline of the word. The plate is the label's own box in
+  //: the card's colour, nearly opaque and rounded, so a line that has to run
+  //: under a name (one with no clear place, see `gcPlaceLabels`) stops at the
+  //: plate's edge and the word reads on a clean ground. On the map's own
+  //: ground the plate is the ground, so it is invisible except where it is
+  //: doing that job. The ones leaving go down first, under the ones arriving.
+  const radius = 4 / k;
+  for (const draw of leaving.concat(draws)) {
+    const x = draw.x ?? draw.node.x + draw.spot.dx;
+    const y = draw.y ?? draw.node.y + draw.spot.dy;
+    const box = draw.spot.box;
+    const a = gcSmooth(draw.a);
+    if (box) {
+      ctx.globalAlpha = 0.88 * a;
+      ctx.fillStyle = gcTokens.card;
+      ctx.beginPath();
+      ctx.roundRect(x - draw.spot.dx + box.l, y - draw.spot.dy + box.t, box.w, box.h, radius);
+      ctx.fill();
+    }
+    ctx.globalAlpha = a;
+    ctx.fillStyle = gcTokens.ink;
+    ctx.textAlign = draw.spot.align;
+    ctx.fillText(draw.spot.text, x, y);
+  }
+  ctx.globalAlpha = 1;
+  return fading;
 }
 
 //: **A label's width, measured once per text, not once per zoom step**
@@ -1681,20 +2036,25 @@ function gcWorldPoint(event, s = gcTab) {
   return t.invert(point);
 }
 
-//: The edge under a point, for the link-management panel a click on a link
-//: opens. Linear over the edges rather than indexed: it runs once per click,
-//: never per frame, and an index that has to be kept in step with a moving
-//: layout would cost more than it saves.
+//: The line under a point, for the hover and the link peek (the owner,
+//: 2026-10-04: "I cant click on links to see their reason in the graph??").
+//: Every relation drawn between two notes answers, not only a `link`: a
+//: thread, a similarity and a map's reference have something to say too.
+//: Linear over the edges: about 10,000 distance checks a pointer move on
+//: 1,100 lines, and an index kept in step with a moving layout would cost
+//: more. 8px either side of the line on screen at any zoom.
+const GC_PEEK_KINDS = new Set(["link", "thread", "similar", "map"]);
 function gcEdgeAtWorld(x, y, s = gcTab) {
   const tolerance = 8 / ((s.transform && s.transform.k) || 1);
   let best = null;
   let bestDistance = tolerance;
   const curved = !s.tree && gcCurvedLinks(s);
   for (const edge of s.edges) {
-    if (edge.kind !== "link") continue;
+    if (!GC_PEEK_KINDS.has(edge.kind)) continue;
     const a = edge.source;
     const b = edge.target;
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    if (!gcVisibleAtTime(a, s) || !gcVisibleAtTime(b, s)) continue;
     let distance;
     if (curved) {
       //: Sampled along the curve it is drawn as: eight steps are a pixel or
@@ -1993,20 +2353,29 @@ function gcWireInteraction(s = gcTab) {
     const [x, y] = gcWorldPoint(event, s);
     const node = gcNodeAtWorld(x, y, s);
     const id = node ? node.id : null;
-    if (id !== s.hoveredId) {
-      gcSetHovered(s, id);
-      gcHoverChanged(id, s);
+    //: A line answers the pointer only where no note does, and only on the
+    //: tab, whose click opens the peek (`openGraphLinkPeek`, graph.js).
+    const edge = !node && s.size === "full" ? gcEdgeAtWorld(x, y, s) : null;
+    if (id !== s.hoveredId || edge !== s.hoverEdge) {
+      if (id !== s.hoveredId) {
+        gcSetHovered(s, id);
+        gcHoverChanged(id, s);
+      }
+      s.hoverEdge = edge;
+      s.canvas.classList.toggle("graph-edge-hover", Boolean(edge));
       // The native tooltip the SVG renderer got from a `<title>` child. A
       // canvas has no children, so the canvas itself carries whichever one
       // applies.
-      s.canvas.title = node ? gcTooltip(node, s) : "";
+      s.canvas.title = node ? gcTooltip(node, s) : edge ? "Click to see this connection" : "";
       gcRequestDraw(s);
     }
   });
   s.canvas.addEventListener("pointerleave", () => {
-    if (s.hoveredId == null) return;
+    if (s.hoveredId == null && !s.hoverEdge) return;
     gcSetHovered(s, null);
     gcHoverChanged(null, s);
+    s.hoverEdge = null;
+    s.canvas.classList.remove("graph-edge-hover");
     s.canvas.title = "";
     gcRequestDraw(s);
   });
@@ -2036,9 +2405,10 @@ function gcWireInteraction(s = gcTab) {
     if (s.size !== "full") return;
     const edge = gcEdgeAtWorld(x, y, s);
     if (edge) {
-      openGraphLinkPanel(edge, s.nodes);
+      openGraphLinkPeek(edge, event, s.nodes);
       return;
     }
+    closeGraphLinkPeek();
     closeGraphPopup();
     closeGraphNewNote();
   });
@@ -2822,7 +3192,7 @@ async function renderGraphCanvas(s = gcTab) {
   graphMinimapShown(data.nodes.length > 0);
 
   const colour = graphCategoryScale(data.categories);
-  const clusterColour = d3.scaleOrdinal(d3.schemeTableau10.concat(d3.schemeSet3));
+  const clusterColour = d3.scaleOrdinal(graphCalmScheme());
   const colourMode = graphColourMode();
   graphStructure =
     colourMode === "cluster" ? await apiJson("/graph/structure").catch(() => null) : null;
@@ -3081,7 +3451,7 @@ function gcRuleDomain(rule, data) {
 function gcRuleScale(rule, data) {
   if (rule === "age") return d3.scaleOrdinal(GC_AGE_BUCKETS, ["#2f80ed", "#56a3f5", "#8ec2f7", "#c3dcf7", "#9aa1ad"]);
   if (rule === "file") return d3.scaleOrdinal(["Has a file", "No file"], ["#17bebb", "#9aa1ad"]);
-  return d3.scaleOrdinal(gcRuleDomain(rule, data), d3.schemeTableau10.concat(d3.schemeSet3));
+  return d3.scaleOrdinal(gcRuleDomain(rule, data), graphCalmScheme());
 }
 
 function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour = null, groups = [], s = gcTab) {

@@ -433,6 +433,27 @@ INBOX 443 (1) (the owner: "the graph shape could look nicer"), measured with
   the server's 40-character preview, so the whole name on hover is as long as
   the server sends.
 
+## Decision made, 2026-10-04: names on plates, clear of lines, and a calmer palette
+
+INBOX 493 (the owner: "is there a way to make my graphed notes look
+nicer??", a screenshot with labels in white over the lines). Measured with
+`scratchpad/ui-sweeps/graphlook.js` (60 notes, 1440x900) and
+`graphlabels.js` (417 notes):
+
+- **A name stands on a plate**: its box in the card's colour at 0.88, 4px
+  corners, in place of the 3px card stroke around each glyph, which left a
+  line under a name showing between its letters.
+- **Placement knows the lines**: eight places (under, above, beside, the four
+  corners); the first free of labels, dots and lines wins, else the one
+  crossing the fewest. Label-line crossings 43 to 28, names on a line 14 of
+  15 to 12 of 19. Not while the layout moves (the grid would rebuild every
+  frame); the names cross-fade to their places when it settles. Cost on the
+  417-note map, settled: a frame 3.3 to 4.1ms at the fit, 2.6 to 4.9ms at 2x.
+- **The automatic palette at 78% saturation**, same hue and lightness, so
+  contrast is unchanged; a chosen colour is drawn as chosen.
+- **Not changed:** the reasoned link's accent stroke (1.9px at 0.62, the
+  decision above), the loudest thing left on the map.
+
 ## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
 
 514. **The owner, 2026-10-04, verbatim.** "is the graph missing any core

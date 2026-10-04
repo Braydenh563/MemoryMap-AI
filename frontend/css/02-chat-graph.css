@@ -1369,6 +1369,61 @@ body.graph-fullscreen-on .sidebar-panel {
   cursor: pointer;
 }
 
+/* A line's peek (`openGraphLinkPeek`, graph.js): the popover shell at the
+   pointer, parked on a one-pixel anchor where the click was. The kind, then
+   the two notes as quiet rows, then the reason and its facts line, then a
+   link's two actions. A line under the pointer takes the pointer cursor. */
+.graph-link-peek-anchor {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.help-popover.graph-link-peek {
+  width: min(22rem, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.graph-link-peek > p {
+  margin: 0;
+}
+
+.graph-link-peek-kind {
+  font-weight: 600;
+}
+
+.graph-link-peek-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.graph-link-peek-notes > button.ghost {
+  justify-content: flex-start;
+  max-width: 100%;
+  text-align: left;
+  font-weight: 400;
+  background: transparent;
+  border-color: transparent;
+}
+
+.graph-link-peek-notes > button.ghost:hover {
+  background: var(--hover-veil);
+}
+
+.graph-link-peek-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+#graph-canvas.graph-edge-hover {
+  cursor: pointer;
+}
+
 /* `.confirm-card`'s width (min(30rem, 92vw), ~480px) is sized for its usual
    two buttons (Cancel/Confirm). This panel carries four (Save, Generate,
    Remove link, Close) whose combined content width alone is ~482px, wider
@@ -1705,7 +1760,7 @@ button.ghost.danger {
    matching label's own <g> instead. */
 .graph-labels-hidden .graph-label {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .graph-labels-hidden g.graph-focus .graph-label {
@@ -3664,6 +3719,14 @@ html {
 
 .graph-edge.graph-dim {
   opacity: 0.06;
+}
+
+/* The hover's dimming fades in and out rather than flipping (the owner,
+   2026-10-04: "the labels and stuff just suddenly appear"); the canvas
+   renderer does the same per frame (GC_FADE_MS in graph-canvas.js). */
+.graph-node,
+.graph-edge {
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .graph-node.graph-match .graph-core {

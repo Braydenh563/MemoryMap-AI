@@ -158,3 +158,31 @@ def test_no_script_names_an_anchor():
         f"{offenders} set an anchor in script: the glide is CSS alone, moved by the `.active` class "
         "every strip already sets"
     )
+
+
+def test_the_top_bars_tab_glides_on_the_compositor_in_every_engine():
+    """The owner, 2026-10-04: "a slight css sliding animation for the active
+    tab on the menubar tabs ... cheap but looks professional". The top bar
+    left the anchored recipe (which an engine without `anchor-scope` draws
+    with no glide, and which lays its box out every frame) for one measured
+    box moved by a `transform` animation; `scratchpad/ui-sweeps/tabglide.js`
+    measures it (transform only, lands to 0px, none under reduced motion)."""
+    css = "".join(_blank_comments(t) for t in _sheets().values())
+    flat = " ".join(css.split())
+    start = flat.find("@supports (anchor-scope: --a)")
+    depth, i = 0, flat.index("{", start)
+    while True:
+        depth += {"{": 1, "}": -1}.get(flat[i], 0)
+        i += 1
+        if depth == 0:
+            break
+    assert "#tab-bar" not in flat[start:i], "the top bar is anchored again"
+    box = re.search(r"#tab-bar > \.tab-glide \{([^}]*)\}", css)
+    assert box and "transition" not in box.group(1) and "translate: var(--tab-glide-x)" in box.group(1)
+    js = (JS_DIR / "shell-reminders.js").read_text(encoding="utf-8")
+    init = js[js.index("function tabGlideInit()") :]
+    init = init[: init.index("\n}\n")]
+    assert "box.animate(" in init and "translateX(" in init and "scaleX(" in init
+    assert re.findall(r"\{ (\w+): `", init) == ["transform"], "the glide animates something other than transform"
+    assert 'prefers-reduced-motion: reduce' in init and 'root.dataset.motion === "reduced"' in init
+    assert "tabGlideInit();" in js

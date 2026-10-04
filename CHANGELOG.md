@@ -10,6 +10,11 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Startup: the dashboard waits for its own script, so "renderDashboard is not defined" no longer appears on the lock screen.
+- Graph: a line between two notes lights under the pointer and a click on it opens a small card where you clicked: what it is (a link, a thread, a similarity, a map's line), its reason and how sure, the two notes (each opens), and for a link Edit reason and Remove (the owner: "I cant click on links to see their reason in the graph??"; 20 of 20 sampled line middles answer).
+- Top bar: the active tab's fill slides to the tab you choose (200ms, transform only) in every engine, by click, keyboard or a jump from elsewhere, and sits on it through a resize; none under reduced motion, and the phone's bottom tabs keep their colour mark.
+- Ask: the Matching records cards speak in the Notes list's voice: the text sits at the list's inset, the category is muted, the match reason is one quiet fact after the date instead of a green pill on its own row, links are the list's outlined muted pill on the text edge and one line, and the citation number is the same edged box on a plain card and on the cited one (INBOX 510).
+- Graph: names stand on a plate in the card's colour instead of a white outline over the lines, go to the first of eight places that crosses no line (label-line crossings 43 to 28 on a 60-note map), and the automatic category palette is calmer (78% saturation, same lightness); a chosen colour is unchanged (INBOX 493).
+- Graph: hovering a note fades the map instead of flipping it: the dimming of every other dot and link, the names that leave and arrive, the hovered note's ring and its similarity scores each ease over 180ms (measured, scratchpad/ui-sweeps/graphfade.js: largest single-frame step 1.0 with no frame between, now 0.15 to 0.2 over 7 to 8 frames); reduced motion stays instant.
 - Links: [[Name]] links to a note that opens with a "# Name" heading, and a link written before its note exists connects as soon as that note is saved.
 - Library: pressing the Library tab inside an open board or mind map goes back to the Library.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.

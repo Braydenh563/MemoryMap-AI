@@ -1656,8 +1656,27 @@ function graphRenderer() {
 //: the person chose over it, so the legend, the nodes, the minimap and the
 //: local map all agree with the dots in Notes. A colour chosen while the map
 //: is on screen redraws it.
+//:
+//: **A calmer palette** (INBOX 493, the owner: "is there a way to make my
+//: graphed notes look nicer??"). The automatic colours are Tableau's ten then
+//: Set3, each taken to 78% of its saturation at the same hue and lightness,
+//: so five clusters read as five families rather than five signals while
+//: every dot keeps its contrast with the ground (lightness is untouched). A
+//: colour the person chose is drawn as chosen, which is what keeps it the
+//: same as its dot in Notes.
+let graphCalmSchemeCache = null;
+function graphCalmScheme() {
+  if (!graphCalmSchemeCache) {
+    graphCalmSchemeCache = d3.schemeTableau10.concat(d3.schemeSet3).map((hex) => {
+      const c = d3.hsl(hex);
+      c.s *= 0.78;
+      return c.formatHex();
+    });
+  }
+  return graphCalmSchemeCache;
+}
 function graphCategoryScale(categories) {
-  const scale = d3.scaleOrdinal(categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  const scale = d3.scaleOrdinal(categories, graphCalmScheme());
   return (name) => categoryColour(name, scale(name));
 }
 document.addEventListener("categorycolours", () => {
@@ -1665,6 +1684,7 @@ document.addEventListener("categorycolours", () => {
 });
 
 async function renderGraph() {
+  if (typeof closeGraphLinkPeek === "function") closeGraphLinkPeek();
   const svg = document.getElementById("graph-svg");
   const canvas = document.getElementById("graph-canvas");
   // `typeof` rather than a bare name: graph-canvas.js is a separate <script>,
@@ -1740,9 +1760,7 @@ async function renderGraphSvg() {
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = graphCategoryScale(data.categories);
-  const clusterColour = d3.scaleOrdinal(
-    d3.schemeTableau10.concat(d3.schemeSet3)
-  );
+  const clusterColour = d3.scaleOrdinal(graphCalmScheme());
   const colourMode = graphColourMode();
   // The structure is only fetched when something is going to show it. It is a
   // traversal of the whole notebook, and an ordinary look at the map should
@@ -3445,6 +3463,151 @@ function syncGraphPopupSave() {
   save.classList.toggle("hidden", !dirty);
 }
 
+//: Removes a link after asking, with an undo, and redraws. Shared by the
+//: link's panel and its peek. Says whether it went.
+async function graphRemoveLink(edge, sourceId) {
+  if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched, only the link between them goes."))) return false;
+  //: Captured before the delete, because after it there is nothing left to
+  //: read the other end and the reason off.
+  const targetId = edge.target?.id ?? edge.target;
+  const linkType = edge.link_type || null;
+  const reason = edge.reason || null;
+  await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+  //: **A link is the one thing in this notebook you cannot rebuild from
+  //: memory.** Which two notes, in which direction, with what reason, a
+  //: confirm dialog is not an undo, and this had only the dialog. The
+  //: recreated link gets a new id, so the redo closure re-reads it rather
+  //: than assuming the old one comes back.
+  let recreatedId = null;
+  pushUndo(
+    "Removed a link",
+    async () => {
+      const made = await apiJson(`/entries/${sourceId}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: targetId, link_type: linkType, reason }),
+      });
+      recreatedId = made.link_id ?? made.id ?? null;
+      renderGraph();
+    },
+    async () => {
+      if (recreatedId === null) return;
+      await apiJson(`/entries/${sourceId}/links/${recreatedId}`, { method: "DELETE" });
+      renderGraph();
+    }
+  );
+  toast("Link removed.");
+  renderGraph();
+  return true;
+}
+
+//: **The peek: what a line on the map is, where it was clicked** (the owner,
+//: 2026-10-04: "I cant click on links to see their reason in the graph??").
+//: A click on a link went straight to the panel below, a modal editor, and a
+//: thread, a similarity or a map's line answered nothing. Now any of them
+//: opens the popover shell (`.help-popover`, DESIGN.md's popover tier) at the
+//: pointer: the kind, the reason and how sure the app is of it, the two
+//: notes (each opens its own panel), and for a link, Edit reason (the panel)
+//: and Remove. Escape, a press elsewhere or a redraw closes it.
+let graphLinkPeek = null;
+
+function closeGraphLinkPeek() {
+  if (!graphLinkPeek) return;
+  graphLinkPeek.panel.remove();
+  graphLinkPeek.anchor.remove();
+  graphLinkPeek = null;
+}
+
+function graphLinkKind(edge) {
+  if (edge.kind === "similar") return `Similar in meaning${typeof edge.score === "number" ? `, ${Math.round(edge.score * 100)}%` : ""}`;
+  if (edge.kind === "thread") return "Thread: one note continues the other";
+  if (edge.kind === "map") return "Joined on a concept map";
+  return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.link_type}` : "Link";
+}
+
+function openGraphLinkPeek(edge, event, nodes) {
+  closeGraphLinkPeek();
+  const end = (e) => (typeof e === "object" ? e : nodes.find((n) => n.id === e));
+  const ends = [end(edge.source), end(edge.target)].filter(Boolean);
+  const anchor = document.createElement("span");
+  anchor.className = "graph-link-peek-anchor";
+  anchor.style.left = `${event.clientX}px`;
+  anchor.style.top = `${event.clientY}px`;
+  document.body.appendChild(anchor);
+  const panel = document.createElement("div");
+  panel.className = "help-popover graph-link-peek";
+  panel.id = "graph-link-peek";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "This connection");
+  panel.tabIndex = -1;
+  const kind = document.createElement("p");
+  kind.className = "graph-link-peek-kind";
+  kind.textContent = graphLinkKind(edge);
+  const reason = document.createElement("p");
+  reason.className = "graph-link-peek-reason";
+  reason.textContent = edge.reason ? edge.reason : edge.kind === "link" ? "No reason given yet." : "";
+  reason.classList.toggle("muted", !edge.reason);
+  const facts = document.createElement("p");
+  facts.className = "library-file-meta graph-link-peek-meta";
+  facts.textContent = edge.reason_confidence != null
+    ? `Deduced, ${Math.round(edge.reason_confidence * 100)}% confidence`
+    : edge.reason ? "In your words" : "";
+  const notes = document.createElement("div");
+  notes.className = "graph-link-peek-notes";
+  for (const node of ends) {
+    const open = smallButton(`ph:note ${graphNodeLabel(node, node.id)}`, "Open this note", (click) => {
+      closeGraphLinkPeek();
+      openGraphPopup(click, node);
+    });
+    open.classList.add("ghost");
+    notes.appendChild(open);
+  }
+  panel.append(kind, notes, ...[reason, facts].filter((el) => el.textContent));
+  if (edge.kind === "link" && edge.id != null) {
+    const sourceId = typeof edge.source === "object" ? edge.source.id : edge.source;
+    const actions = document.createElement("div");
+    actions.className = "graph-link-peek-actions";
+    const editReason = smallButton("ph:pencil-simple Edit reason", "Write or change why these are linked", () => {
+      closeGraphLinkPeek();
+      openGraphLinkPanel(edge, nodes);
+    });
+    const remove = smallButton("ph:trash Remove", "Remove this link", async () => {
+      closeGraphLinkPeek();
+      await graphRemoveLink(edge, sourceId);
+    });
+    editReason.classList.add("ghost");
+    remove.classList.add("ghost", "danger");
+    actions.append(editReason, remove);
+    panel.appendChild(actions);
+  }
+  document.body.appendChild(panel);
+  graphLinkPeek = { panel, anchor };
+  placeHelpPopover(panel, anchor);
+  panel.focus({ preventScroll: true });
+}
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape" || !graphLinkPeek) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeGraphLinkPeek();
+  },
+  true
+);
+document.addEventListener("pointerdown", (event) => {
+  if (graphLinkPeek && !graphLinkPeek.panel.contains(event.target) && event.target.id !== "graph-canvas") closeGraphLinkPeek();
+});
+
+//: A note's name for a one-line place: cut at the last whole word, with the
+//: ellipsis only when something was cut ("This g" read as broken text).
+function graphNodeLabel(n, id) {
+  const text = n?.preview || `Note ${id}`;
+  if (text.length <= 60) return text;
+  const cut = text.slice(0, 60);
+  return `${cut.slice(0, cut.lastIndexOf(" ") + 1 || 60).trimEnd()}…`;
+}
+
 // A link edge's own management panel, asked for directly: "a visual way
 // to see the reasons for each connection and a way to manage/add/remove/
 // edit them." Clicking a `kind: "link"` edge (see `renderGraph`'s own
@@ -3458,16 +3621,7 @@ function openGraphLinkPanel(edge, nodes) {
   const targetId = typeof edge.target === "object" ? edge.target.id : edge.target;
   const sourceNode = nodes.find((n) => n.id === sourceId);
   const targetNode = nodes.find((n) => n.id === targetId);
-  // A raw slice cut mid-word with nothing to say so ("This g" from "This
-  // guide") reads as broken text, not a shortened title, trim to the last
-  // whole word instead, and only add the ellipsis when something was
-  // actually cut.
-  const label = (n, id) => {
-    const text = n?.preview || `Note ${id}`;
-    if (text.length <= 60) return text;
-    const cut = text.slice(0, 60);
-    return `${cut.slice(0, cut.lastIndexOf(" ") + 1 || 60).trimEnd()}…`;
-  };
+  const label = graphNodeLabel;
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay confirm-overlay";
@@ -3553,38 +3707,7 @@ function openGraphLinkPanel(edge, nodes) {
   removeBtn.className = "ghost danger";
   setLabel(removeBtn, "ph:trash Remove link");
   removeBtn.addEventListener("click", async () => {
-    if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched, only the link between them goes."))) return;
-    //: Captured before the delete, because after it there is nothing left to
-    //: read the other end and the reason off.
-    const targetId = edge.target?.id ?? edge.target;
-    const linkType = edge.link_type || null;
-    const reason = edge.reason || null;
-    await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
-    //: **A link is the one thing in this notebook you cannot rebuild from
-    //: memory.** Which two notes, in which direction, with what reason, a
-    //: confirm dialog is not an undo, and this had only the dialog. The
-    //: recreated link gets a new id, so the redo closure re-reads it rather
-    //: than assuming the old one comes back.
-    let recreatedId = null;
-    pushUndo(
-      "Removed a link",
-      async () => {
-        const made = await apiJson(`/entries/${sourceId}/links`, {
-          method: "POST",
-          body: JSON.stringify({ target_id: targetId, link_type: linkType, reason }),
-        });
-        recreatedId = made.link_id ?? made.id ?? null;
-        renderGraph();
-      },
-      async () => {
-        if (recreatedId === null) return;
-        await apiJson(`/entries/${sourceId}/links/${recreatedId}`, { method: "DELETE" });
-        renderGraph();
-      }
-    );
-    toast("Link removed.");
-    close();
-    renderGraph();
+    if (await graphRemoveLink(edge, sourceId)) close();
   });
 
   const cancelBtn = document.createElement("button");

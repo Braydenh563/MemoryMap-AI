@@ -1643,32 +1643,12 @@ function numberMatchingRecords(target, numberFor) {
   }
 }
 
-//: `question`, when the caller knows it, is what turns a click into a
-//: correction: opening the third source after asking something is the one
-//: signal the search has that its own order was wrong (WORLD_CLASS_PLAN I7,
-//: and `search_manager._learned_order`, which has been reading these
-//: corrections since Brief 23 while nothing in the browser wrote one). Left
-//: optional because the third caller rebuilds an old chat from storage, and
-//: a click on a source from last week is not evidence about today's ranking.
-//: How much of an answer the notebook actually backed, said out loud.
-//:
-//: CHAT_PLAN Phase 1's fourth gate line, and Brief 12's decision: under half
-//: the sentences supported, the app says so. The marks have always shown
-//: *which* sentences came from notes; nothing showed how many, so an answer
-//: with one cited sentence in six read, at a glance, exactly like one with six
-//: in six. That is the one thing a notebook that cites must not get wrong.
-//:
-//: **The threshold is the backend's, not this file's** (`grounding.support`,
-//: which sends `low` beside the numbers). Two places each choosing when an
-//: answer counts as thin is two places to disagree, and the copy here would
-//: then be describing a different answer from the one the marks describe.
-//:
-//: Placed above the answer rather than beside the chips below it: the chips
-//: are a key to marks somebody has already read, and this is a thing to know
-//: before reading. `.notice`, the app's recipe for exactly that
-//: (08-consistency.css), in its `notice-warn` tone, which is an edge and not a
-//: fill: a filled warning band would read as a failed answer, and it is not a
-//: failed answer, it is an answer with less behind it than usual.
+//: How much of an answer the notebook backed, said out loud (CHAT_PLAN
+//: Phase 1, Brief 12): under half the sentences supported, the app says so,
+//: since one cited sentence in six read like six in six. The threshold is the
+//: backend's (`grounding.support` sends `low`), so the two cannot disagree.
+//: Above the answer, a thing to know before reading; `.notice-warn` is an
+//: edge, not a fill, because it is a thinner answer, not a failed one.
 function renderAnswerSupport(answerEl, support) {
   //: Every prose block of the turn may be passed (a skill run has one per
   //: step); the notice belongs above the first.
@@ -2083,7 +2063,9 @@ function renderChatMeta(meta) {
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
+      //: In the facts line, after the date, as one more quiet fact (INBOX
+      //: 510): on a row of its own it was a filled pill louder than the note.
+      (row.querySelector(":scope > .entry-meta") || row).appendChild(badge);
     }
     rawList.appendChild(row);
   }

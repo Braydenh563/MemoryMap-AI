@@ -170,6 +170,30 @@ const links = [{ source: 0, target: 1, kind: 'link' }, { source: 2, target: 3, k
   many.push({ id: 'under', x: 30, y: 5, r: 3 });
   const found = gcPlaceLabels([box('a', 0, 0)], many);
   check('labels/the dot under a label is found among many', found.length === 0, found.length);
+  // INBOX 493: a name goes to its first place that crosses no line, else to
+  // the one crossing the fewest; without a count, the first free place.
+  const spots = (id) => ({ ...box(id, 0, 0), alts: [{ left: 0, right: 40, top: -30, bottom: -20 }, { left: 50, right: 90, top: 0, bottom: 10 }] });
+  const lines = (counts) => (b) => counts[b.top === -30 ? 1 : b.left === 50 ? 2 : 0];
+  const clear = gcPlaceLabels([spots('a')], [], lines([2, 0, 0]));
+  check('labels/a line under the first place sends the name to the next clear one', clear[0].top === -30, JSON.stringify(clear[0]));
+  const fewest = gcPlaceLabels([spots('a')], [], lines([3, 2, 1]));
+  check('labels/with no clear place, the one crossing the fewest lines', fewest[0].left === 50, JSON.stringify(fewest[0]));
+  const plain = gcPlaceLabels([spots('a')], []);
+  check('labels/without a line count the first free place, as always', plain[0].left === 0 && plain[0].top === 0, JSON.stringify(plain[0]));
+  // The line grid's count: a horizontal segment through a box, one past it.
+  const cells = new Map();
+  const fileSeg = (ax, ay, bx, by) => {
+    for (let cx = Math.floor(Math.min(ax, bx) / GC_LINE_CELL); cx <= Math.floor(Math.max(ax, bx) / GC_LINE_CELL); cx++) {
+      const key = cx * 100003 + Math.floor(ay / GC_LINE_CELL);
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key).push(ax, ay, bx, by);
+    }
+  };
+  fileSeg(-10, 5, 30, 5);
+  fileSeg(-10, 30, 30, 30);
+  const grid = { cells };
+  check('lines/a segment through the box counts', gcBoxLineCount(grid, { left: 0, right: 20, top: 0, bottom: 10 }) === 1, '');
+  check('lines/a segment beside the box does not', gcBoxLineCount(grid, { left: 0, right: 20, top: 12, bottom: 20 }) === 0, '');
 }
 
 // --- score pills -----------------------------------------------------------------

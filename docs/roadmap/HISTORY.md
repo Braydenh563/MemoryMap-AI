@@ -37256,6 +37256,13 @@ width, 47% of the column at 1440.
      (`whenScriptsLoaded`) before drawing it. `booterr.js`: 0 errors;
      `dashwidgets.js`: all three widgets draw.
 
+493. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the graph:
+     coloured dots, curved links, labels in white over the lines).** "is
+     there a way to make my graphed notes look nicer??" Next Opus slot
+     (GRAPH_PLAN): labels that do not sit on lines, node and link styling,
+     a calmer palette.
+     Built: label plates placed clear of lines (crossings 43 to 28), calmer palette, hover fades over ~170 ms, lines hover and click to a reason popover (4af88c6, 5a3d6eb, a506e0f).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

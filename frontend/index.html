@@ -6754,7 +6754,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="empty-icon" aria-hidden="true"><i id="library-media-empty-icon" class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title" id="library-media-empty-title">No images yet</p>
         <p id="library-media-empty-body">Paste, drop, or attach one to a note and it shows up here.</p>
-        <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+        <button class="ghost small" type="button" data-empty-action="upload"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
       </div>
       <p id="library-images-no-match" class="muted hidden">Nothing here matches your search.</p>
     </section>
@@ -7842,8 +7842,10 @@ Link to another note with [[its first few words]]."></textarea>
                  tooltip '?' buttons so they dont take up unnecessary space".
                  What stays is the one thing this paragraph exists to say when
                  it is visible at all: the backend is not up, here is the fix. -->
+            <!-- The status line above already says it is not running (INBOX
+                 464: the pane said "Ollama isn't running" twice, one line
+                 apart), so this line is only the fix. -->
             <p id="ollama-help" class="muted hidden">
-              Ollama isn't running.
               <a href="https://ollama.com" target="_blank" rel="noopener">Get it from ollama.com</a>,
               then start it.
             </p>

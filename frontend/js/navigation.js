@@ -1323,11 +1323,9 @@ async function loadSurface(el, what, run) {
   }
 }
 
-// Empty states carry one action (DESIGN.md → Voice): "Capture a note" from
-// the Timeline and Graph empties, "Add a reminder" from the Reminders one.
-// One delegated listener rather than one per button, so a fourth empty
-// state adds a `data-empty-action` and nothing else (and
-// test_frontend_handlers.py has one listener to count, not four).
+// Empty states carry one action (DESIGN.md → Voice), the surface's own verb
+// (Images and Files: Upload, as their dock says). One delegated listener, so
+// a new empty state adds a `data-empty-action` and nothing else.
 //: Every dock menu (UI_MODERNISATION_PLAN.md Phase 8) is a `<details>`: the
 //: browser gives open-on-click, Enter/Space, Escape and the ARIA. What it does
 //: not give is closing when you pick an item or click away, and both are what
@@ -1635,6 +1633,8 @@ document.addEventListener("click", (event) => {
       search.dispatchEvent(new Event("input", { bubbles: true }));
       search.focus();
     }
+  } else if (action === "upload") {
+    $("library-images-upload")?.click();
   } else if (action === "new-document") {
     $("library-docs-new")?.click();
   } else if (action === "new-board") {

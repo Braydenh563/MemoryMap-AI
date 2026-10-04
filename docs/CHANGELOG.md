@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.
 - File pickers (Import markdown, Import a document and the rest) look like the Import button beside them: the same face, edge and weight, where they wore that button's hover colour and a near-invisible edge.
 - Library previews keep a document's or note's blocks apart: a heading, a list item or a table row is followed by a dot ("Goals · Ship the notebook redesign · Cut travel spend by 15%"), where they used to run on as one sentence.
 - Command palette on a phone: the keyboard hints and key chips are gone where there is no keyboard, and the field's prompt ("Search notes or run a command…") fits its box.

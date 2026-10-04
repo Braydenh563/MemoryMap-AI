@@ -128,6 +128,9 @@ async function run(page, cdp, s, control) {
     for (const control of REDUCED || APPEARANCE ? [false] : [false, true]) {
       const { browser, page } = await boot(opts);
       if (APPEARANCE) await page.evaluate(() => { document.documentElement.dataset.motion = 'reduced'; });
+      // NOBUDDY=1 hides the companion first (Ctrl+Shift+Y): its follow loop reads
+      // rects while anything near it moves, which shows up in LayoutCount.
+      if (process.env.NOBUDDY) { await page.keyboard.press('Control+Shift+Y'); await page.waitForTimeout(400); }
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Performance.enable');
       await page.click('#tab-btn-' + s.tab);

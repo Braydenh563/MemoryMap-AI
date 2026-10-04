@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Empty states say it once, as a title and one sentence: the empty dashboard's card is "How MemoryMap works" under a hero that says "No notes yet" (both said "Your notebook is empty," as comma splices), its footer is one line, the Library's All view titles "Nothing here yet" with its sentence under it (it was two bold sentences), and Bookmarks says what a bookmark is (INBOX 472, first run)
 - Dashboard, empty notebook: the start tiles draw the Quick access tile's two lines (label 600, description 400 at the small size); they were 900 and 600 a row below 600 and 400 (INBOX 472, first run)
 - The AI status dot with no model connected is a calm grey ring (the one Settings, Models draws beside "isn't running"), not an amber "!": on a phone it was a 44px amber circle in the top bar, the loudest thing on a new person's first screen; its popup now says Settings, Models connects one (INBOX 472, first run)
 - Graph: a notebook with no notes says "Nothing to map yet" with Capture a note; it said "Every note is hidden. All 0 notes are filtered out" with a button that could show nothing (INBOX 472, first run)

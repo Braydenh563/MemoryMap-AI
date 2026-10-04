@@ -499,7 +499,7 @@ async function renderDashSubmessage() {
   const bits = [];
   if (stats) {
     const n = stats.total_entries;
-    bits.push(n === 0 ? "Your notebook is empty, capture a thought to begin" : `You have ${n} note${n === 1 ? "" : "s"}`);
+    bits.push(n === 0 ? "No notes yet" : `You have ${n} note${n === 1 ? "" : "s"}`);
   }
   const due = (reminders || []).filter(
     (r) => !r.done && new Date(r.due_at) <= new Date()
@@ -1499,7 +1499,9 @@ function gettingStartedCard() {
   card.className = "card dash-widget dash-getting-started";
 
   const title = document.createElement("h2");
-  title.textContent = "Your notebook is empty, here's the whole idea";
+  //: Not "Your notebook is empty" again: the hero line above already says
+  //: so, and the comma joined two sentences (INBOX 472, the first-run walk).
+  title.textContent = "How MemoryMap works";
 
   const blurb = document.createElement("p");
   blurb.className = "muted";
@@ -1573,8 +1575,7 @@ function gettingStartedCard() {
   const footer = document.createElement("p");
   footer.className = "muted start-footer";
   footer.textContent =
-    "Your dashboard fills itself in as you go, streaks, tags, a map of your " +
-    "notes and a dozen other panels appear once there's something to put in them.";
+    "Streaks, tags, a map of your notes and more appear here as you write.";
 
   //: No mark of its own (INBOX 436): the hero directly above already turns
   //: the app's emblem, and two turning marks on one screen is one too many.

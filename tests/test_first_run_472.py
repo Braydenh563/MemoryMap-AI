@@ -50,3 +50,25 @@ def test_the_start_tiles_draw_the_quick_access_tile_recipe():
     note = css[css.index(".start-step .muted {") :].split("}")[0]
     assert "font-weight: 600;" in label
     assert "font-weight: 400;" in note and "var(--text-sm)" in note
+
+
+def test_the_empty_dashboard_says_empty_once_and_in_sentences():
+    """The hero said "Your notebook is empty, capture a thought to begin" and
+    the card under it "Your notebook is empty, here's the whole idea": the
+    same fact twice, each a comma splice."""
+    js = frontend_text("dashboard.js")
+    assert "Your notebook is empty," not in js
+    assert '"How MemoryMap works"' in js
+
+
+def test_every_library_empty_state_has_a_title_and_one_sentence():
+    """Library, All on a new notebook put two bold sentences in the title;
+    Bookmarks had a title and a button with no sentence between."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="library-empty-text"' in html
+    bookmark = html.split('id="bookmark-empty"')[1].split("</div>")[0]
+    assert bookmark.count("<p") == 2, bookmark
+    js = frontend_text("library.js")
+    assert "Nothing here yet. Make" not in js
+    assert '"Nothing here yet"' in js
+

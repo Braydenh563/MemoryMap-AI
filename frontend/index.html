@@ -4959,6 +4959,9 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="library-empty" class="empty-state library-empty hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-books ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title" id="library-empty-title"></p>
+          <!-- The one sentence under the title, for a new notebook only: the
+               title said both as two bold sentences (INBOX 472). -->
+          <p id="library-empty-text" class="hidden"></p>
           <!-- "Nothing matching X" with the one way out beside it (pass2.md,
                micro-conventions): the Notes list's own no-match state has
                had "Clear the filter" for a long time; this one had none. -->
@@ -6862,6 +6865,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No bookmarks saved yet</p>
+        <p>A bookmark keeps a web page's address and title, ready to open again.</p>
         <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a bookmark</button>
       </div>
       <div id="bookmark-no-match" class="empty-state hidden">

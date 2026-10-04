@@ -115,6 +115,24 @@ with its owner named in the entry.
      words stay in the box, saying so); the desktop window, real
      clipboards and a real server crash between commit and answer are not
      verified (the dedupe map is in memory).
+     **Progress 2026-10-04 (filing-speed agent): the open 1.2 to 2.5 s is
+     fixed by cause.** It was never the model load or the notebook size: one
+     `encode()` of a note-sized text on torch's default intra-op pool (one
+     thread per core) pays barrier waits that dwarf the arithmetic whenever
+     another process wants a core. Median per encode, 70-character note:
+     4 threads idle 39 ms; 4 threads machine busy 2,192 ms; 1 thread busy
+     79 ms. `embeddings.py` now sets one thread in the encoding thread before
+     each encode (`MEMORYMAP_EMBED_THREADS` raises it). Live server, no model,
+     captureaudit `filed_ms` (capture, selection, graph, dashboard): 1700,
+     1156, 1639, 1380 to 90, 175, 27, 91; `filing_api_time.py` median 1251 to
+     81 ms. Counted, not timed, tests: `test_embedding_threads.py`,
+     `test_background_filing_cost.py` (at most two encodes a job, statements
+     flat from 4 to 40 notes). Profiler: `scratchpad/filing_profile.py`. Open:
+     the first note after a launch still waits for the model's cold load
+     (6.8 s measured: torch import), because filing by meaning embeds the
+     note before it settles; changing that changes what gets filed, so it is
+     the owner's call (skip the semantic step until the model is warm, or
+     keep waiting).
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

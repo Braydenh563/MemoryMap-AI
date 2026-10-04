@@ -14,7 +14,7 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1676,6 +1676,76 @@ def _deduce_reason(
     return None, None
 
 
+def _seal_reason(reason: str | None) -> str | None:
+    """A link reason, encrypted for storage, for a link that touches a private
+    note. `None` when there is nothing to seal or the vault is closed: a
+    private note cannot be written while the vault is locked, and a reason
+    that cannot be sealed is dropped rather than stored in the clear.
+    """
+    from memorymap.core import crypto, vault
+
+    key = vault.key()
+    if not reason or key is None:
+        return None
+    return crypto.encrypt(key, reason)
+
+
+def _set_stored_reason(session: Session, link: EntryLink, stored: str | None) -> None:
+    """Write `entry_links.reason` exactly as given, bypassing the attribute.
+
+    The column decrypts on load (`database.LinkReason`), so the attribute
+    holds plaintext whenever the vault is open, and assigning the plaintext
+    back would look like "no change" to the ORM and write nothing. A Core
+    update puts the real stored string in, and the expire makes the next
+    read of the attribute go back through the decrypting load.
+    """
+    session.execute(update(EntryLink).where(EntryLink.id == link.id).values(reason=stored))
+    session.expire(link, ["reason"])
+
+
+def _touches_private(session: Session, link: EntryLink) -> bool:
+    ends = session.scalars(
+        select(Entry.is_private).where(
+            Entry.id.in_((link.source_entry_id, link.target_entry_id))
+        )
+    ).all()
+    return any(ends)
+
+
+def _redact_link_audit(session: Session, entry: Entry, key: bytes) -> None:
+    """Take a private note's link reasons out of the activity log.
+
+    The "linked" and "relinked" rows spell the reason in `detail` and carry
+    it in `payload.after.reason`, both in the clear when the link was made
+    before the note went private. The detail loses its parenthesis (the
+    reason is the only part that is about the notes' meaning; the ids stay
+    so the log still reads), and the payload's copy is encrypted like the
+    content next to it.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog
+
+    own = f"-> entry {entry.id}"
+    rows = session.scalars(
+        select(AuditLog).where(
+            AuditLog.entity_type == "entry",
+            AuditLog.action.in_(("linked", "relinked")),
+            or_(
+                AuditLog.entity_id == entry.id,
+                AuditLog.detail.like(f"{own} (%", escape=LIKE_ESCAPE),
+            ),
+        )
+    )
+    for row in rows:
+        if row.detail and " (" in row.detail:
+            row.detail = row.detail.split(" (", 1)[0]
+        payload = row.payload
+        state = payload.get("after") if isinstance(payload, dict) else None
+        text = state.get("reason") if isinstance(state, dict) else None
+        if isinstance(text, str) and text and not crypto.is_encrypted(text):
+            row.payload = {**payload, "after": {**state, "reason": crypto.encrypt(key, text)}}
+
+
 @events.writes("entry", "linked")
 def create_link(
     session: Session,
@@ -1740,6 +1810,13 @@ def create_link(
     confidence = None
     if reason is None:
         reason, confidence = _deduce_reason(session, source.id, target.id)
+    # A reason is a sentence about the two notes, so on a link with a private
+    # end it is stored encrypted and kept out of the activity log's text
+    # (`entry_links.reason` decrypts on load, `database.LinkReason`).
+    private_link = bool(source.is_private or target.is_private)
+    shown_reason = None if private_link else reason
+    if private_link:
+        reason = _seal_reason(reason)
     # An unrecognised kind is stored as null rather than rejected: the column
     # is advisory (it styles an edge and weights a traversal), and refusing an
     # otherwise-valid link because a caller sent a typo would trade a working
@@ -1770,7 +1847,11 @@ def create_link(
     )
     session.add(link)
     session.flush()
-    detail = f"-> entry {target.id}" + (f" ({link.reason})" if link.reason else "")
+    if private_link:
+        # The attribute holds the ciphertext just stored; make the next read
+        # go back through the decrypting load (`expire_on_commit` is off).
+        session.expire(link, ["reason"])
+    detail = f"-> entry {target.id}" + (f" ({shown_reason})" if shown_reason else "")
     log_action(
         session,
         "linked",
@@ -1782,7 +1863,7 @@ def create_link(
                 "link_id": link.id,
                 "source_entry_id": source.id,
                 "target_entry_id": target.id,
-                "reason": link.reason,
+                "reason": reason,  # as stored: ciphertext on a private link
                 "link_type": link.link_type,
             }
         },
@@ -1861,9 +1942,15 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     null already means "not deduced", so an edited link and a freshly
     auto-reasoned one that hasn't been touched stay tellable apart.
     """
-    link.reason = (reason or "").strip() or None
+    text = (reason or "").strip() or None
     link.reason_confidence = None
-    detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
+    if _touches_private(session, link):
+        # Encrypted, and not spelled in the activity log (see `create_link`).
+        _set_stored_reason(session, link, _seal_reason(text))
+        detail = f"-> entry {link.target_entry_id}"
+    else:
+        link.reason = text
+        detail = f"-> entry {link.target_entry_id}" + (f" ({text})" if text else "")
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
     session.commit()
     return link
@@ -2378,6 +2465,92 @@ def _encrypt_history(session: Session, entry: Entry, key: bytes) -> None:
             row.payload = {**payload, **changed}  # a new dict: the JSON column only notices a new value
 
 
+def _links_of(session: Session, entry: Entry) -> list[EntryLink]:
+    return list(
+        session.scalars(
+            select(EntryLink).where(
+                or_(EntryLink.source_entry_id == entry.id, EntryLink.target_entry_id == entry.id)
+            )
+        )
+    )
+
+
+def _seal_link_reasons(session: Session, entry: Entry, key: bytes) -> None:
+    """Encrypt the reasons on every link touching a note that just went
+    private, and take them out of the activity log's text.
+
+    What stays visible, by decision: the link itself (which two notes are
+    joined, its kind) and the note's tags. Only the free text a person or the
+    model wrote about the notes is sealed.
+    """
+    from memorymap.core import crypto
+
+    for link in _links_of(session, entry):
+        text = link.reason  # plaintext: the column decrypts on load
+        if text:
+            _set_stored_reason(session, link, crypto.encrypt(key, text))
+    _redact_link_audit(session, entry, key)
+
+
+def _unseal_link_reasons(session: Session, entry: Entry) -> None:
+    """The reverse, for each link whose other end is not itself private."""
+    for link in _links_of(session, entry):
+        other_id = link.target_entry_id if link.source_entry_id == entry.id else link.source_entry_id
+        other = session.get(Entry, other_id)
+        if other is not None and other.is_private:
+            continue
+        if link.reason:
+            _set_stored_reason(session, link, link.reason)
+
+
+def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> None:
+    """Move what a private note keeps outside its own row onto a new key.
+
+    `/rotate-vault-key` re-encrypts the notes; the version snapshots, the
+    event payloads and the link reasons are encrypted under the same data key
+    (`_encrypt_history`, `_seal_link_reasons`), so left alone they would stay
+    under the OLD key and read as empty the moment the vault row pointed at
+    the new one. Nothing is committed here: the caller's one commit makes the
+    notes, these and the vault row real together, or none.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog, EntryRevision
+
+    def swap(value: str) -> str:
+        return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+
+    for revision in session.scalars(select(EntryRevision)):
+        if crypto.is_encrypted(revision.content):
+            revision.content = swap(revision.content)
+    for row in session.scalars(select(AuditLog).where(AuditLog.payload.is_not(None))):
+        payload = row.payload
+        if not isinstance(payload, dict):
+            continue
+        changed = {}
+        for side in ("before", "after"):
+            state = payload.get(side)
+            if not isinstance(state, dict):
+                continue
+            fresh = {
+                name: swap(state[name])
+                for name in ("content", "reason")
+                if isinstance(state.get(name), str) and crypto.is_encrypted(state[name])
+            }
+            if fresh:
+                changed[side] = {**state, **fresh}
+        if changed:
+            row.payload = {**payload, **changed}
+    # Raw SQL: the typed column would hand back plaintext, not the stored text.
+    for link_id, stored in session.execute(
+        text("SELECT id, reason FROM entry_links WHERE reason LIKE :p"),
+        {"p": crypto.PREFIX + "%"},
+    ).all():
+        session.execute(
+            text("UPDATE entry_links SET reason = :r WHERE id = :i"),
+            {"r": swap(stored), "i": link_id},
+        )
+
+
 @events.writes("entry", "edited")
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
@@ -2414,11 +2587,13 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # "The appointment is tomorrow" plus a date is most of the note.
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
         _encrypt_history(session, entry, key)
+        _seal_link_reasons(session, entry, key)
     else:
         if crypto.is_encrypted(entry.content):
             entry.content = crypto.decrypt(key, entry.content)
         entry.is_private = False
         record_dates(session, entry)  # readable again, so it can be read again
+        _unseal_link_reasons(session, entry)
     # The payload carries the content as it now stands (ciphertext when the
     # note was just made private), so a replay of this note's events rebuilds
     # what is actually in the column rather than the plaintext it stopped

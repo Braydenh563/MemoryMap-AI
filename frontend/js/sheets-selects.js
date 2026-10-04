@@ -970,58 +970,16 @@ function enhanceAllSelects(root) {
 }
 
 // **Focus a `<select>`. Never call `.focus()` on one directly.**
-//
-// `enhanceSelect` above takes the native control out of the tab order
-// (`select-native-hidden`, `tabIndex = -1`, `aria-hidden`) and puts a
-// `<button class="select-opener">` in front of it. So `select.focus()` on any
-// enhanced select focuses *nothing*: the keystrokes that follow go to
-// `document.body`, and a `keydown` bound to the select never fires at all
-// because the select never has the focus. Nothing throws and nothing logs;
-// the call reads as correct at every line involved.
-//
-// Found the hard way. Two listeners in the documents editor's "attach a link"
-// picker were written this way and only a Playwright sweep caught them: the
-// sweep pressed Escape, the picker stayed open, and the row's children read
-// back as SPAN and BUTTON rather than SELECT and BUTTON. Three more call
-// sites elsewhere in this file were doing the same thing silently
-// (the note's own bookmark picker, the chat skills panel, the note-to-document
-// picker), which is why this is a helper rather than three edits.
-//
-// **Why there is no lint for it.** `tests/test_frontend_handlers.py` and its
-// siblings read the source as text, and the thing that decides here is what a
-// variable *holds* at runtime: `picker.focus()` is dead when `picker` is a
-// select and correct when it is an input, and nothing in the text says which.
-// A name-based rule (`/select|picker/`) would both miss `box.focus()` on a
-// select and fail `picker.focus()` on a text input, and CLAUDE.md's rule is
-// that a lint which fires on the wrong thing gets widened until it means
-// nothing. So the guard is this function plus this comment, and the check is
-// the sweep: `scratchpad/ui-sweeps/selectfocus.js` walks every enhanced select
-// in the page and asserts that focusing it through here lands on something
-// focusable.
-//
-// The frame matters: `enhanceSelect` runs from a MutationObserver, so a select
-// created and focused in the same turn has no shell yet. One retry on the next
-// frame covers that without a timeout anyone has to tune.
-//
-// **`closest(".select-shell")`, not `parentElement`,** and that is a measured
-// correction rather than defensive coding. `enhanceSelect` does
-// `shell.append(select, opener, menu)`, so the shell *is* the parent at the
-// moment it runs, and the first version of this helper read the opener off
-// `select.parentElement`. `scratchpad/ui-sweeps/selectfocus.js` then found
-// three selects where that returns null (`notes-page-size`,
-// `library-page-size`, `reminders-page-size`): something in their markup sits
-// between them and the shell, so `parentElement` is not it, and the fallback
-// quietly focused the native control instead, which is `tabindex="-1"` and
-// `aria-hidden="true"`. `closest` finds the shell for every enhanced select in
-// the app, on every tab, measured.
-//
-// **When nothing takes the focus, nothing takes it.** Six of the app's selects
-// live inside a closed `<details>` menu (the timeline's options, the graph's,
-// the page-size pickers), where no descendant is focusable at all. This ends
-// up calling `opener.focus()` on a button that cannot have it, and the focus
-// stays where it was. That is the honest outcome for "the control you asked
-// for is inside a menu that is shut", and it is why the sweep skips those
-// rather than demanding a landing.
+// `enhanceSelect` hides the native control (`tabIndex = -1`, `aria-hidden`)
+// behind a `.select-opener`, so `select.focus()` focuses nothing and keys go
+// to `body`, silently (a Playwright sweep caught two in the link picker, and
+// three more call sites did the same). No lint can see it: what decides is
+// what a variable holds at runtime, so the guard is this helper and
+// `scratchpad/ui-sweeps/selectfocus.js`. One retry on the next frame covers a
+// select enhanced by the MutationObserver after it was created.
+// `closest(".select-shell")`, not `parentElement`: three page-size selects
+// have markup between them and the shell (measured). A select inside a shut
+// `<details>` menu has nothing focusable, so the focus stays where it was.
 function focusSelect(select) {
   if (!select) return;
   const land = () => {
@@ -1316,50 +1274,15 @@ function clampToolbarMenu(details, { retry = true } = {}) {
   list.style.top = `${Math.round(top)}px`;
 
   // **A second pass, because `position: fixed` is not always fixed to the
-  // viewport.** Any ancestor with `transform`, `filter`, `backdrop-filter`,
-  // `perspective`, `contain` or `will-change` becomes the containing block for
-  // its fixed descendants, and `left`/`top` are then measured from *that* box,
-  // not from the screen. Every one of these menus lives inside a `.card`, and
-  // `.card` carries `backdrop-filter: blur(var(--glass-blur))` whenever the
-  // Appearance → Glass setting is on, which is the default.
-  //
-  // So the numbers computed above, which are viewport coordinates taken from
-  // `getBoundingClientRect` and clamped against `window.innerWidth/Height`,
-  // land the panel offset by the card's own position: up and to the left of
-  // where it belongs, and clipped by the card on top of that. Reported as
-  // "these toolbar dropdowns flicker somewhere random on the screen and dont
-  // show", and the flicker is this function re-running on every scroll and
-  // re-placing it wrongly each time.
-  //
-  // Rather than enumerate the properties that create a containing block, a
-  // list CSS keeps adding to, and one that would have to be checked up the
-  // whole ancestor chain on every open, measure where the panel actually
-  // landed and correct by the difference. Self-correcting, cause-agnostic, and
-  // one extra layout read.
-  //
-  // Proven, not reasoned. **And the real trigger does fire here, which is a
-  // correction to what this comment said until 2026-09-20.** It read that
-  // headless Chromium reports `backdrop-filter: none` on every `.card`, so
-  // the user's exact trigger could not be reproduced and `filter: saturate(1)`
-  // had to stand in for it. That was true of a card measured with the
-  // background art *off*, which is the default and was the only state anyone
-  // had looked at. Turn the art on (`data-bg-art="on"`, Settings) and the
-  // same card reports `backdrop-filter: blur(14px) saturate(1.5)
-  // brightness(1.02)` in this Chromium: measured, a `position: fixed` child
-  // written to `left: 0; top: 0` inside `.card.doc-main` lands at x=293
-  // against the card's own x=292, so the card is its containing block and the
-  // trap is live on the real property. Test that path, not the stand-in.
-  //
-  // The stand-in's numbers are kept because they are the same fault measured
-  // twice: forcing `.card.doc-main { filter: saturate(1) }` reproduces it
-  // exactly, and with that in place the panel's `style.left` reads
-  // 595px while it renders at x=886, the correction having subtracted the
-  // card's own 291px offset. Without the second pass the same menu would have
-  // been given left=886 and rendered at 1177, 291px to the right of the
-  // button that opened it, which is the reported "somewhere random". After
-  // the correction, dx is 0 (±1 rounding) on all six and every one is
-  // hit-testable. With no containing block the correction is zero, so this
-  // costs one layout read and changes nothing.
+  // viewport**: an ancestor with `transform`, `filter`, `backdrop-filter`,
+  // `contain` or `will-change` becomes the containing block, and `.card`
+  // carries `backdrop-filter` with Glass on (measured live with the
+  // background art on: a fixed child at left 0 inside `.card.doc-main` lands
+  // at x=293). The reported "dropdowns flicker somewhere random" was that
+  // offset (a menu given left 886 rendered at 1177). Rather than walk the
+  // ancestors for a growing list of properties, measure where the panel
+  // landed and correct by the difference: one layout read, zero when there
+  // is no containing block; dx 0 (±1) on all six menus after.
   const landed = list.getBoundingClientRect();
   const driftX = left - landed.x;
   const driftY = top - landed.y;

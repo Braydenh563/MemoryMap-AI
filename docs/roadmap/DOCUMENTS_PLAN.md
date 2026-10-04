@@ -301,12 +301,12 @@ the same thing.
    ("Moved from the plans, 2026-09-13", DOCUMENTS_PLAN.md); listed in the
    sidebar's Outline tab rather than in a right panel, with the measurement
    that decided it.
-2. **Version history UI**: a timeline of revisions with a diff view and
-   Restore (PLAN D8); an "AI changed this" filter using the per-document AI
-   edit log that exists.
-3. **AI edit with a diff preview** and accept/reject per hunk (PLAN D11);
-   "Check with AI" renders its findings *as findings* (Phase 0's menu),
-   not as a paragraph of advice.
+2. **Version history UI**: built (revisions, diff, Restore, the "AI edits"
+   filter). Re-run 2026-10-04, `dochistory.js` all pass; see HISTORY.md
+   ("Moved from the plans, 2026-10-04 (the documents phone pass)").
+3. **AI edit with a diff preview, per hunk; Check with AI as findings**:
+   built (the per-hunk diff; INBOX 410's in-place findings). Re-run
+   2026-10-04, `docaidiff.js` all pass; same HISTORY entry.
 4. **Focus and typewriter modes, reading typography, a print stylesheet**:
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
@@ -461,30 +461,18 @@ menu with the groups "Answers you will be asked for" and "Tools this skill may
 use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
 0 note commands leak in, and running one writes the placeholder at the caret.
 
-*Open, and still not for the documents agent: the board's note card.* It is
-`whiteboard.js`'s canvas text field (`wbEditNodeText`, ~2760), and adding a
-`NOTE_SURFACES` row for it is **not** the whole job, which is worth writing
-down before someone does exactly that. Three behaviours hang off that
-textarea and all three stop firing the moment a view is mounted over it:
-`keydown` (Enter commits, because the card is a single-idea field, and Escape
-abandons), `blur` (clicking away to the next card commits), and the
-`event.stopPropagation()` on that same keydown, which is what stops Tab and
-Enter reaching the board's own branch gestures. The last of those is a guard
-removed while the shape around it is kept, CLAUDE.md section 6 item 3: the
-row would look right, the edit would stop committing, and a Tab meant for the
-text would grow a branch. So the real work item is "move the commit keymap and
-the gesture guard onto the surface, then add the row", and it belongs to
-whoever owns `whiteboard.js`.
+*The board's note card*: built 2026-09-23 (askcite), the commit keymap and
+the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
+2026-09-23 (askcite agent): Phase 8c, the board's note card").
 
 ### Phase 7 — export and interchange: **built 2026-09-13**
 
 PDF (the print stylesheet), markdown, self-contained HTML, the markdown bundle
 with its images, the Word export behind an optional extra, and import of
 `.docx` and `.html` to markdown are all built; see HISTORY.md "Moved from the
-plans, 2026-09-13". What is left is one row for whoever owns
-`core/extras.py`: **python-docx has no entry in the extras catalogue**, so the
-Word export's 501 names the package rather than pointing at a button in
-Settings. One `Extra(...)` there and the message can point at it.
+plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
+"Export to Word (python-docx)" and the 501 points at it in Settings (checked
+2026-10-04).
 
 ## 6. Competitor matrix (what the plan takes from whom)
 
@@ -682,8 +670,9 @@ work found and did *not* fix, which is the part that is still open.
   native element out of the tab order, so `select.focus()` anywhere in this
   app focuses nothing and a `keydown` bound to a select never fires. Two
   listeners in this batch were written that way before a sweep caught it.
-  There is no lint for the class; a cheap one would fail on `.focus()` or
-  `addEventListener("keydown"` applied to a variable holding a `<select>`.
+  The lint exists since 2026-10-04, `tests/test_select_focus.py` (`.focus()`
+  or a key listener on a page `<select>`, directly or through a binding; 0
+  offences, and proved against drift).
   The empty column above References is fixed: both sections carried
   `flex: 1 1 auto`, so with a two-heading document the outline was 312.4px of
   box around 68.3px of content and References 296.5px around 46px, leaving
@@ -1127,20 +1116,25 @@ compared with.
 **Not verified, and to be taken first by whoever opens this.** 17a to 17c
 are measured at 1280, 1440, 1920 and 2560, light and dark, in the default
 look and in Classic (`scratchpad/ui-sweeps/doclooks.sh`); 17d and 17e are
-built (see above). The phone is untouched by this section: the live view on a
-phone is UI_MODERNISATION_PLAN Phase 11's territory and should not be
-redesigned from here, which is why 17a's page margin applies above 600
-only.
+built (see above). The phone is not redesigned from here (UI_MODERNISATION_PLAN
+Phase 11's territory, which is why 17a's page margin applies above 600 only),
+but it is measured: 2026-10-04 at 390x844, light and dark, `docphonebar.js`
+and `doctaskbox.js`, which found and fixed three faults (the status line under
+the foot bar, the selection bar off the window, the task box at the target
+floor's size); see HISTORY.md ("Moved from the plans, 2026-10-04 (the
+documents phone pass)").
 
 ## 18. The slash menus as one system: built 2026-09-21
 
 Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DOCUMENTS_PLAN.md section 18) on
 2026-10-03: a plan holds open work only. The one thing still open is below.
 
-**Not verified.** None of the above is measured on a phone yet, and the chat
-context's commands press controls in the chat dock, so a change there has to
-be measured against that dock rather than assumed. The note context's own
-list was not read row by row for this section; 18a is where that happens.
+**Measured on a phone, 2026-10-04** (`docphonebar.js`, 390x844, light and
+dark): the document's "/" menu, opened from the foot bar, is 354x386 inside the
+window and above the bar, 56 rows at 45px, 8 on screen. 18a (one row shape)
+is built, HISTORY.md. **Not verified:** the chat context's commands press
+controls in the chat dock, so a change there has to be measured against that
+dock rather than assumed.
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 

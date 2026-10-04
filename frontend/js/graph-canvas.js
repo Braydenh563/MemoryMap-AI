@@ -2882,9 +2882,9 @@ async function renderGraphCanvas(s = gcTab) {
     visibleNodes = visibleNodes.filter((n) => connected.has(n.id));
   }
   if (!visibleNodes.length) {
-    //: The notebook has notes here (the check above drew the other empty
-    //: state when it had none), so every one of them is filtered out.
-    gcShowEmpty(true, { data, s, groups });
+    //: Filtered only when the data had notes: an empty notebook reaches this
+    //: branch too, and said "All 0 notes are filtered out" (INBOX 472).
+    gcShowEmpty(true, data.nodes.length ? { data, s, groups } : null);
     //: And the overview goes with the map, as it does for an empty notebook:
     //: it would otherwise go on drawing the last visit's dots beside a
     //: message saying there is nothing on the map.

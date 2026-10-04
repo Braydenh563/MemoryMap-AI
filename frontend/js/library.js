@@ -636,12 +636,18 @@ function renderLibrary(options) {
         createBtn.title = dockCreate.title;
       }
     }
+    const fresh = !items.length && !query && !madeAnything;
+    const freshText = $("library-empty-text");
+    if (freshText) {
+      freshText.textContent = fresh ? "Make a document, a board or a map, or upload a file." : "";
+      freshText.classList.toggle("hidden", !fresh);
+    }
     if (!items.length) {
       const kindName = LIBRARY_KINDS.find((k) => k.key === libraryKind)?.label;
       $("library-empty-title").textContent = query
         ? `Nothing matching “${$("library-search").value.trim()}”.`
         : !madeAnything
-          ? "Nothing here yet. Make a document, a board or a map, or upload a file."
+          ? "Nothing here yet"
           : libraryKind === "archived"
             ? "The bin is empty."
             : LIBRARY_EMPTY_SAYS[libraryKind]

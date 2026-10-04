@@ -1775,7 +1775,8 @@ async function openConversation(id) {
   for (const message of full.messages) {
     if (message.role === "user") {
       lastQuestionText = message.content;
-      addBubble("user", message.content, message.attachments);
+      const asked = addBubble("user", message.content, message.attachments);
+      if (message.followup_of) markFollowup(asked, message.followup_of);
     } else {
       const handles = addAssistantBubble(message.persona || null);
       // Replay the run in the order it happened when the turn recorded one.

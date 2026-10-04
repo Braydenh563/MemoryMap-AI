@@ -846,6 +846,10 @@ async function saveEntryAsDraft() {
 // Follow-up memory (Round 1): the running conversation, sent back so the
 // model can handle "and what about…". Capped so requests stay small.
 let conversation = [];
+//: Indexes into `conversation` the question on screen followed on from, and
+//: the chain a pressed follow-up chip hands the next question (INBOX 490).
+let askTrail = [];
+let askTrailPending = null;
 const MAX_CLIENT_HISTORY = 4;
 let askController = null; // AbortController for the in-flight stream
 let lastQuestion = ""; // powers the Retry button
@@ -1969,6 +1973,7 @@ async function renderAskFollowups(question, answer) {
   for (const pick of picks) {
     strip.appendChild(
       chip(pick, "Ask this next, keeping the answer above as context", () => {
+        askTrailPending = [...askTrail, conversation.length - 1];
         $("question").value = pick;
         askQuestion(pick);
       })
@@ -2466,8 +2471,41 @@ function stopAnswer() {
   if (askController) askController.abort();
 }
 
+//: **The trail above an Ask answer** (INBOX 490): the questions this one
+//: followed on from, each a link (`followupTrail`, chat-attach.js) that opens
+//: that earlier answer in place under the trail, since Ask shows one answer
+//: at a time and there is no earlier turn on screen to scroll to.
+function renderAskTrail() {
+  const host = $("ask-trail");
+  if (!host) return;
+  const turns = askTrail.map((i) => conversation[i]).filter(Boolean);
+  host.replaceChildren();
+  host.classList.toggle("hidden", !turns.length);
+  if (!turns.length) return;
+  const peek = document.createElement("div");
+  peek.className = "ask-trail-peek answer hidden";
+  peek.id = "ask-trail-peek";
+  let shown = -1;
+  const trail = followupTrail(turns.map((turn) => turn.question), (i, link) => {
+    shown = shown === i ? -1 : i;
+    for (const other of trail.querySelectorAll(".chat-trail-link")) {
+      other.setAttribute("aria-expanded", String(other === link && shown === i));
+    }
+    peek.classList.toggle("hidden", shown === -1);
+    if (shown !== -1) renderMarkdown(peek, turns[i].answer || "");
+  });
+  for (const link of trail.querySelectorAll(".chat-trail-link")) {
+    link.setAttribute("aria-expanded", "false");
+    link.setAttribute("aria-controls", peek.id);
+  }
+  host.append(trail, peek);
+}
+
 function newChat() {
   conversation = [];
+  askTrail = [];
+  askTrailPending = null;
+  renderAskTrail();
   lastQuestion = "";
   clearAskAnswerFoot();
   $("chat-results").classList.add("hidden");
@@ -2582,6 +2620,12 @@ async function askQuestion(preset) {
     status.classList.add("error");
     return;
   }
+  //: A chip's question takes its parent's chain plus the parent; asking the
+  //: same question again (Retry) keeps the chain; anything typed starts afresh.
+  if (askTrailPending) askTrail = askTrailPending;
+  else if (question !== lastQuestion) askTrail = [];
+  askTrailPending = null;
+  renderAskTrail();
   lastQuestion = question;
 
   // A new answer is coming, hide the suggestion/recent chips and the

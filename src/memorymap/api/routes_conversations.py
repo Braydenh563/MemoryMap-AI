@@ -129,6 +129,13 @@ class TurnBody(BaseModel):
     #: there is nothing to migrate: a reply saved before this has no key and
     #: reads as the default assistant. Bounded as a name, not a prompt.
     persona: str | None = Field(default=None, max_length=80)
+    #: The question whose suggested follow-up this one was, as its words (INBOX
+    #: 490: "hyperlinked bread crumbs ... if a suggested follow suggested
+    #: question is used"). Words rather than a turn index, because deleting a
+    #: turn renumbers every turn after it and an index would then point at the
+    #: wrong question; the page walks back to the nearest earlier question
+    #: with these words, and a deleted one simply ends the trail there.
+    followup_of: str | None = Field(default=None, max_length=4000)
 
 
 class RenameBody(BaseModel):
@@ -180,6 +187,9 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         user["file_ids"] = turn.file_ids
     if turn.note_ids:
         user["note_ids"] = turn.note_ids
+    followup_of = (turn.followup_of or "").strip()
+    if followup_of:
+        user["followup_of"] = followup_of
     return [user, assistant]
 
 

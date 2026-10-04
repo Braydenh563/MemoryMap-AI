@@ -666,6 +666,26 @@ MORE_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "follow-up-trail",
+            "keywords": (
+                "follow-up", "follow up", "followup", "suggested question",
+                "ask next", "next question", "breadcrumb", "bread crumb",
+                "trail", "where did this question come from", "question chain",
+            ),
+            "body": (
+                "Under a finished answer, Chat offers Next questions and Ask "
+                "offers Ask next. A question sent from one of them shows a "
+                "Follow-up of line above it: each earlier question in the "
+                "chain, as a link. In Chat a link scrolls to that question and "
+                "lights it; in Ask, which shows one answer at a time, it opens "
+                "that earlier answer under the line, and a second press folds "
+                "it. The line is saved with the chat, so it is there when the "
+                "chat is reopened. A question you type yourself starts a new "
+                "chain."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
             "id": "library-skills",
             "keywords": (
                 "ai skills", "built-in skill", "built in skill", "copy a skill",
@@ -872,6 +892,7 @@ TOPIC_META: dict[str, dict] = {
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
+    "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
     "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
@@ -900,7 +921,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
     )),
     ("Asking Atlas", (
-        "ask-chat", "chat-controls", "time-and-recency", "notebook-questions",
+        "ask-chat", "chat-controls", "follow-up-trail", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned",
     )),
     ("Documents and code", (

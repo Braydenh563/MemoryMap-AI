@@ -13446,8 +13446,33 @@ header#top-bar {
   user-select: none;
 }
 
-.sketch-group.wb-shape-label-editing .sketch-label {
+/* A connector's label (WHITEBOARD_PLAN decision 13; `wbPaintLinkLabel`): the
+   map's edge-label recipe (`.wb-map-edge-label`) one step larger, because a
+   board's labels are read at a board's zoom: the ink, stroked in the card
+   colour underneath so it reads where it crosses its own line. */
+.wb-link-label {
+  fill: var(--ink);
+  stroke: var(--card);
+  stroke-width: 4;
+  paint-order: stroke;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  user-select: none;
+}
+
+.sketch-group.wb-shape-label-editing .sketch-label,
+.sketch-group.wb-shape-label-editing .wb-link-label {
   visibility: hidden;
+}
+
+/* The one-line editor over a connector sits on the line, so it takes the
+   card's ground to stay readable over it. */
+.wb-shape-label-editor.wb-link-label-editor {
+  font-size: var(--text-md);
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* The editor that stands over the label while it is typed (the board's one

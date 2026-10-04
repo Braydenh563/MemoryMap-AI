@@ -937,7 +937,7 @@ HELP_TOPICS.extend(
                 "rectangle, ellipse, diamond or triangle (or select it and press Enter) to "
                 "write in it, right-click (or "
                 "press and hold on touch) for the menu, double-click a line to bend "
-                "it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
+                "it, and select a connector and press Enter to label it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
                 "dots or isometric, snap to grid, fit, 100%, full screen) and "
                 "Board (rename, new, export as PNG, SVG, PDF, the image library or "

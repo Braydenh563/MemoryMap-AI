@@ -37064,3 +37064,20 @@ and `test_nothing_outside_the_boards_setup_calls_its_private_tool_picker`
 holds it. `scratchpad/ui-sweeps/maplinkcue.js` 12/12 (the menu row 0/1 before
 the fix; the cue's classes did not exist on the base); `maptwokinds.js` 18/18
 unchanged.
+
+### From WHITEBOARD_PLAN.md decision 13: a connector holds a label
+
+`label` in a board link's data, one line, drawn as `<text class="wb-link-label">`
+in the link's group at the middle of its shaft (`wbLinkMidpoint`: the first
+subpath of the drawn `d`, before any arrowhead, measured on one hidden path so
+a bent line's middle is on the curve). Laid out again wherever the line moves:
+a card at either end dragged (`wbUpdateLinkedSketches`, the label found once
+per gesture), an end handle or the bend handle dragged, a render. Typed through
+the editor decision 12 built, now `wbOpenSketchLabelEditor` and shared, by
+Enter on the selected connector or the right-click menu's "Add a label"; the
+double-click still bends. A map cross-link is left to the map's ring. The
+export writes the ink and the card-coloured halo as attributes. Measured,
+`scratchpad/ui-sweeps/wblinklabel.js` 12/12 in light and dark (the label within
+0.5px of the shaft's middle at rest, mid-drag of an end and on a curve 92 units
+off the chord; 17.07:1 light, 14.01:1 dark); on the base script it fails from
+its first check.

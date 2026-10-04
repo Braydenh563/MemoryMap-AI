@@ -145,6 +145,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Whiteboard: a connector can carry a label ("yes", "no"). Select it and press Enter, or right-click it and choose Add a label; the label sits at the middle of the line, on the curve when it is bent, follows the line when either end moves, and exports with it. Double-click still bends the line.
 - Mind maps: a connect drag says which connection it will make before you let go. The topic under the pointer gets a solid ring when the release will hang it in the tree, a dashed ring (and a dashed line) when it will be a cross-link, and a screen reader hears which.
 - Mind maps: a topic can be a task. "Make this a task" in the topic's menu puts a box on it; press the box to tick it, and every topic above counts what is done under it ("1/2"). Markdown exports write tasks as `- [ ]` and `- [x]` and read them back; OPML and FreeMind keep them too.
 - Whiteboard: a rectangle, ellipse, diamond or triangle holds text. Double-click it (or select it and press Enter), type, and press Enter; the text sits centred in the shape, wraps to it, and moves, resizes, undoes and exports with it. On a dark fill it turns white. The shape's right-click menu says Add text.

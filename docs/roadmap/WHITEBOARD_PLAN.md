@@ -175,7 +175,18 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    more (`wbCoreInkFor`, the core topic's rule). No size, font or alignment
    controls: the bar keeps its seven, and those three are not what a first
    flowchart misses. Lines, arrows and pen strokes take no text; a label on
-   a connector is a separate question (the double-click there adds a bend).
+   a connector is decision 13.
+13. **A connector holds a label** (taken 2026-10-04, the same pass: Miro,
+   FigJam and Excalidraw all label a connector, and "yes" and "no" on the two
+   arrows out of a diamond are what decision 12's flowchart needs next).
+   `label` in the link's own data, one line of at most 80 characters (the
+   map edge label's limit), drawn at the middle of the shaft, on the curve
+   when the line is bent, in the map's edge-label recipe (ink haloed in the
+   card colour) one size up. **The double-click keeps the bend** (asked for
+   directly, earlier, and a gesture people already use here): the label is
+   Enter on the selected connector and "Add a label" on its right-click menu.
+   A cross-link on a map is the map's and keeps its ring; this is the
+   board's links. Shares decision 12's one editor (`wbOpenSketchLabelEditor`).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

@@ -3744,5 +3744,8 @@ def test_board_text_is_made_editable_in_one_place() -> None:
         strays = [at for at in makers if not (begin != -1 and begin < at < end)]
         assert not strays, f"{name} makes board text editable outside wbBeginTextEdit ({len(strays)} places)"
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    edit = wb[wb.index("function wbEditShapeLabel(") :][:4000]
+    #: A shape's text and a connector's label (decision 13) share one editor.
+    edit = wb[wb.index("function wbOpenSketchLabelEditor(") :][:4000]
     assert "wbBeginTextEdit(editor)" in edit and "wbEditedText(editor)" in edit
+    for caller in ("wbEditShapeLabel", "wbEditLinkLabel"):
+        assert "wbOpenSketchLabelEditor(" in wb[wb.index(f"function {caller}(") :][:1500], caller

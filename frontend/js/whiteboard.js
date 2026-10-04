@@ -5214,6 +5214,17 @@ function wbBuildContextMenu(kind) {
         wbEditShapeLabel(shape)
       );
     }
+    let linkParsed = null;
+    try {
+      linkParsed = shape ? JSON.parse(shape.data) : null;
+    } catch {
+      linkParsed = null;
+    }
+    if (wbLinkTakesLabel(shape, linkParsed)) {
+      item(linkParsed.label ? "Edit the label" : "Add a label", "Or select the connector and press Enter", () =>
+        wbEditLinkLabel(shape)
+      );
+    }
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -6569,8 +6580,8 @@ function wbBuildExportSvg(scope) {
     //: A shape's text (decision 12) is painted by the stylesheet, which does
     //: not travel into a standalone SVG: its ink, size and face go on as
     //: attributes, read off the label as drawn.
-    const labels = el.querySelectorAll(":scope > .sketch-label");
-    const copies = clone.querySelectorAll(":scope > .sketch-label");
+    const labels = el.querySelectorAll(":scope > .sketch-label, :scope > .wb-link-label");
+    const copies = clone.querySelectorAll(":scope > .sketch-label, :scope > .wb-link-label");
     labels.forEach((label, i) => {
       const look = getComputedStyle(label);
       const copy = copies[i];
@@ -6581,6 +6592,12 @@ function wbBuildExportSvg(scope) {
       copy.setAttribute("fill", wbExportColour(look.fill) || "#1f2430");
       copy.setAttribute("font-size", look.fontSize);
       copy.setAttribute("font-family", look.fontFamily);
+      //: A connector's label is haloed in the card colour (decision 13).
+      if (look.paintOrder && look.paintOrder.startsWith("stroke") && look.stroke !== "none") {
+        copy.setAttribute("stroke", wbExportColour(look.stroke) || "none");
+        copy.setAttribute("stroke-width", look.strokeWidth);
+        copy.setAttribute("paint-order", "stroke");
+      }
     });
     parts.push(clone.outerHTML);
   }
@@ -9700,6 +9717,18 @@ async function initWhiteboard() {
         wbEditShapeLabel(sketch);
         return;
       }
+      //: And on one selected connector, its label (decision 13).
+      let linkParsed = null;
+      try {
+        linkParsed = sketch ? JSON.parse(sketch.data) : null;
+      } catch {
+        linkParsed = null;
+      }
+      if (sketch && wbLinkTakesLabel(sketch, linkParsed)) {
+        e.preventDefault();
+        wbEditLinkLabel(sketch);
+        return;
+      }
     }
     if (e.key === "Enter" && wbSelectedItem?.kind === "node") {
       e.preventDefault();
@@ -11423,6 +11452,8 @@ function wbWrapShapeLabel(textEl, text, width, fontSize) {
 //: and the width it was made for, so a render that changed nothing about the
 //: shape measures nothing.
 function wbLayoutShapeLabel(groupEl) {
+  // A connector's label is laid out from the same live path (decision 13).
+  wbLayoutLinkLabel(groupEl);
   const label = groupEl?.querySelector?.(":scope > .sketch-label");
   if (!label) return;
   label.removeAttribute("transform");
@@ -11498,26 +11529,40 @@ function wbPaintShapeLabel(groupEl, parsed) {
 //: Types into a shape (decision 12): an editor over the shape's label area,
 //: in the card layer so it takes the caret above the drawing, through the
 //: board's one in-place text recipe (`wbBeginTextEdit` / `wbEditedText`).
-//: One undo step, and only for a real change.
 function wbEditShapeLabel(sketch) {
-  if (!sketch || document.querySelector(".wb-shape-label-editor")) return;
   const parsed = wbSketchParsedData(sketch);
   const kind = wbShapeLabelKind(parsed);
   const bbox = kind ? wbPathBBox(parsed.d) : null;
-  const layer = document.getElementById("wb-html-layer");
-  if (!bbox || !layer) return;
-  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  if (!bbox) return;
   const area = wbShapeLabelArea(kind, bbox);
+  const h = Math.max(bbox.height, 24);
+  wbOpenSketchLabelEditor(sketch, parsed, {
+    box: { x: area.cx - area.w / 2, y: area.cy - h / 2, w: area.w, h },
+    ink: wbShapeLabelInk(parsed),
+    multiline: true,
+    max: WB_SHAPE_LABEL_MAX,
+    name: "Text in this shape",
+    said: ["Text added to the shape.", "Text taken off the shape."],
+  });
+}
+
+//: **One editor for a sketch's words**, a shape's text (decision 12) or a
+//: connector's label (decision 13): placed over `box` in board units, one
+//: undo step and only for a real change, Enter or Escape to finish (Shift+Enter
+//: breaks the line where `multiline`), the board's keys kept off it.
+function wbOpenSketchLabelEditor(sketch, parsed, { box, ink, multiline, max, name, said, extraClass = "" }) {
+  const layer = document.getElementById("wb-html-layer");
+  if (!sketch || !parsed || !layer || document.querySelector(".wb-shape-label-editor")) return;
+  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
   const editor = document.createElement("div");
-  editor.className = "wb-shape-label-editor";
+  editor.className = `wb-shape-label-editor ${extraClass}`.trim();
   editor.setAttribute("role", "textbox");
-  editor.setAttribute("aria-multiline", "true");
-  editor.setAttribute("aria-label", "Text in this shape");
+  editor.setAttribute("aria-multiline", multiline ? "true" : "false");
+  editor.setAttribute("aria-label", name);
   // Through CSSOM: the CSP refuses a `style=` attribute.
-  editor.style.width = `${area.w}px`;
-  editor.style.height = `${Math.max(bbox.height, 24)}px`;
-  editor.style.transform = `translate(${area.cx - area.w / 2}px, ${area.cy - Math.max(bbox.height, 24) / 2}px)`;
-  const ink = wbShapeLabelInk(parsed);
+  editor.style.width = `${box.w}px`;
+  editor.style.height = `${box.h}px`;
+  editor.style.transform = `translate(${box.x}px, ${box.y}px)`;
   if (ink) editor.style.color = ink;
   editor.textContent = parsed.label || "";
   layer.appendChild(editor);
@@ -11533,7 +11578,9 @@ function wbEditShapeLabel(sketch) {
   const finish = async () => {
     if (done) return;
     done = true;
-    const text = wbEditedText(editor).replace(/^\s+|\s+$/g, "").slice(0, WB_SHAPE_LABEL_MAX);
+    let text = wbEditedText(editor);
+    if (!multiline) text = text.replace(/\s*\n\s*/g, " ");
+    text = text.replace(/^\s+|\s+$/g, "").slice(0, max);
     editor.remove();
     group?.classList.remove("wb-shape-label-editing");
     if (text === (parsed.label || "")) return;
@@ -11541,12 +11588,12 @@ function wbEditShapeLabel(sketch) {
     await wbSaveSketchProps(sketch, { label: text || undefined });
     wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     wbScheduleRender();
-    wbAnnounce(text ? "Text added to the shape." : "Text taken off the shape.");
+    wbAnnounce(text ? said[0] : said[1]);
   };
   editor.addEventListener("keydown", (event) => {
     // The board's keys must not act on what is being typed.
     event.stopPropagation();
-    if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+    if (event.key === "Escape" || (event.key === "Enter" && (!event.shiftKey || !multiline))) {
       event.preventDefault();
       editor.blur();
     }
@@ -11554,6 +11601,99 @@ function wbEditShapeLabel(sketch) {
   editor.addEventListener("pointerdown", (event) => event.stopPropagation());
   editor.addEventListener("dblclick", (event) => event.stopPropagation());
   editor.addEventListener("blur", finish);
+}
+
+//: **A label on a connector** (WHITEBOARD_PLAN.md decision 13): "yes" and
+//: "no" on the two arrows out of a diamond, which a flowchart cannot do
+//: without. `label` in the link's own data, one line, drawn at the middle of
+//: the line's shaft in the map's edge-label recipe (the ink, stroked in the
+//: card colour underneath so it reads where it crosses its own line). A link
+//: on a map between two topics is the map's (its ring, its words), so this is
+//: the board's links only.
+const WB_LINK_LABEL_MAX = 80;
+
+function wbLinkTakesLabel(sketch, parsed) {
+  if (!parsed || !String(parsed.type || "").startsWith("link-")) return false;
+  return !(sketch && typeof wbMapCrossLinkInfo === "function" && wbMapCrossLinkInfo(sketch.id));
+}
+
+//: The middle of a link's shaft: the first subpath of its drawn `d`, before
+//: any arrowhead strokes appended after it, measured on one hidden path so
+//: a curve's middle is where the curve is rather than the chord's.
+let wbLinkMeasurePath = null;
+
+function wbLinkMidpoint(d) {
+  const shaft = String(d || "").split(/\s(?=M)/)[0];
+  if (!shaft) return null;
+  if (!wbLinkMeasurePath || !wbLinkMeasurePath.isConnected) {
+    const host = document.getElementById("wb-svg-layer");
+    if (!host) return null;
+    wbLinkMeasurePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    wbLinkMeasurePath.setAttribute("class", "wb-link-measure");
+    wbLinkMeasurePath.setAttribute("visibility", "hidden");
+    wbLinkMeasurePath.setAttribute("aria-hidden", "true");
+    host.appendChild(wbLinkMeasurePath);
+  }
+  wbLinkMeasurePath.setAttribute("d", shaft);
+  try {
+    const length = wbLinkMeasurePath.getTotalLength();
+    const p = wbLinkMeasurePath.getPointAtLength(length / 2);
+    return { x: p.x, y: p.y };
+  } catch {
+    return null;
+  }
+}
+
+function wbLayoutLinkLabel(groupEl) {
+  const label = groupEl?.querySelector?.(":scope > .wb-link-label");
+  if (!label) return;
+  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"));
+  if (!p) return;
+  label.setAttribute("x", String(p.x));
+  label.setAttribute("y", String(p.y));
+}
+
+function wbPaintLinkLabel(groupEl, sketch, parsed) {
+  const text = wbLinkTakesLabel(sketch, parsed) && typeof parsed.label === "string" ? parsed.label : "";
+  let label = groupEl.querySelector(":scope > .wb-link-label");
+  if (!text) {
+    label?.remove();
+    return;
+  }
+  if (!label) {
+    label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "wb-link-label");
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dominant-baseline", "central");
+    label.setAttribute("pointer-events", "none");
+    groupEl.appendChild(label);
+  }
+  if (label.textContent !== text) label.textContent = text;
+  wbLayoutLinkLabel(groupEl);
+}
+
+function wbEditLinkLabel(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch?.data);
+  } catch {
+    parsed = null;
+  }
+  if (!wbLinkTakesLabel(sketch, parsed)) return;
+  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"));
+  if (!p) return;
+  const w = 180;
+  const h = 32;
+  wbOpenSketchLabelEditor(sketch, parsed, {
+    box: { x: p.x - w / 2, y: p.y - h / 2, w, h },
+    ink: null,
+    multiline: false,
+    max: WB_LINK_LABEL_MAX,
+    name: "Label on this connector",
+    said: ["Label added to the connector.", "Label taken off the connector."],
+    extraClass: "wb-link-label-editor",
+  });
 }
 
 function wbSketchParsedData(sketch) {
@@ -11791,6 +11931,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
     const repaint = () => {
       const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, bendLive);
       for (const el of paths()) el?.setAttribute("d", d);
+      wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
       //: A map's ribbon is a filled outline; mid-bend the path is an open
       //: curve, which a fill would close into a wedge. Stroke it in the same
       //: colour until the render after the gesture redraws it properly.
@@ -11869,6 +12010,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
+            wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
 
             const hit = hoveredItemAt(live.x, live.y);
             if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], live.x, live.y));
@@ -12983,6 +13125,7 @@ function renderWhiteboard() {
     let dashArray = null;
     let isHighlighterStroke = false;
     let shapeData = null;
+    let linkData = null;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
@@ -13009,6 +13152,7 @@ function renderWhiteboard() {
         }
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
       } else if (parsed.type && parsed.type.startsWith("link-")) {
+        linkData = parsed;
         stroke = parsed.color || stroke;
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
@@ -13062,6 +13206,7 @@ function renderWhiteboard() {
       .attr("stroke-dasharray", dashArray);
     // After the path, which the label is laid out from (decision 12).
     wbPaintShapeLabel(this, shapeData);
+    wbPaintLinkLabel(this, d, linkData);
   });
 
   sketchSelection.exit().remove();
@@ -14556,6 +14701,12 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
     }
     entry.path?.setAttribute("d", pathData);
     entry.hitbox?.setAttribute("d", look ? look.line : pathData);
+    //: A connector's label rides on the line (decision 13), looked up once
+    //: per gesture like the two paths.
+    if (entry.label === undefined || (entry.label && !entry.label.isConnected)) {
+      entry.label = entry.el?.querySelector(":scope > .wb-link-label") || null;
+    }
+    if (entry.label) wbLayoutLinkLabel(entry.el);
   }
 }
 

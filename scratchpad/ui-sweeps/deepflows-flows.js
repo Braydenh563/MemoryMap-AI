@@ -132,6 +132,17 @@ flows.note = async (env) => {
     await env.page.locator('#entry-edit-content').fill(edited);
   }
   await env.wait(400);
+  //: Home inside the tags box moves the caret in the box (the notes list used to take
+  //: it for "go to the first note" and move the focus away).
+  env.at('Home in the tags box');
+  const tagsBox = env.page.locator('#entry-list .note-edit-tags').first();
+  await tagsBox.click();
+  await env.page.keyboard.type('ab');
+  await env.page.keyboard.press('Home');
+  await env.page.keyboard.type('X');
+  const tagsNow = await tagsBox.inputValue();
+  if (!tagsNow.startsWith('Xab')) throw new Error(`Home in the tags box did not move the caret: ${JSON.stringify(tagsNow)}`);
+  await tagsBox.fill('');
   env.at('Save changes');
   await env.page.locator('#entry-list button:has-text("Save changes")').first().click();
   await env.wait(1200);
@@ -316,11 +327,16 @@ flows.mindmap = async (env) => {
   const add = env.page.locator('button[aria-label="Add a child topic"]:visible').first();
   await add.click();
   await env.wait(700);
-  await env.page.keyboard.type(`Topic ${env.STAMP}${env.width}${env.theme}`);
+  //: Home and the arrows belong to the text while a topic is being typed, not to the map.
+  await env.page.keyboard.type(`opic ${env.STAMP}${env.width}${env.theme}`);
+  await env.page.keyboard.press('Home');
+  await env.page.keyboard.type('T');
   await env.page.keyboard.press('Enter');
   await env.wait(1500);
   const after = await count();
   if (after !== before + 1) throw new Error(`the map has ${after} topics, wanted ${before + 1}`);
+  const typed = (await flat(id)).find((n) => /^T?opic df/.test(n.text || ''));
+  if (!typed || !(typed.text || '').startsWith(`Topic ${env.STAMP}`)) throw new Error(`Home inside a topic's text did not move the caret: the topic reads ${JSON.stringify(typed && typed.text)}`);
   await env.overflow('after adding a topic');
   // Leave the map as found.
   const added = (await flat(id)).filter((n) => /^Topic df/.test(n.text || '')).map((n) => n.id);
@@ -333,6 +349,10 @@ flows.whiteboard = async (env) => {
   const id = await boardId(env, 'Launch plan');
   if (!id) throw new Error('the seeded board is missing (run deepflows-seed.js)');
   const objects = (i) => env.js(async (b) => (await apiJson(`/whiteboard/?board_id=${b}`)).objects.map((o) => ({ id: o.id, kind: o.kind, data: o.data })), i);
+  //: A sticky an earlier, failed run left on the board goes first.
+  for (const stray of (await objects(id)).filter((o) => /S?ticky df\d/.test(JSON.stringify(o.data)))) {
+    await env.js(async (n) => { await api(`/whiteboard/objects/${n}`, { method: 'DELETE' }); }, stray.id);
+  }
   const before = await objects(id);
   env.at('open the board');
   await openBoardByTitle(env, 'Launch plan');
@@ -347,13 +367,16 @@ flows.whiteboard = async (env) => {
   env.at('click the canvas to drop the sticky');
   await env.page.mouse.click(x, y);
   await env.wait(700);
-  await env.page.keyboard.type(`Sticky ${env.STAMP}${env.width}${env.theme}`);
+  await env.page.keyboard.type(`ticky ${env.STAMP}${env.width}${env.theme}`);
+  //: Ctrl+Home, not Home: the text wraps in a sticky, and Home is the start of the line shown.
+  await env.page.keyboard.press('Control+Home');
+  await env.page.keyboard.type('S');
   await env.page.keyboard.press('Escape');
   await env.wait(1500);
   const after = await objects(id);
   const made = after.filter((o) => !before.some((b) => b.id === o.id));
   if (made.length !== 1) throw new Error(`wanted one new object, found ${made.length}: ${JSON.stringify(made).slice(0, 160)}`);
-  if (!JSON.stringify(made[0].data).includes('Sticky df')) throw new Error(`the sticky holds no text: ${JSON.stringify(made[0]).slice(0, 160)}`);
+  if (!JSON.stringify(made[0].data).includes(`Sticky ${env.STAMP}`)) throw new Error(`the sticky holds no text: ${JSON.stringify(made[0]).slice(0, 160)}`);
   await env.overflow('sticky placed');
   for (const o of made) await env.js(async (n) => { await api(`/whiteboard/objects/${n}`, { method: 'DELETE' }); }, o.id);
   await env.js(() => document.getElementById('wb-back-to-boards')?.click());

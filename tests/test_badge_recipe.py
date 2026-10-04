@@ -135,3 +135,12 @@ def test_every_chip_builder_puts_its_words_in_a_span():
     body = body[: body.index("\n}\n")]
     assert 'className: "ph-text"' in body
 
+
+
+def test_the_timeline_marks_are_even_pixels():
+    """INBOX 503: the rail's glyphs sat 0.5 to 1px off their circles because a
+    18.4px circle and a 12.88px glyph box leave a fractional gap that the two
+    round differently. An even circle and glyph box leave whole pixels."""
+    css = (JS_DIR.parent / "css" / "06-timeline-dialogs.css").read_text(encoding="utf-8")
+    assert "--timeline-mark: round(1.15rem, 2px);" in css
+    assert ".timeline-row-mark > .ph" in css and "round(calc(var(--text-xs) * 1.15), 2px)" in css

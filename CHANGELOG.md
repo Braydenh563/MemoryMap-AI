@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Documents: a document reopens where you left it, the caret and the place you were reading, including after a reload (kept per document in this browser, the 60 most recent).
 - Documents: the breadcrumb above the writing follows what you are reading: scrolled away from the caret in a long document it names the section in view (the same one the outline marks), instead of staying on the caret's section.
 - Documents: in a long document, jumping to the middle (the scrollbar, a search hit) no longer leaves headings drawn as raw `###` text in the Live view; the view repaints when the parser catches up, which it used to do only on the next key or scroll.
 - Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.

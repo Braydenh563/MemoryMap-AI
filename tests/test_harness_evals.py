@@ -151,7 +151,10 @@ def test_a_picture_question_places_the_picture(notebook):
     tries = 3
     for _ in range(tries):
         answer = _answer(_turn(notebook, "Show me the whiteboard sketch from the planning meeting"))
-        placed += "[picture" in answer.lower()
+        #: Either form shows it: the `[picture N]` token, or the note's own
+        #: `![alt](/media/...)`, which the bubble's markdown draws as an image
+        #: (Qwen2.5-3B wrote the second, 5 of 5, H4).
+        placed += "[picture" in answer.lower() or "](/media/" in answer
     print(f"\n  picture placed {placed}/{tries}")
 
 

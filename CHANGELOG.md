@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
 - Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.
 - Notes: a card's text sits further in from its edge and its metadata steps back: the category reads muted at the body weight and link chips are muted until pointed at, so the note's words lead.
 - The app emblem no longer throws "appearancePref is not defined" when drawn before Settings has loaded; every Settings helper it uses is checked first.

@@ -841,6 +841,7 @@ function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
+  $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;

@@ -2322,6 +2322,9 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
 $("pref-background-filing").addEventListener("change", (e) =>
   setPreference("background_filing", e.target.checked)
 );
+$("pref-warm-search-model").addEventListener("change", (e) =>
+  setPreference("warm_search_model_at_launch", e.target.checked)
+);
 //: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
 //: as 60 rather than being refused by the preferences schema.
 $("pref-filing-wait").addEventListener("change", (e) => {

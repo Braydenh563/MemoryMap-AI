@@ -37129,6 +37129,18 @@ width, 47% of the column at 1440.
      and ui/ux design sweep as well??" Agent (Opus), with 479.
      Fixed with 479 (devibe.js and vibecheck.js 0).
 
+509. **The owner, 2026-10-04 evening, verbatim, quoting the status reply on
+     434's cold model.** "make it togglable." Fixed: Settings, Background
+     tasks, "Load the search model when the app starts" (on by default; off
+     leaves it to the first note, which then waits about 7 s), and switching
+     it on mid-session loads it at once. Found on the way: Ask Atlas where
+     each note belongs, File notes in the background, Describe images and
+     Read text in images were never in `PreferencesBody`, so pydantic
+     dropped them and each checkbox snapped back on reload; all four now
+     save. `test_preferences_roundtrip.py` compares every key the frontend
+     sends and reads with the backend; `prefpersist.js`: five switches off,
+     reload, all five still off. Guide's filing topic updated.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

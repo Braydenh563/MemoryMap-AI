@@ -797,7 +797,10 @@ def create_app() -> FastAPI:
     startup_status.set_phase("Warming up search…")
     # The session factory is handed in so embeddings never has to import the
     # dependency container that imports it.
-    embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
+    # INBOX 509: off loads it on first use instead (a lighter start; the
+    # first note waits the model's cold load, about 7 s, to be filed).
+    if deps.get_config().get_preference("warm_search_model_at_launch", True):
+        embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
     # The filing model's warm-up and the retry of stand-ins are *not* started
     # here: `create_app` runs for every test app too, and a model call at
     # construction was an extra round on every fake model in the suite. The

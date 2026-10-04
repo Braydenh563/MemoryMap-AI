@@ -10283,6 +10283,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-background-filing">
                 <span>File notes in the background (save is instant; a notification says where it landed)</span>
               </label>
+              <!-- INBOX 509, the owner's call made a switch: the search model
+                   (filing by meaning) loads at launch, or on the first note. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-warm-search-model">
+                <span>Load the search model when the app starts (off: a lighter start, but the first note waits a few seconds to be filed)</span>
+              </label>
               <!-- How long a note waits for the model before it is filed by
                    meaning; the model's answer still replaces that when it
                    lands (janitor.FILING_MODEL_DEADLINE_SECONDS). -->

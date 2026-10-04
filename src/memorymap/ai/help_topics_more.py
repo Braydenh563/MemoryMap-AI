@@ -484,7 +484,10 @@ MORE_TOPICS.extend(
                 "where it is and File it myself, and Stop in Settings, Background "
                 "tasks files every waiting note by meaning. A note you file "
                 "yourself is never moved by a late answer, and moving notes by "
-                "hand teaches the filing where things go."
+                "hand teaches the filing where things go. In Settings, Background tasks, Load "
+                "the search model when the app starts chooses when filing by "
+                "meaning gets ready: at launch, or on the first note, which then "
+                "waits a few seconds."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

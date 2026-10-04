@@ -162,8 +162,7 @@ with its owner named in the entry.
      the first note after a launch still waits for the model's cold load
      (6.8 s measured: torch import), because filing by meaning embeds the
      note before it settles; changing that changes what gets filed, so it is
-     the owner's call (skip the semantic step until the model is warm, or
-     keep waiting).
+     the owner's call: made a switch (509).
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

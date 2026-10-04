@@ -487,6 +487,18 @@ class PreferencesBody(BaseModel):
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     filing_wait_seconds: int | None = Field(default=None, ge=5, le=60)
+    #: **Four filing and image switches Settings has always shown and never
+    #: saved** (found 2026-10-04 with INBOX 509): they were missing here, so
+    #: pydantic dropped them on the way in and the checkbox snapped back on
+    #: the next load. `tests/test_preferences_roundtrip.py` now compares
+    #: every key the frontend sends with this body.
+    ai_first_filing: bool | None = None
+    background_filing: bool | None = None
+    auto_caption_images: bool | None = None
+    auto_read_image_text: bool | None = None
+    #: INBOX 509: the search model loads at launch (the first note files at
+    #: once) or on first use (a lighter start; the first note waits for it).
+    warm_search_model_at_launch: bool | None = None
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
     # Asked directly: a way to quiet toasts and the notifications panel for
@@ -652,6 +664,12 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "background_filing": config.get_preference("background_filing", True),
+        "auto_caption_images": config.get_preference("auto_caption_images", True),
+        "auto_read_image_text": config.get_preference("auto_read_image_text", True),
+        "filing_wait_seconds": config.get_preference("filing_wait_seconds", None),
+        "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
@@ -878,6 +896,12 @@ def update_preferences(
             value = _validated_context_windows(value)
         config.set_preference(key, value)
         changed_keys.add(key)
+        if key == "warm_search_model_at_launch" and value:
+            # Switched on mid-session: load it now rather than at the next
+            # launch. Idempotent, so a model already warm costs nothing.
+            from memorymap.ai import embeddings
+
+            embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
         if key in _QUIET_PREFERENCE_KEYS:
             continue
         # Don't copy profile text into the audit log, it's personal.

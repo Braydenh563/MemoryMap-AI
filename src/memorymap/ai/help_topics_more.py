@@ -403,6 +403,7 @@ MORE_TOPICS.extend(
                 "quick note", "alt+n", "jot down", "note from anywhere",
                 "without leaving the page", "quick capture", "web clipper",
                 "save a web page", "web page as a note", "clip a page", "paste a link",
+                "clear the box", "clear what i typed", "clear button", "eraser", "undo clear", "start over on a note",
             ),
             "body": (
                 "Quick note (Alt+N, or Quick note in the command palette) opens a "
@@ -412,7 +413,11 @@ MORE_TOPICS.extend(
                 "time; Open in Capture moves them to the full composer. The "
                 "dashboard's Quick capture saves the same way. A bare link pasted "
                 "into Capture or Quick note offers its page as a note through the "
-                "web clipper, only while web search is allowed."
+                "web clipper, only while web search is allowed. **Clear** (the eraser "
+                "icon) is in every box you type into: Capture, with its title, tags "
+                "and files, Quick note, Ask, Chat and the popup agent. It shows only "
+                "while the box holds something, empties it, and Undo (in the toast, "
+                "or beside the box in a popup) puts it all back."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

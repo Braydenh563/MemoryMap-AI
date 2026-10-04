@@ -2163,13 +2163,10 @@ function smallButton(label, title, onClick, ghost = true) {
   button.className = ghost ? "ghost small" : "small";
   setLabel(button, label);
   // **A button whose whole content is one glyph is square, without the caller
-  // having to remember `.icon-only`.** Reported: "the backup x buttons arent
-  // square" -- `smallButton("x", ...)` inherits `button.small`'s text padding
-  // (0 0.8rem) and comes out a rectangle. CSS cannot see text, so this is the
-  // one place that can decide it: setLabel has just told us whether a label
-  // followed the icon (it emits `.ph-text` only then), and a bare character
-  // label leaves one character of text behind. Everything with real words is
-  // untouched.
+  // remembering `.icon-only`.** Reported: "the backup x buttons arent square":
+  // `smallButton("x", ...)` kept `button.small`'s text padding. CSS cannot see
+  // text, so this decides it: setLabel emits `.ph-text` only when a label
+  // followed the icon, and a bare character label leaves one character behind.
   if (!button.querySelector(".ph-text") && button.textContent.trim().length <= 1) {
     button.classList.add("icon-only");
   }
@@ -2220,6 +2217,7 @@ const LAZY_MODULES = {
   ocrEngine: ["/js/ocr-engine.js"],
   //: Quick note and the note outbox (INBOX 434): see quick-note.js.
   quickNote: ["/js/quick-note.js"],
+  fieldClear: ["/js/field-clear.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
@@ -2536,4 +2534,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ensureModule("quickNote"), 3000);
+setTimeout(() => ["quickNote", "fieldClear"].forEach((name) => ensureModule(name)), 3000);

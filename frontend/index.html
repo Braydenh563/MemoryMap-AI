@@ -480,6 +480,7 @@
         <textarea id="command-palette-input" class="command-palette-input" rows="1"
           placeholder="Ask the agent to do something…" enterkeyhint="send"
           aria-label="Ask the agent to do something"></textarea>
+        <button type="button" id="command-palette-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
       </div>
       <div id="command-palette-results" class="command-palette-results"></div>
       <!-- **What it can do, said out loud.** Reported: "the popup agent needs
@@ -843,6 +844,7 @@
       placeholder="A thought, a link, a #tag. Ctrl+Enter saves."></textarea>
     <p id="quick-note-status" class="status" role="status"></p>
     <div class="row right space-dialog-actions">
+      <button type="button" id="quick-note-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
       <button type="button" class="ghost" id="quick-note-more">Open in Capture</button>
       <button type="button" class="accent" id="quick-note-save">Save note</button>
     </div>
@@ -1285,7 +1287,11 @@
             <textarea id="entry-content" rows="3" class="autogrow" aria-label="New note"
               placeholder="Type anything: a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
-            <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
+            <!-- The box's own foot: Clear (field-clear.js, INBOX 466) at the left, the count at the right. -->
+            <div class="note-composer-foot">
+              <button type="button" id="capture-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+              <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
+            </div>
           </div>
           <!-- The files this note's text points at, one attachment card each
                (INBOX 440 (2), `renderEntryAttachmentChips`): pictures, staged
@@ -1692,6 +1698,7 @@ Link to another note with [[its first few words]]."></textarea>
             <input id="question" type="text"
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
+            <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <!-- The same three presets the Chat tab offers, and the same
                  stored preference behind them, not a second setting. This
                  box always honoured the saved mode; it just had no way to
@@ -2525,6 +2532,7 @@ Link to another note with [[its first few words]]."></textarea>
                  is a newline, which an <input> could not offer at all. -->
             <textarea id="chat-input" data-needs-model="Chat is answered by the local AI" rows="1" class="autogrow chat-input"
               aria-label="Message" placeholder="Ask your notebook anything…"></textarea>
+            <button type="button" id="chat-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="chat-send" data-needs-model="Chat is answered by the local AI">Send</button>
             <button id="chat-stop" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>

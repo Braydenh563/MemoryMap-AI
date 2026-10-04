@@ -6026,6 +6026,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .nm-viewer-figure > #nm-buddy[data-pose="hang"] { top: 22px; }
 .nm-viewer-figure > #nm-buddy[data-pose="float"] { top: 82px; }
 .nm-viewer-figure > #nm-buddy .nm-buddy-face { cursor: pointer; }
+/* No resize ring in the large view (INBOX 466): the card sizes it. */
+.nm-viewer-figure > #nm-buddy .nmb-size-grip { display: none; }
 
 /* What it sits on or hangs from in there: a quiet bar, only for those
    poses (standing, the card is its floor). */
@@ -9577,5 +9579,36 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       border-left: 0;
       padding-left: 0;
     }
+  }
+}
+
+/* The Clear control on a box people type into (field-clear.js, INBOX 466):
+   a quiet icon that appears only while the box holds something. */
+.field-clear {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.field-clear:hover,
+.field-clear:focus-visible {
+  color: var(--ink);
+}
+
+/* Quick note: Clear sits at the left of its action row, the actions at the
+   right. On a phone the Ask box wraps its controls under the field, so its
+   Clear stays at the box's top right, where the first line is empty. */
+#quick-note-clear {
+  margin-right: auto;
+}
+
+@media (max-width: 600px) {
+  .ask-composer {
+    position: relative;
+  }
+
+  #ask-clear {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
   }
 }

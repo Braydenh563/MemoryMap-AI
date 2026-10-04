@@ -1298,3 +1298,9 @@ def test_its_last_resort_is_never_the_corner_over_a_control() -> None:
     choose = _fn("nameMarkBuddyChoose")
     assert "return soiled || corner;" not in choose
     assert "nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner" in choose
+
+
+def test_the_size_ring_is_not_drawn_in_the_enlarged_view() -> None:
+    # INBOX 466: the ring at the companion's corner still showed on the
+    # visiting companion inside the large view, where the card sizes it.
+    assert ".nm-viewer-figure > #nm-buddy .nmb-size-grip { display: none; }" in CSS08

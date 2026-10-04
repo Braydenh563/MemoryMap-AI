@@ -33,6 +33,7 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("inline-tags", ("#word",), "how do I tag a note with a hashtag"),
     ("web-clip", ("bare link", "web clipper"), "save a web page as a note"),
     ("ctrl-enter", ("Ctrl+Enter",), "how do I save a note from the keyboard"),
+    ("clear-box", ("Clear", "eraser", "Undo"), "clear what I typed in a box"),
     ("unsaved-guard", ("two windows", "keep your version"), "I edited a note in two windows"),
     ("note-history", ("You and Atlas",), "who changed my note"),
     ("draft-template", ("Draft with Atlas", "template"), "make a template with ai"),

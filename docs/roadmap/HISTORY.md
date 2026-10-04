@@ -36823,6 +36823,24 @@ width, 47% of the column at 1440.
      and End walk the sections; Page Up and Down scroll the open pane from
      there; Enter or Space moves to the section's heading (measured:
      Appearance, Down, Down, Up, PageDown 0 to 642px, Enter).
+## INBOX resolved, 2026-10-04
+
+466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
+     categories: a count pill on every row; the expanded companion with its
+     resize ring at the top right).** "I think there should also be a clear
+     button on the note capture tab and in other main text areas where the
+     user might want to quick clear their work... also it is wierd with all
+     these numbers floating int he manage categories popup. also the
+     companion resize circle appears still on the expanded companion popup
+     panel". Placed: (1) Clear on Capture, Quick note, Ask, Chat's composer
+     and the popup agent's box, with Undo; (2) the counts as quiet text
+     beside the name, not pills; (3) the resize ring hidden in the enlarged
+     viewer: the orchestrator. **Fixed**: (1) `field-clear.js` (lazy), an
+     eraser Clear on the five boxes, Undo through the toast (the status line
+     under a modal dialog and the agent overlay); Chat clears the words only,
+     its attachments have their own chips; (2) `.manage-cat-count` is muted
+     text after the name; (3) `.nmb-size-grip` is `display: none` in
+     `.nm-viewer-figure`.
 
 461. **The owner, 2026-10-03 night, verbatim, with screenshots (Settings:
      a "Stopped" badge beside a heading, an "Installed" badge with a check;

@@ -3649,3 +3649,18 @@ def test_one_builder_draws_a_thinking_fold() -> None:
     assert body_rules == [".thinking"], f"the thinking body is restyled per surface: {body_rules}"
     stale = [s for s in selectors if re.search(r"#thinking-box|#draft-thinking|help-chat-think|cmd-palette-thinking|thinking-text", s)]
     assert not stale, f"a surface's own thinking style came back: {stale}"
+
+
+def test_a_managed_list_row_shows_its_count_as_quiet_text_never_a_pill() -> None:
+    # INBOX 466, the owner: "it is wierd with all these numbers floating in
+    # the manage categories popup". The count follows the name as muted text
+    # ("Hobbies · 10"); a pill's ground, radius and padding do not come back.
+    body = _css_block(".manage-cat-count")
+    for banned in ("background", "border-radius", "padding", "min-width", "text-align: center"):
+        assert banned not in body, f"the count is a pill again: {banned}"
+    assert "color: var(--muted)" in body
+    sheet = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
+    name = re.search(r"^\.manage-cat-name \{([^{}]*)\}", sheet, re.M).group(1)
+    assert "flex: 0 1 auto" in name, "the name hugs its text so the count sits after it"
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "never a pill: INBOX 466" in design

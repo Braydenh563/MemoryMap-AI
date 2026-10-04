@@ -10,7 +10,7 @@
 //: assistant's): the title, its '?' beside it, a ghost icon Close at the
 //: right. One line of description, then one tool row: a filter field and
 //: New category. The categories are a grid of quiet rows (the colour dot,
-//: the name, a muted count pill and a ghost ⋯ that shows on hover or focus,
+//: the name, its count as quiet text and a ghost ⋯ that shows on hover or focus,
 //: always on touch), with a roving focus: arrows and Home/End move, Space
 //: selects, Enter shows the category's notes, F2 renames, Delete deletes,
 //: and the context-menu key or Shift+F10 opens the ⋯. Selecting rows raises

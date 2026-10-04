@@ -134,6 +134,7 @@ _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
 # label reading literally "Review > [!tip] Remem…", reported directly, and
 # the fix is the callout equivalent of what _HEADING_MD already does for `#`.
 _CALLOUT_MD = re.compile(r"^\s{0,3}>\s*\[!\w+\]\s*", re.M)
+_WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
 
 
 def _preview(text: str, length: int = 40) -> str:
@@ -162,7 +163,7 @@ def _preview_line(line: str) -> str:
     """One line as plain words: the marker stripping `_preview` applies."""
     line = _HEADING_MD.sub("", line)
     line = _CALLOUT_MD.sub("", line)
-    line = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", line)
+    line = _WIKI_LINK.sub(r"\1", line)
     line = manager.strip_inline_markdown(line)
     return " ".join(line.split())
 
@@ -496,6 +497,9 @@ def graph(
         if isinstance(ref_id, int) and board_id is not None:
             maps_of.setdefault(ref_id, []).append(board_id)
     now = datetime.now(timezone.utc)
+    #: Each note's readable text once, for both the label and the word count:
+    #: a private note's is a decryption, and it was done twice per node.
+    texts = {e.id: manager.readable_content(e) for e in entries}
     nodes = [
         {
             "id": e.id,
@@ -511,7 +515,7 @@ def graph(
             # own docstring as one of the places that must not break on a
             # private note: it decrypts while the vault is open and hands back
             # "Private note: unlock to read it." while it is locked.
-            "preview": _preview(manager.readable_content(e)),
+            "preview": _preview(texts[e.id]),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
@@ -547,7 +551,7 @@ def graph(
             # note's length in words, through the same readable text as the
             # preview so a private note is counted as its placeholder while
             # locked, and when it was last edited.
-            "words": _word_count(manager.readable_content(e)),
+            "words": _word_count(texts[e.id]),
             "updated_at": (e.updated_at or e.created_at).isoformat(),
         }
         for e in entries

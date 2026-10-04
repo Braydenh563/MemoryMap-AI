@@ -3590,11 +3590,9 @@ function dashBoardThumb(board) {
 const NIGHT_KIND_WORDS = {
   claim: ["claim", "claims"],
   question: ["open question", "open questions"],
-  //: Passes 4 and 5 (row 5): pairs, each shown with its other side.
   tension: ["claim that disagrees with another", "claims that disagree with others"],
   answered: ["question answered later", "questions answered later"],
 };
-//: What the second line of a pair says before the other side's words.
 const NIGHT_PAIR_LEAD = { tension: "Disagrees with", answered: "Answers" };
 const NIGHT_PAGE = 5;
 
@@ -3624,8 +3622,7 @@ function nightFactRow(fact, onGone) {
     .filter(Boolean)
     .join(" · ");
   text.append(title);
-  //: A tension or an answer is two sentences: the other one, quoted, under
-  //: this one, and the model's reason with the facts below it.
+  //: A pair quotes its other side; the reason joins the facts.
   if (fact.pair && NIGHT_PAIR_LEAD[fact.kind]) {
     const other = document.createElement("span");
     other.className = "dash-list-preview night-fact-pair";
@@ -3647,10 +3644,7 @@ function nightFactRow(fact, onGone) {
     openOther.addEventListener("click", () => flashEntry(fact.pair.entry_id));
     actions.append(openOther);
   }
-  //: Accepting a tension is the one finding with something to keep: the two
-  //: notes get the `contradicts` link the Graph and the note's links show,
-  //: through the same route the Tensions finder uses (I1's "accept of a
-  //: tension calls the existing accept path").
+  //: Accept a tension: the `contradicts` link (I1, the existing accept path).
   if (fact.kind === "tension" && fact.pair && fact.pair.entry_id) {
     const keep = document.createElement("button");
     keep.type = "button";
@@ -3758,7 +3752,36 @@ function nightKindLine(host, runId, kind, count) {
   host.appendChild(li);
 }
 
+//: The card, then the open questions count and the oldest one (I3).
 async function renderNightWidget(body) {
+  await renderNightCard(body);
+  let summary;
+  try {
+    summary = await apiJson("/questions/summary", { silent: true });
+  } catch {
+    return;
+  }
+  if (!summary || !summary.open) return;
+  const line = document.createElement("p");
+  line.className = "muted night-questions";
+  const oldest = summary.oldest;
+  const words = `${summary.open} open question${summary.open === 1 ? "" : "s"}`;
+  line.textContent = oldest ? `${words}. The oldest: “${oldest.text}”` : `${words}.`;
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small";
+  setLabel(open, "ph:question See your questions");
+  open.addEventListener("click", async () => {
+    await switchTab("notes");
+    showNotesSection("questions");
+  });
+  const row = document.createElement("div");
+  row.className = "row night-questions-row";
+  row.append(line, open);
+  body.appendChild(row);
+}
+
+async function renderNightCard(body) {
   let card;
   try {
     card = await apiJson("/night/latest", { silent: true });

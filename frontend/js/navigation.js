@@ -1941,7 +1941,7 @@ $("graph-layout").addEventListener("change", async (event) => {
 // Notes sections not collapsing at all a few sessions ago, one implementation
 // quietly undoing the other.
 
-const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask"];
+const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask", "questions"];
 const NOTES_SECTION_STORE = "notesSection";
 
 // --- a new session starts at the front of every tab ----------------------------
@@ -2019,6 +2019,11 @@ function showNotesSection(name, { focus = false } = {}) {
   // The picker lists documents that may have been created since this page
   // loaded: a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();
+  //: Questions (row 7) re-reads its list each time it is shown.
+  if (name === "questions" && typeof loadQuestions === "function") {
+    initQuestionsView();
+    loadQuestions();
+  }
   const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
   // A sub-tab move is a navigation, so it becomes a history step too. Recorded
   // against the Notes tab specifically because that is the tab these sections

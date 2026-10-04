@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import timezone
 from itertools import chain
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -40,6 +41,7 @@ from memorymap.ai import (
     memory,
     notebook_stats,
     presets,
+    questions,
     skill_runner,
     skills,
     tool_fallback,
@@ -418,6 +420,26 @@ class ChatRequest(BaseModel):
     # was already doing that, plus however many unrelated notes the
     # instruction text itself happened to match.
     attached_notes_only: bool = False
+    #: "questions": answer from the notes that still hold an open question
+    #: (WORLD_CLASS_PLAN I3, row 7: "what am I still undecided about?"), and
+    #: only from them. Resolved into `note_ids` and `attached_notes_only` by
+    #: `_apply_scope` before anything reads either.
+    scope: Literal["questions"] | None = None
+
+
+def _apply_scope(session: Session, body: ChatRequest) -> None:
+    """Turn a scope into the closed set of notes it means.
+
+    With no open question anywhere the turn falls back to ordinary
+    retrieval: an Ask over an empty set would answer from nothing, and the
+    Ask box says beforehand that there are none (`askScopeQuestions`).
+    """
+    if body.scope != "questions":
+        return
+    ids = questions.open_note_ids(session)
+    if ids:
+        body.note_ids = ids
+        body.attached_notes_only = True
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -1282,6 +1304,7 @@ def _prepare(
 
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
+    _apply_scope(session, body)
     prepared = _prepare(
         session,
         body.question,
@@ -2101,6 +2124,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"answer", "delta": "..."}     (one or more)
     {"type":"done"}
     """
+    _apply_scope(session, body)
     ollama = deps.get_ollama()
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent

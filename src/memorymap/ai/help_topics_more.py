@@ -163,6 +163,26 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "What it learned", "section": "learned"},
     },
     {
+        "id": "open-questions",
+        "keywords": (
+            "open questions", "questions view", "unanswered", "undecided", "still undecided",
+            "answered by", "mark answered", "drop a question", "ask about these",
+        ),
+        "body": (
+            "Notes, Questions lists the questions your notes ask in passing, "
+            "found when Atlas reads your notes on its own, newest note first: "
+            "Open, Answered and Dropped, each with a count. A row says when and "
+            "in which note it was asked; when a later note answers it, the row "
+            "says so with the sentence, and pressing that line opens the note. "
+            "Mark answered asks which note answers it and links the two notes; "
+            "Drop puts a question aside; Reopen brings either back. Ask about "
+            "these opens Ask answering from the notes with open questions only "
+            "(Ask all notes under the box goes back). The Dashboard's While you "
+            "were away card counts the open ones and names the oldest."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
         "id": "general-settings",
         "keywords": (
             "smart quotes", "auto clear",
@@ -836,6 +856,7 @@ MORE_TOPICS.extend(
 #: says where it lives, `steps` are there when there is something to do in
 #: order. An entry with no meta is laid out from its id and body alone.
 TOPIC_META: dict[str, dict] = {
+    "open-questions": {"title": "Open questions", "path": "Notes tab, Questions"},
     "capture": {"title": "Capturing a note", "path": "Notes tab", "steps": (
         "Open the Notes tab (m then n).", "Type into Capture a thought.", "Press Save: a local AI files it and suggests tags.")},
     "ask-chat": {"title": "Asking and chatting", "path": "Chat tab, or Ctrl+Shift+A over any tab"},
@@ -968,7 +989,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Asking Atlas", (
         "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
-        "contradictions", "skills", "personas", "answer-style", "memory", "learned",
+        "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
         "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",

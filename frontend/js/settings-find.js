@@ -369,30 +369,191 @@ function helpTopicLink(link) {
   return button;
 }
 
+// --- emphasis (INBOX 520) -----------------------------------------------------------
+//
+// The topics are the Guide's facts, so they stay plain text; the page decorates
+// its own copy: a hotkey is a `kbd`, a place (`Settings, Models`, `Library tab,
+// Contents`) a `strong`, a control or a quoted phrase a `code` chip. Names come
+// from the page's own nav and tabs, so a rename cannot leave this behind.
+
+const HELP_NAME_ESCAPE = /[.*+?^${}()|[\]\\]/g;
+const HELP_NAMED_KEYS = String.raw`Ctrl|Alt|Shift|Enter|Esc|Tab|Space|Delete|F\d{1,2}|Up|Down|Left|Right|Home|End|PageUp|PageDown`;
+const HELP_KEYS = [
+  String.raw`(?:Ctrl|Cmd|Alt|Shift|Option)(?:\/(?:Cmd|Ctrl))?(?:\+(?:${HELP_NAMED_KEYS}|[A-Za-z0-9](?![A-Za-z])|[\[\]\\/.,=-]))+`,
+  String.raw`\b(?:Escape|Esc|Enter|Tab|Space|F\d{1,2}|Delete(?= (?:removes|deletes)))\b`,
+  //: "Press m then r": the two letters are keys.
+  String.raw`(?<=\b[Pp]ress )[a-z](?= then [a-z](?![\w']))|(?<=\b[Pp]ress [a-z] then )[a-z](?![\w']| letter)`,
+].join("|");
+const HELP_PLACE = String.raw`[A-Z][A-Za-z]*(?: (?:and|&) [A-Z][A-Za-z]*)?(?![A-Za-z]| [a-z])`;
+let helpEmphasisKey = "";
+let helpEmphasisRx = null;
+let helpNameLists = null;
+
+function helpAlternation(names) {
+  const list = names.map((n) => n.replace(HELP_NAME_ESCAPE, "\\$&")).sort((a, b) => b.length - a.length);
+  return list.length ? list.join("|") : "(?!)";
+}
+
+//: `text` as [tag, piece] pairs: tag is "kbd", "strong", "code" or "" (plain).
+function helpEmphasis(text, places, tabs) {
+  const key = `${places.join("|")}#${tabs.join("|")}`;
+  if (key !== helpEmphasisKey) {
+    helpEmphasisKey = key;
+    const place = `Settings(?:, then|,| ->| →) (?:${helpAlternation(places)})(?![A-Za-z])|Settings(?: ->| →) [A-Z][a-z]+`;
+    const tab = `(?:${helpAlternation(tabs)})(?: tab(?:, ${HELP_PLACE})?|, ${HELP_PLACE})`;
+    const control = String.raw`(?<=\b[Pp]ress )([A-Z][A-Za-z]*(?: [a-z]+){0,2})(?=[:,.;)]| to\b| and\b| or\b)`;
+    helpEmphasisRx = new RegExp(`(${HELP_KEYS})|(${place}|${tab})|${control}|"([^"\\n]{2,60})"`, "g");
+  }
+  const out = [];
+  let at = 0;
+  for (const m of text.matchAll(helpEmphasisRx)) {
+    if (m.index > at) out.push(["", text.slice(at, m.index)]);
+    out.push([m[1] ? "kbd" : m[2] ? "strong" : "code", m[1] || m[2] || m[3] || m[4]]);
+    at = m.index + m[0].length;
+  }
+  if (at < text.length || !out.length) out.push(["", text.slice(at)]);
+  return out;
+}
+
+//: The text in `parent`: emphasis as elements, the typed words marked inside.
+function helpFill(parent, text, rx) {
+  helpNameLists ||= [
+    [...document.querySelectorAll("#settings-nav button[data-section]")].map((b) => b.textContent.trim()),
+    [...document.querySelectorAll("#tab-bar [data-tab] .tab-label")].map((b) => b.textContent.trim()),
+  ];
+  for (const [tag, piece] of helpEmphasis(text, ...helpNameLists)) {
+    const host = tag ? document.createElement(tag) : parent;
+    helpMarks(host, piece, rx);
+    if (tag) parent.append(host);
+  }
+}
+
+//: Text into `parent`, the typed words wrapped in `<mark>` (DOM nodes only).
+function helpMarks(parent, text, rx) {
+  let at = 0;
+  for (const m of rx ? text.matchAll(rx) : []) {
+    parent.append(text.slice(at, m.index));
+    const mark = document.createElement("mark");
+    mark.className = "help-hit";
+    mark.textContent = m[0];
+    parent.append(mark);
+    at = m.index + m[0].length;
+  }
+  parent.append(text.slice(at));
+}
+
+//: Draw (or redraw, with the words marked) a topic's title, text and place.
+function helpTopicPaint(details, rx) {
+  const topic = details._topic;
+  const [summary, body, where] = details.children;
+  summary.replaceChildren();
+  helpMarks(summary, topic.title, rx);
+  body.replaceChildren();
+  helpFill(body, topic.body, rx);
+  const path = where?.firstChild;
+  if (topic.path && path) {
+    path.replaceChildren("Where: ");
+    helpFill(path, topic.path, rx);
+  }
+}
+
 function helpTopicRow(topic) {
   const details = document.createElement("details");
   details.dataset.topic = topic.id;
+  details._topic = topic;
   const summary = document.createElement("summary");
-  summary.textContent = topic.title;
   summary.dataset.keys = topic.find.toLowerCase();
   summary.dataset.find = topic.body.toLowerCase();
-  const body = document.createElement("p");
-  body.textContent = topic.body;
-  details.append(summary, body);
+  details._help = [topic.title, topic.find, topic.body, topic.path].join(" ").toLowerCase();
+  details.append(summary, document.createElement("p"));
   //: A link to Help from inside Help goes nowhere.
   const link = topic.link && topic.link.section !== "help" ? topic.link : null;
   if (topic.path || link) {
     const where = document.createElement("p");
     where.className = "help-topic-links muted";
-    if (topic.path) where.append(`Where: ${topic.path}`);
+    where.appendChild(document.createElement("span"));
     if (topic.path && link) where.append(" · ");
     if (link) where.appendChild(helpTopicLink(link));
     details.appendChild(where);
   }
+  helpTopicPaint(details, null);
   return details;
 }
 
+// --- search (INBOX 520) -------------------------------------------------------------
+
+//: The typed words, lower-cased; a topic must hold every one.
+function helpQueryTerms(query) {
+  return query.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function helpMatches(terms, text) {
+  return terms.every((term) => text.includes(term));
+}
+
+let helpOpenBefore = null;
+
+//: Hide what does not match, open what does with the words marked, hide a
+//: group head whose topics are all gone, and say so when nothing is left.
+//: Clearing puts every fold back as it was.
+function helpApplySearch(query) {
+  const box = $("help-topics");
+  if (!box) return;
+  const terms = helpQueryTerms(query);
+  const searching = terms.length > 0;
+  const escaped = terms.map((t) => t.replace(HELP_NAME_ESCAPE, "\\$&")).sort((a, b) => b.length - a.length);
+  const rx = searching ? new RegExp(escaped.join("|"), "gi") : null;
+  if (searching && !helpOpenBefore) helpOpenBefore = new Map([...box.querySelectorAll("details")].map((d) => [d, d.open]));
+  let shown = 0;
+  let total = 0;
+  for (const list of box.querySelectorAll(".help-accordion")) {
+    let any = false;
+    for (const details of list.children) {
+      total += 1;
+      const hit = helpMatches(terms, details._help);
+      details.classList.toggle("hidden", !hit);
+      if (!hit) continue;
+      any = true;
+      shown += 1;
+      details.open = searching || (helpOpenBefore?.get(details) ?? details.open);
+      helpTopicPaint(details, rx);
+    }
+    list.classList.toggle("hidden", !any);
+    list.previousElementSibling?.classList.toggle("hidden", !any);
+  }
+  //: The tours and the Atlas row are sections of the page too.
+  let others = 0;
+  for (const group of document.querySelectorAll("#settings-help > .settings-group")) {
+    const hit = helpMatches(terms, group.textContent.toLowerCase());
+    group.classList.toggle("hidden", !hit);
+    if (hit) others += 1;
+  }
+  if (!searching) helpOpenBefore = null;
+  $("help-empty")?.classList.toggle("hidden", !searching || shown + others > 0);
+  const status = $("help-search-status");
+  if (status) {
+    status.textContent = searching ? `${shown} of ${total} topics` : "";
+    status.classList.toggle("hidden", !searching);
+  }
+}
+
+function helpSearchBind() {
+  const input = $("help-search");
+  if (!input || input._bound) return;
+  input._bound = true;
+  input.addEventListener("input", () => helpApplySearch(input.value));
+  input.addEventListener("keydown", (e) => {
+    //: Escape clears the query before it closes the window.
+    if (e.key !== "Escape" || !input.value) return;
+    e.stopPropagation();
+    e.preventDefault();
+    input.value = "";
+    helpApplySearch("");
+  });
+}
+
 function renderHelpTopics() {
+  helpSearchBind();
   const box = $("help-topics");
   if (!box || helpTopicsLoad) return helpTopicsLoad;
   helpTopicsLoad = apiJson("/help/topics")
@@ -409,6 +570,7 @@ function renderHelpTopics() {
       }
       box.replaceChildren(...parts);
       box.removeAttribute("aria-busy");
+      if ($("help-search")?.value) helpApplySearch($("help-search").value);
       if (typeof currentSettingsSection !== "undefined" && currentSettingsSection === "help") settingsIndexBuild("help");
     })
     .catch(() => {

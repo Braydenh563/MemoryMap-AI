@@ -11029,6 +11029,16 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- About -->
           <!-- Help guide (learnability): a feature reference + re-run the tour -->
           <section class="settings-section hidden" id="settings-help">
+            <!-- INBOX 520: Help is searchable. Every word of the query must
+                 appear in a topic's title, keywords, text or place; the rest
+                 hide and the matches open with the words marked
+                 (settings-find.js, `helpApplySearch`). Escape clears. -->
+            <div class="search-field help-search">
+              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+              <input id="help-search" type="search" class="search-field-input"
+                placeholder="Search help…" aria-label="Search help" autocomplete="off">
+            </div>
+            <p id="help-search-status" class="muted text-sm hidden" role="status" aria-live="polite"></p>
             <!-- Redesigned (the owner, with a screenshot of this head: "areas
                  like this in the settings need a redesign"). The section's
                  own title already says Help, and under it sat a second head,
@@ -11061,6 +11071,7 @@ Link to another note with [[its first few words]]."></textarea>
                  search finds a topic by its title or its keywords. -->
             <p class="muted">Every feature, grouped: what it does and where it is.</p>
             <div id="help-topics" class="help-topics" aria-busy="true"></div>
+            <p id="help-empty" class="muted hidden">Nothing in Help matches</p>
 
             <!-- **One Atlas, not two** (INBOX 224, the owner: "there is
                  still the second atlas interface in the settings help page").

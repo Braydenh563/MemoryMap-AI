@@ -10622,3 +10622,37 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #raw-results li > .record-index {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
 }
+
+/* Settings, Help search (INBOX 520): the field is the `.search-field` recipe
+   with a gap under it; a typed word is marked in the soft accent, the same
+   mark the app's find uses. */
+#settings-help > .help-search {
+  margin-bottom: var(--space-3);
+}
+
+#settings-help mark.help-hit {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: inherit;
+  border-radius: var(--radius-sm);
+}
+
+/* Help text emphasis (INBOX 520): a hotkey is the app's `kbd`, a place is
+   bold in the ink colour, a control name or quoted phrase is a quiet chip in
+   the chip ground; nothing here is a link, so nothing is accent-coloured. */
+#settings-help .help-accordion strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#settings-help .help-accordion code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+#settings-help .help-accordion kbd {
+  font-size: 0.8em;
+}

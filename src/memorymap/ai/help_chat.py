@@ -765,13 +765,15 @@ HELP_TOPICS.extend(
         },
         {
             "id": "tour",
-            "keywords": ("tour", "guided tour", "walkthrough", "onboarding", "tutorial", "show me around", "getting started", "learn the app", "new here"),
+            "keywords": ("tour", "guided tour", "walkthrough", "onboarding", "tutorial", "show me around", "getting started", "learn the app", "new here", "search help"),
             "body": (
                 "The guided tour walks through the whole app a section at a time, "
                 "pointing at the real controls. Start it from Settings, Help and "
                 "guide. Each section's own button starts there and carries on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
-                "like."
+                "like. The search box at the top of Settings, Help keeps only the "
+                "topics that hold every word you type, with the words marked; Esc "
+                "clears it."
             ),
             "badge": {"label": "Help", "section": "help"},
         },

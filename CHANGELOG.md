@@ -10,6 +10,8 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.
+- Settings, Help: hotkeys are drawn as keys, places such as Settings, Models and Library tab, Contents in bold, and control names and quoted phrases as small code chips (190, 139 and 47 across 96 topics), added when the page draws so the Guide's own text stays plain (INBOX 520).
+- Settings, Help: a search box at the top keeps only the topics that hold every word you type (title, keywords, text or place), opens them with the words marked, hides empty groups, says "Nothing in Help matches" when none do, and Esc clears it (INBOX 520).
 - Startup: the dashboard waits for its own script, so "renderDashboard is not defined" no longer appears on the lock screen.
 - Graph: a line between two notes lights under the pointer and a click on it opens a small card where you clicked: what it is (a link, a thread, a similarity, a map's line), its reason and how sure, the two notes (each opens), and for a link Edit reason and Remove (the owner: "I cant click on links to see their reason in the graph??"; 20 of 20 sampled line middles answer).
 - Top bar: the active tab's fill slides to the tab you choose (200ms, transform only) in every engine, by click, keyboard or a jump from elsewhere, and sits on it through a resize; none under reduced motion, and the phone's bottom tabs keep their colour mark.

@@ -37306,6 +37306,16 @@ width, 47% of the column at 1440.
      and utility to the manage tags and categories panels." Placed
      (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
      Built: sort, unused filter, near-duplicate merge with Undo, bulk recolour and delete for categories (8899d8f).
+520. **The owner, 2026-10-04, verbatim.** "I think the text in the help
+     settings page needs to be like keyword searchable and key things like key
+     characters or hotkeys or item/location names should be in like inline
+     codeblocks or bolded/italicised in the help text to emphasise key
+     sections." Next Sonnet: a filter field on Settings, Help that searches
+     every topic's text and keywords (highlighting matches, opening matching
+     folds); help text renders keys as `<kbd>`, locations ("Settings, Data")
+     in bold, control names in inline code, via a small markup in the topic
+     strings that the Guide's plain-text answers strip.
+     Fixed: Help has a `.search-field` (every typed word must appear in a topic's title, keywords, text or place; matches open with `<mark>`, empty groups hide, "Nothing in Help matches", Esc clears, `helpApplySearch`). Emphasis is added at draw time by `helpEmphasis` (settings-find.js), not by markup in the topic strings, so the Guide's plain-text bodies never carry it: 190 `kbd`, 139 `strong`, 47 `code` across 96 topics (scratchpad/ui-sweeps/helpsearch.js). Place names come from the page's own nav and tabs. Left: the Guide chat's own answers are not decorated.
 
 ## INBOX resolved, 2026-10-04
 

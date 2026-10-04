@@ -3908,3 +3908,59 @@ aside[data-resizable="1"] {
   font-weight: 600;
   color: var(--ink);
 }
+
+/* --- A notification's two controls take no width of their own (INBOX 523) ---
+   The owner: "the notification read/unread circle and individual x delete
+   buttons when invisible cause an empty gap on the right of all
+   notification in the panel". Invisible, they still held a grid column.
+   They now sit over the row's right edge and replace its time while the row
+   is pointed at or focused; an unread row already says so by its spine and
+   weight. On touch, where nothing is pointed at, they keep a column. */
+.notif-row {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.notif-row-actions {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: var(--space-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.notif-row:hover .notif-row-actions,
+.notif-row:focus-within .notif-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.notif-row .notif-time {
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.notif-row:hover .notif-time,
+.notif-row:focus-within .notif-time {
+  opacity: 0;
+}
+
+.notif-row.notif-unread .notif-read-toggle {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .notif-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .notif-row-actions {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .notif-row .notif-time {
+    opacity: 1;
+  }
+}

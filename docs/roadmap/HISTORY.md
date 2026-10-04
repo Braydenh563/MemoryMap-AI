@@ -37274,6 +37274,13 @@ width, 47% of the column at 1440.
      agent). Badges and the Timeline rail: agent.
      Fixed: one chip recipe (words trimmed to the x-height band, icon centred, one gap), timeline marks on even pixels; status labels 1.11 to 0.44 px off centre, rail -1.0 to -0.5 at 1x (1f2b007, 580abb6). Left: bare-text chips (contents jump, on this day, chat) not yet on the recipe; the check-circle glyph sits 1.35 px high.
 
+523. **The owner, 2026-10-04, verbatim, with a screenshot.** "the
+     notification read/unread circle and individual x delete buttons when
+     invisible cause an empty gap on the right of all notification in the
+     panel". Fixed: the two controls sit over the row's right edge and
+     replace its time on hover or focus; on touch they keep a column.
+     `notifgap.js`: the time ends 6 px from the row's edge.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

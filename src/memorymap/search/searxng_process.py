@@ -253,15 +253,26 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
         _settle_on(port)
         result = searxng_manager._start_source(data_dir)
         pid = _read_pid(data_dir)
+        #: An install beginning mid-wait ends the wait: a reinstall wipes the
+        #: virtualenv this process runs from, so waiting out the full window
+        #: only to blame SearXNG for writing no output (BACKLOG 8b) helps
+        #: nobody. The poll is two seconds, so this is noticed within one.
         if searxng_manager._wait_until_ready(
             SOURCE_START_TIMEOUT,
-            still_starting=lambda: pid is not None and _alive(pid),
+            still_starting=lambda: (
+                pid is not None and _alive(pid) and not _install_state["running"]
+            ),
         ):
             return result
         # Read what it said *before* stopping it, a SIGTERM adds its own
         # lines, and the interesting ones are the earlier ones.
         said = searxng_manager.recent_output(data_dir)
         searxng_manager._stop_source(data_dir)
+        if _install_state["running"]:
+            raise SearxngError(
+                "SearXNG was being reinstalled while it started, so this start "
+                "was stopped. Press Start again when the install finishes."
+            )
         if _port_clash(said):
             if remaining:
                 logging.getLogger("memorymap.searxng").info(

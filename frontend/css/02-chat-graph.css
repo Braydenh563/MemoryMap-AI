@@ -6089,6 +6089,7 @@ button.ghost.danger:hover {
 .graph-overlay .graph-options,
 .graph-overlay .graph-trace,
 .graph-overlay .graph-trace-result,
+.graph-overlay .graph-topic,
 .graph-overlay .graph-help-panel {
   margin: 0;
   border: 1px solid var(--border);
@@ -6110,6 +6111,49 @@ button.ghost.danger:hover {
    two screenshots). The same inset as the dock. */
 .graph-overlay .graph-trace-result {
   padding: var(--space-2) var(--space-3);
+}
+
+/* A topic's card (KG6): the trace result's shell, right-aligned at a
+   reading width like the options it sits under. */
+.graph-overlay .graph-topic {
+  align-self: flex-end;
+  width: min(24rem, 100%);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.graph-topic-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.graph-topic-head > strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-topic-dot {
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--radius-pill);
+  --topic-colour: var(--muted);
+  background: var(--topic-colour);
+}
+
+.graph-topic-terms,
+.graph-topic-summary {
+  margin: var(--space-2) 0 0;
+}
+
+.graph-topic-actions {
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
 }
 
 /* The help panel was absolutely positioned against the card (a popover under

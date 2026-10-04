@@ -38820,3 +38820,22 @@ whole sheet). Measured: `tests/test_entities_kg5.py` 6 tests;
 (both mentions marked, Priya · 2, the Thursday date, the menu's four rows,
 nothing sideways). Not verified: a real model writing `name|kind` (the parser
 is tested on the shapes a small model is known to write).
+
+### From GRAPH_PLAN.md: KG6 part two, a topic's summary and labels off the plates
+
+`POST /graph/topics/summary` (`ids`, `name`, `terms`): the utility model reads
+the titles and opening lines of twelve readable members (a private note is
+never read), one sentence under 30 words; cached by the members and their
+`updated_at`, two hundred at most, cleared with the graph cache; no model, a
+failing one or an empty answer gives `topics.terms_sentence` ("5 notes about
+#glaze, kiln and Priya.") and is not cached, so the model is asked next time.
+The canvas: a topic's legend entry opens `#graph-topic`, a card in the graph
+overlay's panel shell (name, size, the shared terms, Summarise with Stop,
+an AbortController; a model answer is kept per members in the page), and
+leaving the Topic rule closes it. `gcDrawTopicHulls` records each plate in
+world units and `gcPlaceLabels` takes them as `blocked` boxes, so no note's
+name is placed on a plate. Measured: `tests/test_topic_summary_kg6.py` 5
+tests; `scratchpad/ui-sweeps/kg6summary.js` 7/7 at 1440 light and 390 dark
+(no label box on any of 3 and 5 plates, the card 384px and 350px wide, the
+terms answer with no model). Not verified: a real model's sentence (the
+sandbox has none); the SVG renderer draws neither hulls nor the card.

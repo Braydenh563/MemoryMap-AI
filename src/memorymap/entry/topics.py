@@ -122,3 +122,25 @@ def build(index: Connections, terms_of: dict[int, set[tuple[str, str]]]) -> list
             "core_id": max(members, key=lambda node: (degree(index, node), -node)),
         })
     return out
+
+
+def terms_sentence(size: int, terms: list[str]) -> str:
+    """A topic's summary with no model: how many notes, and what they share.
+    Never an invented word: with nothing shared it says what a topic is."""
+    named = [t for t in terms if t][:3]
+    if not named:
+        return f"{size} notes that link to each other more than to the rest."
+    joined = named[0] if len(named) == 1 else ", ".join(named[:-1]) + f" and {named[-1]}"
+    return f"{size} notes about {joined}."
+
+
+#: How much of each note the model reads for a summary, and how many notes:
+#: a topic's titles and opening lines say what it is about; its bodies are a
+#: long prompt for a small model to get lost in.
+SUMMARY_NOTES = 12
+SUMMARY_CHARS = 160
+SUMMARY_SYSTEM = (
+    "You say what a group of someone's notes is about, in one plain sentence "
+    "of under 30 words, from their titles and opening lines. No preamble, no "
+    "quotes, no list, and nothing the notes do not say."
+)

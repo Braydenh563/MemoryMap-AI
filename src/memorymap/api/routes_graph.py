@@ -16,7 +16,7 @@ import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -85,6 +85,9 @@ SIMILAR_PER_NODE = 4
 # a deleted top id to the next row, so remove-then-add kept it (measured).
 _cache_lock = threading.Lock()
 _cache: dict[str, tuple] = {}
+#: KG6: topic summaries by their members and versions, newest last, capped.
+_summaries: dict[tuple, str] = {}
+SUMMARY_CACHE_MAX = 200
 
 
 def _graph_fingerprint(session: Session) -> tuple:
@@ -125,6 +128,7 @@ def reset_graph_cache() -> None:
     with _cache_lock:
         _cache.clear()
         _text_memo.clear()
+        _summaries.clear()
 
 
 #: GRAPH_PLAN 518 (2): each note's label and word count, per version of the
@@ -989,6 +993,65 @@ def graph_structure(
     #: GRAPH_PLAN KG6: named topics inside the islands, asked for separately
     #: so the colour rule "cluster" pays nothing for them.
     return {**structure, **_cached("topics", fingerprint, lambda: _build_topics(session))}
+
+
+class TopicSummaryBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    name: str = Field(default="", max_length=200)
+    terms: list[str] = Field(default_factory=list, max_length=10)
+
+
+@router.post("/graph/topics/summary")
+def topic_summary(body: TopicSummaryBody, session: Session = Depends(get_session)) -> dict:
+    """One sentence about a topic's notes, on demand (GRAPH_PLAN KG6).
+
+    The local model reads the titles and opening lines of a dozen of its
+    readable notes; the answer is cached by the members and their versions,
+    so an edit to one asks again and nothing else does. With no model, or a
+    model that fails, the answer is the terms the notes share
+    (`topics.terms_sentence`), never an error, and that answer is not cached,
+    so the model is asked again next time. Cancelling is the browser's: an
+    abandoned request still caches what it got, for the next ask.
+    """
+    rows = list(
+        session.scalars(select(Entry).where(Entry.id.in_(body.ids), Entry.is_deleted.is_(False)))
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Those notes could not be found.")
+    readable = sorted((e for e in rows if not e.is_private), key=lambda e: e.id)
+    key = tuple((e.id, str(e.updated_at or e.created_at)) for e in readable)
+    fallback = topic_finder.terms_sentence(len(rows), body.terms)
+    with _cache_lock:
+        hit = _summaries.get(key)
+    if hit:
+        return {"summary": hit, "source": "model", "cached": True}
+    ollama = deps.get_ollama()
+    if not readable or not ollama.is_running():
+        return {"summary": fallback, "source": "terms", "cached": False}
+    lines = []
+    for entry in readable[: topic_finder.SUMMARY_NOTES]:
+        text = " ".join(manager.readable_content(entry).split())
+        lines.append(f"- {text[: topic_finder.SUMMARY_CHARS]}")
+    hint = f"They share: {', '.join(body.terms[:5])}.\n" if body.terms else ""
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": topic_finder.SUMMARY_SYSTEM},
+                {"role": "user", "content": f"{hint}The notes:\n" + "\n".join(lines)},
+            ],
+        )
+        summary = " ".join(str(reply.get("content") or "").split()).strip("\"' ")
+    except Exception:  # noqa: BLE001  # any model failure reads as "no model"
+        summary = ""
+    if not summary:
+        return {"summary": fallback, "source": "terms", "cached": False}
+    summary = summary[:300]
+    with _cache_lock:
+        _summaries[key] = summary
+        while len(_summaries) > SUMMARY_CACHE_MAX:
+            _summaries.pop(next(iter(_summaries)))
+    return {"summary": summary, "source": "model", "cached": False}
 
 
 _TITLE_WORD = re.compile(r"[^\W\d_][\w'-]{3,}")

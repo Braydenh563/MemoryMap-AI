@@ -421,8 +421,9 @@ function gcSimilarityBand(score, lo, hi) {
 //: covers another note's dot hides the dot, which is the one thing on the
 //: map that is clickable. Measured before: 13 of 18 placed labels sat on a
 //: dot. The dots go into a grid so a big map costs a few cell reads per
-//: label rather than a scan of every note.
-function gcPlaceLabels(items, discs, lineCount = null) {
+//: label rather than a scan of every note. `blocked` are boxes no label may
+//: take at all (the topic plates, KG6), forced ones included where they can.
+function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -458,7 +459,7 @@ function gcPlaceLabels(items, discs, lineCount = null) {
     return false;
   };
   const clashes = (box) => {
-    for (const other of placed) {
+    for (const list of [placed, blocked]) for (const other of list) {
       if (
         box.left < other.right &&
         box.right > other.left &&
@@ -942,6 +943,8 @@ function gcDrawNebulae(ctx, s, inView) {
 //: drawn notes gets its outline (a convex hull padded past its dots) and its
 //: name on a plate above it, in the topic's colour. Full tab only.
 function gcDrawTopicHulls(ctx, s, k) {
+  //: The plates, in world units, for the label pass to keep names off (KG6).
+  s.topicPlates = [];
   if (s.size !== "full" || graphColourMode() !== "topic" || !graphStructure?.topics) return;
   const byTopic = new Map();
   const topicOf = graphStructure.topic_of || {};
@@ -981,6 +984,7 @@ function gcDrawTopicHulls(ctx, s, k) {
     ctx.fillStyle = gcTokens.card;
     ctx.globalAlpha = 0.88;
     ctx.fillRect(x - w / 2 - 5 / k, top[1] - 27 / k, w + 10 / k, 17 / k);
+    s.topicPlates.push({ left: x - w / 2 - 5 / k, right: x + w / 2 + 5 / k, top: top[1] - 27 / k, bottom: top[1] - 10 / k });
     //: The name in ink (a light topic colour is under 3:1 on the plate); the
     //: plate's edge carries the colour.
     ctx.globalAlpha = 1;
@@ -992,6 +996,77 @@ function gcDrawTopicHulls(ctx, s, k) {
     ctx.fillText(text, x, top[1] - 18.5 / k);
   }
   ctx.restore();
+}
+
+//: GRAPH_PLAN KG6: a topic's card. A summary is asked for, never fetched on
+//: its own (a model pass); cached here and on the server by its notes; Stop
+//: abandons the ask. With no model the server answers from the shared terms.
+const gcTopicSummaries = new Map();
+let gcTopicAsk = null;
+
+function gcHideTopic() {
+  gcTopicAsk?.abort();
+  gcTopicAsk = null;
+  document.getElementById("graph-topic")?.classList.add("hidden");
+}
+
+function gcShowTopic(topic, colour) {
+  const box = document.getElementById("graph-topic");
+  if (!box) return;
+  gcTopicAsk?.abort();
+  const key = [...topic.ids].sort((a, b) => a - b).join(",");
+  const head = document.createElement("div");
+  head.className = "graph-topic-head";
+  const dot = document.createElement("span");
+  dot.className = "graph-topic-dot";
+  dot.style.setProperty("--topic-colour", colour);
+  const name = document.createElement("strong");
+  name.textContent = topic.name;
+  const size = document.createElement("span");
+  size.className = "muted";
+  size.textContent = `${topic.size} notes`;
+  head.append(dot, name, size, smallButton("ph:x", "Close the topic", gcHideTopic));
+  head.lastChild.classList.add("icon-only");
+  const terms = document.createElement("p");
+  terms.className = "muted graph-topic-terms";
+  terms.textContent = topic.terms.length ? `Shared: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : "Nothing its notes share stands out.";
+  const summary = document.createElement("p");
+  summary.className = "graph-topic-summary";
+  summary.setAttribute("aria-live", "polite");
+  const actions = document.createElement("div");
+  actions.className = "row graph-topic-actions";
+  const say = (row) => {
+    summary.textContent = row.summary + (row.source === "terms" ? " (No local model answered, so this is what the notes share.)" : "");
+  };
+  const ask = smallButton("ph:sparkle Summarise", "Ask your local model for one sentence about these notes", async () => {
+    const controller = new AbortController();
+    gcTopicAsk = controller;
+    setBusy(ask, true, "Summarising…");
+    const stop = smallButton("ph:stop Stop", "Stop asking", () => controller.abort());
+    actions.appendChild(stop);
+    const row = await apiJson("/graph/topics/summary", {
+      method: "POST",
+      readOnly: true,
+      silent: true,
+      signal: controller.signal,
+      body: JSON.stringify({ ids: topic.ids, name: topic.name, terms: topic.terms.map((t) => t.term) }),
+    }).catch(() => null);
+    stop.remove();
+    setBusy(ask, false);
+    if (gcTopicAsk === controller) gcTopicAsk = null;
+    if (!row) {
+      if (controller.signal.aborted) summary.textContent = "Stopped.";
+      else summary.textContent = "The summary could not be made.";
+      return;
+    }
+    if (row.source === "model") gcTopicSummaries.set(key, row);
+    say(row);
+  });
+  actions.appendChild(ask);
+  const known = gcTopicSummaries.get(key);
+  if (known) say(known);
+  box.replaceChildren(head, terms, summary, actions);
+  box.classList.remove("hidden");
 }
 
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
@@ -1794,7 +1869,7 @@ function gcDraw(s = gcTab) {
     //: 1,100 links, for names that are moving anyway. The names step to
     //: their clear places when it settles, cross-fading (`gcDrawLabels`).
     const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
-    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null);
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || []);
     placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
@@ -3801,11 +3876,13 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
         () => {
           graphHighlightIds = new Set(topic.ids);
           applyGraphHighlight();
+          gcShowTopic(topic, clusterColour(String(topic.id)));
         }
       );
     }
     return;
   }
+  gcHideTopic();
   if (colourMode === "cluster" && graphStructure) {
     graphStructure.clusters.forEach((cluster, position) => {
       entry(

@@ -121,6 +121,17 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
     const d = Math.round(p.scrollHeight - p.scrollTop - p.clientHeight);
     block.remove(); return { stuck, d, before };
   }) : { stuck: '1', d: 0 };
+  // Nested scroller probe: a wheel up inside a code-like block that can still scroll up must not release following; at its top it must.
+  const nested = MODE === 'follow' ? await page.evaluate(() => {
+    const p = document.getElementById('chat-messages');
+    const box = document.createElement('div'); Object.assign(box.style, { height: '40px', overflowY: 'auto', flex: 'none' }); const tall = document.createElement('div'); tall.style.height = '300px'; box.append(tall); // style props, not attributes: the CSP refuses inline style
+    p.append(box); box.scrollTop = 80; p.dataset.stuck = '1';
+    const wheelUp = () => box.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true }));
+    wheelUp(); const inside = p.dataset.stuck;
+    box.scrollTop = 0; wheelUp(); const atTop = p.dataset.stuck;
+    box.remove(); p.dataset.stuck = '1'; return { inside, atTop };
+  }) : { inside: '1', atTop: '0' };
+  console.log('nested wheel probe', JSON.stringify(nested));
   for (let k = 0; k < 30; k += 1) await wheelDown('after');
   await page.waitForTimeout(600);
   const end = await page.evaluate(() => {
@@ -158,7 +169,7 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
   console.log(JSON.stringify({ W, H, MODE, samples: samples.length, worstDistWhileStuckAndLive: worstDuring, endOfStream: lastLive, settled, end, wheelAfter: wheelLog.filter((w) => w.label === 'after').slice(0, 6), wheelDuring: wheelLog.filter((w) => w.label === 'during') }));
   await page.screenshot({ path: `${SCRATCH}/shots/c534-${W}x${H}-${MODE}.png` });
   if (process.env.DIAG) console.log('DIAG', JSON.stringify(await page.evaluate(() => window.__log)).slice(0, 4000));
-  const ok = grew.stuck === '1' && grew.d <= 1 && (MODE !== 'follow' || settled.d <= 1) && end.dist <= 1 && end.tailBottom <= end.paneBottom + 1 && (drift === null || Math.abs(drift) <= 1);
+  const ok = nested.inside === '1' && nested.atTop === '0' && grew.stuck === '1' && grew.d <= 1 && (MODE !== 'follow' || settled.d <= 1) && end.dist <= 1 && end.tailBottom <= end.paneBottom + 1 && (drift === null || Math.abs(drift) <= 1);
   console.log('drift', drift);
   console.log(ok ? 'PASS' : 'FAIL', 'dist', end.dist, 'tailBottom', end.tailBottom, 'dockTop', end.dockTop);
   await browser.close();

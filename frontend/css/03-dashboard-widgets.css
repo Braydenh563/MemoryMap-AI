@@ -2395,6 +2395,68 @@ button.chat-trail-link {
   border: none;
 }
 
+/* **A cited note's pictures beside its citation** (INBOX 502,
+   `groundingThumbs`): the chip that opens the note, then up to three 32px
+   squares that open the picture, one unit that wraps as one. */
+.answer-grounding-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* The chip gives way first; on a phone the pictures wrap under it. */
+.answer-grounding-item > .answer-grounding-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.answer-grounding-thumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+button.answer-grounding-thumb {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  box-shadow: none;
+  cursor: zoom-in;
+}
+
+.answer-grounding-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+button.answer-grounding-thumb:hover {
+  border-color: var(--accent);
+}
+
+/* A finger's target, not a pointer's (DESIGN.md, "Hit targets"). */
+@media (pointer: coarse) {
+  button.answer-grounding-thumb {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+}
+
+.answer-grounding-more {
+  font-size: var(--text-xs);
+}
+
 /* Same cap as `.tool-touched-chip` (02-chat-graph.css): a note-preview chip
    that can carry an arbitrarily long opening is the same control wherever it
    appears, so it gets the same width rather than a new number invented for

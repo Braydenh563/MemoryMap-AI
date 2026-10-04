@@ -416,6 +416,21 @@ def _written_hint(note: dict) -> str:
     return f" (written {written})" if written else ""
 
 
+def _pictures_hint(note: dict, number: int) -> str:
+    """' (has 2 pictures, shown beside it; "the picture in note 3" points at
+    one)', or "" for a note without any.
+
+    INBOX 502: the answer now draws a cited note's pictures as thumbnails
+    beside its citation, so the model may refer to one by the note's number
+    and the reader finds it there. Said per note, only where there are any.
+    """
+    count = note.get("pictures") or 0
+    if not count:
+        return ""
+    plural = "s" if count != 1 else ""
+    return f' (has {count} picture{plural}, shown beside it; "the picture in note {number}" points at one)'
+
+
 def _dates_hint(note: dict) -> str:
     """' (its time words: "this Friday" meant Friday 25 September 2026, 8 days
     ago)', or "" when the note has none.
@@ -604,6 +619,7 @@ def build_messages(
         f"{_written_hint(note)}"
         f"{_dates_hint(note)}"
         f"{' (my newest note)' if note.get('newest') else ''}"
+        f"{_pictures_hint(note, i)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "

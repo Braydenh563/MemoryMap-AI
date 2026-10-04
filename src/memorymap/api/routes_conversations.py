@@ -136,6 +136,10 @@ class TurnBody(BaseModel):
     #: wrong question; the page walks back to the nearest earlier question
     #: with these words, and a deleted one simply ends the trail there.
     followup_of: str | None = Field(default=None, max_length=4000)
+    #: Words for the pictures of the notes this answer drew on, by url, as
+    #: the stream's `meta` sent them (INBOX 502, `routes_chat._picture_alts`),
+    #: so a reopened chat's thumbnails keep their alt text.
+    picture_alts: dict[str, str] | None = Field(default=None, max_length=40)
 
 
 class RenameBody(BaseModel):
@@ -165,6 +169,10 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["search_mode"] = turn.search_mode
         assistant["match_info"] = turn.match_info or {}
         assistant["connected_ids"] = turn.connected_ids or []
+    if turn.picture_alts:
+        assistant["picture_alts"] = {
+            url[:300]: str(words)[:160] for url, words in turn.picture_alts.items() if url.startswith("/media/")
+        }
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding
         #: How much of the answer the notebook backs, from the one counter

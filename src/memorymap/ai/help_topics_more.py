@@ -666,6 +666,23 @@ MORE_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "answer-pictures",
+            "keywords": (
+                "pictures in answers", "images in answers", "image in chat",
+                "picture in chat", "sketch in chat", "show the picture",
+                "thumbnail", "photo in the answer", "picture in note",
+            ),
+            "body": (
+                "When an answer in Chat or Ask draws on a note with pictures or "
+                "sketches, the note's numbered chip under Grounded in has up to "
+                "three small pictures beside it (a +n says there are more). The "
+                "chip opens the note; a picture opens in the image viewer, with "
+                "its caption and the text read off it. Atlas is told which notes "
+                "have pictures, so it can point at one as the picture in note 2."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
             "id": "follow-up-trail",
             "keywords": (
                 "follow-up", "follow up", "followup", "suggested question",
@@ -893,6 +910,7 @@ TOPIC_META: dict[str, dict] = {
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
+    "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
     "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
@@ -921,7 +939,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
     )),
     ("Asking Atlas", (
-        "ask-chat", "chat-controls", "follow-up-trail", "time-and-recency", "notebook-questions",
+        "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned",
     )),
     ("Documents and code", (

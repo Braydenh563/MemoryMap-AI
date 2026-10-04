@@ -2112,7 +2112,8 @@ async function sendChatMessage(preset, opts = {}) {
           //: search the same thing it learns from the Ask tab.
           question,
           null,
-          event.support || null
+          event.support || null,
+          meta?.picture_alts || null
         );
       },
       onPlan: (event) => {
@@ -2661,6 +2662,8 @@ async function sendChatMessage(preset, opts = {}) {
       // answer had been given a note to read.
       note_ids: sentAttachments.length ? sentAttachments : null,
       followup_of: followupOf,
+      //: The thumbnails' words, so a reopened chat keeps them (INBOX 502).
+      picture_alts: meta?.picture_alts && Object.keys(meta.picture_alts).length ? meta.picture_alts : null,
     };
     if (convRef.id === null) {
       const created = await apiJson("/conversations", {
@@ -2764,14 +2767,8 @@ async function offerFollowups(bubble, question, answer) {
 // look unlike a fresh one.
 function renderFollowups(bubble, picks) {
   if (!bubble || !Array.isArray(picks) || !picks.length) return;
-  // Remembered on the bubble rather than only drawn on it. Reported: *"the
-  // suggested next responses on chat messages should only persist for the
-  // latest chat message… if the user deletes the latest message they sent,
-  // then new suggested responses should show for the now latest message"*, 
-  // the second half is the reason this is stored instead of discarded. The
-  // chips for an older turn are still the right chips for it; they are simply
-  // not shown while a newer turn exists, and deleting that newer turn has to
-  // bring them back without a second round trip to the model.
+  // Stored, not only drawn: deleting the newest turn brings the previous
+  // turn's chips back without asking the model again (the owner's report).
   bubble.dataset.followups = JSON.stringify(picks);
   refreshFollowupVisibility();
 }
@@ -2818,24 +2815,17 @@ function buildFollowupStrip(bubble, picks) {
   chatScrollToEnd();
 }
 
-// --- where a follow-up came from (INBOX 490, the owner: "hyperlinked bread
-// crumbs ... if a suggested follow suggested question is used") ---------------
-//
-// A question sent from a chip remembers the question it was offered under
-// (`dataset.followupOf`, saved with the turn as `followup_of`), and its bubble
-// draws the chain back to the first question as links: a press scrolls to
-// that question and lights it. Words, not an index: deleting a turn renumbers
-// the rest, and a deleted question simply ends the trail there.
-
-//: The question an answer answered: the nearest user bubble before it.
+// --- where a follow-up came from (INBOX 490: "hyperlinked bread crumbs") ----
+// A chip's question keeps the one it was offered under (`followup_of` on the
+// turn, words not an index, which a deleted turn would shift); its bubble
+// links the chain back, a press scrolling to that question and lighting it.
 function followupParent(bubble) {
   let el = bubble.previousElementSibling;
   while (el && !el.matches(".msg.user")) el = el.previousElementSibling;
   return el?.dataset.sent || "";
 }
 
-//: Saved content can carry a block the bubble never showed (Plan mode's
-//: instruction), so a reopened question starts with the words, not equals them.
+//: Saved content may carry Plan mode's block after the words.
 const followupMatches = (sent, ref) => Boolean(sent) && (sent === ref || sent.startsWith(ref));
 
 function followupChain(userBubble) {
@@ -2854,8 +2844,7 @@ function followupChain(userBubble) {
   return chain;
 }
 
-//: One trail for Chat and Ask: "Follow-up of", then each earlier question as
-//: a link (a caret between, drawn by the stylesheet); `open(i)` is a press.
+//: Chat's and Ask's trail; `open(i)` is a press on the i-th question.
 function followupTrail(questions, open) {
   const nav = document.createElement("nav");
   nav.className = "chat-trail";

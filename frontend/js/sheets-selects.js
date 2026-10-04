@@ -1876,7 +1876,8 @@ async function openConversation(id) {
           savedOrder,
           //: Saved on the turn by the server from the same counter the live
           //: stream used, so the notice survives reopening the chat.
-          message.support || null
+          message.support || null,
+          message.picture_alts || null
         );
       }
       // And the same shape again for the "what to ask next" chips, reported

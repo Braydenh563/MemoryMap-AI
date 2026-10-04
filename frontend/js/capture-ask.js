@@ -1716,9 +1716,60 @@ function renderToolsUnsupportedNotice(container, event) {
   container.append(line, row);
 }
 
+//: **A cited note's pictures beside its citation** (INBOX 502): up to three
+//: lazy thumbnails after the chip; one opens the note's pictures in the
+//: lightbox. Alt: the caption or reading (`picture_alts`), else the Markdown's.
+const GROUNDING_THUMBS = 3;
+function notePictures(entry) {
+  const seen = new Map();
+  for (const m of String(entry?.content || "").matchAll(/!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\s]{1,500})\)/g)) {
+    if (!seen.has(m[2])) seen.set(m[2], { url: m[2], alt: m[1] });
+  }
+  for (const file of entry?.attachments || []) {
+    const url = `/files/${file.id}`;
+    if (file.is_image && !seen.has(url)) seen.set(url, { url, alt: file.filename || "" });
+  }
+  return [...seen.values()];
+}
+
+function groundingThumbs(pictures, n, alts) {
+  const row = document.createElement("span");
+  row.className = "answer-grounding-thumbs";
+  const items = pictures.map((p) => ({ filename: p.url.split("/").pop(), getUrl: () => mediaSrc(p.url) }));
+  pictures.slice(0, GROUNDING_THUMBS).forEach((picture, i) => {
+    const words = (alts && alts[picture.url]) || picture.alt || "";
+    const name = `Picture ${i + 1} in note ${n}${words ? `: ${words}` : ""}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "answer-grounding-thumb";
+    button.title = name;
+    button.setAttribute("aria-label", `Open p${name.slice(1)}`);
+    const img = document.createElement("img");
+    img.src = mediaSrc(picture.url);
+    img.alt = words || `Picture ${i + 1} in note ${n}`;
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.width = 32;
+    img.height = 32;
+    //: A picture that will not load is left out, never a broken box.
+    img.addEventListener("error", () => button.remove());
+    button.appendChild(img);
+    button.addEventListener("click", () => openLightbox(items, i));
+    row.appendChild(button);
+  });
+  if (pictures.length > GROUNDING_THUMBS) {
+    const more = document.createElement("span");
+    more.className = "muted answer-grounding-more";
+    more.textContent = `+${pictures.length - GROUNDING_THUMBS}`;
+    more.title = `${pictures.length - GROUNDING_THUMBS} more in note ${n}`;
+    row.appendChild(more);
+  }
+  return row;
+}
+
 function renderAnswerGrounding(
   target, sentences, rawResults, answerEl = null, question = "", orderedSources = null,
-  support = null
+  support = null, pictureAlts = null
 ) {
   if (!target) return;
   renderAnswerSupport(answerEl, support);
@@ -1745,21 +1796,10 @@ function renderAnswerGrounding(
   label.textContent = "Grounded in:";
   target.appendChild(label);
   const numberFor = citationNumbers(sentences, orderedSources);
-  //: **And the third place a digit is printed: the records column itself**
-  //: (INBOX 299, the owner: "can the notes in the matching records that
-  //: appear in the ask tab be numbered accordingly to match the inline
-  //: referencing??"). Measured before this: five records on screen, five
-  //: marks in the prose, and nought numbers in the column, so the two lists
-  //: could only be read against each other by matching the words.
-  //:
-  //: From `numberFor`, here, rather than by numbering the column separately:
-  //: that map is already what the markers, the chips and the Sources panel
-  //: print, and a fourth loop deriving "the same" order is exactly how the
-  //: first three came to disagree (see `citationNumbers`' own comment).
+  //: The records column numbered from the same map (INBOX 299): a fourth
+  //: loop deriving "the same" order is how the first three came to disagree.
   numberMatchingRecords(target, numberFor);
-  //: Drawn in the order the digits run, not in the order the sentences
-  //: happened to arrive: a key whose rows read 2, 1, 3 is a key you have to
-  //: search rather than read.
+  //: In the order the digits run: a key reading 2, 1, 3 has to be searched.
   const chips = [...byNote.entries()].sort(
     (a, b) => (numberFor.get(a[0]) || 0) - (numberFor.get(b[0]) || 0)
   );
@@ -1769,17 +1809,10 @@ function renderAnswerGrounding(
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
-    // Numbered to match the markers `addInlineCitations` puts in the answer, 
-    // the row is the key to those, so the two have to count the same way.
-    // `setNoteLabel`, not `setLabel`: the second half of this string is the
-    // note's own Markdown, and the number is app-written, so they cannot go
-    // through the renderer as one string (`1. ` is an ordered-list marker).
+    // Numbered as the markers are. `setNoteLabel`: the number is the app's and
+    // the rest the note's Markdown (`1. ` alone would render as a list).
     setNoteLabel(chip, `ph:file-text ${n}.`, entry?.content || labelFor.get(noteId) || "", 30);
-    // The sentences are the answer's own Markdown; a tooltip prints
-    // characters, so `**Kyoto**` showed its asterisks (the chat pass,
-    // 2026-09-26). `plainText` is the app's one route from Markdown to
-    // characters; it lives in chat-attach.js, which loads after this file,
-    // and that is safe because this runs when an answer renders, not at load.
+    // A tooltip prints characters: `plainText` (chat-attach.js, run at render).
     chip.title = plainText(forSentences.join(" "));
     chip.addEventListener("click", () => {
       if (question) {
@@ -1794,7 +1827,15 @@ function renderAnswerGrounding(
       }
       flashEntry(noteId);
     });
-    target.appendChild(chip);
+    const pictures = notePictures(entry);
+    if (pictures.length) {
+      const item = document.createElement("span");
+      item.className = "answer-grounding-item";
+      item.append(chip, groundingThumbs(pictures, n, pictureAlts));
+      target.appendChild(item);
+    } else {
+      target.appendChild(chip);
+    }
   }
   target.classList.remove("hidden");
 }
@@ -2861,7 +2902,8 @@ async function askQuestion(preset) {
           answerBox,
           question,
           answer.sources,
-          groundedSupport
+          groundedSupport,
+          answerMeta?.picture_alts || null
         );
       }
       renderAskAnswerFoot(answer, answerMeta);

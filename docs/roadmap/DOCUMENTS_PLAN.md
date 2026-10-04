@@ -1118,19 +1118,16 @@ compared with.
   plans, 2026-09-23"); `scratchpad/ui-sweeps/docpage17.js` is the gate.
 - **17c: built 2026-09-23.** Moved to HISTORY.md ("Moved from the plans,
   2026-09-23"); `scratchpad/ui-sweeps/docblocks17c.js` is the gate.
-- **17d. The document's own furniture.** What tells a writer where they are:
-  the title, the section they are in, how far through they are. Nothing new
-  on the page; this is whether what exists is legible. Gate: a reader
-  arriving at a long document can name their position without scrolling.
-- **17e. Dark and light parity.** Every change above measured in both, since
-  the two views of a highlight disagreeing in one theme is exactly how INBOX
-  291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
-  its element count above zero, and `dochighlight.js` still passing.
+- **17d and 17e: built 2026-10-04.** Moved to HISTORY.md ("Moved from the
+  plans, 2026-10-04 (the documents tails)"); `doccrumbview.js` and
+  `contrast.js` with `ONLY=document` are the gates. One half of 17d was
+  decided against there (a "how far through" figure, the scrollbar and the
+  outline mark already say it).
 
 **Not verified, and to be taken first by whoever opens this.** 17a to 17c
 are measured at 1280, 1440, 1920 and 2560, light and dark, in the default
 look and in Classic (`scratchpad/ui-sweeps/doclooks.sh`); 17d and 17e are
-not started. The phone is untouched by this section: the live view on a
+built (see above). The phone is untouched by this section: the live view on a
 phone is UI_MODERNISATION_PLAN Phase 11's territory and should not be
 redesigned from here, which is why 17a's page margin applies above 600
 only.
@@ -1207,5 +1204,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
     23 at 40px 5.6% before, 29.8% after (259b743, `namemarks.js`); the
     user's own mark on their chat bubbles and the persona picker's
     (0e88b6e, ede4f2a, `chatmarks.js`, bubble box unchanged). The code
-    selection bar and the indent step are 7ab7eec. Open here: the AI
-    assistant bar.
+    selection bar and the indent step are 7ab7eec. The AI assistant bar
+    is closed: the owner's later line (INBOX 431 (f), 2026-09-27) says they
+    like that dialog's design and the edit/write/remove pill, so nothing
+    is open here.

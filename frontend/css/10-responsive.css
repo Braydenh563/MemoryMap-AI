@@ -2828,3 +2828,18 @@ header#top-bar,
     display: none;
   }
 }
+
+/* --- the palette on a touch screen (INBOX 464) ------------------------------
+   Its foot ("↑↓ to choose · Enter to run · Esc to close · ? for shortcuts")
+   and every row's key chip ("M D") describe a keyboard a phone does not have:
+   measured at 390, one hint line and 20 chips, while the field's own words
+   ran 20px past its box (323px of placeholder in 303px). The copy is shorter
+   at every width (index.html) and the keyboard's words go where there is no
+   keyboard. `pointer: coarse` as well as `hover: none`, so a tablet with a
+   trackpad keeps them. */
+@media (hover: none) and (pointer: coarse) {
+  .palette-hint,
+  .rich-picker-keys {
+    display: none;
+  }
+}

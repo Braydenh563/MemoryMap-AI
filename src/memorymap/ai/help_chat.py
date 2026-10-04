@@ -177,7 +177,7 @@ HELP_TOPICS: list[dict] = [
             "The Dashboard is the at-a-glance home: a greeting with your note "
             "count and what is due, a search box, the Quick access tiles, "
             "and widgets such as reminders, recent notes, the weekly AI digest, "
-            "stats and your streak. The ... menu beside the search box has Edit "
+            "stats and your streak. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
             "remembered per user."
         ),
@@ -1181,18 +1181,20 @@ HELP_TOPICS.extend(
             "id": "dashboard-controls",
             "keywords": ("quick access", "customise quick access", "quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
             "body": (
-                "Dashboard controls. Under the greeting is the search box (Ctrl+P) "
-                "with a ... menu beside it: Continue (the note you opened or "
-                "edited last), your two most recent skills and All skills, Tools "
-                "& features (a searchable list of everything the app can do), "
-                "Commands (the command palette), View (Full, Compact or Focused), "
-                "Widgets and Edit layout, which show, hide and rearrange widgets, "
-                "remembered per user. Below it, Quick access has New note, Ask "
-                "AI, Sketch, Remind me and Meeting notes until you change it: its "
-                "own ... menu has Customise, to add any command from the palette "
-                "(up to eight), remove one, drag tiles or use Move left and Move "
-                "right in a tile's menu, and Reset to default; remembered per "
-                "user. Press m then d to come back here from anywhere."
+                "Dashboard controls. Under the greeting is the search box (Ctrl+P), "
+                "then Customise and a ... menu. The ... menu is for doing: "
+                "Continue (the note you opened or edited last), your two most "
+                "recent skills and All skills, Tools & features (a searchable "
+                "list of everything the app can do) and Commands (the command "
+                "palette). Customise arranges the page: View (Full, Compact or "
+                "Focused), Widgets and Edit layout, which show, hide and "
+                "rearrange widgets, then Edit quick access, to add any command "
+                "from the palette to Quick access (up to eight), remove one, "
+                "drag tiles or use Move left and Move right in a tile's menu, "
+                "and Reset quick access. Quick access starts as New note, Ask "
+                "AI, Sketch, Remind me and Meeting notes. All of it is "
+                "remembered per user. Press m then d to come back here from "
+                "anywhere."
             ),
             "badge": {"label": "Dashboard", "tab": "dashboard"},
         },

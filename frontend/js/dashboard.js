@@ -1115,20 +1115,9 @@ function renderQuickLinks() {
   const heading = document.createElement("p");
   heading.className = "launch-label";
   heading.textContent = "Quick access";
-  const menu = kebabMenu(
-    [
-      { label: "ph:sliders-horizontal Customise", title: "Add, remove and reorder these", run: () => { quickEditing = true; renderQuickLinks(); } },
-      {
-        label: "ph:arrow-counter-clockwise Reset to default",
-        title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes",
-        run: async () => { await saveQuickAccess([]); renderQuickLinks(); },
-      },
-    ],
-    "Quick access options",
-  );
   const head = document.createElement("div");
   head.className = "launch-head";
-  head.append(heading, menu);
+  head.append(heading);
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
   for (const link of quickAccessCurrent()) row.appendChild(quickLinkButton(link));
@@ -1161,13 +1150,10 @@ function dashContinueNote(entries) {
 
 const DASH_VIEW_LABELS = { full: "Full", compact: "Compact", focused: "Focused" };
 
-//: **What the first screen used to spell out in bands, one press away.** Four
+//: **What the first screen used to spell out in bands, one press away.** Three
 //: groups, drawn as hairlines (`kebabMenu`'s `group`): go back to the last
-//: note, run a skill, find a feature, arrange this page. Fixed order, no use
-//: counter: a menu whose rows move is a menu you re-read.
-//:
-//: Below 600 the view is not offered, the decision the old picker took: a
-//: phone's Full is already the compact layout (10-responsive.css).
+//: note, run a skill, find a feature. Fixed order, no use counter: a menu
+//: whose rows move is a menu you re-read. Arranging the page is Customise.
 function dashMoreItems(entries) {
   const row = (link, group) => ({ label: `${link.icon} ${link.label}`, title: link.hint || link.label, group, run: link.run });
   const items = [];
@@ -1190,6 +1176,18 @@ function dashMoreItems(entries) {
   }
   items.push({ label: "ph:lightning All skills\u2026", title: "Every skill, in the chat's skill picker", group: "skills", run: () => switchTab("chat") });
   for (const link of QUICK_GO) items.push(row(link, "find"));
+  return items;
+}
+
+//: **Arranging the page is its own control, beside the ⋯** (INBOX 488, the
+//: owner: "confusing to have the widget management stuff in the meatball menu
+//: button above the meatball menu button which covers the quick access"). The
+//: ⋯ is for doing (Continue, skills, Tools & features, Commands); Customise is
+//: for arranging this page (view, widgets, layout and the Quick access row,
+//: whose own ⋯ it replaces), so one menu no longer opens over the other.
+//: Below 600 the view is not offered: a phone's Full is already compact.
+function dashCustomiseItems() {
+  const items = [];
   if (!window.matchMedia("(max-width: 599.98px)").matches) {
     const current = dashDensity();
     items.push({
@@ -1212,6 +1210,13 @@ function dashMoreItems(entries) {
     group: "page",
     run: () => $("dash-edit").click(),
   });
+  items.push({ label: "ph:pencil-simple Edit quick access", title: "Add, remove and reorder the Quick access tiles", group: "quick", run: () => { quickEditing = true; renderQuickLinks(); } });
+  items.push({
+    label: "ph:arrow-counter-clockwise Reset quick access",
+    title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes",
+    group: "quick",
+    run: async () => { await saveQuickAccess([]); renderQuickLinks(); },
+  });
   return items;
 }
 
@@ -1223,6 +1228,21 @@ async function renderDashMore() {
   const host = $("dash-more");
   if (!host) return;
   const serial = ++dashMoreSerial;
+  const custom = $("dash-customise");
+  if (custom) {
+    const menu = kebabMenu(dashCustomiseItems(), "Customise the dashboard");
+    const opener = menu.querySelector("button");
+    //: The word in its own span so a phone can keep only the glyph.
+    setLabel(opener, "ph:sliders-horizontal");
+    const word = document.createElement("span");
+    opener.querySelector("i")?.classList.add("ph-lead");
+    word.className = "dock-word";
+    word.textContent = "Customise";
+    opener.append(word);
+    opener.classList.remove("icon-only");
+    opener.classList.add("ghost");
+    custom.replaceChildren(menu);
+  }
   const build = (entries) => host.replaceChildren(kebabMenu(dashMoreItems(entries), "More actions"));
   build(entriesEverLoaded ? allEntries : []);
   if (entriesEverLoaded) return;

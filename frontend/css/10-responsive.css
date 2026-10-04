@@ -2794,6 +2794,31 @@ header#top-bar,
   .dock[data-dock-name="dashboard"] > .dock-actions {
     flex: 0 0 auto;
   }
+
+  /* Customise keeps its glyph on a phone (INBOX 488); the word stays its
+     accessible name through the button's own label. */
+  .dash-customise .dock-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .dash-customise .menu-wrap > button {
+    width: var(--control-h);
+    padding-inline: 0;
+    justify-content: center;
+    color: var(--muted);
+  }
+
+  /* An icon-only button's glyph is the button's own colour, as the ⋯
+     beside it, not the accent a glyph before a word takes. */
+  .dash-customise .menu-wrap > button > .ph-lead {
+    margin: 0;
+    color: inherit;
+  }
 }
 
 /* **The skill library's kind segment on a phone** (INBOX 437 (4), touch.js).

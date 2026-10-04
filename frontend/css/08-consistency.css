@@ -767,6 +767,23 @@ details[open] > .about-whats-new::before,
   padding-left: var(--space-4);
 }
 
+/* A zone that wrapped opens its line with no hairline (`markDockLineStarts`,
+   phone-shell.js; INBOX 479). A line at the dock's edge also gives up the
+   hairline's padding, and takes the same width back as a right margin, so
+   its outer width, which is what decides the wrap, does not move. Below 600
+   the phone rule already drops every hairline. */
+@media (min-width: 600px) {
+  .dock > [data-line-start] {
+    border-left-color: transparent;
+  }
+
+  .dock > [data-line-start="flush"] {
+    border-left-width: 0;
+    padding-left: 0;
+    margin-right: calc(var(--space-4) + 1px);
+  }
+}
+
 /* Icon-only utilities are one cluster at the far end (refresh · help · more),
    not three separately-spaced buttons. The negative margin is written from
    the two tokens it sits between so it tracks the density setting rather
@@ -1007,6 +1024,36 @@ summary > .ph-lead,
    half a pixel of each other. */
 .chip > .ph-lead {
   translate: 0 0.1em;
+}
+
+/* The status bar's words and their glyphs, the same drop (INBOX 494: "the
+   text and icons in the bottom bar elements arent aligned vertically").
+   Measured by ink at 3x (`inkalign.js`), glyph centre against the label's
+   x-height centre: Ask -1.83px, Guide -1.67, the notebook -1.17, reminders
+   -0.67, Find -0.50, and the Ctrl K chip -0.83. A glyph alone in its button
+   (Back, Undo) has no words to meet and stays centred in its box. After:
+   every glyph and the chip within 0.5px, light and dark. From 1024 up only:
+   below it Ask, Guide and Find show the glyph alone, centred like Back. */
+@media (min-width: 1024px) {
+  #status-bar .status-item > i.ph:first-child:not(:only-child) {
+    translate: 0 0.1em;
+  }
+
+  /* The count's glyph sits in a span of its own, inline on that span's own
+     baseline already, so it needs less: 0.1em took the reminders to +0.67. */
+  #status-bar .status-item > span:first-child:has(> i.ph) {
+    translate: 0 0.06em;
+  }
+
+  /* The magnifier's handle hangs below its lens, so its ink sits lower than
+     a round glyph's at the same box: 0.1em took Find to +0.83px. */
+  #status-bar .status-item > i.ph-magnifying-glass:first-child:not(:only-child) {
+    translate: 0 0.03em;
+  }
+
+  #status-bar .status-key {
+    translate: 0 0.07em;
+  }
 }
 
 /* A summary in the settings modal was the last family still on `--space-3`

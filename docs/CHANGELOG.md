@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The AI status dot with no model connected is a calm grey ring (the one Settings, Models draws beside "isn't running"), not an amber "!": on a phone it was a 44px amber circle in the top bar, the loudest thing on a new person's first screen; its popup now says Settings, Models connects one (INBOX 472, first run)
 - Graph: a notebook with no notes says "Nothing to map yet" with Capture a note; it said "Every note is hidden. All 0 notes are filtered out" with a button that could show nothing (INBOX 472, first run)
 - Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.

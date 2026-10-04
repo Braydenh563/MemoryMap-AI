@@ -1766,7 +1766,8 @@ function syncAgentPaletteAvailability() {
 //
 //   idle  … grey    haven't heard back yet, says nothing either way
 //   ok    ✓ green   everything the AI can do is available
-//   warn  ! amber   loading, switched off, or partly available, app works
+//   off   ○ grey    no model connected, the supported offline way to run
+//   warn  ! amber   loading or rebuilding, app works
 //   error ✕ red     something is broken and won't fix itself
 function aiStatusState() {
   if (!modelStatus) {
@@ -1833,13 +1834,17 @@ function aiStatusState() {
   // Everything below leads with what still WORKS. Announcing a fault and
   // pointing at a log reads as "the app is broken" when in fact only the
   // optional half is missing.
+  //: **"off", not "warn"** (INBOX 472, the first-run walk): this is the
+  //: supported way to run, and an amber "!" (a 44px amber circle in the
+  //: phone's top bar) was the loudest thing on a new person's first screen.
+  //: Neutral, with the ring Settings, Models draws beside "isn't running".
   if (!chatReady && searchReady) {
     return {
-      level: "warn",
+      level: "off",
       title: "Everything works · chat AI off",
       detail:
-        "Notes, search, tags, reminders and the graph all work. Start Ollama " +
-        "to add chat and auto-filing.",
+        "Notes, search, tags, reminders and the graph all work. Connect a " +
+        "model in Settings, Models to add chat and auto-filing.",
     };
   }
   if (chatReady && !searchReady) {
@@ -1852,12 +1857,12 @@ function aiStatusState() {
     };
   }
   return {
-    level: "warn",
+    level: "off",
     title: "Everything works · AI off",
     detail:
       "Writing, searching, tagging, reminders, documents and the graph all " +
-      "work without any AI. Start Ollama to add chat, auto-filing and search " +
-      "by meaning.",
+      "work without any AI. Connect a model in Settings, Models to add chat, " +
+      "auto-filing and search by meaning.",
   };
 }
 
@@ -1867,7 +1872,7 @@ function aiStatusState() {
 // "…" for connecting rather than a spinner: a spinner has to be animated to
 // read as one, and under prefers-reduced-motion a frozen spinner looks like a
 // rendering fault. The ellipsis says "waiting" while perfectly still.
-const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕" };
+const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
 function renderAiPill() {
   const button = $("ai-status");

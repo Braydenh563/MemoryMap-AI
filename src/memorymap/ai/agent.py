@@ -2036,6 +2036,11 @@ def _first_round_tools(question: str, plan: "_TurnPlan", offered: list[dict], re
         return offered
     if required:
         keep = _WRITE_TOOLS | _LOCATING_TOOLS
+        #: "Put 'buy stamps' in my shopping note" names a note that exists:
+        #: forced, the 3B made a new one instead (2 of 2). The edit and the
+        #: finders stay; a new note is not what was asked.
+        if tools.adds_to_a_named_note(question):
+            keep = keep - {"create_note"}
         narrowed = [t for t in offered if t["function"]["name"] in keep]
     elif _INFORMATION_QUESTION.match(question or ""):
         narrowed = [t for t in offered if t["function"]["name"] not in _WRITE_TOOLS]

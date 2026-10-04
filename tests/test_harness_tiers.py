@@ -361,6 +361,18 @@ def test_a_forced_first_round_is_offered_the_writes_and_the_finders(monkeypatch,
     assert set(first) <= agent._WRITE_TOOLS | agent._LOCATING_TOOLS, first
 
 
+@pytest.mark.parametrize(
+    "question",
+    ["Put 'buy stamps' in my shopping note", "Add 'bring a rain jacket' to my Snowdon trip note"],
+)
+def test_a_forced_edit_of_a_named_note_is_not_offered_a_new_note(monkeypatch, app_state, question):
+    """Qwen2.5-3B, forced: "Put 'buy stamps' in my shopping note" called
+    `create_note` 2 of 2: a new note is the wrong write for a named one."""
+    first, forced = _rounds(monkeypatch, question)[0]
+    assert forced and "edit_note" in first and "search_notes" in first
+    assert "create_note" not in first, first
+
+
 def test_the_round_after_a_forced_one_has_the_whole_toolbox_again(monkeypatch, app_state):
     rounds = _rounds(monkeypatch, "File the dentist note under Health")
     second, forced = rounds[1]

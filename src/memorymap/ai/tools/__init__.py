@@ -3851,6 +3851,12 @@ _ADD_TO_NOTE = re.compile(
 )
 
 
+def adds_to_a_named_note(question: str) -> bool:
+    """Whether a request adds to a note it names ("put X in my Y note"), so
+    the write it wants is an edit, never a new note."""
+    return bool(_ADD_TO_NOTE.search(question or ""))
+
+
 def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 

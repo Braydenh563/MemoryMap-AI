@@ -96,8 +96,14 @@ def _setup(question, session):
     return plan, agent._requires_a_call(question, plan)
 
 
-def _first_round(plan, forced):
-    body = {"model": MODEL, "messages": plan.messages, "tools": plan.offered, "max_tokens": 400}
+def _first_round(question, plan, forced):
+    # The tools the harness sends on round one (H4: a forced round keeps the
+    # writes and the finders, a question no write). OFFERED=all measures the
+    # whole toolbox instead, the before.
+    offered = plan.offered
+    if os.environ.get("OFFERED") != "all" and hasattr(agent, "_first_round_tools"):
+        offered = agent._first_round_tools(question, plan, plan.offered, forced)
+    body = {"model": MODEL, "messages": plan.messages, "tools": offered, "max_tokens": 400}
     if forced:
         body["tool_choice"] = "required"
     started = time.monotonic()
@@ -123,7 +129,7 @@ def main(argv):
             forced_n += forced
             row = {"q": question, "forced": forced, "tier": plan.tier.name}
             if URL and MODEL:
-                calls, text, secs = _first_round(plan, forced)
+                calls, text, secs = _first_round(question, plan, forced)
                 good = (calls and calls[0] in ok) or (not calls and None in ok)
                 right += bool(good)
                 two += len(calls) >= 2

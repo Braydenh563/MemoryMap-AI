@@ -927,7 +927,7 @@ function renderActiveLogView() {
 
 function setLogLive(state, detail) {
   const pill = $("log-live");
-  pill.textContent = detail;
+  setLabel(pill, detail);
   pill.dataset.state = state;
 }
 
@@ -980,7 +980,7 @@ async function startLogStream() {
       signal: controller.signal,
     });
     if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
-    setLogLive("live", "● live");
+    setLogLive("live", "ph:broadcast live");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffered = "";

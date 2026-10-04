@@ -2048,7 +2048,7 @@ function renderDuplicateGroups(groups) {
 
     const row = document.createElement("div");
     row.className = "row";
-    const merge = smallButton("⤵ Merge these", "Combine them into one note", async () => {
+    const merge = smallButton("ph:arrows-merge Merge these", "Combine them into one note", async () => {
       await mergeDuplicateGroup([...chosen], card);
     }, false);
     const useAi = document.createElement("label");

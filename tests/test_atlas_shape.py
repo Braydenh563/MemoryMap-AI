@@ -206,13 +206,41 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "neb", "neb-front"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
     assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
     assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
 
+
+
+def test_leg_roots_sit_in_boxes_like_every_other_svg_root():
+    # No shipped look draws legs (`legs: false`), so a look that does would
+    # have brought back the cost the other roots' boxes removed, unseen:
+    # `nameMarkBuddyLimbs` turns the legs by `rotate` and `scale`, which
+    # Chromium never composites for an `<svg>` root (companionlegs.js, legs
+    # switched on: a leap's 2s window 102ms and 59 recalcs, with the boxes
+    # 60ms and 36). The leg roots get `.atl-lw-leg-*` boxes about the same
+    # hip points as the root's own transform, and the limb gestures aim at
+    # the boxes, never at a root.
+    assert '"leg-l", "leg-r"' in ATLAS.split("const ATLAS_ROOT_BOXES", 1)[1].split("\n", 1)[0]
+    assert ".atl-lw-leg-l { transform-origin: 27.4px 60px; }" in CSS
+    assert ".atl-lw-leg-r { transform-origin: 34.6px 60px; }" in CSS
+    assert "#nm-buddy .atl-figure.nmb-leg-l { transform-origin: 27.4px 60px;" in CSS
+    assert "#nm-buddy .atl-figure.nmb-leg-r { transform-origin: 34.6px 60px;" in CSS
+    limbs = AVATARS[AVATARS.index("function nameMarkBuddyLimbs") :]
+    limbs = limbs[: limbs.index("\n}\n")]
+    assert 'part(".nmb-leg:not(.atl-layer), .atl-lw-leg-l, .atl-lw-leg-r", move.leg,' in limbs
+    assert 'el.matches(".nmb-leg-r, .atl-lw-leg-r")' in limbs
+    assert 'part(".nmb-leg"' not in limbs and 'part(".atl-layer' not in limbs
+    # The CSS loops that run on a leg root are `transform`, which an svg root
+    # does composite; a `rotate`, `scale` or `translate` loop belongs on a box.
+    names = re.findall(r"\.nmb-leg-[lr][^{}\n]*\{\s*animation:\s*([\w-]+)", CSS)
+    assert {"nmb-step", "nmb-kick", "nmb-dangle"} <= set(names)
+    for name in set(names):
+        body = _keyframes(name).split("{", 1)[1]
+        assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"transform"}, name
 
 
 def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():

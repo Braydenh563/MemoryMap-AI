@@ -5641,7 +5641,10 @@ function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
     }
   };
   part(".nmb-arm", move.arm, (el) => (el.classList.contains("nmb-arm-r") ? -1 : 1));
-  part(".nmb-leg", move.leg, (el) => (el.classList.contains("nmb-leg-r") ? -1 : 1));
+  //: Atlas's legs are two `<svg>` roots (`nmb-leg atl-layer`), on which
+  //: `rotate` and `scale` are never composited: its boxes (`.atl-lw-leg-*`,
+  //: atlas.js) take the gesture and the roots are left to the pose.
+  part(".nmb-leg:not(.atl-layer), .atl-lw-leg-l, .atl-lw-leg-r", move.leg, (el) => (el.matches(".nmb-leg-r, .atl-lw-leg-r") ? -1 : 1));
   part(".atl-lw-lower", move.lower, () => way);
   //: Atlas's arms are inside its body layer's drawing, where a moving part
   //: lays out and repaints the layer each frame (companionroutes.js: 80

@@ -30,7 +30,7 @@ const REDUCED = !!process.env.REDUCED;
 const APPEARANCE = !!process.env.APPEARANCE;
 
 const STRIPS = [
-  { name: 'tab bar', tab: 'notes', strip: '#tab-bar', options: ['#tab-btn-notes', '#tab-btn-chat', '#tab-btn-library', '#tab-btn-timeline'] },
+  // The top bar's tab glides by its own measured box now: tabglide.js.
   { name: 'notes sub-tabs', tab: 'notes', strip: '#notes-subtabs', options: ['#notes-subtabs > button:nth-child(1)', '#notes-subtabs > button:nth-child(2)'] },
   { name: 'notes view', tab: 'notes', strip: '.notes-view-toggle', options: ['.notes-view-toggle > button:nth-child(2)', '.notes-view-toggle > button:nth-child(1)'] },
   { name: 'library sub-tabs', tab: 'library', strip: '#library-subtabs', options: ['#library-subtabs > button:nth-child(2)', '#library-subtabs > button:nth-child(1)'] },

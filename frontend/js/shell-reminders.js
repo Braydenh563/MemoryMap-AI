@@ -24,38 +24,11 @@ function tickClocks() {
     if (d) d.textContent = date;
   }
 }
-// **Stopped while the tab is hidden, restarted when it comes back.**
-// This paints HH:MM, so 59 of every 60 runs wrote the string that was already
-// there, and it ran for as long as the app was open whether or not anyone
-// could see it: a background tab kept a one-second timer and a
-// `querySelectorAll` alive for hours (WORLD_CLASS_PLAN section 10, F6, whose
-// gate is "0 timers while hidden").
-//
-// Cleared rather than made to return early, because a timer that wakes the
-// process a thousand times an hour to decide it has nothing to do is the
-// thing being paid for. The repaint on return is what keeps it honest: a
-// clock that resumed on the next tick would show the time it stopped at for
-// up to a second, and "up to a second" on a clock is exactly what a person
-// notices.
-//: **A clock with no seconds on it needs one wake a minute, not sixty.**
-//: (INBOX 266, item 7.) Stopping these while the tab is hidden, which is
-//: what the comment above records, fixed the half that ran for nobody; this
-//: is the half that ran for somebody and still wrote the string that was
-//: already there 59 times out of 60. Measured with `scratchpad/ui-sweeps/
-//: idle.js`, which now counts timer *fires* rather than only live intervals:
-//: two 1s clocks were 120 of the 123 callbacks an idle visible minute ran.
-//:
-//: Aligned to the wall clock rather than set to a 60,000 ms interval, which
-//: is the whole reason this is a `setTimeout` chain: an interval started at
-//: 10:00:59.8 repaints at 10:01:59.8, so for the 58 seconds in between the
-//: clock is a minute behind, and a clock that is a minute behind is worse
-//: than one that costs 60 wakes. The 250 ms is margin for a timer that fires
-//: a hair early; landing at :00.25 rather than :59.99 is the difference
-//: between showing the new minute and showing the old one again.
-//:
-//: One helper rather than three, because the app has three of these (the
-//: header clocks here, the Dashboard's, and the status bar's opt-in one) and
-//: they were 1s, 1s and 30s: `startMinuteTicker` is what they all mean.
+//: **Clocks wake once a minute, aligned to the wall clock** (INBOX 266 (7);
+//: WORLD_CLASS_PLAN 10, F6): stopped while the tab is hidden and repainted on
+//: return; a `setTimeout` chain to :00.25 of the next minute rather than a
+//: 60s interval, which would run up to a minute behind. One helper for the
+//: three clocks (header, Dashboard, status bar). Measured, `idle.js`.
 const MINUTE_TICK_MARGIN_MS = 250;
 
 function startMinuteTicker(paint) {
@@ -282,24 +255,9 @@ function syncTabOverflowFade() {
   bar.classList.toggle("fade-end", hidden - bar.scrollLeft > 1);
 }
 
-// A tab you cannot fully see is a tab you cannot fully read. Selecting one
-// brings it into view, so the fade is only ever over a tab you are not using.
-//
-//: **`scrollIntoView` here is not the cost it looks like, and this note is so
-//: that nobody spends another hour on it.** A CDP sampling profile over seven
-//: tab switches puts 83.7ms of 88.9ms of `scrollIntoView` in this one call,
-//: which reads as the largest non-idle thing in the app. It is not: it is the
-//: layout the tab switch was going to force anyway, attributed to whichever
-//: call happens to flush it first. Two changes were tried and measured
-//: against a tab switch timed directly, ten rounds over seven tabs:
-//: skipping the call when the strip has nothing hidden, and deferring the
-//: whole thing to `requestAnimationFrame`. Median synchronous cost of a
-//: switch, before 13.8ms and 13.8ms, after 13.2ms and 14.8ms. Both were
-//: taken back out; with the guard gone the profile simply attributes the
-//: same 88ms to `scrollTo` instead.
-//:
-//: If this is worth attacking, the target is the tab switch's own DOM work,
-//: not the call that reveals the layout it caused.
+// Selecting a tab brings it into view, so the fade is only over a tab you
+// are not using. Its `scrollIntoView` shows in profiles as the tab switch's
+// own layout flushed here; guarding or deferring it measured no faster.
 function revealActiveTab() {
   const active = document.querySelector("#tab-bar button.active");
   if (active && active.scrollIntoView) {
@@ -324,6 +282,68 @@ if (window.ResizeObserver) {
   }
 }
 $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
+
+//: **The top bar's tab glides** (the owner, 2026-10-04; 08-consistency.css,
+//: "the top bar's tab glides on the compositor"). `.tab-glide` takes the
+//: active tab's place and size at once (custom properties), then a
+//: `transform` animation moves it from where it was last drawn, so a click
+//: mid-glide carries on. Seen by a class observer (click, keys, switchTab);
+//: a resize or the webfont re-places it without a move.
+function tabGlideInit() {
+  const bar = $("tab-bar");
+  if (!bar || bar.querySelector(":scope > .tab-glide")) return;
+  const box = document.createElement("span");
+  box.className = "tab-glide";
+  box.setAttribute("aria-hidden", "true");
+  bar.appendChild(box);
+  let at = null;
+  const place = (move) => {
+    const tab = bar.querySelector(":scope > button.active");
+    const docked = Boolean(bar.closest("#phone-tab-dock"));
+    if (!tab || docked || !tab.offsetWidth) {
+      if (bar.classList.contains("has-glide")) bar.classList.remove("has-glide");
+      at = null;
+      return;
+    }
+    const r = tab.getBoundingClientRect();
+    const o = bar.getBoundingClientRect();
+    const x = r.left - o.left - bar.clientLeft + bar.scrollLeft;
+    const next = { tab, x, y: r.top - o.top - bar.clientTop + bar.scrollTop, w: r.width, h: r.height };
+    if (at && at.x === next.x && at.y === next.y && at.w === next.w && at.h === next.h) return;
+    //: Where the box is drawn this frame, mid-glide included.
+    let from = null;
+    if (move && at && at.tab !== tab) {
+      const seen = box.getBoundingClientRect();
+      from = { x: seen.left - o.left - bar.clientLeft + bar.scrollLeft, w: seen.width };
+    }
+    for (const [key, value] of Object.entries({ x: next.x, y: next.y, w: next.w, h: next.h })) {
+      box.style.setProperty(`--tab-glide-${key}`, `${value}px`);
+    }
+    if (!bar.classList.contains("has-glide")) bar.classList.add("has-glide");
+    at = next;
+    const root = document.documentElement;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches || root.dataset.motion === "reduced";
+    if (!from || still || !box.animate) return;
+    for (const running of box.getAnimations()) running.cancel();
+    const tokens = getComputedStyle(root);
+    box.animate(
+      [{ transform: `translateX(${from.x - next.x}px) scaleX(${from.w / next.w})` }, { transform: "none" }],
+      {
+        duration: (parseFloat(tokens.getPropertyValue("--motion-slow")) || 0.2) * 1000,
+        easing: tokens.getPropertyValue("--ease-in-out").trim() || "ease-in-out",
+      }
+    );
+  };
+  new MutationObserver(() => place(true)).observe(bar, { attributes: true, attributeFilter: ["class"], subtree: true });
+  if (window.ResizeObserver) {
+    const sized = new ResizeObserver(() => place(false));
+    sized.observe(bar);
+    for (const tab of bar.querySelectorAll(":scope > button")) sized.observe(tab);
+  }
+  document.fonts?.ready?.then(() => place(false));
+  place(false);
+}
+tabGlideInit();
 
 // Same edge-fade, generalised for every other `.edge-fade` strip (Notes
 // sub-tabs, Library sub-tabs, the document sidebar's tabs): none of them
@@ -606,41 +626,12 @@ if (typeof ResizeObserver !== "undefined") {
 }
 syncTabOverflowFade();
 
-// safeMdSlice/notePreviewText stay here rather than moving to dashboard.js
-// with the widgets that use them (roadmap §88.3): notePreviewText is also
-// called from note-card previews, the writing room and whiteboard.js's node
-// labels, and safeMdSlice from the Library's own truncation: genuinely
-// shared, not dashboard-only, despite having sat in the same comment block.
-//
-// A note's text as it should read in a preview: the [[link]] syntax is
-// scaffolding, not content, so previews show the words without the brackets.
-// Full note bodies get real clickable chips instead (renderNoteText).
-//: A raw-character slice that won't leave a markdown marker dangling at the
-//: cut: reported directly (Notes-tab "Most used" list): a clip landing
-//: mid-`` `code` `` left a bare `` ` `` sitting in the rendered text, since
-//: `INLINE_MD` only matches a marker pair that's fully present and an
-//: unmatched one falls through as a literal character. Checked longest
-//: marker first (`**`/`~~` before `*`) so a bold pair isn't mistaken for two
-//: stray italics. Not a full CommonMark-safe truncator, good enough for a
-//: short label, which is the only place this is used.
-// A preview slice that never cuts through markdown syntax, and, since it is
-// the only thing standing between a note and a widget row, never returns
-// nothing.
-//
-// **It returned the empty string for a whole class of note.** Balancing an
-// unpaired marker was done with `cut.slice(0, cut.lastIndexOf(marker))`, and
-// when the marker was the FIRST character that index is 0, so the slice was
-// empty and the row rendered as a bare "…" with no text at all. One stray `*`
-// in the first hundred characters was enough, reported on the Most-used
-// widget, where long notes showed as nothing but an ellipsis.
-//
-// Two changes:
-//   - the balanced cut is only accepted if something survives it, and the
-//     fallback is a plain-text slice with the markers stripped, because a
-//     preview with visible asterisks still beats an empty row;
-//   - the cut prefers a sentence end inside the budget. Asked for: show the
-//     first sentence like the rest of the list does. A preview that stops on a
-//     full stop reads as a summary; one that stops mid-word reads as damage.
+// safeMdSlice/notePreviewText are shared (note previews, the writing room,
+// the board's labels, the Library), not dashboard-only (roadmap 88.3).
+// A preview slice that never cuts through a markdown marker (longest first,
+// `**` before `*`), prefers a sentence end inside the budget, and never
+// returns nothing: a marker as the first character once made the row a bare
+// "…"; the fallback is a plain slice with the markers stripped.
 function safeMdSlice(text, maxChars) {
   if (text.length <= maxChars) return { text, truncated: false };
 

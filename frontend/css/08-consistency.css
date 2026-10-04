@@ -10049,11 +10049,10 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
 
     /* Zero specificity: the strips that are already sticky or absolute
        (the sub-tabs, the top bar) keep that, and still contain the box. */
-    :where(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg), #settings-nav) {
+    :where(.seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg), #settings-nav) {
       position: relative;
     }
 
-    #tab-bar,
     .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg),
     #settings-nav {
       anchor-scope: --glide;
@@ -10064,13 +10063,12 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
 
     /* The fill and the corner each strip's chosen option was drawn with:
        the defaults at zero specificity, so each family below wins. */
-    :where(#tab-bar, .seg, #settings-nav) {
+    :where(.seg, #settings-nav) {
       --glide-fill: var(--accent-surface);
       --glide-ring: none;
       --glide-radius: var(--radius-choice);
     }
 
-    #tab-bar,
     .notes-subtabs,
     .library-subtabs {
       --glide-radius: var(--radius-md);
@@ -10089,18 +10087,16 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       --glide-radius: var(--radius-md);
     }
 
-    :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(#tab-bar, .seg) {
+    :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg {
       --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
       --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
     }
 
-    #tab-bar > .active,
     .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active,
     #settings-nav [data-section].active {
       anchor-name: --glide;
     }
 
-    #tab-bar::before,
     .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)::before,
     #settings-nav::before {
       content: "";
@@ -10122,17 +10118,11 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
         bottom var(--motion-slow) var(--ease-in-out), left var(--motion-slow) var(--ease-in-out);
     }
 
-    /* The phone's bottom tab dock marks its tab by colour alone (no fill
-       to move), and it hides three tabs, so there is nothing here to glide. */
-    #phone-tab-dock > #tab-bar::before {
-      content: none;
-    }
-
     /* The chosen option is the indicator's now; a fill of its own as well
        would draw it twice (and a hover on it a third time). `:not(#glide)`
        matches every element and lifts this to (2,2,1), above every rule
        that paints a chosen option: the flat looks' top tab is (1,3,1). */
-    :root :is(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)) > .active:not(#glide),
+    :root .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active:not(#glide),
     :root #settings-nav [data-section].active:not(#glide) {
       background: transparent;
       box-shadow: none;
@@ -10142,11 +10132,82 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
        before: white on the empty well for a frame or two read as a flash.
        The rest is `button`'s own list (01-forms-settings.css), restated
        because a `transition` replaces the whole list. */
-    :root :is(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)) > button,
+    :root .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > button,
     :root #settings-nav [data-section] {
       transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
         translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
     }
+  }
+}
+
+/* --- motion: the top bar's tab glides on the compositor (2026-10-04) ------
+   The owner: "a slight css sliding animation for the active tab on the
+   menubar tabs when moving between them, something that is cheap but looks
+   professional". The top bar was one of the anchored strips above, which an
+   engine without `anchor-scope` (the gate) draws with no glide at all, and
+   whose four insets lay the box out on every frame. The top bar is on every
+   screen and is the one strip worth a measured indicator: `.tab-glide`
+   (shell-reminders.js, `tabGlideInit`), one box in the strip placed on the
+   active tab by `translate` and its size, then moved from where it was by a
+   `transform` animation (translateX and scaleX, from the left edge), so a
+   frame of the glide lays out nothing and every engine glides. Same fill,
+   ring and corner as the strips above; the label's colour changes on the
+   same clock. Reduced motion (either switch) lands it at once; the phone's
+   bottom dock marks its tab by colour and has no box. */
+#tab-bar {
+  position: relative;
+  isolation: isolate;
+  --glide-fill: var(--accent-surface);
+  --glide-ring: none;
+  --glide-radius: var(--radius-md);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar {
+  --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
+  --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+#tab-bar > .tab-glide {
+  --tab-glide-x: 0px;
+  --tab-glide-y: 0px;
+  --tab-glide-w: 0px;
+  --tab-glide-h: 0px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: var(--tab-glide-w);
+  height: var(--tab-glide-h);
+  translate: var(--tab-glide-x) var(--tab-glide-y);
+  transform-origin: left center;
+  pointer-events: none;
+  border-radius: var(--glide-radius);
+  background: var(--glide-fill);
+  box-shadow: var(--glide-ring);
+}
+
+#tab-bar:not(.has-glide) > .tab-glide,
+#phone-tab-dock > #tab-bar > .tab-glide {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  #tab-bar > .tab-glide {
+    display: none;
+  }
+}
+
+@media (forced-colors: none) {
+  /* The phone's bottom dock marks its tab by colour alone, as before. */
+  :root #tab-bar.has-glide > .active:not(#glide),
+  :root #phone-tab-dock > #tab-bar > .active:not(#glide) {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :root #tab-bar.has-glide > button {
+    transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
+      translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
   }
 }
 

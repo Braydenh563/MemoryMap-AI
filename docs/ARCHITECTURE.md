@@ -184,6 +184,7 @@ MemoryMap-AI/
 │   │   ├── importer.py      # uploaded document -> markdown (markitdown)
 │   │   ├── mentions.py      # backlinks with their sentence, unlinked mentions (KG1)
 │   │   ├── paths.py         # the shortest chain between two notes
+│   │   ├── topics.py        # named subjects inside each cluster (KG6)
 │   │   └── staleness.py     # notes nobody has touched, nothing points at
 │   ├── ai/                  # everything that talks to a model
 │   │   ├── provider.py      # what every backend must answer (§6)

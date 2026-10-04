@@ -25,6 +25,7 @@ from memorymap.core import deps
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
+from memorymap.entry import topics as topic_finder
 from memorymap.search import search_manager
 
 router = APIRouter(tags=["graph"])
@@ -941,7 +942,10 @@ def _path_node(entry: Entry, category_names: dict[int | None, str]) -> dict:
 
 
 @router.get("/graph/structure")
-def graph_structure(session: Session = Depends(get_session)) -> dict:
+def graph_structure(
+    topics: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> dict:
     """The shape of the notebook: clusters, hubs and orphans (§9).
 
     One call, because all three come off the same index and the view wants them
@@ -952,7 +956,43 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     # GRAPH_PLAN Phase 5: computed once per version of the notebook. The
     # colour rule "cluster" asks for this on every render, and community
     # detection over a big notebook is the slowest thing the graph does.
-    return _cached("structure", _graph_fingerprint(session), lambda: _build_structure(session))
+    fingerprint = _graph_fingerprint(session)
+    structure = _cached("structure", fingerprint, lambda: _build_structure(session))
+    if not topics:
+        return structure
+    #: GRAPH_PLAN KG6: named topics inside the islands, asked for separately
+    #: so the colour rule "cluster" pays nothing for them.
+    return {**structure, **_cached("topics", fingerprint, lambda: _build_topics(session))}
+
+
+_TITLE_WORD = re.compile(r"[^\W\d_][\w'-]{3,}")
+
+
+def _build_topics(session: Session) -> dict:
+    """`entry/topics.build` over the same index as the clusters, with each
+    readable note's tags, entities and title words as the naming terms. A
+    private note is in a topic (its links are not secret) and lends no word."""
+    from memorymap.core.database import Entity, EntityMention
+    from memorymap.search.query import STOPWORDS
+
+    index = paths.build(session)
+    terms_of: dict[int, set[tuple[str, str]]] = {}
+    for entry in index.entries.values():
+        if entry.is_private:
+            continue
+        terms = {("tag", tag.lower()) for tag in _tags_of(entry)}
+        for word in _TITLE_WORD.findall(manager.plain_label(entry.content, 80).lower()):
+            if word not in STOPWORDS:
+                terms.add(("word", word))
+        terms_of[entry.id] = terms
+    for name, entry_id in session.execute(
+        select(Entity.name, EntityMention.entry_id).join(Entity, Entity.id == EntityMention.entity_id)
+    ):
+        if entry_id in terms_of and name and name.strip():
+            terms_of[entry_id].add(("entity", name.strip()))
+    found = topic_finder.build(index, terms_of)
+    topic_of = {str(node): topic["id"] for topic in found for node in topic["ids"]}
+    return {"topics": found, "topic_of": topic_of}
 
 
 def _build_structure(session: Session) -> dict:

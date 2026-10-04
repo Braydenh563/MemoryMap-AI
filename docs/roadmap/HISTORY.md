@@ -38711,3 +38711,23 @@ taking a tag-and-neighbour pair under the bar at the route;
 `kg2suggest.js` 7/7 (the accept recorded with `similarity`, `neighbours`,
 `tags`, `time`). Left in GRAPH_PLAN: the inbox sheet (tensions, entity
 merges, type suggestions in one place).
+
+### From GRAPH_PLAN.md: KG6, topics inside the islands, named and outlined
+
+`entry/topics.py`: weighted label propagation in id order over the paths
+index, each vote `1 / Step.weight` times one plus the neighbours the two ends
+share (a lone bridge sits in no triangle, so it cannot pull one subject into
+the next), a note keeping its label on a tie; topics of three or more notes;
+each named by the term (tag, entity, title word) with the highest share of
+its notes times inverse document frequency, tags before entities before
+words on a tie, "Topic N" when nothing distinguishes it. Components stay the
+clusters (the 2026-09 decision). `GET /graph/structure?topics=1` adds
+`topics` and `topic_of`, cached per fingerprint; a private note is in a topic
+and lends no word. The canvas: a Topic colour rule, a dashed padded convex
+hull per topic with its name in ink on a card plate edged in the topic's
+colour, lifted clear of the top note's label; legend entries list the terms
+and find the notes. Measured: `tests/test_topics_kg6.py` 7 tests (10,000
+notes in 170 ms); `scratchpad/ui-sweeps/kg6topics.js` 4/4 light and dark
+(two bridged subjects, two named topics, one colour each). Not verified: the
+plates against note labels on a dense map (the label pass does not know the
+plates), and the SVG renderer draws the topic colours without hulls.

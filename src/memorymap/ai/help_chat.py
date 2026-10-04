@@ -1119,6 +1119,7 @@ HELP_TOPICS.extend(
                 "neighbour links", "tags as nodes", "unwritten link", "unresolved link",
                 "ghost node", "attachments on the graph", "arrows", "text fade",
                 "link thickness", "link force", "label background",
+                "topic", "topics", "subjects", "outline", "colour by topic",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1133,7 +1134,10 @@ HELP_TOPICS.extend(
                 "map) and Link thickness. Physics adds Link force, Length by "
                 "similarity and Group by category. In focus mode a Focus section sets "
                 "Depth (1 to 5 links) and Incoming, Outgoing and Neighbour links; "
-                "the Local map beside a note has the same four under Options."
+                "the Local map beside a note has the same four under Options. "
+                "Colour: Topic outlines each subject inside a cluster, names it by "
+                "the tag, person or word its notes share most, and its legend entry "
+                "finds those notes."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },

@@ -1439,7 +1439,7 @@ let graphStructure = null;
 //: GRAPH_PLAN Phase 3. The rule the colours follow; anything the select
 //: does not offer collapses to category, so a stale saved view cannot ask
 //: for a rule that no longer exists.
-const GRAPH_COLOUR_RULES = ["category", "cluster", "kind", "age", "space", "tag", "file"];
+const GRAPH_COLOUR_RULES = ["category", "cluster", "topic", "kind", "age", "space", "tag", "file"];
 
 //: INBOX 430, View > Size: what a node's size says. Connections (the default)
 //: is `4 + 2*sqrt(degree)`, GRAPH_PLAN §5 Phase 1; length is the note's words,
@@ -1795,8 +1795,8 @@ async function renderGraphSvg() {
   // traversal of the whole notebook, and an ordinary look at the map should
   // not pay for an answer nobody asked for.
   graphStructure =
-    colourMode === "cluster"
-      ? await apiJson("/graph/structure").catch(() => null)
+    colourMode === "cluster" || colourMode === "topic"
+      ? await apiJson(`/graph/structure${colourMode === "topic" ? "?topics=1" : ""}`).catch(() => null)
       : null;
   // What a node's colour means. Category headings in a tree layout keep their
   // category colour in both modes: they are filing by definition, and a
@@ -1805,7 +1805,7 @@ async function renderGraphSvg() {
     if (colourMode === "category" || !graphStructure || d.isGroup) {
       return color(d.category);
     }
-    const cluster = graphStructure.cluster_of[String(d.id)];
+    const cluster = (colourMode === "topic" ? graphStructure.topic_of || {} : graphStructure.cluster_of)[String(d.id)];
     // Connected to nothing: deliberately not a colour of its own. An orphan is
     // the absence of structure, and giving it a bright twelfth hue would make
     // the thing that is missing look like another kind of group.

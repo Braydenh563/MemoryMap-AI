@@ -936,6 +936,62 @@ function gcDrawNebulae(ctx, s, inView) {
   ctx.globalCompositeOperation = previous;
 }
 
+//: GRAPH_PLAN KG6: under the Topic colour rule, each topic of three or more
+//: drawn notes gets its outline (a convex hull padded past its dots) and its
+//: name on a plate above it, in the topic's colour. Full tab only.
+function gcDrawTopicHulls(ctx, s, k) {
+  if (s.size !== "full" || graphColourMode() !== "topic" || !graphStructure?.topics) return;
+  const byTopic = new Map();
+  const topicOf = graphStructure.topic_of || {};
+  for (const node of s.nodes) {
+    const topic = topicOf[String(node.id)];
+    if (topic === undefined || !Number.isFinite(node.x) || !gcVisibleAtTime(node, s)) continue;
+    if (!byTopic.has(topic)) byTopic.set(topic, []);
+    const pad = (node.r || 6) + 10;
+    for (let i = 0; i < 8; i++) byTopic.get(topic).push([node.x + pad * Math.cos(i * Math.PI / 4), node.y + pad * Math.sin(i * Math.PI / 4)]);
+  }
+  const names = new Map(graphStructure.topics.map((t) => [t.id, t.name]));
+  ctx.save();
+  ctx.lineJoin = "round";
+  for (const [topic, points] of byTopic) {
+    if (points.length < 24) continue;
+    const hull = d3.polygonHull(points);
+    if (!hull) continue;
+    const colour = s.topicColour ? s.topicColour(String(topic)) : gcTokens.muted;
+    ctx.beginPath();
+    hull.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = colour;
+    ctx.fill();
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 1.5 / k;
+    ctx.setLineDash([6 / k, 4 / k]);
+    ctx.stroke();
+    const top = hull.reduce((a, b) => (b[1] < a[1] ? b : a));
+    const text = names.get(topic) || "";
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.font = `600 ${12 / k}px ${gcTokens.font}`;
+    const w = ctx.measureText(text).width;
+    const x = Math.min(Math.max(top[0], hull.reduce((a, b) => Math.min(a, b[0]), Infinity) + w / 2), hull.reduce((a, b) => Math.max(a, b[0]), -Infinity) - w / 2);
+    ctx.fillStyle = gcTokens.card;
+    ctx.globalAlpha = 0.88;
+    ctx.fillRect(x - w / 2 - 5 / k, top[1] - 27 / k, w + 10 / k, 17 / k);
+    //: The name in ink (a light topic colour is under 3:1 on the plate); the
+    //: plate's edge carries the colour.
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1.5 / k;
+    ctx.strokeRect(x - w / 2 - 5 / k, top[1] - 27 / k, w + 10 / k, 17 / k);
+    ctx.fillStyle = gcTokens.ink;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, top[1] - 18.5 / k);
+  }
+  ctx.restore();
+}
+
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
 const GC_HOVER_HALO_GROW = 1.5;  // and the halo keeps clear by the same half
 const GC_HOVER_MS = 190;
@@ -1215,6 +1271,7 @@ function gcDraw(s = gcTab) {
   })();
 
   gcDrawNebulae(ctx, s, inView);
+  gcDrawTopicHulls(ctx, s, k);
   //: Read from the switch itself, like the labels above, so what the menu
   //: shows and what is drawn cannot disagree (the owner: "it is showing
   //: curved links even when it is visibly off??"); the stored value only
@@ -3390,23 +3447,25 @@ async function renderGraphCanvas(s = gcTab) {
   const colour = graphCategoryScale(data.categories);
   const clusterColour = d3.scaleOrdinal(graphCalmScheme());
   const colourMode = graphColourMode();
-  graphStructure =
-    colourMode === "cluster" ? await apiJson("/graph/structure").catch(() => null) : null;
+  graphStructure = colourMode === "cluster" || colourMode === "topic"
+    ? await apiJson(`/graph/structure${colourMode === "topic" ? "?topics=1" : ""}`).catch(() => null)
+    : null;
   if (sequence !== s.renderSeq) return;
   // GRAPH_PLAN Phase 3: the colour follows a rule, and a group (a saved
   // search) paints over the rule for the notes it matches.
   const groups = await graphResolveGroups();
   if (sequence !== s.renderSeq) return;
   const ruleColour = gcRuleScale(colourMode, data);
+  s.topicColour = clusterColour;
   s.colourOf = (node) => {
     if (node.type === "unresolved") return gcTokens.muted;
     const groupIndex = graphGroupOf.get(node.id);
     if (groupIndex !== undefined && !node.isGroup) return graphGroupColour(groupIndex);
     if (node.isGroup) return colour(node.category);
     if (colourMode === "category") return colour(node.category);
-    if (colourMode === "cluster") {
+    if (colourMode === "cluster" || colourMode === "topic") {
       if (!graphStructure) return colour(node.category);
-      const cluster = graphStructure.cluster_of[String(node.id)];
+      const cluster = (colourMode === "topic" ? graphStructure.topic_of || {} : graphStructure.cluster_of)[String(node.id)];
       return cluster === undefined ? gcTokens.muted : clusterColour(String(cluster));
     }
     return ruleColour(gcRuleKey(colourMode, node));
@@ -3415,7 +3474,7 @@ async function renderGraphCanvas(s = gcTab) {
   gcLegendEdgeKey(data);
   gcSelectionChanged(s);
 
-  const ruleHides = colourMode !== "category" && colourMode !== "cluster";
+  const ruleHides = !["category", "cluster", "topic"].includes(colourMode);
   let visibleNodes = data.nodes.filter(
     (n) =>
       !graphHiddenCategories.has(n.category) &&
@@ -3686,7 +3745,7 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
     });
     legend.appendChild(item);
   });
-  if (ruleColour && colourMode !== "category" && colourMode !== "cluster") {
+  if (ruleColour && !["category", "cluster", "topic"].includes(colourMode)) {
     for (const key of gcRuleDomain(colourMode, data)) {
       const token = `${colourMode}:${key}`;
       const off = graphHiddenKeys.has(token);
@@ -3724,6 +3783,22 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
     legend.appendChild(item);
     return item;
   };
+  //: GRAPH_PLAN KG6: a topic is named by what its notes share more than the
+  //: notebook does; its entry says those terms and finds its notes.
+  if (colourMode === "topic" && graphStructure?.topics) {
+    for (const topic of graphStructure.topics) {
+      entry(
+        `${topic.size} notes` + (topic.terms.length ? `: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : ""),
+        clusterColour(String(topic.id)),
+        `${topic.name} (${topic.size})`,
+        () => {
+          graphHighlightIds = new Set(topic.ids);
+          applyGraphHighlight();
+        }
+      );
+    }
+    return;
+  }
   if (colourMode === "cluster" && graphStructure) {
     graphStructure.clusters.forEach((cluster, position) => {
       entry(

@@ -641,7 +641,9 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    2026-10-04 (HISTORY.md, same section as KG1); open: the one inbox sheet
    for link suggestions, tensions, entity merges and type suggestions.
 4. KG5, entity kinds, aliases, merge, entity page.
-5. KG6, topics, names, hulls, summaries.
+5. KG6, topics, names, hulls, summaries. Topics, names and hulls built
+   2026-10-04 (HISTORY.md, same section as KG1); open: the local-model
+   summary per topic on demand, and the label pass knowing the plates.
 6. KG3, relation types with inverses and properties.
 7. KG4, properties and note types.
 8. KG7, live queries (needs KG4).

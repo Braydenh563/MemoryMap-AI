@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Library sub-tab bar hides while a whiteboard or mind map is open, at every width, as it never showed on the documents editor; the board's own Boards button brings the list and the bar back (INBOX 476)
 - The popup agent's head has room above its input: the head keeps the Find anything head's bottom padding and no longer shrinks under the starters, so the avatar stands 21px above the field instead of 5px (INBOX 475)
 - A note's connections row has a Show less after +N more links (it opened and could not close again), and a connection chip reads plain words: a link shows its text, no brackets, no URL, no ** or _ (INBOX 474)
 - Notes list: a long note's clamped preview shows 4 lines by default (3 compact, 5 spacious), up from 2 on desktop and 1 on a phone, through one `--note-preview-lines` token; blank lines still collapse while clamped (INBOX 473)

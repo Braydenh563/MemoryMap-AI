@@ -39,3 +39,14 @@ def test_no_ai_is_a_calm_off_state_not_a_warning():
     rule = rule[: rule.index("}")]
     assert "var(--chip-bg)" in rule and "var(--muted)" in rule
     assert '.ai-status[data-level="off"] .ai-status-dot {' in shell
+
+
+def test_the_start_tiles_draw_the_quick_access_tile_recipe():
+    """The empty dashboard's start tiles drew their description at 600 and
+    their label at 900 (a `strong` inside a 600 button), against 400 and
+    600 on the Quick access tiles one row above."""
+    css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    label = css[css.index(".start-step strong {") :].split("}")[0]
+    note = css[css.index(".start-step .muted {") :].split("}")[0]
+    assert "font-weight: 600;" in label
+    assert "font-weight: 400;" in note and "var(--text-sm)" in note

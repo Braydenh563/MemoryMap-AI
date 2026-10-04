@@ -4058,13 +4058,18 @@ button.is-on {
   line-height: 1.2;
 }
 
+/* The Quick access tile's two lines, exactly (INBOX 472): the button's 600
+   made the description 600 and `strong` inside it 900, so the empty
+   dashboard drew one tile recipe two ways, a row apart. */
 .start-step strong {
   display: block;
   font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .start-step .muted {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
+  font-weight: 400;
   line-height: 1.3;
 }
 

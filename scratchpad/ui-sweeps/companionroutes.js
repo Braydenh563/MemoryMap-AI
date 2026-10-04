@@ -74,7 +74,7 @@ const pct = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
         for (const a of buddy.getAnimations({ subtree: true })) {
           for (const k of a.effect?.getKeyframes?.() || []) for (const p of Object.keys(k)) if (!['offset', 'easing', 'composite', 'computedOffset'].includes(p)) props.add(p);
           const t = a.effect?.target;
-          if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-layer-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-layer-lower)$/.test(c)));
+          if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-lw-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-lw-lower)$/.test(c)));
         }
         if (cut && now - t0 > cut) {
           cut = 0;
@@ -166,7 +166,7 @@ const pct = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
           for (const a of buddy.getAnimations({ subtree: true })) {
             for (const k of a.effect?.getKeyframes?.() || []) for (const p of Object.keys(k)) if (!['offset', 'easing', 'composite', 'computedOffset'].includes(p)) props.add(p);
             const t = a.effect?.target;
-            if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-layer-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-layer-lower)$/.test(c)));
+            if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-lw-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-lw-lower)$/.test(c)));
           }
           if (now - t0 < 1800) requestAnimationFrame(tick); else res();
         };
@@ -201,7 +201,7 @@ const pct = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
           for (const a of buddy.getAnimations({ subtree: true })) {
             for (const k of a.effect?.getKeyframes?.() || []) for (const p of Object.keys(k)) if (!['offset', 'easing', 'composite', 'computedOffset'].includes(p)) props.add(p);
             const t = a.effect?.target;
-            if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-layer-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-layer-lower)$/.test(c)));
+            if (t && t.matches?.('.nmb-arm, .nmb-leg, .nmb-hold, .atl-lw-lower') && a.playState === 'running') limbs.add([...t.classList].find((c) => /^(nmb-(arm|leg|hold)-[lr]|atl-lw-lower)$/.test(c)));
           }
           if (now - t0 < 6500) requestAnimationFrame(tick); else res();
         };

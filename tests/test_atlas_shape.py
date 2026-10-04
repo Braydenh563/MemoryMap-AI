@@ -197,8 +197,17 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     for name in ("atl-hair-flow", "atl-tail-flow", "atl-neb-flow"):
         body = _keyframes(name).split("{", 1)[1]
         assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate", "translate"}, name
-    assert "atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow" in CSS
-    assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow" in CSS
+    # The second loops run on `.atl-lw` boxes, never on the `<svg>` roots:
+    # Chromium does not composite `rotate` or `translate` for an svg root, so
+    # each restyled the page every frame (companioncost.js, 108ms -> 7ms of
+    # recalc per 2.6s idle).
+    assert "& .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s" in CSS
+    assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
+    assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
+    assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "neb", "neb-front"]' in ATLAS
+    for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
+        assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
     assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
     assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
@@ -360,7 +369,7 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
     assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }' in CSS
-    assert "&.atl-layer-body[data-atlas-look=\"masculine\"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway" in CSS
+    assert '.atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway' in CSS
     body = _keyframes("atl-idle-sway").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}
 
@@ -631,7 +640,7 @@ def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
     assert "&.nmb-act-wave .atl-figure .nmb-arm-r { animation: atl-buddy-wave 1.5s" in CSS
     assert '&.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { animation: atl-buddy-wave-f 1.5s' in CSS
     assert "animation-name: atl-buddy-wave" not in CSS
-    assert '&.atl-layer-body[data-atlas-look="feminine"] { animation: atl-breathe' in CSS
+    assert '.atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft' in CSS
 
 
 def test_a_poke_holds_long_enough_to_read_and_eases_back():

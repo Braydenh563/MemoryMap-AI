@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Atlas companion's skirt gestures in a float or glide (the `rotate` limb loops on its `<svg>` root, never on the compositor) run on the same kind of box, so a float costs about half the style recalcs and a third fewer layouts (122ms to 69ms of recalc in the 2.6s window, 62 to 39 recalcs, 35 to 24 layouts).
+- The Atlas companion no longer restyles the page every frame at rest: the body's sway, the tail's and the nebula's flow ran as `rotate` and `translate` loops on `<svg>` roots, which Chromium never puts on the compositor, so each cost a style recalc per frame (108ms of every 2.6s idle, now 7ms). They run on a plain box around each root, and the figure looks the same, frame for frame.
 - Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
 - Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
 - Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.

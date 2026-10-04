@@ -1689,7 +1689,7 @@ def _prepare_turn(
         ]
     if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
         focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
-    offered = tools.ollama_tools(focus_names, session=session)
+    offered = tools.with_relation_types(tools.ollama_tools(focus_names), session)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
     # its own fresh rounds, so nesting them means the bound on a turn stops
@@ -1748,9 +1748,9 @@ def _prepare_turn(
         # is a judgement about the model rather than a guess about the
         # question, so a miss is evidence the focus was wrong, not evidence
         # that a 3B can suddenly choose between twenty-two schemas.
-        every_tool = tools.ollama_tools(
-            _focus(question, history) if tier.narrow_toolbox else None,
-            session=session,
+        every_tool = tools.with_relation_types(
+            tools.ollama_tools(_focus(question, history) if tier.narrow_toolbox else None),
+            session,
         )
         if barred:
             every_tool = [

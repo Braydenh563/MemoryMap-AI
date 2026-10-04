@@ -4047,10 +4047,10 @@ def ollama_tools(allowed: list[str] | None = None, session: Session | None = Non
         for spec in TOOLS.values()
         if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
-    return _with_relation_types(offered, session) if session is not None else offered
+    return with_relation_types(offered, session) if session is not None else offered
 
 
-def _with_relation_types(offered: list[dict], session: Session) -> list[dict]:
+def with_relation_types(offered: list[dict], session: Session) -> list[dict]:
     """`link_notes` described with this notebook's own kinds of link (KG3):
     a copy of that one schema, so the registry stays what it was."""
     for index, spec in enumerate(offered):
@@ -4058,7 +4058,13 @@ def _with_relation_types(offered: list[dict], session: Session) -> list[dict]:
         props = (function.get("parameters") or {}).get("properties") or {}
         if function.get("name") != "link_notes" or "link_type" not in props:
             continue
-        text = link_type_description(manager.relation_types(session))
+        try:
+            kinds = manager.relation_types(session)
+        except Exception:  # noqa: BLE001
+            # A session that cannot list kinds (a test double, a closed
+            # session) keeps the registry's own description: the built-ins.
+            continue
+        text = link_type_description(kinds)
         parameters = {
             **function["parameters"],
             "properties": {**props, "link_type": {**props["link_type"], "description": text}},

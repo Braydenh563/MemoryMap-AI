@@ -1459,7 +1459,7 @@ async function loadMostUsed() {
     // note beginning "# Groceries" rendered the literal "# Groceries", the
     // same gap the dashboard's mini-lists had, here too since this list uses
     // the same two-function combination.
-    const flat = entry.content.replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "");
+    const flat = stripFrontmatter(entry.content).replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "");
     const { text: sliced, truncated } = safeMdSlice(flat, 25);
     renderInlineMarkdown(text, sliced, [], true);
     if (truncated) text.appendChild(document.createTextNode("…"));

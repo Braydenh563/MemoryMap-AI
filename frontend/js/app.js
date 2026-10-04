@@ -2438,7 +2438,7 @@ const LAZY_ENTRY_POINTS = {
   attachments: ["attachmentAction"],
   ocrEngine: ["ocrEngineMount"],
   quickAccess: ["quickAccessEdit"],
-  inbox: ["openSuggestionsInbox", "openEntityPage", "openEntitiesSheet", "openLinkTypeSheet", "openRelationTypesSheet", "openNotePropertiesSheet", "openNoteTypesSheet"],
+  inbox: ["openSuggestionsInbox", "openEntityPage", "openEntitiesSheet", "openLinkTypeSheet", "openRelationTypesSheet", "openNotePropertiesSheet", "openNoteTypesSheet", "openQueryTable", "showQueryOnGraph"],
   assistantAvatar: ["assistantEmblemInto"],
   quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
   graph: [

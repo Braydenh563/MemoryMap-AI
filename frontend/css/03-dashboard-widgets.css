@@ -342,6 +342,50 @@
   margin: 0;
 }
 
+/* GRAPH_PLAN KG7: a structural query's bar over the notes list. */
+.note-query-bar {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.note-query-bar > .muted {
+  margin-inline-end: auto;
+}
+
+@media (max-width: 599.98px) {
+  .note-query-bar > .muted {
+    flex-basis: 100%;
+  }
+}
+
+/* The query's table: the note, then its properties, one scroller. */
+.query-table-wrap {
+  overflow: auto;
+}
+
+.query-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.query-table th,
+.query-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.query-table th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* The kind's name from the other end, quiet, giving way before the name. */
 .relation-type-hint {
   flex: 0 1 auto;

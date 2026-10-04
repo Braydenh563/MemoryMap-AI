@@ -647,7 +647,8 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    moved to HISTORY.md (the same section as KG1).
 7. KG4, properties and note types: built 2026-10-04, moved to HISTORY.md
    (the same section as KG1).
-8. KG7, live queries (needs KG4).
+8. KG7, live queries: built 2026-10-04, moved to HISTORY.md (the same
+   section as KG1).
 9. KG8, graph filters and path explanations. Path explanations built
    2026-10-04 (HISTORY.md, same section as KG1); open: filter chips by
    relation type and property (after KG3 and KG4).

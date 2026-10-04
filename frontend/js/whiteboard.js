@@ -3855,7 +3855,7 @@ function wbItemSpokenName(kind, item) {
   }
   if (kind === "node") {
     const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
-    const title = entry ? String(entry.content || "").replace(/^#+\s*/, "").trim().split("\n")[0].slice(0, 60) : "";
+    const title = entry ? stripFrontmatter(entry.content).replace(/^#+\s*/, "").trim().split("\n")[0].slice(0, 60) : "";
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";

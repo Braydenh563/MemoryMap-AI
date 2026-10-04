@@ -199,7 +199,10 @@ def _preview(text: str, length: int = 40) -> str:
     to clip before the body and read correctly. A line that strips to
     nothing (a picture, a bare rule) is passed over for the next one.
     """
-    for line in text.splitlines():
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note's properties block is never its label.
+    for line in strip_properties(text).splitlines():
         words = _preview_line(line)
         if words:
             return words if len(words) <= length else words[: length - 1] + "…"

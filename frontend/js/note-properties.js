@@ -232,3 +232,73 @@ function noteTypeFieldsParse(text) {
     return name ? { name, kind: NOTE_FIELD_KINDS.includes((kind || "").toLowerCase()) ? kind.toLowerCase() : "text" } : null;
   }).filter(Boolean);
 }
+
+// --- KG7: a live query's notes as a table, and on the graph -----------------
+
+/** The notes a query matched (the list's ids, so the same notes), with the
+ *  properties they carry as columns, `type` first, most common next. */
+function openQueryTable(ids) {
+  const byId = new Map((typeof allEntries !== "undefined" ? allEntries : []).map((e) => [e.id, e]));
+  const rows = ids.map((id) => byId.get(id)).filter(Boolean);
+  const counts = new Map();
+  for (const e of rows) for (const key of Object.keys(e.properties || {})) counts.set(key, (counts.get(key) || 0) + 1);
+  const columns = [...counts.keys()].sort((a, b) => (a === "type" ? -1 : b === "type" ? 1 : counts.get(b) - counts.get(a) || a.localeCompare(b))).slice(0, 8);
+  openSheet({
+    label: "Query table",
+    sub: `${rows.length} note${rows.length === 1 ? "" : "s"} · ${noteSearch}`,
+    name: "query-table",
+    build: (card, close) => {
+      card.classList.add("inbox-card");
+      const wrap = document.createElement("div");
+      wrap.className = "inbox-body query-table-wrap";
+      const table = document.createElement("table");
+      table.className = "query-table";
+      const head = document.createElement("tr");
+      for (const label of ["Note", ...columns]) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = label;
+        head.appendChild(th);
+      }
+      const thead = document.createElement("thead");
+      thead.appendChild(head);
+      const tbody = document.createElement("tbody");
+      for (const e of rows) {
+        const tr = document.createElement("tr");
+        const name = document.createElement("td");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "linklike";
+        open.textContent = noteSortName(e).split("\n")[0].slice(0, 80) || "Untitled note";
+        open.addEventListener("click", () => {
+          close();
+          flashEntry(e.id);
+        });
+        name.appendChild(open);
+        tr.appendChild(name);
+        for (const key of columns) {
+          const td = document.createElement("td");
+          td.textContent = ((e.properties || {})[key] || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.append(thead, tbody);
+      wrap.appendChild(table);
+      card.appendChild(wrap);
+    },
+  });
+}
+
+/** The same notes, lit on the graph (the topic legend's highlight). */
+async function showQueryOnGraph(ids) {
+  await switchTab("graph");
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline && !(typeof graphNodesRef !== "undefined" && graphNodesRef?.length)) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (typeof applyGraphHighlight !== "function") return;
+  graphHighlightIds = new Set(ids);
+  applyGraphHighlight();
+  toast(`${ids.length} note${ids.length === 1 ? "" : "s"} lit. Clear highlight puts the map back.`);
+}

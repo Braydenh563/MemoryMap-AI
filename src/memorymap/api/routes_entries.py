@@ -1333,6 +1333,42 @@ MAX_SUGGESTIONS_PER_NOTE = 2
 SEMANTIC_LIST_LIMIT = 25
 
 
+#: KG7: the table view's columns, and its rows, at most.
+QUERY_COLUMNS_MAX = 8
+QUERY_ROWS_MAX = 500
+
+
+@router.get("/query")
+def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
+    """The notes a live query matches (GRAPH_PLAN KG7, `entry/query.py`),
+    newest first, with the table view's columns (the properties they carry,
+    most common first, `type` leading) and rows. The Notes list, the table
+    and the graph all take these ids, so one query is one answer."""
+    from memorymap.entry import query as live_query
+
+    terms = live_query.parse(q)
+    if not terms:
+        return {"ids": [], "columns": [], "rows": [], "structural": False}
+    ids = live_query.run(session, q)
+    rows = []
+    counts: dict[str, int] = {}
+    shown = ids[:QUERY_ROWS_MAX]
+    entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(shown)))} if shown else {}
+    for entry_id in shown:
+        entry = entries[entry_id]
+        content = manager.readable_content(entry)
+        found = {} if entry.is_private else note_properties.split(content)[0]
+        for key in found:
+            counts[key] = counts.get(key, 0) + 1
+        rows.append({
+            "id": entry_id,
+            "title": manager.extract_title(content) or manager.plain_label(content, 60) or "Untitled note",
+            "properties": found,
+        })
+    columns = sorted(counts, key=lambda k: (k != "type", -counts[k], k))[:QUERY_COLUMNS_MAX]
+    return {"ids": ids, "columns": columns, "rows": rows, "structural": live_query.is_structural(terms)}
+
+
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet: 

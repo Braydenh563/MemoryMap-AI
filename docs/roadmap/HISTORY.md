@@ -38896,3 +38896,26 @@ with status and owner as properties; a Meeting note starts with its fields);
 verified: the document editor's own frontmatter panel is unchanged and does
 not read note types; a note field is a `[[link]]` written into the block,
 resolved by the wiki sync, not a picker that searches.
+
+### From GRAPH_PLAN.md: KG7, live queries
+
+`entry/query.py`: `parse` (type, prop with `= != > >= < <=` or bare for
+any value, links, rel, entity, tag, words and phrases, `-` before any; other
+app operators are the browser's) and `run` (every term ANDed over live,
+non-draft, non-board notes; prop reads `EntryProperty`, numbers and ISO dates
+compared as such; links resolves the name with `find_by_wiki_name`, either
+direction; rel matches a kind's key, name or inverse; entity a name or an
+alias; words never match a private note). `GET /entries/query` returns
+`ids` newest first, the table's `columns` (type first, then most common, 8)
+and `rows`. In the page `parseNoteQuery` lifts the structural terms out
+(`LIVE_QUERY_RE`), `matchesSearch` keeps a note only when the server's ids
+for them hold it (`liveQueryIds`, asked once per query and re-rendered on
+the answer), the browser's own operators apply as before, and
+`liveQueryBar` over the list offers Table (`openQueryTable`, the same ids
+with the properties as columns) and Show on graph (`showQueryOnGraph`, the
+same ids lit). A saved filter saves the query. Measured:
+`tests/test_live_queries_kg7.py` 6 tests; `scratchpad/ui-sweeps/kg7query.js`
+7/7 at 1440 light and 390 dark (list, server, table and graph: the same two
+ids). Found and fixed on the way: the sidebar's Most used, a note's Ask Atlas
+name, the graph popup's name and a board's note card read a note's first
+line raw, so a note opening with properties was named "---" there.

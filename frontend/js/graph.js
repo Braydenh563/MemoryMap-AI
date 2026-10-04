@@ -3370,7 +3370,7 @@ function renderGraphPopupHeader(entry, node) {
   const firstLine =
     typeof notePreviewText === "function"
       ? notePreviewText(entry.content || "").split("\n")[0]
-      : (entry.content || "").split("\n")[0];
+      : stripFrontmatter(entry.content).split("\n")[0];
   titleEl.textContent =
     entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
   //: The title is ellipsised to one line now, so the whole of it has to be

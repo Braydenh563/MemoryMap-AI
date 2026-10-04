@@ -113,8 +113,28 @@ def test_the_frontend_asks_for_what_the_switches_say():
 def test_arrows_text_fade_thickness_and_link_force_reach_the_drawing():
     root = Path(__file__).resolve().parents[1] / "frontend" / "js"
     canvas = (root / "graph-canvas.js").read_text(encoding="utf-8")
-    assert 'if (arrows && edge.kind === "link") gcArrowHead(' in canvas
-    assert "ctx.lineWidth = (style.width * widthScale) / k;" in canvas
+    assert 'else if (arrows && edge.kind === "link") {' in canvas and "gcLinkSpark(bucket, a, bow, b, k, sparkRich);" in canvas
+    assert "ctx.lineWidth = (style.width * widthScale * (bucket.wide ? 0.8 : 1)) / k;" in canvas
     assert "k > labelZoom" in canvas and "linkForce: Number(" in canvas
     worker = (root / "graph-worker.js").read_text(encoding="utf-8")
     assert "* linkScale;" in worker and ".strength(linkStrength);" in worker
+
+
+def test_arrows_are_off_by_default_and_drawn_as_sparks():
+    """The owner: "I want graph arrows off by default on the graph, can you
+    also make the graph arrows impressive and styled in a way unique to the
+    app??". Off unless stored "1"; a comet-tailed spark 70% along the link on
+    a two-step glow, the line wider on its source half, batched per bucket; a
+    drifting spark on the pointed-at note's links only when motion is allowed."""
+    root = Path(__file__).resolve().parents[1] / "frontend"
+    html = (root / "index.html").read_text(encoding="utf-8")
+    assert '<input type="checkbox" id="graph-arrows">' in html
+    canvas = (root / "js" / "graph-canvas.js").read_text(encoding="utf-8")
+    assert 'localStorage.getItem("graph-arrows") === "1"' in canvas
+    graph = (root / "js" / "graph.js").read_text(encoding="utf-8")
+    assert '"graph-arrows": false,' in graph and 'GRAPH_STORED_OFF = ["graph-arrows"]' in graph
+    spark = canvas[canvas.index("function gcLinkSpark") : canvas.index("function gcFillSparks")]
+    assert "gcQuadAt(a, c, b, 0.7)" in spark and "bucket.wide.quadraticCurveTo" in spark
+    assert "bucket.glows.arc(" in spark and "bucket.sparks.quadraticCurveTo(" in spark
+    drifting = canvas[canvas.index("const drifting =") :][:400]
+    assert "prefers-reduced-motion: reduce" in drifting and 'dataset.motion !== "reduced"' in drifting

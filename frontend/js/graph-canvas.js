@@ -1244,6 +1244,19 @@ function gcDraw(s = gcTab) {
           : null;
   s.simScoreLabels = [];
   const arrows = !s.tree && gcArrows(s);
+  //: A spark drifts along the pointed-at note's arrowed links, unless motion
+  //: is reduced (the system's setting or the app's own).
+  const drifting =
+    arrows &&
+    s.hoveredId != null &&
+    !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches &&
+    document.documentElement.dataset.motion !== "reduced";
+  const drift = [];
+  //: The glow and core only while few sparks are in view (the last frame's
+  //: count): a dense view gets the spark and the taper, inside the +0.5 ms
+  //: budget on the 417-note map (graphspark.js).
+  const sparkRich = (s.sparksDrawn || 0) <= 300;
+  let sparks = 0;
   const widthScale = gcLinkWidth();
   const simLo = s.simRange ? s.simRange[0] : GC_SIM_FLOOR;
   const simHi = s.simRange ? s.simRange[1] : 1;
@@ -1300,15 +1313,18 @@ function gcDraw(s = gcTab) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
+    } else if (arrows && edge.kind === "link") {
+      const bow = curvedLinks ? gcBowPoint(a, b) : null;
+      gcLinkSpark(bucket, a, bow, b, k, sparkRich);
+      sparks += 1;
+      if (drifting && (a.id === s.hoveredId || b.id === s.hoveredId)) drift.push({ a, bow, b, bucket });
     } else if (curvedLinks) {
       const bow = gcBowPoint(a, b);
       bucket.path.moveTo(a.x, a.y);
       bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
-      if (arrows && edge.kind === "link") gcArrowHead(bucket, bow, b, k, widthScale);
     } else {
       bucket.path.moveTo(a.x, a.y);
       bucket.path.lineTo(b.x, b.y);
-      if (arrows && edge.kind === "link") gcArrowHead(bucket, a, b, k, widthScale);
     }
   }
   const strokeBucket = (bucket) => {
@@ -1317,17 +1333,24 @@ function gcDraw(s = gcTab) {
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
     // a dimmed edge that is still readable defeats the spotlight.
     ctx.globalAlpha = 0.06 + (style.alpha - 0.06) * (bucket.level / 10);
-    ctx.lineWidth = (style.width * widthScale) / k;
+    //: An arrowed link thins from its source half to its target half.
+    ctx.lineWidth = (style.width * widthScale * (bucket.wide ? 0.8 : 1)) / k;
     ctx.setLineDash(style.dash ? style.dash.map((v) => v / k) : []);
     ctx.stroke(bucket.path);
-    if (bucket.heads) {
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.fill(bucket.heads);
+    if (bucket.wide) {
+      ctx.lineWidth = (style.width * widthScale * 1.25) / k;
+      ctx.stroke(bucket.wide);
+      gcFillSparks(ctx, bucket, ctx.globalAlpha);
     }
   };
   for (const bucket of simBuckets.values()) strokeBucket(bucket);
   for (const bucket of buckets.values()) strokeBucket(bucket);
   ctx.setLineDash([]);
+  s.sparksDrawn = sparks;
+  if (drift.length) {
+    gcDrawDrift(ctx, drift, k);
+    fading = true;
+  }
   ctx.globalAlpha = 1;
 
   if (gcDrawEdgeHover(ctx, s, k, fadeStep, curvedLinks)) fading = true;
@@ -1798,23 +1821,99 @@ function gcDraw(s = gcTab) {
 //: The line under the pointer, drawn again over the rest, wider and in its
 //: own colour, at its own lit-ness (GC_FADE_MS), so pointing at a line lights
 //: it the way pointing at a note lights the note; the one just left fades out.
-//: Arrows (GRAPH_PLAN 514 (4)): a head at the target's rim, along the line's
-//: last direction (from the bow on a curve), sized on screen like the line.
-function gcArrowHead(bucket, from, to, k, widthScale) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const tipX = to.x - ux * ((to.r || 6) + 1.5 / k);
-  const tipY = to.y - uy * ((to.r || 6) + 1.5 / k);
-  const long = (6 + 2 * widthScale) / k;
-  const half = (2.6 + widthScale) / k;
-  if (!bucket.heads) bucket.heads = new Path2D();
-  bucket.heads.moveTo(tipX, tipY);
-  bucket.heads.lineTo(tipX - ux * long - uy * half, tipY - uy * long + ux * half);
-  bucket.heads.lineTo(tipX - ux * long + uy * half, tipY - uy * long - ux * half);
-  bucket.heads.closePath();
+//: **Arrows are sparks, not triangles** (the owner: "make the graph arrows
+//: impressive and styled in a way unique to the app"). A four-point star,
+//: its tail long like a comet's, 70% of the way along the link where no dot
+//: covers it, in the link's own colour on a soft two-step glow; the line is
+//: wider on its source half than its target half, so the direction reads even
+//: zoomed out. All batched per bucket: one more stroke and four fills per
+//: colour, whatever the number of links.
+function gcQuadAt(a, c, b, t) {
+  const u = 1 - t;
+  return {
+    x: u * u * a.x + 2 * u * t * c.x + t * t * b.x,
+    y: u * u * a.y + 2 * u * t * c.y + t * t * b.y,
+    dx: 2 * u * (c.x - a.x) + 2 * t * (b.x - c.x),
+    dy: 2 * u * (c.y - a.y) + 2 * t * (b.y - c.y),
+  };
+}
+
+function gcLinkSpark(bucket, a, bow, b, k, rich = true) {
+  const c = bow || { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  // The two halves (de Casteljau at 0.5): wide from the source, thin to the target.
+  const m1x = (a.x + c.x) / 2, m1y = (a.y + c.y) / 2;
+  const m2x = (c.x + b.x) / 2, m2y = (c.y + b.y) / 2;
+  const mx = (m1x + m2x) / 2, my = (m1y + m2y) / 2;
+  if (!bucket.wide) {
+    bucket.wide = new Path2D();
+    bucket.sparks = new Path2D();
+    bucket.glows = new Path2D();
+    bucket.cores = new Path2D();
+    bucket.halos = new Path2D();
+  }
+  bucket.wide.moveTo(a.x, a.y);
+  bucket.wide.quadraticCurveTo(m1x, m1y, mx, my);
+  bucket.path.moveTo(mx, my);
+  bucket.path.quadraticCurveTo(m2x, m2y, b.x, b.y);
+  const p = gcQuadAt(a, c, b, 0.7);
+  const len = Math.hypot(p.dx, p.dy) || 1;
+  const ux = p.dx / len, uy = p.dy / len;
+  const tips = [
+    [p.x + (ux * 7) / k, p.y + (uy * 7) / k],
+    [p.x - (uy * 4.5) / k, p.y + (ux * 4.5) / k],
+    [p.x - (ux * 18) / k, p.y - (uy * 18) / k],
+    [p.x + (uy * 4.5) / k, p.y - (ux * 4.5) / k],
+  ];
+  bucket.sparks.moveTo(tips[0][0], tips[0][1]);
+  for (let i = 1; i <= 4; i++) {
+    const from = tips[i - 1], to = tips[i % 4];
+    // Pulled in towards the centre: concave sides, a spark rather than a kite.
+    bucket.sparks.quadraticCurveTo(
+      p.x + 0.2 * (from[0] + to[0] - 2 * p.x), p.y + 0.2 * (from[1] + to[1] - 2 * p.y), to[0], to[1]);
+  }
+  if (!rich) return;
+  bucket.rich = true;
+  // Two discs, wide and faint then close and brighter: a soft glow for the
+  // price of two fills, where a canvas blur would be one per spark.
+  bucket.glows.moveTo(p.x + 8 / k, p.y);
+  bucket.glows.arc(p.x, p.y, 8 / k, 0, Math.PI * 2);
+  bucket.halos.moveTo(p.x + 4.5 / k, p.y);
+  bucket.halos.arc(p.x, p.y, 4.5 / k, 0, Math.PI * 2);
+  bucket.cores.moveTo(p.x + 1.4 / k, p.y);
+  bucket.cores.arc(p.x, p.y, 1.4 / k, 0, Math.PI * 2);
+}
+
+function gcFillSparks(ctx, bucket, alpha) {
+  ctx.setLineDash([]);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.globalAlpha = Math.min(1, alpha * 2.4);
+  if (bucket.rich) {
+    ctx.globalAlpha = Math.min(1, alpha * 0.22);
+    ctx.fill(bucket.glows);
+    ctx.fill(bucket.halos);
+    ctx.globalAlpha = Math.min(1, alpha * 2.4);
+  }
+  ctx.fill(bucket.sparks);
+  if (!bucket.rich) return;
+  //: A white core is what makes it a spark rather than a mark, on either
+  //: theme (the card's colour read as a hole in the dark graphspark.js shot).
+  ctx.fillStyle = "#ffffff";
+  ctx.fill(bucket.cores);
+}
+
+//: The pointed-at note's arrowed links carry a drifting spark, source to
+//: target, one lap in 2.4s; only while pointed at, so an idle map stays idle.
+function gcDrawDrift(ctx, drift, k) {
+  const now = performance.now();
+  for (const item of drift) {
+    const c = item.bow || { x: (item.a.x + item.b.x) / 2, y: (item.a.y + item.b.y) / 2 };
+    const p = gcQuadAt(item.a, c, item.b, (now / 2400) % 1);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = item.bucket.tint || gcTokens[item.bucket.style.colour] || gcTokens.muted;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.4 / k, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function gcDrawEdgeHover(ctx, s, k, fadeStep, curved) {

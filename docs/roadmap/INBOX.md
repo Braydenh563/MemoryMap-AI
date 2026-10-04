@@ -34,6 +34,15 @@ with its owner named in the entry.
 
 ## Open items
 
+472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
+     is left and still open. Use your ui UX design skills to improve ui UX.
+     Enhance the backend optimise, make things faster. Polish the app to be
+     official and not just a demo". Placed: the orchestrator takes the
+     backend speed pass (measure every hot endpoint on a seeded notebook,
+     fix the slowest, numbers before and after); the UI agents carry the
+     UI half (464 items); then a demo-to-product polish sweep (copy,
+     empty states, about/version, first run).
+
 464. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's active Library button: its icon faint on the accent
      fill).** "there is still some colour contrast issues. do another round

@@ -44,3 +44,17 @@ def test_show_all_clears_every_filter_that_hides_a_note():
     body = js.split("function gcShowEveryNote(")[1].split("\nfunction ")[0]
     for filt in ("graphHiddenCategories", "graphHiddenKeys", "hiddenIds", "hiddenOnMap", "graph-hide-orphans"):
         assert filt in body, f"Show every note leaves {filt} in force"
+
+
+def test_an_empty_notebook_never_gets_the_filtered_variant():
+    """INBOX 472, the first-run walk: a fresh notebook opened the map on
+    "Every note is hidden. All 0 notes are filtered out by the map's
+    settings." with a Show every note button that could show nothing. The
+    renderer drew the fresh variant, carried on, found no visible nodes and
+    took the filtered branch. The filtered call is only made for data that had
+    notes in it."""
+    js = frontend_text("graph-canvas.js")
+    body = js.split("async function renderGraphCanvas(")[1].split("\nasync function ")[0]
+    at = body.index("gcShowEmpty(true, ")
+    call = body[at : body.index(";", at)]
+    assert "data.nodes.length" in call, call

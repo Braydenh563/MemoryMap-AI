@@ -43,7 +43,14 @@ with its owner named in the entry.
      quiet button's leading icon takes its label's colour (white on the
      accent in light, near-black in dark; it stayed accent on accent). Then a contrast sweep that
      also reads icons and SVG strokes (contrast.js reads text), and another
-     skills-guided UI round by surface: agents.
+     skills-guided UI round by surface: agents. **The UI round, 2026-10-04**
+     (one agent, all eight skills as checklists, 188 stills at 1440 and 390
+     in both themes): twenty defects ranked with measurements in
+     `scratchpad/ui-audit-464.md`; the top eight built (Settings heads in
+     groups, switches on the text edge, the phone head on one row, one-line
+     pane descriptions, Library previews keeping blocks apart, the palette on
+     touch, file pickers on the tonal recipe, three copy faults) plus the
+     Timeline's cut titles; two new lints. Items 9 to 20 there are open.
 
 463. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's Library panel: note rows "The Complete Social Skills Guide

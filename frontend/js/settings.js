@@ -3587,6 +3587,8 @@ function renderHelpChatMessage(role, content, badges = [], sources = [], system 
   if (!list) return null;
   const row = document.createElement("div");
   row.className = `help-chat-msg is-${role}`;
+  //: The reply head (INBOX 471): the setting's face and the name, as in Chat.
+  if (role === "assistant") row.appendChild(assistantHeadRow(GUIDE_NAME));
   //: **Atlas's answer, or the app's own help** (INBOX 430, the owner: "a
   //: toggle on each answer between the AI's answer and the system-generated
   //: answer from the app's help"). The turn carries both (`system`, laid out
@@ -3773,6 +3775,7 @@ async function submitHelpChatQuestion(question) {
   // settling below.
   const pending = document.createElement("div");
   pending.className = "help-chat-msg is-assistant is-pending";
+  pending.append(assistantHeadRow(GUIDE_NAME));
   pending.appendChild(typeof typingDots === "function" ? typingDots("Thinking…") : document.createTextNode("Thinking…"));
   helpChatAppendRow(pending);
   if (input) input.value = "";
@@ -3888,7 +3891,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
 
   pending.classList.remove("is-pending");
   pending.classList.add("is-streaming");
-  pending.replaceChildren();
+  pending.replaceChildren(assistantHeadRow(GUIDE_NAME));
   //: **The thinking, on the app's own streamed-reasoning recipe** (INBOX 287,
   //: the owner: "the thinking box doesnt properly render in it either at
   //: least while streaming").
@@ -3966,7 +3969,10 @@ function helpChatReveal(row, content, signal = null) {
   return new Promise((resolve) => {
     row.classList.remove("is-pending");
     row.classList.add("is-streaming");
-    row.replaceChildren();
+    row.replaceChildren(assistantHeadRow(GUIDE_NAME));
+    const prose = document.createElement("div");
+    prose.className = "help-chat-prose";
+    row.append(prose);
     const still = document.documentElement.dataset.motion === "reduced" || content.length < 40;
     const words = content.split(/(\s+)/);
     let shown = 0;
@@ -3976,7 +3982,7 @@ function helpChatReveal(row, content, signal = null) {
         return;
       }
       shown = still ? words.length : Math.min(words.length, shown + 2);
-      renderMarkdown(row, words.slice(0, shown).join(""));
+      renderMarkdown(prose, words.slice(0, shown).join(""));
       const list = $("help-chat-messages");
       if (list) list.scrollTop = list.scrollHeight;
       if (shown >= words.length) {

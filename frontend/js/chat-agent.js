@@ -1023,6 +1023,30 @@ function repaintAssistantAvatars(emblemsOnly = false) {
   }
 }
 
+//: **The reply head of surfaces that are not a Chat bubble** (INBOX 471): the
+//: guide's rows build one (`assistantHeadRow`), Ask's answer and the writing
+//: room's draft carry static `[data-assistant-head]` holders that
+//: `paintAssistantHeads` fills once; all paint through `paintAssistantAvatar`,
+//: so the Appearance setting and its live repaint reach them.
+function assistantHeadRow(name = aiNameNow()) {
+  const row = document.createElement("div");
+  row.className = "msg-role msg-role-assistant";
+  const avatar = document.createElement("span");
+  avatar.className = "msg-avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  const who = document.createElement("span");
+  who.textContent = name;
+  row.append(avatar, who);
+  paintAssistantAvatar(avatar, 20);
+  return row;
+}
+
+function paintAssistantHeads() {
+  for (const holder of document.querySelectorAll("[data-assistant-head]")) {
+    if (!holder.firstChild) paintAssistantAvatar(holder, 20);
+  }
+}
+
 // An assistant bubble: an avatar, the step timeline, and a matching-records slot.
 //
 // **`persona` is whoever wrote this reply**, never read off the live picker

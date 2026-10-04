@@ -80,6 +80,9 @@ function headOf(page, sel) {
     await sleep(500);
   };
 
+  //: NEW_ONLY=1 skips the INBOX 463 surfaces (about two minutes of chat, popup
+  //: and guide turns) and runs only the INBOX 471 ones below.
+  if (!process.env.NEW_ONLY) {
   // --- Chat, default (atlas) -------------------------------------------------
   await page.evaluate(() => switchTab("chat"));
   await sleep(800);
@@ -154,6 +157,93 @@ function headOf(page, sel) {
   await sleep(800);
   report("chat (back)", "atlas", await headOf(page, CHAT_HEAD), "atlas");
   await (await page.$("#chat-messages .msg.assistant:last-of-type")).screenshot({ path: `${OUTDIR}/chat-atlas-${W}-${theme}.png` });
+
+  }
+
+  // --- INBOX 471: Ask's answer, the writing room's draft, the guide's rows ----
+  //: Each surface twice (Atlas, then the emblem switched live while the head is
+  //: on screen), plus the box heights, which the head must not grow past its
+  //: row's recipe. `heads` is false before the change (no head to find): the
+  //: heights still print, which is the "before" half of the measurement.
+  const setting = async (value) => {
+    await page.evaluate((v) => { localStorage.setItem("assistant-avatar", v); repaintAssistantAvatars(); }, value);
+    await sleep(600);
+  };
+  const both = async (surface, sel, shot) => {
+    await setting("atlas");
+    report(surface, "atlas", await headOf(page, sel), "atlas");
+    await setting("emblem");
+    report(`${surface} (live)`, "emblem", await headOf(page, sel), "emblem");
+    if (shot) await shot(`${OUTDIR}/${surface.replace(/\W+/g, "-")}-emblem-${W}-${theme}.png`);
+    await setting("atlas");
+  };
+  const box = (sel) => page.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { h: Math.round(r.height * 10) / 10, top: Math.round(r.top * 10) / 10 };
+  }, sel);
+  const print = (surface, data) => console.log(JSON.stringify({ surface, W, theme, ...data }));
+
+  // Ask
+  await page.evaluate(() => { switchTab("notes"); showNotesSection("ask"); });
+  await sleep(800);
+  await page.evaluate(() => askQuestion("What do my notes say about stargazing?"));
+  await sleep(500);
+  await page.waitForFunction(() => document.querySelector("#ai-answer")?.textContent.trim().length > 10 && !document.querySelector("#ai-answer .progress-line"), null, { timeout: 40000 }).catch(() => {});
+  await sleep(600);
+  print("ask heights", { half: await box("#chat-results .chat-half"), head: await box("#chat-results .answer-head"), answer: await box("#ai-answer"), title: await box(".answer-title") });
+  await both("ask head", ".answer-title > .msg-avatar", (path) => page.locator("#chat-results .chat-half").first().screenshot({ path }));
+
+  // The writing room
+  await page.evaluate(() => { showNotesSection("writing-room"); });
+  await sleep(800);
+  print("draft heights before", { headL: await box("#draft-thoughts-head, .draft-column:first-child .draft-column-head"), headR: await box(".draft-column:last-child .draft-column-head"), area: await box("#draft-text"), columns: await box(".draft-columns") });
+  await page.evaluate(() => { $("draft-thoughts").value = "Notes on stargazing: the Perseids peak in August."; composeDraft(); });
+  await sleep(500);
+  await page.waitForFunction(() => $("draft-text").value.trim().length > 10, null, { timeout: 40000 }).catch(() => {});
+  await sleep(600);
+  print("draft heights", { headL: await box(".draft-column:first-child .draft-column-head"), headR: await box(".draft-column:last-child .draft-column-head"), area: await box("#draft-text"), columns: await box(".draft-columns") });
+  await both("draft head", ".draft-column-head .msg-avatar", (path) => page.locator(".draft-columns").first().screenshot({ path }));
+
+  // The guide: a real turn, then the setting switched under the open row, then
+  // a new turn under the emblem (a head built after the change).
+  await page.evaluate(() => openHelpChat());
+  await sleep(1200);
+  const GUIDE_HEAD = ".help-chat-msg.is-assistant:last-of-type > .msg-role .msg-avatar";
+  //: Recorded by an observer in the page (a poll from here misses a state
+  //: that lasts a few frames): the waiting row, then the streaming one, must
+  //: both open with the head. The first turn is held 2.5s so waiting shows.
+  await page.evaluate(() => {
+    window.__guideStates = new Set();
+    const seen = () => {
+      for (const r of document.querySelectorAll(".help-chat-msg.is-pending, .help-chat-msg.is-streaming")) {
+        const head = Boolean(r.firstElementChild?.matches(".msg-role") && r.firstElementChild.querySelector(".msg-avatar > *"));
+        window.__guideStates.add(`${r.classList.contains("is-pending") ? "pending" : "streaming"}:${head}`);
+      }
+    };
+    new MutationObserver(seen).observe(document.getElementById("help-chat-messages"), { subtree: true, childList: true, attributes: true });
+  });
+  await page.route("**/help/ask/stream", async (route) => { await sleep(2500); await route.continue(); });
+  await page.evaluate(() => submitHelpChatQuestion("How do I change the theme?"));
+  await page.waitForFunction(() => !document.querySelector(".help-chat-msg.is-pending, .help-chat-msg.is-streaming") && document.querySelector(".help-chat-msg.is-assistant"), null, { timeout: 40000 }).catch(() => {});
+  await page.unroute("**/help/ask/stream");
+  const states = new Set(await page.evaluate(() => [...window.__guideStates]));
+  print("guide in-flight heads", { states: [...states] });
+  if ([...states].some((x) => x.endsWith(":false"))) bad++;
+  await page.waitForFunction(() => !document.querySelector(".help-chat-msg.is-pending, .help-chat-msg.is-streaming"), null, { timeout: 40000 }).catch(() => {});
+  await sleep(600);
+  print("guide heights", await page.evaluate(() => ({ rows: [...document.querySelectorAll(".help-chat-msg")].map((r) => ({ cls: r.className.replace("help-chat-msg ", ""), h: Math.round(r.getBoundingClientRect().height * 10) / 10 })) })));
+  await both("guide row", GUIDE_HEAD, (path) => page.locator("#help-chat-messages").first().screenshot({ path }));
+  await setting("emblem");
+  await page.evaluate(() => submitHelpChatQuestion("And where are the settings?"));
+  await page.waitForFunction(() => !document.querySelector(".help-chat-msg.is-pending, .help-chat-msg.is-streaming"), null, { timeout: 40000 }).catch(() => {});
+  await sleep(600);
+  report("guide row (new reply)", "emblem", await headOf(page, GUIDE_HEAD), "emblem");
+  //: Every head the setting repaints is a holder with a remembered size.
+  print("guide holders", await page.evaluate(() => ({ holders: document.querySelectorAll("[data-assistant-avatar]").length })));
+  await page.screenshot({ path: `${OUTDIR}/guide-rows-${W}-${theme}.png` });
+  await setting("atlas");
 
   await browser.close();
   console.log(bad ? `FAILED ${bad}` : "all heads right");

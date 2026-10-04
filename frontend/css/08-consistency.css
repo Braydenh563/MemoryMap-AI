@@ -9670,3 +9670,26 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
 .provider-option:has(input[type="radio"]:checked):hover {
   box-shadow: inset 0 0 0 1px var(--accent-text);
 }
+
+/* --- the reply head on Ask's answer, the draft and the guide (INBOX 471) -----
+   Chat's recipe (`.msg-role` with the avatar `paintAssistantAvatar` draws and
+   the name), in the places an answer is not a Chat bubble. The head takes the
+   row it replaces (the answer's title, the draft's label), so no row grows;
+   only the guide's bubble gains one, at Chat's own head-to-column gap. */
+:is(.answer-head, .draft-column-head, .help-chat-msg.is-assistant) .msg-role {
+  color: var(--accent-text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 0;
+}
+
+.help-chat-msg.is-assistant > .msg-role {
+  margin-bottom: var(--space-2);
+  font-style: normal;
+}
+
+.draft-head-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

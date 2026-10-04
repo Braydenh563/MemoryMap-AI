@@ -2034,6 +2034,8 @@ function showNotesSection(name, { focus = false } = {}) {
     if (active && focus) button.focus();
   }
   localStorage.setItem(NOTES_SECTION_STORE, wanted);
+  //: Ask's answer and the draft carry static assistant heads (INBOX 471).
+  if (typeof paintAssistantHeads === "function") paintAssistantHeads();
   //: The connections rail belongs to the list (notes-list.js): it leaves with
   //: Browse and comes back with it.
   if (typeof scheduleNotesRail === "function") scheduleNotesRail();

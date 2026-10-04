@@ -228,6 +228,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+Security: the link opener, page clipper and other outbound fetches now refuse the shared address space (100.64.0.0/10, which includes Tailscale nodes and a cloud metadata service at 100.100.100.200) as they already refused home-network addresses.
 Privacy: saving an edit to a private note kept its new text encrypted only in the editor's eyes (it was written to the database in plain text while the note stayed marked private, and into the search index); it is now stored encrypted, and Add context, which appended plain words to the encrypted text and made the note unreadable, refuses a private note.
 Privacy: making a note private now encrypts the history it already had (its first version and earlier edits sat in the event log and the version list in plain text); restoring an older version fits the note as it is now, so a version saved while private no longer comes back as unreadable text in a note that has since been made public.
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.

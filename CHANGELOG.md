@@ -143,6 +143,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Skill logs: Clear and the pin button no longer touch when the collapsed sidebar is peeked open (they overlapped by 5.6px; the peeked pin now sits where the pinned one does, 6.4px from Clear), and at phone width Clear sits 6.4px from the opener, up from 2.4px (INBOX 495).
+- Locking the notebook no longer deletes the Timeline's feed and table or the Reminders controls (it emptied their containers, not only the rows), so the Notes select button stops throwing `Cannot read properties of null` from `paintTimeline` after a lock; a lint now fails if a purged container holds an id (INBOX 492).
 - Mind maps: the board's Insert and Arrange buttons no longer show in a map's top bar when one of their menus was open as the map opened.
 - Quick sketch: the toolbar stays on one row at tablet width with Large text; the ink dots sit closer between 600 and 1023px wide.
 - Mind maps: the topic menu's "Connect this topic to another" picks the connect tool again; it did nothing.

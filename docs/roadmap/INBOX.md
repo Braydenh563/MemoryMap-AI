@@ -52,21 +52,10 @@ with its owner named in the entry.
      actions, smooth life-like transitions and movement and expressions and
      actions". With the Atlas agent (480).
 
-495. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Skill
-     logs sidebar expanded from collapsed: Clear and the pin button touching
-     in the head).** "when the skill logs sidebar is collapsed and
-     temporarily expanded, the clear button and pin button clash".
-     Orchestrator.
-
 494. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      status bar: "Ctrl K Commands", "Ask", "Guide", "Find").** "the text and
      icons in the bottom bar elements arent aligned vertically". With the
      dock-bar agent (479).
-
-492. **The owner's log, 2026-10-04 evening.** "Uncaught TypeError: Cannot
-     read properties of null (reading 'classList') at paintTimeline
-     (timeline.js:752) at enterSelectMode (skills.js:1293)" and the same from
-     exitSelectMode. Orchestrator.
 
 488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
      dashboard: the search bar's kebab holds Continue, skills, Tools,
@@ -81,14 +70,6 @@ with its owner named in the entry.
      cache" unregisters the service worker, empties Cache Storage, drops the
      server's compressed-file cache and reloads; nothing in the notebook is
      touched. Orchestrator.
-
-483. **The owner, 2026-10-04 evening, verbatim.** "can there be easy ways
-     to copy the address of various notes or objects so that if I wish and
-     the application is running, I can hyperlink to that specific object??"
-     Exists: every view has an address (router.js: `#/notes/12`, `#/docs/7`,
-     `#/chat/45`, `#/library/board/3`, `#/graph/focus/12`) and a pasted one
-     opens. Missing: a "Copy app link" on each object's menu, and an app link
-     inside a note opening in the same window. Agent (Sonnet).
 
 481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      companion's speech line "I'm not talking to you." spilling right over

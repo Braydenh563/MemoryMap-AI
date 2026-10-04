@@ -10041,7 +10041,11 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   transform: translateX(var(--space-3));
 }
 
-.layout-sidebar-collapsed > aside[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+.layout-sidebar-collapsed > aside[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name),
+.layout-sidebar-collapsed > #skills-sidebar[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+  /* The id rule above out-ranks this one, so Skill logs' head stayed shifted
+     8px toward its edge while peeked, under the toggle (INBOX 495): the
+     second selector matches it. */
   transform: none;
   transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
     transform var(--motion-slow) var(--ease-out) var(--motion-fast);

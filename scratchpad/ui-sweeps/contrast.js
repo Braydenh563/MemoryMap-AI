@@ -52,6 +52,13 @@ const PHONE=WIDTH<600;
 // 0. The surfaces that measured nothing are collected here, named at the end,
 // and the process exits non-zero. A sweep that measures nothing must fail.
 const empty=[];
+// **A low-contrast finding fails the sweep** (readings.md: it used to print and
+// exit 0, so the gate's `sweep-contrast` step stayed green over a finding).
+// Measured clean at 1440, 820 and 390 in both themes before this was made a
+// failure. A finding whose background had to be composited from a translucent
+// layer ("~" after the ratio) is the worst-case estimate the comment above
+// `over` describes, so it is reported but does not fail on its own.
+const low=[];
 (async()=>{const {browser,page}=await boot({viewport:{width:WIDTH,height:HEIGHT},hasTouch:PHONE,isMobile:PHONE});
 const run=async(label)=>{const r=await page.evaluate(()=>{
   const cv=document.createElement('canvas');cv.width=cv.height=1;const cx=cv.getContext('2d',{willReadFrequently:true});
@@ -89,6 +96,7 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   }
   return {out:out.slice(0,12),checked};});
   console.log(`== ${label}: ${r.out.length?r.out.length+' low-contrast':'ok'} (${r.checked} text elements)`);r.out.forEach(l=>console.log('  '+l));
+  if(r.out.some((l)=>!/^[\d.]+~/.test(l)))low.push(label);
   if(!r.checked){console.log('  nothing was measured here, which is a finding about the sweep, not the surface');empty.push(label);}};
 const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
 // ONLY=document measures the documents editor with a document open (DOCUMENTS_PLAN
@@ -108,7 +116,7 @@ if(process.env.ONLY==='document'){
   const tab=await page.evaluate(()=>{const b=[...document.querySelectorAll('#doc-sidebar [role="tab"], #doc-sidebar button')].find((x)=>/^Outline/.test(x.textContent.trim()));if(b){b.click();return true;}return false;});
   if(tab){await page.waitForTimeout(500);await run('documents/outline');}
   console.log(`== done at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}`);
-  await browser.close();process.exit(empty.length?1:0);
+  await browser.close();process.exit(empty.length||low.length?1:0);
 }
 for(const t of (process.env.ONLY==='settings'?[]:TABS)){
   await go(t);
@@ -186,5 +194,6 @@ if(empty.length){
   console.log(`FAIL: ${empty.length} surface${empty.length===1?'':'s'} measured 0 text elements at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}: ${empty.join(', ')}`);
   console.log('A surface with no text on it is either a surface this sweep could not open or one the app did not draw. Either way its "ok" above is about nothing.');
 }
+if(low.length)console.log(`FAIL: low contrast on ${low.length} surface${low.length===1?'':'s'}: ${low.join(', ')}`);
 await browser.close();
-process.exitCode=empty.length?1:0;})();
+process.exitCode=empty.length||low.length?1:0;})();

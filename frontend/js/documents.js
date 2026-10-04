@@ -11188,7 +11188,17 @@ function noteSurfaceExtensions(CM, host, options) {
   const live = options.live ? [docLiveExtensions(CM), noteGrammarPlugin(CM)] : [];
   host.noteLiveSlot = new CM.state.Compartment();
   host.noteLiveExtensions = live;
+  //: **`box.readOnly = true` from script has to reach the editor** (the Write
+  //: with AI desk sets it while a pass streams into the draft; measured, a
+  //: person could type into the mounted editor throughout, because the flag
+  //: only ever lived on the hidden textarea). A compartment of its own, driven
+  //: by the own `readOnly` accessor `noteSurfaceOwnValue` installs. Script
+  //: writes (`box.value = ...`, the stream itself) still go through: a view's
+  //: `readOnly` only refuses the person's input.
+  host.noteReadOnlyExtensions = (on) => (on ? [CM.state.EditorState.readOnly.of(true), CM.view.EditorView.editable.of(false)] : []);
+  host.noteReadOnlySlot = new CM.state.Compartment();
   return [
+    host.noteReadOnlySlot.of(host.noteReadOnlyExtensions(host.readOnly)),
     //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
     //: `noteGrammarPlugin`).
     host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live),
@@ -11430,6 +11440,21 @@ function noteSurfaceOwnValue(host, view) {
         own.set.call(this, at);
         if (noteSurfaceMirroring) return;
         host.setSelectionRange(this.selectionStart, this.selectionEnd);
+      },
+    });
+  }
+  //: And `box.readOnly`, for the same reason as `value`: the flag is the
+  //: textarea's, the person types into the view.
+  const readOnlyProto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "readOnly");
+  if (readOnlyProto && readOnlyProto.set && host.noteReadOnlySlot) {
+    Object.defineProperty(host, "readOnly", {
+      configurable: true,
+      get() {
+        return readOnlyProto.get.call(this);
+      },
+      set(on) {
+        readOnlyProto.set.call(this, on);
+        view.dispatch({ effects: host.noteReadOnlySlot.reconfigure(host.noteReadOnlyExtensions(Boolean(on))) });
       },
     });
   }

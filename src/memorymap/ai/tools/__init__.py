@@ -29,6 +29,7 @@ from memorymap.core import deps, events
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import search_manager
 
 
@@ -160,7 +161,7 @@ def _graph_summary(session: Session, entry: Entry, how: str, hops: int, via: int
     text = _readable(entry)
     summary = {
         "id": entry.id,
-        "preview": _clip(text, GRAPH_PREVIEW_CHARS),
+        "preview": _clip(strip_properties(text).lstrip(), GRAPH_PREVIEW_CHARS),
         "category": manager.category_name_for(session, entry),
         "how": how,
         "hops": hops,
@@ -512,7 +513,7 @@ def _path_between(session: Session, args: dict) -> dict:
             {
                 "id": note_id,
                 "preview": _clip(
-                    _readable(index.entries[note_id]), GRAPH_PREVIEW_CHARS
+                    strip_properties(_readable(index.entries[note_id])).lstrip(), GRAPH_PREVIEW_CHARS
                 ),
                 "category": manager.category_name_for(session, index.entries[note_id]),
             }
@@ -565,7 +566,7 @@ def _notebook_structure(session: Session, args: dict) -> dict:
         entry = index.entries[note_id]
         out = {
             "id": note_id,
-            "preview": _clip(_readable(entry), GRAPH_PREVIEW_CHARS),
+            "preview": _clip(strip_properties(_readable(entry)).lstrip(), GRAPH_PREVIEW_CHARS),
         }
         out.update(extra or {})
         return out
@@ -1379,6 +1380,57 @@ def _pin_note(session: Session, args: dict) -> dict:
     return result
 
 
+#: The most a `link_type` description may cost on the wire. Prompt text is
+#: budgeted (`agent.PROSE_BUDGET_CHARS`) and this one is read on every round
+#: of any turn that offers `link_notes`, so a notebook with sixty relation
+#: types cannot be allowed to put sixty names in front of a 3B model.
+LINK_TYPE_DESCRIPTION_CHARS = 420
+
+_LINK_TYPE_LEAD = (
+    "Optional kind of link, read as note_id <kind> the other note. One of: "
+)
+_LINK_TYPE_TAIL = ". Leave it out when unsure."
+
+
+def link_type_description(types: dict[str, dict]) -> str:
+    """The `link_type` parameter's text for these relation types
+    (`manager.relation_types`): the built-ins first, then the person's own,
+    cut to `LINK_TYPE_DESCRIPTION_CHARS` with a count of what was left out."""
+    keys = list(types)
+    room = LINK_TYPE_DESCRIPTION_CHARS - len(_LINK_TYPE_LEAD) - len(_LINK_TYPE_TAIL)
+    shown: list[str] = []
+    used = 0
+    for key in keys:
+        cost = len(key) + (2 if shown else 0)
+        # Keep room for "(+99 more)" so the count itself cannot overflow.
+        if used + cost > room - 12 and len(shown) < len(keys):
+            break
+        shown.append(key)
+        used += cost
+    text = ", ".join(shown)
+    left = len(keys) - len(shown)
+    if left:
+        text += f" (+{left} more)"
+    return f"{_LINK_TYPE_LEAD}{text}{_LINK_TYPE_TAIL}"
+
+
+def _resolve_link_type(session: Session, wanted: object) -> str | None:
+    """The key of the relation type the model named, by key or by name in any
+    case ("Part of" for `part_of`); None when none was named. An unknown one
+    is a ToolError that lists what exists, so the retry is one call."""
+    text = " ".join(str(wanted or "").split())
+    if not text:
+        return None
+    types = manager.relation_types(session)
+    folded = text.casefold()
+    snake = folded.replace(" ", "_").replace("-", "_")
+    for key, row in types.items():
+        if folded in (key.casefold(), str(row.get("name") or "").casefold()) or snake == key.casefold():
+            return key
+    listed = link_type_description(types).removeprefix(_LINK_TYPE_LEAD).removesuffix(_LINK_TYPE_TAIL)
+    raise ToolError(f"There is no kind of link called “{_clip(text, 40)}”. Use one of: {listed}.")
+
+
 def _link_notes(session: Session, args: dict) -> dict:
     source = _require_note(session, args)
     other_ids = _requested_ids(args, "other_note_id", "other_note_ids")
@@ -1390,6 +1442,7 @@ def _link_notes(session: Session, args: dict) -> dict:
     # rather than just *that*. Applied to every target in this call; a model
     # linking notes for different reasons in one turn makes separate calls.
     reason = str(args.get("reason") or "").strip() or None
+    link_type = _resolve_link_type(session, args.get("link_type"))
 
     linked = []
     for target_id in other_ids:
@@ -1402,7 +1455,7 @@ def _link_notes(session: Session, args: dict) -> dict:
         target = _require_note(session, {"note_id": target_id})
         if target.is_deleted:
             continue
-        link = manager.create_link(session, source, target, reason=reason)
+        link = manager.create_link(session, source, target, reason=reason, link_type=link_type)
         if link is not None:
             linked.append(target.id)
 
@@ -3268,6 +3321,12 @@ TOOLS: dict[str, ToolSpec] = {
                             "Trace. Skip it when the connection is obvious."
                         ),
                     },
+                    "link_type": {
+                        "type": "string",
+                        "description": link_type_description(
+                            {key: {} for key in manager.LINK_TYPES}
+                        ),
+                    },
                 },
                 "required": ["note_id"],
             },
@@ -3964,7 +4023,7 @@ def _example_value(field: dict):
     return _EXAMPLE_VALUES.get(kind, "…")
 
 
-def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
+def ollama_tools(allowed: list[str] | None = None, session: Session | None = None) -> list[dict]:
     """The registry in the shape Ollama's /api/chat 'tools' field wants,
     minus any the user disabled, a model can't be tempted by a tool it
     never hears about.
@@ -3976,7 +4035,7 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     off in Settings → Tools.
     """
     wanted = set(allowed) if allowed else None
-    return [
+    offered = [
         {
             "type": "function",
             "function": {
@@ -3988,6 +4047,24 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
         for spec in TOOLS.values()
         if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
+    return _with_relation_types(offered, session) if session is not None else offered
+
+
+def _with_relation_types(offered: list[dict], session: Session) -> list[dict]:
+    """`link_notes` described with this notebook's own kinds of link (KG3):
+    a copy of that one schema, so the registry stays what it was."""
+    for index, spec in enumerate(offered):
+        function = spec.get("function") or {}
+        props = (function.get("parameters") or {}).get("properties") or {}
+        if function.get("name") != "link_notes" or "link_type" not in props:
+            continue
+        text = link_type_description(manager.relation_types(session))
+        parameters = {
+            **function["parameters"],
+            "properties": {**props, "link_type": {**props["link_type"], "description": text}},
+        }
+        offered = [*offered[:index], {**spec, "function": {**function, "parameters": parameters}}, *offered[index + 1 :]]
+    return offered
 
 
 # --- fitting the registry to the model that will read it -------------------------

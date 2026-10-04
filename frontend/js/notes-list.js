@@ -267,7 +267,8 @@ async function toggleReferences(entry) {
 // AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
 // nothing is asked for at this point.
 function similarNoteRow(entry, other, onLinked) {
-  const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+  const shown = stripFrontmatter(other.content).trim();
+  const preview = shown.length > 50 ? shown.slice(0, 49) + "…" : shown;
   const wrap = document.createElement("span");
   wrap.className = "entry-related-row";
   const relChip = chip("", "link", () => flashEntry(other.id));

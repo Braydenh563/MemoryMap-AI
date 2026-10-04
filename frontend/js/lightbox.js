@@ -158,7 +158,8 @@ function renderInlineAction(entry) {
   }
 
   if (inlineAction.kind === "remind") {
-    const preview = entry.content.length > 40 ? entry.content.slice(0, 39) + "…" : entry.content;
+    const shown = stripFrontmatter(entry.content).trim();
+    const preview = shown.length > 40 ? shown.slice(0, 39) + "…" : shown;
     const textInput = document.createElement("input");
     textInput.type = "text";
     textInput.value = `Follow up: ${preview}`;

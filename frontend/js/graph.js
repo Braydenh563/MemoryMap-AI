@@ -4060,7 +4060,7 @@ function renderGraphPopupActions(entry) {
     smallButton("ph:alarm", "Remind me about this note", () => {
       closeGraphPopup();
       switchTab("reminders");
-      $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
+      $("reminder-text").value = `Follow up: ${stripFrontmatter(entry.content).trim().slice(0, 60)}`;
       setDue(defaultDueValue()); // keeps the visible date/time fields in step
       $("reminder-text").focus();
     })

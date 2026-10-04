@@ -50,6 +50,7 @@ from memorymap.ai.links import _clean_reason, _is_vague_reason
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.entry import manager
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import search_manager
 
 logger = logging.getLogger("memorymap.ai.extractor")
@@ -213,7 +214,7 @@ def merge_near_duplicates(
 
 
 def _short_preview(text: str, length: int = 120) -> str:
-    plain = manager.wiki_plain(text)
+    plain = manager.wiki_plain(strip_properties(text).lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 

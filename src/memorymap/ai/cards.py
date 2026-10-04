@@ -52,6 +52,8 @@ count, a rename or a tag list names nothing you can open.
 
 from __future__ import annotations
 
+from memorymap.entry.properties import strip as strip_properties
+
 #: The kinds the chat can draw, in the order the cards appear under a tool
 #: call. PLAN.md §4 A1 names exactly these five ("note, document, file, board,
 #: reminder"); anything else a tool returns is a number or a name, not a thing
@@ -84,9 +86,13 @@ def _clip(value: object, chars: int) -> str:
     return text[:chars]
 
 
-def _first_text(row: dict, *keys: str) -> str:
+def _first_text(row: dict, *keys: str, strip_block: bool = False) -> str:
+    """The first non-empty field, flattened. `strip_block` drops a note's
+    `---` properties block first: it is data about the note, never what the
+    note says (GRAPH_PLAN, KG4), and flattening would hide where it ends."""
     for key in keys:
-        text = _flat(row.get(key))
+        value = row.get(key)
+        text = _flat(strip_properties(str(value or "")) if strip_block else value)
         if text:
             return text
     return ""
@@ -102,7 +108,7 @@ def _note_item(row: dict) -> dict | None:
     note_id = row.get("id")
     if not isinstance(note_id, int):
         return None
-    body = _first_text(row, "content", "preview", "text", "excerpt")
+    body = _first_text(row, "content", "preview", "text", "excerpt", strip_block=True)
     return {
         "id": note_id,
         "label": _clip(body, LABEL_CHARS) or f"Note #{note_id}",

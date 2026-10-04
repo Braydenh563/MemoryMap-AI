@@ -363,6 +363,21 @@
   opacity: 1;
 }
 
+/* A field the document's `type:` names and the document has not written yet:
+   the same row as a written one, its name in italics so it reads as an offer
+   rather than a fact. Nothing is in the file until a value is. */
+.doc-prop-unset > .doc-prop-key {
+  font-style: italic;
+}
+
+.doc-prop-check {
+  margin: 0;
+}
+
+.doc-prop-spacer {
+  visibility: hidden;
+}
+
 .doc-prop-new {
   display: flex;
   align-items: center;

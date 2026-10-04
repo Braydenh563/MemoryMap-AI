@@ -500,15 +500,9 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- The agent's own link tool still offers the six built-in kinds, not a
-  person's own (KG3).
-- The document editor's frontmatter panel does not read note types; a note
-  type's "note" field is a `[[link]]` written into the block, not a picker
-  that searches (KG4).
-- A few surfaces may still quote a note's raw opening (search snippets,
-  document previews of an embedded note); the ones found printing `---`
-  were fixed (KG7's note in HISTORY).
-- Toasts fired from a phone's bottom sheet land behind it (every sheet).
+- A note type's "note" field is a `[[link]]` written into the block (a text
+  box in the note sheet and the document panel), not a picker that searches
+  (KG4).
 - Rollups over a live query's table (count, sum, min, max, earliest,
   latest) are not built.
 

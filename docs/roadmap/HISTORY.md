@@ -99,6 +99,70 @@ at 1440, 1024, 820 and 390, and the strip on its own topic 0 times.
 the lines *out of* the selected topic (also shown when it is selected), which
 the plan did not name.
 
+## Moved from the plans, 2026-10-04 (graph plan leftovers)
+
+### From GRAPH_PLAN.md: "Still open after KG1 to KG9"
+
+**The properties block in previews (built).** A note's `---` block is data
+about it, never its opening words. Read through `entry/properties.strip` now:
+the search snippet (`search/engine._snippet`) and a result's title
+(`search/index._first_line`, which had named a note `---`), the Library's
+`_clip` (note, bin, file and document cards), a document's `_preview`, a
+reminder's `entry_preview`, `tensions._excerpt`, Ask cards (`cards._note_item`),
+the agent's graph and whiteboard previews, the extractor's link previews, and
+five page clips (`categories-panel.js`, `graph.js` remind, `lightbox.js`,
+`notes-list.js` similar row, `settings-panes.js` palette rows). `apply_title`
+and `remove_title` split the block off first, so a title edit never touched
+the block by accident and a heading goes after it. Measured:
+`tests/test_properties_never_in_previews.py` 12 tests, 11 failing before.
+Not verified: a block longer than the 200-character clip of the agent's
+`_note_summary` `content` reaches an Ask card unclosed and is not stripped
+there (the model still reads the block in `read_note` and `_note_summary` on
+purpose); existing search index rows take the new title on the next startup
+reconcile.
+
+**The agent's link tool takes a person's own kinds (built).** `link_notes`
+had no kind at all (two prompts told the model to link "with link_type
+'contradicts'", which nothing read). It now has `link_type`, resolved by key
+or name against `manager.relation_types` (`_resolve_link_type`), and
+`ollama_tools(allowed, session=...)` swaps in a description listing the kinds
+that exist (`link_type_description`, 420 characters at most, built-ins first,
+"(+N more)" after). An unknown kind is a ToolError that lists them.
+Measured: `tests/test_agent_link_types.py` 8 tests; `test_prompt_budget.py`
+and `test_skills.py` still pass. Not verified: a real small model choosing a
+custom kind from the list (no model in the sandbox); `compact_schemas` cuts
+the parameter text to 60 characters on a small window, so there the refusal
+message is what carries the list.
+
+**Toasts over phone sheets (built).** `openSheet` draws a sheet one layer
+above its opener, so one opened from a menu (2600) or the table view (2400)
+was at 2601 or 2401 and `#toast-box` (1050) sat behind it. Below 600px the box
+is `z-index: 2700` (10-responsive.css): above the highest opener, under the
+boot splash (3000). Measured at 390x844 by `elementFromPoint` at the toast's
+centre over eight opener layers (0, 1010, 1020, 1045, 1050, 2000, 2550, 2600):
+covered at 1050 and above before (4 of 8), answered in all 8 after
+(`scratchpad/ui-sweeps/toastsheet.js`); `tests/test_toast_over_sheets.py`
+holds both ends. Not verified: a real device; widths 600 to 1099 (a sheet is
+still a bottom sheet there and the toast box is not raised, as asked);
+sheets opened from the whiteboard's text editor layer (100000, not an opener
+in practice).
+
+**The document properties panel reads note types (built).** A document
+whose frontmatter says `type: Meeting` shows that type's fields it has not
+written as empty rows (`docFrontmatterTypeFields`, pure and run in node;
+`docPropsTypeRows`; the types from `GET /note-types`, asked once and only for
+a document that has a `type`). Each row has its kind's control; a value goes in
+through `docFrontmatterAddEdits` as one line above the closing fence, a row
+left empty writes nothing, and the redraw makes it an ordinary row. Measured:
+`tests/test_doc_type_fields.py` (node, 9 checks) and
+`scratchpad/ui-sweeps/doctypeprops.js` 11/11 at 1440 and 390 (the fields
+listed, the right controls, the file unchanged until a value, one new line,
+one right edge for written and unwritten inputs, no sideways scroll). Not
+verified: the checkbox and date rows by hand in a real desktop window; a
+type named in a list or an empty `type:` offers nothing, by choice. The
+type list is read once per page load: a type changed in the palette shows
+in a document's panel after a reload.
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

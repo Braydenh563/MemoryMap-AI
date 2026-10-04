@@ -5095,6 +5095,24 @@ function docFrontmatterStrip(text) {
   return String(text).slice(fm.textFrom).replace(/^\n+/, "");
 }
 
+//: A document that says `type: Meeting` is of a note type (GRAPH_PLAN KG4), and
+//: the type's fields it has not written yet are the rows the panel offers
+//: empty. `types` is `GET /note-types` (`[{name, fields: [{name, kind}]}]`),
+//: `null` until it has loaded. Pure, so it runs in node: the type is read from
+//: a scalar `type` only (a list or an empty one names nothing), matched the way
+//: the server matches it (case-insensitively), and a field already written is
+//: skipped by the model's own case-blind key lookup.
+function docFrontmatterTypeFields(fm, types) {
+  const none = { type: null, fields: [] };
+  const entry = fm && docFrontmatterEntry(fm, "type");
+  if (!entry || entry.kind !== "scalar" || !Array.isArray(types)) return none;
+  const wanted = String(entry.value.text || "").trim().toLowerCase();
+  const row = wanted && types.find((t) => t && String(t.name || "").toLowerCase() === wanted);
+  if (!row) return none;
+  const fields = (row.fields || []).filter((f) => f && f.name && !docFrontmatterEntry(fm, f.name));
+  return { type: row.name, fields };
+}
+
 // DOC-FRONTMATTER-END
 
 // -----------------------------------------------------------------------------
@@ -5258,6 +5276,80 @@ function docPropsField(key, value) {
   return input;
 }
 
+//: The note types, for the rows a `type:` offers. Loaded once, the first time a
+//: document with a `type` is drawn (a document with none never asks), and
+//: again on the next draw if the request failed. `null` is "not loaded", which
+//: `docFrontmatterTypeFields` reads as no fields.
+let docNoteTypes = null;
+let docNoteTypesAsked = false;
+function docLoadNoteTypes() {
+  if (docNoteTypes || docNoteTypesAsked) return;
+  docNoteTypesAsked = true;
+  apiJson("/note-types")
+    .then((types) => {
+      docNoteTypes = Array.isArray(types) ? types : [];
+      docPropsDrawn = null;
+      renderDocProperties();
+    })
+    .catch(() => {
+      docNoteTypesAsked = false;
+    });
+}
+
+//: The type's fields the document has not written: one empty row each, with
+//: the control its kind needs (the note's own Properties sheet draws the same
+//: kinds, note-properties.js). Nothing is written until a value is: a row left
+//: empty adds no line to the file. A value goes in through the model's own add,
+//: so the other lines keep their bytes, and the redraw turns the row into an
+//: ordinary one.
+function docPropsTypeRows(host, fm) {
+  if (!docFrontmatterEntry(fm, "type")) return;
+  if (!docNoteTypes) {
+    docLoadNoteTypes();
+    return;
+  }
+  const { type, fields } = docFrontmatterTypeFields(fm, docNoteTypes);
+  for (const field of fields) {
+    const row = document.createElement("div");
+    row.className = "doc-prop-row doc-prop-unset";
+    const key = document.createElement("span");
+    key.className = "doc-prop-key";
+    key.textContent = field.name;
+    key.title = `A field of the ${type} type, not written in this document yet`;
+    const value = document.createElement("div");
+    value.className = "doc-prop-value";
+    const kind = field.kind;
+    const input = document.createElement("input");
+    input.type = kind === "checkbox" ? "checkbox" : kind === "number" ? "number" : kind === "date" ? "date" : "text";
+    input.className = kind === "list" ? "doc-prop-add" : kind === "checkbox" ? "doc-prop-check" : "doc-prop-input";
+    if (kind === "list") input.placeholder = "a, b, c";
+    input.setAttribute("aria-label", `${field.name} (${type})`);
+    input.addEventListener("change", () => {
+      const now = docPropsNow();
+      if (!now) return;
+      let written = "";
+      if (kind === "checkbox") written = input.checked ? "true" : "";
+      else if (kind === "list") {
+        const items = input.value.split(",").map((x) => x.trim()).filter(Boolean);
+        written = items.length ? `[${items.join(", ")}]` : "";
+      } else if (kind === "note") written = input.value.trim() ? `[[${input.value.trim()}]]` : "";
+      else written = input.value.trim();
+      if (!written) return;
+      docPropsDispatch(docFrontmatterAddEdits(now, field.name, written));
+      renderDocProperties(true);
+    });
+    value.appendChild(input);
+    //: The written rows end in a trash button; an unwritten one holds its
+    //: place, so the fields line up down the panel.
+    const spacer = docPropsIconButton("trash", "");
+    spacer.classList.add("doc-prop-spacer");
+    spacer.removeAttribute("aria-label");
+    spacer.removeAttribute("title");
+    row.append(key, value, spacer);
+    host.appendChild(row);
+  }
+}
+
 //: "Add property": a button that becomes the field for the new key's name, so
 //: the panel never carries an empty row waiting to be filled in and there is
 //: no dialog for something that is one word long.
@@ -5357,6 +5449,7 @@ function renderDocProperties(force = false) {
     row.append(key, value, remove);
     host.appendChild(row);
   }
+  docPropsTypeRows(host, fm);
   docPropsAddRow(host);
 }
 

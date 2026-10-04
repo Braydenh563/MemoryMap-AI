@@ -605,7 +605,7 @@ function splitCategoryFromPanel(meta) {
         //: A note with no text of its own (an image, a voice note) has no
         //: `content` to cut: it threw here and the sheet never opened.
         text.className = "manage-split-text";
-        text.textContent = entry.title || stripMarkdownPreview(String(entry.content || "").slice(0, 240)).replace(/\s+/g, " ").trim() || "Untitled note";
+        text.textContent = entry.title || stripMarkdownPreview(stripFrontmatter(String(entry.content || "")).slice(0, 240)).replace(/\s+/g, " ").trim() || "Untitled note";
         label.title = text.textContent;
         label.append(box, text);
         list.appendChild(label);

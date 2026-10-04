@@ -59,6 +59,8 @@ from sqlalchemy import event, select, text
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session, object_session
 
+from memorymap.entry.properties import strip as strip_properties
+
 logger = logging.getLogger("memorymap.search.index")
 
 #: The kinds the engine can return, and the kinds `kind:` accepts. The spec
@@ -519,7 +521,9 @@ def counts(session: Session) -> dict[str, int]:
 
 
 def _first_line(text_value: str | None, limit: int = 120) -> str:
-    for line in (text_value or "").splitlines():
+    # A note opening with properties is named by what follows them (KG4); the
+    # fence line itself ("---") was a result's title.
+    for line in strip_properties(text_value or "").splitlines():
         stripped = line.strip().lstrip("#").strip()
         if stripped:
             return stripped[:limit]

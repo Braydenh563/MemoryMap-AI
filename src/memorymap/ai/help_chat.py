@@ -756,7 +756,8 @@ HELP_TOPICS.extend(
                 "Kind and properties: a kind says what the link is (Supports, Part "
                 "of, your own) and reads from the other note by its other name "
                 "(Supported by, Has part); Kinds of link in the command palette "
-                "adds, renames and deletes your own."
+                "adds, renames and deletes your own. The assistant can link two "
+                "notes with any of these kinds too, yours included."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1188,8 +1189,11 @@ HELP_TOPICS.extend(
                 "one, or pick a Type, and Save rewrites only those lines. Note "
                 "types in the command palette makes a kind of note (Meeting: "
                 "attendees, date) with fields that are text, a number, a date, a "
-                "list, yes/no or another note; its New note starts with them. "
-                "The notes filter asks about them: type:meeting, prop:status=open "
+                "list, yes/no or another note; its New note starts with them. A "
+                "document's properties panel does the same: with type: Meeting "
+                "in its properties, the type's fields it has not written yet "
+                "show as empty rows, and a value you enter is written as one "
+                "line. The notes filter asks about them: type:meeting, prop:status=open "
                 "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
                 "entity:\"Sam Lee\", with - before any of them to leave those out; "
                 "a bar over the list then shows the same notes as a Table, with "

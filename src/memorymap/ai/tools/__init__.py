@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Callable
 
 from datetime import timedelta
@@ -1500,15 +1499,37 @@ def _restore_note(session: Session, args: dict) -> dict:
 
 
 def _set_reminder(session: Session, args: dict) -> dict:
+    """A reminder at a time the app works out (INBOX 527; AGENT_SKILLS_REFORM,
+    decided 2026-09-21): `when` is the user's own words, resolved by
+    `ai/when.py` against their clock; `due_at` stays as an escape hatch. Both
+    without an offset mean the user's local time. Measured before: `due_at`
+    "2026-10-05T09:00" was stored as 09:00 UTC, 19:00 for a user at UTC+10.
+    """
+    from memorymap.ai import when as when_words
+    from memorymap.core.config import user_now
+
     text = str(args["text"]).strip()
     if not text:
         raise ToolError("The reminder text is empty")
-    try:
-        due_at = datetime.fromisoformat(str(args["due_at"]))
-    except ValueError as exc:
+    now = user_now(deps.get_config())
+    said = str(args.get("when") or "").strip()
+    exact = str(args.get("due_at") or "").strip()
+    due_at = when_words.resolve(said, now) if said else None
+    if due_at is None and exact:
+        due_at = when_words.resolve(exact, now)
+    if due_at is None:
         raise ToolError(
-            "due_at must be an ISO date-time like 2026-07-19T09:00"
-        ) from exc
+            f"Couldn't read '{said or exact}' as a time. Put the user's own "
+            "words in `when`, like 'tomorrow at 9am', 'in 20 minutes' or "
+            "'Friday evening'."
+            if said or exact
+            else "Say when in `when`, in the user's words, like 'tomorrow at 9am'."
+        )
+    if due_at < now - timedelta(minutes=1):
+        raise ToolError(
+            f"{due_at.strftime('%A %d %B %H:%M')} has already passed. Ask the "
+            "user for a time that has not happened yet."
+        )
     entry_id = args.get("note_id")
     if entry_id is not None:
         _require_note(session, {"note_id": entry_id})  # validates it exists
@@ -1525,7 +1546,10 @@ def _set_reminder(session: Session, args: dict) -> dict:
         "id": reminder.id,
         "text": text,
         "due_at": due_at.isoformat(),
-        "label": f"⏰ Set a reminder for {due_at.strftime('%d %b %Y %H:%M')}",
+        #: Said back in words, so the answer repeats the app's reading of the
+        #: time rather than the model's own arithmetic.
+        "due": due_at.strftime("%A %d %B %Y, %H:%M"),
+        "label": f"⏰ Set a reminder for {due_at.strftime('%a %d %b %Y %H:%M')}",
     }
 
 
@@ -3264,15 +3288,19 @@ TOOLS: dict[str, ToolSpec] = {
             #: reminder Atlas makes while reading a note is exactly the case
             #: the link is for, and "optionally attached to a note" does not
             #: tell a small model that.
-            "Create a reminder. When the reminder comes out of a note you "
+            "Create a reminder; put when in the user's own words. If it comes out of a note you "
             "have just read, pass that note's id so the two stay joined.",
             {
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "What to remind about"},
+                    "when": {
+                        "type": "string",
+                        "description": "When, in the user's own words: 'tomorrow at 9am', 'in 20 minutes', 'Friday evening'. The app works out the date.",
+                    },
                     "due_at": {
                         "type": "string",
-                        "description": "ISO date-time, e.g. 2026-07-19T09:00",
+                        "description": "Only if you already have an exact ISO date-time; prefer when",
                     },
                     "note_id": {
                         "type": "integer",
@@ -3284,7 +3312,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "description": "Priority (optional, defaults to normal)",
                     },
                 },
-                "required": ["text", "due_at"],
+                "required": ["text"],
             },
             _set_reminder,
         ),

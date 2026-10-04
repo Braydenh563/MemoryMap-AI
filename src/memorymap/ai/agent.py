@@ -208,14 +208,11 @@ TOOLS_GUIDE = (
     "it), and their saved skills (list_skills, save_skill; run_skill starts "
     "one and takes over from you, so use it when a saved skill already "
     "describes the job). "
-    # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
-    # that it must be computed from the clock given below. Without that, a
-    # model resolves "in 10 minutes" against whatever it imagines the time is,
-    # which is how a reminder set for five minutes' time read as ten hours
-    # overdue the moment it was saved.
-    "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
-    "set_reminder with due_at computed from the current time given below, as "
-    "an ISO 8601 datetime. "
+    # The arithmetic left the prompt (INBOX 527; AGENT_SKILLS_REFORM, decided
+    # 2026-09-21): set_reminder takes the user's words in `when` and the app
+    # resolves them (`ai/when.py`). This only says so.
+    "For \"remind me… in 10 minutes / tomorrow at 9\", call set_reminder "
+    "with when in the user's own words; the app works out the date. "
     # Both halves of this earned their place and both were briefly cut. Without
     # the first the model acts and then says nothing, so the user watches tool
     # chips scroll past and gets no answer; without the second it narrates work
@@ -293,7 +290,7 @@ COMPACT_TOOLS_GUIDE = (
     "notebook. Use count_notes for totals, list_notes to walk through, "
     "get_note to read one in full. Never state a total from a page of "
     "results. Private notes are invisible to you; say so if asked. "
-    "For reminders, compute due_at from the current time below as ISO 8601. "
+    "For reminders, pass when in the user's own words. "
     "NEVER say you created, saved, edited, deleted, tagged or linked "
     "anything unless you actually called the tool, claiming work you did "
     "not do is the worst thing you can write. Planning ahead is fine: say "
@@ -1120,10 +1117,9 @@ def build_agent_messages(
     #: characters against `PROSE_BUDGET_CHARS` and removes a whole class of
     #: wrong answer.
     #:
-    #: The "still today" sentence is there because of the specific slip
-    #: above: a time worked out by subtracting from tonight's midnight lands
-    #: on today, and the model moved it to tomorrow. Saying so once is
-    #: cheaper than a reminder set on the wrong night.
+    #: The "still today" sentence that followed is gone (INBOX 527): it taught
+    #: reminder arithmetic, which `ai/when.py` now does. The week stays,
+    #: because placing a note's "due Friday" is reading, not a tool argument.
     #: The day number by hand, not `%-d`: that flag is glibc's, and Windows'
     #: strftime raises "Invalid format string" on it, which took every agent
     #: turn down on the owner's machine before the first event.
@@ -1140,8 +1136,6 @@ def build_agent_messages(
     #: it caught this being written the other way round.
     now_hint = (
         f" Today is {local.strftime('%A')}, and the next seven days are {week}."
-        " Today ends at midnight tonight, so a time you reach by counting back"
-        " from that midnight is still today's date, not tomorrow's."
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )

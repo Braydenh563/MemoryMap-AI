@@ -22,7 +22,11 @@ code:
   frozenset lookup and anything else returns at once.
 - **It does no I/O.** Writing the ledger from inside a connect would put a
   disk write on the network path and re-enter the hook through `open`; the
-  ledger is written by `flush`, from the receipt route and at shutdown.
+  ledger is written by `flush`. The hook only queues one small job on
+  `core/jobs.py`'s pool (`configure` says where the ledger is), which waits
+  `FLUSH_DELAY` to batch a burst and then flushes, so a process that is
+  killed loses at most that window of what it saw. `flush` also runs on
+  every receipt read and at shutdown.
 
 What it cannot see, said here and on the receipt: other programs. The model
 server (Ollama, LM Studio, llama.cpp) and a SearXNG the app starts are
@@ -51,6 +55,10 @@ LEDGER_NAME = "egress-ledger.json"
 MAX_DESTINATIONS = 256
 #: The recent non-local events kept for the receipt's "last seen" list.
 MAX_RECENT = 100
+#: How long the flush job waits after the first unflushed connection before
+#: it writes, so a web search that opens twenty sockets is one write, and the
+#: most a hard kill can lose.
+FLUSH_DELAY = 0.5
 
 SCOPES = ("this_computer", "local_network", "internet")
 
@@ -79,10 +87,19 @@ _installed = False
 _since = time.time()
 # (kind, host, port) -> {"count", "first", "last", "via", "name"}
 _destinations: dict[tuple[str, str, int | None], dict] = {}
-# (kind, host, port) -> count already written to the ledger by `flush`
-_flushed: dict[tuple[str, str, int | None], int] = {}
+# ledger path -> (destination counts, scope totals) already written to *that*
+# ledger by `flush`. Per path, so the flush job and a caller flushing
+# to another file never consume each other's difference.
+_flush_state: dict[str, tuple[dict[tuple[str, str, int | None], int], dict[str, int]]] = {}
 _totals = {scope: 0 for scope in SCOPES}
-_flushed_totals = {scope: 0 for scope in SCOPES}
+# Held across a whole `flush`: it reads, adds to and rewrites one file, and
+# the flush job, the receipt route and shutdown can all be in it at once.
+_io_lock = threading.Lock()
+# True from the moment `_record` queues a flush job until that job has
+# taken what is pending: a bare flag, so the hook asks the pool for at most
+# one job per burst and takes no lock to find out.
+_flush_queued = False
+_ledger_path: Path | None = None
 _recent: deque = deque(maxlen=MAX_RECENT)
 # The last name each thread looked up, so a connect to an address can say
 # which name it was probably for ("140.82.112.3" is "api.github.com").
@@ -176,6 +193,10 @@ def _record(kind: str, host: str, port: int | None) -> None:
         row["via"] = via or row["via"]
         row["name"] = name or row["name"]
         _recent.append({"at": now, "kind": kind, "host": host, "port": port, "scope": scope, "via": via})
+    # Only what left this computer queues a write: loopback traffic is
+    # counted but not tabled, and a local model would otherwise write the
+    # ledger every turn.
+    _schedule_flush()
 
 
 def _hook(event: str, args: tuple) -> None:
@@ -237,14 +258,14 @@ def installed() -> bool:
 
 def reset() -> None:
     """Forget this launch's record (tests; the hook stays installed)."""
-    global _since
+    global _since, _flush_queued
     with _lock:
+        _flush_queued = False
         _destinations.clear()
-        _flushed.clear()
+        _flush_state.clear()
         _recent.clear()
         for scope in SCOPES:
             _totals[scope] = 0
-            _flushed_totals[scope] = 0
         _since = time.time()
 
 
@@ -310,26 +331,79 @@ def _read_ledger(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def flush(path: Path) -> dict:
+def configure(path: Path | None) -> None:
+    """Keep `path` current while the process runs (the app calls this at startup).
+
+    From here on a connection that leaves this computer queues one flush job
+    (`_schedule_flush`). `None` stops that (tests).
+    """
+    global _ledger_path, _flush_queued
+    with _lock:
+        _ledger_path = path
+        # A previous app's pool may have dropped its queued job at shutdown.
+        _flush_queued = False
+
+
+def _schedule_flush() -> None:
+    """Ask the pool for one flush, at most one job per burst. Never raises.
+
+    Called from the audit hook, so it does no I/O of its own: a queue put and
+    a flag. The job waits `FLUSH_DELAY` before it reads what is pending, so
+    the connections that follow the first are in the same write, and clears
+    the flag *before* flushing, so one that lands during the write queues the
+    next job rather than waiting for shutdown.
+    """
+    global _flush_queued
+    if _ledger_path is None or _flush_queued:
+        return
+    _flush_queued = True
+    try:
+        from memorymap.core import jobs
+
+        if not jobs.enqueue("ledger", _flush_job, name="privacy ledger", dedupe_key="egress-ledger"):
+            _flush_queued = False  # the pool is shutting down; the quit flushes
+    except Exception:  # noqa: BLE001 - the hook must never raise (module docstring)
+        _flush_queued = False
+
+
+def _flush_job() -> None:
+    global _flush_queued
+    time.sleep(FLUSH_DELAY)
+    _flush_queued = False
+    path = _ledger_path
+    if path is not None:
+        flush(path, create=False)
+
+
+def flush(path: Path, *, create: bool = True) -> dict:
     """Add what this launch saw since the last flush to the ledger on disk.
 
-    Only the difference is added, so flushing on every receipt read and again
-    at shutdown never counts a connection twice. Returns the ledger written.
+    Only the difference is added, so flushing on every receipt read, from the
+    flush job and again at shutdown never counts a connection twice.
+    Returns the ledger written. `create=False` (the flush job's) writes
+    only when there is something to add, never an empty first ledger.
     """
+    with _io_lock:
+        return _flush_locked(path, create)
+
+
+def _flush_locked(path: Path, create: bool) -> dict:
     from memorymap.core.atomic_io import atomic_write_json
 
     with _lock:
+        flushed, flushed_totals = _flush_state.setdefault(str(path), ({}, {scope: 0 for scope in SCOPES}))
         added = {
-            key: row["count"] - _flushed.get(key, 0)
+            key: row["count"] - flushed.get(key, 0)
             for key, row in _destinations.items()
-            if row["count"] > _flushed.get(key, 0)
+            if row["count"] > flushed.get(key, 0)
         }
         rows = {key: dict(_destinations[key]) for key in added}
-        added_totals = {scope: _totals[scope] - _flushed_totals[scope] for scope in SCOPES}
+        before = (dict(flushed), dict(flushed_totals))
+        added_totals = {scope: _totals[scope] - flushed_totals[scope] for scope in SCOPES}
         for key, row in _destinations.items():
-            _flushed[key] = row["count"]
+            flushed[key] = row["count"]
         for scope in SCOPES:
-            _flushed_totals[scope] = _totals[scope]
+            flushed_totals[scope] = _totals[scope]
     ledger = _read_ledger(path)
     stored_totals = ledger.get("totals") if isinstance(ledger.get("totals"), dict) else {}
     out_totals = {scope: int(stored_totals.get(scope, 0) or 0) + added_totals[scope] for scope in SCOPES}
@@ -354,10 +428,15 @@ def flush(path: Path) -> dict:
         "totals": out_totals,
         "destinations": kept,
     }
-    if added or any(added_totals.values()) or not path.exists():
+    if added or any(added_totals.values()) or (create and not path.exists()):
         try:
             atomic_write_json(path, result)
         except OSError:
-            # A full disk costs the ledger an update, never the receipt.
-            pass
+            # A full disk costs the ledger an update, never the receipt. What
+            # was not written stays unflushed, so the next flush (the flush job
+            # runs one per burst) carries it rather than losing it.
+            with _lock:
+                flushed.clear()
+                flushed.update(before[0])
+                flushed_totals.update(before[1])
     return result

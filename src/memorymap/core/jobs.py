@@ -81,6 +81,12 @@ KIND_LANES: dict[str, str] = {
 
 DEFAULT_LANE = "cpu"
 
+#: Kinds that are the app's own housekeeping, not something the person asked
+#: for: the privacy ledger's flush (`core/egress.py`) queues one within a
+#: second of any connection that leaves this computer, and a row in the
+#: activity panel for it would be noise that says nothing they can act on.
+QUIET_KINDS = frozenset({"ledger"})
+
 #: What the activity panel calls each kind. Sentence case, no exclamation:
 #: standing order 6.
 LABELS: dict[str, str] = {
@@ -264,7 +270,7 @@ class Pool:
         """
         with self._lock:
             jobs = sorted(
-                list(self._running.values()) + list(self._queued.values()),
+                (job for job in (*self._running.values(), *self._queued.values()) if job.kind not in QUIET_KINDS),
                 key=lambda job: job.seq,
             )
             running = set(self._running)

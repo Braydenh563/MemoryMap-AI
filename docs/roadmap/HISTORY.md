@@ -38042,6 +38042,53 @@ the base.
 
 ## OPEN.md rows closed, 2026-10-04
 
+### Carried bugs fixed, 2026-10-04 (the five from the archived agent files)
+
+Each had a failing test or a measured sweep first; one commit each.
+
+- **Recent activity: the Undo row stayed after an undo** (backend-0926).
+  `GET /events` now puts `undid` (the event ids it reversed) on a `restored`
+  row, and `activityUndoStarts` (dashboard.js) leaves an actor out of the
+  widget's Undo row once everything it did in the list is named there, so the
+  row goes instead of answering "Already undone". A change by the actor after
+  the undo brings the row back. `tests/test_activity_undo_row.py` (3 node
+  cases on the extracted function, 1 route case).
+- **The night card scrolled inside a fixed-height widget** (backend-0926). The
+  shared `.dash-body` cap (320px, scroll inside) hid the rows of an open
+  review list and their Dismiss below the fold. The card now opts out beside
+  art, capture and stats, so it grows as lists open and page ("Show more"
+  stays five rows a page); the grid re-measures its span. Measured with
+  `nightcard.js`: body 508px high with no inner scroll (was capped at 320px);
+  7 of 7 checks. `tests/test_night_card_grows.py`.
+- **`mindmapcurve.js` at 390x844 timed out on a topic's add button** (mindmap2).
+  The app was at fault, not the probe: below 820px and on touch the add and
+  link buttons are 44px, and anchored `bottom: -space-5` they reached 24px up
+  into the node and covered 998px2 of its label row from the left edge in 59px,
+  so pressing the left of a selected topic's text added a child. The row now
+  hangs wholly below the node there (07-whiteboard-misc.css).
+  `scratchpad/ui-sweeps/mapaddcover.js` (new) went from 3 of 3 failing to 3 of 3
+  passing, with a mouse and with touch at 390; `mindmapcurve.js` at 1440 is
+  14 of 14 and at 390 no longer times out (11 of 14: the three left are the
+  probe's map being wider than a phone, noted in OPEN.md);
+  `mapnarrow.js` still 3 of 3. `tests/test_map_actions_clear_of_label.py`.
+- **The privacy receipt's ledger flushed only on read and at shutdown**
+  (backend-0926). `egress.configure` (called from `create_app`) names the
+  ledger; the audit hook still does no I/O, it queues one `ledger` job on
+  `core/jobs.py`'s pool (no new thread: the `THREAD_SITES` ratchet in
+  `test_flaw_class_lints.py` caught a first version that had one), which
+  flushes `FLUSH_DELAY` (0.5s) after the first unflushed connection, so a
+  burst is one write and a kill loses at most that half second. Loopback
+  traffic queues nothing, and the job is a `QUIET_KINDS` entry so the activity
+  panel never lists it. Flush state is kept per ledger path, so the writer and a
+  caller flushing elsewhere never consume each other's difference, and a
+  failed write is carried by the next flush rather than lost.
+  `tests/test_egress_ledger_writes.py`, including a child process that is
+  sent SIGKILL after recording, with the ledger read back from disk.
+- **The archived files' `../` links were broken** (57 of them). The files moved
+  one directory deeper and kept their links; each was re-resolved against the
+  directory it came from. `tests/test_archive_links.py` (new) checks every
+  relative link in `agent-remaining/` and `archive/`, ignoring code spans.
+
 Rows that were struck or built in `agent-remaining/OPEN.md`, moved whole (standing order 10), with the ones this pass verified on the head or fixed.
 
 ### Stray Atlas heads under the status bar (INBOX 429)

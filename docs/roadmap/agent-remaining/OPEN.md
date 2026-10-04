@@ -740,17 +740,13 @@ the head, so they carry no row of their own.
 - **askcite.md**: the Chat tab's Ask mode receives `grounding_live` and ignores
   it, so its inline numbers arrive with the finished answer. [askcite]
   *Opus: new wiring in the Chat tab's renderer, measured against a model.*
-- **backend-0926.md**: the Recent activity widget's Undo row stays after an
-  undo (a second press says "Already undone"); the night card's review list
-  scrolls inside the widget's fixed-height body; the privacy receipt's ledger
-  is flushed only on read and at shutdown, so a killed process loses what it
-  saw since; LAN mode binds `0.0.0.0` only (no IPv6); F7's thread modules
+- **backend-0926.md**: LAN mode binds `0.0.0.0` only (no IPv6); F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet);
   night passes for tensions and answered questions as `DerivedFact` kinds.
   Not verified: the receipt against a real outbound call, the five UIs in the
   desktop window, LAN from a second device, the `.ics` in a real calendar app.
   [backend-0926]
-  *Opus: each is a small design choice (a periodic flush needs a timer's home; IPv6 needs a dual-stack bind); the unverified list is blocked here.*
+  *Opus: IPv6 needs a dual-stack bind; the unverified list is blocked here. The Undo row, the night card's scroll and the ledger's flush are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-04".*
 - **chat-0926.md**: CHAT_PLAN's "Placed from INBOX" list needs one triage pass
   (72 the popup agent panel, 63 Ask/Write/Capture and 71's Tools table look
   open); the mouse hover row on a question overlaps the answer under it by
@@ -823,12 +819,13 @@ the head, so they carry no row of their own.
   `<arrowlink>` written by FreeMind itself is untested. [maptheme]
   *Opus: schema and export design.*
 - **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
-  2026-10-04), but `mindmapcurve.js` at 390x844 times out because the topic's
-  own `.wb-map-add` button intercepts the click at the topic's centre (the
-  probe or the app, not yet told apart); a picture node does not resize to its
-  picture; `mindmap3.js` times out at `#wb-boards-generate` (the AI half).
-  [mindmap2]
-  *Opus: tell the probe's aim from the app's overlap first, at 390.*
+  2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
+  times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
+  390x844 passes 11 of 14 (its map is laid out wider than a phone, so the
+  hover reveal and the straight-line kink aim at off-screen handles: the
+  probe's layout, not the app; the add-button overlap that timed it out was
+  the app's and is closed, HISTORY.md). [mindmap2]
+  *Opus: lay the curve probe's map out inside 390 wide.*
 - **ocr-reading.md**: a page joins the reading panel only once looked at or
   read (nothing reads ahead, deliberately); nothing was verified with a real
   Tesseract or a vision model. [ocr-reading]

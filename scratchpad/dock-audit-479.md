@@ -62,7 +62,9 @@ mark moved no wrap): a
 2. **Settings' head was not on the dialog-head recipe.** Profile, guide, Back
    and Forward at 28x28 beside a 32x32 Close; the title an `h2` at the card's
    own voice rather than `.dialog-head-title`. Every other dialog head is 32px
-   utilities (DESIGN.md, "A dialog's head"). **Planned**: the row is
+   utilities (DESIGN.md, "A dialog's head"). **Fixed** (after: all six 32x32
+   on one centre line at 1440, the title 16px/600; 44x44 at 390, one 44px
+   row): the row is
    `.dialog-head`, the title `.dialog-head-title`, the four utilities
    `.dialog-head-btn`.
 3. **The map's top bar showed a fact dressed as a pressed toggle.** `#wb-map-chip`
@@ -70,10 +72,12 @@ mark moved no wrap): a
    filled, bold box that reads as a button already pressed, and pressing it does
    nothing. It also says what the picker beside it already says ("Mind map ·
    Portugal trip"). A fact in a bar is `.dock-chip` (the Graph's "75 notes · 87
-   links", the Timeline's "88 items · 54 days"). **Planned**: `.dock-chip`.
+   links", the Timeline's "88 items · 54 days"). **Fixed**: `.dock-chip`, a
+   quiet bordered fact at 400, no fill.
 4. **The map's tool rail had three control heights.** Tools 36px, the '?' 32px,
    the layout picker 28px, in one row (the inventory read the rail as two rows
-   because the tops differ). The rail recipe is one control height. **Planned**:
+   because the tops differ). The rail recipe is one control height. **Fixed**
+   (after: twelve controls, all 36px on one centre line at 1440):
    the picker and the '?' take the tools' 36px.
 5. **The wrapped tab strip was a full-width slab.** From 600 to 1199, when the
    seven tabs take a row of their own (`.tabs-wrapped`), the strip was

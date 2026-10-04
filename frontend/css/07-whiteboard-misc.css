@@ -13207,7 +13207,15 @@ header#top-bar {
 .wb-rail .select-shell {
   flex: 0 0 auto;
   min-width: 9rem;
-  height: var(--target-min);
+  /* The tools' own 36px (`.wb-tool-group button`): at `--target-min` it was
+     28px in a row of 36px tools, and the Map section's '?' 32px, three
+     heights in one rail (INBOX 479). Never under a touch target. */
+  height: max(2.25rem, var(--target-min));
+}
+
+.wb-rail .wb-tool-section-row > .graph-help-toggle {
+  width: max(2.25rem, var(--target-min));
+  height: max(2.25rem, var(--target-min));
 }
 
 /* The picker's visible face is `.select-opener`, a button, and the rail's

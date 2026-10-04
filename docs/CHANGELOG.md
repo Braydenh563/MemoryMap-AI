@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind maps: the top bar's Map chip is a fact (the dock's quiet chip, as the Graph's count) rather than the filter chip's pressed state, which read as a toggle that did nothing; the tool rail is one height again, the layout picker and the Map section's '?' at the tools' 36px (were 28 and 32) (INBOX 479).
 - Settings: the head is the dialog head every popup wears; profile, guide, Back and Forward are 32px like Close (were 28px beside it) and the title takes the dialog title's voice (INBOX 479).
 - Top bar: the space picker wears every dock select's face (the field's inset ground, the 3:1 edge, a 400 label) instead of the tinted, bold quiet-button face that made it louder than the selected tab; Lock and Quit sit past a drawn seam, the status bar's own hairline with 8px either side, where they were 16px from Settings with nothing between. Every item stays 44px on one centre line.
 - Status bar: each glyph meets its word (INBOX 494). Measured by ink at 3x, glyph centre against the label's x-height centre: Ask was 1.83px high, Guide 1.67, the notebook count 1.17, the Ctrl K chip 0.83, reminders 0.67, Find 0.50; now every one within 0.5px, light and dark (`inkalign.js`).

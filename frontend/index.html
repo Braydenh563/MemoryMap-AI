@@ -5587,9 +5587,10 @@ Link to another note with [[its first few words]]."></textarea>
              `hidden` until `wbSyncMapChrome` finds the open board is a map,
              rather than disabled: a control that can never apply to an
              ordinary whiteboard is not one worth reading past on every board.
-             The chip is `.library-chip`, the app's own filter-chip recipe,
-             not a badge invented for this bar. -->
-        <span id="wb-map-chip" class="library-chip active" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
+             The chip is `.dock-chip`, a fact beside the name (the Graph's
+             count wears it): it was `.library-chip.active`, the filter chip's
+             on state, which read as a toggle already pressed (INBOX 479). -->
+        <span id="wb-map-chip" class="dock-chip" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
       </div>
       <div class="wb-topbar-right">
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>

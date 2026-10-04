@@ -43,7 +43,7 @@ def test_a_404_route_returns_the_error_contract_shape(client):
     # `detail` is untouched: this is the assertion every pre-existing test
     # in this suite already makes, spelled out once here as the contract's
     # own promise rather than an incidental side effect.
-    assert body["detail"] == "Entry not found"
+    assert body["detail"] == "That note could not be found."
     assert body["code"] == "not_found"
     assert body["hint"] is None
 

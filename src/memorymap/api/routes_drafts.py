@@ -83,7 +83,7 @@ def compose_draft(
     of this feature's tests speak.
     """
     if not body.thoughts.strip() and not body.draft.strip():
-        raise HTTPException(status_code=400, detail="Write a thought first")
+        raise HTTPException(status_code=400, detail="Write a thought first.")
 
     text, note = drafter.compose(
         body.thoughts,
@@ -119,7 +119,7 @@ def compose_draft_stream(
     starts: the session is closed by the time the body is streamed.
     """
     if not body.thoughts.strip() and not body.draft.strip():
-        raise HTTPException(status_code=400, detail="Write a thought first")
+        raise HTTPException(status_code=400, detail="Write a thought first.")
 
     sources = _sources(session, body.source_ids)
 

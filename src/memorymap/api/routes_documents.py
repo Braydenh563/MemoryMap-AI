@@ -205,7 +205,7 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
 
 
 def _existing(session: Session, document_id: int) -> Document:
-    return deps.get_or_404(session, Document, document_id, "Document not found")
+    return deps.get_or_404(session, Document, document_id, "That document could not be found.")
 
 
 class AttachBookmarkBody(BaseModel):
@@ -236,7 +236,7 @@ def attach_bookmark(
     document_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
 ) -> dict:
     _existing(session, document_id)
-    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "That bookmark could not be found.")
     already = (
         session.query(DocumentBookmark)
         .filter_by(document_id=document_id, bookmark_id=body.bookmark_id)
@@ -505,7 +505,7 @@ def import_document(
         raise HTTPException(
             status_code=415,
             detail=(
-                f"Can't read a {suffix or 'file'}, this takes documents, "
+                f"Can't read a {suffix or 'file'}. This takes documents, "
                 "spreadsheets, PDFs, and text or code files."
             ),
         )
@@ -521,7 +521,7 @@ def import_document(
                 size += len(chunk)
                 if size > MAX_IMPORT_BYTES:
                     raise HTTPException(
-                        status_code=413, detail="File is larger than 50 MB"
+                        status_code=413, detail="That file is larger than 50 MB."
                     )
                 out.write(chunk)
         # The scanned-PDF fallback, same as the file viewer's. Importing a
@@ -776,7 +776,7 @@ def attach_note(
     document = _existing(session, document_id)
     entry = get_entry(session, body.entry_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     link_document(session, document.id, entry.id)
     return _full(document, session)
 
@@ -1141,8 +1141,8 @@ def export_docx(document_id: int, session: Session = Depends(get_session)) -> Re
     if not docexport.docx_available():
         raise HTTPException(
             status_code=501,
-            detail="This install has no Word exporter: python-docx is not "
-            "installed. Turn it on in Settings, optional extras, "
+            detail="This install has no Word exporter yet. Turn it on in "
+            "Settings, optional extras, "
             "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
             "are available now.",
         )
@@ -1198,7 +1198,7 @@ def ai_edit(
         }
 
     if not target.strip():
-        raise HTTPException(status_code=400, detail="There's nothing to edit yet")
+        raise HTTPException(status_code=400, detail="There's nothing to edit yet.")
 
     if body.verb == "remove":
         # A selection alone already says what to remove, asked for
@@ -1397,7 +1397,7 @@ def document_revision(
     _existing(session, document_id)
     row = session.get(DocumentRevision, revision_id)
     if row is None or row.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No revision with that id")
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
     return {
         "id": row.id,
         "title": row.title,
@@ -1421,7 +1421,7 @@ def restore_document_revision(
     document = _existing(session, document_id)
     row = session.get(DocumentRevision, revision_id)
     if row is None or row.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No revision with that id")
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
     #: **Read before writing, and this is not a style preference.** The
     #: snapshot below coalesces into the most recent revision when one is
     #: recent enough: and on the common path ("I rewrote this, undo that")
@@ -1542,9 +1542,9 @@ def revert_ai_edit(document_id: int, entry_id: int, session: Session = Depends(g
     itself, and a revert can itself be reverted.
     """
     document = _existing(session, document_id)
-    entry = deps.get_or_404(session, DocumentAiEdit, entry_id, "No AI edit with that id")
+    entry = deps.get_or_404(session, DocumentAiEdit, entry_id, "That AI edit could not be found.")
     if entry.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No AI edit with that id")
+        raise HTTPException(status_code=404, detail="That AI edit could not be found.")
 
     reverted = DocumentAiEdit(
         document_id=document_id,

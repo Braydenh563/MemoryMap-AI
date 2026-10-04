@@ -2435,8 +2435,13 @@ label.setting-check,
   border-bottom-right-radius: var(--radius-sm);
 }
 
+/* Atlas's bubble takes its column from the start (INBOX 499: "really short
+   in width when generating"): sized to its content, it was 150px around the
+   name and the typing dots and then widened line by line as the answer
+   streamed in. Chat's answers hold their width the same way. */
 .help-chat-msg.is-assistant {
   align-self: flex-start;
+  width: 82%;
   background: var(--inner);
   border: 1px solid var(--border);
   border-bottom-left-radius: var(--radius-sm);

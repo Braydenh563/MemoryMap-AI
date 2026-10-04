@@ -3157,3 +3157,11 @@ breadcrumbs).
      contents library subtab could be redesigned soooo much better. and it
      takes a while to load the boards and maps library subtab". Placed
      (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
+
+502. **The owner, 2026-10-04 evening, verbatim.** "should the ai chats be
+     able to pull images and sketches and render them in chat responses??
+     with accompanying references and hyperlinks??" Decision, taken: yes.
+     An answer grounded in a note with pictures shows them, as a thumbnail
+     beside the citation that opens the note (and the picture in the
+     lightbox); the model may cite a picture by its note number. Placed
+     (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").

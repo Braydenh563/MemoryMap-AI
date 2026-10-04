@@ -9394,10 +9394,17 @@ input[type="file"]:active::file-selector-button {
 
 .dialog-head {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--control-h-lg);
 }
+
+/* **A head never gives up its height** (INBOX 498, and 475 before it). In
+   a card capped to the window, a flex column's items shrink by default, so
+   when Find anything's results arrived its head went from 52px to 32px and
+   its own hairline ran through the title and the two buttons, with the
+   search field against it. The head is fixed; the list below scrolls. */
 
 /* On whichever element carries the visible title (`<h2>`, `<h3>`, or a
    `<strong>` where the surface predates a heading tag, e.g. Notifications):
@@ -9529,6 +9536,13 @@ input[type="file"]:active::file-selector-button {
 .command-palette-head,
 .finder-head {
   padding-top: var(--card-pad-y);
+}
+
+/* And the same room under it as the popup agent's head (INBOX 498, 475):
+   the search field sat 7px under the head's hairline. */
+.finder-head {
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 /* A small gap between a note card's text and its metadata row (reported at

@@ -34,21 +34,15 @@ with its owner named in the entry.
 
 ## Open items
 
+501. **The owner, 2026-10-04 evening, verbatim.** "also when atlas or the
+     companion appears on the screen it just kinda appears and there is no
+     smooth or creative animation for it to happen, or even differences on
+     how it gets there". With the Atlas agent (480).
+
 500. **The owner, 2026-10-04 evening, verbatim.** "make sure that when any ui
      changes are made, the help info gets updated as well." Taken as a
      standing order (CLAUDE.md order 13), given to every running agent, and
      checked at every merge.
-
-499. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Guide
-     panel: an Atlas bubble 150px wide holding only the name and typing
-     dots).** "the ai assistant message bubble sin the help guide panel are
-     really short in width when generating". Orchestrator.
-
-498. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Find
-     anything: a hairline through the head's title and buttons, the search
-     field touching the head).** "a horizontal line cuts through the top
-     elements in the find anything popup panel, and there is no vertical gap
-     between those elements and the search bar". Orchestrator.
 
 497. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      feminine Atlas, pointer above right, both eyes all white).** "when I

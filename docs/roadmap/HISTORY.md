@@ -37020,6 +37020,22 @@ width, 47% of the column at 1440.
      allowance (`test_chat_attachments.py`). Ask's record cards: 473's
      `--note-preview-lines`.
 
+499. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Guide
+     panel: an Atlas bubble 150px wide holding only the name and typing
+     dots).** "the ai assistant message bubble sin the help guide panel are
+     really short in width when generating". Orchestrator. **Fixed**: Atlas's
+     bubble takes its 82% column from the first frame (was 150px around the
+     dots, widening as text came; `guidebubble.js`).
+498. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Find
+     anything: a hairline through the head's title and buttons, the search
+     field touching the head).** "a horizontal line cuts through the top
+     elements in the find anything popup panel, and there is no vertical gap
+     between those elements and the search bar". Orchestrator. **Fixed**:
+     with results the capped card shrank the head from 52px to 32px, so its
+     hairline crossed the title and buttons; every `.dialog-head` now keeps
+     its height (`flex-shrink: 0`), and the field sits 13px under the head
+     (was 7px; `finderhead.js`).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

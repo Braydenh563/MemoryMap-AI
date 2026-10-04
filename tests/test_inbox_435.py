@@ -124,3 +124,18 @@ def test_the_source_choice_stays_with_the_boxes_that_have_the_toggle():
     docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     assert 'NOTE_SOURCE_HOSTS = new Set(["entry-content", "entry-edit-content"])' in docs
     assert "noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live" in docs
+
+
+
+
+def test_a_timed_out_status_poll_is_not_logged_as_a_warning():
+    """The poll retries by itself and the pill already says "slow": the
+    browser log used to record `WARN [Network] GET /models/status: signal
+    timed out` each time. A silent request's timeout is not logged (the poll
+    is the only caller that sets its own `AbortSignal.timeout`); every other
+    timeout, and every real network failure, still is."""
+    code = app_js_text()
+    poll = code[code.index("async function refreshModelStatus() {"):]
+    poll = poll[: poll.index("\n}\n")]
+    assert "silent: true" in poll and "AbortSignal.timeout(8000)" in poll
+    assert '!(silent && networkErr?.name === "TimeoutError")' in code

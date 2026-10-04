@@ -421,3 +421,77 @@ def test_warm_filing_is_served_where_the_page_asks_for_it(client):
     # the route at /models/models/warm-filing, and every tab's load logged a
     # 405 that failed the E2E smoke suite.
     assert client.post("/models/warm-filing").json() == {"status": "ok"}
+
+
+def test_status_serves_the_last_answer_while_the_runner_is_slow(client, monkeypatch):
+    """`GET /models/status: signal timed out` again, with the capability probe
+    already off the request path: what is left is the poll waiting on the
+    runner's own model list (up to 5s on Ollama, two 5s tries on an
+    OpenAI-dialect server, against the browser's 8s). A runner busy loading a
+    model answers late, and that is the runner's state, not the poll's to wait
+    for: with an answer already known, the poll gives the refresh a short
+    budget, then serves what it last knew and lets the refresh finish."""
+    import threading
+    import time
+
+    from memorymap.ai.ollama_client import OllamaClient
+    from memorymap.api import routes_models
+    from memorymap.core import deps
+
+    ollama = OllamaClient("http://127.0.0.1:9")
+    monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
+    monkeypatch.setattr(routes_models, "INSTALLED_REFRESH_BUDGET", 0.3)
+    release = threading.Event()
+    calls: list[int] = []
+    answers = [{"name": "model-a", "size": 1}]
+
+    def list_models():
+        calls.append(1)
+        if len(calls) > 1:
+            release.wait(30)
+        return list(answers)
+
+    monkeypatch.setattr(ollama, "list_models", list_models)
+    first = client.get("/models/status").json()
+    assert [m["name"] for m in first["installed_models"]] == ["model-a"]  # nothing known yet: it waits
+    answers[:] = [{"name": "model-b", "size": 1}]
+    started = time.monotonic()
+    slow = client.get("/models/status").json()
+    assert time.monotonic() - started < 5  # the refresh is blocked for 30s
+    assert not release.is_set()
+    assert slow["ollama_running"] is True
+    assert [m["name"] for m in slow["installed_models"]] == ["model-a"]  # what it last knew
+    # A third poll while the refresh is still out does not start another.
+    client.get("/models/status")
+    assert len(calls) == 2
+    release.set()
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        body = client.get("/models/status").json()
+        if [m["name"] for m in body["installed_models"]] == ["model-b"]:
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("the refresh never landed")
+
+
+def test_status_reports_a_runner_that_goes_away_when_it_answers(client, monkeypatch):
+    """The budget only ever hides lateness: a runner that refuses the
+    connection is reported as down on that same poll."""
+    from memorymap.ai.ollama_client import OllamaClient, OllamaError
+    from memorymap.core import deps
+
+    ollama = OllamaClient("http://127.0.0.1:9")
+    monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
+    state = {"up": True}
+
+    def list_models():
+        if not state["up"]:
+            raise OllamaError("refused")
+        return [{"name": "model-a", "size": 1}]
+
+    monkeypatch.setattr(ollama, "list_models", list_models)
+    assert client.get("/models/status").json()["ollama_running"] is True
+    state["up"] = False
+    body = client.get("/models/status").json()
+    assert body["ollama_running"] is False and body["installed_models"] == []

@@ -1571,6 +1571,9 @@ async function refreshModelStatus() {
     // this leaves real headroom instead of racing that budget at the wire.
     modelStatus = await apiJson("/models/status", {
       silent: true,
+      //: A timeout of a silent request (this poll is the only one that sets
+      //: its own `AbortSignal.timeout`) is the "slow" state below, asked
+      //: again on the next tick, so `api()` does not log it.
       signal: AbortSignal.timeout(8000)
     });
     statusEverAnswered = true;

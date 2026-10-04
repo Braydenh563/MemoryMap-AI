@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Profile and General: a switch pressed and then left for another section within a second is no longer put back. Those sections save 700 ms after the last change, and opening one reloaded the old values over the form before that save ran, which then saved the old values. `tests/test_prefs_pending_save_survives_pane_switch.py`.
 - Settings, Tools it can use: all 58 tools can now be switched off (the list held at most 50, so the 51st switch was refused and left looking off), and a refused save puts the switch back and says why instead of failing silently. `tests/test_agent_tools_api.py`, `tests/test_tool_switch_save.py`.
 - Settings: pressing a setting's words now toggles its switch. On every row with a long hint the words opened the help instead (the "?" came first in the row, and a label activates its first control), so only the small switch itself worked. `tests/test_setting_label_toggles.py`.
 - Dashboard: Recently added, the random-note widget and the unfinished-checklists list no longer print a note's `---` properties block as its words (`---` and the fields were the first thing shown for a note with properties). `tests/test_properties_never_in_previews.py`, `scratchpad/ui-sweeps/deepflows.js`.

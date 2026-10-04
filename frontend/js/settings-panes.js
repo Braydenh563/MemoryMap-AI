@@ -784,6 +784,13 @@ function loadPreferences({ refresh = false } = {}) {
 }
 
 async function renderPrefs() {
+  //: **A change still waiting for its quiet save is written first.** Profile
+  //: and General save 700 ms after the last change (`markPrefsDirty`); opening
+  //: either, or Search and index or Personas, lands here, and the GET below
+  //: wrote the old value over the form, which the timer then saved: the switch
+  //: you had just pressed went back and nothing said so (found by the
+  //: deepflows sweep).
+  if (prefsDirty) await savePrefs({ quiet: true });
   if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";

@@ -3165,3 +3165,7 @@ breadcrumbs).
      beside the citation that opens the note (and the picture in the
      lightbox); the model may cite a picture by its note number. Placed
      (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
+
+504. **The owner, 2026-10-04 evening, verbatim.** "also add more capablilty
+     and utility to the manage tags and categories panels." Placed
+     (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").

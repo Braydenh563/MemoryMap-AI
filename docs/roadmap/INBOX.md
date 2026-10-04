@@ -34,6 +34,14 @@ with its owner named in the entry.
 
 ## Open items
 
+505. **The owner, 2026-10-04 evening, verbatim, with two screenshots (note
+     cards: the text, then a row of category pill, confidence, hashtags,
+     a date-mention chip and the date, then rows of link chips, all at
+     similar weight; the text starting 28px in from the card's edge).** "in
+     the notes, the metadata clashes with the note contents visually a bit
+     too much. I also feel like the text and note contents can go a bit more
+     to the right". Orchestrator.
+
 503. **The owner, 2026-10-04 evening, verbatim, with three crops (an
      "Installed" pill with a check, a "Tag with Atlas" chip with a sparkle,
      and the Timeline's rail icons in their circles).** "make sure that in

@@ -254,6 +254,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Graph: the options panel (676px of list in a 492px panel at 1440x900) already scrolled inside itself and now keeps the wheel there: a wheel at the end of the list no longer chains to the map behind it (`overscroll-behavior: contain`; on a phone the sheet is the scroller and already contained). Sweep `scratchpad/ui-sweeps/graphoptfit.js`.
 - A private note's kept tag suggestions and discarded tags are handled like its tags: shown wherever its tags are and nowhere else (search, the graph, the model's context, exports and every locked read were checked together), and filing no longer makes new suggestions for a private note from its text (`tests/test_private_suggested_tags.py`).
 - `[[Target|Shown]]` means the same everywhere: the note it links to is the part before the bar, whether the link is made on save, listed in a document or note's backlinks, or shown as "links to it" in a note's references; and a note's label, preview and graph line read the shown words, not "Target|Shown" (`manager.wiki_target`, `wiki_shown`, `wiki_plain`).
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt

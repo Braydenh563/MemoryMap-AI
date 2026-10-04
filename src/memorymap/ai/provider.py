@@ -1245,6 +1245,35 @@ def _close_open_json(text: str) -> str:
     return text.rstrip().rstrip(",") + tail + "".join(reversed(stack))
 
 
+#: Deeper than any argument a tool takes. Checked before parsing because
+#: where `json.loads` gives up differs by Python version: 3.11 raises
+#: RecursionError at 5,000 nested objects, 3.12 and later parse them.
+JSON_MAX_DEPTH = 200
+
+
+def _json_too_deep(raw: str, limit: int = JSON_MAX_DEPTH) -> bool:
+    """True when brackets outside strings nest past `limit`: one pass."""
+    depth = 0
+    in_string = escaped = False
+    for ch in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif ch in "]}":
+            depth -= 1
+    return False
+
+
 def loads_lenient(text: str) -> object:
     """JSON a small model wrote, read the way it meant it (INBOX 527).
 
@@ -1261,6 +1290,8 @@ def loads_lenient(text: str) -> object:
     bracket ended the whole turn instead of failing one tool call.
     """
     raw = _unfence(str(text).strip())
+    if _json_too_deep(raw):
+        raise ValueError("JSON nested too deeply")
     try:
         return json.loads(raw)
     except (ValueError, RecursionError):

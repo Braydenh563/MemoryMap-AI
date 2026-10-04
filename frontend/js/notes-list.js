@@ -472,6 +472,12 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
     noteFormDraft = null;
   }
   editingId = id;
+  //: **On a phone the note page is put away first.** Tapping a note opens it
+  //: as a full-page sheet (`openNotePage`, phone-shell.js) and its Edit button
+  //: lands here, but the form is drawn into the list, which is behind that
+  //: sheet: Edit did nothing anyone could see (found by the deepflows sweep at
+  //: 390 wide). The page closes, and the form is there to type in.
+  if (typeof notePageClose === "function") notePageClose();
   //: The caret goes into the form (WCAG 2.4.3); it was left on <body>.
   if (focusTags) focusTagsAfterRender = id;
   else focusBodyAfterRender = id;

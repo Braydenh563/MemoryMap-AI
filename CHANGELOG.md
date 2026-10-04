@@ -12,6 +12,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
 - Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.
 - Companion: the resize ring no longer shows on the companion in its enlarged view.
+- Documents: focus mode has a Sidebar button on its bar that opens the document list and outline as a panel on the left (Esc closes it); a reload in the session now also restores Tools and the idle fade, which an initialisation-order error had been dropping.
 - Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
 - Badges (INBOX 461 (1), 468): every status word is the one label recipe, an 11px word in a hairline box with its tone on the edge and icon: Packages' "Installed" and "Not ready yet", SearXNG's "Stopped" or "Running", Tesseract's state, a tool's "confirms first" and "online", the installed model's "in use", and a model card's "Fits", "Tight fit", "Installed" and "In use for chat" (they were four fills at 21 to 23px beside 19px labels). A suggested model card's labels are a row of their own above its actions, one line at 1440, 1100 and 390 (the foot had wrapped into up to three).

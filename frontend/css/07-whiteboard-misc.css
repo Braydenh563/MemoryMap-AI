@@ -7698,11 +7698,16 @@ button.connection-row {
    under the panel), so this mode had fallen back to a fixed 20rem. */
 #tab-documents.doc-focus {
   --doc-focus-prose-w: min(var(--doc-prose-w), 50vw);
+  /* Where the side panels start: the floating dock's top inset, its height
+     (a control and its own padding) and a gutter. It was a control and two
+     gutters, which left the panel touching the dock on a desktop and 12px
+     under it on a phone, where the dock's buttons are taller (INBOX 453). */
+  --doc-focus-panel-top: calc(max(var(--control-h-lg), var(--target-min)) + var(--space-1) * 2 + var(--space-4) * 2);
 }
 
 #tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
   position: fixed;
-  top: calc(var(--control-h-lg) + var(--space-4) * 2);
+  top: var(--doc-focus-panel-top);
   right: var(--space-4);
   bottom: var(--space-4);
   z-index: 2;
@@ -7737,10 +7742,90 @@ button.connection-row {
   }
 }
 
+/* **The sidebar, as a side panel** (INBOX 453 (1), the owner: "there should
+   be a way to open and close the documents editor sidebar when in full screen
+   mode"). The mirror of the suggestions panel above: the list and the outline
+   come back as a column fixed to the window's left edge under the floating
+   dock's band, on the solid modal ground (no blur on a panel this size), and
+   the page gives up the room it takes. The width is its own token-sized
+   column, held to 40vw so the page keeps the larger share; the sidebar's own
+   grip and fold toggle mean nothing in a panel that opens and closes from the
+   dock, so neither is offered, and a sidebar folded to its rail on the page
+   still opens whole here (the `!important` is the one the rail's own rule
+   carries). On a phone it is the window's width less its gutters, over the
+   page. */
+#tab-documents.doc-focus {
+  --doc-focus-sidebar-w: min(20rem, 40vw);
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+  display: flex;
+  position: fixed;
+  top: var(--doc-focus-panel-top);
+  left: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 2;
+  width: var(--doc-focus-sidebar-w) !important;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: hidden;
+  /* Below 820 the sidebar is an edge sheet (translated off screen, its rows
+     `visibility: hidden`, a rail left showing); here it is the panel, so the
+     sheet's own state is put back. */
+  transform: none;
+  transition: none;
+  border-radius: var(--radius);
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > * {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-resize,
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-collapse-toggle,
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-rail-name {
+  display: none;
+}
+
+/* The phone's floating formatting bar (fixed, above the keyboard) is drawn
+   over a panel that reaches the bottom of the window, cutting its last row;
+   the panel is for finding a document, not for writing, so the bar waits. */
+#tab-documents.doc-focus.doc-focus-sidebar .doc-phone-bar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+    right: var(--space-4);
+    width: auto !important;
+  }
+}
+
+@media (min-width: 721px) {
+  #tab-documents.doc-focus.doc-focus-sidebar .doc-main {
+    padding-left: calc(var(--doc-focus-sidebar-w) + var(--space-4) * 2);
+  }
+}
+
 /* On a phone the floating dock is one line with no room for words: the
    toggles keep their icon, and their name is the `aria-label` and title
    they carry at every width. */
 @media (max-width: 600px) {
+  /* Four toggles and the way out beside the facts is 29px more than a 390
+     window holds at the desktop gap (INBOX 453 (1) added the fifth), so the
+     pill tightens its gaps and its leading pad here. */
+  #tab-documents.doc-focus > .doc-focus-bar {
+    gap: var(--space-1);
+    padding-left: var(--space-3);
+  }
+
   #tab-documents.doc-focus > .doc-focus-bar .doc-focus-word {
     display: none;
   }
@@ -7752,6 +7837,27 @@ button.connection-row {
 
   #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
     margin: 0;
+  }
+}
+
+/* At 360 the five buttons leave no room for the word count as well as the
+   save state, so the count goes first: whether the page is safe matters
+   more than how long it is, and the count is one tap away in the status bar
+   on leaving the mode. */
+@media (max-width: 400px) {
+  #tab-documents.doc-focus > .doc-focus-bar #doc-focus-words {
+    display: none;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-facts > span + span:not(:empty)::before {
+    content: none;
+  }
+}
+
+/* And at 320 the save state goes too: the five controls are the pill. */
+@media (max-width: 340px) {
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-facts {
+    display: none;
   }
 }
 

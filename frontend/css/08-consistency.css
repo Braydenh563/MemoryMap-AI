@@ -1015,15 +1015,97 @@ summary > .ph-lead,
   margin-inline-end: 0;
 }
 
-/* A chip's leading icon, dropped onto its words (wrapup-0927 10c(2), the
-   "Ask again" chips). A flex child is blockified, so `.ph`'s
-   `vertical-align: -0.12em` does nothing here, and a Phosphor glyph drawn at
-   `line-height: 1` sits high in its own box: measured, its ink centre 1.5px
-   above the chip's centre while the words' ink centre was within 0.66px of
-   it. 0.1em of the icon's 13.8px is 1.38px, which brings the two within
-   half a pixel of each other. */
-.chip > .ph-lead {
-  translate: 0 0.1em;
+/* A chip's icon and words share one centre line, and it is the chip's own
+   (INBOX 503: "make sure that in all badges, the text and icons are properly
+   aligned and spaced", then "the content in the badges is vertically centred
+   as well as aligned with each other"). A flex row centres BOXES, and the
+   words' box is the font's line box, whose centre is not where the eye reads
+   the words: the x-height band's centre sits below it by an amount that is
+   the font's (0.07em in DejaVu Sans, about 0.16em in Segoe UI). A fixed drop
+   on the icon (the old `0.1em`) was right for one font and chip: "Installed"'s
+   check was 1.5px low, the map chip's glyph 1.5px low, "Tag with Atlas"'s
+   sparkle 0.5px high, and nothing put the words themselves on the chip's
+   centre. `text-box` trims the words' box to exactly that band (the
+   x-height's top to the baseline), so the flex row's centring puts the
+   band's centre on the chip's centre in any font, and the icon, centred in
+   its own box, meets it. Phosphor's glyphs are centred in their em boxes to
+   within 0.01em, so the icon needs no drop; the few that are not are listed
+   below. A chip keeps the height it had (a `min-height` floor of 1.125rem, `:where` so
+   every family's own floor wins: the words' box is no longer what sets it). Where `text-box` is not supported the chip keeps
+   the older fixed drop. */
+:where(.chip) {
+  min-height: 1.125rem;
+}
+
+.chip {
+  gap: var(--space-1);
+}
+
+@supports (text-box: trim-both ex alphabetic) {
+  /* The padding and the equal negative margin give back the room an ascender
+     and a descender need inside the box a trimmed line is clipped to
+     (`overflow: hidden` for the ellipsis), at no cost to the layout. */
+  .chip .ph-text {
+    text-box: trim-both ex alphabetic;
+    padding-block: 0.35em;
+    margin-block: -0.35em;
+  }
+
+  .chip .ph-lead {
+    translate: 0 calc(0.05em - var(--ph-ink-dy));
+  }
+}
+
+@supports not (text-box: trim-both ex alphabetic) {
+  .chip .ph-lead {
+    translate: 0 0.1em;
+  }
+}
+
+/* The map chip's height was its words' line box (`line-height: 24px`), not a
+   floor: the same 24px, as a floor. (The 11px labels do the same in their own
+   rule below.) */
+.chip.map-chip {
+  min-height: 1.5rem;
+}
+
+/* Its glyph is 18.4px beside 16px words, and the shared 0.05em drop is a
+   fraction of the glyph: measured 1.5px low against the words (INBOX 503). */
+@supports (text-box: trim-both ex alphabetic) {
+  .chip.map-chip .ph-lead {
+    translate: 0 calc(-0.03em - var(--ph-ink-dy));
+  }
+}
+
+/* Where a glyph's own ink is not centred in its em box (read from the font at
+   100px, ink centre against the box's, in em: positive is low). Phosphor is
+   centred to within 0.01em except these. A new glyph in a chip is measured by
+   `badgealign.js` first. */
+
+:root {
+  --ph-ink-dy: 0em;
+}
+
+.ph-check {
+  --ph-ink-dy: 0.03em;
+}
+
+.ph-tag {
+  --ph-ink-dy: 0.05em;
+}
+
+.ph-lock,
+.ph-lock-key {
+  --ph-ink-dy: -0.04em;
+}
+
+.ph-calendar-blank,
+.ph-calendar-dot {
+  --ph-ink-dy: -0.025em;
+}
+
+.ph-caret-down {
+  --ph-ink-dy: 0.035em;
 }
 
 /* The status bar's words and their glyphs, the same drop (INBOX 494: "the
@@ -3982,7 +4064,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 :is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label {
   flex: 0 0 auto;
   white-space: nowrap;
-  min-height: 0;
+  /* The words are trimmed to their x-height band, so the height is a floor
+     of its own now: the 1.5 line and the hairline it always was. */
+  min-height: calc(1.5em + 2px);
   padding-block: 0;
   line-height: 1.5;
   align-self: center;
@@ -4980,9 +5064,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     padding-top: var(--space-2);
   }
 
+  /* The repeat chip's words line up with the text and date beside it (they
+     carry `padding-top: var(--space-2)`), but a chip is a painted box: giving
+     it that padding left its words 2.4px below the middle of its own fill
+     (INBOX 503, measured at 390). The same push as a margin (the row centres
+     the margin box, so it moves the chip by half of it, the 2.4px the padding
+     moved the words) moves the box and leaves the words centred in it. */
   #reminder-groups .entry-meta > .chip {
     grid-area: rep;
-    padding-top: var(--space-2);
+    margin-top: calc(var(--space-2) - 0.1rem);
   }
 
   #reminder-groups .entry-meta > .entry-actions {

@@ -1603,13 +1603,10 @@ function setLabel(el, label) {
   //: Taken off before the leading marker is read, so `ph:file-text Name ph:x`
   //: is an icon, a name and an icon rather than a name ending in "ph:x".
   //:
-  //: **Only when something comes before it.** The two patterns both match a
-  //: label that is nothing but one marker, and the trailing one reading
-  //: `"ph:x"` first turned every icon-only button in the app into a trailing
-  //: mark with no label to trail: measured the moment this was added, a
-  //: `smallButton("ph:x")` came back carrying `ph-trail`, which is 0.35em of
-  //: margin on one side and 0.7 opacity on a control that is not a
-  //: decoration.
+  //: **Only when something comes before it.** Both patterns match a label
+  //: that is nothing but one marker, and the trailing one reading `"ph:x"`
+  //: first turned every icon-only button (`smallButton("ph:x")`) into a
+  //: `ph-trail`, a decoration's margin and opacity on a control.
   const tail = PH_LABEL_TRAILING.exec(text);
   if (tail && tail.index > 0) text = text.slice(0, tail.index);
   else if (tail) tail.length = 0;
@@ -1684,6 +1681,7 @@ function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
   setLabel(span, text);
+  if (text && !span.firstElementChild) span.replaceChildren(Object.assign(document.createElement("span"), { className: "ph-text", textContent: text }));
   // An interactive chip must be reachable and operable by keyboard, not just
   // the mouse. Passing onClick makes it a real button in the a11y tree.
   if (onClick) {

@@ -40,7 +40,8 @@
   `/note-types`, `/relation-types` have no limit), `test_core_message_wording`
   (`routes_mentions.py` `LINK_UNSAFE_WHY`), `test_no_import_cycles`
   (`routes_entries` and `routes_properties`; `core.database` and
-  `core.vault`).
+  `core.vault`), and `test_events.py::test_every_manager_write_records_exactly_one_event`
+  (`link_label` in entry/manager.py has no driver in core/events.py).
 - Found and fixed in this work's own first commit: the export's theming walk
   ran on every map (to drop pins) without a seen set, so a ring in
   `parent_id` hung the export (`test_a_ring_in_the_tree_does_not_hang_an_export`

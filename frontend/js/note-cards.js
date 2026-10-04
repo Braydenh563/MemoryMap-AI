@@ -2091,6 +2091,9 @@ function entryItem(entry, options = {}) {
       );
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
+      //: `ph-text`, like every chip's words, so the recipe trims them to
+      //: their x-height band and they share the chip's centre line.
+      linkPreview.className = "ph-text";
       linkPreview.textContent = short;
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason

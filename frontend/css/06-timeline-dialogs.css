@@ -170,6 +170,26 @@
   font-size: var(--text-xs);
 }
 
+/* The glyph in its circle, centred by ink (INBOX 503: "the timeline icons on
+   the left arent centred in the circles"). Measured on the painted ring at 1x
+   (`badgealign.js`): the rail's glyphs sat 0.5 to 1px high, each by its own
+   amount, because a circle of 18.4px and a glyph box of 12.88px leave a
+   fractional 2.76px between them and the two round on their own. An even
+   circle and an even glyph box leave a whole pixel on each side, so the
+   rounding cannot differ between them: now 0 to 0.5px at 1x and 2x. At 3x a
+   glyph still paints on a whole CSS pixel while the circle paints on the
+   device's, so up to a pixel of per-row jitter stays, which no rule here can
+   remove. Where `round()` is not supported the sizes above stand. */
+@supports (width: round(1px, 2px)) {
+  :root {
+    --timeline-mark: round(1.15rem, 2px);
+  }
+
+  .timeline-row-mark > .ph {
+    font-size: round(calc(var(--text-xs) * 1.15), 2px);
+  }
+}
+
 /* A note sitting on a date it only *talks about* is a different fact from one
    sitting on the day it was typed, and the old view said so in a tooltip. */
 .timeline-row[data-placed="mentioned"] .timeline-row-mark {

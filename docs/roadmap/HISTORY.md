@@ -163,6 +163,38 @@ type named in a list or an empty `type:` offers nothing, by choice. The
 type list is read once per page load: a type changed in the palette shows
 in a document's panel after a reload.
 
+## Moved from the plans, 2026-10-04 (the documents phone pass)
+
+### From DOCUMENTS_PLAN.md sections 17 and 18 (their phone halves), Phase 5 and the tails
+
+Every open row in the plan was checked against the running app first. 17a to
+17e, the phone formatting bar (Phase 6 item 1), Phase 5 items 2 and 3, Phase
+7's python-docx row and Phase 8c's board card were all already built; the
+first two re-measured (`docnarrow.js` PASS, `dochistory.js` and `docaidiff.js`
+all pass), the plan's stale rows now point here. What the measurement found, at
+390x844 with touch, light and dark (`docphonebar.js`, `doctaskbox.js`):
+
+| Step | Before | After | Gate |
+| --- | --- | --- | --- |
+| The page against the fixed foot bar | card to y=778 under the bar at 733 to 786: the status line (743 to 765) drawn behind it, never seen; the editor's own 56px pad stopped the writing at 661, a 72px blank band | the card's margin is the bar's height (not while reading or with the focus panel): card to 725, status line 688 to 712, writing to 665 | `docphonebar.js` |
+| The selection bar on a phone | ten 44px targets, a 499px pill running 117px past a 390px window, Ask and Rewrite off the edge, Bold, Italic, Heading and Link repeated from the foot bar | the buttons the foot carries are hidden (read off the foot); six, 307px, inside; on any other narrow surface it wraps (all ten: 319x102, none off screen) and takes the card's corner; desktop unchanged (ten, one row, 339px pill) | same |
+| A task's checkbox | the target floor sized the box: Live 28px in a 24px line (1440), 44px on a phone (line 36px, adjacent boxes overlapping); Read (disabled) 28px and 44px, lines 34 and 50 against 22 | Live 1.1em (15px; 18 on the phone) in a span whose invisible strip is `--target-min` wide and one line tall, reaching over the bullet, adjacent strips meeting (0px overlap); Read 1.1em; task lines equal to plain ones; a press on the box and on the strip each toggle once | `doctaskbox.js` (1440, 820, 390) |
+| Grammar on a wiki link | "a [[Another doc]]" flagged as a redundancy, fix "aNother" | a lint touching `[[...]]` or `![[...]]` is dropped, document and note boxes | `tests/test_prose_tools.py` (through the real worker) |
+
+Found on the way: an inline-block inherits a list line's hanging
+`text-indent`, which drew the task box a whole indent left of its own span.
+`cm-live.js` clicked the first finding mark, which is now a link-text
+(accessibility) finding; it clicks the misspelling's own mark. The "/" menu on
+the phone was measured and needed nothing (354x386, inside the window and
+above the bar, 56 rows at 45px, 8 on screen). Decided: on a phone the
+selection bar keeps strike, highlight, code, quote, Ask and Rewrite, the
+foot bar keeps the rest; "never a second copy" (DESIGN.md's sheet `page`
+variant) applied to the bars.
+
+**Not verified:** a real phone's own selection menu (iOS and Android draw
+Cut, Copy and Paste above a selection, where this bar also goes) and a real
+on-screen keyboard (the bar rides `--keyboard-inset`, stubbed only).
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

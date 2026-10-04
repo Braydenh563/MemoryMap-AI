@@ -3997,6 +3997,47 @@ function wbQueueSelectionBar() {
   });
 }
 
+//: **The strip keeps off the handle of the line into its own topic**
+//: (MINDMAP_PLAN §13b's remainder). §12.1 found the strip on that handle once
+//: and §13b took the strip to a third of its width without measuring it
+//: again; `mapstripcover.js` then found 4 of 48 handles still under it at
+//: 1440 (a radial map's inner rings, and a tree's last branch, whose line
+//: bends up into the strip's band). The handle is the only way to bend that
+//: line, so a strip over it takes the gesture away while it is the topic
+//: being styled.
+//:
+//: Tried in order, and the first that leaves the handle uncovered wins: the
+//: place already chosen, the same height slid clear to the handle's left,
+//: then to its right, then under the topic. If none fits (a very narrow
+//: canvas), the first place stands: covering is then the lesser cost, since
+//: the strip is what was asked for. One rect read, and not during a drag
+//: (`held`), where nothing about the line changes against the bar.
+function wbMapStripClearOfHandle(node, { left, y, w, h, hostRect, gapBelow, bottom, minY, maxY }) {
+  const handle = node && document.querySelector(`.wb-map-edges .wb-map-edge-handle[data-child="${node.id}"]`);
+  if (!handle) return [left, y];
+  const hb = handle.getBoundingClientRect();
+  if (!hb.width) return [left, y];
+  const margin = 6;
+  const hx0 = hb.left - hostRect.left - margin;
+  const hx1 = hb.right - hostRect.left + margin;
+  const hy0 = hb.top - hostRect.top - margin;
+  const hy1 = hb.bottom - hostRect.top + margin;
+  const covers = (x, top) => x < hx1 && x + w > hx0 && top < hy1 && top + h > hy0;
+  if (!covers(left, y)) return [left, y];
+  const maxX = hostRect.width - w - 8;
+  const under = Math.min(Math.max(bottom + gapBelow, minY), maxY);
+  const candidates = [
+    [hx0 - w, y],
+    [hx1, y],
+    [left, under],
+  ];
+  for (const [x, top] of candidates) {
+    if (x < 8 || x > maxX) continue;
+    if (!covers(x, top)) return [x, top];
+  }
+  return [left, y];
+}
+
 function wbUpdateSelectionBar() {
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
@@ -4199,6 +4240,12 @@ function wbUpdateSelectionBar() {
     const canvasBottom = rect.bottom - hostRect.top;
     y = Math.min(y, canvasBottom - h - gapBelow);
     y = Math.max(y, Math.max(floor, canvasTop + gapBelow));
+    if (active === strip && !held) {
+      [left, y] = wbMapStripClearOfHandle(mapNode, {
+        left, y, w, h, hostRect, gapBelow, bottom,
+        minY: Math.max(floor, canvasTop + gapBelow), maxY: canvasBottom - h - gapBelow,
+      });
+    }
   }
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
@@ -6382,12 +6429,12 @@ function wbSvgWrapLines(text, maxWidth, maxLines = 6, charWidth = 7) {
   return lines;
 }
 
-function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } = {}) {
+function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight, fontFamily = "sans-serif" } = {}) {
   const dy = lineHeight || fontSize + 3;
   const tspans = lines
     .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : dy}">${wbSvgEscape(l)}</tspan>`)
     .join("");
-  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
+  return `<text x="${x}" y="${y}" font-family="${wbSvgEscape(fontFamily)}" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
 
@@ -6734,7 +6781,13 @@ function wbBuildExportSvg(scope) {
       //: draws it: after the box, before the label.
       const place = wbMapNumberOf(exportMapIndex, obj.id);
       const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
+      //: In the map's own face when it has one (§13e's remainder): the file is
+      //: the second place a map's text is drawn, and a serif map exported in
+      //: sans-serif is two pictures of one map.
+      parts.push(wbSvgText(lines, 14, labelTop, {
+        fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
+        fontFamily: wbMapFontStack() || "sans-serif",
+      }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -7925,7 +7978,10 @@ async function initWhiteboard() {
   $("wb-map-text-size")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;
     const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { font_size: Number(e.target.value) || null });
+    //: "0" is the pin to the app's own size (decision 9), offered only while
+    //: the map themes the size; any other empty or zero is no size at all.
+    const raw = e.target.value;
+    if (node) wbMapSetNodeStyle(node, { font_size: raw === "0" ? 0 : (Number(raw) || null) });
   });
   $("wb-map-align")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;

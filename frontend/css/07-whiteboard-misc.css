@@ -14096,3 +14096,18 @@ button.finder-row:hover,
   margin-bottom: var(--space-3);
   font-weight: 600;
 }
+
+/* **The map's font** (MINDMAP_PLAN.md §13e's remainder). One face for every
+   topic and line label on a map, picked in View, How this map looks, and set
+   by `wbApplyMapFont` as an inline `--wb-map-font` on the view. Declared here
+   as the app's own face, so a map that picked none, and every whiteboard,
+   draws exactly what it drew before; the image export reads the same stack
+   from `WB_MAP_FONTS` (whiteboard-map.js). */
+#library-view-whiteboard {
+  --wb-map-font: var(--ui-font);
+}
+
+.wb-map-node,
+.wb-map-edge-label {
+  font-family: var(--wb-map-font);
+}

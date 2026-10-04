@@ -912,12 +912,18 @@ HELP_TOPICS.extend(
         },
         {
             "id": "mind-maps",
-            "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
+            "keywords": (
+                "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
+                "branch colours", "branch colors", "map font", "map theme", "palette",
+            ),
             "body": (
                 "Mind maps live in the Library, under Boards and maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
-                "ring of actions, where Cross-link joins any two topics."
+                "ring of actions, where Cross-link joins any two topics. View, How this "
+                "map looks sets its branch colours (classic, deep, soft or vivid), its "
+                "font and the look every topic follows unless it was given its own; a "
+                "topic's pickers can still pull it back to the app's own default."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

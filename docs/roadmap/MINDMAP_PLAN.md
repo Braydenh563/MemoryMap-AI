@@ -1022,6 +1022,7 @@ topic: a control that wide has nowhere to go.
    three-state against the theme, which is the rule `edge_arrow` had been
    following alone. The remaining gap is recorded below rather than solved,
    because it needs a stored name for each app default and the case is narrow.
+   (Built 2026-10-04 with exactly that stored name per field; see 13e.)
 10. **The theme lives in one row of the View menu's Map section, and nothing
    is added to the canvas** (taken 2026-09-21, building 13e). Decision 5
    above, and §13b had just taken the topic strip from fourteen controls to
@@ -1198,10 +1199,12 @@ topic: a control that wide has nowhere to go.
   1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
   and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
   39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
-  untouched at 13/13, 16/16 and 9/9. **What is left of 13b** is the one thing
-  its gate asked that this did not measure: whether the strip still covers the
-  handle of the line into its own topic. It is a third of the width it was,
-  which makes it far less likely and does not make it false.
+  untouched at 13/13, 16/16 and 9/9. ~~**What is left of 13b**: whether the
+  strip still covers the handle of the line into its own topic~~ **measured
+  and fixed 2026-10-04**, recorded in HISTORY.md ("Moved from the plans,
+  2026-10-04 (the map's palette, font and the app's own default)"): 4 of 48
+  handles covered at 1440, 0 of 192 at 1440, 1024, 820 and 390
+  (`mapstripcover.js`).
 - ~~**13c. One vocabulary for two connections.**~~ **Built 2026-09-21**, and
   the record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13c: one vocabulary for two connections"). Both
@@ -1246,11 +1249,12 @@ topic: a control that wide has nowhere to go.
   `maptheme.js`, new, 24/24 in light at 1440, in dark at 1440 and at 390,
   against a base branch on which it stops at its second check
   (`wbMapTheme is not defined`). One request themes 25 topics; one request
-  clears them. **What is left of 13e**: the branch palette and the font
-  choice §13.4 also names, both of which are drawn in two places rather
-  than one (decision 8), and the narrow case decision 9 records, a topic
-  that cannot be pulled back to the app's own default for a field the map
-  themes.
+  clears them. ~~**What is left of 13e**: the branch palette, the font and
+  decision 9's narrow case~~ **built 2026-10-04**, recorded in HISTORY.md
+  ("Moved from the plans, 2026-10-04 (the map's palette, font and the app's
+  own default)"): one palette list on the server read by canvas and
+  thumbnail, a map font, and a pin per themed select; `mappalette.js` 13/13
+  in light, dark and 390. 13e is closed.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
   the plans, 2026-09-21", "the two gestures a blank map did not answer").
@@ -1286,27 +1290,24 @@ topic: a control that wide has nowhere to go.
 
 ## Placed from INBOX, 2026-09-09
 
-The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
-
-24. **"New board" and "New mind map": same or different?** Decision: the
-    dock grammar allows one filled button per dock, so one filled "New"
-    button opens a two-row menu (Board, Mind map), each with its icon and a
-    one-line hint. Two side-by-side filled buttons is the wrong answer.
-    Owner: docks.md.
+24 built; moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the map's
+palette, font and the app's own default)", "the placed items of 2026-09-09").
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-- "in the all library subtab, the mindmap I made called bubble tea shows as
-  a note" (two screenshots: the All list draws a "bubble tea" row with a
-  note's pencil icon, while Boards & maps draws the same thing as a map
-  with 3 nodes). The All view's kind test does not know about maps, so a
-  map falls through to the note branch.
-- "the boards and maps dashboard widget is ugly and needs fixing", and
-  "also the ui at the top of the boards and maps subtab dock is broken and
-  miss wrapped. remember responsive design!" (screenshot at ~2000px: the
-  search box and sort/view controls on one line, then New board, New mind
-  map, Map from notes, Import outline, refresh and help wrapped onto a
-  second line below them, left-aligned under nothing).
+The All list's kind test and the dock's wrap are built; moved to the same
+HISTORY.md record. Open:
+
+- "the boards and maps dashboard widget is ugly and needs fixing". Most of
+  what made it so is fixed (one renderer with the Library's card, a fixed
+  72x40 landscape box, no box-in-a-box, rows 51px, the body not scrolling:
+  measured 2026-10-04, 340x333 at 1440). What is left, measured: a tall map
+  draws its paper at the board's own shape (`mapPreview`'s rule, "the paper
+  is the board"), so a 25-topic tree-right map is a **20x40 sliver** in the
+  72x40 box and a 7-topic one 25x40, about a third of the box with the rest
+  empty to its left and right. Whether a row thumbnail may crop a tall map to
+  the box (breaking that rule) or the box goes square is a judgement for the
+  owner, not a measurement.
 
 ## Placed from INBOX, 2026-09-13
 

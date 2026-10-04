@@ -4741,6 +4741,26 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: inherit;
 }
 
+/* Each row of that menu says what it makes (MINDMAP_PLAN INBOX 24: "each
+   with its icon and a one-line hint"): the word, and under it one muted
+   line at the small type step. A tooltip alone is never seen on a touch
+   screen, and two kinds of the same thing are told apart by what they are
+   for, not by their names. */
+.dock-menu-item-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding-block: var(--space-1);
+  text-align: left;
+}
+
+.dock-menu-item-hint {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+}
+
 /* 18. In the Notes list's select mode a card is the checkbox, so a
        Shift+click on it is a range (app.js, "the conventions a list is
        expected to keep"), not the start of a text selection: measured

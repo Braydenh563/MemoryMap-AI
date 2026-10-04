@@ -106,6 +106,14 @@ DEFAULT_BOARD_LAYOUT = "free"
 #: The value `None` means "this map says nothing, use the app's default",
 #: which is what every map has today: a theme that stores nothing draws
 #: exactly the map that was drawn before this existed.
+#:
+#: **`palette` and `font` joined later, and they are the map's, not a
+#: topic's** (§13e's remainder, decision 8). A branch palette is the answer
+#: to `color` at map level: not one value but the list a first-level branch
+#: claims its colour from, so it is a name here (`MAP_BRANCH_PALETTES`) and
+#: the one list both drawings read. A font is the face every topic and line
+#: label on the map is set in; no topic has a face of its own, so it never
+#: resolves onto a topic (`MAP_LEVEL_THEME_FIELDS`).
 MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "font_size": int,
     "align": frozenset({"left", "center", "right"}),
@@ -117,6 +125,35 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_dashed": bool,
     "edge_width": frozenset({"thin", "thick"}),
     "edge_arrow": frozenset({"on", "off"}),
+    "palette": frozenset({"deep", "soft", "vivid"}),
+    "font": frozenset({"serif", "mono", "wide"}),
+}
+
+#: The theme fields that describe the map as a whole rather than how it draws
+#: one topic: never filled in under a topic's style (`_themed_style`), so an
+#: export never writes them onto a node and a re-import never reads them back
+#: as a topic's own choice.
+MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font"})
+
+#: **A stored name for the app's own default, per themed select** (decision
+#: 9's narrow case, built). Every select in the topic strip stores the app's
+#: default as no value at all, which on a themed map means "follow the map":
+#: so a topic could be pulled back to the map's look or to another named
+#: value, never to the app's own. Each name here is a value a topic can carry
+#: that draws exactly what no value draws on an unthemed map, and, being a
+#: value, beats the theme the way any choice a topic carries does. `curve`
+#: was already one; the other five are new words, which is why the exports
+#: write them as the absence they mean (`_without_pins`) and the canvas
+#: paints them as no attribute at all (`wbMapDrawn`, whiteboard-map.js).
+#: `0` for the size because the field is a number: no text is drawn at 0px,
+#: and every reader that writes a size already treats a falsy one as unset.
+MAP_APP_DEFAULT_PINS: dict[str, object] = {
+    "font_size": 0,
+    "align": "auto",
+    "shape": "rounded",
+    "spine": "solid",
+    "edge_width": "normal",
+    "edge_style": "curve",
 }
 
 #: The bounds on a themed text size, the same two numbers the per-topic field
@@ -191,7 +228,9 @@ class WhiteboardObjectData(BaseModel):
     url: str | None = Field(default=None, max_length=300)
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
     color: str | None = Field(default=None, max_length=20)
-    font_size: int | None = Field(default=None, ge=8, le=200)
+    #: 0 is a topic's pin to the app's own size against a map's theme
+    #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
+    font_size: int | None = Field(default=None, ge=0, le=200)
     #: A text box's own fill/border: asked for directly (the properties
     #: panel). Images have no use for either; left `None` there.
     bg: str | None = Field(default=None, max_length=20)
@@ -202,7 +241,7 @@ class WhiteboardObjectData(BaseModel):
     #: schema does not name is dropped silently by Pydantic, which is exactly
     #: how the first attempt at this looked like a frontend bug: the toggle
     #: flipped, the PUT succeeded, and the value came back missing.
-    align: str | None = Field(default=None, pattern="^(left|center|right)$")
+    align: str | None = Field(default=None, pattern="^(left|center|right|auto)$")
     md: bool | None = None
     #: A map reference node's target: the note / document / file / bookmark id
     #: this node stands for. Only meaningful for `MAP_REFERENCE_KINDS`; a
@@ -252,7 +291,7 @@ class WhiteboardObjectData(BaseModel):
     #: offered to every topic rather than only to a core one: a shape that
     #: appears and disappears from the picker depending on another toggle is
     #: a second rule to remember, and the three shapes are all just a radius.
-    shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none)$")
+    shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none|rounded)$")
     #: **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core
     #: idea, with its own shape set and a heavier weight"). A mark on the
     #: node, not a third tier in the data model: §12.0 refused a "sub core"
@@ -277,7 +316,7 @@ class WhiteboardObjectData(BaseModel):
     #: third is the absence of the field: a map drawn before this existed and
     #: one whose topic was set back to solid are the same map, and neither
     #: should carry the field into an export.
-    spine: str | None = Field(default=None, pattern="^(dashed|none)$")
+    spine: str | None = Field(default=None, pattern="^(dashed|none|solid)$")
     #: **A tint of the topic's colour across its whole card** (the owner:
     #: "the option to fill an individual node or have it cascade to its
     #: children as well"). `self` fills this topic, `branch` fills it and
@@ -320,7 +359,7 @@ class WhiteboardObjectData(BaseModel):
     #: ribbon carries its direction in its taper and draws no head, a plain
     #: stroke has had one since the branch-direction report, so "unset" means
     #: "whatever this line shape does" and the two words are the override.
-    edge_width: str | None = Field(default=None, pattern="^(thin|thick)$")
+    edge_width: str | None = Field(default=None, pattern="^(thin|thick|normal)$")
     edge_arrow: str | None = Field(default=None, pattern="^(on|off)$")
     #: **Where the line into this topic bends** (MINDMAP_PLAN.md §12.1 item
     #: 5's third, "the control points on a curve drag to reshape it"). On the
@@ -365,6 +404,15 @@ class WhiteboardObjectData(BaseModel):
     #: between its neighbours' keys. A key, not a rank, so one move writes one
     #: or two rows rather than renumbering the whole branch.
     order: float | None = Field(default=None, ge=-1e12, le=1e12)
+
+    @field_validator("font_size")
+    @classmethod
+    def _size_or_pin(cls, value: int | None) -> int | None:
+        """8 to 200, or 0 for "the app's own size" (decision 9). Anything in
+        between is a map nobody can read, refused as it always was."""
+        if value is not None and 0 < value < 8:
+            raise ValueError("A text size is 8 or more")
+        return value
 
     @field_validator("image")
     @classmethod
@@ -854,8 +902,22 @@ def _themed_style(style: dict, theme: dict) -> dict:
         return style
     filled = dict(style)
     for field, value in theme.items():
+        if field in MAP_LEVEL_THEME_FIELDS:
+            continue
         filled.setdefault(field, value)
     return filled
+
+
+def _without_pins(style: dict) -> dict:
+    """A node's style with every app-default pin written as the absence it
+    means. For the exports: a file has no word for "the app's own, against a
+    theme", and `curve` alone of the pins was a value any reader knew, so it
+    is the one left in."""
+    out = dict(style)
+    for field, value in MAP_APP_DEFAULT_PINS.items():
+        if field != "edge_style" and field in out and out[field] == value:
+            del out[field]
+    return out
 
 
 def _board_numbered(entry: Entry | None) -> bool:
@@ -1061,9 +1123,34 @@ MAP_BRANCH_PALETTE = [
     "#bab0ab",
 ]
 
+#: **Every palette a map can pick, and the only copy of any of them**
+#: (MINDMAP_PLAN.md decision 8). The canvas used to take its colours from
+#: d3 at runtime while this file kept a copy for the thumbnail, so a second
+#: palette would have been two more lists to keep in step. Now `/tree` hands
+#: the canvas the resolved list (`MapTreeOut.palette`) and the thumbnail reads
+#: the same name, so the two drawings cannot disagree. `classic` is the one
+#: every map had (Tableau 10); the other three are d3's own categorical
+#: schemes, copied: Dark2, Set2 and Category10.
+MAP_BRANCH_PALETTES: dict[str, list[str]] = {
+    "classic": MAP_BRANCH_PALETTE,
+    "deep": ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666"],
+    "soft": ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"],
+    "vivid": [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    ],
+}
+
+
+def _board_palette(theme: dict) -> list[str]:
+    """The branch colours a themed map draws, `classic` when it picked none."""
+    return MAP_BRANCH_PALETTES.get(theme.get("palette") or "classic", MAP_BRANCH_PALETTE)
+
 
 def _map_branch_colors(
-    parents: dict[int, int | None], own: dict[int, str | None]
+    parents: dict[int, int | None],
+    own: dict[int, str | None],
+    palette: list[str] | None = None,
 ) -> dict[int, str]:
     """Every map node's branch colour, by object id: Coggle's rule, which the
     canvas already follows.
@@ -1080,6 +1167,7 @@ def _map_branch_colors(
     whose parent is missing is treated as a root, which is what every other
     reader of `parent_id` does.
     """
+    palette = palette or MAP_BRANCH_PALETTE
     children: dict[int | None, list[int]] = {}
     for node_id, parent_id in parents.items():
         key = parent_id if parent_id in parents else None
@@ -1102,7 +1190,7 @@ def _map_branch_colors(
             # takes a new colour: the client decides this by asking whether
             # the colour handed down was null, which is true for exactly one
             # generation, a root's own children.
-            colour = MAP_BRANCH_PALETTE[branch % len(MAP_BRANCH_PALETTE)]
+            colour = palette[branch % len(palette)]
             branch += 1
         if colour is None:
             colour = inherited
@@ -1323,7 +1411,7 @@ PREVIEW_ASPECT_RANGE = (0.5, 3.0)
 
 
 def _board_preview(
-    db: Session, board_id: int | None
+    db: Session, board_id: int | None, palette: list[str] | None = None
 ) -> tuple[list[dict], list[dict], float]:
     """Everything placed on one board, as a thumbnail: `(items, edges, aspect)`.
 
@@ -1461,7 +1549,7 @@ def _board_preview(
     # canvas is colour-coded by branch. The rule is Coggle's and the canvas
     # already implements it; see `_map_branch_colors`.
     if tree_parents:
-        branch_colors = _map_branch_colors(tree_parents, own_colors)
+        branch_colors = _map_branch_colors(tree_parents, own_colors, palette)
         rows = [
             (
                 x,
@@ -1590,7 +1678,13 @@ def _preview_fields(db: Session, board_id: int | None) -> dict:
     Twenty boards of a few hundred items each is twenty of those, per visit,
     for a picture that changes only when the board does.
     """
-    key = _preview_fingerprint(db, board_id)
+    #: The map's palette is in the key (decision 8): picking one changes the
+    #: board's settings and no row on it, so a key of the rows alone would
+    #: serve the old colours until something else on the board moved.
+    palette_name = (
+        _board_theme(db.get(Entry, board_id)).get("palette") if board_id else None
+    ) or "classic"
+    key = (*_preview_fingerprint(db, board_id), palette_name)
     cached = _PREVIEW_CACHE.get(key)
     if cached is not None:
         PREVIEW_CACHE_STATS["hits"] += 1
@@ -1600,7 +1694,9 @@ def _preview_fields(db: Session, board_id: int | None) -> dict:
         items, edges, aspect = cached
     else:
         PREVIEW_CACHE_STATS["misses"] += 1
-        items, edges, aspect = _board_preview(db, board_id)
+        items, edges, aspect = _board_preview(
+            db, board_id, MAP_BRANCH_PALETTES.get(palette_name, MAP_BRANCH_PALETTE)
+        )
         _PREVIEW_CACHE[key] = (items, edges, aspect)
         while len(_PREVIEW_CACHE) > PREVIEW_CACHE_LIMIT:
             _PREVIEW_CACHE.popitem(last=False)
@@ -2853,6 +2949,10 @@ class MapTreeOut(BaseModel):
     #: reason the theme rides here: the canvas draws the numbers on its first
     #: paint or it draws the map twice.
     numbered: bool = False
+    #: The branch colours this map draws, resolved from the theme's `palette`
+    #: (decision 8): the canvas reads these rather than keeping its own list,
+    #: so it and the thumbnail are drawn from one copy.
+    palette: list[str] = []
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
@@ -2887,6 +2987,7 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
         cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
         theme=_board_theme(entry),
         numbered=_board_numbered(entry),
+        palette=_board_palette(_board_theme(entry)),
     )
 
 
@@ -3871,13 +3972,20 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: taken from. Resolved here and nowhere else: `/tree` deliberately keeps
     #: reporting what each node actually carries, because that is what the
     #: strip has to show as set or unset.
+    #: Every map now, not only a themed one, because a pin is written as the
+    #: absence it means on any map (`_without_pins`). Seen-guarded: a ring
+    #: in `parent_id` stays a ring in `children` here, and an unguarded walk
+    #: of it never ends (`test_a_ring_in_the_tree_does_not_hang_an_export`).
     theme = _board_theme(entry)
-    if theme:
-        stack = list(roots)
-        while stack:
-            node = stack.pop()
-            node["style"] = _themed_style(node.get("style") or {}, theme)
-            stack.extend(node.get("children") or [])
+    stack = list(roots)
+    styled: set[int] = set()
+    while stack:
+        node = stack.pop()
+        if id(node) in styled:
+            continue
+        styled.add(id(node))
+        node["style"] = _without_pins(_themed_style(node.get("style") or {}, theme))
+        stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]
     #: **Markdown carries no cross-links, deliberately** (MINDMAP_PLAN.md
     #: §13d's decision). This format's whole promise is in `_export_markdown`'s

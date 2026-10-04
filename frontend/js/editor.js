@@ -1086,8 +1086,23 @@ function editorRankCommands(commands, needle) {
 // so offering one is a dead end that also reveals it exists.
 function editorLinkMatches(needle) {
   const query = (needle || "").trim().toLowerCase();
+  //: **The note you are naming comes before the notes that mention it.** The
+  //: list was every note holding the words anywhere, newest first, cut to six,
+  //: so in a notebook where newer notes link to "Alpha project" the picker
+  //: offered those, Enter took the first, and Alpha project itself was sixth
+  //: or not shown (found by the deepflows sweep). Rank 0: the opening line
+  //: starts with the words; 1: it holds them; 2: only the body does. The sort
+  //: is stable, so the list's own order holds within a rank.
+  const opening = (e) => (e.content || "").split("\n")[0].replace(/^#+\s*/, "").toLowerCase();
+  const rank = (e) => {
+    const line = opening(e);
+    return line.startsWith(query) ? 0 : line.includes(query) ? 1 : 2;
+  };
   const notes = (typeof allEntries !== "undefined" ? allEntries : [])
     .filter((e) => !e.is_private && (!query || (e.content || "").toLowerCase().includes(query)))
+    .map((e, order) => ({ e, order, rank: query ? rank(e) : 0 }))
+    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+    .map((row) => row.e)
     .slice(0, 6)
     .map((entry) => ({
       id: `note-${entry.id}`,

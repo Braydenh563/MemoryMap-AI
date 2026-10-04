@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes and documents: the `[[` picker offers the note you are naming first. It listed every note holding the words anywhere, newest first, cut to six, so with newer notes linking to "Alpha project" the picker's first row (the one Enter takes) was one of those and Alpha project itself was sixth or missing. Notes whose first line starts with the words come first, then ones whose first line holds them, then ones that only mention them. `tests/test_wiki_picker_ranking.py`.
 - Settings, Models: the "Advanced response settings" heading no longer drops its "?" onto a second line at phone width (the head stood 71px tall in a 44px row, so the chevron and the "?" sat on different lines from the words); the heading wraps in place instead. `scratchpad/ui-sweeps/deepflows.js` (fold headings, 0 of 21 sections spill at 390).
 - Settings, Profile and General: a switch pressed and then left for another section within a second is no longer put back. Those sections save 700 ms after the last change, and opening one reloaded the old values over the form before that save ran, which then saved the old values. `tests/test_prefs_pending_save_survives_pane_switch.py`.
 - Settings, Tools it can use: all 58 tools can now be switched off (the list held at most 50, so the 51st switch was refused and left looking off), and a refused save puts the switch back and says why instead of failing silently. `tests/test_agent_tools_api.py`, `tests/test_tool_switch_save.py`.

@@ -763,4 +763,36 @@ flows.tabs = async (env) => {
   }
 };
 
+//: The `[[` picker in the capture box offers the note being named first, even
+//: when newer notes mention it, and Enter links to that one.
+flows.picker = async (env) => {
+  const tag = `Pickerz ${env.STAMP}${env.width}${env.theme}`;
+  const made = [];
+  made.push(await fixtureNote(env, `# ${tag}\n\nThe note being named.`));
+  for (let i = 0; i < 8; i++) made.push(await fixtureNote(env, `# Mention ${i} ${env.STAMP}\n\nPoints at [[${tag}]] again.`));
+  try {
+    await env.js(() => switchTab('notes'));
+    await env.wait(400);
+    await env.js(() => loadEntries());
+    await env.wait(900);
+    await env.js(() => startNewNote());
+    await env.wait(1000);
+    await env.page.locator('#capture .cm-content').first().click();
+    await env.page.keyboard.type(`See [[${tag.slice(0, 14)}`);
+    env.at('the picker lists the note being named first');
+    const pickerRow = () => { const row = [...document.querySelectorAll('.rich-picker-list li, [role="listbox"] [role="option"]')].filter((e) => e.offsetParent && !/^Notes$/.test(e.textContent.trim()))[0]; return row ? row.textContent.trim().replace(/\s+/g, ' ') : null; };
+    const first = await until(env, pickerRow, null, 5000);
+    if (!first || !first.includes(tag)) throw new Error(`the first row for [[${tag.slice(0, 14)} is "${first}", not the note by that name`);
+    await env.overflow('picker open');
+    await env.page.keyboard.press('Enter');
+    await env.wait(500);
+    const text = await env.js(() => document.querySelector('#capture .cm-content').textContent);
+    if (!text.includes(tag)) throw new Error(`Enter linked to something else: ${JSON.stringify(text.slice(0, 80))}`);
+  } finally {
+    await env.page.keyboard.press('Control+a').catch(() => {});
+    await env.page.keyboard.press('Delete').catch(() => {});
+    for (const n of made) await env.js(async (id) => { await api(`/entries/${id}`, { method: 'DELETE' }); await api(`/entries/${id}/purge`, { method: 'DELETE' }); }, n.id).catch(() => {});
+  }
+};
+
 module.exports = flows;

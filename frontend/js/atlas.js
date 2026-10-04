@@ -2114,7 +2114,7 @@ function atlasTuneStyle(svg) {
 //: pose and mood transforms inside stay static, which costs nothing.
 //: Every layer carries the mood and look attributes, so the CSS variables
 //: agree across them, and the lids layer mirrors the head's tilt.
-const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "neb", "neb-front"];
+const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"];
 function atlasDrawFigure(mood) {
   const look = atlasLook();
   const frag = document.createDocumentFragment();
@@ -2149,8 +2149,10 @@ function atlasDrawFigure(mood) {
     const rig = atlasGroup(atlasGroup(pose, "atl-mood", ATLAS_GEO.feet), "atl-rig", ATLAS_GEO.feet);
     layers[name] = { svg, pose, rig };
     //: **A `rotate` or `translate` loop goes on a box of its own.** The
-    //: body's slow sway, the tail's and the nebula's flow, the skirt's
-    //: limb gestures (`nameMarkBuddyLimbs`): Chromium never runs those two
+    //: body's slow sway, the tail's and the nebula's flow, the skirt's and
+    //: the legs' limb gestures (`nameMarkBuddyLimbs`, rotate and scale; a
+    //: leg's step, kick and dangle are `transform`, which an svg root
+    //: does run on the compositor): Chromium never runs those two
     //: properties on the compositor for an `<svg>` root, so each restyled
     //: the page every frame (140 to 500ms of every 2.6s). On a plain HTML
     //: box they do, so the root sits in one (`.atl-lw`).

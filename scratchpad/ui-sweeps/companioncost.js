@@ -1,6 +1,7 @@
 // Companion main-thread cost: idle 2.6s, and a float (Atlas) or walk (as you)
 // between two places, from CDP Performance.getMetrics deltas (style recalc
-// ms and count, layouts, task ms). Env: BASE, KIND (atlas|me), REPS (3).
+// ms and count, layouts, task ms). Env: BASE, KIND (atlas|me), REPS (3), ROUTE
+// (float, glide, leap, ... forced for every move; the default is the real pick).
 const { boot } = require('./lib.js');
 const KIND = process.env.KIND || 'atlas';
 const REPS = Number(process.env.REPS || 3);
@@ -14,11 +15,12 @@ const REPS = Number(process.env.REPS || 3);
     const b = document.getElementById('avatar-buddy'); b.value = k; b.dispatchEvent(new Event('change', { bubbles: true }));
   }, KIND);
   await page.waitForTimeout(3000);
-  await page.evaluate(() => {
+  await page.evaluate((r) => {
     clearTimeout(nmb.timer);
     window.nameMarkBuddySchedule = () => {}; window.nameMarkBuddyTick = () => {};
     window.nameMarkBuddyQueuePlace = () => {}; window.nameMarkBuddyCheck = () => {};
-  });
+    if (r) window.nameMarkBuddyRoute = () => r;
+  }, process.env.ROUTE || "");
   const win = async (act) => {
     const a = await metric(); await act(); const b = await metric();
     const d = (k) => b[k] - a[k];

@@ -3,7 +3,7 @@
 // look and mood, to OUT_DIR/<name>.png. Run on the base and on the change, then
 // `node companionshots.js diff <dirA> <dirB>` prints the differing pixels per
 // shot (a page canvas decodes the PNGs; no extra packages).
-// Env: BASE, OUT_DIR, AT (ms, default 3000), REDUCED=1.
+// Env: BASE, OUT_DIR, AT (ms, default 3000), REDUCED=1, ONLY=name,name, VARIANT=0|1|2 (the arm and lie variant held), NOFLOAT=1.
 const fs = require('fs');
 const { boot } = require('./lib.js');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
@@ -65,8 +65,9 @@ async function shoot() {
     // The pacer steps the animations inside a drawing on its own clock, which would undo the freeze.
     window.nameMarkBuddyTempo = () => {}; clearTimeout(nmbTempo.timer); nmbTempo.anims = [];
     // The arm and lie variants are picked at random on each new place; hold one.
-    window.nameMarkBuddyPickVariant = () => 0;
+    window.nameMarkBuddyPickVariant = () => Number(window.__variant || 0);
   });
+  await page.evaluate((v) => { window.__variant = v; }, Number(process.env.VARIANT || 0));
   const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
   for (const [name, look, mood, pose] of SHOTS.filter(([n]) => !only || only.includes(n))) {
     await page.evaluate(([look]) => {
@@ -113,7 +114,7 @@ async function shoot() {
     // The pacer steps the animations inside a drawing on its own clock, which would undo the freeze.
     window.nameMarkBuddyTempo = () => {}; clearTimeout(nmbTempo.timer); nmbTempo.anims = [];
     // The arm and lie variants are picked at random on each new place; hold one.
-    window.nameMarkBuddyPickVariant = () => 0;
+    window.nameMarkBuddyPickVariant = () => Number(window.__variant || 0);
       const buddy = document.getElementById('nm-buddy');
       nameMarkBuddyRide(null, 400, 420);
       nameMarkBuddyMoveTo(buddy, { kind: 'card', pose: 'stand', legs: '', x: 400, y: 420 }, true);

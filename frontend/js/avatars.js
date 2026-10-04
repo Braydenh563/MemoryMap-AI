@@ -2878,9 +2878,16 @@ function nameMarkBuddyVisit(host) {
   for (const anim of [nmb.anim, nmb.glideAnim]) if (anim && anim.playState === "running") anim.finish();
   clearTimeout(nmb.placeTimer);
   nmb.placeTimer = 0;
-  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling };
+  //: The ledge under it shows for a sit and a hang; the CSS reads the host's
+  //: own `data-pose`, a copy kept here (a `:has()` on the companion's made
+  //: every pose change restyle 968 elements of the page).
+  const mirror = () => { host.dataset.pose = buddy.dataset.pose || ""; };
+  const watch = new MutationObserver(mirror);
+  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch };
   buddy.classList.remove("nmb-dodge");
   host.appendChild(buddy);
+  mirror();
+  watch.observe(buddy, { attributes: true, attributeFilter: ["data-pose"] });
   //: Its own act keeps its own end; with none under way, the view's beat.
   if (!nmb.act) nameMarkBuddySchedule();
   return nameMarkBuddyHome;
@@ -2889,6 +2896,7 @@ function nameMarkBuddyHome() {
   const visit = nmb.visit;
   if (!visit) return;
   nmb.visit = null;
+  visit.watch?.disconnect();
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   buddy.querySelector(":scope > .nm-say")?.remove();
@@ -5633,7 +5641,10 @@ function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
     }
   };
   part(".nmb-arm", move.arm, (el) => (el.classList.contains("nmb-arm-r") ? -1 : 1));
-  part(".nmb-leg", move.leg, (el) => (el.classList.contains("nmb-leg-r") ? -1 : 1));
+  //: Atlas's legs are two `<svg>` roots (`nmb-leg atl-layer`), on which
+  //: `rotate` and `scale` are never composited: its boxes (`.atl-lw-leg-*`,
+  //: atlas.js) take the gesture and the roots are left to the pose.
+  part(".nmb-leg:not(.atl-layer), .atl-lw-leg-l, .atl-lw-leg-r", move.leg, (el) => (el.matches(".nmb-leg-r, .atl-lw-leg-r") ? -1 : 1));
   part(".atl-lw-lower", move.lower, () => way);
   //: Atlas's arms are inside its body layer's drawing, where a moving part
   //: lays out and repaints the layer each frame (companionroutes.js: 80
@@ -5644,6 +5655,16 @@ function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
     clearTimeout(nmbTempo.timer);
     nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
   }
+}
+
+//: The way it is about to go, -1 or 1 (`--nmb-lean`): the walk's bob and
+//: glide lean into it (`.nm-buddy-char`) and so does the skirt's trail (its
+//: own root). The property does not inherit (the CSS says why: written on
+//: the buddy it restyled all 528 descendants), so the buddy carries it for
+//: the first and the skirt's root is written to directly.
+function nameMarkBuddyWay(buddy, way) {
+  buddy.style.setProperty("--nmb-lean", way);
+  for (const el of buddy.querySelectorAll(".atl-layer-lower")) el.style.setProperty("--nmb-lean", way);
 }
 
 //: Which way of going its limbs are in (the CSS's `data-travel`), and for
@@ -5742,7 +5763,7 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
     return;
   }
   buddy.dataset.route = route;
-  buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+  nameMarkBuddyWay(buddy, dx > 0 ? "-1" : "1");
   if (route === "glide") {
     //: A glide: a low sweep, leaning into the way it goes, arms out. Its
     //: fastest frame was 43px on the old curve (companionroutes.js); this
@@ -6337,7 +6358,7 @@ function nameMarkBuddyEnter(buddy, spot) {
     //: shows (companionroutes.js: 46 on a steeper curve).
     const duration = Math.round(Math.min(1100, 480 + Math.abs(dx) * 0.7));
     const way = dx > 0 ? -1 : 1;
-    buddy.style.setProperty("--nmb-lean", String(way));
+    nameMarkBuddyWay(buddy, String(way));
     nmb.anim = buddy.animate([{ translate: `${dx}px 0px`, opacity: 0 }, { opacity: 1, offset: 0.25 }, { translate: "0px 0px", opacity: 1 }], { duration, easing: "cubic-bezier(0.25, 0.5, 0.25, 1)" });
     nmb.hopAnim = char?.animate([
       { rotate: `${way * 10}deg`, translate: "0px -3px" }, { rotate: `${way * 10}deg`, translate: "0px -3px", offset: 0.6 },
@@ -6350,7 +6371,7 @@ function nameMarkBuddyEnter(buddy, spot) {
   if (how === "walk") {
     const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
     const duration = Math.round(Math.min(1500, 520 + Math.abs(dx) * 1.1));
-    buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+    nameMarkBuddyWay(buddy, dx > 0 ? "-1" : "1");
     buddy.dataset.turn = dx > 0 ? "l" : "r";
     buddy.classList.add("nmb-walking");
     nmbTempo.seen = 0;

@@ -6044,8 +6044,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   opacity: 0;
   transition: opacity var(--motion-base) var(--ease-out);
 }
-.nm-viewer-figure:has(> #nm-buddy[data-pose="sit"]) .nm-viewer-ledge { opacity: 1; }
-.nm-viewer-figure:has(> #nm-buddy[data-pose="hang"]) .nm-viewer-ledge { opacity: 1; top: 24px; }
+/* `data-pose` on the figure is a copy of the companion's (`nameMarkBuddyVisit`
+   keeps it). It is not `.nm-viewer-figure:has(> #nm-buddy[data-pose])`:
+   that :has() made every change of the companion's `data-pose`, with the
+   view closed, restyle 968 elements (companioncost.js, 2026-10-04). */
+.nm-viewer-figure[data-pose="sit"] .nm-viewer-ledge { opacity: 1; }
+.nm-viewer-figure[data-pose="hang"] .nm-viewer-ledge { opacity: 1; top: 24px; }
 
 /* Its lines, said from its head's upper corner (its box is the size of
    its perch, its drawing 2.2 times that). */
@@ -6369,6 +6373,20 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    a moving act (a sloth sway, a peek, a toss) animates `rotate` itself
    and takes over while it runs. */
 #nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }
+/* **`--nmb-tilt` and `--nmb-lean` do not inherit** (companionrecalcorder.js,
+   2026-10-04): avatars.js writes them inline on `#nm-buddy` when a walk
+   starts, and as inherited properties each write restyled all 528
+   descendants (28ms) though only `.nm-buddy-char` (both: the tilt's
+   `rotate`, the walk's bob and glide keyframes) and the skirt's root (the
+   lean: `atl-lower-trail`) read them. They pass down by `inherit` along
+   the one path to `.nm-buddy-char`, `.nm-buddy-face > .nm-buddy-char`; the
+   skirt's root is written to directly (`nameMarkBuddyWay`), because
+   `inherit` on the box between it and the figure (`.atl-lw-lower`, which
+   the limb loops animate) made an idle companion restyle every frame
+   (6 recalcs in 2s became 105). A new reader needs its own link. */
+@property --nmb-tilt { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --nmb-lean { syntax: "<number>"; inherits: false; initial-value: 0; }
+#nm-buddy :is(.nm-buddy-face, .nm-buddy-char) { --nmb-tilt: inherit; --nmb-lean: inherit; }
 #nm-buddy.nmb-duck .nm-buddy-char { transform: translateY(10px); }
 
 /* Tucked behind the bottom bar (the last resort in a small window): only
@@ -7129,13 +7147,27 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    `--atl-lean-dir` is -1, 0 or 1 (`--atl-lean` is the pose's own lean in
    degrees); declared at the root and never again on `.nm-atlas` itself,
    so an ancestor's value reaches every layer. */
-:root {
-  --atl-lean-dir: 0;
-  --nmb-lean-pose: 0deg;
-  --nmb-lie-shift: 0 0;
-}
-:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }
-:is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }
+@property --atl-lean-dir { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --nmb-lean-pose { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --nmb-lie-shift { syntax: "<length>+"; inherits: false; initial-value: 0 0; }
+/* **None of the three inherits** (companioncost.js, companionattrcost.js
+   and the trace of one change, 2026-10-04): as inherited properties each
+   change of `data-lean` on `#nm-buddy`, and of `data-pose` (the figure's
+   two), restyled all 528 descendants, 15 to 25ms a time, and a float sets
+   both. Now the value is written on the elements that read it, by
+   selectors keyed on the host's attribute, so a change restyles those
+   few and not the subtree. The readers are the figure, the figure box,
+   the four drawings' roots that lean (the nebula's two halves, the tail,
+   the lids), the head, the pupils and a whole drawing's `.atl-pose`.
+   `:where()` keeps the host's own specificity at its attribute, so the
+   nearer of two hosts still wins (a drawing over its figure box over
+   `#nm-buddy`). */
+:where(#nm-buddy)[data-lean="l"] :where(.nm-figure, .atl-figure-box, .atl-layer-neb, .atl-layer-neb-front, .atl-layer-tail, .atl-layer-lids, .atl-head, .atl-pupil, .nm-atlas:not(.atl-layer) .atl-pose) { --atl-lean-dir: -1; }
+:where(#nm-buddy)[data-lean="r"] :where(.nm-figure, .atl-figure-box, .atl-layer-neb, .atl-layer-neb-front, .atl-layer-tail, .atl-layer-lids, .atl-head, .atl-pupil, .nm-atlas:not(.atl-layer) .atl-pose) { --atl-lean-dir: 1; }
+.atl-figure-box[data-lean="l"], .atl-figure-box[data-lean="l"] :where(.atl-layer-neb, .atl-layer-neb-front, .atl-layer-tail, .atl-layer-lids, .atl-head, .atl-pupil, .nm-atlas:not(.atl-layer) .atl-pose) { --atl-lean-dir: -1; }
+.atl-figure-box[data-lean="r"], .atl-figure-box[data-lean="r"] :where(.atl-layer-neb, .atl-layer-neb-front, .atl-layer-tail, .atl-layer-lids, .atl-head, .atl-pupil, .nm-atlas:not(.atl-layer) .atl-pose) { --atl-lean-dir: 1; }
+.nm-atlas[data-lean="l"], .nm-atlas[data-lean="l"] :where(.atl-head, .atl-pupil, .atl-pose) { --atl-lean-dir: -1; }
+.nm-atlas[data-lean="r"], .nm-atlas[data-lean="r"] :where(.atl-head, .atl-pupil, .atl-pose) { --atl-lean-dir: 1; }
 .atl-figure-box { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
 .nm-atlas:not(.atl-layer) .atl-pose { rotate: calc(var(--atl-lean-dir) * 3.5deg); transition: rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out); }
 .nm-atlas:is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(var(--atl-lean-dir) * -1.6deg); transition: rotate calc(var(--motion-slow) * 4.5) var(--ease-spring) var(--motion-fast); }
@@ -7150,6 +7182,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-body { transform-origin: 31px 90px; will-change: rotate; }
 .atl-lw-tail { transform-origin: 34px 60px; will-change: rotate; }
 .atl-lw-lower { transform-origin: 31px 57px; }
+/* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
+.atl-lw-leg-l { transform-origin: 27.4px 60px; }
+.atl-lw-leg-r { transform-origin: 34.6px 60px; }
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
@@ -7287,12 +7322,26 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    layer). The arms ease between moods and variants with the limbs' own
    transition; a pose or an act that places the arms (sit, float, hang,
    wave, the stances) outranks the mood, being more specific. */
-:root {
-  --atl-v1: 0;
-  --atl-v2: 0;
-}
-[data-atlas-variant="1"] { --atl-v1: 1; --atl-v2: 0; }
-[data-atlas-variant="2"] { --atl-v1: 0; --atl-v2: 1; }
+@property --atl-v1 { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --atl-v2 { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --atl-chin { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* The variant's two weights do not inherit either (the lean's note above:
+   a change of `data-atlas-variant` restyled every descendant, 3 to 17ms).
+   Always they are written on the arms and the chin hand, the only readers
+   in any pose (`--atl-chin` is computed there from them). In a lying
+   pose, which mirrors by the variant, also on the figure, the orbits,
+   `#nm-buddy`'s two pseudo-elements and the roots the lie rules turn.
+   Out of a lying pose a variant change restyles the arms and nothing else. */
+:where(#nm-buddy)[data-atlas-variant="1"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+.atl-figure-box[data-atlas-variant="1"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+.nm-atlas[data-atlas-variant="1"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+:where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="1"]::before, :where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="1"]::after,
+:where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="1"] :where(.nm-figure, .atl-orbits, .atl-layer-neb, .atl-layer-neb-front, .atl-layer-fx-1, .atl-layer-fx-2, .atl-layer-back, .atl-layer-front) { --atl-v1: 1; --atl-v2: 0; }
+:where(#nm-buddy)[data-atlas-variant="2"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+.atl-figure-box[data-atlas-variant="2"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+.nm-atlas[data-atlas-variant="2"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand),
+:where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="2"]::before, :where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="2"]::after,
+:where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="2"] :where(.nm-figure, .atl-orbits, .atl-layer-neb, .atl-layer-neb-front, .atl-layer-fx-1, .atl-layer-fx-2, .atl-layer-back, .atl-layer-front) { --atl-v1: 0; --atl-v2: 1; }
 .nm-atlas {
   --atl-ar0: 0deg;
   --atl-ar1: 0deg;
@@ -7303,6 +7352,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-chin0: 0;
   --atl-chin1: 0;
   --atl-chin2: 0;
+}
+.nm-atlas :where(.nmb-arm-r, .atl-chin-hand) {
   --atl-chin: calc(var(--atl-chin0) * (1 - var(--atl-v1) - var(--atl-v2)) + var(--atl-chin1) * var(--atl-v1) + var(--atl-chin2) * var(--atl-v2));
 }
 .nm-atlas .nmb-arm-r { transform: rotate(calc(var(--atl-ar0) * (1 - var(--atl-v1) - var(--atl-v2)) + var(--atl-ar1) * var(--atl-v1) + var(--atl-ar2) * var(--atl-v2))); }
@@ -7697,6 +7748,23 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
 .nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); }
+@property --atl-lean { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --atl-sx { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --atl-sy { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --atl-tail { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+/* **The pose's four numbers do not inherit** (companioncost.js, 2026-10-04):
+   a pose, a mood or an act on `#nm-buddy` writes `--atl-lean`, `--atl-sx`,
+   `--atl-sy` and `--atl-tail` on each drawing's root, and as inherited
+   properties every one of them restyled the root's whole subtree, 492
+   elements for one float. Only `.atl-pose` (the root's first child) reads
+   the first three and only `.atl-tail` the fourth, so they pass down by
+   `inherit` along exactly that path (`.atl-pose > .atl-mood > .atl-rig >
+   [.atl-edges | .atl-fills] > .atl-tail`, listed below) and a change
+   restyles those few groups. Only the tail's layer (`route.tail` in
+   `atlasBody`) and a whole drawing have a tail, so only they carry the
+   chain. A reader that moves off the path needs its own link here. */
+.nm-atlas .atl-pose { --atl-lean: inherit; --atl-sx: inherit; --atl-sy: inherit; }
+.nm-atlas:is(.atl-layer-tail, :not(.atl-layer)) :is(.atl-pose, .atl-mood, .atl-rig, .atl-edges, .atl-fills, .atl-tail) { --atl-tail: inherit; }
 .nm-atlas .atl-pose { transform: rotate(var(--atl-lean)) scale(var(--atl-sx), var(--atl-sy)); }
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its

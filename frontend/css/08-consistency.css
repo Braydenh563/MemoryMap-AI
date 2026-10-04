@@ -6683,7 +6683,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    02-chat-graph.css used to hide that by freezing everything first, and
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
+  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nmb-arm-l, .nmb-arm-r, .nmb-hold-l, .nmb-hold-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
     animation-duration: 6s !important;
   }
 }
@@ -7777,6 +7777,44 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &:has(.atl-figure).nmb-walking .nm-buddy-char { animation: atl-glide 0.9s ease-in-out infinite alternate; }
     &:has(.atl-figure[data-atlas-look="masculine"]).nmb-walking .nm-buddy-char { animation: atl-glide-heavy 1.25s ease-in-out infinite alternate; }
   }
+}
+/* **Limbs in motion** (INBOX 469, the owner: "have the arms and legs be
+   used a bit for various position, action etc changes and transitions").
+   Walking, the arms swing against the legs (not Atlas's: it glides). On a
+   climb (avatars.js, `data-travel`) the reaching arms take over, one hand
+   over the other, with the legs stepping and the body rocking with each
+   pull. On `rotate` and `translate`, the individual properties, so each
+   adds to the pose's own transform. The one-shot gestures (a leap, a
+   glide, a float, a new act) are avatars.js's `NMB_LIMB_MOVES`. Still
+   under Off and Reduce motion. */
+@media all {
+  :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
+    &:not(:has(.atl-figure)).nmb-walking:not([data-travel]) .nmb-arm-l { animation: nmb-arm-swing 0.34s ease-in-out -0.34s infinite alternate; }
+    &:not(:has(.atl-figure)).nmb-walking:not([data-travel]) .nmb-arm-r { animation: nmb-arm-swing 0.34s ease-in-out infinite alternate; }
+    &[data-gait="masculine"]:not(:has(.atl-figure)).nmb-walking:not([data-travel]) :is(.nmb-arm-l, .nmb-arm-r) { animation-duration: 0.4s; }
+    &[data-gait="masculine"]:not(:has(.atl-figure)).nmb-walking:not([data-travel]) .nmb-arm-l { animation-delay: -0.4s; }
+    &[data-gait="feminine"]:not(:has(.atl-figure)).nmb-walking:not([data-travel]) :is(.nmb-arm-l, .nmb-arm-r) { animation-duration: 0.3s; }
+    &[data-gait="feminine"]:not(:has(.atl-figure)).nmb-walking:not([data-travel]) .nmb-arm-l { animation-delay: -0.3s; }
+    &[data-travel="climb"] .nmb-hold { opacity: 1; }
+    &[data-travel="climb"] .nmb-arm { opacity: 0; }
+    &[data-travel="climb"] .nmb-hold-l { animation: nmb-reach 0.32s ease-in-out infinite alternate; }
+    &[data-travel="climb"] .nmb-hold-r { animation: nmb-reach 0.32s ease-in-out -0.32s infinite alternate; }
+    &[data-travel="climb"] .nmb-leg-l { animation: nmb-step 0.32s ease-in-out -0.32s infinite alternate; }
+    &[data-travel="climb"] .nmb-leg-r { animation: nmb-step 0.32s ease-in-out infinite alternate; }
+    &[data-travel="climb"] .nm-buddy-char { animation: nmb-climb 0.32s ease-in-out infinite alternate; }
+  }
+}
+@keyframes nmb-arm-swing {
+  from { rotate: -10deg; }
+  to { rotate: 10deg; }
+}
+@keyframes nmb-reach {
+  from { translate: 0 1px; }
+  to { translate: 0 -3px; }
+}
+@keyframes nmb-climb {
+  from { transform: rotate(-2deg); }
+  to { transform: translateY(-1.5px) rotate(2deg); }
 }
 @keyframes atl-lower-sway-heavy {
   from { transform: rotate(-2.4deg) skewX(1.2deg); }

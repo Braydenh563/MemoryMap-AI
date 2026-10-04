@@ -5332,7 +5332,8 @@ function nameMarkBuddyTempo() {
     //: as the same twinkle. (Since Atlas round 5 the moods draw their
     //: effects on layer roots, which are not paced at all; this is for
     //: whatever animates inside a layer next.)
-    nmbTempo.slow = new WeakSet(nmbTempo.anims.filter((a) => a.effect.target.closest("svg.atl-layer")));
+    //: Not a limb's gesture in a move (`nameMarkBuddyLimbs`): 20Hz, not 10.
+    nmbTempo.slow = new WeakSet(nmbTempo.anims.filter((a) => a.id !== "nmb-limb" && a.effect.target.closest("svg.atl-layer")));
   }
   nmbTempo.ticks += 1;
   const beat = nmbTempo.ticks % 2 === 0;
@@ -5429,10 +5430,15 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   //: while another is under way starts from where it is drawn now, not from
   //: where the last one was going.
   let was = { x: nmb.x, y: nmb.y };
-  if ((nmb.anim && nmb.anim.playState === "running") || (nmb.glideAnim && nmb.glideAnim.playState === "running")) {
+  const underway = (nmb.anim && nmb.anim.playState === "running") || (nmb.glideAnim && nmb.glideAnim.playState === "running");
+  const char = buddy.querySelector(".nm-buddy-char");
+  let lift = 0;
+  if (underway) {
     const box = buddy.getBoundingClientRect();
     was = { x: box.left, y: box.top };
+    lift = Number.parseFloat(String(char ? getComputedStyle(char).translate : "").split(" ")[1]) || 0;
   }
+  nmb.liftAnim?.cancel();
   nmb.glideAnim?.cancel();
   nmb.glideAnim = null;
   nameMarkBuddyPut(buddy, x, y);
@@ -5485,7 +5491,10 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   //: longer takes these off: see `nameMarkBuddyPoof`).
   buddy.classList.remove("nmb-poofing", "nmb-walking");
   if (instant || typeof buddy.animate !== "function") return;
-  nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);
+  nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was, underway);
+  //: Cut off in mid-air (a hop's arc, a float's lift), the figure comes
+  //: down from where it was drawn, added to the new way, not snapped to it.
+  if (lift && char && typeof char.animate === "function") nmb.liftAnim = char.animate([{ translate: `0px ${lift}px` }, { translate: "0px 0px" }], { duration: 240, easing: "ease-out", composite: "add" });
 }
 
 //: **How it gets there: by the way its body moves, never a slide** (the
@@ -5496,15 +5505,10 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
 //: place (`nameMarkBuddyPut`); this plays the way from `dx`, `dy` back to
 //: it. Distances are in its own size (`NMB_W` times its scale), so a large
 //: companion takes a longer step before it needs a walk:
-//:   Reduce motion  a crossfade, out where it was and in where it is.
-//:   thrown / let go  the flight or the fall.
-//:   far, or from out of sight  a poof (out in stars, in in stars).
-//:   a flyer (Atlas, winged and ghostly faces)  a float: lifted, drifted
-//:            along a shallow arc, settled.
-//:   a small step (under `NMB_HOP_SIZES` of itself)  a little hop in place
-//:            of a walk: a crouch, an arc, a landing.
-//:   anything else  the walk, with its gait, and a hop where it climbs.
-//: Every one eases from rest to rest, so its speed never jumps.
+//: Reduce motion is a crossfade; thrown or let go, the flight or the fall;
+//: from out of sight or very far, a poof; otherwise the way the geometry
+//: chooses (`nameMarkBuddyRoute`). Every one eases from rest to rest, or
+//: from the speed it already had, so its speed never jumps.
 const NMB_HOP_SIZES = 0.7;
 const NMB_POOF_SIZES = 7.5;
 const NMB_FAR_SIZES = 3;
@@ -5513,8 +5517,7 @@ const nmbFarWays = [];
 //: A poof only from `NMB_FAR_POOF_SIZES` on: nearer, a vanish is what the
 //: owner once reported as "keeps disappearing" (INBOX 426 n).
 const NMB_FAR_POOF_SIZES = 5;
-function nameMarkBuddyFarWay(allowPoof) {
-  const ways = allowPoof ? ["poof", "zip", "walk"] : ["zip", "walk"];
+function nameMarkBuddyFarWay(ways) {
   let pick = ways[Math.floor(Math.random() * ways.length)];
   if (nmbFarWays.length >= 2 && nmbFarWays.every((w) => w === pick)) pick = ways[(ways.indexOf(pick) + 1) % ways.length];
   nmbFarWays.push(pick);
@@ -5575,9 +5578,91 @@ function nameMarkBuddyCrossfade(buddy, dx, dy, ms) {
   }
   nmb.anim = buddy.animate([{ opacity: 0 }, { opacity: 1 }], ease);
 }
-function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { x: nmb.x + dx, y: nmb.y + dy }) {
+//: **The way there, by the shape of the move** (INBOX 455 (2), the owner:
+//: "more and better transitions between positions"). Pure, so a test runs
+//: it: `dx`, `dy` from where it is going back to where it was, `size` its
+//: width, `roll` a draw in [0, 1).
+//:   a flyer          float (a lift and a drift), a glide when far
+//:   a small step     a hop, a shuffle or a scoot, one in three each
+//:   mostly up or down, within `NMB_FAR_POOF_SIZES`  climb: along its
+//:                    ledge, then up the edge hand over hand (down it first,
+//:                    then along, going down)
+//:   a change of level within `NMB_FAR_SIZES`  leap: a crouch, an arc over
+//:                    the gap with its arms out, a landing
+//:   further          "far": `nameMarkBuddyFarWay` picks among the far ways
+//:   anything else    walk, along the ledge it is on
+function nameMarkBuddyRoute(dx, dy, size, flies, poseChanged, roll) {
+  const d = Math.hypot(dx, dy);
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  if (flies) return d > size * NMB_FAR_SIZES ? "glide" : "float";
+  if (d < size * NMB_HOP_SIZES && !poseChanged) return ["hop", "shuffle", "scoot"][Math.floor(roll * 3)];
+  if (ay > 48 && ay > ax * 0.8 && d < size * NMB_FAR_POOF_SIZES) return "climb";
+  if (ay > 36 && d < size * NMB_FAR_SIZES) return "leap";
+  return d > size * NMB_FAR_SIZES ? "far" : "walk";
+}
+
+//: **Limbs in motion** (INBOX 469, the owner: "have the arms and legs be
+//: used a bit for various position, action etc changes and transitions").
+//: One gesture per way of going, paced to the move: a leap crouches with
+//: its arms back, then holds them out for balance and reaches its legs for
+//: the landing; a glide spreads them like wings; a float is a stroke of the
+//: arms with the hem trailing; a new act starts with a small lift of the
+//: arms. Frames are `[offset, degrees, scaleY]` for the left side; the right
+//: is the mirror, and the hem (Atlas's lower layer) leans against the way
+//: it goes. On `rotate` and `scale`, the individual properties, with no end
+//: frames: each adds to the pose's own `transform` and comes back to it, and
+//: a cancelled one leaves the pose as it was. The walk's arm swing and the
+//: climb's reach are the CSS's (`.nmb-walking`, `data-travel`), looped.
+const NMB_LIMB_MOVES = {
+  leap: { arm: [[0.14, -16], [0.5, 52], [0.84, 16]], leg: [[0.14, 0, 0.84], [0.5, 16, 0.76], [0.86, -4, 1.05]], lower: [[0.2, -4], [0.55, 10], [0.86, -3]] },
+  glide: { arm: [[0.22, 66], [0.76, 60]], leg: [[0.25, -5, 0.86], [0.75, -5, 0.86]], lower: [[0.25, 12], [0.75, 9]] },
+  float: { arm: [[0.25, -12], [0.6, 30], [0.86, 8]], lower: [[0.3, 10], [0.72, 6], [0.9, -3]] },
+  cue: { arm: [[0.4, 20]] },
+};
+function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
+  for (const anim of nmb.limbAnims || []) anim.cancel();
+  nmb.limbAnims = [];
+  const move = NMB_LIMB_MOVES[kind];
+  if (!move || !ms || typeof buddy.animate !== "function") return;
+  const timing = { duration: ms, delay, easing: "ease-in-out", id: "nmb-limb" };
+  const part = (sel, list, side) => {
+    for (const el of list ? buddy.querySelectorAll(sel) : []) {
+      const m = side(el);
+      nmb.limbAnims.push(el.animate(list.map(([offset, deg, sy]) => (sy ? { offset, rotate: `${deg * m}deg`, scale: `1 ${sy}` } : { offset, rotate: `${deg * m}deg` })), timing));
+    }
+  };
+  part(".nmb-arm", move.arm, (el) => (el.classList.contains("nmb-arm-r") ? -1 : 1));
+  part(".nmb-leg", move.leg, (el) => (el.classList.contains("nmb-leg-r") ? -1 : 1));
+  part(".atl-layer-lower", move.lower, () => way);
+  //: Atlas's arms are inside its body layer's drawing, where a moving part
+  //: lays out and repaints the layer each frame (companionroutes.js: 80
+  //: layouts over a float), so they are paced as the walk's steps are
+  //: (`nameMarkBuddyTempo`), from now rather than its next look.
+  if (buddy.querySelector("svg.atl-layer .nmb-arm")) {
+    nmbTempo.seen = 0;
+    clearTimeout(nmbTempo.timer);
+    nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
+  }
+}
+
+//: Which way of going its limbs are in (the CSS's `data-travel`), and for
+//: a move in two parts (a climb: along, then up), the part after `at` ms.
+function nameMarkBuddyTravel(buddy, kind, at = 0, then = "") {
+  clearTimeout(nmb.travelTimer);
+  const set = (k) => {
+    if (k) buddy.dataset.travel = k;
+    else delete buddy.dataset.travel;
+  };
+  set(kind);
+  if (at) nmb.travelTimer = setTimeout(() => set(then), at);
+}
+
+function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { x: nmb.x + dx, y: nmb.y + dy }, underway = false) {
   nmb.ghost?.remove();
   nmb.hopAnim?.cancel();
+  nameMarkBuddyLimbs(buddy, "");
+  nameMarkBuddyTravel(buddy, "");
   //: It leans the way it is about to go, and straightens as it arrives.
   if (Math.abs(dx) > 6 && !nameMarkBuddyNoTravel()) nameMarkBuddyTilt(dx > 0 ? -0.8 : 0.8, Math.min(900, 300 + Math.abs(dx) * 2));
   nmb.movedAt = Date.now();
@@ -5597,12 +5682,8 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   }
   nameMarkBuddyAct("");
   const char = buddy.querySelector(".nm-buddy-char");
-  //: **Always the way there, never a vanish** (INBOX 426 n, the owner: "it
-  //: keeps disappearing and reappearing on different parts of the page as I
-  //: scroll"). A far move used to fade out and back in elsewhere; now every
-  //: move is a walk or a hop along the way, 400 to 900ms, and the choice of
-  //: perch prefers near ones so a far move is rare. Reduce motion alone gets
-  //: a short fade in place of the travel.
+  //: **Always the way there, never a vanish** (INBOX 426 n). Reduce motion
+  //: alone gets a short crossfade in place of the travel.
   if (nameMarkBuddyNoTravel()) {
     nameMarkBuddyCrossfade(buddy, dx, dy, 420);
     return;
@@ -5616,7 +5697,6 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
     toss.onfinish = () => {
       if (nmb.anim === toss) nameMarkBuddyAct("land");
     };
-    const char = buddy.querySelector(".nm-buddy-char");
     const arc = Math.min(60, 18 + distance * 0.08);
     const spin = dx > 0 ? -1 : 1;
     nmb.hopAnim = char?.animate([
@@ -5624,53 +5704,77 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
       { translate: `0px ${-arc}px`, rotate: `${spin * 200}deg`, offset: 0.4 },
       { translate: "0px 0px", rotate: `${spin * 360}deg` },
     ], { duration, easing: "ease-out" }) || null;
+    nameMarkBuddyLimbs(buddy, "glide", duration);
     return;
   }
-  //: **A poof when it must jump** (INBOX 426 x, the owner: "a better
-  //: teleport"). Out of sight with its panel, or further than a walk
-  //: should go, it does not stride in from off the page: it dissolves in a
-  //: burst of stars where it was (when that could be seen) and appears in
-  //: another where it is going, 370ms in all.
+  //: **Interruptible, at speed** (apple-design: a gesture that takes over a
+  //: moving thing keeps its momentum). A new place chosen while it is on its
+  //: way starts from where it is drawn (`nameMarkBuddyMoveTo`) with no
+  //: crouch and no wait, on a curve whose first slope carries on at about
+  //: the speed it had (`nmb.moveSpeed`, the last move's mean, half again
+  //: mid-way), then eases in. Measured (companionroutes.js, a leap taken
+  //: over at 300ms): a 35px frame at the hand-over before, 15 after.
+  const setOff = underway ? 0 : NMB_SET_OFF_MS;
+  const carried = underway ? (nmb.moveSpeed || 0) * 1.4 : 0;
+  nmb.moveSpeed = 0;
+  const leave = (easing, ms) => {
+    nmb.moveSpeed = distance / ms;
+    if (!underway) return easing;
+    const slope = Math.min(4.5, Math.max(0.6, (carried * ms) / Math.max(1, distance)));
+    return `cubic-bezier(0.2, ${(0.2 * slope).toFixed(3)}, 0.3, 1)`;
+  };
+  const way = dx > 0 ? -1 : 1;
   const seenFrom = !nmb.outOfSight && was.x > -NMB_W && was.y > -NMB_H && was.x < innerWidth && was.y < innerHeight;
+  const flies = nameMarkBuddyFlies(buddy);
+  let route = spot.falls ? "fall" : nameMarkBuddyRoute(dx, dy, size, flies, poseChanged, Math.random());
   //: **A far move picks a far way of going** (the owner at release: "if the
-  //: move is too far it should choose one of the further travel options ...
-  //: it is mostly hopping or jumping"). Past `NMB_FAR_SIZES` of itself (and
-  //: short of the always-poof distance) it draws one: a poof, a zip (a quick
-  //: glide, leaning into the way it goes) or the walk, and the walk no
-  //: longer adds a jump for a change of pose alone, only for a real climb.
-  const far = !spot.falls && distance > size * NMB_FAR_SIZES && !nameMarkBuddyFlies(buddy);
-  const farWay = far ? nameMarkBuddyFarWay(distance > size * NMB_FAR_POOF_SIZES) : "walk";
-  if (!spot.falls && (!seenFrom || distance > size * NMB_POOF_SIZES || farWay === "poof")) {
+  //: move is too far it should choose one of the further travel options").
+  //: The geometry says which: on the level a glide or the walk, across
+  //: levels a glide, and past `NMB_FAR_POOF_SIZES` a poof as well.
+  if (route === "far") route = nameMarkBuddyFarWay([...(distance > size * NMB_FAR_POOF_SIZES ? ["poof"] : []), "glide", ...(Math.abs(dy) <= 36 ? ["walk"] : [])]);
+  //: **A poof when it must jump** (INBOX 426 x): out of sight with its
+  //: panel, or further than any way of going should go, it dissolves in
+  //: stars where it was (when that could be seen) and appears in another
+  //: burst where it is going, the soft materialise.
+  if (route !== "fall" && (!seenFrom || distance > size * NMB_POOF_SIZES || route === "poof")) {
+    buddy.dataset.route = "poof";
     nameMarkBuddyPoof(buddy, dx, dy, seenFrom);
     return;
   }
-  if (farWay === "zip") {
-    const duration = Math.round(Math.min(900, 320 + distance * 0.7));
-    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.7, 0, 0.2, 1)" });
-    const lean = dx > 0 ? -12 : 12;
+  buddy.dataset.route = route;
+  buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+  if (route === "glide") {
+    //: A glide: a low sweep, leaning into the way it goes, arms out. Its
+    //: fastest frame was 43px on the old curve (companionroutes.js); this
+    //: one, and a little longer, keep it under 20.
+    const duration = Math.round(Math.min(1000, 380 + distance * 0.9));
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: setOff, fill: "backwards", easing: leave("cubic-bezier(0.45, 0, 0.2, 1)", duration) });
+    const lean = way * 12;
     nmb.hopAnim = char?.animate([
       { rotate: "0deg", translate: "0px 0px" }, { rotate: `${lean}deg`, translate: "0px -3px", offset: 0.3 },
       { rotate: `${lean}deg`, translate: "0px -3px", offset: 0.7 }, { rotate: `${-lean * 0.3}deg`, translate: "0px 0px", offset: 0.9 }, { rotate: "0deg" },
-    ], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" }) || null;
-    nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
+    ], { duration, delay: setOff, fill: "backwards", easing: "ease-in-out" }) || null;
+    nameMarkBuddySquash(char, duration + setOff, underway);
+    nameMarkBuddyLimbs(buddy, "glide", duration, setOff, way);
     return;
   }
   //: Let go over open space, it falls: gravity's curve, straight down,
   //: and a squash where it lands.
-  if (spot.falls) {
+  if (route === "fall") {
     const duration = Math.round(Math.min(700, 180 + Math.sqrt(Math.abs(dy)) * 30));
     nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.55, 0, 1, 0.45)" });
     nmb.anim.onfinish = () => nameMarkBuddyAct("land");
+    nameMarkBuddyLimbs(buddy, "glide", duration);
     return;
   }
   //: A float: no steps, a lift and a drift on a shallow arc, leaning a
   //: little into the way it goes, and a settle as it arrives.
-  if (nameMarkBuddyFlies(buddy)) {
+  if (route === "float") {
     //: Its look sets its float too: heavier, slower and lower; lighter,
     //: quicker, higher and leaning more into the way it goes.
     const gait = buddy.dataset.gait || "";
     const duration = Math.round(Math.min(1300, 560 + distance * 0.9) * (NMB_GAIT_PACE[gait] || 1));
-    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.45, 0, 0.25, 1)" });
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: leave("cubic-bezier(0.45, 0, 0.25, 1)", duration) });
     const lift = Math.min(28, 8 + distance * 0.06) * (gait === "masculine" ? 0.8 : gait === "feminine" ? 1.15 : 1);
     const lean = Math.max(-8, Math.min(8, -dx * 0.04)) * (gait === "feminine" ? 1.4 : 1);
     nmb.hopAnim = char?.animate([
@@ -5679,44 +5783,52 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
       { translate: "0px 2px", rotate: `${-lean * 0.3}deg`, offset: 0.88, easing: "ease-in-out" },
       { translate: "0px 0px", rotate: "0deg" },
     ], { duration: duration + 120 }) || null;
+    nameMarkBuddyLimbs(buddy, "float", duration + 120, 0, way);
     return;
   }
-  //: A step too small for a walk: a hop, gathered, over a small arc and
-  //: landed, whichever way it goes.
-  if (distance < size * NMB_HOP_SIZES && !poseChanged) {
-    const duration = Math.round(300 + distance * 2.5);
-    //: **Not always a hop** (the owner at release: "vary the small movement
-    //: transition choices... it basically always hops"). One small step in
-    //: three is a hop; the others slide there on the ground, as a shuffle
-    //: (a rock from foot to foot) or a scoot (a lean into the way it goes
-    //: and a settle back), a little slower than the hop's arc.
-    const small = ["hop", "shuffle", "scoot"][Math.floor(Math.random() * 3)];
-    if (small !== "hop") {
-      const slide = Math.round(duration * 1.25);
-      nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration: slide, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" });
-      const way = dx < 0 ? -1 : 1;
-      nmb.hopAnim = char?.animate(small === "shuffle" ? [
-        { rotate: "0deg", translate: "0px 0px" }, { rotate: "-5deg", translate: "0px -2px", offset: 0.25 },
-        { rotate: "5deg", translate: "0px -2px", offset: 0.6 }, { rotate: "0deg", translate: "0px 0px" },
-      ] : [
-        { rotate: "0deg" }, { rotate: `${way * 7}deg`, offset: 0.35 }, { rotate: `${-way * 2}deg`, offset: 0.8 }, { rotate: "0deg" },
-      ], { duration: slide, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "ease-in-out" }) || null;
-      return;
-    }
-    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.45, 0, 0.2, 1)" });
-    const arc = Math.min(22, 8 + distance * 0.35);
+  //: **Not always a hop** (the owner at release: "vary the small movement
+  //: transition choices"): a small step is a hop, a shuffle (a rock from
+  //: foot to foot) or a scoot (a lean into the way it goes and back).
+  if (route === "shuffle" || route === "scoot") {
+    const slide = Math.round((300 + distance * 2.5) * 1.25);
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration: slide, delay: setOff, fill: "backwards", easing: leave("ease-in-out", slide) });
+    nmb.hopAnim = char?.animate(route === "shuffle" ? [
+      { rotate: "0deg", translate: "0px 0px" }, { rotate: "-5deg", translate: "0px -2px", offset: 0.25 },
+      { rotate: "5deg", translate: "0px -2px", offset: 0.6 }, { rotate: "0deg", translate: "0px 0px" },
+    ] : [
+      { rotate: "0deg" }, { rotate: `${-way * 7}deg`, offset: 0.35 }, { rotate: `${way * 2}deg`, offset: 0.8 }, { rotate: "0deg" },
+    ], { duration: slide, delay: setOff, fill: "backwards", easing: "ease-in-out" }) || null;
+    nameMarkBuddyLimbs(buddy, "cue", slide, setOff);
+    return;
+  }
+  //: A hop, or a leap between ledges: gathered, over an arc (higher the
+  //: more it climbs, its top late when going up so it clears the ledge),
+  //: arms out for balance, legs reaching for the landing, and a squash.
+  if (route === "hop" || route === "leap") {
+    const leap = route === "leap";
+    const duration = Math.round(leap ? Math.min(1000, 420 + distance * 1.4) : 300 + distance * 2.5);
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: setOff, fill: "backwards", easing: leave("cubic-bezier(0.45, 0, 0.2, 1)", duration) });
+    const arc = leap ? Math.min(90, 18 + Math.abs(dy) * 0.35 + Math.abs(dx) * 0.05) : Math.min(22, 8 + distance * 0.35);
+    const top = leap && dy > 0 ? 0.55 : 0.45;
     nmb.hopAnim = char?.animate([
       { translate: "0px 0px", easing: "cubic-bezier(0.2, 0.8, 0.4, 1)" },
-      { translate: `0px ${-arc}px`, offset: 0.45, easing: "cubic-bezier(0.6, 0, 0.8, 0.6)" },
+      { translate: `0px ${-arc}px`, offset: top, easing: "cubic-bezier(0.6, 0, 0.8, 0.6)" },
       { translate: "0px 0px" },
-    ], { duration, delay: NMB_SET_OFF_MS, fill: "backwards" }) || null;
-    nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
+    ], { duration, delay: setOff, fill: "backwards" }) || null;
+    nameMarkBuddySquash(char, duration + setOff, underway);
+    nameMarkBuddyLimbs(buddy, "leap", duration + setOff, 0, way);
     return;
   }
   //: A walking pace, not a dash: 160px was 520ms (measured 17px a frame
-  //: at its fastest), now 800ms, about 8.
-  const duration = Math.round(Math.min(1600, 450 + distance * 2.2) * (NMB_GAIT_PACE[buddy.dataset.gait] || 1));
-  buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+  //: at its fastest), now 800ms, about 8. A climb walks along its ledge and
+  //: goes up the edge at the end of it hand over hand, a little slower than
+  //: it walks (or down the edge first, then along): one path with a corner,
+  //: its speed easing to nothing at the corner as it takes hold.
+  const pace = NMB_GAIT_PACE[buddy.dataset.gait] || 1;
+  const climb = route === "climb";
+  const along = Math.abs(dx) * 2.2;
+  const up = Math.abs(dy) * 3.2;
+  const duration = Math.round((climb ? Math.min(2200, 380 + along + up) : Math.min(1600, 450 + distance * 2.2)) * pace);
   buddy.dataset.turn = dx > 0 ? "l" : "r";
   buddy.classList.add("nmb-walking");
   //: The walk's own animations are paced from its first step, not when
@@ -5724,17 +5836,28 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   nmbTempo.seen = 0;
   clearTimeout(nmbTempo.timer);
   nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);
-  //: **A body that sets off and arrives** (round 7, INBOX 430, the owner:
-  //: "far more lifelike, organic motion and transitions ... like a AAA
-  //: game character"). The figure slid off at once and stopped dead. Now it
-  //: gathers itself first (a crouch, `NMB_SET_OFF_MS`, the travel held
-  //: back that long), springs up out of it, and on arriving squashes into
-  //: the landing and rebounds once before it is still: anticipation and
-  //: follow-through, on the character's own `scale` about its feet, the
-  //: compositor's. The limbs meanwhile ease into the new pose (the CSS,
-  //: `transition` on the limb roots) rather than snapping to it.
-  nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, delay: NMB_SET_OFF_MS, fill: "backwards", easing: "cubic-bezier(0.45, 0, 0.2, 1)" });
-  nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);
+  //: **A body that sets off and arrives** (round 7, INBOX 430): it gathers
+  //: itself first (a crouch, `NMB_SET_OFF_MS`, the travel held back that
+  //: long), springs up out of it, and on arriving squashes into the landing
+  //: and rebounds once: anticipation and follow-through, on the
+  //: character's own `scale` about its feet, the compositor's.
+  let frames = [{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }];
+  if (climb) {
+    const goingUp = dy > 0;
+    const corner = Math.abs(dx) < 8 ? (goingUp ? 0 : 1) : (goingUp ? along : up) / (along + up);
+    const bend = "cubic-bezier(0.45, 0, 0.55, 1)";
+    frames = [
+      { translate: `${dx}px ${dy}px`, easing: bend },
+      { translate: goingUp ? `0px ${dy}px` : `${dx}px 0px`, offset: corner, easing: bend },
+      { translate: "0px 0px" },
+    ];
+    const at = Math.round(setOff + duration * corner);
+    nmb.moveSpeed = (Math.abs(dx) + Math.abs(dy)) / duration;
+    if (goingUp) nameMarkBuddyTravel(buddy, "", at, "climb");
+    else nameMarkBuddyTravel(buddy, "climb", at, "");
+  }
+  nmb.anim = buddy.animate(frames, { duration, delay: setOff, fill: "backwards", easing: climb ? "linear" : leave("cubic-bezier(0.45, 0, 0.2, 1)", duration) });
+  nameMarkBuddySquash(char, duration + setOff, underway);
   //: This walk's own end only (see `nameMarkBuddyPoof`): a walk cut short
   //: by the next reports its `cancel` after the next has begun.
   const walk = nmb.anim;
@@ -5742,16 +5865,10 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
     if (nmb.anim !== walk) return;
     buddy.classList.remove("nmb-walking");
     delete buddy.dataset.turn;
+    nameMarkBuddyTravel(buddy, "");
   };
   walk.onfinish = done;
   walk.oncancel = done;
-  const arc = Math.abs(dy) > 36 ? Math.min(80, 24 + Math.abs(dy) * 0.12) : 0;
-  if (arc && char) {
-    nmb.hopAnim = char.animate(
-      [{ translate: "0px 0px", easing: "cubic-bezier(0.2, 0.8, 0.4, 1)" }, { translate: `0px ${-arc}px`, offset: 0.45, easing: "cubic-bezier(0.6, 0, 0.8, 0.6)" }, { translate: "0px 0px" }],
-      { duration },
-    );
-  }
 }
 
 const NMB_SET_OFF_MS = 90;
@@ -5761,8 +5878,9 @@ const NMB_SETTLE_MS = 260;
 //: setting off and going plus `NMB_SETTLE_MS` of settling. The easing is
 //: each keyframe's own: given to the whole animation it eased the whole
 //: second, and the crouch came 140ms late, after it had set off
-//: (companionmotion.js).
-function nameMarkBuddySquash(char, travel) {
+//: (companionmotion.js). `underway`, taking over a move: no crouch, only
+//: the landing.
+function nameMarkBuddySquash(char, travel, underway = false) {
   nmb.squashAnim?.cancel();
   nmb.squashAnim = null;
   if (!char || typeof char.animate !== "function") return;
@@ -5770,9 +5888,8 @@ function nameMarkBuddySquash(char, travel) {
   const at = (ms) => Math.min(1, Math.max(0, ms / total));
   nmb.squashAnim = char.animate([
     { scale: "1 1" },
-    { scale: "1.06 0.92", offset: at(NMB_SET_OFF_MS) },
-    { scale: "0.97 1.04", offset: at(NMB_SET_OFF_MS + 140) },
-    { scale: "1 1", offset: at(Math.max(NMB_SET_OFF_MS + 200, travel - 110)) },
+    ...(underway ? [] : [{ scale: "1.06 0.92", offset: at(NMB_SET_OFF_MS) }, { scale: "0.97 1.04", offset: at(NMB_SET_OFF_MS + 140) }]),
+    { scale: "1 1", offset: at(Math.max(underway ? 0 : NMB_SET_OFF_MS + 200, travel - 110)) },
     { scale: "1.07 0.91", offset: at(travel + 50) },
     { scale: "0.98 1.02", offset: at(travel + 160) },
     { scale: "1 1" },
@@ -6062,7 +6179,20 @@ function nameMarkBuddyTabChanged() {
   }
   nmb.away = true;
   buddy.classList.add("nmb-away");
+  nmb.cameFrom = nameMarkBuddyTabSide(nmb.tab, tab);
   nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS);
+}
+
+//: **In from the side of the tab it left** (INBOX 455 (2): "moving across
+//: different ... tab(s)"): the tab bar is a row, so a tab to the right of
+//: the one it was on is reached by coming in from the left, and back again
+//: from the right. -1 the left, 1 the right, 0 when it cannot tell.
+function nameMarkBuddyTabSide(from, to) {
+  const order = [...document.querySelectorAll("#tab-bar button[data-tab]")].map((b) => b.dataset.tab);
+  const at = (tab) => order.indexOf(tab === "documents" ? "library" : tab);
+  const a = at(from);
+  const b = at(to);
+  return a < 0 || b < 0 || a === b ? 0 : a < b ? -1 : 1;
 }
 
 //: Where it goes on `tab`: your spot for it, the spot for every page, or
@@ -6188,12 +6318,36 @@ function nameMarkBuddyEnter(buddy, spot) {
   const x = nmb.x;
   const y = nmb.y;
   const edge = 150;
+  //: The side it comes from: the tab it left (`nameMarkBuddyTabSide`), or
+  //: the nearer edge. Near that side it walks on; further in, it glides in
+  //: from it; nearer the other side than that, it materialises.
+  const side = nmb.cameFrom || 0;
+  nmb.cameFrom = 0;
+  const fromLeft = side ? side < 0 : x < innerWidth / 2;
+  const reach = fromLeft ? x : innerWidth - x - NMB_W;
   let how = "materialise";
   if (spot.kind === "hang" || spot.pose === "hang") how = "down";
   else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) how = "up";
-  else if (x < edge || x > innerWidth - NMB_W - edge) how = "walk";
+  else if (reach < edge) how = "walk";
+  else if (side && reach < innerWidth * 0.5) how = "glide";
+  buddy.dataset.route = `enter-${how}`;
+  if (how === "glide") {
+    const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
+    //: In at speed and slowing to its place, under 30px a frame as it
+    //: shows (companionroutes.js: 46 on a steeper curve).
+    const duration = Math.round(Math.min(1100, 480 + Math.abs(dx) * 0.7));
+    const way = dx > 0 ? -1 : 1;
+    buddy.style.setProperty("--nmb-lean", String(way));
+    nmb.anim = buddy.animate([{ translate: `${dx}px 0px`, opacity: 0 }, { opacity: 1, offset: 0.25 }, { translate: "0px 0px", opacity: 1 }], { duration, easing: "cubic-bezier(0.25, 0.5, 0.25, 1)" });
+    nmb.hopAnim = char?.animate([
+      { rotate: `${way * 10}deg`, translate: "0px -3px" }, { rotate: `${way * 10}deg`, translate: "0px -3px", offset: 0.6 },
+      { rotate: `${-way * 3}deg`, translate: "0px 0px", offset: 0.88 }, { rotate: "0deg" },
+    ], { duration, easing: "ease-in-out" }) || null;
+    nameMarkBuddySquash(char, duration, true);
+    nameMarkBuddyLimbs(buddy, "glide", duration, 0, way);
+    return how;
+  }
   if (how === "walk") {
-    const fromLeft = x < innerWidth / 2;
     const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
     const duration = Math.round(Math.min(1500, 520 + Math.abs(dx) * 1.1));
     buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
@@ -6242,6 +6396,8 @@ function nameMarkBuddyEnter(buddy, spot) {
       at(0, {}),
     ], { duration, easing: "ease-in-out" });
     nameMarkBuddySquash(char, duration - NMB_SET_OFF_MS);
+    //: Hand over hand (INBOX 469), until it is out and standing.
+    nameMarkBuddyTravel(buddy, "climb", Math.round(duration * 0.78), "");
     return how;
   }
   //: Starlight gathering into it: the stars first, then the figure
@@ -6255,6 +6411,7 @@ function nameMarkBuddyEnter(buddy, spot) {
     { scale: "1.06", opacity: 1, offset: 0.7 },
     { scale: "1" },
   ], { duration: 820, easing: "ease-out" }) || null;
+  nameMarkBuddyLimbs(buddy, "float", 820);
   return how;
 }
 
@@ -6405,6 +6562,8 @@ function nameMarkBuddyAct(act, ms) {
   } else delete buddy.dataset.variant;
   if (act === "tilt") nameMarkBuddyTilt(Math.random() < 0.5 ? -0.7 : 0.7, (ms || spec.ms) - 400);
   buddy.classList.add(`nmb-act-${act}`);
+  //: A new act starts with its arms (INBOX 469): a small lift and back.
+  if (act !== was && !NMB_FACELESS_ACTS.includes(act) && !NMB_RESTING_ACTS.has(act) && !nameMarkBuddyStill()) nameMarkBuddyLimbs(buddy, "cue", 420);
   nmb.act = act;
   nmb.lastAct = act;
   if (NMB_LOUD_ACTS.includes(act)) nameMarkBuddyLoud();

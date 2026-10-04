@@ -606,8 +606,10 @@ def test_it_sets_off_and_lands_and_eases_between_poses():
     # is held back for a crouch and ends in a squash and a rebound, eased per
     # keyframe (an easing over the whole animation made the crouch late);
     # the limbs ease into a new pose; the pacer leaves those transitions be.
-    assert "delay: NMB_SET_OFF_MS, fill: \"backwards\"" in AV
-    assert "nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);" in AV
+    # Held back `setOff` (the crouch), unless it takes over a move under way.
+    assert "const setOff = underway ? 0 : NMB_SET_OFF_MS;" in AV
+    assert "delay: setOff, fill: \"backwards\"" in AV
+    assert "nameMarkBuddySquash(char, duration + setOff, underway);" in AV
     squash = _fn("nameMarkBuddySquash")
     assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
     assert "a instanceof CSSTransition" in AV
@@ -686,9 +688,9 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # floats), 640px a poof, its panel jumping 40px a hop; at most 10.8px a
     # frame, speed changing at most 5.5px a frame, every move ending on its
     # place.
-    go = _fn("nameMarkBuddyGo")
+    go = _fn("nameMarkBuddyGo") + _fn("nameMarkBuddyRoute")
     for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
-                "if (nameMarkBuddyFlies(buddy)) {", "if (distance < size * NMB_HOP_SIZES && !poseChanged) {",
+                "if (route === \"float\") {", "if (d < size * NMB_HOP_SIZES && !poseChanged)",
                 'buddy.classList.add("nmb-walking");'):
         assert way in go, way
     # Distances are in its own size, not pixels.
@@ -701,7 +703,7 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # same way when it stands still.
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyCatchUp")
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyRefit")
-    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);" in _fn("nameMarkBuddyMoveTo")
+    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was, underway);" in _fn("nameMarkBuddyMoveTo")
 
 
 def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
@@ -1312,3 +1314,55 @@ def test_a_folded_sidebar_is_no_perch_and_its_rider_moves_on() -> None:
     follow = _fn("nameMarkBuddyFollow")
     assert 'g.el.closest(".sidebar-collapsed")' in follow
     assert follow.index("const folded =") < follow.index("if (!box || (!box.width && !box.height)) {")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
+    # INBOX 455 (2), the owner: "more and better transitions between
+    # positions and moving across different and the same tab(s)". A small
+    # step is a hop, a shuffle or a scoot; mostly up or down, a climb; a
+    # change of level within three of itself, a leap; on the level, a walk;
+    # further, a far way; a flyer floats, and glides when far.
+    consts = "const NMB_HOP_SIZES = 0.7; const NMB_FAR_SIZES = 3; const NMB_FAR_POOF_SIZES = 5;"
+    src = consts + "\n" + _fn("nameMarkBuddyRoute")
+    cases = "[[20,0,0.1],[20,0,0.5],[20,0,0.9],[160,0,0.5],[60,-160,0.5],[10,120,0.5],[150,60,0.5],[400,0,0.5],[400,200,0.5]]"
+    script = src + f"\nconsole.log(JSON.stringify({cases}.map(([dx, dy, r]) => nameMarkBuddyRoute(dx, dy, 64, false, false, r)).concat([nameMarkBuddyRoute(100, 0, 64, true, false, 0), nameMarkBuddyRoute(400, 0, 64, true, false, 0), nameMarkBuddyRoute(20, 0, 64, false, true, 0)])));"
+    out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    assert out == ["hop", "shuffle", "scoot", "walk", "climb", "climb", "leap", "far", "far", "float", "glide", "walk"]
+    go = _fn("nameMarkBuddyGo")
+    # Far: the geometry says which far ways are open (a walk only on the level).
+    assert 'nameMarkBuddyFarWay([...(distance > size * NMB_FAR_POOF_SIZES ? ["poof"] : []), "glide", ...(Math.abs(dy) <= 36 ? ["walk"] : [])])' in go
+    # A climb is one path with a corner, its limbs switching at the corner.
+    assert 'goingUp ? `0px ${dy}px` : `${dx}px 0px`' in go
+    assert 'nameMarkBuddyTravel(buddy, "", at, "climb")' in go
+    # Interruptible: a new place mid-move starts at speed from where it is
+    # drawn, and a figure cut off in mid-air comes down rather than snapping.
+    move = _fn("nameMarkBuddyMoveTo")
+    assert "const underway =" in move and 'composite: "add"' in move
+    assert "...(underway ? [] :" in _fn("nameMarkBuddySquash")
+    # Into a tab from the side of the tab it left.
+    assert "nmb.cameFrom = nameMarkBuddyTabSide(nmb.tab, tab);" in _fn("nameMarkBuddyTabChanged")
+    enter = _fn("nameMarkBuddyEnter")
+    assert 'else if (side && reach < innerWidth * 0.5) how = "glide";' in enter
+
+
+def test_its_limbs_move_with_it() -> None:
+    # INBOX 469, the owner: "have the arms and legs be used a bit for various
+    # position, action etc changes and transitions". One gesture per way of
+    # going, on the individual transform properties (they add to the pose),
+    # and none under Reduce motion
+    # (the crossfade returns before any is started).
+    limbs = _fn("nameMarkBuddyLimbs")
+    assert 'id: "nmb-limb"' in limbs and "rotate: `${deg * m}deg`" in limbs and "transform" not in limbs
+    # Inside Atlas's drawing they are paced at 20Hz, like the walk's steps.
+    assert 'a.id !== "nmb-limb" && a.effect.target.closest("svg.atl-layer")' in _fn("nameMarkBuddyTempo")
+    assert "nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);" in limbs
+    for kind in ("leap", "glide", "float", "cue"):
+        assert f"  {kind}: {{ arm:" in AV, kind
+    go = _fn("nameMarkBuddyGo")
+    assert go.index("nameMarkBuddyCrossfade(buddy, dx, dy, 420);") < go.index('nameMarkBuddyLimbs(buddy, "glide"')
+    assert 'nameMarkBuddyLimbs(buddy, "cue", 420)' in _fn("nameMarkBuddyAct")
+    for rule in ('.nmb-walking:not([data-travel]) .nmb-arm-l { animation: nmb-arm-swing',
+                 '&[data-travel="climb"] .nmb-hold { opacity: 1; }',
+                 '&[data-travel="climb"] .nmb-hold-l { animation: nmb-reach'):
+        assert rule in CSS08, rule

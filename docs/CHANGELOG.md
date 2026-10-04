@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion (INBOX 455 (2), 469): it goes from place to place by the shape of the move: a walk along its ledge, a hop, shuffle or scoot for a small step, a leap with a crouch and an arc between ledges, a climb along and then up or down an edge hand over hand, a glide for long ways and a soft materialise past that; Atlas floats and glides. A new place chosen mid-move takes over at the speed it had (the hand-over frame went from 35px to under 15). Coming into a tab it walks or glides in from the side of the tab it left. Its arms swing as it walks, reach as it climbs, go out for balance on a leap and like wings on a glide, Atlas's hem trails, and a new act starts with a small lift of the arms. Reduce motion is still a short crossfade.
 - Companion (INBOX 462): a folded sidebar is no longer a perch. On Chat and Documents it used to sit on in the air over a row of the folded rail; folding the sidebar now sends it to the nearest perch it can be seen on, by the way it moves.
 - Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.

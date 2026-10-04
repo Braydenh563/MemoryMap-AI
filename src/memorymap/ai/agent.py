@@ -16,11 +16,12 @@ import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 from sqlalchemy.orm import Session
 
 from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
-from memorymap.ai.model_manager import ModelManager, is_small_model
+from memorymap.ai.model_manager import SMALL_MODEL_PARAMS_B, ModelManager, parameter_count
 from memorymap.ai.ollama_client import (
     OllamaClient,
     OllamaError,
@@ -42,6 +43,57 @@ MAX_ROUNDS = 6
 #: and the same reason. Nothing is capped for a model the name does not size:
 #: see `is_small_model`, where None means off.
 SMALL_MODEL_MAX_ROUNDS = 4
+
+#: Below this many billion parameters a model is "tiny" (H3): the 1.5B the
+#: harness was measured on, against the 3B to 8B the small rules were made for.
+TINY_MODEL_PARAMS_B = 3.0
+
+
+class SizeTier(NamedTuple):
+    """What a turn asks of a model of one size (AGENT_SKILLS_REFORM H3)."""
+
+    name: str
+    #: The core tools plus the ones the request names, never the orchestration
+    #: three, in place of the question-focused set.
+    narrow_toolbox: bool
+    #: The short schema descriptions whatever the window.
+    compact_schemas: bool
+    #: The whole allowance, granted plus earned; None leaves the caller's.
+    max_rounds: int | None
+    #: `tool_choice: "required"` on an instruction's first round.
+    force_first_call: bool
+    #: Characters of prose a round with tools offered may write before its
+    #: stream is closed; None never cuts. Prose only: thinking is not counted.
+    reply_chars: int | None
+
+
+#: **The one place a size decision lives** (H3; before, one boolean under 8B).
+#: Measured on Qwen2.5-1.5B through llama-server: "Make a note" wrote the note
+#: out in prose for 948 s, to the 2,048-token reply cap, and made no call.
+#: 2,400 characters is about 600 tokens, three Normal-mode answers; a round
+#: that meant to call a tool has said what it will say long before that. The
+#: 3B to 8B tier gets twice the room. A name that gives no size is treated as
+#: large: narrowing a capable model on a guess is the worse mistake.
+SIZE_TIERS = {
+    "tiny": SizeTier("tiny", True, True, SMALL_MODEL_MAX_ROUNDS, True, 2_400),
+    "small": SizeTier("small", True, True, SMALL_MODEL_MAX_ROUNDS, True, 4_800),
+    "large": SizeTier("large", False, False, None, False, None),
+    "unsized": SizeTier("unsized", False, False, None, False, None),
+}
+
+
+def size_tier(model: str) -> SizeTier:
+    """The tier for the model a turn will actually call, read off its name."""
+    size = parameter_count(model)
+    if size is None:
+        return SIZE_TIERS["unsized"]
+    if size < TINY_MODEL_PARAMS_B:
+        return SIZE_TIERS["tiny"]
+    return SIZE_TIERS["small" if size < SMALL_MODEL_PARAMS_B else "large"]
+
+
+#: Said after a tool round's prose was cut at its tier's `reply_chars`.
+REPLY_CAP_NOTE = "…\n\n(I cut that reply short: it was running long.)"
 
 # Rounds a turn can *earn* beyond MAX_ROUNDS, one per round that got somewhere.
 #
@@ -1398,6 +1450,38 @@ def _recent_text(history: list[dict] | None) -> str:
     return " ".join(parts)[:FOLLOW_THROUGH_CONTEXT_CHARS]
 
 
+#: The board and map reads a picture question must not be sent to (below).
+_CANVAS_READS = frozenset({"read_whiteboard", "search_whiteboard", "read_mindmap"})
+_PICTURE_WORDS = re.compile(
+    r"\b(?:photo|photos|picture|pictures|pic|image|images|sketch|drawing|screenshot|scan)\b", re.I
+)
+
+
+def _picture_in_hand(question: str, notes: list[dict]) -> bool:
+    """**A picture question whose picture is already in the prompt.**
+
+    Measured on Qwen2.5-1.5B (INBOX 527's eval): "Show me the whiteboard
+    sketch from the planning meeting" cued the board tools by its words, and
+    the model read a whiteboard instead of writing `[picture 1]` for the note
+    that held the sketch, listed in its own prompt with "has 1 picture". When
+    a note with a picture shares a word with the question, the board and map
+    reads are left off the first offer; the focus correction still widens to
+    them if the model asks.
+    """
+    if not _PICTURE_WORDS.search(question or ""):
+        return False
+    from memorymap.search.search_manager import _meaningful_terms
+
+    asked = {t for t in _meaningful_terms(question) if not _PICTURE_WORDS.fullmatch(t)}
+    for note in notes or []:
+        if not note.get("pictures"):
+            continue
+        text = f"{note.get('title') or ''} {note.get('content') or ''}".lower()
+        if any(re.search(rf"\b{re.escape(term.lower())}", text) for term in asked):
+            return True
+    return False
+
+
 def _focus(question: str, history: list[dict] | None = None) -> list[str] | None:
     """Which tools this turn is offered, unless the user asked for all of them.
 
@@ -1429,7 +1513,8 @@ class _TurnPlan:
     """
 
     agent_model: str
-    small_model: bool
+    #: The size tier this turn runs under (`SIZE_TIERS`).
+    tier: SizeTier
     #: The model's usable context, or None when the provider does not say.
     #: Passed to each tool call so a tool can size its own result.
     window: int | None
@@ -1493,11 +1578,9 @@ def _prepare_turn(
     #: the schemas cost is a window question; whether the model can choose
     #: between twenty of them is not.
     #:
-    #: `is_small_model` is the predicate the skills path already uses
-    #: (`chat_model_is_small` calls it), so there is one rule in one place, and
-    #: None ("the name does not say") is off: narrowing a capable model on a
-    #: guess is the worse of the two mistakes.
-    small_model = is_small_model(agent_model) is True
+    #: Read from `SIZE_TIERS` (H3), the one table every size decision below
+    #: comes from; a name that gives no size is the large tier.
+    tier = size_tier(agent_model)
     persona = memory.persona_with_memory(session, persona_prompt)
 
     system_chars = len(
@@ -1535,7 +1618,7 @@ def _prepare_turn(
     focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
-    if small_model and allowed_tools is None:
+    if tier.narrow_toolbox and allowed_tools is None:
         # **One stable toolbox for a small model, not a per-question guess.**
         # `_focus` is an economy: it reads the question's words and adds the
         # groups they hint at, so the same model sees a different set every
@@ -1563,6 +1646,8 @@ def _prepare_turn(
             for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
             if name not in tools.ORCHESTRATION_TOOLS
         ]
+    if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
+        focus_names = [name for name in focus_names if name not in _CANVAS_READS]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
@@ -1585,7 +1670,7 @@ def _prepare_turn(
     # Safe for a skill's declared list too (hence above the `allowed_tools`
     # branch): compaction never removes a tool, so nothing a skill asked for
     # can go missing this way.
-    if small_model or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
+    if tier.compact_schemas or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
         offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
@@ -1623,7 +1708,7 @@ def _prepare_turn(
         # question, so a miss is evidence the focus was wrong, not evidence
         # that a 3B can suddenly choose between twenty-two schemas.
         every_tool = tools.ollama_tools(
-            _focus(question, history) if small_model else None
+            _focus(question, history) if tier.narrow_toolbox else None
         )
         if barred:
             every_tool = [
@@ -1683,14 +1768,14 @@ def _prepare_turn(
     # flat cap always stopped it.
     granted = max(1, max_rounds)
     ceiling = granted + max(0, earned_rounds)
-    if small_model:
+    if tier.max_rounds is not None:
         # The cap is on the ceiling as well as the grant, or the earned rounds
         # put the total straight back to twelve: see SMALL_MODEL_MAX_ROUNDS.
-        granted = min(granted, SMALL_MODEL_MAX_ROUNDS)
-        ceiling = min(ceiling, SMALL_MODEL_MAX_ROUNDS)
+        granted = min(granted, tier.max_rounds)
+        ceiling = min(ceiling, tier.max_rounds)
     return _TurnPlan(
         agent_model=agent_model,
-        small_model=small_model,
+        tier=tier,
         window=window,
         budget=budget,
         messages=messages,
@@ -2437,14 +2522,29 @@ def run_agent(
         # path streamed, and the default path (tools on) didn't.
         reply: dict = {}
         streamed_any = False
+        #: H3: prose this round has streamed, against the tier's reply cap.
+        cap = plan.tier.reply_chars if state.offered else None
+        said = ""
         try:
-            required = round_number == 0 and plan.small_model and _requires_a_call(question, plan)
-            for piece in _round_stream(ollama, agent_model, state.messages, state.offered, mode, required):
+            required = round_number == 0 and plan.tier.force_first_call and _requires_a_call(question, plan)
+            stream = _round_stream(ollama, agent_model, state.messages, state.offered, mode, required)
+            for piece in stream:
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
                     streamed_any = True
+                    said += piece["content_delta"]
                     yield {"type": "answer", "delta": piece["content_delta"]}
+                    if cap is not None and len(said) >= cap:
+                        # Closing the generator closes the HTTP stream with
+                        # it (the same path Stop takes).
+                        stream.close()
+                        logging.getLogger("memorymap.agent").info(
+                            "reply cap: %s-tier round cut at %d chars", plan.tier.name, len(said)
+                        )
+                        yield {"type": "answer", "delta": REPLY_CAP_NOTE}
+                        reply = {"content": said, "tool_calls": [], "streamed": True}
+                        break
                 elif "final" in piece:
                     reply = piece["final"]
         except ToolsUnsupportedError:

@@ -126,3 +126,24 @@ def test_dots_lines_rings_and_pills_all_draw_from_their_lit_ness():
     assert "s.pillGhost" in draw and "gcDrawPill(ctx, drawn, k, gcSmooth(s.pillA))" in draw
     # And the loop keeps asking for frames until every fade has landed.
     assert "if (easing || fading) gcRequestDraw(s);" in draw
+
+
+def test_a_line_answers_the_pointer_and_a_click_opens_its_peek():
+    """The owner, 2026-10-04: "I cant click on links to see their reason in
+    the graph??". Only a `link` answered a click, with a modal editor, and
+    nothing showed a line could be clicked. `graphlinkpeek.js`: 20 of 20
+    sampled line middles hover (pointer cursor) and open the peek."""
+    assert 'const GC_PEEK_KINDS = new Set(["link", "thread", "similar", "map"]);' in CANVAS
+    assert "if (!GC_PEEK_KINDS.has(edge.kind)) continue;" in CANVAS
+    assert "openGraphLinkPeek(edge, event, s.nodes);" in CANVAS
+    assert 's.canvas.classList.toggle("graph-edge-hover", Boolean(edge));' in CANVAS
+    assert "if (gcDrawEdgeHover(ctx, s, k, fadeStep, curvedLinks)) fading = true;" in CANVAS
+    graph = (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+    peek = graph[graph.index("function openGraphLinkPeek") :]
+    peek = peek[: peek.index("\n}\n")]
+    assert 'panel.className = "help-popover graph-link-peek";' in peek
+    assert "placeHelpPopover(panel, anchor);" in peek
+    assert "openGraphLinkPanel(edge, nodes);" in peek and "graphRemoveLink(edge, sourceId)" in peek
+    assert "reason_confidence" in peek
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert "#graph-canvas.graph-edge-hover {\n  cursor: pointer;" in css

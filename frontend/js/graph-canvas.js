@@ -1287,6 +1287,8 @@ function gcDraw(s = gcTab) {
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
+  if (gcDrawEdgeHover(ctx, s, k, fadeStep, curvedLinks)) fading = true;
+
   // --- the traced path ----------------------------------------------------
   gcDrawTrace(ctx, k, s);
 
@@ -1748,6 +1750,45 @@ function gcDraw(s = gcTab) {
   if (easing || fading) gcRequestDraw(s);
 }
 
+//: The line under the pointer, drawn again over the rest, wider and in its
+//: own colour, at its own lit-ness (GC_FADE_MS), so pointing at a line lights
+//: it the way pointing at a note lights the note; the one just left fades out.
+function gcDrawEdgeHover(ctx, s, k, fadeStep, curved) {
+  const hot = (s.edgeHot || []).filter((item) => item.edge !== s.hoverEdge);
+  const current = (s.edgeHot || []).find((item) => item.edge === s.hoverEdge);
+  if (s.hoverEdge) hot.push(current || { edge: s.hoverEdge, a: 0 });
+  let fading = false;
+  s.edgeHot = hot.filter((item) => {
+    item.a = gcFadeToward(item.a, item.edge === s.hoverEdge ? 1 : 0, fadeStep);
+    if (item.a > 0 && item.a < 1) fading = true;
+    return item.a > 0;
+  });
+  for (const { edge, a: lit } of s.edgeHot) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    const style = edge.kind === "similar" ? GC_SIMILAR_BANDS[2] : gcEdgeStyle(edge);
+    const tint = edge.kind !== "similar" && a.colour && a.colour === b.colour ? a.colour : null;
+    ctx.strokeStyle = tint || gcTokens[style.colour] || gcTokens.muted;
+    ctx.globalAlpha = 0.9 * gcSmooth(lit);
+    ctx.lineWidth = (style.width + 2) / k;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (s.tree && edge._path2d) {
+      ctx.stroke(edge._path2d);
+      continue;
+    }
+    ctx.moveTo(a.x, a.y);
+    if (curved && !s.tree) {
+      const bow = gcBowPoint(a, b);
+      ctx.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
+    } else ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  return fading;
+}
+
 //: One similarity score pill, at `alpha` of its full strength.
 function gcDrawPill(ctx, pill, k, alpha) {
   const { spot, w, h, text } = pill;
@@ -1995,20 +2036,25 @@ function gcWorldPoint(event, s = gcTab) {
   return t.invert(point);
 }
 
-//: The edge under a point, for the link-management panel a click on a link
-//: opens. Linear over the edges rather than indexed: it runs once per click,
-//: never per frame, and an index that has to be kept in step with a moving
-//: layout would cost more than it saves.
+//: The line under a point, for the hover and the link peek (the owner,
+//: 2026-10-04: "I cant click on links to see their reason in the graph??").
+//: Every relation drawn between two notes answers, not only a `link`: a
+//: thread, a similarity and a map's reference have something to say too.
+//: Linear over the edges: about 10,000 distance checks a pointer move on
+//: 1,100 lines, and an index kept in step with a moving layout would cost
+//: more. 8px either side of the line on screen at any zoom.
+const GC_PEEK_KINDS = new Set(["link", "thread", "similar", "map"]);
 function gcEdgeAtWorld(x, y, s = gcTab) {
   const tolerance = 8 / ((s.transform && s.transform.k) || 1);
   let best = null;
   let bestDistance = tolerance;
   const curved = !s.tree && gcCurvedLinks(s);
   for (const edge of s.edges) {
-    if (edge.kind !== "link") continue;
+    if (!GC_PEEK_KINDS.has(edge.kind)) continue;
     const a = edge.source;
     const b = edge.target;
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    if (!gcVisibleAtTime(a, s) || !gcVisibleAtTime(b, s)) continue;
     let distance;
     if (curved) {
       //: Sampled along the curve it is drawn as: eight steps are a pixel or
@@ -2307,20 +2353,29 @@ function gcWireInteraction(s = gcTab) {
     const [x, y] = gcWorldPoint(event, s);
     const node = gcNodeAtWorld(x, y, s);
     const id = node ? node.id : null;
-    if (id !== s.hoveredId) {
-      gcSetHovered(s, id);
-      gcHoverChanged(id, s);
+    //: A line answers the pointer only where no note does, and only on the
+    //: tab, whose click opens the peek (`openGraphLinkPeek`, graph.js).
+    const edge = !node && s.size === "full" ? gcEdgeAtWorld(x, y, s) : null;
+    if (id !== s.hoveredId || edge !== s.hoverEdge) {
+      if (id !== s.hoveredId) {
+        gcSetHovered(s, id);
+        gcHoverChanged(id, s);
+      }
+      s.hoverEdge = edge;
+      s.canvas.classList.toggle("graph-edge-hover", Boolean(edge));
       // The native tooltip the SVG renderer got from a `<title>` child. A
       // canvas has no children, so the canvas itself carries whichever one
       // applies.
-      s.canvas.title = node ? gcTooltip(node, s) : "";
+      s.canvas.title = node ? gcTooltip(node, s) : edge ? "Click to see this connection" : "";
       gcRequestDraw(s);
     }
   });
   s.canvas.addEventListener("pointerleave", () => {
-    if (s.hoveredId == null) return;
+    if (s.hoveredId == null && !s.hoverEdge) return;
     gcSetHovered(s, null);
     gcHoverChanged(null, s);
+    s.hoverEdge = null;
+    s.canvas.classList.remove("graph-edge-hover");
     s.canvas.title = "";
     gcRequestDraw(s);
   });
@@ -2350,9 +2405,10 @@ function gcWireInteraction(s = gcTab) {
     if (s.size !== "full") return;
     const edge = gcEdgeAtWorld(x, y, s);
     if (edge) {
-      openGraphLinkPanel(edge, s.nodes);
+      openGraphLinkPeek(edge, event, s.nodes);
       return;
     }
+    closeGraphLinkPeek();
     closeGraphPopup();
     closeGraphNewNote();
   });

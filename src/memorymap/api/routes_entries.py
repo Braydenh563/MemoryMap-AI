@@ -2816,11 +2816,15 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
     #: the text). Measured 2026-10-03: "[[Sourdough starter]]" showed
     #: `outgoing: []` and "Nothing is joined to this note yet" while the
     #: target listed the note as incoming. Read the same way both ends now.
-    known_out = {row["id"] for row in outgoing}
+    known_out = {row["id"]: row for row in outgoing}
     for other in _wiki_link_targets_of(session, entry):
         if other.id in known_out:
+            #: Stored now that [[links]] resolve (INBOX 517); a link with no
+            #: reason of its own still says why it exists.
+            if not known_out[other.id]["reason"]:
+                known_out[other.id]["reason"] = "Links to it"
             continue
-        known_out.add(other.id)
+        known_out[other.id] = None
         outgoing.append({
             "link_id": None,
             "id": other.id,

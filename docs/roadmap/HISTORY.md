@@ -36993,3 +36993,57 @@ width, 47% of the column at 1440.
      Opus agent. Bubble parts built 2026-10-03 (81e7d63, measured in the
      commit; `scratchpad/ui-sweeps/bubbleparts.js`); the preview half stays
      with the orchestrator.
+
+
+## Moved from the plans, 2026-10-04 (the whiteboard and mind map tails)
+
+The owner: "can you improve, extend, expand, optimise, and add to the mindmap,
+whiteboard ... at all??" The ranked list is `scratchpad/wbmap-tails.md`;
+four of the five tails the brief named were already built and are measured
+there (`sketchparity.js` 10/10, `wbcontextphone.js` 6/6, `wbhandlezoom.js`
+17/17, `wbinbox12.js` 6/6 once its probe read all four arrange groups).
+
+### From MINDMAP_PLAN.md: an Enter typed ahead ends the new topic's name
+
+Tab, a name and Enter typed at speed saved two empty topics: the Enter reached
+the map's own Enter (add a sibling) before the first topic's editor had
+opened, about 130ms at the median, and the sibling's create started a fresh,
+empty typeahead. `wbMapCatchTypeahead` holds that Enter as `commit` and
+`wbMapEditNode` blurs the editor on the typed text when it opens.
+`wbkeywalk.js` 8/10 on the base, 10/10 after;
+`test_an_enter_typed_ahead_ends_the_name_rather_than_adding_a_sibling`.
+
+### From WHITEBOARD_PLAN.md decision 12: a closed shape holds text
+
+`label` in a rectangle's, ellipse's, diamond's or triangle's own data blob,
+drawn as `<text class="sketch-label">` in the shape's group
+(`wbPaintShapeLabel`, `wbLayoutShapeLabel`): centred in the shape's label
+area, word-wrapped by `getComputedTextLength`, translated on a move frame
+(`wbNudgeShapeLabel`, cached per bulk-move entry) and re-laid on a resize or
+turn frame. Typed through `.wb-shape-label-editor` in the card layer with the
+board's one in-place text recipe (`wbBeginTextEdit`), by double-click, Enter
+on a selected shape, or the right-click menu's Add text. One undo step. The
+export paints the label's ink, size and face as attributes. Recipe row in
+DESIGN.md and its lint, `test_board_text_is_made_editable_in_one_place`.
+Measured, `scratchpad/ui-sweeps/wbshapetext.js`: 17/17 in light and in dark
+(text centred within 0.0 to 0.5px, the same mid-drag, a long label 3 lines in
+a 220px box and 5 in the 130px it was squeezed to mid-resize, white on a
+`#1d3557` fill, 17.07:1 light and 14.01:1 dark unfilled); on the base script
+it fails at its first check.
+
+### From MINDMAP_PLAN.md decision 15 (§12.2 item 4's first slice): a topic can be a task
+
+`data.task` (`open` or `done`), validated by `WhiteboardObjectData`, in
+`MAP_STYLE_FIELDS` so the tree and both XML exports carry it (`_task`), in
+`MAP_CONTENT_FIELDS` and `WB_MAP_CONTENT_KEYS` so neither reset clears it and
+a copied branch keeps it. Markdown writes `- [ ]` / `- [x]` and
+`_parse_markdown_outline` reads them back. On the canvas: a checkbox button
+before the label (`.wb-map-task`, `role="checkbox"`), a done label struck
+through, and every ancestor's "done/total" (`.wb-map-progress`), counted in
+one walk per render (`wbMapTaskTally`) and part of `wbObjectPaintKey`, since
+ticking a child changes a parent whose own data did not. Picture exports carry
+the box as a ballot-box glyph. Five API tests in `tests/test_mindmap.py`;
+`scratchpad/ui-sweeps/maptasks.js` 15/15 in light and dark (0/2 to 1/2 to 2/2,
+the press moves nothing and opens no editor, undo goes back, the count 5.91:1
+muted and 7.12:1 complete in light, 9.58:1 complete in dark); the base script
+stops at its first check.

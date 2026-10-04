@@ -258,6 +258,12 @@ class WhiteboardObjectData(BaseModel):
     #: both XML exports can write: the node draws heavier and says "start
     #: here", and a map that loses the flag still has every node it had.
     core: bool | None = None
+    #: **A topic that is a task** (MINDMAP_PLAN.md §12.2 item 4's first
+    #: slice, decision 15): `open` or `done`, absent for a topic that is not
+    #: one. One field with two values rather than two flags, so "done but not
+    #: a task" cannot be stored. Content, not a look: the map theme never sets
+    #: it and the styling reset never clears it (`MAP_CONTENT_FIELDS`).
+    task: str | None = Field(default=None, pattern="^(open|done)$")
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -2610,6 +2616,7 @@ MAP_STYLE_FIELDS = (
     "edge_bend",
     "edge_slide",
     "image",
+    "task",
 )
 
 
@@ -3205,7 +3212,7 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image"})
+MAP_CONTENT_FIELDS = frozenset({"image", "task"})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3360,8 +3367,19 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
         suffix = ""
         if node["kind"] != MAP_TOPIC_KIND and node["ref_id"] is not None:
             suffix = f" ({node['kind']} {node['ref_id']})"
-        lines.append(f"{'  ' * depth}- {text}{suffix}")
+        box = _MARKDOWN_TASK_BOX.get((node.get("style") or {}).get("task"), "")
+        lines.append(f"{'  ' * depth}- {box}{text}{suffix}")
     return "\n".join(lines) + "\n"
+
+
+#: **A task is the one thing a node carries that Markdown has a word for**
+#: (MINDMAP_PLAN.md decision 15): `- [ ]` and `- [x]` are the task-list items
+#: every Markdown reader in common use draws as a checkbox, so writing them
+#: keeps this file's promise (paste it anywhere) rather than breaking it the
+#: way a bold marker or an icon name would, and `_parse_markdown_outline`
+#: reads them back.
+_MARKDOWN_TASK_BOX = {"open": "[ ] ", "done": "[x] "}
+_MARKDOWN_TASK_ITEM = re.compile(r"^\[([ xX])\]\s+")
 
 
 #: How this map's three line shapes are spelled in FreeMind's own `<edge
@@ -3417,6 +3435,10 @@ _FREEMIND_PRIVATE = {
     "edge_slide": "_edge_slide",
     "image": "_image",
     "align": "_align",
+    #: A task (decision 15): FreeMind's built-in icons have a tick but no
+    #: empty box, so an open task has no native spelling; private, like the
+    #: rest of this list.
+    "task": "_task",
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3441,6 +3463,7 @@ _OPML_PRIVATE = {
     "edge_bend": "_edge_bend",
     "edge_slide": "_edge_slide",
     "image": "_image",
+    "task": "_task",
 }
 
 
@@ -4020,6 +4043,10 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
         prefix = line[: len(line) - len(stripped)]
         indent = len(prefix) + prefix.count("\t")
         node: dict = {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": []}
+        task = _MARKDOWN_TASK_ITEM.match(text)
+        if task and text[task.end():].strip():
+            node["text"] = text[task.end():][:MAX_OBJECT_TEXT_CHARS]
+            node["style"] = {"task": "open" if task.group(1) == " " else "done"}
         while stack and stack[-1][0] >= indent:
             stack.pop()
         if stack and len(stack) < MAX_IMPORT_DEPTH:

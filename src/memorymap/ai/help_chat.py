@@ -913,7 +913,7 @@ HELP_TOPICS.extend(
                 "lasso", "highlighter", "eraser", "connector", "nudge", "snap to grid",
                 "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
-                "board overview", "find a card", "tool",
+                "board overview", "find a card", "tool", "text in a shape", "label a shape",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
@@ -933,7 +933,9 @@ HELP_TOPICS.extend(
                 "forward, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
                 "drag or goes back to Select. Ctrl+Z undoes (up to 100 steps) and "
-                "Ctrl+Shift+Z redoes. Double-click empty board for a text box, right-click (or "
+                "Ctrl+Shift+Z redoes. Double-click empty board for a text box, double-click a "
+                "rectangle, ellipse, diamond or triangle (or select it and press Enter) to "
+                "write in it, right-click (or "
                 "press and hold on touch) for the menu, double-click a line to bend "
                 "it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
@@ -950,7 +952,8 @@ HELP_TOPICS.extend(
                 "ring", "opml", "freemind", "colour by", "color by", "focus on a branch",
                 "tidy", "layout of the map", "duplicate a topic", "copy a topic",
                 "undo steps", "how many undo", "topic before", "topic after",
-                "move a topic", "reorder topics",
+                "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
+                "tick a topic",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and maps). "
@@ -973,7 +976,9 @@ HELP_TOPICS.extend(
                 "left, both sides or downward), radial or free, and Tidy lays "
                 "every unpinned topic out again. The View menu sets Colour by "
                 "(branch, category, age, or whether a note is behind it) and opens "
-                "every folded branch. Start from a template (brainstorm, decision, "
+                "every folded branch. A topic's menu makes it a task: press its box to "
+                "tick it, and every topic above counts the done ones (1/2); Markdown "
+                "exports write tasks as - [ ] and - [x]. Start from a template (brainstorm, decision, "
                 "project, cause and effect), import an OPML, FreeMind or Markdown "
                 "outline, let the local AI propose a map from notes you pick, and "
                 "export it as OPML or Markdown as well as a picture."

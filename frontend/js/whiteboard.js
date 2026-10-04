@@ -5109,6 +5109,18 @@ function wbBuildContextMenu(kind) {
     });
 
     subItem("Content", sub => {
+      //: A task (MINDMAP_PLAN.md decision 15): made here, ticked by its box.
+      const task = mapNode.data?.task;
+      if (task === "open" || task === "done") {
+        sub(task === "done" ? "Mark as not done" : "Mark as done", "Or press the box on the topic", () =>
+          wbMapToggleTaskDone(mapNode.id)
+        );
+        sub("Stop being a task", "The topic stays; its box goes", () => wbMapSetTask(mapNode, null));
+      } else {
+        sub("Make this a task", "A box to tick; the topics above count what is done", () =>
+          wbMapSetTask(mapNode, "open")
+        );
+      }
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
@@ -6679,7 +6691,10 @@ function wbBuildExportSvg(scope) {
         );
         labelTop = py + ph + 16;
       }
-      const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: A task's box travels as the ballot-box glyph (MINDMAP_PLAN.md
+      //: decision 15): the icon font does not follow the topic into the file.
+      const box = obj.data?.task === "done" ? "☑ " : obj.data?.task === "open" ? "☐ " : "";
+      const lines = wbSvgWrapLines(box + wbMapLabel(obj), size.w - 28, 4, 7.5);
       parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
@@ -14423,7 +14438,15 @@ function wbObjectPaintKey(d, ctx) {
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
-    `|${ctx.fills?.get(d.id) ? "filled" : ""}`;
+    `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
+    //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
+    //: changes this topic's "1/2" without changing anything of its own.
+    `|${wbMapTaskTallyKey(index, d.id)}`;
+}
+
+function wbMapTaskTallyKey(index, id) {
+  const tally = index ? wbMapTaskTally(index).get(id) : null;
+  return tally ? `${tally.done}/${tally.total}` : "";
 }
 
 //: **Every link sketch on the board, parsed once and filed under both of its

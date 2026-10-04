@@ -106,6 +106,78 @@ def _installed_models(running: bool) -> list[dict]:
         return []
 
 
+#: How long a poll waits on the runner's model list when it already has an
+#: answer to fall back on. Short on purpose: the browser gives the whole poll
+#: 8s, and the list is one call on Ollama (5s timeout) and up to two on an
+#: OpenAI-dialect server (5s each), made while that same runner may be busy
+#: loading a model (the filing model warms at every launch).
+INSTALLED_REFRESH_BUDGET = 2.5
+
+
+class _ListFlight:
+    """One model-list request to the runner, in flight on its own thread."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.result: list[dict] | None = None  # None: the runner did not answer
+        self.error: BaseException | None = None
+
+
+_installed_lock = threading.Lock()
+_installed_known: dict[tuple[str, str], list[dict] | None] = {}
+_installed_flights: dict[tuple[str, str], _ListFlight] = {}
+
+
+def _installed_or_last_known(client) -> list[dict] | None:  # noqa: ANN001
+    """The runner's installed models: None when it is not answering.
+
+    The poll used to make this call itself, so a runner that was merely busy
+    (loading the filing model at launch, generating) held the poll for its
+    own timeout, 5s or 10s, against the browser's 8s: `GET /models/status:
+    signal timed out`, twice in the owner's first minute. The call now runs on
+    its own thread, one at a time per runner. A poll waits for it only as long
+    as `INSTALLED_REFRESH_BUDGET` when it already knows an answer, and serves
+    that answer otherwise; the refresh still lands for the next poll. With no
+    answer known yet (the first poll after a start, or a changed address) it
+    waits for the call, as it always did. The budget only hides lateness: a
+    runner that refuses the connection answers at once, and is reported down
+    on that poll.
+    """
+    key = (type(client).__name__, str(getattr(client, "base_url", "")))
+    with _installed_lock:
+        flight = _installed_flights.get(key)
+        if flight is None:
+            flight = _installed_flights[key] = _ListFlight()
+            threading.Thread(
+                target=_run_list_flight, args=(client, key, flight), name="models-list", daemon=True
+            ).start()
+        has_known = key in _installed_known
+        last_known = _installed_known.get(key)
+    flight.done.wait(INSTALLED_REFRESH_BUDGET if has_known else None)
+    if not flight.done.is_set():
+        return last_known
+    if flight.error is not None:
+        raise flight.error
+    return flight.result
+
+
+def _run_list_flight(client, key: tuple[str, str], flight: _ListFlight) -> None:  # noqa: ANN001
+    try:
+        flight.result = [
+            {"name": m.get("name", ""), "size": m.get("size", 0)} for m in client.list_models()
+        ]
+    except OllamaError:
+        flight.result = None
+    except BaseException as exc:  # noqa: BLE001 - handed to the poll that waits, as a direct call would
+        flight.error = exc
+    finally:
+        with _installed_lock:
+            if flight.error is None:
+                _installed_known[key] = flight.result
+            _installed_flights.pop(key, None)
+        flight.done.set()
+
+
 def _name_matches(wanted: str, installed: list[dict]) -> bool:
     """'llama3.2' should match an installed 'llama3.2:latest'."""
     names = {m["name"] for m in installed}
@@ -237,15 +309,9 @@ def status(session: Session = Depends(get_session)) -> dict:
     # trusting that margin. That mismatch read as "AI unavailable" on a
     # backend that is genuinely up but momentarily slow to answer, one
     # round-trip now serves both purposes.
-    try:
-        installed = [
-            {"name": m.get("name", ""), "size": m.get("size", 0)}
-            for m in ollama.list_models()
-        ]
-        running = True
-    except OllamaError:
-        installed = []
-        running = False
+    known = _installed_or_last_known(ollama)
+    installed = known if known is not None else []
+    running = known is not None
     chat_model = manager.chat_model()
     utility_resolved, utility_reason = manager.utility_resolution()
     # Resolved once. It walks the installed models asking each whether it can

@@ -435,16 +435,10 @@ async function api(path, options = {}) {
   } catch (networkErr) {
     // fetch() itself threw: this is a real network failure (offline, CORS,
     // connection refused). Log it explicitly so it always appears in Logs.
-    //
-    // `!networkErr?.name === 'AbortError'` is what this said, which parses as
-    // `(!networkErr?.name) === 'AbortError'`, a boolean compared to a string,
-    // so it was always false and no network failure was ever logged. The one
-    // case the check exists to skip (our own timeout abort) was being logged
-    // and everything else was too.
     //: A timeout (`AbortSignal.timeout`, name "TimeoutError") is a slow
-    //: answer, not a failure: a warning, so a busy start does not fill the
-    //: log with red for a poll that simply asked again a moment later.
-    if (networkErr?.name !== "AbortError") {
+    //: answer, not a failure: a warning, and for a silent poll (the model
+    //: status, which shows "slow" and asks again) not even that.
+    if (networkErr?.name !== "AbortError" && !(silent && networkErr?.name === "TimeoutError")) {
       recordBrowserLog(networkErr?.name === "TimeoutError" ? "WARN" : "ERROR", [
         `[Network] ${fetchOptions.method || 'GET'} ${path}: ${networkErr.message}`
       ]);

@@ -402,6 +402,10 @@ def test_the_poses_four_numbers_pass_down_by_inherit_along_the_readers_path():
     # elements with the view closed.
     assert ":has(> #nm-buddy[data-pose" not in CSS.replace("`.nm-viewer-figure:has(> #nm-buddy[data-pose])`", "")
     assert '.nm-viewer-figure[data-pose="sit"] .nm-viewer-ledge { opacity: 1; }' in CSS
+    # Hanging draws no bar (the owner, 2026-10-04: "a random highlight at the
+    # top of the companion expanded popup"): the bar sat at a fixed 24px, behind
+    # the head, while the hands' height changes with each character and act.
+    assert '.nm-viewer-figure[data-pose="hang"] .nm-viewer-ledge' not in CSS
     visit = AVATARS[AVATARS.index("function nameMarkBuddyVisit"):]
     visit = visit[:visit.index("function nameMarkBuddyHome")]
     assert 'host.dataset.pose = buddy.dataset.pose || ""' in visit and 'attributeFilter: ["data-pose"]' in visit

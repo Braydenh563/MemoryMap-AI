@@ -3805,3 +3805,17 @@ def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     at = css.index("@media (min-width: 600px) and (max-width: 1023px) {")
     block = css[at : css.index("\n}", at)]
     assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
+
+
+def test_a_locked_load_is_not_logged_as_a_failure() -> None:
+    """The lock screen is the expected state at boot, not a failed load: the
+    browser log used to open with `WARN browser: [notes] could not load:
+    Locked`. `loadSurface` still shows the surface's failed state (with Retry)
+    but logs only a real failure; `api()` marks the 401 `isLockout`."""
+    nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
+    at = nav.index("async function loadSurface(")
+    body = nav[at : nav.index("\n}\n", at)]
+    assert "if (!error?.isLockout) recordBrowserLog(" in body, (
+        "loadSurface must not log a locked read (error.isLockout) as a WARN"
+    )
+    assert "locked.isLockout = true" in app_js_text()

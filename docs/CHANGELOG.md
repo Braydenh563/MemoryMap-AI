@@ -17,6 +17,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Graph: hovering a note fades the map instead of flipping it: the dimming of every other dot and link, the names that leave and arrive, the hovered note's ring and its similarity scores each ease over 180ms (measured, scratchpad/ui-sweeps/graphfade.js: largest single-frame step 1.0 with no frame between, now 0.15 to 0.2 over 7 to 8 frames); reduced motion stays instant.
 - Links: [[Name]] links to a note that opens with a "# Name" heading, and a link written before its note exists connects as soon as that note is saved.
 - Library: pressing the Library tab inside an open board or mind map goes back to the Library.
+- Models status: the poll no longer waits on a busy model runner; with an answer already known it waits at most 2.5s for the runner's model list, then serves the last one while the refresh finishes (a runner answering in 9s held the poll for 5s, now 2.5s), and a timed-out poll, shown as "slow", is no longer logged as a warning.
+- Logs: a surface read refused because the app is locked is no longer logged as `[notes] could not load: Locked` at every boot; real failures still are.
+- Companion: the enlarged view draws no bar behind a hanging companion's head (a stray grey line at a fixed height); the seat bar under a sitting one stays.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.

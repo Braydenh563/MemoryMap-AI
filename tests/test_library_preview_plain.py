@@ -17,12 +17,15 @@ def test_wiki_links_become_their_titles():
 
 def test_emphasis_and_lists_are_plain():
     text = "# Title\n\n- We can include **bold** and *italic* text.\n1. And a list"
-    assert _clip(text) == "Title We can include bold and italic text. And a list"
+    # The heading and the list stay apart (INBOX 464); a list item that ends
+    # its sentence needs no separator after it.
+    assert _clip(text) == "Title · We can include bold and italic text. And a list"
 
 
 def test_a_table_reads_as_its_cells():
-    text = "| Example Table | Value |\n|---------------|-------|\n| Row 1 | 2 |"
-    assert _clip(text) == "Example Table Value Row 1 2"
+    text = "| Example Table | Value |\n|---------------|-------|\n| Row 1 | 2 |\n| Row 2 | 3 |"
+    # One row per block (INBOX 464): the cells of a row run on, rows do not.
+    assert _clip(text) == "Example Table Value · Row 1 2 · Row 2 3"
 
 
 def test_an_unpaired_marker_does_not_survive():

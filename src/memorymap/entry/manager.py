@@ -2268,6 +2268,51 @@ _INLINE_MD = re.compile(
 )
 
 
+#: A line that starts a block of its own: a heading, a list item, a quote, a
+#: table row.
+_BLOCK_LINE = re.compile(r"^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\|)")
+#: A block that already ends its sentence needs no separator after it.
+_BLOCK_ENDED = re.compile(r"[.!?:;,…·)\]\"'”’]$")
+
+
+def join_blocks(text: str, strip=lambda line: line, limit: int | None = None) -> str:
+    """A note's or document's lines as one line of prose, its blocks kept apart.
+
+    INBOX 464: a preview that joins every line with a space reads a heading
+    and the list under it as one run-on sentence, "Goals Ship the notebook
+    redesign Cut travel spend by 15% Risks The hiring freeze...". A boundary
+    between blocks (a heading, a list item, a quote, or a blank line) whose
+    first half ends without a stop gets the app's dot separator, the one the
+    facts lines use; a block that ends its own sentence is followed by a
+    space. Lines inside one paragraph (hard-wrapped prose) are joined with a
+    space, so an imported file wrapped at 80 columns does not grow dots in
+    the middle of its sentences. `strip` cleans one line (its markers) after
+    its kind is read; `limit` stops reading once that many characters are
+    in, so a long document is not walked to its end for a 240-char preview.
+    """
+    out: list[str] = []
+    size = 0
+    gap = prev_block = False
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            gap = True
+            continue
+        block = bool(_BLOCK_LINE.match(line))
+        line = strip(line).strip()
+        if not line:
+            continue
+        if out:
+            boundary = gap or block or prev_block
+            out.append(" · " if boundary and not _BLOCK_ENDED.search(out[-1]) else " ")
+        out.append(line)
+        size += len(line)
+        gap, prev_block = False, block
+        if limit is not None and size > limit:
+            break
+    return "".join(out)
+
+
 def strip_inline_markdown(text: str) -> str:
     """A note's text as plain words: bold/italic/strike/code markers gone,
     an image or link reduced to its alt/link text. Markers only: block

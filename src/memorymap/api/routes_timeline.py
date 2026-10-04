@@ -48,7 +48,12 @@ SCALES = {"day": 1, "week": 7, "month": 30, "year": 365}
 MAX_BANDS = 8
 OTHER_BAND = "Everything else"
 
-PREVIEW_CHARS = 120
+#: A row's title is the first line of this, and the row's own CSS ellipsis is
+#: what should cut it, at the row's edge. At 120 the cut came first: at 1440 a
+#: 1248px title ended "...borrows as loans. #learn…" at x=896, with 430px of
+#: empty row before the time (INBOX 464). 240 fills the widest row; the grid
+#: and the band cards clamp their own lines.
+PREVIEW_CHARS = 240
 
 #: How many rows one request draws, and the ceiling on asking for more.
 #:

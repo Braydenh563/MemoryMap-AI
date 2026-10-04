@@ -92,6 +92,6 @@ def run_facts(
     from memorymap.core.database import NightRun
 
     if session.get(NightRun, run_id) is None:
-        raise HTTPException(status_code=404, detail="No such night run")
+        raise HTTPException(status_code=404, detail="That night run could not be found.")
     rows, total = facts.run_facts(session, run_id, kind=kind, limit=limit, offset=offset)
     return {"items": [facts.as_json(row) for row in rows], "total": total}

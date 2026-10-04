@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Error sentences, files, reminders and the learned page: "File is missing from disk", "No upload with that id", "no such derived fact", "as_of must be YYYY-MM-DD" and the image-reading hints now read as sentences a person can act on ("No installed model can read images. Install or pick one in Settings"), and no longer name a field (INBOX 472)
 - Error sentences, notes, documents and chat: a missing note, document, bookmark, link, revision or conversation, a date written wrongly, a private note that needs unlocking, and a skill missing an input now each say what happened in a plain sentence with a full stop, and name no field ("boards must be one of", "action must be keep or fallback" became "Pick one of...") (INBOX 472)
 - Error sentences, sign-in and backups: what the server says when a request is refused (the app is locked, a wrong password, a throttled unlock, a missing backup, a bad bookmark address, a category that cannot move) is now a plain sentence with a full stop, and an unexpected failure says to try again and where the log is, instead of "Internal error" (INBOX 472)
 - The unlock check no longer queries the database on every request: once a password is known to exist it is remembered for ten seconds (only the yes, so the gate can only ever be stricter), 0.4 ms off each of the forty-odd requests a start makes.

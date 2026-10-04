@@ -1097,26 +1097,6 @@ function docSectionCount(className) {
   return count;
 }
 
-//: The context line, with the match marked. Built as three nodes rather than
-//: as a string with a `<mark>` in it: `tests/test_no_innerhtml_interpolation.py`
-//: exists because a note's own text is not markup, and a note that mentions
-//: this document *and* contains a tag would otherwise render it.
-//:
-//: The offsets come from the server with the context, so the occurrence that
-//: matched is the one marked. Searching the context again here is how the
-//: *first* lookalike gets marked instead of the one that was found.
-function docBacklinkContext(row) {
-  const line = document.createElement("p");
-  line.className = "doc-backlink-context";
-  const text = row.context || "";
-  const from = Math.max(0, Math.min(text.length, row.hit_start | 0));
-  const to = Math.max(from, Math.min(text.length, row.hit_end | 0));
-  const mark = document.createElement("mark");
-  mark.textContent = text.slice(from, to);
-  line.append(document.createTextNode(text.slice(0, from)), mark, document.createTextNode(text.slice(to)));
-  return line;
-}
-
 //: Does the open document already point back at this source? Read from the
 //: text rather than remembered, because the answer changes with every
 //: keystroke and a stale "Linked both ways" is worse than no button.

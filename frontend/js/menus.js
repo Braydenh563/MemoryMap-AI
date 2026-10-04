@@ -1002,19 +1002,8 @@ function wireEscapedMenuResize() {
 }
 
 // The Connections block (REDESIGN.md §R7.3 item 1), for a note or a document.
-//
-// `kind` is "entries" or "documents", the two API prefixes, used verbatim
-// as the path segment rather than mapped through a lookup, because a third
-// kind would need a third endpoint anyway and a two-entry map is a place for
-// them to disagree.
-//
-// Direction is the whole point of the first two groups. `links_for_entry`
-// has always returned both directions merged, so a note could show what it
-// was connected to and never which way round, and "this note points at that
-// one" and "that one points at this" are different facts. Everything else on
-// this dialog is a join that existed in the database and was surfaced
-// nowhere: the boards a note is a card on, and the uploads its markdown
-// embeds.
+// `kind` is the API prefix ("entries" or "documents"). Direction is kept: "this
+// points at that" and "that points at this" are different facts.
 async function openConnections(kind, id, subject) {
   const overlay = $("connections-overlay");
   const list = $("connections-list");
@@ -1029,6 +1018,7 @@ async function openConnections(kind, id, subject) {
   let data;
   try {
     data = await apiJson(`/${kind}/${id}/connections`);
+    if (kind === "entries") data = withBacklinks(data, await apiJson(`/entries/${id}/backlinks`, { silent: true }).catch(() => null), id);
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
@@ -1048,22 +1038,9 @@ async function openConnections(kind, id, subject) {
   }
 }
 
-//: **The groups and their rows, for the sheet above and for the Notes tab's
-//: connections rail** (WORLD_CLASS_PLAN D2, notes-list.js `renderNotesRail`).
-//: One builder, so the rail and the sheet cannot disagree about what a
-//: connection is called or how one opens: the rail is the same answer drawn
-//: in a column that stays, the sheet the same answer drawn where a column does
-//: not fit. `beforeOpen` is what leaving the surface means (the sheet closes;
-//: the rail stays where it is). Appends to `list` and returns how many rows it
-//: drew, so each caller words its own empty state.
-//: **Which connection rows need a second cue, and what it says.** Found on
-//: the Notes connections rail: a note linked to two notes with the same title
-//: drew two identical rows. Only rows whose title collides with another
-//: note's get one (the same note listed in two groups is not a collision):
-//: the category when that tells them apart, else the day written, else the
-//: day and the time, else the note's number. A `Map` of note id to cue; pure,
-//: so the tests run
-//: it in node (tests/test_connection_row_cues.py).
+//: Rows whose titles collide get a second cue: the category, else the day,
+//: else day and time, else the note's number. Pure, tested in node
+//: (tests/test_connection_row_cues.py).
 function connectionRowCues(rows) {
   const byTitle = new Map();
   for (const r of rows) {
@@ -1107,16 +1084,61 @@ function connectionRowCues(rows) {
   return cues;
 }
 
+//: A backlink's sentence with the hit marked, as three nodes (a note's text is
+//: not markup); the offsets come from the server, so the hit found is the one
+//: marked. Shared by a document's panel and a note's connections (KG1).
+function docBacklinkContext(row) {
+  const line = document.createElement("p");
+  line.className = "doc-backlink-context";
+  const text = row.context || "";
+  const from = Math.max(0, Math.min(text.length, row.hit_start | 0));
+  const to = Math.max(from, Math.min(text.length, row.hit_end | 0));
+  const mark = document.createElement("mark");
+  mark.textContent = text.slice(from, to);
+  line.append(document.createTextNode(text.slice(0, from)), mark, document.createTextNode(text.slice(to)));
+  return line;
+}
+
+//: GRAPH_PLAN KG1: `/entries/{id}/backlinks` folded into a note's connections.
+//: An incoming note row gains the sentence that links it; the text-only
+//: "Mentions it" rows give way to the Unlinked mentions group, which says the
+//: same with its sentence and a Link button.
+function withBacklinks(data, back, id) {
+  if (!data || !back) return data;
+  const context = new Map();
+  for (const row of back.links || []) if (row.kind === "note" && !context.has(row.id)) context.set(row.id, row);
+  const incoming = (data.incoming || []).filter((r) => !(r.link_id == null && r.reason === "Mentions it"));
+  return { ...data, incoming, mentions: back.mentions || [], backlinkContext: context, subjectId: id };
+}
+
+//: One click: the server checks the span still says the name, rewrites it to
+//: [[the words]] and saves through the source's own route (409 if it moved).
+async function linkNoteMention(subjectId, row, button) {
+  button.disabled = true;
+  try {
+    await apiJson(`/entries/${subjectId}/mentions/link`, {
+      method: "POST",
+      body: JSON.stringify({ kind: row.kind, id: row.id, start: row.start, end: row.end }),
+    });
+    toast(`Linked from ${row.title}.`);
+  } catch (error) {
+    toast(error.message, true);
+  }
+  if (typeof loadEntries === "function") await loadEntries();
+  if (typeof renderNotesRail === "function") renderNotesRail();
+  if (!$("connections-overlay").classList.contains("hidden")) openConnections("entries", subjectId, $("connections-subject").textContent);
+}
+
+//: The groups for the sheet and the Notes rail (one builder, so they agree);
+//: `beforeOpen` is what leaving means; returns the rows drawn. Each group is
+//: [heading, rows, row builder], as data so none loses its keyboard handling.
 function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
-  // Each group is [heading, rows, how to open one]. Built as data rather
-  // than five near-identical blocks of DOM code: the groups differ only in
-  // their label field and their click target, and writing that out five
-  // times is how one of them quietly loses its keyboard handling.
   const groups =
     kind === "entries"
       ? [
           ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
-          ["ph:arrow-down-left Notes that link here", data.incoming, noteRow],
+          ["ph:arrow-down-left Notes that link here", data.incoming, (l) => withContext(noteRow(l), data.backlinkContext?.get(l.id))],
+          ["ph:link-break Mentioned, not linked", data.mentions, mentionRow],
           ["ph:file-text In these documents", data.documents, docRow],
           ["ph:squares-four On these boards and maps", data.boards, boardRow],
           ["ph:image Files it uses", data.files, fileRow],
@@ -1161,6 +1183,26 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
       item.appendChild(tag);
     }
     return item;
+  }
+  function withContext(item, context) {
+    if (!context) return item;
+    const both = document.createDocumentFragment();
+    both.append(item, docBacklinkContext(context));
+    return both;
+  }
+  function mentionRow(m) {
+    const isDoc = m.kind === "document";
+    const item = row(`${isDoc ? "ph:file-text" : "ph:note"} ${m.title}`, isDoc ? `Open “${m.title}”` : "Open this note", () =>
+      isDoc ? openDocumentFromNote(m.id) : flashEntry(m.id)
+    );
+    const foot = document.createElement("div");
+    foot.className = "doc-backlink-foot";
+    const link = smallButton("ph:link Link", "Turn these words into a link to this note", () => linkNoteMention(data.subjectId, m, link));
+    link.classList.add("doc-backlink-action");
+    foot.appendChild(link);
+    const both = withContext(item, m);
+    both.appendChild(foot);
+    return both;
   }
   function docRow(doc) {
     return row(`ph:file-text ${doc.title}`, `Open “${doc.title}”`, () =>

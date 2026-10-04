@@ -6114,6 +6114,17 @@ body:has(#library-media-selectbar:not(.hidden))
   gap: var(--space-1);
 }
 
+/* A backlink's sentence and an unlinked mention's Link (GRAPH_PLAN KG1) sit
+   under their row, indented to its text, on the document panel's recipe. */
+.connection-rows > .doc-backlink-context,
+.connection-rows > .doc-backlink-foot {
+  padding-left: var(--space-3);
+}
+
+.connection-rows > .doc-backlink-foot {
+  margin-bottom: var(--space-2);
+}
+
 /* The second cue a row carries only when its title collides with another
    note's (`connectionRowCues`, menus.js): after the title, quieter, and the
    part of the row that gives way last. */

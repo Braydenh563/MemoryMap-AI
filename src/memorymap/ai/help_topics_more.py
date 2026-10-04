@@ -587,6 +587,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "sort notes", "recently edited", "a to z", "copy link", "copy wiki link", "copy app link",
                 "connections column", "beside the list", "forgotten", "close to this",
+                "backlinks", "unlinked mentions", "mentioned, not linked", "linked mentions",
                 "most used", "note order", "f2",
             ),
             "body": (
@@ -598,8 +599,11 @@ MORE_TOPICS.extend(
                 "field. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "
                 "or more, the note you open has a Connections column beside the "
-                "list: the notes it links to, the notes that link to it, and "
-                "\"Forgotten, and close to this\"."
+                "list: the notes it links to, the notes that link to it with the "
+                "sentence each says it in, \"Mentioned, not linked\" (notes and "
+                "documents that name it without a link; Link turns those words "
+                "into a [[link]]), and \"Forgotten, and close to this\". The "
+                "note's Connections sheet shows the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

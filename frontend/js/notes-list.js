@@ -3787,11 +3787,12 @@ async function renderNotesRail() {
   body.setAttribute("aria-busy", "true");
   let answer = notesRailCache.get(key);
   if (!answer) {
-    const [links, near] = await Promise.all([
+    const [links, near, back] = await Promise.all([
       apiJson(`/entries/${entry.id}/connections`, { silent: true }).catch(() => null),
       apiJson(`/resurface/near/${entry.id}`, { silent: true }).catch(() => null),
+      apiJson(`/entries/${entry.id}/backlinks`, { silent: true }).catch(() => null),
     ]);
-    answer = { links, near };
+    answer = { links: withBacklinks(links, back, entry.id), near };
     if (links) notesRailCache.set(key, answer);
   }
   if (seq !== notesRailSeq) return;
@@ -3815,7 +3816,9 @@ async function renderNotesRail() {
   //: joined to. The forgotten notes are suggestions, not connections, so they
   //: are not counted in it.
   count.hidden = false;
-  count.textContent = shown === 1 ? "1 link" : `${shown} links`;
+  //: Unlinked mentions are offers, not links, so they are not counted.
+  const linked = shown - (answer.links.mentions || []).length;
+  count.textContent = linked === 1 ? "1 link" : `${linked} links`;
   if (!shown && !nearItems.length) {
     const empty = document.createElement("p");
     empty.className = "muted notes-rail-note";

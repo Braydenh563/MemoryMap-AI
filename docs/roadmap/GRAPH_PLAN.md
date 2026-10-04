@@ -632,7 +632,9 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
 
 ### (e) Phases, build order
 
-1. KG1, backlinks with context and one-click mentions.
+1. KG1, backlinks with context and one-click mentions: built 2026-10-04,
+   moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the knowledge
+   graph, INBOX 528)").
 2. KG2, multi-signal recognition with explanations.
 3. KG9, the inbox and accept learning (needs KG2).
 4. KG5, entity kinds, aliases, merge, entity page.

@@ -38645,3 +38645,30 @@ before, 117.5/s against 119/s after; the hip end moves 0.3px across the
 sway and the free end 6.8px (`sashpivot.js`, in the review's scratchpad).
 Main-thread ms/s was too noisy between runs to quote (the sandbox was
 loaded by four agents; 168 to 270 ms/s for the same masculine walk).
+
+## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
+
+### From GRAPH_PLAN.md: KG1, backlinks with context and one-click mentions
+
+The scanner `routes_documents` used for a document's backlinks moved whole to
+`entry/mentions.py` (`sentence_around`, `backlink_spans`, `backlink_rows`)
+and is read by both. `routes_mentions.py` adds `GET /entries/{id}/backlinks`
+(the note's name is its opening line without the heading marker, then an
+imported file's stem; a link counts when its `[[name]]` resolves to the note
+through `find_by_wiki_name`, so `[[name|alias]]`, `[[name#part]]` and prefix
+names count too; sources are the notes whose stored wiki link lands here plus
+any note or document whose text holds a name, 400 each) and
+`POST /entries/{id}/mentions/link`, which re-reads the source, refuses a span
+that no longer says the name or sits inside a link (409, nothing written),
+writes `[[the words as written]]` and saves through `update_entry` or
+`update_document`, so the revision, the wiki sync and the vector refresh
+happen as on any save. In the Notes column and the Connections sheet an
+incoming note row carries its sentence (`docBacklinkContext`, moved to
+menus.js), the text-only "Mentions it" rows give way to a "Mentioned, not
+linked" group with a Link button, and the column's count leaves the
+mentions out. Measured: `tests/test_note_backlinks_kg1.py` 11 tests;
+`scratchpad/ui-sweeps/kg1rail.js` 11/11 at 1440x900 (sentence 260px wide,
+no clamp overflow, no sideways scroll, Link rewrote "kiln schedule" to
+`[[kiln schedule]]`, the group left, the count went 1 link to 2 links, the
+sheet showed both sentences). Not verified: dark theme contrast of the
+context line (the tokens are the document panel's, measured there).

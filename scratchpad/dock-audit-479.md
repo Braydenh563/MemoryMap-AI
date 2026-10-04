@@ -90,9 +90,10 @@ mark moved no wrap): a
 6. **Chat was the one tab whose dock had no help.** Every other tab dock ends
    refresh, help, more; Chat's '?' lived in the corner of the empty
    conversation (INBOX 236 moved it there) and is gone the moment a
-   conversation has a message. **Open**: moving it is a change to an
-   owner-placed control; recommended for INBOX: the same `data-help-for` button
-   in `.dock-actions` before the ⋯, the empty state keeping none.
+   conversation has a message. **Fixed**: the same `data-help-for` button in
+   `.dock-actions` before the ⋯ (32x32 at 1440, 44x44 at 390), its words still
+   naming the persona; the welcome keeps none. INBOX 236's ask (not in the
+   middle of the welcome) still holds: it is at the dock's end.
 7. **The board picker truncates to its prefix at tablet widths.** At 820 the
    picker reads "Board · ..." (8rem cap below 76rem) with 104px of empty bar
    between it and the search button. **Fixed**: the picker asks for its whole
@@ -200,7 +201,7 @@ corner at 390 and 820 (no overlap).
   ⋯. Target: Select into ⋯ (seven).
 - **Notes, Write with Atlas**: title | model, **Draft**, Undo, '?', ⋯. Unchanged.
 - **Notes, Capture**: the formatting strip (a toolbar, not a dock). Unchanged.
-- **Chat**: thread title and facts | fork, compress, '?', ⋯ (target: '?' added).
+- **Chat**: thread title and facts | fork, compress, '?', ⋯ ('?' added, fixed).
   Composer: attach note, attach file, field, dictate, **Send**; second row:
   Skills, Web, Plan | model | Ask/Agent | gear. Unchanged.
 - **Graph**: Graph and count | search | View | **New note**, refresh, '?', ⋯

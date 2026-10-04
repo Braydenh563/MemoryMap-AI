@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat: the '?' (About this chat) is in the dock with every other tab's help, before the ⋯, and stays there once a conversation has messages; it was in the empty welcome's corner and went with it (INBOX 479).
 - Library, Files: the search field is announced as "Search the files" (it kept the Images gallery's name on the sub-tab that shares it) (INBOX 479).
 - Boards and maps: the board picker in the top bar shows the board's name below 1216px wide, growing into the bar's free width up to 14rem and giving way first when the bar is full (it was capped at 8rem, "Board · ..." at 820 beside 89px of empty bar); nothing overflows at 1152, 1024, 820, 780 or 390 (INBOX 479).
 - Top bar, 600 to 1199: when the tabs take a row of their own, their well is drawn round the tabs and centred (446px at 820) instead of across the whole window (788px round 430px of tabs); the header's height is unchanged (INBOX 479).

@@ -2295,6 +2295,17 @@ Link to another note with [[its first few words]]."></textarea>
                    each proxy and once for the menu row that is the control. In DOM order they were sitting after it, so the
                    row's last *tabbable* thing was not the one the eye ends
                    on. -->
+              <!-- **Help where every other dock keeps it** (INBOX 479): refresh,
+                   help, more. It lived in the empty conversation's corner
+                   (INBOX 236 took it out of the middle) and went the moment a
+                   chat had a message; every other tab's dock ends with its
+                   '?'. The words name the persona: `renderChatEmptyState`. -->
+              <button type="button" id="chat-help-toggle" class="icon-only ghost small graph-help-toggle"
+                data-help-for="chat-help" aria-controls="chat-help" aria-expanded="false"
+                title="About this chat" aria-label="About this chat"><i class="ph ph-question" aria-hidden="true"></i></button>
+              <div class="help-body hidden" id="chat-help" role="dialog" aria-label="About this chat">
+                <p id="chat-help-text">Atlas answers from your saved notes and shows the notes behind each answer. In Agent mode it can also create, tag, link and organise notes for you, and asks before anything it cannot undo.</p>
+              </div>
               <span id="chat-actions-menu" class="chat-actions-menu dock-more"></span>
             </div>
           </div>

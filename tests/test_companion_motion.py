@@ -1428,3 +1428,21 @@ def test_atlas_pupils_stay_inside_its_eyes():
         reach = 1 / math.sqrt((math.cos(a) / gx) ** 2 + (math.sin(a) / gy) ** 2)
         assert reach <= r, (deg, reach, r)
     assert "--atl-lean-dir: 0; }" in css
+
+
+def test_an_act_or_a_walk_is_let_go_not_dropped():
+    """INBOX 497, the owner: "make the atlas behaviour more smooth and less
+    sudden beginning and stopping of actions". Taking an act's class off
+    mid-way put every part back at rest in one frame (companionblend.js: 7
+    to 22px in a frame against 2 to 4px while the act ran). The parts it
+    moved are read first and eased back from there (an `offset: 0`
+    keyframe, since a lone keyframe is the end), off the pacer, and not
+    under reduced motion; the companion's expressions cross over 0.6s."""
+    blend = _fn("nameMarkBuddyBlend")
+    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert 'id: "nmb-blend"' in blend
+    assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
+    assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
+    assert 'a.id !== "nmb-blend"' in _fn("nameMarkBuddyTempo")
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);" in css

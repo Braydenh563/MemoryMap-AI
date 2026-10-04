@@ -5327,8 +5327,9 @@ function nameMarkBuddyTempo() {
     //: compositor; stepping them here would put them back on the main
     //: thread, so only what animates inside a drawing is paced.
     //: Nor a transition (round 7: a limb easing into a new pose, 420ms,
-    //: which stepped at 10Hz juddered; it is over before it costs much).
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.playState !== "finished");
+    //: which stepped at 10Hz juddered; it is over before it costs much),
+    //: nor a move let go (`nameMarkBuddyBlend`, 480ms), for the same reason.
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.id !== "nmb-blend" && a.playState !== "finished");
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a
@@ -5884,7 +5885,7 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
   const walk = nmb.anim;
   const done = () => {
     if (nmb.anim !== walk) return;
-    buddy.classList.remove("nmb-walking");
+    nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));
     delete buddy.dataset.turn;
     nameMarkBuddyTravel(buddy, "");
   };
@@ -6532,7 +6533,7 @@ function nameMarkBuddyAct(act, ms) {
   //: (`nmb-easing`), not in the frame its class comes off. The small ones
   //: (a blink, a look) have no face of their own.
   if (was && was !== act && !NMB_FACELESS_ACTS.includes(was)) nameMarkBuddyEase(buddy, 1800);
-  if (was) buddy.classList.remove(`nmb-act-${was}`);
+  if (was) nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));
   if (was === "lie" && act !== "lie" && !buddy.classList.contains("nmb-sleep")) nameMarkBuddyGetUp(buddy);
   if (act !== "emerge") buddy.classList.remove("nmb-duck");
   if (was === "turn" || was === "glance") delete buddy.dataset.turn;
@@ -7499,6 +7500,50 @@ function nameMarkBuddyAsleep(buddy) {
 }
 //: Its face eased for `ms` (the CSS's `nmb-easing`: eyes, lids and mouth
 //: cross over 1.8s), so a wake or a doze is seen happening.
+//: **Let go of a move, never drop it** (INBOX 497, the owner: "make the
+//: atlas behaviour more smooth and less sudden beginning and stopping of
+//: actions"). An act's or a walk's motion is a CSS animation keyed on a
+//: class; taking the class off mid-way put every part back at rest in one
+//: frame (companionblend.js: 7 to 22px in a frame, against at most 4px a
+//: frame while the act ran), and a CSS transition cannot ease it, because a
+//: value an animation drove never starts one. So before `change` takes a
+//: class off, the parts it moves are read where they are; afterwards each
+//: animation that went is replaced by a short one from there back to rest
+//: (an implicit end keyframe: the rest the CSS now gives), eased in and
+//: out, so it neither lurches off nor stops dead. Only
+//: when something was moving, and never under reduced motion, where the
+//: change is made as it was.
+const NMB_BLEND_MS = 480;
+const NMB_BLEND_PROPS = ["transform", "translate", "rotate", "scale", "opacity"];
+function nameMarkBuddyBlend(buddy, change) {
+  if (!buddy || typeof buddy.getAnimations !== "function" || nameMarkIdleQuiet()) {
+    change();
+    return;
+  }
+  const held = [];
+  for (const anim of buddy.getAnimations({ subtree: true })) {
+    //: Running, or held by the pacer (`nameMarkBuddyTempo` pauses what
+    //: animates inside a drawing and steps it by hand).
+    if (!(typeof CSSAnimation === "function" && anim instanceof CSSAnimation) || anim.playState === "finished" || anim.playState === "idle") continue;
+    const el = anim.effect && anim.effect.target;
+    if (!el) continue;
+    const props = new Set();
+    for (const frame of anim.effect.getKeyframes()) for (const key of Object.keys(frame)) if (NMB_BLEND_PROPS.includes(key)) props.add(key);
+    if (!props.size) continue;
+    const style = getComputedStyle(el);
+    const from = {};
+    for (const key of props) from[key] = style[key];
+    held.push({ anim, el, from });
+  }
+  change();
+  if (!held.length) return;
+  for (const { anim, el, from } of held) {
+    if (el.getAnimations().includes(anim)) continue;
+    //: `offset: 0`: a lone keyframe with none is the end, not the start.
+    el.animate([{ ...from, offset: 0 }], { duration: NMB_BLEND_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+  }
+}
+
 function nameMarkBuddyEase(buddy, ms) {
   const until = Date.now() + ms;
   //: A longer ease already running (a wake's) is not cut short.

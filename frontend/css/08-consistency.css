@@ -8072,6 +8072,17 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
   transition: opacity var(--motion-base) var(--ease-out);
 }
+/* On the companion an expression settles rather than switches (INBOX 497,
+   the owner: "smooth life-like transitions and movement and expressions"):
+   0.2s read as a cut on a face that changes its mood by itself, so its
+   parts cross over 0.6s, eased in and out. The eased wake and doze below
+   (1.8s) still win. */
+#nm-buddy .nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail, .atl-star) {
+  transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);
+}
+#nm-buddy .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
+  transition: opacity calc(var(--motion-base) * 3) var(--ease-in-out);
+}
 /* A wake or a doze is seen happening (the owner, 2026-09-27: "it opens its
    eyes and mouth for a sec like it is startled but then falls back asleep
    a second later making it feel like the sleep is fake. it needs ot be a

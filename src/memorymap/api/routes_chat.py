@@ -74,6 +74,7 @@ from memorymap.core.imagesize import image_size
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
+from memorymap.search import chunks as search_chunks
 from memorymap.search import search_manager
 from sqlalchemy import func
 
@@ -1363,7 +1364,10 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     # notes at all (there may be none), and grounding one would attach a
     # note to a sentence that has nothing to do with it.
     sentence_grounding = (
-        ground_answer_sentences(ai_response, prepared["notes"])
+        ground_answer_sentences(
+            ai_response, prepared["notes"],
+            meaning=search_chunks.meaning_scorer(session, deps.get_embeddings()),
+        )
         if not conversational and answered
         else []
     )
@@ -1971,7 +1975,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: note a tool reads, so a live row there could name a set the final pass
     #: would not.
     live_grounder = (
-        SentenceGrounder(prepared["notes"])
+        SentenceGrounder(
+            prepared["notes"], meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings())
+        )
         if not agentic and not conversational and prepared["notes"]
         else None
     )
@@ -2049,7 +2055,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     grounding: list[dict] = []
     if not conversational and candidates and answer_text:
         grounding = (
-            ground_answer_sentences(answer_text, candidates, numbered=len(prepared["notes"]))
+            ground_answer_sentences(
+                answer_text, candidates, numbered=len(prepared["notes"]),
+                meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings()),
+            )
             or []
         )
         if grounding:

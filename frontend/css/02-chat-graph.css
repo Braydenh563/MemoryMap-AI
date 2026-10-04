@@ -5157,6 +5157,158 @@ mark.lightbox-hit {
   white-space: nowrap;
 }
 
+/* Why a source was chosen (WORLD_CLASS_PLAN I6, row 6): a verdict line and
+   three signal bars, the same block in the citation peek and on each
+   evidence card. DESIGN.md, "Signal bars". A grid, so the three names, the
+   three tracks and the three numbers each line up in a column. */
+.evidence-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.evidence-verdict {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.evidence-verdict-supported {
+  color: var(--ink);
+}
+
+.evidence-signals {
+  display: grid;
+  grid-template-columns: auto minmax(3rem, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+}
+
+.evidence-signal {
+  display: contents;
+}
+
+.evidence-signal-name,
+.evidence-signal-value {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.evidence-signal-value {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.evidence-signal-track {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.evidence-signal-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* The evidence view (I6's side by side): a sentence on the left, the
+   passages it came from on the right; one column on a phone. */
+.answer-evidence {
+  margin-top: var(--space-2);
+}
+
+.answer-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answer-evidence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.answer-evidence-row:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.answer-evidence-sentence {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+.answer-evidence-unsupported .answer-evidence-sentence {
+  color: var(--muted);
+}
+
+.answer-evidence-sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.answer-evidence-none {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.answer-evidence .answer-evidence-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.answer-evidence .answer-evidence-card:hover,
+.answer-evidence .answer-evidence-card:focus-visible {
+  background: var(--ghost-btn-bg-hover);
+}
+
+.answer-evidence-quote {
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+@media (max-width: 600px) {
+  .answer-evidence-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+}
+
 
 /* The "Elsewhere in your notebook" row, shown only when a question found no
    notes at all (`renderRelatedElsewhere`, app.js). Same shape as the

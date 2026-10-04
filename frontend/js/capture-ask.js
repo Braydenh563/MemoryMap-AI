@@ -1299,6 +1299,7 @@ function citationMarker(g, byId, numberFor) {
   //: keeps it open, and on touch a press is the only way to open it.
   const describe = () => ({
     noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
+    signals: g.signals, verdict: g.verdict,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1359,6 +1360,72 @@ function citationMarker(g, byId, numberFor) {
 //: with no passage (a note a tool read mid-turn) shows the note's opening
 //: words. Characters, never rendered Markdown: the slice is taken at
 //: character offsets and can begin mid-emphasis.
+//: **Why this source, in three short bars** (WORLD_CLASS_PLAN I6, row 6):
+//: the grounding row's `signals`, each 0 to 1. Words is the share of the
+//: sentence's words the passage holds, Meaning the sentence against the
+//: paragraph's own vector, Links how directly the search reached the note.
+//: A signal the app could not measure (no embedding model, a note a tool
+//: read) is left out rather than drawn empty: an empty bar reads as "no
+//: match", which is a claim the app did not make. DESIGN.md, "Signal bars".
+const EVIDENCE_SIGNALS = [
+  ["bm25", "Words"],
+  ["cosine", "Meaning"],
+  ["graph", "Links"],
+];
+const EVIDENCE_VERDICTS = {
+  supported: "Supported by this passage",
+  partly: "Partly supported by this passage",
+};
+
+function evidenceSignals(signals) {
+  const list = document.createElement("span");
+  list.className = "evidence-signals";
+  for (const [key, label] of EVIDENCE_SIGNALS) {
+    const value = signals ? signals[key] : null;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    const percent = Math.round(Math.max(0, Math.min(1, value)) * 100);
+    const row = document.createElement("span");
+    row.className = "evidence-signal";
+    const name = document.createElement("span");
+    name.className = "evidence-signal-name";
+    name.textContent = label;
+    const track = document.createElement("span");
+    track.className = "evidence-signal-track";
+    track.setAttribute("role", "img");
+    track.setAttribute("aria-label", `${label} ${percent}%`);
+    const fill = document.createElement("span");
+    fill.className = "evidence-signal-fill";
+    fill.style.width = `${percent}%`;
+    track.append(fill);
+    const number = document.createElement("span");
+    number.className = "evidence-signal-value";
+    number.textContent = `${percent}%`;
+    number.setAttribute("aria-hidden", "true");
+    row.append(name, track, number);
+    list.append(row);
+  }
+  return list.childElementCount ? list : null;
+}
+
+//: The verdict line and the bars, as one block, for the peek and the
+//: evidence view alike; null for a row from before the fields existed (a
+//: chat saved earlier), which then shows the passage alone, as it did.
+function evidenceBlock(source) {
+  const verdict = EVIDENCE_VERDICTS[source?.verdict];
+  const bars = evidenceSignals(source?.signals);
+  if (!verdict && !bars) return null;
+  const block = document.createElement("span");
+  block.className = "evidence-block";
+  if (verdict) {
+    const line = document.createElement("span");
+    line.className = `evidence-verdict evidence-verdict-${source.verdict}`;
+    line.textContent = verdict;
+    block.append(line);
+  }
+  if (bars) block.append(bars);
+  return block;
+}
+
 const citationPeekState = { panel: null, link: null, pinned: false, openTimer: 0, closeTimer: 0, restoring: false };
 const CITATION_PEEK_CONTEXT = 90;
 
@@ -1446,6 +1513,9 @@ function openCitationPeek(link, source, { pinned }) {
   mark.textContent = passage;
   body.append(before, ...(passage ? [mark] : []), after);
   preview.append(head, body);
+  //: Why this passage: the verdict and the three signals (row 6).
+  const evidence = evidenceBlock({ signals: source.signals, verdict: source.verdict });
+  if (evidence) preview.append(evidence);
   preview.addEventListener("click", go);
   const foot = document.createElement("div");
   foot.className = "citation-peek-foot";
@@ -1827,7 +1897,134 @@ function renderAnswerGrounding(
       target.appendChild(chip);
     }
   }
+  target.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
   target.classList.remove("hidden");
+}
+
+//: **Show the evidence** (WORLD_CLASS_PLAN I6, H2; row 6): the answer's
+//: sentences beside the passages they came from, one card each, including
+//: the ones no note backs. The toggle ends the "Grounded in" row and says
+//: the trust count on itself ("9 of 11 from your notes"), so the number is
+//: there before anyone opens anything. The view goes after the row, folded
+//: until asked for: an answer is read first and audited second.
+function evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor) {
+  target.parentElement?.querySelector(":scope > .answer-evidence")?.remove();
+  const counted = support && Number.isInteger(support.sentences) && support.sentences > 0;
+  const label = counted
+    ? `ph:list-checks ${support.supported} of ${support.sentences} from your notes`
+    : "ph:list-checks Show the evidence";
+  const button = smallButton(label, "Show each sentence beside the passage it came from", () => {
+    const open = button.getAttribute("aria-expanded") === "true";
+    let view = target.parentElement?.querySelector(":scope > .answer-evidence");
+    if (open) {
+      view?.classList.add("hidden");
+      button.setAttribute("aria-expanded", "false");
+      return;
+    }
+    if (!view) {
+      view = document.createElement("section");
+      view.className = "answer-evidence";
+      view.id = `answer-evidence-${++evidenceViewCount}`;
+      view.setAttribute("aria-label", "Evidence for this answer");
+      target.after(view);
+      button.setAttribute("aria-controls", view.id);
+    }
+    renderEvidenceView(view, sentences, support, rawResults, answerEl, numberFor);
+    view.classList.remove("hidden");
+    button.setAttribute("aria-expanded", "true");
+  });
+  button.classList.add("answer-evidence-toggle");
+  button.setAttribute("aria-expanded", "false");
+  return button;
+}
+let evidenceViewCount = 0;
+
+//: The answer's sentences in the order it says them: the grounded rows come
+//: in answer order already, and an unsupported sentence is placed by where
+//: its letters sit in the answer, the same matching the marks use.
+function evidenceRows(sentences, support, answerEl) {
+  const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
+  const text = targets.length ? citationTextIndex(targets).text : "";
+  const rows = new Map();
+  for (const g of sentences || []) {
+    const key = citationKey(g.sentence);
+    if (!rows.has(key)) rows.set(key, { sentence: g.sentence, sources: [] });
+    if (!rows.get(key).sources.some((row) => row.note_id === g.note_id)) rows.get(key).sources.push(g);
+  }
+  for (const sentence of (support && support.unsupported) || []) {
+    const key = citationKey(sentence);
+    if (!rows.has(key)) rows.set(key, { sentence, sources: [] });
+  }
+  const at = (key) => {
+    const found = text ? text.indexOf(key) : -1;
+    return found === -1 ? Number.MAX_SAFE_INTEGER : found;
+  };
+  return [...rows.entries()]
+    .map(([key, row], order) => ({ ...row, order, place: at(key) }))
+    .sort((a, b) => a.place - b.place || a.order - b.order);
+}
+
+function renderEvidenceView(view, sentences, support, rawResults, answerEl, numberFor) {
+  const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
+  view.replaceChildren();
+  const list = document.createElement("ol");
+  list.className = "answer-evidence-list";
+  for (const row of evidenceRows(sentences, support, answerEl)) {
+    const item = document.createElement("li");
+    item.className = "answer-evidence-row";
+    const said = document.createElement("p");
+    said.className = "answer-evidence-sentence";
+    said.textContent = plainText(row.sentence);
+    const sources = document.createElement("div");
+    sources.className = "answer-evidence-sources";
+    if (!row.sources.length) {
+      //: The I6 line for a sentence the notebook does not back: drawn in the
+      //: lighter tone, said in words rather than by an absence.
+      item.classList.add("answer-evidence-unsupported");
+      const none = document.createElement("p");
+      none.className = "muted answer-evidence-none";
+      none.textContent = "No note says this";
+      sources.append(none);
+    }
+    for (const g of row.sources) {
+      const entry = byId.get(g.note_id) || allEntries.find((e) => e.id === g.note_id) || null;
+      const content = entry?.content || g.label || "";
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "answer-evidence-card";
+      const head = document.createElement("span");
+      head.className = "citation-peek-head";
+      const number = document.createElement("span");
+      number.className = "citation-peek-number";
+      number.textContent = String(numberFor.get(g.note_id) || "");
+      const title = document.createElement("span");
+      title.className = "citation-peek-title";
+      title.textContent = noteLabel({ content }, 60);
+      head.append(number, title);
+      const quote = document.createElement("span");
+      quote.className = "citation-peek-body answer-evidence-quote";
+      const { before, passage, after } = citationPeekText(content, g.start, g.end);
+      const mark = document.createElement("mark");
+      mark.textContent = passage;
+      quote.append(before, ...(passage ? [mark] : []), after);
+      card.append(head, quote);
+      const evidence = evidenceBlock(g);
+      if (evidence) card.append(evidence);
+      const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
+      if (facts.length) {
+        const meta = document.createElement("span");
+        meta.className = "library-file-meta answer-evidence-meta";
+        meta.textContent = facts.join(" · ");
+        card.append(meta);
+      }
+      card.setAttribute("aria-label", `Open source ${number.textContent}: ${title.textContent}`);
+      card.addEventListener("click", () => flashEntry(g.note_id));
+      sources.append(card);
+    }
+    item.append(said, sources);
+    list.append(item);
+  }
+  view.append(list);
 }
 
 //: **Pictures inside the answer** (INBOX 526): the model writes `[picture N]`

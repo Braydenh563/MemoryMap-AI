@@ -35,3 +35,11 @@ Worked WORLD_CLASS_PLAN section 8's rows 3, 4 and 2 in the brief's order.
   model in the sandbox each reading finishes in milliseconds.
 - Windows: the SIGKILL test is skipped there; the heartbeat and lease are
   plain SQL and threads.
+
+## Session 2 (rows 6, 5, 7, then 2's IPv6)
+
+- **Row 6 (§14.3, I6): built.** Paragraph vectors (`chunk_vectors`,
+  `search/chunks.py`) f4c64a1; evidence fields, the peek's bars and the
+  evidence view in the next commit. Record: HISTORY.md, "row 6: paragraph
+  vectors and evidence cards". Left: "wrong" on a card as a correction (I7).
+- Next: row 5, the tension and answered-question passes (`ai/facts.py`).

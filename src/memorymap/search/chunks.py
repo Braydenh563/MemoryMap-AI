@@ -383,3 +383,66 @@ def stats() -> dict:
     if state is None:
         return {"rows": 0, "dead": 0, "width": 0}
     return {"rows": len(state.row_ids) - state.dead, "dead": state.dead, "width": state.width}
+
+
+def meaning_scorer(session: Session, embeddings):  # noqa: ANN001, ANN201
+    """`score(sentence, note_id, start, end) -> cosine | None` for grounding.
+
+    The evidence card's meaning signal (WORLD_CLASS_PLAN I6): an answer
+    sentence against the paragraph its passage sits in, or against the note's
+    own vector when the note is one paragraph. None when there is no backend
+    ready, so a card never shows a meaning bar the app could not measure.
+    Each note's vectors are read once per answer, not once per sentence.
+    """
+    try:
+        if embeddings is None or not embeddings.is_ready():
+            return None
+        backend = embeddings.backend_id()
+    except Exception:  # noqa: BLE001  # no backend is a state, not an error
+        return None
+    import numpy as np
+
+    from memorymap.core.database import EmbeddingRecord
+
+    cache: dict[int, tuple[list, "np.ndarray | None"]] = {}
+
+    def vectors(note_id: int):  # noqa: ANN202
+        if note_id not in cache:
+            note = session.scalar(
+                select(EmbeddingRecord.embedding).where(
+                    EmbeddingRecord.entry_id == note_id, EmbeddingRecord.model_version == backend
+                )
+            )
+            whole = None
+            if note is not None:
+                whole = np.frombuffer(note, dtype="float32")
+                norm = float(np.linalg.norm(whole))
+                whole = whole / norm if norm else None
+            cache[note_id] = (paragraphs_of(session, note_id, backend) if whole is not None else [], whole)
+        return cache[note_id]
+
+    def score(sentence: str, note_id: int, start: int | None, end: int | None) -> float | None:
+        paragraphs, whole = vectors(note_id)
+        if whole is None:
+            return None
+        target = whole
+        if start is not None and paragraphs:
+            # The paragraph the passage overlaps most, as
+            # `grounding.paragraph_ordinal` picks it.
+            stop = end if end is not None and end > start else start + 1
+            overlap, vector = max(
+                ((min(stop, last) - max(start, first), vector) for _o, first, last, vector in paragraphs),
+                key=lambda pair: pair[0],
+            )
+            if overlap > 0:
+                target = vector
+        query = embeddings.embed_text(sentence)
+        if query is None:
+            return None
+        query = np.asarray(query, dtype="float32")
+        norm = float(np.linalg.norm(query))
+        if not norm or query.shape[0] != target.shape[0]:
+            return None
+        return float(np.dot(query / norm, target))
+
+    return score

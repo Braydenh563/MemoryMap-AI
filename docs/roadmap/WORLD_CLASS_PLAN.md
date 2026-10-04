@@ -782,7 +782,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
-| 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
+| 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
@@ -1009,7 +1009,7 @@ nearest-neighbour index below 50k notes. The measured costs are elsewhere.
 **State 2026-09-24:** 1 is (b): the loop is built for
 filing (`ai/learning.py`, corrections in `AuditLog`) and search
 (`open_after_ask`); dismissed link pairs and accepted neighbourhoods were not
-traced. 2 is built (B3). 3 is (c): one vector per note still, no chunk table.
+traced. 2 is built (B3). 3 is built 2026-10-04 (row 6; HISTORY, "row 6: paragraph vectors and evidence cards").
 4 is B4, (b).
 
 ## 15. Inventions: eight things no notebook does, specified for Opus and Sonnet
@@ -1250,42 +1250,7 @@ empty, honest answer rather than today's.
 
 ### I6 Evidence cards: answers you can audit sentence by sentence
 
-**What the person sees.** Every AI answer sentence carries a small marker;
-hovering shows the *paragraph* it came from, with the three reasons it was
-chosen (words matched, meaning score, graph distance) as three short bars,
-and the verifier's verdict: supported, partly, or unsupported. Unsupported
-sentences are rendered in a lighter tone with "no note says this". A
-"Show the evidence" toggle opens the answer and its sources side by side,
-each source scrolled to the paragraph. A one-line trust score under the
-answer: "9 of 11 sentences supported by your notes".
-
-**Why it is new.** Perplexity cites pages; it cannot say which sentence
-is unsupported, and its citations are page-level. Here the corpus is
-finite and local, so every sentence can be checked against every
-paragraph, and the verifier (B5) can say no.
-
-**Builds on.** This session's grounding change (touched notes, distinctive
-words, labels), `addInlineCitations` and `renderAnswerGrounding` in
-`app.js`, `match_info` (the three signals already exist per hit), the
-verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
-paragraph-level anchors.
-
-**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
-`span`, `signals: {bm25, cosine, graph}`, `verdict`.
-
-**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
-a chunk ordinal and a span that exists in that note; an answer sentence
-with no candidate is marked `unsupported` and the trust line counts it;
-the side-by-side view scrolls the source to the span (Playwright: the
-span's rect is inside the viewport); the markers survive the final
-markdown re-render (the bug already fixed once in `askQuestion`).
-
-**Gate.** Trust score correct on the eval fixture's golden answers
-(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
-from its current baseline (record the number first). **Size** M. **Model**
-Opus.
-
-**State 2026-09-24:** (b) the per-sentence marks and the "only N of M sentences supported" line are built (CHAT_PLAN Phase 1, app.js ~13530); paragraph anchors, the three signal bars per sentence and the side-by-side view are not, and wait on §14's chunks. M, Opus.
+Built 2026-10-04 (row 6): moved to HISTORY.md, "Moved from the plans, 2026-10-04 (row 6: paragraph vectors and evidence cards)". Left: "wrong" on a card as a correction (I7, H2's second half).
 
 ### I7 The corrections loop: every "no" makes the notebook better
 
@@ -1767,7 +1732,7 @@ the night shift retries it when new notes arrive. Gate: 95% of sentences
 cited on the seeded notebook; a corrected citation changes the next
 answer's ranking (asserted, not eyeballed).
 
-**State 2026-09-24:** (b), I6 half built and I3's view not built.
+**State 2026-10-04:** I6 built (row 6; HISTORY); left here: "wrong" on a card retraining the ranker (I7), and I3's view (row 7).
 
 ### H3 The model bench (I8; M, Opus)
 

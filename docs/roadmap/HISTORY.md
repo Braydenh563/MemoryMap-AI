@@ -39673,3 +39673,101 @@ at 1024 a third column leaves the reading column under 600px. A notebook
 seeded by `seed.js` alone has one link and fails "selecting a linked note
 brings the rail" for want of a note with two connections, which is the
 fixture, not the rail.
+
+
+## Moved from the plans, 2026-10-04 (row 6: paragraph vectors and evidence cards)
+
+### From WORLD_CLASS_PLAN.md §14 item 3: chunked vectors and sentence-level citations
+
+One vector per note loses long notes and every document. Embed paragraphs
+(one row per chunk, `entry_id, ordinal, vector`), retrieve chunks, and ground
+each answer sentence by cosine against chunks when an embedding backend is
+up, falling back to the lexical scorer. A citation then points at the
+paragraph, and the chip quotes it. Size M.
+
+### From WORLD_CLASS_PLAN.md I6: evidence cards: answers you can audit sentence by sentence
+
+**What the person sees.** Every AI answer sentence carries a small marker;
+hovering shows the *paragraph* it came from, with the three reasons it was
+chosen (words matched, meaning score, graph distance) as three short bars,
+and the verifier's verdict: supported, partly, or unsupported. Unsupported
+sentences are rendered in a lighter tone with "no note says this". A
+"Show the evidence" toggle opens the answer and its sources side by side,
+each source scrolled to the paragraph. A one-line trust score under the
+answer: "9 of 11 sentences supported by your notes".
+
+**Why it is new.** Perplexity cites pages; it cannot say which sentence
+is unsupported, and its citations are page-level. Here the corpus is
+finite and local, so every sentence can be checked against every
+paragraph, and the verifier (B5) can say no.
+
+**Builds on.** This session's grounding change (touched notes, distinctive
+words, labels), `addInlineCitations` and `renderAnswerGrounding` in
+`app.js`, `match_info` (the three signals already exist per hit), the
+verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
+paragraph-level anchors.
+
+**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
+`span`, `signals: {bm25, cosine, graph}`, `verdict`.
+
+**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
+a chunk ordinal and a span that exists in that note; an answer sentence
+with no candidate is marked `unsupported` and the trust line counts it;
+the side-by-side view scrolls the source to the span (Playwright: the
+span's rect is inside the viewport); the markers survive the final
+markdown re-render (the bug already fixed once in `askQuestion`).
+
+**Gate.** Trust score correct on the eval fixture's golden answers
+(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
+from its current baseline (record the number first). **Size** M. **Model**
+Opus.
+
+**State 2026-09-24:** (b) the per-sentence marks and the "only N of M sentences supported" line are built (CHAT_PLAN Phase 1, app.js ~13530); paragraph anchors, the three signal bars per sentence and the side-by-side view are not, and wait on §14's chunks. M, Opus.
+
+### Built 2026-10-04
+
+- **Paragraph vectors.** `ChunkVector` (`chunk_vectors`: entry, the
+  `embeddings.id` it was cut beside, ordinal, start, end, digest, vector).
+  `embeddings.paragraph_chunks` splits on blank lines, joins a paragraph
+  under 12 words to the next (a heading reads with what it heads), cuts one
+  over 160 words at sentence ends, 32 at most per note; a one-chunk note
+  stores none. Each chunk embeds as the note's first line plus the
+  paragraph. `store_for_entry` stores them beside the note vector; a re-save
+  reuses unchanged paragraphs by digest (one edited paragraph, one embed);
+  `embed_many` batches on sentence-transformers. The warm-up backfill gives
+  old long notes paragraphs without re-embedding the note.
+- **A chunk counts only beside its own note vector.** Ten sites delete note
+  vectors, mostly by bulk statement; none needed teaching. No foreign key on
+  `entry_id` (enforced keys would have broken every hard-delete path until
+  each learned the table); `set_private` and the purge delete the rows,
+  `clean_orphaned_vectors` removes the rest.
+- **Scoring.** `search/chunks.py` keeps a unit-row matrix synced by the
+  table's fingerprint and an id diff (no reload per write). A note's cosine
+  is the better of its own vector and its best paragraph's, in
+  `semantic_search` (Ask and chat retrieval) and the engine's cosine signal.
+  `chunks.ENABLED` is the switch the measurement flips.
+- **Measured** (`scratchpad/chunk_retrieval_bench.py`, a hashed
+  bag-of-words embedder, no torch; queries ask a long note's middle
+  paragraph): 1,000 notes, recall@1 0.00 to 0.18, recall@5 0.01 to 0.42, MRR
+  0.003 to 0.277, search median 0.9 to 2.5 ms; 5,000 notes (15,406
+  paragraphs) recall@5 0.00 to 0.17, MRR 0.004 to 0.122, search median 5.6 to
+  17.5 ms on a machine at load 7 (einsum over the paragraph matrix is most of
+  it); storing one eight-paragraph note 2 to 5 ms (1,000).
+- **Evidence fields.** Every grounding row carries `chunk_ordinal` (the
+  paragraph its passage overlaps most), the span, `signals {bm25, cosine,
+  graph}` (share of the sentence's words in the passage; cosine against that
+  paragraph's vector via `chunks.meaning_scorer`, None with no backend;
+  1, 0.5 or 0.33 by how retrieval reached the note, None for a tool-read
+  note) and `verdict` (supported at half the words, else partly). The
+  offline extractive answer carries the same. `grounding.support` lists the
+  unsupported sentences.
+- **Frontend.** The citation peek shows the verdict and three bars
+  (`evidenceSignals`; an unmeasured signal is left out). "N of M from your
+  notes" ends the Grounded in row and opens the evidence view
+  (`renderEvidenceView`): each sentence beside its passages, No note says
+  this beside the rest, two columns at 600 and wider. DESIGN.md recipe
+  "Why a thing was chosen"; Guide topic `chat-controls` updated.
+  `scratchpad/ui-sweeps/evidence.js` 12/12 at 1440 and 390, light and dark.
+- **Not verified:** a real embedding model (the gain on bge-small is not
+  measured); the H2 gate "95% of sentences cited" needs a real model.
+

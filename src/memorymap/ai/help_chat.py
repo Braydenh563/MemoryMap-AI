@@ -1229,7 +1229,8 @@ HELP_TOPICS.extend(
                 "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
-                "footnote",
+                "footnote", "evidence", "show the evidence", "supported", "unsupported",
+                "from your notes", "why this source",
             ),
             "body": (
                 "Chat keys and controls. Enter sends and Shift+Enter starts a new "
@@ -1248,8 +1249,15 @@ HELP_TOPICS.extend(
                 "messages (Undo goes back), show how full the model's context is, "
                 "switch the model, and export the chat as Markdown. A numbered "
                 "source mark in an answer shows a preview of its note on hover or "
-                "focus (the title and the passage the sentence came from, marked), "
-                "a press keeps it open, and Open note goes there. When an agent "
+                "focus (the title and the passage the sentence came from, marked, "
+                "whether that passage supports the sentence or only partly, and "
+                "three short bars for why it was chosen: Words it shares, Meaning, "
+                "and Links, how directly the search reached the note), a press "
+                "keeps it open, and Open note goes there. The button at the end of "
+                "Grounded in says how many sentences came from your notes (\"9 of "
+                "11 from your notes\"); it opens the evidence, each sentence beside "
+                "the passage it came from, and No note says this beside the ones "
+                "none backs. When an agent "
                 "answer takes more than one step, a checklist above it ticks off "
                 "each round, what it searched or read, then the answer. A number "
                 "or a name in an answer that nothing it read contains gets a "

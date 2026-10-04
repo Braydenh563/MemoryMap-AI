@@ -34,6 +34,14 @@ with its owner named in the entry.
 
 ## Open items
 
+483. **The owner, 2026-10-04 evening, verbatim.** "can there be easy ways
+     to copy the address of various notes or objects so that if I wish and
+     the application is running, I can hyperlink to that specific object??"
+     Exists: every view has an address (router.js: `#/notes/12`, `#/docs/7`,
+     `#/chat/45`, `#/library/board/3`, `#/graph/focus/12`) and a pasted one
+     opens. Missing: a "Copy app link" on each object's menu, and an app link
+     inside a note opening in the same window. Agent (Sonnet).
+
 481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      companion's speech line "I'm not talking to you." spilling right over
      the art, its dark bubble collapsed to a small rectangle behind the first

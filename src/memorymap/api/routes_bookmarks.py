@@ -103,7 +103,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
 
 
 def _existing(session: Session, bookmark_id: int) -> Bookmark:
-    return deps.get_or_404(session, Bookmark, bookmark_id, "Bookmark not found")
+    return deps.get_or_404(session, Bookmark, bookmark_id, "That bookmark could not be found.")
 
 
 #: One page of saved links. A notebook's bookmarks grow with use and nothing

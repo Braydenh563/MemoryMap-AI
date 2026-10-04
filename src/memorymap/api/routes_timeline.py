@@ -121,7 +121,7 @@ def _requested_kinds(kind: str | None) -> tuple[str, ...]:
     unknown = [name for name in asked if name not in KINDS]
     if unknown or not asked:
         raise HTTPException(
-            status_code=422, detail=f"kind must be one or more of {', '.join(KINDS)}"
+            status_code=422, detail=f"Pick one or more of: {', '.join(KINDS)}."
         )
     #: Deduplicated in the declared order, so `kind=board,note` and
     #: `kind=note,board` are the same request and cache the same way.
@@ -351,15 +351,15 @@ def timeline(
     kinds = _requested_kinds(kind)
     if scale not in SCALES:
         raise HTTPException(
-            status_code=422, detail=f"scale must be one of {', '.join(SCALES)}"
+            status_code=422, detail=f"Pick one of: {', '.join(SCALES)}."
         )
     if group not in ("category", "tag", "thread", "none"):
         raise HTTPException(
-            status_code=422, detail="group must be category, tag, thread or none"
+            status_code=422, detail="Pick one of: category, tag, thread, none."
         )
 
     if limit < 1 or limit > MAX_PAGE:
-        raise HTTPException(status_code=422, detail=f"limit must be between 1 and {MAX_PAGE}")
+        raise HTTPException(status_code=422, detail=f"Ask for between 1 and {MAX_PAGE} items at a time.")
 
     query = select(Entry).where(
         Entry.is_deleted == False,  # noqa: E712
@@ -382,7 +382,7 @@ def timeline(
             since = datetime.fromisoformat(start)
             until = datetime.fromisoformat(end)
         except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid date format for start/end")
+            raise HTTPException(status_code=422, detail="Write the start and end as dates, like 2026-10-04.")
     elif days > 0:
         since = utcnow() - timedelta(days=days)
 
@@ -412,7 +412,7 @@ def timeline(
         try:
             marks = _decode_marks(cursor)
         except (ValueError, binascii.Error, TypeError):
-            raise HTTPException(status_code=422, detail="Invalid cursor")
+            raise HTTPException(status_code=422, detail="That page marker is not valid. Reload the timeline and try again.")
 
     def page_of(statement: Select, column, id_column, source: str) -> list:
         """One source's next `limit + 1` rows, oldest mark honoured.

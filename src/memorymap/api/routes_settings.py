@@ -1020,12 +1020,13 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
             skill = skills.normalise(item, known)
         except skills.SkillError as exc:
             raise HTTPException(
-                status_code=422, detail=f"“{item.get('name', '?')}”: {exc}"
+                status_code=422,
+                detail=f"“{item.get('name', '?')}”: {str(exc).rstrip('.')}.",
             ) from exc
         if skill["name"] in shipped:
             raise HTTPException(
                 status_code=422,
-                detail=f"“{skill['name']}” is a built-in skill, pick another name",
+                detail=f"“{skill['name']}” is a built-in skill. Pick another name.",
             )
         out.append(skill)
     return out
@@ -1050,7 +1051,7 @@ def _validated_templates(raw: list[dict]) -> list[dict]:
         if name in seen:
             raise HTTPException(
                 status_code=422,
-                detail=f"“{name}” is already used by another template",
+                detail=f"“{name}” is already used by another template.",
             )
         seen.add(name)
         out.append(item)
@@ -1265,7 +1266,7 @@ def answer_memory_proposal(
     """
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     if not getattr(row, "proposed", False):
         return _preference_out(row)
     row.proposed = False
@@ -1281,7 +1282,7 @@ def update_memory(
 ) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     if body.content is not None:
         text_ = body.content.strip()
         if not text_:
@@ -1298,7 +1299,7 @@ def update_memory(
 def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     session.delete(row)
     session.commit()
     return {"status": "ok"}
@@ -1391,7 +1392,7 @@ def undo_actor(body: UndoBody, session: Session = Depends(get_session)) -> dict:
     time, where they can see what they are putting back.
     """
     if body.actor == events.ACTOR_USER:
-        raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours")
+        raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours.")
     result = events.undo(session, body.actor, body.since, apply=not body.dry_run, force=body.force)
     if not body.dry_run:
         session.commit()
@@ -2402,9 +2403,9 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
 
     data = file.file.read(MAX_DOCUMENT_IMPORT_BYTES + 1)
     if len(data) > MAX_DOCUMENT_IMPORT_BYTES:
-        raise HTTPException(status_code=413, detail="File is larger than 20 MB")
+        raise HTTPException(status_code=413, detail="That file is larger than 20 MB.")
     if not data:
-        raise HTTPException(status_code=400, detail="The file is empty")
+        raise HTTPException(status_code=400, detail="That file is empty.")
 
     suffix = Path(file.filename or "document").suffix[:12] or ".txt"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as saved:
@@ -2417,7 +2418,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
                 "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
             )
             raise HTTPException(
-                status_code=422, detail=f"Couldn't read that file: {exc}"
+                status_code=422, detail=f"Couldn't read that file: {str(exc).rstrip('.')}."
             ) from exc
 
     all_sections = importer.split_into_sections(text)
@@ -2426,7 +2427,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
             "import", "failed", f"{file.filename or 'That file'} had no readable text in it"
         )
         raise HTTPException(
-            status_code=422, detail="That file had no readable text in it"
+            status_code=422, detail="That file had no readable text in it."
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 

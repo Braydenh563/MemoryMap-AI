@@ -47,7 +47,7 @@ def _transcribe_upload(
     if len(data) > max_bytes:
         raise HTTPException(status_code=413, detail=over_limit_detail)
     if not data:
-        raise HTTPException(status_code=400, detail="The recording is empty")
+        raise HTTPException(status_code=400, detail="The recording is empty.")
 
     suffix = Path(file.filename or "clip.webm").suffix[:8] or ".webm"
     # delete=True keeps the file open under this handle for the `with` block's
@@ -71,7 +71,7 @@ def _transcribe_upload(
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:  # a bad clip must not 500 mysteriously
             raise HTTPException(
-                status_code=422, detail=f"Couldn't transcribe that recording: {exc}"
+                status_code=422, detail=f"Couldn't transcribe that recording: {str(exc).rstrip('.')}."
             ) from exc
     finally:
         Path(clip.name).unlink(missing_ok=True)

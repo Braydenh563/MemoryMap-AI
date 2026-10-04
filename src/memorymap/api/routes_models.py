@@ -574,12 +574,12 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
     ollama = deps.get_ollama()
     if not ollama.is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     if not _name_matches(body.name, _installed_models(True)):
         raise HTTPException(
             status_code=400,
-            detail=f"'{body.name}' isn't available on {_backend_label()}",
+            detail=f"'{body.name}' isn't available on {_backend_label()}.",
         )
     deps.get_model_manager().set_chat_model(body.name)
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
@@ -597,7 +597,7 @@ def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_ses
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_utility_model(name)
     log_action(session, "edited", "preferences", detail=f"utility_model={name or '(chat)'}")
@@ -614,7 +614,7 @@ def set_vision_model(body: VisionModelBody, session: Session = Depends(get_sessi
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_vision_model(name)
     log_action(session, "edited", "preferences", detail=f"vision_model={name or '(auto)'}")
@@ -635,7 +635,7 @@ def set_ocr_model(body: VisionModelBody, session: Session = Depends(get_session)
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_ocr_model(name)
     log_action(session, "edited", "preferences", detail=f"ocr_model={name or '(vision)'}")
@@ -669,7 +669,7 @@ def set_feature_model(
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     try:
         deps.get_model_manager().set_feature_model(body.feature, name)
@@ -785,9 +785,9 @@ def cancel_job(kind: str, name: str = "") -> dict:
     elif kind == "pull":
         stopped = jobs.cancel_pull(name)
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown job kind '{kind}'")
+        raise HTTPException(status_code=400, detail=f"'{kind}' is not a job that can be cancelled.")
     if not stopped:
-        raise HTTPException(status_code=404, detail="No such job is running")
+        raise HTTPException(status_code=404, detail="That job is not running.")
     return {"cancelling": True, "kind": kind, "name": name}
 
 
@@ -798,10 +798,10 @@ def set_embedding_backend(
     """Switch how notes are embedded, then re-index everything, vectors
     from different models must never be compared (§6.5)."""
     if body.backend == "ollama" and not body.model:
-        raise HTTPException(status_code=400, detail="Pick an Ollama embedding model")
+        raise HTTPException(status_code=400, detail="Pick an Ollama embedding model.")
     current = jobs.reindex_status()
     if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running")
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
 
     deps.get_model_manager().set_embedding_backend(body.backend, body.model)
     log_action(
@@ -849,7 +849,7 @@ def rebuild_search_index() -> dict:  # noqa: D401  # see the long docstring belo
     """
     current = jobs.reindex_status()
     if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running")
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
     embeddings = deps.get_embeddings()
     # Same reset as the backend switch: a cached failure from an earlier run
     # would otherwise make a deliberate rebuild sit behind the retry cooldown
@@ -871,7 +871,7 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     ollama = deps.get_ollama()
     if not ollama.is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     manager = deps.get_model_manager()
     in_use = {manager.chat_model()}
@@ -905,10 +905,10 @@ def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     body.name = info["name"]
     if not deps.get_ollama().is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     if not jobs.start_pull(deps.get_ollama(), body.name):
-        raise HTTPException(status_code=409, detail=f"Already downloading {body.name}")
+        raise HTTPException(status_code=409, detail=f"{body.name} is already downloading.")
     log_action(session, "downloaded", "model", detail=body.name)
     session.commit()
     return {"pull_started": True, "name": body.name, "source": info["source"]}

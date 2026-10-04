@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings: every section head after a pane's title now heads a group like the rest (Personas' Answer style, Dashboard greeting, Add your own and Share; Templates' and Skills' last; Web search's three), instead of sitting loose on the pane in a smaller voice.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.
 - Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
 - Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.

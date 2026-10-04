@@ -8387,6 +8387,7 @@ Link to another note with [[its first few words]]."></textarea>
               in your notes. Pick the active one in the Chat tab.
             </p>
             <ul id="persona-list" class="entry-list"></ul>
+            <div class="settings-group">
             <h3>Answer style</h3>
             <p class="muted">How Atlas words its answers, whichever persona is active.</p>
               <!-- A labelled row like every other field in this pane: the
@@ -8400,6 +8401,8 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="detailed">Detailed</option>
                 </select>
               </div>
+            </div>
+            <div class="settings-group">
             <h3>Dashboard greeting</h3>
             <p class="muted">
               Give the dashboard's welcome message its own persona, independent
@@ -8418,6 +8421,8 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
               <span id="dashboard-greeting-status" class="status"></span>
             </div>
+            </div>
+            <div class="settings-group">
             <h3>Add your own</h3>
             <input id="persona-name" aria-label="Persona name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000" aria-label="Persona system prompt"
@@ -8427,11 +8432,14 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="persona-add" class="small">Add persona</button>
               <span id="persona-status" class="status"></span>
             </div>
+            </div>
+            <div class="settings-group">
             <h3>Share</h3>
             <div class="row">
               <button id="persona-export" class="ghost small">Export JSON</button>
               <button id="persona-import" class="ghost small">Import JSON</button>
               <input id="persona-import-file" aria-label="Import a persona from a JSON file" title="Import a persona from a JSON file" type="file" accept=".json" class="hidden">
+            </div>
             </div>
           </section>
 
@@ -8569,11 +8577,13 @@ Link to another note with [[its first few words]]."></textarea>
               <span id="skill-status" class="status"></span>
             </div>
             </details>
+            <div class="settings-group">
             <h3>Share</h3>
             <div class="row">
               <button id="skill-export" class="ghost small">Export JSON</button>
               <button id="skill-import" class="ghost small">Import JSON</button>
               <input id="skill-import-file" aria-label="Import a skill from a JSON file" title="Import a skill from a JSON file" type="file" accept=".json" class="hidden">
+            </div>
             </div>
           </section>
 
@@ -8599,6 +8609,7 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
             </div>
             <ul id="template-list" class="entry-list"></ul>
+            <div class="settings-group">
             <h3>Add your own</h3>
             <input id="template-name" type="text" maxlength="40" aria-label="Template name" placeholder="Name (e.g. Book notes)">
             <input id="template-description" type="text" maxlength="200" aria-label="Template description"
@@ -8616,6 +8627,7 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Atlas writes the template from its name and line; press again for another version"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Draft with Atlas</button>
               <button id="template-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="template-status" class="status"></span>
+            </div>
             </div>
           </section>
 
@@ -9970,17 +9982,22 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
             </div>
 
+            <div class="settings-group">
             <h3>Let Atlas search the web</h3>
             <label class="check-row">
               <input type="checkbox" id="pref-web-search">
               <span>Allow web search when I ask for it</span>
             </label>
+            </div>
 
+            <div class="settings-group">
             <h3>Which engine answers</h3>
             <div id="search-provider-picker" class="provider-picker"
               role="radiogroup" aria-label="Web search engine"></div>
             <p id="search-provider-status" class="status" role="status"></p>
+            </div>
 
+            <div class="settings-group">
             <div class="row help-head">
               <h3>Your SearXNG instance</h3>
               <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -10095,6 +10112,7 @@ Link to another note with [[its first few words]]."></textarea>
                 MemoryMap checks the usual ports and fills this in for you.
               </p>
             </details>
+            </div>
           </section>
 
           <!-- Tasks: see and quit background jobs -->

@@ -2191,7 +2191,7 @@ const LAZY_MODULES = {
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
-  inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js"],
+  inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2438,7 +2438,7 @@ const LAZY_ENTRY_POINTS = {
   attachments: ["attachmentAction"],
   ocrEngine: ["ocrEngineMount"],
   quickAccess: ["quickAccessEdit"],
-  inbox: ["openSuggestionsInbox", "openEntityPage", "openEntitiesSheet"],
+  inbox: ["openSuggestionsInbox", "openEntityPage", "openEntitiesSheet", "openLinkTypeSheet", "openRelationTypesSheet"],
   assistantAvatar: ["assistantEmblemInto"],
   quickNote: ["openQuickNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
   graph: [

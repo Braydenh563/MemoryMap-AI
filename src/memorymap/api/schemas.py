@@ -168,6 +168,11 @@ class LinkOut(BaseModel):
     #: Defaults to "out" so an older client (or a caller that doesn't care)
     #: reads exactly as it did before this field existed.
     direction: str = "out"
+    #: GRAPH_PLAN KG3: the link's kind, what it is called from this end (its
+    #: inverse name when this note is the target), and its properties.
+    link_type: str | None = None
+    link_label: str | None = None
+    props: dict | None = None
 
 
 class AttachmentOut(BaseModel):

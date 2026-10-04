@@ -2101,9 +2101,18 @@ function entryItem(entry, options = {}) {
           : link.reason
         : null;
       const wayRound = outgoing ? "This note links to" : "Links to this note";
-      linkChip.title = reasonNote
+      //: KG3: a kind of link is named on the chip from this end ("Has part"
+      //: on the whole, "Part of" on the piece); "Related" says nothing.
+      const kindName = link.link_label && link.link_type !== "related" ? link.link_label : "";
+      if (kindName) {
+        const kind = document.createElement("span");
+        kind.className = "link-kind";
+        kind.textContent = kindName;
+        linkChip.insertBefore(kind, linkPreview);
+      }
+      linkChip.title = (reasonNote
         ? `${wayRound}: ${label}\nReason: ${reasonNote}`
-        : `${wayRound}: ${label}`;
+        : `${wayRound}: ${label}`) + (kindName ? `\nKind: ${kindName}` : "");
       //: **One chip and one menu per connection** (INBOX 319, the owner: "the
       //: buttons in these connections in notes need a redesign and look").
       //: Edit reason, clear reason and unlink were three round buttons of one
@@ -2164,6 +2173,7 @@ function entryItem(entry, options = {}) {
         if (link.reason) {
           items.push({ label: "ph:eraser Clear the reason", title: "Keep the link, drop its reason", run: clearReason, group: "reason" });
         }
+        items.push({ label: "ph:tag Kind and properties…", title: "What kind of link this is (Part of, Supports…) and its properties", run: () => openLinkTypeSheet(entry.id, link), group: "kind" });
         items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
         connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
       }

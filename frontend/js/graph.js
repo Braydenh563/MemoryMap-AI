@@ -3543,7 +3543,7 @@ function graphLinkKind(edge) {
   if (edge.kind === "thread") return "Thread: one note continues the other";
   if (edge.kind === "map") return "Joined on a concept map";
   if (edge.kind === "comention") return `Named together in ${edge.weight} notes`;
-  return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.link_type}` : "Link";
+  return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.type_name || edge.link_type}${edge.type_inverse ? ` (${edge.type_inverse} the other way)` : ""}` : "Link";
 }
 
 function openGraphLinkPeek(edge, event, nodes) {

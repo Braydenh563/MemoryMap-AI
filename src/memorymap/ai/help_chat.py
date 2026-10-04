@@ -725,7 +725,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "links",
-            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested", "suggestions", "merge names", "same person", "link type"),
+            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested", "suggestions", "merge names", "same person", "link type", "kind of link", "part of", "link properties"),
             "body": (
                 "Link one note to another by typing [[ and the start of its title, "
                 "then picking it from the list. The link shows on both notes as a "
@@ -746,7 +746,11 @@ HELP_TOPICS.extend(
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
-                "notebook, and a dismissed one does not come back."
+                "notebook, and a dismissed one does not come back. A link's ⋯ has "
+                "Kind and properties: a kind says what the link is (Supports, Part "
+                "of, your own) and reads from the other note by its other name "
+                "(Supported by, Has part); Kinds of link in the command palette "
+                "adds, renames and deletes your own."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

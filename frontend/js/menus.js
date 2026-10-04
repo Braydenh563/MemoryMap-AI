@@ -1171,7 +1171,16 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
     const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
     const why = link.reason ? `\nWhy: ${link.reason}` : "";
     const cue = cues.get(link.id);
-    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${why}`, () => flashEntry(link.id));
+    //: KG3: the link's kind, named from this end (an incoming row reads the
+    //: inverse: "Has part").
+    const kindName = link.link_label && link.link_type !== "related" ? link.link_label : "";
+    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${kindName ? `\nKind: ${kindName}` : ""}${why}`, () => flashEntry(link.id));
+    if (kindName) {
+      const kind = document.createElement("span");
+      kind.className = "connection-row-cue";
+      kind.textContent = kindName;
+      item.appendChild(kind);
+    }
     if (cue) {
       //: The title is `setLabel`'s `.ph-text`, which the stylesheet lets give
       //: way with an ellipsis in a connection row, so on a narrow rail the

@@ -2032,8 +2032,17 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             "id": link.id,
             "source_entry_id": link.source_entry_id,
             "target_entry_id": link.target_entry_id,
+            # GRAPH_PLAN KG3: a link is its kind, its reason and its
+            # properties as much as its two ends.
+            "reason": link.reason,
+            "link_type": link.link_type,
+            "props": link.props,
         }
         for link in links
+    ]
+    payload["relation_types"] = [
+        {k: v for k, v in kind.items() if k != "description"}
+        for kind in manager.relation_types(session).values()
     ]
     manager.log_action(session, "exported", "data", detail="json")
     session.commit()

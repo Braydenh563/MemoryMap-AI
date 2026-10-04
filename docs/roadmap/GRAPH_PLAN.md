@@ -643,7 +643,8 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    to HISTORY.md (the same section as KG1).
 5. KG6, topics, names, hulls, summaries: built 2026-10-04, both parts
    moved to HISTORY.md (the same section as KG1).
-6. KG3, relation types with inverses and properties.
+6. KG3, relation types with inverses and properties: built 2026-10-04,
+   moved to HISTORY.md (the same section as KG1).
 7. KG4, properties and note types.
 8. KG7, live queries (needs KG4).
 9. KG8, graph filters and path explanations. Path explanations built

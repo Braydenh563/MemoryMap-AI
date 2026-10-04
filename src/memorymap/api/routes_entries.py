@@ -17,7 +17,7 @@ from collections import OrderedDict
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -56,7 +56,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     like_escape,
     utcnow,
 )
-from memorymap.core.database import LIKE_ESCAPE, LINK_TYPES
+from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
 from memorymap.entry.tagnames import inline_tags, normalise_tags
@@ -153,6 +153,11 @@ def _to_out(
                 # The one fact the merged list could never carry. See
                 # `LinkOut.direction`.
                 direction="out" if link.source_entry_id == entry.id else "in",
+                link_type=link.link_type,
+                link_label=manager.link_label(
+                    manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
+                ),
+                props=link.props,
             )
             for link, other in resolved_links
         ],
@@ -2242,12 +2247,46 @@ class LinkBody(BaseModel):
     #: How sure the suggestion was, kept with a `reason` its signals wrote
     #: (GRAPH_PLAN KG9). Ignored without a reason.
     reason_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: GRAPH_PLAN KG3: the link's own properties.
+    props: dict | None = None
+
+    @field_validator("props")
+    @classmethod
+    def _props_shape(cls, value: dict | None) -> dict | None:
+        return check_link_props(value)
+
+
+#: A link's properties: a few short scalar values, never a document.
+LINK_PROPS_MAX = 20
+
+
+def check_link_props(value: dict | None) -> dict | None:
+    if value is None:
+        return None
+    if len(value) > LINK_PROPS_MAX:
+        raise ValueError(f"A link holds {LINK_PROPS_MAX} properties at most.")
+    out = {}
+    for key, item in value.items():
+        key = " ".join(str(key).split())[:40]
+        if not key:
+            raise ValueError("A property needs a name.")
+        if item is not None and not isinstance(item, (str, int, float, bool)):
+            raise ValueError("A property is a word, a number or yes/no, not a list or a group.")
+        out[key] = item[:200] if isinstance(item, str) else item
+    return out
 
 
 class LinkPatchBody(BaseModel):
-    #: A kind from `LINK_TYPES`, or null for none. Unlike creation, a bad name
-    #: here is refused: changing a link's type is the whole request.
+    #: A kind (built-in or custom), or null for none. Unlike creation, a bad
+    #: name here is refused: changing a link's type is the whole request.
+    #: Only the fields sent change.
     link_type: str | None = Field(default=None, max_length=24)
+    props: dict | None = None
+
+    @field_validator("props")
+    @classmethod
+    def _props_shape(cls, value: dict | None) -> dict | None:
+        return check_link_props(value)
 
 
 class LinkReasonBody(BaseModel):
@@ -2810,6 +2849,12 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
             **_connection_cue(session, other),
             "reason": link.reason,
             "reason_confidence": link.reason_confidence,
+            #: KG3: the kind, named from this end, and the link's properties.
+            "link_type": link.link_type,
+            "link_label": manager.link_label(
+                manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
+            ),
+            "props": link.props,
         }
         (outgoing if link.source_entry_id == entry.id else incoming).append(row)
 
@@ -2994,7 +3039,7 @@ def create_link(
     target = _existing_entry(session, body.target_id)
     link = manager.create_link(
         session, source, target, reason=body.reason, link_type=body.link_type,
-        reason_confidence=body.reason_confidence,
+        reason_confidence=body.reason_confidence, props=body.props,
     )
     if link is None:
         # Three refusals share one return value, so the message names the one
@@ -3027,14 +3072,18 @@ def delete_link(
 def patch_link(
     entry_id: int, link_id: int, body: LinkPatchBody, session: Session = Depends(get_session)
 ) -> EntryOut:
-    """Change a link's type (GRAPH_PLAN KG9; KG3 adds its properties)."""
+    """Change a link's type (GRAPH_PLAN KG9) or its properties (KG3)."""
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="That link could not be found.")
-    if body.link_type is not None and body.link_type not in LINK_TYPES:
-        raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
-    manager.set_link_type(session, link, body.link_type)
+    sent = body.model_fields_set
+    if "link_type" in sent:
+        if body.link_type is not None and not manager.is_link_type(session, body.link_type):
+            raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
+        manager.set_link_type(session, link, body.link_type)
+    if "props" in sent:
+        manager.set_link_props(session, link, body.props)
     return _to_out(session, entry)
 
 

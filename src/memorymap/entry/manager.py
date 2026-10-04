@@ -33,7 +33,9 @@ from memorymap.core.database import (
     EntryDate,
     EntryLink,
     EntryRevision,
+    LINK_TYPE_INVERSES,
     LINK_TYPES,
+    RelationType,
     NoteScore,
     Reminder,
     WhiteboardNode,
@@ -1679,6 +1681,7 @@ def create_link(
     link_type: str | None = None,
     origin: str | None = None,
     reason_confidence: float | None = None,
+    props: dict | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1741,7 +1744,7 @@ def create_link(
     # is advisory (it styles an edge and weights a traversal), and refusing an
     # otherwise-valid link because a caller sent a typo would trade a working
     # connection for a validation error nobody asked for.
-    kind = link_type if link_type in LINK_TYPES else None
+    kind = link_type if is_link_type(session, link_type) else None
     link = EntryLink(
         source_entry_id=source.id,
         target_entry_id=target.id,
@@ -1749,6 +1752,7 @@ def create_link(
         reason_confidence=confidence,
         link_type=kind,
         origin=origin,
+        props=dict(props) if props else None,
         # **The link belongs to the space its notes are in, whoever made it.**
         # A new row usually takes its space from `session.info["workspace_id"]`
         # (the before-flush hook in core/database.py), which is set from the
@@ -1866,11 +1870,77 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     return link
 
 
+def relation_types(session: Session) -> dict[str, dict]:
+    """Every kind of link this notebook knows, by key: the six built-ins
+    (`LINK_TYPES`, with `LINK_TYPE_INVERSES`) then the ones a person added
+    (`RelationType`, GRAPH_PLAN KG3). Kept on the session for the request
+    (a notes list reads it once per note); the routes that change a type
+    drop it (`forget_relation_types`)."""
+    cached = session.info.get("relation_types")
+    if cached is not None:
+        return cached
+    out: dict[str, dict] = {}
+    for key, text in LINK_TYPES.items():
+        inverse = LINK_TYPE_INVERSES.get(key)
+        out[key] = {
+            "key": key,
+            "name": text.split(":", 1)[0],
+            "description": text.split(":", 1)[-1].strip(),
+            "inverse": inverse,
+            "directed": inverse is not None,
+            "colour": None,
+            "built_in": True,
+        }
+    for row in session.scalars(select(RelationType).order_by(RelationType.name)):
+        out[row.key] = {
+            "key": row.key,
+            "name": row.name,
+            "description": "",
+            "inverse": row.inverse,
+            "directed": bool(row.directed),
+            "colour": row.colour,
+            "built_in": False,
+        }
+    session.info["relation_types"] = out
+    return out
+
+
+def forget_relation_types(session: Session) -> None:
+    session.info.pop("relation_types", None)
+
+
+def is_link_type(session: Session, key: str | None) -> bool:
+    """A built-in or a custom type's key (KG3)."""
+    if not key:
+        return False
+    return key in relation_types(session)
+
+
+def link_label(types: dict[str, dict], link_type: str | None, outgoing: bool) -> str | None:
+    """What a link of this type is called from one end: its name from the
+    source, its inverse from the target (when it has one). None for an
+    untyped link or a type no longer known."""
+    kind = types.get(link_type or "")
+    if kind is None:
+        return None
+    if not outgoing and kind["directed"] and kind["inverse"]:
+        return kind["inverse"]
+    return kind["name"]
+
+
+def set_link_props(session: Session, link: EntryLink, props: dict | None) -> EntryLink:
+    """Replace a link's properties (KG3); an empty object clears them."""
+    link.props = dict(props) if props else None
+    log_action(session, "relinked", "entry", link.source_entry_id, f"-> entry {link.target_entry_id} (properties)")
+    session.commit()
+    return link
+
+
 def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
-    """Give a link a kind from `LINK_TYPES`, or none (GRAPH_PLAN KG9: the
-    inbox's type suggestions, and any later picker). The caller has checked
-    the name; an unknown one here is a bug, so it raises."""
-    if link_type is not None and link_type not in LINK_TYPES:
+    """Give a link a kind, built-in or custom (KG3), or none (GRAPH_PLAN KG9:
+    the inbox's type suggestions, and the link menu's Type). The caller has
+    checked the key; an unknown one here is a bug, so it raises."""
+    if link_type is not None and not is_link_type(session, link_type):
         raise ValueError(f"unknown link type {link_type!r}")
     before = link.link_type
     link.link_type = link_type

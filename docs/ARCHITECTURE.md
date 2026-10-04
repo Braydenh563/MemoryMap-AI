@@ -346,6 +346,7 @@ are grouped by feature area:
 | `routes_mentions` | `/entries/{id}/backlinks`, `/entries/{id}/mentions/link` | a note's backlinks with their sentence and its unlinked mentions, one click to a [[link]] (GRAPH_PLAN KG1; the scanner is `entry/mentions.py`, shared with documents) |
 | `routes_inbox` | `/suggestions`, `/suggestions/merges/*`, `/suggestions/types/*` | the suggestions inbox's entity merges and link types (`ai/inbox.py`), and every decision on them as a correction (GRAPH_PLAN KG9) |
 | `routes_entities` | `/entities`, `/entities/{id}`, `/entities/{id}/merge` | the entity layer: the list, an entity's page (mentions in context, co-mentions, dates), kind, rename, other names and a merge by hand (GRAPH_PLAN KG5) |
+| `routes_relations` | `/relation-types`, `/relation-types/{key}` | kinds of link: the six built-ins (code) and a person's own (`RelationType`), each with its name from the other end; a deleted kind leaves its links untyped (GRAPH_PLAN KG3) |
 | `routes_privacy` | `/privacy` | the privacy receipt: what left this machine, from the app's own egress record |
 | `routes_webclip` | `/links` | `POST /links/clip`: keep a web page as a note, only while the web is allowed |
 | system | `/health` | liveness + version (open, no unlock) |

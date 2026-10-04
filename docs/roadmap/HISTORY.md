@@ -38839,3 +38839,31 @@ tests; `scratchpad/ui-sweeps/kg6summary.js` 7/7 at 1440 light and 390 dark
 (no label box on any of 3 and 5 plates, the card 384px and 350px wide, the
 terms answer with no model). Not verified: a real model's sentence (the
 sandbox has none); the SVG renderer draws neither hulls nor the card.
+
+### From GRAPH_PLAN.md: KG3, kinds of link with inverse names and properties
+
+The six built-ins stay in code (`LINK_TYPES`, with `LINK_TYPE_INVERSES`:
+Continued by, Explained by, Supported by, Has example; Related and
+Contradicts read the same both ways), so the spec's `built_in` column is the
+API's flag, not a row: a notebook with no custom kinds is unchanged. A person's
+own are `RelationType` rows (key from the name, name, inverse, directed,
+colour); `EntryLink.props` is a JSON object of at most twenty short scalars
+(a list or a group is refused, 422). `manager.relation_types` (kept on the
+session for a request), `is_link_type`, `link_label` (the inverse from the
+target's end); `create_link` and `PATCH /entries/{id}/links/{link_id}` take a
+custom kind and `props`; `LinkOut` and the Connections rows carry `link_type`,
+`link_label` and `props`; graph edges with a kind carry `type_name` and
+`type_inverse`; the JSON export carries each link's kind, reason and
+properties and the kinds. `/relation-types` GET, POST (409 on a name taken,
+built-ins included), PATCH and DELETE (custom only, 400 for a built-in; links
+of a deleted kind lose the kind). Migration c3f7a9e2d5b8 (the table and the
+column, guarded against the auto-migrator). The UI: a link chip names its
+kind from that note's end (`.link-kind`), the Connections rows too
+(`connection-row-cue`), the link's ⋯ gains Kind and properties
+(`openLinkTypeSheet`, link-types.js, the inbox's lazy bundle: every kind
+with its other name, No kind, New kind, Properties as `name: value`), and
+Kinds of link in the palette (`openRelationTypesSheet`). Done-when measured:
+`tests/test_relation_types_kg3.py` 8 tests, a custom kind restored from a
+backup with "Has part" on the whole; `scratchpad/ui-sweeps/kg3types.js` 8/8 at
+1440 light and 390 dark. Not verified: the agent's own link tool still offers
+the six built-ins only.

@@ -711,6 +711,7 @@ def graph(
     edges: list[dict] = []
     taken: set[frozenset[int]] = set()  # pairs already connected
 
+    types = manager.relation_types(session)
     for link in session.scalars(select(EntryLink)):
         if link.source_entry_id in node_ids and link.target_entry_id in node_ids:
             pair = frozenset((link.source_entry_id, link.target_entry_id))
@@ -742,6 +743,12 @@ def graph(
                         "link_type": link.link_type,
                     }
                 )
+                #: KG3: a typed link carries its name and inverse, for the
+                #: map's words; an untyped one carries nothing more.
+                kind = types.get(link.link_type or "")
+                if kind:
+                    edges[-1]["type_name"] = kind["name"]
+                    edges[-1]["type_inverse"] = kind["inverse"]
 
     for e in entries:
         if e.parent_id is not None and e.parent_id in node_ids:

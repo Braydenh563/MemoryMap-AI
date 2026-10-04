@@ -31,77 +31,76 @@ capture a thought
 ```
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-dark.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
+  <img src="docs/screenshots/dashboard.png" alt="The dashboard in the dark theme: a greeting with the note count, reminders and capture streak, a search box, quick actions, and widgets for reminders, recently added notes, favourites, quick capture, boards and recent documents" width="850">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes in the dark theme: AI-filed notes newest first, each with its category and tags, and the categories listed beside them" width="850">
-  <br><sub><b>Notes</b>: captured, categorised and linked to what they relate to</sub>
+  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, and note cards newest first, each with its category, tags and the notes it links to" width="850">
+  <br><sub><b>Notes</b>: captured, filed into a category, tagged and linked to what they relate to</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ask.png" alt="Notes, Ask: the question What do I still need to sort out before the Kyoto trip, a sample answer listing the ryokan, the passport and an ICOCA card with numbered citations, and the matching notes beside it" width="850">
-  <br><sub><b>Ask</b>: a question to your own notes, answered with numbered citations to the notes behind it</sub>
+  <img src="docs/screenshots/ask.png" alt="Notes, Ask: the question What do I still need to book for Portugal, an answer naming the train tickets and the hire car with a numbered citation after each sentence, and the matching notes beside it" width="850">
+  <br><sub><b>Ask</b>: a question to your own notes, answered with a numbered citation to the note behind each sentence</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/chat-dark.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and suggested questions" width="850">
-  <br><sub><b>Chat</b>: ask in plain English, with skills, web search and agent mode beside the box</sub>
+  <img src="docs/screenshots/chat.png" alt="Chat: a saved conversation about a product launch, the answer as a numbered list with citations, the notes it was grounded in, suggested next questions, and the composer with skills, web search, plan and agent mode" width="850">
+  <br><sub><b>Chat</b>: ask in plain English, with skills, web search, a plan step and agent mode beside the box</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/graph-dark.png" alt="Graph: a map of notes coloured by category, with links between related notes" width="850">
-  <br><sub><b>Graph</b>: your notes as a map, coloured by category, linked by meaning</sub>
+  <img src="docs/screenshots/graph.png" alt="Graph: seventy-five notes as a map coloured by category, with a dense cluster of work notes, a dense cluster of trip notes, a looser web of reading and recipes, a training plan with its branches, and loose notes on their own" width="850">
+  <br><sub><b>Graph</b>: dense clusters, loose webs and notes on their own, coloured by category; a link with a reason is drawn in the accent</sub>
 </p>
 
 <details>
-<summary><b>Eighteen more screenshots</b>: Library and its Activity view, the OCR workspace, boards, mind maps, Documents and focus mode, Timeline, Reminders, the features browser, the command palette, Appearance, Your look, the corner companion and one of your own, and a phone</summary>
+<summary><b>Sixteen more screenshots</b>: the Library and its Activity view, Timeline, Reminders, Documents and focus mode, a board, a mind map, the command palette, Tools and features, Settings, Your look, the popup agent, the corner companion, light and dark side by side, and a phone</summary>
 <br>
 
-
 <p align="center">
-  <img src="docs/screenshots/library-dark.png" alt="Library: notes, documents, chats and files in one searchable grid" width="850">
+  <img src="docs/screenshots/library.png" alt="Library: chats, boards, mind maps, documents and notes as cards in one grid, with a filter chip per kind and its count" width="850">
   <br><sub><b>Library</b>: everything you have made, in one place</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/activity.png" alt="Library, Activity: one line per record, newest first: when, what was done, and the detail" width="850">
-  <br><sub><b>Activity</b>: a record of what you did, one line each, in the Library beside what you made</sub>
+  <img src="docs/screenshots/activity.png" alt="Library, Activity: one line per thing you did, newest first: when, what was done, and the detail" width="850">
+  <br><sub><b>Activity</b>: a record of what you did, one line each, beside what you made</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ocr.png" alt="The OCR workspace: a scanned page of meeting notes on the left, every region Tesseract read on the right with its confidence, and Save as note below" width="850">
-  <br><sub><b>OCR workspace</b>: a scanned page read locally, region by region, checkable and editable before it becomes a note</sub>
+  <img src="docs/screenshots/timeline.png" alt="Timeline: notes and reminders in a feed with a header per day, each row with its category, tags and time, and a density strip down the right" width="850">
+  <br><sub><b>Timeline</b>: every note and reminder on a time axis</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/whiteboard.png" alt="A whiteboard board: coloured cards in three columns under a banner, with the tool rail along the bottom" width="850">
-  <br><sub><b>Boards</b>: cards, drawings and images you arrange yourself</sub>
+  <img src="docs/screenshots/reminders.png" alt="Reminders: a magic add box, a form with date, time, priority and repeat, quick set steppers, and the list of open reminders, each linked to the note it came from" width="850">
+  <br><sub><b>Reminders</b>: due dates with priority and repeats, linked to the note they came from</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/map.png" alt="A concept map: a central topic with coloured branches and leaves, and the keyboard hints for growing it" width="850">
-  <br><sub><b>Mind maps</b>: a branch with Tab, one beside it with Enter, core ideas told apart by shape, fill and size</sub>
+  <img src="docs/screenshots/documents.png" alt="Documents: a launch brief open in the editor, with headings, a bulleted list and a table, the recent documents beside it and the word count below" width="850">
+  <br><sub><b>Documents</b>: a long-form editor with Live, Source, Split and Read views; it reopens where you left off</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents-dark.png" alt="Documents: the long-form editor on a draft, with its outline, word count and two writing suggestions underlined in place" width="850">
-  <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
+  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it" width="850">
+  <br><sub><b>Focus mode</b>: the page and nothing else, with the writing checks beside it when you want them</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/focus.png" alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it listing a spelling slip and a repeated word" width="850">
-  <br><sub><b>Focus mode</b>: the page and nothing else, with the suggestions beside it when you want them</sub>
+  <img src="docs/screenshots/whiteboard.png" alt="A board: a banner, coloured cards in two columns, and a release flow of shapes with text inside them, joined by connectors labelled yes, no and after a week" width="850">
+  <br><sub><b>Boards</b>: cards, shapes that hold text, and connectors that carry a label</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/timeline-dark.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
-  <br><sub><b>Timeline</b>: every note on a time axis</sub>
+  <img src="docs/screenshots/map.png" alt="A mind map of a trip, laid out both ways from the root: numbered branches, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note" width="850">
+  <br><sub><b>Mind maps</b>: numbered branches, topics that are tasks, and a note behind any topic</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/reminders-dark.png" alt="Reminders: due dates with quick-set buttons and priority, linked to the note they came from" width="850">
-  <br><sub><b>Reminders</b>: due dates linked to the note they came from</sub>
+  <img src="docs/screenshots/palette.png" alt="The command palette: the word launch matching notes, a document, a board and reminders at once, with a preview of the chosen note" width="850">
+  <br><sub><b>Command palette</b>: Ctrl/⌘-K reaches a command, a note, a document, a file or a board</sub>
 </p>
 
 <p align="center">
@@ -110,53 +109,34 @@ capture a thought
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/palette.png" alt="The command palette: one typed word matching commands and notes at once" width="850">
-  <br><sub><b>Command palette</b>: Ctrl/⌘-K reaches a command, a note, a document, a file or a board</sub>
+  <img src="docs/screenshots/settings.png" alt="Settings, Appearance: thirteen themes as swatches, with saved looks below and the section list on the left" width="850">
+  <br><sub><b>Settings</b>: thirteen themes, your own accent, type, density and corners, and every setting searchable</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/agent.png" alt="The popup agent over the Notes tab: Atlas's head beside the title, starter questions, and the composer with its wand" width="850">
-  <br><sub><b>Popup agent</b>: ask about your notes from any tab, with Atlas at the head of it</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: thirteen themes as swatches, Quiet utilitarian chosen, with saved looks below" width="850">
-  <br><sub><b>Appearance</b>: thirteen themes, your own accent, type, density and corners</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/your-look.png" alt="Settings, Profile, Your look: the face drawn from your name, Shuffle, and a picker for each part: look, mood, hair, hair colour, skin, clothes, headwear, eyewear and what you hold" width="850">
+  <img src="docs/screenshots/your-look.png" alt="Settings, Profile, Your look: the face drawn from the name Maya, Shuffle, and a picker for each part: look, mood, hair, hair colour, skin, clothes, headwear, eyewear and what you hold" width="850">
   <br><sub><b>Your look</b>: a face drawn from your name, and every part of it yours to choose</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/companion.png" alt="The Notes tab with Atlas as the corner companion, perched on the top edge of the notes panel" width="850">
-  <br><sub><b>The corner companion</b>: Atlas, you, a persona or a character of your own, perched on a panel and poked for a reaction</sub>
+  <img src="docs/screenshots/agent.png" alt="The popup agent over the Notes tab: Atlas beside the title, the box to ask it to do something, and starters grouped by Capture, Find, Summarise and Remind" width="850">
+  <br><sub><b>Popup agent</b>: ask Atlas to do something from any tab</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/custom-companion.png" alt="Settings, Appearance, Corner companion set to Your own character named Pip, large, with its part pickers, and the character itself at the top right of the page" width="850">
-  <br><sub><b>A companion of your own</b>: any name, and the same parts as Your look</sub>
+  <img src="docs/screenshots/companion.png" alt="Chat with Atlas as the corner companion, settled beside a saved conversation" width="850">
+  <br><sub><b>The corner companion</b>: Atlas, you, a persona or a character of your own, keeping you company on any page</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/theme-split.png" alt="The dashboard, half in the light theme and half in the dark theme, split down the middle" width="850">
+  <img src="docs/screenshots/theme-split.png" alt="The dashboard, the left half in the light theme and the right half in the dark theme, split down the middle" width="850">
   <br><sub><b>Light or dark</b>: every theme comes in both, or follows your system</sub>
 </p>
 
-
-
-
-
-
-
-
-
 <p align="center">
-  <img src="docs/screenshots/phone.png" alt="The Notes tab at phone width: one column of note cards, a New note button and the tab bar along the bottom" width="390">
+  <img src="docs/screenshots/phone.png" alt="The Notes tab at phone width in the dark theme: one column of note cards, a New note button and the tab bar along the bottom" width="390">
   <br><sub><b>On a phone</b>: one column, the tabs at your thumb</sub>
 </p>
-
 
 </details>
 
@@ -298,7 +278,7 @@ interface zoom, a guided tour of the real controls, and daily local backups.
 ## Meet Atlas
 
 <p align="center">
-  <img src="docs/screenshots/atlas-mood.png" alt="Atlas in its masculine look on a night-sky tile: a small astral figure with a ring of orbiting stars, swept starlit hair, a nebula stream and a happy expression" width="240">
+  <img src="docs/screenshots/atlas.png" alt="Atlas, delighted: a small astral figure on a night-sky tile, eyes closed in a wide smile with rosy cheeks and two sparkles, a ring of orbiting stars round its head and a nebula stream curling round its body" width="260">
   <br><b>The star spirit who keeps your notebook</b>
 </p>
 

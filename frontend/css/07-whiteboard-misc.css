@@ -1367,10 +1367,20 @@ body.has-agent-monitor #timeline-scroll {
    into), and the bar's own bottom border is what separates that unit from the
    conversation. */
 .command-palette-head {
-  padding: var(--space-3) var(--card-pad-x) 0;
+  /* INBOX 475 ("there isnt much vertical spacing or gap between the popup
+     agent title and avatar and the input"). Two causes, measured at 1440x900:
+     the bottom padding was 0 (the Find anything head's is `--space-4`), and
+     the head was a flex item of the card's capped column with the default
+     `flex-shrink: 1`, so the twelve starters squeezed it 7px and its 28px
+     avatar overflowed it, 5px above the field. The head, the bar and the foot
+     never shrink (the card's own comment above says so; only the starters and
+     the conversation scroll). */
+  padding: var(--space-3) var(--card-pad-x) var(--space-4);
+  flex: 0 0 auto;
 }
 
 .command-palette-bar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: var(--space-3);

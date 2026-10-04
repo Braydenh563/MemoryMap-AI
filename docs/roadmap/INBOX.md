@@ -34,6 +34,33 @@ with its owner named in the entry.
 
 ## Open items
 
+476. **The owner, 2026-10-04 evening, verbatim.** "the library submenu bar
+     shows on the whiteboard and mindmap but not on the documents editor,
+     should it be hidden when on those as well??" Decision (standing order
+     3), taken: yes. A board and a map are full editors like a document, so
+     the Library sub-tab bar hides while one is open and the editor's own
+     Back returns to the list; one rule for all three. Agent.
+
+475. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the popup
+     agent's head over its input).** "there isnt much vertical spacing or gap
+     between the popup agent title and avatar and the input text box".
+     Agent (measure the gap against the other dialog heads, DESIGN.md's
+     reference dialog head).
+
+474. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a link
+     chip reading "something lol [something](https://something.com...").**
+     "if I press "see more" for the note connections, I cant go back to the
+     collapsed links way it was before. also hyperlinks in notes arent
+     rendered or show inline md in the note links". Two bugs: the
+     connections row's See more has no See less, and a link chip shows the
+     note's raw Markdown. Agent.
+
+473. **The owner, 2026-10-04 evening, verbatim, with a screenshot (note cards
+     clamped to a title and one line, then "Show more").** "can you increase
+     the amount of lines or characters in a note that show before it gets cut
+     off by the show more??" Agent: measure the clamp per density and raise
+     it (INBOX 457's two-line fix holds the floor).
+
 472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
      is left and still open. Use your ui UX design skills to improve ui UX.
      Enhance the backend optimise, make things faster. Polish the app to be

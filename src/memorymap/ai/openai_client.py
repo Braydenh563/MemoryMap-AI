@@ -791,7 +791,9 @@ class OpenAICompatClient(Provider):
                 # server without tools: ask again as an ordinary turn.
                 response.close()
                 response = self._post(payload, stream=True)
-            if _looks_like_tools_rejection(response.status_code, response.text):
+            #: `.text` only on an error: read first, it drained a streamed 200
+            #: whole, so nothing reached the page until the end (INBOX 534).
+            if response.status_code >= 400 and _looks_like_tools_rejection(response.status_code, response.text):
                 response.close()
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")
             try:

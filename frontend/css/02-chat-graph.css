@@ -4313,6 +4313,9 @@ mark.lightbox-hit {
   width: 100%;
   max-height: 10rem;
   object-fit: cover;
+  /* A lazy picture holds a box until it loads, so the transcript does not
+     grow under a reader scrolling down it (INBOX 534). */
+  aspect-ratio: auto 4 / 3;
   border-radius: var(--radius-sm);
   cursor: zoom-in;
 }

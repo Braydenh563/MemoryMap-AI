@@ -46,13 +46,28 @@ function followBottom(element) {
     touchY = y;
   }, { passive: true });
   element.addEventListener("keydown", (event) => /^(ArrowUp|PageUp|Home)$/.test(event.key) && release());
+  //: A late picture grows the pane and a fold the app collapses mid-turn
+  //: shrinks it, neither with a scroll event: follow while stuck (INBOX 534).
+  //: Capture, since neither event bubbles.
+  for (const type of ["load", "toggle"]) {
+    element.addEventListener(type, () => (type === "load" || chatController) && keepAtBottom(element), true);
+  }
+  //: **Only a scroll UP lets go, never growth** (INBOX 534). A scroll event
+  //: lands a frame after the pin that caused it; a block that grew the pane
+  //: past the slack in between read as the reader leaving, so following
+  //: stopped at the next heading, list or code block and the pane fell
+  //: behind the writing (the jump button was the only way back).
+  let lastTop = element.scrollTop;
   element.addEventListener(
     "scroll",
     () => {
       const distance =
         element.scrollHeight - element.scrollTop - element.clientHeight;
-      if (distance > SCROLL_STICK_SLACK) element.dataset.stuck = "0";
-      else if (!followReleased(element)) element.dataset.stuck = "1";
+      const up = element.scrollTop < lastTop;
+      lastTop = element.scrollTop;
+      if (distance <= SCROLL_STICK_SLACK) {
+        if (!followReleased(element)) element.dataset.stuck = "1";
+      } else if (up) element.dataset.stuck = "0";
       //: The chat pane is the one place this flag has a visible consequence
       //:, see `syncChatJumpLatest`. Guarded by id rather than wired at the
       //: chat's own call site because `followBottom` is what owns the flag,
@@ -102,8 +117,10 @@ function syncChatJumpLatest() {
   //: transcript that has nothing left below the fold. Also keeps
   //: `dataset.stuck` itself current for `keepAtBottom`'s own check.
   const distance = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
-  const scrolledAway = distance > SCROLL_STICK_SLACK;
-  if (scrolledAway || !followReleased(pane)) pane.dataset.stuck = scrolledAway ? "0" : "1";
+  //: Far from the bottom is "away" only once the reader left (`followBottom`);
+  //: growth under a following pane is the pin's to close (INBOX 534).
+  const scrolledAway = distance > SCROLL_STICK_SLACK && pane.dataset.stuck === "0";
+  if (distance <= SCROLL_STICK_SLACK && !followReleased(pane)) pane.dataset.stuck = "1";
   const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
   //: And never on a transcript with no messages: the owner's screenshot of a
   //: new chat had the pill under the welcome, which is "latest" of nothing.

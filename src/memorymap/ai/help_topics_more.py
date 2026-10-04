@@ -686,10 +686,11 @@ MORE_TOPICS.extend(
                 "picture inside its answer by writing [picture 2] for note 2 "
                 "([picture 2.2] for its second): it appears as a figure under "
                 "the paragraph, with its caption and a From note 2 link that "
-                "opens the note, and a click opens the image viewer. Ask for "
-                "the picture (show me the sketch) and a cited note that is "
-                "mostly pictures gets one even if Atlas does not write the "
-                "token. At most three figures an answer; reopening the chat "
+                "opens the note, and a click opens the image viewer. Atlas "
+                "shows one only when seeing it answers or shows the point; ask "
+                "for the picture (show me the sketch) and a cited note's "
+                "picture appears even without the token. At most three figures "
+                "an answer; reopening the chat "
                 "draws them again."
             ),
             "badge": {"label": "Chat", "tab": "chat"},

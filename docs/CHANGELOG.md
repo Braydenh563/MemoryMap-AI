@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.
 - Chat: the Attach panel draws over the chat's header instead of under it.
 - Sub-tab bars stay readable over a scrolled page; Quick access rows no longer keep an empty strip for their hidden move buttons.
 - Graph, Trace: each step of a route says how many other reasons its two notes relate ("linked to +2") and names them on hover: people or things both mention, a note both link with, a rare tag both carry; a step with a private note names none. `steps[].also` on `GET /graph/path` (GRAPH_PLAN KG8, INBOX 528).

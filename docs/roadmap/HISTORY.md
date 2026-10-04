@@ -37476,6 +37476,13 @@ width, 47% of the column at 1440.
      (`attachz.js`: 7 of 7 points on the panel's top band hit the panel,
      was 2 of 7).
 
+532. **The owner, 2026-10-04, verbatim.** "make sure that images are used in
+     chat assistant message bubbles intentionally and not just to have it
+     there." Fixed: the prompt says a picture only when seeing it answers or
+     shows the point, never as decoration; without a token a figure is drawn
+     only when the question asks about a picture (the "mostly pictures"
+     fallback is gone). Guide updated.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

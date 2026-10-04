@@ -425,7 +425,7 @@ def _pictures_hint(note: dict, number: int) -> str:
         return ""
     plural = "s" if count != 1 else ""
     more = f" or [picture {number}.2]" if count > 1 else ""
-    return f" (has {count} picture{plural}: write [picture {number}]{more} where showing one helps)"
+    return f" (has {count} picture{plural}: write [picture {number}]{more} only if seeing it answers or shows the point, never as decoration)"
 
 
 def _dates_hint(note: dict) -> str:

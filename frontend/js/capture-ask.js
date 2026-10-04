@@ -1914,14 +1914,17 @@ function placeAnswerFigures(answerEl, meta, question) {
     }
   }
   if (wrote) return;
-  const asked = PICTURE_ASK.test(question || "");
+  //: Without a token, a picture is drawn only when the question is about
+  //: one (INBOX 532, the owner: "make sure that images are used ...
+  //: intentionally and not just to have it there"). A cited note that is
+  //: mostly pictures no longer earns one on its own.
+  if (!PICTURE_ASK.test(question || "")) return;
   for (const target of targets) {
     for (const mark of target.querySelectorAll(".answer-citation")) {
       const n = notes.findIndex((e) => e.id === Number(mark.dataset.noteId)) + 1;
       const entry = notes[n - 1];
       if (!entry) continue;
-      const words = String(entry.content || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-      if (notePictures(entry).length && (asked || words.length < 200)) put(target, mark, n, 0);
+      if (notePictures(entry).length) put(target, mark, n, 0);
     }
   }
 }

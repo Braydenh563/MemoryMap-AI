@@ -54,7 +54,7 @@ def test_the_chat_answer_carries_the_alts_and_the_prompt_names_the_pictures(ai_c
     body = ai_client.post("/chat", json={"question": "what did I photograph on the walk? moss"}).json()
     assert body["picture_alts"] == {"/media/moss123.png": "moss on a wall"}
     prompt = "\n".join(str(m.get("content", "")) for m in fake_ollama.chat_calls[-1])
-    assert "(has 1 picture: write [picture 1] where showing one helps)" in prompt
+    assert "(has 1 picture: write [picture 1] only if seeing it answers or shows the point, never as decoration)" in prompt
 
 
 def test_the_turn_keeps_the_alts_for_a_reopened_chat(client):
@@ -155,7 +155,7 @@ def test_the_client_places_figures_from_tokens():
     start = ask.index("function placeAnswerFigures(")
     body = ask[start : ask.index("\n}\n", start)]
     # The token is always removed; a figure needs a note with pictures; three at most.
-    for needle in ("PICTURE_TOKEN", "FIGURES_MAX", "notePictures(", "PICTURE_ASK", "words.length < 200"):
+    for needle in ("PICTURE_TOKEN", "FIGURES_MAX", "notePictures(", "PICTURE_ASK", "if (!PICTURE_ASK.test(question || \"\")) return;"):
         assert needle in body
     assert "FIGURES_MAX = 3" in ask
     assert 'querySelector(".answer-figure")' in body

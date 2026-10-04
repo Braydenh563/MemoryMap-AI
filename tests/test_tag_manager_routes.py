@@ -146,4 +146,5 @@ def test_a_tag_filter_follows_a_rename_or_clears_on_remove():
     js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-manager.js").read_text(encoding="utf-8")
     assert "function retargetTagFilter(moves)" in js
     assert "if (moves) retargetTagFilter(moves);" in js
-    assert js.count("Object.fromEntries(names.map((name) => [name,") == 2
+    # Merge into, Remove, and a look-alike suggestion's Merge (INBOX 504).
+    assert js.count("Object.fromEntries(names.map((name) => [name,") == 3

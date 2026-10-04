@@ -6069,6 +6069,117 @@ input.doc-title-input::placeholder {
   margin-inline-end: var(--space-1);
 }
 
+/* The count is the way to its notes (INBOX 504): a button that keeps the
+   quiet text's look and gains an underline under the pointer. */
+button.manage-cat-count {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.manage-cat-count:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* The tool row wraps on a narrow sheet: the field keeps a line's worth. */
+.manage-cat-tools {
+  flex-wrap: wrap;
+}
+
+.manage-cat-tools > .manage-cat-search {
+  flex: 1 1 10rem;
+}
+
+/* A wider reading width than a sheet of choices (34rem): the tool row holds
+   a field, a sort, a toggle and New, and the footer four actions, and at
+   34rem each wrapped (measured: New on a second line, "Merge into…" on two). */
+@media (min-width: 720px) {
+  .sheet-card.manage-cat-card:not(.sheet-card-corner) {
+    max-width: 40rem;
+  }
+}
+
+.manage-cat-footer-label {
+  white-space: nowrap;
+}
+
+.manage-cat-tools > .manage-cat-sort,
+.manage-cat-tools > .select-shell,
+.manage-cat-tools > .manage-cat-rare {
+  flex: 0 0 auto;
+}
+
+/* The sort's opener and the toggle take the row's one height (the field's
+   and New category's), not the opener's own padding (37px beside 32). */
+.manage-cat-tools > .select-shell > .select-opener,
+.manage-cat-tools > .manage-cat-rare {
+  height: max(var(--target-min), var(--button-min-h));
+  min-height: 0;
+  padding-block: 0;
+  border-radius: var(--radius-md);
+}
+
+.manage-cat-rare[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Look-alike names offered as one merge, above the list: a tinted group
+   (surface 2, no edge), one line per set, its Merge at the right. */
+.manage-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.manage-suggest-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.manage-suggest-later {
+  margin-inline-start: auto;
+}
+
+.manage-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.manage-suggest-names {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+}
+
+.manage-suggest-row > button {
+  flex: 0 0 auto;
+}
+
+.manage-suggest-more {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
 /* The ⋯ is a ghost icon, the head's own button shape, shown on hover or
    focus (always on touch, where there is no hover). */
 .manage-cat-menu > button {

@@ -512,7 +512,8 @@ MORE_TOPICS.extend(
                 "manage tags", "tag manager", "rename a tag", "rename tag", "merge tags",
                 "merge a tag", "remove a tag", "delete a tag", "every tag", "tag counts",
                 "tags row", "tag chip", "right click a tag", "right-click a tag",
-                "tags everywhere",
+                "tags everywhere", "duplicate tags", "similar tags", "sort tags",
+                "unused tags", "used once",
             ),
             "body": (
                 "The tag manager lists every tag with how many notes use it. Open "
@@ -520,8 +521,12 @@ MORE_TOPICS.extend(
                 "notes sidebar, Settings or the command palette. Rename a tag, "
                 "merge it into another, or remove it from all notes, one or "
                 "several at a time; each change shows in the notes' history and "
-                "has one Undo. Right-click a tag chip (or press the menu key on "
-                "it) for Show notes, Rename in all notes, Remove from this note "
+                "has one Undo. Sort it by name, by notes or by the tag used most "
+                "recently; Used once lists the tags only one note carries; tags "
+                "that look like one (idea and ideas, to-do and todo) are offered "
+                "as one Merge above the list, and the count after a tag shows its "
+                "notes. Right-click a tag chip (or press the menu key on it) for "
+                "Show notes, Rename in all notes, Remove from this note "
                 "and Manage tags. The selection bar's Tags adds or removes tags on "
                 "every selected note at once."
             ),
@@ -534,7 +539,8 @@ MORE_TOPICS.extend(
                 "split a category", "delete a category", "category colour",
                 "category color", "colour of a category", "color of a category",
                 "rename a category", "notes in a category", "view category",
-                "category chip",
+                "category chip", "duplicate categories", "similar categories",
+                "empty categories", "sort categories", "colour several categories",
             ),
             "body": (
                 "Manage categories (the Categories head in the notes sidebar, a "
@@ -545,7 +551,11 @@ MORE_TOPICS.extend(
                 "notes' tags or by Atlas, which reads the notes and proposes "
                 "named groups to review. Colour gives a category one of twelve "
                 "swatches (or Automatic), shown on its dots, chips, graph nodes, "
-                "the Timeline and the Dashboard. A category chip on a note opens "
+                "the Timeline and the Dashboard; select several to colour, merge "
+                "or delete them together, with one question and one Undo. Sort by "
+                "name, notes or the one used most recently, Empty lists the ones "
+                "with no notes, look-alike names are offered as one Merge, and the "
+                "count after a name shows its notes. A category chip on a note opens "
                 "Show notes in the category, Move to another category and Manage "
                 "categories; dragging a note's category label onto another "
                 "category moves it too."

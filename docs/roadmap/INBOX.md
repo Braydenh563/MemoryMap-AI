@@ -41,7 +41,18 @@ with its owner named in the entry.
      backend speed pass (measure every hot endpoint on a seeded notebook,
      fix the slowest, numbers before and after); the UI agents carry the
      UI half (464 items); then a demo-to-product polish sweep (copy,
-     empty states, about/version, first run).
+     empty states, about/version, first run). **Backend pass, 2026-10-04**
+     (2,018-note seed; `apibench.js`, `asgi_bench.py`): static files are
+     compressed once per version and kept on disk (stylesheet 22 to 46 ms
+     per fetch to 4 to 6 ms, restart included); the last two
+     `BaseHTTPMiddleware` layers are pure ASGI (0.3 to 0.8 ms per request);
+     the unlock gate stops querying users on every request (0.4 ms); the
+     graph decrypts a private note once, not twice. Measured and left:
+     `/entries` is 21 ms per 200 notes (8 query, 12 model build); `/graph`
+     is 90 ms at 2,018 notes, over half of it ORM loading, kept because
+     rows would change what `paths.build` receives; larger background note
+     pages did not help (`notesfull.js`: 1,158 ms vs 1,335 ms to the whole
+     list). Product polish sweep: agent.
 
 464. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's active Library button: its icon faint on the accent

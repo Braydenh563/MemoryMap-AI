@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Motion (INBOX 459 (2)): the chosen option's highlight now slides to the next one in every segmented control, the top bar's tabs, the Notes and Library sub-tabs and the Settings section list, instead of vanishing and reappearing; it is instant with reduced motion on.
 - Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
 - Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.
 - Companion: the resize ring no longer shows on the companion in its enlarged view.

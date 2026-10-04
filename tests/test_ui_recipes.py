@@ -2811,6 +2811,11 @@ def test_a_segmented_track_is_rounded_by_the_table() -> None:
                 #: button` rounds a segment, which is not what this table is
                 #: about, and `.dock .seg` rounds a track.
                 last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                #: `.seg::before` is a box drawn inside the track (the
+                #: selection indicator, INBOX 459 (2)), rounded like the
+                #: segment it sits on; it is not the track.
+                if "::" in last:
+                    continue
                 if not set(re.findall(r"[.#][\w-]+", last)) & names:
                     continue
                 if value not in SEG_TRACK_RADII:

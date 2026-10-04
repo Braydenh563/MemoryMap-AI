@@ -245,6 +245,32 @@ velocity into a spring), so nothing here contradicts the apple-design skill's
 "avoid fixed-duration transitions for anything gesture-driven", that rule
 doesn't apply until something *is* gesture-driven.
 
+**What moves, and what never does (INBOX 459 (2)).** The owner asked for
+"cheap css animations to things like the horizontal pill selectors and
+sidebars ... but dont over do it". Motion here says one thing: *this is the
+same thing, somewhere else now*. So a selection travels, a panel arrives from
+the edge it lives on, and nothing moves to decorate.
+
+- **A selection that moves between options** glides: one indicator per strip
+  (the strip's `::before`, CSS-anchored to its `.active` option) travels
+  `--motion-slow` on `--ease-in-out`, and the label's colour changes on the
+  same clock so white text never sits on an empty well. Every `.seg` (not
+  `.seg-multi`, whose options are independent), the top bar's tabs, the
+  Notes and Library sub-tabs and the Settings nav. Measured
+  (`scratchpad/ui-sweeps/glide.js`, 8 clicks a strip at 1440): 200ms on
+  every click, lands on the option to 0.0px, 10 to 12 extra layouts a click
+  over a control with the transition off, 0.3 to 0.6ms each.
+- **Never:** a width, height, margin or padding in motion; a page's own
+  scroll; anything on first paint (a transition needs a before, and a strip
+  or panel drawn for the first time has none); a loop.
+- **Reduced motion**, the system's or Appearance's: every one of these is
+  instant (the two blankets in 02-chat-graph.css zero every transition,
+  pseudo-elements included; `glide.js` REDUCED=1 and APPEARANCE=1 measure
+  the indicator landing on the first frame).
+
+The recipe row is "Motion" in the index below; `tests/test_motion_recipes.py`
+holds it.
+
 ---
 
 ## Glass & materials
@@ -459,6 +485,7 @@ this table and its lint in the same commit as the feature, never after.
 | Acting on a rendered block (change its kind, fold, edit, copy, delete) | the block bar (`docBlockBarShow`, documents.js): a solid `.doc-block-bar` of `smallButton`s at the block's top right while the pointer is on it, lifted to body and placed by `docPlaceFixed`; the callout's kind is its own tile opening `calloutMenuItems` through `openMenuAtPoint`, the same list the Live view's `.cm-md-callout-kindbtn` opens. Every change is written through the surface after checking the source line is the block, and a delete offers Undo in its toast | `scratchpad/ui-sweeps/blockbar.js` |
 | Spacing, type, radius, shadow, motion | the tokens above; a px in a stylesheet is a lint failure | `tests/test_style_scale.py` |
 | A transition, a hover | a `--motion-*` duration and an `--ease-*` curve on every transition, never `all`; a hover is a colour (`--accent-surface-hover` for a solid button, `--hover-veil` over any other ground), never a `filter` | `tests/test_motion_tokens.py`, `scratchpad/ui-sweeps/f2-hover.js` |
+| Motion (a selection that moves, a panel that opens) | **What moves is the compositor's**: `opacity`, `transform`/`translate`/`scale`, a colour, on the `--motion-*` tokens. **A selection** is the one indicator recipe (08-consistency.css, "motion: the selection glides"): the strip's `::before` anchored with `position-anchor: --glide` to the `.active` option, inside `@supports (anchor-scope: --a)`, `--motion-slow` `--ease-in-out`; a strip gets it by being a `.seg` (or joining that rule's list), never by script, and a family whose chosen option has its own corner or fill sets `--glide-radius`, `--glide-fill`, `--glide-ring` there. Its four insets are the one layout property in motion in the app, the trade written at the rule. **Never** a width or height in motion, nothing on first paint, nothing under reduced motion (instant) | `tests/test_motion_recipes.py`, `tests/test_cheap_animations.py`, `scratchpad/ui-sweeps/glide.js` |
 | A notification (toast) | `toast`, `toastAction` or `toastProgress` in status.js; it arrives and leaves by fading with 4px of travel (`toast-in`, `toast-out`, on `translate`), and every way out goes through `dismissToast`, never `note.remove()`, so none of them vanishes between two frames. **A toast yields to the focused control it covers** (WCAG 2.4.11): status.js's `focusin` listener puts `is-yielding` on `#toast-box` when a toast overlaps the control Tab just reached, and `#toast-box.is-yielding > .toast` fades to 0.12 and takes no clicks until focus moves off it; the box itself takes no clicks beside a narrow toast below 1100px, only its toasts do | `scratchpad/ui-sweeps/f2-skel.js`, `scratchpad/ui-sweeps/zoom.js` | `scratchpad/ui-sweeps/f2-skel.js` |
 | A list whose first rows are on their way | `showSkeletons(list, n)` before the fetch and `clearSkeletons(list)` after it (app.js): the `.skeleton` placeholders at the height of the list's own rows, `aria-busy` while they show, only ever into an empty list; the list's own render replaces them. Never a spinner or a blank card where the shape of the content is known | `scratchpad/ui-sweeps/f2-skel.js` |
 | An animation of anything | `transform` and `opacity`, never `width`, `height`, `top`, `left`, `margin` or `padding`. A bar that fills is a full-width box scaled from a left origin inside a track that clips (`.boot-splash-progress-fill`, 00-tokens-shell.css), never a box that grows: measured, the width version cost 121 layouts for one 2.4s crawl and the scaled one costs none. A box that genuinely does change size with content in it keeps its transition and states the reason in a comment on the line above, as `#phone-tab-dock` does | `tests/test_cheap_animations.py`, `scratchpad/ui-sweeps/animcost.js` |

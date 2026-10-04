@@ -1153,6 +1153,8 @@ def graph_path(
         session, [index.entries[note_id] for note_id in everywhere]
     )
 
+    also = _hop_reasons(session, index, [(step.source, step.target) for one in chains for step in one])
+
     def rendered(one: list) -> dict:
         order = [source] + [step.target for step in one]
         return {
@@ -1167,6 +1169,7 @@ def graph_path(
                     "target": step.target,
                     "kind": step.kind,
                     "how": step.how,
+                    "also": also.get((step.source, step.target), []),
                 }
                 for step in one
             ],
@@ -1188,6 +1191,48 @@ def graph_path(
         #: …and all of them, best first. Always at least one element when
         #: `found` is true, so the UI has one shape to render rather than two.
         "routes": routes_out,
+    }
+
+
+def _hop_reasons(session: Session, index: paths.Connections, pairs: list[tuple[int, int]]) -> dict:
+    """GRAPH_PLAN KG8: every structural reason each hop's two notes relate,
+    beside the edge the route took (`relations.explain_pair`, the sentences
+    the link suggestions use). Nothing for a hop with a private end: its tags
+    and entities come from its text."""
+    from memorymap.ai import relations
+    from memorymap.core.database import Entity, EntityMention
+
+    readable = {
+        node: entry for node, entry in index.entries.items() if not entry.is_private
+    }
+    wanted = {node for pair in pairs for node in pair if node in readable}
+    if not wanted:
+        return {}
+    notes = {
+        node: relations.NoteFacts(
+            label=manager.plain_label(entry.content, 40) or "Untitled note",
+            tags=frozenset(tag.lower() for tag in _tags_of(entry)),
+        )
+        for node, entry in readable.items()
+    }
+    neighbours: dict[int, set[int]] = {}
+    for node, steps in index.edges.items():
+        for other, step in steps.items():
+            if step.kind in ("link", "thread"):
+                neighbours.setdefault(node, set()).add(other)
+    entity_ids = set(session.scalars(select(EntityMention.entity_id).where(EntityMention.entry_id.in_(wanted))))
+    entity_notes: dict[str, set[int]] = {}
+    if entity_ids:
+        for name, entry_id in session.execute(
+            select(Entity.name, EntityMention.entry_id)
+            .join(Entity, Entity.id == EntityMention.entity_id)
+            .where(EntityMention.entity_id.in_(entity_ids))
+        ):
+            entity_notes.setdefault((name or "").strip(), set()).add(entry_id)
+    return {
+        (a, b): relations.explain_pair(a, b, notes, neighbours, entity_notes)
+        for a, b in pairs
+        if a in readable and b in readable
     }
 
 

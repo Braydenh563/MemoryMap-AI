@@ -1137,7 +1137,8 @@ HELP_TOPICS.extend(
                 "the Local map beside a note has the same four under Options. "
                 "Colour: Topic outlines each subject inside a cluster, names it by "
                 "the tag, person or word its notes share most, and its legend entry "
-                "finds those notes."
+                "finds those notes. In Trace, a step marked +2 has two more reasons "
+                "its notes relate; point at it to read them."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },

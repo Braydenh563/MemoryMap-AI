@@ -38731,3 +38731,15 @@ notes in 170 ms); `scratchpad/ui-sweeps/kg6topics.js` 4/4 light and dark
 (two bridged subjects, two named topics, one colour each). Not verified: the
 plates against note labels on a dense map (the label pass does not know the
 plates), and the SVG renderer draws the topic colours without hulls.
+
+### From GRAPH_PLAN.md: KG8 part one, a path's hop says every reason
+
+`relations.explain_pair` reads one pair with KG2's signals, weights and
+sentences (entities with the notebook's own counts, link and thread
+neighbours, rare tags; no similarity: a path asks what the notebook says).
+`/graph/path` steps, on every route, gain `also`, built once per request for
+every hop (`routes_graph._hop_reasons`); a hop with a private end has none.
+Trace's connector shows `+N` and its title lists them. Measured:
+`tests/test_path_explain_kg8.py` 4 tests; `scratchpad/ui-sweeps/kg8trace.js`
+4/4 (one hop, "+2", both reasons on hover, nothing sideways). Left in
+GRAPH_PLAN: filter chips by relation type and property (needs KG3 and KG4).

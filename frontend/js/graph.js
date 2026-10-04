@@ -967,7 +967,10 @@ function renderTraceReadout(result) {
   for (const step of result.steps) {
     const connector = document.createElement("span");
     connector.className = "graph-trace-connector";
-    connector.title = step.how;
+    //: GRAPH_PLAN KG8: every other reason the pair relates rides on the hop,
+    //: counted on its label and spelt out on hover.
+    const also = (step.also || []).map((g) => g.reason);
+    connector.title = also.length ? `${step.how}\nAlso: ${also.join("; ")}` : step.how;
     //: The class already said icon; it is one now. A typed arrow drew at the
     //: system face inside a connector built from Phosphor everywhere else.
     const arrow = document.createElement("i");
@@ -975,7 +978,7 @@ function renderTraceReadout(result) {
     arrow.setAttribute("aria-hidden", "true");
     const how = document.createElement("span");
     how.className = "graph-trace-connector-label";
-    how.textContent = step.how;
+    how.textContent = also.length ? `${step.how} +${also.length}` : step.how;
     connector.append(arrow, how);
     path.append(connector, noteButton(byId.get(step.target)));
   }

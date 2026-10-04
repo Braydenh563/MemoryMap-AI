@@ -225,3 +225,46 @@ def recognise(
         kept.append(candidate)
     kept.sort(key=lambda c: (-c.confidence, -len(c.evidence), c.a, c.b))
     return kept
+
+
+def explain_pair(
+    a: int,
+    b: int,
+    notes: dict[int, NoteFacts],
+    neighbours: dict[int, set[int]],
+    entity_notes: dict[str, set[int]],
+) -> list[dict]:
+    """Every structural reason two notes are related, for one pair (GRAPH_PLAN
+    KG8: a path's hop says all of them, not only the link that made it).
+
+    The same signals, weights and sentences as `recognise`, read for one pair
+    from what the caller already holds: `neighbours` (links and threads),
+    `entity_notes` (entity name -> the notes that name it, the whole notebook's
+    count, which is what makes one rare). Similarity is left out: a path asks
+    what the notebook says, not how two texts read.
+    """
+    candidate = Candidate(min(a, b), max(a, b))
+    hits = [
+        (_rarity(len(members), 0.5, 0.35, 0.2), name)
+        for name, members in sorted(entity_notes.items())
+        if a in members and b in members and 2 <= len(members) <= ENTITY_HUB
+    ]
+    if hits:
+        candidate.evidence["entities"] = (_noisy_or([w for w, _ in hits], CAPS["entities"]), [t for _, t in hits])
+    hits = [
+        (_rarity(len(neighbours[hub]), 0.35, 0.25, 0.12), notes[hub].label)
+        for hub in sorted(neighbours.get(a, set()) & neighbours.get(b, set()))
+        if hub in notes and len(neighbours[hub]) <= NEIGHBOUR_HUB
+    ]
+    if hits:
+        candidate.evidence["neighbours"] = (_noisy_or([w for w, _ in hits], CAPS["neighbours"]), [t for _, t in hits])
+    tag_count: dict[str, int] = defaultdict(int)
+    shared = notes[a].tags & notes[b].tags if a in notes and b in notes else frozenset()
+    if shared:
+        for facts in notes.values():
+            for tag in facts.tags & shared:
+                tag_count[tag] += 1
+        hits = [(_rarity(tag_count[t], 0.35, 0.25, 0.15), t) for t in sorted(shared) if tag_count[t] <= TAG_HUB]
+        if hits:
+            candidate.evidence["tags"] = (_noisy_or([w for w, _ in hits], CAPS["tags"]), [t for _, t in hits])
+    return candidate.signals()

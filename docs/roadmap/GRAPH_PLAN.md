@@ -647,7 +647,9 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
 6. KG3, relation types with inverses and properties.
 7. KG4, properties and note types.
 8. KG7, live queries (needs KG4).
-9. KG8, graph filters and path explanations.
+9. KG8, graph filters and path explanations. Path explanations built
+   2026-10-04 (HISTORY.md, same section as KG1); open: filter chips by
+   relation type and property (after KG3 and KG4).
 
 One Opus session each, tests first, measured on a 2k fixture.
 

@@ -731,7 +731,9 @@ HELP_TOPICS.extend(
                 "also suggests links as you write, and every note's menu has Link "
                 "to. The Graph draws all of them. A note's menu also has Copy wiki "
                 "link (a [[link]] for another note) and Copy app link (an address "
-                "that opens the note in the app)."
+                "that opens the note in the app). Delete the [[name]] and its link "
+                "goes with it; rename a note and a toast offers to rename the "
+                "[[links]] other notes have to it."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

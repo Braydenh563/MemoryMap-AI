@@ -28,7 +28,8 @@ const { boot, OUT } = require('./lib.js');
     return out;
   });
   console.log('default types', JSON.stringify(await types()));
-  await page.click('#graph-options-toggle');
+  // The panel's open state is remembered across runs: open it only if shut.
+  if (await page.evaluate(() => document.getElementById('graph-options').classList.contains('hidden'))) await page.click('#graph-options-toggle');
   await page.waitForTimeout(300);
   console.log('panel', JSON.stringify(await page.evaluate(() => { const p = document.getElementById('graph-options'); const b = document.getElementById('graph-tags').closest('label').getBoundingClientRect(); return { hidden: p.classList.contains('hidden'), top: Math.round(b.top), h: Math.round(b.height), w: Math.round(b.width) }; })));
   for (const id of ['graph-tags', 'graph-attachments', 'graph-unresolved']) {
@@ -48,7 +49,7 @@ const { boot, OUT } = require('./lib.js');
     return { headBatches: n.heads, linkWidths: [Math.min(...n.widths), Math.max(...n.widths)] };
   });
   console.log('arrows off', JSON.stringify(await frame()));
-  await page.click('#graph-display > summary');
+  if (!(await page.evaluate(() => document.getElementById('graph-display').open))) await page.click('#graph-display > summary');
   await page.click('label:has(#graph-arrows)');
   await page.waitForTimeout(300);
   console.log('arrows on', JSON.stringify(await frame()));

@@ -2078,6 +2078,10 @@ def update_entry(
         )
     content_changed = body.content is not None and body.content != entry.content
     tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
+    #: The note's [[name]] before the edit (a private note is never a target).
+    old_name = (
+        manager.wiki_opening(entry.content) if content_changed and not entry.is_private else ""
+    )
     #: A save that carries an applied Atlas suggestion is both of theirs.
     with events.acting_as(ACTOR_USER_AND_AI) if body.ai_assisted else contextlib.nullcontext():
         # Snapshot BEFORE the change, so the newest revision is always the
@@ -2127,7 +2131,32 @@ def update_entry(
         # gets saved (a staged upload attached, then the note edited to
         # include it, rather than created with it already there).
         _process_committed_media(session, body.content)
-    return _to_out(session, entry)
+    out = _to_out(session, entry)
+    if old_name and manager.wiki_opening(entry.content) != old_name:
+        # Spelt as the holders wrote it, the opening line as the note does.
+        first = (entry.content or "").strip().split("\n", 1)[0]
+        new_name = re.sub(r"^\s{0,3}#{1,6}\s+", "", first).strip()
+        holders = manager.wiki_holders(session, entry, old_name)
+        if holders and new_name:
+            spelt = re.search(r"\[\[\s*(" + re.escape(old_name) + r")", holders[0].content, re.IGNORECASE)
+            out.wiki_rename = {"old": spelt.group(1) if spelt else old_name, "new": new_name, "notes": len(holders)}
+    return out
+
+
+class WikiRenameIn(BaseModel):
+    old: str = Field(min_length=1, max_length=120)
+
+
+@router.post("/{entry_id}/wiki-rename")
+def wiki_rename(entry_id: int, body: WikiRenameIn, session: Session = Depends(get_session)) -> dict:
+    """Rewrite `[[old]]` as this note's current name in every note that still
+    writes the old one (GRAPH_PLAN 518; offered by the edit that renamed it)."""
+    entry = _existing_entry(session, entry_id)
+    first = (manager.readable_content(entry) or "").strip().split("\n", 1)[0]
+    new_name = re.sub(r"^\s{0,3}#{1,6}\s+", "", first).strip()
+    if not new_name or len(new_name) > 120 or "]" in new_name or "[" in new_name:
+        raise HTTPException(status_code=422, detail="This note's first line can't be a [[name]].")
+    return {"rewritten": manager.rewrite_wiki_name(session, entry, body.old, new_name)}
 
 
 @router.delete("/{entry_id}", response_model=EntryOut)

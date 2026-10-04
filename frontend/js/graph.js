@@ -4144,11 +4144,12 @@ async function saveGraphPopup() {
   status.classList.remove("error");
   status.textContent = "Saving…";
   try {
-    await apiJson(`/entries/${graphPopupId}`, {
+    const saved = await apiJson(`/entries/${graphPopupId}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
     status.textContent = "Saved.";
+    if (typeof offerWikiRename === "function") offerWikiRename(graphPopupId, saved);
     //: What was just written is the new clean state, so the button puts
     //: itself away for the 600ms the panel is still open.
     graphPopupClean = {

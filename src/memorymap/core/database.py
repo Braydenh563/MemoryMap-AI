@@ -542,6 +542,11 @@ class EntryLink(Base, WorkspaceMixin):
     # open set of synonyms. The free-text half of "why" already exists and is
     # `reason` above; this is the part that has to be machine-readable.
     link_type: Mapped[str | None] = mapped_column(String(24), default=None)
+    #: Where the link came from (GRAPH_PLAN 518): "wiki" when a `[[name]]` in
+    #: the source's text made it, so taking the name out takes the link away;
+    #: null for a link a person or Atlas made, which only they remove.
+    #: `link_type` is the meaning and must not carry this.
+    origin: Mapped[str | None] = mapped_column(String(8), default=None)
 
 
 #: The kinds of connection a link can carry, and what each one means.

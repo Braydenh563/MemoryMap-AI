@@ -1677,6 +1677,7 @@ def create_link(
     target: Entry,
     reason: str | None = None,
     link_type: str | None = None,
+    origin: str | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1744,6 +1745,7 @@ def create_link(
         reason=reason,
         reason_confidence=confidence,
         link_type=kind,
+        origin=origin,
         # **The link belongs to the space its notes are in, whoever made it.**
         # A new row usually takes its space from `session.info["workspace_id"]`
         # (the before-flush hook in core/database.py), which is set from the
@@ -2495,7 +2497,7 @@ def resolve_links_to(session: Session, entry: Entry) -> int:
     ).all()
     made = 0
     for holder in holders:
-        if find_by_wiki_name(session, name) is entry and create_link(session, holder, entry):
+        if find_by_wiki_name(session, name) is entry and create_link(session, holder, entry, origin="wiki"):
             made += 1
     return made
 
@@ -2503,19 +2505,74 @@ def resolve_links_to(session: Session, entry: Entry) -> int:
 def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
     """Create links for the [[names]] in this note. Returns the unresolved ones.
 
-    Only ever adds. A [[name]] that matches nothing is left alone rather than
-    reported as an error, you often write the link before the note it points
-    at, and having that fail the save would be worse than useless.
+    A [[name]] that matches nothing is left alone rather than reported as an
+    error, you often write the link before the note it points at, and having
+    that fail the save would be worse than useless.
+
+    **And takes away the ones whose name left the text** (GRAPH_PLAN 518): a
+    link this note's own `[[name]]` made (`origin == "wiki"`) whose target no
+    name in the text resolves to any more. A link made any other way is never
+    touched here.
     """
     unresolved = []
+    named: set[int] = set()
     for name in wiki_link_targets(entry.content):
         target = find_by_wiki_name(session, name)
         if target is None or target.id == entry.id:
             if target is None:
                 unresolved.append(name)
             continue
-        create_link(session, entry, target)
+        named.add(target.id)
+        create_link(session, entry, target, origin="wiki")
+    stale = session.scalars(
+        select(EntryLink).where(
+            EntryLink.source_entry_id == entry.id,
+            EntryLink.origin == "wiki",
+            EntryLink.target_entry_id.not_in(named),
+        )
+    ).all()
+    for link in stale:
+        delete_link(session, link)
     return unresolved
+
+
+def _wiki_name_pattern(name: str) -> re.Pattern:
+    """`[[name]]`, `[[name|alias]]` and `[[name#part]]`, any case."""
+    return re.compile(r"\[\[\s*" + re.escape(name.strip()) + r"\s*(?=[\]|#])", re.IGNORECASE)
+
+
+def wiki_holders(session: Session, entry: Entry, name: str) -> list[Entry]:
+    """The other notes whose text has `[[name]]` in one of its forms."""
+    if not name or len(name) > 120:
+        return []
+    pattern = _wiki_name_pattern(name)
+    rows = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.id != entry.id,
+            Entry.content.ilike(f"%[[{like_escape(name.strip())}%", escape=LIKE_ESCAPE),
+        )
+    ).all()
+    return [row for row in rows if pattern.search(row.content or "")]
+
+
+def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int:
+    """Rewrite `[[old]]` as `[[new]]` in every note that names it (GRAPH_PLAN
+    518: a renamed note offers this). Each note keeps its alias and part, gets
+    a revision first so it can be undone from its history, and is synced so
+    its links point where the names now do. Returns how many notes changed."""
+    pattern = _wiki_name_pattern(old)
+    changed = 0
+    for holder in wiki_holders(session, entry, old):
+        record_revision(session, holder)
+        update_entry(session, holder, content=pattern.sub(lambda _m: f"[[{new.strip()}", holder.content))
+        sync_wiki_links(session, holder)
+        changed += 1
+    if changed:
+        log_action(session, "edited", "entry", entry.id, f"renamed [[{old}]] in {changed} notes")
+    session.commit()
+    return changed
 
 
 # ROADMAP.md's onboarding item: "seeded example notes so the graph, timeline

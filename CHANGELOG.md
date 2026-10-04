@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Links: a link a [[name]] made is remembered as one, so deleting the name deletes the link (others are never touched); renaming a note offers, in a toast, to rename the [[links]] other notes write to it. The graph reads each note's text once per edit (18.8 to 3.8 ms at 2,018 notes), sees a link swapped for another, and similarity keeps each note's four closest matches (2,000 notes: 10.7 s to 0.6 s; 10,000: 4.99 s and 144 MB, where every pair was 10.5M tuples).
 - Graph (514, parity with Obsidian's graph): Show adds Tags, Attachments and Unwritten links (a faint node per unanswered wiki name; a click writes that note); Display adds Arrows, Text fade and Link thickness; Physics adds Link force and takes Length by similarity and Group by category; focus mode gets a Focus section and the local map an Options fold, each with Depth 1 to 5 and Incoming, Outgoing and Neighbour links.
 - Graph: a Display fold in the gear panel holds Labels, Label backgrounds (new: off draws each name on a thin outline instead of a plate, still placed clear of lines), Curved links and Cluster glow; those switches now come back as they were left after a reload.
 - Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.

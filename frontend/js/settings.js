@@ -725,6 +725,11 @@ function logMatchesFilters(record) {
   const source = $("log-source").value;
   if (source !== "all" && record.source !== source) return false;
 
+  //: One line per HTTP request (uvicorn.access) is a server's diary, not the
+  //: app's: forty of them on every start buried the records a person opens
+  //: this pane to read (INBOX 472). Off unless asked for.
+  if (record.logger === "uvicorn.access" && !$("log-requests").checked) return false;
+
   const level = $("log-level").value;
   if (level === "warning" && logLevelRank(record.level) < 2) return false;
   if (level === "error" && logLevelRank(record.level) < 3) return false;
@@ -3095,6 +3100,7 @@ document.addEventListener("click", (event) => {
 // one mid-incident cannot lose the records you were looking at.
 $("log-source").addEventListener("change", renderActiveLogView);
 $("log-level").addEventListener("change", renderActiveLogView);
+$("log-requests").addEventListener("change", renderActiveLogView);
 let logFilterDebounceTimeout;
 $("log-filter").addEventListener("input", () => {
   clearTimeout(logFilterDebounceTimeout);

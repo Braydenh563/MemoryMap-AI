@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.
 - The dashboard greeting ends in a full stop or a question mark, never an exclamation mark, like the rest of the app's copy; an older cached greeting corrects itself on the next render.
 - The unlock check no longer queries the database on every request: once a password is known to exist it is remembered for ten seconds (only the yes, so the gate can only ever be stricter), 0.4 ms off each of the forty-odd requests a start makes.
 - Settings > About names the licence (GNU AGPL v3) under the version, and a version that cannot be read says so instead of "Version ?" (INBOX 472)

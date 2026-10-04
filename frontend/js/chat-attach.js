@@ -1845,6 +1845,10 @@ async function sendChatMessage(preset, opts = {}) {
   const userBubble = opts.skipUserBubble
     ? null
     : addBubble("user", opts.displayText || question, sentAttachmentCards);
+  //: A chip's question names the one it was offered under (INBOX 490); a
+  //: regenerate keeps what the question it re-asks already had.
+  const followupOf = opts.followupOf || (opts.skipUserBubble ? [...$("chat-messages").querySelectorAll(".msg.user")].at(-1)?.dataset.followupOf : "") || null;
+  markFollowup(userBubble, followupOf);
   //: **Who answers this question, captured once**, the way `effectiveUseTools`
   //: is below: the picker can move on while this reply is still streaming,
   //: and the bubble's face, the request and the saved turn must all name the
@@ -2010,6 +2014,7 @@ async function sendChatMessage(preset, opts = {}) {
         document_ids: sentDocuments.length ? sentDocuments : null,
         file_ids: sentFiles.length ? sentFiles : null,
         note_ids: sentAttachments.length ? sentAttachments : null,
+        followup_of: followupOf,
         persona: savedPersona(sentPersona),
       };
       if (convRef.id === null) {
@@ -2107,7 +2112,8 @@ async function sendChatMessage(preset, opts = {}) {
           //: search the same thing it learns from the Ask tab.
           question,
           null,
-          event.support || null
+          event.support || null,
+          meta?.picture_alts || null
         );
       },
       onPlan: (event) => {
@@ -2655,6 +2661,9 @@ async function sendChatMessage(preset, opts = {}) {
       // build one prompt and then forgotten, the bubble showed no sign the
       // answer had been given a note to read.
       note_ids: sentAttachments.length ? sentAttachments : null,
+      followup_of: followupOf,
+      //: The thumbnails' words, so a reopened chat keeps them (INBOX 502).
+      picture_alts: meta?.picture_alts && Object.keys(meta.picture_alts).length ? meta.picture_alts : null,
     };
     if (convRef.id === null) {
       const created = await apiJson("/conversations", {
@@ -2758,14 +2767,8 @@ async function offerFollowups(bubble, question, answer) {
 // look unlike a fresh one.
 function renderFollowups(bubble, picks) {
   if (!bubble || !Array.isArray(picks) || !picks.length) return;
-  // Remembered on the bubble rather than only drawn on it. Reported: *"the
-  // suggested next responses on chat messages should only persist for the
-  // latest chat message… if the user deletes the latest message they sent,
-  // then new suggested responses should show for the now latest message"*, 
-  // the second half is the reason this is stored instead of discarded. The
-  // chips for an older turn are still the right chips for it; they are simply
-  // not shown while a newer turn exists, and deleting that newer turn has to
-  // bring them back without a second round trip to the model.
+  // Stored, not only drawn: deleting the newest turn brings the previous
+  // turn's chips back without asking the model again (the owner's report).
   bubble.dataset.followups = JSON.stringify(picks);
   refreshFollowupVisibility();
 }
@@ -2806,10 +2809,83 @@ function buildFollowupStrip(bubble, picks) {
   for (const pick of picks) {
     // chip()'s second argument is a class, not a tooltip, passing prose there
     // would put a sentence into `className`.
-    strip.appendChild(chip(pick, "", () => sendChatMessage(pick)));
+    strip.appendChild(chip(pick, "", () => sendChatMessage(pick, { followupOf: followupParent(bubble) })));
   }
   bubble.appendChild(strip);
   chatScrollToEnd();
+}
+
+// --- where a follow-up came from (INBOX 490: "hyperlinked bread crumbs") ----
+// A chip's question keeps the one it was offered under (`followup_of` on the
+// turn, words not an index, which a deleted turn would shift); its bubble
+// links the chain back, a press scrolling to that question and lighting it.
+function followupParent(bubble) {
+  let el = bubble.previousElementSibling;
+  while (el && !el.matches(".msg.user")) el = el.previousElementSibling;
+  return el?.dataset.sent || "";
+}
+
+//: Saved content may carry Plan mode's block after the words.
+const followupMatches = (sent, ref) => Boolean(sent) && (sent === ref || sent.startsWith(ref));
+
+function followupChain(userBubble) {
+  const users = [...$("chat-messages").querySelectorAll(".msg.user")];
+  const chain = [];
+  let at = users.indexOf(userBubble);
+  let ref = userBubble.dataset.followupOf;
+  while (ref && at > 0 && chain.length < 8) {
+    let i = at - 1;
+    while (i >= 0 && !followupMatches(users[i].dataset.sent, ref)) i -= 1;
+    if (i < 0) break;
+    chain.unshift(users[i]);
+    at = i;
+    ref = users[i].dataset.followupOf;
+  }
+  return chain;
+}
+
+//: Chat's and Ask's trail; `open(i)` is a press on the i-th question.
+function followupTrail(questions, open) {
+  const nav = document.createElement("nav");
+  nav.className = "chat-trail";
+  nav.setAttribute("aria-label", "This question followed on from");
+  const head = document.createElement("span");
+  head.className = "chat-trail-head";
+  setLabel(head, "ph:arrow-bend-down-right Follow-up of");
+  const list = document.createElement("ol");
+  list.className = "chat-trail-list";
+  questions.forEach((text, i) => {
+    const item = document.createElement("li");
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "link-button chat-trail-link";
+    link.textContent = text;
+    link.title = text;
+    link.addEventListener("click", () => open(i, link));
+    item.appendChild(link);
+    list.appendChild(item);
+  });
+  nav.append(head, list);
+  return nav;
+}
+
+function markFollowup(userBubble, ref) {
+  if (!userBubble || !ref) return;
+  userBubble.dataset.followupOf = ref;
+  userBubble.querySelector(":scope > .chat-trail")?.remove();
+  const chain = followupChain(userBubble);
+  if (!chain.length) return;
+  const trail = followupTrail(chain.map((b) => b.dataset.sent), (i) => {
+    const target = chain[i];
+    if (!target.isConnected) return;
+    target.scrollIntoView({ behavior: reducedMotionWanted() ? "auto" : "smooth", block: "center" });
+    target.classList.remove("flash");
+    void target.offsetWidth; // restart the highlight on a second press
+    target.classList.add("flash-target", "flash");
+    clearTimeout(target.flashTimer);
+    target.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
+  });
+  userBubble.querySelector(":scope > .msg-body")?.before(trail);
 }
 
 async function saveFollowups(bubble, picks) {

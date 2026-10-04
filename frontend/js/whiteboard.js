@@ -15056,7 +15056,7 @@ onDomReady(() => {
   });
   $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
-  $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
+  $("library-boards-search")?.addEventListener("input", redrawLibraryBoardsGallery);
   // The Reload button beside "+ New board", now named after what it reloads.
   // It was `library-media-refresh`, a copy-paste leftover from the Media
   // sub-tab, and that name is why it sat unwired for so long: searching the id
@@ -15147,11 +15147,12 @@ onDomReady(() => {
   select.value = boardSort();
   select.addEventListener("change", () => {
     localStorage.setItem(BOARD_SORT_KEY, select.value);
-    renderLibraryBoardsGallery();
+    redrawLibraryBoardsGallery();
   });
 });
 
 window.renderLibraryBoardsGallery = renderLibraryBoardsGallery;
+window.redrawLibraryBoardsGallery = redrawLibraryBoardsGallery;
 
 //: Maps / Boards / All (MINDMAP_PLAN.md §5 item 10). Which one is showing.
 //: In `localStorage` for the same reason the view mode and the sort already
@@ -15207,16 +15208,27 @@ function renderBoardTypeFilter(counts) {
     }
     button.addEventListener("click", () => {
       localStorage.setItem(BOARD_FILTER_KEY, filter.key);
-      renderLibraryBoardsGallery();
+      redrawLibraryBoardsGallery();
     });
     box.appendChild(button);
   }
 }
 
+//: **The last list drawn, and its text** (INBOX 496: "it takes a while to load
+//: the boards and maps library subtab"). A visit redraws only if the server's
+//: answer differs from what is already drawn; the search box, sort, chip and
+//: view switch redraw from it without a request (each keystroke was a fetch).
+let libraryBoardsLast = null;
+let libraryBoardsLastText = "";
+
+//: A redraw that needs no new data. Falls back to a full render the first time.
+function redrawLibraryBoardsGallery() {
+  if (libraryBoardsLast) drawLibraryBoardsGallery(libraryBoardsLast);
+  else renderLibraryBoardsGallery();
+}
+
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
-  const empty = $("library-boards-empty");
-  const noMatch = $("library-boards-no-match");
   if (!grid) return;
   // Always the unfiltered list, then narrowed here. `?type=` exists and works
   // (§9.3), but the chips carry counts, and counts for the two kinds you are
@@ -15227,10 +15239,26 @@ async function renderLibraryBoardsGallery() {
   // And to the end, for the same reason `refreshBoardList` reads it that way:
   // the chips below count what came back, so a first page would make the
   // counts a count of the first page.
-  showSkeletons(grid, 4);
+  //: The grid keeps its last cards while hidden, so a revisit shows them at
+  //: once; skeletons only when there is nothing yet.
+  const had = libraryBoardsLast;
+  if (!had) showSkeletons(grid, 4);
   const listed = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
+  if (!had) clearSkeletons(grid);
+  //: The board made a moment ago is part of what is drawn (see below).
+  const text = listed ? JSON.stringify(listed) + (window.wbLastCreatedBoard?.id ?? "") : "";
+  if (had && listed && text === libraryBoardsLastText) return;
+  libraryBoardsLast = listed;
+  libraryBoardsLastText = text;
+  drawLibraryBoardsGallery(listed);
+}
+
+function drawLibraryBoardsGallery(listed) {
+  const grid = $("library-boards-grid");
+  const empty = $("library-boards-empty");
+  const noMatch = $("library-boards-no-match");
+  if (!grid) return;
   const boards = listed && listed.filter(libraryListsBoard);
-  clearSkeletons(grid);
   if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
   // doesn't come back from the server at all.
@@ -15271,6 +15299,7 @@ async function renderLibraryBoardsGallery() {
     // 433): the title opens it, stretched over the card (`cardOpener`).
     const card = document.createElement("article");
     card.className = "library-card library-board-card";
+    card.wbBoard = board; // the tick's board (`syncLibraryBoardsTicks`)
     const open = () => openWhiteboardBoard(board.id);
     card.addEventListener("click", open);
 

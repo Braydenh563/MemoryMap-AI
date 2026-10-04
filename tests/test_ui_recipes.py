@@ -1083,6 +1083,8 @@ LIST_ROWS = {
     ".command-palette-examples": ".command-palette-examples",
     #: The writing dictionary's words (INBOX 410, the settings-sheet redesign).
     ".doc-dictionary-row": ".doc-dictionary-list",
+    #: The Library's Contents outline (INBOX 496, the redesign).
+    ".contents-row": ".contents-list",
 }
 
 

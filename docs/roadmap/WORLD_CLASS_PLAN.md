@@ -3114,31 +3114,6 @@ already in), 496 (Contents and the slow Boards and maps load), 493 (the
 graph's look), 484 (the leader menu), 486 (callouts), 490 (follow-up
 breadcrumbs).
 
-490. **The owner, 2026-10-04 evening, verbatim.** "also I feel like there
-     should be hyperlinked bread crumbs or a file tree sort of thing for if a
-     suggested follow suggested question is used." A trail of the questions
-     a follow-up chain came from, each a link back to its turn. Next Opus
-     slot.
-
-496. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Library,
-     Contents: a filter, four grouping buttons, a scrolling strip of category
-     chips, then sections of three-column note rows).** "also I feel like the
-     contents library subtab could be redesigned soooo much better. and it
-     takes a while to load the boards and maps library subtab". Placed
-     (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
-
-502. **The owner, 2026-10-04 evening, verbatim.** "should the ai chats be
-     able to pull images and sketches and render them in chat responses??
-     with accompanying references and hyperlinks??" Decision, taken: yes.
-     An answer grounded in a note with pictures shows them, as a thumbnail
-     beside the citation that opens the note (and the picture in the
-     lightbox); the model may cite a picture by its note number. Placed
-     (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
-
-504. **The owner, 2026-10-04 evening, verbatim.** "also add more capablilty
-     and utility to the manage tags and categories panels." Placed
-     (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
-
 507. **From the dock audit (479, `scratchpad/dock-audit-479.md`), found and
      not fixed.** Graph: fold the View menu into the gear (two ways in).
      Boards and maps: one "New" with board and mind map inside (8 controls

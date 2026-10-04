@@ -221,7 +221,170 @@ function tagMenuItems(name) {
   ];
 }
 
+// --- What both managers share (INBOX 504, the owner: "add more capablilty
+// and utility to the manage tags and categories panels"): a sort, a filter
+// for the ones that are hardly used, look-alike names offered as one merge,
+// and a count that opens the notes. Here because the categories panel
+// loads this module first (`openManageCategories`); a second file loaded by
+// both would declare these twice.
+
+//: The sorts, in the select's order. Recently used reads the notes already
+//: in memory: the newest edit of a note that carries the name.
+const MANAGE_SORTS = [
+  ["name", "Name"],
+  ["count", "Most notes"],
+  ["recent", "Recently used"],
+];
+
+function manageStored(key, fallback) {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function manageStore(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // A blocked storage only forgets the choice.
+  }
+}
+
+//: name -> the newest time a note carrying it was written to.
+function manageRecent(namesOf) {
+  const recent = new Map();
+  for (const entry of allEntries) {
+    if (entry.deleted_at) continue;
+    const when = Date.parse(entry.updated_at || entry.created_at) || 0;
+    for (const name of namesOf(entry)) if (when > (recent.get(name) || 0)) recent.set(name, when);
+  }
+  return recent;
+}
+
+function manageSorted(names, sort, countOf, recent) {
+  const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+  if (sort === "count") return names.sort((a, b) => countOf(b) - countOf(a) || byName(a, b));
+  if (sort === "recent") return names.sort((a, b) => (recent.get(b) || 0) - (recent.get(a) || 0) || byName(a, b));
+  return names.sort(byName);
+}
+
+//: The sort select and the hardly-used toggle, for the tool row.
+function manageListControls({ sortKey, state, rareLabel, rareTitle, redraw }) {
+  const select = document.createElement("select");
+  select.className = "manage-cat-sort";
+  select.setAttribute("aria-label", "Sort by");
+  select.title = "Sort by";
+  for (const [value, label] of MANAGE_SORTS) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = state.sort;
+  select.addEventListener("change", () => {
+    state.sort = select.value;
+    manageStore(sortKey, state.sort);
+    redraw();
+  });
+  const rare = document.createElement("button");
+  rare.type = "button";
+  rare.className = "library-chip manage-cat-rare";
+  rare.textContent = rareLabel;
+  rare.title = rareTitle;
+  rare.setAttribute("aria-pressed", "false");
+  rare.addEventListener("click", () => {
+    state.rare = !state.rare;
+    rare.setAttribute("aria-pressed", String(state.rare));
+    rare.classList.toggle("active", state.rare);
+    redraw();
+  });
+  return [select, rare];
+}
+
+//: **Names that are probably one name**: the same once case, spaces,
+//: hyphens and underscores are set aside and a plural is made singular
+//: ("Idea", "ideas", "to-do", "todo"). Each group keeps the name with the
+//: most notes first, which is the one the others would merge into.
+function manageLookAlikeKey(name) {
+  let key = String(name).toLowerCase().replace(/[\s_\-.]+/g, "");
+  if (key.length > 3 && key.endsWith("ies")) key = `${key.slice(0, -3)}y`;
+  else if (key.length > 3 && key.endsWith("s") && !key.endsWith("ss")) key = key.slice(0, -1);
+  return key;
+}
+
+function manageLookAlikes(names, countOf) {
+  const groups = new Map();
+  for (const name of names) {
+    const key = manageLookAlikeKey(name);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(name);
+  }
+  return [...groups.values()]
+    .filter((group) => group.length > 1)
+    .map((group) => group.sort((a, b) => countOf(b) - countOf(a) || a.localeCompare(b)));
+}
+
+//: The suggestions, above the list: one line per group, its names and one
+//: Merge into the busiest of them, three at most with how many more there are.
+//: "Not now" hides them until the panel is opened again.
+function drawManageSuggestions(box, { groups, nouns, state, onMerge }) {
+  box.replaceChildren();
+  const show = groups.length > 0 && !state.hideSuggest;
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  const head = document.createElement("p");
+  head.className = "manage-suggest-head";
+  setLabel(head, `ph:copy-simple ${groups.length === 1 ? `These ${nouns} look like one` : `${groups.length} sets of ${nouns} look alike`}`);
+  const later = smallButton("Not now", "Hide these suggestions until the panel is opened again", () => {
+    state.hideSuggest = true;
+    box.classList.add("hidden");
+  });
+  later.classList.add("manage-suggest-later");
+  head.appendChild(later);
+  box.appendChild(head);
+  for (const group of groups.slice(0, 3)) {
+    const row = document.createElement("div");
+    row.className = "manage-suggest-row";
+    const names = document.createElement("span");
+    names.className = "manage-suggest-names";
+    //: What goes where, in words: the busiest name keeps its notes.
+    names.textContent = `${group.slice(1).join(", ")} into ${group[0]}`;
+    names.title = names.textContent;
+    const merge = smallButton("ph:arrows-merge Merge", `Fold ${names.textContent}`, () => onMerge(group[0], group.slice(1)));
+    merge.setAttribute("aria-label", `Merge ${names.textContent}`);
+    row.append(names, merge);
+    box.appendChild(row);
+  }
+  if (groups.length > 3) {
+    const more = document.createElement("p");
+    more.className = "muted manage-suggest-more";
+    more.textContent = `And ${groups.length - 3} more; merge these first.`;
+    box.appendChild(more);
+  }
+}
+
+//: The count after a name is the way to its notes: a quiet link-like button,
+//: not a pill (INBOX 466), out of the tab order (Enter on the row does it).
+function manageCountButton(count, onShow) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "manage-cat-count";
+  button.tabIndex = -1;
+  button.textContent = String(count);
+  button.title = `Show the ${count} note${count === 1 ? "" : "s"}`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onShow();
+  });
+  button.addEventListener("dblclick", (event) => event.stopPropagation());
+  return button;
+}
+
 //: The dialog head: the title, its '?' beside it, a ghost icon Close at the
+
 //: right (the Manage categories panel's head, `manageCatHead`).
 function tagManagerHead(card) {
   const head = card.querySelector(".sheet-head");
@@ -249,7 +412,15 @@ function tagManagerHead(card) {
 }
 
 async function openTagsSheet(focusName = null) {
-  const state = { counts: await fetchTagCounts(), selected: new Set(), active: focusName, filter: "" };
+  const state = {
+    counts: await fetchTagCounts(),
+    selected: new Set(),
+    active: focusName,
+    filter: "",
+    sort: manageStored("manage-tags-sort", "count"),
+    rare: false,
+    hideSuggest: false,
+  };
   openSheet({
     label: "Manage tags",
     name: "tags",
@@ -267,7 +438,8 @@ async function openTagsSheet(focusName = null) {
       helpBody.setAttribute("aria-label", "About managing tags");
       for (const line of [
         "Rename changes a tag on every note that has it. Renaming onto a tag that exists merges the two.",
-        "Merge into folds one or more tags into another. Select several with Space to merge or remove them together.",
+        "Merge into folds one or more tags into another. Select several with Space to merge or remove them together. Tags that look like one (Idea and ideas, to-do and todo) are offered as one merge above the list.",
+        "Sort by name, by how many notes carry a tag, or by the one used most recently. Used once shows the tags only one note carries, the usual place for a typo. The count after a tag shows its notes.",
         "Remove from all notes takes the tag off every note. The notes themselves are never deleted, and every change can be undone.",
         "To add or remove tags on particular notes, choose Select in the Notes list, tick them and press Tags. To change one note's tags, right-click a tag on its card.",
         "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete removes.",
@@ -295,7 +467,18 @@ async function openTagsSheet(focusName = null) {
       });
       clear.classList.add("manage-cat-clear", "hidden");
       search.append(glass, filter, clear);
-      tools.appendChild(search);
+      tools.append(search, ...manageListControls({
+        sortKey: "manage-tags-sort",
+        state,
+        rareLabel: "Used once",
+        rareTitle: "Show only the tags one note carries",
+        redraw,
+      }));
+      const suggest = document.createElement("div");
+      suggest.className = "manage-suggest hidden";
+      suggest.setAttribute("role", "region");
+      suggest.setAttribute("aria-label", "Tags that look alike");
+      state.suggestBox = suggest;
       const list = document.createElement("ul");
       list.className = "manage-cat-list";
       //: A grid, not a listbox (INBOX 433): each row carries its own ⋯.
@@ -306,9 +489,11 @@ async function openTagsSheet(focusName = null) {
       footer.className = "manage-cat-footer hidden";
       footer.setAttribute("role", "region");
       footer.setAttribute("aria-label", "Selected tags");
-      card.append(sub, helpBody, tools, list, footer);
+      card.append(sub, helpBody, tools, suggest, list, footer);
       initHelpToggles(card);
-      const redraw = () => drawTagRows(list, footer, state);
+      function redraw() {
+        drawTagRows(list, footer, state);
+      }
       tagManagerRedraw = async () => {
         state.counts = await fetchTagCounts();
         redraw();
@@ -335,15 +520,38 @@ async function openTagsSheet(focusName = null) {
 function drawTagRows(list, footer, state) {
   const hadFocus = list.contains(document.activeElement) ? document.activeElement.closest("[data-tag]")?.dataset.tag || null : null;
   list.replaceChildren();
-  const names = Object.keys(state.counts).filter((name) => !state.filter || name.toLowerCase().includes(state.filter));
+  const countOf = (name) => state.counts[name] || 0;
+  const recent = state.sort === "recent" ? manageRecent((entry) => entry.tags || []) : null;
+  const names = manageSorted(
+    Object.keys(state.counts).filter(
+      (name) => (!state.filter || name.toLowerCase().includes(state.filter)) && (!state.rare || countOf(name) === 1)
+    ),
+    state.sort,
+    countOf,
+    recent
+  );
   for (const name of [...state.selected]) if (!(name in state.counts)) state.selected.delete(name);
+  if (state.suggestBox) {
+    drawManageSuggestions(state.suggestBox, {
+      groups: manageLookAlikes(Object.keys(state.counts), countOf),
+      nouns: "tags",
+      state,
+      onMerge: (into, names) =>
+        runTagEdit(`Merged ${tagNamesWords(names)} into “${into}”`, "/tags/merge", { names, into },
+          Object.fromEntries(names.map((name) => [name, into]))),
+    });
+  }
   if (!names.length) {
     const none = document.createElement("li");
     none.className = "muted manage-cat-empty";
     none.setAttribute("role", "row");
     const cell = document.createElement("span");
     cell.setAttribute("role", "gridcell");
-    cell.textContent = state.filter ? "No tag matches that." : `No tags yet. Add some to a note, or let ${aiNameNow()} suggest them as you write.`;
+    cell.textContent = state.filter
+      ? "No tag matches that."
+      : state.rare
+        ? "Every tag is on more than one note."
+        : `No tags yet. Add some to a note, or let ${aiNameNow()} suggest them as you write.`;
     none.appendChild(cell);
     list.appendChild(none);
   }
@@ -367,11 +575,7 @@ function drawTagRows(list, footer, state) {
     label.className = "manage-cat-name";
     label.textContent = name;
     label.title = name;
-    const pill = document.createElement("span");
-    pill.className = "manage-cat-count";
-    pill.textContent = String(count);
-    pill.title = tagNotesWord(count);
-    main.append(glyph, label, pill);
+    main.append(glyph, label, manageCountButton(count, () => showTagNotes(name)));
     li.appendChild(main);
     const menu = kebabMenu(tagMenuItems(name), `Actions for ${name}`);
     menu.classList.add("manage-cat-menu");

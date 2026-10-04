@@ -512,7 +512,8 @@ MORE_TOPICS.extend(
                 "manage tags", "tag manager", "rename a tag", "rename tag", "merge tags",
                 "merge a tag", "remove a tag", "delete a tag", "every tag", "tag counts",
                 "tags row", "tag chip", "right click a tag", "right-click a tag",
-                "tags everywhere",
+                "tags everywhere", "duplicate tags", "similar tags", "sort tags",
+                "unused tags", "used once",
             ),
             "body": (
                 "The tag manager lists every tag with how many notes use it. Open "
@@ -520,8 +521,12 @@ MORE_TOPICS.extend(
                 "notes sidebar, Settings or the command palette. Rename a tag, "
                 "merge it into another, or remove it from all notes, one or "
                 "several at a time; each change shows in the notes' history and "
-                "has one Undo. Right-click a tag chip (or press the menu key on "
-                "it) for Show notes, Rename in all notes, Remove from this note "
+                "has one Undo. Sort it by name, by notes or by the tag used most "
+                "recently; Used once lists the tags only one note carries; tags "
+                "that look like one (idea and ideas, to-do and todo) are offered "
+                "as one Merge above the list, and the count after a tag shows its "
+                "notes. Right-click a tag chip (or press the menu key on it) for "
+                "Show notes, Rename in all notes, Remove from this note "
                 "and Manage tags. The selection bar's Tags adds or removes tags on "
                 "every selected note at once."
             ),
@@ -534,7 +539,8 @@ MORE_TOPICS.extend(
                 "split a category", "delete a category", "category colour",
                 "category color", "colour of a category", "color of a category",
                 "rename a category", "notes in a category", "view category",
-                "category chip",
+                "category chip", "duplicate categories", "similar categories",
+                "empty categories", "sort categories", "colour several categories",
             ),
             "body": (
                 "Manage categories (the Categories head in the notes sidebar, a "
@@ -545,7 +551,11 @@ MORE_TOPICS.extend(
                 "notes' tags or by Atlas, which reads the notes and proposes "
                 "named groups to review. Colour gives a category one of twelve "
                 "swatches (or Automatic), shown on its dots, chips, graph nodes, "
-                "the Timeline and the Dashboard. A category chip on a note opens "
+                "the Timeline and the Dashboard; select several to colour, merge "
+                "or delete them together, with one question and one Undo. Sort by "
+                "name, notes or the one used most recently, Empty lists the ones "
+                "with no notes, look-alike names are offered as one Merge, and the "
+                "count after a name shows its notes. A category chip on a note opens "
                 "Show notes in the category, Move to another category and Manage "
                 "categories; dragging a note's category label onto another "
                 "category moves it too."
@@ -640,18 +650,57 @@ MORE_TOPICS.extend(
             "keywords": (
                 "contents", "table of contents", "outline of my notebook",
                 "whole notebook", "notebook outline", "tree of notes", "index of notes",
-                "expand all", "collapse all",
+                "expand all", "collapse all", "group by", "group the index",
             ),
             "body": (
-                "Library, Contents is the whole notebook as a tree, By category, "
-                "By tag or By month, with each document's headings under it, so "
-                "a press jumps straight to a heading. Expand all and Collapse all "
-                "open or fold every section. From the keyboard the Up and Down "
+                "Library, Contents is the whole notebook as a tree: pick By "
+                "category, By tag, By month or By folder in its Group by list, "
+                "and each group folds at its heading. A document lists its "
+                "headings, so a press jumps straight to one. Expand all and "
+                "Collapse all, in the ⋯ menu, open or fold every group; folded, "
+                "the groups are a list of places to go. From the keyboard the Up and Down "
                 "arrows move, Right opens a row, Left folds it, Home and End jump "
                 "to the ends, and Enter opens. By month puts each document under "
                 "the month it was made, with that month's notes."
             ),
             "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "answer-pictures",
+            "keywords": (
+                "pictures in answers", "images in answers", "image in chat",
+                "picture in chat", "sketch in chat", "show the picture",
+                "thumbnail", "photo in the answer", "picture in note",
+            ),
+            "body": (
+                "When an answer in Chat or Ask draws on a note with pictures or "
+                "sketches, the note's numbered chip under Grounded in has up to "
+                "three small pictures beside it (a +n says there are more). The "
+                "chip opens the note; a picture opens in the image viewer, with "
+                "its caption and the text read off it. Atlas is told which notes "
+                "have pictures, so it can point at one as the picture in note 2."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
+            "id": "follow-up-trail",
+            "keywords": (
+                "follow-up", "follow up", "followup", "suggested question",
+                "ask next", "next question", "breadcrumb", "bread crumb",
+                "trail", "where did this question come from", "question chain",
+            ),
+            "body": (
+                "Under a finished answer, Chat offers Next questions and Ask "
+                "offers Ask next. A question sent from one of them shows a "
+                "Follow-up of line above it: each earlier question in the "
+                "chain, as a link. In Chat a link scrolls to that question and "
+                "lights it; in Ask, which shows one answer at a time, it opens "
+                "that earlier answer under the line, and a second press folds "
+                "it. The line is saved with the chat, so it is there when the "
+                "chat is reopened. A question you type yourself starts a new "
+                "chain."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
         },
         {
             "id": "library-skills",
@@ -860,6 +909,8 @@ TOPIC_META: dict[str, dict] = {
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
+    "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
+    "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
     "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
@@ -888,7 +939,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
     )),
     ("Asking Atlas", (
-        "ask-chat", "chat-controls", "time-and-recency", "notebook-questions",
+        "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned",
     )),
     ("Documents and code", (

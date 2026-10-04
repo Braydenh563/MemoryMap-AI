@@ -2573,98 +2573,80 @@ button:not(.ghost) > .spinner {
   gap: var(--space-1);
 }
 
-/* Library -> Contents (§30): a hyperlinked outline grouped by category or
-   tag, as a grid of bordered cards, reported as "ugly," which the first
-   pass earned: plain headings and a bare link list with no containment
-   read as unstyled text, not a designed view. Matches the card language
-   `.bookmark-row`/`.outline-link` already use elsewhere in this app. */
-/* The Contents sub-tab, rebuilt as an index rather than a masonry of boxes.
-   See `renderContents` in library.js for the three reasons the boxes went:
-   a card claims its contents are one object, each box scrolled on its own
-   inside an already scrolling page, and there was no way to find a row. */
+/* --- Library -> Contents: an outline (INBOX 496) ----------------------------
+   The owner: "the contents library subtab could be redesigned soooo much
+   better". It had a four-way segment, a sideways-scrolling strip of jump
+   chips, uppercase section labels and rows laid in up to three columns with
+   each row's facts at its right edge. Now: one tool row (the dock), groups
+   that fold (caret, mark, name, count), and one column of rows, each a mark
+   (the picture, or the kind's glyph) and the title over one muted line of
+   facts. Every rule for it is here; it used to be split over four files. */
 .contents-outline {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  margin-top: var(--space-5);
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 
+/* No border, no card ground: a heading and its rows are a section of an
+   index, not an object to click. */
 .contents-section {
-  /* No border, no card ground. A heading and a rule is what separates one
-     section of an index from the next, the box around it was the thing
-     making twenty headings read as twenty clickable objects. */
   border: 0;
   padding: 0;
   background: none;
 }
 
-/* A button, because folding is an action (see the `aria-expanded` note in
-   library.js). Styled as a heading anyway: full width, left aligned, no
-   control chrome: the caret and the hover rule are the affordance. */
+/* A button, because folding is an action. Sticky, so the group you are
+   reading keeps saying which group it is: the card's own ground under the
+   glass strip (the recipe `.library-subtabs` uses, on the glass-off list). */
 .contents-heading {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-3);
   width: 100%;
-  margin: 0 0 var(--space-3);
-  padding: var(--space-2) 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
   border: 0;
-  /* Rounded at rest, not only on hover. Reported: "the collapsible headers in
-     the contents page are fully square and only have curved corners when
-     hovered over" -- the radius lived on the hover rule alone, so the row
-     changed shape under the pointer, and a square row with a rounded hover
-     ground reads as two different controls. The underline is gone with it: a
-     rounded row cannot also be underlined without looking like a tab. */
   border-radius: var(--radius-md);
-  background: none;
   box-shadow: none;
-  color: var(--muted);
+  color: var(--ink);
   font-size: var(--text-md);
   font-weight: 600;
   text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  /* Sticky, so the section you are reading keeps saying which section it is
-     - the one thing a long index owes the reader. `--space-9` clears the
-     sub-tab bar above it. */
+  text-transform: none;
+  letter-spacing: 0;
   position: sticky;
   top: 0;
   z-index: 1;
-  /* Was `--card-bg` -- the card's own translucent tint painted a second
-     time over itself: a darker (dark) / lighter (light) rectangle behind
-     the row, reported as "hard rectangle box background colours behind
-     rows". A sticky row over a glass card is a glass strip -- the recipe
-     `.notes-subtabs` and `.library-subtabs` already use, one blurred element
-     per page. */
   background: var(--card);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
 }
 
-/* The heading is a <button>, so the "no nested blur on controls" list in
-   03-dashboard-widgets.css (`.card button`) switches its filter off; this
-   one is a sticky strip, not a control, and is the one blurred element the
-   Contents page has. */
+/* `.card button` switches a control's blur off (03-dashboard-widgets.css);
+   this heading is a sticky strip, the one blurred element on the page. */
 .card .contents-heading {
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
 }
 
+/* The hover tint over the card's ground, never the tint alone: the heading is
+   sticky, and a 7% wash on its own turns into a window when rows scroll by. */
 .contents-heading:hover,
 .contents-heading:focus-visible {
-  color: var(--ink);
+  background: linear-gradient(var(--row-hover-bg), var(--row-hover-bg)), var(--card);
 }
 
 .contents-heading-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The count reads as data, not as a badge to press: no ground, no border,
-   just the app's muted ink at tabular width so the numbers line up. */
+/* The count is quiet text beside the name ("Work 12"), never a pill. */
 .contents-count {
   flex: 0 0 auto;
   color: var(--muted);
@@ -2674,137 +2656,164 @@ button:not(.ghost) > .spinner {
 
 .contents-caret {
   flex: 0 0 auto;
+  color: var(--muted);
   transition: transform var(--motion-fast) var(--ease-out);
 }
 
-.contents-section.is-folded .contents-caret {
-  transform: rotate(-90deg);
-}
-
-.contents-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  /* Rows flow across the width instead of down one narrow column, a
-     1400px panel showing one 22rem column of an index is the "excessive
-     margins" complaint in its other form. Row-major, so reading order is
-     left to right then down, the way an index reads. */
-  display: grid;
-  /* 24rem, not 20: measured at 1440px the narrower track gave four columns
-     and truncated half the category names in the right-hand meta column to
-     "U…". Three wider columns fit the same rows with the meta intact, which
-     is the whole point of having it. `min(24rem, 100%)`, because a phone's
-     list is narrower than one track: at 390 the 384px column ran past the
-     card and put every row's date off the right edge (INBOX 430). */
-  grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr));
-  gap: var(--space-1) var(--space-5);
-}
-
-.contents-list li {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.contents-list li a {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--ink);
-  /* No underline. These are the app's own list rows, and nothing else in it
-     underlines a row: the browser's default made the whole outline read as
-     a page of hyperlinks rather than as a list of the user's notes. The
-     hover ground below is what says these are clickable, the same as every
-     other row in the app. */
-  text-decoration: none;
-}
-
-.contents-list li a:hover,
-.contents-list li a:focus-visible {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.contents-more {
-  padding: var(--space-2);
-}
-
-/* **Documents in the index, with their headings under them.** A document row
-   is a tree item like a note's; when it has headings it carries a caret and
-   opens in place. Open, it takes the whole row of the multi-column list (a
-   subtree squeezed into one 24rem track reads as a column of fragments), and
-   its headings are a plain indented column under it, deeper headings one
-   step further in (`--depth`, set by the builder). */
-.contents-summary {
-  margin: var(--space-3) 0 0;
-}
-
-.contents-doc {
-  flex-wrap: wrap;
-}
-
-.contents-doc.is-open {
-  grid-column: 1 / -1;
-}
-
-.contents-doc-icon {
-  flex: 0 0 auto;
-  color: var(--muted);
-}
-
+.contents-section.is-folded .contents-caret,
 .contents-doc:not(.is-open) .contents-doc-caret {
   transform: rotate(-90deg);
 }
 
-.contents-subtree {
+/* A category's own colour (`paintCategoryDot`), the dot every surface uses. */
+.contents-dot {
+  --category-dot: var(--accent);
+  flex: 0 0 auto;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+/* One column, under a guide line that starts below the heading's caret, so
+   the eye runs down the titles the way it runs down a book's index. */
+.contents-list {
+  list-style: none;
+  margin: 0 0 0 calc(var(--space-3) + 0.5em);
+  padding: var(--space-1) 0 0 var(--space-2);
+  border-left: 1px solid var(--divider);
   display: flex;
-  flex: 1 0 100%;
   flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.contents-list > li {
+  min-width: 0;
+}
+
+/* A row: the `.timeline-row` shape, a transparent border so the hover moves
+   nothing, the ground arriving with the pointer. The left gutter is where a
+   document's caret sits, so every title starts at one edge whether or not
+   its row folds. */
+.contents-row,
+.contents-heading-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-6);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.contents-row {
+  min-height: var(--row-h);
+}
+
+.contents-row:hover,
+.contents-row:focus-visible,
+.contents-heading-row:hover,
+.contents-heading-row:focus-visible {
+  background: var(--row-hover-bg);
+  color: var(--ink);
+}
+
+.contents-doc-caret {
+  position: absolute;
+  inset-inline-start: 0;
+  width: var(--space-6);
+  text-align: center;
+}
+
+/* The mark: a 2rem square, the picture or the kind's glyph centred in it. */
+.contents-thumb,
+.contents-row > .contents-icon {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+}
+
+.contents-thumb {
+  object-fit: cover;
+  /* A quiet ground while it loads, not a flash of page in a hole. */
+  background: var(--chip-bg);
+}
+
+.contents-row > .contents-icon {
+  display: inline-grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: var(--text-body);
+}
+
+.contents-heading > .contents-icon {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.contents-row-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.contents-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One line, never two: the last fact gives way first. */
+.library-file-meta.contents-meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.library-file-meta.contents-meta > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A document's headings: an indented column under its title, deeper headings
+   one step further in (`--depth`, set by the builder). */
+.contents-subtree {
+  margin-inline-start: 0;
+  padding: 0;
+  border-left: 0;
   gap: 0;
 }
 
-.contents-list li a.contents-heading-row {
-  /* The builder sets this on the element (how many levels deeper than the
-     document's top heading); 0 is the resting value. */
+.contents-heading-row {
   --depth: 0;
-  padding-inline-start: calc(var(--space-9) + var(--depth) * var(--space-6));
+  padding-block: var(--space-2);
+  padding-inline-start: calc(var(--space-6) + 2rem + var(--space-3) + var(--depth) * var(--space-6));
+  color: var(--muted);
 }
 
-/* The tree's focused item must be findable without the pointer: the hover
-   ground alone is a 1.1:1 change on some looks, so the focus ring is drawn. */
+/* The focused item must be findable without the pointer. */
 .contents-outline [role="treeitem"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-/* The jump bar: one chip per section, so a long index has a top-level index
-   of its own. Scrolls sideways rather than wrapping to four rows on a
-   notebook with thirty categories. */
-.contents-jump {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-bottom: var(--space-2);
-  overflow-x: auto;
-  scrollbar-width: thin;
+.contents-more {
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
 }
 
-.contents-jump-chip {
-  flex: 0 0 auto;
-  cursor: pointer;
+.contents-summary {
+  margin: var(--space-3) 0 0;
 }
-
-/* `.contents-controls` and `#contents-filter` lived here. Contents is one
-   `.dock` now (Phase 8) rather than a head row plus a controls row, and the
-   dock owns both things these rules said: `.dock`'s own two gaps, and
-   `.dock-find input[type="search"]`'s `flex: 1 1 10rem` so the filter takes
-   the leftover width. The id rule had to go rather than stay: it set a 12rem
-   basis where every other dock's search box uses 10rem, which is one search
-   box in the app sized by itself. */
 
 .bookmark-actions {
   flex-shrink: 0;
@@ -5206,57 +5215,6 @@ select {
    prose, so it keeps the roomier padding it was drawn with. */
 .reindex-stale:not(.hidden) {
   padding: var(--space-3) var(--space-4);
-}
-
-/* --- the Contents index: the two columns of a row ---------------------------
-   Reported: "the date can get pushed off the edge of the boxes with links in
-   the contents page if the title or note is long making the date get cut
-   off", and separately that the section headings need "padding or
-   redesigning so the text isn't right up against the sides".
-
-   Both are missing rules rather than wrong ones. `.contents-label` and
-   `.contents-meta` had no flex sizing at all, so the browser's default
-   (`flex: 0 1 auto`, shrink permitted, minimum = content) let a long title
-   push the date out of the row and then refuse to shrink itself, because a
-   flex item's automatic minimum is its own content unless `min-width: 0`
-   says otherwise. That one property is the whole fix, and it is the same one
-   `.msg` and `#chat-messages` already carry for the same reason. */
-.contents-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Fixed at the right edge so the eye can run down the column, and never the
-   thing that gets clipped: a date that has been cut in half is worse than no
-   date, because a reader cannot tell which half they are looking at. */
-.contents-meta {
-  flex: 0 0 auto;
-  margin-left: auto;
-  padding-left: var(--space-3);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
-/* The heading is a full-width button, so without side padding its label sits
-   hard against the section's edge and its count against the other one, the
-   only row on the page that does. Matching the rows below it also means the
-   caret, the title and the count line up down the whole index. */
-.contents-heading {
-  padding-inline: var(--space-2);
-  gap: var(--space-2);
-}
-
-/* A folded section still has to look pressable. Without a ground on hover the
-   heading reads as a label that happens to move a caret, reported as the
-   rows "not working", which is what a control with no feedback looks like
-   whether or not it fired. */
-.contents-heading:hover,
-.contents-heading:focus-visible {
-  background: var(--chip-bg);
 }
 
 /* --- one gap under every card heading ---------------------------------------

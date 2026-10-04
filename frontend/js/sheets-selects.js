@@ -1775,7 +1775,8 @@ async function openConversation(id) {
   for (const message of full.messages) {
     if (message.role === "user") {
       lastQuestionText = message.content;
-      addBubble("user", message.content, message.attachments);
+      const asked = addBubble("user", message.content, message.attachments);
+      if (message.followup_of) markFollowup(asked, message.followup_of);
     } else {
       const handles = addAssistantBubble(message.persona || null);
       // Replay the run in the order it happened when the turn recorded one.
@@ -1875,7 +1876,8 @@ async function openConversation(id) {
           savedOrder,
           //: Saved on the turn by the server from the same counter the live
           //: stream used, so the notice survives reopening the chat.
-          message.support || null
+          message.support || null,
+          message.picture_alts || null
         );
       }
       // And the same shape again for the "what to ask next" chips, reported

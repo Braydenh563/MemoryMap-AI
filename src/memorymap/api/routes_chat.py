@@ -639,6 +639,8 @@ class ChatResponse(BaseModel):
     # converts back). Not every id in raw_results has an entry here: dated/
     # recent/attached results are already explained by search_mode itself.
     match_info: dict[str, dict] = {}
+    # Words for the retrieved notes' pictures, by url (INBOX 502).
+    picture_alts: dict[str, str] = {}
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
     # Whether Ollama is reachable, lets the UI distinguish "offline"
@@ -866,6 +868,38 @@ MEDIA_READING_CHARS = 1200
 #: is, so ten search hits do not spend the budget on incidental pictures.
 MOSTLY_PICTURE_CHARS = 200
 _IMAGE_MARKDOWN = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+
+
+#: How many of the retrieved notes' pictures get words for their thumbnails.
+PICTURE_ALTS_MAX = 40
+PICTURE_ALT_CHARS = 160
+
+
+def _picture_alts(session: Session, entries: list) -> dict[str, str]:
+    """`/media/<file>` -> words that say what a retrieved note's picture is.
+
+    INBOX 502 (the owner: "should the ai chats be able to pull images and
+    sketches and render them in chat responses?? with accompanying references
+    and hyperlinks??", decision taken: yes). An answer draws a grounded note's
+    pictures as thumbnails beside its citation, and a thumbnail needs alt
+    text: the caption the app already wrote, else the start of the text read
+    off it. A lookup, never a pipeline, for `_media_readings`' reason: a
+    picture with no reading yet gets its Markdown alt on the page instead.
+    One query for every note, sent once with the results.
+    """
+    filenames = list(
+        dict.fromkeys(name for entry in entries for name in _MEDIA_REF.findall(entry.content or ""))
+    )[:PICTURE_ALTS_MAX]
+    if not filenames:
+        return {}
+    alts = {}
+    for upload in session.query(MediaUpload).filter(MediaUpload.filename.in_(filenames)).all():
+        words = (upload.caption or "").strip() or " ".join(
+            (upload.vision_ocr_text or upload.ocr_text or "").split()
+        )
+        if words:
+            alts[f"/media/{upload.filename}"] = words[:PICTURE_ALT_CHARS]
+    return alts
 
 
 def _mostly_pictures(content: str) -> bool:
@@ -1115,6 +1149,9 @@ def _prepare(
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
             "content": content,
+            #: How many pictures the note holds: the prompt says so, because
+            #: the answer shows them beside this note's citation (INBOX 502).
+            "pictures": len(set(_MEDIA_REF.findall(entry.content or ""))),
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,
@@ -1199,6 +1236,9 @@ def _prepare(
             else None
         ),
         "raw_results": [_to_out(session, entry) for entry in entries],
+        #: Words for each retrieved note's pictures, for the thumbnails an
+        #: answer draws beside a citation (INBOX 502, `_picture_alts`).
+        "picture_alts": _picture_alts(session, entries),
         "search_mode": mode,
         # Ids that came along because they are *connected* to a match, so the
         # results panel can label them rather than presenting a note about
@@ -1309,6 +1349,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_response=ai_response,
         ai_thinking=ai_thinking,
         raw_results=prepared["raw_results"],
+        picture_alts=prepared.get("picture_alts") or {},
         search_mode=prepared["search_mode"],
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
@@ -1740,6 +1781,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         {
             "type": "meta",
             "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
+            "picture_alts": prepared.get("picture_alts") or {},
             "search_mode": prepared["search_mode"],
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],

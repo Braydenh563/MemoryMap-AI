@@ -66,7 +66,7 @@ def test_the_library_card_is_not_itself_a_control():
 
 
 def test_the_board_card_and_the_document_row_use_the_same_opener():
-    gallery = _function(WHITEBOARD, "renderLibraryBoardsGallery")
+    gallery = _function(WHITEBOARD, "drawLibraryBoardsGallery")
     assert 'card.setAttribute("role", "button")' not in gallery
     assert "card.tabIndex" not in gallery
     assert "cardOpener(title" in gallery

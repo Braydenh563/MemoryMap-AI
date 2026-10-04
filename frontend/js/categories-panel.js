@@ -17,7 +17,9 @@
 //: a sticky footer to merge or delete them together. The card is sized to
 //: its content up to its cap and the list is its one scroller.
 async function openManageCategories(focusName = null) {
-  await loadCategories();
+  //: The sort, the look-alike merges and the count button are the tag
+  //: manager's (INBOX 504), so its module comes first.
+  await Promise.all([loadCategories(), ensureModule("tagManager")]);
   openSheet({
     label: "Manage categories",
     name: "categories",
@@ -36,7 +38,8 @@ async function openManageCategories(focusName = null) {
       for (const line of [
         "Merge into folds one category into another: all its notes move across. Select several with Space to merge or delete them together.",
         `Split moves some of a category's notes into a new one. Pick them yourself, or have groups suggested, by their tags or by ${aiNameNow()}, and review them first.`,
-        "Colour picks the dot a category wears on its notes, the graph and the timeline. Automatic goes back to a colour chosen from its name.",
+        "Colour picks the dot a category wears on its notes, the graph and the timeline. Automatic goes back to a colour chosen from its name. Select several to colour them together.",
+        "Sort by name, by how many notes a category holds, or by the one used most recently. Empty shows the categories with no notes. Categories that look like one (Recipe and recipes) are offered as one merge above the list, and the count after a name shows its notes.",
         "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
         "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
         "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete deletes.",
@@ -69,7 +72,26 @@ async function openManageCategories(focusName = null) {
       clear.setAttribute("aria-label", "Clear the filter");
       search.append(glass, filter, clear);
       const create = smallButton("ph:plus New category", "Make an empty category to move notes into", () => createCategoryFromPanel());
-      tools.append(search, create);
+      const state = {
+        selected: new Set(),
+        active: focusName,
+        filter: "",
+        sort: manageStored("manage-categories-sort", "name"),
+        rare: false,
+        hideSuggest: false,
+      };
+      tools.append(search, ...manageListControls({
+        sortKey: "manage-categories-sort",
+        state,
+        rareLabel: "Empty",
+        rareTitle: "Show only the categories with no notes",
+        redraw,
+      }), create);
+      const suggest = document.createElement("div");
+      suggest.className = "manage-suggest hidden";
+      suggest.setAttribute("role", "region");
+      suggest.setAttribute("aria-label", "Categories that look alike");
+      state.suggestBox = suggest;
       const list = document.createElement("ul");
       list.className = "manage-cat-list";
       //: A grid, not a listbox (INBOX 433): an option may hold nothing
@@ -83,10 +105,11 @@ async function openManageCategories(focusName = null) {
       footer.className = "manage-cat-footer hidden";
       footer.setAttribute("role", "region");
       footer.setAttribute("aria-label", "Selected categories");
-      card.append(sub, helpBody, tools, list, footer);
+      card.append(sub, helpBody, tools, suggest, list, footer);
       initHelpToggles(card);
-      const state = { selected: new Set(), active: focusName, filter: "" };
-      const redraw = () => drawManageCategoryRows(list, footer, state);
+      function redraw() {
+        drawManageCategoryRows(list, footer, state);
+      }
       manageCategoriesRedraw = redraw;
       filter.addEventListener("input", () => {
         state.filter = filter.value.trim().toLowerCase();
@@ -143,15 +166,32 @@ function drawManageCategoryRows(list, footer, state) {
     ? document.activeElement.closest("[data-category]")?.dataset.category || null
     : null;
   list.replaceChildren();
-  const shown = [...categoryMeta.values()].filter((meta) => !state.filter || meta.name.toLowerCase().includes(state.filter));
+  const countOf = (name) => categoryMeta.get(name)?.count || 0;
+  const recent = state.sort === "recent" ? manageRecent((entry) => [entry.category || "Uncategorised"]) : null;
+  const shown = manageSorted(
+    [...categoryMeta.keys()].filter(
+      (name) => (!state.filter || name.toLowerCase().includes(state.filter)) && (!state.rare || countOf(name) === 0)
+    ),
+    state.sort,
+    countOf,
+    recent
+  ).map((name) => categoryMeta.get(name));
   for (const name of [...state.selected]) if (!categoryMeta.has(name)) state.selected.delete(name);
+  if (state.suggestBox) {
+    drawManageSuggestions(state.suggestBox, {
+      groups: manageLookAlikes([...categoryMeta.keys()].filter((name) => name !== "Uncategorised"), countOf),
+      nouns: "categories",
+      state,
+      onMerge: (into, names) => mergeCategoriesFromPanel(names.map((name) => categoryMeta.get(name)).filter(Boolean), categoryMeta.get(into)),
+    });
+  }
   if (!shown.length) {
     const none = document.createElement("li");
     none.className = "muted manage-cat-empty";
     none.setAttribute("role", "row");
     const cell = document.createElement("span");
     cell.setAttribute("role", "gridcell");
-    cell.textContent = state.filter ? "No category matches that." : "No categories yet.";
+    cell.textContent = state.filter ? "No category matches that." : state.rare ? "Every category holds a note." : "No categories yet.";
     none.appendChild(cell);
     list.appendChild(none);
   }
@@ -176,12 +216,8 @@ function drawManageCategoryRows(list, footer, state) {
     name.className = "manage-cat-name";
     name.textContent = meta.name;
     name.title = meta.name;
-    const count = document.createElement("span");
-    count.className = "manage-cat-count";
-    count.textContent = String(meta.count);
-    count.title = `${meta.count} note${meta.count === 1 ? "" : "s"}`;
     main.setAttribute("aria-label", `${meta.name}, ${meta.count} note${meta.count === 1 ? "" : "s"}`);
-    main.append(dot, name, count);
+    main.append(dot, name, manageCountButton(meta.count, () => showCategoryNotes(meta.name)));
     li.appendChild(main);
     if (meta.name !== "Uncategorised") {
       const menu = kebabMenu(categoryMenuItems(meta, { inPanel: true }), `Actions for ${meta.name}`);
@@ -303,21 +339,118 @@ function drawManageCategoryFooter(footer, state, redraw) {
     redraw();
   }, false);
   const remove = smallButton("ph:trash Delete…", "Delete the selected categories; their notes are kept", async () => {
-    for (const name of names) {
-      const meta = categoryMeta.get(name);
-      if (meta) await deleteCategoryFromPanel(meta);
-    }
+    const metas = names.map((name) => categoryMeta.get(name)).filter(Boolean);
+    if (metas.length === 1) await deleteCategoryFromPanel(metas[0]);
+    else await deleteCategoriesFromPanel(metas);
     state.selected.clear();
     redraw();
   });
-  footer.append(label, clear, remove, merge);
+  const colour = smallButton("ph:palette Colour…", "Give the selected categories one colour", async () => {
+    await colourCategoriesFromPanel(names.map((name) => categoryMeta.get(name)).filter(Boolean));
+    redraw();
+  });
+  footer.append(label, clear, remove, colour, merge);
 }
 
-//: Several categories folded into one, one undo for the lot.
-async function mergeCategoriesFromPanel(metas) {
-  if (metas.length === 1) return mergeCategoryFromPanel(metas[0]);
+//: **Several categories deleted with one question** (INBOX 504): where all
+//: their notes go, asked once rather than once per category, and one Undo
+//: that puts every note back and every empty category back.
+async function deleteCategoriesFromPanel(metas) {
   const names = metas.map((m) => m.name);
-  const target = await chooseCategorySheet({ label: `Merge ${metas.length} categories into`, sub: "Their notes move across and they go.", exclude: null, excludeAll: names });
+  const total = metas.reduce((n, m) => n + m.count, 0);
+  const target = total
+    ? await chooseCategorySheet({ label: `Delete ${metas.length} categories`, sub: `Where should their ${total} note${total === 1 ? "" : "s"} go? Nothing is deleted but the categories.`, exclude: null, excludeAll: names, includeUncategorised: true })
+    : { name: "Uncategorised", id: null };
+  if (!target) return;
+  const into = target.name === "Uncategorised" ? "" : `?into=${target.id}`;
+  const done = [];
+  try {
+    for (const meta of metas) {
+      done.push(await apiJson(`/categories/${meta.id}${into}`, { method: "DELETE" }));
+      if (activeCategory === meta.name) activeCategory = null;
+    }
+  } catch (error) {
+    toast(error.message, true);
+  }
+  if (!done.length) return;
+  offerCategoryUndo(
+    `Deleted ${done.length} categories. Their notes are in ${target.name}.`,
+    async () => {
+      for (const result of done) {
+        if (result.moved_ids.length) await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: result.moved_ids, category: result.name }) });
+        else await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: result.name }) });
+      }
+    },
+    async () => {
+      await loadCategories();
+      for (const result of done) {
+        const again = categoryMeta.get(result.name);
+        if (again) await apiJson(`/categories/${again.id}${into}`, { method: "DELETE" });
+      }
+    }
+  );
+  await refreshAfterCategoryChange();
+}
+
+//: **One colour for several categories** (INBOX 504): the swatch sheet once,
+//: one Undo that gives each its own colour back.
+function colourCategoriesFromPanel(metas) {
+  if (metas.length === 1) return pickCategoryColour(metas[0]);
+  const before = new Map(metas.map((meta) => [meta.name, categoryMeta.get(meta.name)?.colour || null]));
+  return new Promise((resolve) => {
+    openSheet({
+      label: `Colour for ${metas.length} categories`,
+      sub: "Shown on their dots, labels, graph nodes and timeline. Automatic picks one from each name.",
+      name: "category-colour",
+      onClose: () => resolve(),
+      build: (card, close) => {
+        card.classList.add("swatch-card");
+        const preview = document.createElement("p");
+        preview.className = "swatch-preview";
+        preview.textContent = metas.map((meta) => meta.name).join(", ");
+        const show = (key) => preview.style.setProperty("--category-dot", key ? CATEGORY_PALETTE[key] || key : "var(--muted)");
+        const apply = async (pick) => {
+          for (const meta of metas) {
+            const fresh = categoryMeta.get(meta.name) || meta;
+            await apiJson(`/categories/${fresh.id}/colour`, { method: "PUT", body: JSON.stringify({ colour: pick(meta.name) }) });
+          }
+          await loadCategories();
+          manageCategoriesRedraw?.();
+        };
+        const picker = swatchPicker({
+          label: `Colour for ${metas.length} categories`,
+          value: undefined,
+          onChange: show,
+          onChoose: async (key) => {
+            close();
+            try {
+              await apply(() => key);
+            } catch (error) {
+              toast(error.message, true);
+              return;
+            }
+            const message = `${metas.length} categories are now ${categoryColourName(key).toLowerCase()}.`;
+            const undo = () => apply((name) => before.get(name));
+            const action = pushUndo(message, undo, () => apply(() => key));
+            toastAction(message, "Undo", async () => {
+              settleUndoFromToast(action);
+              await undo();
+            });
+          },
+        });
+        card.append(preview, picker);
+        requestAnimationFrame(() => picker.querySelector('[tabindex="0"]')?.focus());
+      },
+    });
+  });
+}
+
+//: Several categories folded into one, one undo for the lot. `target` given
+//: (a look-alike suggestion's busiest name) skips the choice.
+async function mergeCategoriesFromPanel(metas, target = null) {
+  if (metas.length === 1 && !target) return mergeCategoryFromPanel(metas[0]);
+  const names = metas.map((m) => m.name);
+  target = target || await chooseCategorySheet({ label: `Merge ${metas.length} categories into`, sub: "Their notes move across and they go.", exclude: null, excludeAll: names });
   if (!target) return;
   const done = [];
   try {

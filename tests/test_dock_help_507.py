@@ -119,3 +119,66 @@ def test_the_options_panel_stays_open_when_a_button_in_it_rewrites_its_own_label
     wiring = (INDEX.parent / "js" / "wiring.js").read_text(encoding="utf-8")
     start = wiring.index('document.addEventListener("click", (event) => {\n  const panel = $("graph-options");')
     assert "event.target.isConnected" in wiring[start : start + 500]
+
+
+# WORLD_CLASS_PLAN A8 (2026-10-04): every tab's dock ends with a '?'. Dashboard
+# and Reminders were the two without one; the lint keeps it that way.
+#: Docks with no '?', each with its reason. The Logs console is a pane inside
+#: Settings, which has its own Help section rather than a popover per pane.
+HELPLESS_DOCKS = {"settings-logs"}
+
+
+def _docks_with_help() -> dict[str, bool]:
+    from html.parser import HTMLParser
+
+    void = {"input", "img", "br", "hr", "meta", "link", "source", "col", "area", "base", "embed", "track", "wbr"}
+
+    class Walk(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stack: list[tuple[str, str | None]] = []
+            self.found: dict[str, bool] = {}
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if a.get("data-dock-name"):
+                self.found[a["data-dock-name"]] = False
+            if tag not in void:
+                self.stack.append((tag, a.get("data-dock-name")))
+            if "graph-help-toggle" in (a.get("class") or "").split() or "data-help-for" in a:
+                for _tag, dock in self.stack:
+                    if dock:
+                        self.found[dock] = True
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stack) - 1, -1, -1):
+                if self.stack[i][0] == tag:
+                    del self.stack[i:]
+                    return
+
+    walk = Walk()
+    walk.feed(re.sub(r"<!--.*?-->", "", HTML, flags=re.S))
+    return walk.found
+
+
+def test_every_dock_carries_a_help_button():
+    found = _docks_with_help()
+    assert len(found) >= 15, found
+    missing = sorted(name for name, has in found.items() if not has and name not in HELPLESS_DOCKS)
+    assert not missing, f"docks with no '?' (the data-help-for recipe, DESIGN.md): {missing}"
+    stale = sorted(name for name in HELPLESS_DOCKS if found.get(name))
+    assert not stale, f"has a '?' now, remove from HELPLESS_DOCKS: {stale}"
+
+
+def test_dashboard_and_reminders_help_follow_the_recipe():
+    for button_id, panel_id in (
+        ("dash-help-toggle", "dash-help"),
+        ("reminders-help-toggle", "reminders-help"),
+    ):
+        tag = re.search(rf'<button[^>]*id="{button_id}"[^>]*>', HTML).group(0)
+        assert f'data-help-for="{panel_id}"' in tag and f'aria-controls="{panel_id}"' in tag
+        assert 'aria-label="' in tag and 'aria-expanded="false"' in tag
+        panel = re.search(rf'<div class="help-body hidden" id="{panel_id}"[^>]*>\s*<p>(.*?)</p>', HTML, re.S)
+        assert panel, panel_id
+        text = panel.group(1)
+        assert "\N{EM DASH}" not in text and "!" not in text, "copy rules: no em-dash, no exclamation mark"

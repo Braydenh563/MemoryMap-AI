@@ -49,6 +49,28 @@ not know the rule could break it and nothing failed. All five are in
 Not verified: the four new palette rows were not run in a browser; the static
 catalogue lints (`test_catalogue_reveal.py`, `test_feature_catalog.py`) pass.
 
+### From WORLD_CLASS_PLAN.md row 14 (A8): the '?' on every tab's dock
+
+Read against the markup first: of the 16 `data-dock-name` docks, 14 already
+carried a '?' (Chat, Library and Boards use the `data-help-for` popover;
+Graph, Timeline, Notes, Skills, Media and Contents use the older hand-wired
+`.graph-help-panel`), so the plan's "Chat and Graph have it" understated it.
+Two tab docks had none: **Dashboard** and **Reminders**. Each now ends with
+the recipe's button and `.help-body` (`#dash-help-toggle` / `#dash-help`,
+`#reminders-help-toggle` / `#reminders-help`), before the dock's more menu, and
+the help is one paragraph of three sentences. The Settings Logs console is
+the one dock left without, listed in `HELPLESS_DOCKS` with its reason (the
+Settings screen has its own Help section).
+
+- Lint: `tests/test_dock_help_507.py` fails a dock with no '?' and a stale
+  entry in `HELPLESS_DOCKS`; the new copy is checked for em-dashes and
+  exclamation marks.
+- Measured (`scratchpad/ui-sweeps/dockhelp2.js`, Chromium, 8804): at 1440 and
+  390 the toggle is visible (32px, 44px on a phone), one press opens a panel
+  fully inside the window, a second closes it; both docks stay one row (50px
+  at 1440, 62px at 390). 4 of 4.
+- Not changed: the six hand-wired panels were not moved onto `data-help-for`.
+
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
 ### From MINDMAP_PLAN.md section 13e: the branch palette, the font, and decision 9's narrow case

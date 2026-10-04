@@ -783,9 +783,9 @@ take five of these.
 
 **Moved whole to HISTORY.md, "Moved from the plans, 2026-09-24".** A1 to A7 and A9 are done (the first
 A1 to A6 rows in the table were the pre-fix copies of the same findings).
-State 2026-09-24: A8's '?' help on every tab's dock is the one part left;
-`data-help-for` appears 51 times in `index.html`, and on a tab's dock only
-for Chat and Graph. The other three A8 items were not re-measured here.
+State 2026-10-04: A8's '?' help on every tab's dock is built (HISTORY, "the
+consistency contract's missing lints"); the other three A8 items were not
+re-measured here.
 
 ## 8. Execution order for the coming week (Opus/Sonnet sessions)
 
@@ -812,7 +812,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
-| 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
+| 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
 | 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |

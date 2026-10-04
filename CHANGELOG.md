@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Dashboard and Reminders: each dock now ends with a '?' that opens a short note on the page (the Dashboard's search, widgets and layout; the Reminders groups, the plain-words box and the calendar export), the same button every other tab's dock has; `tests/test_dock_help_507.py` fails on a dock without one (`scratchpad/ui-sweeps/dockhelp2.js`, 4 of 4 at 1440 and 390).
 - Command palette: Ctrl+K now lists Open today's note, Go back, Go forward and Reload the app, the four shortcuts that had no row; `tests/test_consistency_contract.py` fails on a tab or a shortcut the palette lacks, a card in a card, a glass in a glass, a menu row that paints a fill at rest, and a second filled button in a modal or a settings pane (5 existing dialogs and 13 chip rules are held at their count).
 - Dashboard: Recent activity's "Undo what Atlas did" row goes once the undo has put everything back, instead of staying to say "Already undone"; a later change by Atlas brings it back (`GET /events` names the events a restore reversed).
 - Dashboard: the While you were away card grows to fit the review list you open instead of scrolling inside a 320px box, so every finding and its Dismiss button can be reached; it still pages five at a time.

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.
 - The dashboard greeting ends in a full stop or a question mark, never an exclamation mark, like the rest of the app's copy; an older cached greeting corrects itself on the next render.
 - A test now holds the wording of every server error message (tests/test_server_detail_wording.py): each one has to read as a sentence with a full stop, with no field name, path, dash or exclamation mark, because the toast shows it as written; the voice and update messages were tidied to pass (INBOX 472)

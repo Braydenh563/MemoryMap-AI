@@ -11222,12 +11222,19 @@ input[type="file"] {
   color: var(--muted);
 }
 
-.wb-map-core .wb-map-progress {
-  color: inherit;
-}
-
 .wb-map-progress.wb-map-progress-complete {
   color: var(--ok);
+}
+
+/* On a core topic's colour and a filled topic's tint, the label's ink, for
+   the reason given for the number above: the muted grey there is the same
+   4.39:1 on the blue tint, and the success green is a second hue on a hue.
+   Complete still reads, from the count itself ("5/5"). */
+.wb-map-core .wb-map-progress,
+.wb-map-filled .wb-map-progress,
+.wb-map-core .wb-map-progress.wb-map-progress-complete,
+.wb-map-filled .wb-map-progress.wb-map-progress-complete {
+  color: inherit;
 }
 
 /* The topic a dragged branch would land on (MINDMAP_PLAN.md §12.1 item 8).

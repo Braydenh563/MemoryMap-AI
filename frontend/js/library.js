@@ -5998,10 +5998,12 @@ function ocrOpenEdit() {
   box.value = ocrAllText();
   $("ocr-edit-panel")?.classList.remove("hidden");
   $("ocr-region-list")?.classList.add("hidden");
+  stagePrimary("ocr-to-note", "ocr-edit-save", true);
   box.focus();
 }
 
 function ocrCloseEdit() {
+  stagePrimary("ocr-to-note", "ocr-edit-save", false);
   $("ocr-edit-panel")?.classList.add("hidden");
   $("ocr-region-list")?.classList.remove("hidden");
 }

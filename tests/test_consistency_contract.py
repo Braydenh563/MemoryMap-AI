@@ -13,9 +13,10 @@ make). A ratchet is lowered in the commit that earns it and never raised.
    no `.glass` inside a `.glass`, no `details > summary.btn` inside a card.
    Measured 2026-10-04: no violation in `index.html`, so it fails on any.
 2. **One primary per modal** (1.2). At most one filled button in a modal
-   overlay, or in one settings pane. Five places hold more than one today,
-   all of them stage-gated pairs (Run then Accept, Record then Save, an
-   update's Apply and Install); each is held at its count in `PRIMARY_RATCHET`.
+   overlay, or in one settings pane, with no allowance: the five that held
+   two or three (2026-10-04) were fixed. A stage-gated pair (Run then Accept,
+   Record then Save) writes the later button `ghost` and hands the fill over
+   with `stagePrimary` when its stage comes (`STAGE_PAIRS`).
 3. **Meta without border or hover** (1.2). A `.chip` that draws a border or
    answers hover is a control wearing a chip's clothes. The app has dozens
    (link chips, category chips that open a menu); `META_RATCHET` is the
@@ -123,18 +124,15 @@ _NOT_PRIMARY = {
     "seg-btn", "chip",
 }  # fmt: skip
 
-#: Modals (and settings panes) that hold more than one filled button today,
-#: with the count measured 2026-10-04. Every one is a stage-gated pair: the
-#: second shows once the first has run. Telling them apart in markup (one
-#: filled, the next ghost until its turn) is a design judgement per dialog,
-#: so the count is held, not forced down. Lower it when a dialog is fixed.
-PRIMARY_RATCHET = {
-    "doc-ai-panel": 2,  # Run, then Accept
-    "ocr-workspace": 2,  # Save edits, Make a note
-    "meeting-overlay": 2,  # Record, then Save
-    "settings-searchindex": 2,  # Fix the embedding model, Apply
-    "settings-about": 3,  # Apply the update, Install a version, Shortcuts
-}
+#: Stage-gated pairs: (unit, the first stage's button, the later one). The
+#: later one is `ghost` in the markup and `stagePrimary(first, later, turn)`
+#: moves the one fill between them, so a dialog never shows two.
+STAGE_PAIRS = (
+    ("doc-ai-panel", "doc-ai-run", "doc-ai-accept"),  # Suggest, then Replace
+    ("ocr-workspace", "ocr-to-note", "ocr-edit-save"),  # editing the reading
+    ("meeting-overlay", "meeting-record", "meeting-save"),  # Record, then Save
+    ("settings-searchindex", "embedding-apply", "embedding-error-fix"),  # a broken model
+)
 
 
 class _Primaries(HTMLParser):
@@ -197,27 +195,25 @@ def _primaries() -> _Primaries:
 def test_a_modal_has_one_filled_button():
     parser = _primaries()
     assert parser.modals >= 10, "the walk found no modals: the lint is looking at the wrong thing"
-    over = {
-        unit: ids
-        for unit, ids in parser.units.items()
-        if len(ids) > PRIMARY_RATCHET.get(unit, 1)
-    }
+    over = {unit: ids for unit, ids in parser.units.items() if len(ids) > 1}
     assert not over, (
-        "more filled buttons in a modal (or settings pane) than the contract allows "
-        "(WORLD_CLASS_PLAN 1.2: one primary per surface; make the others ghost):\n  "
+        "more than one filled button in a modal (or settings pane) "
+        "(WORLD_CLASS_PLAN 1.2: one primary per surface; make the others ghost, "
+        "or hand the fill over with stagePrimary):\n  "
         + "\n  ".join(f"{unit}: {ids}" for unit, ids in over.items())
     )
 
 
-def test_the_primary_ratchet_is_still_load_bearing():
-    """An allowance for a dialog that was fixed is a hole for the next one."""
+def test_a_stage_gated_pair_hands_the_fill_over():
+    """The later button of a pair is ghost in the markup, so the lint above
+    sees one; the code that opens its stage must fill it, or it never is."""
     parser = _primaries()
-    stale = {
-        unit: (allowed, len(parser.units.get(unit, [])))
-        for unit, allowed in PRIMARY_RATCHET.items()
-        if len(parser.units.get(unit, [])) < allowed
-    }
-    assert not stale, f"lower PRIMARY_RATCHET (allowed, found): {stale}"
+    code = "".join(p.read_text(encoding="utf-8") for p in (ROOT / "frontend" / "js").glob("*.js"))
+    assert "function stagePrimary(a, b, bTurn)" in code
+    for unit, first, later in STAGE_PAIRS:
+        assert parser.units.get(unit) == [first], (unit, parser.units.get(unit))
+        assert re.search(rf'<button id="{later}" class="ghost[ "]', _markup()), later
+        assert f'stagePrimary("{first}", "{later}", ' in code, f"{later} is never filled"
 
 
 # ---------------------------------------------------------------------------

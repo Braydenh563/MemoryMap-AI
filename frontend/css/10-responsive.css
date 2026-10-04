@@ -2571,6 +2571,19 @@ header#top-bar,
     padding-bottom: var(--space-1);
   }
 
+  /* **The page stops where the bar starts.** The bar is fixed, so nothing in
+     the page's flow knows it is there: measured at 390x844 before this rule,
+     the card ran to y=778 under a bar at 733 to 786, so the status line (743
+     to 765) was drawn behind the bar and never seen, while the editor carried
+     a 56px pad of its own and stopped 72px above the bar, a white band with
+     nothing in it. The card's margin is the bar's own height (a 44px target,
+     its `--space-1` padding top and bottom, its 1px rule), so the status line
+     sits just above the bar and the writing runs down to it. Not while
+     reading, and not with the focus panel open: the bar is not drawn then. */
+  #tab-documents:not(:has(#doc-panes.reading)):not(.doc-focus-sidebar) .doc-main {
+    margin-bottom: calc(44px + 2 * var(--space-1) + 1px);
+  }
+
   #tab-documents:has(#doc-panes.reading) .doc-phone-bar {
     display: none;
   }

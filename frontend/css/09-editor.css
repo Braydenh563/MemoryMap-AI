@@ -861,10 +861,11 @@
     display: flex;
   }
 
-  /* The editor keeps its last line above the bar rather than behind it. */
-  #tab-documents .doc-source-wrap {
-    padding-bottom: 56px;
-  }
+  /* The documents page keeps its foot clear of the bar in 10-responsive.css,
+     beside the rule that lifts the bar above the tab bar: the two are one
+     pair and were once apart (a 56px pad here on the editor, written while
+     the bar sat on the window's edge, left the status line under the bar
+     once the bar moved up). */
 }
 
 /* =============================================================================

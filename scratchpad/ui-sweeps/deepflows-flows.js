@@ -312,4 +312,148 @@ flows.mindmap = async (env) => {
   await env.wait(500);
 };
 
+flows.whiteboard = async (env) => {
+  const id = await boardId(env, 'Launch plan');
+  if (!id) throw new Error('the seeded board is missing (run deepflows-seed.js)');
+  const objects = (i) => env.js(async (b) => (await apiJson(`/whiteboard/?board_id=${b}`)).objects.map((o) => ({ id: o.id, kind: o.kind, data: o.data })), i);
+  const before = await objects(id);
+  env.at('open the board');
+  await openBoardByTitle(env, 'Launch plan');
+  await env.overflow('board open');
+  env.at('Insert > Sticky note');
+  await env.page.locator('button[title="Add something to the board"]:visible').first().click();
+  await env.page.locator('[role="menuitem"]:visible', { hasText: 'Sticky note' }).first().click();
+  await env.wait(400);
+  const stage = await env.page.locator('#wb-stage, #whiteboard-stage, .wb-stage, #wb-canvas').first().boundingBox().catch(() => null);
+  const x = stage ? stage.x + stage.width * 0.55 : env.width * 0.55;
+  const y = stage ? stage.y + stage.height * 0.5 : 400;
+  env.at('click the canvas to drop the sticky');
+  await env.page.mouse.click(x, y);
+  await env.wait(700);
+  await env.page.keyboard.type(`Sticky ${env.STAMP}${env.width}${env.theme}`);
+  await env.page.keyboard.press('Escape');
+  await env.wait(1500);
+  const after = await objects(id);
+  const made = after.filter((o) => !before.some((b) => b.id === o.id));
+  if (made.length !== 1) throw new Error(`wanted one new object, found ${made.length}: ${JSON.stringify(made).slice(0, 160)}`);
+  if (!JSON.stringify(made[0].data).includes('Sticky df')) throw new Error(`the sticky holds no text: ${JSON.stringify(made[0]).slice(0, 160)}`);
+  await env.overflow('sticky placed');
+  for (const o of made) await env.js(async (n) => { await api(`/whiteboard/objects/${n}`, { method: 'DELETE' }); }, o.id);
+  await env.js(() => document.getElementById('wb-back-to-boards')?.click());
+  await env.wait(500);
+};
+
+flows.document = async (env) => {
+  const original = '# Trip plan\n\nFlights, hotel and a list of places to see.';
+  const doc = await env.js(async () => (await apiJson('/documents')).find((d) => d.title === 'Trip plan'));
+  if (!doc) throw new Error('the seeded document is missing (run deepflows-seed.js)');
+  const restore = () => env.js(async ([id, text]) => { await api(`/documents/${id}`, { method: 'PUT', body: JSON.stringify({ title: 'Trip plan', content: text }) }); }, [doc.id, original]);
+  const content = () => env.js(async (id) => (await apiJson(`/documents/${id}`)).content, doc.id);
+  try {
+    env.at('open the document');
+    await env.js(() => switchTab('library'));
+    await env.wait(900);
+    await env.js(() => document.querySelector('#library-subtabs [data-target="library-view-documents"]')?.click());
+    await env.wait(1500);
+    await env.page.locator('#library-view-documents').getByText('Trip plan', { exact: true }).first().click();
+    //: A phone opens a document to read it; Edit is one press away.
+    await env.page.waitForSelector('#doc-back', { state: 'visible', timeout: 8000 });
+    await env.wait(1000);
+    if (!(await env.page.isVisible('#tab-documents .cm-content'))) {
+      await env.page.locator('button[title="Edit the document"]:visible').first().click();
+    }
+    await env.page.waitForSelector('#tab-documents .cm-content', { state: 'visible', timeout: 8000 });
+    await env.wait(800);
+    await env.overflow('document open');
+    env.at('type into the document');
+    await env.page.locator('#tab-documents .cm-content').first().click();
+    await env.page.keyboard.press('Control+End');
+    await env.page.keyboard.type(` Typed ${env.STAMP}${env.width}${env.theme}.`);
+    env.at('add a properties block');
+    await env.page.keyboard.press('Control+Home');
+    await env.page.keyboard.type('---\nstatus: draft\n---\n');
+    await env.page.waitForSelector('.doc-props input.doc-prop-input', { state: 'visible', timeout: 5000 });
+    await env.overflow('properties panel');
+    env.at('set the property');
+    const field = env.page.locator('.doc-props input.doc-prop-input:not(.doc-prop-new-input)').first();
+    await field.fill('done');
+    await field.press('Enter');
+    await env.wait(2500); // autosave
+    const text = await content();
+    if (!/status:\s*done/.test(text)) throw new Error(`the property did not reach the file: ${JSON.stringify(text.slice(0, 60))}`);
+    if (!text.includes(`Typed ${env.STAMP}${env.width}${env.theme}.`)) throw new Error('typed text did not save');
+    // Back to the list through the document's own back button.
+    await env.js(() => document.getElementById('doc-back')?.click());
+    await env.wait(600);
+  } finally {
+    await restore();
+  }
+};
+
+//: No model is connected in the sandbox, so the answer is the graceful one: the
+//: notes' own words and a way to connect a model, never an error.
+flows.ask = async (env) => {
+  await env.js(() => switchTab('notes'));
+  await env.wait(600);
+  await env.js(() => document.querySelector('[data-section="ask"]')?.click());
+  await env.wait(900);
+  env.at('type the question');
+  await env.page.fill('#question', 'What is in Alpha project?');
+  await env.page.press('#question', 'Enter');
+  env.at('wait for the answer');
+  const answer = await until(env, () => {
+    const t = document.querySelector('#ai-answer')?.innerText || '';
+    return t.trim().length > 30 && !/Searching your notes|Stargazing/.test(t) ? t : null;
+  }, null, 20000);
+  if (!answer) throw new Error('no answer was drawn');
+  if (!/no model|isn.t running|not running|not connected/i.test(answer)) throw new Error(`the no-model answer does not say so: ${answer.slice(0, 120)}`);
+  if (/error|traceback|undefined|\[object/i.test(answer)) throw new Error(`the answer carries a raw error: ${answer.slice(0, 160)}`);
+  await env.overflow('ask answer');
+  const connect = await env.page.locator('button:has-text("Connect a model")').count();
+  if (!connect) throw new Error('the no-model state offers no way to connect one');
+};
+
+flows.notifications = async (env) => {
+  const k = `${env.STAMP}${env.width}${env.theme}`;
+  await env.js(([key]) => {
+    recordNotification({ kind: 'job', title: `Sweep one ${key}`, detail: 'first', key: `sweep:${key}:1` });
+    recordNotification({ kind: 'job', title: `Sweep two ${key}`, detail: 'second', key: `sweep:${key}:2` });
+  }, [k]);
+  env.at('open the bell');
+  await env.page.locator('#notif-btn').click();
+  await env.page.waitForSelector('#notif-panel:not(.hidden)', { timeout: 4000 });
+  await env.wait(500);
+  const rows = () => env.js((key) => [...document.querySelectorAll('#notif-list > li')].filter((li) => li.textContent.includes(key)).length, k);
+  if ((await rows()) !== 2) throw new Error(`the panel shows ${await rows()} of the 2 notifications`);
+  await env.overflow('notifications panel');
+  env.at('remove one');
+  //: The row's remove button is revealed by pointing at the row (always there on touch).
+  await env.page.locator(`#notif-list > li:has-text("Sweep one ${k}")`).hover();
+  await env.page.locator(`#notif-panel button[aria-label="Remove: Sweep one ${k}"]`).click();
+  await env.wait(500);
+  if ((await rows()) !== 1) throw new Error('Remove did not take the row out');
+  const stored = await env.js((key) => storedNotifications().filter((n) => String(n.title).includes(key)).map((n) => n.title), k);
+  if (stored.length !== 1 || !stored[0].includes('two')) throw new Error(`the wrong one is left in storage: ${JSON.stringify(stored)}`);
+  env.at('mark the other read');
+  await env.page.locator(`#notif-list > li:has-text("${k}")`).first().hover();
+  await env.page.locator(`#notif-list > li:has-text("${k}") button.notif-read-toggle`).first().click();
+  await env.wait(400);
+  env.at('close the panel');
+  await env.page.locator('#notif-close').click();
+  await env.wait(400);
+  if (await env.page.isVisible('#notif-panel')) throw new Error('the panel did not close');
+  await env.js((key) => { for (const n of storedNotifications().filter((x) => String(x.title).includes(key))) dismissNotification(n); }, k);
+};
+
+//: The dashboard on a notebook with properties and private notes: every widget
+//: draws, none prints a `---` block as a note's words.
+flows.dashboard = async (env) => {
+  await env.js(() => switchTab('dashboard'));
+  await env.wait(3500);
+  const bad = await env.js(() => [...document.querySelectorAll('#tab-dashboard .dash-list-text, #tab-dashboard .random-note, #tab-dashboard .dash-list li')]
+    .map((e) => e.innerText.trim()).filter((t) => /^---|status: active|priority: \d+/.test(t)).slice(0, 2));
+  if (bad.length) throw new Error(`the dashboard prints a properties block as words: ${JSON.stringify(bad).slice(0, 160)}`);
+  await env.overflow('dashboard');
+};
+
 module.exports = flows;

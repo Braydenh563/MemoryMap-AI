@@ -13371,6 +13371,54 @@ header#top-bar {
   stroke-opacity: 0.2;
 }
 
+/* **Text inside a shape** (WHITEBOARD_PLAN decision 12; `wbPaintShapeLabel`).
+   The label is the shape's own SVG text, in board units, so it scales with
+   the zoom like the shape does. Its ink is the theme's text colour; a filled
+   shape's label takes black or white on its fill through an inline `fill`,
+   which beats this rule. Placement (anchor, baseline) is set as attributes in
+   the JS so an export carries it. */
+.sketch-label {
+  fill: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  user-select: none;
+}
+
+.sketch-group.wb-shape-label-editing .sketch-label {
+  visibility: hidden;
+}
+
+/* The editor that stands over the label while it is typed (the board's one
+   in-place text recipe, `wbBeginTextEdit`): the same face, size and line
+   height as the label it replaces, centred the same way, so the text does
+   not jump when the editor closes. Above every card on the board while it is
+   open. */
+.wb-shape-label-editor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  outline: none;
+  cursor: text;
+}
+
+.wb-shape-label-editor:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 
 /* --- Find anything -----------------------------------------------------------
    The universal search dialog (app.js, `openFinder`). INBOX 270. It shares the

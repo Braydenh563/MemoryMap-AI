@@ -161,6 +161,21 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    INBOX 445): `WB_TOOL_SETTINGS` maps a tool to its settings; a tool with
    none (a link, the eraser, the sticky, the text box, the bucket) shows no
    bar, and nothing that acts on a selection shows with nothing selected.
+12. **A closed shape holds text** (taken 2026-10-04, the competitor pass:
+   tldraw, Excalidraw, Miro and FigJam all do it, and a flowchart is the
+   first thing anyone draws with the four shape tools). The text is `label`
+   in the shape's own data blob, drawn as an SVG `<text>` inside the shape's
+   group, so it moves, resizes, turns, exports and undoes with the shape
+   rather than being a text box parked on top. Double-click the shape or
+   press Enter with it selected; Enter or Escape ends, Shift+Enter breaks the
+   line; the right-click menu says "Add text". Centred in the shape's label
+   area (the inscribed band of an ellipse, the middle half of a diamond, the
+   lower half of a triangle), wrapped to it, re-wrapped on a resize. Ink is
+   the theme's text colour, or black or white on a fill of half opacity or
+   more (`wbCoreInkFor`, the core topic's rule). No size, font or alignment
+   controls: the bar keeps its seven, and those three are not what a first
+   flowchart misses. Lines, arrows and pen strokes take no text; a label on
+   a connector is a separate question (the double-click there adds a bend).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

@@ -4539,9 +4539,12 @@ function wbApplyBulkMove(origin, dx, dy) {
       if (el && (!entry.pathEl || !entry.pathEl.isConnected)) {
         entry.pathEl = el.querySelector(".sketch-path");
         entry.hitEl = el.querySelector(".sketch-hitbox");
+        entry.labelEl = el.querySelector(":scope > .sketch-label");
       }
       entry.pathEl?.setAttribute("d", newD);
       entry.hitEl?.setAttribute("d", newD);
+      // A shape's text rides along (decision 12; `wbNudgeShapeLabel`).
+      entry.labelEl?.setAttribute("transform", `translate(${dx} ${dy})`);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
@@ -4622,6 +4625,7 @@ function wbRestoreMove(kind, d) {
     if (d._dragOriginalD != null) {
       el?.querySelector(".sketch-path")?.setAttribute("d", d._dragOriginalD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", d._dragOriginalD);
+      wbLayoutShapeLabel(el);
     }
     delete d._dragLiveD;
   } else {
@@ -5184,6 +5188,17 @@ function wbBuildContextMenu(kind) {
         wbMapResetToBranch(mapNode.id)
       );
     });
+  }
+  //: The words for decision 12's gesture, so typing into a shape is found
+  //: by someone who has not tried a double-click on it.
+  if (kind === "sketch" && wbSelectedItem?.kind === "sketch" && wbMultiSelection.size <= 1) {
+    const shape = (wbState.sketches || []).find((s) => s.id === wbSelectedItem.id);
+    const parsed = shape ? wbSketchParsedData(shape) : null;
+    if (wbShapeLabelKind(parsed)) {
+      item(parsed.label ? "Edit the text" : "Add text", "Double-click the shape, or press Enter", () =>
+        wbEditShapeLabel(shape)
+      );
+    }
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -6536,6 +6551,22 @@ function wbBuildExportSvg(scope) {
     if (!el) continue;
     const clone = el.cloneNode(true);
     clone.removeAttribute("class");
+    //: A shape's text (decision 12) is painted by the stylesheet, which does
+    //: not travel into a standalone SVG: its ink, size and face go on as
+    //: attributes, read off the label as drawn.
+    const labels = el.querySelectorAll(":scope > .sketch-label");
+    const copies = clone.querySelectorAll(":scope > .sketch-label");
+    labels.forEach((label, i) => {
+      const look = getComputedStyle(label);
+      const copy = copies[i];
+      if (!copy) return;
+      copy.removeAttribute("class");
+      copy.removeAttribute("style");
+      copy.removeAttribute("data-kind");
+      copy.setAttribute("fill", wbExportColour(look.fill) || "#1f2430");
+      copy.setAttribute("font-size", look.fontSize);
+      copy.setAttribute("font-family", look.fontFamily);
+    });
     parts.push(clone.outerHTML);
   }
 
@@ -9640,6 +9671,18 @@ async function initWhiteboard() {
       wbMindMapAddChild(wbSelectedItem.id);
       return;
     }
+    //: Enter on one selected shape types into it (decision 12; tldraw's key).
+    if (
+      e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey
+      && wbSelectedItem?.kind === "sketch" && wbMultiSelection.size <= 1
+    ) {
+      const sketch = (wbState.sketches || []).find((s) => s.id === wbSelectedItem.id);
+      if (sketch && wbShapeLabelKind(wbSketchParsedData(sketch))) {
+        e.preventDefault();
+        wbEditShapeLabel(sketch);
+        return;
+      }
+    }
     if (e.key === "Enter" && wbSelectedItem?.kind === "node") {
       e.preventDefault();
       wbMindMapAddSibling(wbSelectedItem.id);
@@ -11288,6 +11331,213 @@ function wbSketchIsClosedShape(sketch) {
   return /[Zz]\s*$/.test(trimmed) || /\ba\s/i.test(trimmed);
 }
 
+//: **Text inside a shape** (WHITEBOARD_PLAN.md decision 12). A rectangle,
+//: ellipse, diamond or triangle carries `label` in its own data blob, drawn as
+//: an SVG `<text>` inside the shape's own group: so it moves, resizes, turns,
+//: exports and undoes with the shape because it *is* the shape, not a text
+//: box parked on top that a drag could leave behind. Double-click the shape
+//: (or Enter with it selected) to type; Enter or Escape ends, Shift+Enter
+//: breaks the line. tldraw, Excalidraw, Miro and FigJam all do exactly this,
+//: and a flowchart is the first thing anybody draws with these four tools.
+const WB_SHAPE_LABEL_MAX = 500;
+
+//: Which shape a sketch is, for its label: the tool that drew it, or a
+//: rectangle for a closed path drawn before `shape` was stored. `null` for
+//: anything open (a pen stroke, a line, an arrow), which takes no label.
+function wbShapeLabelKind(parsed) {
+  if (!parsed || typeof parsed.d !== "string") return null;
+  if (WB_FILLABLE_SHAPES.has(parsed.shape)) return parsed.shape;
+  const trimmed = parsed.d.trim();
+  return /[Zz]\s*$/.test(trimmed) ? "rect" : null;
+}
+
+//: The part of a shape's box a label is written in: the whole width of a
+//: rectangle, the inscribed band of an ellipse (cos 45), the middle half of
+//: a diamond, and the lower half of a triangle, centred on its centroid
+//: (two thirds of the way down from the apex) where it is widest enough to
+//: hold a word.
+function wbShapeLabelArea(kind, bbox) {
+  const pad = 8;
+  const cx = bbox.minX + bbox.width / 2;
+  if (kind === "triangle") {
+    return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad) };
+  }
+  const share = kind === "circle" ? 0.7 : kind === "diamond" ? 0.5 : 1;
+  return { cx, cy: bbox.minY + bbox.height / 2, w: Math.max(24, bbox.width * share - pad * 2) };
+}
+
+//: Greedy word wrap against the label's own rendered width
+//: (`getComputedTextLength`, in the shape's own units, so zoom never enters
+//: into it). A line break typed with Shift+Enter is kept. Where the text
+//: cannot be measured (the board is hidden), an average glyph of 0.55em
+//: stands in, which is the same estimate the export's own wrap uses.
+function wbWrapShapeLabel(textEl, text, width, fontSize) {
+  const measure = (s) => {
+    textEl.textContent = s;
+    const w = textEl.getComputedTextLength();
+    return w > 0 ? w : s.length * fontSize * 0.55;
+  };
+  const lines = [];
+  for (const paragraph of String(text).split("\n")) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && measure(next) > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+//: Lays the label out from the path the group is drawing *now*, so a resize
+//: or a turn in flight re-wraps it, and clears the translation a move puts on
+//: it (`wbNudgeShapeLabel`). The wrap is kept on the element against the text
+//: and the width it was made for, so a render that changed nothing about the
+//: shape measures nothing.
+function wbLayoutShapeLabel(groupEl) {
+  const label = groupEl?.querySelector?.(":scope > .sketch-label");
+  if (!label) return;
+  label.removeAttribute("transform");
+  const bbox = wbPathBBox(groupEl.querySelector(".sketch-path")?.getAttribute("d") || "");
+  if (!bbox) return;
+  const area = wbShapeLabelArea(label.dataset.kind, bbox);
+  const fontSize = parseFloat(getComputedStyle(label).fontSize) || 16;
+  const lineHeight = fontSize * 1.25;
+  const key = `${label.__wbText}|${Math.round(area.w / 4)}|${fontSize}`;
+  if (label.__wbKey !== key) {
+    label.__wbLines = wbWrapShapeLabel(label, label.__wbText, area.w, fontSize);
+    label.__wbKey = key;
+    label.replaceChildren(
+      ...label.__wbLines.map((line, i) => {
+        const span = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        // A blank line keeps its height: an empty tspan collapses to nothing.
+        span.textContent = line || " ";
+        span.setAttribute("dy", i === 0 ? "0" : String(lineHeight));
+        return span;
+      })
+    );
+  }
+  const lines = label.__wbLines.length;
+  label.setAttribute("x", String(area.cx));
+  label.setAttribute("y", String(area.cy - ((lines - 1) * lineHeight) / 2));
+  for (const span of label.children) span.setAttribute("x", String(area.cx));
+}
+
+//: A move is only a translation, so a drag frame moves the label by the
+//: same offset rather than re-reading the path: the next render lays it out
+//: again from the saved path and drops this.
+function wbNudgeShapeLabel(groupEl, dx, dy) {
+  const label = groupEl?.querySelector?.(":scope > .sketch-label");
+  if (label) label.setAttribute("transform", `translate(${dx} ${dy})`);
+}
+
+//: The ink the label is written in: the theme's own text colour on an
+//: unfilled shape (the stylesheet's `var(--text)`), and black or white on a
+//: filled one, whichever reads on that fill (`wbCoreInkFor`, the same rule a
+//: core topic's label follows on its branch colour). A fill under half
+//: opacity is mostly board, so it keeps the theme's ink.
+function wbShapeLabelInk(parsed) {
+  if (!parsed?.fill || (parsed.fillOpacity != null && parsed.fillOpacity < 0.5)) return null;
+  return typeof wbCoreInkFor === "function" ? wbCoreInkFor(parsed.fill) : null;
+}
+
+//: Adds, updates or removes a shape's label for one render.
+function wbPaintShapeLabel(groupEl, parsed) {
+  const kind = wbShapeLabelKind(parsed);
+  const text = kind && typeof parsed.label === "string" ? parsed.label : "";
+  let label = groupEl.querySelector(":scope > .sketch-label");
+  if (!text) {
+    label?.remove();
+    return;
+  }
+  if (!label) {
+    label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "sketch-label");
+    // Presentation attributes rather than stylesheet rules for the two that
+    // place the text: the export clones this node into a standalone SVG,
+    // where no stylesheet follows it.
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dominant-baseline", "central");
+    label.setAttribute("pointer-events", "none");
+    groupEl.appendChild(label);
+  }
+  label.dataset.kind = kind;
+  label.__wbText = text;
+  label.style.fill = wbShapeLabelInk(parsed) || "";
+  wbLayoutShapeLabel(groupEl);
+}
+
+//: Types into a shape (decision 12): an editor over the shape's label area,
+//: in the card layer so it takes the caret above the drawing, through the
+//: board's one in-place text recipe (`wbBeginTextEdit` / `wbEditedText`).
+//: One undo step, and only for a real change.
+function wbEditShapeLabel(sketch) {
+  if (!sketch || document.querySelector(".wb-shape-label-editor")) return;
+  const parsed = wbSketchParsedData(sketch);
+  const kind = wbShapeLabelKind(parsed);
+  const bbox = kind ? wbPathBBox(parsed.d) : null;
+  const layer = document.getElementById("wb-html-layer");
+  if (!bbox || !layer) return;
+  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const area = wbShapeLabelArea(kind, bbox);
+  const editor = document.createElement("div");
+  editor.className = "wb-shape-label-editor";
+  editor.setAttribute("role", "textbox");
+  editor.setAttribute("aria-multiline", "true");
+  editor.setAttribute("aria-label", "Text in this shape");
+  // Through CSSOM: the CSP refuses a `style=` attribute.
+  editor.style.width = `${area.w}px`;
+  editor.style.height = `${Math.max(bbox.height, 24)}px`;
+  editor.style.transform = `translate(${area.cx - area.w / 2}px, ${area.cy - Math.max(bbox.height, 24) / 2}px)`;
+  const ink = wbShapeLabelInk(parsed);
+  if (ink) editor.style.color = ink;
+  editor.textContent = parsed.label || "";
+  layer.appendChild(editor);
+  group?.classList.add("wb-shape-label-editing");
+  wbBeginTextEdit(editor);
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  let done = false;
+  const finish = async () => {
+    if (done) return;
+    done = true;
+    const text = wbEditedText(editor).replace(/^\s+|\s+$/g, "").slice(0, WB_SHAPE_LABEL_MAX);
+    editor.remove();
+    group?.classList.remove("wb-shape-label-editing");
+    if (text === (parsed.label || "")) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    await wbSaveSketchProps(sketch, { label: text || undefined });
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+    wbScheduleRender();
+    wbAnnounce(text ? "Text added to the shape." : "Text taken off the shape.");
+  };
+  editor.addEventListener("keydown", (event) => {
+    // The board's keys must not act on what is being typed.
+    event.stopPropagation();
+    if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+      event.preventDefault();
+      editor.blur();
+    }
+  });
+  editor.addEventListener("pointerdown", (event) => event.stopPropagation());
+  editor.addEventListener("dblclick", (event) => event.stopPropagation());
+  editor.addEventListener("blur", finish);
+}
+
 function wbSketchParsedData(sketch) {
   try {
     const parsed = JSON.parse(sketch.data);
@@ -11757,6 +12007,7 @@ function wbRestoreMultiSnapshot(rows) {
       const selector = `.sketch-group[data-id="${item.id}"]`;
       document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", row.d);
       document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", row.d);
+      wbLayoutShapeLabel(document.querySelector(selector));
       continue;
     }
     wbRestoreBox(row.entry.kind, item, row.before);
@@ -11951,6 +12202,7 @@ function wbRenderMultiSelectionHandles() {
                 const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
                 document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
                 document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+                wbLayoutShapeLabel(document.querySelector(selector));
                 row.entry.item._liveD = newD;
                 continue;
               }
@@ -12040,6 +12292,7 @@ function wbRenderMultiSelectionHandles() {
               const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
               document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
               document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+              wbLayoutShapeLabel(document.querySelector(selector));
               row.entry.item._liveD = newD;
               continue;
             }
@@ -12165,6 +12418,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
               delete sketch._liveD;
               document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
               document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+              wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
             });
           })
           .on("drag", (event) => {
@@ -12183,6 +12437,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+            wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
             sketch._liveD = newD; // read at drag end, without waiting for a full render
           })
           .on("end", async () => {
@@ -12248,6 +12503,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             rotateLiveD = null;
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+            wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
           });
         })
         .on("drag", (event) => {
@@ -12258,6 +12514,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           rotateLiveAngle = currentAngle;
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+          wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
         })
         .on("end", async () => {
           const before = sketch._rotateUndoBefore;
@@ -12521,6 +12778,7 @@ function renderWhiteboard() {
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      wbNudgeShapeLabel(el, dx, dy);
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       wbQueueSelectionBar();
@@ -12579,6 +12837,15 @@ function renderWhiteboard() {
       // double-click is left to whatever else wants it.
       let parsed = null;
       try { parsed = JSON.parse(d.data); } catch { parsed = null; }
+      //: A closed shape's double-click types into it (decision 12).
+      if (wbShapeLabelKind(parsed) && (window.currentTool === "select" || window.currentTool === "pan")) {
+        event.stopPropagation();
+        event.preventDefault();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
+        selectWbItem("sketch", d.id);
+        wbEditShapeLabel(d);
+        return;
+      }
       if (!parsed || !(parsed.type || "").startsWith("link-")) return;
       event.stopPropagation();
       const endpoints = wbResolveLinkEndpoints(parsed);
@@ -12697,9 +12964,11 @@ function renderWhiteboard() {
     let fillOpacity = 1;
     let dashArray = null;
     let isHighlighterStroke = false;
+    let shapeData = null;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
+        shapeData = parsed;
         pathData = parsed.d;
         // `shape` names the tool that drew it, which is what says "highlighter"
         // rather than "a stroke that happens to carry an opacity": a pen
@@ -12773,8 +13042,10 @@ function renderWhiteboard() {
       // "zero-length dashes" instead of "solid", a reused element from a
       // dashed sketch must not leave a stale dasharray on a solid one.
       .attr("stroke-dasharray", dashArray);
+    // After the path, which the label is laid out from (decision 12).
+    wbPaintShapeLabel(this, shapeData);
   });
-    
+
   sketchSelection.exit().remove();
 
   // Render Nodes (Cards)

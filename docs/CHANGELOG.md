@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app emblem no longer throws "appearancePref is not defined" when drawn before Settings has loaded; every Settings helper it uses is checked first.
 - The repository no longer sends new issues to GitHub's AI models for a summary (the `summary.yml` workflow is gone); CodeQL, which is static analysis and free on a public repository, stays.
 - The app emblem no longer throws "ACCENTS is not defined" when it is drawn before Settings has loaded (the assistant avatar on the lock screen); it reads the page's accent colour instead.
 - Help: the Guide's troubleshooting topic and its manual steps send "looks out of date or broken after an update" to Settings, Import & export, Clear app cache (new keywords: out of date, clear cache, stale, after an update), and the Import and export topic names the App cache group (INBOX 487).

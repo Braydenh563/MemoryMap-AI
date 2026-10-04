@@ -123,10 +123,7 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
   //: not the accent picker's stored name: a look's palette sets the accent
   //: too, and the emblem stayed the old indigo on the Quiet default.
-  //: Before settings.js has run (an avatar drawn at boot) neither it nor its
-  //: `ACCENTS` exist: the owner's log, "ReferenceError: ACCENTS is not
-  //: defined" from assistant-avatar.js. The page's own `--accent` is the
-  //: same colour and is always there.
+  //: Before settings.js runs, `--accent` is the same colour (test_emblem_boot.py).
   const accentHex = typeof currentAccentHex === "function"
     ? currentAccentHex()
     : getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
@@ -136,7 +133,10 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   // Settings → Appearance. We deliberately don't freeze it on the OS-level
   // prefers-reduced-motion hint alone: this mark has always turned, the app
   // ships its own motion switch, and that switch is the one to obey.
-  const still = appearancePref("motion") === "reduced";
+  //: Guarded: settings.js may not have run yet (test_emblem_boot.py).
+  const still = (typeof appearancePref === "function"
+    ? appearancePref("motion")
+    : localStorage.getItem("motion")) === "reduced";
 
   const sketch = (p) => {
     let nodes = [];

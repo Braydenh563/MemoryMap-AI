@@ -2020,6 +2020,45 @@
   color: var(--accent-text);
 }
 
+/* The row's two controls, read state then remove (INBOX 508), as one cell of
+   the row's grid. Remove is the same quiet circle as the toggle, and quiet
+   until the row is pointed at, like it. */
+.notif-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: center;
+}
+
+#notif-panel .notif-row .notif-dismiss {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+#notif-panel .notif-row:hover .notif-dismiss,
+#notif-panel .notif-row:focus-within .notif-dismiss {
+  opacity: 1;
+}
+
+#notif-panel .notif-row .notif-dismiss:hover,
+#notif-panel .notif-row .notif-dismiss:focus-visible {
+  color: var(--text);
+}
+
+@media (hover: none) {
+  #notif-panel .notif-row .notif-dismiss,
+  .notif-read-toggle {
+    opacity: 1;
+  }
+}
+
 .notif-list>li:first-child {
   border-top: none;
 }

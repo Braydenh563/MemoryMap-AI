@@ -49,12 +49,6 @@ with its owner named in the entry.
      smooth or creative animation for it to happen, or even differences on
      how it gets there". With the Atlas agent (480).
 
-500. **The owner, 2026-10-04 evening, verbatim.** "make sure that when any ui
-     changes are made, the help info gets updated as well." Taken as a
-     standing order (CLAUDE.md order 13), given to every running agent, and
-     checked at every merge.
-     Fixed: standing order 13 in CLAUDE.md, checked at every merge.
-
 497. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      feminine Atlas, pointer above right, both eyes all white).** "when I
      have my cursor to the top right of the companion or atlas, the pupils
@@ -62,21 +56,6 @@ with its owner named in the entry.
      atlas behaviour more smooth and less sudden beginning and stopping of
      actions, smooth life-like transitions and movement and expressions and
      actions". With the Atlas agent (480).
-
-494. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
-     status bar: "Ctrl K Commands", "Ask", "Guide", "Find").** "the text and
-     icons in the bottom bar elements arent aligned vertically". With the
-     dock-bar agent (479).
-     Fixed: status bar icons within 0.5px of their label's middle (7e07039).
-
-488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
-     dashboard: the search bar's kebab holds Continue, skills, Tools,
-     Commands, View, Widgets and Edit layout, and its menu opens over the
-     Quick access row, which has a kebab of its own with Customise and Reset
-     to default).** "I think it is confusing to have the widget management
-     stuff in the meatball menu button above the meatball menu button which
-     covers the quick access??" With the dock-bar agent (479).
-     Fixed: Dashboard Customise separated from the ⋯ menu (1d6112a), Guide topics updated.
 
 481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      companion's speech line "I'm not talking to you." spilling right over
@@ -90,18 +69,6 @@ with its owner named in the entry.
      ears).** "also I want a better and more majestic and attractive female
      atlas lower body as well as a redesign of whatever this is on the
      forehead between the ears". Agent (Opus, atlas.js art).
-
-479. **The owner, 2026-10-04 evening, verbatim.** "polish and maximise
-     ui/ux. I want no vibecoded tells. do an audit of the layout for all page
-     top or bottom dock bars and see if controls can be better designed,
-     structured, rearranged and more for all features". Agent (Opus), with
-     478.
-     Fixed: audit `scratchpad/dock-audit-479.md` (17 findings); dock hairlines, top bar, Settings head, map rail, tab strip, board picker, Chat '?' merged 2026-10-04. Open findings placed in WORLD_CLASS_PLAN as 507.
-
-478. **The owner, 2026-10-04 evening, verbatim.** "can you do another
-     devibecode sweep and also another modernisation and proffessionalisation
-     and ui/ux design sweep as well??" Agent (Opus), with 479.
-     Fixed with 479 (devibe.js and vibecheck.js 0).
 
 472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
      is left and still open. Use your ui UX design skills to improve ui UX.

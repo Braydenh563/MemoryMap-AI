@@ -838,11 +838,14 @@ HELP_TOPICS.extend(
         },
         {
             "id": "notifications",
-            "keywords": ("notification", "bell", "alert", "unread", "pop up", "popup"),
+            "keywords": ("notification", "bell", "alert", "unread", "pop up", "popup", "dismiss"),
             "body": (
                 "The bell in the top bar collects what happened while you were "
                 "busy: reminders coming due, background jobs that finished, and "
                 "Atlas's suggestions. The number on it is what you have not seen. "
+                "Point at a row for its two controls: the circle marks it read or "
+                "unread, the cross removes just that one; the bin at the bottom "
+                "clears them all. "
                 "Reminders also pop up on their own while the app is open."
             ),
             "badge": {"label": "Dashboard", "tab": "dashboard"},

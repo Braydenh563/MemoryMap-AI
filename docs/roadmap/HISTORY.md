@@ -37093,6 +37093,42 @@ width, 47% of the column at 1440.
      body weight (dot keeps its colour), link chips muted with a fainter edge
      until pointed at (`notecardmeta.js`).
 
+508. **The owner, 2026-10-04 evening, verbatim.** "I cant delete individual
+     notifications". Only Clear all existed. Fixed: each row has a remove
+     cross beside its read circle (quiet until hover, always shown on touch);
+     a removed overdue reminder is remembered so the panel does not fold it
+     back in; focus moves to the next row's cross; the Guide's notifications
+     topic says so. `notifdismiss.js`: 9 rows to 8, the removed reminder
+     stays gone after reopening, both controls 24x28 and centred.
+500. **The owner, 2026-10-04 evening, verbatim.** "make sure that when any ui
+     changes are made, the help info gets updated as well." Taken as a
+     standing order (CLAUDE.md order 13), given to every running agent, and
+     checked at every merge.
+     Fixed: standing order 13 in CLAUDE.md, checked at every merge.
+494. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
+     status bar: "Ctrl K Commands", "Ask", "Guide", "Find").** "the text and
+     icons in the bottom bar elements arent aligned vertically". With the
+     dock-bar agent (479).
+     Fixed: status bar icons within 0.5px of their label's middle (7e07039).
+488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
+     dashboard: the search bar's kebab holds Continue, skills, Tools,
+     Commands, View, Widgets and Edit layout, and its menu opens over the
+     Quick access row, which has a kebab of its own with Customise and Reset
+     to default).** "I think it is confusing to have the widget management
+     stuff in the meatball menu button above the meatball menu button which
+     covers the quick access??" With the dock-bar agent (479).
+     Fixed: Dashboard Customise separated from the ⋯ menu (1d6112a), Guide topics updated.
+479. **The owner, 2026-10-04 evening, verbatim.** "polish and maximise
+     ui/ux. I want no vibecoded tells. do an audit of the layout for all page
+     top or bottom dock bars and see if controls can be better designed,
+     structured, rearranged and more for all features". Agent (Opus), with
+     478.
+     Fixed: audit `scratchpad/dock-audit-479.md` (17 findings); dock hairlines, top bar, Settings head, map rail, tab strip, board picker, Chat '?' merged 2026-10-04. Open findings placed in WORLD_CLASS_PLAN as 507.
+478. **The owner, 2026-10-04 evening, verbatim.** "can you do another
+     devibecode sweep and also another modernisation and proffessionalisation
+     and ui/ux design sweep as well??" Agent (Opus), with 479.
+     Fixed with 479 (devibe.js and vibecheck.js 0).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

@@ -97,6 +97,7 @@ function recordNotification({ kind, title, detail = "", key = "", action = null 
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return;
+  if (key && dismissedNotificationIds().has(id)) return;
   items.push({ id, kind, title, detail, at: Date.now(), action });
   localStorage.setItem(
     NOTIFICATIONS_KEY,
@@ -185,6 +186,39 @@ function setNotificationUnread(id, unread) {
   else { unreadIds.delete(id); readIds.add(id); }
   setForcedUnreadIds(unreadIds);
   setForcedReadIds(readIds);
+  renderNotificationBadge();
+}
+
+//: **One row can be removed** (INBOX 508, the owner: "I cant delete
+//: individual notifications"). Only Clear all existed. A keyed row (an
+//: overdue reminder, `reminder:<id>`) is folded back in by every open of
+//: the panel while it stays overdue, so its key is remembered as dismissed,
+//: or the row would come back the next time the bell is pressed. Capped:
+//: keys are per reminder, a few hundred is years of them.
+const NOTIFICATIONS_DISMISSED_KEY = "notificationsDismissed";
+
+function dismissedNotificationIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_DISMISSED_KEY) || "[]");
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function dismissNotification(item) {
+  const all = storedNotifications().filter((n) =>
+    item.id != null ? n.id !== item.id : n.at !== item.at
+  );
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all));
+    if (item.id != null && /^reminder:/.test(String(item.id))) {
+      const gone = [...dismissedNotificationIds(), item.id].slice(-300);
+      localStorage.setItem(NOTIFICATIONS_DISMISSED_KEY, JSON.stringify(gone));
+    }
+  } catch {
+    // Storage refused: the row stays, which is what the list shows next.
+  }
   renderNotificationBadge();
 }
 
@@ -394,7 +428,28 @@ async function openNotifications({ keepWatermark = false } = {}) {
       setNotificationUnread(item.id, !unread);
       openNotifications({ keepWatermark: true });
     });
-    row.append(readToggle);
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "ghost small icon-only notif-dismiss";
+    dismiss.title = "Remove this notification";
+    dismiss.setAttribute("aria-label", `Remove: ${item.title}`);
+    setLabel(dismiss, "ph:x");
+    dismiss.addEventListener("click", (event) => {
+      event.stopPropagation();
+      // Focus goes to the next row's remove button, or the list, so a
+      // keyboard run through the list does not drop back to the page.
+      const next = row.nextElementSibling || row.previousElementSibling;
+      dismissNotification(item);
+      openNotifications({ keepWatermark: true }).then(() => {
+        const index = next ? [...list.children].findIndex((li) => li.dataset.at === next.dataset.at) : -1;
+        (list.children[index]?.querySelector(".notif-dismiss") || $("notif-close"))?.focus();
+      });
+    });
+    const actions = document.createElement("span");
+    actions.className = "notif-row-actions";
+    actions.append(readToggle, dismiss);
+    row.dataset.at = String(item.at);
+    row.append(actions);
 
     // A notification you cannot act on is a notification you learn to ignore.
     if (item.action && (item.action.tab || item.action.exports || item.action.panel || item.action.settings)) {

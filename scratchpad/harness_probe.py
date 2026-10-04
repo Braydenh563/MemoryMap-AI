@@ -58,6 +58,8 @@ for q in sys.argv[1:]:
     print("==", q)
     print("   offered:", seen_tools[0] if seen_tools else None)
     for e in events:
+        if e.get("type") == "stats":
+            print("    round", e.get("round"), "out tokens", e.get("output_tokens"))
         if e.get("type") in ("tool", "confirm", "limit"):
             print("   ", e.get("type"), e.get("tool") or e.get("name"), e.get("arguments"), e.get("ok"), (e.get("error") or "")[:120])
     print("   answer:", "".join(e.get("delta", "") for e in events if e.get("type") == "answer")[:400].replace("\n", " / "))

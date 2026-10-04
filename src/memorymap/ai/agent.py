@@ -1450,8 +1450,15 @@ def _recent_text(history: list[dict] | None) -> str:
     return " ".join(parts)[:FOLLOW_THROUGH_CONTEXT_CHARS]
 
 
-#: The board and map reads a picture question must not be sent to (below).
-_CANVAS_READS = frozenset({"read_whiteboard", "search_whiteboard", "read_mindmap"})
+#: The board and map tools a picture question must not be sent to (below).
+_CANVAS_TOOLS = frozenset(
+    {
+        "read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link",
+        "generate_diagram", "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+    }
+)
+#: Words that ask for a board to be changed, which keep the board tools.
+_CANVAS_WRITE = re.compile(r"\b(?:add|put|place|pin|draw|make|create|link|map|diagram)\b", re.I)
 _PICTURE_WORDS = re.compile(
     r"\b(?:photo|photos|picture|pictures|pic|image|images|sketch|drawing|screenshot|scan)\b", re.I
 )
@@ -1463,12 +1470,13 @@ def _picture_in_hand(question: str, notes: list[dict]) -> bool:
     Measured on Qwen2.5-1.5B (INBOX 527's eval): "Show me the whiteboard
     sketch from the planning meeting" cued the board tools by its words, and
     the model read a whiteboard instead of writing `[picture 1]` for the note
-    that held the sketch, listed in its own prompt with "has 1 picture". When
-    a note with a picture shares a word with the question, the board and map
-    reads are left off the first offer; the focus correction still widens to
-    them if the model asks.
+    that held the sketch, listed in its own prompt with "has 1 picture"; with
+    the reads gone, Qwen2.5-3B placed the note on a board instead (H4). When
+    a note with a picture shares a word with a question that does not ask for
+    a board to change, the board and map tools are left off the first offer;
+    the focus correction still widens to them if the model asks.
     """
-    if not _PICTURE_WORDS.search(question or ""):
+    if not _PICTURE_WORDS.search(question or "") or _CANVAS_WRITE.search(question or ""):
         return False
     from memorymap.search.search_manager import _meaningful_terms
 
@@ -1647,7 +1655,7 @@ def _prepare_turn(
             if name not in tools.ORCHESTRATION_TOOLS
         ]
     if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
-        focus_names = [name for name in focus_names if name not in _CANVAS_READS]
+        focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
@@ -1818,6 +1826,9 @@ class _TurnState:
     #: Which write tools ran, so a claim can be checked against the action that
     #: would have made it true rather than against the turn as a whole.
     ran_writes: set[str] = field(default_factory=set)
+    #: Acts a write did on the side, for the claim check only: a note made
+    #: with `tags` was tagged (H4, Qwen2.5-3B was told it had not been).
+    implied: set[str] = field(default_factory=set)
     #: Characters of tool output added to the conversation so far.
     spent: int = 0
     #: (tool, arguments) pairs that have already failed.
@@ -2258,6 +2269,8 @@ def _dispatch_call(
         if "error" not in result and name in _WRITE_TOOLS:
             state.did_write = True
             state.ran_writes.add(name)
+            if name == "create_note" and arguments.get("tags"):
+                state.implied.add("tag_note")
             # The notebook just changed, so every read taken before now
             # may be out of date. Clearing this is what keeps the
             # repeat-suppression above from ever serving a stale
@@ -2639,7 +2652,7 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes)
+            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes | state.implied)
             #: **Reflect and retry: a claimed act is asked for once** (INBOX
             #: 527, Qwen2.5-1.5B): "Make a note: buy oat milk" got "I've made a
             #: new note for you" and no call, and the heads-up below was all
@@ -2801,7 +2814,7 @@ def run_agent(
         if card.drawn:
             yield from card.end_round(TURN_ROW_WRAP_UP)
         yield from _check_sources(wrapped, state.messages, show_plan)
-        unsupported = unsupported_claims(wrapped, state.ran_writes)
+        unsupported = unsupported_claims(wrapped, state.ran_writes | state.implied)
         if unsupported:
             yield {
                 "type": "answer",

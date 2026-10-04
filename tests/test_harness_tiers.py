@@ -199,3 +199,40 @@ def test_a_picture_note_on_another_subject_leaves_the_board(monkeypatch, app_sta
     other = {**_SKETCH_NOTE, "title": "Garden", "content": "Garden beds ![beds](/media/g.png)"}
     offered = _offered_for(monkeypatch, [other])
     assert "read_whiteboard" in offered
+
+
+def test_showing_a_picture_in_hand_is_offered_no_board_writes_either(monkeypatch, app_state):
+    """H4, Qwen2.5-3B: with the reads gone, "Show me the whiteboard sketch"
+    called `add_whiteboard_card` for the note and then tried to link cards: a
+    write nobody asked for. Showing is not placing."""
+    offered = _offered_for(monkeypatch, [_SKETCH_NOTE])
+    assert not set(offered) & agent._CANVAS_TOOLS, offered
+
+
+def test_placing_a_picture_on_a_board_still_offers_the_board(monkeypatch, app_state):
+    offered = _offered_for(
+        monkeypatch, [_SKETCH_NOTE], question="Add the whiteboard sketch from the planning meeting to my board"
+    )
+    assert "add_whiteboard_card" in offered
+
+
+class _CreateWithTags:
+    def __init__(self):
+        self.n = 0
+
+    def chat_tools_stream(self, model, messages, offered, mode=None):
+        self.n += 1
+        if self.n == 1:
+            call = {"name": "create_note", "arguments": {"content": "buy oat milk", "tags": ["todo"]}}
+            yield {"final": {"content": "", "tool_calls": [call], "raw_tool_calls": []}}
+            return
+        yield {"final": {"content": "I've created the note and tagged it todo.", "tool_calls": []}}
+
+
+def test_a_note_made_with_tags_was_tagged(monkeypatch, app_state):
+    """H4, Qwen2.5-3B: `create_note` with `tags`, then "tagged as todo", got
+    "Heads up: I said I tagged a note, but I didn't actually run the tool"."""
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"id": 5, "title": "buy oat milk"})
+    events = list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _Named("m"), _CreateWithTags()))
+    text = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert "Heads up" not in text, text

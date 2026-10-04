@@ -2727,6 +2727,13 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # its text and stored in the clear has to be cleared out here too.
         # "The appointment is tomorrow" plus a date is most of the note.
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        # And the people and places a model read out of it: an entity's
+        # membership is the note's text in another shape ("this note names Sam
+        # Lee"), and the live query's `entity:` term and the graph would
+        # still answer with it. Left unscanned, so a note made readable again
+        # is read again by the next extraction pass.
+        session.execute(delete(EntityMention).where(EntityMention.entry_id == entry.id))
+        entry.entities_extracted_at = None
         _encrypt_history(session, entry, key)
         _seal_link_reasons(session, entry, key)
     else:

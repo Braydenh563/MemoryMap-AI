@@ -4238,7 +4238,7 @@ def _coerce_array(value: object, schema: dict) -> tuple[object, bool]:
         if text.startswith("["):
             try:
                 value = json.loads(text)
-            except ValueError:
+            except (ValueError, RecursionError):  # a runaway "[[[[" is a bad argument
                 return value, False
         elif items.get("type") == "string":
             value = [part.strip() for part in text.split(",") if part.strip()]
@@ -4304,7 +4304,7 @@ def _coerce(value: object, schema: dict) -> tuple[object, bool]:
         if isinstance(value, str):
             try:
                 value = json.loads(value)
-            except ValueError:
+            except (ValueError, RecursionError):  # a runaway nesting is a bad argument
                 return value, False
         return value, isinstance(value, dict)
     return value, True

@@ -254,6 +254,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+Graph: a topic summary request's shared terms are capped at 200 characters each.
+Suggestions: a decision's signal names are capped at 40 characters (they are kept in the learning table for good).
+Agent: a small model's runaway bracket (thousands of [ or { in one tool argument) failed that one call as unreadable JSON; it raised RecursionError past every reader and ended the whole turn.
+Logs: the query-string redaction was quadratic in a line with a ? early and a long run of slashes after it (28,000 slashes took 2.4 s on the thread that writes every log line); it reads each run once.
+Privacy: making a note private drops the people and places a model had read out of it (the notes filter's entity: term and the graph still answered with a private note's names); made readable again, it is read again.
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-aura.txt
 Library: a note or document with a long run of blank lines or spaces no longer freezes the app: 1,000 blank lines made the Library list take 6.5 seconds and 2,000 took 49, because the preview's table-rule pattern was cubic in the run; 20,000 of any shape is now instant.

@@ -1255,22 +1255,25 @@ def loads_lenient(text: str) -> object:
     Tried in order, strictest first, so valid JSON is never reinterpreted:
     as written; the first object of several; trailing commas dropped;
     a Python literal (`ast.literal_eval`, literals only); brackets closed.
-    Raises ValueError when none of them reads.
+    Raises ValueError when none of them reads. **A runaway `[[[[` is one that
+    does not** (sweep 1004): past a few thousand levels `json.loads` raises
+    RecursionError, which is not a ValueError, and a small model looping on a
+    bracket ended the whole turn instead of failing one tool call.
     """
     raw = _unfence(str(text).strip())
     try:
         return json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
         pass
     try:
         return json.JSONDecoder().raw_decode(raw)[0]
-    except ValueError:
+    except (ValueError, RecursionError):
         pass
     tidy = _TRAILING_COMMA_RE.sub(r"\1", raw)
     for attempt in (tidy, _close_open_json(tidy)):
         try:
             return json.loads(attempt)
-        except ValueError:
+        except (ValueError, RecursionError):
             pass
         try:
             return ast.literal_eval(attempt)

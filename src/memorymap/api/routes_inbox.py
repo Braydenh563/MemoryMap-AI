@@ -10,6 +10,8 @@ that suggestion from coming back, and both move what each signal is worth.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -116,13 +118,13 @@ def suggestions(session: Session = Depends(get_session)) -> dict:
 class MergeAccept(BaseModel):
     keep_id: int
     merge_id: int
-    signals: list[str] = Field(default_factory=list, max_length=8)
+    signals: list[Annotated[str, Field(max_length=40)]] = Field(default_factory=list, max_length=8)
 
 
 class MergeDismiss(BaseModel):
     a: int
     b: int
-    signals: list[str] = Field(default_factory=list, max_length=8)
+    signals: list[Annotated[str, Field(max_length=40)]] = Field(default_factory=list, max_length=8)
 
 
 @router.post("/merges/accept")

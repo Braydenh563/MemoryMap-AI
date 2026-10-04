@@ -789,7 +789,7 @@ class OllamaClient(Provider):
                 if isinstance(arguments, str):  # some models emit JSON text
                     try:
                         arguments = json.loads(arguments)
-                    except ValueError:
+                    except (ValueError, RecursionError):  # a runaway "[[[[" reads as none
                         arguments = {}
                 calls.append({"name": function.get("name", ""), "arguments": arguments})
 

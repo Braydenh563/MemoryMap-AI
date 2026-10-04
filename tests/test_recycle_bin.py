@@ -428,8 +428,10 @@ def test_purging_a_map_removes_its_image_files_but_a_plain_board_keeps_them(clie
     session.commit()
 
     for board in (map_board, plain):
-        assert client.delete(f"/entries/{board['id']}").status_code == 200
-        assert client.delete(f"/entries/{board['id']}/purge").status_code == 200
+        binned = client.delete(f"/entries/{board['id']}")
+        assert binned.status_code == 200
+        purged = client.delete(f"/entries/{board['id']}/purge")
+        assert purged.status_code == 200
 
     assert not (media / ("a" * 32 + ".png")).exists()
     assert (media / ("b" * 32 + ".png")).exists()

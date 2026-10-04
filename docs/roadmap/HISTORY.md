@@ -31,7 +31,7 @@ Qwen2.5-1.5B-Instruct Q4_K_M, llama-server `--jinja`, contended cores.
 | Claimed act retried once (`CLAIM_RETRY_NUDGE`) | heads-up only | asked once, heads-up on a second miss | same |
 | Schema words (`pinned`, `add`, aliases) | 1.5B unpinned; "can't tag" | clearer words; `tags` reaches `add` | same |
 | "Add X to my Y note" offers `edit_note` (`_ADD_TO_NOTE`) | no edit tool offered | offered | same |
-| Small model's imperative: first round `tool_choice: "required"` (OpenAI dialect) | prose on most imperatives | curl: `create_note` called; eval below | same |
+| Small model's imperative: first round `tool_choice: "required"` (OpenAI dialect) | 0/3 imperatives called a tool | 2/3 with the real prompt (`tag_note` exactly right); ten-case rerun stopped, see the plan | same |
 
 ## Moved from the plans, 2026-10-04 (the documents tails)
 

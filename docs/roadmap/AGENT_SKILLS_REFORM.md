@@ -299,6 +299,18 @@ a run's token and time budget (`ai/budget.py`); Stop closes the generator and
 the stream with it. The plan tracker exists for `make_plan` and skills
 (`chat-agent.js` `startPlan`/`markStep`), not for an ordinary turn (H1).
 
+**What the real model says now, honestly.** Before (the ten cases): a right
+first tool 2 of 10, finished 2 of 10, arguments valid 2 of 2, a picture
+placed 0 of 3. After the toolbox and nudges: still 2 of 10 first calls (the
+1.5B answers most requests in prose), but the case the harness had made
+impossible now runs (`pin_note` offered and called), and a claimed note is
+caught and asked for. With the forced first call (the real system prompt and
+tools, `scratchpad/harness_forced.py`): 2 of 3 imperatives answered with a
+call, `tag_note {"note_id": 1, "add": ["urgent"]}` exactly right, against 0
+of 3 unforced. The full ten-case rerun after every change was stopped: on
+these cores one turn ("Make a note") ran 948 s to the 2,048-token reply cap
+and made no call, the model rambling past the grammar; that cap is H4's.
+
 **Not verified.** Every real-model number is one 1.5B on contended cores; 3B
 and 4B were not run (none on disk). Ollama's native dialect and concurrent
 calls at index 1+ have no real-model eval. The wrap-up answer and the claim
@@ -322,6 +334,8 @@ retry were not looked at in a browser (no UI changed: they are answer text).
   `_prepare_turn` (today one boolean). Done when: the table is the only
   place a size decision lives, and the evals below run per tier.
 - **H4. Evals breadth.** The same ten cases at 3B and 4B, and the
-  required first call measured over twenty imperatives and ten questions; Ollama's native
+  required first call measured over twenty imperatives and ten questions,
+  with a tighter reply cap on a small model's tool rounds (one ran 948 s to
+  2,048 tokens on these cores); Ollama's native
   dialect; two calls in one reply on a real model; picture placement over
   ten tries. Done when: each has a number in this section.

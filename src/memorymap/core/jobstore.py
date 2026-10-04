@@ -366,7 +366,7 @@ def cancel(job_id: int, db=None) -> tuple[bool, str]:  # noqa: ANN001
         _forget(job_id)
         return True, "Stopped before it started."
     except Exception:  # noqa: BLE001
-        logger.warning("could not cancel job %s", job_id, exc_info=True)
+        logger.warning("could not cancel a job", exc_info=True)
         return False, "Couldn't stop that job, see Settings → Logs."
 
 
@@ -388,7 +388,7 @@ def cancel_queued(kind: str, name: str = "", db=None) -> int:  # noqa: ANN001
                 query = query.where(DurableJob.name == name)
             ids = list(session.scalars(query))
     except Exception:  # noqa: BLE001
-        logger.debug("could not read the queued %s jobs", kind, exc_info=True)
+        logger.debug("could not read the queued jobs of one kind", exc_info=True)
         return 0
     return sum(1 for job_id in ids if cancel(job_id, db=db)[0])
 
@@ -409,7 +409,9 @@ def set_forget(callback) -> None:  # noqa: ANN001
 
 _held: dict[int, object] = {}
 _held_lock = threading.Lock()
-_beater = None
+# The heartbeat thread while it runs, in a container rather than a module
+# global so it is set and read without `global`.
+_beater: dict = {"thread": None}
 #: Starts `_beat` on a thread and returns it. `core/jobs.py` sets it when it
 #: loads, so the one module that starts threads for jobs is the pool's own
 #: (tests/test_flaw_class_lints.py, THREAD_SITES); until then, nothing beats.
@@ -417,11 +419,11 @@ start_beater = None
 
 
 def _hold(job_id: int, db) -> None:  # noqa: ANN001
-    global _beater
     with _held_lock:
         _held[job_id] = db
-        if start_beater is not None and (_beater is None or not _beater.is_alive()):
-            _beater = start_beater(_beat)
+        thread = _beater["thread"]
+        if start_beater is not None and (thread is None or not thread.is_alive()):
+            _beater["thread"] = start_beater(_beat)
 
 
 def _release(job_id: int) -> None:
@@ -436,12 +438,11 @@ def held() -> list[int]:
 
 def _beat() -> None:
     """Renew every lease this process holds; end when it holds none."""
-    global _beater
     while True:
         time.sleep(HEARTBEAT_SECONDS)
         with _held_lock:
             if not _held:
-                _beater = None
+                _beater["thread"] = None
                 return
             by_db: dict[int, tuple[object, list[int]]] = {}
             for job_id, db in _held.items():

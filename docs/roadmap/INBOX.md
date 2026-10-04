@@ -47,8 +47,14 @@ with its owner named in the entry.
      sub-tab, Settings section and overlay; 1440 and 390, both themes,
      `CONTRAST=on`, `LOOK=`). Default look: 79 findings at 1440 light, 74 dark,
      51 and 49 at 390, now 0 but the 4 to 6 borderless writing surfaces, kept
-     as a decision (DESIGN.md recipe index, `--control-edge`). Still open here:
-     another skills-guided UI round by surface: agents.
+     as a decision (DESIGN.md recipe index, `--control-edge`). **The UI round, 2026-10-04**
+     (one agent, all eight skills as checklists, 188 stills at 1440 and 390
+     in both themes): twenty defects ranked with measurements in
+     `scratchpad/ui-audit-464.md`; the top eight built (Settings heads in
+     groups, switches on the text edge, the phone head on one row, one-line
+     pane descriptions, Library previews keeping blocks apart, the palette on
+     touch, file pickers on the tonal recipe, three copy faults) plus the
+     Timeline's cut titles; two new lints. Items 9 to 20 there are open.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

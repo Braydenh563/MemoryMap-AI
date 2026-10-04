@@ -40,7 +40,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import extract_title, remove_title, strip_inline_markdown
+from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
 
 router = APIRouter(tags=["library"])
 
@@ -98,8 +98,10 @@ _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     text = _MD_TABLE_RULE.sub("", text or "")
-    text = _MD_BLOCK_MARKER.sub("", text)
-    text = _MD_LIST_MARKER.sub("", text)
+    # Each line's own heading, quote or list marker goes as its kind is read,
+    # and the blocks stay apart (`join_blocks`, INBOX 464): "oat milk · eggs",
+    # not "oat milk eggs".
+    text = join_blocks(text, strip=lambda line: _MD_LIST_MARKER.sub("", _MD_BLOCK_MARKER.sub("", line)))
     text = _MD_WIKI_LINK.sub(lambda m: (m.group(2) or m.group(1)).strip(), text)
     # An image-only note (a sketch, most often, but any note that's just a
     # pasted image works the same way) read as literal `![sketch](/media/

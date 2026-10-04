@@ -9039,19 +9039,27 @@ input[type="file"]::file-selector-button {
      32px Import on a desk, and 33 beside 44 on a phone. */
   height: max(var(--control-h-lg), var(--target-min));
   padding: 0 var(--space-4);
-  border: 1px solid var(--border);
+  /* The tonal button's own face, edge, size and weight (INBOX 464): it sat
+     beside its Import button wearing that button's *hover* face, a 10%
+     edge that vanished into the fill, and 12px/500 beside 13.6px/600. */
+  border: 1px solid var(--ghost-btn-border);
   border-radius: var(--radius-md);
-  background: var(--ghost-btn-bg);
+  background: var(--btn-quiet-bg);
   color: var(--ink);
   font: inherit;
-  font-weight: 500;
+  font-size: var(--text-md);
+  font-weight: 600;
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 input[type="file"]::file-selector-button:hover {
-  background: var(--ghost-btn-bg-hover);
+  background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
+}
+
+input[type="file"]:active::file-selector-button {
+  background: var(--ghost-btn-bg-hover);
 }
 
 /* Account & security's facts as a two-column list: the label muted in a
@@ -9923,4 +9931,35 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   .tab-page:not(.hidden) {
     opacity: 0;
   }
+}
+/* --- the 464 round: Settings groups, switch rows, the phone's chrome --------
+   1. Every Settings head is a group head (DESIGN.md "A group head in
+      Settings"). Measured before (groupheads.js, 1440): 44 heads at
+      14.7px/650 inside a `.settings-group`, and 10 at 12px/600 loose on the
+      pane (Personas' four, Templates' and Skills' last, Web search's two),
+      plus Web search's "Your SearXNG instance" at the pane title's 18.4px.
+      The markup now wraps each in a group. The SearXNG panel inside its
+      group is a row tier: a tone, not a third hairline. */
+#settings-modal .settings-group .searxng-host {
+  border-color: transparent;
+  background: var(--surface-3);
+}
+
+/* 2. A switch stands on the group's text edge. Every switch row in Settings
+      is a label with a 1px edge and `--space-3` of padding, kept so the
+      row's hover fill has room around the switch; at rest the fill is gone
+      (a checkbox row draws no resting fill, section 3 above), so what is
+      left is the switch 9px inside the edge every head, label, field and
+      hint in the group stands on: measured (switchalign.js, 1440) on all
+      130 switch rows, 34 `.check-row`, 33 `.setting-check`, 29 in Tools.
+      The row hangs its padding and edge outside the column instead, so the
+      switch takes the column's edge and the hover fill bleeds into the
+      group's own padding, which is what that padding is for (DESIGN.md
+      "A: Alignment": no element on an edge of its own). Only rows that
+      stand in the group's flow: a switch in a grid cell (Skills' workers)
+      would push into its neighbour's gap, and one in a flex row into the
+      control beside it. */
+#settings-modal :is(.settings-group, .settings-fold)
+  label:is(.check-row, .setting-check):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
+  margin-inline: calc(-1 * var(--space-3) - 1px);
 }

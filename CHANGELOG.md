@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
+- Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
+- Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.
+- File pickers (Import markdown, Import a document and the rest) look like the Import button beside them: the same face, edge and weight, where they wore that button's hover colour and a near-invisible edge.
+- Library previews keep a document's or note's blocks apart: a heading, a list item or a table row is followed by a dot ("Goals · Ship the notebook redesign · Cut travel spend by 15%"), where they used to run on as one sentence.
+- Command palette on a phone: the keyboard hints and key chips are gone where there is no keyboard, and the field's prompt ("Search notes or run a command…") fits its box.
+- Settings on a phone: the head is one row again with Close in its corner, on every section and down to 320px (it wrapped onto a second line); the profile face and Back and Forward give way to the section picker, and below 380px Peek is its eye alone. Reminders' empty state no longer says "add one above" where nothing is above.
+- Settings: switches line up with the heads, labels and hints of their group; every switch row sat 9px inside that edge.
+- Settings: every section head after a pane's title now heads a group like the rest (Personas' Answer style, Dashboard greeting, Add your own and Share; Templates' and Skills' last; Web search's three), instead of sitting loose on the pane in a smaller voice.
 - Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
 - Notes filed in the background settle in tens of milliseconds, not 1 to 4 seconds: the embedding of a note-sized text now runs on one torch thread (`MEMORYMAP_EMBED_THREADS` to change it), which was 2.2 s against 79 ms whenever the machine was busy.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.

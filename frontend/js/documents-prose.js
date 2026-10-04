@@ -1248,8 +1248,8 @@ const DOC_EMOJI_SOURCE =
   "handshake=\u{1F91D},muscle=\u{1F4AA},writing_hand=✍️,eyes=\u{1F440},brain=\u{1F9E0}," +
   "heart=❤️,orange_heart=\u{1F9E1},yellow_heart=\u{1F49B},green_heart=\u{1F49A},blue_heart=\u{1F499}," +
   "purple_heart=\u{1F49C},black_heart=\u{1F5A4},broken_heart=\u{1F494},sparkling_heart=\u{1F496}," +
-  "100=\u{1F4AF},boom=\u{1F4A5},sparkles=✨,star=⭐,star2=\u{1F31F},dizzy=\u{1F4AB},fire=\u{1F525}," +
-  "zap=⚡,rainbow=\u{1F308},sunny=☀️,cloud=☁️,umbrella=☂️,snowflake=❄️," +
+  "100=\u{1F4AF},boom=\u{1F4A5},sparkles=✨,star=⭐,star2=\u{1F31F},dizzy=\u{1F4AB},fire=\u{1F525}," + // unslop-ignore: :shortcode: data, not icons
+  "zap=⚡,rainbow=\u{1F308},sunny=☀️,cloud=☁️,umbrella=☂️,snowflake=❄️," + // unslop-ignore
   "droplet=\u{1F4A7},ocean=\u{1F30A},earth_africa=\u{1F30D},seedling=\u{1F331},evergreen_tree=\u{1F332}," +
   "deciduous_tree=\u{1F333},four_leaf_clover=\u{1F340},rose=\u{1F339},sunflower=\u{1F33B}," +
   "cherry_blossom=\u{1F338},apple=\u{1F34E},banana=\u{1F34C},avocado=\u{1F951},pizza=\u{1F355}," +
@@ -1268,8 +1268,8 @@ const DOC_EMOJI_SOURCE =
   "watch=⌚,money_with_wings=\u{1F4B8},moneybag=\u{1F4B0},dollar=\u{1F4B5},credit_card=\u{1F4B3}," +
   "rocket=\u{1F680},airplane=✈️,car=\u{1F697},bike=\u{1F6B2},train=\u{1F686},house=\u{1F3E0}," +
   "office=\u{1F3E2},school=\u{1F3EB},hospital=\u{1F3E5},globe_with_meridians=\u{1F310}," +
-  "world_map=\u{1F5FA}️,round_pushpin=\u{1F4CD},warning=⚠️,no_entry=⛔,x=❌," +
-  "heavy_check_mark=✔️,white_check_mark=✅,ballot_box_with_check=☑️," +
+  "world_map=\u{1F5FA}️,round_pushpin=\u{1F4CD},warning=⚠️,no_entry=⛔,x=❌," + // unslop-ignore
+  "heavy_check_mark=✔️,white_check_mark=✅,ballot_box_with_check=☑️," + // unslop-ignore
   "question=❓,exclamation=❗,bangbang=‼️,heavy_plus_sign=➕,heavy_minus_sign=➖," +
   "arrow_right=➡️,arrow_left=⬅️,arrow_up=⬆️,arrow_down=⬇️," +
   "recycle=♻️,red_circle=\u{1F534},green_circle=\u{1F7E2},yellow_circle=\u{1F7E1}," +

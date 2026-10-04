@@ -39,6 +39,7 @@ from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
     WIKI_LINK,
     entries_for_document,
+    join_blocks,
     get_entry,
     link_document,
     log_action,
@@ -137,18 +138,10 @@ def _preview(content: str) -> str:
     lines collapse for the same reason, three lines of preview should be
     three lines of the document's words.
     """
-    lines = []
-    for raw in content.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        # Leading markdown syntax only, a `#` inside a sentence stays.
-        line = line.lstrip("#>-*+ \t")
-        if line:
-            lines.append(line)
-        if sum(len(part) for part in lines) > PREVIEW_CHARS:
-            break
-    text = " ".join(lines)
+    # Leading markdown syntax only, a `#` inside a sentence stays. The blocks
+    # stay apart (`join_blocks`, INBOX 464): a heading is not the first word
+    # of the sentence under it.
+    text = join_blocks(content, strip=lambda line: line.lstrip("#>-*+ \t"), limit=PREVIEW_CHARS)
     if len(text) <= PREVIEW_CHARS:
         return text
     # Cut at a word boundary, not mid-word. A hard slice ended the first

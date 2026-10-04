@@ -381,13 +381,41 @@ def _get_user(session: Session) -> User | None:
     return session.scalar(select(User))
 
 
+#: **The gate's "is there a password" answer, remembered for a few seconds,
+#: and only when it is yes** (INBOX 472). `require_unlock` runs on every data
+#: request and asked the database each time: 0.4 ms of a 2.5 ms request,
+#: measured in process (scratchpad/asgi_bench.py), and a boot makes about
+#: forty. Only the positive answer is kept, so the cache can only ever make the
+#: gate *ask* for a token, never wave a request through: a notebook that gains
+#: a password (setup, a restored backup) is gated from the very next request,
+#: and one that loses it (the command-line reset, run while the server is up)
+#: asks for a token for at most `_OWNER_TTL` seconds longer. Keyed per engine,
+#: since each test app has its own database.
+_OWNER_TTL = 10.0
+_owner_seen: dict[int, float] = {}
+register_cache_reset(_owner_seen.clear)
+
+
+def _password_set(session: Session) -> bool:
+    key = id(session.get_bind())
+    seen = _owner_seen.get(key)
+    now = time.monotonic()
+    if seen is not None and now - seen < _OWNER_TTL:
+        return True
+    if _get_user(session) is None:
+        _owner_seen.pop(key, None)
+        return False
+    _owner_seen[key] = now
+    return True
+
+
 def require_unlock(
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
 ) -> None:
     """Dependency that gates every data route once a password exists."""
-    if _get_user(session) is None:
+    if not _password_set(session):
         return  # setup not done yet, nothing to protect
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     if not _token_valid(x_auth_token, idle_ttl):
@@ -411,7 +439,7 @@ def require_unlock_media(
     header. **A `?token=` query parameter is no longer read**: it was the
     fallback here until 2026-09-24, and it was the leak S1 describes.
     """
-    if _get_user(session) is None:
+    if not _password_set(session):
         return
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     token = x_auth_token or _media_tickets.get(memorymap_media or "")

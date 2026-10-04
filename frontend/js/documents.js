@@ -11774,6 +11774,40 @@ function setDocFocusTools(on) {
   }
 }
 
+//: **The sidebar, inside the mode** (INBOX 453 (1): "there should be a way to
+//: open and close the documents editor sidebar when in full screen mode").
+//: The list and the outline come back as a panel fixed to the window's left
+//: edge while the page gives up that room, the mirror of Suggestions on the
+//: right; remembered for the session with the mode, like Tools. On a phone
+//: the two side panels would be two full-width sheets, so opening one closes
+//: the other. The editor has no key for its sidebar outside the mode (only
+//: the rail's own toggle), so there is none to reuse; Escape closes it.
+const DOC_FOCUS_SIDEBAR_KEY = "doc-focus-sidebar";
+const DOC_FOCUS_NARROW = "(max-width: 720px)";
+
+function setDocFocusSidebar(on) {
+  const tab = $("tab-documents");
+  if (!tab) return;
+  tab.classList.toggle("doc-focus-sidebar", on);
+  const button = $("doc-focus-sidebar");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on ? "Hide the documents sidebar (Esc)" : "Show the documents sidebar";
+    button.setAttribute("aria-label", button.title);
+  }
+  if (on && window.matchMedia(DOC_FOCUS_NARROW).matches && !$("doc-prose-panel")?.classList.contains("hidden")) {
+    $("doc-prose-panel").classList.add("hidden");
+    $("doc-prose")?.setAttribute("aria-expanded", "false");
+    docFocusSyncProse();
+  }
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_SIDEBAR_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_SIDEBAR_KEY);
+  } catch {
+    // Storage refused: the sidebar shows for now and is not brought back.
+  }
+}
+
 function toggleDocFocus(force) {
   const tab = $("tab-documents");
   if (!tab) return;
@@ -11808,6 +11842,13 @@ function toggleDocFocus(force) {
       // No storage: the mode opens with the page alone, as it always has.
     }
     setDocFocusTools(tools);
+    let sidebar = false;
+    try {
+      sidebar = sessionStorage.getItem(DOC_FOCUS_SIDEBAR_KEY) === "1";
+    } catch {
+      // No storage: the mode opens with the page alone.
+    }
+    setDocFocusSidebar(sidebar);
   } else {
     docFocusWatch(false);
     clearTimeout(docFocusIdleTimer);
@@ -11999,6 +12040,9 @@ $("doc-focus-fullscreen")?.addEventListener("click", docFocusToggleFullscreen);
 $("doc-focus-tools")?.addEventListener("click", () =>
   setDocFocusTools(!$("tab-documents")?.classList.contains("doc-focus-tools"))
 );
+$("doc-focus-sidebar")?.addEventListener("click", () =>
+  setDocFocusSidebar(!$("tab-documents")?.classList.contains("doc-focus-sidebar"))
+);
 //: Escape leaves it: the same convention the whiteboard's and graph's own
 //: full-screen toggles use, and asked the way the graph's is (see INBOX 275
 //: at that handler): bubble phase, so an Escape the editor spends first
@@ -12014,6 +12058,16 @@ document.addEventListener("keydown", (event) => {
     .some((el) => el.getClientRects().length > 0);
   if (menuOpen) return;
   if (event.target instanceof Element && event.target.closest("#doc-prose-panel, #doc-find-bar, .cm-search")) return;
+  //: The sidebar panel is the innermost layer, so it takes the first Escape
+  //: and the mode leaves on the next. The focus goes to its toggle only when
+  //: it was inside the panel, which is about to stop being drawn.
+  const tab = $("tab-documents");
+  if (tab?.classList.contains("doc-focus-sidebar")) {
+    const inside = event.target instanceof Element && !!event.target.closest("#doc-sidebar");
+    setDocFocusSidebar(false);
+    if (inside) $("doc-focus-sidebar")?.focus();
+    return;
+  }
   toggleDocFocus(false);
 });
 
@@ -12033,11 +12087,21 @@ document.addEventListener("keydown", (event) => {
 //: be hidden here (this file loads with the Library), which is fine: the
 //: class waits on it, and `toggleDocFocus` only takes the caret when the
 //: page is showing.
-try {
-  if (sessionStorage.getItem(DOC_FOCUS_KEY) === "1") toggleDocFocus(true);
-} catch {
-  // No storage, nothing to restore.
-}
+//:
+//: **After the rest of the file has run, not in the middle of it.** Called
+//: inline here, `docFocusFill` reached `renderDocCounts`, whose
+//: `DOC_READING_WPM` is a `const` further down: a temporal-dead-zone error the
+//: `catch` below swallowed, after the class was set and before Tools and the
+//: sidebar were restored (measured: `doc-focus` came back, `doc-focus-tools`
+//: never did, and the idle watch was never armed). A microtask runs once this
+//: script has finished, when every `const` is initialised.
+onDomReady(() => {
+  try {
+    if (sessionStorage.getItem(DOC_FOCUS_KEY) === "1") toggleDocFocus(true);
+  } catch {
+    // No storage, nothing to restore.
+  }
+});
 
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
@@ -15169,7 +15233,12 @@ $("doc-prose")?.addEventListener("click", () => {
   docFocusSyncProse();
 });
 
-$("doc-focus-prose")?.addEventListener("click", () => $("doc-prose")?.click());
+$("doc-focus-prose")?.addEventListener("click", () => {
+  if (window.matchMedia(DOC_FOCUS_NARROW).matches && $("doc-prose-panel")?.classList.contains("hidden")) {
+    setDocFocusSidebar(false);
+  }
+  $("doc-prose")?.click();
+});
 
 // --- where the suggestions panel sits (INBOX 410) ---------------------------
 //

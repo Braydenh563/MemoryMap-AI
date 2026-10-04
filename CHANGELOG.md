@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Documents: focus mode has a Sidebar button on its bar that opens the document list and outline as a panel on the left (Esc closes it); a reload in the session now also restores Tools and the idle fade, which an initialisation-order error had been dropping.
 - Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
 - Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.

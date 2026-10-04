@@ -3761,6 +3761,12 @@ Link to another note with [[its first few words]]."></textarea>
         <span id="doc-focus-words"></span>
         <span id="doc-focus-saved" role="status"></span>
       </span>
+      <!-- The document sidebar (the list and the outline), which the mode
+           hides with every other band (INBOX 453 (1)): opens as a panel fixed
+           to the window's left edge while the page gives up that room, the
+           mirror of Suggestions on the right. -->
+      <button type="button" id="doc-focus-sidebar" class="ghost small" aria-pressed="false"
+        aria-controls="doc-sidebar" title="Show the documents sidebar" aria-label="Show the documents sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i><span class="doc-focus-word">Sidebar</span></button>
       <button type="button" id="doc-focus-tools" class="ghost small" aria-pressed="false"
         title="Show the dock and the formatting tools" aria-label="Show the dock and the formatting tools"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i><span class="doc-focus-word">Tools</span></button>
       <!-- The suggestions, which lived only on the status bar's chip, and the

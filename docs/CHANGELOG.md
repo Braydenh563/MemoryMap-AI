@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Files: the search field is announced as "Search the files" (it kept the Images gallery's name on the sub-tab that shares it) (INBOX 479).
 - Boards and maps: the board picker in the top bar shows the board's name below 1216px wide, growing into the bar's free width up to 14rem and giving way first when the bar is full (it was capped at 8rem, "Board · ..." at 820 beside 89px of empty bar); nothing overflows at 1152, 1024, 820, 780 or 390 (INBOX 479).
 - Top bar, 600 to 1199: when the tabs take a row of their own, their well is drawn round the tabs and centred (446px at 820) instead of across the whole window (788px round 430px of tabs); the header's height is unchanged (INBOX 479).
 - Mind maps: the top bar's Map chip is a fact (the dock's quiet chip, as the Graph's count) rather than the filter chip's pressed state, which read as a toggle that did nothing; the tool rail is one height again, the layout picker and the Map section's '?' at the tools' 36px (were 28 and 32) (INBOX 479).

@@ -3368,6 +3368,7 @@ const LIBRARY_MEDIA_COPY = {
     emptyTitle: "No images yet",
     emptyBody: "Paste, drop, or attach one to a note and it shows up here.",
     search: "Search filenames, captions and text found in images…",
+    searchName: "Search the images",
     noMatch: "No images match your search.",
   },
   files: {
@@ -3377,6 +3378,7 @@ const LIBRARY_MEDIA_COPY = {
     emptyBody:
       "Drop a PDF or a document into a note, or use Upload above, and it shows up here.",
     search: "Search filenames and text found in files…",
+    searchName: "Search the files",
     noMatch: "No files match your search.",
   },
 };
@@ -3396,7 +3398,12 @@ function setLibraryMediaKind(kind) {
   const emptyBody = $("library-media-empty-body");
   if (emptyBody) emptyBody.textContent = copy.emptyBody;
   const search = $("library-images-search");
-  if (search) search.placeholder = copy.search;
+  //: The name too: Files shares this field and was announced as "Search
+  //: the image gallery" (INBOX 479).
+  if (search) {
+    search.placeholder = copy.search;
+    search.setAttribute("aria-label", copy.searchName);
+  }
   const noMatch = $("library-images-no-match");
   if (noMatch) noMatch.textContent = copy.noMatch;
   // The upload button offers what this sub-tab is *for*. It still accepts

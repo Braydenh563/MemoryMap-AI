@@ -128,7 +128,8 @@ mark moved no wrap): a
     six of eight. **Open**: low impact, needs help copy written.
 12. **Files search announced as "Search the image gallery".** The Files sub-tab
     shares the Images dock and its search kept the gallery's accessible name.
-    **Planned**: the name follows the sub-tab.
+    **Fixed**: the name follows the sub-tab ("Search the images", "Search
+    the files").
 13. **Reminders has two "Add" buttons in one card**: the magic field's ghost
     "Add" and the form's filled "+ Add". **Open**: copy decision (recommend
     "Add" for the form, the wand alone with "Add from this sentence" on its

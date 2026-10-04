@@ -7849,7 +7849,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-gown3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.82; }
 .nm-atlas .atl-gown-train { fill: var(--atl-gown); opacity: 0.62; }
 .nm-atlas .atl-gown-train-haze { opacity: 0.42; }
-.nm-atlas .atl-gown-fold { fill: white; opacity: 0.14; }
+/* Her ribbon tails (atlas.js, `lowers`; INBOX 480), over the gown: the
+   back tier in the nebula's lilac, the front tier in her light, each
+   ribbon's own opacity its group's `opacity` attribute. A pale stream down
+   the middle, a lit edge. */
+.nm-atlas .atl-tail-ribbon-fill { fill: var(--atl-hi); }
+.nm-atlas .atl-tail-ribbon-back .atl-tail-ribbon-fill { fill: var(--atl-neb-c); }
+.nm-atlas .atl-tail-ribbon-stream { fill: white; opacity: 0.3; }
+.nm-atlas .atl-tail-ribbon-edge { fill: none; stroke: white; stroke-width: 0.35; stroke-linecap: round; opacity: 0.5; }
 .nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
 .nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
 .nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }
@@ -7969,6 +7976,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
   #nm-buddy:has(.atl-figure) .nm-buddy-char,
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
+}
+/* `transform`, not `rotate`: the box's gesture (avatars.js,
+   `nameMarkBuddyLimbs`) animates `rotate` and `scale` about the waist, and
+   the two compose. The drift turns about the dress's hem (25px under the
+   box's waist origin), where the tails are rooted, so a tail's root stays
+   on the dress and only its length sways. */
+@keyframes atl-ribbon-drift {
+  from { transform: translateY(25px) rotate(-2deg) skewX(3deg) translateY(-25px); }
+  to { transform: translateY(25px) rotate(1.8deg) skewX(-3deg) translateY(-25px); }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }
@@ -8409,6 +8425,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
     & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    /* Her ribbon tails' two tiers (INBOX 480), each drifting on its own
+       clock about the waist, out of step with the gown's sway (which they
+       also take, on their roots) and with each other. */
+    & .atl-lw-lower-front { animation: atl-ribbon-drift 6.3s ease-in-out -2.1s infinite alternate; }
+    & .atl-lw-lower-back { animation: atl-ribbon-drift 8.1s ease-in-out -5.4s infinite alternate-reverse; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8442,6 +8463,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
   .atl-lw-neb, .atl-lw-neb-front { animation: none !important; }
+  .atl-lw-lower-front { animation-duration: 14s !important; }
+  .atl-lw-lower-back { animation-duration: 18s !important; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */

@@ -25,16 +25,15 @@ def test_the_feminine_look_has_no_legs_and_a_skirt_of_ribbons():
     feminine = _look("feminine")
     assert "legs: false," in feminine
     assert "skirt: \"M" in feminine
-    assert feminine.count("{ seg: [[") >= 3 + 7  # three folds of the gown (INBOX 480), and the hair's locks
+    assert feminine.count("{ seg: [[") >= 5 + 7  # five ribbon tails over the gown (INBOX 480), and the hair's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
-    # A fold opens as the skirt widens and ends round (INBOX 480): fine at
-    # the waist, widest down the flare. INBOX 443's ribbons were widest at
-    # the waist and tapered to the hem, which is how a strand hangs.
-    assert "const fold = (w) => (t) => 0.15 + w * Math.sin(Math.PI * Math.min(1, t * 0.82 + 0.06)) ** 0.8;" in ATLAS
-    assert "fill: atlasStem(rooted(drawn), fold(w), { samples: 14, cap: true })" in ATLAS
+    # Ribbon tails, not a tripod (INBOX 480): each tapers to a wisp and is
+    # pinched twice where it turns edge-on, which reads as a ribbon.
+    assert "const tail = (w) => (t) => (0.22 + (w - 0.22) * (1 - t) ** 0.85) * (0.58 + 0.42 * Math.abs(Math.cos(" in ATLAS
+    assert "fill: atlasStem(seg, width, { samples: 18, cap: true })" in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -119,10 +118,16 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
-    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)]
-    #: INBOX 480: three fine creases of light, the middle one widest; not
-    #: INBOX 443's four wide ribbons (7.4 to 8.8), which fanned like strands.
-    assert len(widths) == 3 and max(widths) <= 3 and widths[1] == max(widths), widths
+    tails = re.findall(r"\]\], w: ([0-9.]+), op: ([0-9.]+), (back: true, )?specks", feminine)
+    #: INBOX 480: five broad ribbon tails in two tiers ("too thin and stick
+    #: like": none under 7 across at the root), at different opacities,
+    #: three in the back tier, rooted across the dress (x 22 to 41) and not
+    #: from one point under the body's middle.
+    assert len(tails) == 5 and sum(1 for t in tails if t[2]) == 3, tails
+    assert len({t[1] for t in tails}) >= 4 and min(float(t[0]) for t in tails) >= 7, tails
+    roots = [float(x) for x in re.findall(r"\{ seg: \[\[([0-9.]+), 7[0-9.]*, ", feminine[feminine.index("lowers: ["):])]
+    assert len(roots) == 5 and max(roots) - min(roots) >= 15, roots
+    assert 'g.setAttribute("mask", `url(#${id}-tailin)`);' in ATLAS and 'fade("tailin", 86, 74);' in ATLAS
     # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
     assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
@@ -208,7 +213,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "lower-back", "lower-front", "leg-l", "leg-r", "neb", "neb-front"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
@@ -562,7 +567,7 @@ def test_the_masculine_lower_body_is_one_snake_wisp_with_sub_wisps():
     # overlap.
     assert 'spec.trail = { fill: join("fill"), stream: join("stream"), specks: parts.flatMap((p) => p.specks) };' in ATLAS
     assert "if (spec.trail) ribbon(lower, spec.trail);" in ATLAS
-    assert '...(spec.lowers ? ["lower"] : [])' in ATLAS and "lower-side" not in ATLAS
+    assert 'const tiers = spec.lowers ? (spec.skirt ? ["lower", "lower-back", "lower-front"] : ["lower"]) : [];' in ATLAS and "lower-side" not in ATLAS
 
 
 _WISPS_JS = r"""
@@ -689,7 +694,7 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
     assert all(b - a >= 2 for a, b in zip(lengths, lengths[1:])), lengths
 
     # Her ribbons are what they were: five, ending in soft points.
-    assert len(got["feminine"]) == 3 and not any(p["main"] for p in got["feminine"])  # the gown's folds (INBOX 480)
+    assert len(got["feminine"]) == 5 and not any(p["main"] for p in got["feminine"])  # the gown's ribbon tails (INBOX 480)
 
 
 def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
@@ -779,6 +784,23 @@ def test_the_feminine_gown_is_layered_and_flows_into_the_nebula():
     # Drawn inside the lower layer's group, so the pose and the sway are the
     # layer's, as before; no animation of its own.
     draw = ATLAS[ATLAS.index("const gown = atlasGroup(lower, \"atl-skirt\");") :][:1600]
-    for cls in ("atl-gown-train", "atl-skirt-veil", "atl-gown-fold", "atl-gown-drape", "atl-gown-hem"):
+    for cls in ("atl-gown-train", "atl-skirt-veil", "atl-gown-drape", "atl-gown-hem"):
         assert cls in draw, cls
     assert not re.search(r"\.atl-gown-[a-z-]+[^{]*\{[^}]*animation", CSS)
+
+
+def test_the_feminine_ribbon_tails_sway_out_of_step_on_their_boxes():
+    # INBOX 480: "less like a tripod and more like whispy ribbony/flowy
+    # tails". The two tiers are layers of their own, each also a lower layer
+    # (so every pose, walk, carry and gesture rule takes them), and each
+    # tier's box drifts on its own clock: a box, never an svg root, so the
+    # loop is the compositor's (companioncost.js).
+    assert 'const tierOf = name.startsWith("lower-") ? " atl-layer-lower" : "";' in ATLAS
+    assert 'box.className = `atl-lw atl-lw-${name}${tierOf ? " atl-lw-lower" : ""}`;' in ATLAS
+    back = re.search(r"& \.atl-lw-lower-back \{ animation: atl-ribbon-drift ([0-9.]+)s", CSS)
+    front = re.search(r"& \.atl-lw-lower-front \{ animation: atl-ribbon-drift ([0-9.]+)s", CSS)
+    assert back and front and back.group(1) != front.group(1)
+    for rule in re.findall(r"([^{}\n]+)\{[^{}]*animation:[^;{}]*\batl-ribbon-drift\b", CSS):
+        assert ".atl-lw-lower-" in rule and "svg" not in rule, rule
+    # The masculine look keeps its one lower layer.
+    assert '"lower-back"' not in _look("masculine")

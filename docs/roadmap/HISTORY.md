@@ -36918,6 +36918,35 @@ width, 47% of the column at 1440.
      toggle in focus mode, the orchestrator; the question answered from the
      plans' open phases, with agents on the top items.
 
+464. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
+     whiteboard's active Library button: its icon faint on the accent
+     fill).** "there is still some colour contrast issues. do another round
+     of improve and redesign the ui/ux for the application." (with the eight
+     design skills named). **The icon fixed**: a pressed or active
+     quiet button's leading icon takes its label's colour (white on the
+     accent in light, near-black in dark; it stayed accent on accent). **The
+     non-text contrast sweep is built and its findings fixed**:
+     `scratchpad/ui-sweeps/contrastui.js` (icons, SVG icons, focus rings,
+     fields, selected states, chips, text outside `.tab-page`; every tab,
+     sub-tab, Settings section and overlay; 1440 and 390, both themes,
+     `CONTRAST=on`, `LOOK=`). Default look: 79 findings at 1440 light, 74 dark,
+     51 and 49 at 390, now 0 but the 4 to 6 borderless writing surfaces, kept
+     as a decision (DESIGN.md recipe index, `--control-edge`). **The UI round, 2026-10-04**
+     (one agent, all eight skills as checklists, 188 stills at 1440 and 390
+     in both themes): twenty defects ranked with measurements in
+     `scratchpad/ui-audit-464.md`; the top eight built (Settings heads in
+     groups, switches on the text edge, the phone head on one row, one-line
+     pane descriptions, Library previews keeping blocks apart, the palette on
+     touch, file pickers on the tonal recipe, three copy faults) plus the
+     Timeline's cut titles; two new lints. **Fixed, 2026-10-04**: items 9
+     and 12 to 20 (steady tab labels, dashboard empty states with an action,
+     Settings dividers on the underline, one disclosure marker, Library
+     counts agree, Ask Atlas on one line on a phone, Reminders' pill row,
+     one-step import with Undo, Bookmarks said once, the phone dashboard's
+     search gap); measured in `scratchpad/ui-audit-464.md`. Decisions taken: Back/Forward stay hidden in the
+     phone Settings head (the section picker reaches any section in one tap);
+     item 10 keeps the sentence-as-title decision.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

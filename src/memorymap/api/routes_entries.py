@@ -1195,6 +1195,14 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
     and suggests tags and links for the user to apply. Tags and links are
     suggestion-only: nothing is tagged or linked without the user's click."""
     entry = _existing_entry(session, entry_id)
+    # Every step below sends the note's text to the model or the search index:
+    # ciphertext while the vault is locked, the plain text of a note that is
+    # private so that no model reads it once it is open (sweep 1004). Refused
+    # outright, like generate-title; the menu's toast shows the sentence.
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first: Atlas doesn't read private notes."
+        )
 
     # 1. Re-file: refresh confidence, and the category if the AI owns it.
     filed_by = None

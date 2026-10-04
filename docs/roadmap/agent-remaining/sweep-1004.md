@@ -42,3 +42,5 @@ S608 hits are constant placeholders.
    the owner snoozes reminders.
 6. **Not verified in a browser:** nothing here changed the UI; the notification
    dismissal was read, not run.
+
+7. **FIXED (tests/test_reevaluate_private.py, orchestrator add-on): `reevaluate` sent a private note's text to the model and the search index.** It now refuses a private note with a 400, like generate-title. Found-not-fixed: the note menu still offers "Tag and file with Atlas" on a private note (the toast shows the refusal); hiding it is a frontend change not made here.

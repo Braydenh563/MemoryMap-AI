@@ -343,6 +343,26 @@ def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
     return body
 
 
+def clear_static_cache() -> int:
+    """Drop the compressed static files, in memory and on disk (INBOX 487).
+
+    Only `<data dir>/cache/static-gz`'s own `.gz` and `.part` files: the
+    notebook is not in there, and the next fetch compresses again. Returns how
+    many files went."""
+    RevalidatedStatic._gzip_cache.clear()
+    removed = 0
+    try:
+        folder = deps.get_config().data_dir / "cache" / "static-gz"
+        for path in [*folder.glob("*.gz"), *folder.glob("*.part")]:
+            path.unlink(missing_ok=True)
+            removed += 1
+    except OSError:
+        # A folder that cannot be listed or a file in use is a cache that
+        # stays; the memory copy is already gone.
+        pass
+    return removed
+
+
 def _purge_expired_bin_entries() -> None:
     """Recycle-bin auto-clear: permanently drop entries
     binned longer than the user's configured number of days."""
@@ -971,6 +991,13 @@ def create_app() -> FastAPI:
         wants it sends `X-Auth-Token` like every other call.
         """
         return JSONResponse(app.openapi())
+
+    @app.post("/system/clear-static-cache", tags=["system"], dependencies=locked)
+    def system_clear_static_cache() -> dict[str, bool | int]:
+        """Settings, Data, Clear app cache: the server's half (its compressed
+        copies of the page's own files). Defined here, not in routes_settings,
+        because `RevalidatedStatic` lives here and that import would be a cycle."""
+        return {"cleared": True, "files": clear_static_cache()}
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str | bool]:

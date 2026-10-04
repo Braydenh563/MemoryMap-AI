@@ -432,3 +432,22 @@ INBOX 443 (1) (the owner: "the graph shape could look nicer"), measured with
   radius plus 34 for its label, a decision from the "gap at the bottom" report);
   the server's 40-character preview, so the whole name on hover is as long as
   the server sends.
+
+## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
+
+514. **The owner, 2026-10-04, verbatim.** "is the graph missing any core
+     functionality and abilities that the graphs in obsidian have??" Audited
+     against Obsidian's graph view (filters, groups, display, forces, local
+     graph). Has: search filter, orphans, groups by query with colours,
+     node size, labels, curved links, gravity and spread, time-lapse play,
+     local pane and focus mode, export PNG, plus what Obsidian lacks
+     (similarity links, trace, minimap, saved views, selection dock). Missing,
+     in impact order: (1) a local-graph depth control (fixed at 1 in the
+     pane, 2 in focus; Obsidian 1 to 5) with incoming, outgoing and
+     neighbour-link switches (reverses the 2026-09-13 "Show switches left
+     out" decision on the owner's ask); (2) tags as nodes (a switch);
+     (3) unresolved links: a `[[name]]` with no note drawn as a faint node
+     that creates the note on click; (4) arrows on links (direction); (5)
+     sliders for text fade threshold (`GC_LABEL_ZOOM` is fixed at 1.4), link
+     thickness and link force; (6) attachments (images, files) as nodes.
+     Opus, after the graph-look agent lands (same files).

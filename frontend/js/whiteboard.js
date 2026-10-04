@@ -132,6 +132,7 @@ function wbIsBareCanvas(target) {
 let wbZoom = d3
   .zoom()
   .scaleExtent([0.1, 4])
+  .wheelDelta(zoomWheelDelta)
   .filter(wbZoomFilter)
   .on("zoom", handleWbZoom)
   .on("end.shield", wbEndPanShield);

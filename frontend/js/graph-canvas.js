@@ -2484,6 +2484,7 @@ function gcWireInteraction(s = gcTab) {
   const zoom = d3
     .zoom()
     .scaleExtent([0.05, 5])
+    .wheelDelta(zoomWheelDelta)
     // A drag that starts on a node moves the node; anywhere else pans. Without
     // this filter d3-zoom claims the gesture first and a node can never be
     // picked up.

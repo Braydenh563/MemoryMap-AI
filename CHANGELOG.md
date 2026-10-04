@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Whiteboard and graph: zooming with Ctrl and a mouse wheel moved one notch to about 1.4x instead of 5x (two notches used to take a map from its normal size to the 4x ceiling); a trackpad pinch and the graph's plain wheel zoom are unchanged (`zoomWheelDelta`, `tests/test_zoom_wheel_delta.py`, `ctrlwheelzoom.js`).
 - Whiteboard: pictures on a board now appear in its exports. A PNG, a PDF and the copy added to your image library used to show an empty space where each picture was, and a saved .svg pointed at an address that only works inside the app; the pictures are now written into the file (`wbexportimage.js` sweep, `tests/test_wb_export_inline_images.py`).
 - Notes: while Atlas writes into the draft on the Write with AI page, the draft box can no longer be typed into (the lock only reached the hidden textbox behind the editor, so you could edit text that was about to be overwritten; `tests/test_note_surface_readonly.py`).
 - Notes: the formatting strip in a note's edit form listed each highlight and text colour twice (the copy of the capture strip kept its options and had them added again); each is listed once.

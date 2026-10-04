@@ -201,6 +201,18 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    to rename. Delete leaves what it held. No rotation, no style or order
    controls. Not on maps. Nesting, clipping and a frame as an export or
    presentation unit are not in this decision.
+15. **A locked item lets the pointer through** (taken 2026-10-04, the open
+   "lock" row, recommendation taken under standing order 3). Excalidraw's
+   shape rather than tldraw's selectable-but-frozen one: a locked item
+   cannot be selected, dragged, resized, erased or typed into, and Select
+   all, a marquee, the lasso, a group's click and a frame's drag pass it
+   by, so no gesture needs a guard of its own. Lock: the item's right-click
+   menu and Ctrl+Shift+L. Unlock: the board's right-click menu ("Unlock 3
+   locked items"; a right-click on the item goes through to it) and
+   Ctrl+Shift+L with nothing selected. One undo step per lock or unlock. A
+   card's flag is a column (`whiteboard_nodes.locked`, migration
+   `e5a1c8f3b7d2`); a sketch's and an object's are in their data. Not on
+   maps. No lock mark is drawn.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

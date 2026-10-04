@@ -3821,7 +3821,27 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     frame_rule = css[css.index(".wb-object-frame {") :][:600]
     assert "pointer-events: none;" in frame_rule and "background: transparent;" in frame_rule
     guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
-    assert "F frame" in guide and "A frame is a" in guide
+    assert "F frame" in guide and "title drags it and what is inside it" in guide
+    assert "Ctrl+Shift+L locks the selection" in guide
+
+
+def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
+    """WHITEBOARD_PLAN decision 15 (DESIGN.md's lock row): a locked item lets
+    the pointer through (one CSS rule, children named, above every per-part
+    rule), and the selections that do not go through the pointer pass it by
+    by asking `wbIsLocked`: Select all, the marquee, the lasso, a group's
+    click and a frame's drag. The way back is on the board's own menu."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert "#whiteboard-container .wb-locked,\n#whiteboard-container .wb-locked * {\n  pointer-events: none;" in css
+    assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item));" in wb
+    assert wb.count('if (wbIsLocked("object", obj)) continue;') == 2, "the marquee and the lasso"
+    assert wb.count("if (parsed.locked) continue;") == 2
+    assert wb.count("if (node.locked) continue;") == 2
+    assert "!wbIsLocked(memberKind, candidate)" in wb
+    assert "if (wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "wbPaintLocks();" in wb[wb.index("function renderWhiteboard()") :]
+    assert "Unlock ${locked} locked item" in wb
 
 
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:

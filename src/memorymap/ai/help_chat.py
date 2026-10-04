@@ -958,7 +958,7 @@ HELP_TOPICS.extend(
                 "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
                 "board overview", "find a card", "tool", "text in a shape", "label a shape",
-                "frame", "frames", "section", "region",
+                "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
@@ -982,10 +982,10 @@ HELP_TOPICS.extend(
                 "rectangle, ellipse, diamond or triangle (or select it and press Enter) to "
                 "write in it, right-click (or "
                 "press and hold on touch) for the menu, double-click a line to bend "
-                "it, and select a connector and press Enter to label it. A frame is a "
-                "titled region: drag its title and what lies inside comes with it (Ctrl "
-                "and drag moves the frame alone), double-click the title to rename it, "
-                "and deleting it leaves what it held. The top bar's menus: Insert, Edit, Arrange (align, distribute "
+                "it, and select a connector and press Enter to label it. A frame's "
+                "title drags it and what is inside it (Ctrl: the frame alone). "
+                "Ctrl+Shift+L locks the selection (clicks pass through it); Unlock is "
+                "on the board's right-click menu. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
                 "dots or isometric, snap to grid, fit, 100%, full screen) and "
                 "Board (rename, new, export as PNG, SVG, PDF, the image library or "

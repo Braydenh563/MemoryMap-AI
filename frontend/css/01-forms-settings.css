@@ -1331,6 +1331,19 @@ progress {
   vertical-align: middle;
 }
 
+/* A rendered task's box is always disabled (navigation.js), so it is a mark,
+   not a target, and the checkbox floor sized it anyway: 28px at 1440 and
+   44px on a phone beside 15px text, its list line 34px and 50px against a
+   plain item's 22px (measured, doctaskbox.js). Drawn at the
+   text's size, as the live view's box is. */
+.md-task input:disabled {
+  width: 1.1em;
+  height: 1.1em;
+  min-width: 0;
+  min-height: 0;
+  margin-block: 0;
+}
+
 /* The chat bubble reuses the same block treatments. */
 .bubble-answer h3,
 .bubble-answer h4,

@@ -6575,21 +6575,36 @@ function docLivePlugin(CM) {
     //: more importantly the keyboard (a checkbox is focusable and Space
     //: activates it), raise `click` and no `mousedown` at all. Caught by
     //: measuring, `scratchpad/ui-sweeps/cm-live.js` toggled nothing.
+    //:
+    //: **The box is drawn at the text's size and pressed at the target's.**
+    //: The app's checkbox floor (`--target-min`) sized the box itself, so a
+    //: task in a 24px line drew a 28px square on a desktop and a 44px one on
+    //: a phone, where its line grew to 36px and two tasks' boxes overlapped
+    //: (measured, docphonebar.js). The input is now 1.1em and the span around
+    //: it carries the target: an invisible strip `--target-min` wide and one
+    //: line tall (09-editor.css), so the press area is the floor's width
+    //: without pushing the text, and two task lines' strips meet rather than
+    //: overlap. The listener is on the span: a press on the strip lands
+    //: there, a press on the box bubbles there, and Space on the focused box
+    //: raises the same `click`.
     toDOM(view) {
+      const hit = document.createElement("span");
+      hit.className = "cm-md-task-hit";
       const box = document.createElement("input");
       box.type = "checkbox";
       box.className = "cm-md-task";
       box.checked = this.checked;
       box.setAttribute("aria-label", this.checked ? "Done" : "Not done");
+      hit.appendChild(box);
       const { from, to } = this;
-      box.addEventListener("click", (event) => {
+      hit.addEventListener("click", (event) => {
         event.preventDefault();
         const marker = view.state.doc.sliceString(from, to);
         //: The source is what changes, and the tick follows it on the next
         //: repaint. Writing the two separately is how they come to disagree.
         view.dispatch({ changes: { from, to, insert: /[xX]/.test(marker) ? "[ ]" : "[x]" } });
       });
-      return box;
+      return hit;
     }
   }
 
@@ -17814,7 +17829,7 @@ function docCmTheme(CM) {
       //: muted ink, because it is part of the same control.
       ".cm-md-callout-fold": { fontSize: "0.9em", opacity: "0.8" },
       ".cm-md-callout-label [data-doc-callout-fold]": { cursor: "pointer" },
-      ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
+      ".cm-md-task-hit": { marginRight: "0.4em", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
       ".cm-md-image-under": { display: "block", marginTop: "var(--space-2)" },
 

@@ -56,6 +56,7 @@ def test_a_really_deep_reply_never_escapes_as_a_recursion_error():
         try:
             reader(DEEP_OBJECT)
         except ValueError:
-            pass
+            # A refusal is a correct answer too; only RecursionError is not.
+            continue
     passive_capture._parse_facts(DEEP_ARRAY)
     reminder_parser._extract_json(DEEP_OBJECT)

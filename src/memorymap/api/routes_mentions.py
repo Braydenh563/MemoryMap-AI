@@ -46,6 +46,21 @@ router = APIRouter(prefix="/entries", tags=["entries"])
 _HEADING_MARK = re.compile(r"^\s{0,3}#{1,6}\s+")
 
 
+#: **A name with a square bracket in it cannot be written as a `[[link]]`.**
+#: The wiki-link pattern is `[[` then up to 120 characters with no `[` or `]`
+#: then `]]` (`manager.WIKI_LINK`, and the same in the editors and the
+#: renderers), so `[[Plan [v2]]]` is not a link to anything: the Link button
+#: rewrote the sentence, answered "Linked", and no link was ever stored
+#: (measured: 0 links, the text changed). `|` and `#` are fine: they resolve
+#: whole, as written (`[[C# basics]]` stored its link), so only the brackets
+#: are refused, and the row says why instead of offering a button that lies.
+LINK_UNSAFE = re.compile(r"[\[\]]")
+LINK_UNSAFE_WHY = (
+    "A name with a square bracket in it can't be written as a [[link]]. "
+    "Rename the note without the bracket to link it."
+)
+
+
 def note_names(entry: Entry) -> list[str]:
     """What a note is called, as written: its opening line without the
     heading marker (what `find_by_wiki_name` resolves), then an imported
@@ -126,7 +141,12 @@ def _backlinks(session: Session, entry: Entry) -> dict:
             for span in backlink_spans(content, name)[1]:
                 if not any(span[0] < end and start < span[1] for start, end in spans):
                     spans.append(span)
-        mentions.extend(backlink_rows(kind, source_id, label, content, sorted(spans)))
+        for row in backlink_rows(kind, source_id, label, content, sorted(spans)):
+            ok = not LINK_UNSAFE.search(content[row["start"] : row["end"]])
+            row["linkable"] = ok
+            if not ok:
+                row["why"] = LINK_UNSAFE_WHY
+            mentions.append(row)
     return {"name": names[0], "links": links[:BACKLINK_ROWS_MAX], "mentions": mentions[:BACKLINK_ROWS_MAX]}
 
 
@@ -171,6 +191,9 @@ def link_mention(entry_id: int, body: MentionLinkIn, session: Session = Depends(
     inside = any(s < end and start < e for s, e in (m.span() for m in WIKI_LINK.finditer(text)))
     if not words or words.casefold() not in names or inside:
         raise HTTPException(status_code=409, detail="That mention has moved since the list was drawn. Refresh the list.")
+    if LINK_UNSAFE.search(words):
+        # Not a stale offset, so not a 409, and nothing is rewritten.
+        raise HTTPException(status_code=400, detail=LINK_UNSAFE_WHY)
     rewritten = f"{text[:start]}[[{words}]]{text[end:]}"
     if body.kind == "note":
         routes_entries.update_entry(body.id, EntryUpdate(content=rewritten), session)

@@ -1199,6 +1199,14 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
     foot.className = "doc-backlink-foot";
     const link = smallButton("ph:link Link", "Turn these words into a link to this note", () => linkNoteMention(data.subjectId, m, link));
     link.classList.add("doc-backlink-action");
+    //: A name with a square bracket cannot be written as a [[link]] (the
+    //: server says so per row): disabled with its reason on the title, as
+    //: DESIGN.md asks of any disabled control, not a button that reports
+    //: "Linked" and links nothing.
+    if (m.linkable === false) {
+      link.disabled = true;
+      link.title = m.why || "This name can't be written as a [[link]].";
+    }
     foot.appendChild(link);
     const both = withContext(item, m);
     both.appendChild(foot);

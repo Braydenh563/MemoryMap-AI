@@ -602,7 +602,8 @@ MORE_TOPICS.extend(
                 "list: the notes it links to, the notes that link to it with the "
                 "sentence each says it in, \"Mentioned, not linked\" (notes and "
                 "documents that name it without a link; Link turns those words "
-                "into a [[link]]), and \"Forgotten, and close to this\". The "
+                "into a [[link]], and is greyed out when the name has a square "
+                "bracket in it, which a [[link]] cannot hold), and \"Forgotten, and close to this\". The "
                 "note's Connections sheet shows the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},

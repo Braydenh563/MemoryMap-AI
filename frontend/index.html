@@ -3032,7 +3032,14 @@ Link to another note with [[its first few words]]."></textarea>
         A note sits where it is <em>about</em> when it says so, "the deadline
         is next Friday" plots on that Friday, marked with a clock, and at when it was
         written otherwise. Arrow keys walk the rows, Enter opens one where it sits.
+        The strip below shows the last seven days: a dot marks a day with a page,
+        and pressing a day opens its page or starts it.
       </p>
+      <!-- The calendar strip (WORLD_CLASS_PLAN D6): the last seven days, a dot
+           under each that has a page, one press to open or start it. Built by
+           `renderTimelineDayStrip`; outside the dock on purpose, the dock is
+           at its control ceiling. -->
+      <div class="timeline-daystrip" id="timeline-daystrip" role="group" aria-label="Journal days"></div>
       <!-- The feed (TIMELINE_PLAN.md Phase 1). One `<section>` per bucket, a
            sticky header on each, a row per entry, and the spine in CSS. This
            replaced two views and a popup: a grid 8,800px wide with 79% of its

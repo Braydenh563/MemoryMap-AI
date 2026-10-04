@@ -71,6 +71,47 @@ Settings screen has its own Help section).
   at 1440, 62px at 390). 4 of 4.
 - Not changed: the six hand-wired panels were not moved onto `data-help-for`.
 
+### From WORLD_CLASS_PLAN.md row 12 (D6): the calendar strip and the day pair
+
+Read first: `todaysNote` (Ctrl+D) and both endpoints existed; no strip and no
+pair did (`grep` for `entries/daily` in `frontend/` found only a comment).
+
+- **The strip** (`renderTimelineDayStrip`, `#timeline-daystrip`): the seven days
+  ending today above the feed, a weekday and a date in each, a dot under a day
+  with a page, today in the accent and `aria-current="date"`, a month label
+  and two arrows that move a week (the later one is off at today; Today in the
+  dock brings the strip home). Outside the dock on purpose: seven buttons
+  would have taken the dock's whole seven-control ceiling, so the plan's
+  "segment of seven on the dock" became its own row, flat on the page and
+  capped at 28rem so a desktop window does not draw seven 190px boxes
+  (seen in a screenshot, then fixed).
+- **Written days** come from `GET /entries/daily?through=&days=7` (notes, by
+  their heading, the endpoint written for this) and the Timeline's documents
+  for days titled with a document.
+- **Pressing a day** is `openDayPage(key)`: the note when `GET /entries/daily`
+  says the day is written, else a document titled with the day, else the
+  composer with the date in the title and nothing written (the owner's rule
+  for Start today's note, now for every day). The question is asked before the
+  read so an empty day is an answer and not a 404 in the console. Ctrl+D is
+  `openDayPage(today)` now, one path for both.
+- **The pair** (`dailyNotePair`): a note whose title is an ISO date shows two
+  ghost buttons under its title in the Notes list, the day before and the day
+  after, labelled by weekday and date (the note is rarely today's, so
+  "Yesterday" and "Tomorrow" would be wrong).
+- Help moved with it: the Timeline's '?' paragraph and the Guide's
+  `timeline-controls` topic name the strip and the pair
+  (`tests/test_daily_strip.py`).
+- Measured (`scratchpad/ui-sweeps/daystrip.js`, Chromium, 1440 and 390): seven
+  days in one row and inside the window, today current and last, the dot on
+  both seeded days, 45px or more per day at 390 (the 44px target), an
+  unwritten day opens the composer with its date and the note count does not
+  change, a written day opens the Notes tab on its card, the pair opens the
+  neighbour, the earlier arrow moves a week and Today returns, no console
+  error. 19 of 19.
+- Left: the month popover for jumping past the strip (the arrows walk a week
+  at a time); the strip shows notes and documents only, not boards or
+  reminders titled with a date, as the timeline's own daily convention does.
+
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
 ### From MINDMAP_PLAN.md section 13e: the branch palette, the font, and decision 9's narrow case

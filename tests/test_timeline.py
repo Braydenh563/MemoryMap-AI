@@ -429,7 +429,7 @@ def test_starting_todays_note_opens_the_composer_rather_than_writing_it():
     app = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "timeline.js").read_text(
         encoding="utf-8"
     )
-    body = app[app.index("function startTodaysNote()") :]
+    body = app[app.index("function startDayNote(") :]
     body = body[: body.index("\n}\n")]
     assert '/entries/daily/' not in body, "the press must not write a note"
     assert 'showNotesSection("capture")' in body

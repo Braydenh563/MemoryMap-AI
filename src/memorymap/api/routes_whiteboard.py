@@ -201,6 +201,8 @@ class WhiteboardNodeBase(BaseModel):
     #: ("rotations"); `None` renders identically to 0.
     rotation: float | None = Field(default=None, ge=-360, le=360)
     group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
+    #: Decision 15: locked in place. False on every card made before it.
+    locked: bool = False
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -232,6 +234,9 @@ class WhiteboardObjectData(BaseModel):
 
     url: str | None = Field(default=None, max_length=300)
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
+    #: Locked in place (WHITEBOARD_PLAN decision 15). View state on a row that
+    #: already carries a blob, like `pinned` below, so it earns no column.
+    locked: bool | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
@@ -2254,6 +2259,7 @@ def create_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
     if existing is None:
         db.add(node)
         db.flush()  # so the event can name the card's id
@@ -2290,6 +2296,7 @@ def update_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
     events.record(
         db,
         "edited",

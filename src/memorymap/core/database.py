@@ -1406,6 +1406,10 @@ class WhiteboardNode(Base, WorkspaceMixin):
     #: foreign key to anything: a group spans three different tables (nodes,
     #: sketches, objects), so there is no one row for it to point at.
     group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
+    #: Locked in place (WHITEBOARD_PLAN decision 15): the board lets the
+    #: pointer through it until it is unlocked. A column here because a card
+    #: has no data blob; a sketch and an object keep the flag in theirs.
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 

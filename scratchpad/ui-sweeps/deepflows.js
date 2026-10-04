@@ -121,6 +121,8 @@ async function main() {
       const env = {
         page, ctx, width, theme, phone, STAMP, sleep,
         at: (label) => { stepAt = label; },
+        info: (msg) => console.log(`       . ${msg}`),
+        report: (msg) => note(msg),
         expect: (status, part) => expected.push({ status, part }),
         overflow: async (label) => {
           const o = await page.evaluate(overflowProbe);

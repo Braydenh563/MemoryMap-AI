@@ -5842,6 +5842,21 @@ select {
    every other mark moved to the column. It has to take the row to reach it. */
 #settings-modal summary > .help-head {
   flex: 1 1 auto;
+  /* The heading and the '?''s slot stay on one line: `.row` wraps, and at 390
+     the 44px slot did not fit beside "Advanced response settings", so it dropped
+     under the heading and the head stood 71px tall in a 44px summary, the
+     chevron and the '?' on different lines from the words (found by the
+     deepflows sweep). The heading gives way instead. */
+}
+
+#settings-modal .settings-section summary > .help-head {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+#settings-modal .settings-section summary > .help-head > h3 {
+  min-width: 0;
+  white-space: normal;
 }
 
 /* **A group's disclosure row is one pill: chevron, heading, '?'.** It used

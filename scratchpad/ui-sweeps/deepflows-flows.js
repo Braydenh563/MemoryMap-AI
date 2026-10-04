@@ -152,8 +152,25 @@ flows.note = async (env) => {
   await env.page.getByRole('button', { name: 'Undo' }).first().click();
   await env.wait(1200);
   if (!(await live(made.id))) throw new Error('Undo did not restore the note');
-  // Clean up behind ourselves.
+  // Bin it again, and bring it back from the Library's Bin.
+  env.at('restore from the Library bin');
   await env.js(async (id) => { await api(`/entries/${id}`, { method: 'DELETE' }); }, made.id);
+  await env.js(() => switchTab('library'));
+  await env.wait(1200);
+  //: The list is still loading for a moment after the tab opens, and a press
+  //: on a chip while it redraws can be lost: press until the Bin chip is on.
+  for (let tries = 0; tries < 6; tries++) {
+    await env.page.locator('#tab-library .library-chip', { hasText: /^Bin\s*\d/ }).first().click();
+    await env.wait(700);
+    if (await env.page.locator('#tab-library .library-chip.active', { hasText: /^Bin/ }).count()) break;
+  }
+  await env.page.locator(`#tab-library button[aria-label^="Actions for ${text.slice(0, 30)}"]`).first().click();
+  await env.page.locator('[role="menuitem"]:visible', { hasText: 'Restore' }).first().click();
+  await env.wait(1200);
+  if (!(await live(made.id))) throw new Error('Restore in the Library bin did not bring the note back');
+  await env.overflow('library bin');
+  // Clean up behind ourselves: gone for good, so nothing sits in the bin.
+  await env.js(async (id) => { await api(`/entries/${id}`, { method: 'DELETE' }); await api(`/entries/${id}/purge`, { method: 'DELETE' }); }, made.id);
 };
 
 flows.private = async (env) => {
@@ -353,9 +370,9 @@ flows.document = async (env) => {
     env.at('open the document');
     await env.js(() => switchTab('library'));
     await env.wait(900);
-    await env.js(() => document.querySelector('#library-subtabs [data-target="library-view-documents"]')?.click());
+    await env.js(() => document.querySelector('#library-subtabs [data-target="library-view-docs"]')?.click());
     await env.wait(1500);
-    await env.page.locator('#library-view-documents').getByText('Trip plan', { exact: true }).first().click();
+    await env.page.locator('#library-view-docs').getByText('Trip plan', { exact: true }).first().click();
     //: A phone opens a document to read it; Edit is one press away.
     await env.page.waitForSelector('#doc-back', { state: 'visible', timeout: 8000 });
     await env.wait(1000);
@@ -454,6 +471,261 @@ flows.dashboard = async (env) => {
     .map((e) => e.innerText.trim()).filter((t) => /^---|status: active|priority: \d+/.test(t)).slice(0, 2));
   if (bad.length) throw new Error(`the dashboard prints a properties block as words: ${JSON.stringify(bad).slice(0, 160)}`);
   await env.overflow('dashboard');
+};
+
+//: A full reload, then back in the way `lib.js` boots: the lock field when the
+//: app asks, otherwise straight to the app.
+async function reloadApp(env) {
+  await env.page.reload({ waitUntil: 'domcontentloaded' });
+  const way = await (await env.page.waitForFunction(() => {
+    const field = document.getElementById('lock-password');
+    const overlay = document.getElementById('lock-overlay');
+    const splash = document.getElementById('boot-splash');
+    if (field && overlay && !overlay.classList.contains('hidden') && field.offsetParent !== null) return 'lock';
+    const settled = !splash || splash.classList.contains('hidden');
+    if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
+    return false;
+  }, null, { timeout: 20000, polling: 100 })).jsonValue();
+  if (way === 'lock') {
+    await env.page.fill('#lock-password', 'testpassword123');
+    await env.page.click('#lock-submit');
+  }
+  await env.wait(2500);
+  await env.js(() => { const o = document.getElementById('onboarding-overlay'); if (o) o.classList.add('hidden'); });
+}
+
+//: Settings sections, in nav order, from the nav itself.
+const settingsSections = (env) => env.js(() => [...document.querySelectorAll('#settings-nav button[data-section]')].map((b) => b.dataset.section));
+
+//: Go to a section the way the screen offers it: the nav on a desktop, the
+//: "Jump to a settings section" menu on a phone.
+async function goSettings(env, name) {
+  if (env.phone) await env.page.selectOption('#settings-jump', name);
+  else await env.page.locator(`#settings-nav button[data-section="${name}"]`).click();
+  await env.wait(450);
+}
+
+async function openSettingsByGear(env) {
+  await env.reset();
+  if (env.phone) await env.js(() => openSettingsModal());
+  else await env.page.click('#settings-btn');
+  await env.page.waitForSelector('#settings-modal:not(.hidden)', { timeout: 5000 });
+  await env.wait(700);
+}
+
+//: What the sweep leaves alone, and why: turning these changes how the app is
+//: reached or what it does to the machine, not how it looks or behaves for the
+//: person at the screen.
+const SETTINGS_SKIP = /password when the app opens|other devices on this network|newer version|Update automatically|newest changes|SearXNG|autonomous optimization/i;
+
+//: Every switch visible in the current section: its index, label and state.
+const switchesHere = (env) => env.js(() => [...document.querySelectorAll('#settings-modal input[type="checkbox"]')]
+  .map((c, i) => ({ c, i }))
+  .filter(({ c }) => {
+    if (c.disabled) return false;
+    const label = c.closest('label') || c;
+    //: Reachable the way a person reaches it: it has a box, and what is at its
+    //: middle is it (a switch in a closed fold, or under another panel, is not).
+    label.scrollIntoView({ block: 'nearest' });
+    const r = label.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return false;
+    const hit = document.elementFromPoint(r.x + Math.min(r.width / 2, 120), r.y + r.height / 2);
+    return Boolean(hit && label.contains(hit));
+  })
+  .map(({ c, i }) => ({
+    i,
+    id: c.id || '',
+    label: ((c.closest('label') || c.parentElement).textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
+    on: c.checked,
+  })));
+
+async function clickSwitch(env, index) {
+  const handle = await env.page.evaluateHandle((i) => {
+    const c = document.querySelectorAll('#settings-modal input[type="checkbox"]')[i];
+    return c.closest('label') || c;
+  }, index);
+  await handle.asElement().click({ timeout: 4000 });
+}
+
+//: Press back every switch the run pressed (`toggled`: { section, i, id, label, was }).
+async function putBack(env, sections, toggled) {
+  for (const section of sections) {
+    const mine = toggled.filter((t) => t.section === section);
+    if (!mine.length) continue;
+    await goSettings(env, section);
+    for (const t of mine) {
+      const here = await switchesHere(env);
+      const sw = here.find((x) => x.i === t.i && x.label === t.label);
+      if (sw && sw.on !== t.was) { await clickSwitch(env, sw.i); await env.wait(120); }
+    }
+  }
+}
+
+//: A failed run still puts the notebook back as it found it.
+flows.settings = async (env) => {
+  const toggled = [];
+  try {
+    await settingsBody(env, toggled);
+  } catch (e) {
+    try {
+      await openSettingsByGear(env);
+      await putBack(env, await settingsSections(env), toggled);
+      await env.wait(2000);
+    } catch (again) { /* the first failure is the one worth reading */ }
+    throw e;
+  }
+};
+
+async function settingsBody(env, toggled) {
+  await openSettingsByGear(env);
+  const sections = await settingsSections(env);
+  const skipped = [];
+  env.at('toggle every switch');
+  for (const section of sections) {
+    await goSettings(env, section);
+    //: A fold's heading row holds its words, chevron and '?' (nothing sticking out of the summary).
+    const spill = await env.js(() => [...document.querySelectorAll('#settings-modal summary')].filter((s) => s.offsetParent).map((s) => {
+      const sr = s.getBoundingClientRect();
+      const worst = [...s.querySelectorAll('*')].filter((e) => e.offsetParent).reduce((m, e) => { const r = e.getBoundingClientRect(); return Math.max(m, r.bottom - sr.bottom, sr.top - r.top); }, 0);
+      return { text: s.textContent.trim().replace(/\s+/g, ' ').slice(0, 40), spill: Math.round(worst) };
+    }).filter((x) => x.spill > 2));
+    for (const s of spill) env.report(`settings ${section}: the fold "${s.text}" has content ${s.spill}px outside its heading row`);
+    const here = await switchesHere(env);
+    for (const sw of here) {
+      if (SETTINGS_SKIP.test(`${sw.id} ${sw.label}`)) { skipped.push(`${section}: ${sw.label.slice(0, 40)}`); continue; }
+      //: An earlier switch can switch this one off ("Pause all learning").
+      if (!(await switchesHere(env)).some((x) => x.i === sw.i)) { skipped.push(`${section}: ${sw.label.slice(0, 40)} (turned off by another)`); continue; }
+      try { await clickSwitch(env, sw.i); } catch (e) { throw new Error(`could not press "${sw.label}" in ${section}: ${String(e.message).split('\n')[0]}`); }
+      await env.wait(150);
+      //: A switch that asks first (a dialog) is answered No: it is not a plain preference.
+      const asked = await env.page.locator('.confirm-overlay:visible').count();
+      if (asked) {
+        await env.page.locator('.confirm-overlay .confirm-actions button:has-text("Cancel")').first().click();
+        await env.wait(300);
+        skipped.push(`${section}: ${sw.label.slice(0, 40)} (asks first)`);
+        continue;
+      }
+      const now = (await switchesHere(env)).find((x) => x.i === sw.i);
+      if (!now || now.on === sw.on) throw new Error(`pressing "${sw.label}" in ${section} did not change it`);
+      toggled.push({ section, i: sw.i, id: sw.id, label: sw.label, was: sw.on });
+    }
+  }
+  await env.overflow('settings after toggling');
+  env.at('reload and read them back');
+  await env.wait(2500); // the autosave is debounced
+  await reloadApp(env);
+  await openSettingsByGear(env);
+  const lost = [];
+  for (const section of sections) {
+    const mine = toggled.filter((t) => t.section === section);
+    if (!mine.length) continue;
+    await goSettings(env, section);
+    const here = await switchesHere(env);
+    for (const t of mine) {
+      const sw = here.find((x) => x.i === t.i && x.label === t.label) || here.find((x) => x.label === t.label);
+      if (!sw) { lost.push(`${section}: "${t.label.slice(0, 40)}" is gone after reload`); continue; }
+      if (sw.on === t.was) lost.push(`${section}: "${t.label.slice(0, 40)}" went back to ${t.was ? 'on' : 'off'}`);
+    }
+  }
+  // Put every one back, and read that back too.
+  env.at('put them back');
+  await putBack(env, sections, toggled);
+  await env.wait(2500);
+  await reloadApp(env);
+  await openSettingsByGear(env);
+  const stuck = [];
+  for (const section of sections) {
+    const mine = toggled.filter((t) => t.section === section);
+    if (!mine.length) continue;
+    await goSettings(env, section);
+    const here = await switchesHere(env);
+    for (const t of mine) {
+      const sw = here.find((x) => x.i === t.i && x.label === t.label);
+      if (sw && sw.on !== t.was) stuck.push(`${section}: "${t.label.slice(0, 40)}"`);
+    }
+  }
+  env.info(`settings: ${toggled.length} switches pressed, ${skipped.length} left alone (${skipped.slice(0, 8).join('; ')})`);
+  if (lost.length || stuck.length) {
+    throw new Error(`${lost.length} did not persist: ${lost.slice(0, 6).join(' | ')}${stuck.length ? `; ${stuck.length} would not go back: ${stuck.slice(0, 4).join(' | ')}` : ''}`);
+  }
+}
+
+const activeTab = (env) => env.js(() => [...document.querySelectorAll('.tab-page')].filter((t) => !t.classList.contains('hidden')).map((t) => t.id.replace(/^tab-/, '')));
+
+async function openPaletteUi(env) {
+  if (!env.phone) await env.page.keyboard.press('Control+k');
+  else if (await env.page.isVisible('#status-command')) await env.page.click('#status-command');
+  else await env.js(() => openPalette());
+  await env.page.waitForSelector('#palette-overlay:not(.hidden)', { timeout: 4000 });
+  await env.wait(500);
+}
+
+flows.palette = async (env) => {
+  env.at('open');
+  await openPaletteUi(env);
+  const rows = await env.js(() => document.querySelectorAll('#palette-list li').length);
+  if (rows < 4) throw new Error(`the palette lists ${rows} rows with nothing typed`);
+  if (!(await env.js(() => document.activeElement === document.getElementById('palette-input')))) throw new Error('the palette input is not focused on open');
+  await env.overflow('palette open');
+  env.at('find a note');
+  await env.page.keyboard.type('Alpha project');
+  await env.wait(900);
+  const found = await env.js(() => [...document.querySelectorAll('#palette-list li')].some((li) => /Alpha project/.test(li.textContent)));
+  if (!found) throw new Error('typing a note\'s title finds no row for it');
+  await env.overflow('palette with results');
+  env.at('run a command');
+  await env.page.keyboard.press('Escape');
+  await env.wait(400);
+  if (await env.page.isVisible('#palette-overlay')) throw new Error('Escape did not close the palette');
+  await openPaletteUi(env);
+  await env.page.keyboard.type('go to graph');
+  await env.wait(700);
+  await env.page.keyboard.press('Enter');
+  await env.wait(1200);
+  if (await env.page.isVisible('#palette-overlay')) throw new Error('the palette stayed open after running a command');
+  const tab = await activeTab(env);
+  if (!tab.includes('graph')) throw new Error(`"Go to Graph" left the app on ${tab.join(',')}`);
+  env.at('open a note from the palette');
+  await openPaletteUi(env);
+  await env.page.keyboard.type('Alpha project');
+  await env.wait(900);
+  await env.page.keyboard.press('Enter');
+  await env.wait(1200);
+  const after = await activeTab(env);
+  if (!after.includes('notes')) throw new Error(`opening a note from the palette left the app on ${after.join(',')}`);
+};
+
+flows.tabs = async (env) => {
+  const names = ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'reminders'];
+  const moreLabel = { dashboard: 'Dashboard', timeline: 'Timeline', reminders: 'Reminders' };
+  if (env.phone) {
+    const dock = await env.js(() => { const d = document.getElementById('phone-tab-dock').getBoundingClientRect(); return { bottom: d.bottom, h: innerHeight }; });
+    if (Math.abs(dock.bottom - dock.h) > 1.5) throw new Error(`the tab bar is not pinned to the bottom: ends at ${dock.bottom} of ${dock.h}`);
+  }
+  for (const name of names) {
+    env.at(`go to ${name}`);
+    const button = env.page.locator(`#tab-bar [data-tab="${name}"]`);
+    if (await button.isVisible()) {
+      if (env.phone) {
+        const box = await button.boundingBox();
+        if (box.height < 44 || box.width < 44) throw new Error(`the ${name} tab is ${Math.round(box.width)}x${Math.round(box.height)}, under the 44px touch size`);
+        await button.tap();
+      } else await button.click();
+    } else if (env.phone && moreLabel[name]) {
+      await env.page.locator('#phone-more-btn').tap();
+      await env.page.waitForSelector('.sheet-overlay', { timeout: 3000 });
+      await env.page.locator('.sheet-overlay button', { hasText: moreLabel[name] }).first().tap();
+      await env.wait(500);
+    } else throw new Error(`no way to reach ${name}`);
+    await env.wait(900);
+    const shown = await activeTab(env);
+    if (shown.length !== 1 || shown[0] !== name) throw new Error(`pressing ${name} shows ${JSON.stringify(shown)}`);
+    if (await button.isVisible()) {
+      const selected = await button.getAttribute('aria-selected');
+      if (selected !== 'true') throw new Error(`the ${name} tab is not marked selected (aria-selected=${selected})`);
+    }
+    await env.overflow(name);
+  }
 };
 
 module.exports = flows;

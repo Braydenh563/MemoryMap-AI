@@ -84,7 +84,9 @@ mark moved no wrap): a
    `width: 100%`: at 820, a 788px tinted well with 430px of small captions in
    its middle and 180px of empty well either side. A well is drawn round what
    it holds everywhere else (the Notes and Library sub-tab strips, the segment).
-   **Planned**: the wrapped strip hugs its tabs and is centred.
+   **Fixed**: the wrapped strip hugs its tabs and is centred (after: a 446px
+   well at x=187 at 820, 490px at x=75 at 640; the header's height unchanged,
+   124px at 820; nothing scrolls).
 6. **Chat was the one tab whose dock had no help.** Every other tab dock ends
    refresh, help, more; Chat's '?' lived in the corner of the empty
    conversation (INBOX 236 moved it there) and is gone the moment a

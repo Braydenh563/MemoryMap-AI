@@ -80,7 +80,7 @@ def test_a_genuine_no_results_page_returns_empty_without_raising(monkeypatch):
     assert websearch._search_duckduckgo("anything", 5) == []
 
 
-def test_a_transport_failure_names_the_transport(monkeypatch):
+def test_a_transport_failure_names_the_transport(monkeypatch, caplog):
     """No egress and a rate limit are not the same problem."""
 
     class FailingSession:
@@ -93,7 +93,11 @@ def test_a_transport_failure_names_the_transport(monkeypatch):
     monkeypatch.setattr(websearch, "_private_session", FailingSession)
     with pytest.raises(websearch.WebSearchError) as caught:
         websearch._search_duckduckgo("anything", 5)
-    assert "Tunnel connection failed" in str(caught.value)
+    # The person reads that it is the connection; the transport's own words
+    # ("Tunnel connection failed: 403") are in the log.
+    assert "internet connection" in str(caught.value)
+    assert "Tunnel connection failed" not in str(caught.value)
+    assert "Tunnel connection failed" in " ".join(r.getMessage() for r in caplog.records)
 
 
 def test_every_search_logs_status_and_body_length(monkeypatch, caplog):

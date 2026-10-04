@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Web search and SearXNG setup messages read as plain sentences: the transport's error, the command's own output, `virtualenv`, `setup.py`, `docker logs` and an environment variable name no longer reach the toast; each goes to the log, and the message points at Settings, Logs (INBOX 472, computed messages)
 - Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.
 - The dashboard greeting ends in a full stop or a question mark, never an exclamation mark, like the rest of the app's copy; an older cached greeting corrects itself on the next render.

@@ -129,9 +129,11 @@ def test_the_reinstall_endpoint_wipes_and_restarts(client, monkeypatch, app_stat
 # --- a failed start now says what happened ----------------------------------
 
 
-def test_a_failed_start_quotes_what_searxng_said(app_state, monkeypatch):
+def test_a_failed_start_logs_what_searxng_said(app_state, monkeypatch, caplog):
     """The whole point of capturing stdout: the message used to be a guess,
-    and it guessed the same thing every time."""
+    and it guessed the same thing every time. What SearXNG said is in the log
+    and in its own log file, which the message names; the message itself is a
+    sentence."""
     data_dir = app_state.data_dir
     monkeypatch.setattr(searxng_manager, "source_installed", lambda d: True)
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
@@ -152,7 +154,9 @@ def test_a_failed_start_quotes_what_searxng_said(app_state, monkeypatch):
     with pytest.raises(searxng_manager.SearxngError) as caught:
         searxng_manager._start_from_source(data_dir)
 
-    assert "No module named 'searx.webapp'" in str(caught.value)
+    assert "No module named" not in str(caught.value)
+    assert str(searxng_manager.log_path(data_dir)) in str(caught.value)
+    assert "No module named 'searx.webapp'" in " ".join(r.getMessage() for r in caplog.records)
 
 
 def test_a_start_that_says_nothing_at_all_says_so(app_state, monkeypatch):
@@ -232,7 +236,8 @@ def test_every_port_taken_names_them_all_and_the_way_out(app_state, monkeypatch)
     assert ports == [8888, *searxng_manager.FALLBACK_PORTS]
     assert "Every port" in str(caught.value)
     assert "8899" in str(caught.value)
-    assert "MEMORYMAP_SEARXNG_PORT" in str(caught.value)
+    assert "Free one of them" in str(caught.value)
+    assert "MEMORYMAP_SEARXNG_PORT" not in str(caught.value)
 
 
 # --- the reason a command failed, not the last thing it printed -------------
@@ -244,11 +249,12 @@ class _Result:
         self.stdout = stdout
 
 
-def test_pips_upgrade_notice_is_never_reported_as_the_failure():
+def test_pips_upgrade_notice_is_never_reported_as_the_failure(caplog):
     """Reported with a screenshot: "Couldn't install SearXNG: [notice] To
     update, run: …pip install --upgrade pip". pip prints that on almost every
     run and it is always last, so the last line was the wrong line to take, 
     and it sent people off to fix pip, which was never the problem."""
+    caplog.set_level("WARNING", logger="memorymap.searxng")
     result = _Result(
         stdout=(
             "Collecting searxng\n"
@@ -258,20 +264,27 @@ def test_pips_upgrade_notice_is_never_reported_as_the_failure():
             "[notice] To update, run: python.exe -m pip install --upgrade pip\n"
         )
     )
-    message = searxng_manager._reason(result, "Couldn't install SearXNG")
-    assert "upgrade pip" not in message
-    assert "Could not find a version" in message
+    message = searxng_manager._reason(result, "Couldn't install SearXNG.")
+    # The line that is the failure goes to the log, not into the toast: the
+    # message points at the log, and the log must not name the upgrade hint.
+    assert message == "Couldn't install SearXNG. The details are in Settings, Logs."
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "upgrade pip" not in logged
+    assert "Could not find a version" in logged
 
 
-def test_the_error_line_beats_the_hints_printed_after_it():
+def test_the_error_line_beats_the_hints_printed_after_it(caplog):
+    caplog.set_level("WARNING", logger="memorymap.searxng")
     result = _Result(stderr="ERROR: no space left on device\nhint: free some up\n")
-    assert "no space left" in searxng_manager._reason(result, "Couldn't install")
+    message = searxng_manager._reason(result, "Couldn't install.")
+    assert "no space left" not in message
+    assert "no space left" in " ".join(r.getMessage() for r in caplog.records)
 
 
 def test_a_command_that_said_nothing_useful_gets_no_invented_reason():
-    assert searxng_manager._reason(_Result(), "Couldn't install") == "Couldn't install"
+    assert searxng_manager._reason(_Result(), "Couldn't install.") == "Couldn't install."
     noise = _Result(stdout="[notice] To update, run: pip install --upgrade pip")
-    assert searxng_manager._reason(noise, "Couldn't install") == "Couldn't install"
+    assert searxng_manager._reason(noise, "Couldn't install.") == "Couldn't install."
 
 
 def test_a_configured_port_is_used_instead_of_the_default(monkeypatch):

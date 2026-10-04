@@ -14,7 +14,8 @@ from PIL import Image
 S = float(__import__("os").environ.get("SCALE", "3"))
 img = Image.open(sys.argv[1]).convert("RGB")
 W, H = img.size
-items = json.loads(open(sys.argv[2]).read())
+with open(sys.argv[2], encoding="utf-8") as fh:
+    items = json.load(fh)
 
 
 def px(x, y):

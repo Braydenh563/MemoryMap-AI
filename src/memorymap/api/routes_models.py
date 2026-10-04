@@ -168,7 +168,7 @@ def _run_list_flight(client, key: tuple[str, str], flight: _ListFlight) -> None:
         ]
     except OllamaError:
         flight.result = None
-    except BaseException as exc:  # noqa: BLE001 - handed to the poll that waits, as a direct call would
+    except Exception as exc:  # noqa: BLE001 - handed to the poll that waits, as a direct call would
         flight.error = exc
     finally:
         with _installed_lock:

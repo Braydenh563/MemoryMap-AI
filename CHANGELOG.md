@@ -228,6 +228,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+Library: a note or document with a long run of blank lines or spaces no longer freezes the app: 1,000 blank lines made the Library list take 6.5 seconds and 2,000 took 49, because the preview's table-rule pattern was cubic in the run; 20,000 of any shape is now instant.
 Privacy: saving a setting no longer copies a name, a dictionary of your words or a whole skill into the activity log; only short plain values are recorded.
 Security: the link opener, page clipper and other outbound fetches now refuse the shared address space (100.64.0.0/10, which includes Tailscale nodes and a cloud metadata service at 100.100.100.200) as they already refused home-network addresses.
 Privacy: saving an edit to a private note kept its new text encrypted only in the editor's eyes (it was written to the database in plain text while the note stayed marked private, and into the search index); it is now stored encrypted, and Add context, which appended plain words to the encrypted text and made the note unreadable, refuses a private note.

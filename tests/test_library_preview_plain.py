@@ -34,3 +34,21 @@ def test_an_unpaired_marker_does_not_survive():
 
 def test_an_asterisk_that_is_not_a_marker_stays():
     assert _clip("5 * 3 = 15") == "5 * 3 = 15"
+
+
+def test_every_table_rule_shape_is_still_dropped():
+    for rule in ("|---|---|", "| --- | :---: |", "--- | ---", "  |:--|--:|  ", "|---|---|\r"):
+        assert _clip(f"| a | b |\n{rule}\n| 1 | 2 |") == "a b · 1 2", rule
+
+
+def test_a_long_run_of_blank_lines_or_whitespace_is_not_a_stall():
+    """Measured 2026-10-04: 500 blank lines took 0.84 s, 1,000 took 6.5 s and
+    2,000 took 49 s, on every Library list that held the note (`\\s` crossed
+    newlines in the table-rule pattern, cubic in the run). 20,000 of each
+    shape must be instant now."""
+    import time
+
+    for text in ("Pasted\n" + "\n" * 20000 + "end", "a" + " " * 20000 + "b", "\t" * 20000 + "x", " \n" * 20000 + "x"):
+        started = time.perf_counter()
+        _clip(text)
+        assert time.perf_counter() - started < 1.0, repr(text[:12])

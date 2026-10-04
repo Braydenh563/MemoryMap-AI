@@ -1192,6 +1192,20 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   --callout-accent: var(--accent);
 }
 
+/* The Live view's kind picker is a tile the size of a letter, so under a
+   finger its target grows past its box without moving the line (INBOX 486). */
+@media (pointer: coarse) {
+  .cm-md-callout-kindbtn {
+    position: relative;
+  }
+
+  .cm-md-callout-kindbtn::after {
+    content: "";
+    position: absolute;
+    inset: calc((var(--target-min) - 1.5em) / -2);
+  }
+}
+
 /* The title is the ink, not the kind's colour: an amber or a green title on
    its own tint is the pair that fails contrast first, and the kind is already
    said twice, by the edge and by the tile. */

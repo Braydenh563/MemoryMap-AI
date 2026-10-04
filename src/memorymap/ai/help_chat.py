@@ -192,7 +192,8 @@ HELP_TOPICS: list[dict] = [
             "Bookmarks (a shelf for websites you visit often), Contents (a "
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
-            "Images gallery."
+            "Images gallery. Each sub-tab's top bar ends with a ? that says "
+            "what it holds."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -331,8 +332,9 @@ HELP_TOPICS: list[dict] = [
             "Ctrl+Shift+A the popup agent, Ctrl+Shift+H ask Atlas about the app, "
             "Ctrl+Shift+O a new chat, Ctrl+Shift+G agent mode on or off, Ctrl+. "
             "stop the answer, Ctrl+Shift+P clip a note to your next question. "
-            "Press m then a letter to jump to a tab; the hint that appears shows "
-            "which letter goes where."
+            "Press m then a letter to jump to a tab; the panel that appears lists "
+            "Go to and Do with each letter beside its name, marks the tab you are "
+            "on, and takes a click as well."
         ),
         "badge": {"label": "Shortcuts", "section": "shortcuts"},
     },
@@ -885,8 +887,8 @@ HELP_TOPICS.extend(
             "id": "mind-maps",
             "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
             "body": (
-                "Mind maps live in the Library, under Boards and maps; New mind map "
-                "starts one. Tab adds a child, Enter a sibling, and dragging a topic "
+                "Mind maps live in the Library, under Boards and maps; New, then Mind "
+                "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics."
             ),
@@ -1042,6 +1044,24 @@ HELP_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        #: INBOX 486, the owner on a callout: "I have no clue how to use these
+        #: things". Its own entry: the documents entry is at the reply cap.
+        {
+            "id": "callouts",
+            "keywords": (
+                "callout", "callouts", "change the kind", "note box", "warning box",
+                "tip box", "admonition", "collapsible callout",
+            ),
+            "body": (
+                "Callouts: type / in a document or a note and pick Note, Tip, Warning "
+                "or another kind. The box is tinted by its kind and its icon names "
+                "it; click the icon to change the kind or to make the box fold. The "
+                "first line, after the icon, is the title, written like any text, "
+                "and the lines under it are the body (an empty body says what goes "
+                "there). Source view shows the markdown: > [!tip] Title."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
         {
             "id": "graph-controls",
             "keywords": (
@@ -1061,8 +1081,9 @@ HELP_TOPICS.extend(
                 "there, hover to spotlight a note's connections, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
                 "notes, and the selection bar can Tag, Link together or make a Mind "
-                "map of them. Trace finds how two notes connect. Display options: "
-                "Unpin all, Gravity and Spread, the Show switches (Similarity, "
+                "map of them. Display options, the gear, opens with View: Layout "
+                "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
+                "two notes connect, and Legend, which hides the key. Then Unpin all, Gravity and Spread, the Show switches (Similarity, "
                 "Entities, Documents, Boards, Hide unlinked, Labels, Curved links, "
                 "Cluster glow, Length by similarity), the similarity Strength "
                 "slider (raise it to keep only the closest matches), a Time filter "
@@ -1079,6 +1100,7 @@ HELP_TOPICS.extend(
             "id": "chat-controls",
             "keywords": (
                 "fork", "compress", "regenerate", "plan first", "attach a note",
+                "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
                 "footnote",
@@ -1091,7 +1113,10 @@ HELP_TOPICS.extend(
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload something new, Web search, "
                 "Plan first (the agent shows its steps before it starts), Skills, "
-                "and Agent or Ask mode. Each message's menu can copy it, edit your "
+                "and Agent or Ask mode. The note button beside the box opens Attach: "
+                "a tab each for notes, documents, files, images and mind maps, one "
+                "search, a count on each tab of what is held; the arrows move, Space "
+                "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
                 "messages (Undo goes back), show how full the model's context is, "
@@ -1140,8 +1165,8 @@ HELP_TOPICS.extend(
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
                 "(for binned items), Delete and Done, and Documents and the gallery "
-                "have bars of their own. New mind map, Generate a map from notes "
-                "and Import an outline sit on Boards and maps; Images takes "
+                "have bars of their own. New (a whiteboard or a mind map), Map from "
+                "notes and Import outline sit on Boards and maps; Images takes "
                 "uploads of pictures and PDFs."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1170,7 +1195,8 @@ HELP_TOPICS.extend(
             "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
-                "tomorrow evening, high priority\") and works out the time and the "
+                "tomorrow evening, high priority\"), then Enter or the wand button "
+                "(Add from this sentence) works out the time and the "
                 "priority. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
@@ -1221,7 +1247,7 @@ HELP_TOPICS.extend(
                 "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
                 "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
-                "notes), a (Guide), p (Popup agent). A second m closes the hint. "
+                "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
                 "selected text, Ctrl+Shift+K opens the quick sketch pad, and "

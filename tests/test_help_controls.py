@@ -164,6 +164,27 @@ def test_every_m_chord_letter_is_in_the_hidden_features_entry():
     assert not missing, f"the hidden features entry does not name: {missing}"
 
 
+def test_the_m_chord_key_map_is_unchanged_by_the_redesign():
+    """INBOX 484 redrew the `m` guide; every key it answers stays what it was.
+    The guide's rows are built from these two tables, so a row and its key
+    cannot drift; this pins the tables themselves."""
+    app = app_js_text()
+    tabs = dict(re.findall(r'^\s*(\w): "(\w+)"', _table(app, "const TAB_JUMP_KEYS"), re.MULTILINE))
+    actions = dict(
+        re.findall(r'^\s*(\w): \{ label: "([^"]+)"', _table(app, "const CHORD_ACTIONS"), re.MULTILINE)
+    )
+    assert tabs == {
+        "d": "dashboard", "n": "notes", "c": "chat", "g": "graph",
+        "l": "library", "t": "timeline", "r": "reminders",
+    }
+    assert actions == {
+        "s": "Settings", "q": "Quick sketch", "v": "Meeting notes", "a": "Guide", "p": "Popup agent",
+    }
+    hint = app[app.index("function showTabJumpHint(") :]
+    hint = hint[: hint.index("\n}\n")]
+    assert "Object.entries(TAB_JUMP_KEYS)" in hint and "Object.entries(CHORD_ACTIONS)" in hint
+
+
 def test_every_document_command_key_is_in_the_editor_entries():
     docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     table = _table(docs, "const DOC_COMMANDS = [", "\n];")

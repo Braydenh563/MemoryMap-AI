@@ -635,6 +635,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # link that can't be resolved must never cost someone their note.
     try:
         manager.sync_wiki_links(session, entry)
+        manager.resolve_links_to(session, entry)
         session.commit()
     except Exception:
         session.rollback()
@@ -2116,6 +2117,7 @@ def update_entry(
         # Editing a note can introduce new [[links]]; resolve those too.
         try:
             manager.sync_wiki_links(session, entry)
+            manager.resolve_links_to(session, entry)
             session.commit()
         except Exception:
             session.rollback()

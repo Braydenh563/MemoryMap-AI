@@ -47,7 +47,7 @@ MANUAL = {
     "add_whiteboard_card": ("whiteboard.js", 'apiJson("/whiteboard/nodes", { method: "POST"', "a board, Add card"),
     "add_whiteboard_link": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a board, draw a link between cards"),
     "generate_diagram": ("whiteboard.js", 'apiJson("/whiteboard/boards/generate", {', "Boards, Generate a board"),
-    "create_mindmap": ("whiteboard.js", 'const board = await apiJson("/whiteboard/boards", {', "Boards, New mind map"),
+    "create_mindmap": ("whiteboard.js", 'const board = await apiJson("/whiteboard/boards", {', "Boards, New, Mind map"),
     "add_map_node": ("whiteboard-map.js", "const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {", "a mind map, Add child"),
     "link_map_nodes": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a mind map, draw a cross-link"),
     "create_category": ("categories-panel.js", "async function createCategoryFromPanel()", "Manage categories, New category"),

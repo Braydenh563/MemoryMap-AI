@@ -6709,10 +6709,16 @@ function docLivePlugin(CM) {
   //: replaced by the label the rest of the app already uses for that kind
   //: (`CALLOUT_KINDS` in editor.js, the same table the "/" menu writes
   //: from), which is what Obsidian shows in the same place.
+  //: **The kind once, as its icon, and the title after it is the line's own
+  //: text** (INBOX 486, the owner: "I have no clue how to use these things":
+  //: the chip read "Note" and the title "Note" beside it). The word is drawn
+  //: only when there is no title, muted, standing in for one. The icon is a
+  //: button with a caret, the kind picker (`docCalloutKindMenu`).
   class DocCalloutWidget extends WidgetType {
-    constructor(kind, fold, at) {
+    constructor(kind, fold, at, titled) {
       super();
       this.kind = kind;
+      this.titled = titled;
       //: `null` when the callout is not a toggle at all, otherwise the line it
       //: starts on and whether it is currently folded.
       this.fold = fold;
@@ -6723,6 +6729,7 @@ function docLivePlugin(CM) {
       return (
         other.kind === this.kind &&
         other.at === this.at &&
+        other.titled === this.titled &&
         !!other.fold === !!this.fold &&
         (!this.fold || (other.fold.at === this.fold.at && other.fold.closed === this.fold.closed))
       );
@@ -6747,15 +6754,19 @@ function docLivePlugin(CM) {
       const icon = document.createElement("span");
       icon.className = "cm-md-callout-kindbtn";
       icon.dataset.docCalloutKind = String(this.at);
-      icon.title = "Change the kind of this callout";
+      icon.title = `${meta ? meta.label : "Callout"}: change its kind or folding`;
       const glyph = document.createElement("i");
       glyph.className = `ph ph-${String(meta ? meta.icon : "ph:note").replace(/^ph:/, "")}`;
       glyph.setAttribute("aria-hidden", "true");
-      icon.appendChild(glyph);
+      const caret = document.createElement("i");
+      caret.className = "ph ph-caret-down cm-md-callout-caret";
+      caret.setAttribute("aria-hidden", "true");
+      icon.append(glyph, caret);
       const word = document.createElement("span");
       word.className = "cm-md-callout-word";
       word.textContent = meta ? meta.label : this.kind;
-      chip.append(icon, word);
+      chip.append(icon);
+      if (!this.titled) chip.append(word);
       //: **A callout written `[!note]-` or `[!note]+` is a toggle**, which is
       //: the syntax Obsidian uses and the "toggles" half of Phase 3 item 2.
       //: The marker is the *initial* state and clicking does not rewrite it,
@@ -6772,10 +6783,29 @@ function docLivePlugin(CM) {
         chevron.appendChild(caret);
         word.dataset.docCalloutFold = String(this.fold.at);
         chevron.dataset.docCalloutFold = String(this.fold.at);
-        word.title = this.fold.closed ? "Show what is inside" : "Fold this away";
+        word.title = chevron.title = this.fold.closed ? "Show what is inside" : "Fold this away";
         chip.append(" ", chevron);
       }
       return chip;
+    }
+  }
+
+  //: An empty callout body's hint ("Write the note"): drawn after the line's
+  //: end, not text, so nothing is saved and typing replaces it.
+  class DocCalloutHintWidget extends WidgetType {
+    constructor(text) {
+      super();
+      this.text = text;
+    }
+    eq(other) {
+      return other.text === this.text;
+    }
+    toDOM() {
+      const hint = document.createElement("span");
+      hint.className = "cm-md-callout-hint";
+      hint.setAttribute("aria-hidden", "true");
+      hint.textContent = this.text;
+      return hint;
     }
   }
 
@@ -7062,6 +7092,8 @@ function docLivePlugin(CM) {
     //: A table is drawn once, from whichever of its lines the viewport reaches
     //: first.
     const tableSeen = new Set();
+    //: The callouts met so far, for `QuoteMark` (a parent is entered first).
+    const calloutSpans = [];
 
     //: **A replace decoration may not contain a line break, and this is not a
     //: style rule: CodeMirror throws "Decorations that replace line breaks may
@@ -7322,7 +7354,9 @@ function docLivePlugin(CM) {
               !kind && lastLine.from > first.from && /^\s*>\s*(?:--|\u2014|\u2013)\s*\S/.test(lastLine.text);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              const lineCls = cites && line.from === lastLine.from ? `${cls} cm-md-quote-cite` : cls;
+              let lineCls = cites && line.from === lastLine.from ? `${cls} cm-md-quote-cite` : cls;
+              //: A callout's first line is its title, set as one.
+              if (kind && line.from === first.from) lineCls += " cm-md-callout-head";
               ranges.push(Decoration.line({ class: lineCls }).range(line.from));
               if (line.to >= node.to) break;
               at = line.to + 1;
@@ -7331,9 +7365,14 @@ function docLivePlugin(CM) {
             //: for the kind's own label while the caret is elsewhere. Offsets
             //: come from the match rather than from a second search, so a body
             //: line that happens to contain `[!note]` cannot be hit.
-            if (kind && !rangeRevealed(first.from, first.to)) {
+            //: **Always, not only while the caret is elsewhere** (INBOX 486):
+            //: the kind is changed from its icon, so `[!note]` and the `>`
+            //: never show in the Live view; Source shows the raw text.
+            if (kind) {
+              calloutSpans.push([node.from, node.to]);
               const from = first.from + first.text.indexOf(callout[1]);
               const to = from + callout[1].length;
+              const titled = first.text.slice(first.text.indexOf(callout[1]) + callout[1].length).trim() !== "";
               let end = to;
               //: The space after the marker goes with it, exactly as the
               //: heading and quote marks take theirs: leaving it would indent
@@ -7347,15 +7386,26 @@ function docLivePlugin(CM) {
                   ? { at: first.from, closed: docCalloutFolded(state, first) }
                   : null;
                 ranges.push(
-                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle, first.from) }).range(from, end)
+                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle, first.from, titled) }).range(from, end)
                 );
+              }
+              //: A body with nothing in it says what goes there.
+              if (first.to < node.to) {
+                const second = doc.lineAt(first.to + 1);
+                const rest = doc.sliceString(second.from, node.to);
+                if (!rest.replace(/^[ \t]*>[ \t]?/gm, "").trim() && typeof calloutHint === "function") {
+                  ranges.push(
+                    Decoration.widget({ widget: new DocCalloutHintWidget(calloutHint(kind)), side: 1 }).range(second.to)
+                  );
+                }
               }
             }
             return undefined;
           }
           if (name === "QuoteMark") {
             const line = doc.lineAt(node.from);
-            if (touched(line.from, line.to)) return false;
+            const inCallout = calloutSpans.some(([from, to]) => node.from >= from && node.to <= to);
+            if (!inCallout && touched(line.from, line.to)) return false;
             let end = node.to;
             while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
             hide(node.from, end);
@@ -17737,6 +17787,18 @@ function docCmTheme(CM) {
       ".cm-md-callout-kindbtn:hover": {
         backgroundColor: "color-mix(in srgb, var(--callout-accent) 30%, transparent)",
       },
+      //: The kind button is a tile with a caret, so it reads as a menu.
+      ".cm-md-callout-kindbtn:has(.cm-md-callout-caret)": {
+        display: "inline-flex",
+        gap: "0.1em",
+        width: "auto",
+        padding: "0 0.3em",
+      },
+      ".cm-md-callout-caret": { fontSize: "0.7em", opacity: "0.75" },
+      //: No title: the kind's name stands in for one, a step back.
+      ".cm-md-callout-label .cm-md-callout-word": { color: "var(--muted)", fontWeight: "500" },
+      ".cm-md-callout-head": { fontWeight: "600" },
+      ".cm-md-callout-hint": { color: "var(--muted)", pointerEvents: "none", userSelect: "none" },
       //: A footnote's identifier, raised, where its brackets were. The
       //: reference is a link to the definition; the definition is the place
       //: being linked to, so only one of them is clickable.

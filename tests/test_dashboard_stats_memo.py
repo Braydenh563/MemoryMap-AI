@@ -32,7 +32,7 @@ def _function_body(source: str, name: str) -> str:
 
 def test_fetch_dash_stats_calls_the_api_not_itself():
     body = _function_body(DASHBOARD.read_text(encoding="utf-8"), "fetchDashStats")
-    assert 'apiJson("/insights/stats")' in body
+    assert 'apiJson("/insights/stats"' in body
     assert "fetchDashStats(" not in body
 
 
@@ -40,4 +40,4 @@ def test_widgets_share_the_memoised_fetch():
     source = DASHBOARD.read_text(encoding="utf-8")
     body = _function_body(source, "fetchDashStats")
     outside = source.replace(body, "")
-    assert 'apiJson("/insights/stats")' not in outside, "widgets must use fetchDashStats()"
+    assert 'apiJson("/insights/stats"' not in outside, "widgets must use fetchDashStats()"

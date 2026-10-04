@@ -1566,9 +1566,9 @@ const TAB_JUMP_KEYS = {
 //: menu of ten entries the guide draws from these two tables, so a new entry
 //: here appears in the guide with no other change.
 const CHORD_ACTIONS = {
-  s: { label: "Settings", run: () => openSettingsModal() },
-  q: { label: "Quick sketch", run: () => openSketch() },
-  v: { label: "Meeting notes", run: () => openMeetingRecorder() },
+  s: { label: "Settings", icon: "ph:gear", run: () => openSettingsModal() },
+  q: { label: "Quick sketch", icon: "ph:palette", run: () => openSketch() },
+  v: { label: "Meeting notes", icon: "ph:microphone", run: () => openMeetingRecorder() },
   //: The two assistants (INBOX 249, the owner: "is there a hotkey ot keybind,
   //: as well as an 'm' key navigation to open the atlas window and popup
   //: agent??"). Ctrl+Shift+A and Ctrl+Shift+H are theirs in the registry
@@ -1576,8 +1576,8 @@ const CHORD_ACTIONS = {
   //: Named for what it opens, the Guide (the owner: "the option for atlas
   //: leads to the guide, I think it should be called guide instead"),
   //: the same word the status bar's button uses. The key stays `a`.
-  a: { label: "Guide", run: () => askAtlasAbout("") },
-  p: { label: "Popup agent", run: () => toggleAgentPalette() },
+  a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
+  p: { label: "Popup agent", icon: "ph:magic-wand", run: () => toggleAgentPalette() },
 };
 let tabJumpArmedAt = 0;
 
@@ -1597,41 +1597,12 @@ function closeOverlaysForChord() {
   if (typeof helpChatSheetClose === "function") helpChatSheetClose();
 }
 
-//: **The chord's guide, and why it is not a toast any more.** Reported with a
-//: screenshot: "when I press 'm' for the quick nav, the popup notification is
-//: broken visually. also I want it to be more of a whole screen subtle but
-//: noticable guide like with the zoom visual thingo."
-//:
-//: Both halves of that were right. It was a `.toast`, which is a corner
-//: notification sized for one sentence, and ten key-and-label pairs laid in a
-//: row inside one wrapped mid-pair, so "m" and "then" broke onto separate
-//: lines beside the chips. And a toast is the wrong *kind* of thing: a
-//: notification is something that happened, while this is the app waiting for
-//: your next keystroke, which is a mode. The zoom readout (`hud()`) is the
-//: shape the owner pointed at, so this is that shape at the size the content
-//: needs: centred, over a scrim that dims the page enough to say "the next key
-//: means something", gone the moment the chord resolves or lapses.
-//:
-//: **Interactive, since 2026-09-13, and that reverses a decision this comment
-//: used to state.** It read: "Not interactive, and deliberately so:
-//: `pointer-events: none` throughout, because a guide that can eat the click
-//: you were about to make is worse than no guide." The reasoning was about a
-//: guide that appears *beside* your work; this one dims the page and takes the
-//: next keystroke, so there is no click it could steal that was meant for
-//: anything else. The owner, looking at it: "also make these popup options
-//: when I press m, actual clickable nav buttons".
-//:
-//: They read as buttons because they are shaped like them, which is the real
-//: argument: a pill with a label and a key chip in it is a control, and one
-//: that ignores the pointer is a control that is broken. The keys still work
-//: exactly as they did, and each row now carries the same action its key
-//: fires, from the same two tables, so the two ways in cannot drift.
-//:
-//: The scrim stays click-through-to-close: a click that lands on the dimmed
-//: page rather than on a row means "not this", which is what Escape and a
-//: second `m` already mean. `role="status"` and `aria-live` stay, so a screen
-//: reader hears the chord's targets; the rows are real buttons, so it can also
-//: reach them.
+//: **The chord's guide.** A mode, not a notification: the app is waiting for
+//: the next key, so it is a centred panel over a dimmed page (it was a toast,
+//: and its pairs wrapped mid-pair), gone the moment the chord resolves. The
+//: rows are buttons too (the owner: "make these popup options when I press
+//: m, actual clickable nav buttons"); a click on the dimmed page, Escape and a
+//: second `m` all mean "not this". `role="status"` so a screen reader hears it.
 let chordGuideTimer = null;
 
 function chordGuideEl() {
@@ -1647,42 +1618,42 @@ function chordGuideEl() {
   return guide;
 }
 
-//: `entries` is `[key, label, run]`. The `run` comes from the same two tables
-//: the keyboard reads (`TAB_JUMP_KEYS`, `CHORD_ACTIONS`), so a row and its key
-//: are two doors onto one action rather than two copies of one.
+//: `entries` is `[key, label, run, icon, here]`. The `run` comes from the same
+//: two tables the keyboard reads (`TAB_JUMP_KEYS`, `CHORD_ACTIONS`), so a row
+//: and its key are two doors onto one action rather than two copies of one.
+//: **The rich picker's row** (INBOX 484, the owner: "more professional, more
+//: modern and more impressive"): the icon tile, the name, and the key in the
+//: keycap column at the right edge, the "/" menu's own anatomy, as buttons
+//: because a pointer can pick one too.
 function chordGuideGroup(title, entries) {
-  const group = document.createElement("div");
+  const group = document.createElement("section");
   group.className = "chord-guide-group";
-  const heading = document.createElement("p");
+  const heading = document.createElement("h3");
   heading.className = "chord-guide-title";
   heading.textContent = title;
-  group.appendChild(heading);
   const list = document.createElement("div");
-  list.className = "chord-guide-list";
-  for (const [key, label, run] of entries) {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "chord-guide-row";
+  list.className = "chord-guide-list rich-picker-list";
+  for (const [key, label, run, icon, here] of entries) {
+    const row = richPickerRow({ tag: "button", role: null, icon, label, keys: key, className: "chord-guide-row" });
     row.title = `${label} (m then ${key})`;
-    const kbd = document.createElement("kbd");
-    kbd.textContent = key;
-    const name = document.createElement("span");
-    name.textContent = label;
-    row.append(kbd, name);
+    //: The tab you are on is marked, so "Go to" also says where you are.
+    if (here) {
+      row.classList.add("is-here");
+      row.setAttribute("aria-current", "page");
+    }
     row.addEventListener("click", () => {
       //: Disarmed first: the chord has been answered, and leaving it armed
       //: would make the next letter you type navigate somewhere.
       tabJumpArmedAt = 0;
       hideChordGuide();
-      //: The same two lines the keyboard branch runs, in the same order:
-      //: leaving for somewhere else means leaving whatever is over the page,
-      //: or the destination lands behind a modal that still holds focus.
+      //: The keyboard branch's two lines, in its order: leave whatever is over
+      //: the page, or the destination lands behind a modal holding focus.
       closeOverlaysForChord();
       run();
     });
     list.appendChild(row);
   }
-  group.appendChild(list);
+  group.append(heading, list);
   return group;
 }
 
@@ -1693,66 +1664,77 @@ function hideChordGuide() {
   guide.classList.add("hidden");
 }
 
+//: A key drawn as a key, for the head and the hint line.
+function chordGuideKey(text) {
+  const kbd = document.createElement("kbd");
+  kbd.className = "chord-guide-key";
+  kbd.textContent = text;
+  return kbd;
+}
+
 function showTabJumpHint() {
   const guide = chordGuideEl();
-  const lead = document.createElement("p");
-  lead.className = "chord-guide-lead";
-  const kbd = document.createElement("kbd");
-  kbd.textContent = "m";
-  //: "m, then a key" on the left and the way out on the right: the panel's
-  //: head says what it is waiting for, the rows below are the answers.
-  const leadText = document.createElement("span");
-  leadText.textContent = "then a key";
-  const leadEsc = document.createElement("span");
-  leadEsc.className = "chord-guide-esc";
-  const escKey = document.createElement("kbd");
-  escKey.textContent = "Esc";
-  leadEsc.append(escKey, " or m to close");
-  lead.append(kbd, leadText, leadEsc);
-  //: **Stays up until you dismiss it, not for a fixed 900ms.** Asked for
-  //: directly: "if i hold it down the popup stays up and I can more easily
-  //: navigate by reading the popup contents", refined a moment later to
-  //: "press m again to close it or an x close button to close it" (holding
-  //: a key sends repeated keydowns with no matching keyup this file
-  //: listens for, so a true hold-to-stay-open would need a new keyup
-  //: handler; a toggle needs none). `.lightbox-close` is the app's one
-  //: "circular x in the corner of a full-screen dark overlay" recipe
-  //: (the image viewer), reused rather than invented again; `chord-guide`'s
-  //: own `pointer-events: none` is what the second class undoes for this
-  //: one child.
+  //: **The head: what the app is waiting for, and the way out** (the dialog
+  //: head's shape: the title, then the Close at the right). It is a mode, not
+  //: a menu, so it says so: "m" is down, the next key decides.
+  const head = document.createElement("div");
+  head.className = "chord-guide-head";
+  const title = document.createElement("p");
+  title.className = "chord-guide-lead";
+  const words = document.createElement("span");
+  words.textContent = "then a key";
+  title.append(chordGuideKey("m"), words);
+  //: Asked for directly: "press m again to close it or an x close button".
+  //: In the head now rather than the window's corner, beside what it closes.
   const close = document.createElement("button");
   close.type = "button";
-  close.className = "lightbox-close chord-guide-close";
+  close.className = "icon-only ghost small dialog-head-btn chord-guide-close";
+  close.title = "Close (Esc)";
   close.setAttribute("aria-label", "Close");
   setLabel(close, "ph:x");
   close.addEventListener("click", () => {
     tabJumpArmedAt = 0;
     hideChordGuide();
   });
-  //: **One panel, not pills scattered over the page** (the owner's
-  //: screenshot, 2026-09-23 night: fourteen glowing pills drawn straight
-  //: over the dashboard's own text, which read through them, because the
-  //: flat looks turn the blur off and a 55% scrim alone does not separate
-  //: two layers of text). The lead and both groups sit on one opaque panel,
-  //: the command palette's shape, and the rows are plain key-and-label rows.
+  head.append(title, close);
+  //: The hint line: the three ways out of the mode, said once at the foot.
+  const hint = document.createElement("p");
+  hint.className = "chord-guide-hint";
+  hint.append("Press a key or pick a row. ", chordGuideKey("m"), " or ", chordGuideKey("Esc"), " closes.");
+  //: **One panel on the popover shell** (the owner's screenshot, 2026-09-23:
+  //: pills drawn straight over the dashboard's text read through it). The
+  //: tab's icon is read off its own button in the tab bar, so the two cannot
+  //: disagree.
+  const tabIcon = (tab) => {
+    const glyph = document.querySelector(`#tab-btn-${tab} i.ph`);
+    const name = glyph && [...glyph.classList].find((c) => c.startsWith("ph-"));
+    return name ? `ph:${name.slice(3)}` : "ph:arrow-right";
+  };
+  const current = document.querySelector('[role="tab"][data-tab].active')?.dataset.tab;
   const panel = document.createElement("div");
   panel.className = "chord-guide-panel";
-  guide.replaceChildren(close, panel);
-  panel.append(
-    lead,
+  panel.setAttribute("role", "group");
+  panel.setAttribute("aria-label", "m, then a key");
+  const body = document.createElement("div");
+  body.className = "chord-guide-body";
+  body.append(
     chordGuideGroup(
       "Go to",
       Object.entries(TAB_JUMP_KEYS).map(([key, tab]) => [
         key,
         tab[0].toUpperCase() + tab.slice(1),
         () => switchTab(tab),
+        tabIcon(tab),
+        tab === current,
       ])
     ),
     chordGuideGroup(
       "Do",
-      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label, action.run])
+      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label, action.run, action.icon])
     )
   );
+  panel.append(head, body, hint);
+  guide.replaceChildren(panel);
   guide.classList.remove("hidden");
 }
 

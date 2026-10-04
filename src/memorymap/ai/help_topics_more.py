@@ -839,6 +839,7 @@ TOPIC_META: dict[str, dict] = {
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
+    "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "chat-controls": {"title": "Chat keys and controls", "path": "Chat tab"},
     "notes-controls": {"title": "Notes keys, filters and selection", "path": "Notes tab"},
@@ -891,7 +892,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "contradictions", "skills", "personas", "answer-style", "memory", "learned",
     )),
     ("Documents and code", (
-        "documents", "documents-controls", "document-history", "writing-checks", "code-files",
+        "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",

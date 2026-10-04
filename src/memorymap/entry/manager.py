@@ -2440,21 +2440,64 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
         stem = (entry.source_path or "").rsplit("/", 1)[-1].lower()
         if stem.removesuffix(".md").removesuffix(".markdown") == wanted:
             return entry
+    #: **A note that opens with a heading is named by the heading** (INBOX
+    #: 517). Most notes start `# Name`, and matching the raw text against
+    #: `name%` never saw past the `#`, so `[[Name]]` linked to nothing. The
+    #: SQL narrows (raw start, or a heading marker then the name); the
+    #: opening line with its marker stripped decides.
+    escaped = like_escape(wanted)
     candidates = session.scalars(
         select(Entry)
         .where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_private == False,  # noqa: E712
-            Entry.content.ilike(f"{like_escape(wanted)}%", escape=LIKE_ESCAPE),
+            or_(
+                Entry.content.ilike(f"{escaped}%", escape=LIKE_ESCAPE),
+                Entry.content.ilike(f"#% {escaped}%", escape=LIKE_ESCAPE),
+            ),
         )
         .order_by(Entry.id)
     ).all()
+    candidates = [e for e in candidates if wiki_opening(e.content).startswith(wanted)]
     if not candidates:
         return None
     for entry in candidates:
-        if entry.content.strip().lower() == wanted:
-            return entry  # the whole note is exactly that name
+        if wiki_opening(entry.content) == wanted:
+            return entry  # its name, exactly: the whole opening line
     return candidates[0]
+
+
+_HEADING_MARK = re.compile(r"^\s{0,3}#{1,6}\s+")
+
+
+def wiki_opening(content: str | None) -> str:
+    """A note's name for [[links]]: its first line, heading marker stripped."""
+    first = (content or "").strip().split("\n", 1)[0]
+    return _HEADING_MARK.sub("", first).strip().lower()
+
+
+def resolve_links_to(session: Session, entry: Entry) -> int:
+    """Link the notes that already wrote `[[this note's name]]` (INBOX 517).
+
+    A link is often written before the note it names; `sync_wiki_links` runs
+    only on the note that holds the link, so without this such a link stayed
+    unresolved until that other note happened to be saved again.
+    """
+    name = wiki_opening(entry.content)
+    if not name or len(name) > 120:
+        return 0
+    holders = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.id != entry.id,
+            Entry.content.ilike(f"%[[{like_escape(name)}]]%", escape=LIKE_ESCAPE),
+        )
+    ).all()
+    made = 0
+    for holder in holders:
+        if find_by_wiki_name(session, name) is entry and create_link(session, holder, entry):
+            made += 1
+    return made
 
 
 def sync_wiki_links(session: Session, entry: Entry) -> list[str]:

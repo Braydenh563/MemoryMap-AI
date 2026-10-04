@@ -3674,11 +3674,29 @@ p.graph-help-panel {
 /* The panel's last row: its two actions, one at each end (INBOX 412). A
    `.dock-menu-section` is a column, which stretched a lone button to the
    panel's width; a row keeps each at the width of its words. */
-.graph-options .graph-options-foot {
+.graph-options .graph-options-foot,
+.graph-options .graph-view-tools {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+}
+
+/* The View section's own last row (Trace, Legend), laid out as the foot is:
+   one action at each end, each at the width of its words. A mode that is on
+   takes the accent tint a menu row's selected state wears
+   (08-consistency.css), since both write `.is-on` from their handlers. */
+.graph-options .graph-view-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
+}
+
+.graph-options .graph-view-tools button.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
 :root[data-glass="off"] .graph-options {

@@ -387,6 +387,15 @@ watchMirroredUiKeys();
 // Tabs (Wave A): switch pages, restore the last one used.
 for (const button of document.querySelectorAll("#tab-bar button")) {
   button.addEventListener("click", (event) => {
+    //: Library pressed from inside an open board or map goes back to the
+    //: Library (INBOX 516): the board is drawn inside the Library tab, so
+    //: switching to the tab already showing changed nothing.
+    const inBoard = button.dataset.tab === "library" && button.classList.contains("active")
+      && $("wb-canvas-view") && !$("wb-canvas-view").classList.contains("hidden");
+    if (inBoard && typeof wbShowBoardsLanding === "function") {
+      wbShowBoardsLanding();
+      return;
+    }
     switchTab(button.dataset.tab);
     if (event.detail > 0) focusTabPage(button);
   });

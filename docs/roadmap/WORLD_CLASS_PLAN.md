@@ -3114,31 +3114,6 @@ already in), 496 (Contents and the slow Boards and maps load), 493 (the
 graph's look), 484 (the leader menu), 486 (callouts), 490 (follow-up
 breadcrumbs).
 
-484. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the `m`
-     leader menu: "m then a key", Go to and Do columns, key chips).** "can
-     you redesign this menu to be better, more professional, more modern and
-     more impressive??" Next Opus slot.
-
-485. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
-     Attach popup: on Files a floating selection toolbar (duplicate, redo,
-     cut, ...) over the search field; on Images a second, offset search box
-     drawn over the first).** "a popup controls menu keeps poping up when I
-     navigate the attach popup" / "and there is an overlapping textbox?? that
-     whole panel needs to be better redesigned". Bugs first (orchestrator):
-     the bar is a chat reply's action row (copy, regenerate, shorter,
-     simpler, fork); a guard now keeps every row hidden while the panel is
-     open (`attachbar.js`). Neither trigger reproduced headless (a pointer
-     grid over the panel, a keyboard walk out of it; the second search box
-     not in light or dark, any density, large text, with images), so a stale
-     cached file is a suspect: see 487. Then the redesign (next Opus slot,
-     from DESIGN.md's reference dialog).
-
-486. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a callout
-     block in the editor: a note icon, "Note Note", then "> What matters
-     about this?").** "I have no clue how to use these things and they are
-     unintuitive". The callout reads its kind twice and gives no clue how to
-     change the kind, title or body. Next Opus slot, with 484 and 485.
-
 490. **The owner, 2026-10-04 evening, verbatim.** "also I feel like there
      should be hyperlinked bread crumbs or a file tree sort of thing for if a
      suggested follow suggested question is used." A trail of the questions

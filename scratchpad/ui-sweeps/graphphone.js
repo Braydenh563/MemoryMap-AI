@@ -363,7 +363,7 @@ async function touch(cdp, type, points) {
     const back = await page.evaluate(() => ({
       overlay: Boolean(document.querySelector('.sheet-overlay[data-sheet="graph"]')),
       home: Boolean(document.querySelector('#graph-options #graph-toggle-group')),
-      colourHome: Boolean(document.querySelector('#graph-view-menu #graph-colour')),
+      colourHome: Boolean(document.querySelector('#graph-options #graph-colour')),
       viewsHome: Boolean(document.querySelector('#graph-more-menu #graph-view-picker')),
     }));
     console.log('after close     ', JSON.stringify(back));

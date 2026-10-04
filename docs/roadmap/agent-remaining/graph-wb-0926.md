@@ -45,8 +45,8 @@ keyboard on the canvas renderer: + - 0, Shift+arrows, arrows, N, Enter).
   shape layer under them. A transparent backdrop the size of the content
   under `#wb-html-layer` measured 54 layers and Layerize 0.25s, but it is a
   hack on an internal heuristic; left.
-- **MINDMAP_PLAN 13c**: nothing says which kind a connect drag will make
-  while it is in flight.
+- ~~**MINDMAP_PLAN 13c**: nothing says which kind a connect drag will make
+  while it is in flight.~~ Built 2026-10-04 (`maplinkcue.js`).
 - **INBOX 419** still needs the owner (window size, a recording).
 - errors.js at 390 reports five `aside#sidebar` clippings on Notes (726px
   box); not this scope, present on the base branch.

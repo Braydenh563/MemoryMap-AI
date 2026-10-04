@@ -14,7 +14,17 @@ INDEX = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_t
 
 def test_the_empty_state_does_not_repeat_the_lede():
     block = re.search(r'<div id="bookmark-empty"[^>]*>(.*?)</div>', INDEX, re.S).group(1)
-    sentences = [p for p in re.findall(r"<p\b([^>]*)>", block) if "empty-title" not in p]
-    assert not sentences, "the empty state repeats the lede; its title and button say enough"
+    #: The complaint was the same words twice (INBOX 464 (19)). The Library's
+    #: empty-state recipe is a title and one sentence (`test_first_run_472.py`),
+    #: so Bookmarks keeps one, and it must not be the lede's.
+    sentences = [
+        re.sub(r"<[^>]+>", "", body).strip()
+        for attrs, body in re.findall(r"<p\b([^>]*)>(.*?)</p>", block, re.S)
+        if "empty-title" not in attrs
+    ]
+    assert len(sentences) <= 1, sentences
+    assert all("Save links to websites you visit often" not in s for s in sentences), (
+        "the empty state repeats the lede"
+    )
     assert 'data-empty-action="add-link"' in block
     assert "Save links to websites you visit often" in INDEX

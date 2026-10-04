@@ -34,6 +34,23 @@ with its owner named in the entry.
 
 ## Open items
 
+480. **The owner, 2026-10-04 evening, verbatim, with two crops (the feminine
+     Atlas's lower body: a pale flared skirt of thin strands over the nebula
+     ring; and a band of light with sparkles across the forehead between the
+     ears).** "also I want a better and more majestic and attractive female
+     atlas lower body as well as a redesign of whatever this is on the
+     forehead between the ears". Agent (Opus, atlas.js art).
+
+479. **The owner, 2026-10-04 evening, verbatim.** "polish and maximise
+     ui/ux. I want no vibecoded tells. do an audit of the layout for all page
+     top or bottom dock bars and see if controls can be better designed,
+     structured, rearranged and more for all features". Agent (Opus), with
+     478.
+
+478. **The owner, 2026-10-04 evening, verbatim.** "can you do another
+     devibecode sweep and also another modernisation and proffessionalisation
+     and ui/ux design sweep as well??" Agent (Opus), with 479.
+
 476. **The owner, 2026-10-04 evening, verbatim.** "the library submenu bar
      shows on the whiteboard and mindmap but not on the documents editor,
      should it be hidden when on those as well??" Decision (standing order

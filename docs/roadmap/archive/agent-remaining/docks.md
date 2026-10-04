@@ -1,6 +1,6 @@
 # Phase 8, the dock grammar: what is left
 
-> Companion to [`../UI_MODERNISATION_PLAN.md`](../UI_MODERNISATION_PLAN.md)
+> Companion to [`../UI_MODERNISATION_PLAN.md`](../../UI_MODERNISATION_PLAN.md)
 > Phase 8. Six of this file's seven sections are now closed with measurements;
 > what remains is below, each with the file, the id and the next step.
 

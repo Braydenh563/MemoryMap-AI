@@ -1,8 +1,8 @@
 # Brief 13, the skill harness and its verifier: what is left
 
-> Companions: [CHAT_PLAN.md](../CHAT_PLAN.md) (Phase 4, decisions 10 and 10a
-> to 10f) · [SESSION_BRIEFS.md](../SESSION_BRIEFS.md) (Brief 13) ·
-> [HISTORY.md](../HISTORY.md) ("Moved from the plans, 2026-09-12") ·
+> Companions: [CHAT_PLAN.md](../../CHAT_PLAN.md) (Phase 4, decisions 10 and 10a
+> to 10f) · [SESSION_BRIEFS.md](../../SESSION_BRIEFS.md) (Brief 13) ·
+> [HISTORY.md](../../HISTORY.md) ("Moved from the plans, 2026-09-12") ·
 > `tests/test_harness_verifier_spec.py` (the spec, all markers now off) ·
 > `tests/test_harness_verifier.py` (the behaviour around it)
 

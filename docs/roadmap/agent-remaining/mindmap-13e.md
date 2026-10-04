@@ -53,4 +53,4 @@
   DejaVu Sans here).
 - The handles of the lines *out of* the selected topic against the strip.
 - A themed map's re-import still comes back as topics carrying the look, not
-  as a themed map (unchanged, see [maptheme.md](maptheme.md)).
+  as a themed map (unchanged, see [maptheme.md](../archive/agent-remaining/maptheme.md)).

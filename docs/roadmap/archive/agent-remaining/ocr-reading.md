@@ -1,8 +1,8 @@
 # INBOX 314: three faults in the reading workspace, two causes, and what is left
 
-> Companions: [OPEN.md](OPEN.md) (the consolidated ledger) ·
-> [../HISTORY.md](../HISTORY.md), where INBOX 314 now lives ·
-> [../UI_MODERNISATION_PLAN.md](../UI_MODERNISATION_PLAN.md) Phase 7, the
+> Companions: [OPEN.md](../../agent-remaining/OPEN.md) (the consolidated ledger) ·
+> [../HISTORY.md](../../HISTORY.md), where INBOX 314 now lives ·
+> [../UI_MODERNISATION_PLAN.md](../../UI_MODERNISATION_PLAN.md) Phase 7, the
 > workspace this is about
 >
 > Every number here was measured against a running app on port 8800 with a

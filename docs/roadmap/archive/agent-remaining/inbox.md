@@ -1,6 +1,6 @@
 # INBOX "Open items" run: what is done, what is left
 
-> Companions: [INBOX.md](../INBOX.md) · [HANDOVER.md](../HANDOVER.md)
+> Companions: [INBOX.md](../../INBOX.md) · [HANDOVER.md](../../HANDOVER.md)
 >
 > One session's pass over INBOX.md "Open items" 2, 7, 9, 11, 12 (caps part
 > only), 14, 18, 19, in that order. Every report below was reproduced in a

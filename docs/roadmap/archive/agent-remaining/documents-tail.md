@@ -3,8 +3,8 @@
 Session of 2026-09-20, worktree cut from `claude/open-sections-a-b`, seven
 commits. The brief was the Documents tail in six steps, each measured in
 Chromium before and after. Every struck row in
-[`OPEN.md`](OPEN.md)'s Documents section and every section this added to
-[`../DOCUMENTS_PLAN.md`](../DOCUMENTS_PLAN.md) (14, 15, 16) carries its own
+[`OPEN.md`](../../agent-remaining/OPEN.md)'s Documents section and every section this added to
+[`../DOCUMENTS_PLAN.md`](../../DOCUMENTS_PLAN.md) (14, 15, 16) carries its own
 numbers; this file is the short list of what is still open, so the next
 session starts at the work rather than at the reading.
 

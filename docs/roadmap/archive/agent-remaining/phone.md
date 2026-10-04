@@ -1,7 +1,7 @@
 # The phone, content first (INBOX 392): what this run closed, and what is left
 
-> Companions: [OPEN.md](OPEN.md) · [../UI_MODERNISATION_PLAN.md](../UI_MODERNISATION_PLAN.md)
-> Phase 11 item 12 · [../HISTORY.md](../HISTORY.md), "Moved from the plans,
+> Companions: [OPEN.md](../../agent-remaining/OPEN.md) · [../UI_MODERNISATION_PLAN.md](../../UI_MODERNISATION_PLAN.md)
+> Phase 11 item 12 · [../HISTORY.md](../../HISTORY.md), "Moved from the plans,
 > 2026-09-23"
 >
 > The gate is `scratchpad/ui-sweeps/phonechrome.js` at 390x844, 768x1024 and

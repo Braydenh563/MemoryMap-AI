@@ -1,8 +1,8 @@
 # The map and board culling pass (MINDMAP_PLAN 13a-view): what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) section 13 ·
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) section 13 ·
 > [maprender.md](maprender.md) (the render pass this one follows) ·
-> [HISTORY.md](../HISTORY.md) "From MINDMAP_PLAN.md section 13a-view" (the
+> [HISTORY.md](../../HISTORY.md) "From MINDMAP_PLAN.md section 13a-view" (the
 > record, with the numbers)
 >
 > Agent `worktree-agent-a2ce74db776281dd7`, port 8795, data dir

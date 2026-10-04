@@ -1,9 +1,9 @@
 # The board's top bar and the phone board bar: what this run closed, and what is left
 
-> Companions: [OPEN.md](OPEN.md) (the consolidated ledger, struck with these
-> numbers) · [../WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md) ·
-> [../UI_MODERNISATION_PLAN.md](../UI_MODERNISATION_PLAN.md) Phase 8 ·
-> [../HISTORY.md](../HISTORY.md), "Moved from the plans, 2026-09-21"
+> Companions: [OPEN.md](../../agent-remaining/OPEN.md) (the consolidated ledger, struck with these
+> numbers) · [../WHITEBOARD_PLAN.md](../../WHITEBOARD_PLAN.md) ·
+> [../UI_MODERNISATION_PLAN.md](../../UI_MODERNISATION_PLAN.md) Phase 8 ·
+> [../HISTORY.md](../../HISTORY.md), "Moved from the plans, 2026-09-21"
 >
 > Every number below was measured in a real Chromium against the running app
 > with `scratchpad/ui-sweeps/wbtopbar.js`, which is now in `scripts/gate.sh`'s

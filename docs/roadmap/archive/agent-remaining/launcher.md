@@ -7,7 +7,7 @@ that showed up once the flags were actually run. This file is now only the
 list of things that could not be checked here, the bugs found, and the two
 small things deliberately left.
 
-Read Brief 17 in [`../SESSION_BRIEFS.md`](../SESSION_BRIEFS.md) first.
+Read Brief 17 in [`../SESSION_BRIEFS.md`](../../SESSION_BRIEFS.md) first.
 
 ## Not verified, and why
 

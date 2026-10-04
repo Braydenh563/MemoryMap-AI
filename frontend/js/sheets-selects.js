@@ -1967,10 +1967,8 @@ async function loadChatSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    //: With no model the box is closed, and the chips still sent: "Summarise
-    //: my notes" over two notes answered "I couldn't find any saved notes"
-    //: (INBOX 472, first run). They go where the notice points, Notes, Ask,
-    //: as the dashboard's Ask tile already does (`openAskFromDashboard`).
+    //: No model: the chips go to Notes, Ask, like the dashboard's Ask tile
+    //: (INBOX 472: they answered "no saved notes" over two notes).
     const chipEl = chip(question, "", async () => {
       if (typeof aiIsOff === "function" && aiIsOff()) {
         await switchTab("notes");

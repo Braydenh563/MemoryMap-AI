@@ -1095,9 +1095,7 @@ async function loadOnboardingDiagnostics(forSlide) {
           "searched by keyword, and filing catches up once a model is on."
   );
   if (storage) {
-    //: Where it lives, and its size once there is one to say. The privacy
-    //: sentence this used to repeat is the first slide's (INBOX 472: the
-    //: slide ran to six lines at 1440 and eight at 390, with "0.0 MB").
+    //: Where it lives, and its size once there is one (INBOX 472).
     const mb = (storage.database_bytes || 0) / (1024 * 1024);
     lines.push(
       mb >= 0.1
@@ -1160,8 +1158,7 @@ function renderOnboardingActions(models, notebook) {
     );
   }
 
-  //: The slide that says the AI is off offers the way to turn it on: the
-  //: one place a model is connected (INBOX 472, the first-run walk).
+  //: AI off: offer the way to turn it on (INBOX 472).
   if (models && !models.ollama_running) {
     offers.push(
       smallButton(
@@ -1214,8 +1211,7 @@ function renderOnboardingSlide() {
   const greet = onboardingIndex === 0 && typeof atlasMark === "function";
   atlas.classList.toggle("hidden", !greet);
   $("onboarding-emblem").classList.toggle("hidden", greet);
-  //: One mark per card: the app's emblem stood over a stethoscope on the
-  //: setup card, two marks stacked (INBOX 472).
+  //: One mark per card (INBOX 472).
   $("onboarding-icon").classList.add("hidden");
   if (greet) {
     const face = document.createElement("span");

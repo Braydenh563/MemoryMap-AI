@@ -37,7 +37,14 @@ def encode(image: Image.Image) -> bytes:
 def quantised(image: Image.Image) -> Image.Image:
     if image.mode == "RGBA":
         return image.quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG)
-    return image.convert("RGB").quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
+    #: The palette from the octree, then the picture mapped onto it with
+    #: dithering. Median cut (what this was) averaged the graph's saturated
+    #: category colours into browns, and `quantize(dither=...)` with a method
+    #: does not dither at all, so the nebula banded; mapping onto a palette
+    #: is the call that dithers.
+    rgb = image.convert("RGB")
+    palette = rgb.quantize(colors=256, method=Image.Quantize.FASTOCTREE)
+    return rgb.quantize(palette=palette, dither=Image.Dither.FLOYDSTEINBERG)
 
 
 def shrink(path: Path) -> str:

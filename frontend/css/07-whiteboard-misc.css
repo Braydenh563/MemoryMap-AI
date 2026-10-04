@@ -11171,6 +11171,26 @@ input[type="file"] {
   opacity: 0.65;
 }
 
+/* "1.2": a topic's place in the outline on a numbered map (MINDMAP_PLAN.md
+   decision 17). Quiet text before the label, the count's recipe: a number is
+   a fact about where the topic is, not a control, and it must not outshout
+   the name. */
+.wb-map-number {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* On a core topic's full colour and on a filled topic's tint the muted ink
+   is not a quiet grey any more: measured, 4.39:1 on the blue branch's tint in
+   light. The label's own ink there, which the fill was chosen to keep legible;
+   the smaller size keeps it second to the name. */
+.wb-map-core .wb-map-number,
+.wb-map-filled .wb-map-number {
+  color: inherit;
+}
+
 /* "2/5": quiet text after the label, not a pill (DESIGN.md: a count is quiet
    text). Complete reads in the success ink. */
 .wb-map-progress {

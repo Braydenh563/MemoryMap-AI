@@ -27,7 +27,7 @@ the five tails the brief named were already built.
 | 6 | Quick sketch bar wraps at 820 on Large text (INBOX 276) | medium | S | plan | **half** 761e65f: Large text one row; Large plus Spacious 41px short, open |
 | 7 | Map: a note behind a topic (§12.2 item 5; XMind, MindNode notes) | medium | M | plan | open |
 | 8 | Map: outline view beside the map (§12.2 item 8) | high | L | plan | open |
-| 9 | Map: branch numbering toggle (§12.2 item 7) | low | S to M | plan | open |
+| 9 | Map: branch numbering toggle (§12.2 item 7) | low | S to M | plan | **built** (decision 17) |
 | 10 | Map: branch palette and font at map level (13e remainder; drawn in two places) | medium | M | MINDMAP_PLAN 13e | open |
 | 11 | Map: Insert and Arrange markup still in a map's top bar (20 hidden controls) | low | S | mapux2 | **kept** (decision 16: the board's own); a found bug fixed, the toggles drawn on a map after an escaped menu |
 | 12 | Map: boundaries, summaries, presentation mode, comments (§12.2 items 1, 2, 9, 6); board frames and lock | medium each | L each | plan | open |

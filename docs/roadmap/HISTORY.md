@@ -37122,3 +37122,21 @@ wrap from its menu, and a menu open on a board has been moved to `<body>` by
 toggles. Found from `[aria-controls]` now, and the open menu is closed,
 restored home and uncapped. `scratchpad/ui-sweeps/maptopbar.js` 8/8 at
 1280x520, 4/8 on the base.
+
+### From MINDMAP_PLAN.md §12.2 item 7 (decision 17): numbered branches
+
+`numbered` in the board's settings blob (`_board_numbered`,
+`_store_board_numbered`), set by `PUT /whiteboard/boards/{id}` and returned by
+`/tree`; one event per change. `_outline_numbers` gives every topic its place
+(a root none, its children 1, 2, its grandchildren 1.1), iterative and
+seen-guarded; Markdown writes `- [ ] 1.2 Text` and `_strip_outline_numbers`
+takes the numbers off an import only when every topic's matches its place;
+OPML writes and reads `_number`. On the canvas: `.wb-map-number` before the
+label, filled by `wbMapNumbers` (one walk per index, part of
+`wbObjectPaintKey`), in `--muted` and in the label's ink on a core or filled
+topic, where the muted grey measured 4.39:1 on the blue branch's tint. The
+switch is `#wb-map-numbered` in the View menu's Map group. The picture export
+carries the number. Five API tests in `tests/test_mindmap.py`;
+`scratchpad/ui-sweeps/mapnumbers.js` 16/16 at 1440 and 390 in light and dark
+(muted 5.91:1 light and 7.96:1 dark; on a filled topic 12.72:1 and above in
+light, 7.61:1 and above in dark); the switch does not exist on the base.

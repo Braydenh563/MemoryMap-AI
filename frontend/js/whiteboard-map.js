@@ -210,6 +210,8 @@ async function wbRefreshMapState() {
       type: tree.type,
       layout: tree.layout,
       theme: tree.theme && typeof tree.theme === "object" ? tree.theme : {},
+      //: Whether the map numbers its branches (MINDMAP_PLAN.md decision 17).
+      numbered: tree.numbered === true,
       labels,
       facets,
       crossLinks: tree.cross_links || [],
@@ -1418,6 +1420,12 @@ function wbBuildMapNode(el, d) {
     .attr("aria-hidden", "true")
     .attr("draggable", "false")
     .property("hidden", true);
+  //: **The topic's place in the outline** (MINDMAP_PLAN.md decision 17),
+  //: "1.2", on a map that numbers its branches. Its own element before the
+  //: label rather than text inside it, so a rename never edits it and the
+  //: label's editor never sees it. Hidden on a map that does not number and
+  //: on a root, which is the map's subject rather than a place in it.
+  body.append("span").attr("class", "wb-map-number").attr("aria-hidden", "true").property("hidden", true);
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
@@ -1751,6 +1759,12 @@ function wbPaintMapNode(el, d, index, colors, fills) {
     if (parent) mirrored = d.x + (d.width || WB_MAP_NODE_W) / 2 < parent.x + (parent.width || WB_MAP_NODE_W) / 2;
   }
   el.classed("wb-map-node-mirrored", Boolean(mirrored));
+  const number = node.querySelector(".wb-map-number");
+  if (number) {
+    const place = wbMapNumberOf(index, d.id);
+    number.hidden = !place;
+    number.textContent = place;
+  }
   const progress = node.querySelector(".wb-map-progress");
   if (progress) {
     const tally = index ? wbMapTaskTally(index).get(d.id) : null;
@@ -1800,6 +1814,62 @@ function wbMapTaskTally(index) {
   }
   wbMapTaskTallies.set(index, tallies);
   return tallies;
+}
+
+//: **Every topic's place in the outline** (decision 17), `id -> "1.2"`, in
+//: one walk per index for the reason the task tally is: the paint pass asks
+//: for every visible node. A root has none, and each root counts from 1.
+//: Sibling order is the index's (`wbMapBySiblingOrder`), which is the
+//: server's `_sibling_key`, so the canvas and the exports agree.
+const wbMapNumberCache = new WeakMap();
+
+function wbMapNumbers(index) {
+  let numbers = wbMapNumberCache.get(index);
+  if (numbers) return numbers;
+  numbers = new Map();
+  const seen = new Set();
+  const stack = (index.roots || []).map((root) => ["", root]);
+  while (stack.length) {
+    const [prefix, node] = stack.pop();
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    const kids = index.childrenOf.get(node.id) || [];
+    kids.forEach((child, i) => {
+      const place = prefix ? `${prefix}.${i + 1}` : String(i + 1);
+      if (!numbers.has(child.id)) numbers.set(child.id, place);
+      stack.push([place, child]);
+    });
+  }
+  wbMapNumberCache.set(index, numbers);
+  return numbers;
+}
+
+//: This topic's number, or "" on a map that does not number its branches.
+function wbMapNumberOf(index, id) {
+  if (!index || !window.wbMapState?.numbered) return "";
+  return wbMapNumbers(index).get(id) || "";
+}
+
+//: Turn the numbering on or off for this map: one `PUT`, then a render,
+//: because every topic's prefix changes with it.
+async function wbMapSetNumbered(on) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return false;
+  try {
+    await apiJson(`/whiteboard/boards/${boardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ numbered: Boolean(on) }),
+    });
+    window.wbMapState = { ...window.wbMapState, numbered: Boolean(on) };
+    renderWhiteboardNow();
+    wbSyncMapChrome();
+    wbAnnounce(on ? "Branches numbered." : "Branches not numbered.");
+    return true;
+  } catch (err) {
+    toast(err.message || "Couldn't change the numbering.", true);
+    wbSyncMapChrome();
+    return false;
+  }
 }
 
 //: Makes a topic a task, takes the box away (`null`), or ticks it. Through
@@ -6231,6 +6301,13 @@ function wbSyncMapChrome() {
   if (expandRow) expandRow.hidden = !isMap;
   const themeRow = document.getElementById("wb-map-theme-item");
   if (themeRow) themeRow.hidden = !isMap;
+  //: The numbering switch (decision 17) says what the map does now.
+  const numbered = document.getElementById("wb-map-numbered");
+  if (numbered) {
+    numbered.checked = Boolean(isMap && window.wbMapState?.numbered);
+    const row = numbered.closest(".wb-menu-row");
+    if (row) row.hidden = !isMap;
+  }
   //: The group itself as well as its rows: on a board it held nothing but
   //: its own heading, a group of zero rows drawn between two that have some.
   const mapSection = document.getElementById("wb-view-map-section");

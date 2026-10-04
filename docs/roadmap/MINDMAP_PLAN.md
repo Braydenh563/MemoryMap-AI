@@ -535,9 +535,9 @@ the shift-drag sever).
    opens it); a node that is a notebook note shows the note's own text
    here, editable both ways.
 6. **Comments** (MindMeister): a thread per node, count marker.
-7. **Multiple roots and floating topics**; **numbering** of branches
-   (1, 1.1, 1.1.1) as a toggle; **auto-colour by branch** as the
-   default theme with eight curated palettes.
+7. **Multiple roots and floating topics**; **auto-colour by branch** as
+   the default theme with eight curated palettes. Numbering is built
+   (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
 8. **Outline view** beside the map (a two-pane split): the same tree as
    indented text, editable, Tab and Shift+Tab re-parent, every edit
    mirrored live.
@@ -1099,6 +1099,21 @@ topic: a control that wide has nowhere to go.
    escaped to `<body>` is outside its wrap, so a map opened with one open
    drew both toggles. Found from the button now, and the open menu is closed
    and put home (`maptopbar.js`).
+17. **Numbering is the map's, by outline place, and off until asked** (taken
+   2026-10-04, §12.2 item 7). One switch in the View menu's Map group (the
+   menu's own switch row), stored as `numbered` beside `type`, `layout` and
+   `theme` in the board's settings and not in the theme: the theme is what a
+   topic follows when it says nothing, and a number is not something one
+   topic can decline. A root is the map's subject and has none; its children
+   are 1, 2, 3 and theirs 1.1, 1.2, counted in sibling order (the canvas's
+   `wbMapBySiblingOrder` and the server's `_sibling_key` are one order), and
+   drawn as quiet text before the label, never inside it, so a rename never
+   edits a number. No trailing dot: `- 2. Write` is an ordered list inside a
+   bullet to every Markdown reader. Markdown writes the number after a
+   task's box and reads it back only when every topic's number is its own
+   place, all or nothing, so "2024 plan" stays a name; OPML carries
+   `_number`. FreeMind does not carry it (the setting is a view; its private
+   attributes are the topics' own).
 
 ### Phases, each with the gate it is finished against
 

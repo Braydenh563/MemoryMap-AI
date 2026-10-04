@@ -6714,7 +6714,10 @@ function wbBuildExportSvg(scope) {
       //: A task's box travels as the ballot-box glyph (MINDMAP_PLAN.md
       //: decision 15): the icon font does not follow the topic into the file.
       const box = obj.data?.task === "done" ? "☑ " : obj.data?.task === "open" ? "☐ " : "";
-      const lines = wbSvgWrapLines(box + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: And its number on a numbered map (decision 17), as the canvas
+      //: draws it: after the box, before the label.
+      const place = wbMapNumberOf(exportMapIndex, obj.id);
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
       parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
@@ -7649,6 +7652,7 @@ async function initWhiteboard() {
   //: redrawn.
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
   $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
+  $("wb-map-numbered")?.addEventListener("change", (e) => wbMapSetNumbered(e.target.checked));
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
   $("wb-zoom-actual")?.addEventListener("click", () =>
     d3.select(document.getElementById("whiteboard-container")).transition().duration(160).call(wbZoom.scaleTo, 1)
@@ -14589,7 +14593,9 @@ function wbObjectPaintKey(d, ctx) {
     `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.
-    `|${wbMapTaskTallyKey(index, d.id)}`;
+    `|${wbMapTaskTallyKey(index, d.id)}` +
+    //: Its number (decision 17): a sibling added above it renumbers it.
+    `|${wbMapNumberOf(index, d.id)}`;
 }
 
 function wbMapTaskTallyKey(index, id) {

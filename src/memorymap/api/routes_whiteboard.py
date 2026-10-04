@@ -849,6 +849,40 @@ def _themed_style(style: dict, theme: dict) -> dict:
     return filled
 
 
+def _board_numbered(entry: Entry | None) -> bool:
+    """Whether this map numbers its branches (MINDMAP_PLAN.md decision 17).
+
+    A sibling of `type`, `layout` and `theme` in the settings blob, and not a
+    field of the theme: the theme is what a topic follows when it says
+    nothing, and a number is not something one topic can decline, it is the
+    topic's place in the outline. Anything but a stored `true` is off, so
+    every map made before this reads exactly as it did.
+    """
+    if entry is None:
+        return False
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("numbered") is True
+
+
+def _store_board_numbered(entry: Entry, numbered: bool) -> None:
+    """`_store_board_theme`'s read-modify-write, for its reason: the blob is
+    a family, and replacing it would clear the type, layout and theme."""
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    if numbered:
+        existing["numbered"] = True
+    else:
+        existing.pop("numbered", None)
+    entry.board_settings = json.dumps(existing)
+
+
 class BoardOut(BaseModel):
     #: None is the one unnamed scratch board every notebook starts with.
     id: int | None
@@ -1987,6 +2021,9 @@ class BoardRename(BoardTypeMixin):
     #: this is a look, and a picker one version ahead should leave a map
     #: plainer rather than unsaveable.
     theme: dict | None = None
+    #: Number the map's branches by their place in the outline, 1, 1.1, 1.2
+    #: (MINDMAP_PLAN.md decision 17). `None` leaves it as it is.
+    numbered: bool | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -2042,6 +2079,18 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 entry.id,
                 f"map theme, {len(stored_theme)} field" + ("" if len(stored_theme) == 1 else "s"),
                 payload={"after": stored_theme, "before": before_theme},
+            )
+    if body.numbered is not None:
+        before_numbered = _board_numbered(entry)
+        _store_board_numbered(entry, body.numbered)
+        if body.numbered != before_numbered:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "branches numbered" if body.numbered else "branches not numbered",
+                payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
             )
     if body.title is not None:
         title = body.title.strip()
@@ -2789,6 +2838,10 @@ class MapTreeOut(BaseModel):
     #: canvas makes before it draws, and a theme that arrived one request
     #: later would paint the map twice.
     theme: dict = {}
+    #: Whether the map numbers its branches (decision 17), for the same
+    #: reason the theme rides here: the canvas draws the numbers on its first
+    #: paint or it draws the map twice.
+    numbered: bool = False
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
@@ -2822,6 +2875,7 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
         roots=_build_tree(db, objects),
         cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
         theme=_board_theme(entry),
+        numbered=_board_numbered(entry),
     )
 
 
@@ -3343,7 +3397,70 @@ def _export_tree(root_element, roots: list[dict], build) -> None:
             stack.append((below, depth + 1, child))
 
 
-def _export_markdown(title: str, roots: list[dict]) -> str:
+def _outline_numbers(roots: list[dict]) -> dict:
+    """Every topic's place in the outline, `{node_id: "1.2"}` (MINDMAP_PLAN.md
+    decision 17).
+
+    A root is the map's subject and has no number; its children are 1, 2, 3
+    and theirs 1.1, 1.2, each root counting from 1 again. No trailing dot:
+    `- 2. Write` is an ordered list inside a bullet to every Markdown reader,
+    which would draw the number twice. Sibling order is the tree's, which is
+    `_sibling_key`'s and so the canvas's (`wbMapNumbers`). Iterative and
+    seen-guarded, the rule every walk in this file keeps.
+    """
+    numbers: dict = {}
+    seen: set = set()
+    stack: list[tuple[str, dict]] = [("", root) for root in reversed(roots)]
+    while stack:
+        prefix, node = stack.pop()
+        if node["id"] in seen:
+            continue
+        seen.add(node["id"])
+        children = node.get("children") or []
+        for position in range(len(children), 0, -1):
+            child = children[position - 1]
+            number = f"{prefix}.{position}" if prefix else str(position)
+            numbers.setdefault(child["id"], number)
+            stack.append((number, child))
+    return numbers
+
+
+#: A number at the start of an imported line, `1.2 Text`: what a numbered
+#: map's Markdown export writes, and read back only when every topic's number
+#: is its own place (`_strip_outline_numbers`).
+_OUTLINE_NUMBER = re.compile(r"^(\d+(?:\.\d+)*)\s+(?=\S)")
+
+
+def _strip_outline_numbers(roots: list[dict]) -> bool:
+    """Take the numbers off an imported outline whose every topic starts with
+    its own place in it, and say whether it did (decision 17).
+
+    All or nothing, and only when they match: a topic called "2024 plan" in
+    the first place is a name, not a number, and neither is a list numbered
+    by hand in some other scheme. A file this app wrote matches by
+    construction, so the map comes back numbered rather than with "1.1"
+    typed into every topic, and exporting it again does not number it twice.
+    """
+    expected: list[tuple[dict, str]] = []
+    stack: list[tuple[str, dict]] = [("", root) for root in roots]
+    while stack:
+        prefix, node = stack.pop()
+        for position, child in enumerate(node.get("children") or [], start=1):
+            number = f"{prefix}.{position}" if prefix else str(position)
+            expected.append((child, number))
+            stack.append((number, child))
+    if not expected:
+        return False
+    for node, number in expected:
+        found = _OUTLINE_NUMBER.match(node.get("text") or "")
+        if not found or found.group(1) != number:
+            return False
+    for node, _ in expected:
+        node["text"] = node["text"][_OUTLINE_NUMBER.match(node["text"]).end():]
+    return True
+
+
+def _export_markdown(title: str, roots: list[dict], numbered: bool = False) -> str:
     """`# Title`, then a two-space-per-level bullet outline.
 
     A reference node carries what it points at on the same line, `- Sources
@@ -3362,13 +3479,20 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
     rows = _outline_rows(roots)
     if rows:
         lines.append("")
+    #: A numbered map's numbers (decision 17) are written into the line,
+    #: after a task's box (which has to follow the marker to be one) and
+    #: before the text, because a number is the one part of a map's look an
+    #: outline pasted anywhere still means something by.
+    numbers = _outline_numbers(roots) if numbered else {}
     for depth, node in rows:
         text = node["text"] or "(untitled)"
         suffix = ""
         if node["kind"] != MAP_TOPIC_KIND and node["ref_id"] is not None:
             suffix = f" ({node['kind']} {node['ref_id']})"
         box = _MARKDOWN_TASK_BOX.get((node.get("style") or {}).get("task"), "")
-        lines.append(f"{'  ' * depth}- {box}{text}{suffix}")
+        number = numbers.get(node["id"])
+        number = f"{number} " if number else ""
+        lines.append(f"{'  ' * depth}- {box}{number}{text}{suffix}")
     return "\n".join(lines) + "\n"
 
 
@@ -3478,7 +3602,9 @@ def _xml_attribute(value) -> str:
     return str(value)
 
 
-def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
+def _export_opml(
+    title: str, roots: list[dict], cross_links: list[dict] | None = None, numbered: bool = False
+) -> str:
     """OPML 2.0: the interchange format every mindmapper reads.
 
     Built with ElementTree rather than by formatting strings, so that a topic
@@ -3495,9 +3621,15 @@ def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None =
     links_from: dict = {}
     for link in cross_links or []:
         links_from.setdefault(link.get("from_id"), []).append(link.get("to_id"))
+    #: A numbered map (decision 17): `_number` on each outline, private like
+    #: `_kind` and `_task`, so another reader keeps clean text and this one
+    #: reads the map back numbered.
+    numbers = _outline_numbers(roots) if numbered else {}
 
     def build(parent_element, node: dict):
         attrs = {"text": node["text"] or "(untitled)"}
+        if node["id"] in numbers:
+            attrs["_number"] = numbers[node["id"]]
         if node["kind"] != MAP_TOPIC_KIND:
             # `_kind`/`_ref`, not `type`/`ref`: OPML's own `type` attribute
             # already means something else (how a reader should treat the
@@ -3710,14 +3842,18 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: reason. A "Cross-links" section after the outline would also be read
     #: straight back in by `_parse_markdown_outline`, which reads indentation
     #: and nothing else, so one map's two links would come back as two topics.
+    numbered = _board_numbered(entry)
     if format == "markdown":
-        text = _export_markdown(title, roots)
+        text = _export_markdown(title, roots, numbered)
+    elif format == "opml":
+        links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
+        text = _export_opml(title, roots, links, numbered)
     else:
         #: Read only for the two formats that can carry them, so a Markdown
         #: export does not pay for a scan of every sketch on the board to find
         #: something it is going to drop.
         links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
-        text = (_export_opml if format == "opml" else _export_freemind)(title, roots, links)
+        text = _export_freemind(title, roots, links)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -3996,6 +4132,7 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
                     "style": _opml_style(child),
                     "ref": (child.get("_id") or "").strip(),
                     "links": (child.get("_links") or "").split(),
+                    "numbered": bool((child.get("_number") or "").strip()),
                     "children": walk(child, depth + 1),
                 }
             )
@@ -4472,6 +4609,17 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
     )
 
 
+def _flatten_parsed(parsed: list[dict]) -> list[dict]:
+    """Every node of a parsed outline, iteratively."""
+    out: list[dict] = []
+    stack = list(parsed)
+    while stack:
+        node = stack.pop()
+        out.append(node)
+        stack.extend(node.get("children") or [])
+    return out
+
+
 @router.post("/boards/import", response_model=BoardOut, status_code=201)
 def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
     """Create a map from an OPML file or an indented Markdown outline.
@@ -4492,6 +4640,14 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
     entry = Entry(content=f"# {name}", is_board=True)
     _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    #: A numbered map's file comes back numbered (decision 17): OPML says so
+    #: on its outlines, and Markdown when every topic starts with its place.
+    if body.format == "markdown":
+        numbered = _strip_outline_numbers(parsed)
+    else:
+        numbered = any(node.get("numbered") for node in _flatten_parsed(parsed))
+    if numbered:
+        _store_board_numbered(entry, True)
     db.add(entry)
     db.flush()  # the nodes need the board's id before they can point at it
 

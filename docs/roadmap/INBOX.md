@@ -47,8 +47,17 @@ with its owner named in the entry.
      sub-tab, Settings section and overlay; 1440 and 390, both themes,
      `CONTRAST=on`, `LOOK=`). Default look: 79 findings at 1440 light, 74 dark,
      51 and 49 at 390, now 0 but the 4 to 6 borderless writing surfaces, kept
-     as a decision (DESIGN.md recipe index, `--control-edge`). Still open here:
-     another skills-guided UI round by surface: agents.
+     as a decision (DESIGN.md recipe index, `--control-edge`). **The UI round, 2026-10-04**
+     (one agent, all eight skills as checklists, 188 stills at 1440 and 390
+     in both themes): twenty defects ranked with measurements in
+     `scratchpad/ui-audit-464.md`; the top eight built (Settings heads in
+     groups, switches on the text edge, the phone head on one row, one-line
+     pane descriptions, Library previews keeping blocks apart, the palette on
+     touch, file pickers on the tonal recipe, three copy faults) plus the
+     Timeline's cut titles; two new lints. Items 9 and 12 to 20:
+     agent (2026-10-04). Decisions taken: Back/Forward stay hidden in the
+     phone Settings head (the section picker reaches any section in one tap);
+     item 10 keeps the sentence-as-title decision.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
@@ -64,34 +73,6 @@ with its owner named in the entry.
      does not emulate, and the windowed list's page load at the end. Next:
      the owner's tab and window size, then a real-device trace.
 
-459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
-     Personas: the jump strip "Answer style, Dashboard greeting, Add your
-     own, Share").** "some of the horizontal navigation bars at the top of
-     the settings pages skip multiple sections as they are too close, like
-     in the personas, it only goes on the first or last one. also can you
-     add some cheap css animations to things like the horizontal pill
-     selectors and sidebars etc like using anchor for smooth tab
-     transitions etc?? stuff like that to make it feel truly professional
-     and smooth but dont over do it in a vibecoded way. did you use all the
-     ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
-     section clicked and, scrolling, the last one whose head passed the
-     line (or the one at the end when the page can scroll no further): **fixed**,
-     the clicked head stays marked until a wheel, touch or key scroll
-     (Personas at 1280x560: each of the four marks itself; it was the first
-     or last); (2) a restrained motion pass (the selected pill and tab
-     indicator slide between options, sidebars ease, reduced motion
-     honoured, every duration and curve a token, no new decoration): an
-     Opus agent, with the named skills as checklists.
-
-
-453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
-     be a way to open and close the documents editor sidebar when in full
-     screen mode". Then: "keep bug fixing and finishing all open requests and
-     items". And: "can you improve, extend, expand, optimise, and add to the
-     mindmap, whiteboard, or documents editor at all?? what is most lacking
-     in the app rn?? what is left and still open??" Placed: the sidebar
-     toggle in focus mode, the orchestrator; the question answered from the
-     plans' open phases, with agents on the top items.
 
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user
@@ -134,6 +115,24 @@ with its owner named in the entry.
      words stay in the box, saying so); the desktop window, real
      clipboards and a real server crash between commit and answer are not
      verified (the dedupe map is in memory).
+     **Progress 2026-10-04 (filing-speed agent): the open 1.2 to 2.5 s is
+     fixed by cause.** It was never the model load or the notebook size: one
+     `encode()` of a note-sized text on torch's default intra-op pool (one
+     thread per core) pays barrier waits that dwarf the arithmetic whenever
+     another process wants a core. Median per encode, 70-character note:
+     4 threads idle 39 ms; 4 threads machine busy 2,192 ms; 1 thread busy
+     79 ms. `embeddings.py` now sets one thread in the encoding thread before
+     each encode (`MEMORYMAP_EMBED_THREADS` raises it). Live server, no model,
+     captureaudit `filed_ms` (capture, selection, graph, dashboard): 1700,
+     1156, 1639, 1380 to 90, 175, 27, 91; `filing_api_time.py` median 1251 to
+     81 ms. Counted, not timed, tests: `test_embedding_threads.py`,
+     `test_background_filing_cost.py` (at most two encodes a job, statements
+     flat from 4 to 40 notes). Profiler: `scratchpad/filing_profile.py`. Open:
+     the first note after a launch still waits for the model's cold load
+     (6.8 s measured: torch import), because filing by meaning embeds the
+     note before it settles; changing that changes what gets filed, so it is
+     the owner's call (skip the semantic step until the model is warm, or
+     keep waiting).
 
 431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
      appear in the command palate search / Also is there a way to customise

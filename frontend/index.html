@@ -4802,7 +4802,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>
-        <p class="muted">Add one above, or hit Remind on any note.</p>
+        <p class="muted">Add one here, or hit Remind on any note.</p>
         <button class="ghost small" type="button" data-empty-action="reminder"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add a reminder</button>
       </div>
     </section>
@@ -6754,7 +6754,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="empty-icon" aria-hidden="true"><i id="library-media-empty-icon" class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title" id="library-media-empty-title">No images yet</p>
         <p id="library-media-empty-body">Paste, drop, or attach one to a note and it shows up here.</p>
-        <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+        <button class="ghost small" type="button" data-empty-action="upload"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
       </div>
       <p id="library-images-no-match" class="muted hidden">Nothing here matches your search.</p>
     </section>
@@ -7842,8 +7842,10 @@ Link to another note with [[its first few words]]."></textarea>
                  tooltip '?' buttons so they dont take up unnecessary space".
                  What stays is the one thing this paragraph exists to say when
                  it is visible at all: the backend is not up, here is the fix. -->
+            <!-- The status line above already says it is not running (INBOX
+                 464: the pane said "Ollama isn't running" twice, one line
+                 apart), so this line is only the fix. -->
             <p id="ollama-help" class="muted hidden">
-              Ollama isn't running.
               <a href="https://ollama.com" target="_blank" rel="noopener">Get it from ollama.com</a>,
               then start it.
             </p>
@@ -8382,11 +8384,9 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
-            <p class="muted">
-              A persona changes Atlas's voice: answers always stay grounded
-              in your notes. Pick the active one in the Chat tab.
-            </p>
+            <p class="muted">A persona is Atlas's voice; pick the active one in the Chat tab.</p>
             <ul id="persona-list" class="entry-list"></ul>
+            <div class="settings-group">
             <h3>Answer style</h3>
             <p class="muted">How Atlas words its answers, whichever persona is active.</p>
               <!-- A labelled row like every other field in this pane: the
@@ -8400,6 +8400,8 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="detailed">Detailed</option>
                 </select>
               </div>
+            </div>
+            <div class="settings-group">
             <h3>Dashboard greeting</h3>
             <p class="muted">
               Give the dashboard's welcome message its own persona, independent
@@ -8418,6 +8420,8 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
               <span id="dashboard-greeting-status" class="status"></span>
             </div>
+            </div>
+            <div class="settings-group">
             <h3>Add your own</h3>
             <input id="persona-name" aria-label="Persona name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000" aria-label="Persona system prompt"
@@ -8427,11 +8431,14 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="persona-add" class="small">Add persona</button>
               <span id="persona-status" class="status"></span>
             </div>
+            </div>
+            <div class="settings-group">
             <h3>Share</h3>
             <div class="row">
               <button id="persona-export" class="ghost small">Export JSON</button>
               <button id="persona-import" class="ghost small">Import JSON</button>
               <input id="persona-import-file" aria-label="Import a persona from a JSON file" title="Import a persona from a JSON file" type="file" accept=".json" class="hidden">
+            </div>
             </div>
           </section>
 
@@ -8569,11 +8576,13 @@ Link to another note with [[its first few words]]."></textarea>
               <span id="skill-status" class="status"></span>
             </div>
             </details>
+            <div class="settings-group">
             <h3>Share</h3>
             <div class="row">
               <button id="skill-export" class="ghost small">Export JSON</button>
               <button id="skill-import" class="ghost small">Import JSON</button>
               <input id="skill-import-file" aria-label="Import a skill from a JSON file" title="Import a skill from a JSON file" type="file" accept=".json" class="hidden">
+            </div>
             </div>
           </section>
 
@@ -8599,6 +8608,7 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
             </div>
             <ul id="template-list" class="entry-list"></ul>
+            <div class="settings-group">
             <h3>Add your own</h3>
             <input id="template-name" type="text" maxlength="40" aria-label="Template name" placeholder="Name (e.g. Book notes)">
             <input id="template-description" type="text" maxlength="200" aria-label="Template description"
@@ -8616,6 +8626,7 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Atlas writes the template from its name and line; press again for another version"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Draft with Atlas</button>
               <button id="template-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="template-status" class="status"></span>
+            </div>
             </div>
           </section>
 
@@ -8764,12 +8775,9 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <section class="settings-section hidden" id="settings-tools">
-            <p class="muted">
-              When <strong>Agent mode</strong> is on in the Chat tab, these are
-              the actions Atlas may take. Turn any of them off and it won't be
-              offered that tool at all. Destructive actions always ask you to
-              confirm first.
-            </p>
+            <!-- One line (standing order 6, INBOX 464: it was three); turning
+                 one off is said where the switches are. -->
+            <p class="muted">What Atlas may do in <strong>Agent mode</strong>; anything destructive asks first.</p>
             <div class="settings-group">
               <div class="row help-head">
                 <h3>How many are offered at once</h3>
@@ -8898,6 +8906,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group">
               <h3>Which ones it may use</h3>
+              <p class="muted">Turn one off and Atlas is never offered it.</p>
               <!-- **A filter, because there are fifty-one of these.** Measured
                    in the first audit of Settings: this section is 5,708px
                    tall, by some way the longest scroll in the app, and every
@@ -9981,17 +9990,22 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
             </div>
 
+            <div class="settings-group">
             <h3>Let Atlas search the web</h3>
             <label class="check-row">
               <input type="checkbox" id="pref-web-search">
               <span>Allow web search when I ask for it</span>
             </label>
+            </div>
 
+            <div class="settings-group">
             <h3>Which engine answers</h3>
             <div id="search-provider-picker" class="provider-picker"
               role="radiogroup" aria-label="Web search engine"></div>
             <p id="search-provider-status" class="status" role="status"></p>
+            </div>
 
+            <div class="settings-group">
             <div class="row help-head">
               <h3>Your SearXNG instance</h3>
               <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -10106,6 +10120,7 @@ Link to another note with [[its first few words]]."></textarea>
                 MemoryMap checks the usual ports and fills this in for you.
               </p>
             </details>
+            </div>
           </section>
 
           <!-- Tasks: see and quit background jobs -->
@@ -10972,7 +10987,7 @@ Link to another note with [[its first few words]]."></textarea>
                  same `data-goto-*` button the Guide's answer chips are. The
                  group heads give the pane its sticky index, and the Settings
                  search finds a topic by its title or its keywords. -->
-            <p class="muted">Every feature, grouped. Open a topic for what it does and where it is, or search Settings for any word.</p>
+            <p class="muted">Every feature, grouped: what it does and where it is.</p>
             <div id="help-topics" class="help-topics" aria-busy="true"></div>
 
             <!-- **One Atlas, not two** (INBOX 224, the owner: "there is
@@ -11350,7 +11365,7 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- Command palette: Ctrl/Cmd-K anywhere -->
   <div id="palette-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette">
     <div class="card" id="palette-card">
-      <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
+      <input id="palette-input" type="text" placeholder="Search notes or run a command…"
         autocomplete="off" aria-label="Command or search" aria-controls="palette-list">
       <div class="palette-body">
         <ul id="palette-list" class="rich-picker-list" role="listbox" aria-label="Commands and results"></ul>

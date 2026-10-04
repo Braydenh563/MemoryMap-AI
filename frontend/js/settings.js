@@ -1374,6 +1374,10 @@ const APPEARANCE_DEFAULTS = {
   //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
   //: globe the owner asked to keep as a choice.
   "atlas-style": "character", // character | classic
+  //: Which face the assistant's chat heads wear (chat-agent.js,
+  //: `assistantAvatar`): Atlas, or the app's animated emblem. Atlas is what
+  //: every head wore before the choice existed.
+  "assistant-avatar": "atlas", // atlas | emblem
   //: Atlas's look (atlas.js, `atlasLook`). Auto, the default, follows Face
   //: looks (feminine there is a feminine Atlas, anything else masculine), and
   //: the select says so: it used to read Masculine while nothing was stored
@@ -2338,6 +2342,7 @@ function renderAppearance() {
   if (typeof nameMarkBuddyMotionApply === "function") nameMarkBuddyMotionApply();
   if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
   $("atlas-style").value = appearancePref("atlas-style");
+  $("assistant-avatar").value = appearancePref("assistant-avatar");
   $("atlas-look").value = appearancePref("atlas-look");
   $("face-look").value = appearancePref("face-look");
   $("dash-mark").value = appearancePref("dash-mark");
@@ -2597,7 +2602,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "assistant-avatar", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2915,6 +2920,10 @@ $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack()
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);
   if (typeof atlasRepaint === "function") atlasRepaint();
+});
+$("assistant-avatar").addEventListener("change", (e) => {
+  localStorage.setItem("assistant-avatar", e.target.value);
+  if (typeof repaintAssistantAvatars === "function") repaintAssistantAvatars();
 });
 $("atlas-look").addEventListener("change", (e) => {
   localStorage.setItem("atlas-look", e.target.value);
@@ -4155,6 +4164,8 @@ function openHelpChat() {
       const title = head?.querySelector(".sheet-title");
       if (title) {
         const mark = group.querySelector(".atlas-mark")?.cloneNode(true);
+        //: A copied canvas is blank: the head is painted again in its new home.
+        if (mark && typeof paintAssistantAvatar === "function") paintAssistantAvatar(mark, Number(mark.dataset.atlasAvatar) || 32);
         const words = document.createElement("span");
         words.className = "atlas-head-words";
         const name = document.createElement("span");

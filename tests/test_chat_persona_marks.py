@@ -46,7 +46,11 @@ def test_the_default_assistant_wears_atlas_and_no_reply_wears_the_app_logo() -> 
     persona its generated face. The app's emblem is for the app itself."""
     painter = _function("paintPersonaAvatar")
     assert "renderEmblem(" not in painter and "paintChatEmblem(" not in painter
-    assert "atlasDraw(size" in painter and "atlasAvatar(size" in painter
+    #: The app's own voice goes through the one decider (Appearance, Assistant
+    #: avatar: Atlas by default, or the emblem); the faces are drawn there.
+    assert "paintAssistantAvatar(holder, size)" in painter
+    decider = _function("assistantAvatar")
+    assert "atlasDraw(size" in decider and "atlasAvatar(size" in decider
     assert "nameMark(name, size)" in painter
     is_atlas = _function("chatHeadIsAtlas")
     assert "aiNameNow()" in is_atlas and '"atlas"' in is_atlas and "!who" in is_atlas

@@ -2316,7 +2316,9 @@ function atlasAvatar(size = 32, mood = atlasMoodNow) {
 function atlasDressMarks(root = document) {
   for (const host of root.querySelectorAll("[data-atlas-avatar]")) {
     const size = Number(host.dataset.atlasAvatar) || 32;
-    host.replaceChildren(atlasAvatar(size));
+    //: Whichever face Appearance, Assistant avatar names (chat-agent.js).
+    if (typeof paintAssistantAvatar === "function") paintAssistantAvatar(host, size);
+    else host.replaceChildren(atlasAvatar(size));
   }
 }
 

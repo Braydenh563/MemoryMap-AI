@@ -36905,6 +36905,21 @@ width, 47% of the column at 1440.
      `toastHost()` (status.js) for `toast`, `toastProgress` and
      `toastAction`; a toast over an open dialog is drawn in it and its Undo
      is pressed (measured at 1440 and 390; it could not be before).
+463. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
+     whiteboard's Library panel: note rows "The Complete Social Skills Guide
+     This g...").** "there is no hover state for the library whiteboard panel
+     items, also I think the user should be able to customise the
+     assistant/ai chat message bubbles across all chat interfaces to be
+     either atlas or the animated app logo". **(1) fixed**: rows lift under the
+     pointer (both themes), two lines cut at a word by the stylesheet (were
+     40 characters cut mid-word), never squeezed by the list. **(2)
+     fixed**: Settings, Appearance, Atlas and faces, "Assistant avatar: Atlas
+     or App emblem" (default Atlas), read through `assistantAvatar`
+     (chat-agent.js) by Chat's and the popup agent's reply heads and the
+     Guide and agent head marks; open heads repaint on change; the emblem
+     is the logo's p5 sketch drawn once and copied (assistant-avatar.js,
+     lazy), still under Reduce motion. Ask's answer and the writing room
+     have no avatar head, so there was nothing to switch.
 
 ## INBOX resolved, 2026-10-04
 

@@ -3664,3 +3664,44 @@ def test_a_managed_list_row_shows_its_count_as_quiet_text_never_a_pill() -> None
     assert "flex: 0 1 auto" in name, "the name hugs its text so the count sits after it"
     design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
     assert "never a pill: INBOX 466" in design
+
+
+def test_an_assistant_head_asks_one_function_for_its_face() -> None:
+    """INBOX 463 (2), the owner: "the user should be able to customise the
+    assistant/ai chat message bubbles across all chat interfaces to be either
+    atlas or the animated app logo". Appearance, Assistant avatar (`atlas`, the
+    default, or `emblem`) is read by `assistantAvatar` (chat-agent.js) and
+    nowhere else: every head of the app's own voice paints through it, so one
+    setting changes them all and a new surface cannot draw a face of its own
+    that ignores it."""
+    js = {path.name: path.read_text(encoding="utf-8") for path in JS}
+    #: Atlas's drawing calls belong to the decider, atlas.js and avatars.js
+    #: (their own files), the welcome card's large greeting and Settings' find
+    #: row (a result's icon, not a reply head).
+    allowed = {"atlas.js", "avatars.js", "chat-agent.js", "settings-wiring.js", "settings-panes.js"}
+    strays = [
+        name
+        for name, text in js.items()
+        if name not in allowed and re.search(r"\batlas(?:Avatar|Draw|Mark)\(", re.sub(r"(?m)^\s*//.*$", "", text))
+    ]
+    assert not strays, f"a head draws Atlas on its own, ignoring Assistant avatar: {strays}"
+    chat = js["chat-agent.js"]
+    assert len(re.findall(r"\batlas(?:Avatar|Draw)\(size", chat)) == 2, "Atlas is drawn in assistantAvatar alone"
+    #: Each reply head's holder is painted by the persona painter, which sends
+    #: the app's own voice through the decider.
+    for name, call in (
+        ("chat-agent.js", "paintPersonaAvatar(avatar,"),
+        ("palette.js", "paintPersonaAvatar(agentAvatar,"),
+    ):
+        assert call in js[name], f"{name}'s reply head no longer asks paintPersonaAvatar"
+    assert "paintAssistantAvatar(host, size)" in js["atlas.js"], "the guide and agent heads skip the setting"
+    assert "paintAssistantAvatar(mark," in js["settings.js"], "the guide sheet's head skips the setting"
+    #: The setting: a default, a control, a live repaint and a reset.
+    settings = js["settings.js"]
+    assert '"assistant-avatar": "atlas"' in settings
+    assert "repaintAssistantAvatars()" in settings[settings.index('$("assistant-avatar").addEventListener') :][:300]
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="assistant-avatar"' in index and '<option value="emblem">App emblem</option>' in index
+    #: The emblem is the logo's own renderer, copied rather than drawn per reply.
+    assert "renderEmblem(scratch, size)" in js["assistant-avatar.js"]
+    assert "renderEmblem(" not in chat

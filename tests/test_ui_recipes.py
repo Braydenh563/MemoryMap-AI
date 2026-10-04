@@ -3703,5 +3703,5 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="assistant-avatar"' in index and '<option value="emblem">App emblem</option>' in index
     #: The emblem is the logo's own renderer, copied rather than drawn per reply.
-    assert "renderEmblem(scratch, size)" in js["assistant-avatar.js"]
+    assert "renderEmblem(scratch, size, { animate: true })" in js["assistant-avatar.js"]
     assert "renderEmblem(" not in chat

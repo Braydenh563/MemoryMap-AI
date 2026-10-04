@@ -29,7 +29,9 @@ function assistantEmblemShot(size) {
       const scratch = document.createElement("div");
       scratch.className = "assistant-emblem-scratch";
       document.body.appendChild(scratch);
-      renderEmblem(scratch, size);
+      //: Animated like every emblem (tests/test_emblem_turns.py); the copy
+      //: each head gets carries its own `emblem-spin` below.
+      renderEmblem(scratch, size, { animate: true });
       const canvas = scratch.querySelector("canvas");
       releaseEmblem(scratch);
       scratch.remove();

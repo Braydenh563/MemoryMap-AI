@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Dashboard: a widget with nothing to show offers the one thing to do about it (Add a reminder, New board, Add a bookmark, Ask a question, Show untagged notes and so on), opening the tab it lives on first; eleven widgets were a sentence only.
 - Top tab bar: choosing a tab no longer nudges the tabs after it sideways; the selected label is drawn heavier without getting wider (it moved the rest by up to 6px).
 - Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
 - Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.

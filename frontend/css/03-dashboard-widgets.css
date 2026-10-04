@@ -4130,6 +4130,13 @@ p.graph-help-panel {
   font-size: var(--text-xs);
 }
 
+/* A widget's empty state (`dashEmpty`, INBOX 464 (12)) inside a card that
+   has its own padding: the page-level 2rem of air took an empty Favourites
+   card from 101px to 211px, twice a full one. */
+.dash-body > .empty-state {
+  padding: var(--space-3) 0;
+}
+
 /* The Loose ends widget's call to action, below its sample rows. */
 .dash-loose-actions {
   margin-top: var(--space-3);

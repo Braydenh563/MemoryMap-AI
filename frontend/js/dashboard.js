@@ -2471,12 +2471,9 @@ function noteRowFile(entry) {
   return attached ? { name: attached.filename || "", url: `/files/${attached.id}` } : null;
 }
 
-function miniEntryList(body, entries, emptyText) {
+function miniEntryList(body, entries, emptyText, emptyAction = null) {
   if (!entries.length) {
-    const p = document.createElement("p");
-    p.className = "muted";
-    p.textContent = emptyText;
-    body.appendChild(p);
+    if (emptyText) dashEmpty(body, emptyText, emptyAction);
     return;
   }
   const ul = document.createElement("ul");
@@ -2566,12 +2563,12 @@ function miniEntryList(body, entries, emptyText) {
 // first load, and mirrors the pattern renderRandomNoteWidget already uses.
 async function renderPinnedWidget(body) {
   const entries = (await dashEntries()).filter((e) => e.pinned);
-  miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.");
+  miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
 }
 
 async function renderMostUsedWidget(body) {
   const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 });
-  miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+  miniEntryList(body, entries, "Ask questions and your most-used notes appear here.", { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
 }
 
 // The graph tab already knows how connected every note is (edges from
@@ -2596,7 +2593,7 @@ async function renderMostLinkedWidget(body) {
     .map(([id]) => byId.get(id))
     .filter(Boolean)
     .slice(0, 6);
-  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.");
+  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.", { label: "ph:link Find links to add", run: "suggest-links", tab: "graph" });
 }
 
 async function renderRecentNotesWidget(body) {
@@ -2604,7 +2601,7 @@ async function renderRecentNotesWidget(body) {
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
-  miniEntryList(body, newest.slice(0, 6), "Your newest notes will appear here.");
+  miniEntryList(body, newest.slice(0, 6), "Your newest notes will appear here.", { label: "ph:plus New note", run: "capture" });
 }
 
 async function renderTopTagsWidget(body) {
@@ -2614,10 +2611,7 @@ async function renderTopTagsWidget(body) {
     for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
   }
   if (!counts.size) {
-    const p = document.createElement("p");
-    p.className = "muted";
-    p.textContent = "Tag some notes and your top tags show up here.";
-    body.appendChild(p);
+    dashEmpty(body, "Tag some notes and your top tags show up here.", { label: "ph:tag Show untagged notes", run: "untagged" });
     return;
   }
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
@@ -2634,8 +2628,7 @@ async function renderTopTagsWidget(body) {
 async function renderQuestionsWidget(body) {
   const questions = await apiJson("/chat/recent", { cacheMs: 30000 });
   if (!questions.length) {
-    body.textContent = "Your recent questions will appear here.";
-    body.classList.add("muted");
+    dashEmpty(body, "Your recent questions will appear here.", { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
     return;
   }
   const box = document.createElement("div");
@@ -2863,8 +2856,7 @@ async function renderRemindersWidget(body) {
   // has plenty.
   const reminders = (await dashReminders()).filter((r) => !r.done).slice(0, 4);
   if (!reminders.length) {
-    body.textContent = "No open reminders: add one in the Reminders tab.";
-    body.classList.add("muted");
+    dashEmpty(body, "No open reminders.", { label: "ph:plus Add a reminder", run: "reminder", tab: "reminders" });
     return;
   }
   const ul = document.createElement("ul");
@@ -2904,8 +2896,7 @@ async function renderHeatmapWidget(body) {
     return;
   }
   if (!data.total) {
-    body.textContent = "Save some notes and your activity shows up here.";
-    body.classList.add("muted");
+    dashEmpty(body, "Save some notes and your activity shows up here.", { label: "ph:plus New note", run: "capture" });
     return;
   }
 
@@ -3005,8 +2996,7 @@ async function renderCategoriesWidget(body) {
   const stats = await fetchDashStats().catch(() => null);
   const categories = (stats && stats.categories) || [];
   if (!categories.length) {
-    body.textContent = "Save a few notes and your categories appear here.";
-    body.classList.add("muted");
+    dashEmpty(body, "Save a few notes and your categories appear here.", { label: "ph:plus New note", run: "capture" });
     return;
   }
   const max = categories[0].count || 1;
@@ -3155,8 +3145,7 @@ function paintFadedNotes(body, items) {
 async function renderRandomShuffle(body) {
   const entries = await dashEntries().catch(() => []);
   if (!entries.length) {
-    body.textContent = "Save some notes and one will resurface here.";
-    body.classList.add("muted"); // not `className +=`, which stacks on re-render
+    dashEmpty(body, "Save some notes and one will resurface here.", { label: "ph:plus New note", run: "capture" });
     return;
   }
 
@@ -3259,8 +3248,7 @@ async function renderRandomShuffle(body) {
 async function renderTagCloudWidget(body) {
   const tags = await apiJson("/insights/tag-cloud").catch(() => []);
   if (!tags.length) {
-    body.textContent = "Tag some notes and your cloud grows here.";
-    body.classList.add("muted");
+    dashEmpty(body, "Tag some notes and your cloud grows here.", { label: "ph:tag Show untagged notes", run: "untagged" });
     return;
   }
   const max = tags[0].count || 1;
@@ -3476,11 +3464,28 @@ function dashActionRow(ul, { title, meta, onOpen, hint, thumb, chip = null }) {
   ul.appendChild(li);
 }
 
-function dashEmpty(body, text) {
-  const p = document.createElement("p");
-  p.className = "muted";
-  p.textContent = text;
-  body.appendChild(p);
+//: A widget with nothing to show is the empty-state recipe (DESIGN.md): one
+//: sentence and one action (INBOX 464 (12): eleven were a sentence only).
+//: `action` is `{ label, run, tab, sub }`: `run` is a `data-empty-action` the
+//: delegated listener (navigation.js) knows, and `tab`/`sub` are where it
+//: lives, which the listener opens first. `null` is a decided "nothing to do".
+function dashEmpty(body, text, action) {
+  const box = document.createElement("div");
+  box.className = "empty-state dash-empty";
+  const line = document.createElement("p");
+  line.textContent = text;
+  box.appendChild(line);
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small";
+    setLabel(button, action.label);
+    button.dataset.emptyAction = action.run;
+    if (action.tab) button.dataset.emptyTab = action.tab;
+    if (action.sub) button.dataset.emptySub = action.sub;
+    box.appendChild(button);
+  }
+  body.appendChild(box);
 }
 
 async function renderBoardsWidget(body) {
@@ -3503,7 +3508,10 @@ async function renderBoardsWidget(body) {
       body,
       boards.length
         ? "Nothing on your boards yet. Add a card or a sketch to one and it shows up here."
-        : "Draw a board or build a concept map and it will show up here."
+        : "Draw a board or build a concept map and it will show up here.",
+      boards.length
+        ? { label: "ph:squares-four Open boards", run: "tab", tab: "library", sub: "library-view-whiteboard" }
+        : { label: "ph:plus New board", run: "new-board", tab: "library", sub: "library-view-whiteboard" },
     );
     return;
   }
@@ -3734,7 +3742,7 @@ async function renderNightWidget(body) {
   let counts = card.counts || {};
   if (!Object.keys(counts).length) {
     if (!card.previous) {
-      dashEmpty(body, "Nothing new since it last read. Claims and open questions show up here.");
+      dashEmpty(body, "Nothing new since it last read. Claims and open questions show up here.", null);
       return;
     }
     shown = card.previous;
@@ -3786,7 +3794,7 @@ async function renderActivityWidget(body) {
     return;
   }
   if (!items.length) {
-    dashEmpty(body, "What you and Atlas change in the notebook shows up here.");
+    dashEmpty(body, "What you and Atlas change in the notebook shows up here.", { label: "ph:plus New note", run: "capture" });
     return;
   }
   const entries = await dashEntries().catch(() => []);
@@ -3951,7 +3959,7 @@ async function renderDocumentsWidget(body) {
   // newest-edited are simply the first rows, no client-side sort needed.
   const docs = await apiJson("/documents", { cacheMs: 4000, silent: true }).catch(() => null);
   if (!docs || !docs.length) {
-    dashEmpty(body, "Write or import a document and the ones you edited last show up here.");
+    dashEmpty(body, "Write or import a document and the ones you edited last show up here.", { label: "ph:plus New document", run: "new-document", tab: "library", sub: "library-view-docs" });
     return;
   }
   const ul = document.createElement("ul");
@@ -3985,7 +3993,7 @@ async function renderDocumentsWidget(body) {
 async function renderBookmarksWidget(body) {
   const bookmarks = await apiJson("/bookmarks", { cacheMs: 4000, silent: true }).catch(() => null);
   if (!bookmarks || !bookmarks.length) {
-    dashEmpty(body, "Save a link to a website you visit often and it will show up here.");
+    dashEmpty(body, "Save a link to a website you visit often and it will show up here.", { label: "ph:link-simple Add a bookmark", run: "add-link", tab: "library", sub: "library-view-links" });
     return;
   }
   const ul = document.createElement("ul");
@@ -4039,7 +4047,7 @@ async function renderUnfinishedWidget(body) {
     withTasks.push({ entry, open, done });
   }
   if (!withTasks.length) {
-    dashEmpty(body, "Nothing outstanding. Checklists you write as “- [ ] something” appear here until they are ticked.");
+    dashEmpty(body, "Nothing outstanding. Checklists you write as “- [ ] something” appear here until they are ticked.", { label: "ph:plus New note", run: "capture" });
     return;
   }
   // Closest to finished first: a list with one box left is the one worth
@@ -4090,7 +4098,7 @@ async function renderOrphanNotesWidget(body) {
   // with it as somewhere to actually start.
   const loose = real.filter((entry) => !linked.has(entry.id) && !(entry.tags || []).length);
   if (!real.length) {
-    dashEmpty(body, "Write a few notes and this will show how well connected they are.");
+    dashEmpty(body, "Write a few notes and this will show how well connected they are.", { label: "ph:plus New note", run: "capture" });
     return;
   }
   const connected = real.length - loose.length;
@@ -4235,7 +4243,8 @@ function renderOnThisDayWidget(body) {
   if (!entries.length) {
     return dashEmpty(
       body,
-      "Nothing from this date yet. Come back when the notebook is a few months older."
+      "Nothing from this date yet. What you write today comes back here next month.",
+      { label: "ph:plus New note", run: "capture" },
     );
   }
   entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -4309,7 +4318,7 @@ function renderPaceWidget(body) {
   }
   const total = days.reduce((sum, day) => sum + day.words, 0);
   if (!total) {
-    return dashEmpty(body, "No words yet this fortnight. Anything you write today shows up here.");
+    return dashEmpty(body, "No words yet this fortnight. Anything you write today shows up here.", { label: "ph:plus New note", run: "capture" });
   }
   const peak = Math.max(...days.map((day) => day.words), 1);
 

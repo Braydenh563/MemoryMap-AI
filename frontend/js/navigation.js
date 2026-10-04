@@ -1615,11 +1615,27 @@ document.addEventListener("keydown", (event) => {
   focusMenuItem(rows[next], list);
 });
 
-document.addEventListener("click", (event) => {
+//: A dashboard widget's empty action lives on another tab (INBOX 464 (12)):
+//: `data-empty-tab` and `data-empty-sub` (a Library sub-tab) say which, and
+//: the tab is opened, and its lazy bundle waited for, before the action runs.
+document.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-empty-action]");
   if (!button) return;
   const action = button.dataset.emptyAction;
-  if (action === "capture") {
+  const { emptyTab, emptySub } = button.dataset;
+  if (emptyTab) await switchTab(emptyTab);
+  if (emptySub) document.querySelector(`#library-subtabs button[data-target="${emptySub}"]`)?.click();
+  if (action === "tab") {
+    // Going there was the whole action.
+  } else if (action === "ask") {
+    $("chat-input")?.focus();
+  } else if (action === "untagged") {
+    showNotesFilter("is:untagged");
+  } else if (action === "suggest-links") {
+    // The Graph tab draws the panel the suggestions fill (dashboard.js's
+    // Loose ends widget runs the same pair).
+    setTimeout(() => loadLinkSuggestions(), 120);
+  } else if (action === "capture") {
     startNewNote();
   } else if (action === "reminder") {
     // The form is a sheet on a phone; `openReminderCompose` knows which.

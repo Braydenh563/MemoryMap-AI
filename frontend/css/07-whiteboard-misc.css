@@ -82,6 +82,15 @@
   outline-offset: 2px;
 }
 
+/* A locked item (WHITEBOARD_PLAN decision 15) lets the pointer through, all
+   of it: a sketch's hit path and a frame's title set their own
+   `pointer-events`, so the children are named too, and the id keeps this
+   above every per-part rule. The board's right-click menu unlocks. */
+#whiteboard-container .wb-locked,
+#whiteboard-container .wb-locked * {
+  pointer-events: none;
+}
+
 .wb-object-text {
   /* Reported directly: a text box was hard to tell apart from the board
      behind it. Two real gaps, not one, a 1px *dashed* `--glass-border`

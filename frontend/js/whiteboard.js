@@ -3835,7 +3835,9 @@ function wbSelectAllItems() {
 function wbSelectableItems() {
   const out = wbLinkCandidates();
   for (const o of wbState.objects || []) if (o.kind === "image" || o.kind === "frame") out.push(["object", o]);
-  return out;
+  //: A locked item is out of reach until it is unlocked (decision 15): not
+  //: in Select all, not in the Tab walk.
+  return out.filter(([kind, item]) => !wbIsLocked(kind, item));
 }
 
 //: **Tab walks the board's items, and the board says which one** (INBOX
@@ -4284,7 +4286,10 @@ function wbHandleItemClick(kind, id, event) {
   if (item && item.group_id) {
     for (const [memberKind, listName] of Object.entries(WB_LIST_BY_KIND)) {
       for (const candidate of wbState[listName] || []) {
-        if (candidate.group_id === item.group_id) wbMultiSelection.add(wbMultiKey(memberKind, candidate.id));
+        //: A locked member stays put while its group moves (decision 15).
+        if (candidate.group_id === item.group_id && !wbIsLocked(memberKind, candidate)) {
+          wbMultiSelection.add(wbMultiKey(memberKind, candidate.id));
+        }
       }
     }
     wbSelectedItem = null;
@@ -5297,6 +5302,10 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
+  //: Decision 15: held in place until unlocked from the board's own menu.
+  if (!wbIsMap()) {
+    item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
+  }
   subItem("Order", (sub) => {
     sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
     sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
@@ -5803,7 +5812,7 @@ const WB_KIND_INFO = {
     payload: (d) => ({
       entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
       width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
-      group_id: d.group_id ?? null,
+      group_id: d.group_id ?? null, locked: Boolean(d.locked),
     }),
   },
   object: {
@@ -6265,6 +6274,105 @@ async function wbCreateTextBox(x, y, box = null) {
   });
 }
 
+//: --- Lock (WHITEBOARD_PLAN decision 15) ------------------------------------
+//:
+//: Excalidraw's shape: a locked item lets the pointer through, so it cannot
+//: be selected, dragged, resized, erased or typed into, and a marquee, Select
+//: all, the Tab walk and a frame's drag all pass it by. Nothing about it needs
+//: guarding one gesture at a time, because no gesture can reach it. The way
+//: back is the board's own right-click menu ("Unlock 3 locked items"), or
+//: Ctrl+Shift+L with nothing selected. A card keeps the flag in a column; a
+//: sketch and an object in their data.
+
+function wbSketchData(sketch) {
+  try {
+    const parsed = JSON.parse(sketch?.data);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function wbIsLocked(kind, item) {
+  if (!item) return false;
+  if (kind === "node") return Boolean(item.locked);
+  if (kind === "object") return Boolean(item.data?.locked);
+  if (kind === "sketch") return Boolean(wbSketchData(item)?.locked);
+  return false;
+}
+
+function wbLockedItems() {
+  const out = [];
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbIsLocked(kind, item)) out.push([kind, item]);
+  }
+  return out;
+}
+
+//: One undo step for the lot: each item's whole state before, which the
+//: "move" entry restores (its payload carries the flag).
+async function wbSetLocked(entries, on) {
+  const undo = [];
+  for (const [kind, item] of entries) {
+    if (wbIsLocked(kind, item) === on) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "node") {
+      item.locked = on;
+      await wbSaveNode(item);
+    } else if (kind === "object") {
+      const data = { ...item.data };
+      if (on) data.locked = true;
+      else delete data.locked;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { locked: on || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  return undo.length;
+}
+
+async function wbLockSelection() {
+  const keys = wbMultiSelection.size
+    ? [...wbMultiSelection]
+    : wbSelectedItem ? [wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id)] : [];
+  const entries = keys.map((key) => {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    return item ? [kind, item] : null;
+  }).filter(Boolean);
+  if (!entries.length) return;
+  const count = await wbSetLocked(entries, true);
+  clearWbSelection();
+  wbScheduleRender();
+  if (count) toast(`Locked ${count === 1 ? "it" : `${count} items`}. Right-click the board to unlock.`);
+}
+
+async function wbUnlockAll() {
+  const count = await wbSetLocked(wbLockedItems(), false);
+  wbScheduleRender();
+  toast(count ? `Unlocked ${count} item${count === 1 ? "" : "s"}.` : "Nothing on this board is locked.");
+}
+
+//: The class that lets the pointer through, from state, after every render
+//: (an element rebuilt by the render has lost it). Only what changed is
+//: touched, the selection highlight's own rule.
+function wbPaintLocks() {
+  const wanted = new Set();
+  if (!wbIsMap()) {
+    for (const [kind, item] of wbLockedItems()) {
+      const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](item.id));
+      if (el) wanted.add(el);
+    }
+  }
+  document.querySelectorAll("#whiteboard-container .wb-locked").forEach((el) => {
+    if (!wanted.has(el)) el.classList.remove("wb-locked");
+  });
+  for (const el of wanted) if (!el.classList.contains("wb-locked")) el.classList.add("wb-locked");
+}
+
 //: --- Frames (WHITEBOARD_PLAN decision 14) ----------------------------------
 //:
 //: A titled region of the board, the way tldraw, Excalidraw, Miro and FigJam
@@ -6319,6 +6427,8 @@ function wbFrameContents(frame) {
   for (const kind of ["node", "object", "sketch"]) {
     for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
       if (kind === "object" && item.id === frame.id) continue;
+      //: A locked item stays where it was put, frame or no frame.
+      if (wbIsLocked(kind, item)) continue;
       const box = wbItemBBox(kind, item);
       if (box && box.minX >= fx && box.minY >= fy && box.maxX <= fr && box.maxY <= fb) keys.push(wbMultiKey(kind, item.id));
     }
@@ -9947,6 +10057,14 @@ async function initWhiteboard() {
       wbUngroupSelection();
       return;
     }
+    //: Lock what is selected; with nothing selected, unlock everything
+    //: (decision 15). Not on a map, whose topics have their own keys.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "l" && !wbIsMap()) {
+      e.preventDefault();
+      if (wbMultiSelection.size || wbSelectedItem) wbLockSelection();
+      else wbUnlockAll();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
@@ -10502,10 +10620,20 @@ async function initWhiteboard() {
     items.push(
       makeMenuItem("ph:text-t Add a text box here", "Or double-click the canvas", () => wbCreateTextBox(x, y)),
       makeMenuItem("ph:note Add a sticky note here", "N", () => wbCreateSticky(x, y)),
+      makeMenuItem("ph:frame-corners Add a frame here", "F", () => wbCreateFrame(x, y)),
       makeMenuItem("ph:selection-all Select all", "Ctrl+A", () => wbSelectAllItems()),
       makeMenuItem("ph:magnifying-glass Zoom to 100%", "Ctrl+0", () => camera.transition().duration(160).call(wbZoom.scaleTo, 1)),
       makeMenuItem("ph:frame-corners Fit everything", "Shift+1", () => wbZoomToFit()),
     );
+    //: The way back to a locked item (decision 15): it lets the pointer
+    //: through, so a right-click on it lands here, on the board.
+    const locked = wbLockedItems().length;
+    if (locked) {
+      items.push(makeMenuItem(
+        `ph:lock-simple-open Unlock ${locked} locked item${locked === 1 ? "" : "s"}`,
+        "Ctrl+Shift+L with nothing selected", () => wbUnlockAll()
+      ));
+    }
     openMenuAtPoint(items, "This board", clientX, clientY);
   };
 
@@ -10579,6 +10707,7 @@ async function initWhiteboard() {
     }
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
+      if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
       const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
       if (rectsIntersect(mx, my, mw, mh, node.x, node.y, w, h)) {
@@ -10586,13 +10715,21 @@ async function initWhiteboard() {
       }
     }
     for (const obj of wbState.objects || []) {
-      if (rectsIntersect(mx, my, mw, mh, obj.x, obj.y, obj.width, obj.height)) {
+      if (wbIsLocked("object", obj)) continue;
+      //: A frame only when the sweep holds all of it (decision 14): a sweep
+      //: drawn inside a frame is about what is in it, and taking the frame
+      //: along would make the next drag carry the frame and everything else.
+      const hit = obj.kind === "frame"
+        ? mx <= obj.x && my <= obj.y && mx + mw >= obj.x + obj.width && my + mh >= obj.y + obj.height
+        : rectsIntersect(mx, my, mw, mh, obj.x, obj.y, obj.width, obj.height);
+      if (hit) {
         wbMultiSelection.add(wbMultiKey("object", obj.id));
       }
     }
     for (const sketch of wbState.sketches) {
       const parsed = wbSketchParsedData(sketch);
       if (!parsed) continue; // a link sketch: nothing here to select as a shape
+      if (parsed.locked) continue;
       const bbox = wbPathBBox(parsed.d);
       if (bbox && rectsIntersect(mx, my, mw, mh, bbox.minX, bbox.minY, bbox.width, bbox.height)) {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
@@ -10711,6 +10848,7 @@ async function initWhiteboard() {
     if (points.length < 3) return; // a tap, not a loop, nothing to select
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
+      if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
       const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
       if (wbPointInPolygon(node.x + w / 2, node.y + h / 2, points)) {
@@ -10718,6 +10856,7 @@ async function initWhiteboard() {
       }
     }
     for (const obj of wbState.objects || []) {
+      if (wbIsLocked("object", obj)) continue;
       if (wbPointInPolygon(obj.x + obj.width / 2, obj.y + obj.height / 2, points)) {
         wbMultiSelection.add(wbMultiKey("object", obj.id));
       }
@@ -10725,6 +10864,7 @@ async function initWhiteboard() {
     for (const sketch of wbState.sketches) {
       const parsed = wbSketchParsedData(sketch);
       if (!parsed) continue; // a link sketch: nothing here to select as a shape
+      if (parsed.locked) continue;
       const bbox = wbPathBBox(parsed.d);
       if (bbox && wbPointInPolygon(bbox.minX + bbox.width / 2, bbox.minY + bbox.height / 2, points)) {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
@@ -13849,6 +13989,7 @@ function renderWhiteboard() {
   // before this render is gone with it, re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
+  wbPaintLocks();
 
   //: A frame later, not now: a fresh element has to be drawn once before it
   //: is culled, which is what gives `contain-intrinsic-size: auto` a size to
@@ -14047,6 +14188,7 @@ async function wbSaveNode(node) {
         width: node.width ?? null, height: node.height ?? null,
         rotation: node.rotation ?? null,
         group_id: node.group_id ?? null,
+        locked: Boolean(node.locked),
       }),
     });
     Object.assign(node, saved);

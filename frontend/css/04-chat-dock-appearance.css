@@ -5829,24 +5829,26 @@ input.doc-title-input::placeholder {
 }
 
 .manage-cat-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The note count is quiet text after the name ("Hobbies · 10"), on the
+   name's own baseline: not a pill (INBOX 466, the owner: "all these numbers
+   floating"). */
 .manage-cat-count {
   flex: 0 0 auto;
-  min-width: 2.25em;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
+  margin-inline-end: auto;
   color: var(--muted);
-  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
-  text-align: center;
-  line-height: 1.6;
+}
+
+.manage-cat-count::before {
+  content: "\00b7";
+  margin-inline-end: var(--space-1);
 }
 
 /* The ⋯ is a ghost icon, the head's own button shape, shown on hover or

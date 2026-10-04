@@ -25,15 +25,16 @@ def test_the_feminine_look_has_no_legs_and_a_skirt_of_ribbons():
     feminine = _look("feminine")
     assert "legs: false," in feminine
     assert "skirt: \"M" in feminine
-    assert feminine.count("{ seg: [[") >= 4 + 7  # four folds of the gown (INBOX 443), and the hair's locks
+    assert feminine.count("{ seg: [[") >= 3 + 7  # three folds of the gown (INBOX 480), and the hair's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
-    # The ribbons end in soft points, not round caps.
-    assert "fill: atlasStem(seg, w, { samples: 14, cap: false })" in ATLAS
-    #: The folds end soft (INBOX 443: hair-fine tips read as tentacles).
-    assert "const ribbon = (w, tip = 0.18) => (t) => tip + (w - tip)" in ATLAS
+    # A fold opens as the skirt widens and ends round (INBOX 480): fine at
+    # the waist, widest down the flare. INBOX 443's ribbons were widest at
+    # the waist and tapered to the hem, which is how a strand hangs.
+    assert "const fold = (w) => (t) => 0.15 + w * Math.sin(Math.PI * Math.min(1, t * 0.82 + 0.06)) ** 0.8;" in ATLAS
+    assert "fill: atlasStem(rooted(drawn), fold(w), { samples: 14, cap: true })" in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -118,9 +119,10 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
-    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), (?:tip: [0-9.]+, )?specks", feminine)[:4]]
-    #: INBOX 443: four folds of a gown, the outer two lit, wider in the middle.
-    assert widths[0] == widths[3] == 7.4 and min(widths[1:3]) >= 8.4, widths
+    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)]
+    #: INBOX 480: three fine creases of light, the middle one widest; not
+    #: INBOX 443's four wide ribbons (7.4 to 8.8), which fanned like strands.
+    assert len(widths) == 3 and max(widths) <= 3 and widths[1] == max(widths), widths
     # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
     assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
@@ -559,7 +561,7 @@ def test_the_masculine_lower_body_is_one_snake_wisp_with_sub_wisps():
     # two layers drifting apart would stack their translucency where they
     # overlap.
     assert 'spec.trail = { fill: join("fill"), stream: join("stream"), specks: parts.flatMap((p) => p.specks) };' in ATLAS
-    assert "for (const part of spec.trail ? [spec.trail] : spec.lowerPaths) ribbon(lower, part);" in ATLAS
+    assert "if (spec.trail) ribbon(lower, spec.trail);" in ATLAS
     assert '...(spec.lowers ? ["lower"] : [])' in ATLAS and "lower-side" not in ATLAS
 
 
@@ -687,7 +689,7 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
     assert all(b - a >= 2 for a, b in zip(lengths, lengths[1:])), lengths
 
     # Her ribbons are what they were: five, ending in soft points.
-    assert len(got["feminine"]) == 4 and not any(p["main"] for p in got["feminine"])  # the gown's folds (INBOX 443)
+    assert len(got["feminine"]) == 3 and not any(p["main"] for p in got["feminine"])  # the gown's folds (INBOX 480)
 
 
 def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
@@ -749,3 +751,34 @@ def test_a_poke_holds_long_enough_to_read_and_eases_back():
     assert 3000 <= hold <= 5000 and 1000 <= back <= 1500
     assert "setAtlasMood(ATLAS_POKES[atlasPokeIndex], ATLAS_POKE_HOLD_MS, { quiet: true, backEaseMs: ATLAS_POKE_BACK_MS });" in ATLAS
     assert 'easeMs: rest === "sleepy" ? ATLAS_DOZE_MS : backEaseMs' in ATLAS
+
+
+def test_the_feminine_gown_is_layered_and_flows_into_the_nebula():
+    # INBOX 480, the owner: "a better and more majestic and attractive female
+    # atlas lower body". The A-line read as a lamp shade: one pale veil
+    # fading to nothing with four straight folds fanned over it. Now a train
+    # behind in the nebula's colours, the gown, a sheer overskirt, a lit hem
+    # and stars, back to front, all static paint in the one lower layer.
+    feminine = _look("feminine")
+    for key in ("skirt: \"M", "skirtTrain: \"M", "skirtDrape: \"M", "skirtDrapeEdge: \"M", "skirtHem: \"M", "skirtStars: ["):
+        assert key in feminine, key
+    # Soft curves only: no straight `L` edge in any layer of the gown.
+    for key in ("skirt", "skirtTrain", "skirtDrape", "skirtHem"):
+        d = re.search(key + r': "([^"]+)"', feminine).group(1)
+        assert "L" not in d and d.count("C") >= 3, key
+        ys = [float(v) for v in re.findall(r"-?[0-9.]+", d)[1::2]]
+        assert max(ys) <= 100, f"{key} past the full level's box (y 100)"
+    # The train reaches past the gown's hem toward the comet tail.
+    hem_x = max(float(v) for v in re.findall(r"-?[0-9.]+", re.search(r'skirt: "([^"]+)"', feminine).group(1))[0::2])
+    train_x = max(float(v) for v in re.findall(r"-?[0-9.]+", re.search(r'skirtTrain: "([^"]+)"', feminine).group(1))[0::2])
+    assert train_x > hem_x + 8, (train_x, hem_x)
+    # The gown deepens to the nebula's violet; it does not fade to nothing.
+    assert '"skirt", "gown", ' in ATLAS
+    stop = re.search(r"\.atl-st-gown3 \{ stop-color: var\(--atl-neb2-c\); stop-opacity: ([0-9.]+); \}", CSS)
+    assert stop and float(stop.group(1)) >= 0.6
+    # Drawn inside the lower layer's group, so the pose and the sway are the
+    # layer's, as before; no animation of its own.
+    draw = ATLAS[ATLAS.index("const gown = atlasGroup(lower, \"atl-skirt\");") :][:1600]
+    for cls in ("atl-gown-train", "atl-skirt-veil", "atl-gown-fold", "atl-gown-drape", "atl-gown-hem"):
+        assert cls in draw, cls
+    assert not re.search(r"\.atl-gown-[a-z-]+[^{]*\{[^}]*animation", CSS)

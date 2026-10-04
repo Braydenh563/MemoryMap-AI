@@ -28,11 +28,22 @@ fs.mkdirSync(OUT, { recursive: true });
       for (const [k, v] of Object.entries({ position: 'fixed', left: '0', top: '470px', zIndex: '9999', padding: '8px', background: 'var(--modal-bg-opaque)' })) head.style[k] = v;
       head.append(atlasDraw(360, 'calm', 'head'));
       stage.appendChild(head);
+      //: The gown close up: the full level at 820px, its lower half kept.
+      const gown = document.createElement('div');
+      gown.id = 'gown-close';
+      for (const [k, v] of Object.entries({ position: 'fixed', left: '0', top: '-380px', zIndex: '9998', background: 'var(--modal-bg-opaque)' })) gown.style[k] = v;
+      const glive = document.createElement('span'); glive.className = 'nm-live';
+      glive.append(atlasDraw(820, 'calm', 'full'));
+      gown.append(glive);
+      document.body.appendChild(gown);
     }, [look]);
     await page.waitForTimeout(800);
-    await page.evaluate((AT) => { for (const a of document.getElementById('gown-stage').getAnimations({ subtree: true })) { a.pause(); a.currentTime = AT; } }, AT);
+    await page.evaluate((AT) => { for (const a of [...document.getElementById('gown-stage').getAnimations({ subtree: true }), ...document.getElementById('gown-close').getAnimations({ subtree: true })]) { a.pause(); a.currentTime = AT; } }, AT);
     await page.waitForTimeout(200);
     await page.locator('#gown-head').screenshot({ path: `${OUT}/head-${look.slice(0, 4)}.png` });
+    await page.evaluate(() => { document.getElementById('gown-head').style.display = 'none'; document.getElementById('gown-stage').style.display = 'none'; });
+    await page.screenshot({ path: `${OUT}/gown-${look.slice(0, 4)}.png`, clip: { x: 0, y: 0, width: 660, height: 450 } });
+    await page.evaluate(() => { document.getElementById('gown-close').remove(); document.getElementById('gown-stage').style.display = ''; document.getElementById('gown-head').style.display = ''; });
     await page.evaluate(() => { document.getElementById('gown-head').style.display = 'none'; });
     await page.locator('#gown-stage').screenshot({ path: `${OUT}/draw-${look.slice(0, 4)}.png` });
     await page.evaluate(() => document.getElementById('gown-stage').remove());
@@ -64,6 +75,20 @@ fs.mkdirSync(OUT, { recursive: true });
       const pad = 60;
       await page.screenshot({ path: `${OUT}/pose-${look.slice(0, 4)}-${pose}.png`, clip: { x: box.x - pad, y: box.y - pad, width: box.w + 2 * pad, height: box.h + 2 * pad } });
     }
+    //: The large view (a double-click), where the owner saw both: standing.
+    await page.evaluate(() => {
+      const buddy = document.getElementById('nm-buddy');
+      delete buddy.dataset.lean;
+      nameMarkBuddyRide(null, 500, 420);
+      nameMarkBuddyMoveTo(buddy, { kind: 'card', pose: 'stand', legs: '', x: 500, y: 420 }, true);
+      buddy.querySelector('.nm-buddy-face').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate((AT) => { for (const a of document.querySelector('.nm-viewer-card').getAnimations({ subtree: true })) { a.pause(); a.currentTime = AT; } }, AT);
+    await page.waitForTimeout(200);
+    await page.locator('.nm-viewer-card').screenshot({ path: `${OUT}/view-${look.slice(0, 4)}.png` });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
     await page.evaluate(() => { const b = document.getElementById('avatar-buddy'); b.value = 'me'; b.dispatchEvent(new Event('change', { bubbles: true })); });
     await page.waitForTimeout(300);
   }

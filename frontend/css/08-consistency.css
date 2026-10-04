@@ -7066,6 +7066,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-aura: none;
   --atl-core: none;
   --atl-skirt: var(--atl-md);
+  --atl-gown: var(--atl-md);
   /* A chest star's brightness (atlas.js sets it per star). */
   --atl-b: 0.5;
   --atl-iris: var(--atl-ink);
@@ -7823,20 +7824,36 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
-/* **The feminine look's skirt of ribbons** (atlas.js `atl-lower`, round 6;
-   the owner: "it still has feet and legs. it shouldnt and its lower body
-   should be the feminie flowing whispy ribbons"). A veil flaring from the
-   waist to a pointed hem and five ribbons over it running on into wisps,
-   all in the skirt's light fading to nothing by the hem (`--atl-skirt`),
-   over a haze of the tail's galaxy, a pale stream, a lit edge on two. */
-.nm-atlas :is(.atl-skirt-veil, .atl-ribbon-veil) { fill: var(--atl-skirt); }
-.nm-atlas .atl-skirt { opacity: 0.72; }
+/* The lower body's paint (atlas.js `atl-lower`): the masculine trail's
+   wisps in the skirt's light fading by their tips (`--atl-skirt`) over a
+   haze of the tail's galaxy, a pale stream along each. */
+.nm-atlas .atl-ribbon-veil { fill: var(--atl-skirt); }
 .nm-atlas .atl-ribbon-galaxy { fill: var(--atl-galaxy); opacity: 0.3; }
 .nm-atlas .atl-st-skirt0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
 .nm-atlas .atl-st-skirt1 { stop-color: var(--atl-md); stop-opacity: 0.62; }
 .nm-atlas .atl-st-skirt2 { stop-color: var(--atl-dp); stop-opacity: 0.05; }
 .nm-atlas .atl-ribbon-stream { fill: white; opacity: 0.2; }
 .nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.42; }
+/* **The feminine gown** (atlas.js, `skirt`, `skirtTrain`, `skirtDrape`,
+   `skirtHem`; INBOX 480, the owner: "a better and more majestic and
+   attractive female atlas lower body"). The train behind in the gown's
+   deepest colours under the galaxy's haze; the gown deepening from her
+   skin's light to the nebula's violet (`--atl-gown`); fine folds of light;
+   a sheer overskirt with a lit hem; the gown's own lit hem; stars. Every part is static
+   paint in the lower layer, so its sway is the layer root's, as before. */
+.nm-atlas .atl-skirt { opacity: 0.94; }
+.nm-atlas .atl-skirt-veil { fill: var(--atl-gown); }
+.nm-atlas .atl-st-gown0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
+.nm-atlas .atl-st-gown1 { stop-color: var(--atl-md); stop-opacity: 0.8; }
+.nm-atlas .atl-st-gown2 { stop-color: var(--atl-neb-c); stop-opacity: 0.78; }
+.nm-atlas .atl-st-gown3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.82; }
+.nm-atlas .atl-gown-train { fill: var(--atl-gown); opacity: 0.62; }
+.nm-atlas .atl-gown-train-haze { opacity: 0.42; }
+.nm-atlas .atl-gown-fold { fill: white; opacity: 0.14; }
+.nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
+.nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
+.nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }
+.nm-atlas .atl-gown-hem { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.6; }
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;

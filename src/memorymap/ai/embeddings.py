@@ -227,6 +227,45 @@ BACKFILL_LIMIT = 200
 # Enough to cover the repeated embeds within a single save, with headroom.
 _EMBED_CACHE_MAX = 32
 
+#: **One torch thread for a note-sized encode** (INBOX 434: background filing
+#: took 1.2 to 4 seconds, nearly all of it this one call). `encode()` of one
+#: short note is a few tiny matrix products, and torch's default intra-op pool
+#: (one thread per core) pays barrier waits that dwarf the arithmetic the
+#: moment any other process wants a core. Measured here, 70-character note,
+#: median per encode: 4 threads idle 39 ms; 4 threads on a busy machine
+#: 2,192 ms; 1 thread busy 79 ms; 2 threads busy 119 ms. A desktop app always
+#: shares its machine (the window, the browser, an indexer), so the pool's
+#: best case saves tens of milliseconds and its worst costs seconds.
+#: `MEMORYMAP_EMBED_THREADS` raises it for a machine that is known to be idle.
+EMBED_THREADS = 1
+
+
+def embed_threads() -> int:
+    """The thread count one encode runs at: `EMBED_THREADS`, or the
+    environment's whole number when it names one."""
+    raw = os.environ.get("MEMORYMAP_EMBED_THREADS", "").strip()
+    try:
+        return max(1, int(raw)) if raw else EMBED_THREADS
+    except ValueError:
+        return EMBED_THREADS
+
+
+def _limit_torch_threads() -> None:
+    """Put the calling thread's torch pool at `embed_threads()` before an
+    encode. Set in the encoding thread itself, because an OpenMP build keeps
+    the count per thread and a new pool thread starts at the default; a call
+    that finds the count already right does nothing, so this costs one
+    getter per note. Never an error: no torch, or one without the setter,
+    only means the default pool."""
+    try:
+        import torch
+
+        wanted = embed_threads()
+        if torch.get_num_threads() != wanted:
+            torch.set_num_threads(wanted)
+    except Exception:  # noqa: BLE001  # a thread limit is an optimisation
+        logger.debug("couldn't limit torch's threads for an encode", exc_info=True)
+
 
 def backfill_missing(
     service: "EmbeddingService",
@@ -659,7 +698,10 @@ class EmbeddingService:
                 self._load_failed_at = None
             import numpy as np
 
-            result = np.asarray(self._st_model.encode(text), dtype="float32")
+            _limit_torch_threads()
+            # No progress bar: a tqdm "Batches" bar on stderr for every one
+            # note is log noise in a packaged app and a little work besides.
+            result = np.asarray(self._st_model.encode(text, show_progress_bar=False), dtype="float32")
             self.last_error = None
             return result
         except Exception as exc:

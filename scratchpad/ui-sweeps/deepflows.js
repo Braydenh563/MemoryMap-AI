@@ -5,10 +5,25 @@
 //   BASE=http://127.0.0.1:8801 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     node scratchpad/ui-sweeps/deepflows.js            # every flow, 4 runs
 //   ... ONLY=note,graph WIDTHS=1440 THEMES=light node scratchpad/ui-sweeps/deepflows.js
+//   ... SKIP=settings node scratchpad/ui-sweeps/deepflows.js   # settings is the slow one
 //
 // Seed the data dir first: `node scratchpad/ui-sweeps/deepflows-seed.js`
 // (about 40 notes, four private, properties, [[links]] and [[A|B]], tags, two
-// documents, a board, a mind map, reminders).
+// documents, a board, a mind map, reminders). The flows are in
+// deepflows-flows.js, one function each:
+//   note        create, edit, move to the bin, Undo, restore from the Library bin
+//   private     Make private (the confirm), the chip, Make readable, text intact
+//   link        Link to another on two notes; an aliased [[A|B]] draws "B"
+//   graph       click a node (popup) and a link (peek) through the canvas hit-test
+//   mindmap     open a map, select a topic, add a child, the count goes up
+//   whiteboard  Insert > Sticky note, click the canvas, type, it is stored
+//   document    type, add a `---` block, set the property in the panel, it saves
+//   ask         no model: the graceful answer and the way to connect one
+//   notifications  the bell, remove one, mark one read, close
+//   settings    press every switch (by its row), reload, read back, put back
+//   palette     open, find a note, run a command, open a note, Escape
+//   tabs        every tab by its button (the phone bar and its More sheet)
+//   dashboard   every widget draws, no properties block printed as words
 //
 // What fails a flow, besides the flow's own assertions:
 //   - a `pageerror` or a `console.error` while it ran;

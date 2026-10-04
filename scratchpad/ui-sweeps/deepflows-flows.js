@@ -385,7 +385,7 @@ flows.document = async (env) => {
     env.at('type into the document');
     await env.page.locator('#tab-documents .cm-content').first().click();
     await env.page.keyboard.press('Control+End');
-    await env.page.keyboard.type(` Typed ${env.STAMP}${env.width}${env.theme}.`);
+    await env.page.keyboard.type(` Typed ${env.STAMP}${env.width}${env.theme}. See [[Alpha project|the alpha note]] for more.`);
     env.at('add a properties block');
     await env.page.keyboard.press('Control+Home');
     await env.page.keyboard.type('---\nstatus: draft\n---\n');
@@ -399,6 +399,21 @@ flows.document = async (env) => {
     const text = await content();
     if (!/status:\s*done/.test(text)) throw new Error(`the property did not reach the file: ${JSON.stringify(text.slice(0, 60))}`);
     if (!text.includes(`Typed ${env.STAMP}${env.width}${env.theme}.`)) throw new Error('typed text did not save');
+    //: An aliased [[A|B]] link draws B in the live view (the caret is off its
+    //: line, so the brackets and target are hidden) and in the Read view.
+    env.at('the [[A|B]] link in the live view');
+    await env.page.locator('#tab-documents .cm-content').first().click();
+    await env.page.keyboard.press('Control+Home');
+    await env.page.keyboard.press('Control+Home');
+    await env.wait(400);
+    const live = await env.js(() => [...document.querySelectorAll('#tab-documents .cm-md-wiki')].map((e) => e.textContent));
+    if (!live.includes('the alpha note')) throw new Error(`the live view draws the aliased link as ${JSON.stringify(live)}`);
+    env.at('the [[A|B]] link in the Read view');
+    await env.page.locator('button[title^="The finished document on its own"]:visible').first().click();
+    await env.wait(800);
+    const read = await env.js(() => [...document.querySelectorAll('#tab-documents .wiki-link')].map((e) => e.textContent));
+    if (!read.includes('the alpha note')) throw new Error(`the Read view draws the aliased link as ${JSON.stringify(read)}`);
+    await env.overflow('document read view');
     // Back to the list through the document's own back button.
     await env.js(() => document.getElementById('doc-back')?.click());
     await env.wait(600);
@@ -503,6 +518,17 @@ async function goSettings(env, name) {
   if (env.phone) await env.page.selectOption('#settings-jump', name);
   else await env.page.locator(`#settings-nav button[data-section="${name}"]`).click();
   await env.wait(450);
+  //: A section that loads its values from the server (Profile, General) shows
+  //: the form's defaults until the answer lands. Wait until what the switches
+  //: say stops changing, or a run reads defaults as the notebook's own state
+  //: (it did, and left three preferences switched on).
+  let last = null;
+  for (let tries = 0; tries < 10; tries++) {
+    const now = JSON.stringify((await switchesHere(env)).map((s) => [s.i, s.on]));
+    if (now === last) break;
+    last = now;
+    await env.wait(350);
+  }
 }
 
 async function openSettingsByGear(env) {
@@ -537,7 +563,15 @@ const switchesHere = (env) => env.js(() => [...document.querySelectorAll('#setti
     id: c.id || '',
     label: ((c.closest('label') || c.parentElement).textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
     on: c.checked,
-  })));
+  }))
+  //: `i` is the index among every checkbox in the modal, and it moves when a
+  //: list elsewhere (the tools, the skills) has or has not drawn yet: after a
+  //: reload it is not the number it was. A switch is found again by its words
+  //: and which of the same words it is in its section (`nth`).
+  .map((sw, k, all) => ({ ...sw, nth: all.slice(0, k).filter((o) => o.label === sw.label).length })));
+
+//: The switch a `toggled` record means, in a fresh listing.
+const findSw = (here, t) => here.filter((x) => x.label === t.label)[t.nth];
 
 async function clickSwitch(env, index) {
   const handle = await env.page.evaluateHandle((i) => {
@@ -555,8 +589,9 @@ async function putBack(env, sections, toggled) {
     await goSettings(env, section);
     for (const t of mine) {
       const here = await switchesHere(env);
-      const sw = here.find((x) => x.i === t.i && x.label === t.label);
-      if (sw && sw.on !== t.was) { await clickSwitch(env, sw.i); await env.wait(120); }
+      const sw = findSw(here, t);
+      if (!sw) throw new Error(`cannot find "${t.label.slice(0, 40)}" in ${section} to put it back`);
+      if (sw.on !== t.was) { await clickSwitch(env, sw.i); await env.wait(120); }
     }
   }
 }
@@ -607,7 +642,7 @@ async function settingsBody(env, toggled) {
       }
       const now = (await switchesHere(env)).find((x) => x.i === sw.i);
       if (!now || now.on === sw.on) throw new Error(`pressing "${sw.label}" in ${section} did not change it`);
-      toggled.push({ section, i: sw.i, id: sw.id, label: sw.label, was: sw.on });
+      toggled.push({ section, i: sw.i, id: sw.id, label: sw.label, nth: sw.nth, was: sw.on });
     }
   }
   await env.overflow('settings after toggling');
@@ -622,7 +657,7 @@ async function settingsBody(env, toggled) {
     await goSettings(env, section);
     const here = await switchesHere(env);
     for (const t of mine) {
-      const sw = here.find((x) => x.i === t.i && x.label === t.label) || here.find((x) => x.label === t.label);
+      const sw = findSw(here, t);
       if (!sw) { lost.push(`${section}: "${t.label.slice(0, 40)}" is gone after reload`); continue; }
       if (sw.on === t.was) lost.push(`${section}: "${t.label.slice(0, 40)}" went back to ${t.was ? 'on' : 'off'}`);
     }
@@ -640,8 +675,8 @@ async function settingsBody(env, toggled) {
     await goSettings(env, section);
     const here = await switchesHere(env);
     for (const t of mine) {
-      const sw = here.find((x) => x.i === t.i && x.label === t.label);
-      if (sw && sw.on !== t.was) stuck.push(`${section}: "${t.label.slice(0, 40)}"`);
+      const sw = findSw(here, t);
+      if (!sw || sw.on !== t.was) stuck.push(`${section}: "${t.label.slice(0, 40)}"${sw ? '' : ' (not found)'}`);
     }
   }
   env.info(`settings: ${toggled.length} switches pressed, ${skipped.length} left alone (${skipped.slice(0, 8).join('; ')})`);

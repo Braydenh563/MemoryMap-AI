@@ -34,6 +34,19 @@ with its owner named in the entry.
 
 ## Open items
 
+485. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
+     Attach popup: on Files a floating selection toolbar (duplicate, redo,
+     cut, ...) over the search field; on Images a second, offset search box
+     drawn over the first).** "a popup controls menu keeps poping up when I
+     navigate the attach popup" / "and there is an overlapping textbox?? that
+     whole panel needs to be better redesigned". Bugs first (orchestrator),
+     then the redesign (next Opus slot, from DESIGN.md's reference dialog).
+
+484. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the `m`
+     leader menu: "m then a key", Go to and Do columns, key chips).** "can
+     you redesign this menu to be better, more professional, more modern and
+     more impressive??" Next Opus slot.
+
 483. **The owner, 2026-10-04 evening, verbatim.** "can there be easy ways
      to copy the address of various notes or objects so that if I wish and
      the application is running, I can hyperlink to that specific object??"

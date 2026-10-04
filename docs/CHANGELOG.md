@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Copy app link (INBOX 483, "can there be easy ways to copy the address of various notes or objects"): a note's card menu (under Connect), a document (the Documents list, the Library rows and the editor's menu), a board or mind map (the gallery's menu and the open board's Board menu) and a chat (the list row and the header menu) each copy the address that opens it in the app; the existing "Copy [[link]]" rows are now "Copy wiki link", and the board gallery and chat row menus are grouped past five rows.
 - The router has one table of addressable objects (`ROUTE_OBJECTS`) behind `routeHash` and the new `routeHashFor(kind, id)`, and `copyObjectAddress(kind, id)` copies an object's full address (origin, path and hash) through the shared clipboard helper and toasts "Link copied" (INBOX 483, the helper the Copy app link rows use).
 - Notes: the x on a suggested tag, a link or any chip that ends in one is drawn as a cross centred on its target, quiet at rest, red with its disc on hover; it was a font glyph nudged by hand inside a grey disc.
 - Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.

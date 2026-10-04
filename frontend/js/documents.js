@@ -826,6 +826,7 @@ function renderDocList() {
           }).catch((e) => toast(e.message, true));
           loadDocuments(currentDoc?.id);
         }),
+        appLinkMenuItem("document", doc.id),
         // Not destructive, so not grouped with Delete below, same
         // "keep it, but out of the way" action the Notes tab already has
         // for entries (BACKLOG §30b's named remaining scope: chats and
@@ -12240,6 +12241,10 @@ $("doc-connections").addEventListener("click", () => {
   // own left edge.
   $("doc-dock-menu")?.removeAttribute("open");
   openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+});
+$("doc-copy-link").addEventListener("click", () => {
+  $("doc-dock-menu")?.removeAttribute("open");
+  if (currentDoc) copyObjectAddress("document", currentDoc.id);
 });
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-html").addEventListener("click", exportDocumentHtml);

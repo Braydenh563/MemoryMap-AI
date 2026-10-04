@@ -1618,6 +1618,7 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
+    items.push(appLinkMenuItem("chat", conversation.id));
     items.push(
       // Not destructive, so not grouped with Delete below, same "keep it,
       // but out of the way" action Notes already has for entries (BACKLOG
@@ -1638,7 +1639,9 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
-    actions.appendChild(kebabMenu(items, `Actions for ${conversation.title}`));
+    //: Six rows is past the ceiling (DESIGN.md): what you do to it, its address, and the two that put it away.
+    const group = (item) => (/Copy app link/.test(item.label) ? "copy" : /Archive|Delete/.test(item.label) ? "end" : "act");
+    actions.appendChild(kebabMenu(items.map((item) => ({ ...item, group: group(item) })), `Actions for ${conversation.title}`));
     li.append(title, actions);
     list.appendChild(li);
   }

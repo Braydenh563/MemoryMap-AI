@@ -571,14 +571,14 @@ MORE_TOPICS.extend(
         {
             "id": "notes-list",
             "keywords": (
-                "sort notes", "recently edited", "a to z", "copy link", "copy [[link]]",
+                "sort notes", "recently edited", "a to z", "copy link", "copy wiki link", "copy app link",
                 "connections column", "beside the list", "forgotten", "close to this",
                 "most used", "note order", "f2",
             ),
             "body": (
                 "Sort notes: Newest first, Oldest first, Recently edited, A to Z "
                 "(\"note 2\" before \"note 10\"), Most used or Forgotten first; "
-                "the choice is remembered. A note's menu has Copy [[link]] to "
+                "the choice is remembered. A note's menu has Copy wiki link to "
                 "paste a link to it anywhere, and editing a note has a title "
                 "field. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "

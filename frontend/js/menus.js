@@ -1794,13 +1794,14 @@ function entryOverflowMenu(entry) {
       //: (INBOX 432: there was no copy link at all). Its name as `[[` finds
       //: it, the title or the first words.
       {
-        label: "ph:brackets-square Copy [[link]]",
-        title: "Copy a [[wiki link]] to this note, to paste into another",
+        label: "ph:brackets-square Copy wiki link",
+        title: "Copy a [[wiki link]] to this note, to paste into another note or document",
         run: async () => {
           const name = noteSortName(entry).split("\n")[0].slice(0, 80).trim();
           if (await copyToClipboard(`[[${name}]]`)) toast("Link copied. Paste it into any note.");
         },
       },
+      appLinkMenuItem("note", entry.id),
       { label: "ph:approximate-equals Similar notes", run: () => toggleRelated(entry) },
       {
         label: "ph:arrow-u-up-left Referenced by",

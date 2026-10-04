@@ -70,9 +70,20 @@ function routeHashFor(kind, id) {
 //: app or a note. Origin and path, never the query. True when it was copied.
 async function copyObjectAddress(kind, id) {
   const hash = routeHashFor(kind, id);
-  if (!hash || !(await copyToClipboard(location.origin + location.pathname + hash))) return false;
+  if (!hash) {
+    toast("This has no address until it is saved.");
+    return false;
+  }
+  if (!(await copyToClipboard(location.origin + location.pathname + hash))) return false;
   toast("Link copied.");
   return true;
+}
+
+//: The "Copy app link" menu row, the same in every object's menu (the wiki
+//: link row, where there is one, is "Copy wiki link"). `id` may be a function,
+//: for a menu built before its object is known (the open chat).
+function appLinkMenuItem(kind, id) {
+  return makeMenuItem("ph:link Copy app link", `Copy this ${kind}'s address to open it in the app`, () => copyObjectAddress(kind, typeof id === "function" ? id() : id));
 }
 
 //: The entry a hash names, or null when the hash is not a route (an empty

@@ -182,6 +182,7 @@ MemoryMap-AI/
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
 │   │   ├── duplicates.py    # near-duplicate finder + AI merge
 │   │   ├── importer.py      # uploaded document -> markdown (markitdown)
+│   │   ├── mentions.py      # backlinks with their sentence, unlinked mentions (KG1)
 │   │   ├── paths.py         # the shortest chain between two notes
 │   │   └── staleness.py     # notes nobody has touched, nothing points at
 │   ├── ai/                  # everything that talks to a model
@@ -220,6 +221,7 @@ MemoryMap-AI/
 │   │   ├── passive_capture.py # an offhand mention in chat -> a note to review
 │   │   ├── extractor.py     # free text -> AI-drafted, linked notes
 │   │   ├── links.py         # the reason two notes are linked
+│   │   ├── relations.py     # pairs worth linking, every reason with its confidence (KG2)
 │   │   ├── entities.py      # people, places, things (opt-in)
 │   │   ├── reminder_parser.py # "call mum tomorrow evening" -> a due_at
 │   │   ├── captioning.py · vision_ocr.py · docreader.py # an image read

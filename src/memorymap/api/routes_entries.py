@@ -22,7 +22,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import extractor, janitor, learning, librarian, links
+from memorymap.ai import extractor, janitor, learning, librarian, links, relations
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
 from memorymap.api.schemas import (
@@ -46,6 +46,8 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EmbeddingRecord,
     Entry,
     EntryBookmark,
+    Entity,
+    EntityMention,
     EntryLink,
     EntryRevision,
     MediaUpload,
@@ -1351,75 +1353,75 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     for pair in learning.boosts(session, kind="links"):
         already_linked.add(frozenset(pair))
 
-    embeddings = deps.get_embeddings()
-    if not embeddings.is_ready():
-        return []
-    # From the engine's matrix (Brief 11), and compared once per version of
-    # it (WORLD_CLASS_PLAN row 9): the all-pairs pass is O(n²) and ran on
-    # every request here while the graph cached its own. The cache is keyed
-    # by the matrix's version, so a new, edited or deleted vector is a new
-    # comparison; the filters below are per request because what is linked
-    # or dismissed moves without any vector changing.
-    pairs = search_engine.cached_similar_pairs(
-        session, LINK_SUGGESTION_THRESHOLD, only=set(entries_by_id)
-    )
+    # **Structure as well as wording** (GRAPH_PLAN KG2): shared entities,
+    # shared link neighbours, shared rare tags and time join the cosine pairs
+    # in `ai/relations.recognise`, each with its own reason and confidence, so
+    # the list explains itself and is not empty with the embedding backend
+    # off. The cosine pairs come from the engine's matrix (Brief 11), cached
+    # per version of it (WORLD_CLASS_PLAN row 9); the filters below are per
+    # request because what is linked or dismissed moves without any vector
+    # changing.
+    candidates = {i: e for i, e in entries_by_id.items() if not e.is_board}
+    similar: list[tuple[int, int, float]] = []
+    if deps.get_embeddings().is_ready():
+        similar = search_engine.cached_similar_pairs(
+            session, LINK_SUGGESTION_THRESHOLD, only=set(candidates)
+        )
+    edges = [(a, b) for a, b in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id))]
+    edges += [(e.parent_id, e.id) for e in entries if e.parent_id is not None]
+    mentions = [
+        (name, entry_id)
+        for name, entry_id in session.execute(
+            select(Entity.name, EntityMention.entry_id).join(Entity, Entity.id == EntityMention.entity_id)
+        )
+    ]
+    notes = {
+        i: relations.NoteFacts(
+            label=manager.plain_label(e.content, 40) or "Untitled note",
+            tags=frozenset(t.lower() for t in manager.entry_tags(e)),
+            created_at=e.created_at,
+        )
+        for i, e in candidates.items()
+    }
+    found = relations.recognise(notes, edges, mentions, similar, already_linked)
 
-    # `similar_pairs` hands these back best-first and blocks the matrix
-    # multiply, so a big notebook costs one block of memory rather than an
-    # N×N matrix. Stop at 12 rather than scoring every pair into a list first.
-    #
-    # **Two filters stand between "best-first" and "useful", and both were
-    # added after measuring what this actually returned.** On a real 116-note
-    # notebook every single one of the twelve suggestions was a pair of notes
-    # with *identical* text, scoring 1.00, six of them the same stub note
-    # paired with six copies of itself. The feature was working exactly as
-    # written and surfacing nothing worth acting on, which is the measured
-    # reason a notebook can sit at 16 linked notes out of 116 with the
-    # auto-linker switched on the whole time.
-    #
-    #  1. A near-identical pair is a *duplicate*, not a connection. Linking
-    #     two copies of one note records that a note resembles itself. This
-    #     app already has a feature whose whole job is that case, so the pair
-    #     belongs to it: `entry/duplicates.py`, same threshold, reusing its
-    #     arithmetic word-overlap score rather than inventing a second notion
-    #     of "the same". Cheap enough to run on the survivors of the vector
-    #     pass, which is a handful of pairs, not the notebook.
-    #  2. One note may anchor at most `MAX_SUGGESTIONS_PER_NOTE` of the
-    #     twelve. Without this, the single most connectable note in a
-    #     notebook takes every slot with its own neighbours (which is exactly
-    #     what happened above), and the list stops being a survey of the
-    #     notebook and becomes a survey of one note.
+    # **Two filters stand between "best-first" and "useful"**, both added
+    # after measuring a real 116-note notebook whose twelve suggestions were
+    # all a note paired with copies of itself (tests/test_link_suggestion_quality.py):
+    #  1. A near-identical pair is a *duplicate* (`entry/duplicates.py`, same
+    #     word-overlap score), not a connection.
+    #  2. One note anchors at most `MAX_SUGGESTIONS_PER_NOTE` of the twelve, so
+    #     the list is a survey of the notebook and not of its best-linked note.
     suggestions = []
     appearances: dict[int, int] = {}
-    for a, b, score in pairs:
-        if frozenset((a, b)) in already_linked:
-            continue
+    for candidate in found:
+        a, b = candidate.a, candidate.b
         if (
             appearances.get(a, 0) >= MAX_SUGGESTIONS_PER_NOTE
             or appearances.get(b, 0) >= MAX_SUGGESTIONS_PER_NOTE
         ):
             continue
         if (
-            duplicates.similarity(entries_by_id[a].content, entries_by_id[b].content)
+            duplicates.similarity(candidates[a].content, candidates[b].content)
             >= duplicates.DEFAULT_THRESHOLD
         ):
             continue
         appearances[a] = appearances.get(a, 0) + 1
         appearances[b] = appearances.get(b, 0) + 1
+        signals = candidate.signals()
         suggestions.append({
             "source_id": a,
             "target_id": b,
-            "source_preview": _preview(entries_by_id[a].content),
-            "target_preview": _preview(entries_by_id[b].content),
-            "similarity": round(score, 2),
-            # Asked directly: a suggestion showed a bare percentage with no
-            # sense of *why*, unlike an actual link (which gets a reason on
-            # the graph edge and in Trace). `LINK_SUGGESTION_THRESHOLD`
-            # equals `manager.AUTO_REASON_THRESHOLD` exactly, so every
-            # suggestion here would clear the bar `create_link` uses to
-            # deduce this same text, showing it before the link exists is
-            # a preview of that outcome, not a separate guess.
-            "reason": manager.AUTO_REASON_TEXT,
+            "source_preview": _preview(candidates[a].content),
+            "target_preview": _preview(candidates[b].content),
+            "similarity": round(candidate.similarity, 2) if candidate.similarity is not None else None,
+            "confidence": round(candidate.confidence, 2),
+            "signals": signals,
+            # Similarity alone reads "similar in meaning", the text `create_link`
+            # deduces at the same bar (`manager.AUTO_REASON_THRESHOLD`), so the
+            # suggestion previews the link. Otherwise every signal, strongest
+            # first, less the time, which supports a pair but is no reason to link.
+            "reason": "; ".join(s["reason"] for s in signals if s["signal"] != "time"),
         })
         if len(suggestions) == 12:
             break

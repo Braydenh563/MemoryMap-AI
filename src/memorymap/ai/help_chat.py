@@ -723,7 +723,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "links",
-            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes"),
+            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested"),
             "body": (
                 "Link one note to another by typing [[ and the start of its title, "
                 "then picking it from the list. The link shows on both notes as a "
@@ -733,7 +733,12 @@ HELP_TOPICS.extend(
                 "link (a [[link]] for another note) and Copy app link (an address "
                 "that opens the note in the app). Delete the [[name]] and its link "
                 "goes with it; rename a note and a toast offers to rename the "
-                "[[links]] other notes have to it."
+                "[[links]] other notes have to it. A note's Connections show the "
+                "sentence each linking note says it in, and \"Mentioned, not "
+                "linked\" with a Link button. Find links to add (Dashboard, Loose "
+                "ends, or the Graph) lists pairs worth connecting with every reason: "
+                "similar wording, people or things both name, a note both link "
+                "with, a rare tag both carry, and how sure it is."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

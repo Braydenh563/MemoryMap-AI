@@ -538,7 +538,7 @@ resolved, 2026-10-04"). Arrows default off.
 | --- | --- | --- | --- | --- |
 | Backlinks with the sentence | yes | no | documents only | notes too (KG1) |
 | Unlinked mentions, one-click link | yes | no | documents only | notes too (KG1) |
-| Inferred relations with reasons | no | no | similarity only | six signals, each with reason and confidence (KG2) |
+| Inferred relations with reasons | no | no | similarity only | five signals, each with reason and confidence (KG2) |
 | Typed directional relations | no | two-way relations | six types, no inverse, no properties | custom types, inverse names, properties (KG3) |
 | Note types with fields | properties | databases | none | types with field templates over frontmatter (KG4) |
 | Entities | no | no | names only | kinds, aliases, merge, entity page, co-mention (KG5) |
@@ -635,7 +635,8 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
 1. KG1, backlinks with context and one-click mentions: built 2026-10-04,
    moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the knowledge
    graph, INBOX 528)").
-2. KG2, multi-signal recognition with explanations.
+2. KG2, multi-signal recognition with explanations: built 2026-10-04, moved
+   to HISTORY.md (the same section as KG1).
 3. KG9, the inbox and accept learning (needs KG2).
 4. KG5, entity kinds, aliases, merge, entity page.
 5. KG6, topics, names, hulls, summaries.

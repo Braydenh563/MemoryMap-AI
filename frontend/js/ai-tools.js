@@ -1624,11 +1624,7 @@ async function loadLinkSuggestions() {
       "No new links to suggest, either everything related is already linked, or semantic search is off.";
     return;
   }
-  // Was a bare space-between over three children, which put the backfill
-  // button in the MIDDLE of the row between the sentence and the close
-  // button: reported as "weirdly spaced". A heading and its actions is two
-  // groups, not three peers: the sentence takes the slack, the buttons sit
-  // together on the right.
+  // A heading and its actions: two groups, not three peers ("weirdly spaced").
   const heading = document.createElement("div");
   heading.className = "row link-suggest-head";
 
@@ -1639,24 +1635,8 @@ async function loadLinkSuggestions() {
   const actions = document.createElement("div");
   actions.className = "row link-suggest-actions";
 
-  // Asked directly: "none of my notes have a linked reason yet, is there an
-  // easy way to give them all a reason?"
-  //
-  // It ran only the embedding pass, which can compare two vectors and has no
-  // WORDS for what it found, so every reason it wrote was the literal string
-  // "similar in meaning", the button looked like it worked and produced
-  // reasons that said nothing. The endpoint runs the model over those
-  // afterwards now, and this reports both numbers so it is obvious which
-  // half did the work.
-  //
-  // **Not the same list as the rows below.** This explains links that
-  // already exist elsewhere in the notebook; the rows here are proposed
-  // links that don't exist yet. Reported as "doesn't work right" because
-  // sitting directly above a list of unlinked suggestions, with nothing
-  // distinguishing it, reads as if it should fill in *their* reason boxes, 
-  // it can't, since a reason for a link that isn't made yet is exactly the
-  // per-row box already offers (typed by hand, or left for the Link button's
-  // own deduction). Labelled for what it actually touches instead.
+  // Explains links that already exist (the embedding pass, then the model
+  // names the connection); not the proposed rows below, and labelled so.
   const backfill = smallButton(
     "ph:lightbulb Explain your existing links",
     "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking Atlas to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
@@ -1849,9 +1829,18 @@ async function loadLinkSuggestions() {
     });
     rowReasons.push({ s, input: reason });
 
-    const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
+    //: GRAPH_PLAN KG2: the pair's combined confidence over every signal, and
+    //: each signal's own sentence under the row.
+    const sigs = s.signals || [];
+    const score = chip(`${Math.round((s.confidence ?? s.similarity ?? 0) * 100)}%`, "confidence");
+    score.title = "How sure, over every reason below";
+    const why = document.createElement("p");
+    why.className = "muted link-suggestion-why";
+    why.textContent = sigs.map((g) => `${g.reason} (${Math.round(g.confidence * 100)}%)`).join(" · ");
     const link = smallButton("ph:link Link", "Connect these two notes", async () => {
-      const given = reason.value.trim();
+      //: Left empty, a pair found by structure keeps its reasons; one found by
+      //: wording alone lets the server deduce, as before.
+      const given = reason.value.trim() || (sigs.some((g) => g.signal !== "similarity" && g.signal !== "time") ? s.reason : "");
       await apiJson(`/entries/${s.source_id}/links`, {
         method: "POST",
         // Only sent when the user typed one. Left out, the server runs the
@@ -1901,6 +1890,7 @@ async function loadLinkSuggestions() {
       }).catch(() => {});
     });
     row.append(text, reason, score, link, dismiss);
+    if (sigs.length) row.appendChild(why);
     rowsWrap.appendChild(row);
   }
 }

@@ -38672,3 +38672,27 @@ no clamp overflow, no sideways scroll, Link rewrote "kiln schedule" to
 `[[kiln schedule]]`, the group left, the count went 1 link to 2 links, the
 sheet showed both sentences). Not verified: dark theme contrast of the
 context line (the tokens are the document panel's, measured there).
+
+### From GRAPH_PLAN.md: KG2, relationship recognition with explanations
+
+`ai/relations.recognise` (pure, plain data in) adds four signals to the
+cosine pairs: entities both notes name (`EntityMention`, 0.5 when only these
+two name it, 0.35 to five, 0.2 to thirty), a note both link with (links and
+threads, 0.35, 0.25, 0.12 by that note's degree, Adamic-Adar in spirit), a
+rare tag both carry (0.35, 0.25, 0.15, ten notes at most), and written within
+30 minutes (0.15, support only: it lifts a pair already within reach of the
+bar and never proposes one). Each signal is a noisy-or of its hits under a
+cap; the pair's confidence is the noisy-or of its signals; 0.5 is the bar, so
+a cosine at the old 0.55 still qualifies alone and one shared tag does not.
+Pairs stay `(low, high)` tuples until they clear the bar (a Candidate per
+pair cost 2.4 s at 10k notes; 802 ms after). `GET /entries/link-suggestions`
+rows gain `confidence` and `signals` (`similarity` is null for a pair found
+by structure alone), work with the embedding backend off, keep the duplicate
+filter and the two-per-note cap, and leave the time signal out of `reason`.
+The panel shows the combined percentage and each reason with its own; Link
+with the box empty sends the reasons for a pair found by structure. Measured:
+`tests/test_relations_kg2.py` 11 tests (2k notes 162 ms, 10k 802 ms);
+`scratchpad/ui-sweeps/kg2suggest.js` 6/6 at 1440 (the reasons on one 17px
+line) and 5/5 at 390 (they wrap to 50px, nothing sideways). Not verified: the
+route's own time at 2k notes against a real embedding backend (the matrix
+pass is cached per version, as before).

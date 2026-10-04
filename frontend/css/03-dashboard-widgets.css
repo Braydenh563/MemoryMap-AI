@@ -98,6 +98,14 @@
   min-width: 12rem;
 }
 
+/* Each reason the pair was found for, with its own confidence, on a line of
+   its own under the row (GRAPH_PLAN KG2). */
+.link-suggestion-why {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
 /* The reason box. Sized so it is obviously a field you may type in rather
    than a label: the whole complaint was that every suggestion said "similar
    in meaning" and there was no way to say anything else without linking

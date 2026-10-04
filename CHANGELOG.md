@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
+- Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.
+- Companion: the resize ring no longer shows on the companion in its enlarged view.
 - Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
 - Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.

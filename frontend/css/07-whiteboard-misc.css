@@ -3496,12 +3496,24 @@ dialog::backdrop {
   padding: var(--space-4);
 }
 
-/* The counter sits inside the surface, so it takes the surface's padding
+/* The foot: Clear and the counter sit inside the surface, so they take its padding
    instead of the negative margin it used to pull itself up against a box it
    no longer touches. */
-.note-composer > .char-count {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-3);
+.note-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-2) var(--space-3) var(--space-4);
+}
+
+.note-composer-foot .char-count {
+  margin: 0 0 0 auto;
+  padding: 0;
+}
+
+/* Clear in the foot takes no height of its own: the row is the counter's. */
+.note-composer-foot .field-clear {
+  margin-block: -1.1rem;
 }
 
 /* Notes tab → Ask: the question input, the answer-length select and the Ask

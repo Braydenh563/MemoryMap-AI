@@ -9517,3 +9517,34 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
     }
   }
 }
+
+/* The Clear control on a box people type into (field-clear.js, INBOX 466):
+   a quiet icon that appears only while the box holds something. */
+.field-clear {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.field-clear:hover,
+.field-clear:focus-visible {
+  color: var(--ink);
+}
+
+/* Quick note: Clear sits at the left of its action row, the actions at the
+   right. On a phone the Ask box wraps its controls under the field, so its
+   Clear stays at the box's top right, where the first line is empty. */
+#quick-note-clear {
+  margin-right: auto;
+}
+
+@media (max-width: 600px) {
+  .ask-composer {
+    position: relative;
+  }
+
+  #ask-clear {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+  }
+}

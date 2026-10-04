@@ -309,7 +309,22 @@ state now. The line-by-line ledger of what is left is
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-10-03 night, PR 162):** merged since evening: Library pages and
+**Now (2026-10-04, PR 162):** merged today: the UI round with all eight
+design skills and its twenty audit items (464 resolved), the backend speed
+pass (472: static files compressed once and kept on disk, pure ASGI
+middleware, the unlock gate's cached owner), Atlas recalc (idle 115 to 5 ms
+per 2.6 s), documents and whiteboard/mind map plan tails (shape text,
+connector labels, map tasks, notes, numbering), plain error wording on both
+sides with ratchets (`test_plain_errors.py`, `test_server_detail_wording.py`),
+the product polish sweep. Running: README screenshots and Atlas section
+(431 g, Opus), first-run polish (472, Opus), leftover touch and Library
+fixes (Sonnet), core error wording (Sonnet). Tools added: `apibench.js`,
+`asgi_bench.py`, `cpuprof.js`, `notesfull.js`, `killport.sh` (never put
+"uvicorn" and a port in a command's own text: the kill matches the shell),
+`changelog_union.py` (every agent merge conflicts on CHANGELOG). Push once
+per batch: frequent pushes cancel CI before a run completes.
+
+**Before that (2026-10-03 night, PR 162):** merged since evening: Library pages and
 whiteboard/mind map audits (445), job last-run status (438), note making
 (434: Quick note Alt+N, offline outbox, paste/drop, `#tags`), mind map undo
 follow-ups, UI consistency pass 1 (Chat, Graph chrome, Dashboard, Timeline,

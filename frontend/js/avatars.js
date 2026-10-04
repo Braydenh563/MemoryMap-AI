@@ -5462,7 +5462,13 @@ function nameMarkBuddyWatch() {
   }
   clearInterval(nmbFollow.poll);
   nmbFollow.poll = g ? setInterval(() => {
-    if (!document.hidden && !nmbFollow.frame) nameMarkBuddyFollow(true);
+    if (document.hidden || nmbFollow.frame) return;
+    const was = `${nmb.x},${nmb.y}`;
+    nameMarkBuddyFollow(true);
+    //: Carried somewhere new by content moving its panel: under a bar or a
+    //: control now, it looks again (INBOX 521: on the phone, a card pushed
+    //: under the tab dock took it along, head showing over the tabs).
+    if (`${nmb.x},${nmb.y}` !== was) queueNameMarkBuddyCheck();
   }, 700) : 0;
 }
 document.addEventListener("scroll", (event) => {

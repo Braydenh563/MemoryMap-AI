@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Web search: pressing Start on SearXNG while a reinstall begins now stops at once and says it was being reinstalled, instead of waiting out three minutes and reporting that SearXNG wrote nothing.
 - Timeline: the month above the calendar strip opens a month calendar to jump past the seven days. Arrow keys, Home, End and Page Up and Down walk it, Escape gives the focus back, days after today are off, a dot marks a day with a page, and picking a day moves the strip to it and focuses it (nothing is written).
 - Help: the nine '?' buttons that still ran on the older hand-wired panel (Graph, Timeline, Notes' filter and capture, Skills, Boards, Media, Contents and Settings' search relevance) are the shared `data-help-for` popover now, and the Settings Logs dock has its own '?'. Same text, one code path; Escape on the Graph's '?' still leaves the map full screen. A lint fails if a hand-wired help panel comes back.
 - Timeline: a calendar strip above the feed shows the last seven days with a dot under each that has a page; pressing a day opens its note or document, or starts it in the composer with the date as the title (nothing is written until you save), and the arrows move a week. A note titled with its date now shows the day before and the day after as buttons under its title. Ctrl+D shares the same lookup, which asks `GET /entries/daily` before reading so an empty day is not a 404 (`scratchpad/ui-sweeps/daystrip.js`, `tests/test_daily_strip.py`).

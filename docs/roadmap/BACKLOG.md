@@ -539,7 +539,8 @@ repeat if it isn't kept), is in HISTORY.md.
 **From the ideas parking lot, never formally triaged.** Reported informally
 (`IDEAS.md`) rather than reproduced in a browser yet — worth the same
 ten-second grep-first check as everything else in this document before
-anyone spends a session on them:
+anyone spends a session on them. (The other four of the original five were
+checked 2026-10-04 and are in HISTORY.md, "Moved from the backlog".)
 
 - **A note filed under the wrong category by a wide margin** — "I wrote 'ai
   is cool' as a note and it was filed under Sketches". Sketches is a specific
@@ -547,37 +548,12 @@ anyone spends a session on them:
   (§4 of `ARCHITECTURE.md`), so this smells like a centroid gone stale or too
   few notes in the right category to out-vote it, rather than a one-off.
   Worth checking what "Sketches" actually contains before assuming the AI is
-  at fault.
-- **Settings can't be reached on a narrow/mobile viewport.** Distinct from
-  the general accessibility pass in §19 — this is specifically Settings, and
-  worth checking against the header's documented degrade order (§10 of
-  `ARCHITECTURE.md`) before assuming it needs new CSS rather than a missing
-  breakpoint.
-- **Some dashboard widgets don't render markdown.** The note list's
-  `renderInlineMarkdown` (§22) was deliberately not extended everywhere; the
-  dashboard's own small note previews strip markers instead
-  (`notePreviewText`). A widget showing raw `**bold**` is likely one that
-  calls neither — worth an inventory of which dashboard widgets go through
-  which path.
-- **The "notebook constellation" widget doesn't redraw on a theme change.**
-  The graph's galaxy/starfield styling (§9) points at this widget as proof
-  the aesthetic works; §10 of `ARCHITECTURE.md` already documents the general
-  version of this bug for the emblem (p5 measures a canvas as zero inside a
-  hidden tab, and has to redraw on theme change since the accent moves) —
-  very likely the same cause in a second place.
-- **Gravity and Spread only affect the force-directed layout.** Real:
-  `nodeSize`/panning-based tree and radial-ring layouts (§9) don't run a
-  physics simulation, so these two controls have nothing to act on outside
-  the default layout. Not obviously a bug — worth deciding whether they
-  should grey out under tree/radial, or gain layout-specific meaning (row
-  spacing, ring gap) instead of silently doing nothing.
-
-**Still open here**
-
-- **Improve the extracted page's visual rendering.** Not a bug — the reader now
-  carries heading levels, so it can be laid out as a real document (typographic
-  scale, measure capped around 70ch, blockquotes, lists, code). Grouped with
-  §13.
+  at fault. **(needs Opus)**: checked 2026-10-04, no repro and no guard for
+  a three-word note: `janitor._semantic_category` files at a centroid
+  similarity of 0.60 (`CONFIDENT_MATCH`) or a kNN vote (`KNN_MIN_SIMILARITY`
+  0.42, `KNN_MIN_SHARE` 0.55) with no length floor, so a very short note's
+  vector can land anywhere. Whether a floor belongs there, and at what
+  length, is a filing-quality judgement to measure against a real notebook.
 
 **The lesson worth keeping.** Four of these were "this control does nothing",
 and in three of the four the control was working perfectly — the write landed
@@ -593,14 +569,6 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 ~~**Port 8888 being taken was a dead end.**~~ **fixed.** `start()` now
 settles a port first (the wanted one, else 8080/8081/8890/8899, or
 `MEMORYMAP_SEARXNG_PORT`).
-
-**Not yet fixed:** a start attempt and an install can be in flight at the
-same time — a start already waiting when a reinstall begins sits out its
-full `START_TIMEOUT` against a virtualenv being rebuilt underneath it, then
-blames SearXNG for writing no output. Fixing it properly means making
-`_wait_until_ready` interruptible (a generation counter or a
-`threading.Event` that `install_source` sets). Not a quick change, which is
-why it is here rather than done.
 
 **SearXNG itself now installs, starts, answers its JSON API, passes
 `websearch.probe_searxng`, and returns real results on a user's own
@@ -1213,7 +1181,7 @@ palettes."
   data to sort by is already stored per turn (the model, the token cost, the
   timestamps), so this is a list-rendering job. The IDEAS note suggests an
   agent tool and a skill for it too, which would fall out of §14's shape once
-  the sort exists.
+  the sort exists. **(needs Opus)**: which sorts and groupings, a list design.
 - **Undo toasts** for anything soft-deleted, instead of confirm dialogs
 - **Optimistic UI** — a saved note appears instantly and reconciles
 - **Consistent empty states** and loading skeletons
@@ -1231,14 +1199,6 @@ palettes."
 - ~~**A status bar pinned to the bottom.**~~ **done, same item as above** —
   a second, near-duplicate bullet for the same ask; both are satisfied by the
   one `#status-bar` that now exists.
-- **Keyboard-only navigation, confirmed end to end rather than assumed.**
-  §19 already covers focus traps and screen-reader gaps; this is narrower
-  and more basic — can someone move through the note list, open a note, edit
-  its tags, and file a reminder without a mouse touching anything? The
-  bullet above already has a few keys bound (`/`, `g`+letter, Escape); the
-  gap is whether the note list itself supports arrow-key movement and Enter
-  to open, which is the one interaction pattern used constantly enough that
-  its absence would be felt every session, not just noticed in an audit.
 - **A global quick-capture hotkey in desktop mode.** Not asked for directly,
   but the app's own pitch — "just capture, a local AI files it" — implies
   capture should be as close to zero-friction as opening the app currently
@@ -1249,7 +1209,8 @@ palettes."
   rather than just as fast. Browser-tab mode can't do this (no OS-level
   hotkey access from a page), so it's specifically a `--desktop` win, and
   worth scoping alongside the rest of §7's packaging work rather than
-  separately.
+  separately. **(needs Opus)**: an OS-level hotkey in the desktop window,
+  untestable in this sandbox.
 
 ---
 
@@ -1264,7 +1225,6 @@ palettes."
   new prompt against. See HISTORY.md for what was and wasn't verified live.
 - **Reading and research** — the Browse section (§3) plus highlights saved as
   notes back-linked to their source
-- **Journalling** — a daily-note pattern; the pieces exist, nothing ties them
 - **Task management** — reminders are not tasks (no sub-tasks, projects, or
   "someday"). Commit to it or stay deliberately out.
 - **Study / revision** — spaced repetition; access-count and embeddings are
@@ -1316,15 +1276,6 @@ history. What's still weak:
   deeply, 2026-09-21" section, item 2, for the size/risk call (M, must stay
   strictly opt-in so a local request never silently reaches an endpoint the
   user did not explicitly add).
-- **The agent only lives in the Chat tab.** Asked for as "allow the agent to
-  be accessed from anywhere in the program" — every other tab already has the
-  pieces this would reuse (the confirm-before-destructive pattern from design
-  principle 6, the plan/step/result UI from §21), so a floating entry point
-  that opens the same agent against "whatever I'm looking at right now" is
-  more a routing change than a new agent. Before/after comparison on an edit
-  already exists in one place — a skill run's changes list shows **View** and
-  **Undo** per row (§21) — the ask was really for that pattern everywhere an
-  edit happens, not a new mechanism.
 - **The agent controlling the screen itself** — "allow the agent to control
   your screen within the application to navigate and make changes… with the
   user able to cancel it at any time". A different and much bigger thing than
@@ -1562,7 +1513,7 @@ is what makes it reach for one.
 **Still to do:**
 
 - **Re-running a past run.** A skill is repeatable; a *run* is not yet
-  something you can replay over a different set of notes.
+  something you can replay over a different set of notes. **(needs Opus)**
 - **Undo the whole run**, rather than one change at a time. Gemini's
   (grounded) suggestion was a heavier version of this worth naming
   explicitly: a local, silent version-control snapshot before a bulk
@@ -1576,11 +1527,13 @@ is what makes it reach for one.
   window, is the missing middle size. Worth building as "one more backup,
   triggered by an event instead of a timer" rather than actually reaching
   for git — the existing backup mechanism already solves the storage
-  question, just not the timing.
-- **Links and reminders have no inverse tool**, so those two changes are
-  listed without an Undo. `unlink_notes` / `delete_reminder` would fix it, at
+  question, just not the timing. **(needs Opus)**
+- **Reminders have no inverse tool** (links do: `unlink_notes` exists, checked
+  2026-10-04), so that change is
+  listed without an Undo. `delete_reminder` would fix it, at
   the cost of two more schemas in the per-round budget (§11a) — worth doing
-  when something else needs them too.
+  when something else needs it too. **(needs Opus)**: a new tool moves the
+  README's tool count, the help topics and the schema budget together.
 
 ---
 
@@ -1630,17 +1583,14 @@ Small, concrete, each seen in the running app:
 - ~~**Background tasks vanish when they finish.**~~ **Done** —
   `renderTaskHistory` persists finished tasks (outcome, duration) and
   `task-history-clear` is the shared "clear history" affordance.
-- **Chat / Agent / Browse selector and a browse UI.** Asked for directly
-  ("can the chat interface be improved?? like the selector for agent mode
-  and the web browser ui??") — this is §3, already designed there, unbuilt.
-  Treat §3 as user-requested now, not speculative.
 - **Agent continuation quality.** "The agent really struggles to continue a
   chat based off the previous message." Two things landed for it (2026-07:
   the most recent answer now reaches the next turn nearly whole —
   `librarian.history_messages` / LAST_ANSWER_CHARS — and every agent turn
   logs its prompt composition as memorymap.agent "prompt composition").
   Next step per §11a: read those logs from a real 3-turn chat, see whether
-  notes or history dominates, and only then trim the variable half.
+  notes or history dominates, and only then trim the variable half. **(needs Opus)**: it needs a real
+  3-turn chat on a real model.
 - ~~**A skill that writes skills.**~~ **Built** — "Build a skill" in
   `ai/skills.py`'s `BUILTIN_SKILLS`, same `ask_user`-driven interview shape
   as "Interview me about an idea": asks what the job should do, whether it
@@ -1650,13 +1600,13 @@ Small, concrete, each seen in the running app:
 - **Appearance settings page (§15).** Asked whether it can be improved;
   nobody has audited it against §15 yet. The chat empty-state emblem now
   animates (same motion switch as the ai-mark), which was the one concrete
-  ask.
+  ask. **(needs Opus)**: auditing the page against §15 is a design pass.
 - **Bot-walled sites in the reader.** Cloudflare-fronted wikis and Reddit
   403/challenge the reader on TLS fingerprint alone; no header can fix
   that. The reader now names the wall instead of dumping a status
   (websearch.fetch_readable), but actually reading such sites would take
   browser impersonation — decide deliberately whether that dependency is
-  ever worth it before anyone "fixes" this again.
+  ever worth it before anyone "fixes" this again. **(needs owner)**
 - ~~**Chat metadata disappears on a reload or app restart.**~~ **Done — this
   entry was stale.** Checked against the running app (`openConversation` in
   `frontend/js/app.js`), not assumed: `message.stats` is persisted and the
@@ -1664,16 +1614,6 @@ Small, concrete, each seen in the running app:
   it was only ever built from the live stream... Turns saved before this
   stored no stats and correctly get no line, rather than a row of '?'s."
   Whoever fixed this didn't strike the entry here.
-- **README and GitHub Pages drift out of date.** Asked for directly: "update
-  the readme and gh pages site to have up to date information". The README's
-  own "What's in it" table still said six tabs after the Timeline tab (§10)
-  shipped, and its "Next up" list still named the pre-rebuild skill system
-  and pre-SearXNG web search as open work after both were done — exactly the
-  kind of drift this document itself warns about in its opening note. Worth
-  a pass through README, the GitHub Pages site (still on the "ideas, not
-  yet" list in `CHANGELOG.md`) and this file together, since all three
-  describe the same app and only this one gets updated every session.
-
 - ~~**Notes don't render markdown.**~~ **done** — but read how before
   extending it. `renderInlineMarkdown` handles bold/italic/`code`/strike
   *only* (block elements are deliberately excluded from the list — see
@@ -1834,6 +1774,8 @@ thing anywhere in the app.
   the database, uploads and preferences and start over, distinct from
   `--reset-password` which only clears the credential. Worth being as
   explicit about what it destroys as `--reset-password` already is.
+  **(needs owner)**: a destructive control; the owner decides whether it
+  exists and where it sits.
 - **A real storage breakdown, not just the database file.** Asked for
   directly: "can the user see a visual depiction of the storage size the
   application takes up... so they can manage and uninstall optional
@@ -1849,7 +1791,9 @@ thing anywhere in the app.
   every Settings load. The "uninstall now, reinstall later" half already
   works (`core/extras.py`'s remove/start) — this is purely the missing
   "how much is this costing me" number and a chart on top of facts that
-  mostly already exist.
+  mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
+  still returns only `database_bytes`; the walk, the cache and the Settings
+  line with its '?' are one design.
 - **One actual "your data" page, not the pieces scattered.** The individual
   facts already exist — where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1866,14 +1810,14 @@ thing anywhere in the app.
   destructive background job. Worth being conservative here: the app's own
   design principle is that saving a note never fails and nothing is lost
   silently, so any auto-archival needs to be loud about what it did, not
-  quiet.
+  quiet. **(needs owner)**
 - **Note compression** — asked for directly, and worth being honest about the
   payoff before building it. Notes are short text in SQLite; a notebook of a
   few thousand notes is low tens of megabytes uncompressed, and SQLite pages
   already compress well under most filesystems' own compression. This is
   likely solving a problem that doesn't exist yet at any realistic notebook
   size — worth measuring an actual `data/memorymap.db` before writing any
-  compression code, not assuming it's needed.
+  compression code, not assuming it's needed. **(needs owner)**: see 79b.
 - **A synthesised export, not just a raw one.** Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that — pick a tag or a cluster and have the AI *compile* it into
@@ -1882,7 +1826,7 @@ thing anywhere in the app.
   by hand. Closer to a skill (§21) than to the export routes: it's a
   read-many, write-one operation with a prompt behind it, not a format
   conversion. Worth scoping as a skill once the skill system's tool
-  allowlist (§21) is solid, rather than as a fourth export format.
+  allowlist (§21) is solid, rather than as a fourth export format. **(needs Opus)**
 
 ---
 
@@ -1900,11 +1844,9 @@ before testing), so this is about what it covers, not whether it exists.
 - ~~**Fold in first-run diagnostics.**~~ **built — Ollama reachability and
   where the notebook lives**, a new dynamic slide reusing the existing
   `/models/status`/`/storage` endpoints. See HISTORY.md.
-  - **Offering to pull a small model (`llama3.2`) if none is installed, and
-    checking `MEMORYMAP_DATA_DIR` is writable specifically, are still open.**
-    The reachability half shipped; the "fix it for me" half (a pull button)
-    and the writability check are real, separate pieces of work.
-- **Name, first note, model choice** — as asked, still open. The dashboard's
+- **Name, first note, model choice** — as asked, still open. (The one-click
+  offer to pull a model and the data-folder writability line are built:
+  `renderOnboardingActions` and `data_dir_writable`, checked 2026-10-04.) The dashboard's
   name-nudge work already solved the *name* half; onboarding doing it once
   at the start would be the same fix moved earlier, not a new one.
 - ~~**Say what the graph and timeline actually are, once, early.**~~ **built**
@@ -1918,23 +1860,9 @@ before testing), so this is about what it covers, not whether it exists.
 
 ---
 
-## 28. In-app help: an AI that knows the docs
+## 28. In-app help: an AI that knows the docs, built
 
-**Why.** Asked for directly: "the help area in settings has an ask-AI
-feature where the AI has access to all the program documentation and can
-help answer your questions."
-
-**Shape.** Closer to the librarian (§4 of `ARCHITECTURE.md`) than to the
-agent: grounded, read-only, answers from a fixed corpus rather than the
-notebook. The corpus is already written — `README.md`, `ARCHITECTURE.md`,
-this file, `CONTRIBUTING.md` — so this is a retrieval index over the repo's
-own docs plus a chat surface in Settings → Help, not a new kind of AI
-feature. Worth deciding whether it's a `search_docs` tool the *existing*
-agent can call (cheaper, reuses everything) or a wholly separate grounded
-chat (simpler to reason about, since it never needs to touch the notebook or
-a destructive tool). The agent is already offered a narrowed tool set per
-question via `tools.focus_for` (§7 of `ARCHITECTURE.md`) — a docs question is
-exactly the kind of thing that focusing already exists to route.
+Built as `ai/help_chat.py` and the Guide; the detail is in HISTORY.md. Kept for its number.
 
 ---
 
@@ -1955,10 +1883,13 @@ them are close to being built:
   **No longer a blank slate** — ANALYSIS.md §60 (ROADMAP.md item 38) read
   odysseus's actual MCP implementation and split this into two: expose (no
   new trust model needed, build first) and consume (needs the trust model
-  this paragraph already flagged, build second).
+  this paragraph already flagged, build second). **The expose half is built**
+  (`src/memorymap/mcp_server.py`, a stdio server over the tool registry,
+  checked 2026-10-04); consuming external servers is still open **(needs
+  owner)**: it needs the trust model decided first.
 - **A VS Code extension.** No stated purpose yet beyond the idea itself —
   worth asking what it would let someone do that the app's own web UI, PWA
-  and desktop window don't, before scoping anything.
+  and desktop window don't, before scoping anything. **(needs owner)**
 - **A browser clipper.** Gemini's suggestion: a lightweight extension that
   saves a page's text, link and metadata straight from the browser, rather
   than routing through the in-app reader (§13). Distinct enough from the
@@ -1968,7 +1899,7 @@ them are close to being built:
   same place (a note, or the queue in §4a's file-upload work), but they're
   answering different questions about where "capture" happens, and building
   a browser extension is its own packaging problem on top of anything
-  MemoryMap does today.
+  MemoryMap does today. **(needs owner)**
 
 ## 29c. Whiteboard, brainstormed — not yet triaged
 
@@ -2210,19 +2141,10 @@ only the fake-transport tests exercise it.
 
 Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
-## 64. Documents editor — behind the rest of the app, needs its own pass
+## 64. Documents editor: built, moved to HISTORY.md
 
-The Documents tab (`app.js:5314`, "long-form writing") is a plain
-markdown text area: confirmed no slash-command menu, no block nesting, no
-focus/distraction-free mode. Every one of those is table-stakes in a
-"second brain" competitor (Kortex, Notion, Obsidian) and the app already
-has the primitives a slash-command menu would reuse — the command palette
-pattern already exists elsewhere in the app (see DESIGN.md/ARCHITECTURE.md
-for the existing overlay/palette convention) and would not need a new
-interaction model invented from scratch, just a document-scoped instance
-of it. Not scoped in detail here — flagged so it's not lost, and so the
-next session doing this doesn't start from "what does a modern editor
-need" without first reading what Documents currently has.
+The slash menu (`editor.js`) and focus mode (`toggleDocFocus`, `#doc-focus-bar`)
+both exist; the rest of the pass lives in DOCUMENTS_PLAN.md. Kept for its number.
 
 ## 65. Highlight/web-clip capture
 
@@ -2238,19 +2160,17 @@ than pasted flat on purpose: a clipping is somebody else's words, and a
 notebook that cannot tell them from yours is worse than one that refuses
 clippings.
 
-**Still open, and deliberately separate:**
+**Source as metadata is built** (`Entry.source_url` and `source_title`, the
+"from the web" badge in `note-cards.js`). **Still open, and deliberately separate:**
 
 - **Sources outside the app.** Today the only surface that knows where a
   passage came from is the built-in web reader. A passage pasted in from a
   real browser, a PDF reader or a Kindle arrives with no origin at all, and
   nothing asks for one. The smallest useful next step is a paste-a-highlight
-  box that takes the text *and* a URL/title by hand.
-- **Source as metadata rather than body text.** §65 originally asked for the
-  source "kept as metadata rather than folded into searchable body text". What
-  shipped folds it into the note body as a link, because `Entry` has no source
-  column. A real one is an additive schema change plus a place to show it.
+  box that takes the text *and* a URL/title by hand. **(needs Opus)**: a new
+  capture surface, so a design call.
 - **A Readwise/Kindle importer** is a genuine integration and should be sized
-  separately before anyone commits to it.
+  separately before anyone commits to it. **(needs owner)**
 
 ## 75. Voice memos: capture, storage, playback, and a dedicated library page
 
@@ -2270,8 +2190,17 @@ Image Gallery listing every audio attachment across the notebook, the way
 `routes_library.py`'s `_notes()`/`_archive()`/`_shelved()` already do for
 images via `thumb_by_entry`. Meeting notes were the specific use case
 raised — a memo recorded during a meeting, attached to that note.
+**(needs Opus)**: the recorder exists for meetings (`media.js`), but audio is
+still off the attachment allowlist (`routes_files.py`) and there is no player
+or Library page; a new surface, so a design call.
 
 ## 76. Keyword-only note filing while the AI is unavailable, flagged for later AI review
+
+**The filer is built** (checked 2026-10-04): `manager.WORDS_FILED` (`"words"`),
+returned by `janitor` when no model is available and reported as `filed_by:
+"words"` by `routes_entries`; a manual move of such a note counts as a
+correction. **What is open is the second half below: the autonomous review pass
+revisiting `words` notes once a model is back. (needs Opus)**
 
 Asked for directly, and specifically **not** the same as `janitor.categorise`'s
 existing low-confidence path (routes_entries.py's `create_entry` already
@@ -2421,7 +2350,8 @@ has been scoped; they are here so the finding is not lost with the session.
   history — all three grow monotonically, and `entry_revisions` in particular
   keeps a full copy of a note's text on every edit. Nobody has measured which
   of them actually gets large in a year of real use, and that measurement
-  should come before any policy.
+  should come before any policy. **(needs owner)**: it needs a year of real
+  data, or the owner's call on a policy.
 - ~~**A support-bundle size ceiling.**~~ **Checked, not needed.** This entry's
   own premise ("no cap") was wrong: `core/logbuffer.py` already bounds every
   input to the bundle — `MAX_RECORDS = 500`, each message truncated to
@@ -2441,98 +2371,21 @@ has been scoped; they are here so the finding is not lost with the session.
   question it defers: *should* documents be embedded? They are the one other
   kind with substantial prose, and embedding them would make "find the
   document about X" work the way notes already do. Not obviously worth the
-  index size; worth deciding rather than leaving implicit.
-- **Colour contrast has never been measured.** BACKLOG §19 has said so for a
-  long time and every pass since has fixed something else. It needs a
-  contrast-ratio tool run over the glass surfaces and the newer palettes, not
-  another reading of the CSS.
+  index size; worth deciding rather than leaving implicit. **(needs owner)**
 - **The document-textarea resize fix has never been seen working.** Headless
   Chromium will not drive a native resize handle — real mouse events and
   CDP-level ones both left the rendered height unchanged, and an isolated
   repro showed the same. Whether that is this Chromium build or evidence the
   root-cause theory is wrong was never chased down. One look in a headed
-  browser settles it.
+  browser settles it. **(needs owner)**: a headed browser, one look.
 - **A naive orphaned-CSS sweep produces 33 false positives.** Classes built by
   template (`heat-${n}`, `library-${kind}`, `priority-${p}`,
   `result-reason-${r}`, `plan-step-${s}`, `outline-h${n}`, `graph-edge-${k}`)
   look dead to any grep for the literal string. Three genuinely dead rules
   were removed in §86; anyone re-running that sweep should expect the same 33
   and not delete them.
-- **A visual splash/loading window during startup, before the server exists
-  to serve one.** Asked for directly: on Windows, `start.bat`'s dependency
-  install (and the self-update `git pull` before it) can run for minutes with
-  only console text as feedback — invisible entirely if the user launched via
-  `start-desktop.bat` without watching the console, or if it's minimized. The
-  desktop mode already solved the *narrower* version of this (see
-  `_wait_for_server`'s docstring in `__main__.py` — the pywebview window
-  doesn't open at all until the server is confirmed accepting connections, so
-  there's no long black-screen window sitting open), but nothing shows
-  anything at all during the pip-install/git-pull phase that happens before
-  that. A real splash would need its own lightweight window (Tk ships with
-  every Python install and needs no extra dependency, unlike pywebview) shown
-  by the launcher itself, independent of the app server, then closed once
-  `_wait_for_server` succeeds — a different lifecycle than anything else in
-  this launcher, not a small addition to an existing one. Scoping this
-  properly (what shows, on both start.bat and start.sh, in both browser-tab
-  and desktop mode) is its own session, not a follow-on to the app.js split.
-- **Agent-mode auto-detection with a confirmation popup.** Asked for
-  directly: when the AI notices a chat message looks like it needs agent
-  mode (tools/multi-step work) but the user isn't in it, offer to switch
-  with a confirmation popup in the chat — and if the user isn't on the Chat
-  tab when this comes up, a notification instead, same as for other things
-  needing the user's input mid-run. Needs real scoping before building: what
-  actually triggers the detection (a cheap heuristic vs. a model call before
-  every message — the latter costs a round trip per message, which cuts
-  against the token-efficiency ask two items below), and how it interacts
-  with `skillManual`/step-by-step mode already in the agent loop.
-- **Skill auto-detection with a confirmation popup.** Same shape as the
-  item above, for the app's saved Skills instead of agent mode: detect when
-  a user's chat message matches an existing skill and ask before running
-  it, rather than requiring the user to invoke it by name. Same open
-  question about what the detection costs per message.
-- **Start/completion notifications for named sub-processes.** Asked for
-  directly, naming "renaming with AI," "generating title," and "other
-  things" as examples — a toast or notification when one of these begins,
-  and a second one confirming success (or failure) once it ends, rather
-  than the current silent-until-done (or silently-failed) behaviour.
-  `core/taskhistory.py` already gives failed/completed background jobs a
-  home (this session wired captioning into it, §91) and
-  `recordNotification` (app.js) already exists for the notification centre
-  half — the gap is the *in-progress* half: nothing currently fires when
-  one of these starts, only when it ends. Scoping needed: which calls count
-  as "sub-processes" worth this treatment (every `apiJson` call would be
-  far too noisy) — likely the same handful already named plus whatever else
-  already blocks the UI behind a spinner (caption generate/regenerate,
-  link-reason generation, the AI edit route).
-- **A deeper token-efficiency and small-model-suitability pass on chat and
-  agent prompts.** Asked for directly: "see if the token usage and
-  consumption in chats can be reduced and made more efficient... make all
-  processes in the chat tab and backend suitable and well designed for
-  smaller models as well as larger models." `agent.PROSE_BUDGET_CHARS` is
-  already asserted (CLAUDE.md), and this session's provider-level retry
-  fix (§91) reduces one concrete waste — a failed call needing a manual
-  resend that re-sends the whole prompt again. Nothing beyond that has been
-  measured this session: a real pass would need to profile actual prompt
-  sizes across the librarian/agent/skill paths against a range of context
-  windows (the app already tracks `usable_context` per model) and look for
-  prompt content that scales with notebook size rather than staying flat.
-- **AI follow-up question suggestions in chat and the Ask sub-tab.** Asked
-  for directly: after an answer, offer 2-3 suggested follow-up questions,
-  in both the Chat tab's conversations and the Notes tab's Ask sub-tab.
-  `loadChatSuggestions()` (app.js) already exists for a *different* kind of
-  suggestion (conversation starters, empty-state only) — this would be a
-  new per-answer suggestion, generated from the answer just given, most
-  likely reusing the existing chat model rather than a new route.
-- **Graph minimap drag-to-zoom, plus pinch/keyboard zoom.** Asked for
-  directly: click-and-drag a rectangle over the graph's minimap to redefine
-  the main view's window/position/zoom to match, and two-finger
-  pinch-zoom (touch) plus a keyboard zoom in/out, matching what the main
-  graph canvas already supports. `graph.js` already owns the minimap
-  rendering and the main canvas's own zoom/pan handlers — this extends
-  both rather than adding a new subsystem, but the minimap's own hit-testing
-  and coordinate-mapping (screen rect → graph viewport) isn't scoped yet.
 - **Compression/archival for rarely-used notes, documents, files and
-  chats.** Asked for directly: let the user compress content they don't
+  chats. (needs owner)** Asked for directly: let the user compress content they don't
   touch much and restore it on demand, at three possible granularities —
   one item, a whole space, or a group matched by some rule — with chat
   conversations floated as a candidate too. Worth doing, but genuinely
@@ -2575,19 +2428,8 @@ has been scoped; they are here so the finding is not lost with the session.
   keyword rather than being handed relevant history proactively the way
   notes are via retrieval. Extending keyword search to embedding-based
   recall, or surfacing it outside agent mode, is the open half of this.
-- **A note against ROADMAP.md §90 item 3** (upload any document type with a
-  real per-type viewer, not built yet — see there for the full ask):
-  asked for directly, when this gets built, a scanned/non-selectable PDF
-  page's text extraction should go through the vision model
-  (`ai/vision_ocr.py`'s existing shape — rasterise the page, transcribe it
-  the same way an image is today), **not** Tesseract+`pdf2image`/poppler.
-  "I primarily want this AI OCR to be separate from Tesseract... only want
-  to use an AI vision model for OCR for images and scanned documents" —
-  Tesseract (`core/ocr.py`) stays as the separate, already-built,
-  install-optional local path for raster images (it already degrades to
-  "extracts nothing" if not installed, so a notebook that never installs
-  it already gets exactly this today for images); the new PDF-page path
-  should not add a second dependency on it.
+  **(needs Opus)**: a retrieval-design question (what is handed in, at what
+  token cost), not a mechanical fix.
 
 ---
 
@@ -3738,6 +3580,9 @@ Genuinely open, ranked by value-per-effort:
    real links, attachments copied in, and a dry-run preview before anything
    is written. Nothing here needs a model. Start with plain Markdown; Notion
    and Obsidian are the same importer with two front-matter dialects.
+   **Plain Markdown and an Obsidian vault are built** (`/import/directory`,
+   `/import/markdown`, `test_vault_import.py`); a Notion export zip and Apple
+   Notes HTML are not (§115 row 1). **(needs Opus)**
 2. **Typed note templates with structured fields** (gap 3) — Skills are
    reusable *prompts*; this is a different thing: a category-bound field
    schema (decisions, owners, dates) that renders as a form and stores
@@ -3777,30 +3622,17 @@ Genuinely open, ranked by value-per-effort:
   can supply the selection via `selectionStart`/`selectionEnd`, so the
   capability is cheap once the decision is made; the awkward part is
   dismissal behaviour while typing continues. Whoever picks this up: get
-  that decision from the user first. Beyond
+  that decision from the user first. **(needs owner)** Beyond
   fixing whatever regressed, selecting text is the natural home for
   highlight-with-colour, "ask the AI about this", "extract to a new note"
   and "link this to…". Today selection offers nothing consistent.
 - **Highlights as a queryable collection.** Once `==highlight==` is in use,
   "show me everything I highlighted this month" is a search-index question,
-  not a schema question — the marks are already in `content`.
-- **Backlinks panel.** The graph knows what links *to* a note; the note
-  itself never shows it.
-- **A conflict-safe editor.** Two windows on the same note silently
-  last-write-wins today.
+  not a schema question — the marks are already in `content`. **(needs Opus)**
 - **Search-result grouping by category/tag**, with counts — the result list
-  is flat however many hit.
-- **Export a single note or document** (Markdown/PDF). Backups export
-  everything; there is no "send this one to someone".
-- **A keyboard-shortcut sheet.** `Ctrl`+`K` exists, zoom exists, dictation
-  exists; nothing lists them in one place.
+  is flat however many hit. **(needs Opus)**
 - **Per-note pinned AI context** — a note that is always in scope for chat
-  ("my current project"), rather than relying on retrieval to find it.
-- **Bulk tag editing** from the notes list, with the same undo the rest of
-  the app has.
-- **A "why is this here?" affordance on graph edges** — the reasons exist;
-  clicking an edge should show one.
-
+  ("my current project"), rather than relying on retrieval to find it. **(needs Opus)**
 
 ## §110 — the toolbar round: formatting in Notes, and five more measured bugs
 
@@ -4099,47 +3931,14 @@ restated.
 
 ### 116.1 Dropped or half-done, and therefore first
 
-1. **Unlink uploads when a map's entry is purged.** Backend sprint 2's third
-   item; the agent backed it out as a mindmap dependency. A purged board
-   `Entry` leaves its objects' image files on disk. `entry/manager.py`'s purge
-   path plus a test that counts files in `uploads/` before and after.
-2. **The Health block shows no latency.** `GET /debug/health` returns
-   `latency_ms_by_kind` (p50/p95/count per task kind); Settings → About draws
-   size, counts, jobs and the last error and not that row. One more
-   `.setting-row`, filled by `renderHealthBlock`.
-3. **A phone pass on the other four tabs.** Only Notes, Chat and Settings were
-   measured at 390px. Library (the boards landing's head row, the docs list),
-   Graph (the toolbar), Whiteboard (the top bar, the properties panel) and the
-   documents editor (`.doc-dock`) have not been. `errors.js` at 390 is the
-   gate; `phone*.js` in the session scratchpad are the probes.
-4. **A dark-theme pixel pass.** Every new surface this session (the popover
-   shell, the Filters sheet, map nodes, the Health block) was measured in
-   light only. `THEME=dark` is honoured by `lib.js`; `scratchpad/pngpixel.py`
-   is the tool; the bar is 4.5:1 for text.
 5. **Real-model verification of the skills reform** — still the open
    acceptance criterion in AGENT_SKILLS_REFORM.md; needs a machine with a
-   4B model, not the sandbox.
+   4B model, not the sandbox. **(needs owner)**: `scratchpad/llama-dev.sh serve`
+   then `pytest -m evals` on a machine that can run one.
 
 ### 116.2 Mindmaps, Phases 4-5 (MINDMAP_PLAN.md §5 items 14-21)
 
-6. **FreeMind `.mm` import and export** (item 16/17) — OPML and Markdown
-   exist; `.mm` is the third interchange format and the one XMind and
-   Freeplane speak natively. Same `_parse_opml`/`export` shape, defusedxml.
-7. **"Make a map of these notes"** (item 15) as a first-class action: the
-   tools exist (`create_mindmap`, `add_map_node`); what is missing is the
-   entry point (a selection in Notes → "Map these", a chat suggestion chip)
-   and the accept/edit step before anything is written.
-8. **Focus mode, filter/perspective, metrics, templates** (items 18-21).
-   Templates first — an empty map is the reason the feature goes unused;
-   `createNewBoard` already seeds one root, so a template is "seed these
-   nodes" through the same `POST /nodes` calls.
-9. **Layout performance at scale** (§8 risk): build a 500-node map with the
-   API in a script and time `wbMapTidy` and first paint. Argued linear,
-   never measured.
-10. **Cross-links need a gesture.** The dashed rendering exists and the tree
-    endpoint reports them; nothing in the UI *draws* one between two map
-    nodes except the generic link sketch tool. A "link to…" on the selected
-    node, reusing the reference picker Phase 3 adds.
+(Items 6 to 10 were all built; checked and moved to HISTORY.md 2026-10-04.)
 
 ### 116.3 PLAN.md rows not started (by track)
 
@@ -4160,13 +3959,8 @@ restated.
 
 ### 116.4 Tooling
 
-15. **One launcher per agent.** `scratchpad/ui-sweeps/serve.sh PORT DIR`
-    starts a server with its own data dir and log, so two servers can never
-    share a SQLite file again (HANDOVER.md, "Traps found this session").
-    Every brief to a subagent should name a port and use it.
-16. **A phone run and a dark run of `all.sh`.** `all.sh` sweeps 1440/1024
-    light. Add `WIDTH=390` and `THEME=dark` passes so 116.3 and 116.4 have
-    a gate rather than a probe.
+Both items built (the per-agent launcher is `scratchpad/ui-sweeps/serve.sh`; the
+phone and dark runs are in `all.sh`); moved to HISTORY.md 2026-10-04.
 
 
 ## 115. After PR 144: professional use (the owner's stated next block, 2026-09-14)

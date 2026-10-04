@@ -206,7 +206,16 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
     """Make the note's tag suggestions at filing and keep them on it (INBOX
     440). The model's when it is the one that filed (it is up and answering);
     otherwise the notebook's own: the tags its nearest notes carry, and the
-    vocabulary tags the note names. Best effort, never fails the filing."""
+    vocabulary tags the note names. Best effort, never fails the filing.
+
+    **A private note gets none made.** Its tags are the person's own (nothing
+    derives them from its text), and a suggestion is derived from the text, so
+    one made here would put a summary of a private note into a plain column,
+    from ciphertext or the locked placeholder when the vault is shut. What it
+    already holds (a note made private after filing) is handled like its
+    tags: kept, shown where they are, nowhere else."""
+    if getattr(entry, "is_private", False):
+        return
     have = manager.entry_tags(entry)
     discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
     suggested: list[str] = []

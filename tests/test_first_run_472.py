@@ -86,3 +86,13 @@ def test_the_setup_slide_is_short_and_offers_the_ai_setup():
     slide = js.split("function renderOnboardingSlide(")[1].split("\nfunction ")[0]
     assert '$("onboarding-icon").classList.add("hidden")' in slide
 
+
+def test_chat_suggestions_with_no_model_go_to_ask():
+    """With no model the Chat box is disabled, but its "Try asking" chips
+    still sent, and a model-less chat answered "I couldn't find any saved
+    notes" over a notebook that had some. They ask in Notes, Ask instead,
+    which answers from the notes without a model."""
+    js = frontend_text("sheets-selects.js")
+    body = js.split("async function loadChatSuggestions(")[1].split("\nfunction ")[0]
+    assert "aiIsOff()" in body and 'showNotesSection("ask")' in body
+    assert body.index("aiIsOff()") < body.index("sendChatMessage(question)")

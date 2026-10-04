@@ -1967,7 +1967,20 @@ async function loadChatSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    const chipEl = chip(question, "", () => sendChatMessage(question));
+    //: With no model the box is closed, and the chips still sent: "Summarise
+    //: my notes" over two notes answered "I couldn't find any saved notes"
+    //: (INBOX 472, first run). They go where the notice points, Notes, Ask,
+    //: as the dashboard's Ask tile already does (`openAskFromDashboard`).
+    const chipEl = chip(question, "", async () => {
+      if (typeof aiIsOff === "function" && aiIsOff()) {
+        await switchTab("notes");
+        showNotesSection("ask");
+        $("question").value = question;
+        askQuestion(question);
+        return;
+      }
+      sendChatMessage(question);
+    });
     box.appendChild(chipEl);
   }
   //: They arrive after the welcome was drawn, so the welcome takes them now.

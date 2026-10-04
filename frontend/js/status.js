@@ -866,6 +866,23 @@ document.addEventListener("focusin", (e) => {
   }));
 });
 
+//: **Where a toast goes** (INBOX 470): inside the open modal dialog while
+//: there is one, because a modal makes everything outside it inert and draws
+//: over it, so a page toast's Undo could be neither seen nor pressed; the
+//: page's box otherwise. The host is fixed to the window like the box.
+function toastHost() {
+  const dialog = document.querySelector("dialog:modal");
+  if (!dialog) return $("toast-box");
+  let host = dialog.querySelector(":scope > .toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "toast-host";
+    host.setAttribute("aria-live", "polite");
+    dialog.appendChild(host);
+  }
+  return host;
+}
+
 let lastToastKey = "";
 let lastToastAt = 0;
 function toast(message, isError = false, { exempt = false } = {}) {
@@ -875,7 +892,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
   if (key === lastToastKey && now - lastToastAt < 400) return;
   lastToastKey = key;
   lastToastAt = now;
-  const box = $("toast-box");
+  const box = toastHost();
   //: An error makes the companion jump (avatars.js).
   if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle", "error");
   const note = document.createElement("div");
@@ -928,7 +945,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
 //: Returns a handle rather than a node: the caller finishes the job, and
 //: finishing it is one call rather than a DOM edit at each of its exits.
 function toastProgress(message) {
-  const box = $("toast-box");
+  const box = toastHost();
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
@@ -963,7 +980,7 @@ function toastProgress(message) {
 }
 
 function toastAction(message, actionLabel, onAction) {
-  const box = $("toast-box");
+  const box = toastHost();
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");

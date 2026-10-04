@@ -36867,6 +36867,20 @@ width, 47% of the column at 1440.
      thinking box appears above the atlas message bubble title and avatar in
      the popup agent. also make sure all the thinking boxes are the same
      style and consistent". Placed: the orchestrator.
+
+470. **Found 2026-10-04 by the Clear agent, measured by the orchestrator.**
+     A toast raised while a modal `<dialog>` is open is drawn behind it and,
+     even when lifted into the top layer (`popover="manual"`, tried and
+     reverted), is inert: a modal dialog makes everything outside it inert,
+     so a toast's Undo cannot be pressed. Quick note and the agent overlay
+     put their Undo on their own status line instead. Recommendation
+     (order 3, taken): `toast()` and `toastAction()` host the note inside
+     the open modal dialog (a `.toast-host` placed by the dialog head
+     recipe) while one is open, otherwise the page's box. **Fixed**:
+     `toastHost()` (status.js) for `toast`, `toastProgress` and
+     `toastAction`; a toast over an open dialog is drawn in it and its Undo
+     is pressed (measured at 1440 and 390; it could not be before).
+
 ## INBOX resolved, 2026-10-04
 
 458. **The owner, 2026-10-03 night, verbatim, with screenshots (the popup
@@ -36888,4 +36902,3 @@ width, 47% of the column at 1440.
      Opus agent. Bubble parts built 2026-10-03 (81e7d63, measured in the
      commit; `scratchpad/ui-sweeps/bubbleparts.js`); the preview half stays
      with the orchestrator.
-

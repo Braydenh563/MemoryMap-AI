@@ -34,16 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-470. **Found 2026-10-04 by the Clear agent, measured by the orchestrator.**
-     A toast raised while a modal `<dialog>` is open is drawn behind it and,
-     even when lifted into the top layer (`popover="manual"`, tried and
-     reverted), is inert: a modal dialog makes everything outside it inert,
-     so a toast's Undo cannot be pressed. Quick note and the agent overlay
-     put their Undo on their own status line instead. Recommendation
-     (order 3, taken): `toast()` and `toastAction()` host the note inside
-     the open modal dialog (a `.toast-host` placed by the dialog head
-     recipe) while one is open, otherwise the page's box. Placed: an agent.
-
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it
      possible to have the arms and legs be used a bit for various position,
      action etc changes and transitions??" Placed: with 455 (2) and 462, the

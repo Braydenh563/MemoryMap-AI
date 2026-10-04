@@ -357,26 +357,8 @@ $("note-picker-search").addEventListener("input", () => {
   clearTimeout(notePickerSearchDebounceTimeout);
   notePickerSearchDebounceTimeout = setTimeout(renderNotePickerList, 150);
 });
-//: Switching source clears the search box: "cover" typed against notes means
-//: nothing against a list of filenames, and a picker that opens on Files with
-//: a stale query and no rows reads as an empty library.
 for (const button of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
-  button.addEventListener("click", () => {
-    notePickerSource = button.dataset.pickerSource;
-    for (const sibling of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
-      const on = sibling === button;
-      sibling.classList.toggle("active", on);
-      sibling.setAttribute("aria-selected", String(on));
-    }
-    const search = $("note-picker-search");
-    search.value = "";
-    search.placeholder =
-      notePickerSource === "notes"
-        ? "Search your notes…"
-        : `Search your ${notePickerSource}…`;
-    renderNotePickerList();
-    search.focus();
-  });
+  button.addEventListener("click", () => setNotePickerSource(button.dataset.pickerSource));
 }
 
 $("note-picker-done").addEventListener("click", () => {
@@ -389,11 +371,12 @@ $("note-picker-clear").addEventListener("click", () => {
   //: count line under the button re-read "Nothing attached yet", the panel
   //: contradicting itself in two places at once.
   //:
-  //: Images are deliberately not in this list. A staged image may hold a live
-  //: object URL that has to be revoked when it is dropped (see the send path's
-  //: own `URL.revokeObjectURL` loop and why it exists), and dropping one here
-  //: without that would leak a Blob for the life of the tab. The four stores
-  //: below are all ids of things that were already in the library.
+  //: Images too, now (INBOX 485: the count still read "1 image attached"
+  //: after Clear). A staged one holds a live object URL, revoked here exactly
+  //: as the send path revokes it, or its Blob leaks for the life of the tab.
+  for (const image of attachedImages) if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+  attachedImages = [];
+  renderImageAttachments();
   attachedNoteIds = [];
   attachedDocuments = [];
   attachedFiles = [];
@@ -424,7 +407,9 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
     event.stopPropagation();
     closeNotePicker();
     $("attach-note").focus();
+    return;
   }
+  notePickerKeydown(event);
 });
 
 // --- chat dock "more" disclosure wiring (§37C) ---

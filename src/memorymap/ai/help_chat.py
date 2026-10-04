@@ -1079,6 +1079,7 @@ HELP_TOPICS.extend(
             "id": "chat-controls",
             "keywords": (
                 "fork", "compress", "regenerate", "plan first", "attach a note",
+                "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
                 "footnote",
@@ -1091,7 +1092,10 @@ HELP_TOPICS.extend(
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload something new, Web search, "
                 "Plan first (the agent shows its steps before it starts), Skills, "
-                "and Agent or Ask mode. Each message's menu can copy it, edit your "
+                "and Agent or Ask mode. The note button beside the box opens Attach: "
+                "a tab each for notes, documents, files, images and mind maps, one "
+                "search, a count on each tab of what is held; the arrows move, Space "
+                "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
                 "messages (Undo goes back), show how full the model's context is, "

@@ -854,27 +854,10 @@ function plainText(md) {
   return stripMarkdownPreview(flattenNoteMarkdown(md)).replace(/\s+/g, " ").trim();
 }
 
-//: A badge whose text is a note's own words. `label` follows `setLabel`'s
-//: grammar (an optional leading `ph:` marker, then any app-written words such
-//: as a citation number); `md` is the note text, rendered rather than printed.
-//:
-//: **A chip's own `max-width` does most of the cutting now, not a character
-//: count** (chat-b.md items 2-3, INBOX 35/40). The old rule rendered only
-//: when the text fit inside `length` plain characters and fell back to
-//: flattened, unrendered text otherwise, because a naive character cut can
-//: land inside `**bold**` and leave a stray delimiter on screen -- which is
-//: exactly why a long note's opening words, the common case at a tight
-//: budget like the grounding chip's 30, showed as raw markup instead of what
-//: the answer directly above already renders. The render path is taken up to
-//: a much more generous margin (`length * 4`: a chip's *display* width, not
-//: its character count, is what a reader actually sees truncated, so CSS --
-//: `.ph-text`, styled per caller, `.result-reason-chip` in
-//: 03-dashboard-widgets.css measures its own -- does the truncating and can
-//: only ever cut between whole rendered characters, never inside a token).
-//: Only a genuinely pathological length (a multi-thousand-character note
-//: with no chip wide enough to need rendering that much of it) still falls
-//: back to `plainText`'s plain character cut: parsing that much Markdown
-//: into one badge's DOM buys nothing nobody scrolls to see.
+//: A badge whose text is a note's own words: `label` in `setLabel`'s grammar,
+//: `md` rendered rather than printed (INBOX 35/40). The chip's CSS width does
+//: the cutting, between whole rendered characters; only a pathological length
+//: (over `length * 4`) falls back to a plain character cut.
 function setNoteLabel(el, label, md, length = 40) {
   const text = String(label ?? "");
   const match = PH_LABEL.exec(text);
@@ -947,79 +930,96 @@ function renderAttachments() {
   }
 }
 
-//: **Which of the four stores the picker is showing.** Asked for directly:
-//: "I want to be able to attach not just existing notes to a chat for
-//: context, but also already uploaded files, documents, and images." The
-//: paperclip beside this button uploads something new; this picker is for
-//: what the notebook already holds, and until now it could only reach one of
-//: the four tables that hold it.
+//: **Which store the picker is showing.** Asked for directly: "I want to be
+//: able to attach not just existing notes to a chat for context, but also
+//: already uploaded files, documents, and images." The paperclip beside this
+//: button uploads something new; this picker is for what the notebook holds.
 let notePickerSource = "notes";
 
-//: Fetched once per opening rather than per keystroke, and per source rather
-//: than all four up front: a notebook can hold thousands of files, and three
-//: of these lists are never looked at in a session that only wanted a note.
+//: Fetched once per opening (`openNotePicker` empties it) and per source, not
+//: all up front: a notebook can hold thousands of files, and a session that
+//: only wanted a note never looks at the other lists. It used to be emptied
+//: never, so a document written after the first opening was not offered
+//: until a reload.
 const notePickerCache = { documents: null, files: null, images: null, maps: null };
 
+//: A picture by its name, for the one store (`/media`) that also holds PDFs.
+const NOTE_PICKER_IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
+
 async function notePickerRows(source) {
-  if (source === "notes") return null; // notes come from allEntries, already in memory
+  if (source === "notes") return allEntries; // already in memory
   if (notePickerCache[source]) return notePickerCache[source];
-  //: **Maps come from `/whiteboard/boards?type=map`**, not from `allEntries`.
-  //: A map is a board, which is an Entry, so it *is* in `allEntries`, but
-  //: what a chip has to say about one is its node count, and that lives only
-  //: on `BoardOut`. `?type=map` also does the filtering server-side, which is
-  //: the one caller §9.3 says that parameter was for: this list wants maps and
-  //: no counts of the other kinds.
+  //: **Maps come from `/whiteboard/boards?type=map`**: a map is an Entry, but
+  //: its node count, the fact its row adds over its title, lives only on
+  //: `BoardOut`. Read to the end: the filter is server-side, the list a page.
   if (source === "maps") {
-    //: To the end, like the other three sources below: the filter is
-    //: server-side but the list is a page now, and a picker that cannot offer
-    //: a map is the one bug this picker must not have.
-    const boards = await apiPagedList("/whiteboard/boards?type=map", 200, { silent: true }).catch(() => []);
-    notePickerCache.maps = (Array.isArray(boards) ? boards : []).filter((b) => b.id != null);
+    const boards = await apiPagedList("/whiteboard/boards?type=map", 200, { silent: true }).catch(() => null);
+    if (!Array.isArray(boards)) return null;
+    notePickerCache.maps = boards.filter((b) => b.id != null);
     return notePickerCache.maps;
   }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
-  //: All three are paged, and reading to the end through `apiPagedList` is
-  //: correct for each (an unpaged endpoint would return everything on the
-  //: first request and the loop would stop).
-  //: A picker that silently cannot reach half the library is worse than a
-  //: slow one.
-  const rows = await apiPagedList(path, 200).catch(() => []);
+  //: All three are paged, and `apiPagedList` reads each to the end: a picker
+  //: that silently cannot reach half the library is worse than a slow one.
+  const rows = await apiPagedList(path, 200).catch(() => null);
+  if (rows == null) return null;
   let list = Array.isArray(rows) ? rows : rows.documents || [];
-  //: **Files means files, and a sketch is a picture.** Reported: "sketches
-  //: show in the files section". `/files/gallery` is every attachment
-  //: regardless of type -- it is the Library's own source for *both* its
-  //: Images and its Files sub-tabs, which split it on the mime the same way
-  //: here. Without that split a .png appeared under Files and again under
-  //: Images, which makes the four sources look like they overlap arbitrarily.
+  //: **Files means files, and a sketch is a picture** ("sketches show in the
+  //: files section"). `/files/gallery` is every note attachment whatever its
+  //: type; the Library splits it on the mime the same way.
   if (source === "files") list = list.filter((row) => !(row.mime || "").startsWith("image/"));
-  //: And the other half of the same split: an image attached to a note is an
-  //: Attachment row, so the Images source has to reach both tables or the
-  //: picker's Images list silently omits every picture that arrived through a
-  //: note rather than through an upload.
+  //: Images reach both tables, each row marked with the one it came from.
+  //: **The two tables number their rows separately**, so an id alone is not a
+  //: picture: a note's picture (an Attachment) was pushed onto the images sent
+  //: as `image_media_ids` and the server read that id as a different upload,
+  //: and ticking one row lit every row in the other table with the same id.
+  //: A note's picture now travels as the file it is (`file_ids`).
   if (source === "images") {
     const attachments = await apiPagedList("/files/gallery", 200).catch(() => []);
     list = [
-      ...list,
-      ...(Array.isArray(attachments) ? attachments : []).filter((row) =>
-        (row.mime || "").startsWith("image/")
-      ),
+      ...list
+        .filter((row) => NOTE_PICKER_IMAGE_EXT.test(row.original_name || row.url || ""))
+        .map((row) => ({ ...row, store: "media" })),
+      ...(Array.isArray(attachments) ? attachments : [])
+        .filter((row) => (row.mime || "").startsWith("image/"))
+        .map((row) => ({ ...row, store: "file" })),
     ];
   }
   notePickerCache[source] = list;
-  return notePickerCache[source];
+  return list;
 }
 
-//: One row's identity, label and "is it attached" test, per source. Written as
-//: a table rather than four branches inside the renderer because the renderer
-//: is the same list either way -- a checkbox, a label and a chip -- and four
-//: copies of it is how the four drift apart.
+//: "In Weekly review", or "In Weekly review and 2 more": where a file or a
+//: picture is used, which places it better than a generated filename does.
+function notePickerUsedIn(row) {
+  const used = Array.isArray(row.used_by) ? row.used_by : [];
+  const first = used[0]?.label;
+  if (!first) return "";
+  return used.length > 1 ? `In ${first} and ${used.length - 1} more` : `In ${first}`;
+}
+
+//: One line of facts, the parts that exist joined by a middle dot.
+function notePickerFacts(...parts) {
+  return parts.filter(Boolean).join(" · ");
+}
+
+//: One row's identity, label, icon, meta line and "is it attached" test, per
+//: source. A table rather than five branches in the renderer: the renderer is
+//: the same row for every source, and five copies of it is how they drift.
+//: `meta` returns the nodes of the row's second line; `thumb` (images only)
+//: puts the picture where the others have an icon; `nouns` names the source
+//: in the loading, empty and truncation lines.
 function notePickerShape(source) {
   if (source === "documents") {
     return {
-      id: (row) => row.id,
+      nouns: "documents",
       label: (row) => row.title || "Untitled document",
-      note: () => "Document",
-      search: (row) => `${row.title || ""} ${row.content || ""}`,
+      icon: () => "ph:file-text",
+      meta: (row) => {
+        const when = relativeTime(row.updated_at);
+        return [notePickerFacts(when && `Edited ${when}`, row.words ? `${row.words} word${row.words === 1 ? "" : "s"}` : "")];
+      },
+      search: (row) => `${row.title || ""} ${row.preview || ""}`,
       isOn: (row) => attachedDocuments.some((d) => d.id === row.id),
       add: (row) => attachDocumentToChat(row.id, row.title || "Document"),
       remove: (row) => {
@@ -1031,11 +1031,12 @@ function notePickerShape(source) {
   }
   if (source === "maps") {
     return {
-      id: (row) => row.id,
+      nouns: "mind maps",
       label: (row) => row.title || "Untitled map",
-      //: The count is what the row adds over its title, and it is the reason
-      //: this list comes from `/whiteboard/boards` rather than `allEntries`.
-      note: (row) => mapCountLabel(row),
+      icon: () => "ph:tree-structure",
+      //: The count is what the row adds over its title, and the reason this
+      //: list comes from `/whiteboard/boards` rather than `allEntries`.
+      meta: (row) => [notePickerFacts(mapCountLabel(row), relativeTime(row.updated_at))],
       search: (row) => row.title || "",
       isOn: (row) => attachedBoards.some((b) => b.id === row.id),
       add: (row) => attachBoardToChat(row.id, row.title || "Mind map"),
@@ -1048,9 +1049,16 @@ function notePickerShape(source) {
   }
   if (source === "files") {
     return {
-      id: (row) => row.id,
+      nouns: "files",
       label: (row) => row.original_name || "File",
-      note: (row) => (row.mime || "").split("/").pop() || "file",
+      //: The file's own glyph, by its extension, from the table every other
+      //: file surface reads (`attachmentIconClass`, notes-list.js).
+      icon: (row) => `ph:${(attachmentIconClass(row.url || "", row.original_name || "file") || "ph-file").replace(/^ph-/, "")}`,
+      meta: (row) => [notePickerFacts(
+        ((row.original_name || "").includes(".") ? row.original_name.split(".").pop().toUpperCase() : (row.mime || "").split("/").pop()),
+        row.size_bytes ? formatFileSize(row.size_bytes) : "",
+        notePickerUsedIn(row),
+      )],
       search: (row) => `${row.original_name || ""} ${row.caption || ""}`,
       isOn: (row) => attachedFiles.some((f) => f.id === row.id),
       add: (row) => attachLibraryFile(row.id, row.original_name || "File"),
@@ -1059,268 +1067,374 @@ function notePickerShape(source) {
         renderFileAttachments();
       },
       empty: "No files yet.",
+      upload: true,
+    };
+  }
+  if (source === "images") {
+    const name = (row) => row.original_name || row.filename || "Image";
+    return {
+      nouns: "images",
+      grid: true,
+      label: name,
+      //: The picture itself, token-gated through `mediaSrc` (an `<img src>`
+      //: cannot send the auth header). An Attachment's url is `/files/{id}`.
+      thumb: (row) => mediaSrc(row.url || `/media/${row.filename}`),
+      //: A caption is a sentence about the picture, which a camera's filename
+      //: is not; failing one, where it is used; failing both, the name.
+      meta: (row) => [row.caption || notePickerUsedIn(row) || name(row)],
+      search: (row) => `${name(row)} ${row.caption || ""} ${notePickerUsedIn(row)}`,
+      isOn: (row) =>
+        row.store === "file"
+          ? attachedFiles.some((f) => f.id === row.id)
+          : attachedImages.some((i) => i.id === row.id),
+      //: A library picture is attached by id, with no staging and no object
+      //: URL: the bytes are already on the server.
+      add: (row) => {
+        if (row.store === "file") return attachLibraryFile(row.id, name(row));
+        if (attachedImages.length >= 4) return false;
+        attachedImages.push({ id: row.id, url: row.url || `/media/${row.filename}`, name: name(row) });
+        renderImageAttachments();
+        return true;
+      },
+      remove: (row) => {
+        if (row.store === "file") {
+          attachedFiles = attachedFiles.filter((f) => f.id !== row.id);
+          renderFileAttachments();
+          return;
+        }
+        attachedImages = attachedImages.filter((i) => i.id !== row.id);
+        renderImageAttachments();
+      },
+      empty: "No images yet.",
+      upload: true,
     };
   }
   return {
-    id: (row) => row.id,
-    label: (row) => row.filename || row.original_name || "Image",
-    //: **No chip at all on an image row.** It used to read "captioned" or
-    //: "image", which was the only fact on the row besides a generated
-    //: filename and answered a question nobody asks; now that the caption
-    //: itself is on the row (`caption` below) a badge announcing one exists is
-    //: noise. The obvious replacement, the kind of file the way the Files
-    //: source chips it, would print "png" seventeen times down a list whose
-    //: every row already ends in `.png`. The renderer drops an empty chip
-    //: rather than drawing a pill with nothing in it.
-    note: () => "",
-    //: The picture itself, token-gated: an `<img src>` cannot send the auth
-    //: header, and `mediaSrc` is how every other image surface in the app
-    //: (the Library gallery, the OCR rail, a note's own thumbnails) puts a
-    //: `/media/…` or `/files/{id}` url on an element. A `MediaUpload` row
-    //: carries its url; an `Attachment` row's url is `/files/{id}`, which is
-    //: why this reads `row.url` first and only falls back to the name.
-    thumb: (row) => mediaSrc(row.url || `/media/${row.filename}`),
-    //: The second line of the row, and the reason this source has one at all:
-    //: a caption is a sentence about the picture, which is exactly what a
-    //: filename like `WallpaperEngineOverride_randomODWVLK.jpg` is not. An
-    //: uncaptioned image falls back to where it is used, which for a picture
-    //: that arrived on a note is often the better identifier of the two ("in
-    //: Weekly review" places it; "screenshot_20260114_113052.png" does not),
-    //: and `used_by` is already on both of the row shapes this source merges.
-    //: Failing both, the renderer says so rather than leaving the line out, so
-    //: every row in the list stays one height.
-    caption: (row) => {
-      if (row.caption) return row.caption;
-      const used = Array.isArray(row.used_by) ? row.used_by : [];
-      const first = used[0]?.label;
-      if (!first) return "";
-      return used.length > 1 ? `In ${first} and ${used.length - 1} more` : `In ${first}`;
+    nouns: "notes",
+    label: (entry) => noteLabel(entry, 70),
+    icon: () => "ph:note",
+    //: The category is a dot in its own colour and quiet text (the Library
+    //: card's shape, INBOX 467), never a filled badge; `paintCategoryDot` is
+    //: the one place a category's colour is read.
+    meta: (entry) => {
+      const cat = document.createElement("span");
+      cat.className = "note-picker-category";
+      cat.textContent = entry.category || "Unfiled";
+      if (typeof paintCategoryDot === "function") paintCategoryDot(cat, entry.category);
+      const when = relativeTime(entry.updated_at || entry.created_at);
+      return when ? [cat, ` · ${when}`] : [cat];
     },
-    search: (row) => `${row.filename || ""} ${row.caption || ""}`,
-    isOn: (row) => attachedImages.some((i) => i.id === row.id),
-    //: An already-uploaded image is attached by *id*, with no staging step and
-    //: no object URL: the bytes are already on the server, which is the whole
-    //: difference between this and dropping a photo on the composer.
-    add: (row) => {
-      if (attachedImages.length >= 4) return false;
-      attachedImages.push({
-        id: row.id,
-        url: row.url || `/media/${row.filename}`,
-        name: row.filename || "Image",
-      });
-      renderImageAttachments();
-      return true;
+    search: (entry) => `${entry.content} ${(entry.tags || []).join(" ")} ${entry.category}`,
+    isOn: (entry) => attachedNoteIds.includes(entry.id),
+    add: (entry) => {
+      if (!attachedNoteIds.includes(entry.id)) attachedNoteIds.push(entry.id);
+      renderAttachments();
     },
-    remove: (row) => {
-      attachedImages = attachedImages.filter((i) => i.id !== row.id);
-      renderImageAttachments();
+    remove: (entry) => {
+      attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
+      renderAttachments();
     },
-    empty: "No images yet.",
+    empty: "No notes yet.",
   };
 }
 
+//: How many rows one source draws. Search reaches the rest, and the list says
+//: so rather than ending as if that were everything.
+const NOTE_PICKER_LIMIT = 60;
+
+//: **One renderer for every source** (INBOX 485, the owner: "that whole panel
+//: needs to be better redesigned"). A row is a leading tile (the source's
+//: icon, the file's own glyph, or the picture), the name over one muted line
+//: of facts, and a check at the right edge that fills when the row is on;
+//: the real checkbox inside is visually hidden, so Space toggles it and a
+//: screen reader hears a checkbox. Images are a grid of the pictures, since a
+//: picture is what tells two of them apart. The list is one tab stop and the
+//: arrows walk it (`notePickerKeydown`).
 async function renderNotePickerList() {
-  const query = $("note-picker-search").value.trim().toLowerCase();
+  const search = $("note-picker-search");
+  const query = search.value.trim().toLowerCase();
   const list = $("note-picker-list");
-  if (notePickerSource !== "notes") {
-    await renderNotePickerOtherSource(query, list);
-    return;
-  }
-  list.replaceChildren();
-
-  // Attached notes stay at the top even when the search wouldn't match them,
-  // so ticking one never makes it vanish from under the pointer.
-  const matches = allEntries.filter((entry) => {
-    if (attachedNoteIds.includes(entry.id)) return true;
-    if (!query) return true;
-    const haystack = `${entry.content} ${(entry.tags || []).join(" ")} ${entry.category}`;
-    return haystack.toLowerCase().includes(query);
-  });
-  matches.sort((a, b) => {
-    const aSel = attachedNoteIds.includes(a.id) ? 0 : 1;
-    const bSel = attachedNoteIds.includes(b.id) ? 0 : 1;
-    return aSel - bSel;
-  });
-
-  if (!matches.length) {
-    const empty = document.createElement("li");
-    empty.className = "muted note-picker-empty";
-    empty.textContent = query ? "No notes match that." : "No notes yet.";
-    list.appendChild(empty);
-  }
-
-  for (const entry of matches.slice(0, 50)) {
-    const li = document.createElement("li");
-    const label = document.createElement("label");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = attachedNoteIds.includes(entry.id);
-    box.addEventListener("change", () => {
-      if (box.checked) {
-        if (!attachedNoteIds.includes(entry.id)) attachedNoteIds.push(entry.id);
-      } else {
-        attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
-      }
-      renderAttachments();
-      updateNotePickerCount();
-    });
-    const text = document.createElement("span");
-    text.className = "note-picker-text";
-    text.textContent = noteLabel(entry, 70);
-    //: The category is a dot and quiet text on the row's second line (the
-    //: Library card's own shape, `.library-card-category`), not a filled
-    //: badge on the first: INBOX 467, "need[s] a redesign to be consistent
-    //: with the others". `paintCategoryDot` is the one place a category's
-    //: colour is read, so a colour the person chose shows here too.
-    const cat = document.createElement("span");
-    cat.className = "note-picker-category";
-    cat.textContent = entry.category;
-    if (typeof paintCategoryDot === "function") paintCategoryDot(cat, entry.category);
-    label.className = "note-picker-row";
-    label.append(box, notePickerLines(text, cat));
-    li.appendChild(label);
-    list.appendChild(li);
-  }
-  updateNotePickerCount();
-}
-
-// A row's text column: the name over one line of what it is. The second line
-// is optional only for a row with nothing to say; every source in the picker
-// has something, so the rows stay one height.
-function notePickerLines(text, meta) {
-  const lines = document.createElement("span");
-  lines.className = "note-picker-lines";
-  lines.append(text);
-  if (meta) {
-    meta.classList.add("note-picker-meta");
-    lines.append(meta);
-  }
-  return lines;
-}
-
-async function renderNotePickerOtherSource(query, list) {
   const source = notePickerSource;
   const shape = notePickerShape(source);
-  const rows = (await notePickerRows(source)) || [];
+  list.classList.toggle("is-grid", Boolean(shape.grid));
+  list.setAttribute("aria-label", `Your ${shape.nouns}`);
+  if (source !== "notes" && !notePickerCache[source]) {
+    const wait = document.createElement("li");
+    wait.className = "note-picker-state";
+    setLabel(wait, `ph:spin Loading your ${shape.nouns}…`);
+    list.replaceChildren(wait);
+  }
+  const rows = await notePickerRows(source);
   // The source can have been switched while the fetch was in flight.
   if (notePickerSource !== source) return;
   list.replaceChildren();
+  if (rows == null) {
+    notePickerEmpty(list, `Couldn't load your ${shape.nouns}.`, {
+      label: "ph:arrow-clockwise Try again",
+      run: () => renderNotePickerList(),
+    });
+    updateNotePickerCount();
+    return;
+  }
+  // Attached rows stay on top even when the search would not match them, so
+  // ticking one never makes it vanish from under the pointer.
   const matches = rows.filter(
     (row) => shape.isOn(row) || !query || shape.search(row).toLowerCase().includes(query)
   );
   matches.sort((a, b) => (shape.isOn(a) ? 0 : 1) - (shape.isOn(b) ? 0 : 1));
   if (!matches.length) {
-    const empty = document.createElement("li");
-    empty.className = "muted note-picker-empty";
-    empty.textContent = query ? "Nothing matches that." : shape.empty;
-    list.appendChild(empty);
-  }
-  for (const row of matches.slice(0, 50)) {
-    const li = document.createElement("li");
-    const label = document.createElement("label");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = shape.isOn(row);
-    box.addEventListener("change", () => {
-      if (box.checked) {
-        // Refused rather than silently dropped: the caps exist because four
-        // whole files is already more than most local models can hold, and a
-        // tick that comes straight back off with no explanation reads as a
-        // broken checkbox.
-        if (shape.add(row) === false) {
-          box.checked = false;
-          toast("That's as many as one message can carry.", true);
-        }
-      } else {
-        shape.remove(row);
-      }
-      updateNotePickerCount();
-    });
-    const text = document.createElement("span");
-    text.className = "note-picker-text";
-    text.textContent = shape.label(row);
-    const kind = document.createElement("span");
-    kind.className = "note-picker-kind";
-    kind.textContent = shape.note(row);
-    label.className = "note-picker-row";
-    //: **A row that shows the thing, for the sources where the name is not the
-    //: thing.** Reported with a screenshot of this list's Images tab: "images
-    //: just show as their names but the user might not be able to tell what
-    //: those images are from their names so they need to be rendered in some
-    //: way". A camera or a wallpaper tool names a file for its own reasons, so
-    //: five rows of `…_randomODWVLK.jpg` are five rows you cannot choose
-    //: between.
-    //:
-    //: Offered by the shape table rather than branched on the source here, the
-    //: same reason that table exists: `thumb` and `caption` are optional, and a
-    //: source that has neither (a note, a document, a map) renders exactly the
-    //: single-line row it rendered before. The `<img>` is the app's ordinary
-    //: thumbnail machinery, a `mediaSrc`-signed url on a lazily loaded element,
-    //: not a second way of showing a picture.
-    const thumbUrl = shape.thumb?.(row);
-    if (thumbUrl) {
-      const thumb = document.createElement("span");
-      thumb.className = "note-picker-thumb";
-      const img = document.createElement("img");
-      //: Empty alt, not the filename: the name is already the row's own text
-      //: one element away, and a screen reader reading it twice per row is
-      //: worse than the picture being announced at all. The picture is
-      //: decoration *of that label*.
-      img.alt = "";
-      img.loading = "lazy";
-      //: A file that has been deleted out from under the row leaves the frame
-      //: rather than drawing the browser's torn-page glyph inside the list: the
-      //: frame keeps the rows one height, which is the whole reason it is a
-      //: wrapper and not a bare `<img>`.
-      img.addEventListener("error", () => {
-        img.remove();
-        thumb.classList.add("is-missing");
+    if (query) {
+      notePickerEmpty(list, `Nothing in your ${shape.nouns} matches “${search.value.trim()}”.`, {
+        label: "ph:x Clear search",
+        run: () => {
+          search.value = "";
+          renderNotePickerList();
+          search.focus();
+        },
       });
-      img.src = thumbUrl;
-      thumb.appendChild(img);
-      label.append(box, thumb);
     } else {
-      label.append(box);
+      notePickerEmpty(list, shape.empty, shape.upload
+        ? { label: "ph:upload-simple Upload one", run: () => $("attach-image")?.click() }
+        : null);
     }
-    const caption = shape.caption?.(row);
-    if (caption !== undefined) {
-      //: The caption is the row's second line, under the name and not under
-      //: the checkbox.
-      const cap = document.createElement("span");
-      cap.className = "note-picker-caption";
-      //: An uncaptioned image says so instead of collapsing to a one-line row:
-      //: the list is scanned down the left edge, and rows of two different
-      //: heights break that scan. It is also true, and this app can write one
-      //: (the Library's caption action), so it reads as a thing to do rather
-      //: than as missing data.
-      cap.textContent = caption || "No caption yet";
-      cap.classList.toggle("is-empty", !caption);
-      if (caption) cap.title = caption;
-      label.append(notePickerLines(text, cap));
-    } else {
-      //: Every row is two lines, so the list scans down one left edge: a
-      //: source with no caption puts its one-word fact (Document, pdf, "12
-      //: nodes") on the second line as quiet text, never a filled badge. A
-      //: source with neither (Images with no fact) has the caption branch.
-      label.append(notePickerLines(text, kind.textContent ? kind : null));
-    }
-    li.appendChild(label);
-    list.appendChild(li);
   }
+  for (const row of matches.slice(0, NOTE_PICKER_LIMIT)) list.appendChild(notePickerRow(shape, row));
+  if (matches.length > NOTE_PICKER_LIMIT) {
+    const more = document.createElement("li");
+    more.className = "note-picker-state note-picker-more";
+    more.textContent = `Showing ${NOTE_PICKER_LIMIT} of ${matches.length}. Search to find the rest.`;
+    list.appendChild(more);
+  }
+  notePickerRoving(list, 0);
   updateNotePickerCount();
 }
 
+//: The empty state recipe (`.empty-state`): one sentence and, where there is
+//: one, the one thing to do about it.
+function notePickerEmpty(list, text, action) {
+  const li = document.createElement("li");
+  li.className = "empty-state note-picker-empty";
+  const line = document.createElement("p");
+  line.textContent = text;
+  li.appendChild(line);
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small";
+    setLabel(button, action.label);
+    button.addEventListener("click", action.run);
+    li.appendChild(button);
+  }
+  list.appendChild(li);
+}
+
+function notePickerRow(shape, row) {
+  const li = document.createElement("li");
+  const label = document.createElement("label");
+  label.className = shape.grid ? "note-picker-cell" : "note-picker-row";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.className = "visually-hidden note-picker-box";
+  box.checked = shape.isOn(row);
+  box.addEventListener("change", () => {
+    if (box.checked) {
+      // Refused rather than silently dropped: the caps exist because four
+      // whole files is already more than most local models can hold, and a
+      // tick that comes straight back off reads as a broken control.
+      if (shape.add(row) === false) {
+        box.checked = false;
+        toast("That's as many as one message can carry.", true);
+      }
+    } else {
+      shape.remove(row);
+    }
+    updateNotePickerCount();
+  });
+  const name = document.createElement("span");
+  name.className = "note-picker-text";
+  name.textContent = shape.label(row);
+  const meta = document.createElement("span");
+  meta.className = "note-picker-meta";
+  meta.append(...shape.meta(row));
+  const lines = document.createElement("span");
+  lines.className = "note-picker-lines";
+  lines.append(name, meta);
+  const check = document.createElement("span");
+  check.className = "note-picker-check";
+  check.setAttribute("aria-hidden", "true");
+  const tick = document.createElement("i");
+  tick.className = "ph ph-check";
+  check.appendChild(tick);
+  const thumbUrl = shape.thumb?.(row);
+  if (thumbUrl) {
+    //: A picture's cell: the picture is the identifier, so the name is its
+    //: tooltip and the one line under it is the caption (or where it is used).
+    label.title = meta.textContent === name.textContent ? name.textContent : `${name.textContent}: ${meta.textContent}`;
+    lines.classList.add("note-picker-cell-text");
+    label.append(box, notePickerThumb(thumbUrl), check, lines);
+  } else {
+    label.append(box, richPickerTile({ icon: shape.icon(row) }), lines, check);
+  }
+  li.appendChild(label);
+  return li;
+}
+
+//: The picture in a frame that keeps every cell one size: cropped to fill,
+//: lazily loaded, and the app's missing-file glyph (not the browser's torn
+//: page) when the file has gone. Empty alt: the name is the cell's own label.
+function notePickerThumb(url) {
+  const thumb = document.createElement("span");
+  thumb.className = "note-picker-thumb";
+  const img = document.createElement("img");
+  img.alt = "";
+  img.loading = "lazy";
+  img.addEventListener("error", () => {
+    img.remove();
+    thumb.classList.add("is-missing");
+  });
+  img.src = url;
+  thumb.appendChild(img);
+  return thumb;
+}
+
+//: The list is one tab stop: the row at `index` takes it, the rest are -1.
+function notePickerRoving(list, index) {
+  const boxes = [...list.querySelectorAll(".note-picker-box")];
+  boxes.forEach((box, i) => {
+    box.tabIndex = i === index ? 0 : -1;
+  });
+  return boxes;
+}
+
+//: How many cells one row of the image grid holds, read from the layout
+//: rather than assumed, since the column count follows the panel's width.
+function notePickerColumns(list) {
+  if (!list.classList.contains("is-grid")) return 1;
+  const cells = [...list.querySelectorAll(".note-picker-cell")];
+  if (!cells.length) return 1;
+  const top = cells[0].getBoundingClientRect().top;
+  const n = cells.filter((cell) => Math.abs(cell.getBoundingClientRect().top - top) < 2).length;
+  return Math.max(1, n);
+}
+
+//: **The keys** (INBOX 485): ↑ ↓ walk the rows (← → as well in the image
+//: grid, and between the source tabs), Space ticks the row, Enter is Done,
+//: Escape closes, Home and End jump, and a letter typed on a row goes to the
+//: search field. ↓ from the field enters the list; ↑ from its first row
+//: returns.
+function notePickerKeydown(event) {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  const list = $("note-picker-list");
+  const search = $("note-picker-search");
+  const target = event.target;
+  const tab = target.closest?.("#note-picker-sources [data-picker-source]");
+  if (tab && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+    const tabs = [...document.querySelectorAll("#note-picker-sources [data-picker-source]")];
+    const step = event.key === "ArrowRight" ? 1 : -1;
+    const next = tabs[(tabs.indexOf(tab) + step + tabs.length) % tabs.length];
+    event.preventDefault();
+    setNotePickerSource(next.dataset.pickerSource, { focus: "tab" });
+    return;
+  }
+  const boxes = [...list.querySelectorAll(".note-picker-box")];
+  const at = boxes.indexOf(target);
+  if (target === search) {
+    if (event.key === "ArrowDown" && boxes.length) {
+      event.preventDefault();
+      notePickerRoving(list, 0);
+      boxes[0].focus();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      $("note-picker-done").click();
+    }
+    return;
+  }
+  if (at < 0) return;
+  const cols = notePickerColumns(list);
+  const grid = cols > 1 || list.classList.contains("is-grid");
+  let to = null;
+  if (event.key === "ArrowDown") to = Math.min(boxes.length - 1, at + cols);
+  else if (event.key === "ArrowUp") to = at - cols;
+  else if (grid && event.key === "ArrowRight") to = Math.min(boxes.length - 1, at + 1);
+  else if (grid && event.key === "ArrowLeft") to = Math.max(0, at - 1);
+  else if (event.key === "Home") to = 0;
+  else if (event.key === "End") to = boxes.length - 1;
+  else if (event.key === "Enter") {
+    event.preventDefault();
+    $("note-picker-done").click();
+    return;
+  } else if (event.key.length === 1 && event.key !== " ") {
+    search.focus();
+    return;
+  }
+  if (to === null) return;
+  event.preventDefault();
+  if (to < 0) {
+    search.focus();
+    return;
+  }
+  notePickerRoving(list, to);
+  boxes[to].focus();
+  boxes[to].closest("li")?.scrollIntoView({ block: "nearest" });
+}
+
+//: Switching source: the tab, the field's hint, and the list. The search is
+//: cleared, since "cover" typed against notes means nothing against a list of
+//: filenames, and a picker that opens on Files with a stale query and no rows
+//: reads as an empty library.
+function setNotePickerSource(source, { focus = "search" } = {}) {
+  notePickerSource = source;
+  for (const button of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
+    const on = button.dataset.pickerSource === source;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-selected", String(on));
+    button.tabIndex = on ? 0 : -1;
+    if (on && focus === "tab") button.focus();
+  }
+  const search = $("note-picker-search");
+  search.value = "";
+  search.placeholder = `Search your ${notePickerShape(source).nouns}…`;
+  renderNotePickerList();
+  if (focus === "search") search.focus();
+}
+
 function updateNotePickerCount() {
-  // Every source, not just notes: the panel is one picker over four stores
-  // now, and a count that only ever mentioned notes would say "Nothing
-  // attached yet" with three files ticked in front of you.
-  const parts = [];
-  if (attachedNoteIds.length) parts.push(`${attachedNoteIds.length} note${attachedNoteIds.length === 1 ? "" : "s"}`);
-  if (attachedDocuments.length) parts.push(`${attachedDocuments.length} document${attachedDocuments.length === 1 ? "" : "s"}`);
-  if (attachedFiles.length) parts.push(`${attachedFiles.length} file${attachedFiles.length === 1 ? "" : "s"}`);
-  if (attachedImages.length) parts.push(`${attachedImages.length} image${attachedImages.length === 1 ? "" : "s"}`);
-  if (attachedBoards.length) parts.push(`${attachedBoards.length} mind map${attachedBoards.length === 1 ? "" : "s"}`);
+  // Every store, not just notes: a count that only ever mentioned notes would
+  // say "Nothing attached yet" with three files ticked in front of you.
+  const counts = {
+    notes: attachedNoteIds.length,
+    documents: attachedDocuments.length,
+    files: attachedFiles.length,
+    images: attachedImages.length,
+    maps: attachedBoards.length,
+  };
+  const words = { notes: "note", documents: "document", files: "file", images: "image", maps: "mind map" };
+  const parts = Object.entries(counts)
+    .filter(([, n]) => n)
+    .map(([key, n]) => `${n} ${words[key]}${n === 1 ? "" : "s"}`);
   $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
+  const clear = $("note-picker-clear");
+  clear.disabled = !parts.length;
+  clear.title = parts.length ? "Take everything off this message" : "Nothing is attached yet";
+  //: A count on each source's tab, so what is held in the other four is
+  //: visible from this one without walking them.
+  for (const button of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
+    let badge = button.querySelector(".note-picker-tab-count");
+    const n = counts[button.dataset.pickerSource] || 0;
+    if (!n) {
+      badge?.remove();
+      button.removeAttribute("aria-label");
+      continue;
+    }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "note-picker-tab-count";
+      badge.setAttribute("aria-hidden", "true");
+      button.appendChild(badge);
+    }
+    badge.textContent = String(n);
+    button.setAttribute("aria-label", `${button.firstChild.textContent.trim()}, ${n} attached`);
+  }
 }
 
 // **On a phone the panel is a sheet**, the same fix `openChatDockMore`
@@ -1336,6 +1450,7 @@ let notePickerSheetClose = null;
 
 function openNotePicker() {
   const panel = $("note-picker-panel");
+  for (const key of Object.keys(notePickerCache)) notePickerCache[key] = null;
   panel.classList.remove("hidden");
   $("attach-note").setAttribute("aria-expanded", "true");
   renderNotePickerList();
@@ -1748,61 +1863,25 @@ async function sendChatMessage(preset, opts = {}) {
   const pendingLine = progressLine("Thinking…", { persona: sentPersona, words: true });
   pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
-  // **The placeholder trails the work instead of vanishing at the first
-  // event.** It used to `.remove()` itself the moment anything arrived, 
-  // including `meta`, which this app emits almost immediately, so on a turn
-  // that then spent eleven seconds thinking there was nothing left moving
-  // anywhere in the bubble. Moving it to the end of the steps list keeps one
-  // live "still working" line under whatever has happened so far, and the
-  // `finally` that ends the stream is what actually takes it away.
-  //: **The trailing line cannot come back once the turn is over**, and that
-  //: is the whole of this flag.
-  //:
-  //: Reported with two screenshots: *"'writing the answer' gets stuck below
-  //: the message once finished"*, including on a bubble whose own timer had
-  //: stopped, so the turn had genuinely ended. `clearPending` *appends* the
-  //: node, and appending a node that has already been removed **puts it
-  //: back**. The `finally` at the end of the stream removes it; any callback
-  //: still queued behind that, a last answer delta, a trailing tool event , 
-  //: then re-attached it, with nothing left to take it down a second time.
-  //:
-  //: A flag rather than a re-check of `pending.isConnected`: the point is
-  //: that the turn is over, not that the node happens to be detached right
-  //: now, and saying so is what stops the next person re-introducing it.
+  // The placeholder trails the work rather than vanishing at the first event,
+  // so a turn that thinks for a while still shows one live line.
+  //: `turnEnded`: `clearPending` appends, and appending a removed node puts it
+  //: back, so a late delta after `finally` re-attached "Writing the answer"
+  //: under a finished turn. The flag says the turn is over.
   let turnEnded = false;
   const clearPending = () => {
     if (turnEnded) return;
-    //: **Only when it is not already last**, and that guard is a bug fix, not
-    //: a micro-optimisation.
-    //:
-    //: Reported: *"while generating the output, the 3 dot animation speeds up
-    //: and freezes."* `onAnswer` calls this on **every streamed delta**, tens
-    //: of times a second, and `appendChild` on a node that is already the
-    //: last child still *removes and re-inserts* it. Blink restarts every CSS
-    //: animation in a re-inserted subtree, so the three dots were being reset
-    //: to frame zero on every token: they never got far enough through their
-    //: 1.4s cycle to look like a cycle, which reads as a stutter that speeds
-    //: up with the token rate and stalls whenever the stream pauses.
-    //:
-    //: Nothing else changes: the node still trails the steps, because the
-    //: only case that actually needs a move is a *new* step having been
-    //: appended after it.
+    //: Only when not already last: `onAnswer` calls this per delta, and
+    //: re-appending the last child restarts its CSS animation, which froze
+    //: the three dots.
     if (stepsHolder.lastElementChild === pending) return;
     stepsHolder.appendChild(pending);
   };
   // Every string this is given comes from an event that really happened, 
   // see `progressLine` on why it must never invent a stage.
   const say = (text) => pendingLine.setStatus?.(text);
-  //: **The indicator's shape has to change with the stage, not just its
-  //: words.** Reported, with a screenshot: *"it is still the 3-dot animation
-  //: when the model is actively streaming text"*, beside the label "Writing
-  //: the answer…", which is the tell. The label was being updated and the
-  //: animation was not, because `say()` is the only thing this turn ever
-  //: called: `progressLine` has exposed `setPhase` since the writing trace was
-  //: built, and the *ask box* was wired to it (see `onAnswer` there) while the
-  //: chat tab, the surface almost everyone uses, was not. A feature that
-  //: only runs on one of its two call sites is this repo's "never executed"
-  //: failure shape, one branch over.
+  //: The indicator's shape follows the stage, not only its words: the chat
+  //: tab never called `setPhase`, so streaming text still showed three dots.
   const phase = (name) => pendingLine.setPhase?.(name);
   // **The turn is marked as generating for its whole length, not just until
   // the first event.** Reported as "none of the generating animations work",
@@ -1872,52 +1951,16 @@ async function sendChatMessage(preset, opts = {}) {
   if (typeof setAtlasMood === "function") setAtlasMood("thinking");
 
   // --- the turn owns its conversation ----------------------------------------
-  //
-  // Reported live: *"I clicked a suggested next response, then instantly
-  // switched to a different chat and switched back. The latest input message
-  // and the generating bubble disappeared, it still said the model is writing,
-  // but nothing showed."*
-  //
-  // The visible half is the smaller half. `chatConv` is module-level and
-  // **reassigned** (not mutated) by openConversation and newChatConversation,
-  // and every save below used to read it *live*, at each checkpoint and again
-  // when the turn finished, seconds or minutes after the send. So switching
-  // conversations mid-stream did not just wipe the bubbles off the screen
-  // (`replaceChildren`), it silently wrote the finished answer into **whichever
-  // conversation happened to be open when it landed**, appending A's turn to
-  // thread B, or, if the user had pressed "+ New", creating a fresh
-  // conversation out of it. Nothing errored, and the turn really did appear
-  // "later, after switching away and back", because by then it had been saved
-  // somewhere.
-  //
-  // Pinning the object reference fixes both: `convRef` keeps pointing at the
-  // conversation that asked the question no matter what the pane switches to,
-  // and `viewing()` is then the honest test for "is this turn's own
-  // conversation still the one on screen?", the only condition under which
-  // this turn may touch the header, the usage meter, the composer, or the
-  // transcript.
+  // `chatConv` is reassigned by every switch, and saves used to read it live,
+  // so a turn that finished after a switch was written into whichever chat was
+  // open. `convRef` pins the asking conversation; `viewing()` says whether it
+  // is still on screen, the only time this turn may touch the pane.
   const convRef = chatConv;
   const viewing = () => chatConv === convRef;
 
-  // The live nodes, kept rather than abandoned.
-  //
-  // Reported after the first fix: switching away and back left the bubble
-  // gone, the answer appearing only once it had finished, and an empty bubble
-  // in its place. All three are the same cause, `openConversation` rebuilds
-  // the transcript with `replaceChildren()`, so the nodes this turn is
-  // streaming into are detached, and what the reader comes back to is the
-  // thread as the *server* has it: without the unsaved turn, or with the
-  // half-written checkpoint row, which is the empty bubble.
-  //
-  // Holding the elements means coming back can re-attach the very same ones,
-  // still being written into, so the answer continues in front of the reader
-  // instead of arriving all at once at the end.
-  //
-  // Set here, once, and never reassigned by a switch: the earlier version
-  // recorded it inside `releaseChatComposer`, which runs on *every* switch, so
-  // returning to the original chat relabelled the stream as belonging to
-  // whichever thread had just been left. That is why the notice named the
-  // wrong conversation.
+  // The live nodes, kept: `openConversation` rebuilds the transcript, so coming
+  // back re-attaches these same still-streaming elements. Set once here, never
+  // by a switch, or the notice names the wrong conversation.
   chatStreaming = {
     conv: convRef,
     title: $("chat-title").textContent || "that chat",
@@ -2820,53 +2863,16 @@ async function deleteChatTurn(assistantBubble) {
 }
 
 // --- leaving a conversation while it is still answering ------------------------
-//
-// The stream is pinned to the conversation that started it (see `convRef` in
-// sendChatMessage), so switching away no longer misfiles the answer. What is
-// left is the composer, which is shared: it was disabled with Stop showing for
-// a turn that is no longer on screen, and the conversation being switched *to*
-// inherited that state: the reported *"it still said the model is writing, but
-// nothing showed"*.
-//
-// So the composer is handed back to whatever is on screen now, while the stream
-// keeps running underneath. Deliberately NOT an abort: the reader asked a
-// question and is owed the answer, and it will be saved to the thread that
-// asked it and appear there. Saying so once is the difference between a
-// background job and a lost message.
-//
-// `chatStreaming` below holds the live nodes as well as the identity, because
-// the pane can be switched back long before the turn finishes, and the useful
-// thing to do then is put the same still-streaming elements back, not describe
-// them.
-//: The turn currently being streamed, if any: which conversation it belongs
-//: to, that conversation's title *at the time it was sent*, and the live DOM
-//: nodes it is being written into. Set once in sendChatMessage and cleared
-//: when the stream ends, never reassigned by a switch, which is what made an
-//: earlier version name the wrong conversation.
+// The composer is handed back to whatever is on screen while the stream keeps
+// running (not an abort: the answer is saved to the thread that asked it).
+//: The streaming turn: its conversation, that conversation's title when sent,
+//: and the live nodes. Set once in sendChatMessage, cleared when it ends.
 let chatStreaming = null;
 
 // --- how long this answer has been coming --------------------------------------
-//
-// Asked for directly: "can there be an active timer on responses in chatg
-// messages as well??" The finished time was already in each message's metadata
-// line; what was missing was the *live* one, and that is the one that matters
-//, a local model on a long question can be silent for a minute, and "The
-// model is writing…" is equally true at two seconds and at two minutes.
-//
-// Ticked from a timer rather than from stream events on purpose: the seconds
-// have to keep moving while the model is thinking and sending nothing, which
-// is exactly the stretch that makes someone wonder if it has hung.
-//
-// Where it is drawn changed after a second report: *"the time of response
-// stays below the chat input bar and doesnt disappear, I want the timer to
-// appear on the chat bubble while it is responding until the response is
-// finished."* Both halves are the same mistake, the counter lived in the
-// composer, which is not where the answer is being written and is not
-// unmounted when the answer ends, so it sat under the input box afterwards
-// reading as the age of something that had already arrived. It now rides in
-// the bubble it is timing and is removed when that bubble is finished; the
-// metadata line under the answer keeps the final duration permanently, so
-// nothing is lost by taking the live one away.
+// ("can there be an active timer on responses"): ticked by a timer so it moves
+// while the model is silent, and drawn in the bubble it times, removed when
+// that bubble finishes; the metadata line keeps the final duration.
 let chatTimerInterval = null;
 let chatTimerStartedAt = 0;
 //: The live counter's node, mounted inside the assistant bubble being

@@ -2129,9 +2129,17 @@ header#top-bar,
    and becomes the sheet's plain content; its own `.dialog-head` is hidden
    by the JS that moves it in, the sheet's head already carries a title and
    a Close. */
+/* One height for every source here too: a sheet sized to its content jumped
+   by a third between Notes and Maps. */
+.sheet-card.attach-card {
+  height: 66dvh;
+}
+
 .attach-card > #note-picker-panel {
   position: static;
+  flex: 1 1 auto;
   width: auto;
+  height: auto;
   max-height: none;
   /* The card's own `max-height: 66dvh` bounds the sheet; without this a
      nested flex column defaults to `min-height: auto`, which sizes to its

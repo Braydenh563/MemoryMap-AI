@@ -3408,6 +3408,48 @@ def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
     assert "note-picker-category" in js and "paintCategoryDot(cat, entry.category)" in js
 
 
+def test_the_search_field_input_beats_the_global_field_rule() -> None:
+    """INBOX 485, the owner: "there is an overlapping textbox??". The input
+    inside a `.search-field` well turned its own box off with one class
+    (0,1,0), which lost to the global `input[type="search"]` rule (0,1,1)
+    whenever the field was not focused: a 42px bordered box drawn 5px above
+    the 32px well. The reset is two classes, for rest, hover and focus."""
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rules = [(sel, body) for sel, body in _rules(css) if "search-field-input" in sel]
+    selectors = [sel for sel, _ in rules]
+    reset = next(sel for sel, body in rules if "border: 0 none" in body)
+    for state in ("", ":hover", ":focus"):
+        assert f".search-field > .search-field-input{state}" in reset, f"the reset misses {state or 'rest'}"
+    assert not any(re.fullmatch(r"\.search-field-input(:\w+)?", part.strip()) for sel in selectors for part in sel.split(",")), (
+        "a one-class `.search-field-input` rule loses to `input[type=search]`; write `.search-field > .search-field-input`"
+    )
+
+
+def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
+    """INBOX 485, the owner: "that whole panel needs to be better redesigned".
+    Every source draws its rows through `notePickerRow` (a leading tile or the
+    picture, the name over one muted line, a check at the right, the real
+    checkbox visually hidden), pictures are a grid, and the keys walk it:
+    arrows, Home and End, Enter is Done, the tabs' arrows switch source."""
+    js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    render = _function_body(js, "renderNotePickerList")
+    assert "notePickerRow(shape, row)" in render and "renderNotePickerOtherSource" not in js
+    row = _function_body(js, "notePickerRow")
+    assert '"visually-hidden note-picker-box"' in row and "richPickerTile(" in row and "note-picker-check" in row
+    assert "grid: true" in _function_body(js, "notePickerShape")
+    keys = _function_body(js, "notePickerKeydown")
+    for key in ("ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "Enter"):
+        assert f'"{key}"' in keys, f"the Attach panel lost its {key}"
+    wiring = (ROOT / "frontend" / "js" / "wiring.js").read_text(encoding="utf-8")
+    assert "notePickerKeydown(event)" in wiring
+    # The two image tables number their rows separately: a note's picture is
+    # sent as a file, never as a media upload id.
+    shape = _function_body(js, "notePickerShape")
+    assert 'row.store === "file") return attachLibraryFile(' in shape
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'data-help-for="note-picker-help"' in html and 'id="note-picker-help"' in html
+
+
 def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:
     """The dim behind a dialog is `var(--scrim)`. It was four values (a literal
     `rgba(10, 12, 18, 0.45)` on the 26 modal dialogs, `rgba(10, 12, 24, 0.45)`

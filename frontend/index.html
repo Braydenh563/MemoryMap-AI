@@ -2464,10 +2464,22 @@ Link to another note with [[its first few words]]."></textarea>
                      click-away, or Done three controls later. -->
                 <div class="dialog-head">
                   <h2 class="dialog-head-title"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Attach</h2>
+                  <button type="button" class="icon-only ghost small dialog-head-btn"
+                    data-help-for="note-picker-help" aria-controls="note-picker-help"
+                    aria-expanded="false" title="About attaching" aria-label="About attaching">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
                   <span class="dialog-head-actions">
                     <button id="note-picker-close" class="icon-only ghost small dialog-head-btn" type="button"
                       title="Close" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
                   </span>
+                </div>
+                <div class="help-body hidden" id="note-picker-help" role="dialog" aria-label="About attaching">
+                  <p>Tick what the next message should read: notes, documents, files,
+                    pictures or mind maps you already have. The paperclip beside this
+                    button uploads something new instead.</p>
+                  <p>Keys: the arrows move, Space ticks, Enter is Done and Escape closes.
+                    Each tab's count says how many of its kind are attached.</p>
                 </div>
                 <!-- Asked for directly: "I want to be able to attach not just
                      existing notes to a chat for context, but also already
@@ -2478,15 +2490,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <div class="seg seg-compact note-picker-sources" id="note-picker-sources" role="tablist"
                   aria-label="What to attach">
                   <button type="button" role="tab" data-picker-source="notes" class="active" aria-selected="true">Notes</button>
-                  <button type="button" role="tab" data-picker-source="documents" aria-selected="false">Documents</button>
-                  <button type="button" role="tab" data-picker-source="files" aria-selected="false">Files</button>
-                  <button type="button" role="tab" data-picker-source="images" aria-selected="false">Images</button>
+                  <button type="button" role="tab" data-picker-source="documents" aria-selected="false" tabindex="-1">Documents</button>
+                  <button type="button" role="tab" data-picker-source="files" aria-selected="false" tabindex="-1">Files</button>
+                  <button type="button" role="tab" data-picker-source="images" aria-selected="false" tabindex="-1">Images</button>
                   <!-- MINDMAP_PLAN.md §5 item 11. A fifth store, and the only
                        one whose rows do not come from a table of their own:
                        `/whiteboard/boards?type=map` is what carries a map's
                        node count, which is the fact the row adds over its
                        title. -->
-                  <button type="button" role="tab" data-picker-source="maps" aria-selected="false">Maps</button>
+                  <button type="button" role="tab" data-picker-source="maps" aria-selected="false" tabindex="-1">Maps</button>
                 </div>
                 <!-- The Web panel's "the bar is the field" well (DESIGN.md,
                      `.web-search-field`), generalised to a plain class

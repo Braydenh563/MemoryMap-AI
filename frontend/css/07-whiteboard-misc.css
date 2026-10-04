@@ -4972,7 +4972,6 @@ summary:not(.icon-only):not(.icon-button) {
    the ugliest available outcome. A new list that forgets to enrol gets no
    warning, no log and no failing test; it just looks broken. */
 .doc-list-tick,
-.note-picker-list input[type="checkbox"],
 .entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only),
 .reminder-item input[type="checkbox"]:not(.sr-only) {
   appearance: none;
@@ -5007,7 +5006,6 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.note-picker-list input[type="checkbox"]:not(.sr-only):hover,
 .entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover,
 .reminder-item input[type="checkbox"]:not(.sr-only):hover {
   border-color: var(--accent);
@@ -5017,7 +5015,6 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
-.note-picker-list input[type="checkbox"]:checked,
 .entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked {
   background: var(--accent);
@@ -5030,7 +5027,6 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
-.note-picker-list input[type="checkbox"]:checked::after,
 .entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
   content: "";
@@ -13435,103 +13431,6 @@ header#top-bar {
 .wb-object.wb-in-group .wb-resize-handle,
 .wb-object.wb-in-group .wb-rotate-handle {
   display: none;
-}
-
-/* --- The attach picker's picture rows ------------------------------------
-   Reported with a screenshot of the chat composer's attach picker on its
-   Images tab: "images just show as their names but the user might not be able
-   to tell what those images are from their names so they need to be rendered
-   in some way". Five checkboxes beside five generated filenames is a list you
-   cannot choose from, so an image row now carries the picture and its caption
-   (`renderNotePickerOtherSource` in chat-attach.js builds them; the shape table there
-   decides which sources get them).
-
-   Here rather than beside the other `.note-picker-*` rules in
-   04-chat-dock-appearance.css only because that file was being edited in
-   parallel; the picker's checkbox styling already lives in this file for the
-   same kind of reason. If the two ever get tidied back together, these belong
-   with the rest of the panel.
-
-   The whole point of the frame is that the rows stay one height: the thumb is
-   a fixed square with the picture cropped to fill it, and the two text lines
-   together are shorter than it, so a portrait photo, a landscape screenshot
-   and a deleted file all produce the same row. */
-.note-picker-thumb {
-  flex: 0 0 auto;
-  /* 2.5rem, not a spacing step: this is the size of a thing, and it is the
-     height the row is measured by. It matches the two lines of text beside it
-     (a 0.85rem name over a 0.75rem caption) so neither side decides the row's
-     height on its own. */
-  width: 2.5rem;
-  height: 2.5rem;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--divider);
-  background: var(--surface-2);
-  display: grid;
-  place-items: center;
-}
-
-.note-picker-thumb img {
-  width: 100%;
-  height: 100%;
-  /* Cropped, not letterboxed: at this size a fitted image is mostly frame,
-     and what the row needs is the middle of the picture, which is where the
-     subject of a photo or the content of a screenshot is. */
-  object-fit: cover;
-  display: block;
-}
-
-/* The file went away while the row was on screen (the `error` handler in
-   app.js removes the broken `<img>` and marks the frame). An empty frame with
-   the app's own missing-file glyph, not the browser's torn page. */
-.note-picker-thumb.is-missing::after {
-  content: "\f27f"; /* ph-image-broken, the Phosphor glyph the app ships */
-  font-family: Phosphor, sans-serif;
-  color: var(--muted);
-  font-size: var(--text-md);
-}
-
-.note-picker-lines {
-  display: flex;
-  flex-direction: column;
-  /* No gap: two line boxes, and their own line-height is the space between
-     them. A step off the scale here would show up as a row a pixel taller
-     than the thumb beside it. */
-  /* Both of these, or the column refuses to shrink and the chip is pushed off
-     the end of the row instead of the text ellipsising: the same rule the
-     panel head recipe states in DESIGN.md. */
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* The name keeps the size it had as a one-line row; the caption is the
-   supporting line, one step down and muted, so the pair reads in the right
-   order at a glance. */
-.note-picker-lines .note-picker-text {
-  font-size: var(--text-md);
-}
-
-.note-picker-caption {
-  font-size: var(--text-sm);
-  color: var(--muted);
-  /* One line, always: a caption that wrapped to two would make that row taller
-     than its neighbours, which is exactly the scan this change is for. The
-     whole sentence is on the element's `title`. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* "No caption yet" is a placeholder, not a caption: it sits back a step
-   further so a captioned row's second line is visibly the stronger of the two.
-   0.85 and not lower: measured against the panel, --muted at full strength is
-   7.4:1 in light and 7.9:1 in dark, and dimming it to 0.7 takes the light
-   theme to 3.5:1, under AA for text this size. At 0.85 it is 5.0:1 and 6.0:1,
-   and the italic carries most of the difference anyway. */
-.note-picker-caption.is-empty {
-  opacity: 0.85;
-  font-style: italic;
 }
 
 /* **A swept-up shape looks selected.** Reported: "shapes like circles and

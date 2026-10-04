@@ -5,7 +5,7 @@
 //
 //   Select  -> #notes-more-menu : must open the batch bar, mark itself active,
 //              and be returned to its resting state by #batch-cancel.
-//   Trace   -> #graph-view-menu : must set aria-expanded and .is-on.
+//   Trace   -> #graph-options (the gear's panel) : must set aria-expanded and .is-on.
 const {boot}=require('./lib.js');
 (async()=>{
   const {browser,page}=await boot();
@@ -40,13 +40,13 @@ const {boot}=require('./lib.js');
   await page.click('[data-tab="graph"]'); await page.waitForTimeout(1400);
   const g0=await page.evaluate(()=>({
     dockControls: [...document.querySelector('[data-dock-name="graph"]').querySelectorAll('button, input, select, .seg, .select-shell > .select-opener, summary')].filter(e=>e.checkVisibility&&e.checkVisibility()&&!e.closest('.action-menu, .doc-dock-menu-list')&&!(e.parentElement&&e.parentElement.classList.contains('seg'))&&!e.classList.contains('select-native-hidden')&&!e.classList.contains('dock-native-hidden')).length,
-    traceInMenu: !!document.querySelector('#graph-view-menu #graph-trace-toggle'),
+    traceInMenu: !!document.querySelector('#graph-options #graph-trace-toggle'),
   }));
   console.log('graph dock controls:', g0.dockControls, '(including #graph-concept-maps, the identity-zone link) | Trace lives in the menu:', g0.traceInMenu);
-  await openMenu('graph-view-menu');
+  await page.click('#graph-options-toggle'); await page.waitForTimeout(400);
   await page.click('#graph-trace-toggle'); await page.waitForTimeout(700);
   const g1=await page.evaluate(()=>{
-    const d=document.getElementById('graph-view-menu'); if(d) d.open=true;
+    
     const t=document.getElementById('graph-trace-toggle');
     return {expanded:t.getAttribute('aria-expanded'), isOn:t.classList.contains('is-on'), bg:getComputedStyle(t).backgroundColor};
   });

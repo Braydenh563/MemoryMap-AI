@@ -187,7 +187,6 @@ async function run(viewport) {
 // to map yet" empty state.
 const DOCK_MENUS = [
   { tab: 'notes', menu: '#notes-filter-menu' },
-  { tab: 'graph', menu: '#graph-view-menu' },
   { tab: 'timeline', menu: '#timeline-options-menu' },
   { tab: 'reminders', menu: '#reminder-presets-menu' },
   { tab: 'library', menu: '#library-filter-menu' },

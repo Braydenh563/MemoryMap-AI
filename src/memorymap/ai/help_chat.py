@@ -192,7 +192,8 @@ HELP_TOPICS: list[dict] = [
             "Bookmarks (a shelf for websites you visit often), Contents (a "
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
-            "Images gallery."
+            "Images gallery. Each sub-tab's top bar ends with a ? that says "
+            "what it holds."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -886,8 +887,8 @@ HELP_TOPICS.extend(
             "id": "mind-maps",
             "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
             "body": (
-                "Mind maps live in the Library, under Boards and maps; New mind map "
-                "starts one. Tab adds a child, Enter a sibling, and dragging a topic "
+                "Mind maps live in the Library, under Boards and maps; New, then Mind "
+                "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics."
             ),
@@ -1080,8 +1081,9 @@ HELP_TOPICS.extend(
                 "there, hover to spotlight a note's connections, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
                 "notes, and the selection bar can Tag, Link together or make a Mind "
-                "map of them. Trace finds how two notes connect. Display options: "
-                "Unpin all, Gravity and Spread, the Show switches (Similarity, "
+                "map of them. Display options, the gear, opens with View: Layout "
+                "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
+                "two notes connect, and Legend, which hides the key. Then Unpin all, Gravity and Spread, the Show switches (Similarity, "
                 "Entities, Documents, Boards, Hide unlinked, Labels, Curved links, "
                 "Cluster glow, Length by similarity), the similarity Strength "
                 "slider (raise it to keep only the closest matches), a Time filter "
@@ -1163,8 +1165,8 @@ HELP_TOPICS.extend(
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
                 "(for binned items), Delete and Done, and Documents and the gallery "
-                "have bars of their own. New mind map, Generate a map from notes "
-                "and Import an outline sit on Boards and maps; Images takes "
+                "have bars of their own. New (a whiteboard or a mind map), Map from "
+                "notes and Import outline sit on Boards and maps; Images takes "
                 "uploads of pictures and PDFs."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1193,7 +1195,8 @@ HELP_TOPICS.extend(
             "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
-                "tomorrow evening, high priority\") and works out the time and the "
+                "tomorrow evening, high priority\"), then Enter or the wand button "
+                "(Add from this sentence) works out the time and the "
                 "priority. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "

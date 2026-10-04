@@ -10,7 +10,7 @@ const {boot}=require('./lib.js');
   await page.click('[data-target="library-view-whiteboard"]',{timeout:5000}).catch(()=>{});
   await page.waitForTimeout(1300);
   const before=await count();
-  await page.click('#wb-boards-new',{timeout:5000});
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   const shape=await page.evaluate(()=>{
     const card=document.querySelector('.confirm-card');

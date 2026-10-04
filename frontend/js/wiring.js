@@ -1208,6 +1208,7 @@ document.addEventListener("click", (event) => {
   const panel = $("graph-options");
   if (!panel || panel.classList.contains("hidden")) return;
   if (panel.contains(event.target) || $("graph-options-toggle").contains(event.target)) return;
+  if (!event.target.isConnected) return;
   setGraphOptionsOpen(false);
 });
 document.addEventListener("keydown", (event) => {
@@ -1227,9 +1228,11 @@ document.addEventListener("keydown", (event) => {
 // step into to ask one question, not a strip worth drawing on every visit.
 // Closing it does not clear an active trace: the path stays drawn on the map
 // itself, the same as Options' sliders keep their values while hidden.
-$("graph-trace-toggle").addEventListener("click", () =>
-  setTracePanelOpen($("graph-trace").classList.contains("hidden"))
-);
+$("graph-trace-toggle").addEventListener("click", () => {
+  const open = $("graph-trace").classList.contains("hidden");
+  setTracePanelOpen(open);
+  if (open && !graphSheetClose) setGraphOptionsOpen(false);
+});
 // Replaced the permanently-visible "How to use this map" dropdown with this
 // icon: the button's own `title` already covers hover/focus (a real,
 // zero-JS tooltip), and this click handler adds the panel for reading it

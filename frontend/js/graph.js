@@ -5257,8 +5257,8 @@ document.getElementById("graph-options-reset")?.addEventListener("click", graphR
 // map is, then what it shows, then what is saved. The same elements, moved in
 // while it is open and put back on close, so every handler, every id and every
 // saved preference is the one that was already there; nothing about this
-// surface is built twice. Above 600 nothing changes: the gear opens its panel
-// and the two menus are menus.
+// surface is built twice. Above 600 the gear opens its panel and the ⋯ is a
+// menu.
 //
 // The two `<details>` are hidden by the stylesheet below 600 rather than
 // emptied, because what is in them moves and comes back: an opener whose menu
@@ -5273,11 +5273,9 @@ document.getElementById("graph-options-reset")?.addEventListener("click", graphR
 //: would bring an emptied View menu into the sheet under the rows that came
 //: out of it.
 function graphControlsSheetParts() {
-  const viewList = document.querySelector("#graph-view-menu .dock-menu-list");
   const moreList = document.querySelector("#graph-more-menu .dock-menu-list");
   const options = $("graph-options");
   const groups = [];
-  if (viewList) groups.push({ holder: "menu", nodes: [...viewList.children] });
   if (options) groups.push({ holder: "options", nodes: [options] });
   if (moreList) {
     groups.push({

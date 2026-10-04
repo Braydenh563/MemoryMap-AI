@@ -50,7 +50,7 @@ const box = (sel) => (page) => page.evaluate((s) => {
   await page.waitForTimeout(600);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(900);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", `Rail ${Date.now()}`);
   await page.click(".confirm-overlay .confirm-actions button:last-child");

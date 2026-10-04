@@ -1946,12 +1946,12 @@ const REVEAL_TARGETS = {
   // Boards and maps
   "board-new": {
     open: () => revealBoardsGallery(),
-    el: "wb-boards-new",
+    el: "wb-boards-new-menu",
   },
   "board-create": { open: () => createNewBoard(), sel: ".prompt-card", built: "promptDialog", flash: false },
   "map-create": { open: () => createConceptMap(), sel: ".prompt-card", built: "promptDialog", flash: false },
-  "map-keyboard": { open: () => revealBoard(true), el: "whiteboard-container", fallback: "wb-boards-new-map" },
-  "map-templates": { open: () => revealBoard(true), el: "wb-map-templates", fallback: "wb-boards-new-map" },
+  "map-keyboard": { open: () => revealBoard(true), el: "whiteboard-container", fallback: "wb-boards-new-menu" },
+  "map-templates": { open: () => revealBoard(true), el: "wb-map-templates", fallback: "wb-boards-new-menu" },
   //: On a map, where laying the tree out again is one button; on a board
   //: it is a right-click on a note with links, which no row can press.
   "board-arrange": {
@@ -1963,20 +1963,20 @@ const REVEAL_TARGETS = {
       }
     },
     el: "wb-map-tidy",
-    fallback: "wb-boards-new-map",
+    fallback: "wb-boards-new-menu",
   },
   //: Below 720 the overview steps aside for the tools (07-whiteboard-misc.css),
   //: so there the board itself is the landing.
   "board-overview": { open: async () => (await revealBoard()) && wbToggleNavigator(true), el: "wb-navigator", fallback: "whiteboard-container" },
-  "board-find": { open: async () => (await revealBoard()) && wbOpenBoardSearch(), el: "wb-search-bar", fallback: "wb-boards-new" },
-  "board-tools": { open: () => revealBoard(), el: "wb-tools-panel", fallback: "wb-boards-new" },
+  "board-find": { open: async () => (await revealBoard()) && wbOpenBoardSearch(), el: "wb-search-bar", fallback: "wb-boards-new-menu" },
+  "board-tools": { open: () => revealBoard(), el: "wb-tools-panel", fallback: "wb-boards-new-menu" },
   "board-context": { open: () => revealBoard(), el: "wb-context", fallback: "wb-topbar" },
   "board-export": {
     open: async () => (await revealBoard()) && wbExportBoard(),
     sel: ".wb-export-card",
     built: "wbExportBoard",
     flash: false,
-    fallback: "wb-boards-new",
+    fallback: "wb-boards-new-menu",
   },
 
   // Library

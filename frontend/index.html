@@ -3134,8 +3134,8 @@ Link to another note with [[its first few words]]."></textarea>
              identity: the title, and the link to the map's own counterpart
              find: search, Trace, and the two "leave this state" buttons
                           that only appear while a state is on
-             arrange: one View menu (layout, colour, legend, the options
-                          panel) and the saved-views select
+             arrange: none now: layout, colour, size, legend and Trace are the
+                          gear panel's first section (WORLD_CLASS_PLAN 507)
              actions: the one filled control, then refresh · help · more
            Layout and Colour are *views* of the same map and change a few times
            a session, so they live behind one menu; Save/Delete view and Export
@@ -3178,64 +3178,11 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
             <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
           </div>
-          <div class="dock-group dock-arrange">
-            <details class="doc-dock-menu dock-menu" id="graph-view-menu">
-              <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and Trace"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
-              <div class="doc-dock-menu-list dock-menu-list">
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
-                  <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
-                    <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-                    <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-                    <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-                    <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
-                  </div>
-                </div>
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
-                  <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
-                       The legend follows the rule and every legend entry toggles
-                       the notes it names; groups (below, in display options) paint
-                       over whichever rule is on. -->
-                  <select id="graph-colour" class="ghost small" aria-labelledby="graph-colour-label"
-                    title="What the colours mean">
-                    <option value="category">Category</option>
-                    <option value="cluster">Cluster</option>
-                    <option value="kind">Kind</option>
-                    <option value="age">Age</option>
-                    <option value="space">Space</option>
-                    <option value="tag">First tag</option>
-                    <option value="file">Has a file</option>
-                  </select>
-                </div>
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-size-label">Size</span>
-                  <!-- INBOX 430: what a dot's size means. Connections is the
-                       default (a node's lines, the one thing a map shows by
-                       itself); length is the note's words, recency how lately
-                       it was edited, none one size for every note. -->
-                  <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
-                    title="What a note's size means">
-                    <option value="connections">Connections</option>
-                    <option value="length">Length</option>
-                    <option value="recency">Recency</option>
-                    <option value="none">None</option>
-                  </select>
-                </div>
-              <!-- **Moved out of the find zone for the seven-control
-                   ceiling** (docks.md section 2, which names this move and the
-                   decision behind it). Trace is a mode, and this menu already
-                   holds the modes: layout, colour, legend, display options.
-                   Nothing about the handlers changes: app.js and graph.js both
-                   reach it as `$("graph-trace-toggle")`, and the `.is-on`
-                   state it sets is drawn by 08-consistency.css. -->
-              <button id="graph-trace-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
-                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-                <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
-                  title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
-              </div>
-            </details>
-          </div>
+          <!-- No arrange zone: the View menu is the first section of the gear's
+               panel now (WORLD_CLASS_PLAN 507, the dock audit: two doors to
+               one set of view settings on the desktop, and the phone had
+               already folded them into the gear's sheet). A zone a surface
+               does not have simply is not there. -->
           <div class="dock-actions">
             <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
@@ -3357,6 +3304,66 @@ Link to another note with [[its first few words]]."></textarea>
              graph.js, graph-canvas.js and app.js need no wiring. -->
         <div class="graph-options hidden" id="graph-options" role="group"
           aria-label="Map display options">
+          <!-- **The View, first** (WORLD_CLASS_PLAN 507). The menu that held
+               these was a second door to the same settings the gear opens
+               (layout, the colour rule, the size rule, the legend and Trace
+               are all "how the map reads"), and the dock sat at eight controls
+               against the grammar's seven. They are the panel's first section,
+               in the order the phone's sheet already gave them: what the map
+               is, then what it shows, then what is saved. Every id is
+               unchanged, so graph.js, wiring.js and navigation.js reach them
+               as before. Trace is a mode: pressing it closes the panel so the
+               strip it opens is not under it. -->
+          <div class="dock-menu-section graph-view-section" id="graph-view-section"
+            role="group" aria-labelledby="graph-view-label">
+            <span class="muted dock-menu-label" id="graph-view-label">View</span>
+            <div class="graph-option-row">
+              <span id="graph-layout-label">Layout</span>
+              <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
+                <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+                <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+                <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+                <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+              </div>
+            </div>
+            <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
+                 The legend follows the rule and every legend entry toggles
+                 the notes it names; groups (below) paint over whichever rule
+                 is on. -->
+            <div class="graph-option-row">
+              <label for="graph-colour" id="graph-colour-label">Colour</label>
+              <select id="graph-colour" class="ghost small" aria-labelledby="graph-colour-label"
+                title="What the colours mean">
+                <option value="category">Category</option>
+                <option value="cluster">Cluster</option>
+                <option value="kind">Kind</option>
+                <option value="age">Age</option>
+                <option value="space">Space</option>
+                <option value="tag">First tag</option>
+                <option value="file">Has a file</option>
+              </select>
+            </div>
+            <!-- INBOX 430: what a dot's size means. Connections is the
+                 default (a node's lines, the one thing a map shows by
+                 itself); length is the note's words, recency how lately
+                 it was edited, none one size for every note. -->
+            <div class="graph-option-row">
+              <label for="graph-size" id="graph-size-label">Size</label>
+              <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
+                title="What a note's size means">
+                <option value="connections">Connections</option>
+                <option value="length">Length</option>
+                <option value="recency">Recency</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div class="graph-view-tools">
+              <button id="graph-trace-toggle" class="ghost small" type="button" aria-expanded="false"
+                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+              <button id="graph-legend-toggle" class="ghost small" type="button"
+                title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
+            </div>
+          </div>
           <!-- Both sliders feed the force simulation and nothing else, so they
                have no effect under Tree or Radial tree, where positions come
                from the hierarchy. setGraphPhysicsEnabled() disables the whole
@@ -4656,7 +4663,10 @@ Link to another note with [[its first few words]]."></textarea>
              break) so the quick path stays quick. -->
         <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow" aria-label="New reminder in plain words"
           placeholder="Magic add: “Call mum tomorrow evening”"></textarea>
-        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
+        <!-- The wand alone (WORLD_CLASS_PLAN 507): the form below has the
+             card's one worded "Add", so this reads as "add from the sentence"
+             by its name and tooltip, not as a second "Add". -->
+        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -4932,6 +4942,12 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
               <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+              <button type="button" id="library-help-toggle" class="icon-only ghost small graph-help-toggle"
+                data-help-for="library-help" aria-controls="library-help" aria-expanded="false"
+                title="About the library" aria-label="About the library"><i class="ph ph-question" aria-hidden="true"></i></button>
+              <div class="help-body hidden" id="library-help" role="dialog" aria-label="About the library">
+                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once.</p>
+              </div>
               <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
@@ -5058,8 +5074,14 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-actions">
             <button id="library-docs-new" class="small" type="button"
               title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
-            <button id="library-docs-refresh" class="ghost small icon-only" type="button"
+            <button id="library-docs-refresh" class="ghost small icon-only" type="button" data-fold-narrow
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button type="button" id="library-docs-help-toggle" class="icon-only ghost small graph-help-toggle"
+              data-help-for="library-docs-help" aria-controls="library-docs-help" aria-expanded="false"
+              title="About documents" aria-label="About documents"><i class="ph ph-question" aria-hidden="true"></i></button>
+            <div class="help-body hidden" id="library-docs-help" role="dialog" aria-label="About documents">
+              <p>A document is a longer piece of writing with its own editor, outline and history. Open one to keep writing. The property menu narrows the list to documents that carry a given front matter value, and the more menu sets how many show per page.</p>
+            </div>
             <details class="doc-dock-menu dock-menu dock-more" id="library-docs-more-menu">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
@@ -5244,14 +5266,12 @@ Link to another note with [[its first few words]]."></textarea>
                          are the visible filter, the Everything sub-tab's own
                          recipe)
                arrange:  one sort select, one view segment
-               actions:  New board, then New mind map, then refresh and help
+               actions:  New (whiteboard or mind map), then refresh and help
              Ids are unchanged, so whiteboard.js needs no rewiring.
 
-             "New mind map" stays a ghost button in the row rather than moving
-             into a ⋯. It is the second verb, not a second answer to the first,
-             and the comment it carries is the reason: a mind map reachable
-             only by opening the board dialog and changing a control inside it
-             is one nobody finds. One filled control, one quiet one beside it. -->
+             "Mind map" is a row of the New menu, one step from the dock and
+             named in it: a mind map reachable only by opening the board dialog
+             and changing a control inside it is one nobody finds. -->
         <div class="dock" data-dock-name="library-boards" role="toolbar"
           aria-label="Boards and maps controls">
           <div class="dock-identity">
@@ -5297,15 +5317,30 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <div class="dock-actions">
             <!-- At a phone's width the primary keeps its icon and hides its
-                 word (the `.toolbar-word` recipe), and the two actions marked
-                 `data-fold-narrow` move into the ⋯ (`foldDockActions`), so
-                 the title, New board, help and the ⋯ share one row. -->
-            <button id="wb-boards-new" class="small" type="button"
-              title="Start a new board" aria-label="New board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New board</span></button>
-            <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
-                 so this is the same dialog with the Mind map segment already
-                 chosen, not a second creation path. -->
-            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map" data-fold-narrow><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New mind map</span></button>
+                 word (the `.toolbar-word` recipe), and the action marked
+                 `data-fold-narrow` moves into the ⋯ (`foldDockActions`), so
+                 the title, New, help and the ⋯ share one row. -->
+            <!-- **One New, with the two kinds inside** (WORLD_CLASS_PLAN 507,
+                 the dock audit: eight controls at 1440, one over the grammar's
+                 seven). It was a filled New board and a ghost New mind map
+                 side by side; the filled control is now this menu's summary,
+                 which hides its word at a phone's width like every dock
+                 primary (the `.toolbar-word` recipe; its `aria-label` is the
+                 name). A map is a
+                 board with a `type` (MINDMAP_PLAN.md §4 option B), so the two
+                 rows are the same dialog with the Mind map segment already
+                 chosen, not two creation paths. The two rows keep the ids the
+                 buttons had (`wb-boards-new`, `wb-boards-new-map`), so
+                 whiteboard.js, the Library's and the Dashboard's "New board"
+                 and the tour reach them as before. -->
+            <details class="doc-dock-menu dock-menu dock-menu-flip" id="wb-boards-new-menu">
+              <summary class="small dock-menu-primary" title="Start a new whiteboard or mind map" aria-label="New">
+                <i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <button id="wb-boards-new" class="doc-dock-menu-item" type="button" title="Start an empty canvas you arrange by hand"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Whiteboard</button>
+                <button id="wb-boards-new-map" class="doc-dock-menu-item" type="button" title="Start a mind map from one central idea"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
+              </div>
+            </details>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
                  UI at all, so a map written anywhere else could not come in.
@@ -5321,7 +5356,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload" data-fold-narrow><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
-              title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."
+              title="Every board and concept map you have made. Pick one to open it, or start a new whiteboard or mind map from New."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
@@ -5353,7 +5388,7 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
           </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and
@@ -6856,6 +6891,12 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="bookmark-add" class="small" type="button"
             data-empty-action="add-link" title="Save a new bookmark">
             <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
+          <button type="button" id="bookmark-help-toggle" class="icon-only ghost small graph-help-toggle"
+            data-help-for="bookmark-help" aria-controls="bookmark-help" aria-expanded="false"
+            title="About bookmarks" aria-label="About bookmarks"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <div class="help-body hidden" id="bookmark-help" role="dialog" aria-label="About bookmarks">
+            <p>Links to websites you visit often, kept in the notebook instead of the browser. Add one, sort the shelf, and put bookmarks in groups: New group and Manage groups are in the more menu.</p>
+          </div>
           <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">

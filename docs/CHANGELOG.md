@@ -10,6 +10,11 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
+- Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.
+- Library, Documents on a phone: Reload moves into the dock's more menu, so the new ? does not wrap the dock to a second row (114px, as before).
+- Library, Boards and maps: one New button in the top bar with Whiteboard and Mind map inside it, in place of the two create buttons (the sentence-case rows keep the same keyboard keys, the tour and the Guide say where they went).
+- Reminders: the add card has one worded Add. The sentence box's button is now the wand alone, named Add from this sentence.
+- Library: the All, Documents and Bookmarks sub-tabs end their top bar with a ? saying what the sub-tab holds, like Boards and maps, Images and Files already do.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
 - Callouts in the Live view show their kind once: the icon (with a caret, the kind picker) and the title as the line's own text, no ">" or "[!note]" even with the caret on the line, and an empty body says what goes there ("Write the note"). The "/" menu no longer writes a stock question into the body, and the Guide has a Callouts entry.
 - The "m" guide is a command panel: Go to and Do as rows with an icon, the name and the key in one column of key chips, the tab you are on marked, the Close in its head and a hint line at its foot. Every key does what it did.

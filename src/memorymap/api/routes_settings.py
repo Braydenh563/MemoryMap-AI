@@ -838,6 +838,20 @@ _QUIET_PREFERENCE_KEYS = frozenset(
 )
 
 
+#: The audit log is kept for ever and shown in Activity, so a setting's words
+#: go into it only when they are a short plain value. A name, a profile, a
+#: dictionary of the person's words, a whole skill or persona were each copied
+#: in full at every save (the profile was the one exception).
+_PERSONAL_PREFERENCE_KEYS = frozenset({"user_profile", "display_name"})
+
+
+def _preference_detail(key: str, value: object) -> str:
+    plain = isinstance(value, (bool, int, float)) or (isinstance(value, str) and len(value) <= 80)
+    if key in _PERSONAL_PREFERENCE_KEYS or not plain:
+        return f"{key}=…"
+    return f"{key}={value}"
+
+
 #: One window per model, cleaned at the door.
 #:
 #: Written by hand into a number box, so it is exactly the kind of value that
@@ -904,8 +918,7 @@ def update_preferences(
             embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
         if key in _QUIET_PREFERENCE_KEYS:
             continue
-        # Don't copy profile text into the audit log, it's personal.
-        detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
+        detail = _preference_detail(key, value)
         manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
     if changed_keys & _AUTONOMOUS_PREFS:

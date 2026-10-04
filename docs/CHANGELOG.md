@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes filed in the background settle in tens of milliseconds, not 1 to 4 seconds: the embedding of a note-sized text now runs on one torch thread (`MEMORYMAP_EMBED_THREADS` to change it), which was 2.2 s against 79 ms whenever the machine was busy.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.
 - Settings, Appearance, Atlas and faces (INBOX 463 (2)): Assistant avatar picks the face on the assistant's chat replies, the popup agent and the Atlas guide: Atlas (the default) or the app's animated emblem, still under Reduce motion. Open replies change as you choose; other personas keep their own faces.
 - Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.

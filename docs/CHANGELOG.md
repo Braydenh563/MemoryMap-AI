@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Top bar: the space picker wears every dock select's face (the field's inset ground, the 3:1 edge, a 400 label) instead of the tinted, bold quiet-button face that made it louder than the selected tab; Lock and Quit sit past a drawn seam, the status bar's own hairline with 8px either side, where they were 16px from Settings with nothing between. Every item stays 44px on one centre line.
 - Status bar: each glyph meets its word (INBOX 494). Measured by ink at 3x, glyph centre against the label's x-height centre: Ask was 1.83px high, Guide 1.67, the notebook count 1.17, the Ctrl K chip 0.83, reminders 0.67, Find 0.50; now every one within 0.5px, light and dark (`inkalign.js`).
 - Dashboard: arranging the page is its own control (INBOX 488). The dock is the search, Customise and the ⋯: Customise holds View, Widgets, Edit layout, Edit quick access and Reset quick access; the ⋯ keeps Continue, skills, Tools & features and Commands; the Quick access row's own ⋯ is gone, so no menu opens over another menu's button. On a phone Customise is its glyph beside the ⋯. The Guide's dashboard topic says the same.
 - Docks: a zone that wraps onto a line of its own no longer opens that line with the hairline that parts it from the zone before (7 docks at 640, 3 at 768 and 820; now 0), and a line that starts at the dock's edge lines up with the title above it; read from the layout by `markDockLineStarts` (phone-shell.js) without changing any zone's outer width, so no wrap moves (INBOX 479).

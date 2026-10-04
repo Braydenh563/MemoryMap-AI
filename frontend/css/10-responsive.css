@@ -1362,6 +1362,8 @@ header#top-bar,
 
   #top-bar .header-cluster-end {
     margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 }
 

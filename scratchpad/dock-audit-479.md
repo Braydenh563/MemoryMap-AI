@@ -155,6 +155,22 @@ mark moved no wrap): a
     light and dark. From 1024 up only; below it the words are hidden and each
     glyph centres in its own box like Back and Undo.
 
+17. **The top bar** (the owner: "clean up the styling, spacing and alignment
+    etc of the top bar"; `topbar479.js`, new). Every item 44px and on one
+    centre line (31.6px) at 1440, 1024, 820 and 390: alignment was not the
+    fault. Two things were. The space picker was the one control in the bar
+    with a fill: the standalone quiet button's tint, a 600 label and an edge,
+    louder than the selected tab (listed above under things that shout). And
+    Settings to Lock was 16px against 6.4px between every other pair, with
+    nothing drawn: the `.header-divider` the cluster rule's note relies on
+    had left the markup, so Lock and Quit read as drifted rather than grouped.
+    **Fixed**: the picker wears every dock select's face (the field's inset
+    ground, the 3:1 control edge, a 400 label), so it reads as the same kind
+    of thing as the tab strip's inset well beside it; Lock and Quit sit past
+    the status bar's own seam, a hairline with 8px either side; on a phone
+    the seam goes with the buttons it separated. The logo tile is the bar's
+    44px, unchanged.
+
 Checked and consistent (no finding): one control height per dock at every width
 (32px desktop, 44px touch); zone order on every `.dock`; one filled control per
 dock; utilities in refresh, help, more order; the status bar's three zones at
@@ -165,8 +181,8 @@ corner at 390 and 820 (no overlap).
 
 `|` is the zone hairline. Bold is the one filled control.
 
-- **Top bar**: mark, space · tabs (centred) · notifications, theme, settings |
-  lock, quit. Unchanged. Wrapped (600 to 1199): the strip on its own row,
+- **Top bar**: mark, space (a select's face) · tabs (centred) · notifications,
+  theme, settings | lock, quit, the seam drawn (fixed, item 17). Wrapped (600 to 1199): the strip on its own row,
   hugging its tabs, centred (planned).
 - **Status bar**: state | tools | control. Unchanged.
 - **Dashboard**: find doorway | Customise, ⋯ (fixed, INBOX 488).
@@ -215,10 +231,9 @@ What a DOM sweep cannot see is below, from the census and the screenshots.
   status bar (11.2px, a status line); heights 32px on desktop docks, 28px in the
   status bar, 36px in the rail and the chat composer. One finding: the
   documents dock (item 10).
-- **Things that shout**: the space switcher is the loudest control in the top
-  bar (44px, 600, a bordered tinted face beside 36px tabs), louder than the
-  selected tab. Open: Phase 8 asked for "a select-shaped control"; recommend
-  the field face (`--field` ground, the 3:1 edge) at the tabs' height.
+- **Things that shout**: the space switcher was the loudest control in the
+  top bar (600, a bordered tinted face), louder than the selected tab. Fixed
+  with item 17: the select face Phase 8 asked for.
 - **A fact dressed as a control**: the map chip (item 3, planned).
 - **Gradients**: the page ground (`--page`) is a three-stop wash per theme, the
   only decorative gradient; unslop-ui's own data says mesh and wash grounds do

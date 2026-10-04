@@ -15105,9 +15105,10 @@ function boardSort() {
 //: that, and a second copy of this function would tick the wrong boards the
 //: first time the two drifted.
 window.wbVisibleBoards = function wbVisibleBoards(boards, needle) {
+  const listed = boards.filter(libraryListsBoard);
   const shown = needle
-    ? boards.filter((b) => String(b.title || "").toLowerCase().includes(needle))
-    : [...boards];
+    ? listed.filter((b) => String(b.title || "").toLowerCase().includes(needle))
+    : listed;
   shown.sort(BOARD_SORTS[boardSort()]);
   const fixed = shown.filter((b) => b.id === null);
   return fixed.length ? [...fixed, ...shown.filter((b) => b.id !== null)] : shown;
@@ -15190,7 +15191,8 @@ async function renderLibraryBoardsGallery() {
   // the chips below count what came back, so a first page would make the
   // counts a count of the first page.
   showSkeletons(grid, 4);
-  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
+  const listed = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
+  const boards = listed && listed.filter(libraryListsBoard);
   clearSkeletons(grid);
   if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet

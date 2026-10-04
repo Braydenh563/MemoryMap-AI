@@ -23,6 +23,17 @@ below). Versioning is `0.x` while the app stabilises.
 - Documents: a document reopens where you left it, the caret and the place you were reading, including after a reload (kept per document in this browser, the 60 most recent).
 - Documents: the breadcrumb above the writing follows what you are reading: scrolled away from the caret in a long document it names the section in view (the same one the outline marks), instead of staying on the caret's section.
 - Documents: in a long document, jumping to the middle (the scrollbar, a search hit) no longer leaves headings drawn as raw `###` text in the Live view; the view repaints when the parser catches up, which it used to do only on the next key or scroll.
+- Developer sweeps: switchdivider.js measures each Settings switch row's hairline against its group head; the INBOX 464 audit records items 9 to 20 as fixed, with their numbers.
+- Dashboard on a phone: the search field runs to its menu button with the bar's usual gap (it stopped 19px short).
+- Library, Bookmarks: the empty state no longer repeats the line under the bar; it is its title and Add a bookmark.
+- Settings, Data: importing markdown files, a folder or a document is one step: the button opens the picker and choosing starts the import, with Undo in the toast that moves exactly the imported notes to the recycle bin (it was choose, then a second Import button).
+- Reminders: Quick set takes the steppers' rounded shape, so the When row draws one corner instead of two.
+- Chat: the Ask Atlas offer in an empty chat is one line on a phone ("Ask Atlas what it can change"), and on a phone every Ask Atlas offer takes a button's corner rather than a pill, so a longer question no longer wraps into a capsule.
+- Library: Everything and Boards & maps count boards the same way; the empty default board no longer counts (or shows) as a board in one and not the other, and a notebook with no boards shows the New board empty state.
+- Folds in Settings, the help guide and task logs show the same caret as the Library's Contents and outlines, where they drew a small triangle of their own.
+- Settings: the line between two switch rows stops where its group head's underline does (it ran 9px past it on each side), and on a phone the Tools list no longer runs 4px past its pane.
+- Dashboard: a widget with nothing to show offers the one thing to do about it (Add a reminder, New board, Add a bookmark, Ask a question, Show untagged notes and so on), opening the tab it lives on first; eleven widgets were a sentence only.
+- Top tab bar: choosing a tab no longer nudges the tabs after it sideways; the selected label is drawn heavier without getting wider (it moved the rest by up to 6px).
 - Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
 - Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
 - Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.

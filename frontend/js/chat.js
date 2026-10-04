@@ -861,7 +861,9 @@ function regenerateLastAnswer() {
 //: One line offering Atlas a question, for the empty states that are a person
 //: looking at a surface they have not used yet. Built here rather than written
 //: into three blocks of markup, for the same reason the popover line is.
-function atlasSuggestion(question) {
+//: `label` is for a question too long for a phone's line, said shorter; the
+//: question sent is still `question`.
+function atlasSuggestion(question, label = `Ask Atlas: ${question}`) {
   const line = document.createElement("p");
   line.className = "muted help-atlas";
   //: **An offer, drawn as the app's other offers.** It was a `.linklike`, an
@@ -873,7 +875,7 @@ function atlasSuggestion(question) {
   const ask = document.createElement("button");
   ask.type = "button";
   ask.className = "atlas-suggest";
-  setLabel(ask, `ph:compass Ask Atlas: ${question}`);
+  setLabel(ask, `ph:compass ${label}`);
   ask.title = "Opens Atlas with this question";
   ask.addEventListener("click", () => askAtlasAbout(question));
   line.appendChild(ask);
@@ -960,7 +962,9 @@ function renderChatEmptyState() {
   //: One line about the other assistant (INBOX 224). The empty chat is where
   //: somebody asks the app a question it cannot answer from notes, "how do I
   //: turn this off", and Atlas is the one that can.
-  empty.appendChild(atlasSuggestion("What can Atlas change in my notebook?"));
+  //: Said shorter (INBOX 464 (16)): the default label named Atlas twice in
+  //: one line and took two lines at 390.
+  empty.appendChild(atlasSuggestion("What can Atlas change in my notebook?", "Ask Atlas what it can change"));
   //: **The starters belong in the empty state, not in a strip above the
   //: composer.** Measured at 1440px: the welcome was a 326px column of centred
   //: text in a 1062px pane with four suggestion chips jammed against the

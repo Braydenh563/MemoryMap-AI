@@ -271,6 +271,26 @@ async function importDirectory() {
   }
 }
 
+//: The way back from a one-step import (INBOX 464 (18)): choosing the files
+//: starts it, so the toast offers Undo, which moves exactly the notes it made
+//: (the ids both endpoints return) to the recycle bin, restorable from there.
+function undoImport(result, status) {
+  const ids = result.ids || [];
+  if (!ids.length) return;
+  const n = ids.length;
+  toastAction(`Imported ${n} note${n === 1 ? "" : "s"}.`, "Undo", async () => {
+    let binned = 0;
+    for (let at = 0; at < ids.length; at += 8) {
+      const settled = await Promise.allSettled(
+        ids.slice(at, at + 8).map((id) => apiJson(`/entries/${id}`, { method: "DELETE", silent: true })),
+      );
+      binned += settled.filter((s) => s.status === "fulfilled").length;
+    }
+    status.textContent = `Undone: ${binned} imported note${binned === 1 ? "" : "s"} moved to the recycle bin.`;
+    loadEntries().catch(() => {});
+  });
+}
+
 async function importMarkdown(inputId = "import-md-files") {
   const input = $(inputId);
   const status = $("import-md-status");
@@ -301,6 +321,8 @@ async function importMarkdown(inputId = "import-md-files") {
   for (const file of chosen) {
     form.append("files", file, file.webkitRelativePath || file.name);
   }
+  input.value = "";
+  setLabel(status, `ph:spin Importing ${chosen.length} file${chosen.length === 1 ? "" : "s"}…`);
   try {
     const response = await fetch("/import/markdown", {
       method: "POST",
@@ -315,7 +337,7 @@ async function importMarkdown(inputId = "import-md-files") {
     status.textContent =
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
       (result.skipped.length ? ` Skipped: ${result.skipped.join("; ")}` : "");
-    input.value = "";
+    undoImport(result, status);
     loadEntries().catch(() => {});
   } catch (error) {
     status.textContent = error.message;
@@ -336,6 +358,8 @@ async function importDocument() {
   }
   const form = new FormData();
   form.append("file", file);
+  input.value = "";
+  setLabel(status, `ph:spin Importing ${file.name}…`);
   try {
     const response = await fetch("/import/document", {
       method: "POST",
@@ -353,7 +377,7 @@ async function importDocument() {
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}` +
       ` from ${result.filename}.` +
       (result.truncated ? " (Stopped at the note limit, the rest wasn't imported.)" : "");
-    input.value = "";
+    undoImport(result, status);
     loadEntries().catch(() => {});
   } catch (error) {
     status.textContent = error.message;

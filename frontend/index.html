@@ -6859,7 +6859,6 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No bookmarks saved yet</p>
-        <p>Add a website to keep it a click away.</p>
         <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a bookmark</button>
       </div>
       <div id="bookmark-no-match" class="empty-state hidden">
@@ -10488,22 +10487,21 @@ Link to another note with [[its first few words]]."></textarea>
 
             <div class="settings-group">
               <h3>Import markdown</h3>
+              <!-- One step each (INBOX 464 (18)): the button opens the
+                   picker and choosing starts the import, the Library's
+                   Upload shape; the picker's Cancel is the way out before,
+                   the toast's Undo after. The folder picker is the same
+                   endpoint: `webkitdirectory` sends every file *with its
+                   relative path*, which keeps a vault's tree and its
+                   `[[wiki links]]` (importMarkdown, settings-data.js). -->
               <div class="row">
-                <input id="import-md-files" aria-label="Choose markdown files to import" title="Choose markdown files to import" type="file" accept=".md,.markdown,.txt" multiple>
-                <button id="import-md" class="ghost small">Import</button>
-              </div>
-              <!-- The same endpoint, pointed at a folder. The picker above
-                   cannot select one, and the path box below only works when
-                   you can type the vault's absolute path from memory, which
-                   is why importing a vault was awkward enough to look
-                   missing. `webkitdirectory` sends every file *with its
-                   relative path*, which is what keeps the tree and the
-                   `[[wiki links]]` (see importMarkdown in app.js). -->
-              <div class="row settings-row-spaced">
+                <input id="import-md-files" aria-label="Choose markdown files to import" title="Choose markdown files to import" type="file" accept=".md,.markdown,.txt" multiple class="hidden">
+                <button id="import-md" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Import files</button>
                 <input id="import-md-folder" aria-label="Choose a vault folder to import"
                   title="Choose a whole folder, every .md inside it, with its folders kept"
-                  type="file" webkitdirectory directory multiple>
-                <button id="import-md-folder-btn" class="small ghost">Import folder</button>
+                  type="file" webkitdirectory directory multiple class="hidden">
+                <button id="import-md-folder-btn" class="small ghost" type="button"
+                  title="A whole folder, every .md inside it, with its folders kept"><i class="ph ph-folder-simple-plus ph-lead" aria-hidden="true"></i> Import a folder</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
               
@@ -10527,8 +10525,8 @@ Link to another note with [[its first few words]]."></textarea>
                 </button>
               </div>
               <div class="row">
-                <input id="import-document-file" aria-label="Choose a document to import" title="Choose a document to import" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
-                <button id="import-document" class="ghost small">Import</button>
+                <input id="import-document-file" aria-label="Choose a document to import" title="Choose a document to import" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm" class="hidden">
+                <button id="import-document" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Import a document</button>
               </div>
               <p id="import-document-status" class="status" role="status"></p>
               <p class="muted">Turns a PDF, Word file or slide deck into notes.</p>

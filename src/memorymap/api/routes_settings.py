@@ -2337,6 +2337,9 @@ def import_markdown(
 def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
     imported = 0
     skipped: list[str] = []
+    #: The notes this import made, so the client's Undo can bin exactly
+    #: these (INBOX 464 (18): choosing the files starts the import now).
+    ids: list[int] = []
     for file in files:
         raw = file.file.read(MAX_IMPORT_BYTES + 1)
         name = file.filename or "note.md"
@@ -2370,10 +2373,11 @@ def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
             session.commit()
         deps.store_quietly(session, entry)
         imported += 1
+        ids.append(entry.id)
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()
     deps.mark_index_stale(imported)
-    return {"imported": imported, "skipped": skipped}
+    return {"imported": imported, "skipped": skipped, "ids": ids}
 
 
 #: A PDF or slide deck, not a video, well past what a document-conversion
@@ -2431,7 +2435,8 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
     with jobruns.job_run("import") as run:
-        imported = _create_document_notes(session, sections)
+        ids = _create_document_notes(session, sections)
+        imported = len(ids)
         run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"
     manager.log_action(
         session, "imported", "data", detail=f"document x{imported} ({file.filename})"
@@ -2441,11 +2446,14 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         "imported": imported,
         "truncated": len(all_sections) > len(sections),
         "filename": file.filename,
+        "ids": ids,
     }
 
 
-def _create_document_notes(session: Session, sections: list[str]) -> int:
-    imported = 0
+def _create_document_notes(session: Session, sections: list[str]) -> list[int]:
+    """The ids of the notes made, one per section (the client's Undo bins
+    exactly these)."""
+    ids: list[int] = []
     for section in sections:
         entry = manager.create_entry(
             session,
@@ -2457,8 +2465,8 @@ def _create_document_notes(session: Session, sections: list[str]) -> int:
         entry.user_filed = True  # this file said where it came from, not the janitor
         session.commit()
         deps.store_quietly(session, entry)
-        imported += 1
-    return imported
+        ids.append(entry.id)
+    return ids
 
 
 

@@ -1872,6 +1872,10 @@ header#top-bar,
   /* Never wider than the dock: a zone of many actions (the Writing room's,
      515px of them) takes a row of its own and wraps inside it, right
      aligned, rather than running off the window (errors.js at 390). */
+  /* `padding-left: 0` here too: the rule above is (0,1,0) and the desktop
+     hairline's padding (`.dock > .dock-actions`, 08-consistency.css) is
+     (0,2,0), so the padding outlived its divider and the Dashboard's ⋯ sat
+     19.2px from the field before it, the dock's gap twice (INBOX 464 (20)). */
   .dock > .dock-actions {
     flex: 0 1 auto;
     max-width: 100%;
@@ -1879,6 +1883,7 @@ header#top-bar,
     flex-wrap: wrap;
     justify-content: flex-end;
     margin-left: auto;
+    padding-left: 0;
   }
 
   .dock > .dock-find {

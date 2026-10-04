@@ -4092,7 +4092,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 #tab-bar button.active {
   background: var(--accent-surface);
   color: var(--on-accent);
-  font-weight: 600;
+}
+
+/* Bold is wider, so a bold selected tab moved every tab after it with the
+   selection (INBOX 464 (9): "Notes" at x=549 on Dashboard, 543 on Notes).
+   The selected label keeps the resting weight's advance and is drawn heavier
+   with a stroke, which paints and does not lay out. Reserving each label's
+   bold width instead was measured: the strip 29px wider at 1093 and the
+   header on two rows at 900, 1024 and 1200. */
+#tab-bar button.active .tab-label {
+  -webkit-text-stroke: 0.04em currentColor;
 }
 
 /* The tabs you are not on answer the pointer (INBOX 405): full ink and the

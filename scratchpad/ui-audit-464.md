@@ -62,57 +62,74 @@ Status: **fixed** (with its commit's before/after) or **open**.
    Images and Files: the empty state's button was "Capture a note" under a
    dock whose verb is Upload. Reminders: "Add one above" on a phone, where
    nothing is above.
-9. **Open. Tab bar labels move when the selection does.** The active tab is
-   bold, so its label widens and every tab after it shifts: "Notes" at
-   x=549 on Dashboard, 543 on Notes (6px). Fix: reserve the bold width (a
-   hidden bold copy in `::after`, `content: attr(data-label)`). Left to the
-   motion agent, who owns the tab bar's sliding indicator this round.
-10. **Open. Library note cards lose the end of their first sentence.** A
-    note's title is its whole first sentence when that is under 140
-    characters (`LIBRARY_TITLE_SENTENCE_MAX`), clamped to two lines by CSS;
-    the preview then starts at the next sentence, so "...when I thought of
-    it as a single owner per value with borrows as loans." is on no card,
-    which shows only "#learning". A one-sentence note whose sentence ends
-    in `."` takes the other path and shows four lines of bold title. The
-    sentence-title was a decision (library.js comment); the fix is a lower
-    bound, about 70, so a sentence longer than two lines keeps the 60-char
-    cut and the preview carries on from it. Needs the owner's yes.
+9. **Fixed. Tab bar labels move when the selection does.** The active tab
+   was font-weight 600, so its label widened and every tab after it shifted
+   ("Notes" at x=549 on Dashboard, 543 on Notes; 6px). The selected label
+   now keeps the resting weight and is drawn heavier with
+   `-webkit-text-stroke` (paints, does not lay out). After: 0px across all
+   seven selections at 1440. The audit's reserve-the-bold-width fix was
+   built first and measured worse: the strip 29px wider at 1093 and the
+   header on two rows at 900, 1024 and 1200; header heights now match the
+   base at every width from 700 to 1440. Lint `tests/test_tab_label_width.py`.
+10. **Decided, kept.** Library note cards' sentence-as-title stays (the
+    owner's decision; the lower bound is not taken).
 11. **Fixed. Timeline rows cut at a character count, not at the edge.**
     "Learning Rust: ... borrows as loans. #learn…" ended at x=896 with 430px
     of empty row before the time; the title span is 1248px wide and did not
     overflow, so the "…" was in the text (`PREVIEW_CHARS = 120`,
     routes_timeline.py). After (240): the whole line, ending at x=904,
     `.timeline-row-title`'s own ellipsis left to cut a longer one.
-12. **Open. Dashboard widgets' empty states have no action.** Reminders
-    ("add one in the Reminders tab"), Boards & maps and eight more are a
-    sentence only; the recipe is one sentence and one action. A
-    `dashEmpty(body, text, action)` with `data-empty-action` plus a
-    `data-empty-tab` the delegated listener switches to first.
-13. **Open. Settings switch rows' dividers are wider than the head's
-    rule.** A consequence of item 2: the row's hairline now spans the
-    hung padding, 9px past the head's underline each side. Inset the
-    divider (a `background` line at the padding) if it reads as a fault.
-14. **Open. Two disclosure markers.** Settings folds, the help accordion
-    and task logs draw a 5x6px CSS triangle in `--muted`; the Library's
-    Contents, notes and outlines draw a 16px Phosphor caret. One recipe.
-15. **Open. Library counts disagree.** All: "Boards 1"; Boards & maps:
-    "All 2" (the empty Default board is in one and not the other).
-16. **Open. Chat's "Ask Atlas" suggestion is a two-line capsule on a
-    phone** (46px tall, `border-radius: 999px`, 320px wide). Radius-md
-    below 600, or a shorter line.
-17. **Open. Reminders' quick-set row mixes corners.** "Quick set" at
-    `--radius-md` beside two steppers at `--radius-pill` (the stepper's pill
-    is on `PILL_CONTROLS` on purpose; the row is the problem, not either
-    control).
-18. **Open. Import is two steps for one action, three times.** "Choose
-    files" then "Import"; "Choose files" then "Import folder"; "Choose
-    file" then "Import". One button that opens the picker and imports on
-    choosing, the pattern Library's Upload already uses.
-19. **Open. Duplicate explanations.** Bookmarks' dock line ("Save links to
-    websites you visit often...") and its empty state ("Add a website to
-    keep it a click away") say the same thing one above the other.
-20. **Open. The phone dashboard's search field stops 19px short** of its
-    row's kebab, a gap no other field row has.
+12. **Fixed. Dashboard widgets' empty states have no action.** Eleven
+    widgets were a sentence only. `dashEmpty(body, text, action)` draws the
+    recipe with one ghost button carrying `data-empty-action` and
+    `data-empty-tab`/`data-empty-sub`, which the delegated listener opens
+    and waits for first. Each click measured landing (Add a reminder focuses
+    `#reminder-text`, Add a bookmark opens the form on Links, Open boards
+    shows the Boards sub-tab). In a card the recipe's padding is a step: an
+    empty Favourites card 101px before, 163px after with its button. Lint
+    `tests/test_dashboard_empty_actions.py`.
+13. **Fixed. Settings switch rows' dividers wider than the head's rule.**
+    Measured (`scratchpad/ui-sweeps/switchdivider.js`) on 67 rows: 9px past the head each side
+    (58 Tools grid rows on their outer side). The hairline is an inset
+    background image now; the hover and checked fills still show. At 390
+    the Tools grid track was 272px in a 268px column (4.4px more);
+    `minmax(min(17rem, 100%), 1fr)`. After: 0/0 on every row at 1440 and
+    390, light and dark. Lint `tests/test_settings_switch_divider.py`.
+14. **Fixed. Two disclosure markers.** Settings folds, the help accordion
+    and task logs drew a 5x6px border triangle crossed with 07's 2px border
+    chevron; the Library drew the 16px Phosphor caret. Every fold now draws
+    the caret (`\e136`, 1em, the row's colour, -90deg closed): 11 Settings
+    and 95 help summaries at 15x14.7, summary heights unchanged (34/32px).
+    DESIGN.md "A disclosure marker"; lint `tests/test_disclosure_marker.py`.
+15. **Fixed. Library counts disagree.** Cause: `/whiteboard/boards` always
+    returns the default scratch board (`id: null`), `/library` lists boards
+    that are notes. One predicate, `libraryListsBoard` (note-cards.js): the
+    default board is listed when something is on it. The gallery, its
+    counts, its tick sync and the dashboard widget use it. After: Boards 1
+    and All 1 / Boards 1. Lint `tests/test_library_board_counts.py` (runs
+    the predicate under node).
+16. **Fixed. Chat's "Ask Atlas" a two-line capsule on a phone.** Below
+    600px every offer takes `--radius-md` (the chat chips' corner beside
+    it), and Chat's says "Ask Atlas what it can change": 214x44, one line
+    (was 320x46, two lines, 999px). The Notes empty state's longer question
+    still wraps at 390, now in a 4.8px corner. Desktop keeps the pill.
+17. **Fixed. Reminders' quick-set row mixes corners.** Quick set took the
+    steppers' pill in this row (named in `PILL_CONTROLS`, as the chat
+    composer's row is): 999px on all three controls, was 4.8px beside 999px.
+18. **Fixed. Import is two steps for one action, three times.** One
+    button each (Import files, Import a folder, Import a document) opens a
+    hidden picker and choosing starts the import; the toast's Undo bins
+    exactly the notes made (both endpoints return `ids`). Driven at 1440 and
+    390: 2 notes imported with one press, Undo took the library search from
+    2 to 0. DESIGN.md "Choosing files to bring in"; lint
+    `tests/test_import_one_step.py` (no visible native file input).
+19. **Fixed. Duplicate explanations.** Bookmarks' empty state dropped its
+    "Add a website to keep it a click away." under the lede that says the
+    same: three visible sentences on an empty tab before, two after.
+20. **Fixed. The phone dashboard's search field stops 19px short.** The
+    desktop hairline's padding on `.dock-actions` (0,2,0) outranked the phone
+    reset (0,1,0). After: 9.6px, the dock's gap; every other phone dock the
+    same height and control positions.
 
 Not defects, checked: the graph's first 1.4s shows a zoomed camera that
 settles to fit all 15 nodes by 6s (an entrance, measured); the highlighted
@@ -130,3 +147,13 @@ was; Chat's '?' in the pane's corner is the owner's decision (INBOX 236).
   header's kebab, so that row measures nothing (the sweep's gap, not this
   change; the head was measured separately, item 3).
 - `docks.js`: no dock over its control count or with mixed heights.
+
+## Sweeps after items 9 to 20 (port 8851, the same seeded notebook)
+
+- `errors.js`: 0 errors, 0 layout findings at 1440, 1024, 820 and 390.
+- `contrast.js`: every tab and Settings section ok, light and dark.
+- `touch.js` at 390: 0 findings (its Dashboard and Settings rows still
+  measure 0 controls, the sweep's gap noted above).
+- `docks.js`: no dock over its control count or with mixed heights.
+- New probe `switchdivider.js`: every Settings switch row's hairline 0/0
+  against its head at 1440 and 390.

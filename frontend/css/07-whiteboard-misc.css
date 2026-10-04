@@ -4545,29 +4545,8 @@ input[type="url"]:hover:not(:focus) {
   display: none;
 }
 
-/* `:not(.icon-only)`: the logs dock's kebab is a summary inside a settings
-   section too, and this chevron drew itself over its three dots (INBOX
-   173, "the button ... is visually broken", three screenshots). The
-   chevron belongs to text summaries that fold a section, not to a
-   glyph-only menu button. */
-.about-whats-new::before,
-.settings-section summary:not(.icon-only):not(.doc-dock-menu-btn)::before,
-.help-accordion > summary::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform var(--motion-fast) var(--ease-out);
-}
-
-details[open] > .about-whats-new::before,
-.settings-section details[open] > summary:not(.icon-only):not(.doc-dock-menu-btn)::before,
-details[open].help-accordion > summary::before {
-  transform: rotate(45deg);
-}
+/* The disclosure marker for these three is the one recipe in
+   08-consistency.css ("The chevron the native marker was hiding"). */
 
 /* A chip in a collapsed row ellipsises rather than being sliced.
    The lane is capped so metadata can never crowd out a note's own text, and

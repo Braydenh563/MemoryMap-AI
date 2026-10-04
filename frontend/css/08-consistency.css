@@ -405,37 +405,55 @@
   display: none;
 }
 
-/* The chevron the native marker was hiding. Borrowed exactly from the chat
-   timeline's thinking step (02-chat-graph.css) - a triangle built from
-   borders, so it needs no icon font, inherits `currentColor`, and the two
-   disclosures in the app read as one component. */
+/* The chevron the native marker was hiding: **one disclosure marker**
+   (INBOX 464 (14)). It was a 5x6px triangle built from borders in
+   `--muted`, crossed with a 2px rotated chevron from 07-whiteboard-misc.css,
+   where the Library's Contents, notes and outlines draw the 16px Phosphor
+   caret (`.contents-caret`). Now every fold draws that caret: the glyph at
+   1em of its row, in the row's own colour, turned a quarter to the right
+   while closed. The selector list is every family the old two rules reached
+   (`.settings-section summary` covers the folds in a pane that no family
+   names; the logs dock's kebab and the dock menus are glyph buttons and stay
+   out). */
 .help-accordion details > summary:not(.icon-only):not(.icon-button)::before,
+.help-accordion > summary::before,
+.about-whats-new::before,
+.settings-section summary:not(.icon-only):not(.icon-button):not(.doc-dock-menu-btn)::before,
 .settings-group > summary:not(.icon-only):not(.icon-button)::before,
 .settings-fold > summary:not(.icon-only):not(.icon-button)::before,
 .advanced-css > summary:not(.icon-only):not(.icon-button)::before,
 .task-log > summary:not(.icon-only):not(.icon-button)::before {
-  content: "";
+  content: "\e136"; /* ph-caret-down, as `.contents-caret` */
+  display: inline-block;
   flex: none;
-  width: 0;
-  height: 0;
-  border-left: 0.32rem solid currentColor;
-  border-top: 0.24rem solid transparent;
-  border-bottom: 0.24rem solid transparent;
-  color: var(--muted);
-  transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  width: auto;
+  height: auto;
+  border: 0;
+  font-family: Phosphor, sans-serif;
+  font-size: 1em;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  color: inherit;
+  transform: rotate(-90deg);
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .help-accordion details[open] > summary::before,
+details[open].help-accordion > summary::before,
+details[open] > .about-whats-new::before,
+.settings-section details[open] > summary::before,
 .settings-group[open] > summary::before,
 .settings-fold[open] > summary::before,
 .advanced-css[open] > summary::before,
 .task-log[open] > summary::before {
-  transform: rotate(90deg);
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .help-accordion details > summary::before,
+  .help-accordion summary::before,
+  .about-whats-new::before,
+  .settings-section summary::before,
   .settings-group > summary::before,
   .settings-fold > summary::before,
   .advanced-css > summary::before,
@@ -2149,6 +2167,16 @@ summary > .ph-lead,
 .help-atlas > .atlas-suggest:hover,
 .help-atlas > .atlas-suggest:focus-visible {
   background: var(--chip-bg);
+}
+
+/* On a phone the offer takes a button's corner, not the pill (INBOX 464
+   (16)): a question that wraps inside a pill is a two-line capsule (Chat's
+   was 320x46 at 390, the Notes empty state's 332x46). `--radius-md` holds
+   one line or two, and is the corner the chips beside it in Chat have. */
+@media (max-width: 599.98px) {
+  .help-atlas > .atlas-suggest {
+    border-radius: var(--radius-md);
+  }
 }
 
 /* The head, on the agent activity panel's terms: the controls beside the title
@@ -10048,4 +10076,32 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #settings-modal :is(.settings-group, .settings-fold)
   label:is(.check-row, .setting-check):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
   margin-inline: calc(-1 * var(--space-3) - 1px);
+}
+
+/* 3. The hairline between two hung switch rows stops where the head's does
+      (INBOX 464 (13)). Hanging the row (2) took its top border with it, 9px
+      past the head's underline on each side: measured (divider.js, 1440) on
+      67 rows. The line is drawn inset, at the padding, as a background
+      image, so the row's hover and checked fills (`background-color`) keep
+      working under it. After: 0px. */
+#settings-modal :is(.settings-group, .settings-fold)
+  :is(.check-row + .check-row, .setting-check + .setting-check,
+    li:has(> .setting-check) + li > .setting-check, li:has(> .check-row) + li > .check-row,
+    #tool-list > li > .setting-check):is(label):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
+  border-top-color: transparent;
+  background-image: linear-gradient(var(--divider), var(--divider));
+  background-origin: border-box;
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-size: calc(100% - 2 * var(--space-3) - 2px) 1px;
+}
+
+/* 4. Reminders' When row draws one corner (INBOX 464 (17)). "Quick set" was
+      --radius-md (4.8px) beside two steppers at the pill on one line, at
+      1440 and at 390. The stepper is a quiet pill by recipe (DESIGN.md
+      "Stepper"), so the row's menu opener takes its corner, the way every
+      control in the chat composer's row is a pill; it is named in
+      PILL_CONTROLS for that reason. */
+#reminder-due-row>details>summary {
+  border-radius: var(--radius-pill);
 }

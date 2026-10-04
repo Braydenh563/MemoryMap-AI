@@ -82,6 +82,16 @@ KINDS = frozenset(
         # family: with `dismiss_link` it feeds `signal_weights`, which signals
         # of a suggestion are worth believing in this notebook.
         "accept_link",
+        # The suggestions inbox's other three kinds (KG9 part two): an entity
+        # merge, a link type, a tension. Each feeds `signal_weights` through
+        # its own accept and dismiss pair; a dismissal also keeps that one
+        # suggestion from coming back.
+        "accept_merge",
+        "dismiss_merge",
+        "accept_link_type",
+        "dismiss_link_type",
+        "accept_tension",
+        "dismiss_tension",
         "dismiss_resurface",
         # The two the derived facts table writes (I9). They feed no boost
         # family: a deleted fact is already stopped from returning by its own
@@ -293,8 +303,17 @@ def boosts(session: Session, kind: str) -> dict[tuple, float]:
 SIGNAL_WEIGHT_RANGE = (0.5, 1.5)
 
 
-def signal_weights(session: Session) -> dict[str, float]:
-    """What each kind of link-suggestion evidence is worth in this notebook.
+def signal_weights(
+    session: Session, accept: str = "accept_link", dismiss: str = "dismiss_link", prior: float = 1.0
+) -> dict[str, float]:
+    """What each kind of suggestion evidence is worth in this notebook.
+
+    `accept` and `dismiss` name the pair of kinds read: a link suggestion's
+    by default, an entity merge's or a link type's for the inbox (KG9).
+    `prior` is the smoothing's pseudo-count per side. The inbox passes 3: its
+    rows rest on one signal each, so at 1 a single "no" to one "Background"
+    would silence every cue of that type, where once is a mistake and twice
+    is a rule (`EXCLUDE_AFTER`).
 
     Every accepted or dismissed suggestion carries the signals it was offered
     for (`subject["signals"]`, from `ai/relations`). A signal's weight is
@@ -309,7 +328,7 @@ def signal_weights(session: Session) -> dict[str, float]:
         return {}
     now = None
     tally: dict[str, list[float]] = {}
-    for kind, slot in (("accept_link", 0), ("dismiss_link", 1)):
+    for kind, slot in ((accept, 0), (dismiss, 1)):
         for item in corrections(session, kind=kind):
             signals = item.subject.get("signals")
             if not isinstance(signals, list):
@@ -328,7 +347,7 @@ def signal_weights(session: Session) -> dict[str, float]:
                 tally.setdefault(signal, [0.0, 0.0])[slot] += weight
     low, high = SIGNAL_WEIGHT_RANGE
     return {
-        signal: min(high, max(low, 2.0 * (accepted + 1.0) / (accepted + dismissed + 2.0)))
+        signal: min(high, max(low, 2.0 * (accepted + prior) / (accepted + dismissed + 2.0 * prior)))
         for signal, (accepted, dismissed) in tally.items()
     }
 

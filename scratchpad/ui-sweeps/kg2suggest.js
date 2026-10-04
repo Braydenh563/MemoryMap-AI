@@ -1,4 +1,4 @@
-// GRAPH_PLAN KG2: the link suggestions panel shows a pair found by structure
+// GRAPH_PLAN KG2: the suggestions inbox's Links (KG9) shows a pair found by structure
 // (a shared neighbour and a shared rare tag) with the embedding backend off,
 // its combined confidence and each reason; Link keeps the reasons.
 //
@@ -22,9 +22,9 @@ const check = (label, ok, detail) => console.log(`${ok ? 'PASS' : 'FAIL'}  ${lab
   }, s);
   await page.evaluate(() => switchTab('graph'));
   await page.waitForTimeout(1500);
-  await page.evaluate(() => loadLinkSuggestions());
+  await page.evaluate(() => openSuggestionsInbox('links'));
   await page.waitForTimeout(2500);
-  const rows = await page.evaluate(() => [...document.querySelectorAll('#link-suggestions .link-suggestion')].map((r) => {
+  const rows = await page.evaluate(() => [...document.querySelectorAll('[data-sheet="suggestions"] .link-suggestion')].map((r) => {
     const why = r.querySelector('.link-suggestion-why');
     const box = r.getBoundingClientRect();
     return {
@@ -42,7 +42,7 @@ const check = (label, ok, detail) => console.log(`${ok ? 'PASS' : 'FAIL'}  ${lab
   if (!process.env.WIDTH || Number(process.env.WIDTH) >= 1024) check('reasons line on one line', row && row.whyH <= 20, row && String(row.whyH));
   check('no sideways overflow', row && !row.sideways, JSON.stringify(row));
   await page.evaluate((s) => {
-    const r = [...document.querySelectorAll('#link-suggestions .link-suggestion')].find((x) => x.textContent.includes(`Glaze trial ${s}`) && x.textContent.includes(`Firing log ${s}`));
+    const r = [...document.querySelectorAll('[data-sheet="suggestions"] .link-suggestion')].find((x) => x.textContent.includes(`Glaze trial ${s}`) && x.textContent.includes(`Firing log ${s}`));
     r.querySelector('button[title="Connect these two notes"]').click();
   }, s);
   await page.waitForTimeout(2000);

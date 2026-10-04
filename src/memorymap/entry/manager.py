@@ -1678,6 +1678,7 @@ def create_link(
     reason: str | None = None,
     link_type: str | None = None,
     origin: str | None = None,
+    reason_confidence: float | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1731,7 +1732,9 @@ def create_link(
     if existing is not None:
         return None
     reason = (reason or "").strip() or None
-    confidence = None
+    #: A reason the suggestions' signals wrote keeps their confidence (KG9);
+    #: a person's own words have none, as before.
+    confidence = None if reason is None or reason_confidence is None else max(0.0, min(1.0, reason_confidence))
     if reason is None:
         reason, confidence = _deduce_reason(session, source.id, target.id)
     # An unrecognised kind is stored as null rather than rejected: the column
@@ -1859,6 +1862,26 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     link.reason_confidence = None
     detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
+    session.commit()
+    return link
+
+
+def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
+    """Give a link a kind from `LINK_TYPES`, or none (GRAPH_PLAN KG9: the
+    inbox's type suggestions, and any later picker). The caller has checked
+    the name; an unknown one here is a bug, so it raises."""
+    if link_type is not None and link_type not in LINK_TYPES:
+        raise ValueError(f"unknown link type {link_type!r}")
+    before = link.link_type
+    link.link_type = link_type
+    log_action(
+        session,
+        "relinked",
+        "entry",
+        link.source_entry_id,
+        f"-> entry {link.target_entry_id} ({link_type or 'untyped'})",
+        payload={"before": {"link_type": before}, "after": {"link_id": link.id, "link_type": link_type}},
+    )
     session.commit()
     return link
 

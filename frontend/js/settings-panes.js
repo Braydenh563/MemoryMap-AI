@@ -2001,19 +2001,13 @@ const REVEAL_TARGETS = {
     fallback: "graph-add-node",
   },
   "graph-physics": { tab: "graph", open: revealGraphOptions, el: "graph-physics" },
-  "graph-suggest": {
-    tab: "graph",
-    open: () => {
-      revealGraphOptions();
-      loadLinkSuggestions();
-    },
-    el: "link-suggestions",
-    fallback: "link-suggest-btn",
-  },
+  //: The suggestions inbox (KG9): one sheet, opened at the kind asked for.
+  suggestions: { open: () => openSuggestionsInbox("links"), sel: '[data-sheet="suggestions"] .sheet-card', built: "openSuggestionsInbox", flash: false },
+  "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-tab-links", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
   "timeline-zoom": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-scale-group" },
   "timeline-bands": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-band-section" },
   "global-find": { open: () => openGlobalFind(), el: "global-find-bar", flash: false, fallback: "wb-search-bar" },
-  tensions: { open: () => openTensions(), el: "tensions-dialog", flash: false },
+  tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-tab-tensions", built: "openSuggestionsInbox", flash: false },
 
   // Plan and focus: the dashboard's widgets
   "widget-on-this-day": { open: () => revealDashWidget("on-this-day"), sel: '[data-widget="on-this-day"]', built: "renderDashboard" },
@@ -2184,8 +2178,9 @@ function paletteCommands() {
     { label: "ph:alarm Go to Reminders", tab: "reminders", about: "What is due, and what you asked to be told about." },
     // Features reachable *only* from inside one surface are exactly the ones a
     // palette has to carry, or they are found by accident or not at all.
-    // Tensions lives in a dialog; the board's overview and find bar live on a
+    // The inbox is a sheet; the board's overview and find bar live on a
     // board you have to be on already.
+    { label: "ph:tray Suggestions: links, disagreements, names and link types", reveal: "suggestions" },
     { label: "ph:scales Tensions: find where I disagreed with myself", reveal: "tensions" },
     //: Atlas is a surface with no tab of its own, which is exactly what a
     //: command palette is for (INBOX 224).

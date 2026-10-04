@@ -616,7 +616,9 @@ HELP_TOPICS: list[dict] = [
             "side by side with the dates, so you can see which is current. It "
             "runs on demand rather than constantly, because it is a real pass "
             "over the notebook with the local model. It never edits anything: "
-            "the point is to show you the pair and let you decide."
+            "the point is to show you the pair and let you decide. Open "
+            "Suggestions (the Tensions widget's Review disagreements, or the "
+            "command palette), choose Tensions and press Start the review."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -723,7 +725,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "links",
-            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested"),
+            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested", "suggestions", "merge names", "same person", "link type"),
             "body": (
                 "Link one note to another by typing [[ and the start of its title, "
                 "then picking it from the list. The link shows on both notes as a "
@@ -735,11 +737,16 @@ HELP_TOPICS.extend(
                 "goes with it; rename a note and a toast offers to rename the "
                 "[[links]] other notes have to it. A note's Connections show the "
                 "sentence each linking note says it in, and \"Mentioned, not "
-                "linked\" with a Link button. Find links to add (Dashboard, Loose "
-                "ends, or the Graph) lists pairs worth connecting with every reason: "
-                "similar wording, people or things both name, a note both link "
-                "with, a rare tag both carry, and how sure it is. Linking or "
-                "dismissing one teaches it which reasons to trust in your notebook."
+                "linked\" with a Link button. Suggestions (Find links to add on the "
+                "Dashboard's Loose ends, Suggest links in the Graph's options, or "
+                "the command palette) is one sheet of four kinds: Links lists pairs "
+                "worth connecting with every reason (similar wording, people or "
+                "things both name, a note both link with, a rare tag both carry) "
+                "and how sure it is; Tensions, notes that may disagree; Names, one "
+                "person or thing named two ways, with Merge; and Link types, a link whose own "
+                "sentence says \"for example\" or \"continues\". Accepting or "
+                "dismissing any of them teaches it which reasons to trust in your "
+                "notebook, and a dismissed one does not come back."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

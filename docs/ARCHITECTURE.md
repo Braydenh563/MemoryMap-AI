@@ -344,6 +344,7 @@ are grouped by feature area:
 | `routes_search` | `/search` | one search over every kind of thing (WORLD_CLASS_PLAN B3) |
 | `routes_learned` · `routes_night` · `routes_resurface` | `/learned`, `/night`, `/resurface` | what the notebook worked out for itself (facts you can correct), the night pass on demand, three notes a day slipping out of reach |
 | `routes_mentions` | `/entries/{id}/backlinks`, `/entries/{id}/mentions/link` | a note's backlinks with their sentence and its unlinked mentions, one click to a [[link]] (GRAPH_PLAN KG1; the scanner is `entry/mentions.py`, shared with documents) |
+| `routes_inbox` | `/suggestions`, `/suggestions/merges/*`, `/suggestions/types/*` | the suggestions inbox's entity merges and link types (`ai/inbox.py`), and every decision on them as a correction (GRAPH_PLAN KG9) |
 | `routes_privacy` | `/privacy` | the privacy receipt: what left this machine, from the app's own egress record |
 | `routes_webclip` | `/links` | `POST /links/clip`: keep a web page as a note, only while the web is allowed |
 | system | `/health` | liveness + version (open, no unlock) |

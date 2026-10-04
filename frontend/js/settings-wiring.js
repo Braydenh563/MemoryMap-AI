@@ -388,7 +388,7 @@ $("improve-custom-input").addEventListener("keydown", (e) => {
     $("improve-custom-go").click();
   }
 });
-$("link-suggest-btn").addEventListener("click", loadLinkSuggestions);
+$("link-suggest-btn").addEventListener("click", () => openSuggestionsInbox("links"));
 // Mark a picker as "user has a pending choice" so the status poll stops
 // resetting it (Wave N bug fix).
 for (const id of ["chat-model-select", "embedding-model-select"]) {

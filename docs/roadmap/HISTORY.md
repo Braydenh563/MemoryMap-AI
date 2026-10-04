@@ -38769,3 +38769,32 @@ Trace's connector shows `+N` and its title lists them. Measured:
 `tests/test_path_explain_kg8.py` 4 tests; `scratchpad/ui-sweeps/kg8trace.js`
 4/4 (one hop, "+2", both reasons on hover, nothing sideways). Left in
 GRAPH_PLAN: filter chips by relation type and property (needs KG3 and KG4).
+
+### From GRAPH_PLAN.md: KG9 part two, one suggestions sheet
+
+`openSuggestionsInbox(kind)` (suggestions-inbox.js, a lazy bundle) is one
+`openSheet` with a `.seg` of four kinds and their counts: Links (the
+`/entries/link-suggestions` rows, moved whole from the graph's panel, which is
+gone), Tensions (the review moved whole from its dialog, which is gone; still
+started by hand), Names and Link types (`GET /suggestions`, `ai/inbox.py`,
+`api/routes_inbox.py`). Names: the same words in another case (0.95), a first
+name inside a full name ("Sam" in "Sam Lee", 0.6, times 0.7 when the short
+name sits in several), a near spelling (token-sort ratio 0.9 or more, never
+across differing digits), plus named together in a note (0.5); blocks, not
+every pair (5,000 names well under a second). Merge moves every mention, keeps
+the other name as an alias and marks it `merged_into`, and extraction follows
+both (`_find_or_create_entity`). Link types: a cue word in the link's own
+sentence (the source's `[[name]]` or name) or a reason a person wrote, one
+type only. Each decision is a correction (`accept_merge`, `dismiss_merge`,
+`accept_link_type`, `dismiss_link_type`, and now `accept_tension` and
+`dismiss_tension` from the tension routes); `signal_weights` takes the kinds
+and a `prior` (3 for the inbox, so one dismissal does not silence a cue). A
+link accepted from its structural reasons keeps their confidence
+(`reason_confidence` on create). `PATCH /entries/{id}/links/{link_id}` sets a
+type. Entities gain `kind`, `aliases` and `merged_into` (migration
+b8e4f2a6c9d1). Measured: `tests/test_suggestions_inbox_kg9.py` 16 tests;
+`scratchpad/ui-sweeps/kg9inbox.js` 15/15 at 1440 and 390, light and dark, on a
+fresh data dir (the four kinds on one row, a merge moving three mentions, the
+cue marked, the type on the link, arrows walking the tabs). Not verified: the
+tension pass against a real model inside the sheet (no model here); toasts
+fired from a phone's bottom sheet land behind it (every sheet, not this one).

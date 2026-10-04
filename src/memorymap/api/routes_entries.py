@@ -56,7 +56,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     like_escape,
     utcnow,
 )
-from memorymap.core.database import LIKE_ESCAPE
+from memorymap.core.database import LIKE_ESCAPE, LINK_TYPES
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
 from memorymap.entry.tagnames import inline_tags, normalise_tags
@@ -1557,11 +1557,14 @@ def accept_tension(body: TensionPair, session: Session = Depends(get_session)) -
         reason="these disagree with each other",
         link_type="contradicts",
     )
+    #: KG9: the inbox's decisions are corrections like every other kind.
+    learning.record(session, kind="accept_tension", subject={"a": earlier.id, "b": later.id})
+    session.commit()
     return {"created": link is not None}
 
 
 @router.post("/tensions/dismiss")
-def dismiss_tension(body: TensionPair) -> dict:
+def dismiss_tension(body: TensionPair, session: Session = Depends(get_session)) -> dict:
     """Stop offering this pair. Remembered across restarts.
 
     Capped, and oldest-first: without a cap this preference would grow
@@ -1575,6 +1578,8 @@ def dismiss_tension(body: TensionPair) -> dict:
         stored.append(key)
     del stored[:-500]
     config.set_preference(TENSION_DISMISSED_KEY, stored)
+    learning.record(session, kind="dismiss_tension", subject={"a": body.earlier_id, "b": body.later_id})
+    session.commit()
     return {"dismissed": key}
 
 
@@ -2233,6 +2238,15 @@ class LinkBody(BaseModel):
     # What kind of connection, from core.database.LINK_TYPES. Optional, and an
     # unrecognised value is stored as null rather than rejected, see
     # manager.create_link on why a typo should not cost you the link.
+    link_type: str | None = Field(default=None, max_length=24)
+    #: How sure the suggestion was, kept with a `reason` its signals wrote
+    #: (GRAPH_PLAN KG9). Ignored without a reason.
+    reason_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class LinkPatchBody(BaseModel):
+    #: A kind from `LINK_TYPES`, or null for none. Unlike creation, a bad name
+    #: here is refused: changing a link's type is the whole request.
     link_type: str | None = Field(default=None, max_length=24)
 
 
@@ -2979,7 +2993,8 @@ def create_link(
     source = _existing_entry(session, entry_id)
     target = _existing_entry(session, body.target_id)
     link = manager.create_link(
-        session, source, target, reason=body.reason, link_type=body.link_type
+        session, source, target, reason=body.reason, link_type=body.link_type,
+        reason_confidence=body.reason_confidence,
     )
     if link is None:
         # Three refusals share one return value, so the message names the one
@@ -3005,6 +3020,21 @@ def delete_link(
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="That link could not be found.")
     manager.delete_link(session, link)
+    return _to_out(session, entry)
+
+
+@router.patch("/{entry_id}/links/{link_id}", response_model=EntryOut)
+def patch_link(
+    entry_id: int, link_id: int, body: LinkPatchBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Change a link's type (GRAPH_PLAN KG9; KG3 adds its properties)."""
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="That link could not be found.")
+    if body.link_type is not None and body.link_type not in LINK_TYPES:
+        raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
+    manager.set_link_type(session, link, body.link_type)
     return _to_out(session, entry)
 
 

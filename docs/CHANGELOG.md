@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Suggestions: one sheet holds everything the notebook proposes and you decide, as four kinds with their counts: Links (the pairs Find links to add offered, with every reason), Tensions (the disagreement review, still started by hand), Names (one person or thing named two ways, "Sam" and "Sam Lee" or a near spelling; Merge moves every mention and keeps the other name as an alias, so extraction never makes it twice) and Link types (a link whose own sentence or reason says "for example", "continues", "evidence", "contradicts" or "background", with the words marked). It opens from Find links to add, the Graph's Suggest links, the Tensions widget and the command palette; it replaces the panel under the graph's toolbar and the Tensions dialog. Every accept and dismissal is a correction: a dismissed one never returns, and each kind of reason is trusted more or less from then on. A link accepted from its reasons keeps their confidence. `GET /suggestions`, `PATCH /entries/{id}/links/{link_id}` (a link's type), entities gain kind, aliases and merged_into (migration b8e4f2a6c9d1) (GRAPH_PLAN KG9, INBOX 528).
 - Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.
 - Chat: the Attach panel draws over the chat's header instead of under it.
 - Sub-tab bars stay readable over a scrolled page; Quick access rows no longer keep an empty strip for their hidden move buttons.

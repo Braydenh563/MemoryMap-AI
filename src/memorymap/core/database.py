@@ -492,6 +492,22 @@ class Entity(Base):
     # within one pass so the same note doesn't create the same entity twice.
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: GRAPH_PLAN KG5: person, place, project, organisation or thing
+    #: (`ENTITY_KINDS`); null where nothing said, which every entity found
+    #: before this column existed is.
+    kind: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: Other names for the same thing, a JSON list of strings: a merged
+    #: entity's name lands here, so extraction finding it again lands on the
+    #: survivor rather than making the duplicate a second time.
+    aliases: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    #: Set on the entity a merge emptied: its mentions moved to this id. The
+    #: row stays so an old name resolves; nothing lists it (it has no mentions).
+    merged_into: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+#: The kinds an entity can be (GRAPH_PLAN KG5). Closed, like LINK_TYPES: the
+#: graph colours by it and the extraction prompt has to choose one.
+ENTITY_KINDS = ("person", "place", "project", "organisation", "thing")
 
 
 class EntityMention(Base):

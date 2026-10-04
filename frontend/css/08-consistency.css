@@ -3092,8 +3092,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 :root:not([data-glass="off"]) .graph-overlay .dock[data-dock-name="graph"],
 :root:not([data-glass="off"]) .graph-overlay .graph-options,
 :root:not([data-glass="off"]) .graph-overlay .graph-trace,
-:root:not([data-glass="off"]) .graph-overlay .graph-trace-result,
-:root:not([data-glass="off"]) .graph-overlay #link-suggestions {
+:root:not([data-glass="off"]) .graph-overlay .graph-trace-result {
   background: rgb(from var(--modal-bg-opaque) r g b / 0.8);
   border-color: var(--glass-border);
   box-shadow: var(--glass-shadow), var(--glass-rim);

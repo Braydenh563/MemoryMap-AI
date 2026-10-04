@@ -85,10 +85,11 @@ def suggest_entities(
 def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]) -> Entity:
     """Case-folded exact match within this pass's own cache first (so the
     same note's five names don't each hit the database), then the table
-    itself, then a new row. Two different real-world Sarahs proposed as
-    "Sarah" across two notes are merged into one entity, a real ambiguity
-    this MVP accepts rather than solves (ROADMAP.md item 34's own scope
-    cut); a later pass can add disambiguation without changing this shape.
+    itself, then a name an entity carries as an alias, then a new row. A
+    match on an entity a merge emptied follows `merged_into` to the survivor
+    (GRAPH_PLAN KG5), so a merge is never undone by the next extraction.
+    Two different real-world Sarahs proposed as "Sarah" across two notes are
+    still one entity, a real ambiguity accepted rather than solved.
     """
     key = name.lower()
     if key in cache:
@@ -96,12 +97,69 @@ def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]
     existing = session.scalars(
         select(Entity).where(Entity.name.ilike(like_escape(name), escape=LIKE_ESCAPE))
     ).first()
+    if existing is None:
+        #: The alias map, built once per pass and kept in the same cache under
+        #: a key no name can be (names are stripped, never a NUL).
+        aliases = cache.get("\0aliases")
+        if aliases is None:
+            aliases = {}
+            for row in session.scalars(select(Entity).where(Entity.aliases.is_not(None))):
+                for alias in row.aliases or []:
+                    aliases.setdefault(str(alias).casefold(), row)
+            cache["\0aliases"] = aliases  # type: ignore[assignment]
+        existing = aliases.get(name.casefold())  # type: ignore[union-attr]
+    existing = _survivor(session, existing)
     entity = existing or Entity(name=name)
     if not existing:
         session.add(entity)
         session.flush()  # need entity.id for the EntityMention below
     cache[key] = entity
     return entity
+
+
+def _survivor(session: Session, entity: Entity | None) -> Entity | None:
+    """The entity a chain of merges ends at (ten hops at most: a cycle is a
+    bug elsewhere and must not hang a background pass)."""
+    for _ in range(10):
+        if entity is None or entity.merged_into is None:
+            return entity
+        entity = session.get(Entity, entity.merged_into)
+    return entity
+
+
+def merge_entities(session: Session, keep: Entity, gone: Entity) -> int:
+    """Fold `gone` into `keep`: every mention moves (one per note), `gone`'s
+    names become `keep`'s aliases, and `gone` points at `keep` so a later
+    extraction of its name lands on the survivor. Returns the mentions moved.
+    Flushes; the caller commits.
+    """
+    if keep.id == gone.id:
+        return 0
+    have = set(session.scalars(select(EntityMention.entry_id).where(EntityMention.entity_id == keep.id)))
+    moved = 0
+    for mention in session.scalars(select(EntityMention).where(EntityMention.entity_id == gone.id)).all():
+        if mention.entry_id in have:
+            session.delete(mention)
+        else:
+            mention.entity_id = keep.id
+            have.add(mention.entry_id)
+            moved += 1
+    names = [*(keep.aliases or []), gone.name, *(gone.aliases or [])]
+    seen = {keep.name.casefold()}
+    aliases = []
+    for alias in names:
+        folded = str(alias).casefold()
+        if folded not in seen:
+            seen.add(folded)
+            aliases.append(str(alias))
+    keep.aliases = aliases or None
+    keep.kind = keep.kind or gone.kind
+    gone.aliases = None
+    gone.merged_into = keep.id
+    for earlier in session.scalars(select(Entity).where(Entity.merged_into == gone.id)).all():
+        earlier.merged_into = keep.id
+    session.flush()
+    return moved
 
 
 def extract_entities_pass(

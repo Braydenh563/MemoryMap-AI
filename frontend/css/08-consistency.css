@@ -10009,3 +10009,13 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   background-repeat: no-repeat;
   background-size: calc(100% - 2 * var(--space-3) - 2px) 1px;
 }
+
+/* 4. Reminders' When row draws one corner (INBOX 464 (17)). "Quick set" was
+      --radius-md (4.8px) beside two steppers at the pill on one line, at
+      1440 and at 390. The stepper is a quiet pill by recipe (DESIGN.md
+      "Stepper"), so the row's menu opener takes its corner, the way every
+      control in the chat composer's row is a pill; it is named in
+      PILL_CONTROLS for that reason. */
+#reminder-due-row>details>summary {
+  border-radius: var(--radius-pill);
+}

@@ -2854,6 +2854,7 @@ PILL_CONTROLS = {
     '.wb-map-node[data-shape="pill"]': "a node shape the person picked",
     "#entry-list .link-connection>.menu-wrap>button": "the round kebab inside a connection",
     ".stepper>.stepper-btn": "a round minus or plus inside the stepper's pill (DESIGN.md 'Stepper')",
+    "#reminder-due-row>details>summary": "Quick set beside the steppers: one corner per row, as the chat composer's (INBOX 464 (17))",
 }
 
 _PILL_CONTROL = re.compile(

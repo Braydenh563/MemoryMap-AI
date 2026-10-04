@@ -2949,7 +2949,7 @@ span > .chip {
   flex: none;
   height: var(--control-h-lg);
   padding: 0 var(--space-2) 0 var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-md);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
@@ -3369,7 +3369,7 @@ span > .chip {
    this is where the attention belongs right now. */
 #writing-room.draft-writing #draft-text,
 #writing-room.draft-writing .note-surface {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 /* **A desk has a working height of its own.** With both boxes on `rows="7"`
@@ -4887,7 +4887,7 @@ span > .chip {
    affordance that says "these controls belong to this box" without drawing a
    second border round them. */
 .chat-dock:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 

@@ -597,7 +597,7 @@
 .dock select:not(.select-native-hidden):not(.dock-native-hidden),
 .dock .select-shell > .select-opener {
   height: var(--control-h);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-md);
   background: var(--field-inset);
 }
@@ -3140,7 +3140,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border-color: transparent;
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+  /* The selected segment's ring is the control edge (3:1), not an 8% ink
+     tint: the 11% fill alone measured 1.25:1 against its well (INBOX 464). */
+  box-shadow: inset 0 0 0 1px var(--control-edge);
 }
 
 /* --- the Library, de-vibecoded (the owner: "devibecode all the ui") --------
@@ -3337,7 +3339,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      than a label's (DESIGN.md, "Pills are rare"). */
   border-radius: var(--radius-md);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-edge);
   color: var(--ink);
   font-weight: 400;
   font-size: var(--text-sm);
@@ -8654,7 +8656,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .segmented-control input[type="radio"]:checked + span {
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+  /* The selected segment's ring is the control edge (3:1), not an 8% ink
+     tint: the 11% fill alone measured 1.25:1 against its well (INBOX 464). */
+  box-shadow: inset 0 0 0 1px var(--control-edge);
 }
 
 /* "is there a way to better design all instances of these menu bar elements
@@ -9649,4 +9653,20 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
     top: var(--space-1);
     right: var(--space-1);
   }
+}
+
+/* --- a chosen radio option is outlined, not only tinted (INBOX 464) -----------
+   A radio `.check-row` and a `.provider-option` hide their input and say
+   which one is chosen with a wash alone: `--accent-soft` on a settings group
+   measured 1.15:1 (contrastui.js, "selected"), so the one chosen option in a
+   set of three was told apart from the others by a tint almost nobody could
+   see. The border budget keeps lines off inner rows, and a row that is the
+   only carrier of a choice is the exception it allows: one ring, in the
+   accent colour that holds contrast on the page, on the chosen row only.
+   Checkbox rows are not here: their switch says on or off itself. */
+.check-row:has(input[type="radio"]:checked),
+.provider-option:has(input[type="radio"]:checked),
+.check-row:has(input[type="radio"]:checked):hover,
+.provider-option:has(input[type="radio"]:checked):hover {
+  box-shadow: inset 0 0 0 1px var(--accent-text);
 }

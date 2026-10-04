@@ -2838,17 +2838,12 @@ body.scroll-top-visible .skills-split > .tab-main {
 
 /* The mirror of `.ph-lead`, for an icon that closes a label rather than opens
    one: a chip's own "remove" cross, drawn by the trailing `ph:` marker in the
-   label grammar (`setLabel`). Same gap on the other side, and a touch quieter
-   than the words, because it is an action on the thing the words name rather
-   than part of the name. */
+   label grammar (`setLabel`). Same gap on the other side. It was dimmed to
+   0.7 opacity as "an action on the thing the words name"; a muted caret on a
+   grey chip then measured 2.8:1 (INBOX 464, contrastui.js), and DESIGN.md's
+   rule is to dim by colour, never by opacity, so it keeps the label's own. */
 .ph-trail {
   margin-inline-start: 0.35em;
-  opacity: 0.7;
-}
-
-.chip-interactive:hover .ph-trail,
-.chip-interactive:focus-visible .ph-trail {
-  opacity: 1;
 }
 
 .ph {
@@ -3384,7 +3379,7 @@ dialog::backdrop {
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
@@ -3533,14 +3528,14 @@ dialog::backdrop {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
 .ask-composer:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 .ask-composer-icon {
@@ -4207,7 +4202,7 @@ input[type="number"]:hover:not(:focus),
 input[type="password"]:hover:not(:focus),
 input[type="email"]:hover:not(:focus),
 input[type="url"]:hover:not(:focus) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
 }
 
 /* --- reminders: "when" is one decision, so it is one group ----------------
@@ -4384,7 +4379,7 @@ input[type="url"]:hover:not(:focus) {
   min-width: 0;
   min-height: var(--target-min);
   padding: var(--space-2) var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   /* The field's corner, which is now the button's (`--radius-md`). */
   border-radius: var(--radius-md);
   background: var(--input-bg);
@@ -4396,7 +4391,7 @@ input[type="url"]:hover:not(:focus) {
 }
 
 .select-opener:hover:not([disabled]) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
 }
 
 .select-opener[disabled] {
@@ -13412,14 +13407,14 @@ header#top-bar {
   gap: var(--space-2);
   margin: var(--space-4) var(--card-pad-x);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
 .finder-bar:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 /* The band's own floor, kept at the component because that is where this

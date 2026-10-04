@@ -37072,6 +37072,16 @@ width, 47% of the column at 1440.
      chat, the editors' menus), the [[ ]] copies renamed Copy wiki link, and an
      app address in a note opens in the same window (`test_router.py`).
 
+487. **The owner, 2026-10-04 evening, verbatim.** "should there be a way to
+     clear the cache??" Decision, taken: yes. Settings, Data: "Clear app
+     cache" unregisters the service worker, empties Cache Storage, drops the
+     server's compressed-file cache and reloads; nothing in the notebook is
+     touched. Orchestrator. **Fixed**: Settings, Import and export, App
+     cache: Clear app cache (service workers, Cache Storage and the server's
+     compressed copies; `POST /system/clear-static-cache`), with help; the
+     emblem's loader now waits for the page, the second cause of "ACCENTS is
+     not defined" (`test_clear_app_cache.py`).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

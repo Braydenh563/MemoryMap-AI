@@ -75,12 +75,6 @@ with its owner named in the entry.
      stuff in the meatball menu button above the meatball menu button which
      covers the quick access??" With the dock-bar agent (479).
 
-487. **The owner, 2026-10-04 evening, verbatim.** "should there be a way to
-     clear the cache??" Decision, taken: yes. Settings, Data: "Clear app
-     cache" unregisters the service worker, empties Cache Storage, drops the
-     server's compressed-file cache and reloads; nothing in the notebook is
-     touched. Orchestrator.
-
 481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      companion's speech line "I'm not talking to you." spilling right over
      the art, its dark bubble collapsed to a small rectangle behind the first

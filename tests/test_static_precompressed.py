@@ -85,3 +85,37 @@ def test_what_the_cache_does_not_cover_is_unchanged(client, cold):
     response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip", "Range": "bytes=0-9"})
     assert response.status_code == 206
     assert raw == (FRONTEND_DIR / "js" / "app.js").read_bytes()[:10]
+
+
+def test_clearing_the_static_cache_empties_the_folder_and_the_memory_copy(
+    client, cold, app_state
+):
+    """INBOX 487: Settings, Data, Clear app cache. Only the compressed copies
+    go; the notebook (the database, uploads, backups) is not touched. The lock
+    on the route is held by tests/test_every_route_is_locked.py, which walks
+    every route."""
+    _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip"})
+    folder = app_state.data_dir / "cache" / "static-gz"
+    assert list(folder.glob("*.gz"))
+    assert RevalidatedStatic._gzip_cache
+    neighbour = app_state.data_dir / "cache" / "keep.txt"
+    neighbour.write_text("not ours")
+    notebook = sorted(p.name for p in app_state.data_dir.iterdir())
+
+    response = client.post("/system/clear-static-cache")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cleared"] is True and body["files"] >= 1
+    assert list(folder.iterdir()) == []
+    assert RevalidatedStatic._gzip_cache == {}
+    assert neighbour.read_text() == "not ours"
+    assert sorted(p.name for p in app_state.data_dir.iterdir()) == notebook
+    # The next fetch compresses again and still answers.
+    response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip"})
+    assert gzip.decompress(raw) == (FRONTEND_DIR / "js" / "app.js").read_bytes()
+
+
+def test_clearing_with_no_cache_folder_is_not_an_error(client, cold):
+    response = client.post("/system/clear-static-cache")
+    assert response.status_code == 200
+    assert response.json() == {"cleared": True, "files": 0}

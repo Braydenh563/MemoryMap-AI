@@ -261,7 +261,8 @@ MORE_TOPICS: list[dict] = [
             "or a PDF, Word file or slide deck, one note per chapter or slide. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
-            "restore can be undone."
+            "restore can be undone. App cache, at the bottom: Clear app cache "
+            "reloads the app with fresh files and never touches your notes."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },
@@ -784,7 +785,7 @@ TOPIC_META: dict[str, dict] = {
     "command-palette": {"title": "The command palette", "path": "Ctrl+K"},
     "security": {"title": "Account and security", "path": "Settings, Account & security"},
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
-        "Open Settings, Models and check a model is connected.", "Start Ollama, LM Studio or a llama.cpp server, pick a model and press Connect.", "Still stuck: open Settings, Logs and press Email it under the support bundle.")},
+        "Open Settings, Models and check a model is connected.", "Start Ollama, LM Studio or a llama.cpp server, pick a model and press Connect.", "Looks out of date or broken after an update: open Settings, Import & export and press Clear app cache.", "Still stuck: open Settings, Logs and press Email it under the support bundle.")},
     "tour": {"title": "The guided tour", "path": "Settings, Help", "steps": (
         "Open Settings, Help.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
     "personas": {"title": "Personas", "path": "Settings, Personas"},

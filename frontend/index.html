@@ -10598,6 +10598,33 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
               </div>
             </div>
+
+            <!-- INBOX 487 ("should there be a way to clear the cache??").
+                 Not destructive, so no confirm: it drops only the app's own
+                 cached files (the service worker, Cache Storage, the
+                 server's compressed copies), never the notebook. -->
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>App cache</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="app-cache-help" aria-controls="app-cache-help" aria-expanded="false"
+                  title="About the app cache" aria-label="About the app cache">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Reloads the app with fresh files. Your notes and settings are not touched.</p>
+              <div class="help-body hidden" id="app-cache-help" role="dialog" aria-label="About the app cache">
+                <p>
+                  If something looks out of date or broken after an update,
+                  this forgets the app's saved copies of its own pages and
+                  scripts, here and on the server, then reloads. Nothing in
+                  your notebook is deleted.
+                </p>
+              </div>
+              <div class="row">
+                <button id="clear-app-cache" class="ghost small" type="button"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear app cache</button>
+              </div>
+            </div>
           </section>
 
           <!-- Logs -->

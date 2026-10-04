@@ -11,7 +11,7 @@ fields.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -112,8 +112,14 @@ def _fields(fields: list[FieldIn]) -> list[dict]:
 
 
 @router.get("/note-types")
-def list_note_types(session: Session = Depends(get_session)) -> list[dict]:
-    return [_type_row(r) for r in session.scalars(select(NoteType).order_by(NoteType.name))]
+def list_note_types(
+    response: Response,
+    limit: int = Query(default=500, ge=1, le=500),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    rows = [_type_row(r) for r in session.scalars(select(NoteType).order_by(NoteType.name))]
+    response.headers["X-Total-Count"] = str(len(rows))
+    return rows[:limit]
 
 
 @router.post("/note-types", status_code=201)

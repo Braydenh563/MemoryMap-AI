@@ -160,7 +160,7 @@ def _to_out(
                 # `LinkOut.direction`.
                 direction="out" if link.source_entry_id == entry.id else "in",
                 link_type=link.link_type,
-                link_label=manager.link_label(
+                link_label=manager.relation_label(
                     manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
                 ),
                 props=link.props,
@@ -2927,7 +2927,7 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
             "reason_confidence": link.reason_confidence,
             #: KG3: the kind, named from this end, and the link's properties.
             "link_type": link.link_type,
-            "link_label": manager.link_label(
+            "link_label": manager.relation_label(
                 manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
             ),
             "props": link.props,

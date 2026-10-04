@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -66,7 +66,11 @@ def _live(session: Session, entity_id: int) -> Entity:
 
 
 @router.get("")
-def list_entities(session: Session = Depends(get_session)) -> list[dict]:
+def list_entities(
+    response: Response,
+    limit: int = Query(default=LIST_MAX, ge=1, le=LIST_MAX),
+    session: Session = Depends(get_session),
+) -> list[dict]:
     """Every entity some visible note names, most named first."""
     visible = _visible_ids(session)
     counts: Counter[int] = Counter()
@@ -79,7 +83,8 @@ def list_entities(session: Session = Depends(get_session)) -> list[dict]:
         if counts[e.id]
     ]
     rows.sort(key=lambda r: (-r["notes"], r["name"].casefold()))
-    return rows[:LIST_MAX]
+    response.headers["X-Total-Count"] = str(len(rows))
+    return rows[:limit]
 
 
 def _hit(content: str, names: list[str]) -> tuple[int, int] | None:

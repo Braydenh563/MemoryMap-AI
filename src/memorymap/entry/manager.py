@@ -2052,7 +2052,7 @@ def is_link_type(session: Session, key: str | None) -> bool:
     return key in relation_types(session)
 
 
-def link_label(types: dict[str, dict], link_type: str | None, outgoing: bool) -> str | None:
+def relation_label(types: dict[str, dict], link_type: str | None, outgoing: bool) -> str | None:
     """What a link of this type is called from one end: its name from the
     source, its inverse from the target (when it has one). None for an
     untyped link or a type no longer known."""

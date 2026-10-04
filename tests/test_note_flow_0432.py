@@ -307,8 +307,10 @@ def test_a_filter_still_being_typed_narrows_nothing():
     if not node:
         pytest.skip("node not installed")
     notes = _read("notes-list.js")
-    regex = notes[notes.index("const TAG_COUNT_RE"):]
-    regex = regex[: regex.index("\n") + 1]
+    regex = ""
+    for name in ("const TAG_COUNT_RE", "const LIVE_QUERY_RE"):
+        line = notes[notes.index(name):]
+        regex += line[: line.index("\n") + 1]
     parse = "function parseNoteQuery(" + _function(notes, "parseNoteQuery") + "}\n"
     script = regex + parse + (
         "const out = {};"

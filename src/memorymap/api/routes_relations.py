@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -56,8 +56,14 @@ def _colour(value: str | None) -> str | None:
 
 
 @router.get("")
-def list_types(session: Session = Depends(get_session)) -> list[dict]:
-    return list(manager.relation_types(session).values())
+def list_types(
+    response: Response,
+    limit: int = Query(default=500, ge=1, le=500),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    rows = list(manager.relation_types(session).values())
+    response.headers["X-Total-Count"] = str(len(rows))
+    return rows[:limit]
 
 
 @router.post("", status_code=201)

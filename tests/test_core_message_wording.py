@@ -27,6 +27,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pytest
+
 from tests.test_server_detail_wording import API, _pieces, collect, problems
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
@@ -300,6 +302,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_files.py", "edit_message"): "core/docview.py editability",
     ("routes_files.py", "str(exc)"): "ValueError and FileExistsError from entry/manager.py, ValueError from core/ocr.py set_language",
     ("routes_learned.py", "str(exc)"): "ValueError from ai/learning.py record and ai/facts.py set_switches",
+    ("routes_mentions.py", "LINK_UNSAFE_WHY"): "a constant in routes_mentions.py, checked below",
     ("routes_models.py", "str(exc)"): "ValueError from ai/model_manager.py known_feature",
     ("routes_models.py", "reason"): "core/security.py check_backend_url",
     ("routes_models.py", "info['error']"): "ai/model_cards.py inspect_model_name",
@@ -363,13 +366,14 @@ def test_no_route_literal_tells_the_person_to_run_a_command():
     assert not bad, f"a route detail carries developer vocabulary: {bad}"
 
 
-def test_the_web_off_sentence_reads_as_a_sentence():
-    tree = ast.parse((API / "routes_webclip.py").read_text(encoding="utf-8"))
+@pytest.mark.parametrize("module, name", [("routes_webclip.py", "WEB_OFF"), ("routes_mentions.py", "LINK_UNSAFE_WHY")])
+def test_a_route_constant_reads_as_a_sentence(module, name):
+    tree = ast.parse((API / module).read_text(encoding="utf-8"))
     texts = []
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "WEB_OFF" for t in node.targets):
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == name for t in node.targets):
             texts += _pieces(node.value)
-    assert texts, "WEB_OFF not found"
+    assert texts, f"{name} not found"
     assert all(not problems(t) for t in texts), texts
 
 

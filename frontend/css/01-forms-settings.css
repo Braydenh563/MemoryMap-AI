@@ -1113,24 +1113,23 @@ progress {
   flex: 0 0 auto;
 }
 
-#thinking-box {
-  margin-bottom: 0.6rem;
-  font-size: 0.85rem;
-}
-
-#thinking-box summary {
-  cursor: pointer;
-  color: var(--muted);
-}
-
+/* The Thinking fold's body (`thinkingFold`, chat-agent.js), the same on every
+   surface that shows the model reasoning (INBOX 457). The steps fold's rail
+   (02-chat-graph.css, `.agent-step-group-body`), so the two folds open the
+   same way; the body face rather than monospace, because it is prose; muted
+   and a step smaller than the answer, because it is not the answer; capped
+   and scrolling, with the newest line kept in view (`keepAtBottom`). */
 .thinking {
-  margin-top: 0.4rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-lg);
+  display: block;
+  margin: var(--space-1) 0 0 var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border);
   color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
   white-space: pre-wrap;
-  max-height: 14rem;
+  overflow-wrap: anywhere;
+  max-height: 12rem;
   overflow-y: auto;
 }
 

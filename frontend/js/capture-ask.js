@@ -2592,8 +2592,9 @@ async function askQuestion(preset) {
   status.classList.remove("error");
   // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
-  const thinkingBox = $("thinking-box");
-  const thinkingText = $("ai-thinking");
+  const thinkingHost = $("thinking-box");
+  const thinkingBox = thinkingFoldIn(thinkingHost);
+  const thinkingText = thinkingBox.querySelector(".thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
   //: After the reset, not before it: the progress line lives inside the
@@ -2611,7 +2612,7 @@ async function askQuestion(preset) {
   //: have nothing to do with the one being asked.
   clearAskAnswerFoot();
   thinkingText.textContent = "";
-  thinkingBox.classList.add("hidden");
+  thinkingHost.classList.add("hidden");
   thinkingBox.open = false;
 
   //: **On before the request, off in the `finally`.** The ring marks the
@@ -2682,7 +2683,7 @@ async function askQuestion(preset) {
           if (!progress || !progress.contains(stray)) stray.remove();
         }
         // Auto-expand while the model reasons (user request).
-        thinkingBox.classList.remove("hidden");
+        thinkingHost.classList.remove("hidden");
         thinkingBox.open = true;
         thinkingText.textContent += delta;
         keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away

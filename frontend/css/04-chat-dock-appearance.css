@@ -3352,21 +3352,6 @@ span > .chip {
   flex: 0 0 auto;
 }
 
-/* **Bounded on purpose, and measured.** The thinking was an unstyled `<pre>`
-   (it had no rule anywhere in the app), so the moment it opened it grew the
-   column from 539px to 1576px: a 1031px panel thrown under the draft it is
-   about, while that draft is still being written. Capped and scrolled, the
-   disclosure costs the same 8rem wherever it opens, and app.js keeps the
-   newest line in view while the model is writing it. */
-.thinking-text {
-  max-height: 8rem;
-  overflow: auto;
-  margin: 0;
-  white-space: pre-wrap;
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-
 .draft-versions {
   display: flex;
   flex-wrap: wrap;

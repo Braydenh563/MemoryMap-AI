@@ -547,76 +547,29 @@ function cmdPaletteBusy(busy) {
 //: token count, thinking boxes, metadata, persona used, model used... the
 //: popup agent should be an application wide utility tool."
 //:
-//: Every one of those already arrives on the stream, `onMeta` carries the
-//: search mode and what answered, `onStats` the model and the token counts,
-//: `onThinking` the reasoning: and the palette wired all three to `() => {}`.
-//: So this is not new machinery; it is the same events the Chat tab reads,
-//: rendered in the one surface that was throwing them away.
-//:
-//: A quiet footer rather than the Chat tab's full panel, on purpose: the
-//: palette is a 600px overlay you open on top of whatever you were doing, and
-//: reproducing a side panel in it would make the answer harder to read, not
-//: better evidenced. Each fact is a chip, so the row wraps and stays one line
-//: tall when there is little to say.
-function cmdPaletteMetaRow({ meta, stats, persona }) {
-  const facts = [];
-  if (meta?.search_mode && meta.search_mode !== "none") {
-    facts.push([
-      "ph:magnifying-glass",
-      SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode,
-      "How your notes were searched for this answer",
-    ]);
-  }
-  const model = stats?.model || meta?.answered_by;
-  if (model) facts.push(["ph:cpu", model, "The model that answered"]);
-  if (persona) facts.push(["ph:user-circle", persona, "The persona that answered"]);
-  const tokens = (stats?.prompt_tokens || 0) + (stats?.output_tokens || 0);
-  if (tokens) {
-    //: `usage_source` is the difference between a measured count and a guess,
-    //: and reporting a guess as a measurement is the dishonest way round, 
-    //: the same reason the Chat tab's own accumulator propagates it.
-    const estimated = stats.usage_source === "estimated";
-    facts.push([
-      "ph:coins",
-      `${formatTokens(tokens)} tokens${estimated ? " (est.)" : ""}`,
-      estimated
-        ? "Estimated: this model did not report its own usage"
-        : "Counted by the model",
-    ]);
-  }
-  if (stats?.round > 1) {
-    facts.push(["ph:arrows-clockwise", `${stats.round} rounds`, "Tool rounds this turn took"]);
-  }
-  if (!facts.length) return null;
-  const row = document.createElement("div");
-  row.className = "row cmd-palette-meta";
-  for (const [icon, text, title] of facts) {
-    const item = document.createElement("span");
-    item.className = "chip tag cmd-palette-fact";
-    setLabel(item, `${icon} ${text}`);
-    item.title = title;
-    row.appendChild(item);
-  }
-  return row;
-}
-
-//: The model's reasoning, closed. It is long, it is not the answer, and the
-//: palette is the smallest surface in the app, but hiding it entirely is what
-//: made this window feel like it was doing something it would not explain.
-function cmdPaletteThinkingBox(text) {
-  const box = document.createElement("details");
-  box.className = "tool-chip cmd-palette-thinking";
-  const summary = document.createElement("summary");
-  setLabel(summary, "ph:brain Thinking");
-  box.appendChild(summary);
-  const body = document.createElement("div");
-  body.className = "tool-chip-body";
-  const pre = document.createElement("pre");
-  pre.className = "tool-chip-result";
-  pre.textContent = text;
-  body.appendChild(pre);
-  box.appendChild(body);
-  return box;
+//: **One muted line, Chat's own** (INBOX 458, the owner: "the source
+//: metadata needs improving ui/ux wise"). It was a row of five bordered
+//: pills, one per fact, wrapping to two lines in a 600px panel: the
+//: block-per-fact shape DESIGN.md's facts-line recipe rules out. This is
+//: `messageMetaLine` (chat.js), the line under every Chat answer: what the
+//: turn cost first, the mode and the model quieter beside it, the token
+//: counts and rounds on its tooltip, and a long model id cut short with the
+//: whole name on hover. The search mode moved to the sources' own summary
+//: ("Sources: 3 notes · meaning + keywords"), where Chat says it, and the
+//: persona is the name and face at the top of this same bubble, so neither
+//: is said twice. `persona` stays a parameter so the line can never name a
+//: different writer from the head.
+function cmdPaletteFacts({ stats, meta, persona, elapsedMs, toolCount }) {
+  const line = messageMetaLine({
+    model: stats?.model || meta?.answered_by,
+    elapsedMs,
+    stats,
+    toolCount,
+    rounds: stats?.round || 0,
+    usedTools: true,
+  });
+  if (persona) line.dataset.persona = persona;
+  return line.childElementCount ? line : null;
 }
 
 //: **What the agent found has to be reachable, not recited.** Reported with a
@@ -649,118 +602,88 @@ function cmdPaletteGoToNote(id) {
   flashEntry(id);
 }
 
-//: The same gesture for a document. Notes and documents share an id space
-//: only by accident, id 12 is a different object in each table, so this
-//: cannot be folded into the note case: sending a document id through
-//: `flashEntry` opens an unrelated note, silently.
-function cmdPaletteGoToDocument(id) {
-  cmdPaletteOverlay.classList.add("hidden");
-  openDocumentFromNote(id);
-}
-
-//: What the *tools* opened, as opposed to what retrieval found. The report
-//: this answers: "no way to actually find and navigate to the things it
-//: found". Retrieval's row (`cmdPaletteResultRow`) only ever covers notes the
-//: semantic search returned; a turn that read a document, edited a note or
-//: followed a link touched things that row never mentions. The backend already
-//: names them per tool call (`_touched_items`), so the palette accumulates
-//: them across the turn and shows them under one heading.
-function cmdPaletteTouchedRow(items) {
-  if (!items.length) return null;
-  //: Same grid as the retrieved-notes block above, these two lists sat under
-  //: one another in different shapes and different chip sizes, which is what
-  //: made the pair read as clutter rather than as provenance.
-  return cmdSourceList(
-    items.length === 1 ? "Opened 1 item" : `Opened ${items.length} items`,
-    items,
-    (item) => {
-      const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "cmd-source-row";
-      //: INBOX 35, batch B's own next step: `item.label` is a raw title/
-      //: preview from the backend (a document's own title, a note's opening
-      //: words). Reported with a screenshot: a document titled `# CAB432`
-      //: and a note opening `**Ice Breakers:**` printed their own markdown
-      //: markers here. `setNoteLabel` is the one place that both strips a
-      //: label short enough to cut safely and renders one long enough to
-      //: show in full, rather than a plain-text stripper that always
-      //: flattens -- the same badge recipe the grounding/touched chips
-      //: elsewhere in chat already use.
-      setNoteLabel(chip, spec.icon, item.label || `#${item.id}`, 44);
-      chip.title = spec.title;
-      chip.addEventListener("click", () =>
-        item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
-      );
-      return chip;
-    }
+//: **What this turn drew on: one list, Chat's Sources panel** (INBOX 458).
+//: It was two blocks under the bubble, "Found in N notes" and "Opened N
+//: items", the second repeating most of the first (a `search_notes` call
+//: opens the very notes retrieval found), each a grid of pills holding a
+//: note's whole text run together. `chatSourcesFrom` keys every source on
+//: kind and id, so a note found and then opened is one row, and
+//: `cmdSourceRow` draws each as the note's title, its category dot and
+//: its date. Every row closes the palette before it opens
+//: its note: the palette is an overlay over the app it is about to
+//: navigate, and "find it" and "go to it" should be one gesture.
+function cmdPaletteSources({ meta, touched }) {
+  const sources = chatSourcesFrom({ meta, touched }).map((source) =>
+    source.open
+      ? {
+          ...source,
+          open: () => {
+            cmdPaletteOverlay.classList.add("hidden");
+            source.open();
+          },
+        }
+      : source,
   );
-}
-
-//: **A list of what was used, not a drift of pills.**
-//:
-//: Reported with a screenshot of "Found in 10 notes" and "Opened 6 items":
-//: *"refine the ui display of these in the popup agent."* They were inline
-//: chips of whatever width their text happened to be, wrapping into a ragged
-//: block: three on one line, two on the next, each truncated at a different
-//: point, and the second list's chips a different size from the first's
-//: because their labels were longer. Nothing lines up, so nothing scans.
-//:
-//: A fixed grid fixes both halves at once: every row is the same width, so the
-//: eye reads down a column instead of hunting, and the truncation lands in one
-//: place. Past `CMD_SOURCE_PREVIEW` the rest fold behind one "show all", 
-//: eleven rows of provenance under a two-line answer is the panel reporting on
-//: itself rather than answering.
-const CMD_SOURCE_PREVIEW = 6;
-
-function cmdSourceList(labelText, items, render) {
-  const block = document.createElement("div");
-  block.className = "cmd-source-block";
-  const head = document.createElement("p");
-  head.className = "muted cmd-source-head";
-  head.textContent = labelText;
-  block.appendChild(head);
-  const grid = document.createElement("div");
-  grid.className = "cmd-source-grid";
-  items.slice(0, CMD_SOURCE_PREVIEW).forEach((item) => grid.appendChild(render(item)));
-  block.appendChild(grid);
-  const rest = items.slice(CMD_SOURCE_PREVIEW);
+  const panel = chatSourcesPanel({ sources, meta, row: cmdSourceRow });
+  //: Past six the rest wait behind one "Show N more": eleven rows of
+  //: provenance under a two-line answer is the panel reporting on itself.
+  const rest = panel ? [...panel.querySelectorAll(".chat-source-row")].slice(6) : [];
   if (rest.length) {
+    for (const extra of rest) extra.hidden = true;
     const more = document.createElement("button");
     more.type = "button";
-    more.className = "link-button cmd-source-more";
+    more.className = "link-button chat-sources-more";
     more.textContent = `Show ${rest.length} more`;
     more.addEventListener("click", () => {
-      rest.forEach((item) => grid.appendChild(render(item)));
+      for (const extra of rest) extra.hidden = false;
       more.remove();
     });
-    block.appendChild(more);
+    panel.querySelector(".chat-sources-body").appendChild(more);
   }
-  return block;
+  return panel;
 }
 
-//: The notes this turn actually retrieved, as things you can open.
-function cmdPaletteResultRow(results) {
-  return cmdSourceList(
-    results.length === 1 ? "Found in 1 note" : `Found in ${results.length} notes`,
-    results,
-    (entry) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "cmd-source-row";
-      //: `ph:note`, not `ph:file-text`, that glyph means *document* in the
-      //: touched row below, and the same picture standing for two different
-      //: objects in one panel is exactly the inconsistency this app is being
-      //: pulled out of. `setNoteLabel`, not `noteLabel` plus `setLabel`: the
-      //: latter pair always flattens (INBOX 35's original fix), the former
-      //: renders the note's own Markdown when the label is short enough to
-      //: show in full (chat-b.md's own next step).
-      setNoteLabel(chip, "ph:note", entry.content || "", 44);
-      chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
-      chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
-      return chip;
-    }
-  );
+//: **A source as one compact row** (INBOX 458, the owner: "the source
+//: metadata needs improving ui/ux wise"). The rows were bordered pills, each
+//: the note's whole text run together and cut mid-word. A row is what a
+//: reader scans for: the note's title, its category as the dot every other
+//: surface draws (`paintCategoryDot`), and when it was last written, on
+//: `.timeline-row`'s quiet-row shape (no border at rest, the ground arriving
+//: with the pointer). Drawn by `chatSourcesPanel`'s `row` hook, so the
+//: summary, the counts and the sheet on a phone stay the Sources panel's own.
+function cmdSourceRow(source, icons) {
+  const row = document.createElement(source.url ? "a" : source.open ? "button" : "div");
+  if (source.url) {
+    row.href = source.url;
+    row.target = "_blank";
+    row.rel = "noopener noreferrer";
+  } else if (source.open) {
+    row.type = "button";
+    row.addEventListener("click", source.open);
+  }
+  row.className = "chat-source-row";
+  if (source.kind === "note" && source.id != null) row.dataset.noteId = String(source.id);
+  const entry = source.entry;
+  const mark = document.createElement("span");
+  mark.setAttribute("aria-hidden", "true");
+  if (entry?.category) {
+    mark.className = "chat-source-row-dot";
+    paintCategoryDot(mark, entry.category);
+  } else {
+    mark.className = "chat-source-row-kind";
+    setLabel(mark, icons[source.kind] || "ph:note");
+  }
+  const title = document.createElement("span");
+  title.className = "chat-source-row-title";
+  const first = String(entry?.content || "").split("\n").map((line) => line.trim()).find(Boolean);
+  title.textContent = entry?.title || (first && flattenNoteMarkdown(first)) || source.label;
+  const date = document.createElement("span");
+  date.className = "chat-source-row-date";
+  const when = entry?.edited_at || entry?.created_at;
+  date.textContent = source.url ? sourceHost(source.url) : when ? relativeTime(when) : "";
+  row.append(mark, title, date);
+  row.title = [title.textContent, entry?.category, date.textContent].filter(Boolean).join(" · ");
+  return row;
 }
 
 //: One reference, as a control. Extracted because a list of ids builds several
@@ -964,7 +887,7 @@ async function cmdPaletteAsk(text) {
   //: Chat.
   //:
   //: The persona is resolved now, at send time, the same value the request
-  //: below sends and `cmdPaletteMetaRow`'s fact row names, not read back off
+  //: below sends and the `cmdPaletteFacts` line carries, not read back off
   //: a live picker that may have moved on by the time a slow answer lands
   //: (`paintPersonaAvatar`'s own comment on `addAssistantBubble` makes the
   //: same argument for Chat).
@@ -979,6 +902,16 @@ async function cmdPaletteAsk(text) {
   agentWriterName.textContent = askedWriter;
   agentLabel.append(agentAvatar, agentWriterName);
   agentMsg.appendChild(agentLabel);
+  //: **Chat's own step column** (INBOX 457/458): the thinking fold, the steps
+  //: fold and the answer go into an `.agent-steps` holder under the head, as
+  //: they do in `addAssistantBubble`, so the popup gets the same order, the
+  //: same rail and nodes once there is more than one step, and the same
+  //: spacing between them, from the same rules (02-chat-graph.css), rather
+  //: than parts appended straight onto the bubble in whatever order their
+  //: events arrived.
+  const stepsHolder = document.createElement("div");
+  stepsHolder.className = "agent-steps";
+  agentMsg.appendChild(stepsHolder);
   //: **What the tools did, as the same fold the Chat tab shows.** Reported:
   //: "tool calls dont show" in the popup agent. The palette answered every
   //: tool event with one word on the status line ("Working…") and threw the
@@ -1008,7 +941,7 @@ async function cmdPaletteAsk(text) {
       const body = document.createElement("div");
       body.className = "agent-step-group-body";
       stepsFold.append(summary, body);
-      agentMsg.insertBefore(stepsFold, answerBox);
+      stepsHolder.insertBefore(stepsFold, answerBox);
     }
     stepCount += 1;
     stepsFold.querySelector(".agent-step-group-body").appendChild(
@@ -1035,16 +968,19 @@ async function cmdPaletteAsk(text) {
   //: followed since it was built (`onAnswer` there adds the same class on its
   //: first delta, not before the request).
   const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer";
+  answerBox.className = "agent-step step-answer bubble-answer";
   //: Chat's own waiting line, musing included.
   answerBox.appendChild(progressLine("Thinking…", { persona: askedPersona, words: true }));
-  agentMsg.appendChild(answerBox);
+  stepsHolder.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
   paintPersonaAvatar(agentAvatar, askedWriter, 20); // now attached, so p5 can measure and draw
   //: The answer's own row, added now and reading `answerRaw` at click time: 
   //: the text does not exist yet, and binding a copy of an empty string is
-  //: how "Copy" ends up copying nothing on a fast answer.
-  agentMsg.appendChild(
+  //: how "Copy" ends up copying nothing on a fast answer. It stays the
+  //: bubble's last child: the sources and the facts line go in above it
+  //: (INBOX 458: it hung over the "Found in N notes" heading when those
+  //: were drawn after the bubble).
+  const actionRow = agentMsg.appendChild(
     chatMessageActions([
       {
         label: "ph:copy",
@@ -1058,7 +994,12 @@ async function cmdPaletteAsk(text) {
       },
     ])
   );
-  cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+  //: A new question always brings the pane to the bottom and follows it
+  //: again; from here on it follows only while the reader stays there
+  //: (`keepAtBottom`, INBOX 458: "I cant scroll up while the popup agent is
+  //: responding", every token used to set `scrollTop` unconditionally).
+  cmdPaletteResults.dataset.stuck = "1";
+  keepAtBottom(cmdPaletteResults);
 
   // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
   // JSON object) as though it were the NDJSON `/chat/stream` shape: so
@@ -1091,6 +1032,7 @@ async function cmdPaletteAsk(text) {
   //: stripped before it can be quoted inside another label.
   let lastToolLabel = "";
   let why = "";
+  const startedAt = performance.now();
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
   //: What it is working on, in the person's own words, cut to a line. A
@@ -1129,20 +1071,24 @@ async function cmdPaletteAsk(text) {
       //: open while the turn runs and closes when the answer arrives, so a
       //: finished turn still reads answer-first.
       //:
-      //: `textContent` on one `<pre>`, not a re-render: the cost the old
-      //: comment was avoiding was markdown, and this is plain text.
+      //: `textContent`, not a re-render: the cost the old comment was
+      //: avoiding was markdown, and this is plain text.
+      //:
+      //: **Under the name, not over it** (INBOX 457, the owner: "the thinking
+      //: box appears above the atlas message bubble title and avatar in the
+      //: popup agent"). It was `prepend`ed, which put it before the head.
+      //: Every assistant bubble reads head, thinking, steps, answer, sources,
+      //: facts, actions, and the fold is the app's one (`thinkingFold`).
       onThinking: (delta) => {
         thinkingRaw += delta;
         if (!thinkingBox) {
-          thinkingBox = cmdPaletteThinkingBox("");
-          thinkingBox.open = true;
-          agentMsg.prepend(thinkingBox);
+          thinkingBox = thinkingFold();
+          stepsHolder.prepend(thinkingBox);
         }
-        const pre = thinkingBox.querySelector(".tool-chip-result");
-        if (pre) {
-          pre.textContent = thinkingRaw;
-          pre.scrollTop = pre.scrollHeight;
-        }
+        const body = thinkingBox.querySelector(".thinking");
+        body.textContent = thinkingRaw;
+        keepAtBottom(body);
+        keepAtBottom(cmdPaletteResults);
       },
       //: An agent turn reports once per round. Same accumulation the Chat tab
       //: does: output tokens add up, the prompt is the largest one sent, and
@@ -1159,7 +1105,11 @@ async function cmdPaletteAsk(text) {
         if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
       onTool: (event) => {
+        //: The reasoning that led to a call is finished, so it folds, the
+        //: same move Chat's timeline makes (`foldEarlierThinking`).
+        if (thinkingBox) thinkingBox.open = false;
         addStep(event);
+        keepAtBottom(cmdPaletteResults);
         // Something visible while a tool runs, so a long silence reads as
         // work rather than as nothing happening.
         //: `setLabel`, not `textContent`. A tool event's label carries this
@@ -1206,8 +1156,9 @@ async function cmdPaletteAsk(text) {
         //: Idempotent, and cheap: `classList.add` on a class already there is
         //: a no-op, so this costs nothing per delta and saves a flag.
         answerBox.classList.add("is-streaming");
+        if (thinkingBox) thinkingBox.open = false;
         renderMarkdown(answerBox, answerRaw);
-        cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+        keepAtBottom(cmdPaletteResults);
       },
     });
     answerBox.classList.remove("is-streaming");
@@ -1230,29 +1181,23 @@ async function cmdPaletteAsk(text) {
     }
     //: Below the answer, and always when there were results, the model's
     //: prose is free to summarise or to leave a note out, but what retrieval
-    //: found should not depend on whether it got a mention.
-    if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
-    //: Under retrieval's row, not instead of it: "what I searched" and "what I
-    //: opened" are different claims, and a turn can have one without the other.
-    const touchedRow = cmdPaletteTouchedRow([...touched.values()]);
-    if (touchedRow) cmdPaletteResults.appendChild(touchedRow);
-    //: Reasoning above the evidence, evidence above the accounting, the same
-    //: order the Chat tab reads in, so moving between the two surfaces does
-    //: not mean learning a second layout.
-    if (thinkingRaw.trim()) {
-      //: Already on screen if the model thought out loud: closed now, with the
-      //: trailing blank lines trimmed, rather than added a second time.
-      if (thinkingBox) {
-        thinkingBox.open = false;
-        const pre = thinkingBox.querySelector(".tool-chip-result");
-        if (pre) pre.textContent = thinkingRaw.trim();
-      } else {
-        agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
-      }
+    //: found should not depend on whether it got a mention. One list for
+    //: what was searched and what was opened (`cmdPaletteSources`), inside
+    //: the bubble and above its action row, so the row hangs under the
+    //: bubble rather than over the list.
+    const sources = cmdPaletteSources({ meta, touched: [...touched.values()] });
+    if (sources) agentMsg.insertBefore(sources, actionRow);
+    //: The reasoning stays where it was written, folded now, with the
+    //: trailing blank lines trimmed.
+    if (thinkingBox) {
+      thinkingBox.open = false;
+      thinkingBox.querySelector(".thinking").textContent = thinkingRaw.trim();
     }
-    const metaRow = cmdPaletteMetaRow({
+    const metaRow = cmdPaletteFacts({
       meta,
       stats,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      toolCount: stepCount,
       //: The persona this turn was actually *sent* with (`askedPersona`,
       //: captured when the bubble was made and its avatar painted), not a
       //: fresh read of the picker: a slow answer finishing after the person
@@ -1261,8 +1206,8 @@ async function cmdPaletteAsk(text) {
       //: claims about who answered on one turn.
       persona: askedPersona,
     });
-    if (metaRow) cmdPaletteResults.appendChild(metaRow);
-    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+    if (metaRow) agentMsg.insertBefore(metaRow, actionRow);
+    keepAtBottom(cmdPaletteResults);
   } catch (err) {
     if (err?.name === "AbortError") {
       stopped = true;

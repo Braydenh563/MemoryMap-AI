@@ -110,31 +110,6 @@ with its owner named in the entry.
      honoured, every duration and curve a token, no new decoration): an
      Opus agent, with the named skills as checklists.
 
-458. **The owner, 2026-10-03 night, verbatim, with screenshots (the popup
-     agent's copy and retry buttons over "Found in 5 notes"; the sources
-     fold, "Opened 6 items" and the run facts; a Thinking fold above Atlas's
-     name and a "Finished 1 step" fold under it; two note cards whose
-     preview is "..." alone under the title, and the same note open in
-     full).** "I cant scroll up while the popup agent is responding, the
-     bottom popup buttons on the agent bubble clash with the text. the
-     source metadata needs improving ui/ux wise, there needs to be better
-     spacing and positioning around and for the thinking and skills
-     dropdowns in the assistant bubbles with the title and avatar. also note
-     characters preview counts are severely shortened again." **Preview
-     fixed**: every blank line after a title goes, and a clamped card runs
-     its paragraphs together, so its two lines are text (was one line and a
-     lone "...", or "..." alone). The bubble parts with 457 (thinking
-     under the name, one thinking fold style, skills/steps fold spacing,
-     scroll-up while streaming, action row clash, sources redesign): an
-     Opus agent.
-
-457. **The owner, 2026-10-03 night, verbatim, with a screenshot (the popup
-     agent: a Thinking fold and its open text drawn above Atlas's name and
-     avatar, the bubble's "Stargazing / Thinking..." line below).** "the
-     thinking box appears above the atlas message bubble title and avatar in
-     the popup agent. also make sure all the thinking boxes are the same
-     style and consistent". Placed: the orchestrator.
-
 455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
      details line: category, 85%, eight hashtags, the date alone on a line
      under them; four notes whose dates sit at different heights).** "note

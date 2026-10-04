@@ -3891,20 +3891,10 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   //: said "this is the model reasoning", which is what "doesn't properly
   //: render" is describing.
   //:
-  //: `details.agent-step.step-thinking` holding a `.thinking` body is what
-  //: the chat transcript already uses for exactly this (app.js's
-  //: `startThinking`): a summary that says what it is, a caret, and a body
-  //: that scrolls rather than clips. It folds itself when the answer starts,
-  //: the same move `foldEarlierThinking` makes, so the reasoning is a step on
-  //: the way rather than a block the answer has to be read underneath.
-  const think = document.createElement("details");
-  think.className = "help-chat-think agent-step step-thinking";
-  think.open = true;
-  const thinkSummary = document.createElement("summary");
-  thinkSummary.textContent = "Thinking";
-  const thinkBody = document.createElement("div");
-  thinkBody.className = "thinking";
-  think.append(thinkSummary, thinkBody);
+  //: The app's one Thinking fold (INBOX 457). It folds when the answer
+  //: starts, as `foldEarlierThinking` does.
+  const think = thinkingFold();
+  const thinkBody = think.querySelector(".thinking");
   think.hidden = true;
   const prose = document.createElement("div");
   //: Named so the streaming caret can reach into it. The bubble's last child
@@ -3916,7 +3906,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   prose.className = "help-chat-prose";
   pending.append(think, prose);
   const list = $("help-chat-messages");
-  const toBottom = () => { if (list) list.scrollTop = list.scrollHeight; };
+  const toBottom = () => keepAtBottom(list);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -3930,7 +3920,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     if (event.type === "thinking") {
       think.hidden = false;
       thinkBody.textContent += event.text || "";
-      thinkBody.scrollTop = thinkBody.scrollHeight;
+      keepAtBottom(thinkBody);
     } else if (event.type === "delta") {
       //: Folded the moment there is an answer to read, not when the turn
       //: ends: by then the reader has already had to scroll past it.

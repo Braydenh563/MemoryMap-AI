@@ -3602,3 +3602,50 @@ def test_a_facts_row_opens_its_lists_below_itself() -> None:
     render = code[code.index("function renderSkillCards("):]
     assert "skillColumnCount(grid)" in render[:4000], "skill cards are dealt into columns"
     assert "display: flex" in _css_block(".skills-grid")
+
+
+def test_one_builder_draws_a_thinking_fold() -> None:
+    """INBOX 457, the owner: "make sure all the thinking boxes are the same
+    style and consistent". Five surfaces drew the model's reasoning and no two
+    matched (Chat's caret-triangle fold, the popup agent's monospace tool-chip
+    box, Ask's dashed "Model's thinking", the Guide's smaller copy, the writing
+    room's "What Atlas was thinking"). `thinkingFold` (chat-agent.js) is the
+    one builder; a second one, a fold in the markup, or a stylesheet giving
+    one surface's body its own look fails here."""
+    js = {path.name: path.read_text(encoding="utf-8") for path in JS}
+    fold_classes = [
+        (name, m.group(0))
+        for name, text in js.items()
+        for m in re.finditer(r'className\s*=\s*"[^"]*\b(?:thinking-fold|step-thinking|cmd-palette-thinking|help-chat-think|thinking-text)\b[^"]*"', text)
+    ]
+    #: The builder, plus Agent Activity's run row, which borrows the old
+    #: disclosure look for a run (not reasoning) and says so in its class.
+    allowed = {
+        ("chat-agent.js", 'className = "agent-step thinking-fold"'),
+        ("agent-activity.js", 'className = "agent-step step-thinking agent-run-step"'),
+    }
+    assert set(fold_classes) == allowed and len(fold_classes) == len(allowed), (
+        f"a thinking fold built outside thinkingFold: {sorted(set(fold_classes) - allowed)}"
+    )
+    bodies = [name for name, text in js.items() for _ in re.finditer(r'className\s*=\s*"thinking"', text)]
+    assert bodies == ["chat-agent.js"], f"the reasoning body is built in {bodies}"
+    #: Every surface that shows reasoning asks the builder.
+    for name, call in (
+        ("chat-agent.js", "const el = thinkingFold();"),
+        ("palette.js", "thinkingBox = thinkingFold();"),
+        ("settings.js", "const think = thinkingFold();"),
+        ("capture-ask.js", 'thinkingFoldIn(thinkingHost)'),
+        ("chat-agent.js", 'thinkingFoldIn(thinkingHost)'),
+    ):
+        assert call in js[name], f"{name} no longer draws its reasoning with the one fold"
+    html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
+    assert not re.search(r"<details[^>]*>\s*<summary[^>]*>[^<]*thinking", html, flags=re.I), (
+        "a thinking fold written into index.html instead of built by thinkingFold"
+    )
+    assert 'class="thinking' not in html
+    #: One look: the body has one rule and no surface restyles it.
+    selectors = [sel for path in CSS for sel, _ in _rules(path.read_text(encoding="utf-8"))]
+    body_rules = [s for s in selectors if re.search(r"\.thinking(?![\w-])", s)]
+    assert body_rules == [".thinking"], f"the thinking body is restyled per surface: {body_rules}"
+    stale = [s for s in selectors if re.search(r"#thinking-box|#draft-thinking|help-chat-think|cmd-palette-thinking|thinking-text", s)]
+    assert not stale, f"a surface's own thinking style came back: {stale}"

@@ -868,8 +868,18 @@ header#top-bar select,
 }
 
 /* The model is the same on every turn of a conversation, so it is context
-   rather than news: present, and never the thing your eye lands on. */
+   rather than news: present, and never the thing your eye lands on. **And
+   never longer than its place in the line** (INBOX 458): a pulled model id
+   runs to fifty characters ("hf.co/bartowski/...-GGUF:Q4_K_M") and wrapped
+   the whole facts line; it is cut with an ellipsis and its title carries the
+   whole name. `block` because an ellipsis needs a block box to land in, and
+   this item's text is a bare text node in a flex row. */
 .msg-meta-model {
+  display: block;
+  min-width: 0;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0.7;
 }
 

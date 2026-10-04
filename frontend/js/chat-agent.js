@@ -20,16 +20,39 @@
 // button.
 const SCROLL_STICK_SLACK = 40; // px: a scrollbar rarely lands exactly at 0
 
+//: A wheel up, drag down or up key lets go at once, and that gesture's own
+//: scroll events cannot re-stick it (INBOX 458: a notch moved less than the
+//: slack, so the next token dragged the reader back).
+const SCROLL_RELEASE_MS = 300;
+
+function followReleased(element) {
+  return performance.now() - Number(element.dataset.releasedAt || 0) < SCROLL_RELEASE_MS;
+}
+
 function followBottom(element) {
   if (!element || element.dataset.followBound === "1") return;
   element.dataset.followBound = "1";
   element.dataset.stuck = "1";
+  const release = () => {
+    element.dataset.releasedAt = String(performance.now());
+    element.dataset.stuck = "0";
+  };
+  element.addEventListener("wheel", (event) => event.deltaY < 0 && release(), { passive: true });
+  let touchY;
+  element.addEventListener("touchstart", (event) => (touchY = event.touches[0]?.clientY), { passive: true });
+  element.addEventListener("touchmove", (event) => {
+    const y = event.touches[0]?.clientY;
+    if (y > touchY + 2) release();
+    touchY = y;
+  }, { passive: true });
+  element.addEventListener("keydown", (event) => /^(ArrowUp|PageUp|Home)$/.test(event.key) && release());
   element.addEventListener(
     "scroll",
     () => {
       const distance =
         element.scrollHeight - element.scrollTop - element.clientHeight;
-      element.dataset.stuck = distance <= SCROLL_STICK_SLACK ? "1" : "0";
+      if (distance > SCROLL_STICK_SLACK) element.dataset.stuck = "0";
+      else if (!followReleased(element)) element.dataset.stuck = "1";
       //: The chat pane is the one place this flag has a visible consequence
       //:, see `syncChatJumpLatest`. Guarded by id rather than wired at the
       //: chat's own call site because `followBottom` is what owns the flag,
@@ -80,7 +103,7 @@ function syncChatJumpLatest() {
   //: `dataset.stuck` itself current for `keepAtBottom`'s own check.
   const distance = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
   const scrolledAway = distance > SCROLL_STICK_SLACK;
-  pane.dataset.stuck = scrolledAway ? "0" : "1";
+  if (scrolledAway || !followReleased(pane)) pane.dataset.stuck = scrolledAway ? "0" : "1";
   const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
   //: And never on a transcript with no messages: the owner's screenshot of a
   //: new chat had the pill under the welcome, which is "latest" of nothing.
@@ -375,6 +398,25 @@ function addBubble(role, text, attachments = null) {
   return bubble;
 }
 
+//: **The one Thinking fold** (INBOX 457), on every surface that shows
+//: reasoning; `tests/test_ui_recipes.py` holds it to this builder.
+function thinkingFold(open = true) {
+  const el = document.createElement("details");
+  el.className = "agent-step thinking-fold";
+  el.open = open;
+  const summary = document.createElement("summary");
+  summary.className = "fold-summary";
+  setLabel(summary, "ph:brain Thinking");
+  const body = document.createElement("div");
+  body.className = "thinking";
+  el.append(summary, body);
+  return el;
+}
+
+function thinkingFoldIn(host) {
+  return host.querySelector(".thinking-fold") || host.appendChild(thinkingFold(false));
+}
+
 // --- the agent's run, as an ordered timeline --------------------------------------
 // A turn used to render into three fixed slots, thinking, then every tool chip,
 // then the answer: regardless of when those things actually happened. For a
@@ -451,14 +493,8 @@ function agentTimeline(holder) {
   };
 
   const startThinking = () => {
-    const el = document.createElement("details");
-    el.className = "agent-step step-thinking";
-    el.open = true;
-    const summary = document.createElement("summary");
-    summary.textContent = "Thinking";
-    const body = document.createElement("div");
-    body.className = "thinking";
-    el.append(summary, body);
+    const el = thinkingFold();
+    const body = el.querySelector(".thinking");
     holder.appendChild(el);
     current = { kind: "thinking", el, body, raw: "" };
     thinkingSteps.push(current);
@@ -838,7 +874,7 @@ function agentTimeline(holder) {
             changes: JSON.parse(node.dataset.changes || "[]"),
             verification: JSON.parse(node.dataset.verification || "null"),
           });
-        } else if (node.classList.contains("step-thinking")) {
+        } else if (node.classList.contains("thinking-fold")) {
           const step = thinkingSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "thinking", text: step.raw });
         } else if (node.classList.contains("step-answer")) {
@@ -1907,8 +1943,11 @@ function chatSourcesPanel(input) {
   //: numbered against; without it a panel of two would call them 1 and 2 and
   //: disagree with the [4] and [5] printed in the answer above it.
   const numbering = input.numberFrom || sources;
+  //: `row`: one-line rows instead of cards, open (the popup agent's).
+  const row = input.row;
   const details = document.createElement("details");
   details.className = "chat-sources";
+  details.open = Boolean(row);
   const summary = document.createElement("summary");
   summary.className = "chat-sources-summary";
   //: The heading counts by kind, "4 notes · 2 files", rather than saying
@@ -1927,9 +1966,10 @@ function chatSourcesPanel(input) {
   const body = document.createElement("div");
   body.className = "chat-sources-body";
   const grid = document.createElement("div");
-  grid.className = "chat-sources-grid";
+  grid.className = row ? "chat-sources-list" : "chat-sources-grid";
   const icons = Object.fromEntries(CHAT_SOURCE_GROUPS.map((g) => [g.key, g.icon]));
   sources.forEach((source, index) => {
+    if (row) return grid.appendChild(row(source, icons));
     //: Three shapes, one card. A web source is an anchor, a local one that
     //: can be opened is a button, and one that can be neither is a plain
     //: block: because a control that does nothing when pressed is worse
@@ -2477,10 +2517,11 @@ async function composeDraft() {
   const instruction = $("draft-instruction").value.trim();
   setDraftStatus("");
   setLabel($("draft-status"), draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…");
-  const thinking = $("draft-thinking");
-  const thinkingText = $("draft-thinking-text");
+  const thinkingHost = $("draft-thinking");
+  const thinking = thinkingFoldIn(thinkingHost);
+  const thinkingText = thinking.querySelector(".thinking");
   thinkingText.textContent = "";
-  thinking.classList.add("hidden");
+  thinkingHost.classList.add("hidden");
   thinking.open = false;
   draftController = new AbortController();
   setDraftBusy(true);
@@ -2504,13 +2545,13 @@ async function composeDraft() {
       (event) => {
         if (event.type === "thinking") {
           thought += event.text;
-          thinking.classList.remove("hidden");
+          thinkingHost.classList.remove("hidden");
           thinking.open = true;
           thinkingText.textContent = thought;
-          // The panel is capped at 8rem, so the newest line is the one worth
-          // showing: a bounded box that always shows its first line is a box
-          // that stops saying anything after three seconds.
-          thinkingText.scrollTop = thinkingText.scrollHeight;
+          // The body is capped, so the newest line is the one worth showing:
+          // a bounded box that always shows its first line is a box that
+          // stops saying anything after three seconds.
+          keepAtBottom(thinkingText);
         } else if (event.type === "delta") {
           if (!started) {
             started = true;

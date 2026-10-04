@@ -200,7 +200,7 @@ async function viewAskHistoryTurn(id) {
     );
   }
   renderAskAnswerFoot(remembered, historyMeta);
-  $("ai-thinking").textContent = "";
+  $("thinking-box").replaceChildren();
   //: A remembered turn says *when* rather than *what by*: the model that
   //: answered it may not even be installed any more. The tooltip carries the
   //: same fact spelled out, since the chip is ellipsised.

@@ -39493,7 +39493,7 @@ job resumes; the panel shows it.
   queued. Finished rows pruned at launch: a week, 500 at most.
 - **Routes:** `GET /jobs` (limit), `GET /jobs/stream` (server-sent events,
   a snapshot on every change by a version counter, a ping every 15 s,
-  closes after 300 s for `EventSource` to reopen; `seconds=0` for one
+  closes after 60 s for `EventSource` to reopen; `seconds=0` for one
   snapshot), `POST /jobs/{id}/cancel` (queued only; a running job is not
   interrupted and the answer says so). The activity panel's Quit now
   appears on, and stops, a queued reading (`/tasks/cancel` with `job-<kind>`).

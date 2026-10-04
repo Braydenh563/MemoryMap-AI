@@ -480,6 +480,7 @@ def shutdown(deadline: float = 5.0) -> bool:
     which is the "feature that never ran once" shape (CLAUDE.md section 6).
     """
     global _default
+    jobstore.stop()
     with _default_lock:
         current = _default
         _default = None

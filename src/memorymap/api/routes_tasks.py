@@ -346,12 +346,13 @@ def cancel_job(job_id: int) -> dict:
 
 
 #: How often the stream looks at the change counter, and how long it stays
-#: open before asking the client to reconnect. A cap rather than for ever:
-#: a stream nobody closes holds a connection through a quit, and
-#: `EventSource` reconnects on its own.
+#: open before the client reconnects. A minute rather than for ever: uvicorn
+#: lets a response in flight finish before it exits, so an open stream holds
+#: a quit for as long as it may run, and `EventSource` reopens on its own
+#: (after the `retry:` the stream sends) for the price of one request.
 _STREAM_POLL_SECONDS = 0.5
 _STREAM_PING_SECONDS = 15.0
-_STREAM_MAX_SECONDS = 300.0
+_STREAM_MAX_SECONDS = 60.0
 
 
 @router.get("/jobs/stream")
@@ -362,7 +363,7 @@ async def jobs_stream(
 ) -> StreamingResponse:
     """Server-sent events: the `/jobs` list, sent at once and again on every
     change (`jobstore.version`), plus a comment line every 15 s so a proxy
-    does not close an idle stream. `seconds=0` sends the one snapshot and
+    does not close an idle stream, for at most a minute. `seconds=0` sends the one snapshot and
     ends, for a reader that wants it once."""
     db = deps.get_db()
 

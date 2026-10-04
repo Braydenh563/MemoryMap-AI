@@ -548,9 +548,7 @@ def resume(db=None, enqueue=None) -> dict:  # noqa: ANN001
             enqueue(kind, func, args, kwargs, name, dedupe, job_id)
             counts["resumed"] += 1
         if later is not None:
-            timer = threading.Timer(later + 1.0, resume, kwargs={"db": db, "enqueue": enqueue})
-            timer.daemon = True
-            timer.start()
+            _schedule(later + 1.0, db, enqueue)
         if counts["resumed"] or counts["gave_up"]:
             logger.info(
                 "background jobs from the last run: %d resumed, %d given up",
@@ -560,6 +558,32 @@ def resume(db=None, enqueue=None) -> dict:  # noqa: ANN001
     except Exception:  # noqa: BLE001  # a launch never fails on its job list
         logger.warning("could not resume background jobs", exc_info=True)
     return counts
+
+
+_timer: threading.Timer | None = None
+_timer_lock = threading.Lock()
+
+
+def _schedule(delay: float, db, enqueue) -> None:  # noqa: ANN001
+    """Look again when a standing lease would have run out. One timer at a
+    time; `stop` cancels it, so a closed app never resumes into its own
+    shut-down pool (or, in the test process, into the next test's)."""
+    global _timer
+    with _timer_lock:
+        if _timer is not None:
+            _timer.cancel()
+        _timer = threading.Timer(delay, resume, kwargs={"db": db, "enqueue": enqueue})
+        _timer.daemon = True
+        _timer.start()
+
+
+def stop() -> None:
+    """Called with the pool's shutdown: cancel a pending look-again."""
+    global _timer
+    with _timer_lock:
+        if _timer is not None:
+            _timer.cancel()
+            _timer = None
 
 
 def _fail_unrun(job_id: int, reason: str, db) -> None:  # noqa: ANN001

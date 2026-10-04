@@ -193,6 +193,11 @@ def test_resume_queues_the_left_work_and_leaves_live_leases(db, kinds):
     states = {row.id: row.state for row in _rows(db)}
     assert states == {queued: "queued", lapsed: "queued", live: "running", poison: "failed", retired: "failed"}
     assert "not tried again" in _rows(db)[3].error
+    # The live lease is looked at again when it would run out: one timer,
+    # which the pool's shutdown cancels.
+    assert jobstore._timer is not None and jobstore._timer.is_alive()
+    jobstore.stop()
+    assert jobstore._timer is None
 
 
 def test_a_resumed_row_already_in_hand_is_closed_not_left_queued(db, kinds):
@@ -250,23 +255,29 @@ def test_the_panels_quit_stops_a_queued_reading(client, kinds):
     assert _rows(db)[0].state == "cancelled"
 
 
-def test_the_stream_sends_a_change(client, kinds):
+def test_the_stream_sends_a_change(client, kinds, monkeypatch):
     """With a window open, a job recorded after the first snapshot arrives
-    as a second `jobs` event."""
+    as a second `jobs` event. The record is triggered by the first snapshot
+    itself, not by a clock, so a loaded machine cannot reorder the two."""
     db = deps.get_db()
-
     seen = jobstore.version()
+    original = jobstore.list_jobs
+    timers: list[threading.Timer] = []
 
-    def later():
-        # After the stream's first snapshot, whenever the client delivers it.
-        time.sleep(0.8)
-        jobstore.record("ocr", (8, Path("/late.png")), {}, name="late.png", db=db)
+    def first_then_record(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        rows = original(*args, **kwargs)
+        if not timers:
+            timer = threading.Timer(
+                0.2, jobstore.record, args=("ocr", (8, Path("/late.png")), {}), kwargs={"name": "late.png", "db": db}
+            )
+            timers.append(timer)
+            timer.start()
+        return rows
 
-    thread = threading.Thread(target=later)
-    thread.start()
+    monkeypatch.setattr(jobstore, "list_jobs", first_then_record)
     with client.stream("GET", "/jobs/stream", params={"seconds": 2.5}) as response:
         body = "".join(response.iter_text())
-    thread.join()
+    timers[0].join()
     assert jobstore.version() > seen
     events = body.split("event: jobs")[1:]
     assert len(events) >= 2, body

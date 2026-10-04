@@ -34,14 +34,32 @@ with its owner named in the entry.
 
 ## Open items
 
-489. **The owner, 2026-10-04 evening, verbatim, with a screenshot (an open
-     Thinking fold: a bordered "Thinking" pill, then the model's reasoning as
-     loose text beside a thin left rule, raw `**bold**`, `*` bullets and a
-     `<<<data note>>>` marker showing).** "can you improve like the borders
-     of the thinking boxes or smth?? it looks wiers with text just appearing
-     in thagt blank space. make it consistent across the app". Orchestrator:
-     one contained panel for an open thinking fold (`thinkingFold()`), the
-     reasoning rendered as Markdown, prompt scaffolding markers stripped.
+495. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Skill
+     logs sidebar expanded from collapsed: Clear and the pin button touching
+     in the head).** "when the skill logs sidebar is collapsed and
+     temporarily expanded, the clear button and pin button clash".
+     Orchestrator.
+
+494. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
+     status bar: "Ctrl K Commands", "Ask", "Guide", "Find").** "the text and
+     icons in the bottom bar elements arent aligned vertically". With the
+     dock-bar agent (479).
+
+492. **The owner's log, 2026-10-04 evening.** "Uncaught TypeError: Cannot
+     read properties of null (reading 'classList') at paintTimeline
+     (timeline.js:752) at enterSelectMode (skills.js:1293)" and the same from
+     exitSelectMode. Orchestrator.
+
+491. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Ask: "What
+     are the specific feature suggestions?" answered "the notes do not
+     provide any further description", over a note whose content is an
+     image of typed text).** "I asked what the contents were in the note
+     where the stuff was mostly in the image and the ai didnt read that. it
+     has already been read by the ocr model but the ai didnt access the
+     extracted text or caption". And: "also notes are still cut off wayyy
+     too short" (Ask's matching records, two lines then Show more; with 473's
+     agent). Orchestrator: an image's read text and caption go into the
+     note's text the model is given.
 
 488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
      dashboard: the search bar's kebab holds Continue, skills, Tools,
@@ -51,36 +69,11 @@ with its owner named in the entry.
      stuff in the meatball menu button above the meatball menu button which
      covers the quick access??" With the dock-bar agent (479).
 
-486. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a callout
-     block in the editor: a note icon, "Note Note", then "> What matters
-     about this?").** "I have no clue how to use these things and they are
-     unintuitive". The callout reads its kind twice and gives no clue how to
-     change the kind, title or body. Next Opus slot, with 484 and 485.
-
-485. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
-     Attach popup: on Files a floating selection toolbar (duplicate, redo,
-     cut, ...) over the search field; on Images a second, offset search box
-     drawn over the first).** "a popup controls menu keeps poping up when I
-     navigate the attach popup" / "and there is an overlapping textbox?? that
-     whole panel needs to be better redesigned". Bugs first (orchestrator):
-     the bar is a chat reply's action row (copy, regenerate, shorter,
-     simpler, fork); a guard now keeps every row hidden while the panel is
-     open (`attachbar.js`). Neither trigger reproduced headless (a pointer
-     grid over the panel, a keyboard walk out of it; the second search box
-     not in light or dark, any density, large text, with images), so a stale
-     cached file is a suspect: see 487. Then the redesign (next Opus slot,
-     from DESIGN.md's reference dialog).
-
 487. **The owner, 2026-10-04 evening, verbatim.** "should there be a way to
      clear the cache??" Decision, taken: yes. Settings, Data: "Clear app
      cache" unregisters the service worker, empties Cache Storage, drops the
      server's compressed-file cache and reloads; nothing in the notebook is
      touched. Orchestrator.
-
-484. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the `m`
-     leader menu: "m then a key", Go to and Do columns, key chips).** "can
-     you redesign this menu to be better, more professional, more modern and
-     more impressive??" Next Opus slot.
 
 483. **The owner, 2026-10-04 evening, verbatim.** "can there be easy ways
      to copy the address of various notes or objects so that if I wish and
@@ -112,33 +105,6 @@ with its owner named in the entry.
 478. **The owner, 2026-10-04 evening, verbatim.** "can you do another
      devibecode sweep and also another modernisation and proffessionalisation
      and ui/ux design sweep as well??" Agent (Opus), with 479.
-
-476. **The owner, 2026-10-04 evening, verbatim.** "the library submenu bar
-     shows on the whiteboard and mindmap but not on the documents editor,
-     should it be hidden when on those as well??" Decision (standing order
-     3), taken: yes. A board and a map are full editors like a document, so
-     the Library sub-tab bar hides while one is open and the editor's own
-     Back returns to the list; one rule for all three. Agent.
-
-475. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the popup
-     agent's head over its input).** "there isnt much vertical spacing or gap
-     between the popup agent title and avatar and the input text box".
-     Agent (measure the gap against the other dialog heads, DESIGN.md's
-     reference dialog head).
-
-474. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a link
-     chip reading "something lol [something](https://something.com...").**
-     "if I press "see more" for the note connections, I cant go back to the
-     collapsed links way it was before. also hyperlinks in notes arent
-     rendered or show inline md in the note links". Two bugs: the
-     connections row's See more has no See less, and a link chip shows the
-     note's raw Markdown. Agent.
-
-473. **The owner, 2026-10-04 evening, verbatim, with a screenshot (note cards
-     clamped to a title and one line, then "Show more").** "can you increase
-     the amount of lines or characters in a note that show before it gets cut
-     off by the show more??" Agent: measure the clamp per density and raise
-     it (INBOX 457's two-line fix holds the floor).
 
 472. **The owner, 2026-10-04, verbatim.** "Continue autonomously with what
      is left and still open. Use your ui UX design skills to improve ui UX.

@@ -3911,7 +3911,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   //: The app's one Thinking fold (INBOX 457). It folds when the answer
   //: starts, as `foldEarlierThinking` does.
   const think = thinkingFold();
-  const thinkBody = think.querySelector(".thinking");
+  let thinkRaw = "";
   think.hidden = true;
   const prose = document.createElement("div");
   //: Named so the streaming caret can reach into it. The bubble's last child
@@ -3936,8 +3936,8 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     try { event = JSON.parse(line); } catch { return; }
     if (event.type === "thinking") {
       think.hidden = false;
-      thinkBody.textContent += event.text || "";
-      keepAtBottom(thinkBody);
+      thinkRaw += event.text || "";
+      thinkingPaint(think, thinkRaw);
     } else if (event.type === "delta") {
       //: Folded the moment there is an answer to read, not when the turn
       //: ends: by then the reader has already had to scroll past it.

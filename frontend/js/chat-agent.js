@@ -413,6 +413,13 @@ function thinkingFold(open = true) {
   return el;
 }
 
+//: Reasoning as Markdown, data fences out, newest line in view (INBOX 489).
+function thinkingPaint(fold, raw) {
+  const body = fold.querySelector(".thinking");
+  if (!body.paint) body.paint = liveMarkdownRenderer(body, () => keepAtBottom(body));
+  body.paint(String(raw || "").replace(/<<<(?:end )?data[^<>]{0,40}>>>/g, ""));
+}
+
 function thinkingFoldIn(host) {
   return host.querySelector(".thinking-fold") || host.appendChild(thinkingFold(false));
 }
@@ -433,22 +440,9 @@ function agentTimeline(holder) {
   const thinkingSteps = [];
   const record = []; // a serialisable copy, for persistence
 
-  //: **The step group: Perplexity's "Finished 5 steps", in this app's own
-  //: words.** Asked for directly: *"I want the steps of the ai to show like
-  //: perplexity's steps."*
-  //:
-  //: Before this, every tool call was a chip appended straight into the
-  //: bubble, so a turn that made six calls pushed its own answer six rows
-  //: down and the transcript read as a pile of machinery with prose
-  //: somewhere in it. Grouping them behind one line that says how many
-  //: there were: open while they are happening, closed once the answer
-  //: starts: inverts that: the work is visible as it happens, and
-  //: afterwards it is one line you can open.
-  //:
-  //: A *new* group starts after each answer, rather than one group per turn.
-  //: Order is the point of a timeline: calls the model made after writing a
-  //: paragraph belong under that paragraph, and folding them back into the
-  //: first group would claim they happened before it.
+  //: **The step group** ("Finished 5 steps", asked for as Perplexity's):
+  //: tool calls behind one line, open while running, closed once the answer
+  //: starts. A new group after each answer, so order stays true.
   let group = null;
 
   const groupSummary = (entry) => {
@@ -721,10 +715,9 @@ function agentTimeline(holder) {
     thinking(delta) {
       const step = current?.kind === "thinking" ? current : startThinking();
       step.raw += delta;
-      step.body.textContent = step.raw;
-      // The pane has its own max-height and scrollbar, so following the chat
-      // is not enough: reasoning would scroll out of sight inside it.
-      keepAtBottom(step.body);
+      // The pane has its own max-height and scrollbar; `thinkingPaint` keeps
+      // the newest line in view after each paint.
+      thinkingPaint(step.el, step.raw);
     },
     answer(delta) {
       const step = current?.kind === "answer" ? current : startAnswer();
@@ -2620,11 +2613,9 @@ async function composeDraft() {
           thought += event.text;
           thinkingHost.classList.remove("hidden");
           thinking.open = true;
-          thinkingText.textContent = thought;
-          // The body is capped, so the newest line is the one worth showing:
-          // a bounded box that always shows its first line is a box that
-          // stops saying anything after three seconds.
-          keepAtBottom(thinkingText);
+          // Capped, so `thinkingPaint` keeps the newest line in view: a box
+          // that always shows its first line stops saying anything.
+          thinkingPaint(thinking, thought);
         } else if (event.type === "delta") {
           if (!started) {
             started = true;

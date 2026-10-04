@@ -1127,16 +1127,55 @@ progress {
    and scrolling, with the newest line kept in view (`keepAtBottom`). */
 .thinking {
   display: block;
-  margin: var(--space-1) 0 0 var(--space-3);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--border);
+  padding: 0 var(--space-4) var(--space-3);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.5;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 12rem;
   overflow-y: auto;
+}
+
+/* **An open fold is one panel** (INBOX 489: "it looks wiers with text just
+   appearing in thagt blank space. make it consistent across the app"). The
+   summary was a bordered pill and the reasoning hung beside a hairline rail
+   in the bubble's own ground, so an open fold read as a button with loose
+   text under it. Open, the summary and the reasoning share one quiet
+   surface (the inset tier, a hairline, the card radius); closed, it is the
+   summary alone, as every fold is. The reasoning is Markdown now
+   (`thinkingPaint`), so its paragraphs and lists keep their own spacing. */
+.thinking-fold[open] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* Open, the summary is the panel's head, not a second box inside it: the
+   quiet-button face every summary takes (07-whiteboard-misc.css) drew a
+   bordered pill within the panel's own border. */
+.thinking-fold[open] > .fold-summary:not(.icon-only):not(.icon-button) {
+  width: auto;
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.thinking-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover) {
+  background: transparent;
+}
+
+/* The Markdown inside the body, reached from the fold (the body keeps its
+   one rule, `test_ui_recipes.py`): the body is the fold's last child. */
+.thinking-fold > :last-child > :first-child {
+  margin-top: 0;
+}
+
+.thinking-fold > :last-child > :last-child {
+  margin-bottom: 0;
+}
+
+.thinking-fold > :last-child :is(p, ul, ol) {
+  margin-block: 0 var(--space-2);
 }
 
 .answer {

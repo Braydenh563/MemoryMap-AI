@@ -36963,6 +36963,47 @@ width, 47% of the column at 1440.
      error ink come on hover and focus. Every chip that ends in an x shares
      it (`chipx.js`).
 
+489. **The owner, 2026-10-04 evening, verbatim, with a screenshot (an open
+     Thinking fold: a bordered "Thinking" pill, then the model's reasoning as
+     loose text beside a thin left rule, raw `**bold**`, `*` bullets and a
+     `<<<data note>>>` marker showing).** "can you improve like the borders
+     of the thinking boxes or smth?? it looks wiers with text just appearing
+     in thagt blank space. make it consistent across the app". Orchestrator:
+     one contained panel for an open thinking fold (`thinkingFold()`), the
+     reasoning rendered as Markdown, prompt scaffolding markers stripped.
+     **Fixed**: open, the fold is one panel (inset surface, hairline, card
+     radius) with its summary as the head; the reasoning is painted as
+     Markdown on every surface (`thinkingPaint`: Chat, Ask, the palette,
+     the Guide) with `<<<data>>>` fences removed (`thinkfold.js`).
+
+476. **The owner, 2026-10-04 evening, verbatim.** "the library submenu bar
+     shows on the whiteboard and mindmap but not on the documents editor,
+     should it be hidden when on those as well??" Decision (standing order
+     3), taken: yes. A board and a map are full editors like a document, so
+     the Library sub-tab bar hides while one is open and the editor's own
+     Back returns to the list; one rule for all three. Agent.
+     **Fixed**: the Library sub-tab bar hides while a board or map is open at every width (was phone only); the canvas gains the 38 to 54px (`subtabshide.js`).
+475. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the popup
+     agent's head over its input).** "there isnt much vertical spacing or gap
+     between the popup agent title and avatar and the input text box".
+     Agent (measure the gap against the other dialog heads, DESIGN.md's
+     reference dialog head).
+     **Fixed**: the popup agent's head sits 21.2px above its input (was 5.4px), head and bar no longer shrink in the capped column (`palettegap.js`).
+474. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a link
+     chip reading "something lol [something](https://something.com...").**
+     "if I press "see more" for the note connections, I cant go back to the
+     collapsed links way it was before. also hyperlinks in notes arent
+     rendered or show inline md in the note links". Two bugs: the
+     connections row's See more has no See less, and a link chip shows the
+     note's raw Markdown. Agent.
+     **Fixed**: the connections row's more toggle reads Show less and collapses back; chip labels are plain text (`plainText`), no Markdown; links in a body already rendered (`linkchips.js`).
+473. **The owner, 2026-10-04 evening, verbatim, with a screenshot (note cards
+     clamped to a title and one line, then "Show more").** "can you increase
+     the amount of lines or characters in a note that show before it gets cut
+     off by the show more??" Agent: measure the clamp per density and raise
+     it (INBOX 457's two-line fix holds the floor).
+     **Fixed**: one token, `--note-preview-lines`, 3 compact, 4 default, 5 spacious, at 1440 and 390 (was 2 and 1); blank lines still collapse (`notepreview.js`).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

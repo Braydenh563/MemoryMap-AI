@@ -2612,6 +2612,7 @@ async function askQuestion(preset) {
   //: have nothing to do with the one being asked.
   clearAskAnswerFoot();
   thinkingText.textContent = "";
+  thinkingBox.thinkingRaw = "";
   thinkingHost.classList.add("hidden");
   thinkingBox.open = false;
 
@@ -2685,8 +2686,8 @@ async function askQuestion(preset) {
         // Auto-expand while the model reasons (user request).
         thinkingHost.classList.remove("hidden");
         thinkingBox.open = true;
-        thinkingText.textContent += delta;
-        keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
+        thinkingBox.thinkingRaw = (thinkingBox.thinkingRaw || "") + delta;
+        thinkingPaint(thinkingBox, thinkingBox.thinkingRaw); // follows the newest line
         say("The model is thinking…");
       },
       onAnswer: (delta) => {

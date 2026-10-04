@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Thinking fold is one panel when open, its summary the head, and the reasoning is set as Markdown (bold, lists) with the prompt's data markers taken out, in Chat, Ask, the palette and the Guide.
 - Chat: a reply's copy, regenerate and fork row can no longer show over the open Attach panel.
 - Notes: the x on a suggested tag, a link or any chip that ends in one is drawn as a cross centred on its target, quiet at rest, red with its disc on hover; it was a font glyph nudged by hand inside a grey disc.
 - The Library sub-tab bar hides while a whiteboard or mind map is open, at every width, as it never showed on the documents editor; the board's own Boards button brings the list and the bar back (INBOX 476)

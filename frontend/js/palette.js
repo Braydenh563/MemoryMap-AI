@@ -1085,9 +1085,7 @@ async function cmdPaletteAsk(text) {
           thinkingBox = thinkingFold();
           stepsHolder.prepend(thinkingBox);
         }
-        const body = thinkingBox.querySelector(".thinking");
-        body.textContent = thinkingRaw;
-        keepAtBottom(body);
+        thinkingPaint(thinkingBox, thinkingRaw);
         keepAtBottom(cmdPaletteResults);
       },
       //: An agent turn reports once per round. Same accumulation the Chat tab
@@ -1191,7 +1189,7 @@ async function cmdPaletteAsk(text) {
     //: trailing blank lines trimmed.
     if (thinkingBox) {
       thinkingBox.open = false;
-      thinkingBox.querySelector(".thinking").textContent = thinkingRaw.trim();
+      thinkingPaint(thinkingBox, thinkingRaw.trim());
     }
     const metaRow = cmdPaletteFacts({
       meta,

@@ -31,3 +31,19 @@ def test_live_decorations_rebuild_when_the_parser_catches_up() -> None:
     assert re.search(r"syntaxTree\(update\.startState\)\s*!==\s*syntaxTree\(update\.state\)", body), (
         "the live view's decoration plugin does not rebuild when the syntax tree changes"
     )
+
+
+def test_the_breadcrumb_follows_the_view_when_the_caret_is_off_screen() -> None:
+    """`doccrumbview.js`: the trail said `Top > Annual report` at 60% of a long document.
+
+    The outline's mark already used "the caret's section while it is on
+    screen, the top of the view otherwise"; the trail must be redrawn by the
+    same scroll-driven pass, and every other redraw must use the same line.
+    """
+    start = DOCUMENTS_JS.index("function markDocOutline() {")
+    body = DOCUMENTS_JS[start: DOCUMENTS_JS.index("\n}\n", start)]
+    assert "renderDocCrumbs(" in body, "scrolling no longer redraws the breadcrumb"
+    assert "docCaretLine()" in body and 'kind === "codemirror"' in body, "the textarea fallback keeps the caret"
+    assert DOCUMENTS_JS.count("renderDocCrumbs(docWhereLine())") == 2, (
+        "the outline's redraws must give the trail the same line the mark uses"
+    )

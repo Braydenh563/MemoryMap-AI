@@ -2595,7 +2595,7 @@ function renderDocOutline() {
   ]);
   if (outlineKey === docOutlineKey && docOutlineRows.length === headings.length && list.isConnected) {
     docOutlineHeadingList = headings;
-    renderDocCrumbs(docCaretLine());
+    renderDocCrumbs(docWhereLine());
     return;
   }
   docOutlineKey = outlineKey;
@@ -2755,7 +2755,7 @@ function renderDocOutline() {
   //: here and the trail is redrawn on the same beat the outline is.
   docOutlineHeadingList = headings;
   docCrumbsKey = "";
-  renderDocCrumbs(docCaretLine());
+  renderDocCrumbs(docWhereLine());
 }
 
 //: **Where you are in the document, marked in its outline.** The owner, of
@@ -2876,6 +2876,21 @@ function docCaretVisibleLine() {
   return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
 }
 
+//: **The line the breadcrumb is about**: the caret's while it is on screen,
+//: the top of the view otherwise, which is the rule the outline's mark has
+//: always used (`markDocOutline`) and now the trail follows it too. Measured
+//: (`doccrumbview.js`) in a 21k-word document scrolled to 60% with the caret
+//: left on line 1: the outline marked the section in view and the trail above
+//: the writing still said `Top > Annual report`, two rows that both answer
+//: "where am I" giving two answers. The textarea fallback keeps the caret, its
+//: only honest answer (it has no line-to-pixel map).
+function docWhereLine() {
+  const box = docSurface();
+  if (!box || box.kind !== "codemirror") return docCaretLine();
+  const caret = docCaretVisibleLine();
+  return caret === null ? docVisibleTopLine() : caret;
+}
+
 //: The marked row, kept inside whichever box in the sidebar actually scrolls.
 //: Bounded by `#doc-sidebar` on purpose: `scrollIntoView` walks every
 //: scrolling ancestor, and the page is one of them, so the tidy one-liner
@@ -2900,6 +2915,9 @@ function markDocOutline() {
   //: otherwise: see `docCaretVisibleLine` for why that is the order.
   const caret = docCaretVisibleLine();
   const top = caret === null ? docVisibleTopLine() : caret;
+  //: The trail follows the same line (see `docWhereLine`); the textarea
+  //: fallback keeps the caret for it.
+  renderDocCrumbs(docSurface()?.kind === "codemirror" ? top : docCaretLine());
   //: The last heading at or above the top of the view: the section whose text
   //: you are reading, not the next one down.
   let index = 0;

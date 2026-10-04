@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion: perches on every Library sub-tab's dock or cards and hangs from an open board's or map's toolbar, never on an unpainted edge in mid-air; looks again on a sub-tab switch, a resize or content moving under it (INBOX 521, `scratchpad/ui-sweeps/perchall.js`).
 - Startup: the dashboard waits for its own script, so "renderDashboard is not defined" no longer appears on the lock screen.
 - Graph: a line between two notes lights under the pointer and a click on it opens a small card where you clicked: what it is (a link, a thread, a similarity, a map's line), its reason and how sure, the two notes (each opens), and for a link Edit reason and Remove (the owner: "I cant click on links to see their reason in the graph??"; 20 of 20 sampled line middles answer).
 - Top bar: the active tab's fill slides to the tab you choose (200ms, transform only) in every engine, by click, keyboard or a jump from elsewhere, and sits on it through a resize; none under reduced motion, and the phone's bottom tabs keep their colour mark.

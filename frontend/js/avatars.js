@@ -4156,8 +4156,13 @@ function nameMarkBuddyShapeAt1(x, y, pose, legs = "") {
 
 function nameMarkBuddyHits(x, y, pose, obstacles, legs = "") {
   const gap = 4;
+  //: Peeking over the bottom bar, the bar's own buttons are behind it, not
+  //: covered (INBOX 521): counted, every peek "hit" and none was ever
+  //: checked, so one stayed under a button floating over the bar.
+  const bar = legs === "peek" ? y + NMB_SEAT - 2 : Infinity;
   for (const part of nameMarkBuddyShape(x, y, pose, legs)) {
     for (const box of obstacles) {
+      if (box.top >= bar) continue;
       if (part.right > box.left - gap && part.left < box.right + gap && part.bottom > box.top - gap && part.top < box.bottom + gap) return true;
     }
   }
@@ -4280,7 +4285,13 @@ function nameMarkBuddySurfaceWalk(page) {
       const box = child.getBoundingClientRect();
       //: As wide as the companion is enough to stand on (a toolbar button,
       //: a chip row, a tile): it was 96px, which left most buttons out.
-      if (box.width < minW || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
+      //: A box with no size of its own is looked inside (INBOX 521): an open
+      //: board's view is 0px tall round its absolutely placed toolbars, so a
+      //: board or map offered no surface but the window's bars.
+      if (box.width < minW || box.height < 24 || box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) {
+        if ((!box.width || !box.height) && depth < 8 && (typeof child.checkVisibility !== "function" || child.checkVisibility())) walk(child, depth + 1);
+        continue;
+      }
       //: A closed menu keeps its box while faded out (the timeline's
       //: Options list, `visibility: hidden` at opacity 0): with panels
       //: preferred on every tab (round 7) it was chosen, and the companion
@@ -4295,17 +4306,31 @@ function nameMarkBuddySurfaceWalk(page) {
       //: its own but is text, and standing on it put the figure over the
       //: words around it.
       if (child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6") && !child.matches("button, [role='button']")) continue;
-      let surface = child.matches(NAME_MARK_BUDDY_SURFACES) || (child.matches("button, a[href], [role='button']") && box.width >= minW);
+      //: **Only what is drawn** (INBOX 521, the owner's screenshot: standing
+      //: in empty space under a card). A named kind (a `section`, a `form`,
+      //: a list) counted whether or not it drew anything, so its top edge
+      //: was a line in the air; now all but a wide control must paint.
+      let surface = child.matches("button, a[href], [role='button']") && box.width >= minW;
       if (!surface) {
         const cs = getComputedStyle(child);
-        surface = !cs.display.startsWith("inline") && (cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.borderTopWidth !== "0px" || cs.boxShadow !== "none");
+        surface = (child.matches(NAME_MARK_BUDDY_SURFACES) || !cs.display.startsWith("inline")) && nameMarkBuddyPainted(cs);
       }
       if (surface) found.push([child, box]);
-      if (depth < 8 && !child.matches("button, a[href], [role='button'], svg, canvas")) walk(child, depth + 1);
+      //: Nor into what is drawn on a canvas (INBOX 521): a board's notes and
+      //: a map's topics are the person's work, panned and redrawn under it;
+      //: it sat on one and stayed in the air when the next board opened.
+      if (depth < 8 && !child.matches("button, a[href], [role='button'], svg, canvas") && !nameMarkBuddyOverCanvas(child, true)) walk(child, depth + 1);
     }
   };
   walk(page, 0);
   return found;
+}
+
+//: Draws a surface: a fill, a shadow, or a top border that shows.
+function nameMarkBuddyPainted(cs) {
+  const seen = (c) => !!c && c !== "transparent" && !/^rgba\(.*,\s*0\)$/.test(c);
+  return seen(cs.backgroundColor) || cs.backgroundImage !== "none" || cs.boxShadow !== "none"
+    || (cs.borderTopStyle !== "none" && parseFloat(cs.borderTopWidth) > 0 && seen(cs.borderTopColor));
 }
 
 function nameMarkBuddyEdges(tab) {
@@ -4329,7 +4354,7 @@ function nameMarkBuddyEdges(tab) {
     //: The chat's dock is its toolbar's kind (INBOX 443): as a card it came
     //: after the sidebar's eight saved chats and the head's controls, past
     //: the dozen of each kind looked at, and was never considered at all.
-    const kind = el.matches(".dock, [role='toolbar'], [role='tablist'], .toolbar, nav, header, .dash-toolbar, .chat-dock") ? "dock" : "card";
+    const kind = el.matches(".dock, [role='toolbar'], [role='tablist'], .toolbar, nav, header, .dash-toolbar, .chat-dock, .wb-topbar") ? "dock" : "card";
     const span = { el, left: box.left, right: box.right, top: box.top, bottom: box.bottom };
     //: **Top edges only, and a card's own** (the owner, 2026-09-27, again:
     //: Atlas sat over the Weekly digest, "just under the title, over
@@ -4342,6 +4367,10 @@ function nameMarkBuddyEdges(tab) {
     //: The top bar's underside stays (`hang`, above).
     if (nameMarkBuddyInsideCard(el, box)) continue;
     if (box.top > floor + 20 && box.top < ceiling - 20 && !same("top", box.top, box.left, box.right)) edges.push({ ...span, type: "top", kind, y: box.top });
+    //: A toolbar over a canvas (a board's, a map's, the graph's) is the one
+    //: panel it may hang from (INBOX 521): there is no room above it under
+    //: the top bar, and under it is ground, not a card's lines.
+    if (kind === "dock" && box.height < 80 && box.bottom < ceiling - NMB_H && nameMarkBuddyOverCanvas(el)) edges.push({ ...span, type: "under", kind: "dock", y: box.bottom });
     if (box.height >= 80) edges.push({ ...span, type: "side", kind: "side" });
     count += 1;
     if (count >= NMB_SURFACE_CAP) break;
@@ -4357,11 +4386,27 @@ function nameMarkBuddyEdges(tab) {
 window.addEventListener("resize", nameMarkBuddyIndexReset, { passive: true });
 document.addEventListener("scroll", nameMarkBuddyIndexReset, { passive: true, capture: true });
 
+//: A canvas or drawing as big as a pane beside `el` (or, `host`, in it).
+function nameMarkBuddyOverCanvas(el, host = false) {
+  const root = host ? el : el.parentElement;
+  for (const c of root?.querySelectorAll(host ? ":scope > canvas, :scope > svg" : ":scope > canvas, :scope > svg, :scope > * > canvas, :scope > * > svg") || []) {
+    const b = c.getBoundingClientRect();
+    if (b.width >= 400 && b.height >= 300) return true;
+  }
+  return false;
+}
+
 //: Inside a content card, below its top: see `nameMarkBuddyEdges`.
 const NMB_CARDS = ".card, .dash-widget, .widget, .note-card, .library-card, .msg, li, .empty-state";
 function nameMarkBuddyInsideCard(el, box) {
   const card = el.parentElement?.closest(NMB_CARDS);
   if (!card || card.id?.startsWith("tab-")) return false;
+  //: A panel with its own toolbar holds cards; it is not one (INBOX 521: a
+  //: Library sub-tab with a few files, its panel short of 60% of the window,
+  //: hid every card in it and left only the window's bars).
+  //: Its own cards and toolbars only: a list's rows stay lines of what it
+  //: says (perchwords.js: on the Notes list's rows, over their words).
+  if (el.matches(".dock, [role='toolbar'], .card, .library-card, .note-card, article") && card.querySelector(":scope > .dock, :scope > [role='toolbar']")) return false;
   const cb = card.getBoundingClientRect();
   if (cb.height > innerHeight * 0.6) return false;
   return box.top > cb.top + 6;
@@ -4463,14 +4508,19 @@ function nameMarkBuddyPerches(tab, focus = null) {
   order.forEach((kind, rank) => {
     let i = 0;
     let used = 0;
-    for (const edge of edges) {
-      if (edge.kind !== kind) continue;
+    //: Panels before the controls standing in them (INBOX 521: a Library
+    //: panel's sub-tab buttons and filter chips took all twelve, and the
+    //: cards under them were never looked at).
+    const ctl = (e) => (e.el?.matches?.("button, a[href], [role='button'], [role='tab']") ? 1 : 0);
+    for (const edge of edges.filter((e) => e.kind === kind).sort((a, b) => ctl(a) - ctl(b))) {
       //: The first dozen of each kind, top of the page first: enough to
       //: choose from, and a placement stays a few milliseconds.
       used += 1;
       if (used > 12) break;
       const wide = kind === "bar" || kind === "hang";
-      const xs = along(Math.max(lo, edge.left + (wide ? 0 : 8)), Math.min(hi, edge.right - (wide ? 0 : 8) - NMB_W), wide ? 40 : 48, wide ? 40 : 5);
+      //: Along the whole of a long edge, not its right-hand 240px: a dock
+      //: the window's width is free only in its middle (INBOX 521).
+      const xs = along(Math.max(lo, edge.left + (wide ? 0 : 8)), Math.min(hi, edge.right - (wide ? 0 : 8) - NMB_W), wide ? 40 : 48, wide ? 40 : kind === "dock" ? Math.min(30, Math.max(5, Math.ceil((edge.right - edge.left) / 48))) : 5);
       for (const x of xs) {
         for (const stance of nameMarkBuddyStances(edge, x)) {
           //: Nothing but the top bar's own underside may put it over the
@@ -4571,8 +4621,12 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
   }
   const corner = { kind: "corner", pose: "stand", legs: "", x: innerWidth - NMB_GUTTER - NMB_W, y: (bottom ? bottom.top : innerHeight) - NMB_FEET - NMB_GUTTER };
   fallbacks.push(corner);
+  //: A peek is checked too now (`nameMarkBuddyHits`): its eyes were over
+  //: New note on the phone (INBOX 521, perchall.js).
+  const over = bottom ? obstacles.filter((box) => box.top < bottom.top - 2) : obstacles;
+  const clear = (spot) => !nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs);
   for (const spot of fallbacks) {
-    if (spot.legs !== "peek" && nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs)) continue;
+    if (!clear(spot)) continue;
     if (nameMarkBuddyWordsUnder(spot.x, spot.y, spot.pose, spot.legs) <= NMB_WORDS_PX) return spot;
   }
   //: **Never the corner over a control** (INBOX 443): on the phone's Chat,
@@ -4581,7 +4635,13 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
   //: (companionchat.js, 390). Tucked behind the bottom bar, only its eyes
   //: show, over words at worst and never over a control.
   if (soiled) return soiled;
-  const tucked = fallbacks.find((spot) => spot.legs === "peek");
+  //: None clear: never under a button floating over the page (the list
+  //: scrolls out from under it, New note does not), then the least share
+  //: of any control hidden.
+  const floating = [...document.querySelectorAll(".dock-fab, #scroll-top.visible, .chat-jump-latest:not(.hidden)")].map((el) => nameMarkBuddyShown(el)).filter(Boolean);
+  const under = (spot, boxes) => nameMarkBuddyShape(spot.x, spot.y, spot.pose, spot.legs).reduce((sum, p) => sum + boxes.reduce((s, b) => s + Math.max(0, Math.min(p.right, b.right) - Math.max(p.left, b.left)) * Math.max(0, Math.min(p.bottom, b.bottom) - Math.max(p.top, b.top)) / Math.max(1, (b.right - b.left) * (b.bottom - b.top)), 0), 0);
+  const harm = (spot) => (under(spot, floating) > 0 ? 100 : 0) + under(spot, over);
+  const tucked = fallbacks.filter((spot) => spot.legs === "peek").sort((a, b) => harm(a) - harm(b))[0];
   return tucked && nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner;
 }
 
@@ -5046,7 +5106,7 @@ function nameMarkBuddyGlue(spot, x, y) {
   }
   const scroller = nameMarkBuddyScroller(el);
   nmb.glue = {
-    el, sel: nameMarkBuddySelector(el), dx: x - box.left, dy: y - box.top,
+    el, sel: nameMarkBuddySelector(el), w: box.width, cls: el.className, dx: x - box.left, dy: y - box.top,
     scroller, band: null, pose: spot.pose, legs: spot.legs || "", lost: false, held: false,
   };
   nameMarkBuddyGlueBand(nmb.glue, y);
@@ -5090,8 +5150,11 @@ function nameMarkBuddyFollow(eased = false) {
   if (!buddy || !g || nmb.visit || buddy.classList.contains("nm-buddy-dragging")) return;
   if (!g.el.isConnected && g.sel) {
     try {
+      //: The same panel drawn again, not whatever is in its place now
+      //: (INBOX 521: a board's note's path found a map's topic, and it sat
+      //: in the air at the note's offset from it).
       const again = document.querySelector(g.sel);
-      if (again) g.el = again;
+      if (again && again.className === g.cls && Math.abs(again.getBoundingClientRect().width - g.w) <= 8) g.el = again;
     } catch (e) {
       // A selector the page no longer parses: the panel is simply gone.
     }
@@ -5234,7 +5297,8 @@ function nameMarkBuddyUnheld() {
 //: resize, a click, a key, a transition or an animation starting, the tab
 //: page changing size), and for as long as its panel is animating, and
 //: stops when the page is still, so an idle page runs nothing. A slow look
-//: every two seconds catches only what changes with nothing announcing it
+//: (one box read every 700ms; it was two seconds, in the air all that time,
+//: INBOX 521) catches only what changes with nothing announcing it
 //: (content arriving above the panel), eased rather than jumped.
 const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0 };
 function nameMarkBuddyKeepUp(ms = 1500) {
@@ -5246,6 +5310,10 @@ function nameMarkBuddyFollowFrame(now) {
   nmbFollow.frame = 0;
   nameMarkBuddyFollow();
   if (nmb.glue && (now < nmbFollow.until || nameMarkBuddyPanelMoving(nmb.glue.el))) nmbFollow.frame = requestAnimationFrame(nameMarkBuddyFollowFrame);
+  //: Its panel came to rest somewhere new: a floating button may be over it
+  //: now (INBOX 521: content grew above a Library card, and it rode the
+  //: card under New document).
+  else queueNameMarkBuddyCheck();
 }
 
 //: **Followed for as long as its panel is animating** (INBOX 426, round
@@ -5386,12 +5454,16 @@ function nameMarkBuddyWatch() {
       nmbFollow.observer.observe(g.el);
       const page = g.el.closest(".tab-page") || document.getElementById(`tab-${nameMarkBuddyTab()}`);
       if (page) nmbFollow.observer.observe(page);
+      //: And what holds it, up to the page: content growing above its panel
+      //: grows one of them, and the page itself keeps its size (INBOX 521:
+      //: 140px in the air until the slow look, perchall.js).
+      for (let node = g.el.parentElement; node && node !== page && node !== document.body; node = node.parentElement) nmbFollow.observer.observe(node);
     }
   }
   clearInterval(nmbFollow.poll);
   nmbFollow.poll = g ? setInterval(() => {
     if (!document.hidden && !nmbFollow.frame) nameMarkBuddyFollow(true);
-  }, 2000) : 0;
+  }, 700) : 0;
 }
 document.addEventListener("scroll", (event) => {
   //: Any scroll, glued or not: the checks and its idle motion wait for the
@@ -6153,12 +6225,52 @@ function nameMarkBuddyBeat() {
   const tab = nameMarkBuddyTab();
   const own = nameMarkBuddySpots()[tab];
   nameMarkBuddyIndexReset();
-  if (!own && nameMarkBuddyStillGood(nameMarkBuddyObstacles(tab))) {
+  //: A new view in the tab (`nameMarkBuddyViewChanged`): a window bar was
+  //: the last resort of the view it left, so it looks again, and by the
+  //: tab's own preference rather than the nearest (a bar 15px away beat a
+  //: card 400px away by 20 points).
+  const fresh = nmb.fresh;
+  nmb.fresh = false;
+  if (!own && !(fresh && ["bar", "hang", "corner"].includes(nmb.perch)) && nameMarkBuddyStillGood(nameMarkBuddyObstacles(tab))) {
     nmb.tab = tab;
     return;
   }
-  placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
+  placeNameMarkBuddy(buddy, false, fresh ? null : [nmb.x, nmb.y]);
 }
+
+//: **Another view in the same tab** (INBOX 521, the owner: "the companion
+//: perching needs fixing for many of the library tabs as well as for the
+//: whiteboard and mindmap"). A Library sub-tab, a board opened or closed:
+//: the tab is the same, so nothing asked it to look again, and it stayed on
+//: the window bar the last view left it on, over a control the new one put
+//: under it (perchall.js). Now a view shown or hidden in the tab, or a
+//: sub-tab pressed, is a look at once for controls and a new perch on its
+//: next beat.
+const NMB_VIEWS = ".library-view-section, [role='tabpanel'], #wb-canvas-view, #wb-boards-landing";
+function nameMarkBuddyViewChanged() {
+  if (!document.getElementById("nm-buddy") || nmb.pinned) return;
+  nameMarkBuddyIndexReset();
+  nmb.fresh = true;
+  queueNameMarkBuddyCheck();
+  nameMarkBuddyQueuePlace();
+}
+if (typeof MutationObserver === "function") {
+  const views = new MutationObserver((records) => {
+    for (const r of records) {
+      const el = r.target;
+      if (el.classList.contains("tab-page") || !el.matches(NMB_VIEWS)) continue;
+      if (/(^|\s)hidden(\s|$)/.test(r.oldValue || "") !== el.classList.contains("hidden")) return nameMarkBuddyViewChanged();
+    }
+  });
+  const watch = () => {
+    for (const page of document.querySelectorAll(".tab-page")) views.observe(page, { subtree: true, attributes: true, attributeFilter: ["class"], attributeOldValue: true });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
+  else watch();
+}
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.(".tab-page [role='tab']")) setTimeout(nameMarkBuddyViewChanged, 300);
+}, { passive: true });
 
 //: **It lives on a tab, and follows you only once you have stayed**
 //: (INBOX 430, the owner: "the companion lingers on the old tab for a
@@ -6485,6 +6597,7 @@ function nameMarkBuddyRefit() {
   if (nmb.glue) {
     if (!nmb.glue.held) nmb.glue.band = null;
     nameMarkBuddyFollow();
+    nameMarkBuddyRefitClear(buddy);
     return;
   }
   if (nmb.pinned) {
@@ -6505,7 +6618,18 @@ function nameMarkBuddyRefit() {
     //: under itself (unless far: a poof, as anywhere).
     if (Math.hypot(dx, dy) > NMB_GLIDE_PX && typeof buddy.animate === "function" && !(nmb.anim && nmb.anim.playState === "running")) nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);
   }
-  nameMarkBuddyQueuePlace();
+  if (!nameMarkBuddyRefitClear(buddy)) nameMarkBuddyQueuePlace();
+}
+
+//: **Reflowed over a control, it moves now** (INBOX 521, perchall.js: the
+//: window made narrower, the Library's dock reflowed and it sat on over New
+//: document for 1.5s, until its beat). A resize is not a reason to choose
+//: again; a control under it is, and nothing along the same edge was free.
+function nameMarkBuddyRefitClear(buddy) {
+  if (nmb.perch === "yours" || (nmb.glue && (nmb.glue.held || nmb.glue.lost)) || nameMarkBuddyMenuOpen()) return false;
+  if (!nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles(nameMarkBuddyTab()), nmb.legs)) return false;
+  placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
+  return true;
 }
 
 //: **Called back** (INBOX 426 k, the owner: "the companion just went off

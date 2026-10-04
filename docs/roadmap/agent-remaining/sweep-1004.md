@@ -27,7 +27,7 @@ S608 hits are constant placeholders.
    `GET /entities/{id}` returns its name and aliases with zero notes (the list
    hides it). The name was lifted from a note when it was readable. Cheapest
    fix: 404 an entity with no visible mention, as the list does.
-3. **Other model-JSON readers catch only ValueError.** `extractor.py:135`,
+3. **FIXED (tests/test_model_json_deep_nesting.py): other model-JSON readers catch only ValueError.** `extractor.py:135`,
    `janitor.py:638`, `passive_capture.py:146`, `reminder_parser.py:165` parse
    the span between a reply's first `{` and last `}`; a reply of several
    thousand nested braces raises RecursionError there. They run in background

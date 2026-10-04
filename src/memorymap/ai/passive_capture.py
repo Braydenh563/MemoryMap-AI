@@ -144,7 +144,7 @@ def _parse_facts(reply: str) -> list[str]:
         return []
     try:
         loaded = json.loads(text[start : end + 1])
-    except ValueError:
+    except (ValueError, RecursionError):  # the second: thousands of nested brackets
         return []
     if not isinstance(loaded, list):
         return []

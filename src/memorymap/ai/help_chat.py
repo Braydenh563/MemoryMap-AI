@@ -731,7 +731,9 @@ HELP_TOPICS.extend(
                 "also suggests links as you write, and every note's menu has Link "
                 "to. The Graph draws all of them. A note's menu also has Copy wiki "
                 "link (a [[link]] for another note) and Copy app link (an address "
-                "that opens the note in the app)."
+                "that opens the note in the app). Delete the [[name]] and its link "
+                "goes with it; rename a note and a toast offers to rename the "
+                "[[links]] other notes have to it."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1069,7 +1071,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "similarity", "strength slider", "gravity", "spread", "saved view",
                 "save a view", "graph view", "graph options",
-                "display options", "trace", "unpin", "pin a note", "cluster glow",
+                "display options", "trace", "unpin", "pin a note", "cluster glow", "label background",
                 "entities", "hide unlinked", "minimap", "export as png", "lasso",
                 "zoom", "pan", "link reason", "why linked", "connection",
             ),
@@ -1088,9 +1090,10 @@ HELP_TOPICS.extend(
                 "notes, and the selection bar can Tag, Link together or make a Mind "
                 "map of them. Display options, the gear, opens with View: Layout "
                 "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
-                "two notes connect, and Legend, which hides the key. Then Unpin all, Gravity and Spread, the Show switches (Similarity, "
-                "Entities, Documents, Boards, Hide unlinked, Labels, Curved links, "
-                "Cluster glow, Length by similarity), the similarity Strength "
+                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
+                "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
+                "Display (Labels, Label backgrounds, Curved "
+                "links, Cluster glow, Arrows), the similarity Strength "
                 "slider (raise it to keep only the closest matches), a Time filter "
                 "you can play, Groups that paint notes matching some words one "
                 "colour, the minimap's position and size, and Reset, which puts the "
@@ -1098,6 +1101,33 @@ HELP_TOPICS.extend(
                 "and keeps groups and saved views. Saved views keep the layout, "
                 "filters and position under a name; Export as PNG saves what is on "
                 "screen."
+            ),
+            "badge": {"label": "Graph", "tab": "graph"},
+        },
+        #: GRAPH_PLAN 514, Obsidian's graph parity: its own entry, since
+        #: graph-controls is near the reply cap.
+        {
+            "id": "graph-display",
+            "keywords": (
+                "local graph", "focus depth", "depth", "incoming", "outgoing",
+                "neighbour links", "tags as nodes", "unwritten link", "unresolved link",
+                "ghost node", "attachments on the graph", "arrows", "text fade",
+                "link thickness", "link force", "label background",
+            ),
+            "body": (
+                "More graph controls, in the gear. Show adds Tags (a node per tag), "
+                "Attachments (a node per file or picture) and Unwritten links: each "
+                "[[name]] no note answers to is a faint node, and clicking it writes "
+                "that note, named in its heading, linked from every note that named "
+                "it. Display holds Labels, Label backgrounds (off draws names on a "
+                "thin outline), Curved links, Cluster glow, Arrows (off at first: a "
+                "spark on each link, its tail toward the note that made it, the "
+                "line wider at that end; pointing at a note sends a spark along "
+                "its links unless motion is reduced), Text fade (how far out names stay on a big "
+                "map) and Link thickness. Physics adds Link force, Length by "
+                "similarity and Group by category. In focus mode a Focus section sets "
+                "Depth (1 to 5 links) and Incoming, Outgoing and Neighbour links; "
+                "the Local map beside a note has the same four under Options."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },

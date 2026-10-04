@@ -280,3 +280,7 @@ class EntryOut(BaseModel):
     filing_state: str = "done"
     # Near-duplicate warning: only present on the create response.
     similar: SimilarOut | None = None
+    # GRAPH_PLAN 518: on an edit that renamed the note while other notes
+    # still write `[[old]]`: {"old", "new", "notes"}, for the offer to
+    # rewrite them (`POST /entries/{id}/wiki-rename`).
+    wiki_rename: dict | None = None

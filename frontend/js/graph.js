@@ -170,24 +170,25 @@ function setGraphPhysicsEnabled(layoutKind) {
     ? ""
     : "Only applies to the Force (web) layout: the other layouts' positions come from the filing hierarchy, not physics.";
   box.classList.toggle("is-disabled", !applies);
-  for (const id of ["graph-gravity", "graph-spread"]) {
+  for (const id of ["graph-gravity", "graph-spread", "graph-link-force"]) {
     const slider = $(id);
     if (!slider) continue;
     slider.disabled = !applies;
     // Restore the slider's own description when it applies again, rather than
     // leaving the explanation of why it did not.
     if (applies) {
-      slider.title =
-        id === "graph-gravity"
-          ? "How strongly notes pull together"
-          : "How far apart linked notes sit";
+      slider.title = {
+        "graph-gravity": "How strongly notes pull together",
+        "graph-spread": "How far apart linked notes sit",
+        "graph-link-force": "How hard each link pulls its two notes together",
+      }[id];
     } else {
       slider.title = why;
     }
   }
   // The labels are separate elements, so they need the attribute too or the
   // hover explanation is missing on exactly the words being greyed out.
-  for (const label of box.querySelectorAll("label")) {
+  for (const label of box.querySelectorAll("label[for]")) {
     label.title = why;
   }
 }
@@ -1611,6 +1612,7 @@ let graphFocusModeId = null;
 //: note, and nothing on screen said so or undid it. This chip beside the
 //: dock's count says what the graph is showing and "Show all" restores it.
 function graphSyncFocusChip() {
+  document.getElementById("graph-focus-section")?.classList.toggle("hidden", !graphFocusModeId);
   const stats = document.getElementById("graph-stats");
   if (!stats) return;
   let chip = document.getElementById("graph-focus-chip");
@@ -1623,7 +1625,7 @@ function graphSyncFocusChip() {
     chip.type = "button";
     chip.id = "graph-focus-chip";
     chip.className = "ghost small graph-focus-chip";
-    chip.title = "The graph is showing only the notes within two links of one note. Show every note again.";
+    chip.title = "The graph is showing only the notes near one note (Focus, in the gear, sets how far). Show every note again.";
     const icon = document.createElement("i");
     icon.className = "ph ph-x ph-lead";
     icon.setAttribute("aria-hidden", "true");
@@ -1698,6 +1700,34 @@ async function renderGraph() {
   return renderGraphSvg();
 }
 
+//: The local graph's query (GRAPH_PLAN 514 (1)): depth and the three
+//: switches, stored per surface ("focus" in the gear, "pane" beside a note).
+function graphLocalQuery(prefix, depth) {
+  const on = (id) => localStorage.getItem(`graph-${prefix}-${id}`) !== "0";
+  const stored = Number(localStorage.getItem(`graph-${prefix}-depth`));
+  const hops = stored >= 1 && stored <= 5 ? stored : depth;
+  return `depth=${hops}&incoming=${on("in")}&outgoing=${on("out")}&neighbours=${on("neighbours")}`;
+}
+
+//: What the map asks for, from the Show switches; focus mode asks for one
+//: note's neighbourhood instead.
+function graphEndpoint() {
+  const on = (id) => Boolean(document.getElementById(id)?.checked);
+  if (graphFocusModeId) {
+    return `/graph/local/${graphFocusModeId}?${graphLocalQuery("focus", 2)}&similarity=${on("graph-similarity")}`;
+  }
+  const flags = [
+    ["graph-similarity", "similarity"],
+    ["graph-entities", "include_entities"],
+    ["graph-documents", "include_documents"],
+    ["graph-maps", "include_maps"],
+    ["graph-tags", "include_tags"],
+    ["graph-unresolved", "include_unresolved"],
+    ["graph-attachments", "include_attachments"],
+  ];
+  return `/graph?${flags.filter(([id]) => on(id)).map(([, flag]) => `${flag}=true`).join("&")}`;
+}
+
 async function renderGraphSvg() {
   const wantSimilarity = $("graph-similarity").checked;
   // ROADMAP.md item 34: off by default and only on the top-level graph, not
@@ -1712,10 +1742,9 @@ async function renderGraphSvg() {
   // above, and for the same reason: a map's edge is membership of a *note*,
   // and /graph/local's depth-limited BFS has no equivalent concept yet.
   const wantMaps = $("graph-maps")?.checked;
+  void wantEntities, wantDocuments, wantMaps;
   graphSyncFocusChip();
-  const endpoint = graphFocusModeId
-    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
-    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true&" : ""}${wantMaps ? "include_maps=true" : ""}`;
+  const endpoint = graphEndpoint();
     
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
@@ -2650,18 +2679,7 @@ async function renderGraphSvg() {
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
-  //: Curved links (the owner: "should we add the option to make connection
-  //: lines bezier instead?? ... togglable??"): a View option, remembered
-  //: like the others, read by the canvas renderer on every frame, so the
-  //: toggle is a redraw and never a rebuild of the simulation.
-  const curvedBox = $("graph-curved");
-  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") !== "0";
-  const nebulaBox = $("graph-nebula");
-  if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
-  const lengthBox = $("graph-length-score");
-  if (lengthBox) lengthBox.checked = localStorage.getItem("graph-length-score") !== "0";
-  const groupBox = $("graph-group");
-  if (groupBox) groupBox.checked = localStorage.getItem("graph-group") !== "0";
+  graphRestoreSwitches();
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -4126,11 +4144,12 @@ async function saveGraphPopup() {
   status.classList.remove("error");
   status.textContent = "Saving…";
   try {
-    await apiJson(`/entries/${graphPopupId}`, {
+    const saved = await apiJson(`/entries/${graphPopupId}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
     status.textContent = "Saved.";
+    if (typeof offerWikiRename === "function") offerWikiRename(graphPopupId, saved);
     //: What was just written is the new clean state, so the button puts
     //: itself away for the 600ms the panel is still open.
     graphPopupClean = {
@@ -5174,6 +5193,62 @@ function initGraphViews() {
 // arrives with a real height as soon as the card stops being display:none.
 initGraphDockHeightToken();
 
+//: The remembered on-by-default switches, restored when graph.js loads: the
+//: canvas renderer (the default) never ran the SVG render that used to do it,
+//: so Curved links, Cluster glow and Label backgrounds came back on after a
+//: reload while drawn from the box.
+const GRAPH_STORED_SWITCHES = ["graph-curved", "graph-label-plates", "graph-nebula", "graph-length-score", "graph-group",
+  "graph-focus-in", "graph-focus-out", "graph-focus-neighbours", "graph-pane-in", "graph-pane-out", "graph-pane-neighbours"];
+//: Off by default, so stored "1" means on; and the sliders' stored values.
+const GRAPH_STORED_OFF = ["graph-arrows"];
+const GRAPH_STORED_SLIDERS = ["graph-label-fade", "graph-link-width", "graph-focus-depth", "graph-pane-depth"];
+function graphRestoreSwitches() {
+  for (const id of GRAPH_STORED_SWITCHES) {
+    const box = $(id);
+    if (box) box.checked = localStorage.getItem(id) !== "0";
+  }
+  for (const id of GRAPH_STORED_OFF) if ($(id)) $(id).checked = localStorage.getItem(id) === "1";
+  for (const id of GRAPH_STORED_SLIDERS) {
+    const stored = localStorage.getItem(id);
+    if ($(id) && stored !== null && Number.isFinite(Number(stored))) $(id).value = stored;
+  }
+}
+graphRestoreSwitches();
+
+//: GRAPH_PLAN 514: what each new control redraws. The kinds of node are a
+//: fetch (renderGraph), the drawing ones a frame, the local ones a fetch of
+//: their own surface.
+for (const id of ["graph-tags", "graph-attachments", "graph-unresolved"]) $(id)?.addEventListener("change", renderGraph);
+$("graph-arrows")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-arrows", event.target.checked ? "1" : "0");
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+});
+for (const id of ["graph-label-fade", "graph-link-width"]) {
+  $(id)?.addEventListener("input", () => typeof gcRequestDraw === "function" && gcRequestDraw());
+  $(id)?.addEventListener("change", (event) => {
+    localStorage.setItem(id, event.target.value);
+    if (typeof gcRequestDraw === "function") gcRequestDraw();
+  });
+}
+for (const prefix of ["focus", "pane"]) {
+  for (const id of ["depth", "in", "out", "neighbours"]) {
+    $(`graph-${prefix}-${id}`)?.addEventListener("change", (event) => {
+      const box = event.target;
+      localStorage.setItem(box.id, box.type === "checkbox" ? (box.checked ? "1" : "0") : box.value);
+      if (prefix === "focus") {
+        if (graphFocusModeId) renderGraph();
+      } else if (typeof renderGraphPane === "function" && graphPaneShownId != null) {
+        renderGraphPane(graphPaneShownId);
+      }
+    });
+  }
+}
+
+$("graph-label-plates")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-label-plates", event.target.checked ? "1" : "0");
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+});
+
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
   if (typeof gcRequestDraw === "function") gcRequestDraw();
@@ -5267,14 +5342,26 @@ const GRAPH_DEFAULTS = {
   "graph-size": "connections",
   "graph-gravity": "50",
   "graph-spread": "50",
+  "graph-link-force": "50",
   "graph-similarity": false,
   "graph-similarity-min": "55",
   "graph-entities": false,
   "graph-documents": false,
   "graph-maps": false,
+  "graph-tags": false,
+  "graph-attachments": false,
+  "graph-unresolved": false,
+  "graph-arrows": false,
+  "graph-label-fade": "50",
+  "graph-link-width": "50",
+  "graph-focus-depth": "2",
+  "graph-focus-in": true,
+  "graph-focus-out": true,
+  "graph-focus-neighbours": true,
   "graph-hide-orphans": false,
   "graph-labels": true,
   "graph-curved": true,
+  "graph-label-plates": true,
   "graph-nebula": true,
   "graph-length-score": true,
   "graph-group": true,

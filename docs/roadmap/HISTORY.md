@@ -37346,6 +37346,37 @@ width, 47% of the column at 1440.
      **Fixed 2026-10-04**: the Add tile opens `quickAccessManage` (one list,
      added rows checked and first, several toggled in a draft, drag and
      Alt+Up/Down and two move buttons to order, search kept, one Done).
+514. **The owner, 2026-10-04, verbatim.** "is the graph missing any core
+     functionality and abilities that the graphs in obsidian have??" Audited
+     against Obsidian's graph view (filters, groups, display, forces, local
+     graph). Has: search filter, orphans, groups by query with colours,
+     node size, labels, curved links, gravity and spread, time-lapse play,
+     local pane and focus mode, export PNG, plus what Obsidian lacks
+     (similarity links, trace, minimap, saved views, selection dock). Missing,
+     in impact order: (1) a local-graph depth control (fixed at 1 in the
+     pane, 2 in focus; Obsidian 1 to 5) with incoming, outgoing and
+     neighbour-link switches (reverses the 2026-09-13 "Show switches left
+     out" decision on the owner's ask); (2) tags as nodes (a switch);
+     (3) unresolved links: a `[[name]]` with no note drawn as a faint node
+     that creates the note on click; (4) arrows on links (direction); (5)
+     sliders for text fade threshold (`GC_LABEL_ZOOM` is fixed at 1.4), link
+     thickness and link force; (6) attachments (images, files) as nodes.
+     Opus, after the graph-look agent lands (same files).
+518. **From the backend audit (INBOX 517), found and not fixed.** (1) Wiki
+     links only ever add: deleting `[[Name]]` from a note keeps the edge, and
+     renaming a note leaves `[[Old name]]` pointing at it with stale text.
+     Needs the link's origin stored (a column; `link_type` is the semantic
+     kind and must not carry it), then sync removes wiki-origin links whose
+     name left the text, and offers to rewrite `[[Old]]` on a rename. (2)
+     `/graph` rebuilds every node from every note's full text on each call
+     (90 ms at 2,018 notes; linear); only centrality and similarity are
+     cached. Cache the node payload by the same fingerprint. (3) The
+     fingerprint (count, max updated_at, link count) misses a link removed
+     and another added between two calls: same counts, stale centrality; add
+     max(link id) or a links version. (4) Similarity is all-pairs cosine,
+     O(n^2) memory at build (fine at 2k, 10k is 100M floats): chunk it or
+     take each note's top-k from the retrieval matrix. (5) `/graph/local`
+     takes `depth` but the UI fixes it (514 covers the control).
 
 ## INBOX resolved, 2026-10-04
 

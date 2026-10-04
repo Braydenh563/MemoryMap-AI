@@ -53,6 +53,11 @@ SIMILARITY_EDGE_THRESHOLD = 0.55
 # A hard cap keeps a dense notebook from becoming a hairball (and the
 # O(n²) comparison from mattering, it's personal-notebook scale).
 MAX_SIMILARITY_EDGES = 200
+#: GRAPH_PLAN 518 (4): each note's closest matches, kept by `similar_pairs`
+#: as it goes. The map draws two per note (`gcPruneSimilarity`); every pair
+#: above the cutoff was up to n^2/2 tuples (an embedding model scores most of
+#: a notebook as a little alike) before the cap above threw all but 200 away.
+SIMILAR_PER_NODE = 4
 
 
 # --- caching the two expensive derivations (ROADMAP §40, items 4 and 5) ----------
@@ -73,11 +78,10 @@ MAX_SIMILARITY_EDGES = 200
 # forgotten one serves a stale graph indefinitely. `updated_at` moves on any
 # note edit, and the two counts move on anything created or destroyed.
 #
-# The known gap, stated rather than papered over: adding and removing one link
-# between two requests leaves the counts identical, so that single case serves
-# one stale render. The alternative is a `max(updated_at)` on links too, and a
-# stale centrality value for one frame is not worth another aggregate on every
-# graph load.
+# A link removed and another added between two requests leaves the count
+# identical, so the newest link's time is in it too (GRAPH_PLAN 518 (3)): any
+# add moves it, any removal moves the count. Not the newest id: SQLite hands
+# a deleted top id to the next row, so remove-then-add kept it (measured).
 _cache_lock = threading.Lock()
 _cache: dict[str, tuple] = {}
 
@@ -94,6 +98,7 @@ def _graph_fingerprint(session: Session) -> tuple:
         session.scalar(select(func.count(Entry.id)).where(live)) or 0,
         session.scalar(select(func.max(Entry.updated_at)).where(live)),
         session.scalar(select(func.count(EntryLink.id))) or 0,
+        session.scalar(select(func.max(EntryLink.created_at))),
     )
 
 
@@ -118,6 +123,43 @@ def reset_graph_cache() -> None:
     """Drop everything. For the tests, and for a data restore."""
     with _cache_lock:
         _cache.clear()
+        _text_memo.clear()
+
+
+#: GRAPH_PLAN 518 (2): each note's label and word count, per version of the
+#: note. `/graph` read and cleaned every note's whole text on every call (90 ms
+#: at 2,018 notes); the rest of a node is columns. Keyed by notebook and id,
+#: checked against `updated_at` (any edit moves it); a private note is never
+#: kept, its text depends on whether the vault is open.
+_text_memo: dict[tuple[str, int], tuple] = {}
+
+
+def _note_texts(entries: list) -> dict[int, tuple[str, int]]:
+    """{id: (preview, words)} for these notes, reading only what changed."""
+    notebook = str(deps.get_config().data_dir)
+    out: dict[int, tuple[str, int]] = {}
+    fresh: dict[tuple[str, int], tuple] = {}
+    with _cache_lock:
+        memo = dict(_text_memo)
+    for e in entries:
+        key = (notebook, e.id)
+        hit = memo.get(key)
+        if hit is not None and hit[0] == e.updated_at and not e.is_private:
+            out[e.id] = hit[1]
+        else:
+            text = manager.readable_content(e)
+            out[e.id] = (_preview(text), _word_count(text))
+            if not e.is_private:
+                fresh[key] = (e.updated_at, out[e.id])
+                continue
+        if hit is not None:
+            fresh[key] = hit
+    with _cache_lock:
+        # Only this notebook's live notes stay, so a deleted note's text goes.
+        for key in [k for k in _text_memo if k[0] == notebook]:
+            del _text_memo[key]
+        _text_memo.update(fresh)
+    return out
 
 
 # Registered rather than imported by the container. `deps.reset_app_state`
@@ -195,7 +237,7 @@ def _similarity_edges(
             for r in records
             if r.entry_id in node_ids
         }
-        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD, per_node=SIMILAR_PER_NODE)
 
     # Already sorted best-first, so the cap below keeps the strongest edges.
     scored = [
@@ -428,6 +470,82 @@ def _add_map_edges(
                 edges.append({"source": board_id, "target": ref_id, "kind": "map"})
 
 
+def _add_tag_nodes(nodes: list[dict], edges: list[dict]) -> None:
+    """GRAPH_PLAN 514 (2): each tag a node (`tag:<name>`), joined to its notes."""
+    seen: dict[str, dict] = {}
+    for node in [n for n in nodes if n.get("kind") == "note"]:
+        for tag in dict.fromkeys(t.strip() for t in node["tags"] if t.strip()):
+            key = f"tag:{tag.lower()}"
+            if key not in seen:
+                seen[key] = {"id": key, "type": "tag", "preview": f"#{tag}", "category": "Tag", "created_at": node["created_at"]}
+            elif node["created_at"] < seen[key]["created_at"]:
+                seen[key]["created_at"] = node["created_at"]
+            edges.append({"source": key, "target": node["id"], "kind": "tagged"})
+    nodes.extend(seen.values())
+
+
+def _add_unresolved_nodes(
+    session: Session, entries: list, nodes: list[dict], edges: list[dict]
+) -> None:
+    """GRAPH_PLAN 514 (3): a `[[name]]` no note answers to, as a faint node.
+
+    Resolved the way `manager.find_by_wiki_name` resolves (a vault file's
+    stem, or a note's opening line starting with the name; private notes are
+    never targets), against one in-memory index rather than two queries per
+    link: the name's place in the sorted openings says whether one starts
+    with it.
+    """
+    from bisect import bisect_left
+
+    live = session.execute(
+        select(Entry.content, Entry.source_path).where(
+            Entry.is_deleted == False, Entry.is_private == False  # noqa: E712
+        )
+    ).all()
+    openings = sorted(manager.wiki_opening(content) for content, _ in live)
+    stems = {
+        (path or "").rsplit("/", 1)[-1].lower().removesuffix(".md").removesuffix(".markdown")
+        for _, path in live
+        if path
+    }
+    ghosts: dict[str, dict] = {}
+    for entry in entries:
+        for name in manager.wiki_link_targets(manager.readable_content(entry)):
+            wanted = name.strip().lower()
+            at = bisect_left(openings, wanted)
+            if wanted in stems or (at < len(openings) and openings[at].startswith(wanted)):
+                continue
+            key = f"unresolved:{wanted}"
+            if key not in ghosts:
+                ghosts[key] = {
+                    "id": key, "type": "unresolved", "preview": name.strip(),
+                    "category": "Unresolved", "created_at": entry.created_at.isoformat(),
+                }
+            edges.append({"source": entry.id, "target": key, "kind": "unresolved"})
+    nodes.extend(ghosts.values())
+
+
+def _add_attachment_nodes(
+    session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
+) -> None:
+    """GRAPH_PLAN 514 (6): each file or picture on a note, as its own node."""
+    rows = session.scalars(
+        select(Attachment)
+        .where(Attachment.entry_id.in_(node_ids))
+        .order_by(Attachment.created_at.desc())
+        .limit(GRAPH_DOCUMENT_CAP)
+    )
+    for row in rows:
+        key = f"attachment:{row.id}"
+        nodes.append(
+            {
+                "id": key, "type": "attachment", "preview": row.filename, "mime": row.mime,
+                "category": "Attachment", "created_at": row.created_at.isoformat(),
+            }
+        )
+        edges.append({"source": key, "target": row.entry_id, "kind": "attachment"})
+
+
 def _word_count(text: str | None) -> int:
     """Words in a note's text, for the map's size-by-length rule."""
     return len((text or "").split())
@@ -439,6 +557,9 @@ def graph(
     include_entities: bool = False,
     include_documents: bool = False,
     include_maps: bool = False,
+    include_tags: bool = False,
+    include_unresolved: bool = False,
+    include_attachments: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     # A draft is unfinished by definition, and the Notes tab already keeps
@@ -497,9 +618,8 @@ def graph(
         if isinstance(ref_id, int) and board_id is not None:
             maps_of.setdefault(ref_id, []).append(board_id)
     now = datetime.now(timezone.utc)
-    #: Each note's readable text once, for both the label and the word count:
-    #: a private note's is a decryption, and it was done twice per node.
-    texts = {e.id: manager.readable_content(e) for e in entries}
+    #: Each note's label and word count, read once per version (`_note_texts`).
+    labels = _note_texts(entries)
     nodes = [
         {
             "id": e.id,
@@ -515,7 +635,7 @@ def graph(
             # own docstring as one of the places that must not break on a
             # private note: it decrypts while the vault is open and hands back
             # "Private note: unlock to read it." while it is locked.
-            "preview": _preview(texts[e.id]),
+            "preview": labels[e.id][0],
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
@@ -551,7 +671,7 @@ def graph(
             # note's length in words, through the same readable text as the
             # preview so a private note is counted as its placeholder while
             # locked, and when it was last edited.
-            "words": _word_count(texts[e.id]),
+            "words": labels[e.id][1],
             "updated_at": (e.updated_at or e.created_at).isoformat(),
         }
         for e in entries
@@ -669,6 +789,13 @@ def graph(
     #: to change.
     if include_maps:
         _add_map_edges(session, entries, nodes, edges, node_ids, taken)
+    # GRAPH_PLAN 514: opt-in, prefixed ids, outside centrality, as above.
+    if include_tags:
+        _add_tag_nodes(nodes, edges)
+    if include_unresolved:
+        _add_unresolved_nodes(session, entries, nodes, edges)
+    if include_attachments:
+        _add_attachment_nodes(session, nodes, edges, node_ids)
 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
@@ -684,6 +811,11 @@ def graph_local(
     # asks for more than 2-3 today.
     depth: int = Query(default=2, ge=1, le=6),
     similarity: bool = False,
+    # GRAPH_PLAN 514 (1), Obsidian's local graph switches: follow links into
+    # the note, out of it, and draw the lines between notes at one distance.
+    incoming: bool = True,
+    outgoing: bool = True,
+    neighbours: bool = True,
     session: Session = Depends(get_session)
 ) -> dict:
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
@@ -702,31 +834,65 @@ def graph_local(
 
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
-        
-    # BFS up to `depth`
-    visited = {entry_id}
+
+    #: Which way each link and thread runs. The index keeps one step per
+    #: direction, so the stored row says which end wrote it (a thread runs
+    #: from the note to its reply, as on `/graph`); tags and similarity have
+    #: no direction and pass either switch.
+    directed: dict[frozenset, tuple[int, int]] = {}
+    for source, target in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)):
+        directed.setdefault(frozenset((source, target)), (source, target))
+    for entry in index.entries.values():
+        if entry.parent_id in index.entries and entry.parent_id != entry.id:
+            directed.setdefault(frozenset((entry.parent_id, entry.id)), (entry.parent_id, entry.id))
+
+    def oriented(a: int, b: int, kind: str) -> tuple[int, int]:
+        if kind not in ("link", "thread"):
+            return (a, b)
+        return directed.get(frozenset((a, b)), (a, b))
+
+    def allowed(a: int, ends: tuple[int, int], kind: str) -> bool:
+        if kind not in ("link", "thread"):
+            return incoming or outgoing
+        return outgoing if ends[0] == a else incoming
+
+    # BFS up to `depth`, keeping each note's distance from the centre.
+    distance = {entry_id: 0}
     queue = [entry_id]
     edges = []
     taken = set()
-    
-    for _ in range(depth):
+
+    for level in range(depth):
         next_queue = []
         for n in queue:
             for neighbor, step in index.neighbours(n).items():
+                ends = oriented(n, neighbor, step.kind)
+                if not allowed(n, ends, step.kind):
+                    continue
                 pair = frozenset((n, neighbor))
                 if pair not in taken:
                     taken.add(pair)
-                    edges.append({
-                        "source": n,
-                        "target": neighbor,
-                        "kind": step.kind
-                    })
-                if neighbor not in visited:
-                    visited.add(neighbor)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+                if neighbor not in distance:
+                    distance[neighbor] = level + 1
                     next_queue.append(neighbor)
         queue = next_queue
         if not queue:
             break  # nothing left to expand, further iterations would be no-ops
+
+    visited = set(distance)
+    if neighbours:
+        # The lines between notes at one distance that the walk never crossed
+        # (two notes on the outer ring), whichever way they run.
+        for n in visited:
+            for neighbor, step in index.neighbours(n).items():
+                pair = frozenset((n, neighbor))
+                if neighbor in visited and pair not in taken and distance[n] == distance[neighbor]:
+                    taken.add(pair)
+                    ends = oriented(n, neighbor, step.kind)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+    else:
+        edges = [e for e in edges if distance[e["source"]] != distance[e["target"]]]
 
     category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
     nodes = [

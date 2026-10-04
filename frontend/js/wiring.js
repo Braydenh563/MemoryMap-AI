@@ -1335,7 +1335,7 @@ $("graph-search").addEventListener("input", () => {
 });
 
 // Physics sliders: persist, then rebuild the simulation with the new forces.
-for (const key of ["gravity", "spread"]) {
+for (const key of ["gravity", "spread", "link-force"]) {
   const input = $(`graph-${key}`);
   input.value = localStorage.getItem(`graph-${key}`) ?? 50;
   input.addEventListener("change", () => {

@@ -177,10 +177,13 @@ const KIND_STRENGTHS = { map: 0.8, filing: 0.6 };
 //: was measured and rejected: 0.5 evened a hub's spokes (length CV 0.38 to
 //: 0.27) but took the crossings from 18 to 25, and a crossing reads worse than
 //: a spoke a few pixels long.
+//: Link force (GRAPH_PLAN 514 (5)): 0.2x at the slider's left, 1x at 50, 2x
+//: at the right; set by `tuning`, read here.
+let linkScale = 1;
 function linkStrength(edge) {
   const a = edge.source.degree || 1;
   const b = edge.target.degree || 1;
-  return (1 / Math.min(a, b)) * (KIND_STRENGTHS[edge.kind] || 1);
+  return (1 / Math.min(a, b)) * (KIND_STRENGTHS[edge.kind] || 1) * linkScale;
 }
 
 function densityScale(count) {
@@ -219,6 +222,8 @@ function tuning(params) {
   //: at 50 exact rather than approximate. 0.25x at 0, 1x at 50 (unchanged),
   //: 6.25x at 100 (was 3.25x).
   const pull = 0.25 + 0.75 * (gravity / 50) ** 3;
+  const force = Number(params && params.linkForce != null ? params.linkForce : 50);
+  linkScale = force <= 50 ? 0.2 + (0.8 * force) / 50 : 1 + (force - 50) / 50;
   return {
     charge: (-340 * density) / gravityScale,
     //: Length by similarity (the Show switch, on by default): a strong
@@ -499,7 +504,7 @@ function applyForces(params) {
   applyGrouping(params);
   const tuned = tuning(params);
   simulation.force("charge").strength(tuned.charge);
-  simulation.force("link").distance(tuned.linkDistance);
+  simulation.force("link").distance(tuned.linkDistance).strength(linkStrength);
   simulation.force("x").strength(tuned.pullX);
   simulation.force("y").strength(tuned.pullY);
 }

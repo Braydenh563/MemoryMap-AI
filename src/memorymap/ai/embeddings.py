@@ -495,9 +495,13 @@ SIMILARITY_BLOCK = 512
 
 
 def similar_pairs(
-    vectors: dict[int, np.ndarray], threshold: float
+    vectors: dict[int, np.ndarray], threshold: float, per_node: int | None = None
 ) -> list[tuple[int, int, float]]:
     """Every pair of ids scoring at or above `threshold`, best first.
+
+    `per_node` keeps only each id's `per_node` best partners (a pair stays if
+    it is in either end's), found block by block, so the result is at most
+    n * per_node pairs rather than up to n^2 / 2 (GRAPH_PLAN 518 (4)).
 
     Vectors of a width other than the majority's are dropped rather than
     stacked: a notebook part-way through an embedding-model change holds both
@@ -523,6 +527,23 @@ def similar_pairs(
     matrix /= np.where(norms == 0, 1.0, norms)
 
     found: list[tuple[int, int, float]] = []
+    if per_node:
+        keep = min(per_node, len(ids) - 1)
+        best: dict[tuple[int, int], float] = {}
+        for start in range(0, len(ids), SIMILARITY_BLOCK):
+            scores = matrix[start : start + SIMILARITY_BLOCK] @ matrix.T
+            rows = np.arange(scores.shape[0])
+            scores[rows, rows + start] = -np.inf
+            top = np.argpartition(-scores, keep - 1, axis=1)[:, :keep]
+            for row, cols in enumerate(top):
+                for col in cols:
+                    score = float(scores[row, col])
+                    if score >= threshold:
+                        left, right = sorted((start + row, int(col)))
+                        best[(left, right)] = score
+        found = [(ids[a], ids[b], score) for (a, b), score in best.items()]
+        found.sort(key=lambda pair: pair[2], reverse=True)
+        return found
     for start in range(0, len(ids), SIMILARITY_BLOCK):
         block = matrix[start : start + SIMILARITY_BLOCK]
         scores = block @ matrix.T

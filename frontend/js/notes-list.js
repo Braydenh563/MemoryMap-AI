@@ -588,9 +588,10 @@ function renderEditForm(li, entry) {
         //: decides: "keep mine" saves again from the other window's text,
         //: "take theirs" puts that text in the form to go on from.
         let base = entry.content_hash;
+        let saved = null;
         for (;;) {
           try {
-            await api(`/entries/${entry.id}`, {
+            saved = await api(`/entries/${entry.id}`, {
               method: "PUT",
               body: JSON.stringify({ ...after, base_hash: base, ai_assisted: textarea.dataset.aiTouched === "1" }),
             });
@@ -617,6 +618,7 @@ function renderEditForm(li, entry) {
         noteFormDirty = false;
         noteFormDraft = null;
         toast("Note saved.");
+        offerWikiRename(entry.id, await saved?.json?.().catch(() => null));
         await loadEntries();
         pushEntryPutUndo(entry.id, "Edited a note", before, after);
       },
@@ -3949,3 +3951,20 @@ function setNotesRailHidden(hidden) {
   }
   syncNotesRailToggle();
 })();
+
+//: GRAPH_PLAN 518: a save that renamed a note while other notes still write
+//: its old [[name]] offers to rewrite them as the new one.
+function offerWikiRename(entryId, saved) {
+  const offer = saved && saved.wiki_rename;
+  if (!offer) return;
+  const who = offer.notes === 1 ? "1 note still links" : `${offer.notes} notes still link`;
+  toastAction(`${who} to [[${offer.old}]].`, `Rename to [[${offer.new}]]`, async () => {
+    try {
+      const done = await apiJson(`/entries/${entryId}/wiki-rename`, { method: "POST", body: JSON.stringify({ old: offer.old }) });
+      toast(`Updated ${done.rewritten} note${done.rewritten === 1 ? "" : "s"}.`);
+      await loadEntries().catch(() => {});
+    } catch (error) {
+      toast(error.message || "Couldn't update those links.", true);
+    }
+  });
+}

@@ -1363,7 +1363,7 @@ function featureCatalog() {
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
-      { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", reveal: "graph-physics" },
+      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout.", reveal: "graph-physics" },
       { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
       { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
       { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },

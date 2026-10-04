@@ -104,15 +104,23 @@ def _synthetic(n, seed=7):
 def test_cost_at_2k_and_10k_notes():
     """Measured, printed with -s: 2k and 10k notes, mean degree 4, two tags
     and two entity mentions each, one similar pair per note. 2026-10-04:
-    162 ms and 802 ms in the sandbox; the budgets are five times that."""
-    for n, budget in ((2000, 0.8), (10000, 4.0)):
+    162 ms and 802 ms in the sandbox. A wall-clock budget failed on a busy
+    CI runner (9.6 s at 10k), so this pins the *shape*: five times the notes
+    may cost at most ten times the time (linear is five, all-pairs would be
+    twenty-five), with one generous ceiling for a disaster."""
+    took = {}
+    for n in (2000, 10000):
         data = _synthetic(n)
-        started = time.perf_counter()
-        found = recognise(*data, exclude=set())
-        took = time.perf_counter() - started
-        print(f"recognise n={n}: {took * 1000:.0f} ms, {len(found)} pairs")
-        assert took < budget, (n, took)
+        runs = []
+        for _ in range(2):
+            started = time.perf_counter()
+            found = recognise(*data, exclude=set())
+            runs.append(time.perf_counter() - started)
+        took[n] = min(runs)
+        print(f"recognise n={n}: {took[n] * 1000:.0f} ms, {len(found)} pairs")
         assert found
+    assert took[10000] < 10 * took[2000], took
+    assert took[10000] < 30.0, took
 
 
 # --- the route ------------------------------------------------------------

@@ -309,6 +309,7 @@ being written by running agents stay beside this one.
   request a chip causes, not the model's choice of question. Worth knowing
   before reading the sweep as proof of the whole feature.
   [chat-timeline-skills.md]
+  *Left: a caveat about the sweep, not a bug; the chips' model choice needs a model.*
 
 ## Whiteboard and mind map
 
@@ -467,30 +468,7 @@ being written by running agents stay beside this one.
 
 ## App wide: shell, phone and the shared recipes
 
-- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
-  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
-  and the CSP. Fixed in files nobody was in: the layout picker's
-  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
-  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
-  Graph tab before the bundle has arrived loads it rather than throwing
-  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
-  act (below). Read and found sound: the toss (the drag class is removed
-  before the toss returns, the flight and the spin are Web Animations on
-  translate/rotate, no CSS transform to fight), the pet timer (cleared on
-  leave and pointerdown, mouse only), the six reactions' cooldowns and the
-  6s gap, the note-opened capture listener (one, at boot), the menu-flake
-  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
-  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
-  soon as a night yawn fires, so that tick's drift and the rest of its
-  night handling are skipped once in thirty minutes (avatars.js, the
-  `late` block); (b) with the legs and sash on compositor roots the walk
-  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
-  layouts, atlaswalk.js): a per-frame write of a custom property or class
-  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
-  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
-  runs before graph.js has declared that `let` when the bundle is cold: a
-  sloppy-mode global write that the later declaration shadows, lost but
-  harmless (graph.js starts it false).
+- ~~Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **Atlas's `hide` act shows shut eyes and nothing of its hands.** The
   companion's new act (a private note opened) raises both arms over the
   face; Atlas draws its arms under its head in the body layer, so at the
@@ -748,15 +726,7 @@ being written by running agents stay beside this one.
   and `tests/test_frontend_load_order.py` holds the shape. `TOUR_ENABLED` is
   true on the branch, so the disabled state itself was not seen in a browser.
 - ~~The feminine sash sways on an inner <g>~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **The companion's walk itself lays out and recalculates style 59 times a
-  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
-  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
-  happening). The idle figure is 0 layouts (companionperf.js), so this is the
-  walk's own per-frame work in avatars.js (the position written each frame,
-  or a read of the page beside it), not Atlas's drawing. Not opened in the
-  review because avatars.js was the companion agent's file that night; the
-  first look is whether the walk writes `style.transform` from a
-  requestAnimationFrame loop that also reads a rect.
+- ~~The companion's walk lays out and recalculates style 59 times a second~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **Every provider test runs against a fake transport** (CLAUDE.md section 4),
   and that covers more open work than any other single line here: no real
   model has run a skill, the night pass, the Guide's tab context, the paging
@@ -829,9 +799,7 @@ being written by running agents stay beside this one.
   long-press flyout have never been driven by a touch device; the
   highlighter's Shift-straight branch is exercised by hand, not by the gate.
   [whiteboard-phases.md]
-- **The whiteboard's align and distribute actions**: their markup changed
-  (labels to icons), their handlers were not touched and were not driven.
-  [visual-c.md]
+- ~~The whiteboard's align and distribute actions were not driven~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **The popup agent's results pane with a conversation in it.** Everything was
   measured on the empty state, since this sandbox has no model;
   `.command-palette-results` keeps its own `--card-pad-x` inset, and that is

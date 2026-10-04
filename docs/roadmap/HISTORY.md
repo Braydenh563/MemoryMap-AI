@@ -38817,6 +38817,57 @@ stateful in the capture strip is cloned with its state. The Preview button
 was fixed; the collapse and expand state and the highlight colour pickers
 have not been checked for the same shape. [notes-subtabs.md]
 
+### The whiteboard's align and distribute actions were not driven
+
+Verified on the head, 2026-10-04: `scratchpad/ui-sweeps/whiteboard.js` section 6 drives them through the UI buttons and passes (24 of 24 at 1440x900): align centres puts three centres on 600, distribute leaves gaps of 250 and 250 for boxes of different widths, same size gives 300 by 120 to all three.
+
+- **The whiteboard's align and distribute actions**: their markup changed
+  (labels to icons), their handlers were not touched and were not driven.
+  [visual-c.md]
+
+### The companion's walk lays out and recalculates style 59 times a second
+
+Stale, measured 2026-10-04: `atlaswalk.js` (frames counted from the trace, not by a rAF loop; the 59 a second was that loop's own restyle) reads masculine 5.5 style recalcs/s, 0.2 layouts/s, 1.7 paints/s and feminine 5.7, 0, 0.5 over 4s with `nmb-walking` held.
+
+- **The companion's walk itself lays out and recalculates style 59 times a
+  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
+  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
+  happening). The idle figure is 0 layouts (companionperf.js), so this is the
+  walk's own per-frame work in avatars.js (the position written each frame,
+  or a read of the page beside it), not Atlas's drawing. Not opened in the
+  review because avatars.js was the companion agent's file that night; the
+  first look is whether the walk writes `style.transform` from a
+  requestAnimationFrame loop that also reads a rect.
+
+### Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26
+
+All three items it left are done on the head, checked 2026-10-04: (a) `nameMarkBuddyTick` now works the mood out before the night yawn's early return (avatars.js); (b) the walk's style-recalc cost was the sweep's own rAF counter, 5.5/s and 0.2 layouts/s with `atlaswalk.js` counting frames from the trace; (c) the layout picker's change handler awaits `ensureModule("graph")` before writing `graphAutoFitDone` (navigation.js).
+
+- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
+  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
+  and the CSP. Fixed in files nobody was in: the layout picker's
+  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
+  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
+  Graph tab before the bundle has arrived loads it rather than throwing
+  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
+  act (below). Read and found sound: the toss (the drag class is removed
+  before the toss returns, the flight and the spin are Web Animations on
+  translate/rotate, no CSS transform to fight), the pet timer (cleared on
+  leave and pointerdown, mouse only), the six reactions' cooldowns and the
+  6s gap, the note-opened capture listener (one, at boot), the menu-flake
+  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
+  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
+  soon as a night yawn fires, so that tick's drift and the rest of its
+  night handling are skipped once in thirty minutes (avatars.js, the
+  `late` block); (b) with the legs and sash on compositor roots the walk
+  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
+  layouts, atlaswalk.js): a per-frame write of a custom property or class
+  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
+  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
+  runs before graph.js has declared that `let` when the bundle is cold: a
+  sloppy-mode global write that the later declaration shadows, lost but
+  harmless (graph.js starts it false).
+
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 
 ### From GRAPH_PLAN.md: the knowledge graph's spec, moved whole once KG1 to KG9 were built

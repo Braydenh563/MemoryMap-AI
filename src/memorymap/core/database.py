@@ -778,6 +778,54 @@ class EmbeddingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class ChunkVector(Base):
+    """One vector per paragraph of a long note (WORLD_CLASS_PLAN §14 item 3,
+    row 6).
+
+    One vector per note loses a long note: a paragraph about the boiler in a
+    page about the house is a twentieth of the note's vector, and a question
+    about the boiler scores the whole page as barely related. A note of two
+    or more paragraphs (`embeddings.paragraph_chunks`) gets a row per
+    paragraph here as well; a short note has none, since its one paragraph is
+    the note and its vector already exists.
+
+    **`embedding_id` is the note vector these rows were cut beside.** Ten
+    places delete a note's `EmbeddingRecord` (purge, private, re-embed, the
+    category re-embed, restore), mostly with bulk statements no hook sees.
+    Rather than teach every one of them about this table, a chunk only counts
+    while the note's live vector is the one it was stored with
+    (`search/chunks.py`): a deleted or replaced note vector retires its
+    chunks at once, whoever deleted it. `store_for_entry` and the orphan pass
+    remove the rows themselves.
+
+    **No foreign key on `entry_id`, on purpose.** Foreign keys are enforced
+    here, and the entry hard-delete paths (purge, the bin, a workspace delete)
+    each list the side tables they clear first; a key here would make every
+    one of them fail until it learned this table's name. A row whose note is
+    gone is already inert by the `embedding_id` rule, and
+    `clean_orphaned_vectors` deletes it. `set_private` deletes them at once,
+    because a vector derived from the text is what the encryption hides.
+
+    `start`/`end` are offsets into the note's content as it was embedded, the
+    paragraph anchor a grounded sentence points at. `digest` lets a re-save
+    reuse the vectors of the paragraphs that did not change, so editing one
+    paragraph of a long note embeds one paragraph.
+    """
+
+    __tablename__ = "chunk_vectors"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    embedding_id: Mapped[int] = mapped_column(Integer)
+    ordinal: Mapped[int] = mapped_column(Integer)
+    start: Mapped[int] = mapped_column(Integer)
+    end: Mapped[int] = mapped_column(Integer)
+    digest: Mapped[str] = mapped_column(String(32))
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    dim: Mapped[int] = mapped_column(Integer)
+    model_version: Mapped[str] = mapped_column(String(200))
+
+
 class Attachment(Base, WorkspaceMixin):
     """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original

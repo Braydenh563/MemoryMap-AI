@@ -6205,6 +6205,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   top: 7px;
 }
 
+/* Not behind Atlas (INBOX 536, the owner: "the companion background glow
+   needs a lot of fixing"): Atlas draws its own aura, centred on the whole
+   figure, and this light, placed for a plain face's head and shoulders,
+   was a second blob over its head; enlarged and hanging it rose past the
+   top of the card. */
+:root[data-theme="dark"] #nm-buddy[data-seed="Atlas"]::after { content: none; }
+
 :root[data-theme="dark"] #nm-buddy::before {
   background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
 }
@@ -6478,7 +6485,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    92px), so the bed sits under that, not behind the chest. */
 #nm-buddy:has(.atl-figure)[data-pose="lie"]::before { top: calc(var(--nmb-edge) + 6px); }
 :root[data-theme="dark"] #nm-buddy[data-pose="lie"]::after { top: 26px; height: 56px; left: calc(-8px + 52px * var(--atl-v1)); right: calc(-48px + 52px * var(--atl-v1)); }
-#nm-buddy:is([data-pose="lie-2"], [data-pose="lie"]) .atl-band-haze { opacity: 0.35; }
 /* The near half of the stream lies under the body as its bed, not over it. */
 #nm-buddy[data-pose="lie"] .atl-layer-neb-front { opacity: 0.35; }
 /* Settling: sitting back with the legs out. */
@@ -7304,7 +7310,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-aura: none;
   --atl-core: none;
   --atl-skirt: var(--atl-md);
-  --atl-gown: var(--atl-md);
+  --atl-flow: var(--atl-md);
   /* A chest star's brightness (atlas.js sets it per star). */
   --atl-b: 0.5;
   --atl-iris: var(--atl-ink);
@@ -7474,6 +7480,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
 .atl-lw-leg-r { transform-origin: 34.6px 60px; }
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
+.atl-lw-wisps { transform-origin: 31px 60px; will-change: rotate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
@@ -7805,9 +7812,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-white { stop-color: white; stop-opacity: 1; }
 .nm-atlas .atl-st-white-mid { stop-color: white; stop-opacity: 0.55; }
 .nm-atlas .atl-st-white-0 { stop-color: white; stop-opacity: 0; }
-.nm-atlas .atl-st-aura0 { stop-color: var(--atl-glow-c); stop-opacity: var(--atl-aura-a); }
-.nm-atlas .atl-st-aura1 { stop-color: var(--atl-glow-c); stop-opacity: calc(var(--atl-aura-a) * 0.4); }
-.nm-atlas .atl-st-aura2 { stop-color: var(--atl-glow-c); stop-opacity: 0; }
+/* The aura in the nebula's own colours (INBOX 536: "tinted from the
+   nebula"), its lilac half into the accent-tinted glow. */
+.nm-atlas {
+  --atl-aura-c: color-mix(in oklab, var(--atl-neb-c) 55%, var(--atl-glow-c));
+}
+.nm-atlas .atl-st-aura0 { stop-color: var(--atl-aura-c); stop-opacity: var(--atl-aura-a); }
+.nm-atlas .atl-st-aura1 { stop-color: var(--atl-aura-c); stop-opacity: calc(var(--atl-aura-a) * 0.4); }
+.nm-atlas .atl-st-aura2 { stop-color: var(--atl-aura-c); stop-opacity: 0; }
 .nm-atlas .atl-st-core0 { stop-color: white; stop-opacity: 0.55; }
 .nm-atlas .atl-st-core1 { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-iris0 { stop-color: var(--atl-ink); }
@@ -7999,7 +8011,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    itself a little quieter than it was so the haze carries the colour. */
 .nm-atlas .atl-band-edge-soft { stroke-width: 0.5; opacity: 0.2; }
 .nm-atlas .atl-band > .atl-band-fill { opacity: 0.58; }
-.nm-atlas .atl-band-haze .atl-band-cloud { opacity: 0.42; }
 /* Round 9: the orbit's depth. The far half (under the figure) is quieter,
    the near half (over the mane and the rings) a little brighter, its lit
    edge and its stream stronger; they meet where the ribbon turns edge-on,
@@ -8094,31 +8105,25 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-skirt2 { stop-color: var(--atl-dp); stop-opacity: 0.05; }
 .nm-atlas .atl-ribbon-stream { fill: white; opacity: 0.2; }
 .nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.42; }
-/* **The feminine gown** (atlas.js, `skirt`, `skirtTrain`, `skirtDrape`,
-   `skirtHem`; INBOX 480, the owner: "a better and more majestic and
-   attractive female atlas lower body"). The train behind in the gown's
-   deepest colours under the galaxy's haze; the gown deepening from her
-   skin's light to the nebula's violet (`--atl-gown`); fine folds of light;
-   a sheer overskirt with a lit hem; the gown's own lit hem; stars. Every part is static
-   paint in the lower layer, so its sway is the layer root's, as before. */
-.nm-atlas .atl-skirt { opacity: 0.94; }
-.nm-atlas .atl-skirt-veil { fill: var(--atl-gown); }
-.nm-atlas .atl-st-gown0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
-.nm-atlas .atl-st-gown1 { stop-color: var(--atl-md); stop-opacity: 0.8; }
-.nm-atlas .atl-st-gown2 { stop-color: var(--atl-neb-c); stop-opacity: 0.78; }
-.nm-atlas .atl-st-gown3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.82; }
-.nm-atlas .atl-gown-train { fill: var(--atl-gown); opacity: 0.62; }
-.nm-atlas .atl-gown-train-haze { opacity: 0.42; }
-/* Her ribbon tails (atlas.js, `lowers`; INBOX 480), over the gown: the
-   back tier in the nebula's lilac, the front tier in her light, each
-   ribbon's own opacity its group's `opacity` attribute. Fills alone: no
-   stroke, which from the waist read as strings. */
-.nm-atlas .atl-tail-ribbon-fill { fill: var(--atl-hi); }
-.nm-atlas .atl-tail-ribbon-back .atl-tail-ribbon-fill { fill: var(--atl-neb-c); }
-.nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
-.nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
-.nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }
-.nm-atlas .atl-gown-hem { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.6; }
+/* **The Galaxy Seed Sower's tail** (atlas.js, `lowerTaper: "sower"`;
+   INBOX 535): her skin's light at the hips deepening to the nebula's
+   violet (`--atl-flow`), the inner side shaded deeper violet with galaxy
+   sparkles, a pale light down the outer side. Fills only. Every part is
+   static paint in the lower layer, so its sway is the layer root's. */
+.nm-atlas .atl-st-flow0 { stop-color: var(--atl-lt); stop-opacity: 0.97; }
+.nm-atlas .atl-st-flow1 { stop-color: var(--atl-md); stop-opacity: 0.92; }
+.nm-atlas .atl-st-flow2 { stop-color: var(--atl-neb-c); stop-opacity: 0.9; }
+.nm-atlas .atl-st-flow3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.9; }
+.nm-atlas .atl-sower-fill { fill: var(--atl-flow); }
+.nm-atlas .atl-sower-inner { fill: var(--atl-neb2-c); opacity: 0.5; }
+.nm-atlas .atl-sower-light { fill: white; opacity: 0.22; }
+.nm-atlas .atl-sower-sparkle { fill: white; opacity: 0.9; }
+/* Her astral wisps (atlas.js, `wisps`; INBOX 535): a soft glow of the
+   nebula's light under a brighter, near-white core, with a sparkle trail.
+   Fills only. */
+.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.2; }
+.nm-atlas .atl-astral-core { fill: white; opacity: 0.5; }
+.nm-atlas .atl-astral-sparkle { fill: white; opacity: 0.95; }
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
@@ -8235,14 +8240,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy:has(.atl-figure) .nm-buddy-char,
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
 }
-/* `transform`, not `rotate`: the box's gesture (avatars.js,
-   `nameMarkBuddyLimbs`) animates `rotate` and `scale` about the waist, and
-   the two compose. The drift turns about the dress's hem (25px under the
-   box's waist origin), where the tails are rooted, so a tail's root stays
-   on the dress and only its length sways. */
-@keyframes atl-ribbon-drift {
-  from { transform: translateY(25px) rotate(-2deg) skewX(3deg) translateY(-25px); }
-  to { transform: translateY(25px) rotate(1.8deg) skewX(-3deg) translateY(-25px); }
+/* A slow turn and lift about her middle, the compositor's (a box). */
+@keyframes atl-wisp-drift {
+  from { rotate: -2.2deg; translate: 0 0.6px; }
+  to { rotate: 2deg; translate: 0 -1.2px; }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }
@@ -8694,11 +8695,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
     & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
-    /* Her ribbon tails' two tiers (INBOX 480), each drifting on its own
-       clock about the waist, out of step with the gown's sway (which they
-       also take, on their roots) and with each other. */
-    & .atl-lw-lower-front { animation: atl-ribbon-drift 6.3s ease-in-out -2.1s infinite alternate; }
-    & .atl-lw-lower-back { animation: atl-ribbon-drift 8.1s ease-in-out -5.4s infinite alternate-reverse; }
+    /* Her astral wisps drift on their own slow clock (INBOX 535). */
+    & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8731,9 +8729,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="masculine"] { animation-duration: 14s !important; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
-  .atl-lw-neb, .atl-lw-neb-front { animation: none !important; }
-  .atl-lw-lower-front { animation-duration: 14s !important; }
-  .atl-lw-lower-back { animation-duration: 18s !important; }
+  .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */

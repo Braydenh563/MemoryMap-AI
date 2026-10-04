@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas, feminine look: the Galaxy Seed Sower's body (INBOX 535, the owner: "I want the female bottom half and main body the feminine atlas to be more like this"). An hourglass torso (a small chest curve, a clear waist 0.73 of the chest and 0.55 of the hips, rounded hips) whose hips flow into one long, wide spectral tail sweeping out to one side and curling up to a soft point, as wide as the hips where it leaves them (over 80% of the hips where the torso fades into it, by the shape test), its inner side shaded the nebula's violet with galaxy sparkles; the comet tail is the second, thinner ribbon tail, now from the other hip. No gown, no ribbon tails, no waist band; fills only, nothing along either tail under 2px. The masculine look is pixel-identical.
 - Chat: Atlas only shows a picture when your question is about one; it no longer adds pictures to unrelated answers.
 - Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.
 - Chat: the Attach panel draws over the chat's header instead of under it.
@@ -238,6 +239,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+/tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt
+/tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-aura.txt
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
 - Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.
 - Skill logs: Clear and the pin button no longer touch when the collapsed sidebar is peeked open (they overlapped by 5.6px; the peeked pin now sits where the pinned one does, 6.4px from Clear), and at phone width Clear sits 6.4px from the opener, up from 2.4px (INBOX 495).

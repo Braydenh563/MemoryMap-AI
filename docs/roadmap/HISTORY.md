@@ -36939,6 +36939,29 @@ width, 47% of the column at 1440.
      is the logo's p5 sketch drawn once and copied (assistant-avatar.js,
      lazy), still under Reduce motion. Ask's answer and the writing room
      have no avatar head, so there was nothing to switch.
+459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
+     Personas: the jump strip "Answer style, Dashboard greeting, Add your
+     own, Share").** "some of the horizontal navigation bars at the top of
+     the settings pages skip multiple sections as they are too close, like
+     in the personas, it only goes on the first or last one. also can you
+     add some cheap css animations to things like the horizontal pill
+     selectors and sidebars etc like using anchor for smooth tab
+     transitions etc?? stuff like that to make it feel truly professional
+     and smooth but dont over do it in a vibecoded way. did you use all the
+     ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
+     section clicked and, scrolling, the last one whose head passed the
+     line (or the one at the end when the page can scroll no further): **fixed**,
+     the clicked head stays marked until a wheel, touch or key scroll
+     (Personas at 1280x560: each of the four marks itself; it was the first
+     or last); (2) a restrained motion pass (the selected pill and tab
+     indicator slide between options, sidebars ease, reduced motion
+     honoured, every duration and curve a token, no new decoration):
+     **fixed**, one CSS-anchored indicator per strip glides 200ms between
+     options (every `.seg`, the top tabs, the Notes and Library sub-tabs,
+     the Settings nav), a sidebar's contents leave toward and arrive from
+     its rail, focus mode's side panels enter from their edge, a page fades
+     in on a tab switch; all instant under reduced motion (DESIGN.md
+     "Motion" row; `glide.js`, `sidemotion.js`).
 
 ## INBOX resolved, 2026-10-04
 

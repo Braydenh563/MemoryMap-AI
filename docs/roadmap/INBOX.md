@@ -64,25 +64,6 @@ with its owner named in the entry.
      does not emulate, and the windowed list's page load at the end. Next:
      the owner's tab and window size, then a real-device trace.
 
-459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
-     Personas: the jump strip "Answer style, Dashboard greeting, Add your
-     own, Share").** "some of the horizontal navigation bars at the top of
-     the settings pages skip multiple sections as they are too close, like
-     in the personas, it only goes on the first or last one. also can you
-     add some cheap css animations to things like the horizontal pill
-     selectors and sidebars etc like using anchor for smooth tab
-     transitions etc?? stuff like that to make it feel truly professional
-     and smooth but dont over do it in a vibecoded way. did you use all the
-     ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
-     section clicked and, scrolling, the last one whose head passed the
-     line (or the one at the end when the page can scroll no further): **fixed**,
-     the clicked head stays marked until a wheel, touch or key scroll
-     (Personas at 1280x560: each of the four marks itself; it was the first
-     or last); (2) a restrained motion pass (the selected pill and tab
-     indicator slide between options, sidebars ease, reduced motion
-     honoured, every duration and curve a token, no new decoration): an
-     Opus agent, with the named skills as checklists.
-
 
 453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
      be a way to open and close the documents editor sidebar when in full

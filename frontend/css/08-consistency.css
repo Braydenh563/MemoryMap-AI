@@ -9693,3 +9693,234 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   align-items: center;
   gap: var(--space-2);
 }
+
+/* --- motion: the selection glides between options (INBOX 459 (2)) ---------
+   The owner: "cheap css animations to things like the horizontal pill
+   selectors and sidebars ... using anchor for smooth tab transitions ...
+   dont over do it". A segmented control, the top bar's tabs, the Notes and
+   Library sub-tabs and the Settings nav each drew the chosen option's fill
+   on the option itself, so choosing another one made the fill vanish here
+   and appear there: two states, nothing between them to say they are one
+   selection that moved. Now one indicator per strip, the strip's own
+   `::before`, is anchored to whichever option is `.active` and travels to
+   the next one; the option underneath keeps its text and loses its fill.
+
+   **CSS anchor positioning, no script.** The active option carries the
+   anchor name, `anchor-scope` keeps every strip's name its own, and the
+   indicator's four insets are `anchor()`s. Moving `.active` changes what
+   those resolve to, which runs an ordinary transition, so it is
+   interruptible (a second click mid-glide retargets from where it is) and
+   every place that already sets `.active` gets it with no code.
+
+   **One trade, measured.** The insets are layout properties: each frame of
+   the glide lays out this one absolutely positioned box, nothing in flow
+   (`scratchpad/ui-sweeps/glide.js` counts it against a control with the
+   transition off). There is no transform form of "go to wherever the
+   chosen option is" without measuring in script, which is what the anchor
+   is for. It is the one transition on an inset `tests/test_cheap_animations.py`
+   lets through, and `tests/test_motion_recipes.py` keeps it the only one.
+
+   Gated on `anchor-scope`: without it every strip's name would be one
+   global name and every indicator would sit on the last strip's option, so
+   an engine without it keeps the instant fill, exactly as before. Forced
+   colours keep it too: the system paints the fill there. Reduced motion
+   (either switch) makes the move instant through the blankets in
+   02-chat-graph.css, which zero every `::before` transition. */
+@supports (anchor-scope: --a) {
+  @media (forced-colors: none) {
+
+    /* Zero specificity: the strips that are already sticky or absolute
+       (the sub-tabs, the top bar) keep that, and still contain the box. */
+    :where(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg), #settings-nav) {
+      position: relative;
+    }
+
+    #tab-bar,
+    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg),
+    #settings-nav {
+      anchor-scope: --glide;
+      /* The indicator sits at z-index -1, over the strip's own ground and
+         under its options, without giving every option a z-index. */
+      isolation: isolate;
+    }
+
+    /* The fill and the corner each strip's chosen option was drawn with:
+       the defaults at zero specificity, so each family below wins. */
+    :where(#tab-bar, .seg, #settings-nav) {
+      --glide-fill: var(--accent-surface);
+      --glide-ring: none;
+      --glide-radius: var(--radius-choice);
+    }
+
+    #tab-bar,
+    .notes-subtabs,
+    .library-subtabs {
+      --glide-radius: var(--radius-md);
+    }
+
+    .dock .seg {
+      --glide-radius: var(--radius-sm);
+    }
+
+    .chat-dock-controls .seg {
+      --glide-radius: var(--radius-pill);
+    }
+
+    #settings-nav {
+      --glide-fill: var(--accent-soft);
+      --glide-radius: var(--radius-md);
+    }
+
+    :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(#tab-bar, .seg) {
+      --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
+      --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+
+    #tab-bar > .active,
+    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active,
+    #settings-nav [data-section].active {
+      anchor-name: --glide;
+    }
+
+    #tab-bar::before,
+    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)::before,
+    #settings-nav::before {
+      content: "";
+      position: absolute;
+      position-anchor: --glide;
+      top: anchor(top);
+      right: anchor(right);
+      bottom: anchor(bottom);
+      left: anchor(left);
+      z-index: -1;
+      pointer-events: none;
+      border-radius: var(--glide-radius);
+      background: var(--glide-fill);
+      box-shadow: var(--glide-ring);
+      /* The one inset transition in the app (the trade is written at the
+         head of this block): a box of its own, out of flow, so a frame of
+         it lays out nothing but itself. */
+      transition: top var(--motion-slow) var(--ease-in-out), right var(--motion-slow) var(--ease-in-out),
+        bottom var(--motion-slow) var(--ease-in-out), left var(--motion-slow) var(--ease-in-out);
+    }
+
+    /* The phone's bottom tab dock marks its tab by colour alone (no fill
+       to move), and it hides three tabs, so there is nothing here to glide. */
+    #phone-tab-dock > #tab-bar::before {
+      content: none;
+    }
+
+    /* The chosen option is the indicator's now; a fill of its own as well
+       would draw it twice (and a hover on it a third time). `:not(#glide)`
+       matches every element and lifts this to (2,2,1), above every rule
+       that paints a chosen option: the flat looks' top tab is (1,3,1). */
+    :root :is(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)) > .active:not(#glide),
+    :root #settings-nav [data-section].active:not(#glide) {
+      background: transparent;
+      box-shadow: none;
+    }
+
+    /* The label changes colour as the fill arrives under it rather than
+       before: white on the empty well for a frame or two read as a flash.
+       The rest is `button`'s own list (01-forms-settings.css), restated
+       because a `transition` replaces the whole list. */
+    :root :is(#tab-bar, .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)) > button,
+    :root #settings-nav [data-section] {
+      transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
+        translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
+    }
+  }
+}
+
+/* --- motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) ----
+   Folding a sidebar to its rail sets the grid column at once
+   (`applySidebarWidth`; the column is not animated, a moving track would lay
+   the page out every frame), and the contents went from there to gone, and
+   back, in one frame. Now they leave and arrive across a short distance
+   toward the edge the sidebar lives on, so the rail reads as where they went:
+   unfolding fades them in over `--motion-slow` from `--space-3` toward the
+   rail, folding takes them out on `--motion-fast` (leaving is quicker than
+   arriving), and the hover-peek brings them in the same way after its own
+   short wait. `transform`, not `translate`: two of the children are buttons,
+   whose press cue is `translate`, and the two compose rather than fight.
+   The phone's edge sheet already slides and is untouched (those widths take
+   these classes off the aside). */
+aside[data-resizable] > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out),
+    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+
+aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+  transform: translateX(calc(var(--space-3) * -1));
+  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+/* Skill logs folds to the right (RIGHT_SIDE_SIDEBARS). */
+#skills-sidebar[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+  transform: translateX(var(--space-3));
+}
+
+.layout-sidebar-collapsed > aside[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+  transform: none;
+  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
+    transform var(--motion-slow) var(--ease-out) var(--motion-fast);
+}
+
+/* Focus mode opens the documents sidebar whole as its own panel, folded on
+   the page or not; its rows are where they belong there. */
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > * {
+  transform: none;
+}
+
+/* The rail's sideways name is what the sidebar folded into: it comes in as
+   the contents go, rather than being there before they have left. */
+.sidebar-collapsed > .sidebar-rail-name {
+  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
+    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+
+@starting-style {
+  .sidebar-collapsed > .sidebar-rail-name {
+    opacity: 0;
+  }
+}
+
+/* Focus mode's two side panels (INBOX 426, 453) come in from the window
+   edge they are fixed to. Closing is instant: the panel's whole placement
+   leaves with the class that gave it, so there is nothing to fade out. */
+#tab-documents.doc-focus #doc-prose-panel:not(.hidden),
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+  transition: opacity var(--motion-slow) var(--ease-out), translate var(--motion-slow) var(--ease-out);
+}
+
+@starting-style {
+  #tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
+    opacity: 0;
+    translate: var(--space-4) 0;
+  }
+
+  #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+    opacity: 0;
+    translate: calc(var(--space-4) * -1) 0;
+  }
+}
+
+/* --- motion: a page arrives (INBOX 459 (2)) --------------------------------
+   Switching tabs replaced one page with the next between two frames, so the
+   only sign of the switch was everything changing at once. The page now
+   comes in over `--motion-fast` by `opacity` alone: short enough that
+   nothing waits on it, and the tab strip's glide (above) says where you
+   went. The page leaving does not fade: it is gone with its `.hidden`, and
+   a cross-fade would mean two pages on screen at once. A page shown for
+   the first time fades too, which is the boot, under the lock screen. */
+.tab-page:not(.hidden) {
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+@starting-style {
+  .tab-page:not(.hidden) {
+    opacity: 0;
+  }
+}

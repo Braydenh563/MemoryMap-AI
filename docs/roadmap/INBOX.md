@@ -65,15 +65,6 @@ with its owner named in the entry.
      the owner's tab and window size, then a real-device trace.
 
 
-453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
-     be a way to open and close the documents editor sidebar when in full
-     screen mode". Then: "keep bug fixing and finishing all open requests and
-     items". And: "can you improve, extend, expand, optimise, and add to the
-     mindmap, whiteboard, or documents editor at all?? what is most lacking
-     in the app rn?? what is left and still open??" Placed: the sidebar
-     toggle in focus mode, the orchestrator; the question answered from the
-     plans' open phases, with agents on the top items.
-
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user
      can write notes and make a note is insanely easy and fast?? It needs to

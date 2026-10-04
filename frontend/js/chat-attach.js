@@ -1930,6 +1930,12 @@ async function sendChatMessage(preset, opts = {}) {
   // it rather than append a second copy of the same exchange.
   let checkpointed = false;
   let checkpointInFlight = false;
+  //: The checkpoint's own promise, so the save at the end can wait for it.
+  //: Without it a fast model finished while the first checkpoint's create
+  //: was still in flight, the end save saw no id yet and created a second
+  //: conversation: the README's Chat shot listed "What is left before the
+  //: Harbor launch?" twice, 43ms apart (INBOX 431 (g)).
+  let checkpointRun = null;
 
   // Write what the turn has so far. Called at each agent round boundary, so a
   // ten-minute run that dies at minute nine leaves nine minutes of work in the
@@ -1937,9 +1943,13 @@ async function sendChatMessage(preset, opts = {}) {
   //
   // One in flight at a time: rounds can finish close together, and two
   // creates racing each other would make two conversations out of one thread.
-  async function checkpointTurn() {
-    if (checkpointInFlight) return;
+  function checkpointTurn() {
+    if (checkpointInFlight) return checkpointRun;
     checkpointInFlight = true;
+    checkpointRun = writeCheckpoint();
+    return checkpointRun;
+  }
+  async function writeCheckpoint() {
     try {
       const partial = {
         question,
@@ -2528,7 +2538,10 @@ async function sendChatMessage(preset, opts = {}) {
   } else {
     convRef.turns.push({ question, answer: answerRaw });
   }
-  // Persist the finished turn so the chat survives restarts.
+  // Persist the finished turn so the chat survives restarts. A checkpoint
+  // still on its way is let land first, so this sees its id and replaces its
+  // row rather than racing it to create a second conversation.
+  if (checkpointRun) await checkpointRun;
   try {
     const payload = {
       question,

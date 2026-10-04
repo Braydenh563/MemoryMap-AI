@@ -77,6 +77,9 @@ ON_THE_GRAMMAR = {
     # The Dashboard's one row between the hero and the widgets (INBOX 436):
     # the search doorway, New note and the menu that holds everything else.
     "dashboard",
+    # The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): its gate
+    # names this lint.
+    "questions",
 }
 
 

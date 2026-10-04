@@ -99,6 +99,12 @@ KINDS = frozenset(
         # getting wrong" is answerable in one place rather than two.
         "delete_fact",
         "edit_fact",
+        # The open questions view (I3, row 7): a question dropped, reopened,
+        # or marked answered by hand. No boost family; recorded so "what has
+        # the app been getting wrong" includes the answers it found.
+        "drop_question",
+        "reopen_question",
+        "answer_question",
     }
 )
 

@@ -136,6 +136,8 @@ def answer(question: str, notes: list[dict], limit: int = MAX_PASSAGES) -> dict:
     #: One blank line between the lead and the first passage, not two: the
     #: join already puts one in, and an empty element added a second.
     text = "\n\n".join([LEAD, *(row["text"] for row in rows)])
+    contents = {note.get("id"): note.get("content") or "" for note in notes}
+    nearness = {note.get("id"): grounding._graph_nearness(note) for note in notes}
     return {
         "text": text,
         "grounding": [
@@ -145,6 +147,14 @@ def answer(question: str, notes: list[dict], limit: int = MAX_PASSAGES) -> dict:
                 "start": row["start"],
                 "end": row["end"],
                 "score": row["score"],
+                #: The evidence card's fields (row 6). A quoted passage is the
+                #: note's own words, so every word is matched and it supports
+                #: itself; there is no model here to measure meaning with.
+                "chunk_ordinal": grounding.paragraph_ordinal(
+                    contents.get(row["note_id"], ""), row["start"], row["end"]
+                ),
+                "signals": {"bm25": 1.0, "cosine": None, "graph": nearness.get(row["note_id"])},
+                "verdict": "supported",
             }
             for row in rows
         ],

@@ -303,26 +303,12 @@ function renderCaptureDocumentAdder() {
   slot.replaceChildren(adder);
 }
 
-//: **Put this note on a whiteboard or a mind map** (INBOX 246, the owner:
-//: "I also want to be able to attach whiteboards and mindmaps to notes").
-//:
-//: "Attach" here means the thing a person means by it: the note goes on the
-//: board, as a card, where they can see it. That is a `WhiteboardNode` row,
-//: which is the reference the board already stores when it carries a note,
-//: written from the note's side. No new relation, no second way for a note
-//: and a board to be connected, and the "Referenced by" row above reads it
-//: back without knowing which side wrote it.
-//:
-//: Deliberately the shape of `renderAttachToDocument` below, which does the
-//: same job for documents: the same inline panel, the same select, the same
-//: Attach/Cancel pair, the same toast with a way in. Two adders that behave
-//: differently would be two things to learn for one idea.
-//:
-//: **No "new board" option**, unlike the document picker. A document made
-//: from a note is a document with that note in it and nothing else to
-//: decide; a board made from a note needs a type (board or map) and a name,
-//: which is a dialog, and the Library's own "New board" already asks both.
-//: Offering a half version here would be a third place that creates boards.
+//: **Put this note on a whiteboard or a mind map** (INBOX 246). The note goes
+//: on the board as a card: a `WhiteboardNode` row written from the note's
+//: side, the reference a board already stores, so "Referenced by" reads it
+//: back with no new relation. The shape of `renderAttachToDocument` below,
+//: one idea learned once. **No "new board" option**: a board needs a type and
+//: a name, which is the Library's New board dialog, not a third creator.
 async function renderAttachToBoard(entry, wrap) {
   const status = document.createElement("p");
   status.className = "muted";
@@ -1299,6 +1285,7 @@ function citationMarker(g, byId, numberFor) {
   //: keeps it open, and on touch a press is the only way to open it.
   const describe = () => ({
     noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
+    signals: g.signals, verdict: g.verdict,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1359,6 +1346,57 @@ function citationMarker(g, byId, numberFor) {
 //: with no passage (a note a tool read mid-turn) shows the note's opening
 //: words. Characters, never rendered Markdown: the slice is taken at
 //: character offsets and can begin mid-emphasis.
+//: Why a source was chosen (I6, row 6): the row's `signals` as bars; an
+//: unmeasured one is left out, never drawn empty. DESIGN.md, "Why a thing was chosen".
+const EVIDENCE_SIGNALS = [
+  ["bm25", "Words"],
+  ["cosine", "Meaning"],
+  ["graph", "Links"],
+];
+const EVIDENCE_VERDICTS = {
+  supported: "Supported by this passage",
+  partly: "Partly supported by this passage",
+};
+
+function evidenceSpan(className, text = "", tag = "span") {
+  const el = document.createElement(tag);
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+function evidenceSignals(signals) {
+  const list = evidenceSpan("evidence-signals");
+  for (const [key, label] of EVIDENCE_SIGNALS) {
+    const value = signals ? signals[key] : null;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    const percent = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
+    const track = evidenceSpan("evidence-signal-track");
+    track.setAttribute("role", "img");
+    track.setAttribute("aria-label", `${label} ${percent}`);
+    const fill = evidenceSpan("evidence-signal-fill");
+    fill.style.width = percent;
+    track.append(fill);
+    const number = evidenceSpan("evidence-signal-value", percent);
+    number.setAttribute("aria-hidden", "true");
+    const row = evidenceSpan("evidence-signal");
+    row.append(evidenceSpan("evidence-signal-name", label), track, number);
+    list.append(row);
+  }
+  return list.childElementCount ? list : null;
+}
+
+//: Verdict and bars as one block; null for a row saved before they existed.
+function evidenceBlock(source) {
+  const verdict = EVIDENCE_VERDICTS[source?.verdict];
+  const bars = evidenceSignals(source?.signals);
+  if (!verdict && !bars) return null;
+  const block = evidenceSpan("evidence-block");
+  if (verdict) block.append(evidenceSpan(`evidence-verdict evidence-verdict-${source.verdict}`, verdict));
+  if (bars) block.append(bars);
+  return block;
+}
+
 const citationPeekState = { panel: null, link: null, pinned: false, openTimer: 0, closeTimer: 0, restoring: false };
 const CITATION_PEEK_CONTEXT = 90;
 
@@ -1446,6 +1484,9 @@ function openCitationPeek(link, source, { pinned }) {
   mark.textContent = passage;
   body.append(before, ...(passage ? [mark] : []), after);
   preview.append(head, body);
+  //: The verdict and the three signals (row 6).
+  const evidence = evidenceBlock({ signals: source.signals, verdict: source.verdict });
+  if (evidence) preview.append(evidence);
   preview.addEventListener("click", go);
   const foot = document.createElement("div");
   foot.className = "citation-peek-foot";
@@ -1827,7 +1868,103 @@ function renderAnswerGrounding(
       target.appendChild(chip);
     }
   }
+  target.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
   target.classList.remove("hidden");
+}
+
+//: Show the evidence (I6, row 6): each sentence beside its passages, the
+//: unsupported ones included; the toggle carries the trust count.
+function evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor) {
+  target.parentElement?.querySelector(":scope > .answer-evidence")?.remove();
+  const counted = support && Number.isInteger(support.sentences) && support.sentences > 0;
+  const label = counted
+    ? `ph:list-checks ${support.supported} of ${support.sentences} from your notes`
+    : "ph:list-checks Show the evidence";
+  const button = smallButton(label, "Show each sentence beside the passage it came from", () => {
+    const open = button.getAttribute("aria-expanded") === "true";
+    let view = target.parentElement?.querySelector(":scope > .answer-evidence");
+    if (open) {
+      view?.classList.add("hidden");
+      button.setAttribute("aria-expanded", "false");
+      return;
+    }
+    if (!view) {
+      view = document.createElement("section");
+      view.className = "answer-evidence";
+      view.id = `answer-evidence-${++evidenceViewCount}`;
+      view.setAttribute("aria-label", "Evidence for this answer");
+      target.after(view);
+      button.setAttribute("aria-controls", view.id);
+    }
+    renderEvidenceView(view, sentences, support, rawResults, answerEl, numberFor);
+    view.classList.remove("hidden");
+    button.setAttribute("aria-expanded", "true");
+  });
+  button.classList.add("answer-evidence-toggle");
+  button.setAttribute("aria-expanded", "false");
+  return button;
+}
+let evidenceViewCount = 0;
+
+//: Sentences in answer order, an unsupported one placed by its letters.
+function evidenceRows(sentences, support, answerEl) {
+  const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
+  const text = targets.length ? citationTextIndex(targets).text : "";
+  const rows = new Map();
+  for (const g of sentences || []) {
+    const key = citationKey(g.sentence);
+    if (!rows.has(key)) rows.set(key, { sentence: g.sentence, sources: [] });
+    if (!rows.get(key).sources.some((row) => row.note_id === g.note_id)) rows.get(key).sources.push(g);
+  }
+  for (const sentence of (support && support.unsupported) || []) {
+    const key = citationKey(sentence);
+    if (!rows.has(key)) rows.set(key, { sentence, sources: [] });
+  }
+  const at = (key) => {
+    const found = text ? text.indexOf(key) : -1;
+    return found === -1 ? Number.MAX_SAFE_INTEGER : found;
+  };
+  return [...rows.entries()]
+    .map(([key, row], order) => ({ ...row, order, place: at(key) }))
+    .sort((a, b) => a.place - b.place || a.order - b.order);
+}
+
+function renderEvidenceView(view, sentences, support, rawResults, answerEl, numberFor) {
+  const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
+  const list = evidenceSpan("answer-evidence-list", "", "ol");
+  for (const row of evidenceRows(sentences, support, answerEl)) {
+    const item = evidenceSpan("answer-evidence-row", "", "li");
+    const sources = evidenceSpan("answer-evidence-sources", "", "div");
+    //: I6: said in words, in the lighter tone.
+    if (!row.sources.length) {
+      item.classList.add("answer-evidence-unsupported");
+      sources.append(evidenceSpan("muted answer-evidence-none", "No note says this", "p"));
+    }
+    for (const g of row.sources) {
+      const entry = byId.get(g.note_id) || allEntries.find((e) => e.id === g.note_id) || null;
+      const content = entry?.content || g.label || "";
+      const card = evidenceSpan("answer-evidence-card", "", "button");
+      card.type = "button";
+      const head = evidenceSpan("citation-peek-head");
+      const number = String(numberFor.get(g.note_id) || "");
+      const title = noteLabel({ content }, 60);
+      head.append(evidenceSpan("citation-peek-number", number), evidenceSpan("citation-peek-title", title));
+      const quote = evidenceSpan("citation-peek-body answer-evidence-quote");
+      const { before, passage, after } = citationPeekText(content, g.start, g.end);
+      quote.append(before, ...(passage ? [evidenceSpan("", passage, "mark")] : []), after);
+      card.append(head, quote);
+      const evidence = evidenceBlock(g);
+      if (evidence) card.append(evidence);
+      const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
+      if (facts.length) card.append(evidenceSpan("library-file-meta answer-evidence-meta", facts.join(" · ")));
+      card.setAttribute("aria-label", `Open source ${number}: ${title}`);
+      card.addEventListener("click", () => flashEntry(g.note_id));
+      sources.append(card);
+    }
+    item.append(evidenceSpan("answer-evidence-sentence", plainText(row.sentence), "p"), sources);
+    list.append(item);
+  }
+  view.replaceChildren(list);
 }
 
 //: **Pictures inside the answer** (INBOX 526): the model writes `[picture N]`
@@ -2308,6 +2445,7 @@ async function streamChat({
   plan,
   notesOnly,
   attachedNotesOnly,
+  scope,
   answeringAgent,
   signal,
   onMeta,
@@ -2341,6 +2479,8 @@ async function streamChat({
   // The deliberately-closed-set case (Trace's "Generate story from path"):
   // retrieval must not add notes beyond the ones the caller attached.
   if (attachedNotesOnly) body.attached_notes_only = true;
+  //: Row 7: the notes holding open questions only (`_apply_scope`).
+  if (scope) body.scope = scope;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
   // intent.classify, correctly, in isolation, which would otherwise route
   // it to the tool-less conversational path and strand whatever the model
@@ -2662,25 +2802,12 @@ function renderAskedQuestion(question) {
   holder.classList.remove("hidden");
 }
 
-//: **What the Ask tab shows while the model works** (INBOX 298, the owner:
-//: "there's no generating animation while the model is thinking and streaming
-//: in the ask tab either"). Measured before this: 250 of 250 frames with the
-//: answer actually streaming had nothing moving on them anywhere.
-//:
-//: Three separate holes, one shape. `#ask-status` was plain text, so the
-//: whole turn was a sentence sitting still. The typing dots went into the
-//: answer box and `onThinking` removes them on the first thinking delta, so
-//: a model that streams its reasoning (which is what the owner runs) loses
-//: the indicator before the answer even starts. And `.is-generating`, the
-//: app's one universal "this is the thing producing the output" ring, was
-//: added on the first *answer* token rather than when the work began.
-//:
-//: The Chat tab already solved all three and wrote down why (see
-//: `bubble.classList.add("is-generating")` and its comment): the ring goes on
-//: before the request and comes off in the `finally`, and a `progressLine`
-//: lives for the whole turn. So this is two existing components called from a
-//: surface that never called them, not a new control: DESIGN.md's recipe
-//: index has no room for a second way of saying "working".
+//: **What the Ask tab shows while the model works** (INBOX 298: 250 of 250
+//: streaming frames had nothing moving). The Chat tab's two components, not
+//: a new control: `.is-generating` from before the request to its `finally`,
+//: and one `progressLine` for the whole turn, returned so the caller drives
+//: `setStatus` and `setPhase("writing")`; fresh per turn, its timers stop
+//: themselves when it leaves the page.
 function askStatusText(text = "") {
   const status = $("ask-status");
   if (!status) return null;
@@ -2694,14 +2821,8 @@ function askStatusText(text = "") {
 //: writing trace. A fresh one per turn, since the component owns timers that
 //: stop themselves when it leaves the page.
 //: **The progress line belongs in the bubble it is filling** (the owner,
-//: 2026-09-21, with a screenshot: the dots, "The model is thinking..." and
-//: the rotating line were drawn above the AI ANSWER heading while the bubble
-//: underneath held a second set of dots and nothing else). `#ask-status` sits
-//: above the whole answer block, so a status put there describes the answer
-//: from outside it and reads as a message about the page. It goes into
-//: `#ai-answer`, where the text it is a placeholder for will appear, and the
-//: separate typing dots that used to fill the bubble are gone with it: one
-//: indicator, in the place the answer arrives.
+//: 2026-09-21): in `#ai-answer`, where the answer will appear, not in
+//: `#ask-status` above the whole block, and with no second set of dots.
 function askStatusBusy(text) {
   const box = $("ai-answer");
   if (!box) return null;
@@ -2838,6 +2959,7 @@ async function askQuestion(preset) {
       // flag rather than left to the classifier, which is right about "hey"
       // being small talk: it is this surface that doesn't want small talk.
       notesOnly: true,
+      scope: askScope || null,
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
@@ -3092,5 +3214,126 @@ async function loadAskHistoryBadge() {
 for (const type of ["focusin", "input", "click"]) {
   document.addEventListener(type, (event) => {
     if (event.target.matches?.("#entry-tags, .note-edit-tags")) openTagSuggest(event.target);
+  });
+}
+
+// --- Open questions (WORLD_CLASS_PLAN I3, row 7): Notes, Questions over `GET /questions`.
+const questionsView = { state: "open", offset: 0, ready: false };
+let askScope = null;
+
+function setAskScope(scope) {
+  askScope = scope || null;
+  $("ask-scope")?.classList.toggle("hidden", !askScope);
+}
+
+function questionWhen(iso) {
+  const when = iso ? new Date(iso) : null;
+  return when && !Number.isNaN(when.getTime()) ? when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+}
+
+function questionButton(icon, label, onClick) {
+  const button = smallButton(icon, label, onClick);
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+function questionRow(item) {
+  const li = evidenceSpan("night-fact question-row", "", "li");
+  const text = evidenceSpan("dash-list-text");
+  const asked = ["Asked", questionWhen(item.asked_at), item.note_title ? `in “${item.note_title}”` : ""].filter(Boolean).join(" ");
+  text.append(evidenceSpan("dash-list-title night-fact-text", item.text), evidenceSpan("dash-list-preview", asked));
+  const by = item.answered_by;
+  if (item.state === "answered" && by) {
+    //: The answered-by link (I3, decided 2026-10-04): the answering sentence,
+    //: opening its note; a title that starts the quote is not said twice.
+    const stem = String(by.note_title || "").replace(/…$/, "");
+    const named = by.note_title && !(by.text && by.text.startsWith(stem)) ? ` in “${by.note_title}”` : "";
+    const answer = document.createElement("button");
+    answer.type = "button";
+    answer.className = "ghost small question-answer-link";
+    answer.title = "Open the note that answers it";
+    answer.addEventListener("click", () => flashEntry(by.entry_id));
+    answer.textContent = ["Answered", questionWhen(by.at)].filter(Boolean).join(" ") + named + (by.text ? `: “${by.text}”` : "");
+    text.append(answer);
+  }
+  const actions = evidenceSpan("night-fact-actions");
+  const move = (state, entry_id = null) =>
+    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) })
+      .then(() => loadQuestions())
+      .catch((error) => toast(error.message || "Couldn't change that question.", true));
+  actions.append(questionButton("ph:arrow-square-out", "Open the note that asks it", () => flashEntry(item.entry_id)));
+  if (item.state === "open") {
+    actions.append(
+      questionButton("ph:check-circle", "Mark answered: choose the note that answers it", async () => {
+        const entry = await pickEntryDialog("Which note answers it?");
+        if (entry) move("answered", entry.id);
+      }),
+      questionButton("ph:minus-circle", "Drop: it no longer matters", () => move("dropped"))
+    );
+  } else {
+    actions.append(questionButton("ph:arrow-counter-clockwise", "Reopen", () => move("open")));
+  }
+  li.append(text, actions);
+  return li;
+}
+
+const QUESTIONS_EMPTY = {
+  open: "No open questions. A question a note asks shows up here after Atlas reads your notes.",
+  answered: "Nothing answered yet. When a later note answers a question, it moves here.",
+  dropped: "Nothing dropped.",
+};
+
+async function loadQuestions({ more = false } = {}) {
+  const list = $("questions-list");
+  if (!list) return;
+  if (!more) questionsView.offset = 0;
+  let reply;
+  try {
+    reply = await apiJson(`/questions?state=${questionsView.state}&limit=30&offset=${questionsView.offset}`, { silent: true });
+  } catch {
+    surfaceFailed(list, "your questions", () => loadQuestions());
+    return;
+  }
+  if (!more) list.replaceChildren();
+  const items = reply.items || [];
+  for (const item of items) list.appendChild(questionRow(item));
+  questionsView.offset += items.length;
+  const counts = reply.counts || {};
+  for (const state of ["open", "answered", "dropped"]) $(`questions-count-${state}`).textContent = counts[state] || "";
+  $("questions-more").classList.toggle("hidden", questionsView.offset >= (reply.total || 0));
+  const ask = $("questions-ask");
+  ask.disabled = !counts.open;
+  ask.title = counts.open ? "Ask about the questions you have not answered yet" : "No open questions to ask about";
+  const lead = $("questions-lead");
+  lead.textContent = reply.total ? "" : QUESTIONS_EMPTY[questionsView.state];
+}
+
+function initQuestionsView() {
+  if (questionsView.ready || !$("questions")) return;
+  questionsView.ready = true;
+  const seg = $("questions-state");
+  seg.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-question-state]");
+    if (!button) return;
+    questionsView.state = button.dataset.questionState;
+    for (const other of seg.querySelectorAll("button")) {
+      other.classList.toggle("active", other === button);
+      other.setAttribute("aria-pressed", String(other === button));
+    }
+    loadQuestions();
+  });
+  $("questions-refresh").addEventListener("click", () => loadQuestions());
+  $("questions-more").addEventListener("click", () => loadQuestions({ more: true }));
+  $("questions-ask").addEventListener("click", () => {
+    //: The Ask scope: the next answer reads the notes with open questions.
+    setAskScope("questions");
+    showNotesSection("ask");
+    const box = $("question");
+    if (!box.value.trim()) box.value = "What am I still undecided about?";
+    box.focus();
+  });
+  $("ask-scope-clear")?.addEventListener("click", () => {
+    setAskScope(null);
+    $("question")?.focus();
   });
 }

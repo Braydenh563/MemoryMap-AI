@@ -1146,6 +1146,8 @@
             aria-controls="writing-room" tabindex="-1">Write with Atlas</button>
           <button role="tab" data-section="ask" aria-selected="false"
             aria-controls="ask" tabindex="-1">Ask</button>
+          <button role="tab" data-section="questions" aria-selected="false"
+            aria-controls="questions" tabindex="-1">Questions</button>
         </div>
 
         <!-- Capture: the start of the core loop -->
@@ -1694,6 +1696,13 @@ Link to another note with [[its first few words]]."></textarea>
                you type into: the same shape the Chat dock and the note
                composer already use, so the three places you can type at this
                app finally look like each other. -->
+          <!-- The Ask scope (WORLD_CLASS_PLAN I3, row 7): set by the
+               Questions view's "Ask about these", cleared here. -->
+          <p class="muted ask-scope hidden" id="ask-scope" role="status">
+            <i class="ph ph-question ph-lead" aria-hidden="true"></i>
+            <span id="ask-scope-text">Answers come from the notes with open questions.</span>
+            <button type="button" id="ask-scope-clear" class="ghost small">Ask all notes</button>
+          </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
             <input id="question" type="text"
@@ -1861,6 +1870,48 @@ Link to another note with [[its first few words]]."></textarea>
               <ul id="raw-results" class="entry-list"></ul>
             </div>
           </div>
+        </section>
+
+        <!-- Open questions (WORLD_CLASS_PLAN I3, row 7): every question a
+             note asks in passing, found by the night pass, and whether a
+             later note answered it. `renderQuestions` in questions.js. -->
+        <section class="card hidden" id="questions" aria-labelledby="questions-heading">
+          <div class="dock" data-dock-name="questions" role="toolbar" aria-label="Questions controls">
+            <div class="dock-identity">
+              <h2 id="questions-heading">Questions</h2>
+            </div>
+            <div class="dock-arrange">
+              <div class="seg seg-compact questions-state-seg" id="questions-state" role="group" aria-label="Which questions to show">
+                <button type="button" class="active" data-question-state="open" aria-pressed="true"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open <span class="seg-count" id="questions-count-open"></span></button>
+                <button type="button" data-question-state="answered" aria-pressed="false"><i class="ph ph-check-circle ph-lead" aria-hidden="true"></i> Answered <span class="seg-count" id="questions-count-answered"></span></button>
+                <button type="button" data-question-state="dropped" aria-pressed="false"><i class="ph ph-minus-circle ph-lead" aria-hidden="true"></i> Dropped <span class="seg-count" id="questions-count-dropped"></span></button>
+              </div>
+            </div>
+            <div class="dock-actions">
+              <button id="questions-ask" class="ghost small" type="button"
+                title="Ask about the questions you have not answered yet"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask about these</button>
+              <button id="questions-refresh" class="icon-only ghost small" type="button"
+                title="Read them again" aria-label="Read them again"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+              <button type="button" id="questions-help-toggle" class="icon-only ghost small graph-help-toggle"
+                data-help-for="questions-help-body" aria-controls="questions-help-body"
+                aria-expanded="false" title="What is this?" aria-label="What is this?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div class="help-body hidden" id="questions-help-body" role="dialog" aria-label="What is this?">
+            <p>The questions your notes ask in passing, found when Atlas reads
+              your notes on its own (Dashboard, While you were away, or
+              Settings, What it learned, Read my notes now). When a later note
+              answers one, it moves to Answered with the sentence that answers
+              it; open that note from the row.</p>
+            <p>Mark answered asks which note answers it and links the two;
+              Drop puts a question aside, and Reopen brings either back. Ask
+              about these asks Atlas about the open ones only.</p>
+          </div>
+          <p class="muted questions-lead" id="questions-lead"></p>
+          <ul class="dash-list questions-list" id="questions-list" aria-labelledby="questions-heading"></ul>
+          <button type="button" class="ghost small questions-more hidden" id="questions-more">Show more</button>
         </section>
 
         <!-- Browse: everything you've saved -->

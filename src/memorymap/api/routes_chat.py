@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import timezone
 from itertools import chain
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -40,6 +41,7 @@ from memorymap.ai import (
     memory,
     notebook_stats,
     presets,
+    questions,
     skill_runner,
     skills,
     tool_fallback,
@@ -74,6 +76,7 @@ from memorymap.core.imagesize import image_size
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
+from memorymap.search import chunks as search_chunks
 from memorymap.search import search_manager
 from sqlalchemy import func
 
@@ -417,6 +420,26 @@ class ChatRequest(BaseModel):
     # was already doing that, plus however many unrelated notes the
     # instruction text itself happened to match.
     attached_notes_only: bool = False
+    #: "questions": answer from the notes that still hold an open question
+    #: (WORLD_CLASS_PLAN I3, row 7: "what am I still undecided about?"), and
+    #: only from them. Resolved into `note_ids` and `attached_notes_only` by
+    #: `_apply_scope` before anything reads either.
+    scope: Literal["questions"] | None = None
+
+
+def _apply_scope(session: Session, body: ChatRequest) -> None:
+    """Turn a scope into the closed set of notes it means.
+
+    With no open question anywhere the turn falls back to ordinary
+    retrieval: an Ask over an empty set would answer from nothing, and the
+    Ask box says beforehand that there are none (`askScopeQuestions`).
+    """
+    if body.scope != "questions":
+        return
+    ids = questions.open_note_ids(session)
+    if ids:
+        body.note_ids = ids
+        body.attached_notes_only = True
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -1281,6 +1304,7 @@ def _prepare(
 
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
+    _apply_scope(session, body)
     prepared = _prepare(
         session,
         body.question,
@@ -1363,7 +1387,10 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     # notes at all (there may be none), and grounding one would attach a
     # note to a sentence that has nothing to do with it.
     sentence_grounding = (
-        ground_answer_sentences(ai_response, prepared["notes"])
+        ground_answer_sentences(
+            ai_response, prepared["notes"],
+            meaning=search_chunks.meaning_scorer(session, deps.get_embeddings()),
+        )
         if not conversational and answered
         else []
     )
@@ -1971,7 +1998,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: note a tool reads, so a live row there could name a set the final pass
     #: would not.
     live_grounder = (
-        SentenceGrounder(prepared["notes"])
+        SentenceGrounder(
+            prepared["notes"], meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings())
+        )
         if not agentic and not conversational and prepared["notes"]
         else None
     )
@@ -2049,7 +2078,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     grounding: list[dict] = []
     if not conversational and candidates and answer_text:
         grounding = (
-            ground_answer_sentences(answer_text, candidates, numbered=len(prepared["notes"]))
+            ground_answer_sentences(
+                answer_text, candidates, numbered=len(prepared["notes"]),
+                meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings()),
+            )
             or []
         )
         if grounding:
@@ -2092,6 +2124,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"answer", "delta": "..."}     (one or more)
     {"type":"done"}
     """
+    _apply_scope(session, body)
     ollama = deps.get_ollama()
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent

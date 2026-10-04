@@ -10,21 +10,22 @@ never as an error, capture and keyword search keep working (plan §4).
 
 from __future__ import annotations
 
+import hashlib
 import json
-
 import logging
 import os
+import re
 import threading
 import time
 from typing import TYPE_CHECKING
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
-from memorymap.core.database import Attachment, Category, EmbeddingRecord, Entry
+from memorymap.core.database import Attachment, Category, ChunkVector, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
 
 if TYPE_CHECKING:
@@ -316,6 +317,7 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
         for entry in missing:
             if service.store_for_entry(session, entry):
                 fixed += 1
+        chunked = _backfill_chunks(service, session, limit)
         if fixed:
             session.commit()
             logging.getLogger("memorymap.embeddings").info(
@@ -326,12 +328,52 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
             if fixed
             else "every note already had a vector"
         )
+        if chunked:
+            run.result += f"; {chunked} long note{'' if chunked == 1 else 's'} got paragraph vectors"
     except Exception as exc:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
         run.fail(exc)
     finally:
         session.close()
     return fixed
+
+
+#: A note shorter than this is one paragraph however it is laid out, so the
+#: paragraph backfill does not look at it.
+CHUNK_BACKFILL_MIN_CHARS = 400
+
+
+def _backfill_chunks(service, session: Session, limit: int) -> int:  # noqa: ANN001
+    """Paragraph vectors for long notes embedded before row 6 existed.
+
+    A note vector of this backend and no paragraph rows, content long enough
+    and with a blank line in it: the note vector is kept and only its
+    paragraphs are embedded. A note that turns out to be one paragraph after
+    all stores nothing and is looked at again next launch, which costs a
+    split of its text and no embed.
+    """
+    backend = service.backend_id()
+    candidates = session.execute(
+        select(Entry, EmbeddingRecord)
+        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
+        .outerjoin(ChunkVector, ChunkVector.entry_id == Entry.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            EmbeddingRecord.model_version == backend,
+            ChunkVector.id.is_(None),
+            func.length(Entry.content) >= CHUNK_BACKFILL_MIN_CHARS,
+            Entry.content.contains("\n\n"),
+        )
+        .limit(limit)
+    ).all()
+    done = 0
+    for entry, record in candidates:
+        if service._store_chunks(session, entry, record):
+            done += 1
+    if done:
+        session.commit()
+    return done
 
 
 def warmup_running() -> bool:
@@ -372,7 +414,14 @@ def clean_orphaned_vectors(session_factory) -> int:  # noqa: ANN001
         )
         for row in orphans:
             session.delete(row)
-        if orphans:
+        # Paragraph vectors cut beside a note vector that no longer exists
+        # (the note was purged, made private, or re-embedded by a bulk
+        # statement): inert already, since a chunk only counts beside its own
+        # note vector, and deleted here so the table does not keep them.
+        stale_chunks = session.execute(
+            sa_delete(ChunkVector).where(ChunkVector.embedding_id.notin_(select(EmbeddingRecord.id)))
+        ).rowcount or 0
+        if orphans or stale_chunks:
             session.commit()
 
     if orphans:
@@ -458,6 +507,120 @@ def embedding_text(session: Session, entry: Entry) -> str:
     except Exception:  # noqa: BLE001  # enrichment must never block an embedding
         logger.debug("no media text for entry %s", entry.id, exc_info=True)
     return "\n".join(parts)
+
+
+# --- paragraph chunks (WORLD_CLASS_PLAN §14 item 3, row 6) -----------------
+
+#: A paragraph shorter than this joins the next one: a heading, a one-line
+#: list item or a sign-off is not a subject on its own, and a vector of three
+#: words matches every question that shares one of them.
+CHUNK_MIN_WORDS = 12
+#: A paragraph longer than this is cut at a sentence end. Small embedding
+#: models read about 256 to 512 tokens and quietly drop the rest, so a
+#: 600-word paragraph embedded whole is its first half.
+CHUNK_MAX_WORDS = 160
+#: The most chunks one note stores. A book pasted into a note would otherwise
+#: be hundreds of embeds inside one save; past this the note vector covers the
+#: rest, which is what every note had before chunks existed.
+CHUNK_MAX_PER_NOTE = 32
+
+_PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n+")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+_CHUNK_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def _word_count(text: str) -> int:
+    return len(_CHUNK_WORD.findall(text))
+
+
+def _blocks_with_offsets(text: str) -> list[tuple[int, int]]:
+    """`(start, end)` of every non-blank paragraph, trimmed of outer space."""
+    spans: list[tuple[int, int]] = []
+    position = 0
+    for match in [*_PARAGRAPH_BREAK.finditer(text), None]:
+        end = match.start() if match else len(text)
+        piece = text[position:end]
+        if piece.strip():
+            lead = len(piece) - len(piece.lstrip())
+            trail = len(piece) - len(piece.rstrip())
+            spans.append((position + lead, end - trail))
+        if match:
+            position = match.end()
+    return spans
+
+
+def _split_long(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    """Cut one over-long paragraph at sentence ends, about `CHUNK_MAX_WORDS` each."""
+    body = text[start:end]
+    cuts = [0] + [m.end() for m in _SENTENCE_END.finditer(body)] + [len(body)]
+    out: list[tuple[int, int]] = []
+    piece_start, words = 0, 0
+    for left, right in zip(cuts, cuts[1:]):
+        words += _word_count(body[left:right])
+        if words >= CHUNK_MAX_WORDS:
+            out.append((piece_start, right))
+            piece_start, words = right, 0
+    if piece_start < len(body):
+        if out and _word_count(body[piece_start:]) < CHUNK_MIN_WORDS:
+            out[-1] = (out[-1][0], len(body))
+        else:
+            out.append((piece_start, len(body)))
+    spans = []
+    for left, right in out:
+        piece = body[left:right]
+        lead = len(piece) - len(piece.lstrip())
+        trail = len(piece) - len(piece.rstrip())
+        spans.append((start + left + lead, start + right - trail))
+    return [span for span in spans if span[1] > span[0]]
+
+
+def paragraph_chunks(text: str) -> list[tuple[int, int]]:
+    """The paragraphs of a note as `(start, end)` character spans, in order.
+
+    Blank lines separate paragraphs, as they do in every Markdown note; a
+    short paragraph joins the one after it (a heading reads as part of what it
+    heads), a long one is cut at sentence ends. A note that comes out as one
+    chunk returns one span, and the caller stores nothing for it: that chunk
+    *is* the note, and its vector already exists.
+    """
+    text = text or ""
+    spans: list[tuple[int, int]] = []
+    pending: tuple[int, int] | None = None
+    for start, end in _blocks_with_offsets(text):
+        if pending is not None:
+            start = pending[0]
+            pending = None
+        words = _word_count(text[start:end])
+        if words < CHUNK_MIN_WORDS:
+            pending = (start, end)
+            continue
+        if words > CHUNK_MAX_WORDS:
+            spans.extend(_split_long(text, start, end))
+        else:
+            spans.append((start, end))
+    if pending is not None:
+        if spans:
+            spans[-1] = (spans[-1][0], pending[1])
+        else:
+            spans.append(pending)
+    return spans[:CHUNK_MAX_PER_NOTE]
+
+
+def chunk_text(content: str, start: int, end: int) -> str:
+    """What one paragraph embeds as: the note's first line, then the paragraph.
+
+    A paragraph halfway down a note called "Boiler" may never say "boiler";
+    the title is what it is about. The first chunk already starts with it.
+    """
+    body = content[start:end]
+    first_line = content.lstrip().split("\n", 1)[0].strip().lstrip("#").strip()
+    if start == 0 or not first_line or body.startswith(first_line):
+        return body
+    return f"{first_line[:120]}\n{body}"
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:32]
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:
@@ -851,16 +1014,94 @@ class EmbeddingService:
         # because the next caller has to know to write it and the name says
         # it does not have to. Their deletes stay, harmlessly, as no-ops.
         session.execute(sa_delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
-        session.add(
-            EmbeddingRecord(
-                entry_id=entry.id,
-                embedding=vector_to_bytes(vector),
-                dim=int(vector.shape[0]),
-                model_version=self.backend_id(),
-            )
+        record = EmbeddingRecord(
+            entry_id=entry.id,
+            embedding=vector_to_bytes(vector),
+            dim=int(vector.shape[0]),
+            model_version=self.backend_id(),
         )
+        session.add(record)
+        session.flush()
+        try:
+            self._store_chunks(session, entry, record)
+        except Exception:  # noqa: BLE001  # chunks refine a search; the note vector is the save
+            logger.warning("couldn't store paragraph vectors for entry %s", entry.id, exc_info=True)
         session.commit()
         return True
+
+    def embed_many(self, texts: list[str]) -> list[np.ndarray | None]:
+        """Vectors for several texts: one batched encode where the backend
+        has one (sentence-transformers), one call each otherwise."""
+        if (
+            texts
+            and self._models is not None
+            and self._models.embedding_backend() != "ollama"
+            and self._st_model is not None
+        ):
+            try:
+                import numpy as np
+
+                _limit_torch_threads()
+                batch = self._st_model.encode(list(texts), show_progress_bar=False)
+                return [np.asarray(row, dtype="float32") for row in batch]
+            except Exception:  # noqa: BLE001  # fall back to one at a time
+                logger.debug("batched encode failed; embedding one at a time", exc_info=True)
+        return [self.embed_text(text) for text in texts]
+
+    def _store_chunks(self, session: Session, entry: Entry, record: EmbeddingRecord) -> int:
+        """Store a vector per paragraph beside the note's own (row 6).
+
+        Paragraphs whose text is unchanged since the last save keep their
+        vector (matched by digest, same backend), so an edit to one paragraph
+        of a long note embeds that paragraph only. All or nothing: a paragraph
+        the backend could not embed leaves the note with no chunks rather than
+        some, since a note scored on half its paragraphs ranks below one scored
+        on none.
+        """
+        content = entry.content or ""
+        spans = paragraph_chunks(content)
+        backend = self.backend_id()
+        previous = {
+            digest: (blob, dim)
+            for digest, blob, dim in session.execute(
+                select(ChunkVector.digest, ChunkVector.embedding, ChunkVector.dim).where(
+                    ChunkVector.entry_id == entry.id, ChunkVector.model_version == backend
+                )
+            ).all()
+        }
+        session.execute(sa_delete(ChunkVector).where(ChunkVector.entry_id == entry.id))
+        if len(spans) < 2:
+            return 0
+        texts = [chunk_text(content, start, end) for start, end in spans]
+        digests = [_digest(text) for text in texts]
+        missing = [i for i, digest in enumerate(digests) if digest not in previous]
+        fresh = dict(zip(missing, self.embed_many([texts[i] for i in missing])))
+        rows: list[ChunkVector] = []
+        for ordinal, ((start, end), digest) in enumerate(zip(spans, digests)):
+            if ordinal in fresh:
+                vector = fresh[ordinal]
+                if vector is None:
+                    return 0
+                blob, dim = vector_to_bytes(vector), int(vector.shape[0])
+            else:
+                blob, dim = previous[digest]
+            if dim != record.dim:
+                return 0
+            rows.append(
+                ChunkVector(
+                    entry_id=entry.id,
+                    embedding_id=record.id,
+                    ordinal=ordinal,
+                    start=start,
+                    end=end,
+                    digest=digest,
+                    embedding=blob,
+                    dim=dim,
+                    model_version=backend,
+                )
+            )
+        session.add_all(rows)
+        return len(rows)
 
 
 # `store_quietly` used to live here and is now `core.deps.store_quietly`, it

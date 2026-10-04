@@ -24,6 +24,7 @@ from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
     Category,
+    ChunkVector,
     EmbeddingRecord,
     EntityMention,
     Entry,
@@ -1008,6 +1009,7 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     search_index.forget(session, Entry, ids)
     session.execute(delete(Attachment).where(Attachment.entry_id.in_(ids)))
     session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_(ids)))
+    session.execute(delete(ChunkVector).where(ChunkVector.entry_id.in_(ids)))
     session.execute(
         delete(EntryLink).where(
             or_(EntryLink.source_entry_id.in_(ids), EntryLink.target_entry_id.in_(ids))
@@ -2765,6 +2767,10 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
         session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+        # Its paragraph vectors too: inert once the note vector is gone
+        # (`search/chunks.py`), but a vector of the text is what encryption
+        # hides, so they do not wait for the orphan pass.
+        session.execute(delete(ChunkVector).where(ChunkVector.entry_id == entry.id))
         # And out of the retrieval engine's in-memory matrix, which a bulk
         # `delete()` statement never reaches: a vector derived from this text
         # is exactly what the encryption is for, and one left in the array

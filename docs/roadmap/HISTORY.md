@@ -39810,3 +39810,266 @@ at 1024 a third column leaves the reading column under 600px. A notebook
 seeded by `seed.js` alone has one link and fails "selecting a linked note
 brings the rail" for want of a note with two connections, which is the
 fixture, not the rail.
+
+
+## Moved from the plans, 2026-10-04 (row 6: paragraph vectors and evidence cards)
+
+### From WORLD_CLASS_PLAN.md §14 item 3: chunked vectors and sentence-level citations
+
+One vector per note loses long notes and every document. Embed paragraphs
+(one row per chunk, `entry_id, ordinal, vector`), retrieve chunks, and ground
+each answer sentence by cosine against chunks when an embedding backend is
+up, falling back to the lexical scorer. A citation then points at the
+paragraph, and the chip quotes it. Size M.
+
+### From WORLD_CLASS_PLAN.md I6: evidence cards: answers you can audit sentence by sentence
+
+**What the person sees.** Every AI answer sentence carries a small marker;
+hovering shows the *paragraph* it came from, with the three reasons it was
+chosen (words matched, meaning score, graph distance) as three short bars,
+and the verifier's verdict: supported, partly, or unsupported. Unsupported
+sentences are rendered in a lighter tone with "no note says this". A
+"Show the evidence" toggle opens the answer and its sources side by side,
+each source scrolled to the paragraph. A one-line trust score under the
+answer: "9 of 11 sentences supported by your notes".
+
+**Why it is new.** Perplexity cites pages; it cannot say which sentence
+is unsupported, and its citations are page-level. Here the corpus is
+finite and local, so every sentence can be checked against every
+paragraph, and the verifier (B5) can say no.
+
+**Builds on.** This session's grounding change (touched notes, distinctive
+words, labels), `addInlineCitations` and `renderAnswerGrounding` in
+`app.js`, `match_info` (the three signals already exist per hit), the
+verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
+paragraph-level anchors.
+
+**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
+`span`, `signals: {bm25, cosine, graph}`, `verdict`.
+
+**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
+a chunk ordinal and a span that exists in that note; an answer sentence
+with no candidate is marked `unsupported` and the trust line counts it;
+the side-by-side view scrolls the source to the span (Playwright: the
+span's rect is inside the viewport); the markers survive the final
+markdown re-render (the bug already fixed once in `askQuestion`).
+
+**Gate.** Trust score correct on the eval fixture's golden answers
+(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
+from its current baseline (record the number first). **Size** M. **Model**
+Opus.
+
+**State 2026-09-24:** (b) the per-sentence marks and the "only N of M sentences supported" line are built (CHAT_PLAN Phase 1, app.js ~13530); paragraph anchors, the three signal bars per sentence and the side-by-side view are not, and wait on §14's chunks. M, Opus.
+
+### Built 2026-10-04
+
+- **Paragraph vectors.** `ChunkVector` (`chunk_vectors`: entry, the
+  `embeddings.id` it was cut beside, ordinal, start, end, digest, vector).
+  `embeddings.paragraph_chunks` splits on blank lines, joins a paragraph
+  under 12 words to the next (a heading reads with what it heads), cuts one
+  over 160 words at sentence ends, 32 at most per note; a one-chunk note
+  stores none. Each chunk embeds as the note's first line plus the
+  paragraph. `store_for_entry` stores them beside the note vector; a re-save
+  reuses unchanged paragraphs by digest (one edited paragraph, one embed);
+  `embed_many` batches on sentence-transformers. The warm-up backfill gives
+  old long notes paragraphs without re-embedding the note.
+- **A chunk counts only beside its own note vector.** Ten sites delete note
+  vectors, mostly by bulk statement; none needed teaching. No foreign key on
+  `entry_id` (enforced keys would have broken every hard-delete path until
+  each learned the table); `set_private` and the purge delete the rows,
+  `clean_orphaned_vectors` removes the rest.
+- **Scoring.** `search/chunks.py` keeps a unit-row matrix synced by the
+  table's fingerprint and an id diff (no reload per write). A note's cosine
+  is the better of its own vector and its best paragraph's, in
+  `semantic_search` (Ask and chat retrieval) and the engine's cosine signal.
+  `chunks.ENABLED` is the switch the measurement flips.
+- **Measured** (`scratchpad/chunk_retrieval_bench.py`, a hashed
+  bag-of-words embedder, no torch; queries ask a long note's middle
+  paragraph): 1,000 notes, recall@1 0.00 to 0.18, recall@5 0.01 to 0.42, MRR
+  0.003 to 0.277, search median 0.9 to 2.5 ms; 5,000 notes (15,406
+  paragraphs) recall@5 0.00 to 0.17, MRR 0.004 to 0.122, search median 5.6 to
+  17.5 ms on a machine at load 7 (einsum over the paragraph matrix is most of
+  it); storing one eight-paragraph note 2 to 5 ms (1,000).
+- **Evidence fields.** Every grounding row carries `chunk_ordinal` (the
+  paragraph its passage overlaps most), the span, `signals {bm25, cosine,
+  graph}` (share of the sentence's words in the passage; cosine against that
+  paragraph's vector via `chunks.meaning_scorer`, None with no backend;
+  1, 0.5 or 0.33 by how retrieval reached the note, None for a tool-read
+  note) and `verdict` (supported at half the words, else partly). The
+  offline extractive answer carries the same. `grounding.support` lists the
+  unsupported sentences.
+- **Frontend.** The citation peek shows the verdict and three bars
+  (`evidenceSignals`; an unmeasured signal is left out). "N of M from your
+  notes" ends the Grounded in row and opens the evidence view
+  (`renderEvidenceView`): each sentence beside its passages, No note says
+  this beside the rest, two columns at 600 and wider. DESIGN.md recipe
+  "Why a thing was chosen"; Guide topic `chat-controls` updated.
+  `scratchpad/ui-sweeps/evidence.js` 12/12 at 1440 and 390, light and dark.
+- **Not verified:** a real embedding model (the gain on bge-small is not
+  measured); the H2 gate "95% of sentences cited" needs a real model.
+
+
+## Moved from the plans, 2026-10-04 (row 5: tensions and answered questions)
+
+### From WORLD_CLASS_PLAN.md I1, the algorithm's passes 4 and 5
+
+"(4) tensions: for each new claim, top-k similar claims by cosine, then one
+model call per pair above the threshold asking 'compatible / incompatible /
+unrelated' with a one-line reason; (5) answered questions: for each open
+question, top-k similar claims written *later*; one model call asks 'does
+this answer it'. Stop when the budget is spent; record where; resume from the
+cursor next night." Tests: a second run with no new revisions produces zero
+facts and spends zero tokens; dismissing a fact hides it; nothing in
+`entries` changes. Gate: 2,000 notes, a first run under the fake model in
+under 5 minutes, the card under 100 ms.
+
+### Built 2026-10-04
+
+- **`facts._pair_passes`**, run after pass 3 inside the same budget and the
+  same `NightRun`. Only pairs with a side new this run are compared, so a run
+  with nothing new spends nothing here. Kinds `tension` and `answered`, stored
+  on the later side (its note, span and words) with the other side in a new
+  `derived_facts.payload` JSON column (fact, note, words, span, the pair key,
+  the model's reason); `as_json` gives it as `pair`.
+- **Neighbours:** an inverted index over the claims' meaningful terms, then,
+  with an embedding backend, the best eight re-scored by cosine (floor 0.6);
+  without one, words (floor 0.34). Three per sentence. The same wording again
+  is never a neighbour: identical claims at cosine 1.0 had filled every
+  place and hidden the one that disagreed (found by `nightpairs.js`, pinned by
+  `test_identical_claims_do_not_crowd_out_the_one_that_disagrees`).
+- **Judging:** with a model, one call per pair (`incompatible`, `yes`); with
+  none, two local rules only: near-identical claims that differ in a number
+  or a "not", and a later claim holding 60% of what a question asks.
+  Pairs are deduplicated by key, tombstones included, so a dismissed tension
+  is never found again.
+- **The card:** two new lines ("claims that disagree with others",
+  "questions answered later"); a pair row quotes its other side, opens the
+  other note, and a tension can be linked as disagreeing through
+  `POST /entries/tensions/accept`. Guide topic `learned` updated.
+- **Measured:** `scratchpad/night_pairs_bench.py`, 2,000 notes of four
+  sentences: no model 39.3 s, a fake judge 130.4 s and 21,322 calls (gate 5
+  minutes), the card 38.6 and 72.8 ms (gate 100); after the wording dedupe,
+  on a machine at load 7, 56.8 s, 215.4 s and 21,474 calls, the card 74.7
+  and 83.5 ms. Inside both gates, the second with less room than it looks. `nightpairs.js` 9/9 at
+  1440 and 390, light and dark.
+- **Not verified:** a real model's verdicts (the judge prompts run against a
+  fake that answers by rule).
+
+
+## Moved from the plans, 2026-10-04 (row 7: open questions)
+
+### From WORLD_CLASS_PLAN.md I3: open questions: the notebook keeps a list of what you have not answered
+
+**What the person sees.** A "Questions" view under Notes (a sub-tab):
+every question you have written to yourself, newest first, each with
+"asked 3 March in 'Pricing thoughts'" and one of three states: open,
+answered ("you answered this on 9 April in 'Call with Sam'", with the
+sentence), or dropped. The Dashboard shows the count and the oldest open
+one. Ask can be scoped to it: "what am I still undecided about?" answers
+from this list with citations.
+
+**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
+the questions you *asked in passing* and tells you when a later note
+answered them. This is the feature that makes a notebook feel like it
+remembers on your behalf.
+
+**Builds on.** I1 (extraction and the "answers" pass), the grounding
+scorer for the answered-by sentence, the Notes sub-tab strip and the dock
+grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
+
+**Data.** `derived_facts` of kind `question` with payload `{answered_by:
+fact_id | null, dropped: bool}`. No new table.
+
+**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
+(`{state}`; marking answered by hand asks for the note and stores a typed
+link), the Ask box gets `scope: "questions"`.
+
+**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
+questions yields two open facts with spans; a later note that the fake
+model judges as answering one flips its state and the link exists; Ask
+with the scope cites only question facts; dropping is reversible and
+recorded as a correction (I7).
+
+**Gate.** The view renders under 100ms for 500 questions; the dock passes
+`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
+list recipe; Opus for the Ask scope.
+
+**State 2026-09-24:** (b) question facts are derived (I1's first pass); `GET /questions`, the Notes sub-tab, the Ask scope and the answered-by link are not built. M.
+
+### Decided 2026-10-04: the answered-by link
+
+The plan names both "the answered-by link" and "`EntryLink` typed
+`answers`", and no `answers` type exists (`LINK_TYPES` has six, every picker
+and the Graph's legend read them). Taken: the answered-by link is the
+question row's link to the sentence that answered it, in its note; a typed
+link (`context`, reason "answers: ...") between the two notes is written only
+when the person marks a question answered by hand. The night pass never
+writes to the graph unasked, as it never writes to a note (I1).
+
+### Built 2026-10-04
+
+- **`ai/questions.py`**: a question's state (open, answered, dropped) worked
+  out from its own `payload` (`dropped`, `answered_by_entry`) and the pass's
+  `answered` rows (row 5); `listing` pages one state with the count of each;
+  `set_state` drops, reopens (tombstoning the pass's answer so it does not
+  come back next night) or marks answered by hand (the note named, a
+  `context` link written); each move is a correction (`drop_question`,
+  `reopen_question`, `answer_question` in `learning.KINDS`).
+- **Routes:** `GET /questions?state=`, `GET /questions/summary`,
+  `POST /questions/{id}` (`routes_questions.py`).
+- **The view:** Notes, Questions (a fifth sub-tab, `data-dock-name=
+  "questions"` on the dock grammar): Open, Answered and Dropped segments
+  with counts, a row per question ("Asked 4 Oct 2026 in 'Plans for the
+  shed.'"), the answered-by line quoting the answer and opening its note,
+  Mark answered (the note picker), Drop, Reopen, Ask about these.
+- **The Ask scope:** `ChatRequest.scope = "questions"` turns into the notes
+  holding open questions as a closed set (`_apply_scope`); the Ask box shows
+  the scope line with Ask all notes.
+- **The Dashboard:** the While you were away card ends with the open count
+  and the oldest open question, and See your questions.
+- **Measured:** 500 questions listed in under 100 ms
+  (`test_the_list_renders_under_100ms_for_500_questions`); `questions.js`
+  16/16 at 1440 and 15/15 at 390, light and dark (the answered-by line
+  8.3 to 15.2:1).
+- **Not verified:** the Ask scope's answer from a real model; the fake
+  transport answers by rule.
+
+
+## Moved from the plans, 2026-10-04 (row 2: LAN mode over IPv6)
+
+### From WORLD_CLASS_PLAN.md §12, Brief 15's last item
+
+"Left: IPv6 addresses.
+Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
+Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
+must bind its own `socket.create_server(("::", port), family=AF_INET6,
+dualstack_ipv6=True)` (falling back to 0.0.0.0 where
+`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
+sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
+as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
+bracketed (never link-local, which needs a zone id no browser takes); and
+`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
+over a v4 address against the same server. Windows is not testable here."
+
+### Built 2026-10-04
+
+- **`core/netbind.py`:** `bind_host` gives `::` with LAN mode on where
+  `socket.has_dualstack_ipv6()` holds, `0.0.0.0` otherwise (as before);
+  `listening_socket` makes the one dual-stack socket (`create_server(...,
+  dualstack_ipv6=True)`, IPV6_V6ONLY cleared, so Windows answers IPv4 too);
+  `arrived_on_loopback` reads the IPv4 inside `::ffff:127.0.0.1`;
+  `lan_addresses` adds global and unique-local IPv6 (getaddrinfo and
+  `/proc/net/if_inet6`, never link-local, loopback, multicast or IPv4-mapped)
+  after the IPv4 ones; `describe` and the launcher's log bracket them
+  (`url_host`).
+- **`__main__._run_server`:** hands the socket to `uvicorn.Server(...).run(
+  sockets=[sock])`; if the dual-stack socket cannot be made, binds `0.0.0.0`
+  and says so through `set_current`.
+- **Tests:** `tests/test_lan_mode.py` gains six: the fallback, the mapped
+  loopback, the address list (link-local and mapped refused, IPv6 after
+  IPv4, brackets), the bracketed Host header, and the launcher reached over
+  `[::1]` and `127.0.0.1` on one server.
+- **Not verified:** this sandbox has no IPv6 (`AF_INET6` is "address family
+  not supported"), so the end-to-end test skips here and runs on CI; Windows
+  is not testable here at all.
+

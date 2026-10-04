@@ -36947,6 +36947,14 @@ width, 47% of the column at 1440.
      phone Settings head (the section picker reaches any section in one tap);
      item 10 keeps the sentence-as-title decision.
 
+477. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Settings,
+     Appearance, "Theme & colour" open with its caret still pointing right).**
+     "the arrows in the settings section headers dont change to face down
+     when the section is open". **Fixed**: a regression from 464 (14)'s one
+     disclosure marker; the open rule dropped the closed rule's `:not()`
+     chain and lost to it on specificity. `caretopen.js`: 0/109 folds turned
+     down when open, now 109/109; `test_disclosure_marker.py` holds it.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

@@ -53,3 +53,22 @@ def test_no_fold_draws_a_chevron_from_borders():
 def test_the_library_caret_is_the_same_glyph():
     js = (CSS_DIR.parent / "js" / "library.js").read_text(encoding="utf-8")
     assert 'ph ph-caret-down contents-caret' in js
+
+
+def test_every_open_caret_outranks_its_closed_twin():
+    """An open fold's caret turns down (INBOX 477). The closed rule's
+    `:not(.icon-only):not(.icon-button)` chain is three classes of
+    specificity; an open selector without it lost to it, and every one of
+    109 folds kept its caret turned while open. So each closed selector's
+    `:not()` chain appears again in an open selector for the same family."""
+    css = CSS["08-consistency.css"]
+    start = css.index("The chevron the native marker was hiding: **one")
+    block = css[start : start + 6000]
+    closed_head = block[block.index("*/") : block.index("{")]
+    open_start = block.index("[open]")
+    open_head = block[block.rfind("}", 0, open_start) : block.index("{", open_start)]
+    closed = [s.strip() for s in closed_head.split(",") if ":not(" in s]
+    assert closed, "found no closed selectors to check"
+    for selector in closed:
+        chain = selector[selector.index(":not(") : selector.index("::before")]
+        assert chain in open_head, f"no open twin carries {chain!r} for {selector!r}"

@@ -439,14 +439,18 @@
   transition: transform var(--motion-fast) var(--ease-out);
 }
 
-.help-accordion details[open] > summary::before,
+/* Open: each selector is its closed twin plus `[open]`, so it always
+   outranks it. The first version dropped the closed rule's `:not()` chain,
+   and three `:not()` classes outranked `[open]`: every one of 109 folds kept
+   its caret turned when open (INBOX 477, caretopen.js 0/109). */
+.help-accordion details[open] > summary:not(.icon-only):not(.icon-button)::before,
 details[open].help-accordion > summary::before,
 details[open] > .about-whats-new::before,
-.settings-section details[open] > summary::before,
-.settings-group[open] > summary::before,
-.settings-fold[open] > summary::before,
-.advanced-css[open] > summary::before,
-.task-log[open] > summary::before {
+.settings-section details[open] > summary:not(.icon-only):not(.icon-button):not(.doc-dock-menu-btn)::before,
+.settings-group[open] > summary:not(.icon-only):not(.icon-button)::before,
+.settings-fold[open] > summary:not(.icon-only):not(.icon-button)::before,
+.advanced-css[open] > summary:not(.icon-only):not(.icon-button)::before,
+.task-log[open] > summary:not(.icon-only):not(.icon-button)::before {
   transform: none;
 }
 

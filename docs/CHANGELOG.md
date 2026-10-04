@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
 - The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)
 - Web search and SearXNG setup messages read as plain sentences: the transport's error, the command's own output, `virtualenv`, `setup.py`, `docker logs` and an environment variable name no longer reach the toast; each goes to the log, and the message points at Settings, Logs (INBOX 472, computed messages)
 - Library: Boards and maps selection ticks sync under the Maps and Boards chips (no card got a tick while one was on, so Select all and bulk Delete were dead); the tick sync and the gallery narrow through one function.

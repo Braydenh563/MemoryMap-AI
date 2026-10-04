@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat and Ask read the text in a note's pictures when the note is mostly a picture, not only when it is attached by hand: a screenshot of typed ideas reached the model as a link, and each picture's reading may now run to 1,200 characters (was 240).
 - The Thinking fold is one panel when open, its summary the head, and the reasoning is set as Markdown (bold, lists) with the prompt's data markers taken out, in Chat, Ask, the palette and the Guide.
 - Chat: a reply's copy, regenerate and fork row can no longer show over the open Attach panel.
 - Notes: the x on a suggested tag, a link or any chip that ends in one is drawn as a cross centred on its target, quiet at rest, red with its disc on hover; it was a font glyph nudged by hand inside a grey disc.

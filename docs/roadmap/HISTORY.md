@@ -37004,6 +37004,22 @@ width, 47% of the column at 1440.
      it (INBOX 457's two-line fix holds the floor).
      **Fixed**: one token, `--note-preview-lines`, 3 compact, 4 default, 5 spacious, at 1440 and 390 (was 2 and 1); blank lines still collapse (`notepreview.js`).
 
+491. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Ask: "What
+     are the specific feature suggestions?" answered "the notes do not
+     provide any further description", over a note whose content is an
+     image of typed text).** "I asked what the contents were in the note
+     where the stuff was mostly in the image and the ai didnt read that. it
+     has already been read by the ocr model but the ai didnt access the
+     extracted text or caption". And: "also notes are still cut off wayyy
+     too short" (Ask's matching records, two lines then Show more; with 473's
+     agent). Orchestrator: an image's read text and caption go into the
+     note's text the model is given. **Fixed**: only hand-attached notes
+     carried their pictures' readings; a retrieved note that is mostly a
+     picture (under 200 characters of its own words) now does too, and a
+     reading may run to 1,200 characters (was 240), inside the note's own
+     allowance (`test_chat_attachments.py`). Ask's record cards: 473's
+     `--note-preview-lines`.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

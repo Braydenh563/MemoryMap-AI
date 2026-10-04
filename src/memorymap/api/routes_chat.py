@@ -852,7 +852,28 @@ def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
 #: are a *hint* about what is in the note, not a second copy of the notebook,
 #: and every character here is resent on every round of the turn.
 MEDIA_READINGS_PER_NOTE = 4
-MEDIA_READING_CHARS = 240
+#: 1,200, not 240 (INBOX 491): a screenshot of typed notes is the note, and
+#: 240 characters of it is a line and a half. The note's own allowance
+#: (`librarian.note_for_prompt`) still caps the whole, readings included.
+MEDIA_READING_CHARS = 1200
+
+#: A retrieved note whose own words (pictures' Markdown taken out) are this
+#: short is mostly its pictures, so it gets their readings too (INBOX 491:
+#: "What are the specific feature suggestions?" over a note that was one
+#: screenshot of typed ideas reached the model as `![image.png](...)`, and
+#: the answer said the note gave no specifics, though retrieval had found the
+#: note *by* that picture's text). A note with words of its own stays as it
+#: is, so ten search hits do not spend the budget on incidental pictures.
+MOSTLY_PICTURE_CHARS = 200
+_IMAGE_MARKDOWN = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+
+
+def _mostly_pictures(content: str) -> bool:
+    """True when a note is little more than its pictures."""
+    if not _MEDIA_REF.search(content or ""):
+        return False
+    words = _IMAGE_MARKDOWN.sub("", content or "")
+    return len(" ".join(words.split())) < MOSTLY_PICTURE_CHARS
 
 
 def _note_dates(entry, zone) -> str:  # noqa: ANN001
@@ -1087,6 +1108,8 @@ def _prepare(
             # search hits would spend the notes budget on pictures nobody
             # asked about.
             content = f"{content}{_media_readings(session, content)}{_attachment_readings(session, entry.id)}"
+        elif _mostly_pictures(content):
+            content = f"{content}{_media_readings(session, content)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.

@@ -50,17 +50,6 @@ with its owner named in the entry.
      (timeline.js:752) at enterSelectMode (skills.js:1293)" and the same from
      exitSelectMode. Orchestrator.
 
-491. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Ask: "What
-     are the specific feature suggestions?" answered "the notes do not
-     provide any further description", over a note whose content is an
-     image of typed text).** "I asked what the contents were in the note
-     where the stuff was mostly in the image and the ai didnt read that. it
-     has already been read by the ocr model but the ai didnt access the
-     extracted text or caption". And: "also notes are still cut off wayyy
-     too short" (Ask's matching records, two lines then Show more; with 473's
-     agent). Orchestrator: an image's read text and caption go into the
-     note's text the model is given.
-
 488. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
      dashboard: the search bar's kebab holds Continue, skills, Tools,
      Commands, View, Widgets and Edit layout, and its menu opens over the

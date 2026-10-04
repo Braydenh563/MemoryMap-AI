@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Docks: a zone that wraps onto a line of its own no longer opens that line with the hairline that parts it from the zone before (7 docks at 640, 3 at 768 and 820; now 0), and a line that starts at the dock's edge lines up with the title above it; read from the layout by `markDockLineStarts` (phone-shell.js) without changing any zone's outer width, so no wrap moves (INBOX 479).
 - Developer sweeps: the dock and bar audit for INBOX 478 and 479 (`scratchpad/dock-audit-479.md`): every top and bottom bar control by control at 1440, 1024, 820 and 390, light and dark (`barinv479.js`), wrapped-line hairlines (`dockseams.js`) and the graph's corner (`graphcorner.js`); 14 findings ranked, a target layout per bar, and the de-vibe pass (`devibe.js` and `vibecheck.js` both 0).
 - Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
 - The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)

@@ -53,7 +53,9 @@ Status: **fixed** (commit named in the CHANGELOG line) or **open** (with why).
    640 (Notes, Graph, Timeline, Library Documents, Boards & maps, Images and
    Files, Bookmarks), 3 at 768 and 820, 0 at 900 and up. Below 600 the phone
    rule already drops every hairline, and the Skills dock had a hand-made
-   exception for its own case; the band between had nothing. **Planned**: a
+   exception for its own case; the band between had nothing. **Fixed**
+(after: 0 seams at 640, 768 and 820, the same 8 and 4 zones wrapping, so the
+mark moved no wrap): a
    measured `data-line-start` on each wrapped zone (one ResizeObserver per
    dock) hides the hairline without changing the box, and a zone that starts at
    the dock's left edge is drawn on that edge.

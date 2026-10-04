@@ -533,33 +533,12 @@ function initHeaderHeightToken() {
 
 initHeaderHeightToken();
 
-//: **The note editor's formatting bar slid under the Notes sub-tab strip.**
-//:
-//: Reported: "when I open the edit form for a note and scroll down, only the
-//: bottom of the formatting bar sticks to the top of the screen and the bar is
-//: clear so it is hard to see". The second half of that is the bar's own
-//: background (07-whiteboard-misc.css). This is the first half, and measured
-//: with `scratchpad/ui-sweeps/edittoolbar.js` it is not a z-index problem in
-//: the way it looks: `.notes-subtabs` is `position: sticky; top: 0; z-index:
-//: 20` and `.doc-toolbar` is `position: sticky; top: 0; z-index: 3`, in the
-//: **same** scroller, so the two park in exactly the same 46px band and the
-//: strip, being the higher of the two, paints over most of the bar. With the
-//: form scrolled 400px the bar stuck at y=63 with a height of 46, and
-//: `elementsFromPoint` found `#notes-subtabs` painted over it at y=86 and
-//: y=106: two thirds of the bar, hidden behind the strip.
-//:
-//: Raising the bar's z-index would be the wrong fix twice over: the strip is
-//: navigation and should stay on top, and the bar would then cover *it*. The
-//: bar has to stop lower down instead, which means knowing how tall the strip
-//: is, and that is not a number the stylesheet can hold: the strip is a row of
-//: `--control-h-lg` buttons with padding and a border, so Large text (an 18px
-//: root) and Spacious density both change it. Exactly the case
-//: `initHeaderHeightToken` above already solves, so this is the same shape:
-//: measure, write the token, let the stylesheet read it.
-//:
-//: Written on `#tab-notes` rather than the root because only this tab has the
-//: strip, and a root token would offset sticky bars on tabs that have nothing
-//: above them.
+//: **The note editor's formatting bar slid under the Notes sub-tab strip**
+//: ("only the bottom of the formatting bar sticks"). Both are sticky at top 0
+//: in one scroller, so the strip (z 20) painted over two thirds of the bar
+//: (`edittoolbar.js`). The bar must stop below the strip, whose height moves
+//: with Large text and density, so it is measured into a token on `#tab-notes`
+//: (only this tab has the strip), the shape of `initHeaderHeightToken`.
 function initNotesSubtabHeightToken() {
   const strip = document.getElementById("notes-subtabs");
   const page = document.getElementById("tab-notes");
@@ -644,20 +623,11 @@ function initBottomTabBar() {
 initBottomTabBar();
 
 // --- the phone top bar: one menu where the desktop has four squares ----------
-// UI_MODERNISATION_PLAN Phase 11 item 1, "the top bar's own reduction: the
-// title, the AI dot and one action". Measured before (scratchpad/ui-sweeps/
-// phonehead.js): at 320 the bar held the space switcher, notifications and
-// four more squares (theme, settings, lock, quit), 44px each, and the last
-// of them ended at 332 in a 320 window, so every phone page scrolled
-// sideways by the width of the Quit button. Six controls is a desktop
-// bar; a phone bar is where you are, what came in, and one way to the rest.
-//
-// The four are not removed, they move: below 600 the CSS hides the four
-// buttons and shows this one `kebabMenu` (DESIGN.md's recipe, so it opens,
-// clamps and closes like every other menu) holding the same four verbs,
-// calling the same four functions the buttons call. Built once at boot and
-// shown by the stylesheet, which is the same arrangement the phone tab
-// dock uses: no listener, no second copy of the media query in JS.
+// UI_MODERNISATION_PLAN Phase 11 item 1. At 320 the bar held six 44px squares
+// and scrolled sideways by the width of Quit (`phonehead.js`). Below 600 the
+// CSS hides theme, settings, lock and quit and shows this one `kebabMenu`
+// holding the same four verbs, built once at boot and shown by the
+// stylesheet: no listener, no second media query in JS.
 // **The status bar's rows** (INBOX 392, UI_MODERNISATION_PLAN Phase 11 item
 // 12). Below 600 the status bar is no longer a second bar stacked on the tab
 // bar: measured at 390, the two together were 95px of the 844 on every tab,
@@ -1849,6 +1819,43 @@ function initDockFolding() {
 }
 
 initDockFolding();
+
+//: **A wrapped zone does not open its line with a hairline** (INBOX 479).
+//: Zones are parted by a `border-left` (08-consistency.css), and a zone that
+//: wraps took it to the start of an empty line: 7 docks at 640, 3 at 820
+//: (`dockseams.js`). CSS cannot see a wrap, so the layout is read here: a zone
+//: whose top is at or below the previous zone's bottom starts a line. Read
+//: from `offset*`, which no mark changes, and drawn without changing the
+//: zone's outer width (08-consistency.css), so a mark can never move the
+//: wrap it was read from. `flush` is a line that starts at the dock's edge.
+function markDockLineStarts(dock) {
+  let prev = null;
+  let first = null;
+  for (const zone of dock.children) {
+    if (!zone.offsetParent) continue;
+    first ??= zone;
+    let mark = null;
+    if (prev && zone.offsetTop >= prev.offsetTop + prev.offsetHeight - 1) {
+      mark = zone.offsetLeft <= first.offsetLeft + 1 ? "flush" : "wrap";
+    }
+    if (mark) zone.dataset.lineStart = mark;
+    else delete zone.dataset.lineStart;
+    prev = zone;
+  }
+}
+
+if (window.ResizeObserver) {
+  //: The zones too: a zone that grows (a menu's label, a fold) can wrap the
+  //: row without the dock changing size.
+  const seams = new ResizeObserver((entries) => {
+    const docks = new Set(entries.map((entry) => entry.target.closest(".dock")));
+    for (const dock of docks) if (dock) markDockLineStarts(dock);
+  });
+  for (const dock of document.querySelectorAll(".dock")) {
+    seams.observe(dock);
+    for (const zone of dock.children) seams.observe(zone);
+  }
+}
 
 //: **The second fold: a dock's secondary actions, at a phone's width.**
 //: The Boards & maps dock was four rows and 198px at 390, where every other

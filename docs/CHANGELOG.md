@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Error sentences, whiteboards and mind maps: the messages that named fields ("needs a ref_id", "/media/... url", "No node with id 12") and the XML import message that printed a <!DOCTYPE> tag now say what to do in plain words (INBOX 472)
 - Error sentences, models, settings, spaces and the timeline: a model that is not running now says to start it, a space name or icon that is not accepted says what to do instead of naming the field, and the timeline's bad-value messages read "Pick one of: ..." (INBOX 472)
 - Error sentences, files, reminders and the learned page: "File is missing from disk", "No upload with that id", "no such derived fact", "as_of must be YYYY-MM-DD" and the image-reading hints now read as sentences a person can act on ("No installed model can read images. Install or pick one in Settings"), and no longer name a field (INBOX 472)
 - Error sentences, notes, documents and chat: a missing note, document, bookmark, link, revision or conversation, a date written wrongly, a private note that needs unlocking, and a skill missing an input now each say what happened in a plain sentence with a full stop, and name no field ("boards must be one of", "action must be keep or fallback" became "Pick one of...") (INBOX 472)

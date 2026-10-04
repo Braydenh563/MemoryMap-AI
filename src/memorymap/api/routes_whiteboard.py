@@ -494,11 +494,12 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
     if body.kind == "image":
         if not body.data.url or not MEDIA_URL_RE.match(body.data.url):
             raise HTTPException(
-                status_code=422, detail="An image object needs a /media/... url"
+                status_code=422,
+                detail="An image has to be one that was uploaded to MemoryMap first.",
             )
     elif body.kind in ("text", MAP_TOPIC_KIND) and body.data.content is None:
         raise HTTPException(
-            status_code=422, detail=f"A {body.kind} object needs content"
+            status_code=422, detail=f"A {body.kind} item needs some content."
         )
     elif body.kind in MAP_REFERENCE_KINDS and body.data.ref_id is None:
         # A reference node with nothing to reference is the map equivalent of
@@ -507,7 +508,7 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
         # the UI what it was ever meant to be.
         raise HTTPException(
             status_code=422,
-            detail=f"A {body.kind} node needs a ref_id, the id of the {body.kind} it stands for",
+            detail=f"A {body.kind} node needs to point at an existing {body.kind}.",
         )
 
 
@@ -592,7 +593,7 @@ def _forget_links_to(
 def _require_entry(session: Session, entry_id: int) -> Entry:
     entry = session.get(Entry, entry_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No note with id {entry_id}")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     return entry
 
 
@@ -617,7 +618,7 @@ def _require_board(session: Session, board_id: int | None) -> None:
         return
     entry = session.get(Entry, board_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     if not entry.is_board:
         entry.is_board = True
         session.commit()
@@ -1626,7 +1627,7 @@ def list_boards(
     if type is not None and type not in BOARD_TYPES:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown board type {type!r}: expected " + " or ".join(sorted(BOARD_TYPES)),
+            detail="Pick one of these board types: " + ", ".join(sorted(BOARD_TYPES)) + ".",
         )
     node_counts = dict(
         db.execute(
@@ -1885,7 +1886,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
     # separately: the title has to come from the board note's own heading,
     # which is where a board's title lives (see `rename_board`).
     _require_board(db, board_id)
-    source = deps.get_or_404(db, Entry, board_id, "Board not found")
+    source = deps.get_or_404(db, Entry, board_id, "That board could not be found.")
     title = extract_title(source.content) or "Untitled board"
     copy = Entry(content=f"# {title} (copy)", is_board=True)
     # A copy of a map is a map. Copying the settings blob wholesale (rather
@@ -2011,7 +2012,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     """
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     entry.is_board = True
     if body.type is not None or body.layout is not None:
         before = dict(zip(("type", "layout"), _board_settings(entry)))
@@ -2120,7 +2121,7 @@ def create_node(
 def update_node(
     node_id: int, node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
-    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "That node could not be found.")
     _require_entry(db, node_in.entry_id)
     _require_board(db, node_in.board_id)
     before = _node_state(node)
@@ -2150,7 +2151,7 @@ def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
     # 404 rather than a cheerful "ok": deleting something that isn't there
     # is how a client finds out its board is stale, and swallowing it left
     # ghost cards on screen until a reload.
-    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "That node could not be found.")
     events.record(
         db,
         "deleted",
@@ -2192,7 +2193,7 @@ def create_sketch(
 def update_sketch(
     sketch_id: int, sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
-    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "That sketch could not be found.")
     _require_board(db, sketch_in.board_id)
     before = _sketch_state(sketch)
     sketch.data = sketch_in.data
@@ -2215,7 +2216,7 @@ def update_sketch(
 @router.delete("/sketches/{sketch_id}")
 @events.writes("whiteboard_sketch", "deleted")
 def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
-    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "That sketch could not be found.")
     events.record(
         db,
         "deleted",
@@ -2290,7 +2291,7 @@ def create_object(
 def update_object(
     object_id: int, body: WhiteboardObjectBase, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
-    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "That item could not be found.")
     _require_board(db, body.board_id)
     _require_object_data(body)
     # The kind an object was created as doesn't change: an image resized or
@@ -2298,7 +2299,7 @@ def update_object(
     # text box", so treating a mismatched kind here as a client bug rather
     # than silently reinterpreting the row is the safer failure.
     if body.kind != obj.kind:
-        raise HTTPException(status_code=422, detail="An object's kind can't change")
+        raise HTTPException(status_code=422, detail="You can't change what kind of item that is.")
     before = _object_state(obj)
     obj.data = body.data.model_dump_json(exclude_none=True)
     obj.board_id = body.board_id
@@ -2335,7 +2336,7 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
     An ordinary object has no children, so this is exactly what it always
     was for a text box or an image.
     """
-    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "That item could not be found.")
     doomed = _subtree(db, obj)
     deleted = [_object_to_out(row).model_dump() for row in doomed]
     # One event with the id list, the same shape a purge of notes records
@@ -2473,8 +2474,9 @@ def _map_kind_ok(kind: str) -> None:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"Unknown map node kind {kind!r}: expected "
+                "Pick one of these node kinds: "
                 + ", ".join(sorted({MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS))
+                + "."
             ),
         )
 
@@ -2498,7 +2500,7 @@ def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
     from memorymap.core.database import Attachment, Bookmark, Document
 
     if ref_id is None:
-        raise HTTPException(status_code=422, detail=f"A {kind} node needs a ref_id")
+        raise HTTPException(status_code=422, detail=f"A {kind} node needs to point at an existing {kind}.")
     if kind == "note":
         _require_entry(db, ref_id)
         return
@@ -2508,7 +2510,7 @@ def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
         "link": (Bookmark, "bookmark"),
     }[kind]
     if db.get(model, ref_id) is None:
-        raise HTTPException(status_code=404, detail=f"No {label} with id {ref_id}")
+        raise HTTPException(status_code=404, detail=f"That {label} could not be found.")
 
 
 def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) -> str:
@@ -2796,7 +2798,7 @@ def _board_entry(db: Session, board_id: int) -> Entry:
     `board_id=0` and negative ids can't resolve to a real note either."""
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     return entry
 
 
@@ -2894,7 +2896,7 @@ def create_map_node(
         if parent is None or parent.board_id != board_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"No node with id {body.parent_id} on this board",
+                detail="That node is not on this board.",
             )
 
     if body.x is not None and body.y is not None:
@@ -2984,7 +2986,7 @@ def move_map_node(
     node = db.get(WhiteboardObject, node_id)
     if node is None or node.board_id != board_id:
         raise HTTPException(
-            status_code=404, detail=f"No node with id {node_id} on this board"
+            status_code=404, detail="That node is not on this board."
         )
 
     before = _object_state(node)
@@ -2994,18 +2996,18 @@ def move_map_node(
         if body.parent_id == node.id:
             raise HTTPException(
                 status_code=422,
-                detail="A node can't be its own parent, that makes it a descendant of itself.",
+                detail="A node can't be its own parent.",
             )
         parent = db.get(WhiteboardObject, body.parent_id)
         if parent is None or parent.board_id != board_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"No node with id {body.parent_id} on this board",
+                detail="That node is not on this board.",
             )
         if _is_descendant(db, node.id, parent.id, board_id):
             raise HTTPException(
                 status_code=422,
-                detail="That would make the node a descendant of itself, move the branch out first.",
+                detail="That would make the node a descendant of itself. Move the branch out first.",
             )
         node.parent_id = parent.id
     events.record(
@@ -3126,7 +3128,7 @@ def move_map_nodes(
     missing = sorted(seen_ids - set(nodes))
     if missing:
         raise HTTPException(
-            status_code=404, detail=f"No node with id {missing[0]} on this board"
+            status_code=404, detail="That node is not on this board."
         )
 
     parents = _parent_map(db, board_id)
@@ -3138,12 +3140,12 @@ def move_map_nodes(
             if move.parent_id == move.id:
                 raise HTTPException(
                     status_code=422,
-                    detail="A node can't be its own parent, that makes it a descendant of itself.",
+                    detail="A node can't be its own parent.",
                 )
             if move.parent_id not in parents:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No node with id {move.parent_id} on this board",
+                    detail="That node is not on this board.",
                 )
         parents[move.id] = move.parent_id
         reparented.add(move.id)
@@ -3153,8 +3155,8 @@ def move_map_nodes(
         raise HTTPException(
             status_code=422,
             detail=(
-                f"That would make node {offender} a descendant of itself, "
-                "move the branch out first."
+                f"That would make node {offender} a descendant of itself. "
+                "Move the branch out first."
             ),
         )
 
@@ -3681,8 +3683,9 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     if format not in EXPORT_FORMATS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown export format {format!r}: expected one of "
-            + ", ".join(sorted(EXPORT_FORMATS)),
+            detail="Pick one of these export formats: "
+            + ", ".join(sorted(EXPORT_FORMATS))
+            + ".",
         )
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
@@ -3785,20 +3788,27 @@ def _parse_xml_document(content: str, label: str):
     except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
         raise HTTPException(
             status_code=503,
-            detail=f"{label} import needs the defusedxml package: pip install defusedxml",
+            detail=(
+                f"{label} import needs an add-on that is missing from this install. "
+                "Run pip install defusedxml, then restart MemoryMap."
+            ),
         ) from exc
 
     lowered = content.lower()
     if "<!doctype" in lowered or "<!entity" in lowered:
         raise HTTPException(
             status_code=422,
-            detail=f"That {label} declares a document type. Remove the <!DOCTYPE ...> line and try again.",
+            detail=(
+                f"That {label} file declares a document type, which is not allowed. "
+                "Remove that line and try again."
+            ),
         )
     try:
         return ET.fromstring(content)
     except (ET.ParseError, DefusedXmlException) as exc:
         raise HTTPException(
-            status_code=422, detail=f"That isn't valid {label}: {exc}"
+            status_code=422,
+            detail=f"That isn't valid {label}: {str(exc).rstrip('.')}.",
         ) from exc
 
 

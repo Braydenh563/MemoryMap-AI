@@ -54,7 +54,10 @@ with its owner named in the entry.
      groups, switches on the text edge, the phone head on one row, one-line
      pane descriptions, Library previews keeping blocks apart, the palette on
      touch, file pickers on the tonal recipe, three copy faults) plus the
-     Timeline's cut titles; two new lints. Items 9 to 20 there are open.
+     Timeline's cut titles; two new lints. Items 9 and 12 to 20:
+     agent (2026-10-04). Decisions taken: Back/Forward stay hidden in the
+     phone Settings head (the section picker reaches any section in one tap);
+     item 10 keeps the sentence-as-title decision.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Startup: the dashboard waits for its own script, so "renderDashboard is not defined" no longer appears on the lock screen.
 - Links: [[Name]] links to a note that opens with a "# Name" heading, and a link written before its note exists connects as soon as that note is saved.
 - Library: pressing the Library tab inside an open board or mind map goes back to the Library.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.

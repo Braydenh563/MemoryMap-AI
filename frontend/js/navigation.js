@@ -1828,7 +1828,7 @@ async function switchTab(name) {
     // since the last time this tab was visible.
     refitComposer();
   }
-  if (name === "dashboard") renderDashboard();
+  if (name === "dashboard") whenScriptsLoaded().then(() => renderDashboard());
   if (name === "graph") {
     // A fresh visit to the tab frames the whole map; the filter/slider
     // changes that call renderGraph() again while already on this tab

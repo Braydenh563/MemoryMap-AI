@@ -1243,46 +1243,12 @@ function startApp() {
   looksReady.then(maybeShowOnboarding);
   looksReady.then(maybeShowConsoleViewIntro);
 }
-
-// First-run "Dev view or User view?" prompt for the desktop app, asked
-// for directly: "dev view is the default on install and the user will be
-// presented with a popup option to change it just after install." Gated on
-// its own preference (console_view_intro_seen) rather than piggybacking on
-// onboardingDone, so changing the console mode later from Settings doesn't
-// make this reappear, and vice versa. Browser-tab users never see this, 
-// there's no console to speak of outside the desktop shell.
-//
-// Two bugs reported live, both fixed here:
-//
-// 1. "Showed both before and after I signed in, and kept coming back." The
-//    guard only checked `prefsCache?.console_view_intro_seen`, but
-//    `startApp()` also runs with a *stale* token (comment above `apiJson`'s
-//    401 handling: "a stale token in localStorage... fire[s] a dozen
-//    requests... before the user has unlocked anything"), and on that run
-//    the silent /preferences fetch 401s and leaves prefsCache null. `null?.x`
-//    is `undefined`, which is falsy, so the prompt fired on that pass too, 
-//    before the real sign-in the user was about to do. It then fired AGAIN
-//    on the real post-login startApp(), because whatever this function saved
-//    the first time round never reached a real, authenticated session.
-//    Requiring prefsCache to actually exist closes that: a failed fetch is
-//    "we don't know yet", not "this is a fresh profile that hasn't seen it".
-//
-// 2. "Randomly signed me out." This used to POST /system/console-mode, the
-//    same route Settings and the tray use, which restarts the whole desktop
-//    process (pythonw.exe/python.exe relaunch, see __main__.py) the instant
-//    the choice differs from the default. That is the right call for an
-//    explicit Settings/tray toggle, where the user just asked for a live
-//    switch and the toast says "restarting…". It is the wrong call for a
-//    popup that appears on its own during first login: killing the server
-//    (in-memory sessions and all, core/config.py, "restarting locks it
-//    again") out from under someone who hasn't even finished signing in is
-//    exactly the "signed out at random" report. It also raced its own
-//    "remember this was answered" write against that same process exit, 
-//    the second request sometimes lost, which is why the popup came back
-//    "every other time" rather than never or always. A single PUT that sets
-//    both preferences at once, with no restart, has neither problem: the
-//    choice takes effect next launch (said plainly below), same as every
-//    other preference in this app that isn't asking for a live switch.
+// First-run "Dev view or User view?" prompt for the desktop app, gated on its
+// own preference (console_view_intro_seen). Two fixed bugs: it fired on a
+// stale-token startApp() before sign-in (prefsCache null), so it now needs
+// prefsCache; and it POSTed /system/console-mode, which restarts the process
+// and signed people out mid-login, so it is one PUT of both preferences,
+// taking effect next launch.
 async function maybeShowConsoleViewIntro() {
   if (!(await desktopShell())) return;
   if (!prefsCache || prefsCache.console_view_intro_seen) return;
@@ -1360,7 +1326,7 @@ async function refreshActiveTab() {
     }
   }
   
-  if (name === "dashboard") return renderDashboard();
+  if (name === "dashboard") return whenScriptsLoaded().then(() => renderDashboard());
   if (name === "graph") return renderGraph();
   if (name === "documents") return loadDocuments();
   if (name === "library") return loadLibrary();
@@ -2248,6 +2214,12 @@ const LAZY_MODULES = {
 //: Which bundle a tab needs before its own dispatch runs. `documents` is the
 //: document editor the Library opens, which is why it shares the Library's
 //: bundle rather than having one of its own.
+//: INBOX 519: a boot fetch can answer between two scripts, before dashboard.js.
+function whenScriptsLoaded() {
+  if (document.readyState !== "loading") return Promise.resolve();
+  return new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
+}
+
 const TAB_MODULES = { graph: "graph", library: "library", documents: "library" };
 
 const lazyModuleLoads = new Map();

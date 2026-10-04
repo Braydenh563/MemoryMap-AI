@@ -37247,6 +37247,15 @@ width, 47% of the column at 1440.
      every note already naming it (`test_wiki_links_headings.py`, 4). The
      rest placed in GRAPH_PLAN as 518.
 
+519. **The owner, 2026-10-04, verbatim, with a screenshot (lock screen, a
+     toast "Couldn't load this tab: renderDashboard is not defined").** "this
+     notification appears when I load up the app". Not reproduced headless.
+     dashboard.js is near the end of index.html's scripts, and a task
+     between two classic scripts (a boot fetch answering) can run before the
+     last ones have; both callers now wait for DOMContentLoaded
+     (`whenScriptsLoaded`) before drawing it. `booterr.js`: 0 errors;
+     `dashwidgets.js`: all three widgets draw.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

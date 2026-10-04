@@ -1169,9 +1169,9 @@ topic: a control that wide has nowhere to go.
   bend grip did nothing~~: **built 2026-09-26**, the grips (bend and both
   ends) hand the press to the link's own hit stroke
   (`wbForwardGripContextMenu`), so the grip opens the same ring as the line;
-  `maptwokinds.js` 18/18, the new check failing on base. **What is left of
-  13c**: nothing yet says which kind a drag is about to make *while* it is in
-  flight, only after it lands.
+  `maptwokinds.js` 18/18, the new check failing on base. The in-flight cue
+  (which kind a connect drag will make, before it lands) is built
+  2026-10-04 (HISTORY.md, "Moved from the plans, 2026-10-04").
 - ~~**13d. A free link survives an export.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13d: a cross-link survives an export"). FreeMind

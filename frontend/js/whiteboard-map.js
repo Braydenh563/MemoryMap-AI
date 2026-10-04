@@ -2324,8 +2324,22 @@ async function wbMapPlaceAsChild(d, target, branch) {
 //:
 //: Returns true when it took the gesture, false to let the cross-link happen.
 async function wbMapJoinByLink(source, target) {
-  if (!wbIsMap() || !source || !target) return false;
-  if (!WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return false;
+  const plan = wbMapJoinPlan(source, target);
+  if (!plan) return false;
+  //: `wbMapTransplant` is the one mover: it moves the branch, unpins the
+  //: node, tidies both ends and says what it did. A second copy of that here
+  //: is how the two would drift apart.
+  return wbMapTransplant(plan.child, plan.parent.id, false, { via: "link" });
+}
+
+//: **What a connect drag between two topics will make**, decided without
+//: making it: `{parent, child}` when the release joins one to the tree under
+//: the other, `null` when it will be a cross-link (or nothing on a map). One
+//: function for the drop and for the cue in flight (`wbMapLinkCue`), so the
+//: cue cannot promise one kind and the release make the other.
+function wbMapJoinPlan(source, target) {
+  if (!wbIsMap() || !source || !target) return null;
+  if (!WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return null;
   const index = wbMapIndex();
   //: **The map's own first root is in the tree, not loose.** It is the one
   //: node that legitimately has no parent (`wbMapStats` counts every *other*
@@ -2346,11 +2360,47 @@ async function wbMapJoinByLink(source, target) {
     parent = target;
     child = source;
   }
-  if (!parent || !child) return false;
-  //: `wbMapTransplant` is the one mover: it moves the branch, unpins the
-  //: node, tidies both ends and says what it did. A second copy of that here
-  //: is how the two would drift apart.
-  return wbMapTransplant(child, parent.id, false, { via: "link" });
+  if (!parent || !child) return null;
+  return { parent, child };
+}
+
+//: **Which of the two connections a drag is about to make, while it is in
+//: flight** (MINDMAP_PLAN §13c's remainder: "nothing says which kind a drag
+//: is about to make while it is in flight, only after it lands"). The topic
+//: under the pointer wears the answer: the accent ring the branch drag
+//: already uses for "lands under this" when the release will join the tree,
+//: a dashed muted ring when it will be a cross-link; the preview line is
+//: dashed for a cross-link; and the announcer says it in words, once per
+//: change. Transient, so decision 5 (nothing added to the resting canvas)
+//: holds. Returns the kind, or null when the pointer is not on a topic.
+let wbMapLinkCueState = null;
+
+function wbMapLinkCue(source, target) {
+  const onTopics = wbIsMap() && source && target
+    && WB_MAP_KINDS.has(source.kind) && WB_MAP_KINDS.has(target.kind);
+  if (!onTopics) {
+    wbMapClearLinkCue();
+    return null;
+  }
+  const plan = wbMapJoinPlan(source, target);
+  const kind = plan ? "branch" : "cross-link";
+  if (wbMapLinkCueState?.id === target.id && wbMapLinkCueState.kind === kind) return kind;
+  wbMapClearLinkCue();
+  const el = document.querySelector(`.wb-object[data-id="${target.id}"]`);
+  el?.classList.add(plan ? "wb-map-link-cue-branch" : "wb-map-link-cue-cross");
+  wbMapLinkCueState = { id: target.id, kind };
+  const name = (node) => `"${(wbMapLabel(node) || "Untitled").slice(0, 40)}"`;
+  wbAnnounce(plan
+    ? `Release to put ${name(plan.child)} under ${name(plan.parent)}.`
+    : `Release to cross-link ${name(source)} and ${name(target)}.`);
+  return kind;
+}
+
+function wbMapClearLinkCue() {
+  if (!wbMapLinkCueState) return;
+  document.querySelector(`.wb-object[data-id="${wbMapLinkCueState.id}"]`)
+    ?.classList.remove("wb-map-link-cue-branch", "wb-map-link-cue-cross");
+  wbMapLinkCueState = null;
 }
 
 //: Open the library item a reference node stands for. One place, because

@@ -5170,7 +5170,10 @@ function wbBuildContextMenu(kind) {
         );
       }
       sub("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
-        selectWbTool("link-straight");
+        //: Through the module's handle: `selectWbTool` lives inside
+        //: `initWhiteboard`, so a bare call from this top-level builder threw
+        //: and the row did nothing (found by `maplinkcue.js`, 2026-10-04).
+        wbSelectToolRef?.("link-straight");
         toast("Drag from this topic to the one it should join.");
       });
     });
@@ -14581,6 +14584,7 @@ function dragStart(event, d) {
       d.linkingPath = null;
       wbLinkDragActive = false;
       wbClearAnchorHints();
+      wbMapClearLinkCue();
     });
   } else {
     // `.raise()` deliberately does NOT happen here, see the matching
@@ -14638,6 +14642,10 @@ function dragging(event, d) {
     const hover = wbLinkCandidateAt(mx, my, d._linkKind || "node", d.id);
     if (hover) wbShowAnchorHints(hover[0], hover[1], wbNearestAnchor(hover[0], hover[1], mx, my));
     else wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
+    //: Which kind of connection the release will make, said before it is
+    //: made (MINDMAP_PLAN §13c; `wbMapLinkCue`).
+    const cue = wbMapLinkCue(d, hover ? hover[1] : null);
+    d.linkingPath.classList.toggle("wb-link-preview-crosslink", cue === "cross-link");
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels, the
@@ -14726,6 +14734,8 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const cancelledLink = wbEndGesture(d._gesture);
     delete d._gesture;
+    // The in-flight cue goes with the gesture, released or taken back.
+    wbMapClearLinkCue();
     if (cancelledLink) {
       d.linkingPath?.remove();
       d.linkingPath = null;

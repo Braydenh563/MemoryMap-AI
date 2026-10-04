@@ -37047,3 +37047,20 @@ the box as a ballot-box glyph. Five API tests in `tests/test_mindmap.py`;
 the press moves nothing and opens no editor, undo goes back, the count 5.91:1
 muted and 7.12:1 complete in light, 9.58:1 complete in dark); the base script
 stops at its first check.
+
+### From MINDMAP_PLAN.md §13c's remainder: a connect drag says what it will make
+
+`wbMapJoinPlan` is the decision `wbMapJoinByLink` used to make inline (join
+the tree, and under which topic, or a cross-link), pulled out so the drop and
+a new in-flight cue (`wbMapLinkCue`, called from `dragging`) cannot disagree.
+The topic under the pointer wears the accent ring when the release will join
+the tree and a dashed muted ring when it will be a cross-link, the preview
+line is dashed for a cross-link, and `#wb-announcer` says it in words ("Release
+to put "Loose idea" under "Branch A"."). Cleared on release, on Escape and off
+every topic. Found with it and fixed: the topic menu's "Connect this topic to
+another" called `selectWbTool`, which lives inside `initWhiteboard`, so the row
+threw a ReferenceError and did nothing; it goes through `wbSelectToolRef` now,
+and `test_nothing_outside_the_boards_setup_calls_its_private_tool_picker`
+holds it. `scratchpad/ui-sweeps/maplinkcue.js` 12/12 (the menu row 0/1 before
+the fix; the cue's classes did not exist on the base); `maptwokinds.js` 18/18
+unchanged.

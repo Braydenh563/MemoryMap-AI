@@ -11200,6 +11200,25 @@ input[type="file"] {
   outline-offset: 3px;
 }
 
+/* What a connect drag is about to make (MINDMAP_PLAN §13c, `wbMapLinkCue`):
+   the drop target's own ring when the release joins the tree, a dashed muted
+   ring and a dashed preview line when it will be a cross-link. As specific as
+   the link tool's own hover ring (above, the same shape of selector), and
+   after it, so the cue is what the hovered topic shows. */
+#whiteboard-container[data-current-tool] .wb-object.wb-map-link-cue-branch {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+#whiteboard-container[data-current-tool] .wb-object.wb-map-link-cue-cross {
+  outline: 2px dashed var(--muted);
+  outline-offset: 3px;
+}
+
+.wb-link-preview-crosslink {
+  stroke-dasharray: 6 5;
+}
+
 /* A pinned node keeps the place it was dragged to when the map is tidied
    (`wbMapPinOnDrag`). Stated on the node, quietly, because "why did Tidy
    move everything except this one" is otherwise unanswerable from the screen. */

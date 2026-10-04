@@ -580,10 +580,13 @@ the slider thumb light up on drag, nothing else in a card blurs).
    or popovers". Clear: "highly translucent ... for components that float
    above media backgrounds", with "a dark dimming layer of 35% opacity"
    when the content behind is bright. Ours: `--glass-filter` is the regular
-   variant (blur plus saturate plus a luminosity lift); a `.glass-clear`
-   modifier (blur only, `--card` at 30%) is for panels over the animated
-   background or an image, and it always pairs with `--glass-scrim`
-   (35% ink) when the surface is light. Never a third variant.
+   variant (blur plus saturate plus a luminosity lift); `--glass-filter-clear`
+   (blur only) is the clear one, for a panel over the animated background
+   or an image; take one of the two tokens, never a literal. A
+   `.glass-clear` class (`--card` at 30%, paired with a `--glass-scrim` of
+   35% ink when light) is added with the first surface that floats over
+   media, in that commit. Never a third variant: `tests/test_ui_recipes.py`
+   freezes the literals and fails on a new one.
 2. **Scroll edge effect.** "Optimize for legibility when content scrolls
    beneath controls": the bar over a scroll region fades a soft edge under
    itself as content passes. Ours: `.dock`, `.notes-subtabs`,
@@ -604,8 +607,9 @@ the slider thumb light up on drag, nothing else in a card blurs).
 4. **Vibrant colour on glass.** "Use vibrant colors on top of materials";
    "Use color sparingly, especially on glass"; "Avoid applying a similar
    color to toolbar item labels and content layer backgrounds". Ours:
-   `--text-on-glass` (one step higher contrast than `--text`) for text on
-   any blurred surface; accent only on the one filled control per surface.
+   `--text` on a blurred surface already measures 14 to 15:1 (no
+   `--text-on-glass` token was needed); accent only on the one filled
+   control per surface.
 5. **Toolbars group by function, icons over text.** "Group items that
    perform similar actions ... maintain consistent groupings"; "don't mix
    text and icons across items that share a background"; "Provide an
@@ -684,7 +688,7 @@ section headers.
 ### Where this goes next
 
 INBOX 100 (scroll edge effect), 101 (concentric radius token and lint),
-102 (clear variant with the scrim, the text-on-glass token), 103 (menus
+102 (clear variant: the token, built 2026-10-04), 103 (menus
 morph from their opener; sheets inset and opaque at full height), 104
 (phone tab bar recedes on scroll); UI Phase 9 carries 104. Each is a
 half-day for Opus with the measurement named on its INBOX line.

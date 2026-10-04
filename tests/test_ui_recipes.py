@@ -3902,3 +3902,54 @@ def test_the_top_bar_well_never_grows_to_fill_the_gap() -> None:
                 if re.search(r"(?<![\w-])flex-grow\s*:\s*[1-9]", body):
                     offenders.append(f"{path.name}: {' '.join(part.split())} -> flex-grow")
     assert not offenders, "the top bar's well grows past its tabs:\n  " + "\n  ".join(offenders)
+
+
+# ---------------------------------------------------------------------------
+# One see-through recipe (UI_MODERNISATION_PLAN 102, DESIGN "Glass & materials"
+# rule 1: "two variants, never a third"). The regular variant is
+# `--glass-filter`; the clear one (blur only) is `--glass-filter-clear`. A
+# surface takes one of the two by token. The literals below are the ones that
+# existed when the ratchet was written, with their counts; the counts may only
+# shrink, and a value not in this table fails.
+# ---------------------------------------------------------------------------
+GLASS_TOKENS = {"var(--glass-filter)", "var(--glass-filter-clear)", "none", "none !important"}
+LITERAL_BACKDROPS = {
+    "blur(var(--glass-blur)) saturate(160%) brightness(1.04)": 21,
+    "blur(4px)": 5,  # modal scrims, not panels
+    "blur(var(--glass-blur)) saturate(150%)": 4,
+    "blur(8px)": 3,
+    "blur(var(--glass-blur)) saturate(140%)": 1,
+    "blur(6px) saturate(150%) !important": 1,
+    "blur(16px)": 1,
+}
+
+
+def _backdrop_values() -> list[str]:
+    values = []
+    for path in CSS:
+        for _selector, body in _rules(path.read_text(encoding="utf-8")):
+            values += [
+                v.strip()
+                for v in re.findall(r"(?<!-webkit-)backdrop-filter:\s*([^;]+);", body)
+            ]
+    return values
+
+
+def test_the_clear_glass_variant_is_one_token() -> None:
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert re.search(r"--glass-filter-clear:\s*blur\(var\(--glass-blur\)\);", tokens)
+    # Blur only, written out, is the token's job now.
+    assert "blur(var(--glass-blur))" not in _backdrop_values()
+
+
+def test_no_third_glass_variant_and_the_literals_only_shrink() -> None:
+    counts: dict[str, int] = {}
+    for value in _backdrop_values():
+        if value not in GLASS_TOKENS:
+            counts[value] = counts.get(value, 0) + 1
+    unknown = {v: n for v, n in counts.items() if v not in LITERAL_BACKDROPS}
+    grown = {v: n for v, n in counts.items() if n > LITERAL_BACKDROPS.get(v, 0)}
+    assert not unknown and not grown, (
+        "a backdrop-filter that is neither --glass-filter nor --glass-filter-clear "
+        f"(DESIGN.md, Glass & materials, rule 1): {unknown or grown}"
+    )

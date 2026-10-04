@@ -693,10 +693,10 @@ New features. The plan is subtraction and alignment; the feature backlog
 DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
 12, as the placed items below (INBOX 100 to 104). Rules 2, 3 and 12 are
 built (100, 101, 103; moved to HISTORY.md, "Moved from the plans,
-2026-09-09"). Rule 4's `.glass-clear` and `--text-on-glass` (102) are open
-and carry a measurement that changes the question, below. Rule 10's
-receding tab bar (104) is phone work and moves to Phase 11 with the rest of
-it. Deliberately not taken: refraction and lensing (measured too costly),
+2026-09-09"). Rule 4's clear variant (102) is built too, as the `--glass-filter-clear`
+token and a ratchet (HISTORY.md, "Moved from the plans, 2026-10-04 (the
+top bar mode and the glass recipe)"). Rule 10's receding tab bar (104)
+is phone work and moves to Phase 11 with the rest of it. Deliberately not taken: refraction and lensing (measured too costly),
 title-case headers.
 
 ## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
@@ -1174,37 +1174,9 @@ Built and moved to HISTORY.md ("Moved from the plans, 2026-09-09"): 100 the
 scroll edge effect, 101 the concentric corner token and its lint, 103 the
 menus that open out of their opener.
 
-102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
-    only, `--card` at 30%) for the whiteboard's floating panels and the
-    graph's docks over the art, paired with `--glass-scrim` (35% ink) when
-    the surface is light; `--text-on-glass` one contrast step above
-    `--text` on every blurred surface. Owner: Opus. Size S.
-
-    **Measured before building it, and the numbers move the decision**
-    (2026-09-09, 1440x900, the running app):
-
-    - `--text-on-glass` has no deficit to close. The menu row on the Notes
-      kebab and on the dock's Filter menu is **15.25:1** in light and
-      **14.14:1** in dark (`scratchpad/ui-sweeps/onglass.js`), because those
-      surfaces are `--modal-bg` at 96% rather than thin glass, and
-      contrast.js reports **0** low-contrast items on every tab and ten
-      Settings sections in *both* themes. A token that raises 15:1 to 16:1
-      is a token nothing needs.
-    - `.glass-clear` on `.whiteboard-floating-panel` would reverse a
-      recorded decision. That panel was deliberately moved *up* to
-      `--modal-bg`, with the reason written beside it in
-      06-timeline-dialogs.css: at the page-card tier it "read visibly
-      thinner than every sibling panel" over the board's own art.
-    - The one surface where the variant is honest is the graph's floating
-      zoom pill, which is `--card` plus `--glass-filter` over the animated
-      background, and it shares the floating-control recipe with
-      `.scroll-top`, so changing one changes both.
-
-    **Recommendation, to be taken unless the owner says otherwise**: keep
-    `.glass-clear` and `--glass-scrim` for a surface that actually floats
-    over media (a whiteboard image background, the lightbox), build it with
-    that surface rather than ahead of it, and drop `--text-on-glass` until a
-    measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
+102. **Clear glass, and text on glass.** Built (2026-10-04) as the
+    recorded decision below it said; the block is in HISTORY.md ("Moved
+    from the plans, 2026-10-04 (the top bar mode and the glass recipe)").
 
 104. **The phone tab bar recedes on scroll** (icons only on scroll down,
     full on scroll up), never hidden. Built (2026-09-13); the block is in

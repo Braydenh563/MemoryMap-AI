@@ -876,7 +876,7 @@ button.map-chip:focus-visible {
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: var(--glass-filter-clear);
   overflow: hidden;
 }
 

@@ -7,6 +7,76 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the top bar mode and the glass recipe)
+
+### From UI_MODERNISATION_PLAN Phase 10, item 102
+
+Built as its own recommendation said (keep the clear variant, build it
+with a surface that floats over media rather than ahead of one, drop
+`--text-on-glass` until a measurement asks for it). What landed is the
+part that needs no new surface: `--glass-filter-clear` (blur only), the
+seven panels that already wrote that blur out (`.library-card`,
+`.chat-skills-panel`, `.chat-dock-more-panel`, `.graph-popup`,
+`.note-picker-panel`, `.editor-menu`, `.chord-guide`) taking it by token
+(the same computed value, so nothing moves), and two ratchets in
+`tests/test_ui_recipes.py`: blur-only may not be written out again, and
+no backdrop-filter outside the two tokens may appear or grow beyond the
+frozen literal table (the counts only shrink). Every blurred surface was
+already on the glass-off list (the existing ratchet). Not built, and
+why: a `.glass-clear` class and `--glass-scrim` have no surface that
+floats over media today (the lightbox card is deliberately 86% opaque,
+the whiteboard panel was moved up to `--modal-bg`, the graph zoom pill
+carries icons over moving nodes), so a class would be a recipe nothing
+runs; it is added with its first surface, in that commit (CLAUDE.md
+order 11). `--text-on-glass` is dropped: 15.25:1 light and 14.14:1 dark
+on the menus, contrast.js 0 low items in both themes.
+
+The original item, as recorded:
+
+> **102. Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
+>     only, `--card` at 30%) for the whiteboard's floating panels and the
+>     graph's docks over the art, paired with `--glass-scrim` (35% ink) when
+>     the surface is light; `--text-on-glass` one contrast step above
+>     `--text` on every blurred surface. Owner: Opus. Size S.
+>
+>     **Measured before building it, and the numbers move the decision**
+>     (2026-09-09, 1440x900, the running app):
+>
+>     - `--text-on-glass` has no deficit to close. The menu row on the Notes
+>       kebab and on the dock's Filter menu is **15.25:1** in light and
+>       **14.14:1** in dark (`scratchpad/ui-sweeps/onglass.js`), because those
+>       surfaces are `--modal-bg` at 96% rather than thin glass, and
+>       contrast.js reports **0** low-contrast items on every tab and ten
+>       Settings sections in *both* themes. A token that raises 15:1 to 16:1
+>       is a token nothing needs.
+>     - `.glass-clear` on `.whiteboard-floating-panel` would reverse a
+>       recorded decision. That panel was deliberately moved *up* to
+>       `--modal-bg`, with the reason written beside it in
+>       06-timeline-dialogs.css: at the page-card tier it "read visibly
+>       thinner than every sibling panel" over the board's own art.
+>     - The one surface where the variant is honest is the graph's floating
+>       zoom pill, which is `--card` plus `--glass-filter` over the animated
+>       background, and it shares the floating-control recipe with
+>       `.scroll-top`, so changing one changes both.
+>
+>     **Recommendation, to be taken unless the owner says otherwise**: keep
+>     `.glass-clear` and `--glass-scrim` for a surface that actually floats
+>     over media (a whiteboard image background, the lightbox), build it with
+>     that surface rather than ahead of it, and drop `--text-on-glass` until a
+>     measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
+
+### Top bar: the tab strip's mode
+
+The mode (`tabs-centred`, gap, `tabs-wrapped`) read its own previous
+class with 8px of hysteresis, so it depended on resize order: measured
+1024 to 2560 and back in 16px steps (`scratchpad/ui-sweeps/topbarmode.js`),
+six widths drew two modes (1312, 1344, 1520, 1648 among them) and 1312
+and 1520 wrapped a strip that fit. `tabBarMode(needed, space,
+centreSpace)` in `shell-reminders.js` is now state-free, rounded to whole
+pixels; the same sweep reports no width with two modes. The mode is not
+monotone in width on purpose: the tab labels widen at 1100 and 1200 and
+the wordmark appears at 1500, each taking room the strip then lacks.
+
 ## Moved from the plans, 2026-10-04 (the documents tails)
 
 ### From DOCUMENTS_PLAN.md sections 17d and 17e, and the Documents tails in OPEN.md

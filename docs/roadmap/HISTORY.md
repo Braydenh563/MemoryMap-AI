@@ -56,6 +56,49 @@ Not verified: the `wide` stack on Windows and macOS (measured only where
 Verdana falls back to DejaVu Sans); a re-import of a themed map still comes
 back as topics carrying the look, not as a themed map (unchanged, maptheme.md).
 
+### From MINDMAP_PLAN.md: the placed items of 2026-09-09 (INBOX 24 and the evening batch)
+
+Verified against the running app before anything was built; three of the four
+were already built and are recorded here with today's numbers.
+
+- **24, one filled New with a two-row menu.** Built earlier as the dock
+  recipe (WORLD_CLASS_PLAN 507, DESIGN.md's row for a dock's one filled action
+  with a choice inside it); what the decision asked and the build lacked was
+  the "one-line hint" per row, which was a tooltip only. Each row now carries a
+  muted second line (`.dock-menu-item-hint`: "An empty canvas you arrange by
+  hand", "Topics branching from one central idea"). `boardsnew.js`, new: one
+  filled control in the dock, both rows with an icon and a visible hint at
+  11.2px against the word's 13.6px, the menu inside the window, at 2000, 1440,
+  820 and 390 in light and at 1440 and 390 in dark.
+  `test_each_kind_in_the_new_menu_says_what_it_makes` (fails before).
+- **"The mindmap I made called bubble tea shows as a note" in All.** Built
+  earlier (`_entry_kind` in routes_library.py, the Boards and Mind maps chips,
+  `tests/test_library_boards.py`). Re-measured live with
+  `libraryallmap.js`, new: a map's row in All carries `ph-tree-structure` and
+  no pencil, a note's the pencil.
+- **The Boards and maps dock "broken and miss wrapped" at about 2000px.**
+  Built earlier (the dock's ⋯, HISTORY "The Library's Boards-and-maps dock had
+  no ⋯"). Re-measured with `boardsdock.js`: one row of 32px controls at 2000
+  (7 controls), 1440 (7), 1024 (5) and 820 (5), two rows only at 390 (44px
+  controls), 0 findings.
+
+### From MINDMAP_PLAN.md section 13b's remainder: the strip and the handle of the line into its topic
+
+The one thing 13b's gate asked that its build did not measure. `mapstripcover.js`,
+new: for every non-root topic of a 13-topic map in tree-right, tree-down,
+radial and both-sides, select it and read `elementFromPoint` at the centre of
+the waypoint handle of the line into it. Before: **4 of 48** under the strip at
+1440 (tree-right's last branch, whose line bends up into the strip's band; three
+on a radial map's inner rings). `wbMapStripClearOfHandle` (whiteboard.js) now
+tries, in order, the place already chosen, the same height slid clear to the
+handle's left, then to its right, then under the topic, and keeps the first
+place if none fits; one rect read, skipped during a drag. After: **0 of 192**
+at 1440, 1024, 820 and 390, and the strip on its own topic 0 times.
+`mapstrip.js` 39/39 and `mapnarrow.js` 3/3 unchanged;
+`tests/test_map_strip_handle.py` pins the shape. Not measured: the handles of
+the lines *out of* the selected topic (also shown when it is selected), which
+the plan did not name.
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

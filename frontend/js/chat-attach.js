@@ -2441,6 +2441,7 @@ async function sendChatMessage(preset, opts = {}) {
       turnSources
     );
   }
+  placeAnswerFigures(bubble.querySelectorAll(".bubble-answer"), meta, question);
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
   //: **The Sources panel replaces the old "N matching notes" disclosure here.**
@@ -2664,6 +2665,7 @@ async function sendChatMessage(preset, opts = {}) {
       followup_of: followupOf,
       //: The thumbnails' words, so a reopened chat keeps them (INBOX 502).
       picture_alts: meta?.picture_alts && Object.keys(meta.picture_alts).length ? meta.picture_alts : null,
+      picture_sizes: meta?.picture_sizes && Object.keys(meta.picture_sizes).length ? meta.picture_sizes : null,
     };
     if (convRef.id === null) {
       const created = await apiJson("/conversations", {

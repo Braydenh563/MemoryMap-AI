@@ -2453,6 +2453,53 @@ button.answer-grounding-thumb:hover {
   }
 }
 
+/* A picture the answer placed (INBOX 526): inside the bubble, never wider than
+   it, and no taller than 20rem; the width/height attributes hold its space. */
+.answer-figure {
+  margin: var(--space-2) 0;
+  max-width: 100%;
+}
+
+button.answer-figure-open {
+  display: block;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  box-shadow: none;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.answer-figure-open > img {
+  display: block;
+  max-width: 100%;
+  max-height: 20rem;
+  height: auto;
+  object-fit: contain;
+}
+
+.answer-figure-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  min-width: 0;
+}
+
+.answer-figure-words,
+.answer-figure-from {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
 .answer-grounding-more {
   font-size: var(--text-xs);
 }

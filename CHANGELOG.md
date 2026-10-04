@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat and Ask: the model can place a picture inside its answer: it writes [picture 2] (or [picture 2.2] for the second) for a note that has pictures and the bubble draws it as a figure, at most 320px tall, in the picture's real shape, with its caption on one line, "From note 2: title" opening the note and a click opening the image viewer; an unknown note or number draws nothing and a half-written token never shows while the answer streams; with no token, a cited note whose pictures are the point (the question names a picture, or the note is mostly pictures) gets one figure after its first citation; three at most, and a reopened chat draws the same (INBOX 526; `picture_sizes` saved beside `picture_alts`).
 - Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.
 - Settings, Help: hotkeys are drawn as keys, places such as Settings, Models and Library tab, Contents in bold, and control names and quoted phrases as small code chips (190, 139 and 47 across 96 topics), added when the page draws so the Guide's own text stays plain (INBOX 520).
 - Settings, Help: a search box at the top keeps only the topics that hold every word you type (title, keywords, text or place), opens them with the words marked, hides empty groups, says "Nothing in Help matches" when none do, and Esc clears it (INBOX 520).

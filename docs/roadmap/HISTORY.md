@@ -37317,6 +37317,8 @@ width, 47% of the column at 1440.
      strings that the Guide's plain-text answers strip.
      Fixed: Help has a `.search-field` (every typed word must appear in a topic's title, keywords, text or place; matches open with `<mark>`, empty groups hide, "Nothing in Help matches", Esc clears, `helpApplySearch`). Emphasis is added at draw time by `helpEmphasis` (settings-find.js), not by markup in the topic strings, so the Guide's plain-text bodies never carry it: 190 `kbd`, 139 `strong`, 47 `code` across 96 topics (scratchpad/ui-sweeps/helpsearch.js). Place names come from the page's own nav and tabs. Left: the Guide chat's own answers are not decorated.
 
+526. **The owner, 2026-10-04, verbatim.** "in regards to the pictures, cna the ai retrieve them and actually render the images or sketches in the ai chat bubbles??" **Fixed:** the model writes `[picture N]` / `[picture N.2]` (the prompt names the token per note) and the bubble draws a figure (`placeAnswerFigures` in capture-ask.js); fallback for a picture question or a mostly-pictures cited note; three at most; live Chat, live Ask, reopened Chat and Ask. `tests/test_answer_pictures_502.py`, `scratchpad/ui-sweeps/figures526.js` (427x320 for an 800x600 PNG, 233x174 at 390, no overflow, dark and light, no half token while streaming).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

@@ -140,6 +140,8 @@ class TurnBody(BaseModel):
     #: the stream's `meta` sent them (INBOX 502, `routes_chat._picture_alts`),
     #: so a reopened chat's thumbnails keep their alt text.
     picture_alts: dict[str, str] | None = Field(default=None, max_length=40)
+    #: Their [width, height] (INBOX 526), so a reopened figure holds its space.
+    picture_sizes: dict[str, list[int]] | None = Field(default=None, max_length=40)
 
 
 class RenameBody(BaseModel):
@@ -172,6 +174,12 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     if turn.picture_alts:
         assistant["picture_alts"] = {
             url[:300]: str(words)[:160] for url, words in turn.picture_alts.items() if url.startswith("/media/")
+        }
+    if turn.picture_sizes:
+        assistant["picture_sizes"] = {
+            url[:300]: [int(n) for n in size[:2]]
+            for url, size in turn.picture_sizes.items()
+            if url.startswith("/media/") and len(size) >= 2
         }
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding

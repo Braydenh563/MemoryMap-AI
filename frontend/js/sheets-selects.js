@@ -1880,6 +1880,7 @@ async function openConversation(id) {
           message.picture_alts || null
         );
       }
+      placeAnswerFigures(handles.bubble?.querySelectorAll(".bubble-answer"), message, lastQuestionText);
       // And the same shape again for the "what to ask next" chips, reported
       // separately: "suggested repsponse continuation prompts in chat doesnt
       // persist and disappears once I switch chat sessions or quit the app".

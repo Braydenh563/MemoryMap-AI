@@ -1536,6 +1536,17 @@ function expandAngleAutolinks(text) {
   );
 }
 
+//: A bare app address becomes `[Note 12](address)` before matching, as the
+//: angle form above does (note text never autolinked a bare URL, and an app
+//: link is the one a person pastes to click). Not inside a link, a code span
+//: or angle brackets.
+function linkAppAddresses(text) {
+  return String(text || "").replace(/https?:\/\/[^\s<>()[\]`]*[^\s<>()[\]`.,;:!?]/g, (url, at, whole) => {
+    const hash = appAddressHash(url);
+    return hash && !/[([`<]/.test(whole.charAt(at - 1)) ? `[${appAddressLabel(hash).replace(/[[\]\n]/g, " ")}](${url})` : url;
+  });
+}
+
 //: What a bare URL is shown as: the host without its `www.`, then the path
 //: shortened to its last meaningful segment, so
 //: `https://www.goodreads.com/series/319859-he-who-fights-with-monsters`
@@ -1573,6 +1584,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
   if (!underscoreSyntax) element.replaceChildren();
   if (applyLatex) text = unlatex(text);
   text = expandAngleAutolinks(text);
+  if (!compact) text = linkAppAddresses(text);
   //: **Inline maths, cut out before the `**bold**`/`` `code` ``/link
   //: grammar below ever sees it** (INBOX 423c). A span INLINE_MATH_RE
   //: claims (its own comment has the exact rule) is drawn by the same
@@ -1673,18 +1685,9 @@ function appendInlineRun(element, text, terms, compact, options) {
         dismissBtn.className = "unlink";
         dismissBtn.title = "Remove image from note";
         setLabel(dismissBtn, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
-        // `match` is one `let` binding reused by every pass of the while
-        // loop above (a `while` reassigns it, unlike a `for (let x of …)`'s
-        // fresh-per-iteration binding): every dismiss button's closure
-        // shared the same variable, and by the time anyone actually clicked
-        // one, the loop had long since finished with `match` sitting at
-        // `null` (the value that ends the `while` condition). Every click
-        // threw `Cannot read properties of null (reading '0')` before the
-        // confirm dialog could even open, reported as "the remove button
-        // doesn't work". Capturing the text this match actually matched
-        // into its own const, right here in the loop body, gives each
-        // button's closure the value for *its own* image instead of
-        // whatever `match` happened to hold after parsing ended.
+        // `match` is one `let` reused by every pass of the while loop and is
+        // `null` by the time anyone clicks, so each button captures its own
+        // text here ("the remove button doesn't work").
         const originalText = match[0];
         dismissBtn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -1725,29 +1728,12 @@ function appendInlineRun(element, text, terms, compact, options) {
       if (isRenderableUrl(linkUrl)) {
         const iconClass = attachmentIconClass(linkUrl);
         if (iconClass) {
-          // **A file, not a link, and this fixes a dead end, not just the
-          // looks.** Reported directly: "once I uploaded two files into a
-          // note, they became hyperlinked text, I clicked on them, and it
-          // took me to a black fode screen with some text about needing to
-          // unlock first… there was no way for me to go back except for
-          // closing the application entirely."
-          //
-          // That is exactly what an `<a href="/media/x.pdf">` does here. A
-          // plain navigation carries no `X-Auth-Token` header: only
-          // `apiJson` and `mediaSrc` attach one: so the browser leaves the
-          // single-page app, gets the unlock guard's 401 JSON body, and
-          // renders it with its own JSON viewer. The app is gone, and in the
-          // desktop shell there is no back button to bring it back.
-          //
-          // The lightbox already reads this exact file: `show()` sniffs a
-          // `/media/…` url that is not an image and hands it to the document
-          // viewer, which renders PDFs, Office files, code and plain text
-          // through `/media/text`. Nothing routed a note's own files to it, 
-          // that missing wire is the whole bug.
-          // `compact` is the same label-sized-surface case the image branch
-          // above uses it for: a dashboard preview row or a link chip has
-          // room for a line of text, not a two-line card with its own
-          // buttons. The name and the type still say what it is.
+          // **A file, not a link: this fixes a dead end.** A plain
+          // `<a href="/media/x.pdf">` navigates without the `X-Auth-Token`
+          // header, so the browser left the app for the unlock guard's 401
+          // JSON, with no way back in the desktop shell. The lightbox already
+          // reads these files (`/media/text`); a note's own files now go to
+          // it. `compact` (a preview row, a chip) has room for a line, not a card.
           element.appendChild(
             compact ? fileChip(linkText, linkUrl) : fileCard(linkText, linkUrl)
           );
@@ -1757,8 +1743,11 @@ function appendInlineRun(element, text, terms, compact, options) {
           // would otherwise be a click-to-run script in a note that came
           // from an import or a shared file; the CSP blocks it today, and
           // this is the second lock in case the CSP is ever loosened.
-          a.href = safeHref(linkUrl);
-          if (/^https?:\/\//i.test(linkUrl)) {
+          //: An address of this app (INBOX 483) is the hash alone, so a click
+          //: opens the view in this window; other web links open a new tab.
+          const linkTarget = appAddressHash(linkUrl) || linkUrl;
+          a.href = safeHref(linkTarget);
+          if (linkTarget === linkUrl && /^https?:\/\//i.test(linkUrl)) {
             a.target = "_blank";
             a.rel = "noopener noreferrer";
           }
@@ -1769,7 +1758,7 @@ function appendInlineRun(element, text, terms, compact, options) {
           //: its address is a real label and is left alone.
           const labelIsTheUrl = linkText.trim() === linkUrl.trim();
           if (labelIsTheUrl) a.title = linkUrl;
-          highlightInto(a, labelIsTheUrl ? readableUrl(linkUrl) : linkText, terms);
+          highlightInto(a, labelIsTheUrl ? (linkTarget === linkUrl ? readableUrl(linkUrl) : appAddressLabel(linkTarget)) : linkText, terms);
           element.appendChild(a);
         }
       } else {
@@ -1784,15 +1773,8 @@ function appendInlineRun(element, text, terms, compact, options) {
         a.href = bareUrl;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        //: The address is the tooltip; the words are the site and the path.
-        //: Asked for with a screenshot of an answer that tabulated five
-        //: results by their raw URLs, each one a hundred characters of
-        //: `https://www.` and slug, overflowing the bubble sideways: "is it
-        //: possible to better render the links that the ai writes??" A model
-        //: writes bare URLs constantly and nobody reads a URL; they read where
-        //: it goes. `readableUrl` keeps the host and a shortened path, which
-        //: is what a browser's own address bar shows, and the full address
-        //: stays one hover (and the click) away.
+        //: The address is the tooltip; the words are the site and the path
+        //: (`readableUrl`), since nobody reads a hundred-character slug.
         a.title = bareUrl;
         highlightInto(a, readableUrl(bareUrl), terms);
         element.appendChild(a);

@@ -8454,7 +8454,10 @@ function docOpenWikiTarget(name) {
 function docOpenLink(href) {
   const clean = String(href || "").trim();
   if (!clean || /^(javascript|data|vbscript):/i.test(clean)) return;
-  window.open(clean, "_blank", "noopener,noreferrer");
+  //: This app's own address (INBOX 483) opens its view in this window.
+  const hash = appAddressHash(clean);
+  if (hash) location.hash = hash;
+  else window.open(clean, "_blank", "noopener,noreferrer");
 }
 
 // --- keeping the two panes looking at the same place --------------------------

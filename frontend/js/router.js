@@ -86,6 +86,29 @@ function appLinkMenuItem(kind, id) {
   return makeMenuItem("ph:link Copy app link", `Copy this ${kind}'s address to open it in the app`, () => copyObjectAddress(kind, typeof id === "function" ? id() : id));
 }
 
+//: The hash of an address that points at a view of this app (this origin and
+//: page, a route the router opens), or "": a pasted app link then opens in this
+//: window instead of a new tab. Only the hash is ever used as the link.
+function appAddressHash(url) {
+  if (!/^(?:https?:\/\/|#\/)/i.test(String(url || "").trim())) return "";
+  try {
+    const parsed = new URL(String(url).trim(), location.href);
+    return parsed.origin === location.origin && parsed.pathname === location.pathname && routeEntry(parsed.hash) ? parsed.hash : "";
+  } catch {
+    return "";
+  }
+}
+
+//: What an app link reads as in text: the title when the view was visited
+//: (`historyTitles`), else the kind and id ("Note 12"), else the view's name.
+function appAddressLabel(hash) {
+  const entry = routeEntry(hash);
+  const kind = entry && Object.keys(ROUTE_OBJECTS).find((key) => ROUTE_OBJECTS[key].tab === entry.tab && String(entry.section).startsWith(ROUTE_OBJECTS[key].prefix));
+  if (!kind) return (entry && ROUTE_VIEW_NAMES[entry.tab]) || hash;
+  const title = typeof historyTitles !== "undefined" && historyTitles.get(entry.section);
+  return title || `${kind.charAt(0).toUpperCase()}${kind.slice(1)} ${entry.section.slice(ROUTE_OBJECTS[kind].prefix.length)}`;
+}
+
 //: The entry a hash names, or null when the hash is not a route (an empty
 //: one, an in-page anchor, a tab that does not exist, an id that is not one).
 function routeEntry(hash) {

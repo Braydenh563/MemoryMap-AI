@@ -1214,7 +1214,7 @@ function linkMenuItems(el) {
   //: and the app's own internal anchors are not addresses anybody wants on a
   //: clipboard, and taking the browser's menu away from them would remove
   //: more than this adds.
-  if (!/^(https?:|mailto:)/i.test(href)) return null;
+  if (!/^(https?:|mailto:)/i.test(href) && !appAddressHash(href)) return null;
   return [
     {
       label: "ph:link Copy link address",

@@ -3939,3 +3939,82 @@ aside[data-resizable="1"] {
     opacity: 1;
   }
 }
+
+/* The calendar strip above the Timeline's feed (WORLD_CLASS_PLAN D6): a month
+   label with two arrows, then seven day buttons on one grid so they share the
+   width at any window size (about 45px each at 390, over the phone's target).
+   Flat on the page: no box around it, the buttons are the only surfaces. A
+   dot under a day means the day has a page; today wears the accent. */
+.timeline-daystrip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  /* A strip you scan, not a bar that spans: seven 190px boxes across a
+     desktop window read as a table of buttons (measured in a screenshot at
+     1440). Capped, it is ~60px a day there and the full width on a phone. */
+  max-width: 28rem;
+}
+
+.timeline-daystrip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.timeline-daystrip-arrows {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.timeline-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.timeline-days .timeline-day.ghost.small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  height: auto;
+  padding: var(--space-2) var(--space-1);
+}
+
+.timeline-day-name {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.timeline-day-num {
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-day-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.timeline-day.is-written .timeline-day-dot {
+  background: var(--accent);
+}
+
+.timeline-day.is-today .timeline-day-num {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* A daily note's head: the day before and the day after, under its title
+   (timeline.js `dailyNotePair`, called from note-cards.js). Ghost buttons on the card's own surface. */
+.entry-daypair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}

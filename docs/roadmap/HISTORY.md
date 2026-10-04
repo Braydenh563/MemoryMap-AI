@@ -7,6 +7,111 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the consistency contract's missing lints)
+
+### From WORLD_CLASS_PLAN.md rows 13 (section 1, D14)
+
+Five rules of section 1 named a lint that did not exist, so a session that did
+not know the rule could break it and nothing failed. All five are in
+`tests/test_consistency_contract.py`, each measured against the code first.
+
+- **Surface budget** (1.1). A card in a card, a panel in a panel, a glass in a
+  glass, a `details > summary.btn` in a card. 0 offences in `index.html`
+  (68 cards, 25 glass surfaces walked); no element carries the bare class
+  `panel`, so that half is a guard for the day one does. The plan named
+  `test_surface_budget.py`; it lives in the one file with the other four.
+- **One primary per modal** (1.2). Filled buttons per modal overlay, and per
+  pane inside the settings screen (the unit is the pane, the shell's nav is
+  not counted). Fails on a second filled button; five places hold more and
+  are ratcheted at their count (`PRIMARY_RATCHET`): doc-ai-panel 2 (Run,
+  Accept), ocr-workspace 2 (Save edits, Make a note), meeting-overlay 2
+  (Record, Save), settings-searchindex 2, settings-about 3. Each is a
+  stage-gated pair or a hidden alternate; making the second ghost until its
+  turn is a design call per dialog. A test fails when an allowance outlives
+  its dialog.
+- **Meta without border or hover** (1.2). 13 distinct `.chip` rules draw a
+  border or answer hover on the chip itself (link chips, category chips that
+  open a menu, the confidence chip, item labels, the recent-questions chip);
+  held at 13 (`META_RATCHET`). These are controls dressed as chips; folding
+  each into a button or dropping its edge is a per-chip design call.
+- **A menu item's rest background** (1.3). Across the five item classes
+  (`.menu-item`, `.doc-dock-menu-item`, `.wb-menu-item`,
+  `.library-image-menu-item`, `.action-menu-item`) no rest rule paints a
+  fill: 0 offences. The tint is hover and selected only.
+- **Every action in the palette** (D14). The app has no `data-action`
+  attribute, so the gate reads the two places an action is declared: every
+  `data-tab` button needs a `tab:` row (7 of 7 did) and every
+  `DEFAULT_SHORTCUTS` chord needs a `chord:` row or a named reason in
+  `CONTEXTUAL_CHORDS` (13 contextual, 17 in the palette). Four had neither
+  and now have a row: Open today's note (Ctrl+D, a new `todays-note` reveal
+  target), Go back, Go forward (Alt+Arrow), Reload the app (Ctrl+Alt+R).
+
+Not verified: the four new palette rows were not run in a browser; the static
+catalogue lints (`test_catalogue_reveal.py`, `test_feature_catalog.py`) pass.
+
+### From WORLD_CLASS_PLAN.md row 14 (A8): the '?' on every tab's dock
+
+Read against the markup first: of the 16 `data-dock-name` docks, 14 already
+carried a '?' (Chat, Library and Boards use the `data-help-for` popover;
+Graph, Timeline, Notes, Skills, Media and Contents use the older hand-wired
+`.graph-help-panel`), so the plan's "Chat and Graph have it" understated it.
+Two tab docks had none: **Dashboard** and **Reminders**. Each now ends with
+the recipe's button and `.help-body` (`#dash-help-toggle` / `#dash-help`,
+`#reminders-help-toggle` / `#reminders-help`), before the dock's more menu, and
+the help is one paragraph of three sentences. The Settings Logs console is
+the one dock left without, listed in `HELPLESS_DOCKS` with its reason (the
+Settings screen has its own Help section).
+
+- Lint: `tests/test_dock_help_507.py` fails a dock with no '?' and a stale
+  entry in `HELPLESS_DOCKS`; the new copy is checked for em-dashes and
+  exclamation marks.
+- Measured (`scratchpad/ui-sweeps/dockhelp2.js`, Chromium, 8804): at 1440 and
+  390 the toggle is visible (32px, 44px on a phone), one press opens a panel
+  fully inside the window, a second closes it; both docks stay one row (50px
+  at 1440, 62px at 390). 4 of 4.
+- Not changed: the six hand-wired panels were not moved onto `data-help-for`.
+
+### From WORLD_CLASS_PLAN.md row 12 (D6): the calendar strip and the day pair
+
+Read first: `todaysNote` (Ctrl+D) and both endpoints existed; no strip and no
+pair did (`grep` for `entries/daily` in `frontend/` found only a comment).
+
+- **The strip** (`renderTimelineDayStrip`, `#timeline-daystrip`): the seven days
+  ending today above the feed, a weekday and a date in each, a dot under a day
+  with a page, today in the accent and `aria-current="date"`, a month label
+  and two arrows that move a week (the later one is off at today; Today in the
+  dock brings the strip home). Outside the dock on purpose: seven buttons
+  would have taken the dock's whole seven-control ceiling, so the plan's
+  "segment of seven on the dock" became its own row, flat on the page and
+  capped at 28rem so a desktop window does not draw seven 190px boxes
+  (seen in a screenshot, then fixed).
+- **Written days** come from `GET /entries/daily?through=&days=7` (notes, by
+  their heading, the endpoint written for this) and the Timeline's documents
+  for days titled with a document.
+- **Pressing a day** is `openDayPage(key)`: the note when `GET /entries/daily`
+  says the day is written, else a document titled with the day, else the
+  composer with the date in the title and nothing written (the owner's rule
+  for Start today's note, now for every day). The question is asked before the
+  read so an empty day is an answer and not a 404 in the console. Ctrl+D is
+  `openDayPage(today)` now, one path for both.
+- **The pair** (`dailyNotePair`): a note whose title is an ISO date shows two
+  ghost buttons under its title in the Notes list, the day before and the day
+  after, labelled by weekday and date (the note is rarely today's, so
+  "Yesterday" and "Tomorrow" would be wrong).
+- Help moved with it: the Timeline's '?' paragraph and the Guide's
+  `timeline-controls` topic name the strip and the pair
+  (`tests/test_daily_strip.py`).
+- Measured (`scratchpad/ui-sweeps/daystrip.js`, Chromium, 1440 and 390): seven
+  days in one row and inside the window, today current and last, the dot on
+  both seeded days, 45px or more per day at 390 (the 44px target), an
+  unwritten day opens the composer with its date and the note count does not
+  change, a written day opens the Notes tab on its card, the pair opens the
+  neighbour, the earlier arrow moves a week and Today returns, no console
+  error. 19 of 19.
+- Left: the month popover for jumping past the strip (the arrows walk a week
+  at a time); the strip shows notes and documents only, not boards or
+  reminders titled with a date, as the timeline's own daily convention does.
+
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
 ### From MINDMAP_PLAN.md section 13e: the branch palette, the font, and decision 9's narrow case

@@ -1318,7 +1318,11 @@ HELP_TOPICS.extend(
                 "and End jump to the ends, Enter opens a row where it sits and Esc "
                 "closes it; in Select mode Space ticks a row, and the bar moves, "
                 "tags or deletes them. The density strip beside the feed shows how "
-                "much was written when: click or drag it to go there."
+                "much was written when: click or drag it to go there. Above the "
+                "feed, the calendar strip shows the last seven days with a dot "
+                "under each day that has a page: press a day to open its page or "
+                "start it (the arrows move a week). A note titled with its date "
+                "has the day before and the day after as buttons under its title."
             ),
             "badge": {"label": "Timeline", "tab": "timeline"},
         },

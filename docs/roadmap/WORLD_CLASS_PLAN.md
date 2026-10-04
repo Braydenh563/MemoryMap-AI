@@ -101,7 +101,7 @@ Lint: `tests/test_surface_budget.py` walks `index.html` and fails on
 `.card .card`, `.panel .panel`, `.card details > summary.btn`, and on any
 `.glass` inside `.glass`.
 
-**State 2026-09-24:** (c) not built. `tests/test_surface_budget.py` does not exist, so nothing fails on `.card .card` or a glass inside a glass; only `scratchpad/ui-sweeps/rows.js` reads the shape. S.
+**State 2026-10-04:** (a) built, in `tests/test_consistency_contract.py` (not the `test_surface_budget.py` named above): fails on a card in a card, a panel in a panel, a glass in a glass and a `details > summary.btn` in a card; 0 offences in `index.html`.
 
 ### 1.2 Controls (six recipes, one height)
 
@@ -121,7 +121,7 @@ All six share `--control-h-lg` (36px) on docks and `--control-h` in forms,
 most ONE primary per `[data-dock-name]` and per `.modal`, and that no
 `.chip`/`.meta` has a `border` or a `:hover` rule.
 
-**State 2026-09-24:** (b) one filled button per dock is enforced (`tests/test_dock_grammar.py`); one per `.modal`, and the meta recipe's no border and no hover, have no lint. S, `tests/test_ui_signatures.py`.
+**State 2026-10-04:** (a) built: one filled button per dock (`tests/test_dock_grammar.py`); one per modal and per settings pane, and the meta recipe's no border and no hover, in `tests/test_consistency_contract.py`, both as ratchets (5 places hold two or three filled buttons; 13 `.chip` rules draw a border or answer hover). Fixing them is a design call per dialog and per chip, listed in HISTORY.
 
 ### 1.3 Menus (one recipe)
 
@@ -157,7 +157,7 @@ graph has a Documents switch; the Library note card's Remind me and Link to,
 which the Notes card already has, so the Library one is two rows short of
 its twin.
 
-**State 2026-09-24:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background has no lint. The act-on-this rows marked open in the table above are open. S each.
+**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows marked open in the table above are open. S each.
 
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
@@ -367,7 +367,7 @@ that creates or returns; the calendar strip as a `.segment` of seven with
 overflow into a month popover. Gate: the key works from every tab; the
 calendar reflects the DB.
 
-**State 2026-09-24:** (b) the strip and the yesterday/tomorrow pair are what is left, as the paragraph above says (OPEN.md, Timeline). S.
+**State 2026-10-04:** (b) the strip (seven days, a dot per written day, week arrows) and the day pair in a daily note's card are built (HISTORY, "the consistency contract's missing lints", row 12); the month popover the brief names for overflow is the one part left. S.
 
 ### D7 Timeline (L, in progress: see TIMELINE_PLAN.md)
 
@@ -432,7 +432,7 @@ searchable list on the panel surface with flat rows; the palette generated
 from the same `ACTIONS` table the menus use, so nothing can be missing.
 Gate: every `data-action` in the DOM appears in the palette.
 
-**State 2026-09-24:** (b) the palette and the shortcut sheet come from one table (OPEN.md, DOCUMENTS_PLAN row); the gate, every `data-action` in the DOM appears in the palette, has no lint. S.
+**State 2026-10-04:** (b) the palette and the shortcut sheet come from one table (OPEN.md, DOCUMENTS_PLAN row); the gate is built as `tests/test_consistency_contract.py`: the app has no `data-action` attribute, so it reads the two places an action is declared (every `data-tab` button, every `DEFAULT_SHORTCUTS` chord) and fails on one the palette lacks. Four chords had no row and now do (today's note, go back, go forward, reload).
 
 ### D15 The shell: top bar, tab bar, bottom bar, sidebars (M, Opus)
 
@@ -761,9 +761,9 @@ take five of these.
 
 **Moved whole to HISTORY.md, "Moved from the plans, 2026-09-24".** A1 to A7 and A9 are done (the first
 A1 to A6 rows in the table were the pre-fix copies of the same findings).
-State 2026-09-24: A8's '?' help on every tab's dock is the one part left;
-`data-help-for` appears 51 times in `index.html`, and on a tab's dock only
-for Chat and Graph. The other three A8 items were not re-measured here.
+State 2026-10-04: A8's '?' help on every tab's dock is built (HISTORY, "the
+consistency contract's missing lints"); the other three A8 items were not
+re-measured here.
 
 ## 8. Execution order for the coming week (Opus/Sonnet sessions)
 
@@ -788,9 +788,9 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
 | 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
-| 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
-| 13 | §1, D14 | the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette | S | `tests/` |
-| 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
+| 12 | D6 | ~~the calendar strip and the yesterday/tomorrow pair~~ built 2026-10-04 (`timeline.js`, `note-cards.js`); left: the month popover for days past the strip's seven | S | `timeline.js` |
+| 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
+| 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
 | 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |

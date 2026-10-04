@@ -1024,6 +1024,14 @@
         <!-- The menu (`kebabMenu`, built by `renderDashMore`): grouped, an
              action sheet on a phone, keyboard from the recipe. -->
         <span id="dash-customise" class="dash-customise"></span>
+        <!-- The '?' every other tab's dock ends with (WORLD_CLASS_PLAN A8):
+             the `data-help-for` recipe, markup only, before the menu. -->
+        <button type="button" id="dash-help-toggle" class="icon-only ghost small graph-help-toggle"
+          data-help-for="dash-help" aria-controls="dash-help" aria-expanded="false"
+          title="About the dashboard" aria-label="About the dashboard"><i class="ph ph-question" aria-hidden="true"></i></button>
+        <div class="help-body hidden" id="dash-help" role="dialog" aria-label="About the dashboard">
+          <p>Today at a glance: your recent notes, reminders and widgets. Search finds notes, documents, files and app actions, and Ctrl+K opens the command palette. Customise, then Edit layout, lets you add, move, resize and remove widgets.</p>
+        </div>
         <span id="dash-more" class="dock-more dash-more"></span>
       </div>
     </div>
@@ -3024,7 +3032,14 @@ Link to another note with [[its first few words]]."></textarea>
         A note sits where it is <em>about</em> when it says so, "the deadline
         is next Friday" plots on that Friday, marked with a clock, and at when it was
         written otherwise. Arrow keys walk the rows, Enter opens one where it sits.
+        The strip below shows the last seven days: a dot marks a day with a page,
+        and pressing a day opens its page or starts it.
       </p>
+      <!-- The calendar strip (WORLD_CLASS_PLAN D6): the last seven days, a dot
+           under each that has a page, one press to open or start it. Built by
+           `renderTimelineDayStrip`; outside the dock on purpose, the dock is
+           at its control ceiling. -->
+      <div class="timeline-daystrip" id="timeline-daystrip" role="group" aria-label="Journal days"></div>
       <!-- The feed (TIMELINE_PLAN.md Phase 1). One `<section>` per bucket, a
            sticky header on each, a row per entry, and the spine in CSS. This
            replaced two views and a popup: a grid 8,800px wide with 79% of its
@@ -4878,6 +4893,14 @@ Link to another note with [[its first few words]]."></textarea>
             title="Add a reminder"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New reminder</button>
           <button id="reminder-clear-done" class="ghost small"
             title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
+          <!-- The '?' every other tab's dock ends with (WORLD_CLASS_PLAN A8):
+               the `data-help-for` recipe, after the actions and before the menu. -->
+          <button type="button" id="reminders-help-toggle" class="icon-only ghost small graph-help-toggle"
+            data-help-for="reminders-help" aria-controls="reminders-help" aria-expanded="false"
+            title="About reminders" aria-label="About reminders"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <div class="help-body hidden" id="reminders-help" role="dialog" aria-label="About reminders">
+            <p>Reminders are grouped as overdue, today and upcoming. Write one in plain words and press the wand to fill in the time, or use Quick set. Notifications fire while the app is open. The calendar view shows the month, and More adds every open reminder to your calendar app.</p>
+          </div>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">

@@ -1467,6 +1467,11 @@ function entryItem(entry, options = {}) {
     titleEl.className = "entry-title";
     titleEl.textContent = entry.title;
     li.appendChild(titleEl);
+    //: A daily note's title is its day (timeline.js, `dailyNoteTitle`), and
+    //: the day before and after are one press away (WORLD_CLASS_PLAN D6).
+    if (/^\d{4}-\d{2}-\d{2}$/.test(entry.title) && typeof dailyNotePair === "function") {
+      li.appendChild(dailyNotePair(entry.title));
+    }
   }
   //: GRAPH_PLAN KG4: the note's properties, a quiet table under its title
   //: (the `---` block in its text, which the body below leaves out).

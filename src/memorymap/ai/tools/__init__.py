@@ -3640,6 +3640,11 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "edit", "change", "update", "rewrite", "fix", "correct", "amend",
             "append",
             "pin", "unpin", "reword", "shorten", "expand",
+            # Filing one note is `edit_note`'s `category`, not a category
+            # tool (H4, Qwen2.5-3B): "File the dentist note under Health" was
+            # offered only the category tree's four tools and called
+            # `count_notes`, the one thing on offer that seemed near it.
+            "file ", "filed ", "move ",
         ),
     ),
     (

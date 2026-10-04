@@ -1996,6 +1996,57 @@ def _requires_a_call(question: str, plan: "_TurnPlan") -> bool:
     return bool(offered & _WRITE_TOOLS)
 
 
+#: The reads a forced first round keeps: the ones that find the thing the
+#: instruction names ("my dentist note", "the reminder to pay rent"). Every
+#: other read is something a small model reaches for instead of acting.
+_LOCATING_TOOLS = frozenset({"search_notes", "get_note", "list_notes", "list_reminders"})
+
+#: A request for information, said as one: a wh-word, or an auxiliary with
+#: its subject ("do I have", "is there", "are my"). "Can you pin it?" is a
+#: request said as a question and is not matched: it keeps its writes.
+_INFORMATION_QUESTION = re.compile(
+    r"^\s*(?:(?:what|which|who|whom|whose|when|where|why|how)\b|"
+    r"(?:is|are|am|do|does|did|have|has|was|were)\s+"
+    r"(?:i|you|we|there|my|it|this|that|these|those|the|any)\b)",
+    re.IGNORECASE,
+)
+
+
+def _first_round_tools(question: str, plan: "_TurnPlan", offered: list[dict], required: bool) -> list[dict]:
+    """The tools a small model's first round is offered (H4, measured on
+    Qwen2.5-3B through llama-server).
+
+    Forced, the round must call something, and a small model given the whole
+    toolbox sometimes calls the harmless read: "Add X to my note" opened with
+    `get_current_time`, "File the dentist note under Health" with
+    `count_notes`. Forced rounds keep the writes and the reads that locate a
+    note or a reminder, nothing else.
+
+    Unforced, a question for information is offered no write: "What tags and
+    what categories am I using?" opened with `tag_note`, because the word
+    "tags" cues the tag group. The writes come back on the next round, so a
+    question that turns into a job ("which note is about boots? pin it") still
+    gets them once it has read.
+
+    Only a narrowed tier and only an ordinary turn: a skill declared its own
+    list, and a large model was never measured choosing this badly.
+    """
+    if not plan.tier.narrow_toolbox or plan.permitted is not None:
+        return offered
+    if required:
+        keep = _WRITE_TOOLS | _LOCATING_TOOLS
+        narrowed = [t for t in offered if t["function"]["name"] in keep]
+    elif _INFORMATION_QUESTION.match(question or ""):
+        narrowed = [t for t in offered if t["function"]["name"] not in _WRITE_TOOLS]
+    else:
+        return offered
+    if len(narrowed) != len(offered):
+        logging.getLogger("memorymap.agent").info(
+            "first round: %s, %d of %d tools", "forced" if required else "question", len(narrowed), len(offered)
+        )
+    return narrowed or offered
+
+
 def _round_stream(ollama, model, messages, offered, mode, required):
     """One round's stream, with `tool_choice="required"` when asked and the
     provider takes it (the OpenAI dialect); any other provider, or a test's
@@ -2584,7 +2635,8 @@ def run_agent(
         said = ""
         try:
             required = round_number == 0 and plan.tier.force_first_call and _requires_a_call(question, plan)
-            stream = _round_stream(ollama, agent_model, state.messages, state.offered, mode, required)
+            this_round = _first_round_tools(question, plan, state.offered, required) if round_number == 0 else state.offered
+            stream = _round_stream(ollama, agent_model, state.messages, this_round, mode, required)
             for piece in stream:
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}

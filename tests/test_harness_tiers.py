@@ -305,3 +305,103 @@ def test_a_note_made_with_tags_was_tagged(monkeypatch, app_state):
     events = list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _Named("m"), _CreateWithTags()))
     text = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
     assert "Heads up" not in text, text
+
+
+# --- the first round: a forced call acts, a question reads (H4, Qwen2.5-3B) ------
+
+
+class _Rounds:
+    """Records each round's offered tools and whether it was forced; the first
+    round calls `search_notes`, the second answers."""
+
+    def __init__(self):
+        self.rounds: list[tuple[list, bool]] = []
+
+    def usable_context(self, model):
+        return 32_768
+
+    def chat_tools_stream(self, model, messages, offered, mode=None, tool_choice=None):
+        self.rounds.append(([t["function"]["name"] for t in offered], tool_choice == "required"))
+        if len(self.rounds) == 1:
+            call = {"name": "search_notes", "arguments": {"query": "dentist"}}
+            yield {"final": {"content": "", "tool_calls": [call], "raw_tool_calls": []}}
+            return
+        yield {"final": {"content": "Done.", "tool_calls": []}}
+
+
+def _rounds(monkeypatch, question, model="qwen2.5-3b-instruct"):
+    fake = _Rounds()
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"results": []})
+    list(agent.run_agent(_Session(), question, [], _Named(model), fake))
+    return fake.rounds
+
+
+_HARMLESS_READS = {"get_current_time", "count_notes", "list_tags", "list_categories", "notebook_overview"}
+
+
+@pytest.mark.parametrize(
+    ("question", "wanted"),
+    [
+        ("Add 'bring a rain jacket' to my Snowdon trip note", "edit_note"),
+        ("File the dentist note under Health", "edit_note"),
+        ("Move the plumber note to Home", "edit_note"),
+        ("Make a note: buy oat milk and eggs", "create_note"),
+        ("Mark the reminder to pay rent as done", "complete_reminder"),
+    ],
+)
+def test_a_forced_first_round_is_offered_the_writes_and_the_finders(monkeypatch, app_state, question, wanted):
+    """Qwen2.5-3B, forced: "Add X to my note" called `get_current_time` and
+    "File ... under Health" called `count_notes`; a forced round offered a
+    harmless read takes it instead of acting."""
+    rounds = _rounds(monkeypatch, question)
+    first, forced = rounds[0]
+    assert forced, question
+    assert wanted in first, (question, first)
+    assert not _HARMLESS_READS & set(first), (question, first)
+    assert set(first) <= agent._WRITE_TOOLS | agent._LOCATING_TOOLS, first
+
+
+def test_the_round_after_a_forced_one_has_the_whole_toolbox_again(monkeypatch, app_state):
+    rounds = _rounds(monkeypatch, "File the dentist note under Health")
+    second, forced = rounds[1]
+    assert not forced
+    assert "get_current_time" in second and "list_categories" in second
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What tags and what categories am I using?",
+        "Which of my notes are pinned?",
+        "Do I have anything tagged urgent",
+        "How many notes are in my Health category?",
+        "Is there a note about the dentist?",
+    ],
+)
+def test_a_question_s_first_round_is_offered_no_write(monkeypatch, app_state, question):
+    """Qwen2.5-3B, unforced: "What tags and what categories am I using?"
+    called `tag_note` first; the word "tags" had cued the tag group."""
+    rounds = _rounds(monkeypatch, question)
+    first, forced = rounds[0]
+    assert not forced
+    assert not agent._WRITE_TOOLS & set(first), (question, first)
+    assert {"search_notes", "list_tags"} <= set(first)
+
+
+def test_a_question_that_becomes_a_job_gets_its_writes_after_reading(monkeypatch, app_state):
+    rounds = _rounds(monkeypatch, "Which note is about my dentist? Pin it")
+    assert "pin_note" not in rounds[0][0]
+    assert "pin_note" in rounds[1][0]
+
+
+def test_a_request_said_as_a_question_keeps_its_writes(monkeypatch, app_state):
+    first, forced = _rounds(monkeypatch, "can you pin my dentist note?")[0]
+    assert not forced
+    assert "pin_note" in first
+
+
+def test_a_large_model_s_first_round_is_not_narrowed(monkeypatch, app_state):
+    for question in ("What tags and what categories am I using?", "Pin my dentist note"):
+        rounds = _rounds(monkeypatch, question, model="qwen3:14b")
+        assert rounds[0][0] == rounds[1][0], question
+        assert not rounds[0][1]

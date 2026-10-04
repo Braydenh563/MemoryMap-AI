@@ -3749,3 +3749,15 @@ def test_board_text_is_made_editable_in_one_place() -> None:
     assert "wbBeginTextEdit(editor)" in edit and "wbEditedText(editor)" in edit
     for caller in ("wbEditShapeLabel", "wbEditLinkLabel"):
         assert "wbOpenSketchLabelEditor(" in wb[wb.index(f"function {caller}(") :][:1500], caller
+
+
+def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
+    """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
+    the width was in the rows (the group labels sit above them and are all
+    narrower). Between 600 and 1023px the dots drop their gap; their own
+    transparent ring keeps them apart. `scratchpad/ui-sweeps/sketchbar.js`
+    is the measurement; this keeps the rule from being lost in a merge."""
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    at = css.index("@media (min-width: 600px) and (max-width: 1023px) {")
+    block = css[at : css.index("\n}", at)]
+    assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block

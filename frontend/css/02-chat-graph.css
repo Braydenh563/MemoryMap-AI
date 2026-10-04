@@ -2063,6 +2063,21 @@ button.ghost.danger {
   transform: scale(1.2);
 }
 
+/* **INBOX 276: one row at 820 on Large text.** The bar was 19px short there
+   (rows 706px plus four separators, 724, in a 705px inner bar), and the width
+   is in the rows, not in the group labels the first recommendation named:
+   those sit above their rows and are all narrower than them. Between the
+   phone band and 1024 the dots drop the gap between them: a dot's own 2px
+   transparent ring already keeps the coloured discs 4px apart, so seven
+   colours stay seven distinct targets, 27px narrower at Large text. */
+@media (min-width: 600px) and (max-width: 1023px) {
+  /* The long-hand, for the axis this is about: `gap: 0` would be a fourth
+     distinct row gap in the toolbar family (`test_ui_signatures.py`). */
+  .sketch-toolbar .wb-tool-section-row.sketch-colors {
+    column-gap: 0;
+  }
+}
+
 /* The selected dot keeps its ring and loses the scale: a transform moved the
    dot off the row's own baseline by a pixel, which is what made the colour
    section measure as two rows in `popupdialogs.js` while looking like one. */

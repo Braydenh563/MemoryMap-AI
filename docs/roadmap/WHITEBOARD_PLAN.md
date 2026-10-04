@@ -566,6 +566,22 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     below 1024 the way the phone band already hides other labels, and
     re-measure; it is worth about 60px, which is more than the 2px the wrap
     is short by. Owner: whoever next opens the pad's bar.
+    **Re-measured 2026-10-04, and the recommendation would buy nothing.** The
+    labels sit *above* their rows (a section is a column), and every label is
+    narrower than its row at 820 on Large text (Draw 37 over 104, Shapes 52
+    over 176, Ink 22 over 153, Size 29 over 97, Canvas 51 over 176), so hiding
+    them takes height, not width. The rows alone are 706px plus four 4.5px
+    separators, 724px, in a 705px inner bar: 19px short, still `rows=2` in
+    `sketchbar.js`. The width is in the rows: the Ink dots' gaps (6 x 5px at
+    Large text) and the Size slider's fixed 3rem are the two places with
+    room. **Half done the same day**: between 600 and 1023px the dots drop
+    their gap (a dot's own 2px transparent ring keeps the discs 4px apart), and
+    820 on Large text is one row (`sketchbar.js` 2 findings to 1; 1024 and
+    1440 unchanged). **Still open: 820 on Large text with Spacious density**,
+    41px short (rows 701px plus four 6px separators in a 684px inner bar), more
+    than the slider (about 9px) and the separators (24px) could give together.
+    Recommendation: let that one combination take two rows, and say so in the
+    sweep, rather than shrink 44px targets.
 
 ## Placed from INBOX, 2026-09-23
 

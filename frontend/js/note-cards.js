@@ -1062,21 +1062,14 @@ function libraryListsBoard(board) {
 //: at worst, never an overflow.
 const LINK_CHIP_CHARS = 48;
 
-// How much of a note the list shows before clamping it. Lowered from 500/10,
-// then again from 220/4 (the owner, 1093x614: "at least 4 note cards must
-// be above the fold" with realistic 3-5 line notes carrying tags and links;
-// measured, scratchpad/ui-sweeps/notesdensity.js: six such notes at 500/10
-// rendered unclamped, 184-283px each, 1 fully above the fold; at 220/4,
-// clamped to four lines, 214px each, still only 1). A note list is an index
-// you scan to find one, not the place you read it in full, so the preview
-// only needs enough to recognise which note it is; opening the note is one
-// click away. One line plus "Show more" keeps that recognisable while
-// giving the list room for more of them.
+// How much of a note the list shows before clamping it: a note list is an
+// index you scan, so the preview only needs enough to recognise the note.
+// Raised again (INBOX 473, "increase the amount of lines or characters"): the
+// clamp is `--note-preview-lines` (4, 3 compact, 5 spacious; the CSS holds
+// it), and a note of more than three text lines is a candidate for it. The
+// settle pass below takes "Show more" back off any note that fits.
 const LONG_NOTE_CHARS = 280;
-//: Two lines, matching `.entry-content.entry-clamped`'s clamp (INBOX 446
-//: (5)): the pair had drifted to 3, past the "one line plus Show more"
-//: above, and a third line was usually a blank one drawn as "...".
-const LONG_NOTE_LINES = 2;
+const LONG_NOTE_LINES = 3;
 // Which notes the user has opened out, for this session. Not persisted: it is
 // a reading position, not a preference.
 const expandedNotes = new Set();

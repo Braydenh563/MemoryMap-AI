@@ -1822,16 +1822,6 @@ header#top-bar,
     display: none;
   }
 
-  /* The desktop clamp (06-timeline-dialogs.css) dropped from 8 to 1 line
-     (note-cards.js's own LONG_NOTE_LINES, "at least 4 note cards above the
-     fold"), tighter than this band's own value used to be: matching rather
-     than removing the rule, so a phone that later wants its own value
-     again has one already here to change. */
-  #entry-list > li .entry-content.entry-clamped {
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-  }
-
   /* The list is the page: the card that framed it on a desktop is a second
      frame inside the window's own, and cost each row 33px of its width. */
   #tab-notes #browse,

@@ -9235,11 +9235,30 @@ button.connection-row {
   /* The shell as well as the select: `enhanceSelect` (sheets-selects.js) puts every
      native select inside a `.select-shell`, and that shell is what the bar
      actually lays out, so a cap on the select alone measured as no change at
-     all (212px before and after). */
+     all (212px before and after).
+
+     **A floor that gives way, not a fixed cap** (INBOX 479). At 8rem the name
+     read "Board · ..." at 820 with 89px of empty bar beside it (122px on a
+     map, 273 at 1152). The picker now asks for its whole name up to the
+     desktop's 14rem and is the one thing in the bar that shrinks, to 6rem;
+     the right half keeps its width, so nothing is pushed off the end. */
   .wb-topbar #wb-board-select,
   .wb-topbar .select-shell {
-    max-width: 8rem;
+    max-width: 14rem;
+    min-width: 6rem;
+    flex: 0 1 auto;
   }
+}
+
+@media (min-width: 48.01rem) {
+  .wb-topbar-right {
+    flex-shrink: 0;
+  }
+}
+
+/* The map's chip is one short word; the picker beside it gives way first. */
+.wb-topbar #wb-map-chip {
+  flex: none;
 }
 
 @media (max-width: 76rem) {

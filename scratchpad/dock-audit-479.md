@@ -95,8 +95,11 @@ mark moved no wrap): a
    in `.dock-actions` before the ⋯, the empty state keeping none.
 7. **The board picker truncates to its prefix at tablet widths.** At 820 the
    picker reads "Board · ..." (8rem cap below 76rem) with 104px of empty bar
-   between it and the search button. **Planned**: the picker keeps its cap and may
-   grow into the bar's free width up to its 14rem desktop width.
+   between it and the search button. **Fixed**: the picker asks for its whole
+   name up to the desktop's 14rem and is the one control in the bar that
+   gives way, to 6rem; the right half keeps its width. After: 217px at 820
+   ("Board · Harbor launc..."), 224px (the whole name) from 1024; 0px of
+   overflow at 1152, 1024, 820, 780 and 390; the map's chip stays whole.
 8. **Zoom controls differ between the graph and the board.** Graph: a vertical
    stack, Zoom in, Zoom out, Fit, Full screen, bottom right. Board and map: a
    horizontal pill, Zoom out, Fit, Zoom in, bottom right, with Full screen in the

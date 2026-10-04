@@ -37111,3 +37111,14 @@ export writes the ink and the card-coloured halo as attributes. Measured,
 0.5px of the shaft's middle at rest, mid-drag of an end and on a curve 92 units
 off the chord; 17.07:1 light, 14.01:1 dark); on the base script it fails from
 its first check.
+
+### From MINDMAP_PLAN.md §13f's remainder (decision 16): the board's menus on a map
+
+The Insert and Arrange markup a map's top bar carries is the board's own (20
+controls, all live on a board; a map's own View rows are hidden on a board the
+same way), so it stays. Found while measuring it: `wbSyncMapChrome` found each
+wrap from its menu, and a menu open on a board has been moved to `<body>` by
+`escapeAndCapMenu`, so a map opened without a click elsewhere drew both
+toggles. Found from `[aria-controls]` now, and the open menu is closed,
+restored home and uncapped. `scratchpad/ui-sweeps/maptopbar.js` 8/8 at
+1280x520, 4/8 on the base.

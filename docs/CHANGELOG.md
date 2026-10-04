@@ -89,6 +89,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind maps: the board's Insert and Arrange buttons no longer show in a map's top bar when one of their menus was open as the map opened.
 - Quick sketch: the toolbar stays on one row at tablet width with Large text; the ink dots sit closer between 600 and 1023px wide.
 - Mind maps: the topic menu's "Connect this topic to another" picks the connect tool again; it did nothing.
 - Mind maps: Tab, a name and Enter typed before the new topic's editor has opened now name that topic; the Enter used to add a second, empty topic and the name was lost.

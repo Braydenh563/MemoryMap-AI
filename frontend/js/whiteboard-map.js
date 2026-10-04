@@ -6184,11 +6184,27 @@ function wbSyncMapChrome() {
   //: Hidden, not disabled, for the reason the chip and the layout picker
   //: already are: a whole menu that can never apply here is not something to
   //: read past on every map.
+  //:
+  //: **Kept in the markup, and found through its button** (MINDMAP_PLAN
+  //: decision 16). The two menus are not dead: the one top bar serves both
+  //: kinds, and a board needs all 20 of their controls. And the wrap is
+  //: found from the toggle, never from the menu, because an open menu that
+  //: `escapeAndCapMenu` has moved to <body> is no longer inside its wrap:
+  //: measured at 1280x520, Insert open on a board and a map opened without a
+  //: click elsewhere (a view address, a keyboard path) left both toggles
+  //: drawn on the map. The menu is closed and put home first, so the next
+  //: board opens it from where it was built.
   for (const id of ["wb-insert-menu", "wb-arrange-menu"]) {
     const menu = document.getElementById(id);
-    const wrap = menu?.closest(".wb-board-menu-wrap");
+    const toggle = document.querySelector(`.wb-topbar [aria-controls="${id}"]`);
+    const wrap = toggle?.closest(".wb-board-menu-wrap");
     if (wrap) wrap.hidden = isMap;
-    if (isMap) menu?.classList.add("hidden");
+    if (isMap && menu) {
+      menu.classList.add("hidden");
+      toggle?.setAttribute("aria-expanded", "false");
+      restoreEscapedMenu(menu);
+      menu.style.maxHeight = "";
+    }
   }
   const chip = document.getElementById("wb-map-chip");
   const picker = document.getElementById("wb-map-layout");

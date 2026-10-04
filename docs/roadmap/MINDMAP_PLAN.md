@@ -1089,6 +1089,16 @@ topic: a control that wide has nowhere to go.
    reader draws those as boxes), and reads it back; OPML and FreeMind carry
    `_task`. No key: Space is the hand tool's hold. Priority, progress
    percentages, flags and due dates (the rest of item 4) stay open.
+16. **The board's Insert and Arrange menus stay in the markup** (taken
+   2026-10-04, §13f's remainder). Read as dead markup on a map; measured, it
+   is the board's own: one top bar serves both kinds and a board uses all 20
+   of those controls, so removing it from a map means building it per kind,
+   a working thing made riskier for no change anybody sees (`hidden` already
+   keeps it out of the tab order and the accessibility tree). What was wrong
+   was the lookup: the wrap was found from the menu, and an open menu
+   escaped to `<body>` is outside its wrap, so a map opened with one open
+   drew both toggles. Found from the button now, and the open menu is closed
+   and put home (`maptopbar.js`).
 
 ### Phases, each with the gate it is finished against
 
@@ -1216,9 +1226,8 @@ topic: a control that wide has nowhere to go.
   answered neither of the two gestures anybody tries on a blank part of it: a
   right-click opened nothing and a double-click added nothing. Both now do,
   and `mapdoors.js` (7/7, 3/7 on base, in the gate's sweep list) holds them
-  plus the door count and the naming rule. **What is left**: the Insert and
-  Arrange markup is still in the bar for a map to carry, which is a tidy-up,
-  not a user-visible bug.
+  plus the door count and the naming rule. The Insert and Arrange markup
+  stays (decision 16; HISTORY.md, "Moved from the plans, 2026-10-04").
 
 ### Not verified, and to be taken first by whoever opens this
 

@@ -228,6 +228,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat: with a local server that speaks the OpenAI dialect (LM Studio, llama.cpp), an answer now writes itself live; it used to arrive all at once at the end of the turn.
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
 - Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.
 - Skill logs: Clear and the pin button no longer touch when the collapsed sidebar is peeked open (they overlapped by 5.6px; the peeked pin now sits where the pinned one does, 6.4px from Clear), and at phone width Clear sits 6.4px from the opener, up from 2.4px (INBOX 495).

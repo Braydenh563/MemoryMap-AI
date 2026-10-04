@@ -140,3 +140,27 @@ def test_the_frontend_streams_chat_over_fetch(request):
     app_js = app_js_text()
     assert 'fetch("/chat/stream"' in app_js
     assert "new WebSocket(" not in app_js
+
+
+def test_openai_tool_stream_does_not_read_the_body_of_a_good_response(openai_client, capture_post):
+    """INBOX 534: `chat_tools_stream` passed `response.text` into its tools
+    rejection check as an argument, which Python evaluates before the function
+    looks at the status. On a streamed 200 that reads the whole body, so the
+    turn was produced on the wire as it was written and handed to the page in
+    one piece at the end: no live answer, thinking or follow-the-bottom, and
+    every figure, source and action row landing in the same frame. The body
+    of a response is only worth reading once the status says it is an error."""
+    from tests.fakes_http import FakeResponse, sse
+
+    class _NoBodyRead(FakeResponse):
+        @property
+        def text(self):
+            raise AssertionError("a 200 streamed response's body was read before streaming")
+
+        @text.setter
+        def text(self, _value):
+            pass
+
+    capture_post.queue.append(_NoBodyRead(lines=sse({"choices": [{"delta": {"content": "Hello"}}]})))
+    pieces = list(openai_client.chat_tools_stream("m", [], []))
+    assert "".join(p.get("content_delta", "") for p in pieces) == "Hello"

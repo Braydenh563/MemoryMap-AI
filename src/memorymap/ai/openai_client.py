@@ -801,7 +801,13 @@ class OpenAICompatClient(Provider):
             ) as response:
                 # A model without tool support is a gap to fall back from, not
                 # an outage: the same distinction the Ollama path draws.
-                if _looks_like_tools_rejection(response.status_code, response.text):
+                #: `.text` only on an error: as an argument it was read before
+                #: the status was looked at, and on a streamed 200 that drains
+                #: the whole body, so nothing reached the page until the end
+                #: (INBOX 534).
+                if response.status_code >= 400 and _looks_like_tools_rejection(
+                    response.status_code, response.text
+                ):
                     raise ToolsUnsupportedError(f"'{model}' can't use tools")
                 response.raise_for_status()
 

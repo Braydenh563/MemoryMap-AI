@@ -96,10 +96,13 @@ def _pref_key(name: str) -> str:
     return f"learn.{name}.enabled"
 
 
-#: The kinds this pass derives today. I1's later passes (tensions,
-#: duplicates, entities, dates) add their own to the same table and the same
-#: listing; the lifecycle below does not care which kind a row is.
-KINDS = ("claim", "question")
+#: The kinds the night pass derives. Claims and questions come from one note
+#: each (pass 3); a tension (two claims that disagree, pass 4) and an answer
+#: (a later claim that answers an open question, pass 5) are pairs, stored on
+#: the later side with the other in `payload`. The lifecycle below does not
+#: care which kind a row is.
+KINDS = ("claim", "question", "tension", "answered")
+PAIR_KINDS = ("tension", "answered")
 
 #: A sentence, and everything that is not one. Deliberately not
 #: `grounding.split_sentences`: that one splits an *answer* into strings and
@@ -354,6 +357,7 @@ def run(
     model: str = "",
     config=None,  # noqa: ANN001  # ConfigManager, duck-typed
     trigger: str = "manual",
+    embeddings=None,  # noqa: ANN001  # an EmbeddingService, for passes 4 and 5
 ) -> dict:
     """One night pass. Returns what it did, including why it stopped.
 
@@ -442,6 +446,21 @@ def run(
             derived += 1
             counts[item.kind] = counts.get(item.kind, 0) + 1
             models_used.add(decided_by)
+    if stopped == "done":
+        # Passes 4 and 5 read the rows pass 3 just added, by id.
+        session.flush()
+        spent, paired, stopped = _pair_passes(
+            session,
+            night,
+            spent=spent,
+            budget=budget,
+            provider=provider,
+            model=model,
+            embeddings=embeddings,
+            counts=counts,
+            models_used=models_used,
+        )
+        derived += paired
     night.finished_at = utcnow()
     night.scanned = scanned
     night.derived = derived
@@ -459,6 +478,397 @@ def run(
         "budget": budget,
         "stopped_reason": stopped,
     }
+
+
+# --- passes 4 and 5: tensions and answered questions (I1, H1; row 5) ----------
+
+#: How many neighbours each new claim or question is compared with. The plan's
+#: "top-k": past three the fourth-nearest claim is rarely about the same thing,
+#: and every pair is a model call.
+PAIR_NEIGHBOURS = 3
+
+#: How alike two sentences must be before they are worth comparing at all.
+#: Cosine when an embedding backend is up (a sentence pair, not a note pair, so
+#: higher than the notes' `TENSION_CANDIDATE_THRESHOLD`), the share of shared
+#: meaningful words otherwise.
+PAIR_COSINE = 0.6
+PAIR_WORDS = 0.34
+
+#: What one pair costs when no model is asked: comparing two sentences
+#: locally, so a budget still bounds a notebook of any size.
+TOKENS_PER_PAIR = 2
+
+_NEGATION = frozenset({"not", "no", "never", "nothing", "none", "cannot", "cant", "wont", "isnt", "arent", "wasnt", "dont", "doesnt", "didnt"})
+_NUMBER = re.compile(r"\b\d+(?:[.,]\d+)?\b")
+
+
+def _terms(text: str) -> set[str]:
+    from memorymap.search.query import search_terms
+
+    return {term for term in search_terms(text) if not term.isdigit()}
+
+
+def _words_alike(a: set[str], b: set[str]) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def _plain_words(text: str) -> set[str]:
+    return {word.replace("'", "").lower() for word in re.findall(r"[A-Za-z']+", text)}
+
+
+def _local_disagreement(a: str, b: str) -> str | None:
+    """Two near-identical claims that differ in a number or a negation.
+
+    The one disagreement a pass can see with no model: "the rent is 900" and
+    "the rent is 950", or "the boiler is covered" and "the boiler is not
+    covered". Anything subtler is the model's to judge, and without one this
+    says nothing rather than guessing.
+    """
+    terms_a, terms_b = _terms(a), _terms(b)
+    if _words_alike(terms_a, terms_b) < 0.6:
+        return None
+    numbers_a, numbers_b = set(_NUMBER.findall(a)), set(_NUMBER.findall(b))
+    if numbers_a and numbers_b and numbers_a != numbers_b:
+        return "The same thing with a different number."
+    negated_a = bool(_plain_words(a) & _NEGATION)
+    negated_b = bool(_plain_words(b) & _NEGATION)
+    if negated_a != negated_b:
+        return "The same thing, once with a not."
+    return None
+
+
+def _local_answer(question: str, claim: str) -> bool:
+    """A later claim that holds most of what the question asks about."""
+    asked = _terms(question)
+    return len(asked) >= 2 and len(asked & _terms(claim)) / len(asked) >= 0.6
+
+
+_JUDGE_TENSION = (
+    "Two sentences from the user's own notes, written at different times. "
+    "Do they disagree? Reply with one word, compatible, incompatible or "
+    "unrelated, then a dash and one short line saying why."
+)
+_JUDGE_ANSWER = (
+    "A question from the user's notes, and a sentence they wrote later. Does "
+    "the sentence answer the question? Reply with one word, yes or no, then a "
+    "dash and one short line saying why."
+)
+
+
+def _judge(provider, model: str, system: str, first: str, second: str) -> tuple[str, str] | None:  # noqa: ANN001
+    """`(first word, reason)` from the model, or None when it could not be
+    asked or did not answer in the shape asked for. None is "no finding",
+    never a guess: a pair the model would not judge is not a tension."""
+    try:
+        reply = provider.chat(
+            model,
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": f"1. {first}\n2. {second}"},
+            ],
+        )
+    except Exception as exc:  # noqa: BLE001  # a background pass, any provider
+        logger.info("night pass: the model could not judge a pair (%s)", exc)
+        return None
+    text = str((reply or {}).get("content") or "").strip()
+    match = re.match(r"\W*([A-Za-z]+)\W*(.*)", text, flags=re.S)
+    if not match:
+        return None
+    word = match.group(1).lower()
+    reason = " ".join(match.group(2).split())[:200]
+    return word, reason
+
+
+class _Similar:
+    """The sentences nearest one sentence, among a fixed pool.
+
+    Words first, through an inverted index over the pool's meaningful terms:
+    two claims that disagree are about the same thing and nearly always say
+    so in the same words, and scoring every pair of a first run's twenty
+    thousand claims directly is minutes, where the index reads only the
+    claims that share a term. Meaning second, when a backend is up: the best
+    few by words are re-scored by cosine, so "the flat costs 900" finds "rent
+    went up to 950" through what they mean, and only those few are embedded.
+    """
+
+    #: How many word-matched candidates the meaning re-score looks at.
+    RESCORE = 8
+    #: The words floor below which a candidate is not even re-scored.
+    PREFILTER = 0.15
+
+    def __init__(self, embeddings, pool: list[DerivedFact]) -> None:  # noqa: ANN001
+        self._embeddings = None
+        try:
+            if embeddings is not None and embeddings.is_ready():
+                self._embeddings = embeddings
+        except Exception:  # noqa: BLE001  # no backend is a state
+            self._embeddings = None
+        self.by_meaning = self._embeddings is not None
+        self.embedded = 0
+        self._vectors: dict[str, Any] = {}
+        self._pool = pool
+        self._terms = [_terms(row.text) for row in pool]
+        self._postings: dict[str, list[int]] = {}
+        for index, terms in enumerate(self._terms):
+            for term in terms:
+                self._postings.setdefault(term, []).append(index)
+
+    def _vector(self, text: str):  # noqa: ANN202
+        if text not in self._vectors:
+            vector = None
+            try:
+                raw = self._embeddings.embed_text(text)
+                self.embedded += 1
+                if raw is not None:
+                    import numpy as np
+
+                    vector = np.asarray(raw, dtype="float32")
+                    norm = float(np.linalg.norm(vector))
+                    vector = vector / norm if norm else None
+            except Exception:  # noqa: BLE001  # one sentence that will not embed
+                vector = None
+            self._vectors[text] = vector
+        return self._vectors[text]
+
+    def nearest(self, text: str, allowed, k: int = PAIR_NEIGHBOURS) -> list[tuple[float, DerivedFact]]:  # noqa: ANN001
+        """Up to `k` pool rows for which `allowed(row)` holds, best first."""
+        terms = _terms(text)
+        shared: dict[int, int] = {}
+        for term in terms:
+            for index in self._postings.get(term, ()):
+                shared[index] = shared.get(index, 0) + 1
+        by_words = []
+        #: **The same sentence again is not a neighbour.** A notebook that
+        #: says "the rent is 950" in three notes has three identical claims,
+        #: and by meaning they are each other's nearest (cosine 1.0): they
+        #: filled every one of the k places and the 900 that disagrees with
+        #: them was never compared (nightpairs.js, the fifth seeding). One
+        #: copy of each wording, and never the query's own.
+        seen_texts = {" ".join(text.lower().split())}
+        for index, count in shared.items():
+            union = len(terms | self._terms[index])
+            score = count / union if union else 0.0
+            if score >= self.PREFILTER and allowed(self._pool[index]):
+                by_words.append((score, self._pool[index]))
+        by_words.sort(key=lambda pair: (-pair[0], pair[1].id))
+        unique = []
+        for score, row in by_words:
+            wording = " ".join(row.text.lower().split())
+            if wording not in seen_texts:
+                seen_texts.add(wording)
+                unique.append((score, row))
+        by_words = unique
+        if not self.by_meaning:
+            return [pair for pair in by_words if pair[0] >= PAIR_WORDS][:k]
+        query = self._vector(text)
+        if query is None:
+            return [pair for pair in by_words if pair[0] >= PAIR_WORDS][:k]
+        rescored = []
+        for _words, row in by_words[: self.RESCORE]:
+            vector = self._vector(row.text)
+            if vector is not None and vector.shape == query.shape:
+                cosine = float(vector @ query)
+                if cosine >= PAIR_COSINE:
+                    rescored.append((cosine, row))
+        rescored.sort(key=lambda pair: (-pair[0], pair[1].id))
+        return rescored[:k]
+
+
+def _pair_key(kind: str, a: int, b: int) -> str:
+    low, high = sorted((a, b)) if kind == "tension" else (a, b)
+    return f"{kind}:{low}:{high}"
+
+
+def _known_pairs(session: Session) -> set[str]:
+    """Every pair a pass has recorded, tombstones included, so a dismissed
+    tension or answer is never found again."""
+    import json
+
+    known: set[str] = set()
+    for kind, payload in session.execute(
+        select(DerivedFact.kind, DerivedFact.payload).where(DerivedFact.kind.in_(PAIR_KINDS))
+    ).all():
+        try:
+            key = json.loads(payload or "{}").get("pair")
+        except ValueError:
+            key = None
+        if key:
+            known.add(str(key))
+    return known
+
+
+def _open_claims_and_questions(session: Session) -> tuple[list[DerivedFact], list[DerivedFact]]:
+    rows = list(session.scalars(_visible(select(DerivedFact)).where(DerivedFact.kind.in_(("claim", "question")))).all())
+    return [row for row in rows if row.kind == "claim"], [row for row in rows if row.kind == "question"]
+
+
+def _written(session: Session, entry_ids: set[int]) -> dict[int, datetime]:
+    return {
+        entry_id: created
+        for entry_id, created in session.execute(
+            select(Entry.id, Entry.created_at).where(Entry.id.in_(entry_ids))
+        ).all()
+    }
+
+
+def _pair_fact(kind: str, row: DerivedFact, other: DerivedFact, pair: str, reason: str, decided_by: str, confidence: float, run_id: int, similarity: float) -> DerivedFact:
+    """A tension or an answer, stored on the side that came later.
+
+    `entry_id` and the span are the later sentence's, so the row opens the
+    note that changed things; the payload names the other side by fact, note,
+    words and span, which is all the card and the questions view need without
+    a join back to a row that may since have been edited or deleted.
+    """
+    import json
+
+    return DerivedFact(
+        entry_id=row.entry_id,
+        kind=kind,
+        text=row.text,
+        span_start=row.span_start,
+        span_end=row.span_end,
+        model=decided_by,
+        confidence=confidence,
+        computed_at=utcnow(),
+        run_id=run_id,
+        payload=json.dumps(
+            {
+                "pair": pair,
+                "fact_id": row.id,
+                "other_fact_id": other.id,
+                "other_entry_id": other.entry_id,
+                "other_text": other.text,
+                "other_span": [other.span_start, other.span_end],
+                "reason": reason,
+                "similarity": round(float(similarity), 3),
+            }
+        ),
+    )
+
+
+def _pair_passes(
+    session: Session,
+    night,  # noqa: ANN001  # NightRun
+    *,
+    spent: int,
+    budget: int,
+    provider,  # noqa: ANN001
+    model: str,
+    embeddings,  # noqa: ANN001
+    counts: dict[str, int],
+    models_used: set[str],
+) -> tuple[int, int, str]:
+    """Passes 4 and 5 over what pass 3 just found. Returns `(spent, derived,
+    stopped)`; never raises past a single pair.
+
+    Only pairs with at least one side new this run are compared: an old pair
+    was compared on the night it became a pair, so a second run with nothing
+    new spends nothing here, which is the plan's "zero tokens" test.
+    """
+    claims, questions = _open_claims_and_questions(session)
+    new_claims = [row for row in claims if row.run_id == night.id]
+    new_questions = [row for row in questions if row.run_id == night.id]
+    if not (new_claims or new_questions):
+        return spent, 0, "done"
+    similar = _Similar(embeddings, claims)
+    known = _known_pairs(session)
+    written = _written(session, {row.entry_id for row in claims + questions})
+    derived = 0
+
+    def charge(first: str, second: str) -> int:
+        if provider is not None and model:
+            return int((len(first) + len(second) + 200) * TOKENS_PER_CHAR)
+        return TOKENS_PER_PAIR
+
+    # Pass 4: each new claim against the claims of other notes.
+    for claim in new_claims:
+        def other_note(row, claim=claim):  # noqa: ANN001, ANN202
+            return row.entry_id != claim.entry_id
+
+        for score, other in similar.nearest(claim.text, other_note):
+            pair = _pair_key("tension", claim.id, other.id)
+            if pair in known:
+                continue
+            cost = charge(claim.text, other.text)
+            if spent + cost > budget:
+                return spent, derived, "budget"
+            spent += cost
+            known.add(pair)
+            later, earlier = (claim, other)
+            if written.get(other.entry_id) and written.get(claim.entry_id) and written[other.entry_id] > written[claim.entry_id]:
+                later, earlier = other, claim
+            found: tuple[str, str, float] | None = None
+            if provider is not None and model:
+                judged = _judge(provider, model, _JUDGE_TENSION, earlier.text, later.text)
+                if judged and judged[0] == "incompatible":
+                    found = (model, judged[1], 0.7)
+            else:
+                reason = _local_disagreement(earlier.text, later.text)
+                if reason:
+                    found = ("local", reason, 0.5)
+            if found:
+                session.add(_pair_fact("tension", later, earlier, pair, found[1], found[0], found[2], night.id, score))
+                derived += 1
+                counts["tension"] = counts.get("tension", 0) + 1
+                models_used.add(found[0])
+
+    # Pass 5: open questions against claims written later, in other notes.
+    answered = {
+        int(json_payload_value(row.payload, "other_fact_id") or 0)
+        for row in session.scalars(
+            select(DerivedFact).where(DerivedFact.kind == "answered", DerivedFact.deleted_at.is_(None))
+        ).all()
+    }
+    for question in questions:
+        if question.id in answered:
+            continue
+        asked_at = written.get(question.entry_id)
+        if asked_at is None:
+            continue
+
+        def written_later(row, question=question, asked_at=asked_at):  # noqa: ANN001, ANN202
+            at = written.get(row.entry_id)
+            return (
+                row.entry_id != question.entry_id
+                and at is not None
+                and at > asked_at
+                and (question.run_id == night.id or row.run_id == night.id)
+            )
+
+        for score, claim in similar.nearest(question.text, written_later):
+            pair = _pair_key("answered", question.id, claim.id)
+            if pair in known:
+                continue
+            cost = charge(question.text, claim.text)
+            if spent + cost > budget:
+                return spent, derived, "budget"
+            spent += cost
+            known.add(pair)
+            found = None
+            if provider is not None and model:
+                judged = _judge(provider, model, _JUDGE_ANSWER, question.text, claim.text)
+                if judged and judged[0] == "yes":
+                    found = (model, judged[1], 0.7)
+            elif _local_answer(question.text, claim.text):
+                found = ("local", "Says most of what the question asks about.", 0.4)
+            if found:
+                session.add(_pair_fact("answered", claim, question, pair, found[1], found[0], found[2], night.id, score))
+                derived += 1
+                counts["answered"] = counts.get("answered", 0) + 1
+                models_used.add(found[0])
+                answered.add(question.id)
+                break
+    return spent, derived, "done"
+
+
+def json_payload_value(payload: str | None, key: str):  # noqa: ANN201
+    """One value from a fact's JSON payload, or None."""
+    import json
+
+    try:
+        return (json.loads(payload or "{}") or {}).get(key)
+    except (ValueError, AttributeError):
+        return None
 
 
 # --- the morning card -----------------------------------------------------------
@@ -624,6 +1034,27 @@ def as_json(row: DerivedFact) -> dict:
         "computed_at": row.computed_at.isoformat() if row.computed_at else None,
         "edited_by_user": bool(row.edited_by_user),
         "original_text": row.original_text,
+        #: A pair's other side (a tension's other claim, an answer's
+        #: question), or None for a claim or a question.
+        "pair": _pair_json(row),
+    }
+
+
+def _pair_json(row: DerivedFact) -> dict | None:
+    if row.kind not in PAIR_KINDS or not row.payload:
+        return None
+    import json
+
+    try:
+        payload = json.loads(row.payload) or {}
+    except ValueError:
+        return None
+    return {
+        "entry_id": payload.get("other_entry_id"),
+        "fact_id": payload.get("other_fact_id"),
+        "text": payload.get("other_text"),
+        "span": payload.get("other_span"),
+        "reason": payload.get("reason") or "",
     }
 
 

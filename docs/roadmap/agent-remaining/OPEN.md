@@ -169,7 +169,7 @@ then the plan tails by surface, then the horizon.
 | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
 | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
-| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). |
+| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). |
 
 **C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
 
@@ -740,17 +740,13 @@ the head, so they carry no row of their own.
 - **askcite.md**: the Chat tab's Ask mode receives `grounding_live` and ignores
   it, so its inline numbers arrive with the finished answer. [askcite]
   *Opus: new wiring in the Chat tab's renderer, measured against a model.*
-- **backend-0926.md**: the Recent activity widget's Undo row stays after an
-  undo (a second press says "Already undone"); the night card's review list
-  scrolls inside the widget's fixed-height body; the privacy receipt's ledger
-  is flushed only on read and at shutdown, so a killed process loses what it
-  saw since; LAN mode binds `0.0.0.0` only (no IPv6); F7's thread modules
+- **backend-0926.md**: LAN mode binds `0.0.0.0` only (no IPv6); F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet);
   night passes for tensions and answered questions as `DerivedFact` kinds.
   Not verified: the receipt against a real outbound call, the five UIs in the
   desktop window, LAN from a second device, the `.ics` in a real calendar app.
   [backend-0926]
-  *Opus: each is a small design choice (a periodic flush needs a timer's home; IPv6 needs a dual-stack bind); the unverified list is blocked here.*
+  *Opus: IPv6 needs a dual-stack bind; the unverified list is blocked here. The Undo row, the night card's scroll and the ledger's flush are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-04".*
 - **chat-0926.md**: CHAT_PLAN's "Placed from INBOX" list needs one triage pass
   (72 the popup agent panel, 63 Ask/Write/Capture and 71's Tools table look
   open); the mouse hover row on a question overlaps the answer under it by
@@ -823,12 +819,13 @@ the head, so they carry no row of their own.
   `<arrowlink>` written by FreeMind itself is untested. [maptheme]
   *Opus: schema and export design.*
 - **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
-  2026-10-04), but `mindmapcurve.js` at 390x844 times out because the topic's
-  own `.wb-map-add` button intercepts the click at the topic's centre (the
-  probe or the app, not yet told apart); a picture node does not resize to its
-  picture; `mindmap3.js` times out at `#wb-boards-generate` (the AI half).
-  [mindmap2]
-  *Opus: tell the probe's aim from the app's overlap first, at 390.*
+  2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
+  times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
+  390x844 passes 11 of 14 (its map is laid out wider than a phone, so the
+  hover reveal and the straight-line kink aim at off-screen handles: the
+  probe's layout, not the app; the add-button overlap that timed it out was
+  the app's and is closed, HISTORY.md). [mindmap2]
+  *Opus: lay the curve probe's map out inside 390 wide.*
 - **ocr-reading.md**: a page joins the reading panel only once looked at or
   read (nothing reads ahead, deliberately); nothing was verified with a real
   Tesseract or a vision model. [ocr-reading]

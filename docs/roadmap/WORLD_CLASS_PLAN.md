@@ -101,7 +101,7 @@ Lint: `tests/test_surface_budget.py` walks `index.html` and fails on
 `.card .card`, `.panel .panel`, `.card details > summary.btn`, and on any
 `.glass` inside `.glass`.
 
-**State 2026-09-24:** (c) not built. `tests/test_surface_budget.py` does not exist, so nothing fails on `.card .card` or a glass inside a glass; only `scratchpad/ui-sweeps/rows.js` reads the shape. S.
+**State 2026-10-04:** (a) built, in `tests/test_consistency_contract.py` (not the `test_surface_budget.py` named above): fails on a card in a card, a panel in a panel, a glass in a glass and a `details > summary.btn` in a card; 0 offences in `index.html`.
 
 ### 1.2 Controls (six recipes, one height)
 
@@ -121,7 +121,7 @@ All six share `--control-h-lg` (36px) on docks and `--control-h` in forms,
 most ONE primary per `[data-dock-name]` and per `.modal`, and that no
 `.chip`/`.meta` has a `border` or a `:hover` rule.
 
-**State 2026-09-24:** (b) one filled button per dock is enforced (`tests/test_dock_grammar.py`); one per `.modal`, and the meta recipe's no border and no hover, have no lint. S, `tests/test_ui_signatures.py`.
+**State 2026-10-04:** (a) built: one filled button per dock (`tests/test_dock_grammar.py`); one per modal and per settings pane, and the meta recipe's no border and no hover, in `tests/test_consistency_contract.py`, both as ratchets (5 places hold two or three filled buttons; 13 `.chip` rules draw a border or answer hover). Fixing them is a design call per dialog and per chip, listed in HISTORY.
 
 ### 1.3 Menus (one recipe)
 
@@ -157,7 +157,7 @@ graph has a Documents switch; the Library note card's Remind me and Link to,
 which the Notes card already has, so the Library one is two rows short of
 its twin.
 
-**State 2026-09-24:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background has no lint. The act-on-this rows marked open in the table above are open. S each.
+**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows marked open in the table above are open. S each.
 
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
@@ -299,21 +299,7 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 ### D2 Notes: list, capture, edit (L, Opus)
 
-Exists: the list with card/list views, filters, select mode, capture with
-templates, the edit form, connections. Wrong: a note shows no backlinks
-inline; `[[` has no autocomplete; the capture footer is two wrapped rows
-with a FAB over the Save button; the edit form's gutter drifts. Target:
-capture is one field with a slash menu and `[[` autocomplete, a one-row
-footer; a note's page has a connections rail (backlinks, links, related by
-similarity, in the same map) that is always visible on desktop and a sheet
-on phone. Brief: `[[` autocomplete over `/entries?q=` with keyboard
-selection; a `.connections-rail` component rendered from `/entries/{id}/links`
-(exists) and `/entries/{id}/related`; the footer on the bar recipe. Gate:
-typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
-renders for every note; the FAB never overlaps a primary (Playwright
-intersection check).
-
-**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
+**Built** (`[[` autocomplete, and the connections rail 2026-09-27). Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (D2 connections rail)", with the 2026-10-04 re-measure. Nothing of D2 is open here.
 
 ### D3 Chat (M, Opus)
 
@@ -381,7 +367,7 @@ that creates or returns; the calendar strip as a `.segment` of seven with
 overflow into a month popover. Gate: the key works from every tab; the
 calendar reflects the DB.
 
-**State 2026-09-24:** (b) the strip and the yesterday/tomorrow pair are what is left, as the paragraph above says (OPEN.md, Timeline). S.
+**State 2026-10-04:** (b) the strip (seven days, a dot per written day, week arrows) and the day pair in a daily note's card are built (HISTORY, "the consistency contract's missing lints", row 12); the month popover is built too (HISTORY, same section). D6 is done.
 
 ### D7 Timeline (L, in progress: see TIMELINE_PLAN.md)
 
@@ -446,7 +432,7 @@ searchable list on the panel surface with flat rows; the palette generated
 from the same `ACTIONS` table the menus use, so nothing can be missing.
 Gate: every `data-action` in the DOM appears in the palette.
 
-**State 2026-09-24:** (b) the palette and the shortcut sheet come from one table (OPEN.md, DOCUMENTS_PLAN row); the gate, every `data-action` in the DOM appears in the palette, has no lint. S.
+**State 2026-10-04:** (b) the palette and the shortcut sheet come from one table (OPEN.md, DOCUMENTS_PLAN row); the gate is built as `tests/test_consistency_contract.py`: the app has no `data-action` attribute, so it reads the two places an action is declared (every `data-tab` button, every `DEFAULT_SHORTCUTS` chord) and fails on one the palette lacks. Four chords had no row and now do (today's note, go back, go forward, reload).
 
 ### D15 The shell: top bar, tab bar, bottom bar, sidebars (M, Opus)
 
@@ -543,17 +529,9 @@ on 2026-09-14 (INBOX 220) so they survive its archiving.
 
 ### B2 The job runtime: durable, resumable, observable
 
-Today long work runs in threads with no persistence (MODERNISATION_AUDIT
-D2). Move: a `jobs` table (`id, kind, state, progress, payload, result,
-error, attempts, run_after, heartbeat`), a single worker thread per process
-that leases jobs, a `@job` decorator that makes any function durable, and
-SSE `/jobs/stream` for the UI. Jobs: re-index, embed, OCR, caption,
-auto-file, skill run, import, backup, model download. Every job is
-cancellable, survives a restart, and reports progress in one shape the
-"Running now" panel renders. Gate: kill the server mid-OCR, restart, the
-job resumes; the panel shows it.
+**Built 2026-10-04 for the pool's kinds.** Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (B2 durable jobs)": the `jobs` table, leases with a heartbeat, resume after a kill (a real SIGKILL in `tests/test_jobstore.py`), `GET /jobs`, `GET /jobs/stream`, cancel of a queued job.
 
-**State 2026-09-24:** (b) the bounded pool is built (`core/jobs.py`, `tests/test_jobs_pool.py`, audit row A3); the durable half is not: no `jobs` table, no lease or heartbeat, no resume after a kill, no `/jobs/stream`. L, Opus.
+**Left:** the other kinds onto the table (re-index, embed, skill run, import, backup, model download: each runs in its own thread with its own cancel today and needs a handler that resumes from a cursor rather than from the start); the activity panel reading `/jobs/stream` instead of polling `/tasks`; a running job cannot be cancelled (cooperative stop per handler). M, Opus.
 
 ### B3 The retrieval engine: one index, three signals, explained
 
@@ -783,9 +761,9 @@ take five of these.
 
 **Moved whole to HISTORY.md, "Moved from the plans, 2026-09-24".** A1 to A7 and A9 are done (the first
 A1 to A6 rows in the table were the pre-fix copies of the same findings).
-State 2026-09-24: A8's '?' help on every tab's dock is the one part left;
-`data-help-for` appears 51 times in `index.html`, and on a tab's dock only
-for Chat and Graph. The other three A8 items were not re-measured here.
+State 2026-10-04: A8's '?' help on every tab's dock is built (HISTORY, "the
+consistency contract's missing lints"); the other three A8 items were not
+re-measured here.
 
 ## 8. Execution order for the coming week (Opus/Sonnet sessions)
 
@@ -800,19 +778,19 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 | S | HISTORY; §12 |
-| 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
-| 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
-| 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
-| 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
-| 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
+| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
+| 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
+| 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
+| 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
+| 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
 | 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
-| 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
-| 13 | §1, D14 | the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette | S | `tests/` |
-| 14 | A8 | the '?' help on every tab's dock (Chat and Graph have it) | S | `index.html` docks |
+| 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
+| 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
+| 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
 | 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
@@ -928,7 +906,8 @@ plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
 **Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
 hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
-and the switch in Settings, Account and security. Left: IPv6 addresses.
+and the switch in Settings, Account and security. IPv6 built 2026-10-04
+(HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1021,7 +1000,7 @@ nearest-neighbour index below 50k notes. The measured costs are elsewhere.
 **State 2026-09-24:** 1 is (b): the loop is built for
 filing (`ai/learning.py`, corrections in `AuditLog`) and search
 (`open_after_ask`); dismissed link pairs and accepted neighbourhoods were not
-traced. 2 is built (B3). 3 is (c): one vector per note still, no chunk table.
+traced. 2 is built (B3). 3 is built 2026-10-04 (row 6; HISTORY, "row 6: paragraph vectors and evidence cards").
 4 is B4, (b).
 
 ## 15. Inventions: eight things no notebook does, specified for Opus and Sonnet
@@ -1120,7 +1099,7 @@ from `/night/latest`. **Size** L (two sessions). **Model** Opus for the
 runner and prompts, Sonnet for the review UI on the modal and list
 recipes.
 
-**State 2026-09-24:** (b) the first pass is built (`ai/facts.py`, `POST /night/run` with a budget and a cursor, claims and questions in `derived_facts`); `night_runs`, `GET /night/latest`, the morning card and passes 4 and 5 (tensions, answered questions) are not. H1 below is the same row. L, Opus.
+**State 2026-10-04:** passes 1, 3, 4 and 5, `night_runs`, `GET /night/latest` and the morning card are built (HISTORY, "row 5: tensions and answered questions"). Left: pass 2's cheap kinds (dates, duplicates, entities) as `derived_facts` rows, with the accept of a date (a reminder) and of a duplicate (the merge). H1 below is the same row.
 
 ### I2 The margin reader: a second reader in the editor, from your own notes
 
@@ -1180,41 +1159,7 @@ frontend anchoring is design work).
 
 ### I3 Open questions: the notebook keeps a list of what you have not answered
 
-**What the person sees.** A "Questions" view under Notes (a sub-tab):
-every question you have written to yourself, newest first, each with
-"asked 3 March in 'Pricing thoughts'" and one of three states: open,
-answered ("you answered this on 9 April in 'Call with Sam'", with the
-sentence), or dropped. The Dashboard shows the count and the oldest open
-one. Ask can be scoped to it: "what am I still undecided about?" answers
-from this list with citations.
-
-**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
-the questions you *asked in passing* and tells you when a later note
-answered them. This is the feature that makes a notebook feel like it
-remembers on your behalf.
-
-**Builds on.** I1 (extraction and the "answers" pass), the grounding
-scorer for the answered-by sentence, the Notes sub-tab strip and the dock
-grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
-
-**Data.** `derived_facts` of kind `question` with payload `{answered_by:
-fact_id | null, dropped: bool}`. No new table.
-
-**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
-(`{state}`; marking answered by hand asks for the note and stores a typed
-link), the Ask box gets `scope: "questions"`.
-
-**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
-questions yields two open facts with spans; a later note that the fake
-model judges as answering one flips its state and the link exists; Ask
-with the scope cites only question facts; dropping is reversible and
-recorded as a correction (I7).
-
-**Gate.** The view renders under 100ms for 500 questions; the dock passes
-`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
-list recipe; Opus for the Ask scope.
-
-**State 2026-09-24:** (b) question facts are derived (I1's first pass); `GET /questions`, the Notes sub-tab, the Ask scope and the answered-by link are not built. M.
+Built 2026-10-04 (row 7): moved to HISTORY.md, "Moved from the plans, 2026-10-04 (row 7: open questions)", with the answered-by link's decision. Nothing is left here: the night pass retrying an open question as notes arrive is pass 5 (row 5).
 
 ### I4 Resurfacing: the ideas you are about to forget, when they matter
 
@@ -1262,42 +1207,7 @@ empty, honest answer rather than today's.
 
 ### I6 Evidence cards: answers you can audit sentence by sentence
 
-**What the person sees.** Every AI answer sentence carries a small marker;
-hovering shows the *paragraph* it came from, with the three reasons it was
-chosen (words matched, meaning score, graph distance) as three short bars,
-and the verifier's verdict: supported, partly, or unsupported. Unsupported
-sentences are rendered in a lighter tone with "no note says this". A
-"Show the evidence" toggle opens the answer and its sources side by side,
-each source scrolled to the paragraph. A one-line trust score under the
-answer: "9 of 11 sentences supported by your notes".
-
-**Why it is new.** Perplexity cites pages; it cannot say which sentence
-is unsupported, and its citations are page-level. Here the corpus is
-finite and local, so every sentence can be checked against every
-paragraph, and the verifier (B5) can say no.
-
-**Builds on.** This session's grounding change (touched notes, distinctive
-words, labels), `addInlineCitations` and `renderAnswerGrounding` in
-`app.js`, `match_info` (the three signals already exist per hit), the
-verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
-paragraph-level anchors.
-
-**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
-`span`, `signals: {bm25, cosine, graph}`, `verdict`.
-
-**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
-a chunk ordinal and a span that exists in that note; an answer sentence
-with no candidate is marked `unsupported` and the trust line counts it;
-the side-by-side view scrolls the source to the span (Playwright: the
-span's rect is inside the viewport); the markers survive the final
-markdown re-render (the bug already fixed once in `askQuestion`).
-
-**Gate.** Trust score correct on the eval fixture's golden answers
-(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
-from its current baseline (record the number first). **Size** M. **Model**
-Opus.
-
-**State 2026-09-24:** (b) the per-sentence marks and the "only N of M sentences supported" line are built (CHAT_PLAN Phase 1, app.js ~13530); paragraph anchors, the three signal bars per sentence and the side-by-side view are not, and wait on §14's chunks. M, Opus.
+Built 2026-10-04 (row 6): moved to HISTORY.md, "Moved from the plans, 2026-10-04 (row 6: paragraph vectors and evidence cards)". Left: "wrong" on a card as a correction (I7, H2's second half).
 
 ### I7 The corrections loop: every "no" makes the notebook better
 
@@ -1764,7 +1674,7 @@ runs a night in under ten minutes on a 4B model against the fake
 transport, every change is undoable, and the report card's count equals
 the event log's count for that run. Test first: `tests/test_night_runs.py`.
 
-**State 2026-09-24:** (b), the same as I1 above.
+**State 2026-10-04:** the same as I1 above.
 
 ### H2 Evidence cards and open questions (I6 then I3; L, Opus)
 
@@ -1779,7 +1689,7 @@ the night shift retries it when new notes arrive. Gate: 95% of sentences
 cited on the seeded notebook; a corrected citation changes the next
 answer's ranking (asserted, not eyeballed).
 
-**State 2026-09-24:** (b), I6 half built and I3's view not built.
+**State 2026-10-04:** I6 built (row 6) and I3 built (row 7), both in HISTORY; left here: "wrong" on a card retraining the ranker (I7).
 
 ### H3 The model bench (I8; M, Opus)
 

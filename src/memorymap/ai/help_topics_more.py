@@ -143,11 +143,17 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "what it learned", "learned", "worked out", "derived", "forget everything learned",
             "read my notes now", "export what it learned",
+            "while you were away", "disagree", "contradict", "answered later",
         ),
         "body": (
             "Settings, What it learned is what Atlas worked out by itself while "
             "reading your notes (a claim a note makes, a question it leaves "
-            "open), where What it remembers is what you told it. Every row "
+            "open, two claims in different notes that disagree, a question a "
+            "later note answers), where What it remembers is what you told it. "
+            "The Dashboard's While you were away card counts each kind from the "
+            "last read; a pair shows the other sentence under it, a button to "
+            "open the other note and, for a disagreement, one to link the two "
+            "notes as disagreeing. Every row "
             "says which note it came from, which model decided it and how sure "
             "it was. Edit a row and no later run overwrites it; delete one and "
             "it is never worked out again. What may run switches each kind off; "
@@ -155,6 +161,26 @@ MORE_TOPICS: list[dict] = [
             "everything learned act on all of it and never touch your notes."
         ),
         "badge": {"label": "What it learned", "section": "learned"},
+    },
+    {
+        "id": "open-questions",
+        "keywords": (
+            "open questions", "questions view", "unanswered", "undecided", "still undecided",
+            "answered by", "mark answered", "drop a question", "ask about these",
+        ),
+        "body": (
+            "Notes, Questions lists the questions your notes ask in passing, "
+            "found when Atlas reads your notes on its own, newest note first: "
+            "Open, Answered and Dropped, each with a count. A row says when and "
+            "in which note it was asked; when a later note answers it, the row "
+            "says so with the sentence, and pressing that line opens the note. "
+            "Mark answered asks which note answers it and links the two notes; "
+            "Drop puts a question aside; Reopen brings either back. Ask about "
+            "these opens Ask answering from the notes with open questions only "
+            "(Ask all notes under the box goes back). The Dashboard's While you "
+            "were away card counts the open ones and names the oldest."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
     },
     {
         "id": "general-settings",
@@ -280,7 +306,8 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Logs shows what happened, for when something did not "
             "work: filter by source and level, follow new lines, copy or clear "
-            "them. The support bundle collects the logs and the app's state; "
+            "them. The ? beside the three dots in its bar says what each control "
+            "does. The support bundle collects the logs and the app's state; "
             "Email it opens a message to support with the bundle to attach."
         ),
         "badge": {"label": "Logs", "section": "logs"},
@@ -830,6 +857,7 @@ MORE_TOPICS.extend(
 #: says where it lives, `steps` are there when there is something to do in
 #: order. An entry with no meta is laid out from its id and body alone.
 TOPIC_META: dict[str, dict] = {
+    "open-questions": {"title": "Open questions", "path": "Notes tab, Questions"},
     "capture": {"title": "Capturing a note", "path": "Notes tab", "steps": (
         "Open the Notes tab (m then n).", "Type into Capture a thought.", "Press Save: a local AI files it and suggests tags.")},
     "ask-chat": {"title": "Asking and chatting", "path": "Chat tab, or Ctrl+Shift+A over any tab"},
@@ -962,7 +990,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Asking Atlas", (
         "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
-        "contradictions", "skills", "personas", "answer-style", "memory", "learned",
+        "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
         "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",

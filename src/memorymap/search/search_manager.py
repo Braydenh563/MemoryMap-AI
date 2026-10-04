@@ -409,6 +409,12 @@ def _score_from_matrix(session: Session, query_vector, query_norm: float, backen
     # other work running, 0.45 ms through `einsum`, 0.3 ms either way on one
     # thread). One core at memory speed is all this needs.
     scores = np.einsum("ij,j->i", rows, np.asarray(query_vector, dtype="float32") / np.float32(query_norm))
+    # **A long note scores on its best paragraph too** (row 6, §14 item 3):
+    # its own vector averages every subject it covers, so one paragraph about
+    # the question used to rank below a short note that only brushed it.
+    scores = importlib.import_module("memorymap.search.chunks").lift(
+        session, backend_id, query_vector, ids, scores
+    )
     return ids, scores, live
 
 

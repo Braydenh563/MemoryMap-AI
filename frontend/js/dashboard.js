@@ -3590,7 +3590,10 @@ function dashBoardThumb(board) {
 const NIGHT_KIND_WORDS = {
   claim: ["claim", "claims"],
   question: ["open question", "open questions"],
+  tension: ["claim that disagrees with another", "claims that disagree with others"],
+  answered: ["question answered later", "questions answered later"],
 };
+const NIGHT_PAIR_LEAD = { tension: "Disagrees with", answered: "Answers" };
 const NIGHT_PAGE = 5;
 
 function nightKindWords(kind, n) {
@@ -3618,9 +3621,52 @@ function nightFactRow(fact, onGone) {
   meta.textContent = [fact.model === "local" ? "Found without a model" : fact.model, `${Math.round((fact.confidence || 0) * 100)}% sure`]
     .filter(Boolean)
     .join(" · ");
-  text.append(title, meta);
+  text.append(title);
+  //: A pair quotes its other side; the reason joins the facts.
+  if (fact.pair && NIGHT_PAIR_LEAD[fact.kind]) {
+    const other = document.createElement("span");
+    other.className = "dash-list-preview night-fact-pair";
+    other.textContent = `${NIGHT_PAIR_LEAD[fact.kind]}: “${fact.pair.text || ""}”`;
+    text.append(other);
+    if (fact.pair.reason) meta.textContent = [fact.pair.reason, meta.textContent].join(" · ");
+  }
+  text.append(meta);
   const actions = document.createElement("span");
   actions.className = "night-fact-actions";
+  if (fact.pair && fact.pair.entry_id) {
+    const openOther = document.createElement("button");
+    openOther.type = "button";
+    openOther.className = "ghost small icon-only";
+    const otherLabel = fact.kind === "answered" ? "Open the note with the question" : "Open the other note";
+    openOther.title = otherLabel;
+    openOther.setAttribute("aria-label", otherLabel);
+    setLabel(openOther, "ph:arrows-left-right");
+    openOther.addEventListener("click", () => flashEntry(fact.pair.entry_id));
+    actions.append(openOther);
+  }
+  //: Accept a tension: the `contradicts` link (I1, the existing accept path).
+  if (fact.kind === "tension" && fact.pair && fact.pair.entry_id) {
+    const keep = document.createElement("button");
+    keep.type = "button";
+    keep.className = "ghost small icon-only";
+    keep.title = "Link the two notes as disagreeing";
+    keep.setAttribute("aria-label", "Link the two notes as disagreeing");
+    setLabel(keep, "ph:link");
+    keep.addEventListener("click", async () => {
+      keep.disabled = true;
+      try {
+        await apiJson("/entries/tensions/accept", {
+          method: "POST",
+          body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
+        });
+        toast("Linked as disagreeing");
+      } catch (error) {
+        keep.disabled = false;
+        toast(error.message || "Couldn't link those notes.", true);
+      }
+    });
+    actions.append(keep);
+  }
   const open = document.createElement("button");
   open.type = "button";
   open.className = "ghost small icon-only";
@@ -3706,7 +3752,36 @@ function nightKindLine(host, runId, kind, count) {
   host.appendChild(li);
 }
 
+//: The card, then the open questions count and the oldest one (I3).
 async function renderNightWidget(body) {
+  await renderNightCard(body);
+  let summary;
+  try {
+    summary = await apiJson("/questions/summary", { silent: true });
+  } catch {
+    return;
+  }
+  if (!summary || !summary.open) return;
+  const line = document.createElement("p");
+  line.className = "muted night-questions";
+  const oldest = summary.oldest;
+  const words = `${summary.open} open question${summary.open === 1 ? "" : "s"}`;
+  line.textContent = oldest ? `${words}. The oldest: “${oldest.text}”` : `${words}.`;
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small";
+  setLabel(open, "ph:question See your questions");
+  open.addEventListener("click", async () => {
+    await switchTab("notes");
+    showNotesSection("questions");
+  });
+  const row = document.createElement("div");
+  row.className = "row night-questions-row";
+  row.append(line, open);
+  body.appendChild(row);
+}
+
+async function renderNightCard(body) {
   let card;
   try {
     card = await apiJson("/night/latest", { silent: true });
@@ -3746,7 +3821,7 @@ async function renderNightWidget(body) {
   let counts = card.counts || {};
   if (!Object.keys(counts).length) {
     if (!card.previous) {
-      dashEmpty(body, "Nothing new since it last read. Claims and open questions show up here.", null);
+      dashEmpty(body, "Nothing new since it last read. Claims, open questions and notes that disagree show up here.", null);
       return;
     }
     shown = card.previous;
@@ -3919,16 +3994,28 @@ async function undoActorFrom(actor, since, byId, rerender) {
   }
 }
 
-function activityUndoControl(items, byId, rerender) {
-  //: The oldest shown event of each actor that is not the person: undo from
-  //: just before it, so everything that actor did in the list goes back.
+//: Per actor that is not the person, the oldest shown entry event that no
+//: undo has reversed yet: undo from just before it, so everything that actor
+//: did in the list goes back. A `restored` event in the feed names the events
+//: it reversed (`undid`), and those are skipped, so the row goes once an undo
+//: has put everything back instead of staying to say "Already undone".
+function activityUndoStarts(items) {
+  const undone = new Set();
+  for (const item of items) {
+    if (item.action === "restored" && Array.isArray(item.undid)) item.undid.forEach((id) => undone.add(id));
+  }
   const from = new Map();
   for (const item of items) {
     if (!item.actor || item.actor === "user" || item.actor.startsWith("system:recycle")) continue;
-    if (item.entity_type !== "entry") continue;
+    if (item.entity_type !== "entry" || undone.has(item.id)) continue;
     const at = from.get(item.actor);
     if (at === undefined || item.id < at) from.set(item.actor, item.id);
   }
+  return from;
+}
+
+function activityUndoControl(items, byId, rerender) {
+  const from = activityUndoStarts(items);
   if (!from.size) return null;
   const row = document.createElement("div");
   row.className = "row activity-undo";

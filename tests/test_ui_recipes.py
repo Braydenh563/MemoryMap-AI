@@ -32,7 +32,7 @@ JS = sorted((ROOT / "frontend" / "js").glob("*.js"))
 # the glass-off list by its own name.
 GLASS_FAMILIES = {
     ".card", ".glass", "header#top-bar", "#top-bar", ".modal-card", ".space-dialog",
-    ".dock-menu", ".action-menu", ".select-menu", ".graph-help-panel", ".help-body",
+    ".dock-menu", ".action-menu", ".select-menu", ".help-body",
     ".toast", ".command-palette-card", ".scroll-top", ".notes-subtabs", ".library-subtabs",
     ".contents-heading", ".graph-zoom", ".sidebar-panel",
 }
@@ -4031,3 +4031,32 @@ def test_the_chat_sidebar_sort_is_as_wide_as_its_words_not_the_column():
     bodies = [body for sel, body in _rules(text) if "#chat-sidebar .select-shell" in sel.split(",")]
     assert any("align-self: flex-start" in body for body in bodies)
     assert any("max-width: 100%" in body for body in bodies)
+
+
+def test_no_help_panel_is_hand_wired():
+    """Every '?' is the `data-help-for` recipe (DESIGN.md): a button naming its
+    `.help-body` panel, wired by `initHelpToggles` and nothing else. The older
+    shape was a `.graph-help-panel` opened by an `initHelpToggle(buttonId,
+    panelId)` call (or its own click, outside-click and Escape listeners, as
+    the Graph's was), which put nine popovers on a second code path and a
+    second stylesheet. WORLD_CLASS_PLAN A8 moved them all; this keeps them
+    moved."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert "graph-help-panel" not in re.sub(r'id="graph-help-panel"|data-help-for="graph-help-panel"|aria-controls="graph-help-panel"', "", html), (
+        "a `.graph-help-panel` element: use a `.help-body` panel and `data-help-for`"
+    )
+    for js in JS:
+        text = js.read_text(encoding="utf-8")
+        assert not re.search(r"\binitHelpToggle\(", text), f"{js.name}: a hand-wired help pair (initHelpToggle)"
+        assert not re.search(r"""getElementById\(["'][\w-]*help[\w-]*["']\)\.classList\.(?:remove|toggle)\(["']hidden["']\)""", text), (
+            f"{js.name}: a help panel shown by hand"
+        )
+    for css in CSS:
+        assert ".graph-help-panel" not in re.sub(r"/\*.*?\*/", "", css.read_text(encoding="utf-8"), flags=re.S), (
+            f"{css.name}: CSS for a hand-wired help panel"
+        )
+    # Every trigger that points at a panel through aria-controls and carries
+    # the '?' class also carries `data-help-for` for the same panel.
+    for button in re.finditer(r"<button[^>]*\bgraph-help-toggle\b[^>]*>", html):
+        tag = button.group(0)
+        assert "data-help-for=" in tag, f"a '?' with no data-help-for: {tag[:120]}"

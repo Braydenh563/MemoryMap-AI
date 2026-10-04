@@ -51,6 +51,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
 from memorymap.entry.properties import strip as strip_properties
+from memorymap.search import chunks as search_chunks
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 from memorymap.search import search_manager
@@ -1174,7 +1175,16 @@ def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int
     import numpy as np
 
     wanted = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
-    return matrix.scores_for(np.asarray(vector, dtype="float32"), wanted)
+    query = np.asarray(vector, dtype="float32")
+    scores = matrix.scores_for(query, wanted)
+    if scores and search_chunks.ENABLED:
+        # The note's best paragraph where it beats the note (row 6).
+        for entry_id, best in search_chunks.best_paragraphs(
+            session, query, matrix.backend or (_backend_id() or ""), matrix, only=set(scores)
+        ).items():
+            if best.score > scores.get(entry_id, 0.0):
+                scores[entry_id] = best.score
+    return scores
 
 
 def related(session: Session, entry_id: int, k: int = 10) -> list[tuple[int, float]]:

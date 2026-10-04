@@ -26,6 +26,12 @@ A kind nobody mapped lands on the default lane rather than vanishing, which
 is the failure mode a `KeyError` here would have: a caption that is silently
 never taken.
 
+**Durable since B2** (`core/jobstore.py`): a job whose kind has a named
+handler there and whose arguments are plain data is also written to the
+`jobs` table when it is queued, leased when a worker takes it, and closed
+when it ends. What follows about dropping still holds for this process's
+memory; the row is what the next launch reads to run it again.
+
 **Why jobs are dropped at shutdown rather than drained.** `shutdown` has a
 deadline because a shutdown that waits is the hang it exists to prevent
 (`core/bgtasks.py`'s docstring makes the same argument for cancellation).
@@ -50,6 +56,8 @@ import queue
 import threading
 import time
 from collections.abc import Callable
+
+from memorymap.core import jobstore
 
 logger = logging.getLogger("memorymap.jobs")
 
@@ -81,6 +89,23 @@ KIND_LANES: dict[str, str] = {
 
 DEFAULT_LANE = "cpu"
 
+#: Kinds that are the app's own housekeeping, not something the person asked
+#: for: the privacy ledger's flush (`core/egress.py`) queues one within a
+#: second of any connection that leaves this computer, and a row in the
+#: activity panel for it would be noise that says nothing they can act on.
+QUIET_KINDS = frozenset({"ledger"})
+
+
+def _start_heartbeat(target):  # noqa: ANN001, ANN202
+    """The durable store's lease heartbeat (`jobstore._beat`), started here so
+    job threads have one home. It ends itself once no lease is held."""
+    beater = threading.Thread(target=target, name="mm-job-heartbeat", daemon=True)
+    beater.start()
+    return beater
+
+
+jobstore.start_beater = _start_heartbeat
+
 #: What the activity panel calls each kind. Sentence case, no exclamation:
 #: standing order 6.
 LABELS: dict[str, str] = {
@@ -98,7 +123,7 @@ class _Job:
     """One queued piece of work. A plain object rather than a dataclass so
     `__slots__` keeps 200 of them cheap during a bulk upload."""
 
-    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at", "dedupe_key")
+    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at", "dedupe_key", "durable_id", "durable_db")
 
     def __init__(
         self,
@@ -116,6 +141,10 @@ class _Job:
         self.kwargs = kwargs
         self.name = name
         self.dedupe_key: object = None
+        #: The `jobs` row behind this job (`core/jobstore.py`), or None for
+        #: a job only this process knows about.
+        self.durable_id: int | None = None
+        self.durable_db: object = None
         self.queued_at = time.time()
 
 
@@ -199,22 +228,78 @@ class Pool:
         key matches one queued or running is not queued again; the existing
         job's id is returned.
         """
+        return self._submit(kind, func, tuple(args), dict(kwargs), name, dedupe_key, None, None)
+
+    def resubmit(
+        self,
+        kind: str,
+        func: Callable[..., object],
+        args: tuple,
+        kwargs: dict,
+        name: str,
+        dedupe_key: object,
+        durable_id: int,
+        durable_db: object = None,
+    ) -> int:
+        """Queue a job a previous process left in the `jobs` table: the
+        row exists already, so nothing new is recorded."""
+        return self._submit(kind, func, tuple(args), dict(kwargs), name, dedupe_key, durable_id, durable_db)
+
+    def _submit(
+        self,
+        kind: str,
+        func: Callable[..., object],
+        args: tuple,
+        kwargs: dict,
+        name: str,
+        dedupe_key: object,
+        durable_id: int | None,
+        durable_db: object,
+    ) -> int:
         lane = self.lane_for(kind)
         self.start()
         with self._lock:
             if self._stopping.is_set():
                 logger.debug("dropping a %s job: the pool is shutting down", kind)
                 return 0
+            duplicate = None
             if dedupe_key is not None:
                 for existing in (*self._running.values(), *self._queued.values()):
                     if existing.dedupe_key == dedupe_key:
-                        return existing.seq
-            self._seq += 1
-            job = _Job(self._seq, kind, func, tuple(args), dict(kwargs), name)
-            job.dedupe_key = dedupe_key
-            self._queued[job.seq] = job
+                        duplicate = existing
+                        break
+            if duplicate is None:
+                self._seq += 1
+                job = _Job(self._seq, kind, func, args, kwargs, name)
+                job.dedupe_key = dedupe_key
+                self._queued[job.seq] = job
+        if duplicate is not None:
+            # A resumed row whose work is already in hand here: close it, or
+            # it would stay queued and be resumed again every launch.
+            if durable_id is not None and duplicate.durable_id != durable_id:
+                jobstore.supersede(durable_id, db=durable_db)
+            return duplicate.seq
+        # Recorded outside the lock (a database write), and before the job
+        # is on its lane, so a worker never sees a job whose row is not yet
+        # written. Only a known handler with plain-data arguments is kept.
+        if durable_id is None and jobstore.durable_kind(kind, func):
+            durable_db = jobstore.peek_db()
+            durable_id = jobstore.record(kind, args, kwargs, name=name, dedupe_key=dedupe_key, db=durable_db)
+        job.durable_id = durable_id
+        job.durable_db = durable_db
         self._queues[lane].put(job)
         return job.seq
+
+    def forget(self, durable_id: int) -> bool:
+        """Drop the queued job behind `durable_id` from memory (its row was
+        cancelled). The worker would skip it anyway, its lease failing; this
+        takes it off the panel now rather than when its turn comes."""
+        with self._lock:
+            for seq, job in list(self._queued.items()):
+                if job.durable_id == durable_id:
+                    del self._queued[seq]
+                    return True
+        return False
 
     # -- the worker ---------------------------------------------------------
 
@@ -229,19 +314,31 @@ class Pool:
                     self._queued.pop(job.seq, None)
                     if self._stopping.is_set():
                         # Drained, not run: this is what makes shutdown fast
-                        # with a long queue behind it.
+                        # with a long queue behind it. A durable job's row
+                        # stays queued, so the next launch runs it.
                         continue
                     self._running[job.seq] = job
+                # A remembered job is claimed first: a row cancelled while it
+                # waited, or claimed by another server on the same file,
+                # is not run.
+                if job.durable_id is not None and not jobstore.lease(job.durable_id, db=job.durable_db):
+                    with self._lock:
+                        self._running.pop(job.seq, None)
+                    continue
+                error = ""
                 try:
                     job.func(*job.args, **job.kwargs)
-                except Exception:
+                except Exception as exc:
                     # One bad job used to be one dead thread and no record.
                     # `exc_info` because the stack is the whole value here:
                     # these run with no request to attach an error to.
                     logger.warning("background %s job failed", job.kind, exc_info=True)
+                    error = str(exc) or type(exc).__name__
                 finally:
                     with self._lock:
                         self._running.pop(job.seq, None)
+                    if job.durable_id is not None:
+                        jobstore.finish(job.durable_id, error=error, db=job.durable_db)
             finally:
                 work_queue.task_done()
 
@@ -264,7 +361,7 @@ class Pool:
         """
         with self._lock:
             jobs = sorted(
-                list(self._running.values()) + list(self._queued.values()),
+                (job for job in (*self._running.values(), *self._queued.values()) if job.kind not in QUIET_KINDS),
                 key=lambda job: job.seq,
             )
             running = set(self._running)
@@ -284,6 +381,9 @@ class Pool:
                     "progress": None,
                     "log": [],
                     "queued": waiting,
+                    #: The `jobs` row, for `/jobs/{id}/cancel`; None when
+                    #: this process alone knows the job.
+                    "job_id": job.durable_id,
                 }
             )
         return rows
@@ -359,6 +459,33 @@ def pending() -> list[dict]:
     return pool().pending()
 
 
+def resubmit(kind, func, args, kwargs, name, dedupe_key, durable_id, durable_db=None) -> int:  # noqa: ANN001
+    return pool().resubmit(kind, func, args, kwargs, name, dedupe_key, durable_id, durable_db)
+
+
+def forget(durable_id: int) -> bool:
+    """Drop a cancelled row's job from the queue, if this process has one.
+    Reads the singleton without making one: no pool, nothing queued."""
+    with _default_lock:
+        current = _default
+    return current.forget(durable_id) if current is not None else False
+
+
+def resume(db=None) -> dict:  # noqa: ANN001
+    """At launch: prune old endings, then queue again what the last run
+    left (`jobstore.resume`). Never raises."""
+    jobstore.prune(db=db)
+    database = jobstore.peek_db(db)
+
+    def again(kind, func, args, kwargs, name, dedupe_key, durable_id):  # noqa: ANN001, ANN202
+        return resubmit(kind, func, args, kwargs, name, dedupe_key, durable_id, database)
+
+    return jobstore.resume(db=database, enqueue=again)
+
+
+jobstore.set_forget(forget)
+
+
 def shutdown(deadline: float = 5.0) -> bool:
     """Called from the app's lifespan. Never raises: a shutdown handler that
     throws leaves the rest of the teardown unrun.
@@ -370,6 +497,7 @@ def shutdown(deadline: float = 5.0) -> bool:
     which is the "feature that never ran once" shape (CLAUDE.md section 6).
     """
     global _default
+    jobstore.stop()
     with _default_lock:
         current = _default
         _default = None

@@ -68,6 +68,142 @@ Not in decision 14 and not built: nesting rules, clipping what overhangs a
 frame, a frame as an export scope or a presentation step (presentation is its
 own open row). Help moved with it: the Guide's whiteboard-keys topic, the
 board's help sheet (Frame, F), the rail tooltip and DESIGN.md's recipe row.
+## Moved from the plans, 2026-10-04 (the consistency contract's missing lints)
+
+### From WORLD_CLASS_PLAN.md rows 13 (section 1, D14)
+
+Five rules of section 1 named a lint that did not exist, so a session that did
+not know the rule could break it and nothing failed. All five are in
+`tests/test_consistency_contract.py`, each measured against the code first.
+
+- **Surface budget** (1.1). A card in a card, a panel in a panel, a glass in a
+  glass, a `details > summary.btn` in a card. 0 offences in `index.html`
+  (68 cards, 25 glass surfaces walked); no element carries the bare class
+  `panel`, so that half is a guard for the day one does. The plan named
+  `test_surface_budget.py`; it lives in the one file with the other four.
+- **One primary per modal** (1.2). Filled buttons per modal overlay, and per
+  pane inside the settings screen (the unit is the pane, the shell's nav is
+  not counted). Fails on a second filled button; five places hold more and
+  are ratcheted at their count (`PRIMARY_RATCHET`): doc-ai-panel 2 (Run,
+  Accept), ocr-workspace 2 (Save edits, Make a note), meeting-overlay 2
+  (Record, Save), settings-searchindex 2, settings-about 3. Each is a
+  stage-gated pair or a hidden alternate; making the second ghost until its
+  turn is a design call per dialog. A test fails when an allowance outlives
+  its dialog.
+- **Meta without border or hover** (1.2). 13 distinct `.chip` rules draw a
+  border or answer hover on the chip itself (link chips, category chips that
+  open a menu, the confidence chip, item labels, the recent-questions chip);
+  held at 13 (`META_RATCHET`). These are controls dressed as chips; folding
+  each into a button or dropping its edge is a per-chip design call.
+- **A menu item's rest background** (1.3). Across the five item classes
+  (`.menu-item`, `.doc-dock-menu-item`, `.wb-menu-item`,
+  `.library-image-menu-item`, `.action-menu-item`) no rest rule paints a
+  fill: 0 offences. The tint is hover and selected only.
+- **Every action in the palette** (D14). The app has no `data-action`
+  attribute, so the gate reads the two places an action is declared: every
+  `data-tab` button needs a `tab:` row (7 of 7 did) and every
+  `DEFAULT_SHORTCUTS` chord needs a `chord:` row or a named reason in
+  `CONTEXTUAL_CHORDS` (13 contextual, 17 in the palette). Four had neither
+  and now have a row: Open today's note (Ctrl+D, a new `todays-note` reveal
+  target), Go back, Go forward (Alt+Arrow), Reload the app (Ctrl+Alt+R).
+
+Not verified: the four new palette rows were not run in a browser; the static
+catalogue lints (`test_catalogue_reveal.py`, `test_feature_catalog.py`) pass.
+
+### From WORLD_CLASS_PLAN.md row 14 (A8): the '?' on every tab's dock
+
+Read against the markup first: of the 16 `data-dock-name` docks, 14 already
+carried a '?' (Chat, Library and Boards use the `data-help-for` popover;
+Graph, Timeline, Notes, Skills, Media and Contents use the older hand-wired
+`.graph-help-panel`), so the plan's "Chat and Graph have it" understated it.
+Two tab docks had none: **Dashboard** and **Reminders**. Each now ends with
+the recipe's button and `.help-body` (`#dash-help-toggle` / `#dash-help`,
+`#reminders-help-toggle` / `#reminders-help`), before the dock's more menu, and
+the help is one paragraph of three sentences. The Settings Logs console is
+the one dock left without, listed in `HELPLESS_DOCKS` with its reason (the
+Settings screen has its own Help section).
+
+- Lint: `tests/test_dock_help_507.py` fails a dock with no '?' and a stale
+  entry in `HELPLESS_DOCKS`; the new copy is checked for em-dashes and
+  exclamation marks.
+- Measured (`scratchpad/ui-sweeps/dockhelp2.js`, Chromium, 8804): at 1440 and
+  390 the toggle is visible (32px, 44px on a phone), one press opens a panel
+  fully inside the window, a second closes it; both docks stay one row (50px
+  at 1440, 62px at 390). 4 of 4.
+- Not changed: the six hand-wired panels were not moved onto `data-help-for`.
+
+### From WORLD_CLASS_PLAN.md row 12 (D6): the calendar strip and the day pair
+
+Read first: `todaysNote` (Ctrl+D) and both endpoints existed; no strip and no
+pair did (`grep` for `entries/daily` in `frontend/` found only a comment).
+
+- **The strip** (`renderTimelineDayStrip`, `#timeline-daystrip`): the seven days
+  ending today above the feed, a weekday and a date in each, a dot under a day
+  with a page, today in the accent and `aria-current="date"`, a month label
+  and two arrows that move a week (the later one is off at today; Today in the
+  dock brings the strip home). Outside the dock on purpose: seven buttons
+  would have taken the dock's whole seven-control ceiling, so the plan's
+  "segment of seven on the dock" became its own row, flat on the page and
+  capped at 28rem so a desktop window does not draw seven 190px boxes
+  (seen in a screenshot, then fixed).
+- **Written days** come from `GET /entries/daily?through=&days=7` (notes, by
+  their heading, the endpoint written for this) and the Timeline's documents
+  for days titled with a document.
+- **Pressing a day** is `openDayPage(key)`: the note when `GET /entries/daily`
+  says the day is written, else a document titled with the day, else the
+  composer with the date in the title and nothing written (the owner's rule
+  for Start today's note, now for every day). The question is asked before the
+  read so an empty day is an answer and not a 404 in the console. Ctrl+D is
+  `openDayPage(today)` now, one path for both.
+- **The pair** (`dailyNotePair`): a note whose title is an ISO date shows two
+  ghost buttons under its title in the Notes list, the day before and the day
+  after, labelled by weekday and date (the note is rarely today's, so
+  "Yesterday" and "Tomorrow" would be wrong).
+- Help moved with it: the Timeline's '?' paragraph and the Guide's
+  `timeline-controls` topic name the strip and the pair
+  (`tests/test_daily_strip.py`).
+- Measured (`scratchpad/ui-sweeps/daystrip.js`, Chromium, 1440 and 390): seven
+  days in one row and inside the window, today current and last, the dot on
+  both seeded days, 45px or more per day at 390 (the 44px target), an
+  unwritten day opens the composer with its date and the note count does not
+  change, a written day opens the Notes tab on its card, the pair opens the
+  neighbour, the earlier arrow moves a week and Today returns, no console
+  error. 19 of 19.
+- **The month popover** (the overflow the brief named): the strip's month label
+  is a button (`#timeline-month-btn`, `aria-haspopup`) opening a calendar of
+  one month (`#timeline-month-pop`, `renderTimelineMonthPop`) on the popover
+  shell (`wireHelpPopover`: lifted to the body, caret, Escape, press outside).
+  The grid is a group of buttons with one Tab stop; arrows walk a day or a
+  week, Home and End the week's ends, Page Up and Page Down a month (the page
+  turns, the focus stays in it), Escape returns the focus to the month button.
+  Days after today are disabled (the strip never passes today), the days the
+  strip shows are tinted, a dot marks a day with a page (the same two
+  endpoints, one helper `timelineDayPages` shared with the strip). Picking a
+  day moves the strip to it (three days in from the right edge, never past
+  today) and focuses it, so the one way to open a page stays the strip's
+  button; nothing is written. Measured (`daystrip.js` extended, 1440 and 390,
+  light and dark, 38 of 38 on the last run): opens inside the window, focus on
+  today, 44px or more per day at 390, the dots, ArrowLeft and the stop at
+  today, Page Up, Escape and focus, a pick in another month, no note written,
+  a press outside closes it.
+- Left: the strip shows notes and documents only, not boards or reminders
+  titled with a date, as the timeline's own daily convention does.
+
+### From WORLD_CLASS_PLAN.md A8 (help on the recipe)
+
+The nine '?' buttons that still ran on an `initHelpToggle(buttonId, panelId)`
+pair or their own listeners (Graph, Timeline, Notes' filter and capture,
+Skills, Boards, Media, Contents, Settings' search relevance) are button +
+`.help-body` + `data-help-for` now, and the Settings Logs dock has its '?'
+(`HELPLESS_DOCKS` is empty). The wiring, the `.graph-help-panel` and
+`.search-help` CSS and a dangling selector in 07 are deleted;
+`test_no_help_panel_is_hand_wired` keeps them gone. One behaviour was kept on
+purpose: Escape on a popover marks the press (`helpPopoverSpent`) so the
+Graph's full-screen exit ignores the press that closed the '?'. Measured
+(`scratchpad/ui-sweeps/helprecipe.js`, 10 surfaces, 1440 and 390, light and
+dark, 40 of 40): inside the window, 32px toggles (44px at 390), Escape and a
+second press close, dock rows unchanged. Found: Escape in Settings closes the
+whole modal as well as the popover (the modal's own handler; it did before).
 
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
@@ -38104,6 +38240,53 @@ the base.
 
 ## OPEN.md rows closed, 2026-10-04
 
+### Carried bugs fixed, 2026-10-04 (the five from the archived agent files)
+
+Each had a failing test or a measured sweep first; one commit each.
+
+- **Recent activity: the Undo row stayed after an undo** (backend-0926).
+  `GET /events` now puts `undid` (the event ids it reversed) on a `restored`
+  row, and `activityUndoStarts` (dashboard.js) leaves an actor out of the
+  widget's Undo row once everything it did in the list is named there, so the
+  row goes instead of answering "Already undone". A change by the actor after
+  the undo brings the row back. `tests/test_activity_undo_row.py` (3 node
+  cases on the extracted function, 1 route case).
+- **The night card scrolled inside a fixed-height widget** (backend-0926). The
+  shared `.dash-body` cap (320px, scroll inside) hid the rows of an open
+  review list and their Dismiss below the fold. The card now opts out beside
+  art, capture and stats, so it grows as lists open and page ("Show more"
+  stays five rows a page); the grid re-measures its span. Measured with
+  `nightcard.js`: body 508px high with no inner scroll (was capped at 320px);
+  7 of 7 checks. `tests/test_night_card_grows.py`.
+- **`mindmapcurve.js` at 390x844 timed out on a topic's add button** (mindmap2).
+  The app was at fault, not the probe: below 820px and on touch the add and
+  link buttons are 44px, and anchored `bottom: -space-5` they reached 24px up
+  into the node and covered 998px2 of its label row from the left edge in 59px,
+  so pressing the left of a selected topic's text added a child. The row now
+  hangs wholly below the node there (07-whiteboard-misc.css).
+  `scratchpad/ui-sweeps/mapaddcover.js` (new) went from 3 of 3 failing to 3 of 3
+  passing, with a mouse and with touch at 390; `mindmapcurve.js` at 1440 is
+  14 of 14 and at 390 no longer times out (11 of 14: the three left are the
+  probe's map being wider than a phone, noted in OPEN.md);
+  `mapnarrow.js` still 3 of 3. `tests/test_map_actions_clear_of_label.py`.
+- **The privacy receipt's ledger flushed only on read and at shutdown**
+  (backend-0926). `egress.configure` (called from `create_app`) names the
+  ledger; the audit hook still does no I/O, it queues one `ledger` job on
+  `core/jobs.py`'s pool (no new thread: the `THREAD_SITES` ratchet in
+  `test_flaw_class_lints.py` caught a first version that had one), which
+  flushes `FLUSH_DELAY` (0.5s) after the first unflushed connection, so a
+  burst is one write and a kill loses at most that half second. Loopback
+  traffic queues nothing, and the job is a `QUIET_KINDS` entry so the activity
+  panel never lists it. Flush state is kept per ledger path, so the writer and a
+  caller flushing elsewhere never consume each other's difference, and a
+  failed write is carried by the next flush rather than lost.
+  `tests/test_egress_ledger_writes.py`, including a child process that is
+  sent SIGKILL after recording, with the ledger read back from disk.
+- **The archived files' `../` links were broken** (57 of them). The files moved
+  one directory deeper and kept their links; each was re-resolved against the
+  directory it came from. `tests/test_archive_links.py` (new) checks every
+  relative link in `agent-remaining/` and `archive/`, ignoring code spans.
+
 Rows that were struck or built in `agent-remaining/OPEN.md`, moved whole (standing order 10), with the ones this pass verified on the head or fixed.
 
 ### Stray Atlas heads under the status bar (INBOX 429)
@@ -39598,3 +39781,356 @@ inside the 390 sheet (measured 44px each, none past the edge, after a first
 run found the property row running off it). The closed panel is 676px of
 list in its 492px box at 1440x900, 39px more than before the fold (it
 already scrolled, 637 in 492).
+
+
+## Moved from the plans, 2026-10-04 (B2 durable jobs)
+
+### From WORLD_CLASS_PLAN.md B2: the spec as written
+
+Today long work runs in threads with no persistence (MODERNISATION_AUDIT
+D2). Move: a `jobs` table (`id, kind, state, progress, payload, result,
+error, attempts, run_after, heartbeat`), a single worker thread per process
+that leases jobs, a `@job` decorator that makes any function durable, and
+SSE `/jobs/stream` for the UI. Jobs: re-index, embed, OCR, caption,
+auto-file, skill run, import, backup, model download. Every job is
+cancellable, survives a restart, and reports progress in one shape the
+"Running now" panel renders. Gate: kill the server mid-OCR, restart, the
+job resumes; the panel shows it.
+
+**State 2026-09-24:** (b) the bounded pool is built (`core/jobs.py`, `tests/test_jobs_pool.py`, audit row A3); the durable half is not: no `jobs` table, no lease or heartbeat, no resume after a kill, no `/jobs/stream`. L, Opus.
+
+### Built 2026-10-04: the durable half, for the pool's kinds
+
+- **`core/jobstore.py`** and a `jobs` table (`DurableJob`: kind, name,
+  state, JSON payload, dedupe key, attempts, owner, lease_until, heartbeat,
+  result, error, created/started/finished). A new table, so `create_all`
+  builds it on every notebook; no migration, the same as `job_runs`.
+- **What is durable:** a pool job (`core/jobs.py`) whose kind has a named
+  handler in `jobstore.HANDLERS` and whose arguments are plain data: OCR,
+  caption, vision, vision-pdf, document, file-entry. Each handler checks
+  its stored result first, so a repeat is safe. Handlers are named
+  ("module:function"), never pickled; a stand-in function (a test's
+  monkeypatch, a lambda) runs as before and is not remembered.
+- **Lease:** the worker claims a row with one atomic UPDATE (queued to
+  running, `owner` = pid plus a random tail, `lease_until` 30 s); a
+  heartbeat thread renews every 10 s while the process holds a lease and
+  stops when it holds none.
+- **Resume** (`jobs.resume()`, called by `create_app` after
+  `jobruns.mark_interrupted`): queued rows, and running rows whose lease
+  lapsed, are queued again; a lease still standing is waited out with a
+  timer (a second live server on the same file keeps its job). Three
+  tries at most, then `failed` with the reason; an unknown kind fails
+  alone. A resumed row the pool's dedupe matches is closed, never left
+  queued. Finished rows pruned at launch: a week, 500 at most.
+- **Routes:** `GET /jobs` (limit), `GET /jobs/stream` (server-sent events,
+  a snapshot on every change by a version counter, a ping every 15 s,
+  closes after 60 s for `EventSource` to reopen; `seconds=0` for one
+  snapshot), `POST /jobs/{id}/cancel` (queued only; a running job is not
+  interrupted and the answer says so). The activity panel's Quit now
+  appears on, and stops, a queued reading (`/tasks/cancel` with `job-<kind>`).
+- **Measured:** `tests/test_jobstore.py`, 17 tests; the gate is two real
+  processes: the first is SIGKILLed inside the job (row running, attempts
+  1), the second resumes it and finishes it (row done, attempts 2), 4.1 s.
+  In the real app on :8802: an upload recorded its three readings; with
+  the server killed and the OCR row set back to running under a lapsed
+  lease, the next launch ran it (done, attempts 2) and the queued caption.
+- **Not verified:** the panel showing a resumed job (the readings here
+  finish in milliseconds without Tesseract or a vision model); Windows.
+
+
+## Moved from the plans, 2026-10-04 (D2 connections rail)
+
+### From WORLD_CLASS_PLAN.md D2: the spec and its state line, moved whole
+
+Exists: the list with card/list views, filters, select mode, capture with
+templates, the edit form, connections. Wrong: a note shows no backlinks
+inline; `[[` has no autocomplete; the capture footer is two wrapped rows
+with a FAB over the Save button; the edit form's gutter drifts. Target:
+capture is one field with a slash menu and `[[` autocomplete, a one-row
+footer; a note's page has a connections rail (backlinks, links, related by
+similarity, in the same map) that is always visible on desktop and a sheet
+on phone. Brief: `[[` autocomplete over `/entries?q=` with keyboard
+selection; a `.connections-rail` component rendered from `/entries/{id}/links`
+(exists) and `/entries/{id}/related`; the footer on the bar recipe. Gate:
+typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
+renders for every note; the FAB never overlaps a primary (Playwright
+intersection check).
+
+**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
+
+### Re-measured 2026-10-04 (WORLD_CLASS_PLAN row 4)
+
+`scratchpad/ui-sweeps/notesrail.js` against the showcase notebook
+(`seed-showcase.py`, 71 notes) on the branch head: 30/30 checks light and
+30/30 dark, at 1440, 1280, 1024 and 390. At 1440 and 1280 the rail comes
+with an opened note, beside the list without overlap, the reading column
+at least 600px, nothing sideways, arrows and Escape, a row opens its note,
+hiding is remembered; at 1024 and 390 no rail and the Connections sheet
+opens. The rail at 1280 and wider (not at 1024) is the recorded decision:
+at 1024 a third column leaves the reading column under 600px. A notebook
+seeded by `seed.js` alone has one link and fails "selecting a linked note
+brings the rail" for want of a note with two connections, which is the
+fixture, not the rail.
+
+
+## Moved from the plans, 2026-10-04 (row 6: paragraph vectors and evidence cards)
+
+### From WORLD_CLASS_PLAN.md §14 item 3: chunked vectors and sentence-level citations
+
+One vector per note loses long notes and every document. Embed paragraphs
+(one row per chunk, `entry_id, ordinal, vector`), retrieve chunks, and ground
+each answer sentence by cosine against chunks when an embedding backend is
+up, falling back to the lexical scorer. A citation then points at the
+paragraph, and the chip quotes it. Size M.
+
+### From WORLD_CLASS_PLAN.md I6: evidence cards: answers you can audit sentence by sentence
+
+**What the person sees.** Every AI answer sentence carries a small marker;
+hovering shows the *paragraph* it came from, with the three reasons it was
+chosen (words matched, meaning score, graph distance) as three short bars,
+and the verifier's verdict: supported, partly, or unsupported. Unsupported
+sentences are rendered in a lighter tone with "no note says this". A
+"Show the evidence" toggle opens the answer and its sources side by side,
+each source scrolled to the paragraph. A one-line trust score under the
+answer: "9 of 11 sentences supported by your notes".
+
+**Why it is new.** Perplexity cites pages; it cannot say which sentence
+is unsupported, and its citations are page-level. Here the corpus is
+finite and local, so every sentence can be checked against every
+paragraph, and the verifier (B5) can say no.
+
+**Builds on.** This session's grounding change (touched notes, distinctive
+words, labels), `addInlineCitations` and `renderAnswerGrounding` in
+`app.js`, `match_info` (the three signals already exist per hit), the
+verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
+paragraph-level anchors.
+
+**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
+`span`, `signals: {bm25, cosine, graph}`, `verdict`.
+
+**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
+a chunk ordinal and a span that exists in that note; an answer sentence
+with no candidate is marked `unsupported` and the trust line counts it;
+the side-by-side view scrolls the source to the span (Playwright: the
+span's rect is inside the viewport); the markers survive the final
+markdown re-render (the bug already fixed once in `askQuestion`).
+
+**Gate.** Trust score correct on the eval fixture's golden answers
+(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
+from its current baseline (record the number first). **Size** M. **Model**
+Opus.
+
+**State 2026-09-24:** (b) the per-sentence marks and the "only N of M sentences supported" line are built (CHAT_PLAN Phase 1, app.js ~13530); paragraph anchors, the three signal bars per sentence and the side-by-side view are not, and wait on §14's chunks. M, Opus.
+
+### Built 2026-10-04
+
+- **Paragraph vectors.** `ChunkVector` (`chunk_vectors`: entry, the
+  `embeddings.id` it was cut beside, ordinal, start, end, digest, vector).
+  `embeddings.paragraph_chunks` splits on blank lines, joins a paragraph
+  under 12 words to the next (a heading reads with what it heads), cuts one
+  over 160 words at sentence ends, 32 at most per note; a one-chunk note
+  stores none. Each chunk embeds as the note's first line plus the
+  paragraph. `store_for_entry` stores them beside the note vector; a re-save
+  reuses unchanged paragraphs by digest (one edited paragraph, one embed);
+  `embed_many` batches on sentence-transformers. The warm-up backfill gives
+  old long notes paragraphs without re-embedding the note.
+- **A chunk counts only beside its own note vector.** Ten sites delete note
+  vectors, mostly by bulk statement; none needed teaching. No foreign key on
+  `entry_id` (enforced keys would have broken every hard-delete path until
+  each learned the table); `set_private` and the purge delete the rows,
+  `clean_orphaned_vectors` removes the rest.
+- **Scoring.** `search/chunks.py` keeps a unit-row matrix synced by the
+  table's fingerprint and an id diff (no reload per write). A note's cosine
+  is the better of its own vector and its best paragraph's, in
+  `semantic_search` (Ask and chat retrieval) and the engine's cosine signal.
+  `chunks.ENABLED` is the switch the measurement flips.
+- **Measured** (`scratchpad/chunk_retrieval_bench.py`, a hashed
+  bag-of-words embedder, no torch; queries ask a long note's middle
+  paragraph): 1,000 notes, recall@1 0.00 to 0.18, recall@5 0.01 to 0.42, MRR
+  0.003 to 0.277, search median 0.9 to 2.5 ms; 5,000 notes (15,406
+  paragraphs) recall@5 0.00 to 0.17, MRR 0.004 to 0.122, search median 5.6 to
+  17.5 ms on a machine at load 7 (einsum over the paragraph matrix is most of
+  it); storing one eight-paragraph note 2 to 5 ms (1,000).
+- **Evidence fields.** Every grounding row carries `chunk_ordinal` (the
+  paragraph its passage overlaps most), the span, `signals {bm25, cosine,
+  graph}` (share of the sentence's words in the passage; cosine against that
+  paragraph's vector via `chunks.meaning_scorer`, None with no backend;
+  1, 0.5 or 0.33 by how retrieval reached the note, None for a tool-read
+  note) and `verdict` (supported at half the words, else partly). The
+  offline extractive answer carries the same. `grounding.support` lists the
+  unsupported sentences.
+- **Frontend.** The citation peek shows the verdict and three bars
+  (`evidenceSignals`; an unmeasured signal is left out). "N of M from your
+  notes" ends the Grounded in row and opens the evidence view
+  (`renderEvidenceView`): each sentence beside its passages, No note says
+  this beside the rest, two columns at 600 and wider. DESIGN.md recipe
+  "Why a thing was chosen"; Guide topic `chat-controls` updated.
+  `scratchpad/ui-sweeps/evidence.js` 12/12 at 1440 and 390, light and dark.
+- **Not verified:** a real embedding model (the gain on bge-small is not
+  measured); the H2 gate "95% of sentences cited" needs a real model.
+
+
+## Moved from the plans, 2026-10-04 (row 5: tensions and answered questions)
+
+### From WORLD_CLASS_PLAN.md I1, the algorithm's passes 4 and 5
+
+"(4) tensions: for each new claim, top-k similar claims by cosine, then one
+model call per pair above the threshold asking 'compatible / incompatible /
+unrelated' with a one-line reason; (5) answered questions: for each open
+question, top-k similar claims written *later*; one model call asks 'does
+this answer it'. Stop when the budget is spent; record where; resume from the
+cursor next night." Tests: a second run with no new revisions produces zero
+facts and spends zero tokens; dismissing a fact hides it; nothing in
+`entries` changes. Gate: 2,000 notes, a first run under the fake model in
+under 5 minutes, the card under 100 ms.
+
+### Built 2026-10-04
+
+- **`facts._pair_passes`**, run after pass 3 inside the same budget and the
+  same `NightRun`. Only pairs with a side new this run are compared, so a run
+  with nothing new spends nothing here. Kinds `tension` and `answered`, stored
+  on the later side (its note, span and words) with the other side in a new
+  `derived_facts.payload` JSON column (fact, note, words, span, the pair key,
+  the model's reason); `as_json` gives it as `pair`.
+- **Neighbours:** an inverted index over the claims' meaningful terms, then,
+  with an embedding backend, the best eight re-scored by cosine (floor 0.6);
+  without one, words (floor 0.34). Three per sentence. The same wording again
+  is never a neighbour: identical claims at cosine 1.0 had filled every
+  place and hidden the one that disagreed (found by `nightpairs.js`, pinned by
+  `test_identical_claims_do_not_crowd_out_the_one_that_disagrees`).
+- **Judging:** with a model, one call per pair (`incompatible`, `yes`); with
+  none, two local rules only: near-identical claims that differ in a number
+  or a "not", and a later claim holding 60% of what a question asks.
+  Pairs are deduplicated by key, tombstones included, so a dismissed tension
+  is never found again.
+- **The card:** two new lines ("claims that disagree with others",
+  "questions answered later"); a pair row quotes its other side, opens the
+  other note, and a tension can be linked as disagreeing through
+  `POST /entries/tensions/accept`. Guide topic `learned` updated.
+- **Measured:** `scratchpad/night_pairs_bench.py`, 2,000 notes of four
+  sentences: no model 39.3 s, a fake judge 130.4 s and 21,322 calls (gate 5
+  minutes), the card 38.6 and 72.8 ms (gate 100); after the wording dedupe,
+  on a machine at load 7, 56.8 s, 215.4 s and 21,474 calls, the card 74.7
+  and 83.5 ms. Inside both gates, the second with less room than it looks. `nightpairs.js` 9/9 at
+  1440 and 390, light and dark.
+- **Not verified:** a real model's verdicts (the judge prompts run against a
+  fake that answers by rule).
+
+
+## Moved from the plans, 2026-10-04 (row 7: open questions)
+
+### From WORLD_CLASS_PLAN.md I3: open questions: the notebook keeps a list of what you have not answered
+
+**What the person sees.** A "Questions" view under Notes (a sub-tab):
+every question you have written to yourself, newest first, each with
+"asked 3 March in 'Pricing thoughts'" and one of three states: open,
+answered ("you answered this on 9 April in 'Call with Sam'", with the
+sentence), or dropped. The Dashboard shows the count and the oldest open
+one. Ask can be scoped to it: "what am I still undecided about?" answers
+from this list with citations.
+
+**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
+the questions you *asked in passing* and tells you when a later note
+answered them. This is the feature that makes a notebook feel like it
+remembers on your behalf.
+
+**Builds on.** I1 (extraction and the "answers" pass), the grounding
+scorer for the answered-by sentence, the Notes sub-tab strip and the dock
+grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
+
+**Data.** `derived_facts` of kind `question` with payload `{answered_by:
+fact_id | null, dropped: bool}`. No new table.
+
+**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
+(`{state}`; marking answered by hand asks for the note and stores a typed
+link), the Ask box gets `scope: "questions"`.
+
+**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
+questions yields two open facts with spans; a later note that the fake
+model judges as answering one flips its state and the link exists; Ask
+with the scope cites only question facts; dropping is reversible and
+recorded as a correction (I7).
+
+**Gate.** The view renders under 100ms for 500 questions; the dock passes
+`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
+list recipe; Opus for the Ask scope.
+
+**State 2026-09-24:** (b) question facts are derived (I1's first pass); `GET /questions`, the Notes sub-tab, the Ask scope and the answered-by link are not built. M.
+
+### Decided 2026-10-04: the answered-by link
+
+The plan names both "the answered-by link" and "`EntryLink` typed
+`answers`", and no `answers` type exists (`LINK_TYPES` has six, every picker
+and the Graph's legend read them). Taken: the answered-by link is the
+question row's link to the sentence that answered it, in its note; a typed
+link (`context`, reason "answers: ...") between the two notes is written only
+when the person marks a question answered by hand. The night pass never
+writes to the graph unasked, as it never writes to a note (I1).
+
+### Built 2026-10-04
+
+- **`ai/questions.py`**: a question's state (open, answered, dropped) worked
+  out from its own `payload` (`dropped`, `answered_by_entry`) and the pass's
+  `answered` rows (row 5); `listing` pages one state with the count of each;
+  `set_state` drops, reopens (tombstoning the pass's answer so it does not
+  come back next night) or marks answered by hand (the note named, a
+  `context` link written); each move is a correction (`drop_question`,
+  `reopen_question`, `answer_question` in `learning.KINDS`).
+- **Routes:** `GET /questions?state=`, `GET /questions/summary`,
+  `POST /questions/{id}` (`routes_questions.py`).
+- **The view:** Notes, Questions (a fifth sub-tab, `data-dock-name=
+  "questions"` on the dock grammar): Open, Answered and Dropped segments
+  with counts, a row per question ("Asked 4 Oct 2026 in 'Plans for the
+  shed.'"), the answered-by line quoting the answer and opening its note,
+  Mark answered (the note picker), Drop, Reopen, Ask about these.
+- **The Ask scope:** `ChatRequest.scope = "questions"` turns into the notes
+  holding open questions as a closed set (`_apply_scope`); the Ask box shows
+  the scope line with Ask all notes.
+- **The Dashboard:** the While you were away card ends with the open count
+  and the oldest open question, and See your questions.
+- **Measured:** 500 questions listed in under 100 ms
+  (`test_the_list_renders_under_100ms_for_500_questions`); `questions.js`
+  16/16 at 1440 and 15/15 at 390, light and dark (the answered-by line
+  8.3 to 15.2:1).
+- **Not verified:** the Ask scope's answer from a real model; the fake
+  transport answers by rule.
+
+
+## Moved from the plans, 2026-10-04 (row 2: LAN mode over IPv6)
+
+### From WORLD_CLASS_PLAN.md §12, Brief 15's last item
+
+"Left: IPv6 addresses.
+Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
+Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
+must bind its own `socket.create_server(("::", port), family=AF_INET6,
+dualstack_ipv6=True)` (falling back to 0.0.0.0 where
+`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
+sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
+as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
+bracketed (never link-local, which needs a zone id no browser takes); and
+`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
+over a v4 address against the same server. Windows is not testable here."
+
+### Built 2026-10-04
+
+- **`core/netbind.py`:** `bind_host` gives `::` with LAN mode on where
+  `socket.has_dualstack_ipv6()` holds, `0.0.0.0` otherwise (as before);
+  `listening_socket` makes the one dual-stack socket (`create_server(...,
+  dualstack_ipv6=True)`, IPV6_V6ONLY cleared, so Windows answers IPv4 too);
+  `arrived_on_loopback` reads the IPv4 inside `::ffff:127.0.0.1`;
+  `lan_addresses` adds global and unique-local IPv6 (getaddrinfo and
+  `/proc/net/if_inet6`, never link-local, loopback, multicast or IPv4-mapped)
+  after the IPv4 ones; `describe` and the launcher's log bracket them
+  (`url_host`).
+- **`__main__._run_server`:** hands the socket to `uvicorn.Server(...).run(
+  sockets=[sock])`; if the dual-stack socket cannot be made, binds `0.0.0.0`
+  and says so through `set_current`.
+- **Tests:** `tests/test_lan_mode.py` gains six: the fallback, the mapped
+  loopback, the address list (link-local and mapped refused, IPv6 after
+  IPv4, brackets), the bracketed Host header, and the launcher reached over
+  `[::1]` and `127.0.0.1` on one server.
+- **Not verified:** this sandbox has no IPv6 (`AF_INET6` is "address family
+  not supported"), so the end-to-end test skips here and runs on CI; Windows
+  is not testable here at all.
+

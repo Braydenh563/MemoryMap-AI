@@ -1,10 +1,10 @@
 # The mind map read (INBOX 305): what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) **section 13** (the read
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) **section 13** (the read
 > itself: the table, the decisions, the phases, the not-verified list) ·
-> [mindmap.md](mindmap.md) (the ninth run's control audit, now largely
+> [mindmap.md](../../agent-remaining/mindmap.md) (the ninth run's control audit, now largely
 > superseded: §12.5 landed and most of its counts have moved) ·
-> [DOCUMENTS_PLAN.md](../DOCUMENTS_PLAN.md) section 17 (the shape this follows)
+> [DOCUMENTS_PLAN.md](../../DOCUMENTS_PLAN.md) section 17 (the shape this follows)
 >
 > One agent, one worktree (`worktree-agent-mapread`), port 8804, data dir
 > `/tmp/mm-mapread`. This run was a **measured read and a plan section**: it

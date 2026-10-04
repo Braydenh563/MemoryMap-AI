@@ -1,6 +1,6 @@
 # INBOX batch A (31-38): what is done, what is left
 
-> Companions: [INBOX.md](../INBOX.md) · [HANDOVER.md](../HANDOVER.md)
+> Companions: [INBOX.md](../../INBOX.md) · [HANDOVER.md](../../HANDOVER.md)
 >
 > One session's pass over INBOX.md items 31, 32, 33, 34, 35, 36, 37 and 38
 > (chip and capture label part only), in that order. Every item was

@@ -3941,31 +3941,14 @@ button.answer-figure-open {
   flex: 0 0 auto;
 }
 
-.graph-help-panel {
-  position: absolute;
-  top: 3.5rem;
-  right: var(--space-6);
-  z-index: 30;
-  width: min(26rem, calc(100% - var(--space-8)));
-  padding: var(--space-4);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-}
-
-.graph-help-panel p {
-  margin: 0;
-}
-
 /* Reported live, with a screenshot: cut off at the bottom. This panel
    (six bullets across two lists) is meaningfully longer than every other
-   .graph-help-panel use (a single paragraph: #draft-intro, #timeline-
-   intro, #graph-help-panel itself), none of which has hit this, so the
+   help body (a single paragraph: #draft-intro, #timeline-intro,
+   #graph-help-panel itself), none of which has hit this, so the
    cap is scoped here rather than added to the shared rule for a problem
-   only this instance has.
+   only this instance has. It is a `.help-popover` now (the `data-help-for`
+   recipe), whose own ceiling is 60vh or 32rem; the lines below are what is
+   left of the fix, the visible scrollbar.
    Two wrong attempts before this, both measured and rejected rather than
    assumed fixed: a flat `73vh` correctly stopped the panel growing but
    still left its own bottom edge below the window on a short viewport
@@ -3984,8 +3967,6 @@ button.answer-figure-open {
    the panel's own scrollHeight (701px) now exceeds this cap, so it
    scrolls internally and the last bullet is reachable within its own box. */
 .capture-help-hint {
-  max-height: 24rem;
-  overflow-y: auto;
   /* **The scroll itself worked; nothing showed it did.** Reported after
      the cap above landed: "still no visible scrollbar??", correct, and
      not this rule's fault so much as `overflow-y: auto`'s own default:
@@ -4017,15 +3998,6 @@ button.answer-figure-open {
   background: var(--muted);
   border-radius: var(--radius-pill);
   border: 2px solid var(--modal-bg);
-}
-
-/* A .graph-help-panel used as a standalone element (Timeline, the Skills/
-   Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
-   down like the graph's own <div><p>…</p></div> shape: this file's own
-   `.graph-help-panel p { margin: 0 }` rule above doesn't reach a panel that
-   *is* the <p>, so it needs the same reset directly. */
-p.graph-help-panel {
-  margin: 0;
 }
 
 /* The positioning root each of these panels anchors to, an absolutely
@@ -4389,7 +4361,7 @@ p.graph-help-panel {
 
 /* ---------------------------------------------------------------------------
    Placed at the end of this file on purpose. A panel keeps its original class
-   (`.graph-help-panel`, `.setting-hint`) when `wireHelpPopover` promotes it,
+   (`.help-body`, `.setting-hint`) when `wireHelpPopover` promotes it,
    and those rules carry the same single-class specificity as these, so
    whichever is written later wins. Written first, this block lost, and the
    popover silently rendered with the old `position: absolute; z-index: 30`:
@@ -5029,6 +5001,82 @@ p.graph-help-panel {
 
 .night-more {
   margin-top: var(--space-1);
+}
+
+/* The open questions line under the card (row 7). */
+.night-questions-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.night-questions-row .night-questions {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): the morning
+   card's finding row, a question over where it was asked, and the
+   answered-by link under it as a quiet ghost line that wraps. */
+.dash-list.questions-list {
+  margin: var(--space-2) 0 0;
+}
+
+.dash-list.questions-list > li.question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.question-row > .dash-list-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.question-row .question-answer-link {
+  align-self: flex-start;
+  height: auto;
+  min-height: 0;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.questions-lead:empty {
+  display: none;
+}
+
+.questions-more {
+  margin-top: var(--space-2);
+}
+
+/* A count inside a segment ("Open 4"): quieter than the label it follows. */
+.seg .seg-count {
+  margin-left: var(--space-1);
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.seg .seg-count:empty {
+  display: none;
+}
+
+/* The Ask box's scope line: what the next answer is drawn from. */
+.ask-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
 }
 
 /* Recent activity's "Undo what Atlas did" under its list (activityUndoControl,

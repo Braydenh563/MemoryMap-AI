@@ -622,42 +622,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   :root:not([data-theme="light"]) .text-ink-red { color: #f87171; }
 }
 
-/* --- filter help ------------------------------------------------------------- */
-.search-help {
-  margin: 0 0 0.6rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--chip-bg, var(--accent-soft));
-  font-size: 0.85rem;
-}
-
-/* Two classes, and that is the point: `#search-help-hint` carries both
-   `.graph-help-panel` (the floating help popover every other tab uses) and
-   `.search-help`, both single-class selectors, so load order alone decided
-   which background won: and this file loads after 03-dashboard-widgets.css,
-   so `.search-help`'s near-transparent `--chip-bg` beat the popover's opaque
-   `--modal-bg`. Reported directly: "the tooltip in the your notes tab is a
-   different colour to the other tabs. the ui needs to stay consistent." The
-   same compound-selector fix `.entry-more.library-image-caption-more` in
-   00-tokens-shell.css already uses, for the same reason: two classes
-   outweigh one regardless of which file loads last. */
-.graph-help-panel.search-help {
-  margin: 0;
-  padding: var(--space-4);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  font-size: var(--text-sm);
-}
-
-.search-help.hidden {
-  display: none;
-}
-
-.search-help p {
-  margin: 0 0 0.4rem;
-}
-
+/* --- filter help (the list inside `#search-help-hint`, a `.help-body`) -------- */
 .search-help-list {
   margin: 0;
   padding-left: 1rem;

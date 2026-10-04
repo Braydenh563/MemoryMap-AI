@@ -55,6 +55,7 @@ from memorymap.api import (
     routes_relations,
     routes_properties,
     routes_night,
+    routes_questions,
     routes_privacy,
     routes_resurface,
     routes_entries,
@@ -792,7 +793,14 @@ def create_app() -> FastAPI:
     # A job record still saying "running" belongs to the process that just
     # ended; say so before anything new can be mistaken for it.
     jobruns.mark_interrupted()
+    # The durable jobs (core/jobstore.py): the readings and filings a closed
+    # or killed process left queued or half done are queued again, once.
+    jobs.resume()
     ledger_path = deps.get_config().data_dir / egress.LEDGER_NAME
+    # Keep the ledger current as connections happen, not only on a receipt
+    # read and at a clean shutdown, so a killed process loses at most
+    # `egress.FLUSH_DELAY` of what it saw.
+    egress.configure(ledger_path)
     _purge_expired_bin_entries()
     _compact_event_log()
     _backup_if_due()
@@ -840,8 +848,9 @@ def create_app() -> FastAPI:
         # call that cannot be interrupted and the workers are daemons: see
         # `jobs.Pool.shutdown`.
         jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
-        # The receipt's ledger keeps what this launch saw; the route flushes
-        # on every read, and this catches a launch nobody opened it in.
+        # The receipt's ledger keeps what this launch saw; the writer thread
+        # (`egress.configure`) flushes within a second of a connection and the
+        # route on every read, so this is the last drain on a clean quit.
         # The path was taken at startup: by now the app state may be gone.
         egress.flush(ledger_path)
 
@@ -981,6 +990,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_drafts.router, dependencies=locked)
     app.include_router(routes_learned.router, dependencies=locked)
     app.include_router(routes_night.router, dependencies=locked)
+    app.include_router(routes_questions.router, dependencies=locked)
     app.include_router(routes_resurface.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)

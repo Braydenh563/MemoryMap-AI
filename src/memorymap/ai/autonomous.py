@@ -409,6 +409,7 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
                     model=deps.get_model_manager().utility_model(),
                     config=config,
                     trigger="scheduled",
+                    embeddings=deps.get_embeddings(),
                 )
                 session.commit()
                 jobruns.describe_night_pass(night, outcome)

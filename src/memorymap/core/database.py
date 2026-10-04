@@ -778,6 +778,54 @@ class EmbeddingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class ChunkVector(Base):
+    """One vector per paragraph of a long note (WORLD_CLASS_PLAN §14 item 3,
+    row 6).
+
+    One vector per note loses a long note: a paragraph about the boiler in a
+    page about the house is a twentieth of the note's vector, and a question
+    about the boiler scores the whole page as barely related. A note of two
+    or more paragraphs (`embeddings.paragraph_chunks`) gets a row per
+    paragraph here as well; a short note has none, since its one paragraph is
+    the note and its vector already exists.
+
+    **`embedding_id` is the note vector these rows were cut beside.** Ten
+    places delete a note's `EmbeddingRecord` (purge, private, re-embed, the
+    category re-embed, restore), mostly with bulk statements no hook sees.
+    Rather than teach every one of them about this table, a chunk only counts
+    while the note's live vector is the one it was stored with
+    (`search/chunks.py`): a deleted or replaced note vector retires its
+    chunks at once, whoever deleted it. `store_for_entry` and the orphan pass
+    remove the rows themselves.
+
+    **No foreign key on `entry_id`, on purpose.** Foreign keys are enforced
+    here, and the entry hard-delete paths (purge, the bin, a workspace delete)
+    each list the side tables they clear first; a key here would make every
+    one of them fail until it learned this table's name. A row whose note is
+    gone is already inert by the `embedding_id` rule, and
+    `clean_orphaned_vectors` deletes it. `set_private` deletes them at once,
+    because a vector derived from the text is what the encryption hides.
+
+    `start`/`end` are offsets into the note's content as it was embedded, the
+    paragraph anchor a grounded sentence points at. `digest` lets a re-save
+    reuse the vectors of the paragraphs that did not change, so editing one
+    paragraph of a long note embeds one paragraph.
+    """
+
+    __tablename__ = "chunk_vectors"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    embedding_id: Mapped[int] = mapped_column(Integer)
+    ordinal: Mapped[int] = mapped_column(Integer)
+    start: Mapped[int] = mapped_column(Integer)
+    end: Mapped[int] = mapped_column(Integer)
+    digest: Mapped[str] = mapped_column(String(32))
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    dim: Mapped[int] = mapped_column(Integer)
+    model_version: Mapped[str] = mapped_column(String(200))
+
+
 class Attachment(Base, WorkspaceMixin):
     """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original
@@ -1059,8 +1107,8 @@ class DerivedFact(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
-    #: `claim` or `question` today; `tension`, `duplicate`, `entity` and
-    #: `date` are the kinds I1's later passes add to the same table.
+    #: `claim`, `question`, `tension` or `answered` (`facts.KINDS`);
+    #: `duplicate`, `entity` and `date` are the kinds still to come.
     kind: Mapped[str] = mapped_column(String(20), index=True)
     text: Mapped[str] = mapped_column(Text)
     span_start: Mapped[int] = mapped_column(Integer, default=0)
@@ -1078,6 +1126,11 @@ class DerivedFact(Base):
     #: card and its review list can speak about one pass. Null on rows from
     #: before runs were recorded; they still list under /learned.
     run_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+    #: JSON, for the pair kinds (`tension`, `answered`): the other side's
+    #: fact, note, words and span, the pair key that stops a dismissed pair
+    #: being found again, and the model's one-line reason. Null for a claim
+    #: or a question, which are one sentence of one note.
+    payload: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class NightRun(Base):
@@ -1591,6 +1644,49 @@ class JobRun(Base):
     result: Mapped[str] = mapped_column(String(400), default="")
     error: Mapped[str] = mapped_column(String(400), default="")
     duration_ms: Mapped[float | None] = mapped_column(Float, default=None)
+
+
+class DurableJob(Base):
+    """One piece of queued background work that outlives the process
+    (WORLD_CLASS_PLAN B2). Written only through `core/jobstore.py`.
+
+    **One row per job, unlike `JobRun`'s one per kind**: the question here
+    is "what was still to do when the app closed", which is a row per thing
+    to do. Finished rows are pruned at launch (`jobstore.prune`), so the
+    table holds the work in hand plus a short tail of what ended.
+
+    `state` is "queued", "running", "done", "failed" or "cancelled". A row
+    is *running* only while `owner` (a process token) holds an unexpired
+    `lease_until`, which its heartbeat renews; a running row whose lease has
+    lapsed belongs to a process that is gone, and is queued again.
+    `payload` is the JSON arguments of the handler `kind` names in
+    `jobstore.HANDLERS`, never code. No `workspace_id`: a job's arguments
+    name rows by id, and the handler re-establishes the space itself, as
+    `_file_entry_in_background` already does.
+
+    A new table, so `create_all` builds it (and its indexes) on every
+    notebook, old and new: no migration is needed, the same as `job_runs`.
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    state: Mapped[str] = mapped_column(String(12), default="queued", index=True)
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    #: The pool's dedupe key as JSON, so a resumed job still dedupes against
+    #: a fresh request for the same picture.
+    dedupe_key: Mapped[str | None] = mapped_column(String(300), default=None)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    heartbeat: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class UserPreference(Base):

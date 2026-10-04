@@ -56,7 +56,10 @@ def test_the_dock_is_the_search_customise_and_one_menu():
     assert 'id="dash-find"' in dock
     assert re.search(r'<span[^>]*id="dash-more"[^>]*class="[^"]*dock-more', dock)
     assert dock.index('id="dash-customise"') < dock.index('id="dash-more"')
-    assert len(re.findall(r"<button\b", dock)) == 1, "the dock is the search and two menus, nothing else"
+    #: The one button besides the menus' own is the '?' (WORLD_CLASS row 14:
+    #: every tab's dock ends with one).
+    assert 'id="dash-help-toggle"' in dock
+    assert len(re.findall(r"<button\b", dock)) == 2, "the dock is the search, two menus and the '?', nothing else"
     assert "kebabMenu(" not in _function("renderQuickLinks"), "Quick access has its own ⋯ again"
 
 

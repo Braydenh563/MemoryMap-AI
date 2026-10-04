@@ -1817,8 +1817,9 @@ const REVEAL_TARGETS = {
     tab: "notes",
     open: () => {
       showNotesSection("browse");
-      $("search-help-hint").classList.remove("hidden");
-      $("search-help").setAttribute("aria-expanded", "true");
+      //: The '?' is the `data-help-for` recipe now, so opening it is pressing
+      //: it; only when it is not already open, since a press toggles.
+      if ($("search-help").getAttribute("aria-expanded") !== "true") $("search-help").click();
     },
     el: "search-help-hint",
   },
@@ -1841,6 +1842,10 @@ const REVEAL_TARGETS = {
   },
   sketch: { open: () => openSketch(), el: "sketch-card", flash: false },
   meeting: { open: () => openMeetingRecorder(), el: "meeting-card", flash: false },
+  //: Ctrl+D's own door (`openTodaysPage`, timeline.js): today's page where it
+  //: lives, or the composer with the day's title. The composer's box is the
+  //: element that is always there to land on.
+  "todays-note": { open: () => openTodaysPage(), el: "entry-content", flash: false },
   "page-reader": { module: "library", open: () => window.openPageReader?.(), el: "ocr-workspace", flash: false, fallback: "library-view-media" },
 
   // Ask & chat
@@ -2207,6 +2212,9 @@ function paletteCommands() {
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
     { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },
+    //: Ctrl+D had no palette row (tests/test_consistency_contract.py: every
+    //: chord is in the palette or says why it cannot be).
+    { label: "ph:calendar-check Open today's note", reveal: "todays-note", chord: "todaysNote", about: "Today's page, or a new one titled with the day." },
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
@@ -2348,6 +2356,9 @@ function paletteCommands() {
     //: the row says which it will do, since this list is built per query.
     { label: nameMarkBuddyShowing() ? "ph:eye-slash Hide companion" : "ph:person-simple Show companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
     { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts", chord: "help" },
+    { label: "ph:arrow-left Go back", about: "To the page or view you were on before.", chord: "navigateBack", act: () => stepTabHistory(-1) },
+    { label: "ph:arrow-right Go forward", about: "Forward again, after going back.", chord: "navigateForward", act: () => stepTabHistory(1) },
+    { label: "ph:arrows-clockwise Reload the app", about: "Clears cached files first, so the newest version loads.", chord: "forceReload", act: () => forceReloadApp() },
     { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);
 }

@@ -557,6 +557,7 @@ async function renderTimeline() {
   renderTimelineKinds();
   paintTimeline();
   drawTimelineScrubber();
+  renderTimelineDayStrip();
 }
 
 //: **A page at a time, as the reader reaches the end of the last one**
@@ -917,26 +918,82 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
 //: the Timeline itself would give (a note or a document titled with the day,
 //: `timelineDailyNote`), and opened where that kind lives.
 async function openTodaysPage() {
-  const key = timelineBucketKey(new Date(), "day");
-  const body = await apiJson("/timeline?scale=day&days=1&kind=note,document", { silent: true }).catch(
-    () => null
-  );
+  return openDayPage(timelineBucketKey(new Date(), "day"));
+}
+
+//: **Any day's page, by the same rules as today's** (WORLD_CLASS_PLAN D6, the
+//: calendar strip and the day pair in a daily note's head). A note first,
+//: through the read-only `GET /entries/daily/{day}` (the writing half stays
+//: unused here, see `startDayNote`), once `GET /entries/daily` says it is
+//: there, then a document titled with the day, then
+//: the composer with the day's title. The note lookup is by its heading and
+//: not by where the Timeline places the row, because a note headed for a day
+//: it was not written on sits on the day it was typed.
+async function openDayPage(key) {
+  //: Asked whether the day is written before it is read, so a day with no
+  //: note is an answer and not a 404 in the console (`errors.js` counts those).
+  const day = await apiJson(`/entries/daily?through=${key}&days=1`, { silent: true }).catch(() => null);
+  const note = day?.days?.[0]?.written
+    ? await apiJson(`/entries/daily/${key}`, { silent: true }).catch(() => null)
+    : null;
+  if (note?.id) {
+    flashEntry(note.id);
+    return;
+  }
+  const start = timelineDayShift(key, -1);
+  const end = timelineDayShift(key, 1);
+  const body = await apiJson(
+    `/timeline?scale=day&kind=document&start=${start}T00:00:00Z&end=${end}T23:59:59Z`,
+    { silent: true }
+  ).catch(() => null);
   const existing = body ? timelineDailyNote(key, (body.rows || []).map(timelineRow)) : null;
   if (!existing) {
-    startTodaysNote();
+    startDayNote(key);
     return;
   }
-  const id = Number(String(existing.key).split(":")[1]);
-  if (existing.kind === "document") {
-    switchTab("documents");
-    openDocument(id);
-    return;
-  }
-  flashEntry(id);
+  switchTab("documents");
+  openDocument(Number(String(existing.key).split(":")[1]));
+}
+
+//: **The day before and the day after, in a daily note's head** (D6). The
+//: notes list calls this for a note whose title is the ISO day
+//: (`note-cards.js`); each button is `openDayPage` for its neighbour, which
+//: opens that day's page or starts it. Labelled by the neighbour's weekday and
+//: date rather than "Yesterday" and "Tomorrow", because the note being read
+//: is rarely today's.
+function dailyNotePair(key) {
+  const wrap = document.createElement("div");
+  wrap.className = "entry-daypair";
+  const side = (delta, icon) => {
+    const other = timelineDayShift(key, delta);
+    const day = new Date(`${other}T00:00:00`);
+    const short = day.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const long = day.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const verb = delta < 0 ? "The day before" : "The day after";
+    return smallButton(
+      delta < 0 ? `${icon} ${short}` : `${short} ${icon}`,
+      `${verb}: open or start ${long}`,
+      () => openDayPage(other)
+    );
+  };
+  wrap.append(side(-1, "ph:caret-left"), side(1, "ph:caret-right"));
+  return wrap;
+}
+
+//: The day `delta` days from `key`, as a key. Local time, like every other
+//: bucket key here; `setDate` carries over month ends and clock changes.
+function timelineDayShift(key, delta) {
+  const day = new Date(`${key}T00:00:00`);
+  day.setDate(day.getDate() + delta);
+  return timelineBucketKey(day, "day");
 }
 
 function startTodaysNote() {
-  const title = dailyNoteTitle(timelineBucketKey(new Date(), "day"));
+  startDayNote(timelineBucketKey(new Date(), "day"));
+}
+
+function startDayNote(key) {
+  const title = dailyNoteTitle(key);
   switchTab("notes");
   showNotesSection("capture");
   const titleBox = $("entry-title");
@@ -949,6 +1006,252 @@ function startTodaysNote() {
   //: `focus()` on a box inside a hidden panel does nothing at all.
   setTimeout(() => body?.focus(), 0);
 }
+
+//: **The calendar strip** (WORLD_CLASS_PLAN D6): the seven days ending at
+//: `timelineStripEnd`, each saying whether the day has a page, one press from
+//: opening it (or starting it: `openDayPage`). It is not in the dock: seven
+//: buttons would have made the dock's row the seven-control ceiling's whole
+//: budget, and a strip you scan is not a control you reach for. The
+//: arrows walk a week at a time; the window never passes today.
+//:
+//: Which days are written comes from `GET /entries/daily` (the notes, by their
+//: heading, the endpoint written for exactly this) and from the Timeline for
+//: documents titled with the day. A request that failed leaves the strip
+//: drawn without dots rather than not drawn: the days are still pressable.
+let timelineStripEnd = null;
+const TIMELINE_STRIP_DAYS = 7;
+
+//: Which days in `first`..`end` have a page: the notes, by their heading
+//: (`GET /entries/daily`), and the documents titled with the day. One answer
+//: for the strip and the month popover. Null when both requests failed, which
+//: leaves the days drawn without dots rather than not drawn.
+async function timelineDayPages(first, end) {
+  const span = Math.round((new Date(`${end}T00:00:00`) - new Date(`${first}T00:00:00`)) / 86400000) + 1;
+  const [notes, docs] = await Promise.all([
+    apiJson(`/entries/daily?through=${end}&days=${span}`, { silent: true }).catch(() => null),
+    apiJson(
+      `/timeline?scale=day&kind=document&start=${timelineDayShift(first, -1)}T00:00:00Z&end=${timelineDayShift(end, 1)}T23:59:59Z`,
+      { silent: true }
+    ).catch(() => null),
+  ]);
+  if (!notes && !docs) return null;
+  const written = new Set((notes?.days || []).filter((day) => day.written).map((day) => day.date));
+  const docRows = docs ? (docs.rows || []).map(timelineRow) : [];
+  return (key) => written.has(key) || !!timelineDailyNote(key, docRows);
+}
+
+//: A day's name for a screen reader and a tooltip, with whether it has a page.
+function timelineDayLabel(key, has) {
+  const long = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  return { long, label: `${long}, ${has ? "has a page" : "no page yet"}` };
+}
+
+async function renderTimelineDayStrip() {
+  const host = $("timeline-daystrip-days");
+  if (!host) return;
+  const today = timelineBucketKey(new Date(), "day");
+  if (!timelineStripEnd || timelineStripEnd > today) timelineStripEnd = today;
+  const end = timelineStripEnd;
+  const first = timelineDayShift(end, 1 - TIMELINE_STRIP_DAYS);
+  const hasPage = await timelineDayPages(first, end);
+  //: Stale answer: the person walked on while this was in flight.
+  if (end !== timelineStripEnd) return;
+
+  const lastDay = new Date(`${end}T00:00:00`);
+  const firstDay = new Date(`${first}T00:00:00`);
+  const monthFormat = { month: "long", year: "numeric" };
+  $("timeline-month-text").textContent =
+    firstDay.getMonth() === lastDay.getMonth()
+      ? lastDay.toLocaleDateString(undefined, monthFormat)
+      : `${firstDay.toLocaleDateString(undefined, { month: "short" })} to ${lastDay.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
+  $("timeline-days-later").disabled = end >= today;
+
+  host.replaceChildren();
+  for (let offset = 1 - TIMELINE_STRIP_DAYS; offset <= 0; offset += 1) {
+    const key = timelineDayShift(end, offset);
+    const day = new Date(`${key}T00:00:00`);
+    const has = !!hasPage?.(key);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small timeline-day";
+    button.dataset.key = key;
+    button.classList.toggle("is-written", has);
+    button.classList.toggle("is-today", key === today);
+    if (key === today) button.setAttribute("aria-current", "date");
+    const { long, label } = timelineDayLabel(key, has);
+    button.setAttribute("aria-label", label);
+    button.title = has ? `Open the page for ${long}` : `Start the page for ${long}`;
+    const name = document.createElement("span");
+    name.className = "timeline-day-name";
+    name.textContent = day.toLocaleDateString(undefined, { weekday: "short" });
+    const num = document.createElement("span");
+    num.className = "timeline-day-num";
+    num.textContent = String(day.getDate());
+    const dot = document.createElement("span");
+    dot.className = "timeline-day-dot";
+    dot.setAttribute("aria-hidden", "true");
+    button.append(name, num, dot);
+    button.addEventListener("click", () => openDayPage(key));
+    host.appendChild(button);
+  }
+  //: A day picked in the month popover lands here with the focus on it, so a
+  //: keyboard user who chose a day is on that day and Enter opens its page.
+  if (timelineStripFocus) {
+    host.querySelector(`[data-key="${timelineStripFocus}"]`)?.focus({ preventScroll: true });
+    timelineStripFocus = null;
+  }
+}
+
+//: **The month popover** (WORLD_CLASS_PLAN D6, "overflow into a month
+//: popover"): the strip's month label opens a calendar of one month, so a day
+//: past the seven is two presses away, not a week of arrows. It is the popover
+//: tier (`wireHelpPopover`: lifted to the body, placed under its button with a
+//: caret, closed by Escape, a press elsewhere or a second press), and what is
+//: in it is its own. A day does not open its page from here: it moves the
+//: strip to that day and focuses it, so the one way to open a page stays the
+//: strip's button. Days after today are not offered (the strip never passes
+//: today). The grid is a group of buttons with one Tab stop (roving), and the
+//: arrow keys walk it: left and right a day, up and down a week, Home and End
+//: the week's ends, Page Up and Page Down a month.
+let timelineMonthShown = null;
+let timelineStripFocus = null;
+
+function timelineMonthStart(key) {
+  return `${key.slice(0, 7)}-01`;
+}
+
+function timelineMonthShift(month, delta) {
+  const day = new Date(`${month}T00:00:00`);
+  day.setMonth(day.getMonth() + delta, 1);
+  return timelineBucketKey(day, "day");
+}
+
+function timelineJumpToDay(key) {
+  const today = timelineBucketKey(new Date(), "day");
+  //: The picked day sits a few days in from the strip's right edge, so the
+  //: days around it show, unless that would pass today.
+  const ahead = timelineDayShift(key, 3);
+  timelineStripEnd = ahead > today ? today : ahead;
+  timelineStripFocus = key;
+  closeHelpPopovers();
+  renderTimelineDayStrip();
+}
+
+//: Built synchronously (the popover opens on it, so it is placed at its real
+//: size); the dots arrive after, from the same endpoints the strip reads.
+function renderTimelineMonthPop(month, focusKey) {
+  const today = timelineBucketKey(new Date(), "day");
+  timelineMonthShown = month;
+  const first = new Date(`${month}T00:00:00`);
+  const dayCount = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const title = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  $("timeline-month-title").textContent = title;
+  $("timeline-month-next").disabled = timelineMonthShift(month, 1) > today;
+  const grid = $("timeline-month-grid");
+  grid.setAttribute("aria-label", title);
+  grid.replaceChildren();
+  //: 2024-01-01 was a Monday: seven real weekday names in the user's language,
+  //: Monday first like the Timeline's weeks.
+  for (let i = 0; i < 7; i += 1) {
+    const name = document.createElement("span");
+    name.className = "timeline-monthpop-dow";
+    name.setAttribute("aria-hidden", "true");
+    name.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: "narrow" });
+    grid.appendChild(name);
+  }
+  for (let i = (first.getDay() + 6) % 7; i > 0; i -= 1) grid.appendChild(document.createElement("span"));
+  const stripEnd = timelineStripEnd || today;
+  const stripFirst = timelineDayShift(stripEnd, 1 - TIMELINE_STRIP_DAYS);
+  const ym = month.slice(0, 7);
+  const stop = focusKey && focusKey.startsWith(ym) ? focusKey : today.startsWith(ym) ? today : `${ym}-01`;
+  for (let n = 0; n < dayCount; n += 1) {
+    const key = timelineDayShift(month, n);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small timeline-monthday";
+    button.dataset.key = key;
+    button.textContent = String(n + 1);
+    button.disabled = key > today;
+    button.classList.toggle("is-today", key === today);
+    button.classList.toggle("is-in-strip", key >= stripFirst && key <= stripEnd);
+    button.tabIndex = key === stop ? 0 : -1;
+    button.setAttribute("aria-label", timelineDayLabel(key, false).long);
+    button.addEventListener("click", () => timelineJumpToDay(key));
+    grid.appendChild(button);
+  }
+  const lastKey = timelineDayShift(month, dayCount - 1);
+  timelineDayPages(month, lastKey > today ? today : lastKey).then((hasPage) => {
+    if (!hasPage || timelineMonthShown !== month) return;
+    for (const button of grid.querySelectorAll(".timeline-monthday")) {
+      const has = hasPage(button.dataset.key);
+      button.classList.toggle("is-written", has);
+      button.setAttribute("aria-label", timelineDayLabel(button.dataset.key, has).label);
+    }
+  });
+  const pop = $("timeline-month-pop");
+  if (pop.classList.contains("help-popover")) placeHelpPopover(pop, $("timeline-month-btn"));
+  if (focusKey) grid.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+}
+
+function timelineMonthKeys(event) {
+  const pop = $("timeline-month-pop");
+  if (event.key === "Escape") {
+    //: The document's own handler closes the popover; the focus goes back to
+    //: the button that opened it, not to the page.
+    $("timeline-month-btn").focus();
+    return;
+  }
+  const current = document.activeElement?.closest?.(".timeline-monthday");
+  if (!current || !pop.contains(current)) return;
+  const key = current.dataset.key;
+  const weekday = (new Date(`${key}T00:00:00`).getDay() + 6) % 7;
+  const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, Home: -weekday, End: 6 - weekday };
+  let target = null;
+  if (event.key in moves) target = timelineDayShift(key, moves[event.key]);
+  else if (event.key === "PageUp" || event.key === "PageDown") {
+    const month = timelineMonthShift(timelineMonthStart(key), event.key === "PageUp" ? -1 : 1);
+    const length = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
+    target = `${month.slice(0, 8)}${String(Math.min(Number(key.slice(8)), length)).padStart(2, "0")}`;
+  }
+  if (!target) return;
+  event.preventDefault();
+  const today = timelineBucketKey(new Date(), "day");
+  if (target > today) target = today;
+  if (target.slice(0, 7) === key.slice(0, 7)) {
+    for (const day of pop.querySelectorAll(".timeline-monthday")) day.tabIndex = day.dataset.key === target ? 0 : -1;
+    pop.querySelector(`[data-key="${target}"]`)?.focus();
+  } else renderTimelineMonthPop(timelineMonthStart(target), target);
+}
+
+//: The popover is wired once and its trigger is static markup. The capture
+//: phase runs before the wiring's own press handler, so the grid is built
+//: before the popover opens and placed at its real size; the focus follows
+//: once it is open.
+(() => {
+  const button = $("timeline-month-btn");
+  const pop = $("timeline-month-pop");
+  if (!button || !pop) return;
+  wireHelpPopover(button, pop);
+  button.addEventListener(
+    "click",
+    () => {
+      if (button.getAttribute("aria-expanded") === "true") return;
+      const end = timelineStripEnd || timelineBucketKey(new Date(), "day");
+      renderTimelineMonthPop(timelineMonthStart(end), null);
+      setTimeout(() => pop.querySelector('.timeline-monthday[tabindex="0"]')?.focus({ preventScroll: true }), 0);
+    },
+    true
+  );
+  pop.addEventListener("keydown", timelineMonthKeys);
+  $("timeline-month-prev").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, -1), null));
+  $("timeline-month-next").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, 1), null));
+  const walk = (delta) => {
+    timelineStripEnd = timelineDayShift(timelineStripEnd, delta * TIMELINE_STRIP_DAYS);
+    renderTimelineDayStrip();
+  };
+  $("timeline-days-earlier").addEventListener("click", () => walk(-1));
+  $("timeline-days-later").addEventListener("click", () => walk(1));
+})();
 
 // One Tab stop for the feed, kept on the row the reader was on. A repaint
 // happens on every keystroke in the search box, and resetting the stop to the
@@ -1975,6 +2278,11 @@ $("timeline-end-date")?.addEventListener("change", () => {
 //: first section is today's: a notebook with nothing written today should land
 //: on the newest day it has, not claim that day is today.
 $("timeline-jump-today")?.addEventListener("click", () => {
+  //: Home for the strip too, when it was walked back to an earlier week.
+  if (timelineStripEnd) {
+    timelineStripEnd = null;
+    renderTimelineDayStrip();
+  }
   const feed = $("timeline-feed");
   const today = timelineBucketKey(new Date(), feed.dataset.scale || "day");
   const section =

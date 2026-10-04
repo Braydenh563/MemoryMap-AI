@@ -65,7 +65,8 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
         provider = None
     with jobruns.job_run("night-shift") as run:
         result = facts.run(
-            session, budget=body.budget, force=body.force, provider=provider, model=model, config=config
+            session, budget=body.budget, force=body.force, provider=provider, model=model, config=config,
+            embeddings=deps.get_embeddings(),
         )
         session.commit()
         jobruns.describe_night_pass(run, result)

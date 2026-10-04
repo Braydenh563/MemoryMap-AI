@@ -1,8 +1,8 @@
 # Brief 22, the three Notes sub-tabs: what is done, what is left
 
-> Companions: [SESSION_BRIEFS.md](../SESSION_BRIEFS.md) Brief 22 ·
-> [UI_MODERNISATION_PLAN.md](../UI_MODERNISATION_PLAN.md) ·
-> [HISTORY.md](../HISTORY.md) "INBOX resolved" 116, 119, 120
+> Companions: [SESSION_BRIEFS.md](../../SESSION_BRIEFS.md) Brief 22 ·
+> [UI_MODERNISATION_PLAN.md](../../UI_MODERNISATION_PLAN.md) ·
+> [HISTORY.md](../../HISTORY.md) "INBOX resolved" 116, 119, 120
 >
 > Two sittings. The first (`2d4b19b`, `728bd71`) turned the "Add to document"
 > combobox into an adder and regrouped Capture's rows by family; it was cut

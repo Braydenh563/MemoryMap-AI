@@ -55,6 +55,22 @@ still a bottom sheet there and the toast box is not raised, as asked);
 sheets opened from the whiteboard's text editor layer (100000, not an opener
 in practice).
 
+**The document properties panel reads note types (built).** A document
+whose frontmatter says `type: Meeting` shows that type's fields it has not
+written as empty rows (`docFrontmatterTypeFields`, pure and run in node;
+`docPropsTypeRows`; the types from `GET /note-types`, asked once and only for
+a document that has a `type`). Each row has its kind's control; a value goes in
+through `docFrontmatterAddEdits` as one line above the closing fence, a row
+left empty writes nothing, and the redraw makes it an ordinary row. Measured:
+`tests/test_doc_type_fields.py` (node, 9 checks) and
+`scratchpad/ui-sweeps/doctypeprops.js` 11/11 at 1440 and 390 (the fields
+listed, the right controls, the file unchanged until a value, one new line,
+one right edge for written and unwritten inputs, no sideways scroll). Not
+verified: the checkbox and date rows by hand in a real desktop window; a
+type named in a list or an empty `type:` offers nothing, by choice. The
+type list is read once per page load: a type changed in the palette shows
+in a document's panel after a reload.
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

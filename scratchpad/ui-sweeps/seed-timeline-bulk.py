@@ -69,8 +69,9 @@ for i in range(count):
 con.executemany(
     "INSERT INTO entries (content, category_id, tags, created_at, updated_at, "
     "is_deleted, is_private, pinned, workspace_id, ai_confidence, access_count, "
-    "filing_state, user_filed, is_board, is_draft, source_path) "
-    "VALUES (?, ?, ?, ?, ?, 0, 0, 0, 'default', 0, 0, 'done', 0, 0, 0, '')",
+    "filing_state, user_filed, is_board, is_draft, source_path, suggested_tags, "
+    "discarded_tags) "
+    "VALUES (?, ?, ?, ?, ?, 0, 0, 0, 'default', 0, 0, 'done', 0, 0, 0, '', '[]', '[]')",
     rows,
 )
 con.commit()

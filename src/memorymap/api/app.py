@@ -10,6 +10,8 @@ core/security.py, which runs alongside the CSP from the same module.
 
 from __future__ import annotations
 
+import gzip
+import hashlib
 import hmac
 import logging
 import os
@@ -22,9 +24,12 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import FileResponse
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 
 from memorymap import __version__
@@ -240,6 +245,7 @@ class RevalidatedStatic(StaticFiles):
             response.headers["Cache-Control"] = "no-cache"
             return response
         response = await super().get_response(path, scope)
+        response = await self._precompressed(response, scope)
         query = scope.get("query_string", b"")
         if isinstance(query, bytes):
             query = query.decode("latin-1")
@@ -249,6 +255,90 @@ class RevalidatedStatic(StaticFiles):
         else:
             response.headers.setdefault("Cache-Control", "no-cache")
         return response
+
+    #: **Each file is compressed once, not on every fetch** (INBOX 472).
+    #: `GZipMiddleware` compressed a static file afresh on every request:
+    #: measured on loopback, `08-consistency.css` (448 KB) took 22 to 46 ms
+    #: gzipped against 5 ms sent as it is, `app.js` 10 ms against 4, and a
+    #: launch fetches every stylesheet and script again because `_BOOT_TOKEN`
+    #: gives each one a new URL. So every start paid the whole frontend's
+    #: compression on the server's one event loop while the boot's own API
+    #: calls queued behind it. The bytes are kept per file, keyed on its
+    #: mtime and size, so an edited file is compressed again on its next
+    #: fetch and an unchanged one never is. The response carries
+    #: `Content-Encoding`, which `GZipMiddleware` reads as "already done" and
+    #: passes through. Level 9 rather than the middleware's 6: paid once per
+    #: file version instead of per request, it is worth the 0.2 to 0.6% it
+    #: takes off the wire (`app.js` 42,997 to 42,922 bytes).
+    #:
+    #: Kept on disk as well (`<data dir>/cache/static-gz`), because a launch
+    #: is a new process: an in-memory copy alone is cold on exactly the start
+    #: it was meant for. The whole frontend is 448 ms of compression on the
+    #: sandbox, about 150 of it on the boot path, paid once per file version
+    #: rather than once per launch. Backups copy the database only, so the
+    #: folder is never in one, and anything going wrong with it (a read-only
+    #: data dir, a full disk) falls back to compressing in memory.
+    _GZIP_TYPES = ("text/", "application/javascript", "application/json", "image/svg+xml")
+    _gzip_cache: dict[str, tuple[int, int, bytes]] = {}
+
+    async def _precompressed(self, response, scope):
+        if not isinstance(response, FileResponse) or response.status_code != 200:
+            return response
+        if scope["method"] != "GET":
+            return response
+        request_headers = Headers(scope=scope)
+        if "gzip" not in request_headers.get("accept-encoding", "") or "range" in request_headers:
+            return response
+        media_type = (response.media_type or "").lower()
+        if not media_type.startswith(self._GZIP_TYPES):
+            return response
+        stat = response.stat_result
+        if stat is None or stat.st_size < 500:
+            return response
+        key = str(response.path)
+        cached = self._gzip_cache.get(key)
+        if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+            body = cached[2]
+        else:
+            body = await run_in_threadpool(_static_gzip, key, stat.st_mtime_ns, stat.st_size)
+            self._gzip_cache[key] = (stat.st_mtime_ns, stat.st_size, body)
+        headers = {
+            k: v
+            for k, v in response.headers.items()
+            if k.lower() not in ("content-length", "content-encoding")
+        }
+        headers["Content-Encoding"] = "gzip"
+        headers["Vary"] = "Accept-Encoding"
+        return Response(content=body, headers=headers, media_type=response.media_type)
+
+
+def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
+    """A static file's gzip bytes, from the disk cache or compressed now.
+
+    One file per path, named for its version, so an edited file's old copy is
+    replaced rather than accumulated (RevalidatedStatic._precompressed)."""
+    stem = hashlib.sha1(path.encode(), usedforsecurity=False).hexdigest()[:16]
+    try:
+        folder = deps.get_config().data_dir / "cache" / "static-gz"
+    except Exception:  # noqa: BLE001  # no data dir yet is no reason to fail a page
+        folder = None
+    if folder is not None:
+        try:
+            return (folder / f"{stem}-{mtime_ns}-{size}.gz").read_bytes()
+        except OSError:
+            pass
+    body = gzip.compress(Path(path).read_bytes(), 9, mtime=0)
+    if folder is not None:
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            for stale in folder.glob(f"{stem}-*.gz"):
+                stale.unlink(missing_ok=True)
+            partial = folder / f"{stem}.{os.getpid()}.part"
+            partial.write_bytes(body)
+            os.replace(partial, folder / f"{stem}-{mtime_ns}-{size}.gz")
+        except OSError:
+            pass
+    return body
 
 
 def _purge_expired_bin_entries() -> None:

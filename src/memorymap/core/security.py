@@ -24,26 +24,9 @@ from base64 import b64encode
 from pathlib import Path
 from urllib.parse import urlparse, urlsplit
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, Response
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.responses import JSONResponse
 
-
-async def _call_next_or_gone(request, call_next):
-    """`call_next`, except for a request the browser has already given up on.
-
-    Starlette's `BaseHTTPMiddleware` raises `RuntimeError("No response
-    returned.")` when the app below it sent nothing because the client went
-    away mid-request (a fetch aborted by a tab switch or a superseded search).
-    That is not a server fault, but it reached the console as a full "Exception
-    in ASGI application" traceback (the owner's Windows log, 2026-09-28). A
-    request nobody is waiting for gets an empty 499 instead; anything else
-    still raises."""
-    try:
-        return await call_next(request)
-    except RuntimeError as exc:
-        if str(exc) == "No response returned." and await request.is_disconnected():
-            return Response(status_code=499)
-        raise
 
 # Loopback spellings that all mean this machine. A person who typed
 # "localhost:8000" and a desktop shell that loaded "127.0.0.1:8000" are the
@@ -133,7 +116,7 @@ class HostCheckMiddleware:
         await self.app(scope, receive, send)
 
 
-class OriginCheckMiddleware(BaseHTTPMiddleware):
+class OriginCheckMiddleware:
     """Refuse requests a *different* site's page caused a browser to send.
 
     The rule is narrow on purpose: a request is refused only when it carries
@@ -150,19 +133,23 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     could claim the notebook and lock the real owner out of it.
     """
 
-    async def dispatch(self, request, call_next):
-        if request.method.upper() in _CHECKED_METHODS:
-            stated = request.headers.get("origin")
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] == "http" and scope["method"].upper() in _CHECKED_METHODS:
+            headers = Headers(scope=scope)
+            stated = headers.get("origin")
             # Referer is the fallback, not an equal: it is absent under a
             # strict referrer policy, so it can only ever be used to reject
             # something, never as the reason to trust something.
             if stated is None or stated == "null":
-                stated = request.headers.get("referer")
+                stated = headers.get("referer")
             if stated is not None and stated != "null":
-                host = request.headers.get("host")
-                scheme = request.url.scheme or "http"
+                host = headers.get("host")
+                scheme = scope.get("scheme") or "http"
                 if not _is_same_site(stated, host, scheme):
-                    return JSONResponse(
+                    refusal = JSONResponse(
                         status_code=403,
                         content={
                             "detail": (
@@ -171,7 +158,9 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                             )
                         },
                     )
-        return await _call_next_or_gone(request, call_next)
+                    await refusal(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
 
 
 # --- Content-Security-Policy ------------------------------------------------
@@ -362,37 +351,45 @@ class CspForPage:
         return self._csp
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """Attach the CSP and its neighbours to every response."""
 
     def __init__(self, app, csp: str | CspForPage) -> None:
-        super().__init__(app)
+        self.app = app
         self._csp = csp
 
     def _policy(self) -> str:
         # A plain string is still accepted so a test can pin an exact policy.
         return self._csp.value() if isinstance(self._csp, CspForPage) else self._csp
 
-    async def dispatch(self, request, call_next):
-        response = await _call_next_or_gone(request, call_next)
-        headers = response.headers
-        # setdefault, not assignment: a route that has deliberately set its own
-        # policy knows something this middleware does not.
-        headers.setdefault("Content-Security-Policy", self._policy())
-        # Belt and braces with frame-ancestors above, for anything that reads
-        # the older header instead.
-        headers.setdefault("X-Frame-Options", "DENY")
-        # Stops a note attachment being sniffed into text/html and run as a
-        # page on this origin, same-origin, so it would inherit everything.
-        headers.setdefault("X-Content-Type-Options", "nosniff")
-        # Never leak a notebook's URLs to a third party.
-        headers.setdefault("Referrer-Policy", "no-referrer")
-        # This app needs none of these, and saying so stops an injected iframe
-        # or script asking the user for them in MemoryMap's name.
-        headers.setdefault(
-            "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
-        )
-        return response
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def stamped(message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                # setdefault, not assignment: a route that has deliberately set
+                # its own policy knows something this middleware does not.
+                headers.setdefault("Content-Security-Policy", self._policy())
+                # Belt and braces with frame-ancestors above, for anything
+                # that reads the older header instead.
+                headers.setdefault("X-Frame-Options", "DENY")
+                # Stops a note attachment being sniffed into text/html and run
+                # as a page on this origin, same-origin, so it would inherit
+                # everything.
+                headers.setdefault("X-Content-Type-Options", "nosniff")
+                # Never leak a notebook's URLs to a third party.
+                headers.setdefault("Referrer-Policy", "no-referrer")
+                # This app needs none of these, and saying so stops an injected
+                # iframe or script asking the user for them in MemoryMap's name.
+                headers.setdefault(
+                    "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
+                )
+            await send(message)
+
+        await self.app(scope, receive, stamped)
 
 
 # --- where the AI backend is allowed to live --------------------------------

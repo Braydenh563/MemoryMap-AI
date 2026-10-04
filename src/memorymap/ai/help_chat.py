@@ -911,12 +911,18 @@ HELP_TOPICS.extend(
         },
         {
             "id": "mind-maps",
-            "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
+            "keywords": (
+                "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
+                "branch colours", "branch colors", "map font", "map theme", "palette",
+            ),
             "body": (
                 "Mind maps live in the Library, under Boards and maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
-                "ring of actions, where Cross-link joins any two topics."
+                "ring of actions, where Cross-link joins any two topics. View, How this "
+                "map looks sets its branch colours (classic, deep, soft or vivid), its "
+                "font and the look every topic follows unless it was given its own; a "
+                "topic's pickers can still pull it back to the app's own default."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -990,7 +996,6 @@ HELP_TOPICS.extend(
                 "undo steps", "how many undo", "topic before", "topic after",
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
-                "branch colours", "branch colors", "map font", "map theme", "palette",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and maps). "
@@ -1013,10 +1018,7 @@ HELP_TOPICS.extend(
                 "left, both sides or downward), radial or free, and Tidy lays "
                 "every unpinned topic out again. The View menu sets Colour by "
                 "(branch, category, age, or whether a note is behind it) and opens "
-                "every folded branch, and How this map looks sets the map's branch colours "
-                "(classic, deep, soft or vivid), its font and a look every topic follows "
-                "unless it was given its own; each of a topic's pickers can also pull it "
-                "back to the app's own default. A topic's menu makes it a task: press its box to "
+                "every folded branch. A topic's menu makes it a task: press its box to "
                 "tick it, and every topic above counts the done ones (1/2); Markdown "
                 "exports write tasks as - [ ] and - [x]. View, Number the branches numbers "
                 "every topic by its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "

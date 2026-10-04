@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Boards and maps: each row of the New menu now says what it makes under its name ("An empty canvas you arrange by hand", "Topics branching from one central idea"), so the two kinds are told apart on a touch screen too, where a tooltip never shows (MINDMAP_PLAN INBOX 24; `.dock-menu-item-hint`, `scratchpad/ui-sweeps/boardsnew.js`).
 - Mind maps: View, How this map looks (was "How this map draws topics") now leads with the whole map's own two: Branch colours (Classic, Deep, Soft, Vivid) and Font (Serif, Monospace, Wide sans). The canvas and the Library thumbnail draw from one palette list on the server (`MAP_BRANCH_PALETTES`, sent with `/tree`), so they always agree, and the image export writes the map's font. On a map whose look sets a topic's box, bar, size, alignment or line, that topic's picker also offers the app's own default ("Rounded", "M"), which the topic then keeps against the map (MINDMAP_PLAN 13e, decisions 8 and 9; `tests/test_map_theme_palette.py`, `scratchpad/ui-sweeps/mappalette.js`).
 - Notes: the formatting strip in a note's edit form listed each highlight and text colour twice (the copy of the capture strip kept its options and had them added again); each is listed once.
 - Chat: scrolling up inside a code block, table or thinking fold in an answer no longer stops the chat following the writing; only a wheel the chat pane itself would scroll lets go (`nestedTakesWheelUp`, `tests/test_chat_scroll_534.py`).

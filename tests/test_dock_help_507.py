@@ -61,6 +61,23 @@ def test_boards_and_maps_dock_has_one_new_menu_holding_both_kinds():
     )
 
 
+def test_each_kind_in_the_new_menu_says_what_it_makes():
+    """MINDMAP_PLAN INBOX 24's decision: "one filled New button opens a
+    two-row menu (Board, Mind map), each with its icon and a one-line hint".
+    The hint was a tooltip only, which a touch screen never shows; it is a
+    visible second line now (`.dock-menu-item-hint`, DESIGN.md's row for a
+    dock's one filled action with a choice inside it)."""
+    dock_start = HTML.index('data-dock-name="library-boards"')
+    dock = HTML[dock_start : HTML.index("wb-boards-intro", dock_start)]
+    for row_id in ("wb-boards-new", "wb-boards-new-map"):
+        row = re.search(rf'<button id="{row_id}"[^>]*>(.*?)</button>', dock, re.S)
+        assert row, row_id
+        inner = row.group(1)
+        assert 'class="ph ' in inner, f"{row_id} keeps its icon"
+        hint = re.search(r'<span class="dock-menu-item-hint">([^<]+)</span>', inner)
+        assert hint and 10 < len(hint.group(1)) < 60, f"{row_id} carries a one-line hint"
+
+
 def test_documents_refresh_folds_on_a_phone_so_the_help_does_not_cost_a_row():
     # Measured at 390 with the new '?': New document, refresh, '?' and the more
     # menu did not fit one row and the dock went from 114px to 198px. Refresh

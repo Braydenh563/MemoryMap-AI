@@ -9963,3 +9963,21 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   label:is(.check-row, .setting-check):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
   margin-inline: calc(-1 * var(--space-3) - 1px);
 }
+
+/* 3. The hairline between two hung switch rows stops where the head's does
+      (INBOX 464 (13)). Hanging the row (2) took its top border with it, 9px
+      past the head's underline on each side: measured (divider.js, 1440) on
+      67 rows. The line is drawn inset, at the padding, as a background
+      image, so the row's hover and checked fills (`background-color`) keep
+      working under it. After: 0px. */
+#settings-modal :is(.settings-group, .settings-fold)
+  :is(.check-row + .check-row, .setting-check + .setting-check,
+    li:has(> .setting-check) + li > .setting-check, li:has(> .check-row) + li > .check-row,
+    #tool-list > li > .setting-check):is(label):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
+  border-top-color: transparent;
+  background-image: linear-gradient(var(--divider), var(--divider));
+  background-origin: border-box;
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-size: calc(100% - 2 * var(--space-3) - 2px) 1px;
+}

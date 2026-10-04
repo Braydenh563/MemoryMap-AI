@@ -3919,16 +3919,28 @@ async function undoActorFrom(actor, since, byId, rerender) {
   }
 }
 
-function activityUndoControl(items, byId, rerender) {
-  //: The oldest shown event of each actor that is not the person: undo from
-  //: just before it, so everything that actor did in the list goes back.
+//: Per actor that is not the person, the oldest shown entry event that no
+//: undo has reversed yet: undo from just before it, so everything that actor
+//: did in the list goes back. A `restored` event in the feed names the events
+//: it reversed (`undid`), and those are skipped, so the row goes once an undo
+//: has put everything back instead of staying to say "Already undone".
+function activityUndoStarts(items) {
+  const undone = new Set();
+  for (const item of items) {
+    if (item.action === "restored" && Array.isArray(item.undid)) item.undid.forEach((id) => undone.add(id));
+  }
   const from = new Map();
   for (const item of items) {
     if (!item.actor || item.actor === "user" || item.actor.startsWith("system:recycle")) continue;
-    if (item.entity_type !== "entry") continue;
+    if (item.entity_type !== "entry" || undone.has(item.id)) continue;
     const at = from.get(item.actor);
     if (at === undefined || item.id < at) from.set(item.actor, item.id);
   }
+  return from;
+}
+
+function activityUndoControl(items, byId, rerender) {
+  const from = activityUndoStarts(items);
   if (!from.size) return null;
   const row = document.createElement("div");
   row.className = "row activity-undo";

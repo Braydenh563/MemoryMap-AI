@@ -1398,7 +1398,7 @@ def audit_log(
 def _feed_item(row: AuditLog) -> dict:
     """One event as the feed reports it: what happened, not what it stored."""
     span = events.snapshot_span(row)
-    return {
+    item = {
         "id": row.id,
         "action": row.action,
         "entity_type": row.entity_type,
@@ -1414,6 +1414,12 @@ def _feed_item(row: AuditLog) -> dict:
         "compacted": events.is_compacted(row),
         "created_at": row.created_at.isoformat(),
     }
+    #: A restore by an undo names the events it reversed, so the Recent
+    #: activity widget can stop offering to undo what is already undone.
+    undid = (row.payload or {}).get("undid") if row.action == "restored" else None
+    if isinstance(undid, list):
+        item["undid"] = [i for i in undid if isinstance(i, int)]
+    return item
 
 
 class UndoBody(BaseModel):

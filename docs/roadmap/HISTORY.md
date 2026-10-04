@@ -42,6 +42,19 @@ custom kind from the list (no model in the sandbox); `compact_schemas` cuts
 the parameter text to 60 characters on a small window, so there the refusal
 message is what carries the list.
 
+**Toasts over phone sheets (built).** `openSheet` draws a sheet one layer
+above its opener, so one opened from a menu (2600) or the table view (2400)
+was at 2601 or 2401 and `#toast-box` (1050) sat behind it. Below 600px the box
+is `z-index: 2700` (10-responsive.css): above the highest opener, under the
+boot splash (3000). Measured at 390x844 by `elementFromPoint` at the toast's
+centre over eight opener layers (0, 1010, 1020, 1045, 1050, 2000, 2550, 2600):
+covered at 1050 and above before (4 of 8), answered in all 8 after
+(`scratchpad/ui-sweeps/toastsheet.js`); `tests/test_toast_over_sheets.py`
+holds both ends. Not verified: a real device; widths 600 to 1099 (a sheet is
+still a bottom sheet there and the toast box is not raised, as asked);
+sheets opened from the whiteboard's text editor layer (100000, not an opener
+in practice).
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

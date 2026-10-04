@@ -1836,7 +1836,17 @@ header#top-bar,
 
 @media (max-width: 599.98px) {
 
+  /* **Over the sheets, which are drawn one layer above whatever opened them.**
+     `openSheet` (phone-shell.js) takes the opener's highest ancestor layer
+     plus one, so a sheet opened from a menu (the pointer menu host, 2600) is
+     at 2601 and the toast box at 1050 was behind it: what the sheet's own
+     action had just done was confirmed under the sheet that did it. Measured
+     at 390x844 (`scratchpad/ui-sweeps/toastsheet.js`, `elementFromPoint` at
+     the toast's centre): covered when the opener sat at 1050 or higher,
+     at 1050 and every layer above it. 2700 clears the highest opener and stays under the boot splash
+     (3000); `tests/test_toast_over_sheets.py` holds both ends. */
   #toast-box {
+    z-index: 2700;
     align-items: stretch;
   }
 

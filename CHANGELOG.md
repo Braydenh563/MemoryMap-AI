@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Agent: a turn that takes more than one step now draws its own checklist above the answer, one row per round naming what it searched or read, ticked as each ends, then the answer; it is saved with the chat and shown again when the chat is reopened (it used to appear only for Plan first and skills, and a small model is never offered a plan). A skill run's checklist, which reopening a chat had been dropping, now comes back too (AGENT_SKILLS_REFORM H1, INBOX 527).
 - Atlas, feminine look: the Galaxy Seed Sower's body (INBOX 535, the owner: "I want the female bottom half and main body the feminine atlas to be more like this"). An hourglass torso (a small chest curve, a clear waist 0.73 of the chest and 0.55 of the hips, rounded hips) whose hips flow into one long, wide spectral tail sweeping out to one side and curling up to a soft point, as wide as the hips where it leaves them (over 80% of the hips where the torso fades into it, by the shape test), its inner side shaded the nebula's violet with galaxy sparkles; the comet tail is the second, thinner ribbon tail, now from the other hip. No gown, no ribbon tails, no waist band; fills only, nothing along either tail under 2px. The masculine look is pixel-identical.
 - Chat: Atlas only shows a picture when your question is about one; it no longer adds pictures to unrelated answers.
 - Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.

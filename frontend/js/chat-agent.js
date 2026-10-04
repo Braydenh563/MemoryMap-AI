@@ -559,10 +559,12 @@ function agentTimeline(holder) {
     // a job the user set up, "Plan fix my categories" is one the model worked out
     // just now, and confusing the two makes the skill list look like it has
     // entries nobody added.
-    setLabel(summary, `${plan.kind === "plan" ? "ph:compass" : "ph:lightning"} ${plan.skill}`);
+    //: A turn's own card (`kind: "turn"`, agent.py `_TurnCard`) is a third shape.
+    const icon = { plan: "ph:compass", turn: "ph:list-checks" }[plan.kind] || "ph:lightning";
+    setLabel(summary, `${icon} ${plan.skill}`);
     el.appendChild(summary);
     const items = [];
-    if (plan.steps && plan.steps.length) {
+    if ((plan.steps && plan.steps.length) || plan.kind === "turn") {
       const list = document.createElement("ol");
       list.className = "plan-steps";
       for (const step of plan.steps) {
@@ -593,7 +595,14 @@ function agentTimeline(holder) {
   // A step's state, shown on the plan itself. The timeline records what
   // happened; this is the only place that says how far through it got.
   const markStep = (entry, index, state, reason, event = {}) => {
-    const item = entry.items[index];
+    let item = entry.items[index];
+    //: A turn's card grows a row per round; a skill's steps are fixed.
+    if (!item && entry.plan.kind === "turn" && event.text) {
+      item = document.createElement("li");
+      entry.el.querySelector(".plan-steps")?.appendChild(item);
+      entry.items[index] = item;
+      entry.plan.steps = [...(entry.plan.steps || []), event.text];
+    }
     if (!item) return;
     //: `attempt`/`of` ride along with the state so a replayed run shows the
     //: same "attempt 2 of 3" a live one did. They are only present on a
@@ -618,7 +627,7 @@ function agentTimeline(holder) {
     //: `running` look like a repeat of a step that had already failed, with
     //: no sign that anything changed. `textContent`, never markup: this is
     //: model-written text.
-    if (state === "replanned" && event.text) {
+    if ((state === "replanned" || entry.plan.kind === "turn") && event.text) {
       item.textContent = event.text;
       entry.plan.steps = entry.plan.steps.map((old, i) => (i === index ? event.text : old));
     }
@@ -748,7 +757,9 @@ function agentTimeline(holder) {
     // Replay a saved run (reopening a conversation).
     replay(steps) {
       for (const step of steps || []) {
-        if (step.kind === "plan") {
+        //: `serialise` spreads the plan over `kind`, so a skill's card saves
+        //: as "skill" and a turn's as "turn"; both were dropped on reopen.
+        if (["plan", "skill", "turn"].includes(step.kind) && Array.isArray(step.steps)) {
           startPlan(step);
           if (plans.at(-1)) plans.at(-1).el.open = false;
         } else if (step.kind === "result") {

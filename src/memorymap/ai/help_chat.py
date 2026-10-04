@@ -1148,7 +1148,7 @@ HELP_TOPICS.extend(
         {
             "id": "chat-controls",
             "keywords": (
-                "fork", "compress", "regenerate", "plan first", "attach a note",
+                "fork", "compress", "regenerate", "plan first", "attach a note", "checklist",
                 "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
@@ -1172,7 +1172,9 @@ HELP_TOPICS.extend(
                 "switch the model, and export the chat as Markdown. A numbered "
                 "source mark in an answer shows a preview of its note on hover or "
                 "focus (the title and the passage the sentence came from, marked), "
-                "a press keeps it open, and Open note goes there."
+                "a press keeps it open, and Open note goes there. When an agent "
+                "answer takes more than one step, a checklist above it ticks off "
+                "each round, what it searched or read, then the answer."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

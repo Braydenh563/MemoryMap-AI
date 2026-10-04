@@ -91,6 +91,94 @@ WRAP_UP_NUDGE = (
     "what is still not done. Do not claim anything you did not do."
 )
 
+#: H1: the rows of the plan card a multi-step turn draws (see `_TurnCard`).
+TURN_ROW_RUNNING = "Deciding the next step"
+TURN_ROW_ANSWER = "Wrote the answer"
+TURN_ROW_RECHECK = "Rechecked the reply"
+TURN_ROW_WRAP_UP = "Answered from what was found"
+_ROW_ICON = re.compile(r"^(?:ph:[\w-]+|\u21a9\ufe0e)\s+")
+_ROW_CHARS = 120
+_TITLE_CHARS = 60
+
+
+class _TurnCard:
+    """**A plan card for every multi-step turn** (AGENT_SKILLS_REFORM H1).
+
+    The tracker used to draw only for `make_plan` and skills, and a small model
+    is never offered `make_plan`, so a turn that searched, read and answered
+    showed tool rows and no sense of where it was. The card is drawn from the
+    harness's own ledger when the second round starts (no model call): one row
+    per round, the calls it made, ticked as it ends. It emits the same `plan`
+    and `step` events a skill run does, marked `kind: "turn"`, so the client
+    reuses `startPlan` and saves and replays it like any other card.
+    """
+
+    def __init__(self, question: str, enabled: bool):
+        self.enabled = enabled
+        title = " ".join(question.split())
+        self.title = title if len(title) <= _TITLE_CHARS else title[: _TITLE_CHARS - 1].rstrip() + "…"
+        self.rows: list[str] = []
+        self.drawn = False
+        self.open: int | None = None
+
+    def start_round(self, called_any: bool) -> list[dict]:
+        if not self.enabled or not called_any:
+            return []
+        events = []
+        if not self.drawn:
+            self.drawn = True
+            events.append(
+                {
+                    "type": "plan",
+                    "kind": "turn",
+                    "skill": self.title,
+                    "steps": list(self.rows),
+                    "states": {str(i): {"state": "done"} for i in range(len(self.rows))},
+                }
+            )
+        self.open = len(self.rows)
+        events.append(self._step("running", TURN_ROW_RUNNING))
+        return events
+
+    def end_round(self, text: str, state: str = "done", reason: str | None = None) -> list[dict]:
+        """Close this round's row. Before the card is drawn, only remembered."""
+        if not self.enabled:
+            return []
+        text = text if len(text) <= _ROW_CHARS else text[: _ROW_CHARS - 1].rstrip() + "…"
+        if not self.drawn:
+            self.rows.append(text)
+            return []
+        index = len(self.rows) if self.open is None else self.open
+        self.rows[index:index + 1] = [text]
+        self.open = None
+        event = self._step(state, text, index)
+        if reason:
+            event["reason"] = reason
+        return [event]
+
+    def _step(self, state: str, text: str, index: int | None = None) -> dict:
+        index = self.open if index is None else index
+        return {"type": "step", "kind": "turn", "index": index, "state": state, "text": text}
+
+    @staticmethod
+    def row_for(labels: list[str]) -> str:
+        names = [_ROW_ICON.sub("", label).strip() for label in labels if label]
+        row = ", ".join(dict.fromkeys(n for n in names if n)) or "Used a tool"
+        return row[:1].upper() + row[1:]
+
+
+def _labelled(gen, labels: list[str]):
+    """Re-yield a `_dispatch_call` generator, noting each tool row's label."""
+    try:
+        event = next(gen)
+        while True:
+            if event.get("type") == "tool" and event.get("label"):
+                labels.append(str(event["label"]))
+            event = gen.send((yield event))
+    except StopIteration as stop:
+        return stop.value
+
+
 #: Sent once after a reply that claims an act no tool performed (see
 #: `unsupported_claims` and the end of a round in `run_agent`).
 CLAIM_RETRY_NUDGE = (
@@ -2236,6 +2324,7 @@ def run_agent(
     images: list[str] | None = None,
     model_override: str | None = None,
     image_context: str | None = None,
+    show_plan: bool = True,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported", "model": ..., "message": ...}, model can't do
@@ -2252,6 +2341,9 @@ def run_agent(
                                                  the answer that follows is a
                                                  stopping notice, not a result
     {"type": "answer", "delta": str}: the final text
+    {"type": "plan"/"step", "kind": "turn", ...}, the turn's own plan card
+                                                 (`_TurnCard`); off for a
+                                                 skill step (`show_plan`)
     """
     plan = _prepare_turn(
         session,
@@ -2301,6 +2393,7 @@ def run_agent(
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
     called_any = False
+    card = _TurnCard(question, show_plan)
 
     while round_number + 1 < allowance:
         #: Checked between rounds, never mid-stream: stopping inside a model
@@ -2321,6 +2414,7 @@ def run_agent(
             }
             return
         round_number += 1
+        yield from card.start_round(called_any)
         # Set by any tool call that succeeded and had not been made before, 
         # the definition of "this round got somewhere". Read at the bottom of
         # the loop, where it buys the next round.
@@ -2347,6 +2441,7 @@ def run_agent(
             # the same remedy instead of dropping the event on the floor,
             # which is what happened before (see tools_unsupported_message's
             # own docstring).
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model cannot use tools")
             yield {
                 "type": "unsupported",
                 "model": agent_model,
@@ -2381,6 +2476,7 @@ def run_agent(
                 "delta": f"{prefix}{librarian.model_error_message(agent_model, exc)}",
                 "offline": True,
             }
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model stopped answering")
             return
 
         # Report what this round cost. Agent turns used to emit nothing here,
@@ -2413,6 +2509,7 @@ def run_agent(
             if not answer and not reply.get("streamed") and not nudged_empty and not called_any:
                 nudged_empty = True
                 state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
@@ -2425,6 +2522,7 @@ def run_agent(
                 state.messages.append({"role": "assistant", "content": answer})
                 state.messages.append({"role": "user", "content": UNACTED_INTENT_NUDGE})
                 yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
@@ -2457,6 +2555,7 @@ def run_agent(
                     }
                 )
                 yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
@@ -2486,6 +2585,7 @@ def run_agent(
                         "a new note yourself."
                     ),
                 }
+            yield from card.end_round(TURN_ROW_ANSWER)
             return
 
         called_any = True
@@ -2538,11 +2638,14 @@ def run_agent(
         state.tainted = state.outside
         if not state.tainted:
             _prefetch_outbound(calls)
+        labels: list[str] = []
         for call in calls:
             # One call, its guards and its result; True when the tool ended the
             # turn (the handover tools). See `_dispatch_call`.
-            if (yield from _dispatch_call(session, plan, state, call, history)):
+            if (yield from _labelled(_dispatch_call(session, plan, state, call, history), labels)):
+                yield from card.end_round(_TurnCard.row_for(labels))
                 return
+        yield from card.end_round(_TurnCard.row_for(labels))
         if state.progressed and allowance < ceiling:
             # This round did something new, so the turn gets another one. The
             # cap that stops a runaway is still there, a round that repeats
@@ -2582,6 +2685,8 @@ def run_agent(
                         yield {"type": "answer", "delta": late}
         except (OllamaError, ToolsUnsupportedError) as exc:
             logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
+        if card.drawn:
+            yield from card.end_round(TURN_ROW_WRAP_UP)
         unsupported = unsupported_claims(wrapped, state.ran_writes)
         if unsupported:
             yield {

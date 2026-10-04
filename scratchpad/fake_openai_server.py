@@ -120,10 +120,18 @@ def _is_nudged(messages: list[dict]) -> bool:
     return False
 
 
+#: Tool rounds before the answer (`--tool-rounds`); H1's plan card needs a
+#: three-round turn, which one call then prose never makes.
+TOOL_ROUNDS = 1
+#: Milliseconds every request waits (`--round-delay`), so a live state lasts.
+ROUND_DELAY_MS = 0
+
+
 def _already_called(messages: list[dict]) -> bool:
-    """True once a tool result is in the history — i.e. this is the second
-    call of the pair and the model is expected to answer in words."""
-    return any((message or {}).get("role") == "tool" for message in messages or [])
+    """True once `TOOL_ROUNDS` tool results are in the history, i.e. the
+    model is expected to answer in words."""
+    done = sum(1 for message in messages or [] if (message or {}).get("role") == "tool")
+    return done >= TOOL_ROUNDS
 
 
 def _usage(messages: list[dict], output: str) -> dict:
@@ -213,6 +221,8 @@ class Handler(BaseHTTPRequestHandler):
 
         messages = body.get("messages") or []
         tools = body.get("tools") or []
+        if ROUND_DELAY_MS:
+            time.sleep(ROUND_DELAY_MS / 1000)
         if NUDGE_DELAY_MS and _is_nudged(messages):
             time.sleep(NUDGE_DELAY_MS / 1000)
         call = None if _already_called(messages) else _pick_tool(tools)
@@ -326,9 +336,13 @@ def main() -> None:
         default=0,
         help="ms to hold a contract-nudge round open, so the retrying state is visible",
     )
+    parser.add_argument("--tool-rounds", type=int, default=1, help="tool rounds before the answer")
+    parser.add_argument("--round-delay", type=int, default=0, help="ms every request waits")
     args = parser.parse_args()
-    global NUDGE_DELAY_MS
+    global NUDGE_DELAY_MS, TOOL_ROUNDS, ROUND_DELAY_MS
     NUDGE_DELAY_MS = args.nudge_delay
+    TOOL_ROUNDS = max(1, args.tool_rounds)
+    ROUND_DELAY_MS = args.round_delay
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"fake OpenAI server on http://{args.host}:{args.port}/v1", flush=True)
     server.serve_forever()

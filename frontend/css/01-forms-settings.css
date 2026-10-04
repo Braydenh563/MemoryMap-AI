@@ -4150,9 +4150,14 @@ html.modal-open body {
   overflow-y: auto;
 }
 
+/* While you were away opens review lists in place, five findings a page with
+   "Show more", so it is as tall as the person has opened it: a card that
+   scrolled inside itself hid the Dismiss on rows below the fold, and the
+   grid re-measures the card's span when it grows (`watchDashWidgets`). */
 .dash-widget[data-widget="art"] .dash-body,
 .dash-widget[data-widget="capture"] .dash-body,
-.dash-widget[data-widget="stats"] .dash-body {
+.dash-widget[data-widget="stats"] .dash-body,
+.dash-widget[data-widget="night"] .dash-body {
   max-height: none;
   overflow: visible;
 }

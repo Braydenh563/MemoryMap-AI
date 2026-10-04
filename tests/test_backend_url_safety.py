@@ -106,7 +106,7 @@ def test_a_refusal_explains_itself():
     """A blocked setting with no reason reads as a broken app."""
     ok, reason, _ = check_backend_url("http://169.254.169.254/v1")
     assert not ok
-    assert "link-local" in reason and "metadata" in reason
+    assert "cloud computer" in reason and "can't be where an AI runs" in reason
 
 
 @pytest.mark.parametrize("url", ["http://0.0.0.0/v1", "http://224.0.0.1/v1"])
@@ -173,7 +173,7 @@ def test_the_endpoint_refuses_a_metadata_address(ai_client):
         json={"provider": "openai", "base_url": "http://169.254.169.254/v1"},
     )
     assert response.status_code == 400
-    assert "link-local" in response.json()["detail"]
+    assert "cloud computer" in response.json()["detail"]
 
 
 def test_a_refused_address_is_not_saved(ai_client, app_state):

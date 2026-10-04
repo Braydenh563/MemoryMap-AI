@@ -43,7 +43,7 @@ def test_rename_onto_a_blank_name_is_refused(client):
     made = client.post("/entries", json={"content": "a note", "tags": ["old"]}).json()
     resp = client.post("/tags/rename", json={"old": "old", "new": "   "})
     assert resp.status_code == 400
-    assert resp.json()["detail"] == "A tag needs a name"
+    assert resp.json()["detail"] == "A tag needs a name."
     assert client.get(f"/entries/{made['id']}").json()["tags"] == ["old"]
     assert "" not in client.get("/tags").json()
 

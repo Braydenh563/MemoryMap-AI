@@ -39,6 +39,7 @@ and undo.
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -47,6 +48,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import LIKE_ESCAPE, AuditLog, like_escape
+from memorymap.core.logbuffer import safe_value
 
 #: The most any pile of corrections is allowed to be worth. A boost is a nudge
 #: to a ranking that already works, not a replacement for it: without a
@@ -167,7 +169,10 @@ def record(
     the edit it is invisible to the query that looks for it.
     """
     if kind not in KINDS:
-        raise ValueError(f"unknown correction kind {kind!r}; known: {sorted(KINDS)}")
+        logging.getLogger("memorymap.learning").warning(
+            "unknown correction kind %s; known: %s", safe_value(kind, 60), sorted(KINDS)
+        )
+        raise ValueError("That isn't a kind of correction the notebook learns from.")
     payload: dict[str, Any] = {"kind": kind, "subject": dict(subject)}
     if from_value is not None:
         payload["from"] = from_value

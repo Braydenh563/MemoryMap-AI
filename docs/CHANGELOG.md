@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)
 - Web search and SearXNG setup messages read as plain sentences: the transport's error, the command's own output, `virtualenv`, `setup.py`, `docker logs` and an environment variable name no longer reach the toast; each goes to the log, and the message points at Settings, Logs (INBOX 472, computed messages)
 - Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.

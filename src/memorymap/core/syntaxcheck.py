@@ -156,5 +156,5 @@ def check(language: str, text: str) -> list[dict]:
     route can answer 400 rather than an empty list that reads as "valid".
     """
     if language not in languages():
-        raise ValueError(f"no checker for {language!r}")
+        raise ValueError("This kind of file can't be checked for mistakes here.")
     return _CHECKERS[language](text)

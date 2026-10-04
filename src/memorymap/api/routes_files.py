@@ -1157,7 +1157,11 @@ def open_exports_folder() -> dict:
         else:
             subprocess.Popen(["xdg-open", str(exports)])
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Couldn't open the exports folder at {exports}: {exc}.") from exc
+        logger.warning("couldn't open the exports folder", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't open the exports folder. You can find it at {exports}.",
+        ) from exc
     return {"path": str(exports)}
 
 

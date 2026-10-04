@@ -95,7 +95,8 @@ def test_the_master_switch_stops_the_resurfacing_runner(ai_client, fake_ollama, 
 def test_an_unknown_switch_is_refused_rather_than_stored(ai_client):
     refused = ai_client.put("/learned/switches", json={"telepathy": True})
     assert refused.status_code == 422
-    assert "telepathy" in refused.json()["detail"]
+    assert refused.json()["detail"] == "Some of those switches don't exist, so none of them were changed."
+    assert "telepathy" not in refused.json()["detail"]
 
 
 def test_forgetting_needs_the_confirmation(ai_client, fake_ollama):

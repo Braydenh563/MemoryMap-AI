@@ -628,9 +628,9 @@ def editability(path: Path, viewed: ViewedFile) -> tuple[bool, str]:
         if suffix in CONVERTED_SUFFIXES:
             return False, (
                 f"A {suffix} file isn't the text pulled out of it. Saving this back "
-                "would replace the document with a plain-text copy, its formatting, "
-                "images and layout are not in what you can see here. Import it to a "
-                "document if you want a version you can edit."
+                "would replace the document with a plain-text copy, because its "
+                "formatting, images and layout are not in what you can see here. "
+                "Import it to a document if you want a version you can edit."
             )
         return False, f"There's no editor for {suffix or 'this kind of'} files yet."
     if not path.is_file():
@@ -756,10 +756,10 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
             kind="plain",
             source="converted",
             message=(
-                "This PDF couldn't be opened. It may be corrupted, "
-                "password-protected, or saved in a way this app's reader "
-                "doesn't support: re-exporting or re-saving it from its "
-                "original source usually fixes this."
+                "This PDF couldn't be opened. It may be damaged, protected by a "
+                "password, or saved in a way this app's reader doesn't "
+                "support. Saving it again from the program that made it "
+                "usually fixes this."
             ),
         )
 
@@ -791,10 +791,11 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
             kind="plain",
             source="converted",
             message=(
-                "There's no text layer in this file, it's probably a scan. "
-                "Reading one needs its pages turned into images first: "
-                "install “Read scanned PDFs” in Settings → Extras, and pick a "
-                "vision or OCR model in Settings → Models."
+                "There's no text in this file that can be selected, so it's "
+                "probably a scan. Reading a scan needs its pages turned into "
+                "pictures first. Install “Read scanned PDFs” in Settings, "
+                "Packages, and pick a vision or text-reading model in "
+                "Settings, Models."
             ),
         )
     return ViewedFile(
@@ -802,8 +803,8 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
         kind="plain",
         source="converted",
         message=(
-            "There's no text layer in this file, it's probably a scan. "
-            "Reading one needs a vision or OCR model; pick one in "
-            "Settings → Models."
+            "There's no text in this file that can be selected, so it's "
+            "probably a scan. Reading a scan needs a vision or text-reading "
+            "model. Pick one in Settings, Models."
         ),
     )

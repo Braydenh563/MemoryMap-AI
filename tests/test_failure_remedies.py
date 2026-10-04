@@ -63,7 +63,7 @@ REMEDIES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "src/memorymap/core/docview.py",
         "a PDF has no text layer and pypdfium2 is not installed",
-        ("Settings", "Extras"),
+        ("Settings", "Packages"),
     ),
     (
         "src/memorymap/ai/provider.py",

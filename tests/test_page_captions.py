@@ -227,4 +227,4 @@ def test_describing_a_page_needs_a_model_and_says_so(client, fake_ollama, monkey
     )
     refused = client.post(f"/files/{attachment_id}/page-caption?page=0")
     assert refused.status_code == 409
-    assert "see images" in refused.json()["detail"]
+    assert "can read images" in refused.json()["detail"]

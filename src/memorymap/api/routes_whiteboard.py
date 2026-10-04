@@ -3966,8 +3966,8 @@ def _parse_xml_document(content: str, label: str):
         raise HTTPException(
             status_code=503,
             detail=(
-                f"{label} import needs an add-on that is missing from this install. "
-                "Run pip install defusedxml, then restart MemoryMap."
+                f"{label} import needs a safe XML reader (the defusedxml package), "
+                "which is missing from this install. Install it, then restart MemoryMap."
             ),
         ) from exc
 
@@ -3983,9 +3983,12 @@ def _parse_xml_document(content: str, label: str):
     try:
         return ET.fromstring(content)
     except (ET.ParseError, DefusedXmlException) as exc:
+        # The parser's own text names a line and column of the file, which is
+        # for the log; the person needs to know the file is the problem.
+        logging.getLogger("memorymap.whiteboard").warning("couldn't parse a %s file", label, exc_info=True)
         raise HTTPException(
             status_code=422,
-            detail=f"That isn't valid {label}: {str(exc).rstrip('.')}.",
+            detail=f"That isn't valid {label}. Check that the file is complete and try again.",
         ) from exc
 
 

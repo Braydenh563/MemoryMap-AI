@@ -9,7 +9,7 @@ def test_status_reports_unavailable_with_hint(client, monkeypatch):
     monkeypatch.setattr(voice, "whisper_available", lambda: False)
     body = client.get("/voice/status").json()
     assert body["available"] is False
-    assert "faster-whisper" in body["hint"]
+    assert "Voice notes" in body["hint"] and "Settings, Packages" in body["hint"]
 
 
 def test_transcribe_without_whisper_is_503_with_hint(client, monkeypatch):
@@ -18,7 +18,7 @@ def test_transcribe_without_whisper_is_503_with_hint(client, monkeypatch):
         "/voice/transcribe", files={"file": ("clip.webm", b"fake-audio", "audio/webm")}
     )
     assert response.status_code == 503
-    assert "faster-whisper" in response.json()["detail"]
+    assert "Voice notes" in response.json()["detail"] and "Settings, Packages" in response.json()["detail"]
 
 
 def test_transcribe_with_fake_whisper(client, monkeypatch):
@@ -85,7 +85,7 @@ def test_transcribe_meeting_without_whisper_is_503_with_hint(client, monkeypatch
         files={"file": ("meeting.webm", b"fake-audio", "audio/webm")},
     )
     assert response.status_code == 503
-    assert "faster-whisper" in response.json()["detail"]
+    assert "Voice notes" in response.json()["detail"] and "Settings, Packages" in response.json()["detail"]
 
 
 def test_transcribe_meeting_with_fake_whisper(client, monkeypatch):

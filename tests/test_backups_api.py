@@ -120,6 +120,32 @@ def test_restore_leaves_live_db_untouched_when_backup_is_corrupt(app_state):
     assert not tmp_path.exists()
 
 
+def test_the_restore_route_answers_a_damaged_backup_with_a_sentence(client):
+    """`restore_backup` raises `ValueError` for a damaged or empty backup; the
+    route used to let it through as a bare 500 "Internal error". The live
+    database is untouched (the check runs on a temp copy), and the person is
+    told so in words."""
+    config = deps.get_config()
+    folder = backup.backups_dir(config.data_dir)
+    empty = folder / "memorymap-29990101-000000.db"
+    sqlite3.connect(empty).close()  # a valid file with no tables in it
+    before = config.db_path.read_bytes()
+
+    response = client.post("/backups/restore", json={"name": empty.name})
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail.startswith("That backup is empty") and detail.endswith(".")
+    assert "Traceback" not in detail
+    assert config.db_path.read_bytes() == before
+
+
+def test_restoring_a_backup_that_is_not_there_says_so(client):
+    response = client.post("/backups/restore", json={"name": "memorymap-19990101-000000.db"})
+    assert response.status_code == 404
+    assert response.json()["detail"] == "That backup could not be found."
+
+
 def test_restore_rejects_a_backup_that_fails_integrity_check(app_state):
     """A syntactically valid SQLite file whose pages are corrupt must not
     become the live database. The header and page count are left alone (so
@@ -136,7 +162,8 @@ def test_restore_rejects_a_backup_that_fails_integrity_check(app_state):
         data[i] ^= 0xFF
     good.write_bytes(bytes(data))
 
-    with pytest.raises(ValueError, match="integrity check"):
+    # The person reads a sentence; the check's own output is in the log.
+    with pytest.raises(ValueError, match="damaged"):
         backup.restore_backup(good.name, config.db_path, config.data_dir)
 
     assert config.db_path.read_bytes() == before

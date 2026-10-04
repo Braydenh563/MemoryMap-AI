@@ -13,9 +13,8 @@ import re
 from pathlib import Path
 
 INSTALL_HINT = (
-    "Importing documents needs the optional markitdown package. Install it "
-    "in Settings, Packages, or in your MemoryMap folder run "
-    "pip install markitdown and restart the app."
+    "Importing documents needs an add-on that isn't installed yet. Install "
+    "“Import documents” in Settings, Packages, then restart the app."
 )
 
 #: Splits on a top-level markdown heading, the shape a converted PDF/slide

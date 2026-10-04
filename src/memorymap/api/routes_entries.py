@@ -1293,7 +1293,10 @@ def improve_writing(body: ImproveBody) -> dict:
             custom_instruction=custom_instruction,
         )
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        # The provider's own text names the model and carries the transport's
+        # error; it belongs in the log, not in the toast.
+        logger.warning("improve writing failed", exc_info=True)
+        raise HTTPException(status_code=502, detail=librarian.AI_FAILED_MESSAGE) from exc
     return {"original": text, "improved": improved, "mode": body.mode}
 
 
@@ -2670,7 +2673,8 @@ def generate_entry_title(
     try:
         title = librarian.generate_title(content, deps.get_model_manager(), deps.get_ollama())
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logger.warning("title generation failed", exc_info=True)
+        raise HTTPException(status_code=502, detail=librarian.AI_FAILED_MESSAGE) from exc
     if not title:
         raise HTTPException(status_code=502, detail="The AI didn't return a usable title.")
 

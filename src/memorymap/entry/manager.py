@@ -2456,34 +2456,46 @@ def _first_content_line(content: str) -> int | None:
     return None
 
 
+def _split_block(content: str) -> tuple[str, str]:
+    """`(properties block, body)`: a title lives in the body, never in the
+    block (KG4), so editing one must leave the block where it is."""
+    from memorymap.entry.properties import block_end
+
+    end = block_end(content or "")
+    return (content or "")[:end], (content or "")[end:]
+
+
 def apply_title(content: str, title: str) -> str:
     """Set (or replace) a note's title: its first line, as a heading.
     Prepends a new heading line if the note doesn't have one yet; replaces
     the existing one otherwise, so generating a title for a note that
-    already has one swaps it rather than stacking two."""
-    lines = (content or "").splitlines()
-    i = _first_content_line(content or "")
+    already has one swaps it rather than stacking two. A note that opens
+    with properties gets its heading after them."""
+    block, body = _split_block(content or "")
+    lines = body.splitlines()
+    i = _first_content_line(body)
     heading = f"# {title}"
     if i is not None and _heading_text(lines[i].strip()) is not None:
         lines[i] = heading
-        return "\n".join(lines)
-    return heading if not content else f"{heading}\n{content}"
+        return block + "\n".join(lines)
+    return block + (heading if not body else f"{heading}\n{body}")
 
 
 def remove_title(content: str) -> str:
     """Take a note's title back out, asked for directly, it's just the
     leading heading line, so removing it is removing that line (and one
     blank line right after it, so the body doesn't start with a gap). A
-    note with no title is returned unchanged.
+    note with no title is returned unchanged; properties stay as written.
     """
-    lines = (content or "").splitlines()
-    i = _first_content_line(content or "")
+    block, body = _split_block(content or "")
+    lines = body.splitlines()
+    i = _first_content_line(body)
     if i is None or _heading_text(lines[i].strip()) is None:
         return content
     del lines[i]
     if i < len(lines) and not lines[i].strip():
         del lines[i]
-    return "\n".join(lines)
+    return block + "\n".join(lines)
 
 
 #: Inline markdown markers, matched with their content so stripping keeps

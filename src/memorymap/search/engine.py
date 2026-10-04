@@ -50,6 +50,7 @@ from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 from memorymap.search import search_manager
@@ -896,7 +897,10 @@ def _explain(scores: dict[str, float], row: dict, terms: list[str], hop: int | N
 
 def _snippet(body: str, terms: list[str], width: int = 160) -> str:
     """A line of the body around the first matching word, or its opening."""
-    flat = " ".join((body or "").split())
+    # The properties block is matched by the index (a search for `type:` finds
+    # it) but is never what a result quotes: it is data about the note.
+    stripped = strip_properties(body or "")
+    flat = " ".join(stripped.split())
     if not flat:
         return ""
     lowered = flat.lower()

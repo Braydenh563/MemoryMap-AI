@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from memorymap.core import deps, events
 from memorymap.core.database import Entry
 from memorymap.entry import manager
+from memorymap.entry.properties import strip as strip_properties
 
 from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note
 
@@ -184,7 +185,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         # `_require_note` gives every other read.
         if entry.is_private:
             return "(private note: not available to the AI)"
-        return _clip(entry.content, PREVIEW_CHARS)
+        return _clip(strip_properties(entry.content).lstrip(), PREVIEW_CHARS)
 
     cards = [
         {"card_id": n.id, "note_id": n.entry_id, "preview": _card_preview(n)}
@@ -263,7 +264,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
                 "board_id": node.board_id,
                 "card_id": node.id,
                 "note_id": node.entry_id,
-                "preview": _clip(entry.content, PREVIEW_CHARS),
+                "preview": _clip(strip_properties(entry.content).lstrip(), PREVIEW_CHARS),
             })
 
     for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "text")):

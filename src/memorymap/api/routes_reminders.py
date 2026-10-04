@@ -18,6 +18,7 @@ from memorymap.core import deps
 from memorymap.core.database import Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action, readable_content
+from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -75,7 +76,7 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
             # locked-vault placeholder every other preview surface uses), 
             # the same class of bug as the digest's, just local to this UI
             # rather than sent to a model.
-            content = readable_content(entry)
+            content = strip_properties(readable_content(entry)).lstrip()
             entry_preview = content if len(content) <= 60 else content[:59] + "…"
     return {
         "id": reminder.id,

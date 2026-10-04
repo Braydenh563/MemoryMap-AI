@@ -28,6 +28,7 @@ from memorymap.core import deps, events
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import search_manager
 
 
@@ -159,7 +160,7 @@ def _graph_summary(session: Session, entry: Entry, how: str, hops: int, via: int
     text = _readable(entry)
     summary = {
         "id": entry.id,
-        "preview": _clip(text, GRAPH_PREVIEW_CHARS),
+        "preview": _clip(strip_properties(text).lstrip(), GRAPH_PREVIEW_CHARS),
         "category": manager.category_name_for(session, entry),
         "how": how,
         "hops": hops,
@@ -511,7 +512,7 @@ def _path_between(session: Session, args: dict) -> dict:
             {
                 "id": note_id,
                 "preview": _clip(
-                    _readable(index.entries[note_id]), GRAPH_PREVIEW_CHARS
+                    strip_properties(_readable(index.entries[note_id])).lstrip(), GRAPH_PREVIEW_CHARS
                 ),
                 "category": manager.category_name_for(session, index.entries[note_id]),
             }
@@ -564,7 +565,7 @@ def _notebook_structure(session: Session, args: dict) -> dict:
         entry = index.entries[note_id]
         out = {
             "id": note_id,
-            "preview": _clip(_readable(entry), GRAPH_PREVIEW_CHARS),
+            "preview": _clip(strip_properties(_readable(entry)).lstrip(), GRAPH_PREVIEW_CHARS),
         }
         out.update(extra or {})
         return out

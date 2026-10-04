@@ -7,6 +7,28 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (graph plan leftovers)
+
+### From GRAPH_PLAN.md: "Still open after KG1 to KG9"
+
+**The properties block in previews (built).** A note's `---` block is data
+about it, never its opening words. Read through `entry/properties.strip` now:
+the search snippet (`search/engine._snippet`) and a result's title
+(`search/index._first_line`, which had named a note `---`), the Library's
+`_clip` (note, bin, file and document cards), a document's `_preview`, a
+reminder's `entry_preview`, `tensions._excerpt`, Ask cards (`cards._note_item`),
+the agent's graph and whiteboard previews, the extractor's link previews, and
+five page clips (`categories-panel.js`, `graph.js` remind, `lightbox.js`,
+`notes-list.js` similar row, `settings-panes.js` palette rows). `apply_title`
+and `remove_title` split the block off first, so a title edit never touched
+the block by accident and a heading goes after it. Measured:
+`tests/test_properties_never_in_previews.py` 12 tests, 11 failing before.
+Not verified: a block longer than the 200-character clip of the agent's
+`_note_summary` `content` reaches an Ask card unclosed and is not stripped
+there (the model still reads the block in `read_note` and `_note_summary` on
+purpose); existing search index rows take the new title on the next startup
+reconcile.
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

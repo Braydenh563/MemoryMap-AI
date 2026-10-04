@@ -505,9 +505,6 @@ block. What stays here is the standing decisions and what is still open.
 - The document editor's frontmatter panel does not read note types; a note
   type's "note" field is a `[[link]]` written into the block, not a picker
   that searches (KG4).
-- A few surfaces may still quote a note's raw opening (search snippets,
-  document previews of an embedded note); the ones found printing `---`
-  were fixed (KG7's note in HISTORY).
 - Toasts fired from a phone's bottom sheet land behind it (every sheet).
 - Rollups over a live query's table (count, sum, min, max, earliest,
   latest) are not built.

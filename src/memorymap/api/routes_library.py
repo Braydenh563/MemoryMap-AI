@@ -41,6 +41,7 @@ from memorymap.core.database import (
 from memorymap.core import events
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
+from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(tags=["library"])
 
@@ -108,7 +109,9 @@ _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    text = _MD_TABLE_RULE.sub("", text or "")
+    # A note's or document's `---` properties block is data about it, never
+    # its opening words (GRAPH_PLAN, "Still open after KG1 to KG9").
+    text = _MD_TABLE_RULE.sub("", strip_properties(text or ""))
     # Each line's own heading, quote or list marker goes as its kind is read,
     # and the blocks stay apart (`join_blocks`, INBOX 464): "oat milk · eggs",
     # not "oat milk eggs".

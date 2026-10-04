@@ -9663,3 +9663,22 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   border-color: transparent;
   background: var(--surface-3);
 }
+
+/* 2. A switch stands on the group's text edge. Every switch row in Settings
+      is a label with a 1px edge and `--space-3` of padding, kept so the
+      row's hover fill has room around the switch; at rest the fill is gone
+      (a checkbox row draws no resting fill, section 3 above), so what is
+      left is the switch 9px inside the edge every head, label, field and
+      hint in the group stands on: measured (switchalign.js, 1440) on all
+      130 switch rows, 34 `.check-row`, 33 `.setting-check`, 29 in Tools.
+      The row hangs its padding and edge outside the column instead, so the
+      switch takes the column's edge and the hover fill bleeds into the
+      group's own padding, which is what that padding is for (DESIGN.md
+      "A: Alignment": no element on an edge of its own). Only rows that
+      stand in the group's flow: a switch in a grid cell (Skills' workers)
+      would push into its neighbour's gap, and one in a flex row into the
+      control beside it. */
+#settings-modal :is(.settings-group, .settings-fold)
+  label:is(.check-row, .setting-check):has(> input[type="checkbox"]):not(.row > *, .tool-picker > *) {
+  margin-inline: calc(-1 * var(--space-3) - 1px);
+}

@@ -1372,3 +1372,26 @@ def test_its_limbs_move_with_it() -> None:
                  '&[data-travel="climb"] .nmb-hold { opacity: 1; }',
                  '&[data-travel="climb"] .nmb-hold-l { animation: nmb-reach'):
         assert rule in CSS08, rule
+
+
+def _css_rule(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]
+
+
+def test_a_speech_line_is_as_wide_as_its_words_wherever_it_is_said() -> None:
+    """INBOX 481, the owner: "these messages on the companion dont render
+    properly". In the large view the stage's rule set `right` and the
+    figure's rule set `left: 100%`, so the absolute bubble was the 8px
+    between them: its background behind the first letter and the rest of
+    the `nowrap` line drawn white over the art (measured, 15px box under a
+    132px line; `scratchpad/ui-sweeps/companionsay.js` walks every case).
+    The box takes its width from its text, and the figure's rule undoes
+    the inset it does not use."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    base = _css_rule(css, ".nm-say")
+    assert "width: max-content" in base
+    assert "max-width:" in base and "100vw" in base
+    assert "white-space: nowrap" not in base
+    viewer = _css_rule(css, ".nm-viewer-figure > #nm-buddy > .nm-say")
+    assert "left: 100%" in viewer and "right: auto" in viewer

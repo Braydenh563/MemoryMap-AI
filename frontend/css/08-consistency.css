@@ -5625,7 +5625,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border: 1px solid var(--border);
   font-size: var(--text-sm);
   line-height: 1.35;
-  white-space: nowrap;
+  /* Its width is its line's, never what its insets leave (INBOX 481): an
+     absolute box with `left` and `right` both set is the gap between them,
+     and in the large view that gap was 8px, so the background sat behind
+     the first letter and the rest of a `nowrap` line ran out over the art.
+     `max-content` sizes the box from the text whatever the insets say; the
+     cap wraps a long line inside the window rather than past it. */
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 2 * var(--space-4)));
+  white-space: normal;
+  text-wrap: balance;
   pointer-events: none;
   box-shadow: var(--shadow-md);
 }
@@ -6094,6 +6103,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   top: calc(var(--nmb-edge) * -1.2);
   bottom: auto;
   left: 100%;
+  /* The stage's rule above sets `right` for a face's line; this one is
+     placed from the left, so that inset is undone, not inherited. */
+  right: auto;
   translate: -30% 0;
   z-index: 3;
 }

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion, large view: its speech line sits in its bubble again (INBOX 481); the bubble was a 15px box behind the first letter with a 132px line running out over the art, because the stage's `right` and the figure's `left: 100%` both applied. A bubble now takes its width from its words, wraps inside the window past 16rem, and `scratchpad/ui-sweeps/companionsay.js` measures every pose, both looks and the large view at 1440 and 390.
 - Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
 - The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)
 - Web search and SearXNG setup messages read as plain sentences: the transport's error, the command's own output, `virtualenv`, `setup.py`, `docker logs` and an environment variable name no longer reach the toast; each goes to the log, and the message points at Settings, Logs (INBOX 472, computed messages)

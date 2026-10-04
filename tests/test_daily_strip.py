@@ -51,10 +51,12 @@ def test_a_day_is_asked_about_before_it_is_read():
 
 def test_the_strip_reads_the_endpoint_written_for_it():
     body = _function(TIMELINE, "async function renderTimelineDayStrip(")
-    assert "/entries/daily?through=${end}&days=${TIMELINE_STRIP_DAYS}" in body
+    # One helper answers both the strip and the month popover.
+    assert "timelineDayPages(first, end)" in body
+    assert "/entries/daily?through=${end}&days=${span}" in _function(TIMELINE, "async function timelineDayPages(")
     assert "TIMELINE_STRIP_DAYS = 7" in TIMELINE
     # The window never passes today, and Today brings it home.
-    assert "later.disabled = end >= today" in body
+    assert '$("timeline-days-later").disabled = end >= today' in body
     assert "timelineStripEnd = null" in TIMELINE[TIMELINE.index('$("timeline-jump-today")') :]
 
 
@@ -79,3 +81,20 @@ def test_the_guide_and_the_timeline_help_name_the_strip():
     guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "the calendar strip shows the last seven days" in guide
     assert "The strip below shows the last seven days" in HTML
+
+
+def test_the_month_popover_is_the_popover_shell_with_a_roving_grid():
+    """D6's overflow: the month label opens a calendar on the popover shell
+    (`wireHelpPopover`), days after today are not offered, a picked day moves
+    the strip and writes nothing, and the arrow keys walk the grid."""
+    assert 'id="timeline-month-btn"' in HTML and 'aria-haspopup="dialog"' in HTML
+    assert 'id="timeline-month-pop"' in HTML
+    assert "wireHelpPopover(button, pop)" in TIMELINE
+    day = _function(TIMELINE, "function renderTimelineMonthPop(")
+    assert "button.disabled = key > today" in day
+    assert "POST" not in day and "method:" not in day
+    jump = _function(TIMELINE, "function timelineJumpToDay(")
+    assert "openDayPage" not in jump and "closeHelpPopovers()" in jump
+    keys = _function(TIMELINE, "function timelineMonthKeys(")
+    for name in ("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown", "Escape"):
+        assert name in keys, name

@@ -8118,12 +8118,29 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-sower-inner { fill: var(--atl-neb2-c); opacity: 0.5; }
 .nm-atlas .atl-sower-light { fill: white; opacity: 0.22; }
 .nm-atlas .atl-sower-sparkle { fill: white; opacity: 0.9; }
+/* The body's edge glow carried down the tail (`atl-sower-glow`, the edge
+   group under the tail): the torso's `.atl-edge` colour and strength, as a
+   fill 1.3 wider than the tail, so 0.65 shows outside it as on the flank. */
+.nm-atlas .atl-sower-glow { fill: var(--atl-glow-c); opacity: 0.26; }
 /* Her astral wisps (atlas.js, `wisps`; INBOX 535): a soft glow of the
-   nebula's light under a brighter, near-white core, with a sparkle trail.
-   Fills only. */
-.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.2; }
-.nm-atlas .atl-astral-core { fill: white; opacity: 0.5; }
-.nm-atlas .atl-astral-sparkle { fill: white; opacity: 0.95; }
+   nebula's light under a brighter core, with a sparkle trail. Fills only.
+   On a light page a near-white core over a lilac glow was barely there
+   (median contrast 1.13 against what is behind it, atlaswisps.js), so the
+   light theme draws them in the nebula's deeper violet; the dark theme
+   keeps the starlight. */
+.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.42; }
+.nm-atlas .atl-astral-core { fill: var(--atl-neb2-c); opacity: 0.8; }
+.nm-atlas .atl-astral-sparkle { fill: var(--atl-neb2-c); opacity: 0.95; }
+:root[data-theme="dark"] .nm-atlas .atl-astral-glow { opacity: 0.2; }
+:root[data-theme="dark"] .nm-atlas :is(.atl-astral-core, .atl-astral-sparkle) { fill: white; opacity: 0.5; }
+:root[data-theme="dark"] .nm-atlas .atl-astral-sparkle { opacity: 0.95; }
+/* The waist and tail wisps take the tail's pose: each pose's turn of the
+   lower layer (above, `.atl-layer-lower`) on their own group, about the same
+   point; the pose shapes (`.atl-lower`) reach them by class. */
+.nm-atlas .atl-astral-hips { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring); }
+#nm-buddy[data-pose="lie-2"] .atl-astral-hips { transform: rotate(-16deg); }
+#nm-buddy[data-pose="lie"] .atl-astral-hips { transform: rotate(-42deg); }
+#nm-buddy[data-pose="curl"] .atl-astral-hips { transform: rotate(-24deg); }
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;

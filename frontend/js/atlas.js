@@ -612,30 +612,22 @@ const ATLAS_LOOKS = {
     //: hair is swept back off the brow: the cap's lower edge is one high,
     //: smooth arc (the hairline, no parting), and fine strands rise from it
     //: up and back over the crown into the mass that streams behind.
-    //: **One star in the hair, not a band** (INBOX 480, the owner: "a
-    //: redesign of whatever this is on the forehead between the ears"). The
-    //: hairline used to be lit, a white line over a glow, with dust at the
-    //: roots and a circlet of dots on a thread above it: four arcs of light
-    //: from wing to wing, which at the companion's size read as a stray
-    //: headband or a glitch. Now the hairline is a soft shade where the hair
-    //: lies over the brow (`hairline`), which is how hair sits on skin, and
-    //: the one ornament is a small four-point star set in the swept hair at
-    //: its peak, in a faint halo (`browStar`: x, y, size), echoing the two
-    //: at the wing tips.
-    cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C42.2 15.4 37.6 12.4 31.6 12.2C25.6 12 20.6 15 17.8 21Z",
-    hairline: "M19.4 19C21.8 15 26 12.8 31.4 12.7C36.6 12.8 40.6 14.9 42.8 18.2",
-    browStar: [31.2, 9.9, 1.35],
-    //: The swept strands (drawn by the front-lock builder: thin at the
-    //: root, swelling, a rounded tip), fine enough to read as texture
-    //: rather than as locks: hair-fine at the hairline, rising up and back
-    //: over the crown toward the mass, each a different length.
-    frontLocks: [
-      { seg: [[19.2, 19.2, 19.4, 13, 24.6, 8.4, 32, 6.8]], w: 1.1 },
-      { seg: [[21, 17, 23, 11.4, 29.6, 8, 37.4, 7.2]], w: 1.4 },
-      { seg: [[24.6, 14.2, 27.4, 9.8, 33.6, 7.8, 41.2, 8.6]], w: 1.3 },
-      { seg: [[28.8, 12.8, 32, 9.8, 37.6, 9.2, 43, 11.8]], w: 1.2 },
-      { seg: [[33.4, 12.6, 36.8, 11.2, 40.8, 12.2, 43.8, 15.4]], w: 1 },
-    ],
+    //: **Hair, not a night cap** (INBOX 480, the owner of a smooth dome with
+    //: one star: "it still looks like she's wearing a night cap :("). A
+    //: dome of hair whose lower edge runs in one smooth arc across the
+    //: forehead is a cap, whatever is drawn on it. Now the hair parts off
+    //: centre, over her right eye (the viewer's right, x 37.4), and sweeps
+    //: across the brow to her left in three soft locks of different
+    //: lengths, each ending in a point (17, 18.4, then down past the temple
+    //: at 21), with the forehead's skin showing in the notches between
+    //: them (up to 12.8 and 14.2): a side-swept fringe that flows into the
+    //: hair behind, not the parted curtains of round 9. A fine shade runs
+    //: up each notch so the locks read as separate (`fringeShade`), and
+    //: the star is a small ornament pinned at the parting (`browStar`),
+    //: off centre, not a badge in the middle of a cap.
+    cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C43.2 16.6 40.8 13 37.4 11.4C36.2 13.6 35 15.6 33 17C32.6 15.2 31.8 13.8 30.4 12.8C29.4 15.2 27.8 17.2 25.4 18.4C25.6 16.6 25.4 15.2 24.6 14.2C22.8 16.6 20.4 18.6 17.8 21Z",
+    fringeShade: "M37.2 11.8C35.8 10.6 33.6 10.2 31.4 10.6M30.6 13.2C30.2 11.6 29 10.6 27.4 10.4M24.8 14.6C24.2 13.2 23 12.4 21.4 12.4",
+    browStar: [39.6, 10.2, 1],
     //: **Ribbon tails, not a tripod** (INBOX 480, the owner: "make the
     //: feminine atlas's whispy lower body limbs less like a tripod and more
     //: like whispy ribbony/flowy tails", and "i like the dress as well";
@@ -1426,27 +1418,21 @@ function atlasEars(parent, level, edge, look) {
     out[side] = g;
   }
   const wisps = atlasGroup(parent, "atl-crest atl-wisps", ATLAS_GEO.hair);
-  if (spec.frontPaths && !tiny) {
-    //: The feminine front locks: the cap's paint, no outline in the edge
-    //: layer (a glow round a lock over the cap is a seam).
+  if ((spec.frontPaths || spec.fringeShade) && !tiny) {
+    //: The feminine front locks, if a look has them: the cap's paint, no
+    //: outline in the edge layer (a glow round a lock over the cap is a seam).
     if (!edge) {
-      for (const d of spec.frontPaths) {
+      for (const d of spec.frontPaths || []) {
         atlasMake("path", { class: "atl-skin atl-lock atl-front-lock", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-neb", d }, wisps);
         atlasMake("path", { class: "atl-overlay atl-hair-root", d }, wisps);
       }
-      //: A fine light line down each swept strand: the texture the owner
-      //: asked for at the start of the long hair.
-      if (spec.hairline && spec.frontLocks) {
-        const d = spec.frontLocks.map(({ seg }) => seg.map(([x0, y0, ...c], i) => `${i ? "" : `M${x0} ${y0}`}C${c.join(" ")}`).join("")).join("");
-        atlasMake("path", { class: "atl-strand-light", d }, wisps);
-      }
-      //: The hair's edge on the brow: a soft shade, not a line of light
-      //: (INBOX 480). Then the one star set in the hair at its peak.
-      if (spec.hairline) atlasMake("path", { class: "atl-hairline-shade", d: spec.hairline }, wisps);
+      //: The fringe's locks parted by a fine shade up each notch, then the
+      //: one star pinned at the parting (INBOX 480).
+      if (spec.fringeShade) atlasMake("path", { class: "atl-fringe-shade", d: spec.fringeShade }, wisps);
       if (spec.browStar) {
         const [x, y, k] = spec.browStar;
-        atlasMake("circle", { class: "atl-brow-halo", cx: x, cy: y, r: k * 1.9 }, wisps);
+        atlasMake("circle", { class: "atl-brow-halo", cx: x, cy: y, r: k * 1.8 }, wisps);
         atlasSpark(wisps, x, y, k, "atl-glint atl-brow-star");
       }
     }

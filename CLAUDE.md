@@ -125,6 +125,14 @@ full text, with the reasons, is the block at the top of
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.
 
+13. **Help moves with the UI** (the owner, 2026-10-04: "make sure that when
+   any ui changes are made, the help info gets updated as well"). A commit
+   that adds, moves, renames or removes a control updates, in the same
+   commit, every help surface that names it: the `data-help-for` popovers,
+   Settings, Help, the Guide's topics (`ai/help_chat.py`,
+   `ai/help_topics_more.py`) and the manual paths
+   (`tests/test_manual_parity.py`). Briefs say so; merges check it.
+
 12. **Concise response style, to save tokens** (the owner, 2026-10-03),
    for the orchestrator and every agent: no preamble, recap or narration;
    terse status lines; bullets over prose; five-line reports; briefs that

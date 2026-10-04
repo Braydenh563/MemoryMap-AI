@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The repository no longer sends new issues to GitHub's AI models for a summary (the `summary.yml` workflow is gone); CodeQL, which is static analysis and free on a public repository, stays.
 - The app emblem no longer throws "ACCENTS is not defined" when it is drawn before Settings has loaded (the assistant avatar on the lock screen); it reads the page's accent colour instead.
 - Dialogs: a head keeps its height when the card fills, so Find anything's hairline no longer crosses its title and buttons, and its search field has room under the head.
 - The Guide: Atlas's reply bubble is full width from the first frame instead of a narrow box that widened as the answer came in.

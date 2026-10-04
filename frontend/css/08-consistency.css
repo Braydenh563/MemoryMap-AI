@@ -405,37 +405,55 @@
   display: none;
 }
 
-/* The chevron the native marker was hiding. Borrowed exactly from the chat
-   timeline's thinking step (02-chat-graph.css) - a triangle built from
-   borders, so it needs no icon font, inherits `currentColor`, and the two
-   disclosures in the app read as one component. */
+/* The chevron the native marker was hiding: **one disclosure marker**
+   (INBOX 464 (14)). It was a 5x6px triangle built from borders in
+   `--muted`, crossed with a 2px rotated chevron from 07-whiteboard-misc.css,
+   where the Library's Contents, notes and outlines draw the 16px Phosphor
+   caret (`.contents-caret`). Now every fold draws that caret: the glyph at
+   1em of its row, in the row's own colour, turned a quarter to the right
+   while closed. The selector list is every family the old two rules reached
+   (`.settings-section summary` covers the folds in a pane that no family
+   names; the logs dock's kebab and the dock menus are glyph buttons and stay
+   out). */
 .help-accordion details > summary:not(.icon-only):not(.icon-button)::before,
+.help-accordion > summary::before,
+.about-whats-new::before,
+.settings-section summary:not(.icon-only):not(.icon-button):not(.doc-dock-menu-btn)::before,
 .settings-group > summary:not(.icon-only):not(.icon-button)::before,
 .settings-fold > summary:not(.icon-only):not(.icon-button)::before,
 .advanced-css > summary:not(.icon-only):not(.icon-button)::before,
 .task-log > summary:not(.icon-only):not(.icon-button)::before {
-  content: "";
+  content: "\e136"; /* ph-caret-down, as `.contents-caret` */
+  display: inline-block;
   flex: none;
-  width: 0;
-  height: 0;
-  border-left: 0.32rem solid currentColor;
-  border-top: 0.24rem solid transparent;
-  border-bottom: 0.24rem solid transparent;
-  color: var(--muted);
-  transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  width: auto;
+  height: auto;
+  border: 0;
+  font-family: Phosphor, sans-serif;
+  font-size: 1em;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  color: inherit;
+  transform: rotate(-90deg);
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .help-accordion details[open] > summary::before,
+details[open].help-accordion > summary::before,
+details[open] > .about-whats-new::before,
+.settings-section details[open] > summary::before,
 .settings-group[open] > summary::before,
 .settings-fold[open] > summary::before,
 .advanced-css[open] > summary::before,
 .task-log[open] > summary::before {
-  transform: rotate(90deg);
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .help-accordion details > summary::before,
+  .help-accordion summary::before,
+  .about-whats-new::before,
+  .settings-section summary::before,
   .settings-group > summary::before,
   .settings-fold > summary::before,
   .advanced-css > summary::before,

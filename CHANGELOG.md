@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Folds in Settings, the help guide and task logs show the same caret as the Library's Contents and outlines, where they drew a small triangle of their own.
 - Settings: the line between two switch rows stops where its group head's underline does (it ran 9px past it on each side), and on a phone the Tools list no longer runs 4px past its pane.
 - Dashboard: a widget with nothing to show offers the one thing to do about it (Add a reminder, New board, Add a bookmark, Ask a question, Show untagged notes and so on), opening the tab it lives on first; eleven widgets were a sentence only.
 - Top tab bar: choosing a tab no longer nudges the tabs after it sideways; the selected label is drawn heavier without getting wider (it moved the rest by up to 6px).

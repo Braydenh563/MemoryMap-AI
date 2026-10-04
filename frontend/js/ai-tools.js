@@ -1834,6 +1834,12 @@ async function loadLinkSuggestions() {
     const sigs = s.signals || [];
     const score = chip(`${Math.round((s.confidence ?? s.similarity ?? 0) * 100)}%`, "confidence");
     score.title = "How sure, over every reason below";
+    //: KG9: a Link or a dismissal teaches what each signal is worth here.
+    const learnLinkSignals = (kind, x) => apiJson("/learned/corrections", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({ kind, subject: { a: x.source_id, b: x.target_id, signals: sigs.map((g) => g.signal) } }),
+    }).catch(() => {});
     const why = document.createElement("p");
     why.className = "muted link-suggestion-why";
     why.textContent = sigs.map((g) => `${g.reason} (${Math.round(g.confidence * 100)}%)`).join(" · ");
@@ -1849,6 +1855,7 @@ async function loadLinkSuggestions() {
         body: JSON.stringify(given ? { target_id: s.target_id, reason: given } : { target_id: s.target_id }),
       }).catch((e) => toast(e.message, true));
       row.remove();
+      learnLinkSignals("accept_link", s);
       toast(given ? "Linked, with your reason." : "Linked.");
       loadEntries().catch(() => {});
       if (!box.querySelector(".link-suggestion")) {
@@ -1862,32 +1869,14 @@ async function loadLinkSuggestions() {
         link.click();
       }
     });
-    //: **A dismissal the notebook keeps.** This used to remove the row and
-    //: nothing else, so the same pair was offered again on the next render,
-    //: the next reload, and for ever: "a suggestion that comes back after
-    //: being dismissed is the single most annoying thing a suggester can do",
-    //: as `routes_entries.link_suggestions` puts it in the comment above the
-    //: filter that was already waiting for this. The server has honoured
-    //: `dismiss_link` corrections since Brief 23; the browser never sent one,
-    //: which made the whole loop inert from the only end that can start it.
-    //:
-    //: The row goes whether or not the write lands: a dismissal that appears
-    //: to do nothing because the notebook was busy is worse than one that is
-    //: not remembered, and the pair comes back on the next render anyway if
-    //: it was not.
+    //: A dismissal the notebook keeps (`dismiss_link`, never offered again);
+    //: the row goes whether or not the write lands.
     const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
       row.remove();
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
-      apiJson("/learned/corrections", {
-        method: "POST",
-        silent: true,
-        body: JSON.stringify({
-          kind: "dismiss_link",
-          subject: { a: s.source_id, b: s.target_id },
-        }),
-      }).catch(() => {});
+      learnLinkSignals("dismiss_link", s);
     });
     row.append(text, reason, score, link, dismiss);
     if (sigs.length) row.appendChild(why);

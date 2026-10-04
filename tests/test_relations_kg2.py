@@ -177,3 +177,48 @@ def test_a_private_note_is_never_in_a_structural_pair(client, session):
     row.is_private = True
     session.commit()
     assert client.get("/entries/link-suggestions").json() == []
+
+
+# --- KG9, part one: accepting and dismissing reweights the signals ---------
+
+
+def test_no_decisions_means_no_reweighting(session):
+    from memorymap.ai import learning
+
+    assert learning.signal_weights(session) == {}
+
+
+def test_accepts_raise_a_signal_and_dismissals_lower_one_within_bounds(session):
+    from memorymap.ai import learning
+
+    for i in range(6):
+        learning.record(session, kind="accept_link", subject={"a": i, "b": i + 100, "signals": ["tags"]})
+        learning.record(session, kind="dismiss_link", subject={"a": i, "b": i + 200, "signals": ["neighbours"]})
+    session.commit()
+    weights = learning.signal_weights(session)
+    assert 1.0 < weights["tags"] <= 1.5
+    assert 0.5 <= weights["neighbours"] < 1.0
+    assert "entities" not in weights
+
+
+def test_a_down_weighted_signal_can_drop_a_pair_under_the_bar():
+    notes = _notes(4, {1: {"tags": frozenset({"glaze"})}, 2: {"tags": frozenset({"glaze"})}})
+    edges = [(1, 3), (2, 3)]
+    assert _pair(recognise(notes, edges, [], [], set()), 1, 2) is not None
+    assert _pair(recognise(notes, edges, [], [], set(), weights={"neighbours": 0.5}), 1, 2) is None
+
+
+def test_dismissals_elsewhere_teach_the_route_what_a_signal_is_worth(client):
+    hub = _note(client, "Studio year plan")
+    a = client.post("/entries", json={"content": "Glaze trial, cone 6", "tags": ["glazelab"]}).json()
+    b = client.post("/entries", json={"content": "Thursday firing log", "tags": ["glazelab"]}).json()
+    for note in (a, b):
+        client.post(f"/entries/{note['id']}/links", json={"target_id": hub["id"]})
+    pair = {a["id"], b["id"]}
+    assert any({r["source_id"], r["target_id"]} == pair for r in client.get("/entries/link-suggestions").json())
+    for i in range(6):
+        client.post(
+            "/learned/corrections",
+            json={"kind": "dismiss_link", "subject": {"a": 9000 + i, "b": 9100 + i, "signals": ["tags", "neighbours", "time"]}},
+        )
+    assert not any({r["source_id"], r["target_id"]} == pair for r in client.get("/entries/link-suggestions").json())

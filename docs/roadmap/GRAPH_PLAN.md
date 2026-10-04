@@ -637,7 +637,9 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    graph, INBOX 528)").
 2. KG2, multi-signal recognition with explanations: built 2026-10-04, moved
    to HISTORY.md (the same section as KG1).
-3. KG9, the inbox and accept learning (needs KG2).
+3. KG9, the inbox and accept learning (needs KG2). Accept learning built
+   2026-10-04 (HISTORY.md, same section as KG1); open: the one inbox sheet
+   for link suggestions, tensions, entity merges and type suggestions.
 4. KG5, entity kinds, aliases, merge, entity page.
 5. KG6, topics, names, hulls, summaries.
 6. KG3, relation types with inverses and properties.

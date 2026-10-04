@@ -78,6 +78,10 @@ KINDS = frozenset(
         "refile",
         "open_after_ask",
         "dismiss_link",
+        # A suggested link the person made (GRAPH_PLAN KG9). Feeds no boost
+        # family: with `dismiss_link` it feeds `signal_weights`, which signals
+        # of a suggestion are worth believing in this notebook.
+        "accept_link",
         "dismiss_resurface",
         # The two the derived facts table writes (I9). They feed no boost
         # family: a deleted fact is already stopped from returning by its own
@@ -283,6 +287,50 @@ def boosts(session: Session, kind: str) -> dict[tuple, float]:
             continue
         out[key] = min(MAX_BOOST, out.get(key, 0.0) + PER_CORRECTION)
     return out
+
+
+#: How far one signal's weight may move from 1.0 either way (GRAPH_PLAN KG9).
+SIGNAL_WEIGHT_RANGE = (0.5, 1.5)
+
+
+def signal_weights(session: Session) -> dict[str, float]:
+    """What each kind of link-suggestion evidence is worth in this notebook.
+
+    Every accepted or dismissed suggestion carries the signals it was offered
+    for (`subject["signals"]`, from `ai/relations`). A signal's weight is
+    twice its acceptance rate, Laplace smoothed so one decision moves it a
+    little and none leaves it at 1.0, bounded to `SIGNAL_WEIGHT_RANGE`, with
+    each decision decayed over `HALF_LIFE_DAYS` like every other boost here.
+    Only signals somebody decided about are in the answer.
+    """
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("corrections"):
+        return {}
+    now = None
+    tally: dict[str, list[float]] = {}
+    for kind, slot in (("accept_link", 0), ("dismiss_link", 1)):
+        for item in corrections(session, kind=kind):
+            signals = item.subject.get("signals")
+            if not isinstance(signals, list):
+                continue
+            weight = 1.0
+            if item.at is not None:
+                if now is None:
+                    from memorymap.core.database import utcnow
+
+                    now = utcnow()
+                try:
+                    weight = decayed(1.0, max(0.0, (now - item.at).total_seconds() / 86400))
+                except TypeError:
+                    weight = 1.0
+            for signal in {str(name) for name in signals}:
+                tally.setdefault(signal, [0.0, 0.0])[slot] += weight
+    low, high = SIGNAL_WEIGHT_RANGE
+    return {
+        signal: min(high, max(low, 2.0 * (accepted + 1.0) / (accepted + dismissed + 2.0)))
+        for signal, (accepted, dismissed) in tally.items()
+    }
 
 
 def centroid_excluded(session: Session, category: str, text: str) -> bool:

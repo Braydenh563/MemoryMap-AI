@@ -1383,7 +1383,9 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         )
         for i, e in candidates.items()
     }
-    found = relations.recognise(notes, edges, mentions, similar, already_linked)
+    found = relations.recognise(
+        notes, edges, mentions, similar, already_linked, weights=learning.signal_weights(session)
+    )
 
     # **Two filters stand between "best-first" and "useful"**, both added
     # after measuring a real 116-note notebook whose twelve suggestions were

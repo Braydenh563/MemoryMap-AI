@@ -738,7 +738,8 @@ HELP_TOPICS.extend(
                 "linked\" with a Link button. Find links to add (Dashboard, Loose "
                 "ends, or the Graph) lists pairs worth connecting with every reason: "
                 "similar wording, people or things both name, a note both link "
-                "with, a rare tag both carry, and how sure it is."
+                "with, a rare tag both carry, and how sure it is. Linking or "
+                "dismissing one teaches it which reasons to trust in your notebook."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

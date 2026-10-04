@@ -49,5 +49,7 @@ const check = (label, ok, detail) => console.log(`${ok ? 'PASS' : 'FAIL'}  ${lab
   const link = await page.evaluate(async (ids) => (await apiJson(`/entries/${ids.a}/connections`)).outgoing.concat((await apiJson(`/entries/${ids.a}/connections`)).incoming).find((r) => r.id === ids.b), ids);
   console.log(JSON.stringify(await page.evaluate(async (ids) => apiJson(`/entries/${ids.a}/connections`), ids)));
   check('linked, with the reasons as its reason', link && /both/.test(link.reason || ''), link && link.reason);
+  const learned = await page.evaluate(async (ids) => (await apiJson('/learned/corrections?kind=accept_link')).find((c) => c.subject.a === ids.a || c.subject.b === ids.a), ids);
+  check('the accept is recorded with its signals (KG9)', learned && learned.subject.signals.includes('tags'), learned && JSON.stringify(learned.subject));
   await browser.close();
 })();

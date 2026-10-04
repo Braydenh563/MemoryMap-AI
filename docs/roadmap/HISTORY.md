@@ -38696,3 +38696,18 @@ with the box empty sends the reasons for a pair found by structure. Measured:
 line) and 5/5 at 390 (they wrap to 50px, nothing sideways). Not verified: the
 route's own time at 2k notes against a real embedding backend (the matrix
 pass is cached per version, as before).
+
+### From GRAPH_PLAN.md: KG9 part one, accepting and dismissing teach the signals
+
+`learning.KINDS` gains `accept_link` (no boost family; `dismiss_link` keeps
+its exclusion). The panel's Link records `accept_link` and its dismissal
+`dismiss_link`, each with `subject.signals`, the names the pair was offered
+for. `learning.signal_weights` gives each signal twice its acceptance rate,
+Laplace smoothed, decayed over `HALF_LIFE_DAYS`, bounded 0.5 to 1.5, and
+nothing for a signal never decided about; `relations.recognise(weights=)`
+scales each signal by it under its cap (time's ceiling 0.225). Measured:
+`tests/test_relations_kg2.py` 15 tests, among them six dismissals elsewhere
+taking a tag-and-neighbour pair under the bar at the route;
+`kg2suggest.js` 7/7 (the accept recorded with `similarity`, `neighbours`,
+`tags`, `time`). Left in GRAPH_PLAN: the inbox sheet (tensions, entity
+merges, type suggestions in one place).

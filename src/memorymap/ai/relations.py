@@ -46,6 +46,9 @@ TAG_HUB = 10
 TIME_WINDOW_MINUTES = 30
 TIME_CONFIDENCE = 0.15
 
+#: The time signal's ceiling under learning: support may grow, a little.
+SIGNAL_CEILING = 1.5
+
 #: The ceiling on each signal, so no one kind of evidence is certainty.
 CAPS = {"similarity": 0.95, "entities": 0.9, "neighbours": 0.85, "tags": 0.7, "time": TIME_CONFIDENCE}
 
@@ -118,6 +121,7 @@ def recognise(
     mentions: list[tuple[str, int]],
     similar: list[tuple[int, int, float]],
     exclude: set[frozenset[int]],
+    weights: dict[str, float] | None = None,
 ) -> list[Candidate]:
     """Every pair with evidence at or over `MIN_CONFIDENCE`, best first.
 
@@ -125,7 +129,14 @@ def recognise(
     neighbour signal and are themselves excluded. `mentions` is
     `(entity name, note id)`. `similar` is cosine pairs already over the bar.
     `exclude` is pairs never to offer (linked, threaded, dismissed).
+    `weights` scales each signal by what accepting and dismissing taught
+    (`learning.signal_weights`, GRAPH_PLAN KG9); a missing signal is 1.0.
     """
+    weights = weights or {}
+
+    def worth(signal: str, p: float) -> float:
+        return min(CAPS[signal], p * weights.get(signal, 1.0))
+
     #: Pairs are `(low, high)` tuples until the end: a frozenset and a
     #: Candidate per pair cost 2.4 s at 10k notes for pairs nearly all of
     #: which fall under the bar. Only the survivors become Candidates.
@@ -175,17 +186,18 @@ def recognise(
     miss: dict[tuple[int, int], float] = defaultdict(lambda: 1.0)
     for signal, table in shared.items():
         for key, hits in table.items():
-            miss[key] *= 1.0 - _noisy_or([w for w, _ in hits], CAPS[signal])
+            miss[key] *= 1.0 - worth(signal, _noisy_or([w for w, _ in hits], CAPS[signal]))
     cosine: dict[tuple[int, int], float] = {}
     for a, b, score in similar:
         key = (a, b) if a < b else (b, a)
         if a == b or key in banned or a not in notes or b not in notes or key in cosine:
             continue
         cosine[key] = score
-        miss[key] *= 1.0 - min(CAPS["similarity"], score)
+        miss[key] *= 1.0 - worth("similarity", score)
 
     #: Time can only lift a pair already this close to the bar.
-    lift = 1.0 - (1.0 - MIN_CONFIDENCE) / (1.0 - TIME_CONFIDENCE)
+    time_p = min(CAPS["time"] * SIGNAL_CEILING, TIME_CONFIDENCE * weights.get("time", 1.0))
+    lift = 1.0 - (1.0 - MIN_CONFIDENCE) / (1.0 - time_p)
     kept: list[Candidate] = []
     for key, missed in miss.items():
         a, b = key
@@ -196,7 +208,7 @@ def recognise(
                 minutes = abs((first - second).total_seconds()) / 60
                 if minutes <= TIME_WINDOW_MINUTES:
                     when = "written the same minute" if minutes < 1 else f"written {round(minutes)} minutes apart"
-                    missed *= 1.0 - TIME_CONFIDENCE
+                    missed *= 1.0 - time_p
         if 1.0 - missed < MIN_CONFIDENCE:
             continue
         candidate = Candidate(a, b)
@@ -204,12 +216,12 @@ def recognise(
             hits = table.get(key)
             if hits:
                 hits.sort(key=lambda hit: (-hit[0], hit[1]))
-                candidate.evidence[signal] = (_noisy_or([w for w, _ in hits], CAPS[signal]), [t for _, t in hits])
+                candidate.evidence[signal] = (worth(signal, _noisy_or([w for w, _ in hits], CAPS[signal])), [t for _, t in hits])
         if key in cosine:
             candidate.similarity = cosine[key]
-            candidate.evidence["similarity"] = (min(CAPS["similarity"], cosine[key]), [])
+            candidate.evidence["similarity"] = (worth("similarity", cosine[key]), [])
         if when:
-            candidate.evidence["time"] = (TIME_CONFIDENCE, [when])
+            candidate.evidence["time"] = (time_p, [when])
         kept.append(candidate)
     kept.sort(key=lambda c: (-c.confidence, -len(c.evidence), c.a, c.b))
     return kept

@@ -254,6 +254,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+Graph: a topic summary request's shared terms are capped at 200 characters each.
 Suggestions: a decision's signal names are capped at 40 characters (they are kept in the learning table for good).
 Agent: a small model's runaway bracket (thousands of [ or { in one tool argument) failed that one call as unreadable JSON; it raised RecursionError past every reader and ended the whole turn.
 Logs: the query-string redaction was quadratic in a line with a ? early and a long run of slashes after it (28,000 slashes took 2.4 s on the thread that writes every log line); it reads each run once.

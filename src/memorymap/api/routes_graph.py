@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+from typing import Annotated
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -1008,7 +1009,7 @@ def graph_structure(
 class TopicSummaryBody(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=5000)
     name: str = Field(default="", max_length=200)
-    terms: list[str] = Field(default_factory=list, max_length=10)
+    terms: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=10)
 
 
 @router.post("/graph/topics/summary")

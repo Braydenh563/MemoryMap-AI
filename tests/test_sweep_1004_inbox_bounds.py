@@ -12,6 +12,11 @@ def test_a_dismissal_with_a_huge_signal_name_is_refused(client):
     assert client.post("/suggestions/merges/accept", json=body).status_code == 422
 
 
+def test_a_topic_summary_term_is_a_word_not_a_document(client):
+    body = {"ids": [1], "terms": ["x" * 5000]}
+    assert client.post("/graph/topics/summary", json=body).status_code == 422
+
+
 def test_ordinary_signal_names_still_pass(client):
     body = {"a": 1, "b": 2, "signals": ["shared_note", "same_initial"]}
     assert client.post("/suggestions/merges/dismiss", json=body).status_code == 200

@@ -78,7 +78,7 @@ def _preview(text: str, length: int = 60) -> str:
     """
     from memorymap.entry.properties import strip as strip_properties
 
-    plain = manager.WIKI_LINK.sub(r"\1", strip_properties(text or "").lstrip())
+    plain = manager.wiki_plain(strip_properties(text or "").lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 
@@ -2569,7 +2569,7 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
         if label is None:
             result[entry.id] = rows[:REFERENCE_ROWS_MAX]
             continue
-        wiki = f"[[{label}]]".casefold()
+        wanted = label.casefold()
         candidates: list[tuple[str, int, str, str]] = []
         for document_id, title, content in document_hits[label]:
             candidates.append(("document", document_id, title, content))
@@ -2584,13 +2584,21 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
                 #: A link is a decision someone made; a mention is a coincidence
                 #: until they make it. Saying which is what stops this row being
                 #: a list of every note that happens to share a word.
-                "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+                "how": "links to it" if _links_to(content, wanted) else "mentions it",
             })
         #: Links before mentions, so the rows someone chose come first, and the
         #: boards before both because they are exact.
         rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
         result[entry.id] = rows[:REFERENCE_ROWS_MAX]
     return result
+
+
+def _links_to(content: str | None, wanted: str) -> bool:
+    """Whether some text has a `[[wiki link]]` whose target is `wanted` (casefolded)."""
+    return any(
+        manager.wiki_target(match.group(1)).casefold() == wanted
+        for match in manager.WIKI_LINK.finditer(content or "")
+    )
 
 
 def _reference_rows(session: Session, entry: Entry) -> list[dict]:

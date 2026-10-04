@@ -254,6 +254,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- `[[Target|Shown]]` means the same everywhere: the note it links to is the part before the bar, whether the link is made on save, listed in a document or note's backlinks, or shown as "links to it" in a note's references; and a note's label, preview and graph line read the shown words, not "Target|Shown" (`manager.wiki_target`, `wiki_shown`, `wiki_plain`).
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-aura.txt
 Library: a note or document with a long run of blank lines or spaces no longer freezes the app: 1,000 blank lines made the Library list take 6.5 seconds and 2,000 took 49, because the preview's table-rule pattern was cubic in the run; 20,000 of any shape is now instant.

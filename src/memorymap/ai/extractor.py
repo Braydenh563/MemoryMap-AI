@@ -210,7 +210,7 @@ def merge_near_duplicates(
 
 
 def _short_preview(text: str, length: int = 120) -> str:
-    plain = manager.WIKI_LINK.sub(r"\1", text or "")
+    plain = manager.wiki_plain(text)
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 

@@ -213,7 +213,7 @@ def _preview_line(line: str) -> str:
     """One line as plain words: the marker stripping `_preview` applies."""
     line = _HEADING_MD.sub("", line)
     line = _CALLOUT_MD.sub("", line)
-    line = _WIKI_LINK.sub(r"\1", line)
+    line = _WIKI_LINK.sub(lambda m: manager.wiki_shown(m.group(1)), line)
     line = manager.strip_inline_markdown(line)
     return " ".join(line.split())
 

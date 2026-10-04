@@ -39818,3 +39818,121 @@ under 5 minutes, the card under 100 ms.
 - **Not verified:** a real model's verdicts (the judge prompts run against a
   fake that answers by rule).
 
+
+## Moved from the plans, 2026-10-04 (row 7: open questions)
+
+### From WORLD_CLASS_PLAN.md I3: open questions: the notebook keeps a list of what you have not answered
+
+**What the person sees.** A "Questions" view under Notes (a sub-tab):
+every question you have written to yourself, newest first, each with
+"asked 3 March in 'Pricing thoughts'" and one of three states: open,
+answered ("you answered this on 9 April in 'Call with Sam'", with the
+sentence), or dropped. The Dashboard shows the count and the oldest open
+one. Ask can be scoped to it: "what am I still undecided about?" answers
+from this list with citations.
+
+**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
+the questions you *asked in passing* and tells you when a later note
+answered them. This is the feature that makes a notebook feel like it
+remembers on your behalf.
+
+**Builds on.** I1 (extraction and the "answers" pass), the grounding
+scorer for the answered-by sentence, the Notes sub-tab strip and the dock
+grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
+
+**Data.** `derived_facts` of kind `question` with payload `{answered_by:
+fact_id | null, dropped: bool}`. No new table.
+
+**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
+(`{state}`; marking answered by hand asks for the note and stores a typed
+link), the Ask box gets `scope: "questions"`.
+
+**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
+questions yields two open facts with spans; a later note that the fake
+model judges as answering one flips its state and the link exists; Ask
+with the scope cites only question facts; dropping is reversible and
+recorded as a correction (I7).
+
+**Gate.** The view renders under 100ms for 500 questions; the dock passes
+`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
+list recipe; Opus for the Ask scope.
+
+**State 2026-09-24:** (b) question facts are derived (I1's first pass); `GET /questions`, the Notes sub-tab, the Ask scope and the answered-by link are not built. M.
+
+### Decided 2026-10-04: the answered-by link
+
+The plan names both "the answered-by link" and "`EntryLink` typed
+`answers`", and no `answers` type exists (`LINK_TYPES` has six, every picker
+and the Graph's legend read them). Taken: the answered-by link is the
+question row's link to the sentence that answered it, in its note; a typed
+link (`context`, reason "answers: ...") between the two notes is written only
+when the person marks a question answered by hand. The night pass never
+writes to the graph unasked, as it never writes to a note (I1).
+
+### Built 2026-10-04
+
+- **`ai/questions.py`**: a question's state (open, answered, dropped) worked
+  out from its own `payload` (`dropped`, `answered_by_entry`) and the pass's
+  `answered` rows (row 5); `listing` pages one state with the count of each;
+  `set_state` drops, reopens (tombstoning the pass's answer so it does not
+  come back next night) or marks answered by hand (the note named, a
+  `context` link written); each move is a correction (`drop_question`,
+  `reopen_question`, `answer_question` in `learning.KINDS`).
+- **Routes:** `GET /questions?state=`, `GET /questions/summary`,
+  `POST /questions/{id}` (`routes_questions.py`).
+- **The view:** Notes, Questions (a fifth sub-tab, `data-dock-name=
+  "questions"` on the dock grammar): Open, Answered and Dropped segments
+  with counts, a row per question ("Asked 4 Oct 2026 in 'Plans for the
+  shed.'"), the answered-by line quoting the answer and opening its note,
+  Mark answered (the note picker), Drop, Reopen, Ask about these.
+- **The Ask scope:** `ChatRequest.scope = "questions"` turns into the notes
+  holding open questions as a closed set (`_apply_scope`); the Ask box shows
+  the scope line with Ask all notes.
+- **The Dashboard:** the While you were away card ends with the open count
+  and the oldest open question, and See your questions.
+- **Measured:** 500 questions listed in under 100 ms
+  (`test_the_list_renders_under_100ms_for_500_questions`); `questions.js`
+  16/16 at 1440 and 15/15 at 390, light and dark (the answered-by line
+  8.3 to 15.2:1).
+- **Not verified:** the Ask scope's answer from a real model; the fake
+  transport answers by rule.
+
+
+## Moved from the plans, 2026-10-04 (row 2: LAN mode over IPv6)
+
+### From WORLD_CLASS_PLAN.md §12, Brief 15's last item
+
+"Left: IPv6 addresses.
+Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
+Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
+must bind its own `socket.create_server(("::", port), family=AF_INET6,
+dualstack_ipv6=True)` (falling back to 0.0.0.0 where
+`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
+sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
+as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
+bracketed (never link-local, which needs a zone id no browser takes); and
+`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
+over a v4 address against the same server. Windows is not testable here."
+
+### Built 2026-10-04
+
+- **`core/netbind.py`:** `bind_host` gives `::` with LAN mode on where
+  `socket.has_dualstack_ipv6()` holds, `0.0.0.0` otherwise (as before);
+  `listening_socket` makes the one dual-stack socket (`create_server(...,
+  dualstack_ipv6=True)`, IPV6_V6ONLY cleared, so Windows answers IPv4 too);
+  `arrived_on_loopback` reads the IPv4 inside `::ffff:127.0.0.1`;
+  `lan_addresses` adds global and unique-local IPv6 (getaddrinfo and
+  `/proc/net/if_inet6`, never link-local, loopback, multicast or IPv4-mapped)
+  after the IPv4 ones; `describe` and the launcher's log bracket them
+  (`url_host`).
+- **`__main__._run_server`:** hands the socket to `uvicorn.Server(...).run(
+  sockets=[sock])`; if the dual-stack socket cannot be made, binds `0.0.0.0`
+  and says so through `set_current`.
+- **Tests:** `tests/test_lan_mode.py` gains six: the fallback, the mapped
+  loopback, the address list (link-local and mapped refused, IPv6 after
+  IPv4, brackets), the bracketed Host header, and the launcher reached over
+  `[::1]` and `127.0.0.1` on one server.
+- **Not verified:** this sandbox has no IPv6 (`AF_INET6` is "address family
+  not supported"), so the end-to-end test skips here and runs on CI; Windows
+  is not testable here at all.
+

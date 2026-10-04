@@ -74,7 +74,70 @@ def test_only_a_literal_true_turns_it_on(app_state):
         app_state.set_preference(netbind.LAN_PREF, value)
         assert netbind.bind_host(app_state) == "127.0.0.1", value
     app_state.set_preference(netbind.LAN_PREF, True)
+    # Every interface: IPv4 and IPv6 on one socket where the machine has
+    # both, IPv4 alone where it has no IPv6 (this sandbox).
+    assert netbind.bind_host(app_state) == ("::" if netbind.dual_stack() else "0.0.0.0")
+
+
+# --- IPv6 (WORLD_CLASS_PLAN §12, row 2) -------------------------------------------
+
+
+def test_without_dual_stack_lan_mode_binds_ipv4(app_state, monkeypatch):
+    app_state.set_preference(netbind.LAN_PREF, True)
+    monkeypatch.setattr(netbind, "dual_stack", lambda: False)
     assert netbind.bind_host(app_state) == "0.0.0.0"
+    monkeypatch.setattr(netbind, "dual_stack", lambda: True)
+    assert netbind.bind_host(app_state) == "::"
+    assert netbind.is_loopback_bind("::") is False
+
+
+def test_only_the_dual_stack_host_gets_a_socket_of_its_own():
+    assert netbind.listening_socket("127.0.0.1", 0) is None
+    assert netbind.listening_socket("0.0.0.0", 0) is None
+
+
+def test_an_ipv4_client_on_the_dual_stack_socket_is_still_this_computer():
+    """On the dual-stack socket IPv4 arrives as `::ffff:a.b.c.d`, and Python
+    does not call `::ffff:127.0.0.1` loopback: the guard reads the IPv4 inside."""
+    assert netbind.arrived_on_loopback(("::ffff:127.0.0.1", 8000)) is True
+    assert netbind.arrived_on_loopback(("::1", 8000)) is True
+    assert netbind.arrived_on_loopback(("[::1]", 8000)) is True
+    assert netbind.arrived_on_loopback(("::ffff:192.168.1.5", 8000)) is False
+    assert netbind.arrived_on_loopback(("2001:db8::5", 8000)) is False
+    assert netbind.arrived_on_loopback(("fd12:3456::7", 8000)) is False
+
+
+def test_ipv6_addresses_are_listed_bracketed_and_never_link_local(monkeypatch, app_state):
+    def fake_getaddrinfo(host, port, family=0, *args, **kwargs):
+        if family == socket.AF_INET6:
+            return [
+                (family, 1, 6, "", ("fe80::1%eth0", 0, 0, 2)),
+                (family, 1, 6, "", ("::1", 0, 0, 0)),
+                (family, 1, 6, "", ("2001:db8::5", 0, 0, 0)),
+                (family, 1, 6, "", ("fd12:3456::7", 0, 0, 0)),
+                (family, 1, 6, "", ("::ffff:192.168.1.9", 0, 0, 0)),
+            ]
+        return [(socket.AF_INET, 1, 6, "", ("192.168.1.9", 0))]
+
+    monkeypatch.setattr(netbind.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(netbind.sys, "platform", "test")
+    assert netbind.lan_addresses(include_v6=True) == ["192.168.1.9", "2001:db8::5", "fd12:3456::7"]
+    assert netbind.lan_addresses(include_v6=False) == ["192.168.1.9"]
+    assert netbind.url_host("2001:db8::5") == "[2001:db8::5]"
+    assert netbind.url_host("192.168.1.9") == "192.168.1.9"
+    monkeypatch.setattr(netbind, "lan_addresses", lambda include_v6=None: ["192.168.1.9", "2001:db8::5"])
+    app_state.set_preference(netbind.LAN_PREF, True)
+    netbind.set_current("::")
+    assert netbind.describe(app_state, 8000)["addresses"] == [
+        "http://192.168.1.9:8000",
+        "http://[2001:db8::5]:8000",
+    ]
+
+
+def test_a_bracketed_ipv6_host_header_names_this_computer():
+    assert netbind.host_allowed("[::1]:8000")
+    assert netbind.host_allowed("[2001:db8::5]:8000")
+    assert not netbind.host_allowed("evil.example:8000")
 
 
 def test_turning_it_on_needs_the_current_password(client, app_state):
@@ -389,3 +452,29 @@ def test_without_the_switch_the_network_cannot_connect(tmp_path, network_address
             _Http(network_address, port).call("GET", "/health")
     finally:
         _stop(proc)
+
+
+@pytest.mark.skipif(not netbind.dual_stack(), reason="this machine has no dual-stack IPv6 (the sandbox has no IPv6 at all)")
+def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
+    """The plan's own test: the real launcher with LAN mode on, reached once
+    over `[::1]` and once over IPv4, the same server both times."""
+    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
+    try:
+        here_v6 = _Http("::1", port)
+        here_v4 = _Http("127.0.0.1", port)
+        status, body, _ = here_v6.call("GET", "/auth/status", host=f"[::1]:{port}")
+        assert status == 200 and body["setup_required"] is True
+        status, body, _ = here_v4.call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200
+        owner = {"X-Auth-Token": body["token"]}
+        # Both arrive on loopback: [::1] is, and 127.0.0.1 arrives as
+        # ::ffff:127.0.0.1, which the guard reads as loopback too.
+        assert here_v6.call("POST", "/auth/auto-session", host=f"[::1]:{port}")[0] in (200, 403)
+        status, receipt, _ = here_v6.call("GET", "/privacy/receipt", headers=owner, host=f"[::1]:{port}")
+        assert status == 200
+        assert receipt["listening"]["other_devices"] is True
+        assert receipt["listening"]["host"] == "::"
+    finally:
+        _stop(proc)
+    assert "token=" not in log.read_text().replace("token=[redacted]", "")
+

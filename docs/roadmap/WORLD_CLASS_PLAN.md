@@ -778,12 +778,12 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 (sized M 2026-10-04, §12 has the shape) | M | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
 | 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
 | 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
-| 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
+| 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
@@ -906,17 +906,8 @@ plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
 **Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
 hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
-and the switch in Settings, Account and security. Left: IPv6 addresses.
-Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
-Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
-must bind its own `socket.create_server(("::", port), family=AF_INET6,
-dualstack_ipv6=True)` (falling back to 0.0.0.0 where
-`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
-sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
-as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
-bracketed (never link-local, which needs a zone id no browser takes); and
-`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
-over a v4 address against the same server. Windows is not testable here.
+and the switch in Settings, Account and security. IPv6 built 2026-10-04
+(HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1168,41 +1159,7 @@ frontend anchoring is design work).
 
 ### I3 Open questions: the notebook keeps a list of what you have not answered
 
-**What the person sees.** A "Questions" view under Notes (a sub-tab):
-every question you have written to yourself, newest first, each with
-"asked 3 March in 'Pricing thoughts'" and one of three states: open,
-answered ("you answered this on 9 April in 'Call with Sam'", with the
-sentence), or dropped. The Dashboard shows the count and the oldest open
-one. Ask can be scoped to it: "what am I still undecided about?" answers
-from this list with citations.
-
-**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
-the questions you *asked in passing* and tells you when a later note
-answered them. This is the feature that makes a notebook feel like it
-remembers on your behalf.
-
-**Builds on.** I1 (extraction and the "answers" pass), the grounding
-scorer for the answered-by sentence, the Notes sub-tab strip and the dock
-grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
-
-**Data.** `derived_facts` of kind `question` with payload `{answered_by:
-fact_id | null, dropped: bool}`. No new table.
-
-**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
-(`{state}`; marking answered by hand asks for the note and stores a typed
-link), the Ask box gets `scope: "questions"`.
-
-**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
-questions yields two open facts with spans; a later note that the fake
-model judges as answering one flips its state and the link exists; Ask
-with the scope cites only question facts; dropping is reversible and
-recorded as a correction (I7).
-
-**Gate.** The view renders under 100ms for 500 questions; the dock passes
-`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
-list recipe; Opus for the Ask scope.
-
-**State 2026-09-24:** (b) question facts are derived (I1's first pass); `GET /questions`, the Notes sub-tab, the Ask scope and the answered-by link are not built. M.
+Built 2026-10-04 (row 7): moved to HISTORY.md, "Moved from the plans, 2026-10-04 (row 7: open questions)", with the answered-by link's decision. Nothing is left here: the night pass retrying an open question as notes arrive is pass 5 (row 5).
 
 ### I4 Resurfacing: the ideas you are about to forget, when they matter
 
@@ -1732,7 +1689,7 @@ the night shift retries it when new notes arrive. Gate: 95% of sentences
 cited on the seeded notebook; a corrected citation changes the next
 answer's ranking (asserted, not eyeballed).
 
-**State 2026-10-04:** I6 built (row 6; HISTORY); left here: "wrong" on a card retraining the ranker (I7), and I3's view (row 7).
+**State 2026-10-04:** I6 built (row 6) and I3 built (row 7), both in HISTORY; left here: "wrong" on a card retraining the ranker (I7).
 
 ### H3 The model bench (I8; M, Opus)
 

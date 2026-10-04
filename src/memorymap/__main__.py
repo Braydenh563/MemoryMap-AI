@@ -475,13 +475,31 @@ def _run_server() -> None:
     # Everything else in this file keeps talking to the server on HOST, which
     # a 0.0.0.0 bind answers too.
     bind = netbind.bind_host(deps.get_config())
+    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
+    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
+    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
+    sock = netbind.listening_socket(bind, PORT)
+    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
+        bind = netbind.ALL_INTERFACES
     netbind.set_current(bind)
     if bind != HOST:
         logger.warning(
             "Other devices on this network can reach this notebook (with the password): %s",
-            ", ".join(f"http://{a}:{PORT}" for a in netbind.lan_addresses()) or bind,
+            ", ".join(
+                f"http://{netbind.url_host(a)}:{PORT}"
+                for a in netbind.lan_addresses(include_v6=sock is not None)
+            )
+            or bind,
         )
-    uvicorn.run(app, host=bind, port=PORT, log_level="info")
+    if sock is not None:
+        # What `uvicorn.run` does for one worker, with the socket handed in;
+        # Ctrl+C ends it quietly in both shapes.
+        try:
+            uvicorn.Server(uvicorn.Config(app, host=bind, port=PORT, log_level="info")).run(sockets=[sock])
+        except KeyboardInterrupt:
+            pass
+    else:
+        uvicorn.run(app, host=bind, port=PORT, log_level="info")
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run

@@ -617,7 +617,11 @@ details.tool-chip > summary {
 /* Its own affordance, since the native marker is removed above, without one
    there is nothing to say the chip can be opened at all. */
 details.tool-chip > summary::after {
-  content: "▸";
+  content: "\e13a"; /* ph-caret-right */
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
   margin-left: auto;
   flex: 0 0 auto;
   opacity: 0.7;
@@ -879,7 +883,12 @@ details.tool-chip[open] > .tool-chip-body {
 }
 
 .plan-step-done::after {
-  content: " ✓";
+  content: "\e182"; /* ph-check */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
   color: var(--ok);
 }
 
@@ -888,7 +897,12 @@ details.tool-chip[open] > .tool-chip-body {
 }
 
 .plan-step-failed::after {
-  content: " ✕";
+  content: "\e4f6"; /* ph-x */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 /* Ran out of rounds part-way. Deliberately NOT the same mark as done or as
@@ -899,7 +913,12 @@ details.tool-chip[open] > .tool-chip-body {
 }
 
 .plan-step-stalled::after {
-  content: " ⏸";
+  content: "\e39e"; /* ph-pause */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 /* Completed by the run this one is resuming, ticked, but quietly, because it
@@ -909,7 +928,12 @@ details.tool-chip[open] > .tool-chip-body {
 }
 
 .plan-step-earlier::after {
-  content: " ✓";
+  content: "\e182"; /* ph-check */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 .plan-step-reason {
@@ -5682,7 +5706,10 @@ mark.lightbox-hit {
    same and moves nothing. `line-height: 1` because the glyph's own line box
    is what pushed it off centre. */
 .chat-title::after {
-  content: "\270E";
+  content: "\e3b4"; /* ph-pencil-simple */
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1;

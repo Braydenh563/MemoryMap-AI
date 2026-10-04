@@ -3356,7 +3356,11 @@ header#top-bar.tabs-wrapped #tab-bar {
    chat's `.agent-step` and `details.tool-chip` both draw theirs before the
    text) and therefore what DESIGN.md's <details> recipe means. */
 .library-image-reading > summary::before {
-  content: "▸";
+  content: "\e13a"; /* ph-caret-right */
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
   flex: 0 0 auto;
   opacity: 0.7;
   transition: transform var(--motion-base) var(--ease-out);

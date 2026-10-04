@@ -927,7 +927,7 @@ function renderActiveLogView() {
 
 function setLogLive(state, detail) {
   const pill = $("log-live");
-  pill.textContent = detail;
+  setLabel(pill, detail);
   pill.dataset.state = state;
 }
 
@@ -980,7 +980,7 @@ async function startLogStream() {
       signal: controller.signal,
     });
     if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
-    setLogLive("live", "● live");
+    setLogLive("live", "ph:broadcast live");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffered = "";
@@ -1948,7 +1948,7 @@ function savedThemeCard(theme) {
   name.className = "saved-look-name";
   name.textContent = theme.name;
   name.title = theme.name;
-  const remove = smallButton("ph:x", `Delete “${theme.name}”`, () => {
+  const remove = smallButton("ph:trash", `Delete “${theme.name}”`, () => {
     deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
   });
   remove.classList.add("ghost", "icon-button", "saved-look-delete");

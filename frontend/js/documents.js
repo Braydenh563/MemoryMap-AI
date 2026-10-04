@@ -6766,7 +6766,10 @@ function docLivePlugin(CM) {
       if (this.fold) {
         const chevron = document.createElement("span");
         chevron.className = "cm-md-callout-fold";
-        chevron.textContent = this.fold.closed ? "\u25B8" : "\u25BE";
+        const caret = document.createElement("i");
+        caret.className = `ph ph-caret-${this.fold.closed ? "right" : "down"}`;
+        caret.setAttribute("aria-hidden", "true");
+        chevron.appendChild(caret);
         word.dataset.docCalloutFold = String(this.fold.at);
         chevron.dataset.docCalloutFold = String(this.fold.at);
         word.title = this.fold.closed ? "Show what is inside" : "Fold this away";

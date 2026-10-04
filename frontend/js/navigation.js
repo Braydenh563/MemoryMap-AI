@@ -2332,7 +2332,7 @@ function initScrollTopButton() {
   button.id = "scroll-top";
   button.className = "scroll-top";
   button.type = "button";
-  button.textContent = "↑";
+  setLabel(button, "ph:arrow-up");
   button.title = "Back to top";
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
@@ -2387,7 +2387,7 @@ function initScrollTopButton() {
     const mode = chat ? "bottom" : "top";
     if (button.dataset.mode !== mode) {
       button.dataset.mode = mode;
-      button.textContent = chat ? "↓" : "↑";
+      setLabel(button, chat ? "ph:arrow-down" : "ph:arrow-up");
       const label = chat ? "Jump to the newest message" : "Back to top";
       button.title = label;
       button.setAttribute("aria-label", label);

@@ -1864,7 +1864,11 @@ summary > .ph-lead,
 .doc-dock-menu-list .doc-dock-menu-item[aria-pressed="true"]::after,
 .doc-dock-menu-list .doc-dock-menu-item.active::after,
 .doc-dock-menu-list .doc-dock-menu-item.is-on::after {
-  content: "\2713";
+  content: "\e182"; /* ph-check */
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
   margin-left: auto;
   padding-left: var(--space-3);
   color: var(--accent-text);

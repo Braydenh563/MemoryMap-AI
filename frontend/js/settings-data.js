@@ -170,7 +170,7 @@ async function renderBackups() {
       })
     );
     actions.appendChild(
-      smallButton("ph:x", "Delete this backup", async () => {
+      smallButton("ph:trash", "Delete this backup", async () => {
         if (!(await confirmDialog("Delete this backup file?"))) return;
         await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
         renderBackups();

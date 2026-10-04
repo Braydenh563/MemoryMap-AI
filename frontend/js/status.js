@@ -2352,9 +2352,12 @@ async function applyBackendChoice() {
     // The setting is saved either way, you set the address, then you start
     // the server: so this reports what was found rather than treating an
     // unreachable server as a rejected setting.
-    note.textContent = body.reachable
-      ? `● Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
-      : `○ Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`;
+    setLabel(
+      note,
+      body.reachable
+        ? `ph:plugs-connected Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
+        : `ph:plugs Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`
+    );
     // This app's headline promise is that notes stay on the machine. A backend
     // somewhere else is allowed, someone may want it, but never quietly, so
     // the warning is loud and stays until the address changes.

@@ -464,11 +464,21 @@
 /* Which way round it is, drawn from the `aria-sort` the head already carries,
    so the mark and the announcement can never disagree. */
 .timeline-table th[aria-sort="ascending"] .timeline-sort::after {
-  content: " \2191";
+  content: "\e08e"; /* ph-arrow-up */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 .timeline-table th[aria-sort="descending"] .timeline-sort::after {
-  content: " \2193";
+  content: "\e03e"; /* ph-arrow-down */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 .timeline-table tbody tr {

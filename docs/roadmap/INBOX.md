@@ -38,14 +38,6 @@ with its owner named in the entry.
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
 
-524. **The owner, 2026-10-04, verbatim, with a screenshot ("Add to Quick
-     access": a command list, one add per open).** "it is hard to tell which
-     ones are already added and I can only add one at at time, I want it to
-     have the abillity to add or remove or rearrange multiple of them". Next
-     agent: a manager on DESIGN.md's "A list you manage" recipe: added rows
-     checked, multi-select add and remove, drag and keyboard reorder of the
-     added set, one Save.
-
 521. **The owner, 2026-10-04, verbatim, with a screenshot (Library, Files:
      the companion perched in empty space under the card, not on anything).**
      "the companion perching needs fixing for many of the library tabs as

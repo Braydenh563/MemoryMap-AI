@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Toasts: an error toast's Report this keeps its width (it was squeezed to 44px and its words ran out of the box at 390); on a window under 820px the message takes its own line with the buttons under it at the right, both 44px tall under touch.
+- Dashboard, Quick access: Add or arrange opens one list of every command with the ones on your dashboard checked and first, so what is added is visible; check or uncheck several, drag rows or press Alt+Up and Alt+Down (or the two small buttons) to order them, search to narrow the list, and Done saves everything at once (Cancel and Escape keep what was there); at eight, a ninth is refused with a warning line in the dialog, not an error toast (INBOX 524).
 - Sub-tabs: the Notes (Your notes, Capture, Write with Atlas, Ask), Library and document sidebar strips are one second-level recipe: words on the page with a 2px accent line under the chosen tab, no box or pill, one height (36px, 44 on touch), one 4px gap, one padding, and no icons on any of them; the top bar keeps its pills (INBOX 522).
 - Top bar: the tab well hugs its tabs in the layout that centres it between the two groups (at 1150 it was 630px round 503px of tabs, and the same stretched box showed on every boot until the first measure), centred by auto margins (INBOX 522).
 - Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.

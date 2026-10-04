@@ -37335,6 +37335,17 @@ width, 47% of the column at 1440.
      until the first measure); it hugs now. The graph label-plate switch is
      525.
 
+524. **The owner, 2026-10-04, verbatim, with a screenshot ("Add to Quick
+     access": a command list, one add per open).** "it is hard to tell which
+     ones are already added and I can only add one at at time, I want it to
+     have the abillity to add or remove or rearrange multiple of them". Next
+     agent: a manager on DESIGN.md's "A list you manage" recipe: added rows
+     checked, multi-select add and remove, drag and keyboard reorder of the
+     added set, one Save.
+     **Fixed 2026-10-04**: the Add tile opens `quickAccessManage` (one list,
+     added rows checked and first, several toggled in a draft, drag and
+     Alt+Up/Down and two move buttons to order, search kept, one Done).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

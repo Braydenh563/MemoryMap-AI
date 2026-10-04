@@ -160,12 +160,64 @@ def test_customise_and_reset_are_rows_of_the_dashboard_customise_menu():
     assert "saveQuickAccess([])" in custom and "quickEditing = true" in custom
 
 
-def test_adding_uses_the_rich_picker_and_arranging_has_a_keyboard_route():
-    assert "richPickerRow(" in EDIT and 'tag: "button"' in EDIT
+def test_the_row_view_has_a_keyboard_route_and_no_hand_built_menu():
     assert "Move left" in EDIT and "Move right" in EDIT and "Remove" in EDIT
     assert "kebabMenu(" in EDIT and "dashDragOverCard(" in EDIT
     # No hand-built menu or option list in the editing view.
     assert 'role="menu"' not in EDIT and 'setAttribute("role", "menu")' not in EDIT
+
+
+# --- the manager (INBOX 524) --------------------------------------------------
+
+
+def _node_helpers(expr: str):
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = (
+        _block(EDIT, "function quickAccessMoved(", "\n}\n")
+        + "\n"
+        + _block(EDIT, "function quickAccessReslotted(", "\n}\n")
+        + f"\nprocess.stdout.write(JSON.stringify({expr}));\n"
+    )
+    out = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout)
+
+
+def test_a_move_swaps_with_the_neighbour_you_can_see():
+    """Alt+Up on the second tile swaps it with the first; with a search narrowing
+    the list, the neighbour is the next visible one, not the next stored one."""
+    assert _node_helpers('quickAccessMoved(["a","b","c"], ["a","b","c"], "b", -1)') == ["b", "a", "c"]
+    assert _node_helpers('quickAccessMoved(["a","b","c"], ["a","c"], "c", -1)') == ["c", "b", "a"]
+    assert _node_helpers('quickAccessMoved(["a","b"], ["a","b"], "a", -1)') == ["a", "b"]
+    assert _node_helpers('quickAccessMoved(["a","b"], ["a","b"], "b", 1)') == ["a", "b"]
+
+
+def test_a_drag_puts_the_visible_tiles_back_in_the_slots_they_held():
+    assert _node_helpers('quickAccessReslotted(["a","b","c","d"], ["c","a"])') == ["c", "b", "a", "d"]
+    assert _node_helpers('quickAccessReslotted(["a","b","c"], ["c","b","a"])') == ["c", "b", "a"]
+
+
+def test_the_manager_is_one_list_you_check_drag_and_save_once():
+    """What the owner asked: which are added is visible (a check on each row),
+    several can be toggled at once, the added set reorders by drag and by
+    Alt+Up and Alt+Down, the search stays, and there is one Done."""
+    manage = _block(EDIT, "function quickAccessManage(", "\n}\n")
+    assert 'type = "checkbox"' in manage and "note-picker-check" in manage
+    assert "draggable" in manage and "dragover" in manage and "dragend" in manage
+    assert "event.altKey" in manage and '"ArrowUp"' in manage and '"ArrowDown"' in manage
+    assert 'type = "search"' in manage and "QUICK_ACCESS_MAX" in manage
+    # Nothing is saved until Done: one commit in the whole manager, and it is Done's.
+    assert manage.count("quickAccessCommit(") == 1
+    assert "closes the picker and adds" not in manage
+    # A refusal (a ninth tile, the last one off) is a line in the dialog, never an
+    # error toast with "Report this": it is validation, not a fault.
+    assert "toast(" not in manage and "notice-warn" in manage
+    # The row view's Add tile opens it.
+    assert "quickAccessManage(" in _block(EDIT, "async function quickAccessEdit()", "\n}\n")
+    # A drag has an alternative that needs no dragging (WCAG 2.5.7).
+    assert "Move ${" in manage and "quick-manage-move" in manage
 
 
 def test_it_is_stored_in_preferences_not_only_the_browser():

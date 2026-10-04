@@ -1745,9 +1745,117 @@ header#top-bar select,
   margin-top: var(--space-3);
 }
 
-.quick-pick-list {
-  max-height: min(24rem, 55vh);
+/* The manager (INBOX 524): the Attach picker's rows (`note-picker-*`, in
+   04-chat-dock-appearance.css) in two groups, the added set first. The only
+   scroller is `.quick-manage-scroll`; a row is the row's label plus a grip and
+   two small move buttons, which appear with the pointer or focus and stay
+   under `(hover: none)`, where there is no Alt key and no drag. */
+.quick-manage-about {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.quick-manage-scroll {
+  max-height: min(24rem, 50vh);
   overflow-y: auto;
+  margin-top: var(--space-3);
+}
+
+.quick-manage-group {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.quick-manage-group:first-child {
+  margin-top: 0;
+}
+
+.quick-manage-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-manage-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+/* (0,2,1): `.space-dialog label` (a form label: block, muted, small, with a
+   top margin) would otherwise win over the picker row's own flex. */
+.quick-manage-item > label.note-picker-row {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.quick-manage-item.dragging {
+  opacity: 0.5;
+}
+
+.quick-manage-grip {
+  flex: none;
+  width: 1rem;
+  color: var(--muted);
+  cursor: grab;
+}
+
+.quick-manage-grip.is-idle {
+  visibility: hidden;
+}
+
+.quick-manage-moves {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  min-width: calc(2 * var(--target-min));
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.quick-manage-item:hover .quick-manage-moves,
+.quick-manage-item:focus-within .quick-manage-moves {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .quick-manage-moves {
+    opacity: 1;
+  }
+}
+
+.quick-manage-warn {
+  margin: var(--space-3) 0 0;
+}
+
+.quick-manage-foot {
+  flex-wrap: nowrap;
+}
+
+/* Cancel and Done are one height (a ghost's border made one 2px taller),
+   44px under touch. */
+.quick-manage-foot > button {
+  height: max(var(--control-h-body), var(--target-min));
+}
+
+.quick-manage-foot .quick-manage-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: auto;
+  font-size: var(--text-sm);
 }
 
 .quick-pick-empty {

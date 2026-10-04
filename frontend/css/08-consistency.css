@@ -2959,11 +2959,32 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    43px control in a 65px toast (measured, scratchpad/ui-sweeps/toasthelp.js);
    a toast action is a small ghost, the same height as its close button. */
 .toast .toast-help {
-  height: 1.75rem;
-  min-height: 1.75rem;
+  height: var(--target-min);
+  min-height: var(--target-min);
   padding: 0 var(--space-3);
   margin-left: var(--space-2);
   white-space: nowrap;
+  /* Never squeezed by the message: at 390 the flex row shrank this button to
+     44px and its words ran out of its box (the owner, with a screenshot). */
+  flex: 0 0 auto;
+}
+
+/* On a narrow window the message takes a line of its own and the actions sit
+   under it at the right, so the words get the width and the button its own. */
+@media (max-width: 819.98px) {
+  .toast.error {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .toast.error > span:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .toast.error > .toast-help {
+    margin-left: auto;
+  }
 }
 
 /* A file chip rendered inline in a note's body (the Ask sub-tab's source

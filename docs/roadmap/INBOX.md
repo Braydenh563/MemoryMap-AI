@@ -34,6 +34,15 @@ with its owner named in the entry.
 
 ## Open items
 
+471. **Left by INBOX 463 (2), 2026-10-04.** The assistant avatar setting
+     reaches Chat, the popup agent and the Atlas guide's heads, but Ask's
+     answer (`#ai-answer`) and the writing room's draft have no head at all,
+     and the guide's chat rows (`.help-chat-msg.is-assistant`) none either;
+     the owner asked for "all chat interfaces". Recommendation (order 3,
+     taken): give each the reply head recipe (avatar from
+     `assistantAvatar(size)`, the name), so the setting reaches them; persona
+     faces keep their own unless the owner asks. Placed: the next agent free.
+
 
 464. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's active Library button: its icon faint on the accent

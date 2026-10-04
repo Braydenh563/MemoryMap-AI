@@ -228,6 +228,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+Privacy: saving an edit to a private note kept its new text encrypted only in the editor's eyes (it was written to the database in plain text while the note stayed marked private, and into the search index); it is now stored encrypted, and Add context, which appended plain words to the encrypted text and made the note unreadable, refuses a private note.
 Privacy: making a note private now encrypts the history it already had (its first version and earlier edits sat in the event log and the version list in plain text); restoring an older version fits the note as it is now, so a version saved while private no longer comes back as unreadable text in a note that has since been made public.
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
 - Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.

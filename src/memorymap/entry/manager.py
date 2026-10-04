@@ -553,6 +553,12 @@ def _update_entry_fields(
     """The edit itself. One write, one `edited` event; see `update_entry`."""
     was = events.entry_state(entry)
     changed = []
+    if content is not None and entry.is_private:
+        #: Whoever the caller is, a private note's text lands encrypted.
+        stored = content_for_entry(entry, content)
+        if stored is None:
+            raise PermissionError("The encryption key isn't loaded.")
+        content = stored
     if content is not None and content != entry.content:
         entry.content = content
         changed.append("content")

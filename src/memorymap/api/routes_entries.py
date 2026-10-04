@@ -1098,6 +1098,13 @@ def add_context(
     category with the fuller picture. If the user filed this
     entry themselves, the category is left alone, their call stands."""
     entry = _existing_entry(session, entry_id)
+    # Appending to the ciphertext made the note unreadable for good, and the
+    # filing below would read its text: a private note is edited in its own
+    # editor (same refusal as generate-title and remove-title).
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first: private notes can't be edited here."
+        )
     entry.content = f"{entry.content}\n\n--- added context ---\n{body.text.strip()}"
     manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "context added")
@@ -2080,7 +2087,17 @@ def update_entry(
             current=lambda: _to_out(session, entry),
             noun="note",
         )
-    content_changed = body.content is not None and body.content != entry.content
+    new_content = body.content
+    if entry.is_private and body.content is not None:
+        #: A private note's column holds ciphertext, so "changed" is judged on
+        #: the text the editor saw, and the new text is stored encrypted: it
+        #: was written plain, with the note still flagged private, and sat in
+        #: `entries.content` and the full-text index in the clear (found
+        #: 2026-10-04 by scanning a data dir for a private note's words).
+        content_changed = body.content != manager.readable_content(entry)
+        new_content = _stored_form(entry, body.content) if content_changed else None
+    else:
+        content_changed = body.content is not None and body.content != entry.content
     tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
     #: The note's [[name]] before the edit (a private note is never a target).
     old_name = (
@@ -2095,7 +2112,7 @@ def update_entry(
         manager.update_entry(
             session,
             entry,
-            content=body.content,
+            content=new_content,
             category_name=body.category,
             tags=body.tags,
         )

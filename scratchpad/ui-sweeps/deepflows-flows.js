@@ -712,7 +712,9 @@ const activeTab = (env) => env.js(() => [...document.querySelectorAll('.tab-page
 
 async function openPaletteUi(env) {
   if (!env.phone) await env.page.keyboard.press('Control+k');
-  else if (await env.page.isVisible('#status-command')) await env.page.click('#status-command');
+  //: A phone has no Ctrl+K and no status bar, and nothing in its menus opens the command
+  //: palette (the top bar's Find opens "Find anything", the search): a finding to report,
+  //: so the flow opens it by its function there to cover the rest of it.
   else await env.js(() => openPalette());
   await env.page.waitForSelector('#palette-overlay:not(.hidden)', { timeout: 4000 });
   await env.wait(500);
@@ -859,6 +861,76 @@ flows.select = async (env) => {
   } finally {
     for (const n of [a, b]) await env.js(async (id) => { await api(`/entries/${id}`, { method: 'DELETE' }); await api(`/entries/${id}/purge`, { method: 'DELETE' }); }, n.id).catch(() => {});
   }
+};
+
+//: Every Library view and its Create menu, and every Timeline and Reminders
+//: view mode: each draws, none sticks out of the screen.
+flows.views = async (env) => {
+  await env.js(() => switchTab('library'));
+  await env.wait(1200);
+  const targets = await env.js(() => [...document.querySelectorAll('#library-subtabs button[data-target]')].map((b) => [b.dataset.target, b.textContent.trim()]));
+  for (const [target, label] of targets) {
+    env.at(`Library: ${label}`);
+    await env.js((t) => document.querySelector(`#library-subtabs [data-target="${t}"]`)?.click(), target);
+    await env.wait(1100);
+    const shown = await env.js((t) => { const v = document.getElementById(t); return Boolean(v && !v.classList.contains('hidden') && v.offsetParent); }, target);
+    if (!shown) throw new Error(`the ${label} view is not shown after pressing its tab`);
+    const skeletons = await env.js((t) => document.querySelectorAll(`#${t} .skeleton`).length, target);
+    if (skeletons) throw new Error(`${skeletons} skeletons still showing in ${label} after a second`);
+    await env.overflow(`library ${label}`);
+  }
+  env.at('Library: Create menu');
+  await env.js(() => document.querySelector('#library-subtabs [data-target="library-view-documents"]')?.click());
+  await env.wait(900);
+  await env.page.locator('#tab-library button:has-text("Create"):visible').first().click();
+  await env.wait(500);
+  if (!(await env.page.locator('[role="dialog"]:visible button:has-text("New note")').count())) throw new Error('the Create sheet opened without its New note row');
+  await env.overflow('library create sheet');
+  await env.page.keyboard.press('Escape');
+  await env.wait(400);
+  if (await env.page.locator('[role="dialog"]:visible button:has-text("New note")').count()) throw new Error('Escape did not close the Create sheet');
+  for (const tab of ['timeline', 'reminders']) {
+    env.at(`${tab} views`);
+    await env.js((t) => switchTab(t), tab);
+    await env.wait(1500);
+    const buttons = await env.js((t) => [...document.querySelectorAll(`#tab-${t} [aria-pressed], #tab-${t} .seg button, #tab-${t} [role="tab"]`)].filter((b) => b.offsetParent).length, tab);
+    for (let i = 0; i < Math.min(buttons, 6); i++) {
+      await env.js(([t, k]) => [...document.querySelectorAll(`#tab-${t} [aria-pressed], #tab-${t} .seg button, #tab-${t} [role="tab"]`)].filter((b) => b.offsetParent)[k]?.click(), [tab, i]);
+      await env.wait(700);
+      await env.overflow(`${tab} view ${i}`);
+    }
+  }
+};
+
+//: Find anything: the notebook-wide search, by the way a person reaches it on this screen.
+async function openFind(env) {
+  if (env.phone) {
+    await env.page.locator('button[aria-label="More"]:visible').first().tap();
+    await env.page.locator('[role="menuitem"]:visible', { hasText: /^Find/ }).first().tap();
+  } else await env.page.click('#status-find');
+  await env.page.waitForSelector('#finder-overlay:not(.hidden)', { timeout: 4000 });
+  await env.wait(500);
+}
+
+flows.find = async (env) => {
+  env.at('open Find');
+  await openFind(env);
+  if (!(await env.js(() => document.activeElement === document.getElementById('finder-input')))) throw new Error('the Find input is not focused on open');
+  await env.overflow('find open');
+  env.at('search');
+  await env.page.keyboard.type('Alpha project');
+  const row = await until(env, () => ([...document.querySelectorAll('#finder-results *')].find((e) => e.offsetParent && e.children.length === 0 && /Alpha project/.test(e.textContent)) ? true : null), null, 10000);
+  if (!row) throw new Error('searching for a note by its title shows no row for it');
+  await env.overflow('find results');
+  env.at('open a result');
+  await env.page.locator('#finder-results').getByText('Alpha project', { exact: false }).first().click();
+  await env.wait(1200);
+  if (await env.page.isVisible('#finder-overlay')) throw new Error('opening a result left Find open');
+  env.at('Escape closes Find');
+  await openFind(env);
+  await env.page.keyboard.press('Escape');
+  await env.wait(400);
+  if (await env.page.isVisible('#finder-overlay')) throw new Error('Escape did not close Find');
 };
 
 module.exports = flows;

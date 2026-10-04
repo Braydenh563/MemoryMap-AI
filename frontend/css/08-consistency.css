@@ -9825,3 +9825,21 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
     translate: calc(var(--space-4) * -1) 0;
   }
 }
+
+/* --- motion: a page arrives (INBOX 459 (2)) --------------------------------
+   Switching tabs replaced one page with the next between two frames, so the
+   only sign of the switch was everything changing at once. The page now
+   comes in over `--motion-fast` by `opacity` alone: short enough that
+   nothing waits on it, and the tab strip's glide (above) says where you
+   went. The page leaving does not fade: it is gone with its `.hidden`, and
+   a cross-fade would mean two pages on screen at once. A page shown for
+   the first time fades too, which is the boot, under the lock screen. */
+.tab-page:not(.hidden) {
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+@starting-style {
+  .tab-page:not(.hidden) {
+    opacity: 0;
+  }
+}

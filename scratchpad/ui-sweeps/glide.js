@@ -11,6 +11,7 @@
 //             a CONTROL pass that switches the indicator's transition off:
 //             the difference is what the glide itself costs
 //   p95       the 95th percentile frame time (rAF deltas), glide and control
+//   page      (tab bar only) the shown page's opacity fade, ms (0 when none ran)
 //   lands     the indicator's box against the active option's box once it
 //             has settled (px; 0 means it sits exactly on it)
 //
@@ -70,6 +71,13 @@ async function clickAndWatch(page, cdp, strip, sel) {
       rec.runs.push({ prop: e.propertyName, ms: Math.max(...d) });
     };
     host.addEventListener('transitionrun', rec.listen);
+    // The page a tab switch shows fades in (`.tab-page`, opacity only).
+    rec.page = 0;
+    rec.pageListen = (e) => {
+      if (!e.target.classList || !e.target.classList.contains('tab-page') || e.propertyName !== 'opacity') return;
+      rec.page = Math.max(rec.page, parseFloat(getComputedStyle(e.target).transitionDuration) * 1000);
+    };
+    document.addEventListener('transitionrun', rec.pageListen);
   }, strip);
   await page.click(sel);
   const read = await page.evaluate(async ({ strip, WINDOW_MS }) => {
@@ -94,10 +102,11 @@ async function clickAndWatch(page, cdp, strip, sel) {
     await new Promise((r) => setTimeout(r, WINDOW_MS));
     rec.on = false;
     host.removeEventListener('transitionrun', rec.listen);
+    document.removeEventListener('transitionrun', rec.pageListen);
     const settled = box();
     const ms = rec.runs.length ? Math.max(...rec.runs.map((r) => r.ms)) : 0;
     const props = [...new Set(rec.runs.map((r) => r.prop))].sort().join(',');
-    return { ms, props, frames: rec.frames.slice(1), first, settled };
+    return { ms, props, frames: rec.frames.slice(1), first, settled, page: rec.page };
   }, { strip, WINDOW_MS });
   const after = await metrics(cdp);
   return { ...read, layouts: after.layouts - before.layouts, layoutMs: after.layoutMs - before.layoutMs };
@@ -150,7 +159,8 @@ async function run(page, cdp, s, control) {
     const lands = Math.max(...g.map((r) => off(r.settled) ?? 0));
     const firstOff = Math.max(...g.map((r) => off(r.first) ?? 0));
     const lms = g.map((r) => r.layoutMs);
-    let line = `${s.name.padEnd(17)} ms ${msSet || 0}  props ${props || '-'}  layouts/click med ${pct(lay, 0.5)} max ${Math.max(...lay)} (${pct(lms, 0.5).toFixed(2)}ms)  p95 ${pct(frames, 0.95).toFixed(1)}ms  lands ${lands.toFixed(1)}px`;
+    const pageMs = [...new Set(g.map((r) => r.page))].join('/');
+    let line = `${s.name.padEnd(17)} ms ${msSet || 0}  props ${props || '-'}  layouts/click med ${pct(lay, 0.5)} max ${Math.max(...lay)} (${pct(lms, 0.5).toFixed(2)}ms)  p95 ${pct(frames, 0.95).toFixed(1)}ms  lands ${lands.toFixed(1)}px${s.name === 'tab bar' ? `  page fade ${pageMs}ms` : ''}`;
     if (process.env.VERBOSE) console.log(g.map((r) => r.ms).join(' '));
     if (out.control) {
       const cl = out.control.map((r) => r.layouts);
@@ -160,7 +170,7 @@ async function run(page, cdp, s, control) {
     }
     if (REDUCED || APPEARANCE) {
       line += `  first ${firstOff.toFixed(1)}px`;
-      if (g.some((r) => r.ms > 0) || firstOff > 0.5) { misses++; line += '  MISS'; }
+      if (g.some((r) => r.ms > 0 || r.page > 0) || firstOff > 0.5) { misses++; line += '  MISS'; }
     } else if (lands > 0.5) { misses++; line += '  MISS'; }
     console.log(line);
   }

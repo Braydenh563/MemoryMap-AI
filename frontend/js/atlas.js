@@ -473,7 +473,7 @@ const ATLAS_LOOKS = {
     //: the elbow and end in small relaxed mittens; the eyes are a size
     //: smaller under a relaxed lid (the CSS); and the body sways gently at
     //: rest. His trail is one thick wisp with thin strands off it (`lowers`,
-    //: below): a comet's trail rather than her gown.
+    //: below): a comet's trail rather than her spectral tail.
     //: **Hair on the head** (round 9, the owner: "have the hair start a
     //: little on the head, not have it look like a bald head with lots of
     //: hair coming from the back"): a short cap swept to his right over the
@@ -527,11 +527,11 @@ const ATLAS_LOOKS = {
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
   //: temple; long hair streaming back and down with a constellation
-  //: threaded through it; a slender figure that flows, from the hips down,
-  //: into a skirt of wispy ribbons, with no legs and no feet (round 6, the
-  //: owner: "it still has feet and legs. it shouldnt and its lower body
-  //: should be the feminie flowing whispy ribbons"); the right hand held
-  //: out sowing star seeds; a paler, lilac skin (the CSS).
+  //: threaded through it; an hourglass figure that flows, below the hips,
+  //: into one long spectral tail, with no legs and no feet (round 6, the
+  //: owner: "it still has feet and legs. it shouldnt"; INBOX 535, the
+  //: Galaxy Seed Sower); the right hand held out sowing star seeds; a
+  //: paler, lilac skin (the CSS).
   feminine: {
     //: **Angel's-wing ears** (round 9, the owner: "improve the feminine
     //: ears, make them angelic and fluffy"). Round 6's fins were thin
@@ -560,53 +560,37 @@ const ATLAS_LOOKS = {
     //: **No legs** (`legs: false`: the figure draws none, and the companion
     //: builds no leg layers for this look).
     legs: false,
-    //: **The skirt of ribbons** (round 6). A veil flares from the waist,
-    //: inside the torso, so the body flows into it with no seam, out over
-    //: the hips and down to a hem cut into soft points; over it five
-    //: ribbons fall from the waist in long S curves out of step with each
-    //: other and run on past the hem into hair-fine wisps. The hem is
-    //: ragged, not a bell: the points and the ribbons end at different
-    //: heights, and the outer two ribbons flick outward at their tips. The
-    //: whole skirt is translucent, fading toward the hem (a gradient in the
-    //: drawing's space, `skirt`), with a pale stream along each ribbon and a
-    //: lit edge on two. In the companion it is the `lower` layer, which
-    //: sways on its root; each pose shapes it from the group inside
-    //: (`.atl-lower`, the CSS), which turns about the waist (`lowerPivot`).
-    lowerPivot: [31, 56],
-    //: **A gown with a train** (INBOX 480, the owner: "a better and more
-    //: majestic and attractive female atlas lower body"). INBOX 443's A-line
-    //: was one pale veil fading to nothing by its hem, with four straight
-    //: folds fanned over it, which read as a lamp shade, or a jellyfish
-    //: again. Now three layers, back to front, each one soft curve. A train
-    //: behind, in the nebula's own deeper colours, sweeps out past the hem
-    //: on her left (the viewer's right) and curls up where the comet tail
-    //: runs, so the gown flows into the nebula. The gown itself is close at
-    //: the waist and flares low, a trumpet line, its hem two slow waves
-    //: that drop toward the train. A sheer overskirt over it ends higher,
-    //: its hem dipping toward the train and lit (`skirtDrape`, a second
-    //: tier, which is the depth). The colour deepens from her
-    //: skin's light at the waist to the nebula's violet at the hem
-    //: (`--atl-gown`), so the hem has weight instead of dissolving; a lit
-    //: line runs along it (`skirtHem`), stars are scattered over the lower
-    //: gown and the train (`skirtStars`), and ribbon tails flow over it
-    //: (`lowers`, below).
-    skirt: "M25.2 50C24 55 23.2 60 23.4 64.6C23.6 69 24.2 71.4 23.6 75C22.4 81 17.6 86.8 11.4 90.6C15.8 93 20.4 93.8 24.8 93.2C29 92.6 32 95 36.4 95.6C41.6 96.2 47.2 94.4 52.4 92.4C46 88.8 41 82.6 39.6 76C39 72.4 38.6 69.4 38.8 64.6C39 60 38.4 55 37.4 50C33.6 48.4 29 48.4 25.2 50Z",
-    skirtTrain: "M27 56C26 68 22 80 13.4 88.6C20 95.4 30 98.4 40 98.8C48.6 99.2 56 97.8 61.2 95C64.6 93 65.6 89.8 63.8 87.8C62.2 90 58.6 91.2 54.6 90.8C48.4 90.2 43.2 85 40.6 78C38.6 71.6 37.6 63 36 56Z",
-    skirtDrape: "M25.6 52C24.6 56 23.8 61 24 65C24.2 69 24.6 71.6 24 75C23.2 79 21 82 18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2C42.4 84 40.4 80 39.4 75.6C38.6 72 38.2 69 38.4 65C38.6 61 37.8 56 37 52C33.4 50.6 29.2 50.6 25.6 52Z",
-    skirtDrapeEdge: "M18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2",
-    skirtHem: "M11.4 90.6C15.8 93 20.4 93.8 24.8 93.2C29 92.6 32 95 36.4 95.6C41.6 96.2 47.2 94.4 52.4 92.4M13.4 88.6C20 95.4 30 98.4 40 98.8C48.6 99.2 56 97.8 61.2 95C64.6 93 65.6 89.8 63.8 87.8",
-    //: No sash at the waist (INBOX 515, the owner: "there's a wierd waist
-    //: wrap around the feminine atlas"). The torso fades into the gown on its
-    //: own; the strings INBOX 480 reported were the ribbon tails' lit edges,
-    //: removed, so the band that covered the join has nothing left to hide.
-    skirtStars: [[17.6, 87.4, 0.28], [23.4, 90.6, 0.22], [28.8, 88.4, 0.3], [35.2, 92, 0.26], [41.2, 89.8, 0.32], [46.4, 91.6, 0.22], [44, 85, 0.2], [26.2, 84.4, 0.18], [52.6, 95.6, 0.3], [57.8, 93.8, 0.24], [61.4, 90.4, 0.28], [36.4, 80.2, 0.18]],
-    //: Round 8 (the owner: "make the middle strands thicker and longer
-    //: (reaching lower), keeping the outer ones as they are, so it reads
-    //: as a trail rather than tentacles"): the three middle ribbons are a
-    //: fifth to a third wider (7.2, 7.8, 7.2, where they were 5.8, 5.6,
-    //: 5.8) and run on 5 to 6 units further down, the centre one longest,
-    //: so the skirt tapers to a trail below the figure. The outer two are
-    //: unchanged.
+    //: **The Galaxy Seed Sower's body** (INBOX 535, the owner: "I want the
+    //: female bottom half and main body the feminine atlas to be more like
+    //: this", with the reference "Female Galaxy Seed Sower (expanded
+    //: stance)"). No gown, no ribbons and nothing round the waist: an
+    //: hourglass torso (`torso`,
+    //: below) whose rounded hips flow, below the hips, into one long, wide
+    //: spectral tail sweeping down and out to her right (the viewer's left)
+    //: in a big C and curling up to a soft point, as a mermaid's or a
+    //: wisp's (`lowers`, `lowerTaper: "sower"`): as wide as the hips where
+    //: it leaves them, its inner side shaded the nebula's violet and
+    //: speckled with small galaxy sparkles, a pale light along its outer
+    //: side. The second, thinner ribbon tail is the comet tail (`tail`),
+    //: now rooted at her other hip and curling up the other way. In the
+    //: companion the big tail is the `lower` layer, which sways on its
+    //: root; each pose shapes it from the group inside (`.atl-lower`, the
+    //: CSS), which turns about the hips (`lowerPivot`).
+    lowerPivot: [31, 60],
+    lowerTaper: "sower",
+    //: The tail's centreline, from the hips' widest (y 59, under the torso,
+    //: which is as wide there, so no root edge shows beside the waist) down, out to the left and curling up; `w` its
+    //: width where it leaves the hips (17.2, the hips' own; 16.5 at y 62,
+    //: where the torso starts to fade into it), tapering to `tip` (2, never a hairline);
+    //: `sparkles` ride its inner side at [t, r].
+    lowers: [
+      {
+        seg: [[31, 59, 31, 65, 31.6, 71, 28.8, 77.4], [28.8, 77.4, 25.6, 85.4, 16, 90.6, 7, 89.8], [7, 89.8, 0.6, 89.2, -3.4, 85.2, -2.6, 80]],
+        w: 17.2,
+        tip: 2.2,
+        sparkles: [[0.3, 0.32], [0.42, 0.26], [0.52, 0.34], [0.6, 0.24], [0.68, 0.3], [0.76, 0.22], [0.84, 0.26], [0.9, 0.2]],
+      },
+    ],
     //: **An astral crown, not a fringe** (the owner after 0bcfd1a: "I dont
     //: like the forehead hair part. it gives off school girl vibes and not
     //: astral cosmic beauty vibes", and "a bit more texture to the start of
@@ -632,30 +616,6 @@ const ATLAS_LOOKS = {
     cap: "M17.8 21C17.4 12.4 23.4 6.6 31 6.6C38.8 6.6 44.6 12.4 44.4 20.6C43.2 16.6 40.8 13 37.4 11.4C36.2 13.6 35 15.6 33 17C32.6 15.2 31.8 13.8 30.4 12.8C29.4 15.2 27.8 17.2 25.4 18.4C25.6 16.6 25.4 15.2 24.6 14.2C22.8 16.6 20.4 18.6 17.8 21Z",
     fringeShade: "M37.2 11.8C35.8 10.6 33.6 10.2 31.4 10.6M30.6 13.2C30.2 11.6 29 10.6 27.4 10.4M24.8 14.6C24.2 13.2 23 12.4 21.4 12.4",
     browStar: [39.6, 10.2, 1],
-    //: **Ribbon tails, not a tripod** (INBOX 480, the owner: "make the
-    //: feminine atlas's whispy lower body limbs less like a tripod and more
-    //: like whispy ribbony/flowy tails", and "i like the dress as well";
-    //: then, of thin tails from the waist: "too thin and stick like and they
-    //: dont fit the lower body fully and seem like they sprout from th
-    //: emiddle bottom of the main body"). Five broad ribbons, rooted across
-    //: the whole width of the dress's lower half (x 22 to 41) and overlapping
-    //: it, so the dress flows into them: each fades in over its root (the
-    //: `tailin` mask, 74 to 86), is widest there (7.4 to 9 across), and
-    //: sweeps out and down past the hem in one long curve, its wisp lifting
-    //: a little as cloth does in a breeze (no curl back, which read as a
-    //: claw), with a twist in it (the width pinches where the ribbon turns
-    //: edge-on, `tail` in `atlasTune`). Two tiers: `back`, three in the
-    //: nebula's lilac, one sweeping out to each side and one spilling under
-    //: the hem; the front two sheer, in her light. `op` is each ribbon's
-    //: own opacity. Each tier is its own layer in the companion, drifting on
-    //: its own clock out of step with the gown and the other.
-    lowers: [
-      { seg: [[22, 74, 17, 83, 9.6, 89.4, 1.6, 92.2], [1.6, 92.2, -2, 93.4, -5, 93, -7.4, 91.6]], w: 9, op: 0.66, back: true, specks: [[7.4, 90.4, 0.32], [-2.6, 92.8, 0.26]] },
-      { seg: [[41, 74, 46.4, 83, 54, 89, 62, 91.6], [62, 91.6, 65.6, 92.8, 68.6, 92.4, 71, 91]], w: 9, op: 0.7, back: true, specks: [[56, 89.8, 0.32], [66.4, 92.4, 0.26]] },
-      { seg: [[31, 78, 30.6, 88, 28.6, 94.6, 24, 98.2]], w: 7.4, op: 0.5, back: true, specks: [[27.8, 95.4, 0.28]] },
-      { seg: [[26, 76, 24.6, 85, 19.8, 91.6, 12.4, 95], [12.4, 95, 9.4, 96.4, 6.4, 96.6, 4, 95.8]], w: 7.4, op: 0.52, specks: [[16.6, 93.4, 0.26]] },
-      { seg: [[36.4, 76, 39, 85, 44.8, 92, 52.4, 95.6], [52.4, 95.6, 55.6, 97, 58.6, 97.4, 61.4, 96.6]], w: 7.6, op: 0.56, specks: [[47.6, 94, 0.28]] },
-    ],
     arm: [[35.6, 40.4, 41, 41.8, 46.2, 41.2, 50.2, 39.4]],
     armL: [[26.4, 40.4, 21.6, 41.8, 18.6, 46.6, 18.2, 53.6]],
     //: Her held-out arm ends at (50.2, 39.4): the bell and the lantern
@@ -698,23 +658,25 @@ const ATLAS_LOOKS = {
       { seg: [[31, 20, 29, 2, 42, -6.8, 53, -3.6], [53, -3.6, 58.6, -1.4, 60.6, 5, 59, 12]], w: [18, 3], mass: true },
     ],
     hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
-    //: Round 9 (the owner: "a bit more of a feminine chest but don't
-    //: overdo it, just really subtle", then, of two drawn arcs of shade:
-    //: "less ... like atlas is wearing cup bikinis ... make it attractive
-    //: and smooth"). No line anywhere: the flanks swell in one continuous
-    //: curve to 22.6 and 39.4 at y 45 and draw in to a waist below it, and
-    //: the form is carried by light alone (`chestLight`): a soft radial
-    //: glow over each side of the chest and a softer shade under it, each
-    //: fading to nothing at its edge, blended into the skin. The five
-    //: curves keep their roles (two per flank, one hem), which
-    //: `atlasTorsoEdge` counts on.
-    torso: "M26 35.6C23.4 38.2 22.3 41.8 22.6 45C22.9 48.8 23.6 57.6 27.4 61.4C29.2 63.8 32.8 63.8 34.6 61.4C38.4 57.6 39.1 48.8 39.4 45C39.7 41.8 38.6 38.2 36 35.6Z",
+    //: **An hourglass** (INBOX 535, the reference's "defined feminine
+    //: torso"): narrow shoulders (10 across where the arms join), a small
+    //: chest curve (12.9 at y 40.5), a clear waist (9.6 at y 51, upright
+    //: there so the line has no corner) that flares into rounded hips (17.2
+    //: at y 59), and a round bottom the tail grows from, one continuous
+    //: line with no seam. Round 9's lesson stands: no line
+    //: anywhere on the chest, its form carried by light alone
+    //: (`chestLight`). The five curves keep their roles (two per flank,
+    //: one hem), which `atlasTorsoEdge` counts on. The torso fades into the
+    //: tail over 62 to 69 (the feminine `waist` mask), below the hips.
+    torso: "M26 35.4C22.4 38.8 26.2 44.4 26.2 51C26.2 55.4 21.4 57 22.4 61.8C23 68.6 39 68.6 39.6 61.8C40.6 57 35.8 55.4 35.8 51C35.8 44.4 39.6 38.8 36 35.4Z",
     //: [cx, cy, rx, ry] of the glow on each side and of the shade under it.
-    chestLight: { glow: [[27.4, 43.8, 4.4, 3.6], [34.6, 43.8, 4.4, 3.6]], shade: [[27.6, 47.4, 4.2, 2.2], [34.4, 47.4, 4.2, 2.2]] },
+    chestLight: { glow: [[27.8, 42.6, 3.6, 3], [34.2, 42.6, 3.6, 3]], shade: [[27.9, 45.6, 3.4, 1.8], [34.1, 45.6, 3.4, 1.8]] },
     brow: "arch",
     lashes: true,
-    tail: [[32, 61, 45, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
-    tailWidth: (t) => 5 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 3.4 * t * t,
+    //: The second, thinner ribbon tail (INBOX 535): from her left hip, the
+    //: other way from the big tail, curling upward; never under 2 across.
+    tail: [[36.4, 60, 46, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
+    tailWidth: (t) => 5 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 2.8 * t * t,
     tailStars: [[46.4, 62.4, 0.45], [54.4, 70, 0.35], [50.4, 80.6, 0.5], [54, 90, 0.35], [62.4, 92, 0.45], [69, 87.6, 0.35]],
     tailTip: [67, 82.4],
   },
@@ -976,25 +938,31 @@ function atlasBuild() {
         //: (it ran across the roots of the branches).
         const join = (key) => parts.map((p) => p[key]).join("");
         spec.trail = { fill: join("fill"), stream: join("stream"), specks: parts.flatMap((p) => p.specks) };
-        spec.skirt = "";
-      } else {
-        //: A ribbon tail (INBOX 480): full at its root, tapering to a wisp
-        //: 0.22 across, and pinched to 58% twice along its run where it
-        //: turns edge-on, which is what makes a band read as a ribbon and
-        //: not as a limb. A fill alone: a lit edge and a pale stream down
-        //: the middle were fine white lines, which from the waist read as
-        //: strings (INBOX 480).
-        const tail = (w) => (t) => (0.22 + (w - 0.22) * (1 - t) ** 0.85) * (0.58 + 0.42 * Math.abs(Math.cos(Math.PI * (t * 1.6 + 0.15))));
-        spec.lowerPaths = spec.lowers.map(({ seg, w, specks, op, back }) => {
-          const width = tail(w);
-          return {
-            side: 0,
-            fill: atlasStem(seg, width, { samples: 18, cap: true }),
-            specks,
-            op,
-            back: !!back,
-          };
-        });
+      } else if (spec.lowerTaper === "sower") {
+        //: The Seed Sower's tail (INBOX 535): the hips' width where it
+        //: leaves them, eased (no pinch) to a long taper and a round point
+        //: `tip` across. The inner side's shade is a narrower stem shifted
+        //: toward the curl (a stem's positive shift is the side it bends
+        //: to), the light a narrower one shifted the other way; both are
+        //: fills, no stroke, and the sparkles ride the inner side.
+        const [{ seg, w, tip, sparkles }] = spec.lowers;
+        const width = (t) => tip + (w - tip) * (1 - t) ** 1.15;
+        const inner = (t) => width(t) * 0.5;
+        const sideAt = (k) => (t) => width(t) * k;
+        const pts = atlasStemSides(seg, () => 0, 18, sideAt(0.24)).left;
+        //: The shape test reads the stem as built (`seg`, `width`).
+        spec.lowerPaths = [{ side: 0, seg, width, specks: [] }];
+        spec.sower = {
+          fill: atlasStem(seg, width, { samples: 18, cap: true }),
+          inner: atlasStem(seg, inner, { samples: 18, cap: true, shift: sideAt(0.24) }),
+          light: atlasStem(seg, (t) => width(t) * 0.26, { samples: 18, cap: true, shift: sideAt(-0.26) }),
+          sparkles: sparkles.map(([t, r]) => {
+            const [x, y] = pts[Math.round(t * (pts.length - 1))];
+            return [atlasFix(x), atlasFix(y), r];
+          }),
+          width,
+          seg,
+        };
       }
     }
     if (spec.arm) {
@@ -1755,10 +1723,6 @@ function atlasBody(parent, id, props, look, route = null) {
   const back = route ? pair(route.back) : layers;
   const tailAt = route ? pair(route.tail) : layers;
   const lowerAt = route && route.lower ? pair(route.lower) : layers;
-  const ribbonAt = {
-    back: route && route.lowerBack ? pair(route.lowerBack) : lowerAt,
-    front: route && route.lowerFront ? pair(route.lowerFront) : lowerAt,
-  };
   const legAt = route && route.legs ? { l: pair(route.legs.l), r: pair(route.legs.r) } : null;
   const frontAt = route ? { fill: route.front } : layers;
   const arms = {};
@@ -1795,28 +1759,6 @@ function atlasBody(parent, id, props, look, route = null) {
         if (part.edge) atlasMake("path", { class: "atl-ribbon-edge", d: part.edge }, g);
         atlasSpecks(g, part.specks);
       };
-      //: Every tier is shaped by the pose from a group like this one (the
-      //: same class and pivot), and fades in under the torso the same way.
-      //: The tails fade in over their roots on the dress (`tailin`), so
-      //: the dress flows into them rather than a ribbon starting at a line.
-      const tier = (host) => {
-        const g = atlasGroup(host, "atl-lower", spec.lowerPivot);
-        g.setAttribute("mask", `url(#${id}-tailin)`);
-        return g;
-      };
-      //: The ribbon tails (INBOX 480), over the gown: the back tier, then
-      //: the front. In the companion each tier is a layer of its own
-      //: (`lower-back`, `lower-front`), so it sways out of step.
-      const tails = (host, back) => {
-        const parts = (spec.lowerPaths || []).filter((part) => part.back === back);
-        if (!spec.skirt || !parts.length) return;
-        const g = tier(host);
-        for (const part of parts) {
-          const r = atlasMake("g", { class: `atl-tail-ribbon${back ? " atl-tail-ribbon-back" : ""}`, opacity: part.op }, g);
-          atlasMake("path", { class: "atl-tail-ribbon-fill", d: part.fill }, r);
-          if (part.specks.length) atlasSpecks(r, part.specks);
-        }
-      };
       const lower = atlasGroup(lowerAt[kind], "atl-lower", spec.lowerPivot);
       //: **No seam at the waist** (the owner: "smoothen and blend the line
       //: between the main body and the lower body whisps"). The torso fades
@@ -1827,29 +1769,17 @@ function atlasBody(parent, id, props, look, route = null) {
       //: band across the hips. The mask is in the group's own space, so it
       //: turns and sways with the wisps in every pose.
       lower.setAttribute("mask", `url(#${id}-lowerin)`);
-      //: The gown (INBOX 480), back to front: the train in the nebula's
-      //: colours with the galaxy's haze over it, the gown, the sheer
-      //: overskirt and its lit hem, the gown's lit hem, the stars.
-      if (spec.skirt) {
-        const gown = atlasGroup(lower, "atl-skirt");
-        if (spec.skirtTrain) {
-          atlasMake("path", { class: "atl-gown-train", d: spec.skirtTrain }, gown);
-          atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy atl-gown-train-haze", d: spec.skirtTrain }, gown);
-        }
-        atlasMake("path", { class: "atl-skirt-veil", d: spec.skirt }, gown);
-        atlasMake("path", { class: "atl-overlay atl-ribbon-galaxy", d: spec.skirt }, gown);
-        if (spec.skirtDrape) {
-          atlasMake("path", { class: "atl-gown-drape", d: spec.skirtDrape }, gown);
-          atlasMake("path", { class: "atl-gown-drape-edge", d: spec.skirtDrapeEdge }, gown);
-        }
-        if (spec.skirtHem) {
-          atlasMake("path", { class: "atl-gown-hem-glow", d: spec.skirtHem }, gown);
-          atlasMake("path", { class: "atl-gown-hem", d: spec.skirtHem }, gown);
-        }
-        atlasSpecks(gown, spec.skirtStars || []);
+      //: The Seed Sower's tail (INBOX 535): the fill in the flow's paint
+      //: (her skin's light at the hips deepening to the nebula's violet),
+      //: the shade on its inner side, the light on its outer side, the
+      //: galaxy sparkles. Fills only, so nothing along it is a hairline.
+      if (spec.sower) {
+        const tail = atlasGroup(lower, "atl-sower");
+        atlasMake("path", { class: "atl-sower-fill", d: spec.sower.fill }, tail);
+        atlasMake("path", { class: "atl-sower-inner", d: spec.sower.inner }, tail);
+        atlasMake("path", { class: "atl-sower-light", d: spec.sower.light }, tail);
+        atlasSpecks(tail, spec.sower.sparkles, "atl-speck atl-sower-sparkle");
       }
-      tails(ribbonAt.back[kind], true);
-      tails(ribbonAt.front[kind], false);
       //: The masculine trail is one silhouette (`spec.trail`, atlasBuild).
       if (spec.trail) ribbon(lower, spec.trail);
     }
@@ -1993,7 +1923,7 @@ function atlasDefs(svg, look) {
   return id;
 }
 
-const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt", "gown", "chestglow", "chestshade", "hroot"];
+const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip", "skirt", "flow", "chestglow", "chestshade", "hroot"];
 
 function atlasBuildDefs(svg, id) {
   const defs = atlasMake("defs", {}, svg);
@@ -2082,11 +2012,10 @@ function atlasBuildDefs(svg, id) {
   //: units before its end (INBOX 435 (3)).
   const skirt = atlasMake("linearGradient", { id: `${id}-skirt`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 52, x2: 0, y2: id.endsWith("masculine") ? 108 : 96 }, defs);
   stops(skirt, [[0, "atl-st-skirt0"], [0.45, "atl-st-skirt1"], [1, "atl-st-skirt2"]]);
-  //: The feminine gown (INBOX 480): her skin's light at the waist, deepening
-  //: through lilac to the nebula's violet at the hem and the train, so the
-  //: hem has weight rather than fading out.
-  const gownPaint = atlasMake("linearGradient", { id: `${id}-gown`, gradientUnits: "userSpaceOnUse", x1: 0, y1: 54, x2: 0, y2: 99 }, defs);
-  stops(gownPaint, [[0, "atl-st-gown0"], [0.42, "atl-st-gown1"], [0.78, "atl-st-gown2"], [1, "atl-st-gown3"]]);
+  //: The feminine tail (INBOX 535): her skin's light at the hips,
+  //: deepening through lilac to the nebula's violet toward its point.
+  const flow = atlasMake("linearGradient", { id: `${id}-flow`, gradientUnits: "userSpaceOnUse", x1: 31, y1: 58, x2: -2, y2: 86 }, defs);
+  stops(flow, [[0, "atl-st-flow0"], [0.4, "atl-st-flow1"], [0.75, "atl-st-flow2"], [1, "atl-st-flow3"]]);
   //: **Round 8, two fades** (the owner, of the feminine look: "the massive
   //: hair strands look separate from the head" and "the torso should flow
   //: smoothly into the wispy lower body, not read as an egg sitting on the
@@ -2101,9 +2030,13 @@ function atlasBuildDefs(svg, id) {
     const mask = atlasMake("mask", { id: `${id}-${name}`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
     atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
   };
-  fade("waist", 54, 63);
-  fade("lowerin", 60, 52);
-  fade("tailin", 86, 74);
+  //: The feminine figure keeps its hips (INBOX 535): its torso fades into
+  //: the tail below them, over 62 to 69, and the tail shows from the hips'
+  //: widest (59 to 61), where the torso still covers its root: shown higher,
+  //: its square root stood out beside the narrow waist as a box.
+  const sower = id.endsWith("feminine");
+  fade("waist", sower ? 62 : 54, sower ? 69 : 63);
+  fade("lowerin", sower ? 61 : 60, sower ? 59 : 52);
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   //: The shoulder joins (round 9, `atl-shoulders` in `atlasBody`): the
@@ -2177,7 +2110,7 @@ function atlasTuneStyle(svg) {
 //: pose and mood transforms inside stay static, which costs nothing.
 //: Every layer carries the mood and look attributes, so the CSS variables
 //: agree across them, and the lids layer mirrors the head's tilt.
-const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "lower-back", "lower-front", "leg-l", "leg-r", "neb", "neb-front"];
+const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"];
 function atlasDrawFigure(mood) {
   const look = atlasLook();
   const frag = document.createDocumentFragment();
@@ -2199,16 +2132,10 @@ function atlasDrawFigure(mood) {
   //: compositor, no layout and no paint (`.atl-layer-neb`, the CSS).
   //: `neb-front` (round 9) is the orbit's near half, over the rings, on
   //: the same drift so the two halves move as one ribbon.
-  //: The gown's ribbon tails (INBOX 480) are two more lower layers over
-  //: the gown, a back tier and a front one, each also an `atl-layer-lower` (and
-  //: its box an `atl-lw-lower`) so every pose, walk, carry and gesture the
-  //: lower layer takes, they take; only their idle drift is their own.
-  const tiers = spec.lowers ? (spec.skirt ? ["lower", "lower-back", "lower-front"] : ["lower"]) : [];
-  const names = ["neb", "back", "tail", ...tiers, ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "neb-front", "fx-1", "fx-2"];
+  const names = ["neb", "back", "tail", ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "neb-front", "fx-1", "fx-2"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
-    const tierOf = name.startsWith("lower-") ? " atl-layer-lower" : "";
-    const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${tierOf}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
+    const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
     svg.dataset.nmSeed = "Atlas";
     svg.dataset.atlasLook = look;
     svg.dataset.atlasLayer = name;
@@ -2227,7 +2154,7 @@ function atlasDrawFigure(mood) {
     //: box they do, so the root sits in one (`.atl-lw`).
     if (ATLAS_ROOT_BOXES.includes(name)) {
       const box = document.createElement("span");
-      box.className = `atl-lw atl-lw-${name}${tierOf ? " atl-lw-lower" : ""}`;
+      box.className = `atl-lw atl-lw-${name}`;
       box.dataset.atlasLook = look;
       box.appendChild(svg);
       frag.appendChild(box);
@@ -2237,7 +2164,7 @@ function atlasDrawFigure(mood) {
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
-  atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, lowerBack: layers["lower-back"]?.rig, lowerFront: layers["lower-front"]?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
+  atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);

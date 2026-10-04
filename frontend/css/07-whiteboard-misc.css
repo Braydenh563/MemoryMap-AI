@@ -9814,7 +9814,8 @@ header#top-bar > #tab-bar {
 .graph-help-panel,
 .graph-help-panel.search-help,
 .notif-panel,
-.ai-status-popup {
+.ai-status-popup,
+.chord-guide-panel {
   background: var(--modal-bg-opaque);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

@@ -331,8 +331,9 @@ HELP_TOPICS: list[dict] = [
             "Ctrl+Shift+A the popup agent, Ctrl+Shift+H ask Atlas about the app, "
             "Ctrl+Shift+O a new chat, Ctrl+Shift+G agent mode on or off, Ctrl+. "
             "stop the answer, Ctrl+Shift+P clip a note to your next question. "
-            "Press m then a letter to jump to a tab; the hint that appears shows "
-            "which letter goes where."
+            "Press m then a letter to jump to a tab; the panel that appears lists "
+            "Go to and Do with each letter beside its name, marks the tab you are "
+            "on, and takes a click as well."
         ),
         "badge": {"label": "Shortcuts", "section": "shortcuts"},
     },
@@ -1225,7 +1226,7 @@ HELP_TOPICS.extend(
                 "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
                 "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
-                "notes), a (Guide), p (Popup agent). A second m closes the hint. "
+                "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
                 "selected text, Ctrl+Shift+K opens the quick sketch pad, and "

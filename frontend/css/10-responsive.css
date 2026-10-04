@@ -493,140 +493,25 @@ header#top-bar,
 }
 
 /* --- the quick-nav chord's guide -----------------------------------------
-
-   The owner, with a screenshot: "when I press 'm' for the quick nav, the
-   popup notification is broken visually. also I want it to be more of a whole
-   screen subtle but noticable guide like with the zoom visual thingo."
-
-   It was a `.toast`: a corner notification sized for one sentence, holding
-   ten key-and-label pairs in a row that wrapped mid-pair, which is why "m"
-   and "then" ended up on separate lines beside the chips. And a notification
-   is the wrong kind of thing for it: a toast says something happened, while
-   this is the app waiting for your next keystroke, which is a mode.
-
-   So it takes the HUD's idiom (`.hud`, 07-whiteboard-misc.css: centred,
-   accent-edged, momentary, never interactive) at the size this content needs,
-   over a scrim that dims the page just enough to say the next key means
-   something.
-
-   **The scrim stays click-through-to-close; the rows do not.** This block used
-   to say "`pointer-events: none` throughout: a guide that eats the click you
-   were about to make is worse than no guide at all", which was an argument
-   about a guide sitting beside your work. This one dims the page and holds the
-   next keystroke, so there is no click it could steal that was meant for
-   something else, and the rows are drawn as pills with a key chip in them,
-   which is the shape of a control. The owner: "also make these popup options
-   when I press m, actual clickable nav buttons". A click on the dimmed page
-   still means "not this", the same as Escape and a second `m`. */
+   A mode, not a notification (it was a `.toast` whose pairs wrapped
+   mid-pair): centred over a scrim that says the next key means something.
+   The scrim lets clicks through; the panel takes them, since its rows are
+   buttons (the owner: "make these popup options when I press m, actual
+   clickable nav buttons"). The panel itself is in 08-consistency.css. */
 .chord-guide {
   position: fixed;
   inset: 0;
-  /* **Above every surface it is meant to navigate out of** (the owner,
-     2026-09-21: "the 'm' navigation overlay doesnt show infront of
-     everything and goes behind the settings modal and possibly other popups
-     as well"). The handler already outranks the overlay guard on purpose, so
-     the chord works while Settings is open; at `z-index: 95` the guide it
-     draws was then painted underneath the modal it was letting you leave.
-     Modals sit at 1040 to 1050, the highest fixed layer in the app is 3000,
-     so this goes above both: it is momentary, it is a mode, and nothing is
-     meant to cover it. */
+  /* Above every surface it is meant to navigate out of (modals sit at 1040
+     to 1050, the highest fixed layer at 3000): the chord works while
+     Settings is open, so its guide must not draw under it. */
   z-index: 3100;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-6);
-  /* Subtle, the word the report used: enough to lift the guide off whatever
-     is behind it, not enough to read as a modal that has taken over. */
-  background: color-mix(in srgb, var(--scrim) 55%, transparent);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   pointer-events: none;
-}
-
-/* `.lightbox-close` is `position: fixed`, so it places itself in the
-   viewport corner independent of `.chord-guide`'s own flex centring; this
-   is the one thing that recipe does not already carry, since it has never
-   before sat inside a `pointer-events: none` ancestor. */
-.chord-guide-close {
-  pointer-events: auto;
-}
-
-.chord-guide-lead {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--ink);
-  font-size: var(--text-h3);
-  font-weight: 700;
-}
-
-.chord-guide-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.chord-guide-title {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.chord-guide-list {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3);
-  max-width: min(52rem, 90vw);
-}
-
-/* One pair per chip, so a key and its destination can never be split across
-   a line break: the exact fault in the screenshot. */
-.chord-guide-row {
-  /* A real `<button>` now, so the base button rule has to be undone where it
-     disagrees with this pill: it is not the app's filled control, it carries
-     its own accent edge and glow, and its label is a destination rather than a
-     verb the button rule sizes for. */
-  pointer-events: auto;
-  cursor: pointer;
-  font: inherit;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--modal-bg-opaque);
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: var(--shadow-lg), 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--ink);
-  font-weight: 600;
-  white-space: nowrap;
-  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
-}
-
-/* Hover and focus say the same thing, because half the point of this sheet is
-   that it is reachable both ways. */
-.chord-guide-row:hover,
-.chord-guide-row:focus-visible {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.chord-guide-row:active {
-  transform: translateY(0);
-}
-
-@media (max-width: 819.98px), (pointer: coarse) {
-  /* Measured at 43px, a pixel under the floor, which only matters now that
-     these are things a finger is meant to land on. */
-  .chord-guide-row {
-    min-height: var(--target-min);
-  }
 }
 
 /* The heatmap's gap was costing more than its cells (the owner: "the heatmap

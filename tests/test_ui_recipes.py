@@ -3099,6 +3099,7 @@ RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("settings-panes.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
+    ("settings-wiring.js", "chordGuideGroup"),
 ]
 
 #: Lists that still build their own `role="option"` rows. May only fall:

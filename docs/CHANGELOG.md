@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The "m" guide is a command panel: Go to and Do as rows with an icon, the name and the key in one column of key chips, the tab you are on marked, the Close in its head and a hint line at its foot. Every key does what it did.
 - Chat: the Attach panel is redesigned: one height for every source, a count on each source's tab, rows with an icon or the file's own glyph, the name over one line of facts and a check that fills when the row is on, pictures as a grid, loading and empty states, and keys (arrows, Space, Enter is Done, Escape). The search no longer draws a second box over itself when it is not focused, Clear also takes off pictures, a note's picture is sent as the file it is, and a new document shows the next time the panel opens.
 - Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.
 - Notes: a card's text sits further in from its edge and its metadata steps back: the category reads muted at the body weight and link chips are muted until pointed at, so the note's words lead.

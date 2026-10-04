@@ -34,17 +34,8 @@ with its owner named in the entry.
 
 ## Open items
 
-522. **The owner, 2026-10-04, verbatim, four screenshots (the top tab bar,
-     the Notes and Library sub-tab bars, the graph's label plates).** "the
-     top bar tabs elements is stretched on app reload and login. also is
-     there a better, more modern, professional, and better ui/ux way to
-     redesign and design the tab bars and sub menu bars?? if not Id rather
-     keep them as is. also cna we make the dark background behind the graph
-     labels togglable??" Stretch not reproduced at 1440, 1920, 2560, 1.25x
-     (`tabstretch.js`: bar hugs its tabs, 4 px each side, lock and unlock).
-     Recommendation, taken: keep the top bar's pills; make the second level
-     read as second level (underline indicator, no box), one rule for icons
-     on sub-tabs (Notes has them, Library does not). Next Opus, with the
+525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
+     dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
 
 524. **The owner, 2026-10-04, verbatim, with a screenshot ("Add to Quick

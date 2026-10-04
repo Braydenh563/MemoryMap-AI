@@ -3295,7 +3295,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    segmented control say "you are here". Classic and the colour looks keep
    their filled tabs exactly (the owner's "the current look" option). */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notes-subtabs button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg:not(.doc-sidebar-tabs) button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
   /* Not the document sidebar's Documents/Outline strip (INBOX 446 (5)): it
@@ -10195,11 +10194,6 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       --glide-fill: var(--accent-surface);
       --glide-ring: none;
       --glide-radius: var(--radius-choice);
-    }
-
-    .notes-subtabs,
-    .library-subtabs {
-      --glide-radius: var(--radius-md);
     }
 
     .dock .seg {

@@ -4313,26 +4313,52 @@ button.is-on {
   color: var(--ink);
 }
 
-/* --- Notes sub-tabs ------------------------------------------------------------
-   Four full-height cards on one page meant scrolling past three forms you
-   weren't using to reach your notes. One section at a time, remembered. */
-.notes-subtabs {
+/* --- The second level: `.tabs-line` (INBOX 522) -------------------------------
+   The owner: "is there a better, more modern, professional ... way to design
+   the tab bars and sub menu bars? if not I'd rather keep them as is". The top
+   bar's pills stay (it is the app's frame and has its own glide); a strip
+   *under* it was the same pill in a card, so two levels of navigation read as
+   one. A second level is text on the page: no box, no fill, a hairline under
+   the strip and a 2px accent line under the chosen tab (Linear, GitHub,
+   Material's secondary tabs). Notes' "Your notes / Capture / Write with Atlas /
+   Ask", Library's "All ... Contents" and the document sidebar's "Documents /
+   Outline" are all this one recipe: one height, one gap, one padding, **no
+   icons** (Library never had them, the labels are clear, and an icon on one
+   strip and not its sibling was the inconsistency; `aria` carries the rest).
+   The hairline is an inset shadow, not a border, so it is drawn inside the
+   padding box a scrolling strip clips to and the active line can sit on it.
+   Sticky strips are bare at rest and take the page's glass only while content
+   is passing under them (`[data-scrolled="1"]`, shell-reminders.js), so the
+   resting page has no band. */
+.tabs-line {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  padding-block: 0;
+  padding-inline-start: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.notes-subtabs,
+.library-subtabs {
   position: sticky;
   top: 0;
   z-index: 20;
+  flex-shrink: 0;
   margin-bottom: var(--space-4);
   width: 100%;
   overflow-x: auto;
-  flex-wrap: nowrap;
   scrollbar-width: none;
+}
+
+.notes-subtabs[data-scrolled="1"],
+.library-subtabs[data-scrolled="1"] {
   background: var(--card);
   backdrop-filter: blur(16px);
-  border-radius: var(--radius-strip);
-  padding: var(--space-1);
-  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
-     it, and its border is the edge; a shadow here was depth with no meaning. */
-  box-shadow: none;
-  border: 1px solid var(--border);
 }
 
 /* **Nothing the keyboard reaches scrolls in under the strip** (WCAG 2.4.11,
@@ -4346,43 +4372,64 @@ button.is-on {
   scroll-padding-top: calc(var(--target-min) + var(--space-3));
 }
 
-.notes-subtabs::-webkit-scrollbar {
+.tabs-line::-webkit-scrollbar {
   display: none;
 }
 
-.notes-subtabs button {
+.tabs-line > button {
+  position: relative;
   flex: 0 0 auto;
+  height: max(var(--control-h-body), var(--target-min));
+  /* The floor is for the short word: "All" measured 42.5px wide on touch. */
+  min-width: var(--target-min);
+  padding: 0 var(--space-5);
   background: transparent;
   border: none;
   box-shadow: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   color: var(--muted);
-  font-weight: 500;
-  /* The control height, not a padding-derived 40px: the strip measured
-     55px (40px buttons in a 6.4px well) on both Notes and Library, a fifth
-     of the chrome above the first line of a document. 36px buttons in a
-     4px well is 46px, and the tab bar in the top bar is the same 36.
-     INBOX 446 (5): now the hit-target floor, 28px in a 4px well, 13.6px
-     labels where they had inherited 16px: a sub-tab strip is a segmented
-     control, not a second header, and it matches the top bar's tabs. */
-  height: var(--target-min);
-  padding: 0 var(--space-6);
   font-size: var(--text-md);
-  border-radius: var(--radius-md);
-  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
 }
 
-.notes-subtabs button.active {
-  background: var(--accent-surface);
-  color: var(--on-accent);
-  font-weight: 600;
-  /* No shadow and no lift: the Library strip's active tab has neither, and
-     a selected tab is the filled recipe, which does not float. */
-  box-shadow: none;
+/* The chosen tab: ink, and the 2px line. It is a transform (compositor), so
+   the line draws in without laying anything out; weight does not change, so
+   no neighbour moves when the choice does. */
+.tabs-line > button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--accent-text);
+  transform: scaleX(0);
+  transition: transform var(--motion-base) var(--ease-out);
 }
 
-.notes-subtabs button:not(.active):hover {
-  background: var(--inner);
+.tabs-line > button.active,
+.tabs-line > button[aria-selected="true"] {
+  background: transparent;
   color: var(--ink);
+}
+
+.tabs-line > button.active::after,
+.tabs-line > button[aria-selected="true"]::after {
+  transform: scaleX(1);
+}
+
+.tabs-line > button:not(.active):not([aria-selected="true"]):hover {
+  background: var(--hover-veil);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabs-line > button,
+  .tabs-line > button::after {
+    transition: none;
+  }
 }
 
 /* Agent mode reads as a mode you switch into, not a checkbox you tick, so the

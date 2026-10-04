@@ -1164,7 +1164,7 @@ HELP_TOPICS.extend(
             "id": "library-controls",
             "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
             "body": (
-                "Library controls. The sub-tabs are All (everything you have made), "
+                "Library controls. The sub-tabs are plain words with a line under the one you are on (Notes and the document sidebar draw theirs the same way): All (everything you have made), "
                 "Documents, Boards and maps, Images, Files, AI skills, Bookmarks and "
                 "Contents. Search, then sort newest first, oldest first, A to Z or "
                 "biggest first, and set how many show per page. Tick a card's box "

@@ -37317,6 +37317,24 @@ width, 47% of the column at 1440.
      strings that the Guide's plain-text answers strip.
      Fixed: Help has a `.search-field` (every typed word must appear in a topic's title, keywords, text or place; matches open with `<mark>`, empty groups hide, "Nothing in Help matches", Esc clears, `helpApplySearch`). Emphasis is added at draw time by `helpEmphasis` (settings-find.js), not by markup in the topic strings, so the Guide's plain-text bodies never carry it: 190 `kbd`, 139 `strong`, 47 `code` across 96 topics (scratchpad/ui-sweeps/helpsearch.js). Place names come from the page's own nav and tabs. Left: the Guide chat's own answers are not decorated.
 
+522. **The owner, 2026-10-04, verbatim, four screenshots (the top tab bar,
+     the Notes and Library sub-tab bars, the graph's label plates).** "the
+     top bar tabs elements is stretched on app reload and login. also is
+     there a better, more modern, professional, and better ui/ux way to
+     redesign and design the tab bars and sub menu bars?? if not Id rather
+     keep them as is. also cna we make the dark background behind the graph
+     labels togglable??" Stretch not reproduced at 1440, 1920, 2560, 1.25x
+     (`tabstretch.js`: bar hugs its tabs, 4 px each side, lock and unlock).
+     Recommendation, taken: keep the top bar's pills; make the second level
+     read as second level (underline indicator, no box), one rule for icons
+     on sub-tabs (Notes has them, Library does not). **Fixed 2026-10-04**:
+     the sub-tab strips are one `.tabs-line` recipe (text, 2px accent line,
+     36px / 44 on touch, 4px gap, no icons; DESIGN.md's index), and the
+     stretch was found: the "centred in the gap" header mode drew the well
+     `flex: 1 1 auto` (630px round 503px of tabs at 1150, and on every boot
+     until the first measure); it hugs now. The graph label-plate switch is
+     525.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

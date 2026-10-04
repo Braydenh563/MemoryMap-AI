@@ -2113,63 +2113,15 @@ body.has-agent-monitor #timeline-scroll {
   position: relative;
 }
 
-/* Reported directly: "the Library subtab bar should look like the Notes
-   one, it looks better." Both share the base `.seg` pill, but Notes'
-   own `.notes-subtabs` (05-sidebars-themes.css) layers a raised-card look
-   on top of it, border, shadow, background, sticky positioning, that
-   `.library-subtabs` never got, so it stayed the plainer generic `.seg`.
-   Library's own scroll container is the same shape (`.library-view-section`
-   is `flex:1; overflow-y:auto`, just like Notes'), so sticky behaves the
-   same way here too. */
+/* The Library strip is `.tabs-line` (05-sidebars-themes.css), the recipe the
+   Notes strip and the document sidebar share (INBOX 522): content-sized tabs
+   with one padding either side of the word, so the space between two labels
+   is the same everywhere and "All" is no wider than its neighbours (it had a
+   6.5rem floor once, and the gaps came out uneven). Its own scroll container
+   is the same shape as Notes', so the sticky strip behaves the same here. */
 .library-subtabs {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  flex-shrink: 0;
-  /* The same gap the Notes strip leaves, and less of it: measured at 1440px
-     the Library strip left 24px below itself against Notes' 12.8px, so the
-     two tabs put their first card at different heights -- and both left more
-     air under a 55px bar than the bar is worth. Reported as "quite large gaps
-     above and below the sub menubars in the library and notes tabs". */
+  /* The same gap below as Notes. */
   margin: 0 0 var(--space-4);
-  background: var(--card);
-  backdrop-filter: blur(16px);
-  border-radius: var(--radius-strip);
-  padding: var(--space-1);
-  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
-     it, and its border is the edge; a shadow here was depth with no meaning. */
-  box-shadow: none;
-  border: 1px solid var(--border);
-}
-
-/* ".All" is 3 characters next to "Image Gallery"'s 13, so `.seg button`'s
-   content-sized padding alone left it roughly half the click width of its
-   neighbours: reported live as easy to miss on the first click. A shared
-   min-width brings every tab in this particular strip up to the same floor
-   without touching `.seg` generally, which other, already-similar-length
-   segmented controls (Open/All/Done, List/Calendar) don't need. */
-.library-subtabs button {
-  /* **Content-sized, like the Notes strip.** This had a 6.5rem width floor, made
-     for the three-letter "All", and it made the gaps between labels
-     uneven: "All", "Files" and "Images" sat in 104px boxes with 30 to 40px of
-     air either side of the word, while "Boards & maps" had 20px. The tab-strip
-     recipe is one padding either side of the word (`.notes-subtabs button`),
-     so the space between any two neighbouring labels is the same 2 x padding. */
-  flex: 0 0 auto;
-  text-align: center;
-  /* Same height as the Notes strip's buttons: see `.notes-subtabs button`. */
-  height: var(--target-min);
-  padding: 0 var(--space-6);
-  font-size: var(--text-md);
-  /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
-     (04-chat-dock-appearance.css) is the only other rule of equal
-     specificity (class + element) that sets border-radius, and it loads
-     *before* this file: so it wins by default, giving Library's tabs a
-     visibly bigger radius than Notes' own `.notes-subtabs button`, which
-     sets this same value explicitly for the same reason. Reported
-     directly as "more rounded than the ones in the Notes tab", correct. */
-  border-radius: var(--radius-md);
-  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }
 
 .library-view-section {
@@ -2696,20 +2648,11 @@ body.scroll-top-visible .skills-split > .tab-main {
   margin-bottom: var(--space-4);
   flex: 0 0 auto;
   /* Redesigned away from .seg's filled-pill look (reported live, with a
-     photo: the active tab rendered as a noticeably oversized, heavily
-     rounded block next to the toggle and "+ New", neither of which use
-     that shape here). A plain underline tab strip has no background fill,
-     no border-radius, and no padding to size wrong under a theme's own
-     font/density scaling: there's nothing left for it to look chunky
-     with. */
-  background: none;
+     photo): it is the app's one underline recipe, `.tabs-line`
+     (05-sidebars-themes.css), now shared by the Notes and Library strips,
+     which supplies the hairline, the tab metrics and the 2px line. */
   padding-left: 0;
-  border-bottom: 1px solid var(--glass-border);
-  border-radius: 0;
-  /* Was --space-5, with the tabs themselves having no horizontal padding at
-     all. The padding moved onto the tabs (see below), so the gap comes down a
-     step and the labels stay where they were. */
-  gap: var(--space-3);
+  gap: var(--space-1);
 }
 
 /* **The strip is square, the paint on it is not.** Reported as "square tab
@@ -2728,19 +2671,6 @@ body.scroll-top-visible .skills-split > .tab-main {
    `--space-2` of horizontal room every other pressable label in the app has,
    with the `gap` dropped a step so the two tabs sit the same distance apart as
    before the padding was added. */
-.doc-sidebar-tabs button {
-  padding: 0 var(--space-2) var(--space-2);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  border-bottom: 2px solid transparent;
-  font-size: var(--text-md);
-}
-
-.doc-sidebar-tabs button.active {
-  background: none;
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-}
-
 /* .sidebar-head's own pull-up above is for whichever element is first in
    the card: that's #doc-sidebar-tabs now, so the "Recent" row one level
    further in must not *also* pull itself up into the tab strip above it.
@@ -9676,9 +9606,24 @@ button.connection-row {
    fills the gap between the two groups and centres in it (`safe center`
    below), so neither side hugs it; else `tabs-wrapped`, a row of its own.
    It used to be the first from 1200 and the gap's left edge below it. */
+/* **The well hugs its tabs in this mode too** (INBOX 522: "the top bar tabs
+   elements is stretched on app reload and login"). It was `flex: 1 1 auto`,
+   so the inset well filled the whole gap between the two groups with the
+   tabs centred in it: measured at 1150, 630px of well round 503px of tabs, and
+   the same stretched box is what every boot draws until the first
+   `syncTabOverflowFade` has decided between the three modes (a reload, an
+   unlock, the webfont arriving). Auto margins on both sides centre a
+   content-sized strip in the gap instead, and the controls give up their own
+   auto margin so the free space is split between those two and not three. It
+   still shrinks and scrolls when it must (`min-width: 0`). */
 header#top-bar:not(.tabs-wrapped):not(.tabs-centred) > #tab-bar {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  margin-inline: auto;
+}
+
+header#top-bar:not(.tabs-wrapped):not(.tabs-centred) > .header-controls {
+  margin-left: 0;
 }
 
 @media (min-width: 600px) {
@@ -11523,7 +11468,6 @@ input[type="file"] {
     display: none;
   }
 
-  .library-subtabs button,
   .library-filters > * {
     flex: 0 0 auto;
     min-width: 0;

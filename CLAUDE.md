@@ -59,7 +59,7 @@ full text, with the reasons, is the block at the top of
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).
    **Never Fable agents** (the owner, 2026-10-04: "NO FABLE AGENTS!! IT
-   KILLS MY USAGE"): plans and specs go to Opus. Each agent: own worktree cut from the branch, own port
+   KILLS MY USAGE"): plans and specs go to Opus. Each agent commits at least every 20 minutes (the owner, 2026-10-04: "make sure all the agents are regularly committing"); own worktree cut from the branch, own port
    and data dir, commit per step, remaining list before stopping. The
    orchestrator merges, gates, pushes.
 5. **Quality does not drop with the model.** Tests first, measure before

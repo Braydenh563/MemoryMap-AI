@@ -1164,7 +1164,7 @@ HELP_TOPICS.extend(
             "id": "library-controls",
             "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
             "body": (
-                "Library controls. The sub-tabs are All (everything you have made), "
+                "Library controls. The sub-tabs are plain words with a line under the one you are on (Notes and the document sidebar draw theirs the same way): All (everything you have made), "
                 "Documents, Boards and maps, Images, Files, AI skills, Bookmarks and "
                 "Contents. Search, then sort newest first, oldest first, A to Z or "
                 "biggest first, and set how many show per page. Tick a card's box "
@@ -1225,10 +1225,13 @@ HELP_TOPICS.extend(
                 "list of everything the app can do) and Commands (the command "
                 "palette). Customise arranges the page: View (Full, Compact or "
                 "Focused), Widgets and Edit layout, which show, hide and "
-                "rearrange widgets, then Edit quick access, to add any command "
-                "from the palette to Quick access (up to eight), remove one, "
-                "drag tiles or use Move left and Move right in a tile's menu, "
-                "and Reset quick access. Quick access starts as New note, Ask "
+                "rearrange widgets, then Edit quick access: Add or arrange opens "
+                "a list of every command with the ones on your dashboard "
+                "checked and first. Check or uncheck as many as you like (up to "
+                "eight), drag a row or press Alt with Up or Down to reorder, "
+                "search to narrow it, then Done saves them all at once; a tile's "
+                "menu still has Move left, Move right and Remove. Reset quick "
+                "access goes back to the defaults. Quick access starts as New note, Ask "
                 "AI, Sketch, Remind me and Meeting notes. All of it is "
                 "remembered per user. Press m then d to come back here from "
                 "anywhere."

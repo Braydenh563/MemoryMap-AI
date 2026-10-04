@@ -3821,3 +3821,83 @@ def test_a_locked_load_is_not_logged_as_a_failure() -> None:
         "loadSurface must not log a locked read (error.isLockout) as a WARN"
     )
     assert "locked.isLockout = true" in app_js_text()
+
+
+#: **The second level of tabs is one recipe, `.tabs-line`** (DESIGN.md, "A
+#: second-level tab strip"; INBOX 522). The top bar's pills are the frame; a
+#: strip under it is text on the page with a 2px accent line under the chosen
+#: tab, one height, one gap, no icons.
+TABS_LINE_STRIPS = ("notes-subtabs", "library-subtabs", "doc-sidebar-tabs")
+
+
+def test_every_second_level_strip_is_a_tabs_line() -> None:
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for strip in TABS_LINE_STRIPS:
+        tag = re.search(rf'<div[^>]*id="{strip}"[^>]*>', page)
+        assert tag, strip
+        classes = re.search(r'class="([^"]*)"', tag.group(0)).group(1).split()
+        assert "tabs-line" in classes, f"#{strip} is not a .tabs-line"
+        if strip != "doc-sidebar-tabs":
+            assert "seg" not in classes, f"#{strip} is a choice control again (.seg boxes it in a pill)"
+        end = page.index("</div>", tag.end())
+        assert "<i " not in page[tag.end() : end], (
+            f"#{strip} has an icon: second-level tabs are words only (one icon rule)"
+        )
+
+
+def test_a_tabs_line_is_never_boxed_again() -> None:
+    """No rule gives a second-level strip a fill, an edge, a corner or a blur
+    of its own (the pill-in-a-card look this replaced), and no rule re-sizes
+    its tabs: height, padding and the line live in the one `.tabs-line >
+    button` rule. The only fill is the glass a sticky strip takes while
+    content passes under it (`[data-scrolled]`)."""
+    names = {".tabs-line", ".notes-subtabs", ".library-subtabs", ".doc-sidebar-tabs"}
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if selector.startswith("@") or "data-scrolled" in selector or "data-glass" in selector:
+                continue
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                pieces = re.split(r"\s*[\s>+~]\s*", part)
+                last = pieces[-1]
+                if "::" in last or ":hover" in last:
+                    continue
+                if set(re.findall(r"\.[\w-]+", last)) & names:
+                    for prop, ok in (
+                        ("border-radius", {"0"}),
+                        ("backdrop-filter", {"none"}),
+                        ("background", {"transparent", "none"}),
+                        ("border", {"0", "none"}),
+                    ):
+                        found = re.search(rf"(?<![\w-]){prop}\s*:\s*([^;]+)", body)
+                        if found and " ".join(found.group(1).split()) not in ok:
+                            offenders.append(f"{path.name}: {part} sets {prop}")
+                elif last == "button" and len(pieces) > 1 and set(re.findall(r"\.[\w-]+", pieces[-2])) & (names - {".tabs-line"}):
+                    for prop in ("height", "padding", "background", "border-radius", "font-weight"):
+                        if re.search(rf"(?<![\w-]){prop}\s*:", body):
+                            offenders.append(f"{path.name}: {part} sets {prop}")
+    assert not offenders, "a second-level strip drawn off the .tabs-line recipe:\n  " + "\n  ".join(offenders)
+
+
+def test_the_top_bar_well_never_grows_to_fill_the_gap() -> None:
+    """INBOX 522: `#tab-bar` was `flex: 1 1 auto` between the header's two
+    groups, so its inset well spanned the gap with the tabs centred in it (630px
+    round 503px of tabs at 1150, and on every boot before the first measure).
+    The well hugs its tabs in every mode; centring is auto margins."""
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if selector.startswith("@"):
+                continue
+            for part in selector.split(","):
+                if part.split()[-1].split(">")[-1].strip() != "#tab-bar":
+                    continue
+                if "#phone-tab-dock" in part:  # the phone's bottom dock is full width on purpose
+                    continue
+                grow = re.search(r"(?<![\w-])flex\s*:\s*([\d.]+)", body)
+                if grow and float(grow.group(1)) > 0:
+                    offenders.append(f"{path.name}: {' '.join(part.split())} -> flex: {grow.group(1)}")
+                if re.search(r"(?<![\w-])flex-grow\s*:\s*[1-9]", body):
+                    offenders.append(f"{path.name}: {' '.join(part.split())} -> flex-grow")
+    assert not offenders, "the top bar's well grows past its tabs:\n  " + "\n  ".join(offenders)

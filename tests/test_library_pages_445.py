@@ -48,7 +48,7 @@ def test_skills_page_has_a_kind_segment_and_a_sort():
 
 
 def test_library_subtabs_have_no_width_floor():
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
-    block = css[css.index(".library-subtabs button {") :]
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    block = css[css.index(".tabs-line > button {") :]
     block = block[: block.index("}")]
     assert "min-width: 6.5rem" not in block

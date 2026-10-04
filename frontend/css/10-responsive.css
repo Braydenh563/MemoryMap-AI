@@ -264,7 +264,7 @@ header#top-bar[data-scrolled="1"],
 .notes-subtabs[data-scrolled="1"],
 .library-subtabs[data-scrolled="1"] {
   box-shadow:
-    var(--shadow-sm),
+    inset 0 -1px 0 var(--border),
     0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
 }
 

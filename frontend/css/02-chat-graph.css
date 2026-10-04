@@ -1705,7 +1705,7 @@ button.ghost.danger {
    matching label's own <g> instead. */
 .graph-labels-hidden .graph-label {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .graph-labels-hidden g.graph-focus .graph-label {
@@ -3664,6 +3664,14 @@ html {
 
 .graph-edge.graph-dim {
   opacity: 0.06;
+}
+
+/* The hover's dimming fades in and out rather than flipping (the owner,
+   2026-10-04: "the labels and stuff just suddenly appear"); the canvas
+   renderer does the same per frame (GC_FADE_MS in graph-canvas.js). */
+.graph-node,
+.graph-edge {
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .graph-node.graph-match .graph-core {

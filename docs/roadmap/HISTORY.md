@@ -37274,6 +37274,17 @@ width, 47% of the column at 1440.
      agent). Badges and the Timeline rail: agent.
      Fixed: one chip recipe (words trimmed to the x-height band, icon centred, one gap), timeline marks on even pixels; status labels 1.11 to 0.44 px off centre, rail -1.0 to -0.5 at 1x (1f2b007, 580abb6). Left: bare-text chips (contents jump, on this day, chat) not yet on the recipe; the check-circle glyph sits 1.35 px high.
 
+520. **The owner, 2026-10-04, verbatim.** "I think the text in the help
+     settings page needs to be like keyword searchable and key things like key
+     characters or hotkeys or item/location names should be in like inline
+     codeblocks or bolded/italicised in the help text to emphasise key
+     sections." Next Sonnet: a filter field on Settings, Help that searches
+     every topic's text and keywords (highlighting matches, opening matching
+     folds); help text renders keys as `<kbd>`, locations ("Settings, Data")
+     in bold, control names in inline code, via a small markup in the topic
+     strings that the Guide's plain-text answers strip.
+     Fixed: Help has a `.search-field` (every typed word must appear in a topic's title, keywords, text or place; matches open with `<mark>`, empty groups hide, "Nothing in Help matches", Esc clears, `helpApplySearch`). Emphasis is added at draw time by `helpEmphasis` (settings-find.js), not by markup in the topic strings, so the Guide's plain-text bodies never carry it: 190 `kbd`, 139 `strong`, 47 `code` across 96 topics (scratchpad/ui-sweeps/helpsearch.js). Place names come from the page's own nav and tabs. Left: the Guide chat's own answers are not decorated.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

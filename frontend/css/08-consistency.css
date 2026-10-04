@@ -10662,3 +10662,24 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   color: inherit;
   border-radius: var(--radius-sm);
 }
+
+/* Help text emphasis (INBOX 520): a hotkey is the app's `kbd`, a place is
+   bold in the ink colour, a control name or quoted phrase is a quiet chip in
+   the chip ground; nothing here is a link, so nothing is accent-coloured. */
+#settings-help .help-accordion strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#settings-help .help-accordion code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+#settings-help .help-accordion kbd {
+  font-size: 0.8em;
+}

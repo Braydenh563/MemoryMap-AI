@@ -369,8 +369,67 @@ function helpTopicLink(link) {
   return button;
 }
 
-//: Text into `parent`, the typed words wrapped in `<mark>` (DOM nodes only).
+// --- emphasis (INBOX 520) -----------------------------------------------------------
+//
+// The topics are the Guide's facts, so they stay plain text; the page decorates
+// its own copy: a hotkey is a `kbd`, a place (`Settings, Models`, `Library tab,
+// Contents`) a `strong`, a control or a quoted phrase a `code` chip. Names come
+// from the page's own nav and tabs, so a rename cannot leave this behind.
+
+const HELP_NAME_ESCAPE = /[.*+?^${}()|[\]\\]/g;
+const HELP_NAMED_KEYS = String.raw`Ctrl|Alt|Shift|Enter|Esc|Tab|Space|Delete|F\d{1,2}|Up|Down|Left|Right|Home|End|PageUp|PageDown`;
+const HELP_KEYS = [
+  String.raw`(?:Ctrl|Cmd|Alt|Shift|Option)(?:\/(?:Cmd|Ctrl))?(?:\+(?:${HELP_NAMED_KEYS}|[A-Za-z0-9](?![A-Za-z])|[\[\]\\/.,=-]))+`,
+  String.raw`\b(?:Escape|Esc|Enter|Tab|Space|F\d{1,2}|Delete(?= (?:removes|deletes)))\b`,
+  //: "Press m then r": the two letters are keys.
+  String.raw`(?<=\b[Pp]ress )[a-z](?= then [a-z](?![\w']))|(?<=\b[Pp]ress [a-z] then )[a-z](?![\w']| letter)`,
+].join("|");
+const HELP_PLACE = String.raw`[A-Z][A-Za-z]*(?: (?:and|&) [A-Z][A-Za-z]*)?(?![A-Za-z]| [a-z])`;
+let helpEmphasisKey = "";
+let helpEmphasisRx = null;
+let helpNameLists = null;
+
+function helpAlternation(names) {
+  const list = names.map((n) => n.replace(HELP_NAME_ESCAPE, "\\$&")).sort((a, b) => b.length - a.length);
+  return list.length ? list.join("|") : "(?!)";
+}
+
+//: `text` as [tag, piece] pairs: tag is "kbd", "strong", "code" or "" (plain).
+function helpEmphasis(text, places, tabs) {
+  const key = `${places.join("|")}#${tabs.join("|")}`;
+  if (key !== helpEmphasisKey) {
+    helpEmphasisKey = key;
+    const place = `Settings(?:, then|,| ->| →) (?:${helpAlternation(places)})(?![A-Za-z])|Settings(?: ->| →) [A-Z][a-z]+`;
+    const tab = `(?:${helpAlternation(tabs)})(?: tab(?:, ${HELP_PLACE})?|, ${HELP_PLACE})`;
+    const control = String.raw`(?<=\b[Pp]ress )([A-Z][A-Za-z]*(?: [a-z]+){0,2})(?=[:,.;)]| to\b| and\b| or\b)`;
+    helpEmphasisRx = new RegExp(`(${HELP_KEYS})|(${place}|${tab})|${control}|"([^"\\n]{2,60})"`, "g");
+  }
+  const out = [];
+  let at = 0;
+  for (const m of text.matchAll(helpEmphasisRx)) {
+    if (m.index > at) out.push(["", text.slice(at, m.index)]);
+    out.push([m[1] ? "kbd" : m[2] ? "strong" : "code", m[1] || m[2] || m[3] || m[4]]);
+    at = m.index + m[0].length;
+  }
+  if (at < text.length || !out.length) out.push(["", text.slice(at)]);
+  return out;
+}
+
+//: The text in `parent`: emphasis as elements, the typed words marked inside.
 function helpFill(parent, text, rx) {
+  helpNameLists ||= [
+    [...document.querySelectorAll("#settings-nav button[data-section]")].map((b) => b.textContent.trim()),
+    [...document.querySelectorAll("#tab-bar [data-tab] .tab-label")].map((b) => b.textContent.trim()),
+  ];
+  for (const [tag, piece] of helpEmphasis(text, ...helpNameLists)) {
+    const host = tag ? document.createElement(tag) : parent;
+    helpMarks(host, piece, rx);
+    if (tag) parent.append(host);
+  }
+}
+
+//: Text into `parent`, the typed words wrapped in `<mark>` (DOM nodes only).
+function helpMarks(parent, text, rx) {
   let at = 0;
   for (const m of rx ? text.matchAll(rx) : []) {
     parent.append(text.slice(at, m.index));
@@ -388,7 +447,7 @@ function helpTopicPaint(details, rx) {
   const topic = details._topic;
   const [summary, body, where] = details.children;
   summary.replaceChildren();
-  helpFill(summary, topic.title, rx);
+  helpMarks(summary, topic.title, rx);
   body.replaceChildren();
   helpFill(body, topic.body, rx);
   const path = where?.firstChild;
@@ -442,7 +501,7 @@ function helpApplySearch(query) {
   if (!box) return;
   const terms = helpQueryTerms(query);
   const searching = terms.length > 0;
-  const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length);
+  const escaped = terms.map((t) => t.replace(HELP_NAME_ESCAPE, "\\$&")).sort((a, b) => b.length - a.length);
   const rx = searching ? new RegExp(escaped.join("|"), "gi") : null;
   if (searching && !helpOpenBefore) helpOpenBefore = new Map([...box.querySelectorAll("details")].map((d) => [d, d.open]));
   let shown = 0;

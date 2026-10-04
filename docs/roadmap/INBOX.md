@@ -34,16 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-520. **The owner, 2026-10-04, verbatim.** "I think the text in the help
-     settings page needs to be like keyword searchable and key things like key
-     characters or hotkeys or item/location names should be in like inline
-     codeblocks or bolded/italicised in the help text to emphasise key
-     sections." Next Sonnet: a filter field on Settings, Help that searches
-     every topic's text and keywords (highlighting matches, opening matching
-     folds); help text renders keys as `<kbd>`, locations ("Settings, Data")
-     in bold, control names in inline code, via a small markup in the topic
-     strings that the Guide's plain-text answers strip.
-
 521. **The owner, 2026-10-04, verbatim, with a screenshot (Library, Files:
      the companion perched in empty space under the card, not on anything).**
      "the companion perching needs fixing for many of the library tabs as

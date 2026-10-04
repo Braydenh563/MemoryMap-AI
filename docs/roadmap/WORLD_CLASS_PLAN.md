@@ -778,7 +778,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 | S | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 (sized M 2026-10-04, §12 has the shape) | M | HISTORY; §12 |
 | 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
@@ -907,6 +907,16 @@ plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 **Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
 hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
 and the switch in Settings, Account and security. Left: IPv6 addresses.
+Sized 2026-10-04 at M, not S: `uvicorn.run(host="::")` is dual-stack on
+Linux but IPv6-only on Windows (IPV6_V6ONLY defaults on), so the launcher
+must bind its own `socket.create_server(("::", port), family=AF_INET6,
+dualstack_ipv6=True)` (falling back to 0.0.0.0 where
+`socket.has_dualstack_ipv6()` is false) and run `uvicorn.Server(config).run(
+sockets=[sock])`; `netbind.arrived_on_loopback` must read `::ffff:127.0.0.1`
+as loopback; `lan_addresses` lists global and unique-local IPv6 addresses
+bracketed (never link-local, which needs a zone id no browser takes); and
+`tests/test_lan_mode.py`'s launcher test runs once over `[::1]` and once
+over a v4 address against the same server. Windows is not testable here.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 

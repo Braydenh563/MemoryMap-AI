@@ -1171,7 +1171,8 @@ HELP_TOPICS.extend(
             "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
-                "tomorrow evening, high priority\") and works out the time and the "
+                "tomorrow evening, high priority\"), then Enter or the wand button "
+                "(Add from this sentence) works out the time and the "
                 "priority. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "

@@ -29,3 +29,17 @@ def test_library_all_documents_and_bookmarks_docks_carry_a_help_popover():
         assert 'aria-label="' in tag
         panel = re.search(rf'<div class="help-body hidden" id="{panel_id}"', HTML)
         assert panel, panel_id
+
+
+def test_reminders_card_has_one_worded_add():
+    # The magic field's button is the wand alone, named by title and
+    # aria-label; the form's "Add" is the card's one worded Add.
+    magic = re.search(r'<button[^>]*id="reminder-magic-add"[^>]*>(.*?)</button>', HTML, re.S)
+    assert magic
+    tag = re.search(r'<button[^>]*id="reminder-magic-add"[^>]*>', HTML).group(0)
+    assert "icon-only" in tag
+    assert 'aria-label="Add from this sentence"' in tag
+    assert re.sub(r"<[^>]+>", "", magic.group(1)).strip() == ""
+    card = HTML[HTML.index('id="reminder-compose"') : HTML.index('id="reminder-presets"')]
+    worded = re.findall(r"<button[^>]*>(?:\s*<i[^>]*></i>)?\s*Add\s*</button>", card)
+    assert len(worded) == 1

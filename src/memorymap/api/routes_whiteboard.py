@@ -3972,10 +3972,18 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: taken from. Resolved here and nowhere else: `/tree` deliberately keeps
     #: reporting what each node actually carries, because that is what the
     #: strip has to show as set or unset.
+    #: Every map now, not only a themed one, because a pin is written as the
+    #: absence it means on any map (`_without_pins`). Seen-guarded: a ring
+    #: in `parent_id` stays a ring in `children` here, and an unguarded walk
+    #: of it never ends (`test_a_ring_in_the_tree_does_not_hang_an_export`).
     theme = _board_theme(entry)
     stack = list(roots)
+    styled: set[int] = set()
     while stack:
         node = stack.pop()
+        if id(node) in styled:
+            continue
+        styled.add(id(node))
         node["style"] = _without_pins(_themed_style(node.get("style") or {}, theme))
         stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]

@@ -40073,3 +40073,38 @@ over a v4 address against the same server. Windows is not testable here."
   not supported"), so the end-to-end test skips here and runs on CI; Windows
   is not testable here at all.
 
+## Moved from the plans, 2026-10-04 (design-1004)
+
+### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover
+
+Both lints in `tests/test_consistency_contract.py` were ratchets (5 dialogs
+and panes with two or three filled buttons; 13 `.chip` rules drawing a
+border or answering hover). Both are strict now.
+
+- **One primary.** The four stage-gated pairs write the later button `ghost`
+  and hand the one fill over with `stagePrimary(first, later, laterTurn)`
+  (app.js): `doc-ai-run` to `doc-ai-accept` when the result shows
+  (`showDocAiResult`), `ocr-to-note` to `ocr-edit-save` while the reading is
+  being edited (`ocrOpenEdit`/`ocrCloseEdit`), `meeting-record` to
+  `meeting-save` once there is a transcript, `embedding-apply` to
+  `embedding-error-fix` while the fix row shows (status.js; the dead
+  `only_on_error` allowance in `test_ui_recipes.py` went with it).
+  `update-install-version` and `about-shortcuts` are ghost. `STAGE_PAIRS`
+  checks each pair is ghost in markup and handed over in code.
+- **Meta.** 13 to 0. A chip you press is a `.chip-interactive` (role button,
+  from `chip(..., onClick)`; the category that opens its menu now carries the
+  class) and every hover or edge rule names that class: link chips, the
+  category, the chat and Ask suggestions, the Library's usage chip. The
+  facts lost their edge (`.chip.when` and `.chip.untagged` dashed,
+  `.chip.refs`, `.chip.reminders`, `.chip.confidence`, `#entry-list
+  .chip.link`, the category's 8% hairline); `.recent .chip` and its hover
+  were the `.chip-interactive` rule twice. In the Notes list the hover edge
+  is the `.link-connection` pill's, as in Ask. An inset 1px `box-shadow`
+  now counts as a border. Kept by name (`META_EDGED`, not a ratchet): the
+  label recipe `.chip.item-label` (INBOX 461's hairline box, the later and
+  more specific decision than 1.2's "statuses are meta") and
+  `.chip.suggested-tag` (two buttons in one box).
+- Measured (`scratchpad/ui-sweeps/metachips.js`, 1440 light and 390 dark):
+  every chip on a seeded note's line has a 0px edge; the facts (`when`) do
+  not change under the pointer; the category, the "+N", the references and
+  a hashtag tone; link chips change ink; heights 24px, unchanged.

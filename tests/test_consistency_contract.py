@@ -17,10 +17,12 @@ make). A ratchet is lowered in the commit that earns it and never raised.
    two or three (2026-10-04) were fixed. A stage-gated pair (Run then Accept,
    Record then Save) writes the later button `ghost` and hands the fill over
    with `stagePrimary` when its stage comes (`STAGE_PAIRS`).
-3. **Meta without border or hover** (1.2). A `.chip` that draws a border or
-   answers hover is a control wearing a chip's clothes. The app has dozens
-   (link chips, category chips that open a menu); `META_RATCHET` is the
-   count of rules that do.
+3. **Meta without border or hover** (1.2). A `.chip` that draws a border
+   (an inset 1px shadow counts) or answers hover is a control wearing a
+   chip's clothes. A chip you can press is a `.chip-interactive` (`chip()`
+   with a handler: a button by role) and is styled through that class, the
+   control recipe; every other rule on a `.chip` is meta. Two recipes keep an
+   edge by name (`META_EDGED`), each with its reason; nothing else may.
 4. **A menu item's rest background** (1.3). A row in a menu is transparent
    until pointed at. Measured: none paints one at rest.
 5. **The palette carries every action** (D14). The plan's wording was "every
@@ -269,20 +271,29 @@ _META = re.compile(r"(?<![\w-])\.(?:chip|meta)(?![\w-])")
 _BORDER_DRAWN = re.compile(
     r"(?<![\w-])border(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?(?:-(?:width|style))?"
     r"\s*:\s*(?!\s*(?:0|none|transparent|inherit|initial|unset)\b)([^;]+)"
+    r"|box-shadow\s*:[^;]*\binset\s+0\s+0\s+0\s+1px"
 )  # fmt: skip
 
-#: Rules on a `.chip` that draw a border or answer hover, counted 2026-10-04.
-#: Link chips, category chips that open a menu and the confidence chip are
-#: pressed or compared, which is a control; folding them into buttons or
-#: dropping their edge is a design call per chip, so the count is held.
-META_RATCHET = 13
+#: The two chip recipes that keep an edge, by DESIGN.md's own decision. Not a
+#: ratchet: a third needs its row in DESIGN.md first.
+META_EDGED = {
+    # "A word saying where an item came from, or what state it is in" (INBOX
+    # 461, 2026-10-03): 11px in a hairline box, its tone (yours, ok, warn) on
+    # the edge, because the label has no fill to carry it.
+    ".chip.item-label",
+    # A suggested tag (INBOX 440) is two buttons in one box, take and
+    # discard: the box is the group's edge, as `.link-connection` is a link's.
+    ".chip.suggested-tag",
+}
 
 
 def _meta_violations() -> list[str]:
     found: set[str] = set()
     for selector, body in _rules():
         for subject in _subjects(selector):
-            if not _META.search(subject):
+            if not _META.search(subject) or ".chip-interactive" in subject:
+                continue
+            if any(subject.startswith(name) for name in META_EDGED):
                 continue
             if ":hover" in subject:
                 found.add(f"hover: {subject}")
@@ -295,18 +306,28 @@ def _meta_violations() -> list[str]:
 
 
 def test_meta_chips_do_not_draw_borders_or_answer_hover():
+    # The walk must be seeing the chips: a selector that matched nothing
+    # would pass for ever.
+    seen = sum(1 for selector, _ in _rules() for subject in _subjects(selector) if _META.search(subject))
+    assert seen > 50, f"the meta selector matched {seen} rules: the lint is looking at the wrong thing"
     found = _meta_violations()
-    assert found, "the meta selector matched nothing, the lint is looking at the wrong thing"
-    assert len(found) <= META_RATCHET, (
-        f"{len(found)} chip rules draw a border or answer hover, ceiling {META_RATCHET} "
-        "(WORLD_CLASS_PLAN 1.2: meta has no border, no hover; a chip you can press is a button):\n  "
+    assert not found, (
+        "a chip rule draws a border or answers hover (WORLD_CLASS_PLAN 1.2: meta has no "
+        "border, no hover; a chip you can press is a .chip-interactive, styled as one):\n  "
         + "\n  ".join(found)
     )
 
 
-def test_the_meta_ratchet_is_still_load_bearing():
-    found = _meta_violations()
-    assert META_RATCHET - len(found) <= 1, f"{len(found)} found: lower META_RATCHET to match"
+def test_the_edged_chips_are_still_drawn_with_an_edge():
+    """An exception for a recipe that lost its edge is a hole for the next one."""
+    edged = {
+        name
+        for selector, body in _rules()
+        for subject in _subjects(selector)
+        for name in META_EDGED
+        if subject.startswith(name) and ":hover" not in subject and _BORDER_DRAWN.search(body)
+    }
+    assert edged == META_EDGED, f"drop from META_EDGED: {META_EDGED - edged}"
 
 
 # ---------------------------------------------------------------------------

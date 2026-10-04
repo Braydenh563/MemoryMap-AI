@@ -1641,7 +1641,6 @@
       check something, and it is the whole reason the badge exists. */
 .chip.confidence {
   background: transparent;
-  border: 1px solid var(--border);
   color: var(--muted);
   font-weight: 400;
 }

@@ -1663,7 +1663,7 @@ function entryItem(entry, options = {}) {
     //: A click opens its menu (INBOX 432, 447): the chip is the category, so it is the
     //: obvious place to change it, and it was a label that did nothing.
     if (options.actions && !entry.is_board && entry.id && !entry.deleted_at) {
-      categoryEl.classList.add("is-action");
+      categoryEl.classList.add("is-action", "chip-interactive");
       categoryEl.setAttribute("role", "button");
       categoryEl.tabIndex = 0;
       categoryEl.setAttribute("aria-haspopup", "menu");

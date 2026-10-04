@@ -1026,6 +1026,36 @@ summary > .ph-lead,
   translate: 0 0.1em;
 }
 
+/* The status bar's words and their glyphs, the same drop (INBOX 494: "the
+   text and icons in the bottom bar elements arent aligned vertically").
+   Measured by ink at 3x (`inkalign.js`), glyph centre against the label's
+   x-height centre: Ask -1.83px, Guide -1.67, the notebook -1.17, reminders
+   -0.67, Find -0.50, and the Ctrl K chip -0.83. A glyph alone in its button
+   (Back, Undo) has no words to meet and stays centred in its box. After:
+   every glyph and the chip within 0.5px, light and dark. From 1024 up only:
+   below it Ask, Guide and Find show the glyph alone, centred like Back. */
+@media (min-width: 1024px) {
+  #status-bar .status-item > i.ph:first-child:not(:only-child) {
+    translate: 0 0.1em;
+  }
+
+  /* The count's glyph sits in a span of its own, inline on that span's own
+     baseline already, so it needs less: 0.1em took the reminders to +0.67. */
+  #status-bar .status-item > span:first-child:has(> i.ph) {
+    translate: 0 0.06em;
+  }
+
+  /* The magnifier's handle hangs below its lens, so its ink sits lower than
+     a round glyph's at the same box: 0.1em took Find to +0.83px. */
+  #status-bar .status-item > i.ph-magnifying-glass:first-child:not(:only-child) {
+    translate: 0 0.03em;
+  }
+
+  #status-bar .status-key {
+    translate: 0 0.07em;
+  }
+}
+
 /* A summary in the settings modal was the last family still on `--space-3`
    between its icon and its label: 12 of the 243 gaps measured 8px against
    the 217 on `--space-2`. It is set at (0,1,1) in 01-forms-settings.css, so

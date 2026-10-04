@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Status bar: each glyph meets its word (INBOX 494). Measured by ink at 3x, glyph centre against the label's x-height centre: Ask was 1.83px high, Guide 1.67, the notebook count 1.17, the Ctrl K chip 0.83, reminders 0.67, Find 0.50; now every one within 0.5px, light and dark (`inkalign.js`).
 - Dashboard: arranging the page is its own control (INBOX 488). The dock is the search, Customise and the ⋯: Customise holds View, Widgets, Edit layout, Edit quick access and Reset quick access; the ⋯ keeps Continue, skills, Tools & features and Commands; the Quick access row's own ⋯ is gone, so no menu opens over another menu's button. On a phone Customise is its glyph beside the ⋯. The Guide's dashboard topic says the same.
 - Docks: a zone that wraps onto a line of its own no longer opens that line with the hairline that parts it from the zone before (7 docks at 640, 3 at 768 and 820; now 0), and a line that starts at the dock's edge lines up with the title above it; read from the layout by `markDockLineStarts` (phone-shell.js) without changing any zone's outer width, so no wrap moves (INBOX 479).
 - Developer sweeps: the dock and bar audit for INBOX 478 and 479 (`scratchpad/dock-audit-479.md`): every top and bottom bar control by control at 1440, 1024, 820 and 390, light and dark (`barinv479.js`), wrapped-line hairlines (`dockseams.js`) and the graph's corner (`graphcorner.js`); 14 findings ranked, a target layout per bar, and the de-vibe pass (`devibe.js` and `vibecheck.js` both 0).

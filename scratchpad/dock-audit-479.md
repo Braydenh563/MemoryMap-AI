@@ -142,6 +142,19 @@ mark moved no wrap): a
     Quick access row (was 1). At 390 Customise is its glyph, 44x44, beside
     the ⋯. The Guide's dashboard topic says the same.
 
+16. **The status bar's glyphs sat above their words** (INBOX 494, the owner:
+    "the text and icons in the bottom bar elements arent aligned
+    vertically"). Measured by ink at 3x (`inkalign.js`, new): the glyph's ink
+    centre against the label's x-height centre, Ask -1.83px, Guide -1.67, the
+    notebook count -1.17, reminders -0.67, Find -0.50, the Ctrl K chip -0.83
+    (negative is high). A Phosphor glyph is drawn high in its own box, and a
+    flex row centres boxes, not ink; the chips already had the fix (`.chip >
+    .ph-lead`, 0.1em). **Fixed**: the same drop on the bar's glyphs, less on
+    the counts' (their glyph is already inline), less on the magnifier (its
+    handle hangs low), and on the key chip; after, every one within 0.5px,
+    light and dark. From 1024 up only; below it the words are hidden and each
+    glyph centres in its own box like Back and Undo.
+
 Checked and consistent (no finding): one control height per dock at every width
 (32px desktop, 44px touch); zone order on every `.dock`; one filled control per
 dock; utilities in refresh, help, more order; the status bar's three zones at

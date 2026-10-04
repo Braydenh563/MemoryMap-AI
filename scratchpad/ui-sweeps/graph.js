@@ -364,6 +364,14 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
 
   const control = async (label, action, settle = 2500) => {
     const before = await snapshot();
+    // A confirm dialog in the way intercepts pointer events and the click
+    // times out for 30s with no clue why; name the dialog's own text first.
+    const dialog = await page.evaluate(() => document.querySelector(".confirm-overlay")?.textContent.trim().replace(/\s+/g, " ").slice(0, 120) || "");
+    if (dialog) {
+      console.log(`5. ${label}: FAIL a dialog is up: "${dialog}"`);
+      findings.push(`${label}: a confirm dialog was in the way: ${dialog}`);
+      return;
+    }
     await action();
     await page.waitForTimeout(settle);
     const after = await snapshot();

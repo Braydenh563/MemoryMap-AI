@@ -116,6 +116,16 @@ def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
     assert "if (citationPeekState.restoring) return;" in focus
 
 
+def test_tab_off_either_end_of_a_pinned_peek_closes_it_at_the_mark() -> None:
+    """The peek is at the end of <body> and a pinned one ignores focusout, so
+    Tab past Open note left it open until Escape (OPEN.md, 2026-09-27)."""
+    peek = _function(app_js_text(), "openCitationPeek")
+    keys = peek[peek.index('panel.addEventListener("keydown"') :]
+    keys = keys[: keys.index("\n  });\n")]
+    assert 'event.key !== "Tab"' in keys and "event.shiftKey ? 0 : stops.length - 1" in keys
+    assert "closeCitationPeek({ restoreFocus: true })" in keys
+
+
 def test_a_grounding_chip_fits_its_answer_and_says_its_sentences_in_characters() -> None:
     """At 390 an answer is 288px wide and the chips were 352px, running 79px
     past the bubble; and the chip's tooltip printed the answer's Markdown

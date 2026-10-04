@@ -24,7 +24,7 @@ function privacyDestinationRow(row) {
   head.appendChild(where);
   const scope = document.createElement("span");
   scope.className = "chip";
-  scope.textContent = PRIVACY_SCOPE_WORDS[row.scope] || row.scope;
+  chipWords(scope, PRIVACY_SCOPE_WORDS[row.scope] || row.scope);
   head.appendChild(scope);
   li.appendChild(head);
   const meta = document.createElement("p");

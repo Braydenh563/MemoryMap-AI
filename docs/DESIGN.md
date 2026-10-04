@@ -1056,9 +1056,11 @@ adding a control to it:
   `Done` (30.39px) were three more heights on one row. `2rem` here, since
   every control is already `.small`.
 - `#reminder-magic-row` (`05-sidebars-themes.css`), the Reminders tab's
-  natural-language add row. Smaller than the others (44px `textarea.autogrow`
-  against a 42px `.ghost` `Add` button, 2px) but the same shape, fixed by
-  matching the button's height to the textarea's own `min-height: 2.75rem`.
+  natural-language add row. Smaller than the others (it was a 44px
+  `textarea.autogrow` against a 42px `.ghost` `Add` button, 2px) but the same
+  shape, fixed by matching the button's height to the textarea's own
+  `min-height: 2.75rem`: both are 44px now, and `textarea.autogrow`'s floor is
+  shared with the capture box, which has its own 11rem floor above it.
   The tab's main `.reminder-form` row and the filter `.seg` were already
   correct, checked, not assumed, before moving on.
 

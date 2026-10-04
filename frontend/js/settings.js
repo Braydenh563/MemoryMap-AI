@@ -3583,7 +3583,7 @@ function helpChatOpenButton(link, label) {
   if (link.tab) btn.dataset.gotoTab = link.tab;
   if (link.section) btn.dataset.gotoSection = link.section;
   if (link.target) btn.dataset.gotoTarget = link.target;
-  btn.textContent = label || link.label;
+  chipWords(btn, label || link.label);
   return btn;
 }
 
@@ -4478,12 +4478,12 @@ function learnedRow(fact) {
   head.appendChild(pick);
   const kind = document.createElement("span");
   kind.className = "chip";
-  kind.textContent = learnedKindLabel(fact.kind);
+  chipWords(kind, learnedKindLabel(fact.kind));
   head.appendChild(kind);
   if (fact.edited_by_user) {
     const edited = document.createElement("span");
     edited.className = "chip";
-    edited.textContent = "Edited by you";
+    chipWords(edited, "Edited by you");
     edited.title = "No later run overwrites this";
     head.appendChild(edited);
   }

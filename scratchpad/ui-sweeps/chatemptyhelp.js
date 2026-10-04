@@ -27,7 +27,7 @@ const { boot } = require('./lib.js');
   const geometry = () => page.evaluate(() => {
     const empty = document.querySelector('.chat-empty');
     if (!empty) return { there: false };
-    const toggle = empty.querySelector('[data-help-for="chat-empty-help"]');
+    const toggle = document.querySelector('[data-help-for="chat-help"]');
     if (!toggle) return { there: true, toggle: false };
     const e = empty.getBoundingClientRect();
     const t = toggle.getBoundingClientRect();
@@ -55,19 +55,20 @@ const { boot } = require('./lib.js');
 
   const g = await geometry();
   console.log(`  geometry: ${JSON.stringify(g)}`);
-  check('the toggle is out of the centred column', g.toggle && g.position === 'absolute' && Math.abs(g.fromCentre) > 100,
-    `parent .${g.parent}, ${g.position}, ${g.rect} in an empty state of ${g.empty}: ${g.fromCentre}px from its centre line, ${g.fromRight}px in from the right edge and ${g.fromTop}px down from the top`);
+  // INBOX 479: the '?' is the chat dock's now, not the empty state's corner.
+  check('the toggle is out of the centred column', g.toggle && Math.abs(g.fromCentre) > 100,
+    `parent .${g.parent}, ${g.position}, ${g.rect} in an empty state of ${g.empty}: ${g.fromCentre}px from its centre line`);
   check('it is still an icon-only help trigger', g.iconOnly && !!g.helpFor && !!g.label,
     `aria-label "${g.label}", data-help-for "${g.helpFor}", no text of its own: ${g.iconOnly}`);
   check('the sentence it left behind is one line', g.blurbLines === 1,
     `"${g.blurbText}" over ${g.blurbLines} line(s)`);
 
   // It must still open.
-  await page.click('.chat-empty [data-help-for="chat-empty-help"]');
+  await page.click('[data-help-for="chat-help"]');
   await page.waitForTimeout(400);
   const popover = await page.evaluate(() => {
-    const panel = document.getElementById('chat-empty-help');
-    const trigger = document.querySelector('.chat-empty [data-help-for="chat-empty-help"]');
+    const panel = document.getElementById('chat-help');
+    const trigger = document.querySelector('[data-help-for="chat-help"]');
     const r = panel.getBoundingClientRect();
     return {
       open: !panel.classList.contains('hidden'),

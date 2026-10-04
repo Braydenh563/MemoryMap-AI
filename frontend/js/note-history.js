@@ -70,7 +70,7 @@ async function openEntryHistory(entry) {
     if (actor) {
       const chip = document.createElement("span");
       chip.className = "chip";
-      chip.textContent = actor;
+      chipWords(chip, actor);
       head.append(" ", chip);
     }
     row.appendChild(head);

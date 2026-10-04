@@ -1566,9 +1566,9 @@ async function refreshModelStatus() {
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
     // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 8s.
-    // Backend's own worst case is ~5s (one list_models() call, its own
-    // 5s timeout) since /models/status stopped double-probing Ollama, 
-    // this leaves real headroom instead of racing that budget at the wire.
+    // Backend's own worst case is 2.5s (INSTALLED_REFRESH_BUDGET: the runner
+    // call has its own thread and a poll serves the last answer past that),
+    // so 8s leaves real headroom instead of racing it at the wire.
     modelStatus = await apiJson("/models/status", {
       silent: true,
       //: A timeout of a silent request (this poll is the only one that sets

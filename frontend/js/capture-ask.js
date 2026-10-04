@@ -1463,6 +1463,16 @@ function openCitationPeek(link, source, { pinned }) {
   panel.addEventListener("focusout", (event) => {
     if (!panel.contains(event.relatedTarget) && event.relatedTarget !== link) scheduleCitationPeekClose();
   });
+  //: The panel sits at the end of <body>, and a pinned peek ignores focusout,
+  //: so Tab past Open note left it open at the end of the page until Escape.
+  //: Tab off either end hands the page back at the mark, as Escape does.
+  panel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const stops = panel.querySelectorAll("button");
+    if (document.activeElement !== stops[event.shiftKey ? 0 : stops.length - 1]) return;
+    event.preventDefault();
+    closeCitationPeek({ restoreFocus: true });
+  });
   document.body.appendChild(panel);
   Object.assign(citationPeekState, { panel, link, pinned });
   link.setAttribute("aria-expanded", "true");

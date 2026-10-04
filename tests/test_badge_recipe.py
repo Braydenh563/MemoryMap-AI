@@ -131,9 +131,10 @@ def test_every_chip_builder_puts_its_words_in_a_span():
     be trimmed, and one untrimmed chip in a row sits a pixel below its
     neighbours."""
     js = (JS_DIR / "app.js").read_text(encoding="utf-8")
+    words = js[js.index("function chipWords("):]
+    assert 'className: "ph-text"' in words[: words.index("\n}\n")]
     body = js[js.index("function chip(text"):]
-    body = body[: body.index("\n}\n")]
-    assert 'className: "ph-text"' in body
+    assert "chipWords(span, text)" in body[: body.index("\n}\n")]
 
 
 
@@ -144,3 +145,22 @@ def test_the_timeline_marks_are_even_pixels():
     css = (JS_DIR.parent / "css" / "06-timeline-dialogs.css").read_text(encoding="utf-8")
     assert "--timeline-mark: round(1.15rem, 2px);" in css
     assert ".timeline-row-mark > .ph" in css and "round(calc(var(--text-xs) * 1.15), 2px)" in css
+
+
+def test_no_hand_built_chip_takes_bare_text():
+    """A chip made by hand (`el.className = "chip ..."`) gives its words to
+    `chipWords`, never `el.textContent =`, which leaves them outside the
+    `.ph-text` span the recipe trims (the contents jump chip, "On this day",
+    chat's "+N", and the rest were found this way)."""
+    found = []
+    for path in sorted(JS_DIR.glob("*.js")):
+        lines = path.read_text(encoding="utf-8").split("\n")
+        for i, line in enumerate(lines):
+            m = re.search(r'(\w+)\.className = [`"\'](?:[^`"\']*\s)?chip[\s`"\']', line)
+            if not m:
+                continue
+            for nxt in lines[i + 1 : i + 8]:
+                if re.match(rf"\s*{m.group(1)}\.textContent =", nxt):
+                    found.append(f"{path.name}:{i + 1}")
+                    break
+    assert not found, found

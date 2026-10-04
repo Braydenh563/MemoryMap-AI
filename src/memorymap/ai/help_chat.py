@@ -886,8 +886,8 @@ HELP_TOPICS.extend(
             "id": "mind-maps",
             "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
             "body": (
-                "Mind maps live in the Library, under Boards and maps; New mind map "
-                "starts one. Tab adds a child, Enter a sibling, and dragging a topic "
+                "Mind maps live in the Library, under Boards and maps; New, then Mind "
+                "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics."
             ),
@@ -1141,8 +1141,8 @@ HELP_TOPICS.extend(
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
                 "(for binned items), Delete and Done, and Documents and the gallery "
-                "have bars of their own. New mind map, Generate a map from notes "
-                "and Import an outline sit on Boards and maps; Images takes "
+                "have bars of their own. New (a whiteboard or a mind map), Map from "
+                "notes and Import outline sit on Boards and maps; Images takes "
                 "uploads of pictures and PDFs."
             ),
             "badge": {"label": "Library", "tab": "library"},

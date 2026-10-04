@@ -42,7 +42,7 @@ const rgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
   await page.waitForTimeout(500);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", "Shape text sweep");
   await page.click(".confirm-overlay .confirm-actions button:last-child");

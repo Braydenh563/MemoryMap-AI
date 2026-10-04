@@ -71,7 +71,7 @@ const OPML = `<?xml version="1.0" encoding="UTF-8"?>
   // A plain whiteboard with a card and an object on it, for the same sweep.
   await page.click("#wb-back-to-boards");
   await page.waitForTimeout(1600);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(2000);
   await measure("board");
 

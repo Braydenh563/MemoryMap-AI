@@ -43,3 +43,19 @@ def test_reminders_card_has_one_worded_add():
     card = HTML[HTML.index('id="reminder-compose"') : HTML.index('id="reminder-presets"')]
     worded = re.findall(r"<button[^>]*>(?:\s*<i[^>]*></i>)?\s*Add\s*</button>", card)
     assert len(worded) == 1
+
+
+def test_boards_and_maps_dock_has_one_new_menu_holding_both_kinds():
+    dock_start = HTML.index('data-dock-name="library-boards"')
+    dock = HTML[dock_start : HTML.index("wb-boards-intro", dock_start)]
+    menu = re.search(r'<details[^>]*id="wb-boards-new-menu"[^>]*>(.*?)</details>', dock, re.S)
+    assert menu, "the New menu is a details.dock-menu in the dock"
+    body = menu.group(1)
+    assert "dock-menu-primary" in body, "its summary is the dock's filled primary"
+    # The two kinds keep the ids the old buttons had, as rows inside the menu.
+    assert re.search(r'<button id="wb-boards-new"[^>]*doc-dock-menu-item', body)
+    assert re.search(r'<button id="wb-boards-new-map"[^>]*doc-dock-menu-item', body)
+    outside = dock.replace(menu.group(0), "")
+    assert 'id="wb-boards-new"' not in outside and 'id="wb-boards-new-map"' not in outside, (
+        "no second create button beside the menu"
+    )

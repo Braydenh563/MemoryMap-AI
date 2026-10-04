@@ -36,7 +36,7 @@ function check(label, ok, detail) {
   await page.waitForTimeout(800);
 
   // --- create a map through the real dialog (item 2) -------------------------
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   const seg = await page.$(".confirm-overlay .seg");
   check("the New board dialog carries a type segmented control", Boolean(seg));
@@ -708,7 +708,7 @@ function check(label, ok, detail) {
   // this by reading the real, rendered `#whiteboard-container` rect.
   await page.click("#wb-back-to-boards").catch(() => {});
   await page.waitForTimeout(500);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", "Centering check");
   await page.click('.confirm-overlay .seg button[data-value="map"]');
@@ -879,7 +879,7 @@ function check(label, ok, detail) {
 
   await page.click("#wb-back-to-boards").catch(() => {});
   await page.waitForTimeout(500);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", "Edge drag check");
   await page.click('.confirm-overlay .seg button[data-value="map"]');

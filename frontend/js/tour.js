@@ -295,13 +295,13 @@ const TOUR_SECTIONS = [
     blurb: "Free canvases for cards, sketches and shapes",
     steps: [
       {
-        target: "#wb-boards-new",
+        target: "#wb-boards-new-menu",
         side: "bottom",
         tab: "library",
         library: "library-view-whiteboard",
         wb: "landing",
         title: "New board",
-        text: "New board starts an empty canvas that you arrange by hand. Every board and map you make is listed below it.",
+        text: "New, then Whiteboard, starts an empty canvas that you arrange by hand. Every board and map you make is listed below it.",
       },
       {
         target: "#wb-tool-group",
@@ -340,20 +340,18 @@ const TOUR_SECTIONS = [
     blurb: "Ideas that branch out from one centre",
     steps: [
       {
-        target: "#wb-boards-new-map",
+        target: "#wb-boards-new-menu",
         side: "bottom",
         tab: "library",
         library: "library-view-whiteboard",
         wb: "landing",
         title: "New mind map",
-        text: "New mind map starts from one central idea. Inside it, Tab adds a branch and Enter adds one beside it.",
+        text: "New, then Mind map, starts from one central idea. Inside it, Tab adds a branch and Enter adds one beside it.",
         //: Said instead when the notebook has no map yet (INBOX 426 y): the
         //: map's own cards are dropped from the run then, and this card is
         //: the one that says why and what to press.
         unless: "map",
-        unlessText: "You have no mind map yet, so this is where one starts: New mind map begins from one central idea, and inside it Tab adds a branch and Enter adds one beside it. Its own tools are shown once you have one.",
-        or: "#library-boards-more",
-        orText: "New mind map is in More on a small screen. It starts from one idea; Tab adds a branch.",
+        unlessText: "You have no mind map yet, so this is where one starts: New, then Mind map, begins from one central idea, and inside it Tab adds a branch and Enter adds one beside it. Its own tools are shown once you have one.",
       },
       {
         target: "#wb-map-add-root",

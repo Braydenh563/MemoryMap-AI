@@ -7,7 +7,7 @@ async function newBoard(page, name) {
   await page.waitForTimeout(500);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", name);
   await page.click('.confirm-overlay .seg button[data-value="map"]');

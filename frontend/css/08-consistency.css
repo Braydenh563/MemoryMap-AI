@@ -4593,14 +4593,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* 17. The Boards & maps dock at a phone's width was four rows (198px): the
        title, then New board and New mind map, then refresh, help and the
-       menu, then search. New mind map and refresh fold into the ⋯ there
-       (`foldDockActions`, app.js), and New board keeps its icon and hides
-       its word, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped;
-       its aria-label and title still name it), so the title, New board, help
-       and the ⋯ share the title's row: 114px, the other Library docks'
+       menu, then search. It is now one New menu (a filled summary holding
+       Whiteboard and Mind map, WORLD_CLASS_PLAN 507) and refresh folds into
+       the ⋯ (`foldDockActions`, phone-shell.js). New keeps its icon and
+       hides its word, the `.toolbar-word` recipe (DESIGN.md: hidden, not
+       dropped; its aria-label and title still name it), so the title, New,
+       help and the ⋯ share the title's row: 114px, the other Library docks'
        height. */
 @media (max-width: 599.98px) {
-  #wb-boards-new .toolbar-word {
+  #wb-boards-new-menu .toolbar-word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -4613,14 +4614,44 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     border: 0;
   }
 
-  #wb-boards-new {
-    width: var(--target-min);
-    padding-inline: 0;
+  #wb-boards-new-menu > summary {
+    min-width: var(--target-min);
+    padding-inline: var(--space-3);
   }
 
-  #wb-boards-new > .ph-lead {
+  #wb-boards-new-menu > summary > .ph-lead {
     margin-inline-end: 0;
   }
+}
+
+/* A dock menu whose summary is the dock's one filled action (the Boards and
+   maps dock's New: a primary with a choice inside it). It wears the filled
+   button's ground, weight and radius from the same tokens, so it reads as the
+   primary beside the ghost summaries; the caret takes the text colour rather
+   than the muted one a ghost summary's has. The selectors are as long as they
+   are because the quiet summary rules in this file (`.dock > * > details >
+   summary`, and its `[open]` and `:hover` forms) are (0,4,3): a shorter one
+   keeps the transparent ground, measured. */
+.dock > * > details.dock-menu > summary.dock-menu-primary:not(.icon-only):not(.icon-button) {
+  --button-ground: var(--accent-surface);
+  background: var(--button-ground);
+  color: var(--on-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  padding-inline: var(--space-4);
+  font-weight: 600;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.dock > * > details.dock-menu > summary.dock-menu-primary:not(.icon-only):not(.icon-button):hover,
+.dock > * > details.dock-menu[open] > summary.dock-menu-primary:not(.icon-only):not(.icon-button) {
+  --button-ground: var(--accent-surface-hover);
+  background: var(--button-ground);
+  color: var(--on-accent);
+}
+
+.dock-menu > summary.dock-menu-primary > .dock-menu-caret {
+  color: inherit;
 }
 
 /* 18. In the Notes list's select mode a card is the checkbox, so a

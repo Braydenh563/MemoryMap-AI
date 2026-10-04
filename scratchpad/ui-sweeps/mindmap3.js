@@ -146,7 +146,7 @@ async function openBoardsMore(page) {
   check("an import opens the map it just created", onCanvas);
   await page.click("#wb-back-to-boards");
   await page.waitForTimeout(1600);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
   await page.fill(".confirm-overlay input[type=text]", "Phase 3 map");
   await page.click('.confirm-overlay .seg button[data-value="map"]');

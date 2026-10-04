@@ -42,7 +42,7 @@ const readDialog = (page) => page.evaluate(() => {
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(900);
 
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(600);
   const first = await readDialog(page);
   console.log("  on open:", JSON.stringify(first));
@@ -66,7 +66,7 @@ const readDialog = (page) => page.evaluate(() => {
   await page.keyboard.press("Escape");
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(900);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(600);
   const second = await readDialog(page);
   console.log("  second open:", JSON.stringify(second.buttons));

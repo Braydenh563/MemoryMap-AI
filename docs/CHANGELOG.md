@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Boards and maps: one New button in the top bar with Whiteboard and Mind map inside it, in place of the two create buttons (the sentence-case rows keep the same keyboard keys, the tour and the Guide say where they went).
 - Reminders: the add card has one worded Add. The sentence box's button is now the wand alone, named Add from this sentence.
 - Library: the All, Documents and Bookmarks sub-tabs end their top bar with a ? saying what the sub-tab holds, like Boards and maps, Images and Files already do.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.

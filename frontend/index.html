@@ -5247,14 +5247,12 @@ Link to another note with [[its first few words]]."></textarea>
                          are the visible filter, the Everything sub-tab's own
                          recipe)
                arrange:  one sort select, one view segment
-               actions:  New board, then New mind map, then refresh and help
+               actions:  New (whiteboard or mind map), then refresh and help
              Ids are unchanged, so whiteboard.js needs no rewiring.
 
-             "New mind map" stays a ghost button in the row rather than moving
-             into a ⋯. It is the second verb, not a second answer to the first,
-             and the comment it carries is the reason: a mind map reachable
-             only by opening the board dialog and changing a control inside it
-             is one nobody finds. One filled control, one quiet one beside it. -->
+             "Mind map" is a row of the New menu, one step from the dock and
+             named in it: a mind map reachable only by opening the board dialog
+             and changing a control inside it is one nobody finds. -->
         <div class="dock" data-dock-name="library-boards" role="toolbar"
           aria-label="Boards and maps controls">
           <div class="dock-identity">
@@ -5300,15 +5298,30 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <div class="dock-actions">
             <!-- At a phone's width the primary keeps its icon and hides its
-                 word (the `.toolbar-word` recipe), and the two actions marked
-                 `data-fold-narrow` move into the ⋯ (`foldDockActions`), so
-                 the title, New board, help and the ⋯ share one row. -->
-            <button id="wb-boards-new" class="small" type="button"
-              title="Start a new board" aria-label="New board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New board</span></button>
-            <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
-                 so this is the same dialog with the Mind map segment already
-                 chosen, not a second creation path. -->
-            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map" data-fold-narrow><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New mind map</span></button>
+                 word (the `.toolbar-word` recipe), and the action marked
+                 `data-fold-narrow` moves into the ⋯ (`foldDockActions`), so
+                 the title, New, help and the ⋯ share one row. -->
+            <!-- **One New, with the two kinds inside** (WORLD_CLASS_PLAN 507,
+                 the dock audit: eight controls at 1440, one over the grammar's
+                 seven). It was a filled New board and a ghost New mind map
+                 side by side; the filled control is now this menu's summary,
+                 which hides its word at a phone's width like every dock
+                 primary (the `.toolbar-word` recipe; its `aria-label` is the
+                 name). A map is a
+                 board with a `type` (MINDMAP_PLAN.md §4 option B), so the two
+                 rows are the same dialog with the Mind map segment already
+                 chosen, not two creation paths. The two rows keep the ids the
+                 buttons had (`wb-boards-new`, `wb-boards-new-map`), so
+                 whiteboard.js, the Library's and the Dashboard's "New board"
+                 and the tour reach them as before. -->
+            <details class="doc-dock-menu dock-menu dock-menu-flip" id="wb-boards-new-menu">
+              <summary class="small dock-menu-primary" title="Start a new whiteboard or mind map" aria-label="New">
+                <i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <button id="wb-boards-new" class="doc-dock-menu-item" type="button" title="Start an empty canvas you arrange by hand"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Whiteboard</button>
+                <button id="wb-boards-new-map" class="doc-dock-menu-item" type="button" title="Start a mind map from one central idea"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
+              </div>
+            </details>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
                  UI at all, so a map written anywhere else could not come in.
@@ -5324,7 +5337,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload" data-fold-narrow><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
-              title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."
+              title="Every board and concept map you have made. Pick one to open it, or start a new whiteboard or mind map from New."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
@@ -5356,7 +5369,7 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
           </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and

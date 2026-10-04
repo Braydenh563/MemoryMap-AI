@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Boards and maps loads faster (INBOX 496): a preview's labels are measured on a canvas instead of forcing a page layout per label (65 layouts to 7 on a first visit to 34 boards, style and layout about 300ms to about 100ms), each visit asks for the board list once instead of twice, a second visit draws what it had at once, and the search, sort, kind chips and view switch redraw without asking the server.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
 - Callouts in the Live view show their kind once: the icon (with a caret, the kind picker) and the title as the line's own text, no ">" or "[!note]" even with the caret on the line, and an empty body says what goes there ("Write the note"). The "/" menu no longer writes a stock question into the body, and the Guide has a Callouts entry.

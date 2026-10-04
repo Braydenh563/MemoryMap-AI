@@ -99,25 +99,42 @@ const MAP_PREVIEW_MIN_BLOCK = 0.5;
 //: Reported as "the boards and maps previews are kinda a mess".
 const MAP_PREVIEW_CHAR_WIDTH = 0.55;
 
-//: **What a label really paints, at font-size 1, cached by string.**
-//:
-//: One hidden SVG for the whole page, carrying `.board-minimap` so the
-//: stylesheet's own family and weight apply: measuring in a different font
-//: than the one drawn is worse than not measuring, because it is wrong with
-//: confidence. `getComputedTextLength` is the SVG text metric and needs the
-//: element in a rendered tree, which a freshly built preview is not, hence a
-//: measuring element rather than the label itself.
-//:
-//: Measured once per distinct string at size 100 and divided back out, so a
-//: board's six titles cost six measurements however many previews of it are
-//: on screen, and a title that appears in the dashboard widget and in the
-//: Library is measured once for both. The cost this comment's predecessor
-//: worried about ("laying out every thumbnail twice") is what the cache
-//: removes: nothing is laid out twice, and nothing is laid out per preview.
+//: **What a label paints at font-size 1, cached by string, measured on a
+//: canvas** (INBOX 496, the slow Boards and maps load). The font is read once
+//: from a hidden SVG carrying `.board-minimap`, so the drawn family and weight
+//: apply: measuring in another font is wrong with confidence. It used to be
+//: `getComputedTextLength` on that SVG, and `mapPreviewFitText` asks for every
+//: shorter cut of a long label, so each new string forced a layout of a page
+//: the gallery was still building: profiled at 172 to 213ms in this function
+//: plus most of 475ms of layout on a first visit to 34 boards. A canvas's
+//: `measureText` lays nothing out.
 const MAP_PREVIEW_TEXT_WIDTHS = new Map();
 const MAP_PREVIEW_MEASURE_SIZE = 100;
-let mapPreviewMeasureText = null;
+let mapPreviewMeasureCtx = null;
 
+function mapPreviewMeasurer() {
+  if (mapPreviewMeasureCtx !== null) return mapPreviewMeasureCtx;
+  mapPreviewMeasureCtx = false;
+  try {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    //: Classes, not `style=` (the CSP): 10-responsive.css places it off screen.
+    svg.setAttribute("class", "board-minimap map-preview-measure");
+    svg.setAttribute("aria-hidden", "true");
+    const node = document.createElementNS(NS, "text");
+    svg.appendChild(node);
+    document.body.appendChild(svg);
+    const font = getComputedStyle(node);
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx) {
+      ctx.font = `${font.fontStyle} ${font.fontWeight} ${MAP_PREVIEW_MEASURE_SIZE}px ${font.fontFamily}`;
+      mapPreviewMeasureCtx = ctx;
+    }
+  } catch {
+    //: No canvas or no document: the fixed estimate is what this always used.
+  }
+  return mapPreviewMeasureCtx;
+}
 //: Take or discard the tags filing suggested (INBOX 440); the list redraws
 //: from the server's answer, so the card and every other view agree.
 async function answerSuggestedTags(entry, body) {
@@ -136,30 +153,9 @@ function mapPreviewTextWidth(text, fontSize) {
   if (!body) return 0;
   let perUnit = MAP_PREVIEW_TEXT_WIDTHS.get(body);
   if (perUnit === undefined) {
-    perUnit = null;
-    try {
-      if (!mapPreviewMeasureText) {
-        const NS = "http://www.w3.org/2000/svg";
-        const svg = document.createElementNS(NS, "svg");
-        //: `board-minimap` for the font, `map-preview-measure` for the
-        //: off-screen placement: the CSP refuses an inline `style=`, so both
-        //: are classes (10-responsive.css holds the second).
-        svg.setAttribute("class", "board-minimap map-preview-measure");
-        svg.setAttribute("aria-hidden", "true");
-        const node = document.createElementNS(NS, "text");
-        node.setAttribute("font-size", String(MAP_PREVIEW_MEASURE_SIZE));
-        svg.appendChild(node);
-        document.body.appendChild(svg);
-        mapPreviewMeasureText = node;
-      }
-      mapPreviewMeasureText.textContent = body;
-      const measured = mapPreviewMeasureText.getComputedTextLength();
-      if (measured > 0) perUnit = measured / MAP_PREVIEW_MEASURE_SIZE;
-    } catch {
-      //: A browser with no SVG text metrics, or a document that will not take
-      //: the element: the estimate below is what this always used.
-      perUnit = null;
-    }
+    const ctx = mapPreviewMeasurer();
+    const measured = ctx ? ctx.measureText(body).width : 0;
+    perUnit = measured > 0 ? measured / MAP_PREVIEW_MEASURE_SIZE : null;
     MAP_PREVIEW_TEXT_WIDTHS.set(body, perUnit);
   }
   return perUnit === null

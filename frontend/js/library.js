@@ -1693,7 +1693,7 @@ for (const button of document.querySelectorAll("#library-view button, #library-b
     //: The boards gallery lives in whiteboard.js and renders from its own
     //: fetch; re-rendering it here is what makes the switch take effect on
     //: the sub-tab you pressed it on rather than on your next visit.
-    window.renderLibraryBoardsGallery?.();
+    window.redrawLibraryBoardsGallery?.();
   });
 }
 // The bin's own control, on the bin's own screen.
@@ -9053,50 +9053,22 @@ function createLibrarySelectbar(idPrefix, ariaLabel, listId = null) {
 //: Entry and cannot be deleted; see attachBoardTick).
 const libraryBoardsSelection = new Map();
 
-//: Re-fetches the exact list `renderLibraryBoardsGallery` just rendered, with
-//: the exact same filter (the search box's current value, the same
-//: `wbLastCreatedBoard` patch-in that function does) so the *n*th tick lines
-//: up with the *n*th card the observer below just saw appended. If the
-//: counts don't match: the grid mutated again while this fetch was in
-//: flight: this bails rather than tick the wrong board; the next mutation
-//: (the very next render) retries it.
-async function syncLibraryBoardsTicks() {
+//: Each card carries the board it was drawn from (`card.wbBoard`, set by
+//: `renderLibraryBoardsGallery`), so a tick is its card's board and nothing
+//: is fetched. It used to fetch the whole list again on every render and
+//: match by position: the second of two identical requests per visit
+//: (INBOX 496, "it takes a while to load the boards and maps").
+function syncLibraryBoardsTicks() {
   const grid = document.getElementById("library-boards-grid");
   if (!grid) return;
-  const cards = [...grid.querySelectorAll(".library-board-card")];
-  if (!cards.length) {
-    syncSelectbarCount("library-boards", libraryBoardsSelection.size);
-    return;
-  }
-  let boards;
-  try {
-    // The same full read the gallery itself does (`wbRenderBoardGallery`):
-    // this matches rows against the cards already on screen, so a first page
-    // would leave every card past it unmatched.
-    boards = await apiPagedList("/whiteboard/boards", 200, { silent: true });
-  } catch {
-    return;
-  }
-  if (!Array.isArray(boards)) return;
-  const created = window.wbLastCreatedBoard;
-  if (created && !boards.some((b) => b.id === created.id)) boards.push({ ...created });
-  const needle = (document.getElementById("library-boards-search")?.value || "").trim().toLowerCase();
-  //: The gallery's own filter *and* sort, not a second copy of the filter, 
-  //: see `wbVisibleBoards` (whiteboard.js). Ordering is part of "the exact
-  //: same filter" this function's comment above requires: the counts still
-  //: match under a reorder, so a private copy would silently tick the wrong
-  //: boards rather than bail.
-  //: The Maps / Boards / All chip first, as the gallery does: with it on, the
-  //: grid holds one kind, and the unnarrowed list was longer than the cards.
-  const shown = window.wbVisibleBoards(window.wbBoardsOfTypeFilter(boards), needle);
-  if (shown.length !== cards.length) return;
-  // A board ticked in an earlier render that no longer exists (deleted from
-  // its own ⋯ menu, or from elsewhere) shouldn't go on counting toward the bar.
-  const liveIds = new Set(shown.filter((b) => b.id !== null).map((b) => b.id));
+  const cards = [...grid.querySelectorAll(".library-board-card")].filter((card) => card.wbBoard);
+  // A board ticked in an earlier render that is no longer drawn (deleted from
+  // its own ⋯ menu, or from elsewhere) does not go on counting toward the bar.
+  const liveIds = new Set(cards.map((card) => card.wbBoard.id).filter((id) => id !== null));
   for (const id of [...libraryBoardsSelection.keys()]) {
     if (!liveIds.has(id)) libraryBoardsSelection.delete(id);
   }
-  cards.forEach((card, i) => attachBoardTick(card, shown[i]));
+  for (const card of cards) attachBoardTick(card, card.wbBoard);
   syncSelectbarCount("library-boards", libraryBoardsSelection.size);
 }
 

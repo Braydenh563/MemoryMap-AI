@@ -4143,6 +4143,183 @@ def _ai_actor(name: str, model: str | None) -> str:
     return actor
 
 
+#: Words read as a boolean (INBOX 527). Before `check_arguments`, `pin_note`
+#: read the string "false" as true.
+_TRUE_WORDS = frozenset({"true", "yes", "y", "on", "1"})
+_FALSE_WORDS = frozenset({"false", "no", "n", "off", "0", "none", ""})
+_INT_TEXT = re.compile(r"#?-?\d{1,12}")
+
+
+def _fold_key(key: str) -> str:
+    """`noteId`, `Note-ID`, `note id` -> `note_id`."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key))
+    return re.sub(r"[^a-z0-9]+", "_", spaced.lower()).strip("_")
+
+
+def _coerce_array(value: object, schema: dict) -> tuple[object, bool]:
+    items = schema.get("items") or {}
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                value = json.loads(text)
+            except ValueError:
+                return value, False
+        elif items.get("type") == "string":
+            value = [part.strip() for part in text.split(",") if part.strip()]
+        else:
+            value = [value]
+    if not isinstance(value, list):
+        value = [value]
+    if not items.get("type"):
+        return value, True
+    out = []
+    for item in value:
+        coerced, ok = _coerce(item, items)
+        if not ok:
+            return value, False
+        out.append(coerced)
+    return out, True
+
+
+def _coerce(value: object, schema: dict) -> tuple[object, bool]:
+    """(value as the schema's type, True), or (value, False) when it cannot be
+    read as that type without guessing."""
+    kind = schema.get("type")
+    if kind == "integer":
+        if isinstance(value, bool):
+            return value, False
+        if isinstance(value, int):
+            return value, True
+        if isinstance(value, float) and value.is_integer():
+            return int(value), True
+        if isinstance(value, str) and _INT_TEXT.fullmatch(value.strip()):
+            return int(value.strip().lstrip("#")), True
+        return value, False
+    if kind == "number":
+        if isinstance(value, bool):
+            return value, False
+        if isinstance(value, (int, float)):
+            return value, True
+        try:
+            return float(str(value).strip()), True
+        except ValueError:
+            return value, False
+    if kind == "boolean":
+        if isinstance(value, bool):
+            return value, True
+        word = str(value).strip().lower()
+        if word in _TRUE_WORDS or word in _FALSE_WORDS:
+            return word in _TRUE_WORDS, True
+        return value, False
+    if kind == "string":
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            value = str(value)
+        if not isinstance(value, str):
+            return value, False
+        enum = schema.get("enum")
+        if enum and value not in enum:
+            folded = {str(e).lower(): e for e in enum}
+            hit = folded.get(value.strip().lower())
+            return (hit, True) if hit is not None else (value, False)
+        return value, True
+    if kind == "array":
+        return _coerce_array(value, schema)
+    if kind == "object":
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return value, False
+        return value, isinstance(value, dict)
+    return value, True
+
+
+def _describe_param(key: str, schema: dict) -> str:
+    """`note_id (integer)`, `tags (list of strings)`, `priority ('low' or ...)`."""
+    kind = schema.get("type", "value")
+    if kind == "array":
+        kind = f"list of {(schema.get('items') or {}).get('type', 'value')}s"
+    if schema.get("enum"):
+        kind = " or ".join(repr(e) for e in schema["enum"])
+    return f"{key} ({kind})"
+
+
+def example_arguments(name: str) -> str:
+    """One valid call's required arguments for `name`, as JSON: what a failed
+    call is shown, so the retry copies a shape rather than parses a rule."""
+    spec = TOOLS.get(name)
+    if spec is None:
+        return "{}"
+    props = spec.parameters.get("properties") or {}
+    samples = {"integer": 12, "number": 1, "boolean": True, "string": "...", "object": {}}
+    example: dict = {}
+    for key in spec.parameters.get("required") or []:
+        schema = props.get(key) or {}
+        if schema.get("enum"):
+            example[key] = schema["enum"][0]
+        elif schema.get("type") == "array":
+            example[key] = [samples.get((schema.get("items") or {}).get("type"), "...")]
+        else:
+            example[key] = samples.get(schema.get("type"), "...")
+    return json.dumps(example)
+
+
+def _schema_key(key: str, props: dict, given: dict) -> str:
+    """The schema's own name for a key the model spelled its own way, or the
+    key unchanged. `id` folds to the tool's one `*_id` parameter only."""
+    if key in props:
+        return key
+    by_fold = {_fold_key(k): k for k in props}
+    folded = _fold_key(key)
+    target = by_fold.get(folded) or by_fold.get(f"{folded}s") or by_fold.get(folded[:-1] if folded.endswith("s") else "")
+    ids = [k for k in props if k.endswith("_id")]
+    if target is None and folded == "id" and len(ids) == 1:
+        target = ids[0]
+    return target if target and target not in given else key
+
+
+def check_arguments(name: str, arguments: dict) -> tuple[dict, str | None]:
+    """(the arguments in the schema's names and types, None), or (them, the
+    one-line reason they cannot run), before any handler sees them (INBOX 527).
+
+    Measured before: 20 of 31 tools with a required parameter answered a
+    missing one with "the arguments were missing something", naming nothing,
+    and `get_note {"id": 1}` failed outright. Now a spelling is folded
+    (`noteId`, `id` for the one id parameter, `tag` for `tags`), a value is
+    read as its schema types it ("12", "false", one tag for a list, an enum in
+    any case), and every missing required parameter is named with its type
+    and an example call. A key the schema does not name is kept: a few
+    handlers read internal ones.
+    """
+    spec = TOOLS.get(name)
+    if spec is None or not isinstance(arguments, dict):
+        return dict(arguments or {}), None
+    props = spec.parameters.get("properties") or {}
+    args = {_schema_key(key, props, arguments): value for key, value in arguments.items()}
+    wrong = []
+    for key, schema in props.items():
+        if args.get(key) is None:
+            continue
+        coerced, ok = _coerce(args[key], schema)
+        if ok:
+            args[key] = coerced
+        else:
+            shown = json.dumps(args[key], default=str)[:40]
+            wrong.append(f"{_describe_param(key, schema)} not {shown}")
+    missing = [
+        _describe_param(key, props.get(key) or {})
+        for key in spec.parameters.get("required") or []
+        if args.get(key) in (None, "", [])
+    ]
+    problems = (["missing " + ", ".join(missing)] if missing else []) + (
+        ["wrong type: " + "; ".join(wrong)] if wrong else []
+    )
+    if not problems:
+        return args, None
+    return args, f"{name}: {'; '.join(problems)}. Example: {example_arguments(name)}"
+
+
 def execute_tool(
     session: Session,
     name: str,
@@ -4165,8 +4342,13 @@ def execute_tool(
         return {"error": f"Unknown tool '{name}'"}
     if not tool_enabled(name):
         return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
+    args, problem = check_arguments(name, dict(arguments or {}))
+    if problem:
+        # Logged like a handler's argument failure, so Settings → Logs shows
+        # what the model sent; the text is the app's own, safe to hand back.
+        logging.getLogger("memorymap.tools").warning("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
     try:
-        args = dict(arguments or {})
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
         # Every write the handler makes, however deep in the managers it

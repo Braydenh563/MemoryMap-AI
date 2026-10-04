@@ -1656,6 +1656,27 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
+    elif spec is not None and call.get("invalid_arguments") is not None:
+        #: The JSON did not read even leniently (`provider.loads_lenient`).
+        #: Said as that, with a shape to copy: running the tool with `{}`
+        #: told the model "missing something" and it retried the same JSON.
+        result = {
+            "error": f"{name}: the arguments were not valid JSON, so nothing ran",
+            "what_to_do": (
+                f"Call {name} again with its arguments as one JSON object, "
+                f"for example {tools.example_arguments(name)}."
+            ),
+        }
+        state.failed_calls.add(signature)
+        state.count_failure(name)
+        yield {
+            "type": "tool",
+            "tool": name,
+            "label": f"ph:warning {name.replace('_', ' ')}, arguments unreadable",
+            "ok": False,
+            "error": result["error"],
+            "arguments": {"unreadable": call["invalid_arguments"]},
+        }
     elif spec is not None and spec.ends_turn:
         # `ask_user` and `run_skill`. The turn stops here, and in both
         # cases that is the feature rather than a limitation: the model

@@ -654,6 +654,14 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    top of it. */
 #chat-sidebar .select-shell {
   margin-bottom: var(--space-4);
+  /* The sidebar is a flex column, so an item stretches to its width: the
+     sort select drew 266px for a 55px value and a caret (menus.js sweep,
+     1440x900). It sizes to its words instead, held to the column and never
+     narrower than its longest option ("Most tokens") so the control does not
+     change width as the choice changes. */
+  align-self: flex-start;
+  min-width: 9rem;
+  max-width: 100%;
 }
 
 #conversation-list {

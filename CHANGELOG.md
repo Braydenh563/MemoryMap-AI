@@ -373,6 +373,9 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the Library's Files & Images list (and the pickers that offer your uploads) works out where each file is used by asking the database for the notes, documents and board objects that mention `/media/` instead of loading every one; on 5,000 notes 140 ms became 9 ms (same machine, interleaved runs), with the same answers.
 - Speed: the first click of a session (the unlock) no longer waits for the reminder chime's audio device to open; it is made just after, when the browser is idle. The click's handlers went from 44 to 56 ms (the longest script on the lock screen) to under 1 ms in headless Chromium, and the chime still works (the context is running afterwards).
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
+### Fixed
+
+- The chat list's sort select is as wide as its words (144px) rather than the whole sidebar column (266px).
 
 ## [0.3.32] - 2026-09-28
 

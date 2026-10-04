@@ -3955,3 +3955,15 @@ def test_no_third_glass_variant_and_the_literals_only_shrink() -> None:
         "a backdrop-filter that is neither --glass-filter nor --glass-filter-clear "
         f"(DESIGN.md, Glass & materials, rule 1): {unknown or grown}"
     )
+
+
+def test_the_chat_sidebar_sort_is_as_wide_as_its_words_not_the_column():
+    """The chat list's sort select drew 266px wide for a 55px value and an
+    18px caret (menus.js sweep, 1440x900): `#chat-sidebar` is a flex column
+    whose items stretch, and the select's shell is a flex item. The shell
+    sizes to its content (`align-self: flex-start`, capped at the column), so
+    a sort control reads as a control and not as a full-width bar."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    bodies = [body for sel, body in _rules(text) if "#chat-sidebar .select-shell" in sel.split(",")]
+    assert any("align-self: flex-start" in body for body in bodies)
+    assert any("max-width: 100%" in body for body in bodies)

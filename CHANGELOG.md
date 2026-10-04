@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Logs: a surface read refused because the app is locked is no longer logged as `[notes] could not load: Locked` at every boot; real failures still are.
 - Companion: the enlarged view draws no bar behind a hanging companion's head (a stray grey line at a fixed height); the seat bar under a sitting one stays.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.

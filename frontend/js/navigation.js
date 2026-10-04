@@ -1318,7 +1318,11 @@ async function loadSurface(el, what, run) {
     return result;
   } catch (error) {
     surfaceFailed(el, what, () => loadSurface(el, what, run));
-    recordBrowserLog("WARN", [`[${what}] could not load: ${error?.message || error}`]);
+    //: Locked is the expected state on the lock screen (`api()` marks that 401
+    //: `isLockout`), not a failure worth a WARN: the log opened with
+    //: "[notes] could not load: Locked" on every boot. The failed state above
+    //: is kept (Retry works once unlocked); real failures are still logged.
+    if (!error?.isLockout) recordBrowserLog("WARN", [`[${what}] could not load: ${error?.message || error}`]);
     return null;
   }
 }

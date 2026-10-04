@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Agent: the link tool now takes a kind of link (`link_type`) and accepts the built-in kinds and your own relation types, by key or by name; its description lists what exists in this notebook, capped at 420 characters with a count of the rest, and an unknown kind is refused with the list. It took no kind before, though two prompts told the model to link with 'contradicts'. `tests/test_agent_link_types.py`.
 - Notes: a note's `---` properties block no longer shows as its words in search snippets (and a result's title is the line after it, not `---`), the Library's note, bin, file and document card previews, a reminder's note line, a contradiction's excerpt, Ask cards, the agent's graph and whiteboard previews, the extractor's link previews, a remove-title and a generate-title (both left the block alone only by accident: the heading now goes after it), and five clips in the page (categories split list, graph remind, lightbox remind, similar-note row, the palette's note rows). `tests/test_properties_never_in_previews.py`.
 - Notes: the formatting strip in a note's edit form listed each highlight and text colour twice (the copy of the capture strip kept its options and had them added again); each is listed once.
 - Chat: scrolling up inside a code block, table or thinking fold in an answer no longer stops the chat following the writing; only a wheel the chat pane itself would scroll lets go (`nestedTakesWheelUp`, `tests/test_chat_scroll_534.py`).

@@ -500,8 +500,6 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- The agent's own link tool still offers the six built-in kinds, not a
-  person's own (KG3).
 - The document editor's frontmatter panel does not read note types; a note
   type's "note" field is a `[[link]]` written into the block, not a picker
   that searches (KG4).

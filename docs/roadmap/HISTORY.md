@@ -29,6 +29,19 @@ there (the model still reads the block in `read_note` and `_note_summary` on
 purpose); existing search index rows take the new title on the next startup
 reconcile.
 
+**The agent's link tool takes a person's own kinds (built).** `link_notes`
+had no kind at all (two prompts told the model to link "with link_type
+'contradicts'", which nothing read). It now has `link_type`, resolved by key
+or name against `manager.relation_types` (`_resolve_link_type`), and
+`ollama_tools(allowed, session=...)` swaps in a description listing the kinds
+that exist (`link_type_description`, 420 characters at most, built-ins first,
+"(+N more)" after). An unknown kind is a ToolError that lists them.
+Measured: `tests/test_agent_link_types.py` 8 tests; `test_prompt_budget.py`
+and `test_skills.py` still pass. Not verified: a real small model choosing a
+custom kind from the list (no model in the sandbox); `compact_schemas` cuts
+the parameter text to 60 characters on a small window, so there the refusal
+message is what carries the list.
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds

@@ -755,7 +755,8 @@ HELP_TOPICS.extend(
                 "Kind and properties: a kind says what the link is (Supports, Part "
                 "of, your own) and reads from the other note by its other name "
                 "(Supported by, Has part); Kinds of link in the command palette "
-                "adds, renames and deletes your own."
+                "adds, renames and deletes your own. The assistant can link two "
+                "notes with any of these kinds too, yours included."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

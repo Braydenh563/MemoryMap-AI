@@ -727,7 +727,9 @@ HELP_TOPICS.extend(
                 "then picking it from the list. The link shows on both notes as a "
                 "connection, with a menu to add a reason, open or remove it. Atlas "
                 "also suggests links as you write, and every note's menu has Link "
-                "to. The Graph draws all of them."
+                "to. The Graph draws all of them. A note's menu also has Copy wiki "
+                "link (a [[link]] for another note) and Copy app link (an address "
+                "that opens the note in the app)."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

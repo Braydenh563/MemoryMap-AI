@@ -63,6 +63,13 @@ def test_spellings_are_folded_to_the_schema():
     assert problem is None and args["tags"] == ["urgent"]
 
 
+def test_tags_reach_tag_note_s_add():
+    args, problem = tools.check_arguments("tag_note", {"note_id": 1, "tags": ["urgent"]})
+    assert problem is None and args == {"note_id": 1, "add": ["urgent"]}
+    args, _ = tools.check_arguments("create_note", {"content": "x", "tags": ["a"]})
+    assert args["tags"] == ["a"], "a tool that has `tags` keeps it"
+
+
 def test_values_are_read_as_their_schema_types():
     args, problem = tools.check_arguments("pin_note", {"note_id": "#3", "pinned": "false"})
     assert problem is None and args == {"note_id": 3, "pinned": False}

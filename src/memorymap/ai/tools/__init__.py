@@ -3220,7 +3220,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "items": {"type": "integer"},
                         "description": "IDs of multiple notes to tag (optional)",
                     },
-                    "add": {"type": "array", "items": {"type": "string"}},
+                    "add": {"type": "array", "items": {"type": "string"}, "description": "Tags to add"},
                     "remove": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [],
@@ -3240,7 +3240,7 @@ TOOLS: dict[str, ToolSpec] = {
                 "type": "object",
                 "properties": {
                     "note_id": _NOTE_ID,
-                    "pinned": {"type": "boolean", "description": "false to unpin"},
+                    "pinned": {"type": "boolean", "description": "Leave out to pin; false only to unpin"},
                 },
                 "required": ["note_id"],
             },
@@ -3330,11 +3330,11 @@ TOOLS: dict[str, ToolSpec] = {
                     "text": {"type": "string", "description": "What to remind about"},
                     "when": {
                         "type": "string",
-                        "description": "When, in the user's own words: 'tomorrow at 9am', 'in 20 minutes', 'Friday evening'. The app works out the date.",
+                        "description": "The user's words, e.g. 'tomorrow 9am', 'in 20 minutes'",
                     },
                     "due_at": {
                         "type": "string",
-                        "description": "Only if you already have an exact ISO date-time; prefer when",
+                        "description": "An exact ISO date-time, only if you have one",
                     },
                     "note_id": {
                         "type": "integer",
@@ -4327,11 +4327,20 @@ def example_arguments(name: str) -> str:
     return json.dumps(example)
 
 
+#: Names a model reaches for that no spelling rule reaches: Qwen2.5-1.5B
+#: asked to tag a note looked for `tags` and, finding `add`, said it could
+#: not tag (INBOX 527).
+_PARAM_ALIASES = {"tags": "add", "tag": "add", "untag": "remove"}
+
+
 def _schema_key(key: str, props: dict, given: dict) -> str:
     """The schema's own name for a key the model spelled its own way, or the
     key unchanged. `id` folds to the tool's one `*_id` parameter only."""
     if key in props:
         return key
+    alias = _PARAM_ALIASES.get(_fold_key(key))
+    if alias in props and alias not in given:
+        return alias
     by_fold = {_fold_key(k): k for k in props}
     folded = _fold_key(key)
     target = by_fold.get(folded) or by_fold.get(f"{folded}s") or by_fold.get(folded[:-1] if folded.endswith("s") else "")

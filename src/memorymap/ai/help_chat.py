@@ -192,7 +192,8 @@ HELP_TOPICS: list[dict] = [
             "Bookmarks (a shelf for websites you visit often), Contents (a "
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
-            "Images gallery."
+            "Images gallery. Each sub-tab's top bar ends with a ? that says "
+            "what it holds."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

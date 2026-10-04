@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library: the All, Documents and Bookmarks sub-tabs end their top bar with a ? saying what the sub-tab holds, like Boards and maps, Images and Files already do.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
 - Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.
 - Notes: a card's text sits further in from its edge and its metadata steps back: the category reads muted at the body weight and link chips are muted until pointed at, so the note's words lead.

@@ -4920,6 +4920,12 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
               <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+              <button type="button" id="library-help-toggle" class="icon-only ghost small graph-help-toggle"
+                data-help-for="library-help" aria-controls="library-help" aria-expanded="false"
+                title="About the library" aria-label="About the library"><i class="ph ph-question" aria-hidden="true"></i></button>
+              <div class="help-body hidden" id="library-help" role="dialog" aria-label="About the library">
+                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once.</p>
+              </div>
               <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
@@ -5048,6 +5054,12 @@ Link to another note with [[its first few words]]."></textarea>
               title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
             <button id="library-docs-refresh" class="ghost small icon-only" type="button"
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button type="button" id="library-docs-help-toggle" class="icon-only ghost small graph-help-toggle"
+              data-help-for="library-docs-help" aria-controls="library-docs-help" aria-expanded="false"
+              title="About documents" aria-label="About documents"><i class="ph ph-question" aria-hidden="true"></i></button>
+            <div class="help-body hidden" id="library-docs-help" role="dialog" aria-label="About documents">
+              <p>A document is a longer piece of writing with its own editor, outline and history. Open one to keep writing. The property menu narrows the list to documents that carry a given front matter value, and the more menu sets how many show per page.</p>
+            </div>
             <details class="doc-dock-menu dock-menu dock-more" id="library-docs-more-menu">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
@@ -6844,6 +6856,12 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="bookmark-add" class="small" type="button"
             data-empty-action="add-link" title="Save a new bookmark">
             <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
+          <button type="button" id="bookmark-help-toggle" class="icon-only ghost small graph-help-toggle"
+            data-help-for="bookmark-help" aria-controls="bookmark-help" aria-expanded="false"
+            title="About bookmarks" aria-label="About bookmarks"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <div class="help-body hidden" id="bookmark-help" role="dialog" aria-label="About bookmarks">
+            <p>Links to websites you visit often, kept in the notebook instead of the browser. Add one, sort the shelf, and put bookmarks in groups: New group and Manage groups are in the more menu.</p>
+          </div>
           <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list">

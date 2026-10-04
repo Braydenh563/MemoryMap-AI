@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library: Boards and maps selection ticks sync under the Maps and Boards chips (no card got a tick while one was on, so Select all and bulk Delete were dead); the tick sync and the gallery narrow through one function.
 - Settings: the Find duplicates slider keeps a real width at 390 (was 6.8x16px in a wrapped row; now a 221x44 line of its own) and takes the touch floor, 28px with a mouse. The touch sweep now measures Dashboard, Timeline, Reminders and seven Settings sections (they read 0 controls and passed), and measures a slider by its own box.
 - Notes: the empty state's Ask Atlas offer is one line at 390 ("Ask Atlas where notes go", 192x44; the two-line label was 332x46); the question it sends is unchanged.
 - Chat: the suggestion chips (and Ask's suggested and recent questions) take the touch floor: 44px tall under a coarse pointer or below 820, 28px with a mouse as before (were 28px at 390).

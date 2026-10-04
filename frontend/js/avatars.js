@@ -6692,8 +6692,16 @@ function nameMarkBuddyAim(point, near = false) {
     const dx = point[0] - cx;
     const dy = point[1] - cy;
     const reach = Math.max(160 * size, Math.hypot(dx, dy));
-    lx = Math.max(-1, Math.min(1, (dx / reach) * 1.6));
-    ly = Math.max(-1, Math.min(1, (dy / reach) * 1.6));
+    lx = (dx / reach) * 1.6;
+    ly = (dy / reach) * 1.6;
+    //: Inside the unit circle, not the square (INBOX 497): clamped on each
+    //: axis, a pointer up and to the right put the look at (1, -1), 1.41
+    //: times as far as any single direction, and the pupils left the eyes.
+    const len = Math.hypot(lx, ly);
+    if (len > 1) {
+      lx /= len;
+      ly /= len;
+    }
   }
   //: **Close by, it keeps its eyes on you** (the owner: "atlas doesnt
   //: follow my mouse pointer when it is close. should it??"). Near, the

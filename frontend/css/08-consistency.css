@@ -7263,8 +7263,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
 #nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); transition: translate var(--motion-fast) var(--ease-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out); }
 #nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
+/* **The pupils stay in the eyes** (INBOX 497, the owner: "when I have my
+   cursor to the top right of the companion or atlas, the pupils basically
+   go off the head and you can only see white eyes"). Four offsets added up
+   on Atlas's iris: the generated faces' `.nm-eyes` rules (the attend look,
+   3.4px by 2.6px; the list faces' pointer follow; reading), its own iris
+   rule above, the mood's `--atl-px`/`--atl-py` and the lean, measured at
+   up to 3.3 times the room the pupil has in its eye
+   (scratchpad/ui-sweeps/companioneyes.js). The room is the almond's, less
+   the pupil's own size, for the larger pupil a mood gives it (curious,
+   1.1): about 1.7 across and 1.1 up in the drawing, less on screen once
+   curious's tilt is on it, so the sweep, which tests every point of the
+   pupil against the white as drawn, is the judge. Now the generated faces' eye
+   moves are not Atlas's (it has its own eye rig), its look is held inside
+   that room (avatars.js `nameMarkBuddyAim` keeps the aim inside the unit
+   circle, and the rule above scales it to 1.2 by 0.75), and while it looks
+   at something the mood's and the lean's own placing of the pupil ease out
+   of the way (the pupil's transform transition) rather than adding to the
+   look. A look act moves the whole eye rig, so the iris holds still under
+   it. */
+#nm-buddy .nm-atlas .nm-eyes { translate: none !important; }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-pupil { --atl-px: 0px; --atl-py: 0px; --atl-lean-dir: 0; }
+#nm-buddy.nmb-act-look .nm-atlas .atl-iris { translate: none; }
 /* Off screen or on a hidden tab, every loop stops. */
 .atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *, .atl-lw), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):

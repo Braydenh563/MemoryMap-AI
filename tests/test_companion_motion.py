@@ -1395,3 +1395,36 @@ def test_a_speech_line_is_as_wide_as_its_words_wherever_it_is_said() -> None:
     assert "white-space: nowrap" not in base
     viewer = _css_rule(css, ".nm-viewer-figure > #nm-buddy > .nm-say")
     assert "left: 100%" in viewer and "right: auto" in viewer
+
+
+def test_atlas_pupils_stay_inside_its_eyes():
+    """INBOX 497, the owner: "when I have my cursor to the top right of the
+    companion or atlas, the pupils basically go off the head and you can
+    only see white eyes". Four offsets added up on Atlas's iris, measured at
+    up to 3.3 times the room its pupil has (`companioneyes.js`, which walks
+    every pose, both looks and four moods with the gaze at the 8 compass
+    points and the window's corners). The aim is held inside the unit
+    circle, the generated faces' eye moves are not Atlas's, its look scales
+    to the room (2 across, 1 up or down), and the mood's own pupil placement
+    eases out of the way while it looks at something."""
+    aim = _fn("nameMarkBuddyAim")
+    assert "const len = Math.hypot(lx, ly);" in aim and "lx /= len;" in aim and "ly /= len;" in aim
+    assert "Math.max(-1, Math.min(1, (dx / reach)" not in aim
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "#nm-buddy .nm-atlas .nm-eyes { translate: none !important; }" in css
+    assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-pupil { --atl-px: 0px; --atl-py: 0px; --atl-lean-dir: 0; }" in css
+    iris = re.search(r"#nm-buddy:is\(\.nmb-attend, \.nmb-watch\) \.nm-atlas \.atl-iris \{ translate: calc\(var\(--nmb-ex\) \* ([0-9.]+)px\) calc\(var\(--nmb-ey\) \* ([0-9.]+)px\)", css)
+    assert iris, "the iris follows the aim"
+    gx, gy = float(iris.group(1)), float(iris.group(2))
+    # The pupil's room in the almond, less its own size at a mood's larger
+    # pupil (1.1), the tightest of the two mirrored eyes, by direction
+    # (measured in the eye's own units, companioneyes.js): 1.7 across, 1.26
+    # up, 1.12 on the upward diagonals. The look's ellipse stays inside it,
+    # and nothing else moves the pupil while it looks.
+    import math
+    room = {0: 1.7, 22.5: 1.68, 45: 1.44, 67.5: 1.38, 90: 1.44, 270: 1.26, 292.5: 1.12, 315: 1.14, 337.5: 1.28}
+    for deg, r in room.items():
+        a = math.radians(deg)
+        reach = 1 / math.sqrt((math.cos(a) / gx) ** 2 + (math.sin(a) / gy) ** 2)
+        assert reach <= r, (deg, reach, r)
+    assert "--atl-lean-dir: 0; }" in css

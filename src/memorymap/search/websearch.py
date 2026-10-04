@@ -115,6 +115,7 @@ def _cache_put(key: tuple[str, int], results: list[dict]) -> None:
 def clear_cache() -> None:
     """Used by tests and when the provider settings change."""
     _CACHE.clear()
+    _PREFETCHED.clear()
 
 
 # Where a self-hosted SearXNG usually listens. Checked in order, once, so a
@@ -775,6 +776,29 @@ def _split_url(url: str) -> tuple[str, str]:
     if parsed.username or parsed.password:
         return "", ""
     return parsed.scheme, parsed.hostname
+
+
+#: Pages fetched ahead for an agent round (INBOX 527, `tools.prefetch_web`),
+#: each handed out once by `fetch_readable_cached` and then forgotten: a
+#: round's calls run in order from memory, and nothing outlives the round.
+_PREFETCHED: dict[str, tuple[float, dict]] = {}
+PREFETCH_TTL_SECONDS = 60
+
+
+def prefetch_readable(url: str) -> None:
+    """Fetch `url` now, for the `read_url` call about to ask for it."""
+    page = fetch_readable(url)
+    if len(_PREFETCHED) >= CACHE_MAX_ENTRIES:
+        _PREFETCHED.clear()
+    _PREFETCHED[strip_tracking(url)] = (time.time(), page)
+
+
+def fetch_readable_cached(url: str) -> dict:
+    """`fetch_readable`, or the page `prefetch_readable` just fetched."""
+    hit = _PREFETCHED.pop(strip_tracking(url), None)
+    if hit and time.time() - hit[0] <= PREFETCH_TTL_SECONDS:
+        return hit[1]
+    return fetch_readable(url)
 
 
 def fetch_readable(url: str) -> dict:

@@ -1628,6 +1628,11 @@ class _TurnState:
     #: Has this turn read something from outside the notebook (a page, a
     #: search result, a file)? Then reaching out again needs a confirm.
     outside: bool = False
+    #: `outside` as it stood when this round's calls were chosen: what parks
+    #: an outbound call. A call in the same reply as the first web read was
+    #: decided before anything outside was read, so no page can have asked
+    #: for it (INBOX 527: "search for X and Y" parked the second search).
+    tainted: bool = False
     #: Calls that already succeeded: a repeat of one is not progress either.
     done_calls: set[tuple[str, str]] = field(default_factory=set)
     #: Reads whose result is already in `messages` and still current.
@@ -1696,6 +1701,24 @@ def _fit_result(result: dict, name: str, room: int) -> str | None:
             if len(payload) <= room:
                 return payload
     return None
+
+
+def _prefetch_outbound(calls: list[dict]) -> None:
+    """Fetch a round's web reads side by side, before they run one by one.
+
+    **Parallel independent tool calls** (INBOX 527). A model that asks for
+    three pages in one reply waited for them in series: three network
+    round trips, each seconds, where the tool calls themselves are
+    milliseconds. The calls still run in order through `_dispatch_call`,
+    every guard and the session untouched; this only warms the in-process
+    caches `websearch` already keeps, from threads that touch no database.
+    Only for a round chosen before anything outside was read (the caller
+    checks), so no page can start a fetch, and only when web access is on.
+    """
+    wanted = [c for c in calls if c.get("name") in _OUTBOUND_TOOLS and not c.get("invalid_arguments")]
+    if len(wanted) < 2:
+        return
+    tools.prefetch_web([(c["name"], c.get("arguments") or {}) for c in wanted])
 
 
 def _dispatch_call(
@@ -1831,7 +1854,7 @@ def _dispatch_call(
             return False
         yield handover
         return True
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
         # rather than a result, which is honest but is not a *stop*:
@@ -1860,7 +1883,7 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)):
+    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)):
         # Park it for the user, never auto-run a destructive tool, nor a
         # tool that reaches out once the turn has read from outside.
         # The confirm card is the honest signal, so count it as an
@@ -2421,6 +2444,9 @@ def run_agent(
                 )
                 state.offered = every_tool
 
+        state.tainted = state.outside
+        if not state.tainted:
+            _prefetch_outbound(calls)
         for call in calls:
             # One call, its guards and its result; True when the tool ended the
             # turn (the handover tools). See `_dispatch_call`.

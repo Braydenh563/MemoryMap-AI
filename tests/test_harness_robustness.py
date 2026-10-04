@@ -219,3 +219,52 @@ def test_a_big_page_is_shortened_from_the_back_with_a_note():
 
 def test_no_room_at_all_is_still_refused():
     assert agent._fit_result(_page(), "search_notes", 200) is None
+
+
+# --- independent calls in one reply: none parked, web reads side by side -------
+
+
+def test_two_searches_in_one_reply_both_run(monkeypatch, app_state):
+    """Before: the first search marked the turn as having read outside text,
+    so the second search in the same reply, chosen before anything was read,
+    was parked behind a confirm card."""
+    ran = []
+    monkeypatch.setattr(agent.tools, "ollama_tools", lambda allowed=None: [])
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda s, n, a, **k: ran.append(n) or {"results": [], "label": n})
+    monkeypatch.setattr(agent.tools, "prefetch_web", lambda calls: None)
+    fake = _Fake([[
+        {"name": "web_search", "arguments": {"query": "a"}},
+        {"name": "web_search", "arguments": {"query": "b"}},
+    ], [{"name": "read_url", "arguments": {"url": "https://x.example"}}], []])
+    events = list(agent.run_agent(_Session(), "q", [], _Models(), fake))
+    assert ran == ["web_search", "web_search"]
+    assert [e["name"] for e in events if e.get("type") == "confirm"] == ["read_url"], (
+        "a later round, chosen after reading outside text, still asks first"
+    )
+
+
+def test_three_pages_in_one_reply_are_fetched_side_by_side(monkeypatch, app_state, session):
+    import time
+
+    from memorymap.core import deps
+    from memorymap.search import websearch
+
+    deps.get_config().set_preference("web_search_enabled", True)
+    fetched = []
+
+    def slow(url):
+        fetched.append(url)
+        time.sleep(0.4)
+        return {"url": url, "title": url, "text": "page text", "links": []}
+
+    monkeypatch.setattr(websearch, "fetch_readable", slow)
+    monkeypatch.setattr(agent.tools, "ollama_tools", lambda allowed=None: [])
+    urls = [f"https://site{i}.example/" for i in range(3)]
+    fake = _Fake([[{"name": "read_url", "arguments": {"url": u}} for u in urls], []])
+    started = time.monotonic()
+    events = list(agent.run_agent(session, "q", [], _Models(), fake))
+    elapsed = time.monotonic() - started
+    oks = [e for e in events if e.get("type") == "tool" and e.get("ok")]
+    assert len(oks) == 3
+    assert sorted(fetched) == urls, "each page fetched once, not again by the call"
+    assert elapsed < 1.0, f"three 0.4s pages took {elapsed:.2f}s: fetched in series"

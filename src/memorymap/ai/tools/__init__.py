@@ -1664,6 +1664,40 @@ def _web_search(session: Session, args: dict) -> dict:
 READ_URL_MAX_CHARS = 6000
 
 
+#: How many web reads one round may run side by side.
+PREFETCH_WORKERS = 4
+
+
+def prefetch_web(calls: list[tuple[str, dict]]) -> None:
+    """Run these `web_search` / `read_url` calls' network halves in parallel,
+    filling `websearch`'s caches so the calls themselves, run afterwards in
+    order, are answered from memory (INBOX 527; see `agent._prefetch_outbound`).
+    Nothing here raises: a failed fetch is simply not cached, and the real
+    call meets the same failure and reports it the ordinary way.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
+        return
+    searxng_url, provider = websearch.settings_from(config)
+
+    def one(call: tuple[str, dict]) -> None:
+        name, args = call
+        try:
+            if name == "read_url" and str(args.get("url") or "").strip():
+                websearch.prefetch_readable(str(args["url"]).strip())
+            elif name == "web_search" and str(args.get("query") or "").strip():
+                websearch.search_web(str(args["query"]), limit=5, searxng_url=searxng_url or None, provider=provider)
+        except Exception:  # noqa: BLE001  # the real call reports it
+            return
+
+    with ThreadPoolExecutor(max_workers=min(PREFETCH_WORKERS, len(calls))) as pool:
+        list(pool.map(one, calls))
+
+
 def _read_url(session: Session, args: dict) -> dict:
     """Fetch one web page and hand back its readable text.
 
@@ -1685,7 +1719,7 @@ def _read_url(session: Session, args: dict) -> dict:
     if not url:
         raise ToolError("No URL was given")
     try:
-        page = websearch.fetch_readable(url)
+        page = websearch.fetch_readable_cached(url)
     except websearch.WebSearchError as exc:
         raise ToolError(str(exc)) from exc
 

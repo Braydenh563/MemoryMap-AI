@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Top tab bar: choosing a tab no longer nudges the tabs after it sideways; the selected label is drawn heavier without getting wider (it moved the rest by up to 6px).
 - Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
 - Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
 - Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.

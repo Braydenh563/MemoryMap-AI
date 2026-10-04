@@ -363,6 +363,21 @@
   opacity: 1;
 }
 
+/* A field the document's `type:` names and the document has not written yet:
+   the same row as a written one, its name in italics so it reads as an offer
+   rather than a fact. Nothing is in the file until a value is. */
+.doc-prop-unset > .doc-prop-key {
+  font-style: italic;
+}
+
+.doc-prop-check {
+  margin: 0;
+}
+
+.doc-prop-spacer {
+  visibility: hidden;
+}
+
 .doc-prop-new {
   display: flex;
   align-items: center;
@@ -446,11 +461,11 @@
    vertical rhythm is the one thing a reader notices without being able to
    name it, and two of these in a list of twenty break it twenty times.
 
-   The floor is kept, not cancelled: the control is still 28x28 and still a
-   28px target. What changes is how much of that height the *line* has to
-   carry, which negative block margins give back, so the box overhangs its own
-   line by 4px at each end exactly as a tall glyph does. Nothing about the
-   target moves.
+   The first answer kept the 28px box and gave its height back with negative
+   margins. That held the line on a desktop and not on a phone, where the
+   floor is 44px: the line grew to 36px and two tasks' boxes overlapped, and
+   a 28px square beside 15px text read as a form field, not a list. So the
+   floor now sizes the press area and not the box (the rules below).
 
    `accent-color` because the alternative is the operating system's blue in an
    app that has its own accent everywhere else, which is the plainest possible
@@ -462,7 +477,46 @@
    measurement. */
 .cm-md-task {
   accent-color: var(--accent);
-  margin-block: -0.25em;
+}
+
+/* The task box at the text's size, and its press area at the app's floor
+   (the reason is beside `DocTaskWidget` in documents.js). Two classes, so the
+   global `input[type="checkbox"]` floor (0,1,1) does not size the box again.
+   The strip is `--target-min` wide, its right edge where the text begins,
+   and one line tall (1.6em, the editor's line height), so it reaches left
+   over the list's bullet rather than over the words, and the strips of two
+   task lines meet without overlapping. The box sits above its strip so a
+   press on the box is a press on the box. */
+.cm-md-task-hit {
+  position: relative;
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.15em;
+  /* An inline-block is a block container, so it inherits the list line's
+     hanging `text-indent` (minus one indent) and drew the box a whole indent
+     left of its own span, out of the strip's reach. */
+  text-indent: 0;
+}
+
+.cm-md-task-hit::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -0.4em;
+  width: var(--target-min);
+  height: 1.6em;
+  transform: translateY(-50%);
+}
+
+.cm-md-task-hit > .cm-md-task {
+  position: relative;
+  width: 1.1em;
+  height: 1.1em;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  vertical-align: top;
+  cursor: pointer;
 }
 
 .cm-md-figure {
@@ -861,10 +915,11 @@
     display: flex;
   }
 
-  /* The editor keeps its last line above the bar rather than behind it. */
-  #tab-documents .doc-source-wrap {
-    padding-bottom: 56px;
-  }
+  /* The documents page keeps its foot clear of the bar in 10-responsive.css,
+     beside the rule that lifts the bar above the tab bar: the two are one
+     pair and were once apart (a 56px pad here on the editor, written while
+     the bar sat on the window's edge, left the status line under the bar
+     once the bar moved up). */
 }
 
 /* =============================================================================

@@ -112,6 +112,102 @@ at 1440, 1024, 820 and 390, and the strip on its own topic 0 times.
 the lines *out of* the selected topic (also shown when it is selected), which
 the plan did not name.
 
+## Moved from the plans, 2026-10-04 (graph plan leftovers)
+
+### From GRAPH_PLAN.md: "Still open after KG1 to KG9"
+
+**The properties block in previews (built).** A note's `---` block is data
+about it, never its opening words. Read through `entry/properties.strip` now:
+the search snippet (`search/engine._snippet`) and a result's title
+(`search/index._first_line`, which had named a note `---`), the Library's
+`_clip` (note, bin, file and document cards), a document's `_preview`, a
+reminder's `entry_preview`, `tensions._excerpt`, Ask cards (`cards._note_item`),
+the agent's graph and whiteboard previews, the extractor's link previews, and
+five page clips (`categories-panel.js`, `graph.js` remind, `lightbox.js`,
+`notes-list.js` similar row, `settings-panes.js` palette rows). `apply_title`
+and `remove_title` split the block off first, so a title edit never touched
+the block by accident and a heading goes after it. Measured:
+`tests/test_properties_never_in_previews.py` 12 tests, 11 failing before.
+Not verified: a block longer than the 200-character clip of the agent's
+`_note_summary` `content` reaches an Ask card unclosed and is not stripped
+there (the model still reads the block in `read_note` and `_note_summary` on
+purpose); existing search index rows take the new title on the next startup
+reconcile.
+
+**The agent's link tool takes a person's own kinds (built).** `link_notes`
+had no kind at all (two prompts told the model to link "with link_type
+'contradicts'", which nothing read). It now has `link_type`, resolved by key
+or name against `manager.relation_types` (`_resolve_link_type`), and
+`ollama_tools(allowed, session=...)` swaps in a description listing the kinds
+that exist (`link_type_description`, 420 characters at most, built-ins first,
+"(+N more)" after). An unknown kind is a ToolError that lists them.
+Measured: `tests/test_agent_link_types.py` 8 tests; `test_prompt_budget.py`
+and `test_skills.py` still pass. Not verified: a real small model choosing a
+custom kind from the list (no model in the sandbox); `compact_schemas` cuts
+the parameter text to 60 characters on a small window, so there the refusal
+message is what carries the list.
+
+**Toasts over phone sheets (built).** `openSheet` draws a sheet one layer
+above its opener, so one opened from a menu (2600) or the table view (2400)
+was at 2601 or 2401 and `#toast-box` (1050) sat behind it. Below 600px the box
+is `z-index: 2700` (10-responsive.css): above the highest opener, under the
+boot splash (3000). Measured at 390x844 by `elementFromPoint` at the toast's
+centre over eight opener layers (0, 1010, 1020, 1045, 1050, 2000, 2550, 2600):
+covered at 1050 and above before (4 of 8), answered in all 8 after
+(`scratchpad/ui-sweeps/toastsheet.js`); `tests/test_toast_over_sheets.py`
+holds both ends. Not verified: a real device; widths 600 to 1099 (a sheet is
+still a bottom sheet there and the toast box is not raised, as asked);
+sheets opened from the whiteboard's text editor layer (100000, not an opener
+in practice).
+
+**The document properties panel reads note types (built).** A document
+whose frontmatter says `type: Meeting` shows that type's fields it has not
+written as empty rows (`docFrontmatterTypeFields`, pure and run in node;
+`docPropsTypeRows`; the types from `GET /note-types`, asked once and only for
+a document that has a `type`). Each row has its kind's control; a value goes in
+through `docFrontmatterAddEdits` as one line above the closing fence, a row
+left empty writes nothing, and the redraw makes it an ordinary row. Measured:
+`tests/test_doc_type_fields.py` (node, 9 checks) and
+`scratchpad/ui-sweeps/doctypeprops.js` 11/11 at 1440 and 390 (the fields
+listed, the right controls, the file unchanged until a value, one new line,
+one right edge for written and unwritten inputs, no sideways scroll). Not
+verified: the checkbox and date rows by hand in a real desktop window; a
+type named in a list or an empty `type:` offers nothing, by choice. The
+type list is read once per page load: a type changed in the palette shows
+in a document's panel after a reload.
+
+## Moved from the plans, 2026-10-04 (the documents phone pass)
+
+### From DOCUMENTS_PLAN.md sections 17 and 18 (their phone halves), Phase 5 and the tails
+
+Every open row in the plan was checked against the running app first. 17a to
+17e, the phone formatting bar (Phase 6 item 1), Phase 5 items 2 and 3, Phase
+7's python-docx row and Phase 8c's board card were all already built; the
+first two re-measured (`docnarrow.js` PASS, `dochistory.js` and `docaidiff.js`
+all pass), the plan's stale rows now point here. What the measurement found, at
+390x844 with touch, light and dark (`docphonebar.js`, `doctaskbox.js`):
+
+| Step | Before | After | Gate |
+| --- | --- | --- | --- |
+| The page against the fixed foot bar | card to y=778 under the bar at 733 to 786: the status line (743 to 765) drawn behind it, never seen; the editor's own 56px pad stopped the writing at 661, a 72px blank band | the card's margin is the bar's height (not while reading or with the focus panel): card to 725, status line 688 to 712, writing to 665 | `docphonebar.js` |
+| The selection bar on a phone | ten 44px targets, a 499px pill running 117px past a 390px window, Ask and Rewrite off the edge, Bold, Italic, Heading and Link repeated from the foot bar | the buttons the foot carries are hidden (read off the foot); six, 307px, inside; on any other narrow surface it wraps (all ten: 319x102, none off screen) and takes the card's corner; desktop unchanged (ten, one row, 339px pill) | same |
+| A task's checkbox | the target floor sized the box: Live 28px in a 24px line (1440), 44px on a phone (line 36px, adjacent boxes overlapping); Read (disabled) 28px and 44px, lines 34 and 50 against 22 | Live 1.1em (15px; 18 on the phone) in a span whose invisible strip is `--target-min` wide and one line tall, reaching over the bullet, adjacent strips meeting (0px overlap); Read 1.1em; task lines equal to plain ones; a press on the box and on the strip each toggle once | `doctaskbox.js` (1440, 820, 390) |
+| Grammar on a wiki link | "a [[Another doc]]" flagged as a redundancy, fix "aNother" | a lint touching `[[...]]` or `![[...]]` is dropped, document and note boxes | `tests/test_prose_tools.py` (through the real worker) |
+
+Found on the way: an inline-block inherits a list line's hanging
+`text-indent`, which drew the task box a whole indent left of its own span.
+`cm-live.js` clicked the first finding mark, which is now a link-text
+(accessibility) finding; it clicks the misspelling's own mark. The "/" menu on
+the phone was measured and needed nothing (354x386, inside the window and
+above the bar, 56 rows at 45px, 8 on screen). Decided: on a phone the
+selection bar keeps strike, highlight, code, quote, Ask and Rewrite, the
+foot bar keeps the rest; "never a second copy" (DESIGN.md's sheet `page`
+variant) applied to the bars.
+
+**Not verified:** a real phone's own selection menu (iOS and Android draw
+Cut, Copy and Paste above a selection, where this bar also goes) and a real
+on-screen keyboard (the bar rides `--keyboard-inset`, stubbed only).
+
 ## Moved from the plans, 2026-10-04 (the auto scale)
 
 ### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds
@@ -38921,6 +39017,92 @@ Measured in Chromium, 2026-10-04, `scratchpad/ui-sweeps/editstrip.js`: the colla
 stateful in the capture strip is cloned with its state. The Preview button
 was fixed; the collapse and expand state and the highlight colour pickers
 have not been checked for the same shape. [notes-subtabs.md]
+
+### The whiteboard's align and distribute actions were not driven
+
+Verified on the head, 2026-10-04: `scratchpad/ui-sweeps/whiteboard.js` section 6 drives them through the UI buttons and passes (24 of 24 at 1440x900): align centres puts three centres on 600, distribute leaves gaps of 250 and 250 for boxes of different widths, same size gives 300 by 120 to all three.
+
+- **The whiteboard's align and distribute actions**: their markup changed
+  (labels to icons), their handlers were not touched and were not driven.
+  [visual-c.md]
+
+### The companion's walk lays out and recalculates style 59 times a second
+
+Stale, measured 2026-10-04: `atlaswalk.js` (frames counted from the trace, not by a rAF loop; the 59 a second was that loop's own restyle) reads masculine 5.5 style recalcs/s, 0.2 layouts/s, 1.7 paints/s and feminine 5.7, 0, 0.5 over 4s with `nmb-walking` held.
+
+- **The companion's walk itself lays out and recalculates style 59 times a
+  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
+  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
+  happening). The idle figure is 0 layouts (companionperf.js), so this is the
+  walk's own per-frame work in avatars.js (the position written each frame,
+  or a read of the page beside it), not Atlas's drawing. Not opened in the
+  review because avatars.js was the companion agent's file that night; the
+  first look is whether the walk writes `style.transform` from a
+  requestAnimationFrame loop that also reads a rect.
+
+### Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26
+
+All three items it left are done on the head, checked 2026-10-04: (a) `nameMarkBuddyTick` now works the mood out before the night yawn's early return (avatars.js); (b) the walk's style-recalc cost was the sweep's own rAF counter, 5.5/s and 0.2 layouts/s with `atlaswalk.js` counting frames from the trace; (c) the layout picker's change handler awaits `ensureModule("graph")` before writing `graphAutoFitDone` (navigation.js).
+
+- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
+  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
+  and the CSP. Fixed in files nobody was in: the layout picker's
+  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
+  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
+  Graph tab before the bundle has arrived loads it rather than throwing
+  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
+  act (below). Read and found sound: the toss (the drag class is removed
+  before the toss returns, the flight and the spin are Web Animations on
+  translate/rotate, no CSS transform to fight), the pet timer (cleared on
+  leave and pointerdown, mouse only), the six reactions' cooldowns and the
+  6s gap, the note-opened capture listener (one, at boot), the menu-flake
+  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
+  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
+  soon as a night yawn fires, so that tick's drift and the rest of its
+  night handling are skipped once in thirty minutes (avatars.js, the
+  `late` block); (b) with the legs and sash on compositor roots the walk
+  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
+  layouts, atlaswalk.js): a per-frame write of a custom property or class
+  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
+  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
+  runs before graph.js has declared that `let` when the bundle is cold: a
+  sloppy-mode global write that the later declaration shadows, lost but
+  harmless (graph.js starts it false).
+
+### Thirty-three agent files archived, 2026-10-04
+
+The files in `agent-remaining/` whose agents had finished moved to
+`archive/agent-remaining/`; what each still held that is open is a row in OPEN.md,
+"Carried from the agent files archived 2026-10-04". Checked against the head while
+reading them, 2026-10-04:
+
+- **Built since the file was written, so not carried:** the Ask tab's four reports
+  (asktab.md: 297 `facts: true` on the Ask rows and the adjacency margin, 298
+  `.is-generating`, 299 the record numbers, 300 the sources banner gone); the boot
+  agent's two duplicate fetches (`/chat/recent`, `/entries/most-accessed`, now one
+  request through `cacheMs`); the chat starters naming a category as prose (routes_chat.py
+  `_about`); the graph minimap rebuilding its dots (`graphMinimapChildren` reuses
+  them); chrome2's two Settings edits (235, 237, struck in OPEN.md).
+- **Stale, measured:** the Guide transcript not scrolling itself
+  (`scratchpad/ui-sweeps/guidescroll.js`, 3 of 3: the list is the scroller, scrollTop
+  3404 at its end, the card around it does not scroll); the whiteboard's align and
+  distribute actions never driven (`whiteboard.js` section 6 drives them, 24 of 24);
+  `mindmapimage.js` at 390x844 (12 of 12).
+- **Found and fixed from them, each with a test and a sweep:** the Write with AI draft
+  box could be typed into while a pass streamed into it, because `readOnly` only reached
+  the hidden textarea behind the mounted editor (`draftreadonly.js`,
+  `tests/test_note_surface_readonly.py`; typing during the pass changed the draft
+  before, not after); a board's pictures were missing from its PNG, PDF and library
+  copy, and the saved .svg named an address only the app understands (an SVG drawn
+  through `<img>` loads nothing outside itself; `wbexportimage.js` read the board's
+  white at the middle of a red picture before and red after,
+  `tests/test_wb_export_inline_images.py`); a Ctrl+mouse-wheel notch zoomed the board
+  and the graph by 5.3x (d3-zoom's pinch multiplier on a mouse's 120 pixels), now about
+  1.4x with a pinch unchanged (`ctrlwheelzoom.js`, `tests/test_zoom_wheel_delta.py`);
+  `contrast.js` printed a low-contrast finding and exited 0, now fails on one that is
+  not a translucent estimate (0 findings at 1440 light and dark, 820 light, 390 dark,
+  exit 0 each); `wbarrange.js`, stale since Phase 2 removed the drawer it asked for and
+  superseded by `wbinbox12.js`, deleted.
 
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 

@@ -136,7 +136,10 @@ function ok(name, condition, detail) {
   // decoration now, so this is a click on a real element in every view, and
   // the menu anchors to the word rather than to the caret.
   const suggest = await page.evaluate(async () => {
-    const mark = document.querySelector("#doc-editor .cm-finding");
+    // The misspelling's own mark, not the first finding in the document:
+    // other kinds sit earlier now ("link" on line 5 carries one with only
+    // Ignore in its menu), and the first mark is not the claim under test.
+    const mark = [...document.querySelectorAll("#doc-editor .cm-finding")].find((m) => m.textContent === "sentance");
     if (!mark) return "no finding mark";
     const r = mark.getBoundingClientRect();
     const word = mark.textContent;

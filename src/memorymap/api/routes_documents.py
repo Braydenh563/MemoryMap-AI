@@ -50,6 +50,7 @@ from memorymap.entry.manager import (
     log_action,
     unlink_document,
 )
+from memorymap.entry.properties import strip as strip_properties
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,9 @@ def _preview(content: str) -> str:
     # Leading markdown syntax only, a `#` inside a sentence stays. The blocks
     # stay apart (`join_blocks`, INBOX 464): a heading is not the first word
     # of the sentence under it.
-    text = join_blocks(content, strip=lambda line: line.lstrip("#>-*+ \t"), limit=PREVIEW_CHARS)
+    text = join_blocks(
+        strip_properties(content), strip=lambda line: line.lstrip("#>-*+ \t"), limit=PREVIEW_CHARS
+    )
     if len(text) <= PREVIEW_CHARS:
         return text
     # Cut at a word boundary, not mid-word. A hard slice ended the first

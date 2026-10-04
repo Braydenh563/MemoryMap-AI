@@ -2448,7 +2448,7 @@ function paletteMatches(query) {
     .slice(0, 5)
     .map((e) => ({
       group: "Notes",
-      label: `ph:file-text ${e.title || e.content.slice(0, 55)}${!e.title && e.content.length > 55 ? "…" : ""}`,
+      label: `ph:file-text ${e.title || stripFrontmatter(e.content).trim().slice(0, 55)}${!e.title && stripFrontmatter(e.content).trim().length > 55 ? "…" : ""}`,
       about: e.category || "",
       entry: e,
       run: () => flashEntry(e.id),

@@ -7289,6 +7289,19 @@ button.connection-row {
      CLAUDE.md's nav-history story) and this bar sits directly over the densest
      text in the app, the note it is formatting. */
   backdrop-filter: blur(8px);
+  /* Never wider than the window. The placement in editor.js clamps the left
+     edge only, so a bar wider than the window ran off its right side (499px
+     in a 390px window, measured); here it wraps onto a second row instead,
+     every action still on screen. */
+  max-width: calc(100vw - 2 * var(--space-2));
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Two rows of round buttons do not fit a pill's ends, so a wrapped bar takes
+   the card's corner (editor.js sets the class, from the buttons' own rows). */
+.selection-bar.is-wrapped {
+  border-radius: var(--radius-lg);
 }
 
 .selection-bar button {

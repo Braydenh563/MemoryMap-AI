@@ -5095,6 +5095,24 @@ function docFrontmatterStrip(text) {
   return String(text).slice(fm.textFrom).replace(/^\n+/, "");
 }
 
+//: A document that says `type: Meeting` is of a note type (GRAPH_PLAN KG4), and
+//: the type's fields it has not written yet are the rows the panel offers
+//: empty. `types` is `GET /note-types` (`[{name, fields: [{name, kind}]}]`),
+//: `null` until it has loaded. Pure, so it runs in node: the type is read from
+//: a scalar `type` only (a list or an empty one names nothing), matched the way
+//: the server matches it (case-insensitively), and a field already written is
+//: skipped by the model's own case-blind key lookup.
+function docFrontmatterTypeFields(fm, types) {
+  const none = { type: null, fields: [] };
+  const entry = fm && docFrontmatterEntry(fm, "type");
+  if (!entry || entry.kind !== "scalar" || !Array.isArray(types)) return none;
+  const wanted = String(entry.value.text || "").trim().toLowerCase();
+  const row = wanted && types.find((t) => t && String(t.name || "").toLowerCase() === wanted);
+  if (!row) return none;
+  const fields = (row.fields || []).filter((f) => f && f.name && !docFrontmatterEntry(fm, f.name));
+  return { type: row.name, fields };
+}
+
 // DOC-FRONTMATTER-END
 
 // -----------------------------------------------------------------------------
@@ -5258,6 +5276,80 @@ function docPropsField(key, value) {
   return input;
 }
 
+//: The note types, for the rows a `type:` offers. Loaded once, the first time a
+//: document with a `type` is drawn (a document with none never asks), and
+//: again on the next draw if the request failed. `null` is "not loaded", which
+//: `docFrontmatterTypeFields` reads as no fields.
+let docNoteTypes = null;
+let docNoteTypesAsked = false;
+function docLoadNoteTypes() {
+  if (docNoteTypes || docNoteTypesAsked) return;
+  docNoteTypesAsked = true;
+  apiJson("/note-types")
+    .then((types) => {
+      docNoteTypes = Array.isArray(types) ? types : [];
+      docPropsDrawn = null;
+      renderDocProperties();
+    })
+    .catch(() => {
+      docNoteTypesAsked = false;
+    });
+}
+
+//: The type's fields the document has not written: one empty row each, with
+//: the control its kind needs (the note's own Properties sheet draws the same
+//: kinds, note-properties.js). Nothing is written until a value is: a row left
+//: empty adds no line to the file. A value goes in through the model's own add,
+//: so the other lines keep their bytes, and the redraw turns the row into an
+//: ordinary one.
+function docPropsTypeRows(host, fm) {
+  if (!docFrontmatterEntry(fm, "type")) return;
+  if (!docNoteTypes) {
+    docLoadNoteTypes();
+    return;
+  }
+  const { type, fields } = docFrontmatterTypeFields(fm, docNoteTypes);
+  for (const field of fields) {
+    const row = document.createElement("div");
+    row.className = "doc-prop-row doc-prop-unset";
+    const key = document.createElement("span");
+    key.className = "doc-prop-key";
+    key.textContent = field.name;
+    key.title = `A field of the ${type} type, not written in this document yet`;
+    const value = document.createElement("div");
+    value.className = "doc-prop-value";
+    const kind = field.kind;
+    const input = document.createElement("input");
+    input.type = kind === "checkbox" ? "checkbox" : kind === "number" ? "number" : kind === "date" ? "date" : "text";
+    input.className = kind === "list" ? "doc-prop-add" : kind === "checkbox" ? "doc-prop-check" : "doc-prop-input";
+    if (kind === "list") input.placeholder = "a, b, c";
+    input.setAttribute("aria-label", `${field.name} (${type})`);
+    input.addEventListener("change", () => {
+      const now = docPropsNow();
+      if (!now) return;
+      let written = "";
+      if (kind === "checkbox") written = input.checked ? "true" : "";
+      else if (kind === "list") {
+        const items = input.value.split(",").map((x) => x.trim()).filter(Boolean);
+        written = items.length ? `[${items.join(", ")}]` : "";
+      } else if (kind === "note") written = input.value.trim() ? `[[${input.value.trim()}]]` : "";
+      else written = input.value.trim();
+      if (!written) return;
+      docPropsDispatch(docFrontmatterAddEdits(now, field.name, written));
+      renderDocProperties(true);
+    });
+    value.appendChild(input);
+    //: The written rows end in a trash button; an unwritten one holds its
+    //: place, so the fields line up down the panel.
+    const spacer = docPropsIconButton("trash", "");
+    spacer.classList.add("doc-prop-spacer");
+    spacer.removeAttribute("aria-label");
+    spacer.removeAttribute("title");
+    row.append(key, value, spacer);
+    host.appendChild(row);
+  }
+}
+
 //: "Add property": a button that becomes the field for the new key's name, so
 //: the panel never carries an empty row waiting to be filled in and there is
 //: no dialog for something that is one word long.
@@ -5357,6 +5449,7 @@ function renderDocProperties(force = false) {
     row.append(key, value, remove);
     host.appendChild(row);
   }
+  docPropsTypeRows(host, fm);
   docPropsAddRow(host);
 }
 
@@ -6575,21 +6668,36 @@ function docLivePlugin(CM) {
     //: more importantly the keyboard (a checkbox is focusable and Space
     //: activates it), raise `click` and no `mousedown` at all. Caught by
     //: measuring, `scratchpad/ui-sweeps/cm-live.js` toggled nothing.
+    //:
+    //: **The box is drawn at the text's size and pressed at the target's.**
+    //: The app's checkbox floor (`--target-min`) sized the box itself, so a
+    //: task in a 24px line drew a 28px square on a desktop and a 44px one on
+    //: a phone, where its line grew to 36px and two tasks' boxes overlapped
+    //: (measured, docphonebar.js). The input is now 1.1em and the span around
+    //: it carries the target: an invisible strip `--target-min` wide and one
+    //: line tall (09-editor.css), so the press area is the floor's width
+    //: without pushing the text, and two task lines' strips meet rather than
+    //: overlap. The listener is on the span: a press on the strip lands
+    //: there, a press on the box bubbles there, and Space on the focused box
+    //: raises the same `click`.
     toDOM(view) {
+      const hit = document.createElement("span");
+      hit.className = "cm-md-task-hit";
       const box = document.createElement("input");
       box.type = "checkbox";
       box.className = "cm-md-task";
       box.checked = this.checked;
       box.setAttribute("aria-label", this.checked ? "Done" : "Not done");
+      hit.appendChild(box);
       const { from, to } = this;
-      box.addEventListener("click", (event) => {
+      hit.addEventListener("click", (event) => {
         event.preventDefault();
         const marker = view.state.doc.sliceString(from, to);
         //: The source is what changes, and the tick follows it on the next
         //: repaint. Writing the two separately is how they come to disagree.
         view.dispatch({ changes: { from, to, insert: /[xX]/.test(marker) ? "[ ]" : "[x]" } });
       });
-      return box;
+      return hit;
     }
   }
 
@@ -11188,7 +11296,17 @@ function noteSurfaceExtensions(CM, host, options) {
   const live = options.live ? [docLiveExtensions(CM), noteGrammarPlugin(CM)] : [];
   host.noteLiveSlot = new CM.state.Compartment();
   host.noteLiveExtensions = live;
+  //: **`box.readOnly = true` from script has to reach the editor** (the Write
+  //: with AI desk sets it while a pass streams into the draft; measured, a
+  //: person could type into the mounted editor throughout, because the flag
+  //: only ever lived on the hidden textarea). A compartment of its own, driven
+  //: by the own `readOnly` accessor `noteSurfaceOwnValue` installs. Script
+  //: writes (`box.value = ...`, the stream itself) still go through: a view's
+  //: `readOnly` only refuses the person's input.
+  host.noteReadOnlyExtensions = (on) => (on ? [CM.state.EditorState.readOnly.of(true), CM.view.EditorView.editable.of(false)] : []);
+  host.noteReadOnlySlot = new CM.state.Compartment();
   return [
+    host.noteReadOnlySlot.of(host.noteReadOnlyExtensions(host.readOnly)),
     //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
     //: `noteGrammarPlugin`).
     host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live),
@@ -11430,6 +11548,21 @@ function noteSurfaceOwnValue(host, view) {
         own.set.call(this, at);
         if (noteSurfaceMirroring) return;
         host.setSelectionRange(this.selectionStart, this.selectionEnd);
+      },
+    });
+  }
+  //: And `box.readOnly`, for the same reason as `value`: the flag is the
+  //: textarea's, the person types into the view.
+  const readOnlyProto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "readOnly");
+  if (readOnlyProto && readOnlyProto.set && host.noteReadOnlySlot) {
+    Object.defineProperty(host, "readOnly", {
+      configurable: true,
+      get() {
+        return readOnlyProto.get.call(this);
+      },
+      set(on) {
+        readOnlyProto.set.call(this, on);
+        view.dispatch({ effects: host.noteReadOnlySlot.reconfigure(host.noteReadOnlyExtensions(Boolean(on))) });
       },
     });
   }
@@ -17814,7 +17947,7 @@ function docCmTheme(CM) {
       //: muted ink, because it is part of the same control.
       ".cm-md-callout-fold": { fontSize: "0.9em", opacity: "0.8" },
       ".cm-md-callout-label [data-doc-callout-fold]": { cursor: "pointer" },
-      ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
+      ".cm-md-task-hit": { marginRight: "0.4em", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
       ".cm-md-image-under": { display: "block", marginTop: "var(--space-2)" },
 

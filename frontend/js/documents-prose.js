@@ -119,14 +119,31 @@ function docGrammarMessage(message) {
     .trim();
 }
 
+//: **A wiki link is this app's syntax, not prose.** Harper reads markdown and
+//: skips code, but `[[Another doc]]` is not markdown to it: "a [[Another
+//: doc]] chip" came back as a redundancy ("Use another on its own") whose
+//: only fix was "aNother", measured in the live view 2026-10-04. A lint that
+//: touches a link or an embed (`![[...]]`) is dropped; one beside it is kept.
+const DOC_GRAMMAR_WIKI = /!?\[\[[^\]\n]+\]\]/g;
+
+function docGrammarOutside(text) {
+  const spans = [];
+  for (const match of String(text).matchAll(DOC_GRAMMAR_WIKI)) {
+    spans.push([match.index, match.index + match[0].length]);
+  }
+  return (lint) => !spans.some(([from, to]) => lint.start < to && lint.end > from);
+}
+
 //: Harper's lints as this app's findings. `replacement` stays null on
 //: purpose: "Fix all" applies without asking, and a grammar suggestion is a
 //: judgement, so it is always offered and never applied in bulk.
 function docGrammarFindings(lints, text) {
   const out = [];
+  const outside = docGrammarOutside(text);
   for (const lint of lints || []) {
     if (DOC_GRAMMAR_SKIP_KINDS.has(lint.kind)) continue;
     if (!(lint.end > lint.start) || lint.end > text.length) continue;
+    if (!outside(lint)) continue;
     const span = text.slice(lint.start, lint.end);
     const alternatives = [];
     for (const suggestion of lint.suggestions || []) {

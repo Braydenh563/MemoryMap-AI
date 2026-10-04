@@ -66,6 +66,7 @@ from datetime import datetime
 from memorymap.ai import model_manager as model_manager_module
 from memorymap.ai import ollama_client as ollama_client_module
 from memorymap.core.database import Entry
+from memorymap.entry.properties import strip as strip_properties
 
 logger = logging.getLogger("memorymap.ai.tensions")
 
@@ -152,7 +153,7 @@ _SYSTEM = (
 
 def _excerpt(text: str) -> str:
     """A single-paragraph excerpt of a note, trimmed for the prompt."""
-    flat = re.sub(r"\s+", " ", (text or "")).strip()
+    flat = re.sub(r"\s+", " ", strip_properties(text or "")).strip()
     if len(flat) <= EXCERPT_CHARS:
         return flat
     return flat[:EXCERPT_CHARS].rsplit(" ", 1)[0] + "…"

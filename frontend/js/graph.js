@@ -1656,8 +1656,27 @@ function graphRenderer() {
 //: the person chose over it, so the legend, the nodes, the minimap and the
 //: local map all agree with the dots in Notes. A colour chosen while the map
 //: is on screen redraws it.
+//:
+//: **A calmer palette** (INBOX 493, the owner: "is there a way to make my
+//: graphed notes look nicer??"). The automatic colours are Tableau's ten then
+//: Set3, each taken to 78% of its saturation at the same hue and lightness,
+//: so five clusters read as five families rather than five signals while
+//: every dot keeps its contrast with the ground (lightness is untouched). A
+//: colour the person chose is drawn as chosen, which is what keeps it the
+//: same as its dot in Notes.
+let graphCalmSchemeCache = null;
+function graphCalmScheme() {
+  if (!graphCalmSchemeCache) {
+    graphCalmSchemeCache = d3.schemeTableau10.concat(d3.schemeSet3).map((hex) => {
+      const c = d3.hsl(hex);
+      c.s *= 0.78;
+      return c.formatHex();
+    });
+  }
+  return graphCalmSchemeCache;
+}
 function graphCategoryScale(categories) {
-  const scale = d3.scaleOrdinal(categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  const scale = d3.scaleOrdinal(categories, graphCalmScheme());
   return (name) => categoryColour(name, scale(name));
 }
 document.addEventListener("categorycolours", () => {
@@ -1740,9 +1759,7 @@ async function renderGraphSvg() {
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = graphCategoryScale(data.categories);
-  const clusterColour = d3.scaleOrdinal(
-    d3.schemeTableau10.concat(d3.schemeSet3)
-  );
+  const clusterColour = d3.scaleOrdinal(graphCalmScheme());
   const colourMode = graphColourMode();
   // The structure is only fetched when something is going to show it. It is a
   // traversal of the whole notebook, and an ordinary look at the map should

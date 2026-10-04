@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Graph: names stand on a plate in the card's colour instead of a white outline over the lines, go to the first of eight places that crosses no line (label-line crossings 43 to 28 on a 60-note map), and the automatic category palette is calmer (78% saturation, same lightness); a chosen colour is unchanged (INBOX 493).
 - Graph: hovering a note fades the map instead of flipping it: the dimming of every other dot and link, the names that leave and arrive, the hovered note's ring and its similarity scores each ease over 180ms (measured, scratchpad/ui-sweeps/graphfade.js: largest single-frame step 1.0 with no frame between, now 0.15 to 0.2 over 7 to 8 frames); reduced motion stays instant.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.

@@ -160,7 +160,40 @@ function measure(page) {
         if (x + r > box.left * k + t.x && x - r < box.right * k + t.x && y + r > box.top * k + t.y && y - r < box.bottom * k + t.y) { labelOnDot += 1; break; }
       }
     }
+    // placed labels drawn over a line (INBOX 493, "labels in white over the
+    // lines"): pairs of a label box and a drawn link (curved ones sampled
+    // along their bow) that passes through it, in world units.
+    const curved = typeof gcCurvedLinks === 'function' && gcCurvedLinks(s) && !s.tree;
+    const segHits = (box, ax, ay, bx, by) => {
+      // Liang-Barsky clip of the segment against the box.
+      let t0 = 0, t1 = 1;
+      const dx = bx - ax, dy = by - ay;
+      for (const [p, q] of [[-dx, ax - box.left], [dx, box.right - ax], [-dy, ay - box.top], [dy, box.bottom - ay]]) {
+        if (p === 0) { if (q < 0) return false; continue; }
+        const r = q / p;
+        if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
+      }
+      return true;
+    };
+    let labelOverEdge = 0;
+    const crossed = new Set();
+    const drawnEdges = s.edges.filter((e) => e.source && e.target && Number.isFinite(e.source.x));
+    for (const box of boxes) {
+      for (const e of drawnEdges) {
+        const a = e.source, b = e.target;
+        const pts = [];
+        if (curved) {
+          const c = gcBowPoint(a, b);
+          for (let i = 0; i <= 12; i++) { const u = i / 12; pts.push([(1 - u) ** 2 * a.x + 2 * (1 - u) * u * c.x + u * u * b.x, (1 - u) ** 2 * a.y + 2 * (1 - u) * u * c.y + u * u * b.y]); }
+        } else pts.push([a.x, a.y], [b.x, b.y]);
+        let hit = false;
+        for (let i = 1; i < pts.length && !hit; i++) hit = segHits(box, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+        if (hit) labelOverEdge += 1;
+        if (hit) crossed.add(box.id);
+      }
+    }
     return {
+      labelOverEdge, labelsOnALine: crossed.size,
       purity: +(same / total).toFixed(2), cohesion: +cohesion.toFixed(2), labelOnDot, nnLinked, isoGap: +isoGap.toFixed(2),
       n: nodes.length, iso: iso.length, edges: segs.length, k: +k.toFixed(2),
       overlap, labelOver, labelsPlaced: boxes.length, truncated,
@@ -195,7 +228,7 @@ function measure(page) {
     await page.screenshot({ path: `${OUT}/graphlook-${theme}.png` });
     const row = {
       nodes: m.n, isolated: m.iso, links: m.edges, fitK: m.k,
-      purity: m.purity, cohesion: m.cohesion, labelOnDot: m.labelOnDot, dotOverlap: m.overlap, labelOverlap: m.labelOver, labelsPlaced: m.labelsPlaced, labelsTruncated: m.truncated,
+      purity: m.purity, cohesion: m.cohesion, labelOverEdge: m.labelOverEdge, labelsOnALine: m.labelsOnALine, labelOnDot: m.labelOnDot, dotOverlap: m.overlap, labelOverlap: m.labelOver, labelsPlaced: m.labelsPlaced, labelsTruncated: m.truncated,
       crossings: m.crossings, fillArea: m.fillArea, fillAxis: m.fillAxis,
       isoDistRatio: m.isoRatio, isoMaxRatio: m.isoMax,
       edgeMean: m.edgeMean, edgeCV: +e.cv.toFixed(2), nnCV: +nn.cv.toFixed(2), nnLinkedCV: +nl.cv.toFixed(2), isoGap: m.isoGap, radiusCV: +r.cv.toFixed(2),

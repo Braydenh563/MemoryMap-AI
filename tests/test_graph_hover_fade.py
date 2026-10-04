@@ -49,7 +49,7 @@ def _run(body: str) -> dict:
             "let gcTokens = { font: 'x', card: '#fff', ink: '#000' };",
             "const drawn = [];",
             "const ctx = { set globalAlpha(v) { this.a = v; }, get globalAlpha() { return this.a; },",
-            "  strokeText() {}, fillText(text) { drawn.push([text, +this.a.toFixed(3)]); } };",
+            "  beginPath() {}, roundRect() {}, fill() {}, fillText(text) { drawn.push([text, +this.a.toFixed(3)]); } };",
             body,
         ]
     )

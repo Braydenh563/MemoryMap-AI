@@ -411,7 +411,7 @@ function gcSimilarityBand(score, lo, hi) {
 //: map that is clickable. Measured before: 13 of 18 placed labels sat on a
 //: dot. The dots go into a grid so a big map costs a few cell reads per
 //: label rather than a scan of every note.
-function gcPlaceLabels(items, discs) {
+function gcPlaceLabels(items, discs, lineCount = null) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -460,29 +460,157 @@ function gcPlaceLabels(items, discs) {
     return false;
   };
   const placed = [];
+  //: **A name never sits on a line when it has anywhere else to go** (INBOX
+  //: 493, the owner's screenshot: "labels in white over the lines"). Of its
+  //: places (built in `gcDraw`) that are free of every placed label and
+  //: every other dot, the first that crosses no line wins; with none, the
+  //: one crossing the fewest, earlier places breaking a tie. Without a line
+  //: count that is the first free place, the rule this always had. The box
+  //: moves there whole, so `labelBoxes` still says exactly where the text
+  //: is, and the plate it is drawn on (`gcDrawLabels`) hides any line left
+  //: beneath it.
+  const best = (spots, ok) => {
+    let pick = null;
+    let fewest = Infinity;
+    for (const spot of spots) {
+      if (!ok(spot)) continue;
+      //: Past six lines a place is simply crowded; counting on would only
+      //: rank two bad places, at a cost every frame.
+      const lines = lineCount ? lineCount(spot, Math.min(fewest, 6)) : 0;
+      if (lines === 0) return spot;
+      if (lines < fewest) {
+        fewest = lines;
+        pick = spot;
+      }
+    }
+    return pick;
+  };
   for (const box of items) {
+    const spots = [box, ...(box.alts || []).map((spot) => ({ ...box, ...spot, alts: undefined }))];
     if (box.force) {
-      placed.push(box);
+      //: Asked for by name: drawn whatever it lands on, at the clearest
+      //: place that covers no label and no dot if there is one.
+      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || box);
       continue;
     }
     const covers = box.landmark ? () => false : coversDisc;
-    if (!clashes(box) && !covers(box)) {
-      placed.push(box);
-      continue;
-    }
-    //: The label's other places, in order (built in `gcDraw`); the first one
-    //: free of every placed label and every other dot wins, and the box moves
-    //: there whole, so `labelBoxes` still says exactly where the text is.
-    for (const spot of box.alts || []) {
-      const moved = { ...box, ...spot, alts: undefined };
-      if (!clashes(moved) && !covers(moved)) {
-        placed.push(moved);
-        break;
-      }
-    }
+    const pick = best(spots, (spot) => !clashes(spot) && !covers(spot));
+    if (pick) placed.push(pick);
   }
   return placed;
 }
+//: **The drawn links as a grid of short segments**, for `gcPlaceLabels` to
+//: ask whether a name would sit on one. World units, so a zoom keeps it; it
+//: is rebuilt only when a position, the link set or the curve switch moved
+//: (the signature is one pass of additions over the dots, far cheaper than
+//: the rebuild it saves on every hover frame of a settled map). A curved
+//: link is cut into eight chords of its bow, a long straight one into
+//: pieces no longer than a cell, and each piece is filed under the cells its
+//: box touches.
+const GC_LINE_CELL = 48;
+
+function gcLineGrid(s, curved) {
+  let sig = s.nodes.length * 7 + s.edges.length * 13 + (curved ? 1 : 0) + (s.timeCutoff || 0);
+  for (const node of s.nodes) if (Number.isFinite(node.x)) sig += node.x * 1.618 + node.y;
+  if (s.lineGrid && s.lineGrid.sig === sig) return s.lineGrid;
+  const cells = new Map();
+  const file = (ax, ay, bx, by) => {
+    const x0 = Math.floor(Math.min(ax, bx) / GC_LINE_CELL);
+    const x1 = Math.floor(Math.max(ax, bx) / GC_LINE_CELL);
+    const y0 = Math.floor(Math.min(ay, by) / GC_LINE_CELL);
+    const y1 = Math.floor(Math.max(ay, by) / GC_LINE_CELL);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = cx * 100003 + cy;
+        let list = cells.get(key);
+        if (!list) cells.set(key, (list = []));
+        list.push(ax, ay, bx, by);
+      }
+    }
+  };
+  for (const edge of s.edges) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    if (!gcVisibleAtTime(a, s) || !gcVisibleAtTime(b, s)) continue;
+    let px = a.x;
+    let py = a.y;
+    if (curved) {
+      const c = gcBowPoint(a, b);
+      for (let i = 1; i <= 8; i++) {
+        const u = i / 8;
+        const x = (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * c.x + u * u * b.x;
+        const y = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * c.y + u * u * b.y;
+        file(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    } else {
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / GC_LINE_CELL));
+      for (let i = 1; i <= n; i++) {
+        const x = a.x + ((b.x - a.x) * i) / n;
+        const y = a.y + ((b.y - a.y) * i) / n;
+        file(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    }
+  }
+  s.lineGrid = { sig, cells };
+  return s.lineGrid;
+}
+
+//: How many filed segments pass through the box (a Liang-Barsky clip,
+//: written out so a frame of a few hundred labels allocates nothing),
+//: counting no further than `limit`: the caller only wants to know whether a
+//: place beats the best one so far. A segment filed under two cells the box
+//: spans counts once per cell, which only makes a crowded place look more so.
+function gcClipEdge(p, q, t) {
+  if (p === 0) return q >= 0;
+  const r = q / p;
+  if (p < 0) {
+    if (r > t[1]) return false;
+    if (r > t[0]) t[0] = r;
+  } else {
+    if (r < t[0]) return false;
+    if (r < t[1]) t[1] = r;
+  }
+  return true;
+}
+const gcClipT = [0, 1];
+function gcBoxLineCount(grid, box, limit = Infinity) {
+  let count = 0;
+  const x0 = Math.floor(box.left / GC_LINE_CELL);
+  const x1 = Math.floor(box.right / GC_LINE_CELL);
+  const y0 = Math.floor(box.top / GC_LINE_CELL);
+  const y1 = Math.floor(box.bottom / GC_LINE_CELL);
+  const t = gcClipT;
+  for (let cx = x0; cx <= x1; cx++) {
+    for (let cy = y0; cy <= y1; cy++) {
+      const list = grid.cells.get(cx * 100003 + cy);
+      if (!list) continue;
+      for (let i = 0; i < list.length; i += 4) {
+        const ax = list[i];
+        const ay = list[i + 1];
+        const dx = list[i + 2] - ax;
+        const dy = list[i + 3] - ay;
+        t[0] = 0;
+        t[1] = 1;
+        if (
+          gcClipEdge(-dx, ax - box.left, t) &&
+          gcClipEdge(dx, box.right - ax, t) &&
+          gcClipEdge(-dy, ay - box.top, t) &&
+          gcClipEdge(dy, box.bottom - ay, t)
+        ) {
+          count += 1;
+          if (count >= limit) return count;
+        }
+      }
+    }
+  }
+  return count;
+}
+
 //: Where a score pill goes on a line from the note in focus (`a`) to one of
 //: its matches (`b`): the first spot along the line, nearer the match than
 //: the middle so the number reads as belonging to that note, where the pill
@@ -1491,6 +1619,13 @@ function gcDraw(s = gcTab) {
             { x: node.x, y: node.y - r - 13 / k, align: "center" },
             { x: node.x + r + 6 / k, y: node.y, align: "left" },
             { x: node.x - r - 6 / k, y: node.y, align: "right" },
+            //: The four corners (INBOX 493), off the dot's diagonal: a hub's
+            //: lines leave it in every direction, and between two of them is
+            //: often the only place its name can stand clear of all of them.
+            { x: node.x + r * 0.72 + 3 / k, y: node.y + r * 0.72 + 9 / k, align: "left" },
+            { x: node.x - r * 0.72 - 3 / k, y: node.y + r * 0.72 + 9 / k, align: "right" },
+            { x: node.x + r * 0.72 + 3 / k, y: node.y - r * 0.72 - 9 / k, align: "left" },
+            { x: node.x - r * 0.72 - 3 / k, y: node.y - r * 0.72 - 9 / k, align: "right" },
           ].map((spot) => {
             const l = spot.align === "center" ? spot.x - width / 2 : spot.align === "left" ? spot.x : spot.x - width;
             return { ...spot, left: l - padX, right: l + width + padX, top: spot.y - half, bottom: spot.y + half };
@@ -1525,7 +1660,12 @@ function gcDraw(s = gcTab) {
     }));
     // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
     // label stays legible over an edge or another node.
-    const placed = gcPlaceLabels(items, discs);
+    //: Not while the layout is still moving (or a dot is being dragged):
+    //: every position would change the grid each frame, at 1.5ms a build on
+    //: 1,100 links, for names that are moving anyway. The names step to
+    //: their clear places when it settles, cross-fading (`gcDrawLabels`).
+    const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null);
     placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
@@ -1647,7 +1787,14 @@ function gcDrawLabels(ctx, s, placed, fadeStep, k) {
       s.labelGhosts.push({ node, spot: node._labelSpot, a: node._labelA });
       node._labelA = 0;
     }
-    node._labelSpot = { key, dx: item.x - node.x, dy, align: item.align, text: item.text };
+    node._labelSpot = {
+      key,
+      dx: item.x - node.x,
+      dy,
+      align: item.align,
+      text: item.text,
+      box: { l: item.left - node.x, t: item.top - node.y, w: item.right - item.left, h: item.bottom - item.top },
+    };
     node._labelA = gcFadeToward(node._labelA || 0, 1, fadeStep);
     if (node._labelA < 1) fading = true;
     next.set(node.id, node);
@@ -1673,19 +1820,31 @@ function gcDrawLabels(ctx, s, placed, fadeStep, k) {
   if (!draws.length && !leaving.length) return fading;
   ctx.font = `500 ${12 / k}px ${gcTokens.font}`;
   ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 3 / k;
-  ctx.strokeStyle = gcTokens.card;
-  ctx.fillStyle = gcTokens.ink;
-  // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
-  // label stays legible over an edge or another node. The ones leaving go
-  // down first, under the ones arriving.
+  //: **A name stands on a plate, not a halo** (INBOX 493: "labels in white
+  //: over the lines"). The 3px card-coloured stroke around each glyph left
+  //: every line that ran under a name showing between the letters, chopped
+  //: into a white outline of the word. The plate is the label's own box in
+  //: the card's colour, nearly opaque and rounded, so a line that has to run
+  //: under a name (one with no clear place, see `gcPlaceLabels`) stops at the
+  //: plate's edge and the word reads on a clean ground. On the map's own
+  //: ground the plate is the ground, so it is invisible except where it is
+  //: doing that job. The ones leaving go down first, under the ones arriving.
+  const radius = 4 / k;
   for (const draw of leaving.concat(draws)) {
     const x = draw.x ?? draw.node.x + draw.spot.dx;
     const y = draw.y ?? draw.node.y + draw.spot.dy;
-    ctx.globalAlpha = gcSmooth(draw.a);
+    const box = draw.spot.box;
+    const a = gcSmooth(draw.a);
+    if (box) {
+      ctx.globalAlpha = 0.88 * a;
+      ctx.fillStyle = gcTokens.card;
+      ctx.beginPath();
+      ctx.roundRect(x - draw.spot.dx + box.l, y - draw.spot.dy + box.t, box.w, box.h, radius);
+      ctx.fill();
+    }
+    ctx.globalAlpha = a;
+    ctx.fillStyle = gcTokens.ink;
     ctx.textAlign = draw.spot.align;
-    ctx.strokeText(draw.spot.text, x, y);
     ctx.fillText(draw.spot.text, x, y);
   }
   ctx.globalAlpha = 1;
@@ -2977,7 +3136,7 @@ async function renderGraphCanvas(s = gcTab) {
   graphMinimapShown(data.nodes.length > 0);
 
   const colour = graphCategoryScale(data.categories);
-  const clusterColour = d3.scaleOrdinal(d3.schemeTableau10.concat(d3.schemeSet3));
+  const clusterColour = d3.scaleOrdinal(graphCalmScheme());
   const colourMode = graphColourMode();
   graphStructure =
     colourMode === "cluster" ? await apiJson("/graph/structure").catch(() => null) : null;
@@ -3236,7 +3395,7 @@ function gcRuleDomain(rule, data) {
 function gcRuleScale(rule, data) {
   if (rule === "age") return d3.scaleOrdinal(GC_AGE_BUCKETS, ["#2f80ed", "#56a3f5", "#8ec2f7", "#c3dcf7", "#9aa1ad"]);
   if (rule === "file") return d3.scaleOrdinal(["Has a file", "No file"], ["#17bebb", "#9aa1ad"]);
-  return d3.scaleOrdinal(gcRuleDomain(rule, data), d3.schemeTableau10.concat(d3.schemeSet3));
+  return d3.scaleOrdinal(gcRuleDomain(rule, data), graphCalmScheme());
 }
 
 function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour = null, groups = [], s = gcTab) {

@@ -160,3 +160,25 @@ def test_a_name_is_cut_at_a_word_and_never_on_a_small_one(text, limit, expected)
     assert clip and words and cut
     script = "\n".join([clip.group(0), words.group(0), cut.group(0), f"process.stdout.write(gcLabelCut({json.dumps(text)}, {limit}));"])
     assert subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout == expected
+
+
+def test_names_stand_on_a_plate_and_the_palette_is_calmer():
+    """INBOX 493, the owner: "is there a way to make my graphed notes look
+    nicer??" with labels in white over the lines. Measured with
+    `scratchpad/ui-sweeps/graphlook.js` (labelOverEdge, labelsOnALine)."""
+    canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
+    draw = canvas[canvas.index("function gcDrawLabels") :]
+    draw = draw[: draw.index("\n}\n")]
+    # A plate in the card's colour under each name, not a stroked halo
+    # around each glyph (which left the lines showing between the letters).
+    assert "ctx.roundRect(" in draw and "ctx.fillStyle = gcTokens.card;" in draw
+    assert "strokeText" not in draw
+    # The placement is told where the lines are, except while the layout moves.
+    assert "gcPlaceLabels(items, discs, lines ?" in canvas
+    assert "s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks)" in canvas
+    # Every automatic palette on the map is the calmed one; a chosen colour is not.
+    graph = (JS / "graph.js").read_text(encoding="utf-8")
+    assert "c.s *= 0.78;" in graph
+    assert "d3.schemeTableau10.concat(d3.schemeSet3)" not in canvas
+    assert graph.count("d3.schemeTableau10.concat(d3.schemeSet3)") == 1  # inside graphCalmScheme
+    assert "return (name) => categoryColour(name, scale(name));" in graph

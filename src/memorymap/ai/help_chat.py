@@ -959,6 +959,7 @@ HELP_TOPICS.extend(
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
                 "board overview", "find a card", "tool", "text in a shape", "label a shape",
                 "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
+                "present", "presentation", "slides", "slideshow",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
@@ -985,7 +986,8 @@ HELP_TOPICS.extend(
                 "it, and select a connector and press Enter to label it. A frame's "
                 "title drags it and what is inside it (Ctrl: the frame alone). "
                 "Ctrl+Shift+L locks the selection (clicks pass through it); Unlock is "
-                "on the board's right-click menu. The top bar's menus: Insert, Edit, Arrange (align, distribute "
+                "on the board's right-click menu. View, Present frames: one frame "
+                "at a time. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
                 "dots or isometric, snap to grid, fit, 100%, full screen) and "
                 "Board (rename, new, export as PNG, SVG, PDF, the image library or "

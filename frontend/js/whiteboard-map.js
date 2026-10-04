@@ -4921,7 +4921,9 @@ function wbSyncConnectWords(isMap) {
 }
 
 function wbSyncToolSurfaces(isMap) {
-  for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface]")) {
+  //: And the top bar's rows that only a board has (Insert, Frame; View,
+  //: Present frames): a map has no frames (decisions 14 and 16).
+  for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface], .wb-board-menu [data-wb-surface]")) {
     section.hidden = section.dataset.wbSurface === (isMap ? "board" : "map");
   }
   wbSyncConnectWords(isMap);

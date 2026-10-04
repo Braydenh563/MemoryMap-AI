@@ -82,6 +82,39 @@
   outline-offset: 2px;
 }
 
+/* Presenting the frames (WHITEBOARD_PLAN decision 16): every control but
+   the presentation's own bar steps aside, and the board is a view. */
+#library-view-whiteboard.wb-presenting .wb-topbar,
+#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(#wb-present-bar),
+#library-view-whiteboard.wb-presenting .wb-context,
+#library-view-whiteboard.wb-presenting .wb-map-strip,
+#library-view-whiteboard.wb-presenting .wb-navigator,
+#library-view-whiteboard.wb-presenting .wb-tools-opener {
+  display: none;
+}
+
+#library-view-whiteboard.wb-presenting #wb-html-layer,
+#library-view-whiteboard.wb-presenting #wb-svg-layer {
+  pointer-events: none;
+}
+
+.wb-present-bar {
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--space-4));
+}
+
+.wb-present-count {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 /* A locked item (WHITEBOARD_PLAN decision 15) lets the pointer through, all
    of it: a sketch's hit path and a frame's title set their own
    `pointer-events`, so the children are named too, and the id keeps this

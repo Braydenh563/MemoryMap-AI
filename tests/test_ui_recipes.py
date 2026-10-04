@@ -3844,6 +3844,26 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     assert "Unlock ${locked} locked item" in wb
 
 
+def test_presenting_is_one_mode_with_one_bar() -> None:
+    """WHITEBOARD_PLAN decision 16 (DESIGN.md's presentation row): the View
+    menu's row starts it, board only; one host class hides the chrome and
+    makes the board a view; the keys are taken on the window in the capture
+    phase so no board key acts; the bar's text is a polite live region."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert 'data-wb-fn="present" data-wb-surface="board"' in index
+    assert 'if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }' in wb
+    assert 'id="wb-present-count" class="wb-present-count" aria-live="polite"' in index
+    assert "#library-view-whiteboard.wb-presenting .wb-topbar," in css
+    assert "#library-view-whiteboard.wb-presenting #wb-html-layer," in css
+    keys = wb[wb.index("let wbPresent = null;") :]
+    assert "event.stopImmediatePropagation();" in keys and "}, true);" in keys
+    assert ".wb-board-menu [data-wb-surface]" in (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Present frames: one frame" in guide
+
+
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
     the width was in the rows (the group labels sit above them and are all

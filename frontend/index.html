@@ -5659,6 +5659,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><span>Zoom in · out</span><kbd>Ctrl+= · Ctrl+-</kbd></li>
                 <li><span>100% · fit everything</span><kbd>Ctrl+0 · Shift+1</kbd></li>
                 <li><span>Overview · Find</span><kbd>Shift+N · Ctrl+F</kbd></li>
+                <li><span>Present frames (View) · next · end</span><kbd>arrows · Esc</kbd></li>
                 <li><span>Cancel a drag · back to Select</span><kbd>Esc</kbd></li>
                 <li><span>Text box · canvas menu</span><kbd>double-click · right-click</kbd></li>
               </ul>
@@ -5753,7 +5754,7 @@ Link to another note with [[its first few words]]."></textarea>
               <span class="wb-panel-group-label">Add</span>
               <button type="button" class="wb-menu-item" data-wb-insert="sticky"><i class="ph ph-note ph-lead" aria-hidden="true"></i><span>Sticky note</span><kbd>click</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-insert="text"><i class="ph ph-text-t ph-lead" aria-hidden="true"></i><span>Text box</span><kbd>T</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-insert="frame"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Frame</span><kbd>F</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="frame" data-wb-surface="board"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Frame</span><kbd>F</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
             </div>
@@ -5883,6 +5884,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span><kbd>Shift+1</kbd></button>
               <button type="button" class="wb-menu-item" id="wb-zoom-actual"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Zoom to 100%</span><kbd>Ctrl+0</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-fn="present" data-wb-surface="board" title="Show the board's frames one at a time, full screen"><i class="ph ph-presentation ph-lead" aria-hidden="true"></i><span>Present frames</span><kbd>arrows · Esc</kbd></button>
             </div>
           </div>
           <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
@@ -6297,6 +6299,15 @@ Link to another note with [[its first few words]]."></textarea>
     <!-- Zoom only. Search, overview, full screen and help moved up into the
          top bar with the other board-level actions, so this cluster is four
          controls wide and the centred tool dock has room to clear it. -->
+    <!-- Presenting the board's frames (WHITEBOARD_PLAN decision 16): the one
+         control left while the rest of the chrome is hidden. -->
+    <div id="wb-present-bar" class="whiteboard-floating-panel wb-present-bar card glass hidden" role="toolbar" aria-label="Presentation">
+      <button type="button" id="wb-present-prev" class="ghost small icon-only" title="Previous frame (Left arrow)" aria-label="Previous frame"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+      <span id="wb-present-count" class="wb-present-count" aria-live="polite"></span>
+      <button type="button" id="wb-present-next" class="ghost small icon-only" title="Next frame (Right arrow or Space)" aria-label="Next frame"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      <button type="button" id="wb-present-end" class="ghost small icon-only" title="End the presentation (Esc)" aria-label="End the presentation"><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+
     <div class="whiteboard-floating-panel bottom-right card glass" data-panel-id="zoom">
       <button id="wb-zoom-out" class="ghost small icon-only" title="Zoom out (Ctrl+-)" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
       <button id="wb-zoom-fit" class="ghost small icon-only" title="Fit to screen (Shift+1)" aria-label="Fit to screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>

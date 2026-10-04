@@ -213,6 +213,17 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    card's flag is a column (`whiteboard_nodes.locked`, migration
    `e5a1c8f3b7d2`); a sketch's and an object's are in their data. Not on
    maps. No lock mark is drawn.
+16. **Presentation steps through the frames** (taken 2026-10-04, the open
+   "presentation mode" row, under standing order 3; tldraw's and Miro's
+   shape, now that decision 14 gives a board its slides). View, Present
+   frames: full screen, every control hidden but one bar at the foot
+   (Previous, "2 of 5: title", Next, End), the frames in reading order
+   (rows from the top, left to right), each fitted with its title above the
+   bar's strip. Arrows, Space, Page Up and Down, Home and End walk; Escape
+   ends and restores the camera and the window. A view: no key or press
+   edits the board while it runs. No frames: a toast says to add one. Not
+   on maps (MINDMAP_PLAN 12.2 item 9 is the map's own, by branch). Speaker
+   notes, transitions and a presenter view are not in this decision.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

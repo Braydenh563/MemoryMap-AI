@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (presenting a board's frames)
+
+### From WHITEBOARD_PLAN.md, the open "presentation mode" row (decision 16)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Present frames (`wbStartPresenting`, `wbPresentShow`, `wbStopPresenting`, `wbFramesInOrder`): full screen, `.wb-presenting` hides the chrome and makes the board a view, `#wb-present-bar` (Previous, count, Next, End), keys on the window in capture; board only (the top bar's `data-wb-surface` rows now follow the map switch too) | no way to show a board a part at a time | three frames walked in reading order by arrows, Space, Home, End and the bar; each frame 70 to 90% of the screen, clear of the bar; a tool letter and Delete do nothing; Escape restores camera (to the pixel), window and chrome; no frames: a toast; a map shows neither Present frames nor Frame | `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark; count text 17.07:1 light, 14.01:1 dark; `test_ui_recipes.py::test_presenting_is_one_mode_with_one_bar` |
+
+Help moved with it: the Guide's whiteboard-keys topic, the board help sheet's
+Move around list, DESIGN.md's recipe row. Not built: speaker notes,
+transitions, a presenter view; the map's own presentation by branch
+(MINDMAP_PLAN 12.2 item 9) is still open.
+
 ## Moved from the plans, 2026-10-04 (board lock)
 
 ### From WHITEBOARD_PLAN.md, the open "lock" row (decision 15)

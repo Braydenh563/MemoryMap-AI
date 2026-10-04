@@ -9524,6 +9524,7 @@ async function initWhiteboard() {
     e.stopPropagation();
     closeAllWbMenus();
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
+    if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }
     if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
   });
   //: **A board can change its mind.** Reported: "when I press the boards
@@ -16094,4 +16095,141 @@ document.addEventListener("keydown", (event) => {
   if (!host || !host.classList.contains("wb-fullscreen")) return;
   if (document.querySelector(".modal-overlay:not(.hidden), .lightbox")) return;
   toggleWhiteboardFullscreen(false);
+});
+
+//: --- Presenting a board's frames (WHITEBOARD_PLAN decision 16) -------------
+//:
+//: tldraw's and Miro's shape: the frames are the slides. View, Present frames
+//: fills the window with the board, hides every control but one small bar, and
+//: shows the frames one at a time in reading order (rows from the top, left to
+//: right in a row: the Tab walk's order), each zoomed to fill the screen with
+//: its title. The arrow keys, Space, Page Up and Page Down, Home and End walk;
+//: Escape or the bar's X ends it and puts the board back as it was. It is a
+//: view: no key edits the board while it runs. A board with no frame says how
+//: to make one rather than presenting nothing.
+
+let wbPresent = null;
+
+//: Rows first: two frames whose tops are closer than half the shorter one's
+//: height sit in one row, read left to right; rows are read top to bottom.
+function wbFramesInOrder() {
+  const frames = (wbState.objects || []).filter((o) => o.kind === "frame").sort((a, b) => a.y - b.y);
+  const rows = [];
+  for (const frame of frames) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(frame.y - row[0].y) < Math.min(frame.height, row[0].height) / 2) row.push(frame);
+    else rows.push([frame]);
+  }
+  return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+}
+
+function wbStartPresenting() {
+  if (wbIsMap()) return;
+  const frames = wbFramesInOrder();
+  if (!frames.length) {
+    toast("Add a frame first (F): each frame is one step of the presentation.");
+    return;
+  }
+  const host = document.getElementById("library-view-whiteboard");
+  const container = document.getElementById("whiteboard-container");
+  if (!host || !container) return;
+  clearWbSelection();
+  wbPresent = {
+    ids: frames.map((f) => f.id),
+    at: 0,
+    wasFull: host.classList.contains("wb-fullscreen"),
+    camera: d3.zoomTransform(container),
+    focus: document.activeElement,
+  };
+  toggleWhiteboardFullscreen(true);
+  host.classList.add("wb-presenting");
+  document.getElementById("wb-present-bar")?.classList.remove("hidden");
+  //: After the chrome has gone, so the frame is fitted to the room it has.
+  requestAnimationFrame(() => {
+    wbPresentShow(0);
+    document.getElementById("wb-present-next")?.focus({ preventScroll: true });
+  });
+}
+
+function wbPresentShow(index) {
+  if (!wbPresent) return;
+  const ids = wbPresent.ids.filter((id) => (wbState.objects || []).some((o) => o.id === id));
+  if (!ids.length) {
+    wbStopPresenting();
+    return;
+  }
+  wbPresent.ids = ids;
+  const at = Math.max(0, Math.min(ids.length - 1, index));
+  wbPresent.at = at;
+  const frame = wbState.objects.find((o) => o.id === ids[at]);
+  const container = document.getElementById("whiteboard-container");
+  const rect = container.getBoundingClientRect();
+  //: The title sits above the frame, so the box shown takes it in.
+  const title = 28;
+  const pad = Math.min(48, rect.width * 0.05);
+  //: And the bar keeps its own strip at the foot, so it never sits on the frame.
+  const bar = document.getElementById("wb-present-bar");
+  const foot = bar ? bar.offsetHeight + 16 : 0;
+  const w = frame.width, h = frame.height + title;
+  const room = rect.height - pad * 2 - foot;
+  const k = Math.max(0.1, Math.min(4, (rect.width - pad * 2) / w, room / h));
+  const cx = frame.x + w / 2, cy = frame.y - title + h / 2;
+  const target = d3.zoomIdentity.translate(rect.width / 2 - k * cx, pad + room / 2 - k * cy).scale(k);
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const sel = d3.select(container);
+  (reduce ? sel : sel.transition().duration(320)).call(wbZoom.transform, target);
+  const count = document.getElementById("wb-present-count");
+  if (count) count.textContent = `${at + 1} of ${ids.length}: ${wbFrameTitle(frame)}`;
+  const prev = document.getElementById("wb-present-prev");
+  const next = document.getElementById("wb-present-next");
+  if (prev) prev.disabled = at === 0;
+  if (next) next.disabled = at === ids.length - 1;
+}
+
+function wbStopPresenting() {
+  if (!wbPresent) return;
+  const { wasFull, camera, focus } = wbPresent;
+  wbPresent = null;
+  document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
+  document.getElementById("wb-present-bar")?.classList.add("hidden");
+  if (!wasFull) toggleWhiteboardFullscreen(false);
+  //: Back to where the board was looked at from before.
+  const container = document.getElementById("whiteboard-container");
+  if (container && camera) d3.select(container).call(wbZoom.transform, camera);
+  (focus && document.contains(focus) ? focus : container)?.focus?.({ preventScroll: true });
+}
+
+//: While it runs the keys are the presentation's, ahead of the board's own
+//: (capture, on the window): an arrow walks the slides rather than nudging,
+//: and a tool letter does nothing at all rather than changing a hidden tool.
+window.addEventListener("keydown", (event) => {
+  if (!wbPresent) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const step = {
+    ArrowRight: 1, ArrowDown: 1, PageDown: 1, " ": 1, Enter: 1,
+    ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
+  }[event.key];
+  if (event.key === "Tab") return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  //: Enter and Space on a focused bar button press that button, here rather
+  //: than by the browser: the board's own Space (pan) would cancel it.
+  const button = (event.key === "Enter" || event.key === " ") && event.target.closest?.("#wb-present-bar button");
+  if (button) {
+    if (!button.disabled) button.click();
+    return;
+  }
+  if (event.key === "Escape") wbStopPresenting();
+  else if (event.key === "Home") wbPresentShow(0);
+  else if (event.key === "End") wbPresentShow(wbPresent.ids.length - 1);
+  else if (step) wbPresentShow(wbPresent.at + step);
+}, true);
+
+//: The bar's three, by delegation: the script can run before the bar is parsed.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("#wb-present-bar button");
+  if (!button || !wbPresent) return;
+  if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
+  else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
+  else if (button.id === "wb-present-end") wbStopPresenting();
 });

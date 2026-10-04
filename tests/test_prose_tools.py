@@ -442,3 +442,53 @@ def test_a_document_survives_the_trip_through_word(tmp_path) -> None:
     assert "<w:ins " in xml and "<w:delText" in xml and "{++" not in xml
     unsafe = docexport.to_docx("T", "[x](javascript:alert(1))")
     assert b"javascript" not in zipfile.ZipFile(__import__("io").BytesIO(unsafe)).read("word/_rels/document.xml.rels")
+
+
+def test_a_grammar_lint_on_a_wiki_link_is_dropped(tmp_path) -> None:
+    """Harper reads markdown and skips code, but `[[Another doc]]` is this
+    app's syntax, not markdown: "a [[Another doc]] chip" came back as a
+    redundancy ("Use another on its own") whose only fix was "aNother",
+    measured in the live view on 2026-10-04 (`cm-live.js`'s fixture). A lint
+    that touches a link or an embed is dropped; one beside it is kept. Run in
+    node on the page's own `docGrammarFindings`, through the real worker so
+    the lint is the one Harper really returns."""
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    text = "A link to a [[Another doc]] chip and ![[Some picture.png]] here.\n\nThe the search index moved.\n"
+    script = tmp_path / "harper.mjs"
+    script.write_text(HARPER_DRIVER, encoding="utf-8")
+    out = subprocess.run(
+        [node, str(script), (FRONTEND / "js" / "harper-worker.js").as_uri(), text],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert out.returncode == 0, out.stderr
+    lints = json.loads(out.stdout)[0]["lints"]
+    #: The premise: Harper itself does flag the link, so the filter is what
+    #: removes it (were Harper ever to stop, this test says so rather than
+    #: passing on nothing).
+    assert any("[[" in text[lint["start"] : lint["end"]] for lint in lints), lints
+    src = "\n".join(
+        DOCUMENTS[DOCUMENTS.index(start) : DOCUMENTS.index(end, DOCUMENTS.index(start)) + len(end)]
+        for start, end in (
+            ("const DOC_GRAMMAR_SKIP_KINDS", ";\n"),
+            ("const DOC_GRAMMAR_DASH", ";\n"),
+            ("function docGrammarMessage(", "\n}\n"),
+            ("const DOC_GRAMMAR_WIKI", ";\n"),
+            ("function docGrammarOutside(", "\n}\n"),
+            ("function docGrammarFindings(", "\n}\n"),
+        )
+    )
+    runner = tmp_path / "findings.js"
+    runner.write_text(
+        src + "\nconst lints = JSON.parse(process.argv[2]);\n"
+        "process.stdout.write(JSON.stringify(docGrammarFindings(lints, process.argv[3])));\n",
+        encoding="utf-8",
+    )
+    found = subprocess.run(
+        [node, str(runner), json.dumps(lints), text], capture_output=True, text=True, timeout=60, check=False
+    )
+    assert found.returncode == 0, found.stderr
+    findings = json.loads(found.stdout)
+    assert not [f for f in findings if "[[" in f["text"] or "]]" in f["text"]], findings
+    assert any(f["text"] == "The the" for f in findings), findings

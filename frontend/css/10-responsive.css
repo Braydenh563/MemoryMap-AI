@@ -509,8 +509,8 @@ header#top-bar,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: var(--glass-filter-clear);
+  -webkit-backdrop-filter: var(--glass-filter-clear);
   pointer-events: none;
 }
 

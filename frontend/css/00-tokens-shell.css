@@ -272,6 +272,8 @@ select optgroup {
                       by 65%. It reads as the top edge glowing, not as a spot,
                       and its height is fixed so a tall panel is not washed. */
   --glass-filter: blur(var(--glass-blur)) saturate(150%) brightness(1.02);
+  /* The clear variant (DESIGN.md, Glass & materials, rule 1): blur only. */
+  --glass-filter-clear: blur(var(--glass-blur));
   --glass-edge: rgba(255, 255, 255, 0.34);
   --glass-rim:
     inset 0 1px 0 var(--glass-highlight),
@@ -2331,7 +2333,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: none;
   color: var(--ink);
   font-weight: 400;
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: var(--glass-filter-clear);
 }
 
 .library-card:hover,

@@ -9035,19 +9035,27 @@ input[type="file"]::file-selector-button {
      32px Import on a desk, and 33 beside 44 on a phone. */
   height: max(var(--control-h-lg), var(--target-min));
   padding: 0 var(--space-4);
-  border: 1px solid var(--border);
+  /* The tonal button's own face, edge, size and weight (INBOX 464): it sat
+     beside its Import button wearing that button's *hover* face, a 10%
+     edge that vanished into the fill, and 12px/500 beside 13.6px/600. */
+  border: 1px solid var(--ghost-btn-border);
   border-radius: var(--radius-md);
-  background: var(--ghost-btn-bg);
+  background: var(--btn-quiet-bg);
   color: var(--ink);
   font: inherit;
-  font-weight: 500;
+  font-size: var(--text-md);
+  font-weight: 600;
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 input[type="file"]::file-selector-button:hover {
-  background: var(--ghost-btn-bg-hover);
+  background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
+}
+
+input[type="file"]:active::file-selector-button {
+  background: var(--ghost-btn-bg-hover);
 }
 
 /* Account & security's facts as a two-column list: the label muted in a

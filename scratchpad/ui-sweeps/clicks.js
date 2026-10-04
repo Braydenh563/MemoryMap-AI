@@ -9,7 +9,7 @@
 // made, not an estimate: a path that needs a control the script could not find
 // or press fails rather than being counted. Typing and the OS file dialog are
 // not clicks and are not counted. The table these rows produce is in
-// docs/roadmap/agent-remaining/guideia.md.
+// docs/roadmap/archive/agent-remaining/guideia.md.
 //
 //   BASE=http://127.0.0.1:8797 node scratchpad/ui-sweeps/clicks.js
 //   ONLY="board" BASE=... node scratchpad/ui-sweeps/clicks.js   (rows whose task matches)

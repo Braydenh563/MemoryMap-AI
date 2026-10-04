@@ -38868,6 +38868,41 @@ All three items it left are done on the head, checked 2026-10-04: (a) `nameMarkB
   sloppy-mode global write that the later declaration shadows, lost but
   harmless (graph.js starts it false).
 
+### Thirty-three agent files archived, 2026-10-04
+
+The files in `agent-remaining/` whose agents had finished moved to
+`archive/agent-remaining/`; what each still held that is open is a row in OPEN.md,
+"Carried from the agent files archived 2026-10-04". Checked against the head while
+reading them, 2026-10-04:
+
+- **Built since the file was written, so not carried:** the Ask tab's four reports
+  (asktab.md: 297 `facts: true` on the Ask rows and the adjacency margin, 298
+  `.is-generating`, 299 the record numbers, 300 the sources banner gone); the boot
+  agent's two duplicate fetches (`/chat/recent`, `/entries/most-accessed`, now one
+  request through `cacheMs`); the chat starters naming a category as prose (routes_chat.py
+  `_about`); the graph minimap rebuilding its dots (`graphMinimapChildren` reuses
+  them); chrome2's two Settings edits (235, 237, struck in OPEN.md).
+- **Stale, measured:** the Guide transcript not scrolling itself
+  (`scratchpad/ui-sweeps/guidescroll.js`, 3 of 3: the list is the scroller, scrollTop
+  3404 at its end, the card around it does not scroll); the whiteboard's align and
+  distribute actions never driven (`whiteboard.js` section 6 drives them, 24 of 24);
+  `mindmapimage.js` at 390x844 (12 of 12).
+- **Found and fixed from them, each with a test and a sweep:** the Write with AI draft
+  box could be typed into while a pass streamed into it, because `readOnly` only reached
+  the hidden textarea behind the mounted editor (`draftreadonly.js`,
+  `tests/test_note_surface_readonly.py`; typing during the pass changed the draft
+  before, not after); a board's pictures were missing from its PNG, PDF and library
+  copy, and the saved .svg named an address only the app understands (an SVG drawn
+  through `<img>` loads nothing outside itself; `wbexportimage.js` read the board's
+  white at the middle of a red picture before and red after,
+  `tests/test_wb_export_inline_images.py`); a Ctrl+mouse-wheel notch zoomed the board
+  and the graph by 5.3x (d3-zoom's pinch multiplier on a mouse's 120 pixels), now about
+  1.4x with a pinch unchanged (`ctrlwheelzoom.js`, `tests/test_zoom_wheel_delta.py`);
+  `contrast.js` printed a low-contrast finding and exited 0, now fails on one that is
+  not a translucent estimate (0 findings at 1440 light and dark, 820 light, 390 dark,
+  exit 0 each); `wbarrange.js`, stale since Phase 2 removed the drawer it asked for and
+  superseded by `wbinbox12.js`, deleted.
+
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 
 ### From GRAPH_PLAN.md: the knowledge graph's spec, moved whole once KG1 to KG9 were built

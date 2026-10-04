@@ -199,6 +199,14 @@ function tabContentWidth() {
   return total + padding + gap * Math.max(0, count - 1);
 }
 
+//: Strip modes in order of preference: "centred" on the window, "gap"
+//: (centred between the two groups), "wrapped" (a row of its own). State-free.
+function tabBarMode(needed, space, centreSpace) {
+  const need = Math.ceil(needed);
+  if (need > Math.floor(space)) return "wrapped";
+  return need <= Math.floor(centreSpace) ? "centred" : "gap";
+}
+
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
@@ -222,30 +230,13 @@ function syncTabOverflowFade() {
   if (header) {
     const needed = tabContentWidth();
     const space = tabRowSpace();
-    // Asymmetric thresholds, and only for jitter: both measurements are now
-    // independent of which row the strip is on, so there is no feedback to
-    // oscillate. What remains is sub-pixel rounding at the exact width where
-    // the two are equal, and a header that flickers between one and two rows
-    // while you drag the window edge is its own kind of broken. 8px is under
-    // half a character and well over the rounding.
-    const wrapped = header.classList.contains("tabs-wrapped");
-    //: Three ways to draw the strip, in order of preference, each only once
-    //: it has been measured to fit (INBOX 430): centred on the window when
-    //: both halves have the room (`tabs-centred`, absolutely placed, which is
-    //: what a 1440 window had); else centred in the gap between the two
-    //: groups, so neither side hugs it; else a row of its own, centred. The
-    //: absolute placement used to be decided from the gap alone with 16px of
-    //: slack, and a strip that fit by 13px on paper ran 13px under the
-    //: controls at 1240 (INBOX 195); it is now decided from the room it is
-    //: actually drawn in. 8px either way for sub-pixel jitter only.
-    const nowWrapped = wrapped ? needed > space - 8 : needed > space;
-    header.classList.toggle("tabs-wrapped", nowWrapped);
-    const centred = header.classList.contains("tabs-centred");
-    const centreSpace = tabCentreSpace();
-    header.classList.toggle(
-      "tabs-centred",
-      !nowWrapped && (centred ? needed <= centreSpace : needed <= centreSpace - 8)
-    );
+    //: A pure function of the measurements: the old hysteresis read its own
+    //: previous class, so 1500 wrapped where 1440 centred depending on the
+    //: resize order. No feedback to damp: none of the three numbers moves
+    //: with the mode (topbarmode.js sweep).
+    const mode = tabBarMode(needed, space, tabCentreSpace());
+    header.classList.toggle("tabs-wrapped", mode === "wrapped");
+    header.classList.toggle("tabs-centred", mode === "centred");
   }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
   // clientWidth by a fraction on plenty of widths where nothing is cut off,

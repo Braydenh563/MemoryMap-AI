@@ -45,8 +45,20 @@ with its owner named in the entry.
      cut, ...) over the search field; on Images a second, offset search box
      drawn over the first).** "a popup controls menu keeps poping up when I
      navigate the attach popup" / "and there is an overlapping textbox?? that
-     whole panel needs to be better redesigned". Bugs first (orchestrator),
-     then the redesign (next Opus slot, from DESIGN.md's reference dialog).
+     whole panel needs to be better redesigned". Bugs first (orchestrator):
+     the bar is a chat reply's action row (copy, regenerate, shorter,
+     simpler, fork); a guard now keeps every row hidden while the panel is
+     open (`attachbar.js`). Neither trigger reproduced headless (a pointer
+     grid over the panel, a keyboard walk out of it; the second search box
+     not in light or dark, any density, large text, with images), so a stale
+     cached file is a suspect: see 487. Then the redesign (next Opus slot,
+     from DESIGN.md's reference dialog).
+
+487. **The owner, 2026-10-04 evening, verbatim.** "should there be a way to
+     clear the cache??" Decision, taken: yes. Settings, Data: "Clear app
+     cache" unregisters the service worker, empties Cache Storage, drops the
+     server's compressed-file cache and reloads; nothing in the notebook is
+     touched. Orchestrator.
 
 484. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the `m`
      leader menu: "m then a key", Go to and Do columns, key chips).** "can

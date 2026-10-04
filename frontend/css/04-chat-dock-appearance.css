@@ -5942,3 +5942,15 @@ input.doc-title-input::placeholder {
   line-height: 1.3;
   margin: 0 0 var(--space-2);
 }
+
+/* **No message's action bar over the open Attach panel** (INBOX 485: "a
+   popup controls menu keeps poping up when I navigate the attach popup",
+   with a screenshot of a reply's copy, regenerate and fork row drawn across
+   the panel's search). Not reproduced headless (a pointer grid over the
+   panel and a keyboard walk out of it both left every row hidden), so this
+   holds the outcome rather than one trigger: while the panel is open the
+   rows stay hidden and take no pointer. */
+#tab-chat:has(#note-picker-panel:not(.hidden)) .msg-actions {
+  visibility: hidden;
+  pointer-events: none;
+}

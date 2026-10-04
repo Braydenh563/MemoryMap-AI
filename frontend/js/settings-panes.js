@@ -1817,8 +1817,9 @@ const REVEAL_TARGETS = {
     tab: "notes",
     open: () => {
       showNotesSection("browse");
-      $("search-help-hint").classList.remove("hidden");
-      $("search-help").setAttribute("aria-expanded", "true");
+      //: The '?' is the `data-help-for` recipe now, so opening it is pressing
+      //: it; only when it is not already open, since a press toggles.
+      if ($("search-help").getAttribute("aria-expanded") !== "true") $("search-help").click();
     },
     el: "search-help-hint",
   },

@@ -89,18 +89,6 @@ $("about-shortcuts").addEventListener("click", () => showSettingsSection("shortc
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 $("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
-// Both used to be bespoke click-toggle-only handlers, predating
-// `initHelpToggle` (defined above) and never migrated to it, missing the
-// outside-click and Escape closes every other help toggle in this app
-// gets, reported directly ("the capture a thought tooltip doesn't close
-// when clicking off it"), and `search-help-hint` also carried its own
-// one-off `.search-help` class instead of the shared `.graph-help-panel`
-// floating-popover look, reported separately as a style mismatch against
-// the capture panel right next to it. One shared function fixes both.
-initHelpToggle("search-help", "search-help-hint");
-initHelpToggle("capture-help", "capture-help-hint");
-
-
 $("prefs-save").addEventListener("click", () => savePrefs());
 wirePrefsDirtyMarks();
 

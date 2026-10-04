@@ -123,9 +123,9 @@ def test_the_options_panel_stays_open_when_a_button_in_it_rewrites_its_own_label
 
 # WORLD_CLASS_PLAN A8 (2026-10-04): every tab's dock ends with a '?'. Dashboard
 # and Reminders were the two without one; the lint keeps it that way.
-#: Docks with no '?', each with its reason. The Logs console is a pane inside
-#: Settings, which has its own Help section rather than a popover per pane.
-HELPLESS_DOCKS = {"settings-logs"}
+#: Docks with no '?', each with its reason. Empty: the Settings Logs dock was
+#: the last, and has its own now (`logs-help-toggle`).
+HELPLESS_DOCKS: set[str] = set()
 
 
 def _docks_with_help() -> dict[str, bool]:
@@ -174,6 +174,7 @@ def test_dashboard_and_reminders_help_follow_the_recipe():
     for button_id, panel_id in (
         ("dash-help-toggle", "dash-help"),
         ("reminders-help-toggle", "reminders-help"),
+        ("logs-help-toggle", "logs-help"),
     ):
         tag = re.search(rf'<button[^>]*id="{button_id}"[^>]*>', HTML).group(0)
         assert f'data-help-for="{panel_id}"' in tag and f'aria-controls="{panel_id}"' in tag

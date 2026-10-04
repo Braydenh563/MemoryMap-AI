@@ -1162,7 +1162,7 @@
                    truncates, cannot be read on a touch device, and
                    disappears the moment you move to type the thing it just
                    described. -->
-              <button id="capture-help" class="icon-only ghost small graph-help-toggle" type="button"
+              <button id="capture-help" data-help-for="capture-help-hint" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="capture-help-hint"
                 title="What can I type in a note?" aria-label="What can I type in a note?">
                 <i class="ph ph-question" aria-hidden="true"></i>
@@ -1179,7 +1179,7 @@
                before being written here, see the note on "/" in
                particular, which is *not* a composer command and is
                documented as what it actually is. -->
-          <div id="capture-help-hint" class="graph-help-panel capture-help-hint hidden" role="dialog" aria-label="What can I type in a note?">
+          <div id="capture-help-hint" class="help-body capture-help-hint hidden" role="dialog" aria-label="What can I type in a note?">
             <p class="muted">A note is plain text. These few things do something extra:</p>
             <ul class="search-help-list">
               <li><code>[[its first few words]]</code>, links to another
@@ -1939,7 +1939,7 @@ Link to another note with [[its first few words]]."></textarea>
                    section showing. -->
               <button id="notes-new-note" class="small" type="button"
                 title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
-              <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
+              <button id="search-help" data-help-for="search-help-hint" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?" aria-label="What can I type here?">
                 <i class="ph ph-question" aria-hidden="true"></i>
@@ -2012,7 +2012,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="saved-searches" class="saved-searches hidden"
             role="group" aria-label="Saved filters"></div>
           <!-- Search operators are useless if nobody knows they exist. -->
-          <div id="search-help-hint" class="graph-help-panel search-help hidden" role="dialog" aria-label="What can I type here?">
+          <div id="search-help-hint" class="help-body hidden" role="dialog" aria-label="What can I type here?">
             <p class="muted">The filter understands a few shortcuts, all of these work without any AI:</p>
             <ul class="search-help-list">
               <li><code>bread proving</code>, both words, in any order</li>
@@ -3022,19 +3022,21 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="timeline-jump-today" class="small" type="button" title="Jump to today">
             <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
           </button>
-          <button type="button" id="timeline-help" class="icon-only ghost small graph-help-toggle"
-            title="How to read this" aria-label="How to read this">
+          <button type="button" id="timeline-help" data-help-for="timeline-intro" class="icon-only ghost small graph-help-toggle"
+            title="How to read this" aria-label="How to read this"
+            aria-controls="timeline-intro" aria-expanded="false">
             <i class="ph ph-question" aria-hidden="true"></i>
           </button>
         </div>
       </div>
-      <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
-        A note sits where it is <em>about</em> when it says so, "the deadline
+      <div class="help-body hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
+  <p>A note sits where it is <em>about</em> when it says so, "the deadline
         is next Friday" plots on that Friday, marked with a clock, and at when it was
         written otherwise. Arrow keys walk the rows, Enter opens one where it sits.
         The strip below shows the last seven days: a dot marks a day with a page,
         and pressing a day opens its page or starts it.
-      </p>
+  </p>
+</div>
       <!-- The calendar strip (WORLD_CLASS_PLAN D6): the last seven days, a dot
            under each that has a page, one press to open or start it. Built by
            `renderTimelineDayStrip`; outside the dock on purpose, the dock is
@@ -3196,8 +3198,9 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-actions">
             <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
-              title="How to use this map" aria-label="How to use this map">
+            <button type="button" id="graph-help-toggle" data-help-for="graph-help-panel" class="icon-only ghost small graph-help-toggle"
+              title="How to use this map" aria-label="How to use this map"
+            aria-controls="graph-help-panel" aria-expanded="false">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
             <!-- Display options, one click (INBOX item 21: "annoying to
@@ -3266,7 +3269,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-selection-map" class="ghost small" type="button" title="Make a mind map with these notes as its branches"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
           <button id="graph-selection-clear" class="ghost small icon-only" type="button" title="Clear the selection" aria-label="Clear the selection"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
-        <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
+        <div id="graph-help-panel" class="help-body hidden" role="dialog" aria-label="How to use this map">
           <!-- Rewritten to lead with placement. The old copy buried "drag to
                arrange" mid-sentence and then said "double-click to pin it in
                place", which was the only gesture that actually held a note
@@ -5297,7 +5300,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-actions">
               <button id="skills-add-new" class="small" type="button"
                 title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
-              <button type="button" id="skills-help" class="icon-only ghost small graph-help-toggle"
+              <button type="button" id="skills-help" data-help-for="skills-intro" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
                 aria-label="What is this?">
@@ -5305,7 +5308,9 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
             </div>
           </div>
-          <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <div class="help-body hidden" id="skills-intro" role="dialog" aria-label="What is this?">
+<p>Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+</div>
           <!-- Not `skills-grid`: this holds the background-workers card, the
                search box and the grid *itself*, and having the outer box be a
                grid too made those three into three columns, a narrow card, an
@@ -5463,7 +5468,7 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="Choose an OPML, FreeMind or Markdown outline to import as a mind map"
               title="Choose an OPML, FreeMind or Markdown outline to import as a mind map">
             <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload" data-fold-narrow><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
+            <button type="button" id="wb-boards-help" data-help-for="wb-boards-intro" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
               title="Every board and concept map you have made. Pick one to open it, or start a new whiteboard or mind map from New."
               aria-label="What is this?">
@@ -5497,7 +5502,9 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
           </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
+        <div class="help-body hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">
+<p>Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
+</div>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and
@@ -6898,7 +6905,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-          <button type="button" id="library-images-help" class="icon-only ghost small graph-help-toggle"
+          <button type="button" id="library-images-help" data-help-for="library-images-intro" class="icon-only ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="library-images-intro"
             title="Every image pasted, dropped, or uploaded, in a note, a document, or on a whiteboard, or added directly here, then attachable to any note from its own &quot;Attach from Library&quot; action."
             aria-label="What is this?">
@@ -6915,7 +6922,9 @@ Link to another note with [[its first few words]]."></textarea>
           </details>
         </div>
       </div>
-      <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded, in a note, a document, or on a whiteboard, or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
+      <div class="help-body hidden" id="library-images-intro" role="dialog" aria-label="What is this?">
+<p>Every image pasted, dropped, or uploaded, in a note, a document, or on a whiteboard, or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
+</div>
       <!-- Multi-select, the same shape the Documents sub-tab already has, 
            asked for directly: "in many of the library subtabs like for imges,
            files, whiteboards, links etc, there is no way to multi select".
@@ -7096,7 +7105,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <!-- Directly requested: "make the text at the top of the contents page
                one of those tooltip '?' buttons". -->
-          <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
+          <button id="contents-help" data-help-for="contents-intro" class="ghost small icon-only graph-help-toggle" type="button"
             aria-expanded="false" aria-controls="contents-intro"
             title="An index of your notebook, grouped by category, tag, month or the folder of an imported vault. Filter it, fold a group away, or open a note, a document or one of its headings. For how notes link to each other, see the Graph tab."
             aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
@@ -7114,11 +7123,14 @@ Link to another note with [[its first few words]]."></textarea>
           </details>
         </div>
       </div>
-      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook,
+      <div class="help-body hidden" id="contents-intro" role="dialog" aria-label="What is this page?">
+<p>An index of your notebook,
         grouped by category, tag, the month you wrote it, or the folder it came
         from if you imported a vault (a note written here has no folder). Filter
         it, fold a group away, or open a note, a document or one of its
-        headings. For how notes link to each other, see the Graph tab.</p>
+        headings. For how notes link to each other, see the Graph tab.
+  </p>
+</div>
       <p id="contents-summary" class="muted text-xs contents-summary" role="status" aria-live="polite"></p>
       <p id="contents-hint" class="muted contents-folder-hint hidden"></p>
       <div id="contents-outline" class="contents-outline" role="tree" aria-label="Notebook index"></div>
@@ -8492,15 +8504,15 @@ Link to another note with [[its first few words]]."></textarea>
                      here, and jumped to (scrolled + flashed) from the
                      Dashboard, Ask sub-tab and Chat via
                      openSettingsModal("searchindex", "search-relevance-group"). -->
-                <button type="button" id="search-relevance-help" class="icon-only ghost small graph-help-toggle"
+                <button type="button" id="search-relevance-help" data-help-for="search-relevance-intro" class="icon-only ghost small graph-help-toggle"
                   aria-expanded="false" aria-controls="search-relevance-intro"
                   title="Minimum similarity: a semantic match below this score is dropped, however few results that leaves. Above-average margin: on top of that floor, a note also has to beat the rest of this search's own results by this many standard deviations, the app's own defence against a model that scores everything in a narrow band, so a flat floor alone lets unrelated notes through. Raise either number for fewer, more confident results; lower them if search feels too strict. Reset to default undoes both."
                   aria-label="What do these numbers mean?">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
-              <p class="muted graph-help-panel hidden" id="search-relevance-intro" role="dialog" aria-label="What do these numbers mean?">
-                Minimum similarity: a semantic match below this score is
+              <div class="help-body hidden" id="search-relevance-intro" role="dialog" aria-label="What do these numbers mean?">
+  <p>Minimum similarity: a semantic match below this score is
                 dropped, however few results that leaves. Above-average
                 margin: on top of that floor, a note also has to beat the
                 rest of this search's own results by this many standard
@@ -8509,7 +8521,8 @@ Link to another note with [[its first few words]]."></textarea>
                 lets unrelated notes through. Raise either number for fewer,
                 more confident results; lower them if search feels too
                 strict. Reset to default undoes both.
-              </p>
+  </p>
+</div>
               <div class="row">
                 <label for="pref-search-min-sim" class="muted">Minimum similarity</label>
                 <input id="pref-search-min-sim" type="number" min="0" max="1" step="0.01">
@@ -11051,6 +11064,12 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="dock-actions">
                 <button id="logs-bundle" class="small" type="button"
                   title="Save a zip with the log, your settings and app status, for a bug report"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Support bundle</button>
+                <button type="button" id="logs-help-toggle" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="logs-help" aria-controls="logs-help" aria-expanded="false"
+                  title="About the log" aria-label="About the log"><i class="ph ph-question" aria-hidden="true"></i></button>
+                <div class="help-body hidden" id="logs-help" role="dialog" aria-label="About the log">
+                  <p>The app's own log, updating live. Filter the records by text, switch between a list and a terminal view, and use the three dots to narrow by which log and how serious. Support saves a zip of the log, your settings and the app's status, for a bug report.</p>
+                </div>
                 <details class="doc-dock-menu dock-menu dock-more" id="logs-more-menu">
                   <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                   <div class="doc-dock-menu-list dock-menu-list">

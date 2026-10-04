@@ -4006,7 +4006,7 @@ aside[data-resizable="1"] {
 }
 
 .timeline-day.is-today .timeline-day-num {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 

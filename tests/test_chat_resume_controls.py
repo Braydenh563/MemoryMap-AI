@@ -86,7 +86,9 @@ def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
     #: Now the app's one Thinking fold (`thinkingFold`, INBOX 457), which
     #: carries the summary and the scrolling body by construction.
     assert "const think = thinkingFold();" in settings
-    assert 'const thinkBody = think.querySelector(".thinking");' in settings
+    #: Painted through the one renderer (`thinkingPaint`, INBOX 489), which
+    #: sets the reasoning as Markdown and keeps the newest line in view.
+    assert "thinkingPaint(think, thinkRaw);" in settings
     #: Folded when the answer starts, the same move the chat's own
     #: `foldEarlierThinking` makes, so the answer is not read underneath it.
     assert "if (think.open && !text) think.open = false;" in settings

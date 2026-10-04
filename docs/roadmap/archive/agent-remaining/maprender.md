@@ -1,9 +1,9 @@
 # The map render pass (MINDMAP_PLAN 13a): what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) **section 13** (the read,
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) **section 13** (the read,
 > the decisions, the phases) · [mapread.md](mapread.md) (the run that took the
 > measurements this one worked from) ·
-> [HISTORY.md](../HISTORY.md) "From MINDMAP_PLAN.md section 13a: the drag
+> [HISTORY.md](../../HISTORY.md) "From MINDMAP_PLAN.md section 13a: the drag
 > pick-up" (the record, with both sets of numbers)
 >
 > Two agents, one row each. The first (`worktree-agent-maprender`, port 8805,

@@ -1,8 +1,8 @@
 # The map's own look (MINDMAP_PLAN section 13e's other half): what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) **section 13** (the read,
-> decisions 8 to 11, the phases) · [mapux2.md](mapux2.md) (13b, 13c, the
-> canvas's two gestures, 13e's first half) · [HISTORY.md](../HISTORY.md)
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) **section 13** (the read,
+> decisions 8 to 11, the phases) · [mapux2.md](../../agent-remaining/mapux2.md) (13b, 13c, the
+> canvas's two gestures, 13e's first half) · [HISTORY.md](../../HISTORY.md)
 > "Moved from the plans, 2026-09-21"
 >
 > One agent, one worktree (`worktree-agent-maptheme`), port 8796, data dir

@@ -1,8 +1,8 @@
 # Mind map, §12.1's last two live items: what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
-> [mindmap.md](mindmap.md) (the ninth run's own list) ·
-> [HISTORY.md](../HISTORY.md) ("Moved from the plans, 2026-09-21")
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) ·
+> [mindmap.md](../../agent-remaining/mindmap.md) (the ninth run's own list) ·
+> [HISTORY.md](../../HISTORY.md) ("Moved from the plans, 2026-09-21")
 >
 > One agent, one worktree (`worktree-agent-mindmap2`), port 8793, data dir
 > `/tmp/mm-mindmap2`. Everything below was measured in a real Chromium against

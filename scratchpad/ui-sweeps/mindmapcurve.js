@@ -16,6 +16,12 @@
 //   - and the stored pair is read back off the server, since two `data` fields
 //     on the child is the whole storage design.
 //
+// At VIEWPORT=390x844 the click no longer times out (the add row used to
+// cover the topic's label there, an app fault now fixed and measured by
+// mapaddcover.js), but 3 of 14 checks still fail: the map is laid out past a
+// phone's width, so the hover reveal and the straight-line kink point at
+// handles that are off screen. That is the probe's layout, not the app.
+//
 //   BASE=http://127.0.0.1:8793 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //   timeout 110 node scratchpad/ui-sweeps/mindmapcurve.js
 const { boot, OUT } = require("./lib.js");

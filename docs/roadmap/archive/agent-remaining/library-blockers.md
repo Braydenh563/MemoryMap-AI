@@ -1,6 +1,6 @@
 # INBOX 107b, the Library half of the 0.3.0 blocker list
 
-> Companions: [INBOX.md](../INBOX.md) · [HANDOVER.md](../HANDOVER.md)
+> Companions: [INBOX.md](../../INBOX.md) · [HANDOVER.md](../../HANDOVER.md)
 
 One agent's pass over the four Library and OCR workspace items in INBOX 107b.
 Every one was reproduced in a real Chromium before anything was changed

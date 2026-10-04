@@ -71,6 +71,14 @@ const fs = require('fs');
     return { over: over.map((el) => el.className).slice(0, 4), button: [Math.round(btn.width), Math.round(btn.height)] };
   });
   check('nothing overflows the card', layout.over.length === 0, JSON.stringify(layout));
+  //: The widget grows to fit the review list it opened rather than scrolling
+  //: inside a fixed-height body (the cap in 01-forms-settings.css).
+  const grown = await page.evaluate(() => {
+    const body = document.querySelector('.night-summary').parentElement;
+    const cs = getComputedStyle(body);
+    return { scroll: body.scrollHeight, client: body.clientHeight, maxHeight: cs.maxHeight, overflowY: cs.overflowY };
+  });
+  check('the card grows to fit its list, no inner scroll', grown.scroll <= grown.client + 1 && grown.maxHeight === 'none', JSON.stringify(grown));
   await page.screenshot({ path: `${shots}/night-${W}.png` });
   const before = await page.evaluate(() => [...document.querySelectorAll('.night-kind-toggle')].find((b) => /open question/.test(b.textContent)).textContent.trim());
   await page.click('.night-facts:not(.hidden) li .night-fact-actions button[aria-label^="Dismiss"]');

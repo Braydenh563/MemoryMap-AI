@@ -4,7 +4,7 @@
 gated and in HISTORY.md ("Moved from the plans, 2026-09-13"). Phase 4 is the
 only phase left, and the plan's section 7 has two measurements still owed.
 
-Back to [../ROADMAP.md](../ROADMAP.md).
+Back to [../../../ROADMAP.md](../../../ROADMAP.md).
 
 ## Built (do not rebuild any of it, read it first)
 

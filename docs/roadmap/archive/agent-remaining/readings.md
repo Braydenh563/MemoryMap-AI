@@ -1,8 +1,8 @@
 # The lightbox's two readings, two stale probes, and two gates that passed on silence
 
-> Companions: [OPEN.md](OPEN.md) (the consolidated ledger, struck with these
-> numbers) · [../DOCUMENTS_PLAN.md](../DOCUMENTS_PLAN.md) ·
-> [../../DESIGN.md](../../DESIGN.md), the recipe index
+> Companions: [OPEN.md](../../agent-remaining/OPEN.md) (the consolidated ledger, struck with these
+> numbers) · [../DOCUMENTS_PLAN.md](../../DOCUMENTS_PLAN.md) ·
+> [../../DESIGN.md](../../../DESIGN.md), the recipe index
 >
 > Every number below was measured in a real Chromium against the running app
 > on port 8797. Nothing here is a screenshot read as a result. Where a probe

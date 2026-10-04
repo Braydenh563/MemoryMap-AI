@@ -1,8 +1,8 @@
 # The whiteboard and mind map tails: what this run closed, and what is left
 
-> Companions: [OPEN.md](OPEN.md) (the consolidated ledger, struck item by item
-> with these numbers) · [../WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md) ·
-> [../MINDMAP_PLAN.md](../MINDMAP_PLAN.md) · [mindmap.md](mindmap.md)
+> Companions: [OPEN.md](../../agent-remaining/OPEN.md) (the consolidated ledger, struck item by item
+> with these numbers) · [../WHITEBOARD_PLAN.md](../../WHITEBOARD_PLAN.md) ·
+> [../MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) · [mindmap.md](../../agent-remaining/mindmap.md)
 >
 > Everything below was measured in a real Chromium against the running app,
 > not read off the source. Nothing here is a screenshot read as a result.
@@ -19,7 +19,7 @@
 | The ink swatch at a finger's size | Paint 2rem below 820, the press reaching `--target-min` on a transparent `::before`: 32x32 paint, 33x41 target at 390, 37x46 on Large text, no two dots sharing a pixel. `sketchbar.js`, which had never looked at 390 or at the swatches |
 | The dead `.wb-export-menu` CSS | Seventeen mentions across three stylesheets, four of them whole rules, and one test re-anchored off the dead name. Board menus measured unchanged after (`wbmenus.js`: one shell recipe, 36px rows) |
 | INBOX 278, the group selection's rotate grip | It was never anchored: `.wb-sketch-rotate-handle` and `.wb-rotate-handle-stem` are scaled by `1 / k` and that rule leaves `transform-box` at `view-box` *because the drawing code sets the origin*, which the group path never did. On screen the knob sat 170px right of the box's centre and below its top edge at 0.5x, 340px left at 2x, and exactly right at 1x. Now the box's top centre at every zoom and mid-resize. A three-item group drew 4 rotate knobs, 2 stems and 16 member resize handles; it draws 1, 1 and 0, with each member still outlined. `wbgroupguides.js` 0 findings, and `tests/test_ui_recipes.py` holds the new ratchet |
-| The mind map's own leftover list | Re-checked item by item: four of six already done, two of those by later decisions. [mindmap.md](mindmap.md)'s "Left to do" is rewritten to what a run against this head finds |
+| The mind map's own leftover list | Re-checked item by item: four of six already done, two of those by later decisions. [mindmap.md](../../agent-remaining/mindmap.md)'s "Left to do" is rewritten to what a run against this head finds |
 
 ## Left, in the order worth taking
 

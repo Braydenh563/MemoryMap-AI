@@ -1,8 +1,8 @@
 # The whiteboard: what Phases 1 to 4 left
 
-> Companions: [WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md) ·
-> [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) · [mindmap.md](mindmap.md) ·
-> [../../DESIGN.md](../../DESIGN.md)
+> Companions: [WHITEBOARD_PLAN.md](../../WHITEBOARD_PLAN.md) ·
+> [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) · [mindmap.md](../../agent-remaining/mindmap.md) ·
+> [../../DESIGN.md](../../../DESIGN.md)
 >
 > Written 2026-09-12 by the agent that built WHITEBOARD_PLAN Phases 1, 2 and
 > 3, and extended the same day by the agent that built Phase 4. Everything
@@ -140,7 +140,7 @@ WHITEBOARD_PLAN Phase 4). In one line each:
 - **MINDMAP_PLAN Phases 4 and 5 are not open work.** The plan's §11 records
   them as built and moved to HISTORY on 2026-09-09; a brief that pairs them
   with this phase is naming them by their old status. What is actually left of
-  the map is [mindmap.md](mindmap.md)'s "Left to do", which is §12.1's dock
+  the map is [mindmap.md](../../agent-remaining/mindmap.md)'s "Left to do", which is §12.1's dock
   menus and five sub-items, not Phases 4 to 5.
 
 What Phases 1 to 3 changed underneath Phase 4, kept here because it is still
@@ -168,7 +168,7 @@ what an agent arriving at this surface needs to know:
   it. Phases 1 to 3 did remove one document-wide query from the pan frame's
   no-selection path (it now reads one dataset property), which is a change in
   the right direction and is *not* a claim the report is fixed. The three dead
-  ends are in [mindmap.md](mindmap.md) under "the drag and pan report, third
+  ends are in [mindmap.md](../../agent-remaining/mindmap.md) under "the drag and pan report, third
   time"; start past them.
 
 ## What could not be verified

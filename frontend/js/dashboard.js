@@ -1,70 +1,13 @@
 // dashboard.js: widgets, masonry, the generative art (split out of app.js).
-//
-// Loaded after app.js (see index.html's <script> ordering comment): every
-// reference here into app.js globals ($, apiJson, toast, switchTab,
-// smallButton, chip, renderMarkdown, renderInlineMarkdown, safeMdSlice,
-// notePreviewText, renderEmblem, resolvedTheme, currentAccentHex,
-// appearancePref, allEntries, prefsCache, modelStatus, and more) is a
-// runtime call inside a function body or an event-listener closure, never a
-// parse-time reference, so load order only matters for the reverse
-// direction: anything in app.js that calls into dashboard.js
-// (refreshActiveTab's "dashboard" branch, switchTab's dashboard branch,
-// renderDashboardGreeting()/refreshArtForTheme() called from the appearance
-// code, etc.) does so from inside its own functions too, which by the time
-// they run have always already had this script loaded (same
-// DOMContentLoaded pass, no user interaction possible in between).
-//
-// Two hazards found doing this split, both the same shape as
-// documents.js's `initDocSidebarTabs()` one: a bare top-level reference in
-// app.js resolving before this file has loaded:
-//
-// 1. Two `addEventListener` registrations at the bottom of this file
-//    (`$("features-close")`, and the plain-reference form generally) used
-//    to live in app.js's own top-level wiring, passing `closeFeatures` as a
-//    bare function reference. That reference resolves the moment the
-//    registering line executes: app.js's own top-level pass, before this
-//    file has loaded. Fixed by moving the whole wiring group here, after
-//    its own functions, instead of splitting definition from call site. See
-//    the "wiring" section near the end of this file for the full
-//    explanation.
-// 2. `applyPalette()` (ai-tools.js) calls `refreshArtForTheme()` (this file), and
-//    `applyPalette` is itself reachable from a bare top-level call, 
-//    `applyAppearance()`, run once at parse time to paint the saved theme
-//    before first render. Caught live in Chromium, not by reading the code:
-//    a `ReferenceError` there aborted the rest of app.js's synchronous
-//    top-level wiring. Fixed with a `typeof` guard at that one call site
-//    (ai-tools.js's `applyPalette`) rather than moving `applyPalette` itself,
-//    since it does real app.js-only work (the whole-app palette/background)
-//    that has nothing to do with the dashboard.
-//
-// --- boundaries deliberately NOT crossed doing this split ---
-//
-// - `tickClocks()` (the `.live-clock` ticker `app.js` still owns) stays in
-//   app.js: it drives the Reminders tab's clock too, not just the
-//   dashboard's, so it is genuinely shared rather than dashboard-only.
-// - The tab-bar overflow-fade machinery (`syncTabOverflowFade`,
-//   `tabRowSpace`, `tabContentWidth`, `revealActiveTab`) physically sat
-//   inside app.js's "masonry packing for the dashboard" comment block with
-//   no header of its own, but has nothing to do with the dashboard, it
-//   sizes the top tab strip for every tab. Left in app.js.
-// - `safeMdSlice`/`notePreviewText`/`renderEmblem` stayed in app.js: all
-//   three are called from outside the dashboard too (note-card previews,
-//   the writing room, whiteboard.js's node labels, the chat avatar), see
-//   the comments left at their definitions in app.js.
-// - "Wave J: accent themes + generative background" (app.js, curated
-//   themes, saved themes, the ambient/second p5 background instance) is
-//   Settings → Appearance's own territory, not a dashboard widget, despite
-//   `refreshArtForTheme()` (this file) being called from inside it whenever
-//   the theme/accent/palette changes. Left for the settings.js split.
-// - "SKILLS DASHBOARD TAB" (app.js, `renderSkillsDashboard`,
-//   `#skills-dashboard-list`) is the AI Skills library page, an unrelated
-//   feature that happens to share the word "dashboard" in its own internal
-//   naming. Left in app.js.
-// - `renderDashboardPersonaSelect` and its Settings wiring
-//   (`#dashboard-persona-select`) configure which persona voices the
-//   dashboard greeting, but the control itself lives inside Settings →
-//   Personas' own render function (`renderPersonas`), a Settings concern,
-//   like documents.js leaving `voice-model-select` behind. Left in app.js.
+// Everything here calls app.js globals only at run time, inside functions,
+// so load order matters only the other way: app.js reaches in from its own
+// functions (refreshActiveTab, switchTab, the appearance code). Two split
+// hazards, both a bare top-level reference resolving before this file loads:
+// the features-close wiring moved here beside its functions, and
+// ai-tools.js's applyPalette guards refreshArtForTheme with `typeof`.
+// Left in app.js: tickClocks (Reminders uses it too), the tab-bar overflow
+// fade, safeMdSlice/notePreviewText/renderEmblem (shared), the Settings
+// appearance and persona code, and the AI Skills page.
 
 // --- dashboard (Wave D) -----------------------------------------------------------
 

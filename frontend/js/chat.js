@@ -2470,27 +2470,10 @@ function aiWritingTrace() {
   return svg;
 }
 
-//: **Two phases, because waiting and writing are not the same event.**
-//:
-//: Asked for directly: *"make the 3-dot animation change to something cool and
-//: app specific when the model is writing, and when it is thinking or waiting
-//: for a response it goes back to the 3-dot button, and make the transition
-//: between animations smooth as well."*
-//:
-//: `thinking` keeps the dots: they are the universal "waiting" idiom and
-//: everyone already reads them. `writing` swaps to this app's own motif: a
-//: short run of nodes with a line drawing itself between them, which is a
-//: notebook writing a new thought into its graph. Every other indicator in
-//: here (`Loading…`, `Generating caption…`) simply never leaves `thinking`,
-//: so nothing else changes shape.
-//:
-//: Both live in the same box at the same time and cross-fade, so the swap
-//: cannot cause a layout jump mid-stream, the container is sized once and
-//: the two children are stacked in it.
-//:
-//: The SVG is appended *after* the three dot spans on purpose:
-//: `.typing-dots span:nth-child(2)`/`(3)` address those dots by position, and
-//: putting anything before them would silently re-time the bounce.
+//: **Two phases**: `thinking` keeps the dots, `writing` draws a short run of
+//: nodes joined by a line (this app's motif). Both sit stacked in one box and
+//: cross-fade, so the swap never shifts layout; the SVG goes after the dot
+//: spans because `:nth-child(2)`/`(3)` time the bounce by position.
 //: **A mouse wheel must scroll a horizontal strip.** Reported: "if the tabs
 //: bar becomes scrollable, I cant do it with mouse, only with touch or my
 //: trackpad."
@@ -2708,47 +2691,12 @@ function typingDots(label = "Thinking…", { persona = null, words = false } = {
   return dots;
 }
 
-// **A working signal that says what it is working on.**
-//
-// Reported repeatedly, and finally with two screenshots: "there is no cycling
-// or rotating thinking or generating animations", over a bubble reading a
-// motionless italic "Thinking…". Two separate things produce that:
-//
-//  - **Reduced motion.** `typingDots` above swaps every animation for one
-//    static word when the OS asks for less motion, and the desktop shell
-//    inherits Windows' own "show animations" setting, which is off on a lot
-//    of machines. The honest fix is not to animate anyway; it is to stop the
-//    non-animated state being *dead*. Changing text is information, not
-//    motion, so it is allowed where a bounce is not.
-//  - **One label for the whole turn.** Even animating, three dots that mean
-//    the same thing from the first millisecond to the last say nothing about
-//    a turn that took eleven seconds and did four different things.
-//
-// So this pairs the indicator with a label that the stream updates as real
-// events arrive: what it is doing now, in the app's own words. Nothing here
-// invents a stage: every string it is given comes from an event that
-// actually happened (see `sendChatMessage`), because a progress line that
-// guesses is worse than one that repeats itself.
-//: **Short lines shown while you wait, and every one of them is true.**
-//:
-//: Asked for: *"add some generated short sentence musings while the thinking
-//: dots are showing."* The obvious reading is flavour text, and the obvious
-//: implementation is a model writing whimsy about what it is doing. This
-//: file's own rule forbids that, and the rule is right: `progressLine` must
-//: never invent a stage, because a progress line that guesses is worse than
-//: one that repeats itself. A cheerful invented sentence next to a real
-//: status label is precisely a guess wearing a status label's clothes.
-//:
-//: So these are the honest version of the same idea, and they are better than
-//: whimsy would have been: facts about *this app* that a person waiting for a
-//: local model has time to read and reason to want. A wait is the one moment
-//: the interface has someone's attention with nothing to do, spending it on
-//: the thing the app most needs to teach (what it is doing with your notes,
-//: and where they are going, which is nowhere) is worth more than a joke.
-//:
-//: They are deliberately not model-generated: a fixed list cannot hallucinate
-//: a claim about privacy, and privacy claims are the one kind this app must
-//: never get wrong.
+// **A working signal that says what it is working on.** Under reduced
+// motion the dots become one static word, so the label the stream updates
+// (what it is doing now, from events that actually happened, never a guessed
+// stage) is what keeps a long turn from reading as dead.
+//: Lines shown while you wait are fixed facts about this app, not model
+//: whimsy: a fixed list cannot hallucinate a privacy claim.
 const PROGRESS_MUSINGS = [
   "Everything here runs on your machine, nothing is sent anywhere.",
   "Your notes are plain markdown on disk. You can read them without this app.",

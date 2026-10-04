@@ -742,6 +742,9 @@ function timelineVisibleRows() {
 //: sort, a search keystroke, a filter and a change of bucket all land here, and
 //: none of them fetches anything (TIMELINE_PLAN decision 2).
 function paintTimeline() {
+  //: Callers on other surfaces (skills.js's select mode) repaint this one too;
+  //: a missing feed means there is nothing built to repaint (INBOX 492).
+  if (!$("timeline-feed")) return;
   timelineForgetRows();
   const rows = timelineVisibleRows();
   const table = timelineViewMode() === "table";

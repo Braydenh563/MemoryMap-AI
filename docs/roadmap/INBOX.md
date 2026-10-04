@@ -45,11 +45,6 @@ with its owner named in the entry.
      icons in the bottom bar elements arent aligned vertically". With the
      dock-bar agent (479).
 
-492. **The owner's log, 2026-10-04 evening.** "Uncaught TypeError: Cannot
-     read properties of null (reading 'classList') at paintTimeline
-     (timeline.js:752) at enterSelectMode (skills.js:1293)" and the same from
-     exitSelectMode. Orchestrator.
-
 491. **The owner, 2026-10-04 evening, verbatim, with a screenshot (Ask: "What
      are the specific feature suggestions?" answered "the notes do not
      provide any further description", over a note whose content is an

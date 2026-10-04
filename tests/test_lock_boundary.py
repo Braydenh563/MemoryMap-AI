@@ -20,6 +20,7 @@ everything because `startApp()` re-renders it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from tests._app_js import app_js_text
 
@@ -31,8 +32,10 @@ USER_CONTENT_IDS = [
     "chat-messages",
     "library-grid",
     "library-docs-list",
-    "timeline-scroll",
-    "reminder-list-card",
+    "timeline-feed",
+    "timeline-table-body",
+    "reminder-groups",
+    "reminder-calendar",
     "graph-svg",
     "palette-list",
     "palette-preview",
@@ -55,6 +58,50 @@ def test_every_user_content_container_is_purged():
     listed = source[start : source.index("];", start)]
     missing = [name for name in USER_CONTENT_IDS if f'"{name}"' not in listed]
     assert not missing, f"these still hold the user's words while locked: {missing}"
+
+
+def test_a_purged_container_holds_no_static_ui():
+    """INBOX 492: `replaceChildren()` on a container deletes everything in
+    it, not only the user's words. `#timeline-scroll` and `#reminder-list-card`
+    were listed, and both hold static markup (the feed, the table and its head,
+    the reminders' dock and filters) that `startApp()` never rebuilds: after one
+    lock the Notes select button threw `Cannot read properties of null` from
+    `paintTimeline`, and the Reminders tab lost its controls. A purged
+    container may hold only what the app renders into it, so no element in
+    `index.html` with an id may sit inside one."""
+    from html.parser import HTMLParser
+
+    source = app_js_text()
+    start = source.index("const LOCK_PURGE_IDS")
+    listed = re.findall(r'"([a-z0-9-]+)"', source[start : source.index("];", start)])
+    assert listed
+
+    class Walk(HTMLParser):
+        VOID = {"input", "br", "img", "hr", "meta", "link", "source", "col", "wbr"}
+
+        def __init__(self):
+            super().__init__()
+            self.stack: list[tuple[str, str | None]] = []
+            self.bad: list[tuple[str, str]] = []
+
+        def handle_starttag(self, tag, attrs):
+            ident = dict(attrs).get("id")
+            if ident:
+                for _tag, outer in self.stack:
+                    if outer in listed:
+                        self.bad.append((outer, ident))
+            if tag not in self.VOID:
+                self.stack.append((tag, ident))
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stack) - 1, -1, -1):
+                if self.stack[i][0] == tag:
+                    del self.stack[i:]
+                    break
+
+    walk = Walk()
+    walk.feed((APP_JS.parent.parent / "index.html").read_text(encoding="utf-8"))
+    assert not walk.bad, f"purging these deletes static UI: {sorted(set(walk.bad))}"
 
 
 def test_text_fields_are_cleared_too():

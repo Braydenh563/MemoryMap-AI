@@ -37004,6 +37004,19 @@ width, 47% of the column at 1440.
      it (INBOX 457's two-line fix holds the floor).
      **Fixed**: one token, `--note-preview-lines`, 3 compact, 4 default, 5 spacious, at 1440 and 390 (was 2 and 1); blank lines still collapse (`notepreview.js`).
 
+492. **The owner's log, 2026-10-04 evening.** "Uncaught TypeError: Cannot
+     read properties of null (reading 'classList') at paintTimeline
+     (timeline.js:752) at enterSelectMode (skills.js:1293)" and the same from
+     exitSelectMode. Orchestrator.
+     **Fixed.** Cause: `purgeLockedContent` (app.js) emptied
+     `#timeline-scroll` and `#reminder-list-card`, which hold static markup;
+     after any lock, 18 ids were gone (the Timeline's feed and table, the
+     Reminders controls) and the select button threw. Reproduced
+     (`scratchpad/ui-sweeps/selectmodeguard.js`: 2 errors before, 0 after, 0
+     ids lost); the purge now empties only the rendered rows, a lint fails if a
+     purged container holds an id, and `paintTimeline` returns when the feed is
+     not built.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

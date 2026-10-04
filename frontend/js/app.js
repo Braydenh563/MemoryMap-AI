@@ -919,8 +919,10 @@ const LOCK_PURGE_IDS = [
   "chat-messages", // the conversation
   "library-grid", // files and images
   "library-docs-list", // documents
-  "timeline-scroll", // the timeline
-  "reminder-list-card", // reminders
+  "timeline-feed", // the timeline
+  "timeline-table-body",
+  "reminder-groups", // reminders
+  "reminder-calendar",
   "graph-svg", // node labels are note titles
   "palette-list", // whatever was last searched for
   "palette-preview", // and the note it was showing

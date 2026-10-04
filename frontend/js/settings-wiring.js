@@ -1091,15 +1091,18 @@ async function loadOnboardingDiagnostics(forSlide) {
   lines.push(
     models && models.ollama_running
       ? "Ollama is running, so Atlas will file your notes and answer questions."
-      : "Ollama isn't running right now, MemoryMap still works without it. " +
-          "Notes are still searched by keyword, and everything catches up the moment it's on."
+      : "No model is running yet, and MemoryMap works without one: notes are " +
+          "searched by keyword, and filing catches up once a model is on."
   );
   if (storage) {
-    const mb = storage.database_bytes
-      ? (storage.database_bytes / (1024 * 1024)).toFixed(1)
-      : "0";
+    //: Where it lives, and its size once there is one to say. The privacy
+    //: sentence this used to repeat is the first slide's (INBOX 472: the
+    //: slide ran to six lines at 1440 and eight at 390, with "0.0 MB").
+    const mb = (storage.database_bytes || 0) / (1024 * 1024);
     lines.push(
-      `Your notebook lives at ${storage.data_dir} (${mb} MB so far), and nothing here leaves this machine unless you turn on web search or the update check.`
+      mb >= 0.1
+        ? `Your notebook lives at ${storage.data_dir} (${mb.toFixed(1)} MB).`
+        : `Your notebook lives at ${storage.data_dir}.`
     );
     // ROADMAP.md's onboarding item named this the one still-open piece: a
     // data-dir writability check. The database opening at all already
@@ -1157,6 +1160,21 @@ function renderOnboardingActions(models, notebook) {
     );
   }
 
+  //: The slide that says the AI is off offers the way to turn it on: the
+  //: one place a model is connected (INBOX 472, the first-run walk).
+  if (models && !models.ollama_running) {
+    offers.push(
+      smallButton(
+        "ph:plugs Connect a model",
+        "Close the welcome and open Settings at Models, where a model is connected",
+        () => {
+          closeOnboarding();
+          openSettingsModal("models");
+        }
+      )
+    );
+  }
+
   if (notebook && notebook.count === 0) {
     offers.push(
       smallButton(
@@ -1196,7 +1214,9 @@ function renderOnboardingSlide() {
   const greet = onboardingIndex === 0 && typeof atlasMark === "function";
   atlas.classList.toggle("hidden", !greet);
   $("onboarding-emblem").classList.toggle("hidden", greet);
-  $("onboarding-icon").classList.toggle("hidden", greet);
+  //: One mark per card: the app's emblem stood over a stethoscope on the
+  //: setup card, two marks stacked (INBOX 472).
+  $("onboarding-icon").classList.add("hidden");
   if (greet) {
     const face = document.createElement("span");
     face.className = "nm-live";

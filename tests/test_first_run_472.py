@@ -72,3 +72,17 @@ def test_every_library_empty_state_has_a_title_and_one_sentence():
     assert "Nothing here yet. Make" not in js
     assert '"Nothing here yet"' in js
 
+
+def test_the_setup_slide_is_short_and_offers_the_ai_setup():
+    """The welcome's setup card stacked two marks, repeated the first card's
+    privacy sentence, said "0.0 MB so far", and had no way from "Ollama
+    isn't running" to where a model is connected."""
+    js = frontend_text("settings-wiring.js")
+    diag = js.split("async function loadOnboardingDiagnostics(")[1].split("\nfunction ")[0]
+    assert "nothing here leaves this machine" not in diag
+    assert "MB so far" not in diag
+    offers = js.split("function renderOnboardingActions(")[1].split("\nfunction ")[0]
+    assert 'openSettingsModal("models")' in offers and "!models.ollama_running" in offers
+    slide = js.split("function renderOnboardingSlide(")[1].split("\nfunction ")[0]
+    assert '$("onboarding-icon").classList.add("hidden")' in slide
+

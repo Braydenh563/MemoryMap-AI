@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Speed: two text patterns could stall on a long run of spaces (20,000 spaces took 5 to 7 seconds): the one that splits a model's follow-up suggestions and the one that spots a table's divider line when exporting a document to Word. Both are linear now (under 0.02 s) and split and match exactly as before.
 - Duplicates: the scan is much faster and reads more of a large notebook. 60 notes went from about 196 ms to 8 to 15 ms; the scan used to give up after 500 notes (more than 25 s at that size) and now reads 5,000, so a notebook past 500 notes has its newer notes checked too (2,000 notes: about 0.7 s). Same groups and scores as before.
 - Connections: in Mentioned, not linked, the Link button is greyed out (with the reason on hover) for a note whose opening line has a square bracket in it, such as "Plan [v2]". It used to say "Linked", rewrite the sentence and store no link, because a [[link]] cannot hold a bracket. Names with # or | ("C# basics") link as before.
 - Privacy: what you search for no longer appears in the log. The access log, Settings log viewer and support bundle used to carry `GET /search?q=your words` in full; now the value of any query parameter that is not paging or a switch shows as `[redacted]` (the route and parameter names stay).

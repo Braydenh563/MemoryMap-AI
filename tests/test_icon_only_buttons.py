@@ -34,10 +34,10 @@ INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 # Buttons that hold an icon and no words, but are deliberately not square.
 # Keep this list short and give every entry a reason.
 ALLOWED = {
-    # The month name is written into `#timeline-month-text` at runtime
+    # `#timeline-month-btn`: the month name is written into its span at runtime
     # (`renderTimelineDayStrip`), so the markup's empty span is not an
     # icon-only button: it reads "October 2026" plus a caret.
-    "timeline-month-btn",
+    "timeline-daystrip-label",
     # Sized 2rem square by `.graph-help-toggle` itself (03-dashboard-widgets.css),
     # which also rounds it to a circle. Adding `icon-only` would put this in a
     # cascade fight with that rule for no gain.

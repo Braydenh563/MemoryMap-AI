@@ -38919,3 +38919,22 @@ same ids lit). A saved filter saves the query. Measured:
 ids). Found and fixed on the way: the sidebar's Most used, a note's Ask Atlas
 name, the graph popup's name and a board's note card read a note's first
 line raw, so a note opening with properties was named "---" there.
+
+### From GRAPH_PLAN.md: KG8 part two, filter chips by kind of link and by property
+
+A Filter fold in the graph's options (`#graph-filter-section`, after
+Display): `gcRenderFilterChips` builds, on every render, a `.library-chip`
+toggle per kind of link among the map's links (its `type_name`, "No kind"
+for none, with the count; `aria-pressed` while drawn) and one per property
+value the map's notes carry (twelve, most common first). A kind chip adds or
+removes the kind from `graphHiddenLinkKinds` (kept in `localStorage`), which
+the edge filter in both renderers reads (`gcLinkKindHidden`), so the springs,
+the sizes and the drawing all lose those links together; a property chip
+lights its notes through `graphHighlightIds`, the topic legend's and the
+live query's highlight. Measured: `scratchpad/ui-sweeps/kg8filter.js` 6/6 at
+1440 light and 390 dark (Supports off takes its one link off the map and on
+brings it back; status: checked lights exactly its note); the chips wrap
+inside the 390 sheet (measured 44px each, none past the edge, after a first
+run found the property row running off it). The closed panel is 676px of
+list in its 492px box at 1440x900, 39px more than before the fold (it
+already scrolled, 637 in 492).

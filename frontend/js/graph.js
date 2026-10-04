@@ -1897,7 +1897,7 @@ async function renderGraphSvg() {
   );
   const keptIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter(
-    (e) => keptIds.has(e.source) && keptIds.has(e.target)
+    (e) => keptIds.has(e.source) && keptIds.has(e.target) && !(typeof gcLinkKindHidden === "function" && gcLinkKindHidden(e))
   );
   // "Hide unlinked" (declutter): keep only notes that appear in an edge.
   if ($("graph-hide-orphans") && $("graph-hide-orphans").checked) {

@@ -1131,6 +1131,7 @@ HELP_TOPICS.extend(
                 "ghost node", "attachments on the graph", "arrows", "text fade",
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
+                "filter links", "kind of link", "hide links", "property chips",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1150,7 +1151,10 @@ HELP_TOPICS.extend(
                 "the tag, person or word its notes share most, and its legend entry "
                 "finds those notes and opens its card, where Summarise asks your "
                 "local model for one sentence (with no model, what they share); "
-                "no note's name is drawn over a topic's name. In Trace, a step marked +2 has two more reasons "
+                "no note's name is drawn over a topic's name. Filter holds a chip per "
+                "kind of link on the map (press one to take those links off, again "
+                "to bring them back) and per property value (press to light those "
+                "notes). In Trace, a step marked +2 has two more reasons "
                 "its notes relate; point at it to read them."
             ),
             "badge": {"label": "Graph", "tab": "graph"},

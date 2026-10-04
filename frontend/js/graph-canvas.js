@@ -998,6 +998,87 @@ function gcDrawTopicHulls(ctx, s, k) {
   ctx.restore();
 }
 
+//: GRAPH_PLAN KG8: the kinds of link taken off the map (a link's
+//: `link_type`, "untyped" for none), kept between visits, and the property
+//: chip that lights its notes.
+const graphHiddenLinkKinds = new Set((() => {
+  try {
+    return JSON.parse(localStorage.getItem("graph-hidden-link-kinds") || "[]");
+  } catch {
+    return [];
+  }
+})());
+let gcPropLit = "";
+
+function gcLinkKindHidden(edge) {
+  return edge.kind === "link" && graphHiddenLinkKinds.has(edge.link_type || "untyped");
+}
+
+function gcFilterChip(label, count, pressed, title, onClick) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = `library-chip${pressed ? " active" : ""}`;
+  chip.setAttribute("aria-pressed", String(pressed));
+  chip.title = title;
+  const name = document.createElement("span");
+  name.textContent = label;
+  const n = document.createElement("span");
+  n.className = "library-chip-count";
+  n.textContent = String(count);
+  chip.append(name, n);
+  chip.addEventListener("click", onClick);
+  return chip;
+}
+
+function gcRenderFilterChips(data) {
+  const kinds = document.getElementById("graph-link-kinds");
+  const props = document.getElementById("graph-prop-chips");
+  if (!kinds || !props) return;
+  const byKind = new Map();
+  for (const e of data.edges) {
+    if (e.kind !== "link") continue;
+    const key = e.link_type || "untyped";
+    const row = byKind.get(key) || { label: key === "untyped" ? "No kind" : e.type_name || key, n: 0 };
+    row.n++;
+    byKind.set(key, row);
+  }
+  kinds.replaceChildren(...[...byKind].sort((a, b) => b[1].n - a[1].n).map(([key, row]) => {
+    const shown = !graphHiddenLinkKinds.has(key);
+    return gcFilterChip(row.label, row.n, shown, shown ? `Hide the ${row.label} links` : `Draw the ${row.label} links again`, () => {
+      if (graphHiddenLinkKinds.has(key)) graphHiddenLinkKinds.delete(key);
+      else graphHiddenLinkKinds.add(key);
+      try {
+        localStorage.setItem("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
+      } catch {
+        /* storage blocked: the choice holds for this visit */
+      }
+      renderGraph();
+    });
+  }));
+  if (!byKind.size) kinds.textContent = "No links on the map.";
+  const onMap = new Set(data.nodes.map((n) => n.id));
+  const pairs = new Map();
+  for (const e of typeof allEntries !== "undefined" ? allEntries : []) {
+    if (!onMap.has(e.id)) continue;
+    for (const [key, values] of Object.entries(e.properties || {})) {
+      for (const value of values || []) {
+        if (!value) continue;
+        const pair = `${key}: ${String(value).replace(/^\[\[|\]\]$/g, "")}`;
+        if (!pairs.has(pair)) pairs.set(pair, []);
+        pairs.get(pair).push(e.id);
+      }
+    }
+  }
+  const top = [...pairs].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).slice(0, 12);
+  props.replaceChildren(...top.map(([pair, ids]) => gcFilterChip(pair, ids.length, gcPropLit === pair, `Light the notes with ${pair}`, () => {
+    gcPropLit = gcPropLit === pair ? "" : pair;
+    graphHighlightIds = gcPropLit ? new Set(ids) : null;
+    applyGraphHighlight();
+    gcRenderFilterChips(data);
+  })));
+  if (!top.length) props.textContent = "No note on the map has properties.";
+}
+
 //: GRAPH_PLAN KG6: a topic's card. A summary is asked for, never fetched on
 //: its own (a model pass); cached here and on the server by its notes; Stop
 //: abandons the ask. With no model the server answers from the shared terms.
@@ -3570,8 +3651,9 @@ async function renderGraphCanvas(s = gcTab) {
   //: same backbone (INBOX 412; see `gcPruneSimilarity`). After the hidden
   //: notes are taken out, so a note hidden from the map does not use up
   //: one of its neighbour's two lines.
+  gcRenderFilterChips(data);
   const visibleEdges = gcPruneSimilarity(
-    data.edges.filter((e) => kept.has(e.source) && kept.has(e.target)),
+    data.edges.filter((e) => kept.has(e.source) && kept.has(e.target) && !gcLinkKindHidden(e)),
     { threshold: gcSimilarityCutoff() }
   );
   {

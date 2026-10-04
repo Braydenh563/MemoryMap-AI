@@ -6156,6 +6156,30 @@ button.ghost.danger:hover {
   flex-wrap: wrap;
 }
 
+/* GRAPH_PLAN KG8: the graph's Filter fold, two rows of toggle chips. */
+.graph-filter-head {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-xs);
+}
+
+/* Wrapped, whatever the panel's rows do: a long value never runs past the
+   panel's edge. */
+#graph-filter-section .graph-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  font-size: var(--text-sm);
+}
+
+#graph-filter-section .graph-filter-chips > .library-chip {
+  height: auto;
+  min-height: var(--control-h);
+  max-width: 100%;
+  padding-inline: var(--space-3);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* The help panel was absolutely positioned against the card (a popover under
    a toolbar that used to sit in the flow). In the column it is a row like the
    others, right-aligned under the "?" it opens from. */

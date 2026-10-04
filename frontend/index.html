@@ -3590,6 +3590,16 @@ Link to another note with [[its first few words]]."></textarea>
                 title="How thick the lines are drawn">
             </div>
           </details>
+          <!-- GRAPH_PLAN KG8: which kinds of link are drawn, and the notes a
+               property names, lit. Chips built from what is on the map
+               (`gcRenderFilterChips`, graph-canvas.js). -->
+          <details class="dock-menu-section settings-fold graph-options-fold" id="graph-filter-section">
+            <summary><span class="muted dock-menu-label" id="graph-filter-label">Filter</span></summary>
+            <p class="muted graph-filter-head">Kinds of link</p>
+            <div id="graph-link-kinds" class="library-filters graph-filter-chips" role="group" aria-label="Kinds of link drawn on the map"></div>
+            <p class="muted graph-filter-head">Properties</p>
+            <div id="graph-prop-chips" class="library-filters graph-filter-chips" role="group" aria-label="Light the notes with a property"></div>
+          </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
             role="group" aria-labelledby="graph-time-heading">
             <span class="muted dock-menu-label" id="graph-time-heading">Time</span>

@@ -467,6 +467,14 @@ on the old 3px card-coloured outline; the placement keeps it clear of lines
 either way (`scratchpad/ui-sweeps/graphplates.js`: 19 plates on, 19 outlines
 off, off kept after a reload).
 
+## Decision made, 2026-10-04: a Filter fold
+
+KG8 asks for filter chips by kind of link and by property. Decided: **a fifth
+fold, Filter**, after Display, on the same rule (set, then left): a row of
+chips per kind of link on the map and a row per property value, built from
+what is on the map, so the closed panel grows by one summary row and the
+chips never cost the Show grid a row.
+
 ## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
 
 514 (parity with Obsidian's graph) and 518 (wiki link origin, the payload cache,
@@ -649,9 +657,8 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    (the same section as KG1).
 8. KG7, live queries: built 2026-10-04, moved to HISTORY.md (the same
    section as KG1).
-9. KG8, graph filters and path explanations. Path explanations built
-   2026-10-04 (HISTORY.md, same section as KG1); open: filter chips by
-   relation type and property (after KG3 and KG4).
+9. KG8, graph filters and path explanations: built 2026-10-04, both parts
+   moved to HISTORY.md (the same section as KG1).
 
 One Opus session each, tests first, measured on a 2k fixture.
 

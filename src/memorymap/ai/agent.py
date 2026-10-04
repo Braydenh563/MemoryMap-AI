@@ -83,6 +83,14 @@ EMPTY_ROUND_NUDGE = (
     "or call the one tool that does what I asked."
 )
 
+#: Sent, with the tools withdrawn, when a turn runs out of rounds (see the end
+#: of `run_agent`): what it found is worth an answer even if the job is not done.
+WRAP_UP_NUDGE = (
+    "You have used all your tool calls for this turn. Answer my request now, "
+    "from what your tool results above show. Say plainly what you did and "
+    "what is still not done. Do not claim anything you did not do."
+)
+
 #: Sent after a round whose words only announce an action ("I'll count the
 #: notes in Work", "I will use the count_notes function") and that called no
 #: tool (see `announces_unacted_tool`). Measured with Qwen2.5-1.5B through
@@ -2379,11 +2387,39 @@ def run_agent(
         "rounds": round_number + 1,
         "wrote": sorted(state.ran_writes),
     }
+    wrapped = ""
+    if exhausted_note is None and not (spend is not None and spend.exceeded()):
+        # **One more round, with the tools withdrawn, for an answer** (INBOX
+        # 527). Before, a turn that ran out handed the user only "I stopped
+        # after 4 rounds", however much it had found: a small model capped at
+        # four rounds that had read the right note gave no answer from it.
+        # A skill step passes its own note and is left alone: the runner
+        # reads the stop, not prose, to mark the step stalled.
+        state.messages.append({"role": "user", "content": WRAP_UP_NUDGE})
+        try:
+            for piece in ollama.chat_tools_stream(agent_model, state.messages, [], mode=mode):
+                if "content_delta" in piece:
+                    wrapped += piece["content_delta"]
+                    yield {"type": "answer", "delta": piece["content_delta"]}
+                elif "final" in piece and not piece["final"].get("streamed"):
+                    late = (piece["final"].get("content") or "").strip()
+                    if late and not wrapped:
+                        wrapped = late
+                        yield {"type": "answer", "delta": late}
+        except (OllamaError, ToolsUnsupportedError) as exc:
+            logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
+        unsupported = unsupported_claims(wrapped, state.ran_writes)
+        if unsupported:
+            yield {
+                "type": "answer",
+                "delta": f"\n\nHeads up: I said I {', '.join(unsupported)}, but that tool never ran, so it did not happen.",
+            }
     yield {
         "type": "answer",
         "delta": exhausted_note
         or (
-            "I stopped after "
+            ("\n\n" if wrapped.strip() else "")
+            + "I stopped after "
             f"{round_number + 1} rounds of tool calls, here's where things "
             "stand. Continue and I'll pick up from here."
         ),

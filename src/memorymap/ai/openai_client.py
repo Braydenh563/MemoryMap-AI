@@ -652,6 +652,11 @@ class OpenAICompatClient(Provider):
             **self.request_extras(mode, model),
         }
         payload.update(extra)
+        if "tools" in payload and not payload["tools"]:
+            # A round with the tools withdrawn (the budget ran out, or the
+            # wrap-up after the last round): strict servers refuse `tools: []`
+            # ("too short"), and no tools is what it means.
+            del payload["tools"]
         return payload
 
     def _post(self, payload: dict, stream: bool):
@@ -765,6 +770,31 @@ class OpenAICompatClient(Provider):
             except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
+    def _open_tools_stream(self, model: str, messages: list[dict], tools: list[dict], mode: str | None):
+        """The streamed tools request, opened, with one silent retry on a
+        transient 5xx (INBOX 527: `chat` and `chat_stream` had one, the agent's
+        own path did not, so llama-server's 503 while it loads a model ended
+        the turn). Safe for the reason `chat_stream`'s is: nothing has been
+        yielded yet. A model without tool support is a gap to fall back from,
+        not an outage, and is not retried."""
+        payload = self._payload(
+            model, messages, mode, stream=True, tools=tools, stream_options={"include_usage": True}
+        )
+        for attempt in range(2):
+            response = self._post(payload, stream=True)
+            if _looks_like_tools_rejection(response.status_code, response.text):
+                response.close()
+                raise ToolsUnsupportedError(f"'{model}' can't use tools")
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as exc:
+                response.close()
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise
+            return response
+        raise ProviderError(f"Tool chat with '{model}' failed: retries exhausted")
+
     def chat_tools_stream(
         self,
         model: str,
@@ -788,22 +818,7 @@ class OpenAICompatClient(Provider):
         started = time.monotonic()
         last: dict = {}
         try:
-            with self._post(
-                self._payload(
-                    model,
-                    messages,
-                    mode,
-                    stream=True,
-                    tools=tools,
-                    stream_options={"include_usage": True},
-                ),
-                stream=True,
-            ) as response:
-                # A model without tool support is a gap to fall back from, not
-                # an outage: the same distinction the Ollama path draws.
-                if _looks_like_tools_rejection(response.status_code, response.text):
-                    raise ToolsUnsupportedError(f"'{model}' can't use tools")
-                response.raise_for_status()
+            with self._open_tools_stream(model, messages, tools, mode) as response:
 
                 def emit(piece: dict) -> Iterator[dict]:
                     """Route one splitter piece, gating candidate tool-call text."""

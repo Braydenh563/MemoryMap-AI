@@ -116,3 +116,75 @@ def test_unreadable_json_comes_back_as_that_with_a_shape(monkeypatch, app_state)
     assert "not valid JSON" in payload["error"]
     assert '"note_id": 12' in payload["what_to_do"]
     assert any(e.get("type") == "tool" and e.get("ok") is False for e in events)
+
+
+# --- running out of rounds ends in an answer ------------------------------------
+
+
+class _Looping:
+    """Calls a fresh search every round; with no tools offered, answers."""
+
+    def __init__(self):
+        self.offered: list[list] = []
+        self.n = 0
+
+    def chat_tools_stream(self, model, messages, offered, mode=None):
+        self.offered.append(list(offered))
+        if not offered:
+            yield {"content_delta": "Your plumber note says the invoice is late."}
+            yield {"final": {"content": "Your plumber note says the invoice is late.", "tool_calls": [], "streamed": True}}
+            return
+        self.n += 1
+        call = {"name": "search_notes", "arguments": {"query": f"q{self.n}"}}
+        yield {"final": {"content": "", "tool_calls": [call], "raw_tool_calls": []}}
+
+
+def test_running_out_of_rounds_still_answers_from_what_was_found(monkeypatch, app_state):
+    """Before: only "I stopped after N rounds". Now one more round with the
+    tools withdrawn answers, and the stop and Continue still follow it."""
+    fake = _Looping()
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"results": [], "label": "searched"})
+    events = list(agent.run_agent(_Session(), "q", [], _Models(), fake, max_rounds=2, earned_rounds=0))
+    answer = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert answer.startswith("Your plumber note says the invoice is late.")
+    assert "Continue" in answer
+    assert fake.offered[-1] == [], "the wrap-up round offers no tools"
+    assert [e["type"] for e in events].index("limit") < len(events) - 1
+
+
+def test_a_skill_step_that_runs_out_gets_no_wrap_up(monkeypatch, app_state):
+    fake = _Looping()
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"results": []})
+    events = list(
+        agent.run_agent(_Session(), "q", [], _Models(), fake, max_rounds=2, earned_rounds=0, exhausted_note="stalled")
+    )
+    assert all(offered for offered in fake.offered)
+    assert [e.get("delta") for e in events if e.get("type") == "answer"] == ["stalled"]
+
+
+# --- the agent's own provider path retries a transient 5xx --------------------
+
+
+def test_the_tools_stream_retries_a_503_once(openai_client, capture_post):
+    """llama-server answers 503 while it loads a model. `chat` and
+    `chat_stream` retried once; the agent's own path ended the turn."""
+    from fakes_http import FakeResponse, sse
+
+    capture_post.queue.extend([
+        FakeResponse(status=503, text="Loading model"),
+        FakeResponse(lines=sse({"choices": [{"delta": {"content": "ok"}}]})),
+    ])
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], []) if "final" in p][0]
+    assert final["content"] == "ok"
+    assert len(capture_post.sent) == 2
+    assert "tools" not in capture_post.sent[0]["json"], "an empty tool list is not sent"
+
+
+def test_a_second_5xx_is_still_an_error(openai_client, capture_post):
+    from fakes_http import FakeResponse
+
+    from memorymap.ai.provider import ProviderError
+
+    capture_post.queue.extend([FakeResponse(status=500), FakeResponse(status=500)])
+    with pytest.raises(ProviderError):
+        list(openai_client.chat_tools_stream("m", [], []))

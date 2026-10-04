@@ -49,6 +49,10 @@ class FakeResponse:
         for line in self._lines:
             yield line.encode("utf-8")
 
+    def close(self):
+        """A refused or retried stream is closed before the next request."""
+        self.closed = True
+
     def __enter__(self):
         return self
 

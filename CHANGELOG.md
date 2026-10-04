@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Command palette: Ctrl+K now lists Open today's note, Go back, Go forward and Reload the app, the four shortcuts that had no row; `tests/test_consistency_contract.py` fails on a tab or a shortcut the palette lacks, a card in a card, a glass in a glass, a menu row that paints a fill at rest, and a second filled button in a modal or a settings pane (5 existing dialogs and 13 chip rules are held at their count).
 - Dashboard: Recent activity's "Undo what Atlas did" row goes once the undo has put everything back, instead of staying to say "Already undone"; a later change by Atlas brings it back (`GET /events` names the events a restore reversed).
 - Dashboard: the While you were away card grows to fit the review list you open instead of scrolling inside a 320px box, so every finding and its Dismiss button can be reached; it still pages five at a time.
 - Mind maps on a phone: a selected topic's add and link buttons hang below the topic instead of over the left of its label, so pressing the start of a topic's text selects it rather than adding a child.

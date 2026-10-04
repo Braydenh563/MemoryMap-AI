@@ -7,6 +7,48 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the consistency contract's missing lints)
+
+### From WORLD_CLASS_PLAN.md rows 13 (section 1, D14)
+
+Five rules of section 1 named a lint that did not exist, so a session that did
+not know the rule could break it and nothing failed. All five are in
+`tests/test_consistency_contract.py`, each measured against the code first.
+
+- **Surface budget** (1.1). A card in a card, a panel in a panel, a glass in a
+  glass, a `details > summary.btn` in a card. 0 offences in `index.html`
+  (68 cards, 25 glass surfaces walked); no element carries the bare class
+  `panel`, so that half is a guard for the day one does. The plan named
+  `test_surface_budget.py`; it lives in the one file with the other four.
+- **One primary per modal** (1.2). Filled buttons per modal overlay, and per
+  pane inside the settings screen (the unit is the pane, the shell's nav is
+  not counted). Fails on a second filled button; five places hold more and
+  are ratcheted at their count (`PRIMARY_RATCHET`): doc-ai-panel 2 (Run,
+  Accept), ocr-workspace 2 (Save edits, Make a note), meeting-overlay 2
+  (Record, Save), settings-searchindex 2, settings-about 3. Each is a
+  stage-gated pair or a hidden alternate; making the second ghost until its
+  turn is a design call per dialog. A test fails when an allowance outlives
+  its dialog.
+- **Meta without border or hover** (1.2). 13 distinct `.chip` rules draw a
+  border or answer hover on the chip itself (link chips, category chips that
+  open a menu, the confidence chip, item labels, the recent-questions chip);
+  held at 13 (`META_RATCHET`). These are controls dressed as chips; folding
+  each into a button or dropping its edge is a per-chip design call.
+- **A menu item's rest background** (1.3). Across the five item classes
+  (`.menu-item`, `.doc-dock-menu-item`, `.wb-menu-item`,
+  `.library-image-menu-item`, `.action-menu-item`) no rest rule paints a
+  fill: 0 offences. The tint is hover and selected only.
+- **Every action in the palette** (D14). The app has no `data-action`
+  attribute, so the gate reads the two places an action is declared: every
+  `data-tab` button needs a `tab:` row (7 of 7 did) and every
+  `DEFAULT_SHORTCUTS` chord needs a `chord:` row or a named reason in
+  `CONTEXTUAL_CHORDS` (13 contextual, 17 in the palette). Four had neither
+  and now have a row: Open today's note (Ctrl+D, a new `todays-note` reveal
+  target), Go back, Go forward (Alt+Arrow), Reload the app (Ctrl+Alt+R).
+
+Not verified: the four new palette rows were not run in a browser; the static
+catalogue lints (`test_catalogue_reveal.py`, `test_feature_catalog.py`) pass.
+
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
 ### From MINDMAP_PLAN.md section 13e: the branch palette, the font, and decision 9's narrow case

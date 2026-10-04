@@ -2037,3 +2037,100 @@ def test_numbers_that_do_not_match_the_outline_stay_as_text(client):
     tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
     assert tree["numbered"] is False
     assert [k["text"] for k in tree["roots"][0]["children"]] == ["2024 plan", "2025 plan"]
+
+
+
+# --- a note behind a topic (MINDMAP_PLAN.md decision 18) ----------------------
+
+_NOTE = "First line\nsecond line\n\n- a line that looks like a bullet\n# and one like a heading"
+
+
+def _note_map(client, numbered=False):
+    board = _map(client, name="Notes")
+    root = _node(client, board["id"], text="Notes")
+    research = _node(client, board["id"], parent_id=root["id"], text="Research")
+    _node(client, board["id"], parent_id=research["id"], text="Read the papers")
+    plain = _node(client, board["id"], parent_id=root["id"], text="Write")
+    assert _set_data(client, board, research, {"note": _NOTE}).status_code == 200
+    assert _set_data(client, board, plain, {"task": "open", "note": "One line."}).status_code == 200
+    if numbered:
+        assert client.put(f"/whiteboard/boards/{board['id']}", json={"numbered": True}).status_code == 200
+    return board
+
+
+def _notes_by_text(client, board_id):
+    out, stack = {}, list(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    while stack:
+        node = stack.pop()
+        out[node["text"]] = (node["style"].get("note"), len(node["children"]))
+        stack.extend(node["children"])
+    return out
+
+
+def test_a_note_is_saved_with_the_topic_and_has_a_ceiling(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"note": "x" * 10_001}).status_code == 422
+    assert _set_data(client, board, node, {"note": "Behind it."}).status_code == 200
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"note": "Behind it."}
+
+
+def test_a_markdown_export_writes_a_note_as_an_indented_paragraph(client):
+    board = _note_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert (
+        "  - Research\n"
+        "\n"
+        "    First line\n"
+        "    second line\n"
+        "\n"
+        "    \\- a line that looks like a bullet\n"
+        "    \\# and one like a heading\n"
+        "\n"
+        "    - Read the papers\n"
+    ) in text
+    assert "  - [ ] Write\n\n    One line.\n" in text
+
+
+def test_notes_round_trip_through_markdown_with_tasks_and_numbers(client):
+    board = _note_map(client, numbered=True)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    back = client.post("/whiteboard/boards/import", json={"format": "markdown", "content": text})
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert tree["numbered"] is True
+    notes = _notes_by_text(client, back.json()["id"])
+    assert notes["Research"] == (_NOTE, 1)
+    assert notes["Write"] == ("One line.", 0)
+    assert notes["Read the papers"] == (None, 0)
+    kids = tree["roots"][0]["children"]
+    assert [k["style"].get("task") for k in kids] == [None, "open"]
+
+
+def test_notes_round_trip_through_both_xml_formats(client):
+    board = _note_map(client)
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_note="One line."' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        notes = _notes_by_text(client, back.json()["id"])
+        assert notes["Research"][0] == _NOTE, fmt
+        assert notes["Write"][0] == "One line.", fmt
+
+
+def test_a_paragraph_under_a_hand_written_bullet_is_its_note(client):
+    content = "# Trip\n- Trip\n  - Pack\n    Passport, charger.\n    Tickets.\n  - Go\n"
+    back = client.post("/whiteboard/boards/import", json={"format": "markdown", "content": content})
+    assert back.status_code == 201, back.text
+    notes = _notes_by_text(client, back.json()["id"])
+    assert notes["Pack"] == ("Passport, charger.\nTickets.", 0)
+    assert notes["Go"] == (None, 0)
+
+
+def test_resetting_a_maps_looks_keeps_its_notes(client):
+    board = _note_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    notes = _notes_by_text(client, board["id"])
+    assert notes["Research"][0] == _NOTE and notes["Write"][0] == "One line."

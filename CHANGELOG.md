@@ -157,6 +157,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Mind maps: a topic can hold a note. "Add a note…" in the topic's menu opens a box beside it; the note is saved when you close it, and a mark on the topic opens it again. Markdown exports a note as a paragraph under its topic, OPML and FreeMind as `_note`, and all three read it back.
 - Mind maps: View, Number the branches numbers every topic by its place in the outline (1, 1.1, 1.2), as quiet text before its name. It is saved with the map, and the Markdown and OPML exports keep the numbers and read them back.
 - Whiteboard: a connector can carry a label ("yes", "no"). Select it and press Enter, or right-click it and choose Add a label; the label sits at the middle of the line, on the curve when it is bent, follows the line when either end moves, and exports with it. Double-click still bends the line.
 - Mind maps: a connect drag says which connection it will make before you let go. The topic under the pointer gets a solid ring when the release will hang it in the tree, a dashed ring (and a dashed line) when it will be a cross-link, and a screen reader hears which.

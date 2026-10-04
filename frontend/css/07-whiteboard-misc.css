@@ -11145,6 +11145,49 @@ input[type="file"] {
   color: var(--accent-text);
 }
 
+/* The mark of a note behind a topic (MINDMAP_PLAN.md decision 18): the link
+   marker's recipe in the label's own ink, like the task box, so it reads on a
+   core or filled topic's ground too. */
+.wb-map-note {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  font-size: var(--text-md);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.wb-map-note:hover,
+.wb-map-note:focus-visible {
+  color: var(--accent-text);
+}
+
+/* The note itself, in the help popover's shell (`.help-popover`): one plain
+   text box the width of the popover, and one quiet line under it. */
+.help-popover.wb-map-note-peek {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.wb-map-note-peek .wb-map-note-text {
+  width: 100%;
+  min-height: 7.5em;
+  resize: vertical;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.wb-map-note-peek .wb-map-note-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
 /* A task's box (MINDMAP_PLAN.md decision 15): the link marker's recipe, in
    the label's own ink so it reads on a core topic's filled ground too. */
 .wb-map-task {

@@ -5121,6 +5121,22 @@ function wbBuildContextMenu(kind) {
           wbMapSetTask(mapNode, "open")
         );
       }
+      //: A note behind it (MINDMAP_PLAN.md decision 18): written and read in
+      //: the popover its marker opens; a topic's only, since a note node
+      //: already has the notebook's note behind it.
+      if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+        const hasNote = Boolean(mapNode.data?.note);
+        sub(hasNote ? "Open the note…" : "Add a note…",
+          hasNote ? "Or press the note mark on the topic" : "Longer text behind the topic, shown when you open it",
+          () => wbMapOpenNote(mapNode.id, document.querySelector(`.wb-object[data-id="${mapNode.id}"] .wb-map-note`)));
+        if (hasNote) {
+          sub("Remove the note", "The topic stays; Ctrl+Z brings the note back", async () => {
+            await wbMapSetNodeStyle(mapNode, { note: null });
+            renderWhiteboardNow();
+            wbAnnounce("Note removed.");
+          });
+        }
+      }
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {

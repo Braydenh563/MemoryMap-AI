@@ -57,6 +57,10 @@ MAX_SKETCH_CHARS = 400_000
 #: A text box's own content. Generous: this is a whiteboard note, not a tweet
 #:, but still bounded for the same reason every other free-text field here is.
 MAX_OBJECT_TEXT_CHARS = 20_000
+#: The longest note a topic can hold behind it (MINDMAP_PLAN.md decision 18).
+#: A note is a paragraph or a few, not a document: a longer text belongs in a
+#: notebook note the topic points at, which the map already does.
+MAX_TOPIC_NOTE_CHARS = 10_000
 
 #: What a board *is*. A map is a board with tree semantics turned on
 #: (MINDMAP_PLAN.md §4, option B), the same rows, the same endpoints, one
@@ -264,6 +268,10 @@ class WhiteboardObjectData(BaseModel):
     #: a task" cannot be stored. Content, not a look: the map theme never sets
     #: it and the styling reset never clears it (`MAP_CONTENT_FIELDS`).
     task: str | None = Field(default=None, pattern="^(open|done)$")
+    #: **A note behind a topic** (MINDMAP_PLAN.md §12.2 item 5, decision 18):
+    #: plain text, shown on demand from a marker on the topic. Content, like
+    #: `task`: no theme sets it and no reset clears it (`MAP_CONTENT_FIELDS`).
+    note: str | None = Field(default=None, max_length=MAX_TOPIC_NOTE_CHARS)
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -2666,6 +2674,7 @@ MAP_STYLE_FIELDS = (
     "edge_slide",
     "image",
     "task",
+    "note",
 )
 
 
@@ -3266,7 +3275,7 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image", "task"})
+MAP_CONTENT_FIELDS = frozenset({"image", "task", "note"})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3493,7 +3502,32 @@ def _export_markdown(title: str, roots: list[dict], numbered: bool = False) -> s
         number = numbers.get(node["id"])
         number = f"{number} " if number else ""
         lines.append(f"{'  ' * depth}- {box}{number}{text}{suffix}")
+        note = (node.get("style") or {}).get("note")
+        if note:
+            lines.extend(_markdown_note_lines(note, depth))
+    while lines and not lines[-1]:
+        lines.pop()
     return "\n".join(lines) + "\n"
+
+
+#: **A note is an indented paragraph under its bullet** (MINDMAP_PLAN.md
+#: decision 18): a blank line, the note at the bullet's content column, a
+#: blank line. Every Markdown reader draws that as a paragraph inside the
+#: list item, which is what a note behind a topic is, and
+#: `_parse_markdown_outline` reads it back. A note line that would read as a
+#: bullet or a heading is escaped with a backslash, which a reader draws as
+#: the character and the import takes off again.
+_MARKDOWN_NOTE_ESCAPE = re.compile(r"^([\\\-*+#])")
+
+
+def _markdown_note_lines(note: str, depth: int) -> list[str]:
+    pad = "  " * depth + "  "
+    out = [""]
+    for line in str(note).strip().splitlines():
+        line = line.rstrip()
+        out.append(pad + _MARKDOWN_NOTE_ESCAPE.sub(r"\\\1", line) if line else "")
+    out.append("")
+    return out
 
 
 #: **A task is the one thing a node carries that Markdown has a word for**
@@ -3563,6 +3597,10 @@ _FREEMIND_PRIVATE = {
     #: empty box, so an open task has no native spelling; private, like the
     #: rest of this list.
     "task": "_task",
+    #: A note (decision 18). FreeMind's own is `<richcontent TYPE="NOTE">`,
+    #: whose body is HTML, which this file neither writes nor reads (see
+    #: `_parse_freemind`); the attribute keeps the text plain both ways.
+    "note": "_note",
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3588,6 +3626,9 @@ _OPML_PRIVATE = {
     "edge_slide": "_edge_slide",
     "image": "_image",
     "task": "_task",
+    #: `_note` is the spelling OmniOutliner and Workflowy already write, so
+    #: this one reaches another outliner as a note rather than being dropped.
+    "note": "_note",
 }
 
 
@@ -4155,17 +4196,36 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     #: seen: the standard outline-parsing stack.
     stack: list[tuple[int, dict]] = []
     counted = 0
+    #: A blank line since the last note line, so a note's paragraphs come
+    #: back as paragraphs (decision 18).
+    blank = False
     for raw in content.splitlines():
         line = raw.rstrip()
         stripped = line.lstrip()
         if not stripped:
+            blank = True
             continue
         if stripped.startswith("#"):
             if not title:
                 title = stripped.lstrip("#").strip()
             continue
         if stripped[0] not in "-*+":
+            #: **Text indented under a bullet is that topic's note**
+            #: (decision 18): what `_export_markdown` writes, and what a
+            #: paragraph under a hand-written bullet means. Anything else
+            #: that is not a bullet is not part of the outline, as before.
+            prefix = line[: len(line) - len(stripped)]
+            if stack and len(prefix) + prefix.count("\t") > stack[-1][0]:
+                owner = stack[-1][1]
+                lines = owner.setdefault("note_lines", [])
+                if lines and blank:
+                    lines.append("")
+                lead = len(line) - len(line.lstrip(" "))
+                text = line[min(lead, stack[-1][0] + 2):].lstrip("\t")
+                lines.append(_MARKDOWN_NOTE_UNESCAPE.sub(r"\1", text))
+            blank = False
             continue
+        blank = False
         text = stripped[1:].strip()
         if not text:
             continue
@@ -4192,7 +4252,17 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
             roots.append(node)
             stack = []
         stack.append((indent, node))
+    for node in _flatten_parsed(roots):
+        lines = node.pop("note_lines", None)
+        note = "\n".join(lines or []).strip()
+        if note:
+            node["style"] = {**(node.get("style") or {}), "note": note[:MAX_TOPIC_NOTE_CHARS]}
     return title, roots
+
+
+#: The backslash `_markdown_note_lines` put in front of a note line that
+#: would have read as a bullet or a heading, taken off again.
+_MARKDOWN_NOTE_UNESCAPE = re.compile(r"^\\([\\\-*+#])")
 
 
 def _place_map_nodes(

@@ -531,9 +531,9 @@ the shift-drag sever).
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
    the plans, 2026-10-04"); the rest is open.
-5. **Notes on nodes**: a text note behind a node (the small marker
-   opens it); a node that is a notebook note shows the note's own text
-   here, editable both ways.
+5. **Notes on nodes**: a node that is a notebook note shows the note's
+   own text here, editable both ways. The text note behind a topic is
+   built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
 6. **Comments** (MindMeister): a thread per node, count marker.
 7. **Multiple roots and floating topics**; **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
@@ -1114,6 +1114,26 @@ topic: a control that wide has nowhere to go.
    place, all or nothing, so "2024 plan" stays a name; OPML carries
    `_number`. FreeMind does not carry it (the setting is a view; its private
    attributes are the topics' own).
+18. **A note behind a topic is plain text, a topic's own, and opens in the
+   help popover's shell** (taken 2026-10-04, §12.2 item 5's first half).
+   `data.note`, up to 10,000 characters, content like `task` (no theme sets
+   it, no reset clears it, a copy keeps it). A topic that has one wears a
+   note mark (`.wb-map-note`, the link marker's recipe in the label's ink);
+   the mark, or the topic menu's "Add a note…" / "Open the note…", opens
+   `.help-popover.wb-map-note-peek` anchored to it: one text box, saved when
+   it closes (Escape, a press elsewhere, Ctrl+Enter), an emptied note is no
+   note, one undo step. Not a new surface and nothing new on the strip, the
+   ring or the dock (decision 5, §12.5). Not on a note node: it already has
+   the notebook's note behind it, and showing that note's text here,
+   editable both ways, is item 5's second half, still open. Markdown writes
+   the note as an indented paragraph under its bullet (a reader draws a
+   paragraph inside the item; a line that would read as a bullet or a
+   heading is escaped with a backslash), and the import reads any text
+   indented under a bullet as that topic's note, which is also what a
+   paragraph under a hand-written bullet means. OPML carries `_note`, the
+   spelling OmniOutliner and Workflowy write; FreeMind a private `_note`,
+   because its own `<richcontent TYPE="NOTE">` is HTML this file does not
+   read.
 
 ### Phases, each with the gate it is finished against
 

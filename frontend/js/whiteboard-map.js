@@ -1433,6 +1433,24 @@ function wbBuildMapNode(el, d) {
   //: hidden on a topic with none under it. Quiet text after the label, not a
   //: pill: a count is a fact about the branch, not a control.
   body.append("span").attr("class", "wb-map-progress").property("hidden", true);
+  //: **The marker of a note behind this topic** (MINDMAP_PLAN.md decision
+  //: 18). Hidden until there is one, the link marker's rule. A press opens
+  //: the note in the help popover's shell, anchored here; the id is read at
+  //: the press, as the task box does, because this closure's datum is
+  //: replaced by every state fetch.
+  body.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-note")
+    .attr("aria-haspopup", "dialog")
+    .attr("aria-expanded", "false")
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation())
+    .on("dblclick", (event) => event.stopPropagation())
+    .on("click", function (event) {
+      event.stopPropagation();
+      wbMapOpenNote(d.id, this);
+    })
+    .append("i").attr("class", "ph ph-notepad").attr("aria-hidden", "true");
   //: Where a topic points (§12.1 item 2's "link"). A real button, not a
   //: decoration: the whole point of setting a link is opening it, and a
   //: marker you have to go back to the strip to follow is a label. Hidden
@@ -1872,6 +1890,92 @@ async function wbMapSetNumbered(on) {
   }
 }
 
+//: **The note behind a topic, shown on demand** (MINDMAP_PLAN.md decision
+//: 18). The help popover's shell (`.help-popover`, placed by
+//: `placeHelpPopover`), anchored to the marker or, for a topic with no note
+//: yet, to the topic: not a new surface and nothing added to the canvas
+//: (decision 5). It holds one plain text box and saves when it closes, the
+//: theme dialog's rule that there is no OK for something you watch change.
+//: Closed by Escape (spent here, so the map does not also deselect), by a
+//: press anywhere else, or by opening another board. An emptied note is no
+//: note, and the save is one undo step through `wbMapSetNodeStyle`.
+let wbMapNoteState = null;
+
+function wbMapOpenNote(id, anchor) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node || WB_MAP_REFERENCE_KINDS.has(node.kind)) return;
+  //: The mark is a toggle: pressed again while its note is open, it closes
+  //: (and saves) it, as the help popover's own '?' does.
+  if (wbMapNoteState?.id === id) {
+    wbMapCloseNote();
+    return;
+  }
+  wbMapCloseNote();
+  const target = anchor && anchor.isConnected && !anchor.hidden
+    ? anchor
+    : document.querySelector(`.wb-object[data-id="${id}"]`);
+  if (!target) return;
+  const panel = document.createElement("div");
+  panel.className = "help-popover wb-map-note-peek";
+  panel.id = "wb-map-note-peek";
+  panel.setAttribute("role", "dialog");
+  const label = wbMapLabel(node) || "this topic";
+  panel.setAttribute("aria-label", `The note behind ${label}`);
+  const box = document.createElement("textarea");
+  box.className = "wb-map-note-text";
+  box.rows = 6;
+  box.maxLength = 10000;
+  box.value = typeof node.data?.note === "string" ? node.data.note : "";
+  box.placeholder = "Write what this topic needs saying";
+  box.setAttribute("aria-label", `The note behind ${label}`);
+  const hint = document.createElement("p");
+  hint.className = "muted wb-map-note-hint";
+  hint.textContent = "Saved when you close it. Esc closes.";
+  panel.append(box, hint);
+  //: Every key typed here is the note's: Tab, Enter and Delete are map
+  //: gestures on the canvas, and Escape would also deselect the topic.
+  panel.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape" || (event.key === "Enter" && (event.ctrlKey || event.metaKey))) {
+      event.preventDefault();
+      wbMapCloseNote({ restoreFocus: true });
+    }
+  });
+  const outside = (event) => {
+    if (panel.contains(event.target) || target.contains(event.target)) return;
+    wbMapCloseNote();
+  };
+  document.addEventListener("pointerdown", outside, true);
+  document.body.appendChild(panel);
+  wbMapNoteState = { id, panel, anchor: target, outside, before: box.value };
+  if (target.classList.contains("wb-map-note")) target.setAttribute("aria-expanded", "true");
+  placeHelpPopover(panel, target);
+  box.focus({ preventScroll: true });
+}
+
+function wbMapCloseNote({ restoreFocus = false } = {}) {
+  const state = wbMapNoteState;
+  if (!state) return;
+  wbMapNoteState = null;
+  document.removeEventListener("pointerdown", state.outside, true);
+  const value = state.panel.querySelector("textarea")?.value ?? state.before;
+  state.panel.remove();
+  if (state.anchor.classList.contains("wb-map-note")) state.anchor.setAttribute("aria-expanded", "false");
+  const node = (wbState.objects || []).find((o) => o.id === state.id);
+  const next = value.trim();
+  if (node && next !== state.before.trim()) {
+    wbMapSetNodeStyle(node, { note: next || null }).then(() => {
+      renderWhiteboardNow();
+      wbAnnounce(next ? "Note saved." : "Note removed.");
+    });
+  }
+  if (restoreFocus) {
+    const mark = document.querySelector(`.wb-object[data-id="${state.id}"] .wb-map-note`);
+    if (mark && !mark.hidden) mark.focus({ preventScroll: true });
+    else document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+  }
+}
+
 //: Makes a topic a task, takes the box away (`null`), or ticks it. Through
 //: `wbMapSetNodeStyle` for its one undo step and its save, then a render,
 //: because the counts on every topic above this one change with it.
@@ -1995,6 +2099,17 @@ function wbPaintMapNodeStyle(node, d) {
     }
   }
 
+  //: A note (decision 18): read off the topic's own data, never the theme's.
+  const noteMark = node.querySelector(".wb-map-note");
+  if (noteMark) {
+    const note = typeof d.data?.note === "string" ? d.data.note.trim() : "";
+    noteMark.hidden = !note;
+    if (note) {
+      const first = note.split("\n")[0];
+      noteMark.title = `Note: ${first.length > 80 ? `${first.slice(0, 79)}…` : first}`;
+      noteMark.setAttribute("aria-label", "Open the note behind this topic");
+    }
+  }
   const link = node.querySelector(".wb-map-link");
   if (link) {
     const href = typeof data.link === "string" ? data.link : "";
@@ -5680,7 +5795,8 @@ const WB_MAP_STYLE_KEYS = [
 //: ones and a boolean beside each key would be read as neither.
 //: A task (decision 15) is content for the same reason: "reset this topic's
 //: look" must not untick or un-task anything.
-const WB_MAP_CONTENT_KEYS = ["image", "task"];
+//: And a note (decision 18): a reset is about looks, never about words.
+const WB_MAP_CONTENT_KEYS = ["image", "task", "note"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -6225,6 +6341,8 @@ async function wbMapReverseEdge(childId) {
 }
 
 function wbSyncMapChrome() {
+  //: A note open on the board being left goes with it (decision 18).
+  if (wbMapNoteState && !document.querySelector(`.wb-object[data-id="${wbMapNoteState.id}"]`)) wbMapCloseNote();
   //: The map's line style can change here, and the cross-link tool draws it.
   if (wbIsMap()) wbSyncConnectWords(true);
   const isMap = wbIsMap();

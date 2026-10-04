@@ -25,7 +25,7 @@ the five tails the brief named were already built.
 | 4 | Board: a label on a connector (Miro, FigJam, Excalidraw) | medium | M | competitor, decision 13 | **built** e81b329 |
 | 5 | Map: which kind a connect drag will make, while in flight | medium | S to M | MINDMAP_PLAN 13c | **built** 837d759, with a found bug (the menu's Connect row threw) |
 | 6 | Quick sketch bar wraps at 820 on Large text (INBOX 276) | medium | S | plan | **half** 761e65f: Large text one row; Large plus Spacious 41px short, open |
-| 7 | Map: a note behind a topic (§12.2 item 5; XMind, MindNode notes) | medium | M | plan | open |
+| 7 | Map: a note behind a topic (§12.2 item 5; XMind, MindNode notes) | medium | M | plan | **built** (decision 18); a note node's own text in place is open |
 | 8 | Map: outline view beside the map (§12.2 item 8) | high | L | plan | open |
 | 9 | Map: branch numbering toggle (§12.2 item 7) | low | S to M | plan | **built** (decision 17) |
 | 10 | Map: branch palette and font at map level (13e remainder; drawn in two places) | medium | M | MINDMAP_PLAN 13e | open |

@@ -38779,6 +38779,24 @@ sway and the free end 6.8px (`sashpivot.js`, in the review's scratchpad).
 Main-thread ms/s was too noisy between runs to quote (the sandbox was
 loaded by four agents; 168 to 270 ms/s for the same masculine walk).
 
+### `menus.js` timing out at its last step
+
+Verified on the head, 2026-10-04: it no longer hangs. `WIDTHS=1440 node scratchpad/ui-sweeps/menus.js` ran to the end inside five minutes, 75 menus opened, 0 page errors, 3 findings (the Chat sort select is 266px for 122px of content; "documents: could not open one" and "board/map: none of kind map" are the empty fixture notebook).
+
+**`scratchpad/ui-sweeps/menus.js` times out at its last step**, clicking a
+`.select-opener` on Chat after the model panel has been opened and
+dismissed. It times out identically with Reduce motion on, so it is not the
+menu animation. Nobody has looked at why. [responsive.md, visual-c.md]
+
+### The note edit form's strip is a clone (colour options doubled)
+
+Measured in Chromium, 2026-10-04, `scratchpad/ui-sweeps/editstrip.js`: the collapse state follows the clone (class and button `aria-pressed` agree with the capture strip, collapsed and open, one tools group); the highlight and text colour selects did not, 17 options on the clone against 9 on the source, because the clone kept the source's options and `wireMarkdownToolbar` added them again. Fixed (cleared first, 9 and 9), `tests/test_note_edit_strip_options.py`.
+
+**The note edit form's strip is a clone taken at open time**, so anything
+stateful in the capture strip is cloned with its state. The Preview button
+was fixed; the collapse and expand state and the highlight colour pickers
+have not been checked for the same shape. [notes-subtabs.md]
+
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 
 ### From GRAPH_PLAN.md: the knowledge graph's spec, moved whole once KG1 to KG9 were built

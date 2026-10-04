@@ -129,3 +129,48 @@ def test_a_picture_holds_a_box_before_it_loads_and_the_streaming_bubble_is_not_a
     assert "overflow-anchor: none" in _between(widgets, ".bubble-answer.is-streaming {", "}")
     chat = (CSS / "02-chat-graph.css").read_text(encoding="utf-8")
     assert "aspect-ratio: auto 4 / 3" in _between(chat, ".msg-attachment-image img {", "}")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_wheel_up_inside_a_nested_scroller_does_not_release_following():
+    """A code block, table or fold that can still scroll up takes the wheel
+    itself; only a wheel the pane would scroll lets go."""
+    source = (JS / "chat-agent.js").read_text(encoding="utf-8")
+    code = _between(source, "const SCROLL_STICK_SLACK", "//: **The \"still writing\" pill")
+    script = (
+        code
+        + """
+let chatController = null;
+globalThis.performance = { now: () => 0 };
+globalThis.getComputedStyle = (n) => ({ overflowY: n.overflowY || "visible" });
+const node = (props, parent) => Object.assign({ nodeType: 1, scrollTop: 0, scrollHeight: 100, clientHeight: 100, parentElement: parent }, props);
+function pane() {
+  const L = {};
+  return node({ dataset: {}, scrollHeight: 900, scrollTop: 0, clientHeight: 300, parentElement: null,
+    addEventListener(t, fn) { (L[t] = L[t] || []).push(fn); },
+    wheel(target, deltaY) { (L.wheel || []).forEach((fn) => fn({ target, deltaY })); } });
+}
+const out = {};
+const run = (label, build, deltaY = -100) => {
+  const p = pane(); keepAtBottom(p);
+  p.wheel(build(p), deltaY);
+  out[label] = p.dataset.stuck;
+};
+run("onPane", (p) => p);
+run("codeScrolledDown", (p) => node({ overflowY: "auto", scrollTop: 50, scrollHeight: 400 }, p));
+run("codeAtTop", (p) => node({ overflowY: "auto", scrollTop: 0, scrollHeight: 400 }, p));
+run("childOfScrolledFold", (p) => node({}, node({ overflowY: "auto", scrollTop: 20, scrollHeight: 400 }, p)));
+run("hiddenOverflowIgnored", (p) => node({ overflowY: "hidden", scrollTop: 20, scrollHeight: 400 }, p));
+run("wheelDownInCode", (p) => node({ overflowY: "auto", scrollTop: 0, scrollHeight: 400 }, p), 100);
+console.log(JSON.stringify(out));
+"""
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    assert json.loads(out) == {
+        "onPane": "0",
+        "codeScrolledDown": "1",
+        "codeAtTop": "0",
+        "childOfScrolledFold": "1",
+        "hiddenOverflowIgnored": "0",
+        "wheelDownInCode": "1",
+    }

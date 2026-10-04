@@ -458,11 +458,7 @@ being written by running agents stay beside this one.
 
 - ~~The Notes categories sidebar overflows at 390px, on every sub-tab~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`textarea.autogrow`'s shared `min-height`~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **The note edit form's strip is a clone taken at open time**, so anything
-  stateful in the capture strip is cloned with its state. The Preview button
-  was fixed; the collapse and expand state and the highlight colour pickers
-  have not been checked for the same shape. [notes-subtabs.md]
-  *Left: not measured; open a note after changing the capture strip's collapse state and highlight colour, in a browser.*
+- ~~The note edit form's strip is a clone~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **INBOX 38's bulk-move action is still to build.** The chip and label are
   the visibility fix that lets a person tell which space a survivor is in;
   moving a batch of them is the item's own D2 owner line. [batch-a.md]
@@ -715,11 +711,7 @@ being written by running agents stay beside this one.
   the three is a two-line change that will almost certainly find pre-existing
   findings, which is a session of its own. [doc-sidebar.md]
   *Opus: whiteboard and mind map will find pre-existing findings, a session of their own.*
-- **`scratchpad/ui-sweeps/menus.js` times out at its last step**, clicking a
-  `.select-opener` on Chat after the model panel has been opened and
-  dismissed. It times out identically with Reduce motion on, so it is not the
-  menu animation. Nobody has looked at why. [responsive.md, visual-c.md]
-  *Left: still hangs on the head (2026-10-04: no output in 110s); find the step first.*
+- ~~`menus.js` timing out at its last step~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`notessubtabs.js` counting the hidden native selects~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **A check that cannot tell "nothing matched" from "labels are broken" cries
   wolf on every small fixture.** Two of `graph2.js`'s five failures were

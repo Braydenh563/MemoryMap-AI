@@ -29,6 +29,13 @@ function followReleased(element) {
   return performance.now() - Number(element.dataset.releasedAt || 0) < SCROLL_RELEASE_MS;
 }
 
+//: A nested scroller (code, table, fold) not at its top takes the wheel up itself.
+function nestedTakesWheelUp(target, pane) {
+  for (let n = target; n && n !== pane && n.nodeType === 1; n = n.parentElement)
+    if (n.scrollTop > 0 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return true;
+  return false;
+}
+
 function followBottom(element) {
   if (!element || element.dataset.followBound === "1") return;
   element.dataset.followBound = "1";
@@ -37,7 +44,7 @@ function followBottom(element) {
     element.dataset.releasedAt = String(performance.now());
     element.dataset.stuck = "0";
   };
-  element.addEventListener("wheel", (event) => event.deltaY < 0 && release(), { passive: true });
+  element.addEventListener("wheel", (event) => event.deltaY < 0 && !nestedTakesWheelUp(event.target, element) && release(), { passive: true });
   let touchY;
   element.addEventListener("touchstart", (event) => (touchY = event.touches[0]?.clientY), { passive: true });
   element.addEventListener("touchmove", (event) => {
@@ -105,17 +112,9 @@ function syncChatJumpLatest() {
   const button = $("chat-jump-latest");
   const pane = $("chat-messages");
   if (!button || !pane) return;
-  //: INBOX 34: this used to trust `pane.dataset.stuck`, which only the
-  //: `scroll` listener in `followBottom` ever writes. `newChatConversation`
-  //: clears the pane with `replaceChildren()`, which fires no scroll event,
-  //: so a reader who had scrolled away in the *previous* conversation left
-  //: `dataset.stuck === "0"` behind, and this pill read that stale flag as
-  //: "still scrolled away" on a brand-new, empty transcript with nothing to
-  //: scroll to. Re-derived from the live rect on every call instead, so a
-  //: cleared or shrunk pane can never leave the pill (or, before this
-  //: change, the reused down-arrow, see NO_SCROLL_TOP_TABS) showing for a
-  //: transcript that has nothing left below the fold. Also keeps
-  //: `dataset.stuck` itself current for `keepAtBottom`'s own check.
+  //: INBOX 34: re-derived from the live rect each call, not the stored flag:
+  //: `replaceChildren()` on a new chat fires no scroll event, so a stale
+  //: `data-stuck="0"` kept the pill up over an empty transcript.
   const distance = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
   //: Far from the bottom is "away" only once the reader left (`followBottom`);
   //: growth under a following pane is the pin's to close (INBOX 534).

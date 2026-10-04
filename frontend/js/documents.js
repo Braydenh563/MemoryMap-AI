@@ -10966,6 +10966,8 @@ function wireMarkdownToolbar(bar) {
   });
   for (const select of bar.querySelectorAll("select[data-md-colour]")) {
     const kind = select.dataset.mdColour;
+    //: A cloned strip (the note edit form) brings the source's options along.
+    for (const old of [...select.options]) if (old.value) old.remove();
     for (const colour of MD_COLOURS) {
       const option = document.createElement("option");
       option.value = colour;

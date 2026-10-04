@@ -38,14 +38,6 @@ with its owner named in the entry.
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
 
-521. **The owner, 2026-10-04, verbatim, with a screenshot (Library, Files:
-     the companion perched in empty space under the card, not on anything).**
-     "the companion perching needs fixing for many of the library tabs as
-     well as for the whiteboard and mindmap." Next Opus (companion): a perch
-     target per Library sub-tab (the card's bottom edge or the dock), and on
-     a board or map the canvas dock, never mid-air; a sweep over every tab
-     and sub-tab asserting the figure's feet sit within 4px of a surface.
-
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
      orchestrator (reproduce with synthetic wheel streams; suspects: a

@@ -1203,7 +1203,7 @@ def test_the_chat_tab_is_a_perch_that_keeps_its_controls_clear() -> None:
     assert '#chat-messages .msg' in obstacles
     surfaces = AV[AV.index("const NAME_MARK_BUDDY_SURFACES = [") : AV.index("].join", AV.index("const NAME_MARK_BUDDY_SURFACES = ["))]
     assert '".chat-dock"' in surfaces
-    assert '.dash-toolbar, .chat-dock") ? "dock" : "card"' in AV
+    assert '.dash-toolbar, .chat-dock, .wb-topbar") ? "dock" : "card"' in AV
     assert 'chat: ["dock", "card", "under", "hang", "bar"]' in AV
     # Reading along while an answer is written: a clean place on the dock's
     # top edge, searched along it, never a fixed x that lands on Stop.
@@ -1469,3 +1469,34 @@ def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
     assert "opacity: 1, offset: 0.5 }" in enter
     # Reduced motion still fades in where it is.
     assert "if (nameMarkBuddyNoTravel()) {" in enter
+
+
+def test_it_perches_on_every_library_view_and_on_a_board_never_in_the_air() -> None:
+    # INBOX 521, the owner: "the companion perching needs fixing for many of
+    # the library tabs as well as for the whiteboard and mindmap". Measured
+    # (perchall.js, 1536x864): 10 of 10 Library sub-tabs, board and map on a
+    # window bar before; on a dock, a card or the board's toolbar after, feet
+    # within 4px of a painted edge everywhere, and at 1440x900 and 390x844.
+    walk = _fn("nameMarkBuddySurfaceWalk")
+    # An open board's view is 0px tall round its toolbars: looked inside.
+    assert "if ((!box.width || !box.height) && depth < 8" in walk
+    # Only what paints is a surface; a canvas's own drawing is not walked.
+    assert "nameMarkBuddyPainted(cs)" in walk and "!nameMarkBuddyOverCanvas(child, true)" in walk
+    # A panel with its own dock holds cards; it is not a content card.
+    assert ":scope > .dock, :scope > [role='toolbar']" in _fn("nameMarkBuddyInsideCard")
+    # A toolbar over a canvas may be hung from.
+    assert 'type: "under", kind: "dock", y: box.bottom' in _fn("nameMarkBuddyEdges")
+    # Panels before the controls in them, and a dock looked at along its length.
+    perches = _fn("nameMarkBuddyPerches")
+    assert "sort((a, b) => ctl(a) - ctl(b))" in perches and 'kind === "dock" ? Math.min(30' in perches
+    # Another view in the same tab asks for a new perch, by preference.
+    assert "nmb.fresh = true;" in _fn("nameMarkBuddyViewChanged")
+    assert "fresh ? null : [nmb.x, nmb.y]" in _fn("nameMarkBuddyBeat")
+    # A panel found again by its path must be the same panel.
+    assert "again.className === g.cls" in _fn("nameMarkBuddyFollow")
+    # A peek ignores the bar's own buttons, not a button floating over it.
+    assert "if (box.top >= bar) continue;" in _fn("nameMarkBuddyHits")
+    # Reflowed over a control on resize, it moves at once.
+    assert "nameMarkBuddyRefitClear(buddy)" in _fn("nameMarkBuddyRefit")
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert " perchall " in gate

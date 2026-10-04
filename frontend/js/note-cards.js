@@ -1283,20 +1283,23 @@ function fitNoteMetas(metas) {
     meta.classList.add("is-measuring");
   }
   const right = (el) => el.getBoundingClientRect().right;
+  //: A first child has no left neighbour (a phone resize, seen in the perch
+  //: sweep): measure from its parent's left edge instead.
+  const before = (el) => (el.previousElementSibling ? right(el.previousElementSibling) : el.parentElement.getBoundingClientRect().left);
   for (const line of lines) {
     let over = line.meta.scrollWidth - line.meta.clientWidth;
     line.fold = [];
     line.icons = [];
     for (let i = line.folds.length - 1; i >= 0 && over > 0; i--) {
       const el = line.folds[i];
-      over -= right(el) - right(el.previousElementSibling);
+      over -= right(el) - before(el);
       line.fold.push(el);
     }
     //: With every tag gone the "+N" stands alone, a group's gap from the
     //: score rather than a tag's from the tag before it.
     const first = line.meta.querySelector(":scope > .hashtag");
     if (first && line.fold.includes(first)) {
-      const gap = (el) => el.getBoundingClientRect().left - right(el.previousElementSibling);
+      const gap = (el) => el.getBoundingClientRect().left - before(el);
       over += gap(first) - gap(line.more);
     }
     //: Still too long (a phone, with its ⋯ on the line): the facts after
@@ -1307,7 +1310,7 @@ function fitNoteMetas(metas) {
       .reverse().sort((x, y) => isReview(x) - isReview(y));
     for (const text of words) {
       if (over <= 0) break;
-      over -= right(text) - right(text.previousElementSibling);
+      over -= right(text) - before(text);
       line.icons.push(text.parentElement);
     }
   }

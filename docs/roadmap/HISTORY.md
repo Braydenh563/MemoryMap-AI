@@ -37378,6 +37378,15 @@ width, 47% of the column at 1440.
      take each note's top-k from the retrieval matrix. (5) `/graph/local`
      takes `depth` but the UI fixes it (514 covers the control).
 
+521. **The owner, 2026-10-04, verbatim, with a screenshot (Library, Files:
+     the companion perched in empty space under the card, not on anything).**
+     "the companion perching needs fixing for many of the library tabs as
+     well as for the whiteboard and mindmap." Next Opus (companion): a perch
+     target per Library sub-tab (the card's bottom edge or the dock), and on
+     a board or map the canvas dock, never mid-air; a sweep over every tab
+     and sub-tab asserting the figure's feet sit within 4px of a surface.
+     Fixed: perch targets per Library sub-tab and on boards and maps; feet within 4 px of a painted edge on every surface in `perchall.js` (8e5b04a, e43f0fe). Left: two phone moments wrong for up to 0.9 s before the next beat.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

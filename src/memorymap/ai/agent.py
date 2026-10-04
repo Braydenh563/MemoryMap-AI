@@ -16,11 +16,12 @@ import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, tools
-from memorymap.ai.model_manager import ModelManager, is_small_model
+from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
+from memorymap.ai.model_manager import SMALL_MODEL_PARAMS_B, ModelManager, parameter_count
 from memorymap.ai.ollama_client import (
     OllamaClient,
     OllamaError,
@@ -42,6 +43,57 @@ MAX_ROUNDS = 6
 #: and the same reason. Nothing is capped for a model the name does not size:
 #: see `is_small_model`, where None means off.
 SMALL_MODEL_MAX_ROUNDS = 4
+
+#: Below this many billion parameters a model is "tiny" (H3): the 1.5B the
+#: harness was measured on, against the 3B to 8B the small rules were made for.
+TINY_MODEL_PARAMS_B = 3.0
+
+
+class SizeTier(NamedTuple):
+    """What a turn asks of a model of one size (AGENT_SKILLS_REFORM H3)."""
+
+    name: str
+    #: The core tools plus the ones the request names, never the orchestration
+    #: three, in place of the question-focused set.
+    narrow_toolbox: bool
+    #: The short schema descriptions whatever the window.
+    compact_schemas: bool
+    #: The whole allowance, granted plus earned; None leaves the caller's.
+    max_rounds: int | None
+    #: `tool_choice: "required"` on an instruction's first round.
+    force_first_call: bool
+    #: Characters of prose a round with tools offered may write before its
+    #: stream is closed; None never cuts. Prose only: thinking is not counted.
+    reply_chars: int | None
+
+
+#: **The one place a size decision lives** (H3; before, one boolean under 8B).
+#: Measured on Qwen2.5-1.5B through llama-server: "Make a note" wrote the note
+#: out in prose for 948 s, to the 2,048-token reply cap, and made no call.
+#: 2,400 characters is about 600 tokens, three Normal-mode answers; a round
+#: that meant to call a tool has said what it will say long before that. The
+#: 3B to 8B tier gets twice the room. A name that gives no size is treated as
+#: large: narrowing a capable model on a guess is the worse mistake.
+SIZE_TIERS = {
+    "tiny": SizeTier("tiny", True, True, SMALL_MODEL_MAX_ROUNDS, True, 2_400),
+    "small": SizeTier("small", True, True, SMALL_MODEL_MAX_ROUNDS, True, 4_800),
+    "large": SizeTier("large", False, False, None, False, None),
+    "unsized": SizeTier("unsized", False, False, None, False, None),
+}
+
+
+def size_tier(model: str) -> SizeTier:
+    """The tier for the model a turn will actually call, read off its name."""
+    size = parameter_count(model)
+    if size is None:
+        return SIZE_TIERS["unsized"]
+    if size < TINY_MODEL_PARAMS_B:
+        return SIZE_TIERS["tiny"]
+    return SIZE_TIERS["small" if size < SMALL_MODEL_PARAMS_B else "large"]
+
+
+#: Said after a tool round's prose was cut at its tier's `reply_chars`.
+REPLY_CAP_NOTE = "…\n\n(I cut that reply short: it was running long.)"
 
 # Rounds a turn can *earn* beyond MAX_ROUNDS, one per round that got somewhere.
 #
@@ -90,6 +142,106 @@ WRAP_UP_NUDGE = (
     "from what your tool results above show. Say plainly what you did and "
     "what is still not done. Do not claim anything you did not do."
 )
+
+#: H1: the rows of the plan card a multi-step turn draws (see `_TurnCard`).
+TURN_ROW_RUNNING = "Deciding the next step"
+TURN_ROW_ANSWER = "Wrote the answer"
+TURN_ROW_RECHECK = "Rechecked the reply"
+TURN_ROW_WRAP_UP = "Answered from what was found"
+_ROW_ICON = re.compile(r"^(?:ph:[\w-]+|\u21a9\ufe0e)\s+")
+_ROW_CHARS = 120
+_TITLE_CHARS = 60
+
+
+class _TurnCard:
+    """**A plan card for every multi-step turn** (AGENT_SKILLS_REFORM H1).
+
+    The tracker used to draw only for `make_plan` and skills, and a small model
+    is never offered `make_plan`, so a turn that searched, read and answered
+    showed tool rows and no sense of where it was. The card is drawn from the
+    harness's own ledger when the second round starts (no model call): one row
+    per round, the calls it made, ticked as it ends. It emits the same `plan`
+    and `step` events a skill run does, marked `kind: "turn"`, so the client
+    reuses `startPlan` and saves and replays it like any other card.
+    """
+
+    def __init__(self, question: str, enabled: bool):
+        self.enabled = enabled
+        title = " ".join(question.split())
+        self.title = title if len(title) <= _TITLE_CHARS else title[: _TITLE_CHARS - 1].rstrip() + "…"
+        self.rows: list[str] = []
+        self.drawn = False
+        self.open: int | None = None
+
+    def start_round(self, called_any: bool) -> list[dict]:
+        if not self.enabled or not called_any:
+            return []
+        events = []
+        if not self.drawn:
+            self.drawn = True
+            events.append(
+                {
+                    "type": "plan",
+                    "kind": "turn",
+                    "skill": self.title,
+                    "steps": list(self.rows),
+                    "states": {str(i): {"state": "done"} for i in range(len(self.rows))},
+                }
+            )
+        self.open = len(self.rows)
+        events.append(self._step("running", TURN_ROW_RUNNING))
+        return events
+
+    def end_round(self, text: str, state: str = "done", reason: str | None = None) -> list[dict]:
+        """Close this round's row. Before the card is drawn, only remembered."""
+        if not self.enabled:
+            return []
+        text = text if len(text) <= _ROW_CHARS else text[: _ROW_CHARS - 1].rstrip() + "…"
+        if not self.drawn:
+            self.rows.append(text)
+            return []
+        index = len(self.rows) if self.open is None else self.open
+        self.rows[index:index + 1] = [text]
+        self.open = None
+        event = self._step(state, text, index)
+        if reason:
+            event["reason"] = reason
+        return [event]
+
+    def _step(self, state: str, text: str, index: int | None = None) -> dict:
+        index = self.open if index is None else index
+        return {"type": "step", "kind": "turn", "index": index, "state": state, "text": text}
+
+    @staticmethod
+    def row_for(labels: list[str]) -> str:
+        names = [_ROW_ICON.sub("", label).strip() for label in labels if label]
+        row = ", ".join(dict.fromkeys(n for n in names if n)) or "Used a tool"
+        return row[:1].upper() + row[1:]
+
+
+def _check_sources(answer: str, messages: list[dict], wanted: bool):
+    """H2: flag a number or a name the answer states that nothing this turn
+    read contains (`source_check`). Only after a tool ran, so the answer is
+    meant to be from the notebook, and only on an ordinary chat turn: a
+    skill step's prose is checked by the run's own verify block."""
+    if not wanted or not answer.strip():
+        return
+    claims = source_check.unbacked_claims(answer, source_check.sources_from_messages(messages))
+    if claims:
+        yield {"type": "answer", "delta": source_check.heads_up(claims)}
+
+
+def _labelled(gen, labels: list[str]):
+    """Re-yield a `_dispatch_call` generator, noting each tool row's label."""
+    try:
+        event = next(gen)
+        while True:
+            if event.get("type") == "tool" and event.get("label"):
+                labels.append(str(event["label"]))
+            event = gen.send((yield event))
+    except StopIteration as stop:
+        return stop.value
+
 
 #: Sent once after a reply that claims an act no tool performed (see
 #: `unsupported_claims` and the end of a round in `run_agent`).
@@ -1298,6 +1450,74 @@ def _recent_text(history: list[dict] | None) -> str:
     return " ".join(parts)[:FOLLOW_THROUGH_CONTEXT_CHARS]
 
 
+#: The board and map tools a picture question must not be sent to (below).
+_CANVAS_TOOLS = frozenset(
+    {
+        "read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link",
+        "generate_diagram", "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+    }
+)
+#: Words that ask for a board to be changed, which keep the board tools.
+_CANVAS_WRITE = re.compile(r"\b(?:add|put|place|pin|draw|make|create|link|map|diagram)\b", re.I)
+_PICTURE_WORDS = re.compile(
+    r"\b(?:photo|photos|picture|pictures|pic|image|images|sketch|drawing|screenshot|scan)\b", re.I
+)
+
+
+_PREFERENCE_CUE = re.compile(
+    r"\b(?:remember|prefer|preference|from now on|always|never|call me|my name|i like|i don'?t like|i hate|i love)\b",
+    re.I,
+)
+_FENCE_TEXT = re.compile(r"<<<(?:end data|data[^<>\n]{0,40})>>>")
+
+
+def _copies_what_was_read(arguments: dict, messages: list[dict], wrote: bool) -> bool:
+    """**A `create_note` that is a copy of a note this turn already has.**
+
+    Qwen2.5-3B, H4: "Pin my dentist note" pinned it and then made a new note
+    of the same text with the prompt's fence markers in it; "Add 'bring a rain
+    jacket' to my Snowdon note" edited it and then made a copy of the edited
+    note. Prompt markers in a new note are always a copy; otherwise, after a
+    write, a new note whose first line (20 characters or more) is already in
+    a note or tool result this turn is the same note again.
+    """
+    content = str(arguments.get("content") or "")
+    if _FENCE_TEXT.search(content):
+        return True
+    first = content.strip().split("\n", 1)[0].strip()
+    if not wrote or len(first) < 20:
+        return False
+    return any(
+        first in str(m.get("content") or "") for m in messages[1:] if m.get("role") in ("user", "tool")
+    )
+
+
+def _picture_in_hand(question: str, notes: list[dict]) -> bool:
+    """**A picture question whose picture is already in the prompt.**
+
+    Measured on Qwen2.5-1.5B (INBOX 527's eval): "Show me the whiteboard
+    sketch from the planning meeting" cued the board tools by its words, and
+    the model read a whiteboard instead of writing `[picture 1]` for the note
+    that held the sketch, listed in its own prompt with "has 1 picture"; with
+    the reads gone, Qwen2.5-3B placed the note on a board instead (H4). When
+    a note with a picture shares a word with a question that does not ask for
+    a board to change, the board and map tools are left off the first offer;
+    the focus correction still widens to them if the model asks.
+    """
+    if not _PICTURE_WORDS.search(question or "") or _CANVAS_WRITE.search(question or ""):
+        return False
+    from memorymap.search.search_manager import _meaningful_terms
+
+    asked = {t for t in _meaningful_terms(question) if not _PICTURE_WORDS.fullmatch(t)}
+    for note in notes or []:
+        if not note.get("pictures"):
+            continue
+        text = f"{note.get('title') or ''} {note.get('content') or ''}".lower()
+        if any(re.search(rf"\b{re.escape(term.lower())}", text) for term in asked):
+            return True
+    return False
+
+
 def _focus(question: str, history: list[dict] | None = None) -> list[str] | None:
     """Which tools this turn is offered, unless the user asked for all of them.
 
@@ -1329,7 +1549,8 @@ class _TurnPlan:
     """
 
     agent_model: str
-    small_model: bool
+    #: The size tier this turn runs under (`SIZE_TIERS`).
+    tier: SizeTier
     #: The model's usable context, or None when the provider does not say.
     #: Passed to each tool call so a tool can size its own result.
     window: int | None
@@ -1393,11 +1614,9 @@ def _prepare_turn(
     #: the schemas cost is a window question; whether the model can choose
     #: between twenty of them is not.
     #:
-    #: `is_small_model` is the predicate the skills path already uses
-    #: (`chat_model_is_small` calls it), so there is one rule in one place, and
-    #: None ("the name does not say") is off: narrowing a capable model on a
-    #: guess is the worse of the two mistakes.
-    small_model = is_small_model(agent_model) is True
+    #: Read from `SIZE_TIERS` (H3), the one table every size decision below
+    #: comes from; a name that gives no size is the large tier.
+    tier = size_tier(agent_model)
     persona = memory.persona_with_memory(session, persona_prompt)
 
     system_chars = len(
@@ -1435,7 +1654,7 @@ def _prepare_turn(
     focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
-    if small_model and allowed_tools is None:
+    if tier.narrow_toolbox and allowed_tools is None:
         # **One stable toolbox for a small model, not a per-question guess.**
         # `_focus` is an economy: it reads the question's words and adds the
         # groups they hint at, so the same model sees a different set every
@@ -1458,11 +1677,18 @@ def _prepare_turn(
         #: tool. The cued groups are added after the core, which stays first
         #: and stable; a broad request (None) still gets the core alone.
         cued = _focus(question, history) or []
+        #: `save_user_preference` only when the request is about the user
+        #: (H4, Qwen2.5-3B under the forced first call: "Note down: ...",
+        #: "Save this: ..." and "Put ... in my note" saved a preference, 3/20).
+        keep_pref = bool(_PREFERENCE_CUE.search(question or ""))
         focus_names = [
             name
             for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
             if name not in tools.ORCHESTRATION_TOOLS
+            and (keep_pref or name != "save_user_preference")
         ]
+    if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
+        focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
@@ -1485,7 +1711,7 @@ def _prepare_turn(
     # Safe for a skill's declared list too (hence above the `allowed_tools`
     # branch): compaction never removes a tool, so nothing a skill asked for
     # can go missing this way.
-    if small_model or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
+    if tier.compact_schemas or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
         offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
@@ -1523,7 +1749,7 @@ def _prepare_turn(
         # question, so a miss is evidence the focus was wrong, not evidence
         # that a 3B can suddenly choose between twenty-two schemas.
         every_tool = tools.ollama_tools(
-            _focus(question, history) if small_model else None
+            _focus(question, history) if tier.narrow_toolbox else None
         )
         if barred:
             every_tool = [
@@ -1583,14 +1809,14 @@ def _prepare_turn(
     # flat cap always stopped it.
     granted = max(1, max_rounds)
     ceiling = granted + max(0, earned_rounds)
-    if small_model:
+    if tier.max_rounds is not None:
         # The cap is on the ceiling as well as the grant, or the earned rounds
         # put the total straight back to twelve: see SMALL_MODEL_MAX_ROUNDS.
-        granted = min(granted, SMALL_MODEL_MAX_ROUNDS)
-        ceiling = min(ceiling, SMALL_MODEL_MAX_ROUNDS)
+        granted = min(granted, tier.max_rounds)
+        ceiling = min(ceiling, tier.max_rounds)
     return _TurnPlan(
         agent_model=agent_model,
-        small_model=small_model,
+        tier=tier,
         window=window,
         budget=budget,
         messages=messages,
@@ -1633,6 +1859,9 @@ class _TurnState:
     #: Which write tools ran, so a claim can be checked against the action that
     #: would have made it true rather than against the turn as a whole.
     ran_writes: set[str] = field(default_factory=set)
+    #: Acts a write did on the side, for the claim check only: a note made
+    #: with `tags` was tagged (H4, Qwen2.5-3B was told it had not been).
+    implied: set[str] = field(default_factory=set)
     #: Characters of tool output added to the conversation so far.
     spent: int = 0
     #: (tool, arguments) pairs that have already failed.
@@ -1999,6 +2228,17 @@ def _dispatch_call(
             "ok": False,
             "error": "Repeated failure intercepted",
         }
+    elif name == "create_note" and _copies_what_was_read(arguments, state.messages, state.did_write):
+        result = {
+            "error": "That note already exists: this is a copy of a note you read or changed this turn.",
+            "what_to_do": "Do not make a new note. Tell the user what you did to the existing note.",
+        }
+        yield {
+            "type": "tool",
+            "label": "ph:warning create note, a copy of an existing note",
+            "ok": False,
+            "error": "Copy of an existing note intercepted",
+        }
     elif signature in state.done_calls and name in _WRITE_TOOLS:
         # --- NEW INTERCEPTION: Duplicate Writes ---
         # A write that already succeeded this turn. Intercept before executing again.
@@ -2073,6 +2313,8 @@ def _dispatch_call(
         if "error" not in result and name in _WRITE_TOOLS:
             state.did_write = True
             state.ran_writes.add(name)
+            if name == "create_note" and arguments.get("tags"):
+                state.implied.add("tag_note")
             # The notebook just changed, so every read taken before now
             # may be out of date. Clearing this is what keeps the
             # repeat-suppression above from ever serving a stale
@@ -2236,6 +2478,7 @@ def run_agent(
     images: list[str] | None = None,
     model_override: str | None = None,
     image_context: str | None = None,
+    show_plan: bool = True,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported", "model": ..., "message": ...}, model can't do
@@ -2252,6 +2495,9 @@ def run_agent(
                                                  the answer that follows is a
                                                  stopping notice, not a result
     {"type": "answer", "delta": str}: the final text
+    {"type": "plan"/"step", "kind": "turn", ...}, the turn's own plan card
+                                                 (`_TurnCard`); off for a
+                                                 skill step (`show_plan`)
     """
     plan = _prepare_turn(
         session,
@@ -2301,6 +2547,7 @@ def run_agent(
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
     called_any = False
+    card = _TurnCard(question, show_plan)
 
     while round_number + 1 < allowance:
         #: Checked between rounds, never mid-stream: stopping inside a model
@@ -2321,6 +2568,7 @@ def run_agent(
             }
             return
         round_number += 1
+        yield from card.start_round(called_any)
         # Set by any tool call that succeeded and had not been made before, 
         # the definition of "this round got somewhere". Read at the bottom of
         # the loop, where it buys the next round.
@@ -2331,14 +2579,29 @@ def run_agent(
         # path streamed, and the default path (tools on) didn't.
         reply: dict = {}
         streamed_any = False
+        #: H3: prose this round has streamed, against the tier's reply cap.
+        cap = plan.tier.reply_chars if state.offered else None
+        said = ""
         try:
-            required = round_number == 0 and plan.small_model and _requires_a_call(question, plan)
-            for piece in _round_stream(ollama, agent_model, state.messages, state.offered, mode, required):
+            required = round_number == 0 and plan.tier.force_first_call and _requires_a_call(question, plan)
+            stream = _round_stream(ollama, agent_model, state.messages, state.offered, mode, required)
+            for piece in stream:
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
                     streamed_any = True
+                    said += piece["content_delta"]
                     yield {"type": "answer", "delta": piece["content_delta"]}
+                    if cap is not None and len(said) >= cap:
+                        # Closing the generator closes the HTTP stream with
+                        # it (the same path Stop takes).
+                        stream.close()
+                        logging.getLogger("memorymap.agent").info(
+                            "reply cap: %s-tier round cut at %d chars", plan.tier.name, len(said)
+                        )
+                        yield {"type": "answer", "delta": REPLY_CAP_NOTE}
+                        reply = {"content": said, "tool_calls": [], "streamed": True}
+                        break
                 elif "final" in piece:
                     reply = piece["final"]
         except ToolsUnsupportedError:
@@ -2347,6 +2610,7 @@ def run_agent(
             # the same remedy instead of dropping the event on the floor,
             # which is what happened before (see tools_unsupported_message's
             # own docstring).
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model cannot use tools")
             yield {
                 "type": "unsupported",
                 "model": agent_model,
@@ -2381,6 +2645,7 @@ def run_agent(
                 "delta": f"{prefix}{librarian.model_error_message(agent_model, exc)}",
                 "offline": True,
             }
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model stopped answering")
             return
 
         # Report what this round cost. Agent turns used to emit nothing here,
@@ -2413,6 +2678,7 @@ def run_agent(
             if not answer and not reply.get("streamed") and not nudged_empty and not called_any:
                 nudged_empty = True
                 state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
@@ -2425,11 +2691,12 @@ def run_agent(
                 state.messages.append({"role": "assistant", "content": answer})
                 state.messages.append({"role": "user", "content": UNACTED_INTENT_NUDGE})
                 yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes)
+            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes | state.implied)
             #: **Reflect and retry: a claimed act is asked for once** (INBOX
             #: 527, Qwen2.5-1.5B): "Make a note: buy oat milk" got "I've made a
             #: new note for you" and no call, and the heads-up below was all
@@ -2457,6 +2724,7 @@ def run_agent(
                     }
                 )
                 yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
@@ -2486,6 +2754,8 @@ def run_agent(
                         "a new note yourself."
                     ),
                 }
+            yield from _check_sources(f"{said_before}{answer}", state.messages, called_any and show_plan)
+            yield from card.end_round(TURN_ROW_ANSWER)
             return
 
         called_any = True
@@ -2538,11 +2808,14 @@ def run_agent(
         state.tainted = state.outside
         if not state.tainted:
             _prefetch_outbound(calls)
+        labels: list[str] = []
         for call in calls:
             # One call, its guards and its result; True when the tool ended the
             # turn (the handover tools). See `_dispatch_call`.
-            if (yield from _dispatch_call(session, plan, state, call, history)):
+            if (yield from _labelled(_dispatch_call(session, plan, state, call, history), labels)):
+                yield from card.end_round(_TurnCard.row_for(labels))
                 return
+        yield from card.end_round(_TurnCard.row_for(labels))
         if state.progressed and allowance < ceiling:
             # This round did something new, so the turn gets another one. The
             # cap that stops a runaway is still there, a round that repeats
@@ -2582,7 +2855,10 @@ def run_agent(
                         yield {"type": "answer", "delta": late}
         except (OllamaError, ToolsUnsupportedError) as exc:
             logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
-        unsupported = unsupported_claims(wrapped, state.ran_writes)
+        if card.drawn:
+            yield from card.end_round(TURN_ROW_WRAP_UP)
+        yield from _check_sources(wrapped, state.messages, show_plan)
+        unsupported = unsupported_claims(wrapped, state.ran_writes | state.implied)
         if unsupported:
             yield {
                 "type": "answer",

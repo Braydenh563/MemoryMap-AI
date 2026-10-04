@@ -2119,6 +2119,8 @@ async function sendChatMessage(preset, opts = {}) {
       onPlan: (event) => {
         clearPending();
         timeline.plan(event);
+        //: A turn's own card: its tool rows are already in the panel's run.
+        if (event.kind === "turn") return chatScrollToEnd();
         // …and the same run as one row in the activity panel. Both are drawn
         // from this one event, so they cannot disagree about how many steps
         // there are or what the run is called.
@@ -2138,7 +2140,7 @@ async function sendChatMessage(preset, opts = {}) {
       onStep: (event) => {
         clearPending();
         timeline.step(event);
-        agentRunStep(activityRun, event);
+        if (event.kind !== "turn") agentRunStep(activityRun, event);
         if (event.state === "running") {
           status.textContent = `Step ${event.index + 1}: ${event.text}`;
         }

@@ -120,6 +120,7 @@ MORE_TOPICS: list[dict] = [
             "tools it can use", "which tools", "turn off a tool", "disable a tool",
             "small model mode", "run budget", "tool list", "tokens per step",
             "tools offered", "using a tool", "use a tool", "stop atlas using",
+            "cut that reply short", "model size",
         ),
         "body": (
             "Settings, Tools it can use lists the actions Atlas may take in "
@@ -129,7 +130,11 @@ MORE_TOPICS: list[dict] = [
             "if Atlas ever misses a tool you asked for. Small model mode offers "
             "a small model one tool at a time (Auto decides from the model's "
             "name, On, Off). Run budget caps what one skill run may spend, in "
-            "tokens per step and in seconds; 0 means no limit."
+            "tokens per step and in seconds; 0 means no limit. In Agent mode "
+            "the model's size, read from its name, decides how many tools it "
+            "sees and how long one step may write: under 3B and up to 8B get "
+            "a short toolbox and a reply that runs long is cut short, 8B and "
+            "up get everything."
         ),
         "badge": {"label": "Tools it can use", "section": "tools"},
     },

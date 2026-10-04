@@ -297,7 +297,7 @@ fresh-read interceptions); approval (destructive tools park,
 (`fence.fence_result`); the window budget (`context.plan`) and its log lines;
 a run's token and time budget (`ai/budget.py`); Stop closes the generator and
 the stream with it. The plan tracker exists for `make_plan` and skills
-(`chat-agent.js` `startPlan`/`markStep`), not for an ordinary turn (H1).
+(`chat-agent.js` `startPlan`/`markStep`), and since H1 for every multi-step turn.
 
 **What the real model says now, honestly.** Before (the ten cases): a right
 first tool 2 of 10, finished 2 of 10, arguments valid 2 of 2, a picture
@@ -318,24 +318,40 @@ retry were not looked at in a browser (no UI changed: they are answer text).
 
 **Phases, open (Opus-sized, tests first).**
 
-- **H1. A plan for every multi-step turn.** Today the tracker draws only for
-  `make_plan` and skills, and a small model is never offered `make_plan`.
-  When a turn's second round starts, draw the calls so far and the request as
-  a plan card from the harness's own ledger (no model call). Done when: a
-  three-round turn shows a card with three ticked rows, live and reopened;
-  `chat-agent.js` reuses `startPlan`; the Guide's Chat topic says so.
-- **H2. Verify against sources before answering.** A numeric or named claim
-  in the answer that no tool result or quoted note contains is flagged the
-  way an unsupported act is (`unsupported_claims` is the cheap shape to
-  copy). Done when: a fixture of twenty answers scores at least 18 right with
-  no false flag on the twelve true ones; no second model round.
-- **H3. Tiers by model size.** Under 3B, 3B to 8B, 8B and up, each with its
-  toolbox, rounds, schema length and nudges in one table read by
-  `_prepare_turn` (today one boolean). Done when: the table is the only
-  place a size decision lives, and the evals below run per tier.
+- **H1 to H3** are built: HISTORY.md, "Moved from the plans, 2026-10-04
+  (harness H1 to H3)".
 - **H4. Evals breadth.** The same ten cases at 3B and 4B, and the
   required first call measured over twenty imperatives and ten questions,
   with a tighter reply cap on a small model's tool rounds (one ran 948 s to
   2,048 tokens on these cores); Ollama's native
   dialect; two calls in one reply on a real model; picture placement over
   ten tries. Done when: each has a number in this section.
+
+  **Measured 2026-10-04, Qwen2.5-3B-Instruct Q4_K_M** (llama-server
+  `--jinja`, started in under two minutes with `scratchpad/llama-dev.sh
+  serve`; four contended cores, 4 to 400 s a round):
+  - The ten cases (`scratchpad/harness_probe.py`): a right first tool 9 of
+    10 ("Make a note" opened with `get_current_time`, then made the note),
+    finished 10 of 10, every turn ended in
+    words. Two of them then made a copy of the note they had just pinned or
+    edited (one with the prompt's fence markers in it): fixed, a copy is now
+    refused (`agent._copies_what_was_read`).
+  - The required first call (`scratchpad/harness_firstcall.py`): the rule
+    forces 20 of 20 imperatives and 0 of 10 questions; forced, a right first
+    tool 14 of 20 (3 of the misses were `save_user_preference`, now offered
+    to a small model only when the request is about the user); unforced
+    questions 10 of 10.
+  - Two calls in one reply: 2 of 20 imperatives and 1 of 5 two-part requests
+    ("Make a note ... and remind me ..." gave `create_note` and
+    `set_reminder` in one reply, both right).
+  - Picture placement: 0 of 3 in the eval before the H3/H4 picture fix (one
+    probe placed the note on a whiteboard instead); 5 of 5 after, each time
+    as the note's own `![alt](/media/...)`, which the bubble draws as an
+    image (checked in the browser), never as `[picture N]`.
+  - The reply cap (H3) never fired at 3B: no tool round wrote past 2,400
+    characters (the largest round was 129 tokens).
+  - **Not run:** 4B (only 1.5B and 3B on disk; at 3B a full ten-case pass took
+    about 50 minutes on these cores, so a 4B pass was left for a quieter
+    machine); Ollama's native dialect (no Ollama binary in the sandbox;
+    installing one was not attempted); ten picture tries (five were run).
+

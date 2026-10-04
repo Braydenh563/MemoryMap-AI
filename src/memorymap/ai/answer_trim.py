@@ -124,6 +124,29 @@ def _strip_closers(text: str) -> str:
     return out
 
 
+#: **Prompt bookkeeping a model echoes back** (AGENT_SKILLS_REFORM H3). The
+#: notes reach the model as "1. (note id 3) [Work] (similarity: 0.54) ...",
+#: and a small model quotes it: "your dentist note (note id 3)", "with a
+#: similarity of 0.54". None of it means anything to the reader. Each pattern
+#: needs the number, so "the similarity between the plans" and "(id badge in
+#: the drawer)" are left alone.
+_METADATA = (
+    (re.compile(r"\((?:note\s+)?id[:\s#]*\d+\)\s*\[[^\]\n]{1,40}\]\s*", re.I), ""),
+    (re.compile(r"\s*\((?:note\s+)?id[:\s#]*\d+\)", re.I), ""),
+    (re.compile(r"\s*\((?:similarity|score)[:\s]*[01]?\.\d+\)", re.I), ""),
+    (re.compile(r"\s*\(matched:[^()\n]{1,80}\)", re.I), ""),
+    (re.compile(r",?\s*(?:with\s+)?(?:a\s+)?similarity(?:\s+score)?(?:\s+of|:)?\s*[01]?\.\d+,?", re.I), ""),
+    (re.compile(r"\bnote id\s*#?\d+\b", re.I), "the note"),
+)
+
+
+def strip_prompt_metadata(text: str) -> str:
+    """The answer without note ids and match scores copied from the prompt."""
+    for pattern, replacement in _METADATA:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 def trim_assistant_padding(text: str) -> str:
     """The answer without its greeting or its sign-off.
 
@@ -133,6 +156,7 @@ def trim_assistant_padding(text: str) -> str:
     """
     if not text or not text.strip():
         return text
+    text = strip_prompt_metadata(text)
     paragraphs = text.split("\n\n")
     #: An opening paragraph that is *only* a greeting goes whole. `_strip_opener`
     #: will not empty the text it is handed, which is right when that text is

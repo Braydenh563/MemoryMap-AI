@@ -62,6 +62,26 @@ Tests: `tests/test_timeline_auto_scale.py` (fifteen shapes through the real
 function in node, plus the done-when recomputed in Python). Guide text updated
 (`timeline-controls`).
 
+## Moved from the plans, 2026-10-04 (harness H1 to H3)
+
+### From AGENT_SKILLS_REFORM.md, "Harness robustness", phases H1 to H3
+
+| Phase | Before | After | Gate |
+| --- | --- | --- | --- |
+| H1, a plan card for every multi-step turn (`agent._TurnCard`, drawn from the harness's own ledger when the second round starts; `chat-agent.js` reuses `startPlan` and grows a row per round) | the tracker drew only for `make_plan` and skills; a small model is never offered `make_plan` | three-round turn: three ticked rows, live and reopened (`scratchpad/ui-sweeps/turncard.js` against `fake_openai_server.py --tool-rounds 2`); found on the way: replay read only `kind: "plan"`, so a skill run's saved card (`kind: "skill"`) was dropped on reopen, fixed | `test_harness_plan_card.py` |
+| H2, verify against sources (`ai/source_check.py`): a number or a mid-sentence name no tool result, note or the user's words contain gets a heads-up; only after a tool ran, only an ordinary turn; no second model round | none | fixture of twenty answers, twelve true: 20/20 right, no false flag (the fixture and the checker were written together: a self-set bar) | `test_source_check.py`, `tests/fixtures/chat/source_check_cases.json` |
+| H3, tiers by model size (`agent.SIZE_TIERS`, `size_tier`; tiny under 3B, small 3 to 8B, large, unsized as large), the only place a size decision lives | one under-8B boolean | a tool round's prose cut at 2,400 chars (tiny) or 4,800 (small), stream closed; a 1.5B had run 948 s to the 2,048-token cap | `test_harness_tiers.py` |
+| H3, prompt bookkeeping off the answer (`answer_trim.strip_prompt_metadata`, inside `trim_assistant_padding`) | "(note id 3)", "similarity 0.54" reached the reader | stripped, ordinary words kept | same |
+| H3 found-not-fixed: a picture question with its picture in a prompt note is not offered the board reads first (`agent._picture_in_hand`) | 1.5B read a whiteboard instead of the note's sketch | `read_whiteboard`, `search_whiteboard`, `read_mindmap` left off the first offer; the focus correction still widens to them | same |
+
+Atlas follow-ups (INBOX 535) the same day: the astral wisps in the light
+theme's deeper violet (median contrast 1.13 to 1.33, p90 1.40 to 3.28,
+`scratchpad/ui-sweeps/atlaswisps.js`), the waist and tail wisps turned with
+the tail in every pose (offset from the tail lying 7.6 to 14.0 units, 14.0
+standing), the body's edge glow carried down the tail as a fill; masculine
+pixel-identical in six poses and both themes (`atlasstill.js`).
+`test_atlas_wisps_pose.py`.
+
 ## Moved from the plans, 2026-10-04 (the top bar mode and the glass recipe)
 
 ### From UI_MODERNISATION_PLAN Phase 10, item 102

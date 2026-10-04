@@ -584,10 +584,11 @@ const ATLAS_LOOKS = {
     //: her, one about the waist, one along the tail, a small one by the
     //: held-out shoulder, each a soft glow under a brighter core and a
     //: trail of sparkles. Fills only. In the companion they are a layer of
-    //: their own (`wisps`), whose box drifts on its own slow clock.
+    //: their own (`wisps`), whose box drifts on its own slow clock. The
+    //: two by the waist and the tail (`low`) take the tail's pose as well.
     wisps: [
-      { seg: [[13.6, 47, 19.6, 53.4, 37.6, 50.6, 45.6, 56.4], [45.6, 56.4, 51.6, 60.6, 49.6, 68.2, 43.6, 70]], sparkles: [0.2, 0.45, 0.7, 0.9] },
-      { seg: [[41.6, 73, 33, 80.6, 22, 74.6, 15.6, 80.2], [15.6, 80.2, 10.6, 84.8, 12.6, 92, 20.6, 93.6]], sparkles: [0.15, 0.4, 0.65, 0.88] },
+      { seg: [[13.6, 47, 19.6, 53.4, 37.6, 50.6, 45.6, 56.4], [45.6, 56.4, 51.6, 60.6, 49.6, 68.2, 43.6, 70]], sparkles: [0.2, 0.45, 0.7, 0.9], low: true },
+      { seg: [[41.6, 73, 33, 80.6, 22, 74.6, 15.6, 80.2], [15.6, 80.2, 10.6, 84.8, 12.6, 92, 20.6, 93.6]], sparkles: [0.15, 0.4, 0.65, 0.88], low: true },
       { seg: [[43.4, 31.6, 49.4, 26.4, 56, 29.6, 54.6, 36.4]], sparkles: [0.3, 0.75] },
     ],
     //: The tail's centreline, from the waist (y 51) down, out to the left
@@ -1012,6 +1013,9 @@ function atlasBuild() {
           width,
           seg,
           tipAt: seg[seg.length - 1].slice(6, 8),
+          //: The body's edge glow carried down the tail: the stroke's 0.65
+          //: outside the torso's flank, as a fill 1.3 wider than the tail.
+          glow: atlasStem(seg, (t) => width(t) + 1.3, { samples: 18, cap: true }),
         };
       }
     }
@@ -1033,7 +1037,8 @@ function atlasBuild() {
     //: glow three times as wide under each, sparkles along the centre.
     if (spec.wisps) {
       const ribbon = (t) => 0.5 + 1.7 * Math.sin(Math.PI * t) ** 0.8;
-      spec.wispPaths = spec.wisps.map(({ seg, sparkles }) => ({
+      spec.wispPaths = spec.wisps.map(({ seg, sparkles, low }) => ({
+        low: !!low,
         core: atlasStem(seg, ribbon, { samples: 16, cap: true }),
         glow: atlasStem(seg, (t) => ribbon(t) * 3, { samples: 16, cap: true }),
         sparkles: sparkles.map((t, i) => [...atlasSegsAt(seg, t).map(atlasFix), i % 2 ? 0.26 : 0.36]),
@@ -1809,6 +1814,16 @@ function atlasBody(parent, id, props, look, route = null) {
     //: then the ribbons over it, each the skirt's fading light over a haze
     //: of the tail's galaxy, a pale stream, a lit edge on two of them and a
     //: few star specks.
+    //: The tail's edge glow (fills only), in the lower layer's edge group
+    //: under the tail, in a group shaped like the tail's so every pose
+    //: turns the two together and the tip feathers out the same.
+    if (spec.sower && edge) {
+      const lower = atlasGroup(lowerAt.edge, "atl-lower", spec.lowerPivot);
+      lower.setAttribute("mask", `url(#${id}-lowerin)`);
+      const glow = atlasGroup(lower, "atl-sower");
+      glow.setAttribute("mask", `url(#${id}-tailtip)`);
+      atlasMake("path", { class: "atl-sower-glow", d: spec.sower.glow }, glow);
+    }
     if (spec.lowers && !edge) {
       const ribbon = (host, part) => {
         const g = atlasGroup(host, "atl-ribbon");
@@ -1947,10 +1962,14 @@ function atlasBody(parent, id, props, look, route = null) {
   //: the companion so they drift on their own clock.
   if (spec.wispPaths) {
     const wisps = atlasGroup(route && route.wisps ? route.wisps : layers.fill, "atl-astral");
+    //: The waist and tail wisps turn with the tail: the lower layer's own
+    //: turn (`.atl-astral-hips`, the CSS) and its pose group (`.atl-lower`).
+    const low = atlasGroup(atlasGroup(wisps, "atl-astral-hips", [31, 57]), "atl-lower", spec.lowerPivot);
     for (const w of spec.wispPaths) {
-      atlasMake("path", { class: "atl-astral-glow", d: w.glow }, wisps);
-      atlasMake("path", { class: "atl-astral-core", d: w.core }, wisps);
-      atlasSpecks(wisps, w.sparkles, "atl-speck atl-astral-sparkle");
+      const into = w.low ? low : wisps;
+      atlasMake("path", { class: "atl-astral-glow", d: w.glow }, into);
+      atlasMake("path", { class: "atl-astral-core", d: w.core }, into);
+      atlasSpecks(into, w.sparkles, "atl-speck atl-astral-sparkle");
     }
   }
   if (props) {

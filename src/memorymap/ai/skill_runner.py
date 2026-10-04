@@ -1381,6 +1381,8 @@ def _run_skill(
             max_rounds=STEP_ROUNDS if steps else agent.MAX_ROUNDS,
             earned_rounds=STEP_EARNED_ROUNDS if steps else agent.EARNED_ROUNDS,
             exhausted_note=note,
+            # The run draws its own card; a step's rounds are not a second one.
+            show_plan=False,
         )
 
     if not steps:

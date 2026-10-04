@@ -952,6 +952,12 @@ function chatHeadKey(name, size) {
 
 function paintPersonaAvatar(holder, persona, size = 20) {
   const name = personaDisplayName(persona);
+  //: The app's own voice wears whatever Appearance, Assistant avatar says
+  //: (`assistantAvatar`); any other persona keeps the face drawn from its name.
+  if (chatHeadIsAtlas(name)) {
+    paintAssistantAvatar(holder, size);
+    return;
+  }
   const key = chatHeadKey(name, size);
   const source = chatHeadSources.get(key);
   if (source) {
@@ -960,18 +966,61 @@ function paintPersonaAvatar(holder, persona, size = 20) {
   }
   //: Nothing to draw a face with yet (the faces script failing to load):
   //: the persona's own fallback, never an empty box.
-  if (typeof nameMark !== "function" || (chatHeadIsAtlas(name) && typeof atlasAvatar !== "function")) {
+  if (typeof nameMark !== "function") {
     fillPersonaMark(holder, name, size);
     return;
   }
-  //: Atlas's own face at the size it is drawn at: under 28px that is its
-  //: face icon (`atlasDraw`'s tiny level: head, ears, eyes, 58 nodes), the
-  //: same Atlas the bust shows larger. The bust itself at 20px drew the
-  //: whole figure to crop it, 218 nodes a reply: 32,700 nodes in a 150-turn
-  //: chat, and the first paint went from 580 to 981ms (chatheads.js).
-  const face = chatHeadIsAtlas(name) ? (size >= 28 ? atlasAvatar(size, "calm") : atlasDraw(size, "calm")) : nameMark(name, size);
+  const face = nameMark(name, size);
   chatHeadSources.set(key, face);
   holder.replaceChildren(face.cloneNode(true));
+}
+
+//: **The assistant's face, decided in one place** (INBOX 463 (2), the owner:
+//: "customise the assistant/ai chat message bubbles across all chat
+//: interfaces to be either atlas or the animated app logo"). Appearance,
+//: Assistant avatar stores `atlas` (the default: what every head wore before)
+//: or `emblem`. Every head of the app's own voice asks here, through
+//: `paintAssistantAvatar` (Chat, the popup agent, the Atlas guide and help
+//: heads); none draws its own, and tests/test_ui_recipes.py holds that.
+//: Atlas's own face at the size it is drawn at: under 28px that is its face
+//: icon (`atlasDraw`'s tiny level: head, ears, eyes, 58 nodes), the same Atlas
+//: the bust shows larger. The bust itself at 20px drew the whole figure to
+//: crop it, 218 nodes a reply: 32,700 nodes in a 150-turn chat, and the first
+//: paint went from 580 to 981ms (chatheads.js). The emblem is the p5 logo
+//: drawn once and copied (assistant-avatar.js, lazy), so a 150-turn chat
+//: holds one sketch, never 150. No Atlas to draw (the faces script failing to
+//: load): the emblem, never an empty box.
+function assistantAvatar(size = 20) {
+  const emblem = typeof atlasAvatar !== "function" || (typeof appearancePref === "function" && appearancePref("assistant-avatar", "atlas") === "emblem");
+  if (emblem) {
+    const canvas = document.createElement("canvas");
+    canvas.className = "assistant-emblem";
+    canvas.setAttribute("aria-hidden", "true");
+    canvas.style.setProperty("--emblem-size", `${size}px`);
+    assistantEmblemInto(canvas, size);
+    return canvas;
+  }
+  const key = chatHeadKey("", size);
+  let face = chatHeadSources.get(key);
+  if (!face) {
+    face = size >= 28 ? atlasAvatar(size, "calm") : atlasDraw(size, "calm");
+    chatHeadSources.set(key, face);
+  }
+  return face.cloneNode(true);
+}
+
+//: A head holder remembers its size, so a change of the setting repaints it
+//: where it stands (`repaintAssistantAvatars`) rather than at the next reply.
+function paintAssistantAvatar(holder, size = 20) {
+  holder.dataset.assistantAvatar = String(size);
+  holder.replaceChildren(assistantAvatar(size));
+}
+
+function repaintAssistantAvatars(emblemsOnly = false) {
+  for (const holder of document.querySelectorAll("[data-assistant-avatar]")) {
+    if (emblemsOnly && !holder.querySelector(".assistant-emblem")) continue;
+    if (holder.isConnected) paintAssistantAvatar(holder, Number(holder.dataset.assistantAvatar) || 20);
+  }
 }
 
 // An assistant bubble: an avatar, the step timeline, and a matching-records slot.

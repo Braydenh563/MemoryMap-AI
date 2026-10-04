@@ -87,6 +87,7 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("density-auto", ("Auto", "Compact"), "change the density"),
     ("companion-toggle", ("Ctrl+Shift+Y",), "hide the companion"),
     ("privacy-receipt", ("Privacy", "Nothing left this computer"), "prove nothing left my computer"),
+    ("assistant-avatar", ("Assistant avatar", "animated emblem"), "change the assistant avatar to the app logo"),
 ]
 
 

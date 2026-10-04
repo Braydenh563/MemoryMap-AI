@@ -50,18 +50,6 @@ with its owner named in the entry.
      also reads icons and SVG strokes (contrast.js reads text), and another
      skills-guided UI round by surface: agents.
 
-463. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
-     whiteboard's Library panel: note rows "The Complete Social Skills Guide
-     This g...").** "there is no hover state for the library whiteboard panel
-     items, also I think the user should be able to customise the
-     assistant/ai chat message bubbles across all chat interfaces to be
-     either atlas or the animated app logo". **(1) fixed**: rows lift under the
-     pointer (both themes), two lines cut at a word by the stylesheet (were
-     40 characters cut mid-word), never squeezed by the list. (2) an
-     Appearance choice "Assistant avatar: Atlas or the app's emblem", read
-     by every bubble (Chat, popup agent, Ask, Atlas help): with the bubble
-     agent's follow-up.
-
 462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
      dont handle collapsed sidebars at least in the chat tab". Placed: with
      455 (2), the companion agent.

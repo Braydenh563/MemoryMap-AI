@@ -54,6 +54,7 @@ MORE_TOPICS: list[dict] = [
             "atlas look", "atlas style", "classic globe", "globe", "atlas character",
             "atlas's face", "atlas mood", "atlas moods", "masculine", "feminine",
             "what does atlas look like", "change atlas", "atlas avatar",
+            "assistant avatar", "app emblem", "reply avatar", "chat avatar", "app logo",
         ),
         "body": (
             "Atlas is drawn as a small character of starlight with rings "
@@ -62,7 +63,11 @@ MORE_TOPICS: list[dict] = [
             "picks Masculine or Feminine, or Auto, which follows Face looks "
             "when that is set to one look and your own face's look otherwise; "
             "it is used everywhere Atlas appears, the dashboard mark and the "
-            "chat's replies included. Atlas's face follows the app's mood: "
+            "chat's replies included. Assistant avatar, in the same place, swaps "
+            "the face on the assistant's chat replies, the popup agent and the "
+            "guide between Atlas and the app's animated emblem (it stays still "
+            "under Reduce motion); other personas keep their own faces. "
+            "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
             "on any face, shows the full drawing."

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Appearance, Atlas and faces (INBOX 463 (2)): Assistant avatar picks the face on the assistant's chat replies, the popup agent and the Atlas guide: Atlas (the default) or the app's animated emblem, still under Reduce motion. Open replies change as you choose; other personas keep their own faces.
 - Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
 - Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.
 - Companion: the resize ring no longer shows on the companion in its enlarged view.

@@ -2747,6 +2747,32 @@ header#top-bar select,
   vertical-align: middle;
 }
 
+/* The app emblem as an assistant's head (Appearance, Assistant avatar;
+   assistant-avatar.js). The canvas is the head's own copy of one sketch, in
+   the box `assistantAvatar` asked for; the turn is `canvas.emblem-spin`
+   above. In an Atlas mark's disc (the guide and help heads) it sits at three
+   quarters of the disc, centred by the mark's own flex. */
+.assistant-emblem {
+  --emblem-size: 20px; /* the head sets its own, inline */
+  display: block;
+  width: var(--emblem-size);
+  height: var(--emblem-size);
+}
+
+.atlas-mark > .assistant-emblem {
+  width: 75%;
+  height: 75%;
+}
+
+/* The scratch box the sketch is drawn in before it is copied: out of sight,
+   out of flow, never read by anything. */
+.assistant-emblem-scratch {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: -100vw;
+  pointer-events: none;
+}
+
 /* Both roles line up the same way now that the user has an avatar too, one
    rule rather than an assistant-only one, so the two columns cannot drift. */
 .msg-role,

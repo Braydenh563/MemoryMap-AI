@@ -214,6 +214,8 @@ function renderBrandLogo() {
     const holder = document.getElementById(id);
     if (holder) renderEmblemWhenShown(holder, size, animate);
   }
+  //: The assistant heads that wear the emblem take the new colour or motion.
+  if (typeof repaintAssistantAvatars === "function") repaintAssistantAvatars(true);
 }
 
 //: **An emblem nobody can see is drawn when it can be** (the performance

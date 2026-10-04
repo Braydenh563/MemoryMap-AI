@@ -6361,66 +6361,6 @@ button.connection-row {
   width: var(--control-h);
 }
 
-/* --- a picture note looks like a picture in the Contents outline ------------
-   Reported: "the contents tab doesnt render images". Every row was text from
-   `noteLabel`, which strips markdown: so a note that *is* a photo showed its
-   filename, or the bare word "image" when the alt text was empty. In an index
-   whose whole job is helping you recognise a note, that is the one row shape
-   that cannot do it.
-
-   Beside the label, not instead of it. The label still carries the note's own
-   words when it has any, and a row that were only an image would break the
-   left edge the rest of the outline reads down. Small and fixed-size for the
-   same reason: rows of differing heights stop being a list you can scan. */
-.contents-thumb {
-  flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  /* A dark frame while it loads, so a slow thumbnail is a quiet placeholder
-     rather than a flash of page background in the shape of a hole. */
-  background: var(--chip-bg);
-}
-
-/* The row's own layout lives with the rest of the index in
-   01-forms-settings.css; what stays here is the label and the meta column
-   beside it, which are what the thumbnail above shares a row with. */
-.contents-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The right-hand column of the index, when it was written, or what it is
-   filed under. Muted and fixed at the row's edge so the eye can run straight
-   down it, and never the thing that decides the row's width.
-
-   **`flex: 0 0 auto`, not `0 1 auto`.** The intent above was always "the
-   label truncates, not this", but a shrinkable meta column competes with
-   `.contents-label`'s `flex: 1 1 auto` for the same space and loses, so the
-   date got squeezed instead. Reported with a screenshot, and measured on the
-   live index: "3 days ago" needs 78px and was given 43, rendering as "3 …";
-   2 of 8 visible rows were clipped that way.
-
-   A date is short and bounded, so refusing to shrink it costs nothing, and
-   the label beside it already has `min-width: 0` and an ellipsis: it
-   absorbs the remainder and truncates first, which is what the rule wanted
-   in the first place. `max-width` stays as the backstop for the other mode,
-   where the meta is a category name and genuinely can run long. */
-.contents-meta {
-  flex: 0 0 auto;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-
 /* ======================= THE OCR WORKSPACE ==============================
    Three panes: which page, where on the page, and what it says. See the
    markup comment in index.html for why each one exists. The card is sized

@@ -8917,18 +8917,19 @@ onDomReady(() => {
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
   $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
   $("contents-refresh")?.addEventListener("click", renderContents);
-  $("contents-mode")?.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      $("contents-mode").querySelectorAll("button").forEach((b) => {
-        b.classList.remove("active");
-        b.setAttribute("aria-selected", "false");
-      });
-      btn.classList.add("active");
-      btn.setAttribute("aria-selected", "true");
-      contentsMode = btn.getAttribute("data-mode");
+  const contentsGroup = $("contents-group");
+  if (contentsGroup) {
+    contentsGroup.value = contentsMode;
+    contentsGroup.addEventListener("change", () => {
+      contentsMode = CONTENTS_GROUPS.includes(contentsGroup.value) ? contentsGroup.value : "category";
+      try {
+        localStorage.setItem(CONTENTS_GROUP_KEY, contentsMode);
+      } catch {
+        // A blocked storage only forgets the choice.
+      }
       renderContents();
     });
-  });
+  }
   //: Debounced like every other search box in this file: the index rebuilds
   //: from `allEntries` in memory, but a 400-note rebuild on each keystroke is
   //: still work the typist can feel.
@@ -10148,7 +10149,18 @@ function bookmarkRow(bookmark) {
 // from `allEntries` (already loaded for the Notes tab) rather than a new
 // endpoint: the same data, grouped differently client-side. -----------
 
-let contentsMode = "category";
+//: The Group by select's value, kept for the next visit (a per-viewer
+//: convenience, so `localStorage`, and a blocked one only forgets it).
+const CONTENTS_GROUP_KEY = "contents-group";
+const CONTENTS_GROUPS = ["category", "tag", "date", "folder"];
+let contentsMode = (() => {
+  try {
+    const stored = localStorage.getItem(CONTENTS_GROUP_KEY);
+    return CONTENTS_GROUPS.includes(stored) ? stored : "category";
+  } catch {
+    return "category";
+  }
+})();
 //: Which sections are folded, by their heading. Kept per grouping mode,
 //: because "Uncategorised" collapsed under By category says nothing about a
 //: month of the same name under By month.
@@ -10180,8 +10192,9 @@ const CONTENTS_GROUP_CAP = 200;
 //:    Sections are now open to their full height and the *page* scrolls, the
 //:    way an index in a book works.
 //: 3. **There was no way to find anything.** An index of 400 rows without a
-//:    filter or a jump bar is a wall, so both are here now, plus grouping by
-//:    month: half of "where is that note" is *when* you wrote it.
+//:    filter is a wall, so there is one, and groups that fold (Collapse all
+//:    leaves the list of groups), plus grouping by month: half of "where is
+//:    that note" is *when* you wrote it.
 //: A sortable key ("2026-03") with a readable label built from it
 //: (`contentsSectionLabel`), so months order by time rather than
 //: alphabetically: "April" before "January" is the classic version of this bug.
@@ -10306,60 +10319,79 @@ function contentsTreeItem(el, level) {
   return el;
 }
 
+//: **A row of the index** (INBOX 496, the redesign): a mark, then the title
+//: over one muted line of facts, in one column. It used to be a grid of up to
+//: three columns of one-line rows with the facts at each row's right edge,
+//: so the eye ran across rows rather than down them and a long title pushed
+//: its date into the next column's gap. The mark is the note's picture when
+//: it has one (reported: "the contents tab doesnt render images"), and the
+//: kind's glyph otherwise, so every title starts at one edge.
+function contentsRowBody(link, mark, title, facts) {
+  link.classList.add("contents-row");
+  const body = document.createElement("div");
+  body.className = "contents-row-body";
+  const text = document.createElement("span");
+  text.className = "contents-label";
+  text.textContent = title;
+  text.title = title;
+  body.appendChild(text);
+  if (facts.some(Boolean)) body.appendChild(metaLine(facts, "contents-meta"));
+  link.append(mark, body);
+}
+
+function contentsGlyph(name) {
+  const icon = document.createElement("i");
+  icon.className = `ph ${name} contents-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function contentsNoteMark(entry) {
+  const shot = noteAnyImage(entry);
+  if (!shot) return contentsGlyph("ph-note-blank");
+  const thumb = document.createElement("img");
+  thumb.className = "contents-thumb";
+  thumb.src = mediaSrc(shot.url);
+  thumb.alt = "";
+  thumb.loading = "lazy";
+  thumb.decoding = "async";
+  //: A picture that will not load becomes the glyph, so the title keeps its
+  //: edge (the missing-media placeholder is a 170px box).
+  thumb.addEventListener("error", () => thumb.replaceWith(contentsGlyph("ph-note-blank")));
+  return thumb;
+}
+
+//: Made once, not per row (DESIGN.md, "A long list").
+const CONTENTS_DAY = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+
+//: The facts a row says, leaving out the one its group already says: under a
+//: category the row does not repeat it, under a month it gives the day.
+function contentsNoteFacts(entry) {
+  const when = entry.updated_at || entry.created_at;
+  const tags = (entry.tags || []).slice(0, 3).map((tag) => `#${tag}`).join(" ");
+  const more = (entry.tags || []).length > 3 ? ` +${entry.tags.length - 3}` : "";
+  if (contentsMode === "category") return [when ? relativeTime(when) : "", tags + more];
+  if (contentsMode === "date") {
+    const day = new Date(entry.created_at || entry.updated_at);
+    return [entry.category || "Uncategorised", Number.isNaN(day.valueOf()) ? "" : CONTENTS_DAY.format(day)];
+  }
+  return [entry.category || "Uncategorised", when ? relativeTime(when) : ""];
+}
+
 function contentsNoteRow(entry) {
   const li = document.createElement("li");
   li.setAttribute("role", "none");
   //: **No tick here.** Asked for directly: "the contents page shouldnt have
-  //: radio buttons, it is purely a table of contents." It is right, and it
-  //: is a point about what this page *is* rather than about how the
-  //: control looked: a table of contents is a way to find your place, and
-  //: every row offering to select itself for a bulk delete makes an index
-  //: into a management screen you did not ask to be in.
+  //: radio buttons, it is purely a table of contents": a way to find your
+  //: place, not a management screen.
   const link = contentsTreeItem(document.createElement("a"), 2);
   link.href = "#";
-  //: **A picture note shows its picture.** Reported: "the contents tab
-  //: doesnt render images". Every row was `noteLabel`, which strips
-  //: markdown down to text, so a note that *is* a photo appeared as its
-  //: filename, or as the bare word "image" when the alt text was empty.
-  //: In an index whose whole job is helping you recognise a note, that is
-  //: the one row shape that cannot do it.
-  const shot = noteAnyImage(entry);
-  if (shot) {
-    const thumb = document.createElement("img");
-    thumb.className = "contents-thumb";
-    thumb.src = mediaSrc(shot.url);
-    thumb.alt = "";
-    thumb.loading = "lazy";
-    //: A picture that will not load is simply not shown: the row's own
-    //: words still name the note, and the missing-media placeholder is a
-    //: 170px box that pushed this row's label off the index's left edge.
-    thumb.addEventListener("error", () => thumb.remove());
-    link.appendChild(thumb);
-  }
-  const text = document.createElement("span");
-  text.className = "contents-label";
-  //: In folder mode a row is a *file*, so it is named the way the vault
-  //: names it: that is also the name its `[[wiki links]]` use, so the
-  //: index and the links agree about what a note is called.
+  //: In folder mode a row is a *file*, named the way the vault names it
+  //: (the name its `[[wiki links]]` use). Otherwise a note with a heading is
+  //: named by it, one without by its opening words.
   const fileName =
     contentsMode === "folder" && entry.source_path ? entry.source_path.split("/").pop() : "";
-  //: **An index lists titles.** A note with a heading was labelled with
-  //: its heading run straight into its first paragraph ("Sprint retro
-  //: What went well: measuring..."), which reads as one long title. A
-  //: note that has a heading is named by it; one without is named by its
-  //: opening words, as before.
-  text.textContent = fileName || contentsNoteName(entry);
-  link.appendChild(text);
-  //: The right-hand column of an index: what a row is filed under, or
-  //: when it was written when the grouping already answers "under what".
-  //: One value, muted, at a fixed edge, so the eye can run down it.
-  const meta = document.createElement("span");
-  meta.className = "contents-meta";
-  meta.textContent =
-    contentsMode === "category" || contentsMode === "folder"
-      ? relativeTime(entry.updated_at || entry.created_at)
-      : entry.category || "Uncategorised";
-  link.appendChild(meta);
+  contentsRowBody(link, contentsNoteMark(entry), fileName || contentsNoteName(entry), contentsNoteFacts(entry));
   link.addEventListener("click", (e) => {
     e.preventDefault();
     flashEntry(entry.id);
@@ -10378,22 +10410,18 @@ function contentsDocRow(doc, heads, shallowest, forceOpen) {
   li.setAttribute("role", "none");
   const link = contentsTreeItem(document.createElement("a"), 2);
   link.href = "#";
-  const caret = document.createElement("i");
-  caret.className = "ph ph-caret-down contents-caret contents-doc-caret";
-  caret.setAttribute("aria-hidden", "true");
-  const icon = document.createElement("i");
-  icon.className = "ph ph-file-text contents-doc-icon";
-  icon.setAttribute("aria-hidden", "true");
-  const text = document.createElement("span");
-  text.className = "contents-label";
-  text.textContent = doc.title || "Untitled";
-  const meta = document.createElement("span");
-  meta.className = "contents-meta";
-  meta.textContent = heads.length
-    ? `${heads.length} section${heads.length === 1 ? "" : "s"}`
-    : relativeTime(doc.updated_at);
-  if (heads.length) link.appendChild(caret);
-  link.append(icon, text, meta);
+  const facts = [
+    contentsMode === "date" ? "" : "Document",
+    heads.length ? `${heads.length} section${heads.length === 1 ? "" : "s"}` : "",
+    doc.updated_at ? relativeTime(doc.updated_at) : "",
+  ];
+  contentsRowBody(link, contentsGlyph("ph-file-text"), doc.title || "Untitled", facts);
+  if (heads.length) {
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down contents-caret contents-doc-caret";
+    caret.setAttribute("aria-hidden", "true");
+    link.prepend(caret);
+  }
   li.appendChild(link);
 
   if (heads.length) {
@@ -10445,8 +10473,25 @@ function contentsDocRow(doc, heads, shallowest, forceOpen) {
   return li;
 }
 
-//: One top-level section: a heading that folds, and the rows under it.
-function contentsBuildSection(outline, jump, { key, label, total, fill }) {
+//: What a group is, before its name: a category's own colour dot (the one
+//: every other surface paints), or the glyph of the grouping.
+function contentsGroupMark(key) {
+  if (key === CONTENTS_DOCS_KEY) return contentsGlyph("ph-files");
+  if (contentsMode === "category") {
+    const dot = document.createElement("span");
+    dot.className = "contents-dot";
+    dot.setAttribute("aria-hidden", "true");
+    paintCategoryDot(dot, key);
+    return dot;
+  }
+  return contentsGlyph(
+    contentsMode === "tag" ? "ph-hash" : contentsMode === "date" ? "ph-calendar-blank" : "ph-folder"
+  );
+}
+
+//: One group: a heading that folds (caret, mark, name, count), and the rows
+//: under it.
+function contentsBuildSection(outline, { key, label, total, fill }) {
   const folded = contentsCollapsed[contentsMode];
   const section = document.createElement("section");
   section.className = "contents-section";
@@ -10455,8 +10500,7 @@ function contentsBuildSection(outline, jump, { key, label, total, fill }) {
 
   //: A `<button>` heading, not an `<h3>` with a click handler: folding a
   //: section is an action, and the thing that performs it has to be
-  //: reachable by keyboard and announce its state. `aria-expanded` is what
-  //: a screen reader reads out; the caret is what everyone else sees.
+  //: reachable by keyboard and announce its state.
   const heading = contentsTreeItem(document.createElement("button"), 1);
   heading.type = "button";
   heading.className = "contents-heading";
@@ -10469,7 +10513,8 @@ function contentsBuildSection(outline, jump, { key, label, total, fill }) {
   const count = document.createElement("span");
   count.className = "contents-count";
   count.textContent = total;
-  heading.append(caret, name, count);
+  heading.append(caret, contentsGroupMark(key), name, count);
+  heading.setAttribute("aria-label", `${label}, ${total}`);
 
   const list = document.createElement("ul");
   list.className = "contents-list";
@@ -10487,31 +10532,11 @@ function contentsBuildSection(outline, jump, { key, label, total, fill }) {
   fill(list);
   section.append(heading, list);
   outline.appendChild(section);
-
-  //: The jump bar. An index long enough to need one is exactly the index
-  //: that had nothing but a scrollbar before.
-  if (jump) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip contents-jump-chip";
-    chip.textContent = `${label} ${total}`;
-    chip.title = `Jump to ${label}`;
-    chip.addEventListener("click", () => {
-      //: Unfold before scrolling: jumping to a section that is folded lands
-      //: on a heading with nothing under it, which reads as the jump having
-      //: failed.
-      if (list.hidden) setOpen(true);
-      section.scrollIntoView({ behavior: !reducedMotionWanted() ? "smooth" : "auto", block: "start" });
-      heading.focus({ preventScroll: true });
-    });
-    jump.appendChild(chip);
-  }
 }
 
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
-  const jump = $("contents-jump");
   const noMatch = $("contents-no-match");
   const hint = $("contents-hint");
   const summary = $("contents-summary");
@@ -10532,7 +10557,6 @@ async function renderContents() {
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
   outline.replaceChildren();
-  jump?.replaceChildren();
   hint?.classList.add("hidden");
   if (summary) summary.textContent = "";
   empty.classList.toggle("hidden", active.length + docs.length > 0);
@@ -10605,7 +10629,7 @@ async function renderContents() {
   for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);
     const docsHere = monthDocs.get(key) || [];
-    contentsBuildSection(outline, jump, {
+    contentsBuildSection(outline, {
       key,
       label: contentsSectionLabel(key),
       total: members.length + docsHere.length,
@@ -10625,7 +10649,7 @@ async function renderContents() {
     });
   }
   if (shownDocs.length && contentsMode !== "date") {
-    contentsBuildSection(outline, jump, {
+    contentsBuildSection(outline, {
       key: CONTENTS_DOCS_KEY,
       label: "Documents",
       total: shownDocs.length,
@@ -10646,10 +10670,6 @@ async function renderContents() {
     }
     summary.textContent = bits.join(" · ");
   }
-  //: The jump bar earns its row from four groups, the threshold of Settings'
-  //: own index: with two or three, every head is already on screen and the
-  //: bar only repeated each one's name and count (INBOX 437 (4)).
-  jump?.classList.toggle("hidden", jump.childElementCount < 4);
   //: One door into the tab order: the first item. Roving from there.
   outline.querySelector('[role="treeitem"]')?.setAttribute("tabindex", "0");
 }

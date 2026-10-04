@@ -4498,30 +4498,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   padding-left: 0;
 }
 
-/* 12. The Contents index (finding 21): a picture note's row carries a 2rem
-       thumbnail and the rest do not, so in one column the labels started at
-       two x positions. A list that has any picture in it reserves the
-       picture's column on every row, the same rule the Library's own Rows
-       view keys off `.has-thumbs`. */
-.contents-list:has(.contents-thumb) > li > a:not(:has(.contents-thumb))::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 2rem;
-}
-
-/* 13. The Contents jump chips are a row of places to go, so in the flat
-       looks they read like the Library's own filter chips: a neutral
-       ground and ink at 500 (they were accent tint at 600, and drew the
-       button glow the flat looks now take off every button). A skill card's
-       title is an `h3` inside a `.card`, so the eyebrow recipe (`.card h3`)
-       set it at 12px muted: measured 12px where the title of every other
-       Library card is 16px. */
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .contents-jump-chip {
-  background: var(--chip-bg);
-  color: var(--ink);
-  font-weight: 500;
-}
-
+/* 13. A skill card's title is an `h3` inside a `.card`, so the eyebrow
+       recipe (`.card h3`) set it at 12px muted: measured 12px where the
+       title of every other Library card is 16px. (The Contents jump chips
+       this item also styled went with INBOX 496.) */
 .skill-card .skill-card-title {
   color: var(--ink);
   font-size: var(--text-body);
@@ -4543,8 +4523,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
        the first pass stays text. */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(
   .skill-card-facts > .skill-fact,
-  .library-image-tile .chip.library-image-usage-chip,
-  .chip.contents-jump-chip
+  .library-image-tile .chip.library-image-usage-chip
 ) {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
 }
@@ -4859,19 +4838,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--ink);
 }
 
-/* The Contents index is the one list whose section names are headings over
-   whole sections, so it takes the Timeline's day-head grammar (ink, 600, the
-   accent underline) and its rows step down to the list size, where they had
-   been larger than the heading over them. */
+/* The Contents index is the one list whose group names are headings over
+   whole groups, so in this look it takes the Timeline's day-head grammar
+   (ink, 600, the accent underline). */
 :root[data-palette="utilitarian"] .contents-heading {
-  color: var(--ink);
   font-size: var(--text-body);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   box-shadow: inset 0 -2px 0 var(--accent-soft);
-}
-
-.contents-list > li > a {
-  font-size: var(--text-md);
 }
 
 /* --- Timeline rows with a snippet: mark and time on the title's line --- */

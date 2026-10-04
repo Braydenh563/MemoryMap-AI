@@ -640,13 +640,15 @@ MORE_TOPICS.extend(
             "keywords": (
                 "contents", "table of contents", "outline of my notebook",
                 "whole notebook", "notebook outline", "tree of notes", "index of notes",
-                "expand all", "collapse all",
+                "expand all", "collapse all", "group by", "group the index",
             ),
             "body": (
-                "Library, Contents is the whole notebook as a tree, By category, "
-                "By tag or By month, with each document's headings under it, so "
-                "a press jumps straight to a heading. Expand all and Collapse all "
-                "open or fold every section. From the keyboard the Up and Down "
+                "Library, Contents is the whole notebook as a tree: pick By "
+                "category, By tag, By month or By folder in its Group by list, "
+                "and each group folds at its heading. A document lists its "
+                "headings, so a press jumps straight to one. Expand all and "
+                "Collapse all, in the ⋯ menu, open or fold every group; folded, "
+                "the groups are a list of places to go. From the keyboard the Up and Down "
                 "arrows move, Right opens a row, Left folds it, Home and End jump "
                 "to the ends, and Enter opens. By month puts each document under "
                 "the month it was made, with that month's notes."

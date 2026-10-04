@@ -3009,6 +3009,13 @@ function initEntryListKeyboardNav() {
     //: here too: ArrowDown in the menu moved to the next item and then this
     //: moved the focus out of the menu onto the row (measured, menus.js).
     if (event.target.closest('.action-menu, [role="menu"], [role="listbox"]')) return;
+    //: **A text field keeps its own keys.** A note's edit form lives inside
+    //: its row, so the title box, the tags box and the body editor sent their
+    //: Home, End and arrow keys here: the caret never moved, the focus jumped
+    //: to another row, and what was typed next went nowhere (found by the
+    //: deepflows sweep: click into the editor, press End, type). Checkboxes
+    //: and buttons are not fields, so the row's arrows still work from them.
+    if (event.target.closest('textarea, select, [contenteditable], .cm-editor, input:not([type="checkbox"]):not([type="radio"]):not([type="button"])')) return;
     const items = entryListItems(list);
     const current = event.target.closest("li");
     const index = current ? items.indexOf(current) : -1;

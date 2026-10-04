@@ -37469,6 +37469,13 @@ width, 47% of the column at 1440.
      row's right end while it is pointed at or focused; on touch they keep a
      column. `quickgap.js`: 0 px between row and list edge at rest.
 
+531. **The owner, 2026-10-04, verbatim, with a screenshot.** "the attach
+     popup panel goes behind other elements like the top chat bar". Fixed:
+     the dock's backdrop filter made it a stacking context below the sticky
+     toolbar (z 2); the dock rises to z 3 while the panel is open
+     (`attachz.js`: 7 of 7 points on the panel's top band hit the panel,
+     was 2 of 7).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

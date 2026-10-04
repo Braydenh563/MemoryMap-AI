@@ -6298,3 +6298,12 @@ button.manage-cat-count:hover {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* The Attach panel over the chat's own header (INBOX 531: "the attach popup
+   panel goes behind other elements like the top chat bar"). The dock's
+   backdrop filter makes it a stacking context at z auto, and the sticky
+   toolbar at z 2 painted over everything in it, the panel's z 45 included.
+   While a popover of the dock is open the dock rises above the toolbar. */
+.chat-dock:has(#note-picker-panel:not(.hidden)) {
+  z-index: 3;
+}

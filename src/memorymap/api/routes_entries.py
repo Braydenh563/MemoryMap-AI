@@ -260,7 +260,7 @@ def _existing_entry(session: Session, entry_id: int):  # noqa: ANN202
     # `manager.get_entry` is `session.get(Entry, entry_id)` under the hood
     # (memorymap/entry/manager.py); going through `deps.get_or_404` directly
     # is equivalent and consolidates the 404.
-    return deps.get_or_404(session, Entry, entry_id, "Entry not found")
+    return deps.get_or_404(session, Entry, entry_id, "That note could not be found.")
 
 
 def _process_committed_media(session: Session, plaintext_content: str) -> None:
@@ -727,7 +727,7 @@ def _daily_date(raw: str) -> date:
         return date.fromisoformat(raw)
     except ValueError as exc:
         raise HTTPException(
-            status_code=422, detail="A journal date is written as YYYY-MM-DD"
+            status_code=422, detail="Write a journal date as year-month-day, like 2026-10-04."
         ) from exc
 
 
@@ -822,7 +822,7 @@ def daily_note(day: str, session: Session = Depends(get_session)) -> EntryOut:
     """
     found = _daily_note(session, _daily_date(day))
     if found is None:
-        raise HTTPException(status_code=404, detail="Nothing written on that day yet")
+        raise HTTPException(status_code=404, detail="Nothing is written on that day yet.")
     return _to_out(session, found)
 
 
@@ -896,7 +896,7 @@ def stop_filing_one(
     entry_id: int, body: FilingStopBody, session: Session = Depends(get_session)
 ) -> dict:
     if body.action not in FILING_STOP_ACTIONS:
-        raise HTTPException(status_code=422, detail="action must be keep or fallback")
+        raise HTTPException(status_code=422, detail="Pick keep or fallback.")
     entry = _existing_entry(session, entry_id)
     if (getattr(entry, "filing_state", "") or "") not in ("pending", manager.STAND_IN):
         return {"id": entry.id, "stopped": False, "category": manager.category_name_for(session, entry)}
@@ -1748,7 +1748,7 @@ def attach_bookmark(
     entry_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
 ) -> dict:
     _existing_entry(session, entry_id)
-    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "That bookmark could not be found.")
     already = (
         session.query(EntryBookmark)
         .filter_by(entry_id=entry_id, bookmark_id=body.bookmark_id)
@@ -1826,7 +1826,7 @@ def list_entries(
     if boards not in manager.BOARD_MODES:
         raise HTTPException(
             status_code=422,
-            detail=f"boards must be one of {', '.join(manager.BOARD_MODES)}",
+            detail=f"Pick one of these board options: {', '.join(manager.BOARD_MODES)}.",
         )
     if semantic and q:
         from memorymap.core import deps
@@ -1980,7 +1980,7 @@ def get_entry(
     """
     entry = _existing_entry(session, entry_id)
     if entry.is_deleted and not deleted:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
         # And *when*, which is the half the dashboard's Continue pill needs:
@@ -2040,7 +2040,7 @@ def export_entry(entry_id: int, session: Session = Depends(get_session)) -> Resp
     """
     entry = _existing_entry(session, entry_id)
     if entry.is_deleted:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     content = manager.readable_content(entry)
     title = manager.extract_title(content) or content.strip()[:60] or "Untitled note"
     body = content if manager.extract_title(content) else f"# {title}\n\n{content}"
@@ -2179,7 +2179,7 @@ def purge_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
     if not entry.is_deleted:
         raise HTTPException(
             status_code=400,
-            detail="Only notes in the recycle bin can be permanently deleted",
+            detail="Only notes in the recycle bin can be permanently deleted.",
         )
     removed = manager.purge_entries(
         session, [entry], uploads_dir=deps.get_config().uploads_dir
@@ -2547,7 +2547,7 @@ def restore_event(
     entry = _existing_entry(session, entry_id)
     row = session.get(AuditLog, event_id)
     if row is None or row.entity_type != "entry" or row.entity_id != entry.id:
-        raise HTTPException(status_code=404, detail="That version no longer exists")
+        raise HTTPException(status_code=404, detail="That version no longer exists.")
 
     if events.is_compacted(row):
         # Not "did not change the note" and not "does not exist": this event
@@ -2558,14 +2558,14 @@ def restore_event(
             status_code=410,
             detail=(
                 "That version is no longer kept: changes older than the "
-                "history window keep the record of what happened, not the text"
+                "history window keep the record of what happened, not the text."
             ),
         )
 
     state = events.replay(session, "entry", entry.id, upto_event_id=event_id)
     if "content" not in state and "tags" not in state:
         raise HTTPException(
-            status_code=400, detail="That event did not change the note's text"
+            status_code=400, detail="That event did not change the note's text."
         )
 
     manager.record_revision(session, entry)
@@ -2605,7 +2605,7 @@ def restore_revision(
     entry = _existing_entry(session, entry_id)
     revision = session.get(EntryRevision, revision_id)
     if revision is None or revision.entry_id != entry.id:
-        raise HTTPException(status_code=404, detail="That version no longer exists")
+        raise HTTPException(status_code=404, detail="That version no longer exists.")
 
     manager.record_revision(session, entry)
     entry.content = revision.content
@@ -2630,7 +2630,7 @@ def set_entry_privacy(
     if not manager.set_private(session, entry, body.private):
         raise HTTPException(
             status_code=409,
-            detail="Unlock the app first, the encryption key isn't loaded.",
+            detail="Unlock the app first: the encryption key isn't loaded.",
         )
     session.commit()
     session.refresh(entry)
@@ -2657,7 +2657,7 @@ def generate_entry_title(
     # before it reached the server.
     if entry.is_private:
         raise HTTPException(
-            status_code=400, detail="Make this note readable first, private notes can't be re-titled here."
+            status_code=400, detail="Make this note readable first: private notes can't be re-titled here."
         )
     content = manager.readable_content(entry)
     if not content.strip():
@@ -2694,7 +2694,7 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     # `entry.content` would un-encrypt the note as a side effect.
     if entry.is_private:
         raise HTTPException(
-            status_code=400, detail="Make this note readable first, private notes can't be edited here."
+            status_code=400, detail="Make this note readable first: private notes can't be edited here."
         )
     content = manager.readable_content(entry)
     stripped = manager.remove_title(content)
@@ -2948,7 +2948,7 @@ def create_link(
                 detail="A draft can't be linked to a saved note. Save the draft first.",
             )
         raise HTTPException(
-            status_code=400, detail="Already linked (or tried to link an entry to itself)"
+            status_code=400, detail="Those notes are already linked, or you tried to link a note to itself."
         )
     return _to_out(session, source)
 
@@ -2960,7 +2960,7 @@ def delete_link(
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
-        raise HTTPException(status_code=404, detail="Link not found")
+        raise HTTPException(status_code=404, detail="That link could not be found.")
     manager.delete_link(session, link)
     return _to_out(session, entry)
 
@@ -2975,7 +2975,7 @@ def update_link_reason(
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
-        raise HTTPException(status_code=404, detail="Link not found")
+        raise HTTPException(status_code=404, detail="That link could not be found.")
     try:
         manager.set_link_reason(session, link, body.reason)
         return _to_out(session, entry)
@@ -2994,19 +2994,19 @@ def generate_link_reason_endpoint(
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
-        raise HTTPException(status_code=404, detail="Link not found")
+        raise HTTPException(status_code=404, detail="That link could not be found.")
 
     source = session.get(Entry, link.source_entry_id)
     target = session.get(Entry, link.target_entry_id)
     if not source or not target:
-        raise HTTPException(status_code=404, detail="Notes not found")
+        raise HTTPException(status_code=404, detail="Those notes could not be found.")
     # Same boundary generate-title and remove-title enforce: a private note's
     # decrypted text must never reach the model. Every other AI-facing read
     # path in this codebase (search, embeddings, janitor, chat linking...)
     # excludes is_private notes for the same reason.
     if source.is_private or target.is_private:
         raise HTTPException(
-            status_code=400, detail="Make both notes readable first, private notes can't be sent to the AI."
+            status_code=400, detail="Make both notes readable first: private notes can't be sent to the AI."
         )
 
     try:
@@ -3098,7 +3098,7 @@ def extract_commit(body: ExtractCommitBody, session: Session = Depends(get_sessi
     created = []
     for note in body.notes:
         if note.ref in by_ref:
-            raise HTTPException(status_code=400, detail=f"'{note.ref}' is used by more than one note")
+            raise HTTPException(status_code=400, detail=f"Each note needs its own reference, and '{note.ref}' is used by more than one.")
         entry = manager.create_entry(
             session,
             content=note.content,

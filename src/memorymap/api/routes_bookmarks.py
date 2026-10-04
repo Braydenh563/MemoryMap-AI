@@ -67,7 +67,7 @@ def _normalise_url(raw: str) -> str:
     """
     url = raw.strip()
     if not url:
-        raise HTTPException(status_code=422, detail="A bookmark needs a URL")
+        raise HTTPException(status_code=422, detail="A bookmark needs a web address.")
     match = _SCHEME_RE.match(url)
     if not match:
         return f"https://{url}"
@@ -76,7 +76,7 @@ def _normalise_url(raw: str) -> str:
         allowed = ", ".join(f"{s}:" for s in ALLOWED_URL_SCHEMES)
         raise HTTPException(
             status_code=422,
-            detail=f"URL scheme '{scheme}:' is not allowed. Allowed schemes: {allowed}.",
+            detail=f"Addresses starting with '{scheme}:' are not allowed. Pick one that starts with: {allowed}.",
         )
     return url
 
@@ -103,7 +103,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
 
 
 def _existing(session: Session, bookmark_id: int) -> Bookmark:
-    return deps.get_or_404(session, Bookmark, bookmark_id, "Bookmark not found")
+    return deps.get_or_404(session, Bookmark, bookmark_id, "That bookmark could not be found.")
 
 
 #: One page of saved links. A notebook's bookmarks grow with use and nothing

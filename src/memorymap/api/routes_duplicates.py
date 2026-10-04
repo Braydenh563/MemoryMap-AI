@@ -48,14 +48,14 @@ def _load(session: Session, ids: list[int]) -> list[Entry]:
     for entry_id in dict.fromkeys(ids):
         entry = session.get(Entry, entry_id)
         if entry is None or entry.is_deleted:
-            raise HTTPException(status_code=404, detail=f"Note {entry_id} not found")
+            raise HTTPException(status_code=404, detail=f"Note {entry_id} could not be found.")
         if entry.is_private:
             raise HTTPException(
-                status_code=400, detail="Private notes can't be merged this way"
+                status_code=400, detail="Private notes can't be merged this way."
             )
         found.append(entry)
     if len(found) < 2:
-        raise HTTPException(status_code=400, detail="Pick at least two notes to merge")
+        raise HTTPException(status_code=400, detail="Pick at least two notes to merge.")
     return found
 
 

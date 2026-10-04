@@ -60,7 +60,7 @@ def _reject_if_in_the_past(due_at: datetime) -> None:
     if compare_at < now - timedelta(minutes=1):
         raise HTTPException(
             status_code=422,
-            detail="That reminder's due time is in the past, pick a time that hasn't happened yet.",
+            detail="That reminder's due time is in the past. Pick a time that hasn't happened yet.",
         )
 
 
@@ -90,7 +90,7 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
 
 
 def _existing(session: Session, reminder_id: int) -> Reminder:
-    return deps.get_or_404(session, Reminder, reminder_id, "Reminder not found")
+    return deps.get_or_404(session, Reminder, reminder_id, "That reminder could not be found.")
 
 
 #: A page of the reminder list, not a ceiling on how many reminders may
@@ -316,7 +316,7 @@ def list_reminders(
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
     _reject_if_in_the_past(body.due_at)
     if body.entry_id is not None:
-        deps.get_or_404(session, Entry, body.entry_id, "Entry not found")
+        deps.get_or_404(session, Entry, body.entry_id, "That note could not be found.")
     reminder = Reminder(
         text=body.text,
         due_at=body.due_at,

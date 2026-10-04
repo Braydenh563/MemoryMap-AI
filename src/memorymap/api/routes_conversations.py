@@ -203,7 +203,7 @@ def _summary(conversation: Conversation) -> dict:
 
 
 def _existing(session: Session, conversation_id: int) -> Conversation:
-    return deps.get_or_404(session, Conversation, conversation_id, "Conversation not found")
+    return deps.get_or_404(session, Conversation, conversation_id, "That conversation could not be found.")
 
 
 def _process_committed_media(session: Session, turn: TurnBody) -> None:
@@ -601,7 +601,7 @@ def delete_turn(
     messages = json.loads(conversation.messages)
     start = index * 2
     if index < 0 or start >= len(messages):
-        raise HTTPException(status_code=404, detail="Turn not found")
+        raise HTTPException(status_code=404, detail="That turn could not be found.")
     del messages[start : start + 2]
     if not messages:
         log_action(session, "deleted", "conversation", conversation.id)
@@ -820,7 +820,7 @@ def edit_answer(
     messages = json.loads(conversation.messages)
     position = index * 2 + 1  # user, assistant, user, assistant, …
     if index < 0 or position >= len(messages):
-        raise HTTPException(status_code=404, detail="Turn not found")
+        raise HTTPException(status_code=404, detail="That turn could not be found.")
     messages[position]["content"] = body.content
     messages[position]["edited"] = True
     steps = _rewrite_answer_steps(messages[position].get("steps"), body.content)

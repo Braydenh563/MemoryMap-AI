@@ -130,7 +130,7 @@ def upload_file(
                 if size > MAX_FILE_BYTES:
                     out.close()
                     destination.unlink(missing_ok=True)
-                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                    raise HTTPException(status_code=413, detail="That file is larger than 50 MB.")
                 out.write(chunk)
 
     attachment = manager.add_attachment(
@@ -158,7 +158,7 @@ def upload_file(
 
 
 def _existing_attachment(session: Session, attachment_id: int) -> Attachment:
-    return deps.get_or_404(session, Attachment, attachment_id, "Attachment not found")
+    return deps.get_or_404(session, Attachment, attachment_id, "That attachment could not be found.")
 
 
 @media_router.get("/files/{attachment_id}")
@@ -166,7 +166,7 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     attachment = _existing_attachment(session, attachment_id)
     path = deps.get_config().uploads_dir / attachment.stored_name
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
 
 
@@ -446,7 +446,7 @@ def analyse_attachment(
         return _attachment_out(session, attachment)
 
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
 
     if body.kind == "ocr":
         # Tesseract for a picture; this app's own document extractor for
@@ -540,7 +540,7 @@ def analyse_attachment(
     if not model:
         raise HTTPException(
             status_code=409,
-            detail="No installed model reports it can see images, install or "
+            detail="No installed model can read images. Install or "
             "pick one in Settings → Models.",
         )
     ollama = deps.get_ollama()
@@ -724,7 +724,7 @@ def attached_file_pdf_info(attachment_id: int, session: Session = Depends(get_se
         raise HTTPException(status_code=422, detail="Not a PDF.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     if not pdfpages.available():
         return PdfInfoOut(
             available=False,
@@ -759,7 +759,7 @@ def attached_file_pdf_page(attachment_id: int, index: int, session: Session = De
         raise HTTPException(status_code=404, detail="Not a PDF.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     png = pdfpages.render_page(path, index)
     if png is None:
         raise HTTPException(status_code=404, detail="That page doesn't exist.")
@@ -831,7 +831,7 @@ def attached_file_html_preview(
         raise HTTPException(status_code=404, detail="Not an HTML file.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     viewed = docview.extract(path)
     return Response(
         content=viewed.text,
@@ -1157,7 +1157,7 @@ def open_exports_folder() -> dict:
         else:
             subprocess.Popen(["xdg-open", str(exports)])
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Couldn't open {exports}: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Couldn't open the exports folder at {exports}: {exc}.") from exc
     return {"path": str(exports)}
 
 
@@ -1222,7 +1222,7 @@ def upload_media(
                 if size > MAX_FILE_BYTES:
                     out.close()
                     destination.unlink(missing_ok=True)
-                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                    raise HTTPException(status_code=413, detail="That file is larger than 50 MB.")
                 out.write(chunk)
 
     original_name = file.filename or stored_name
@@ -1720,7 +1720,7 @@ def delete_media(
     file and editing someone's notes are different acts and the second one
     has to be chosen: the caller asks, the UI offers it in the confirm.
     """
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     media_dir = (deps.get_config().data_dir / "media").resolve()
     candidate = (media_dir / upload.filename).resolve()
     cleaned: list[int] = []
@@ -1751,7 +1751,7 @@ def rename_media(
     ideas of what a filename may contain is how the strict one quietly stops
     being the rule.
     """
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     try:
         upload.original_name = manager.validate_attachment_filename(body.original_name)
     except ValueError as exc:
@@ -1807,7 +1807,7 @@ def caption_media(
     session (the same shape `ocr.extract_and_store` uses from a background
     thread): `session.refresh` below picks up what it committed.
     """
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     is_picture = Path(upload.filename).suffix.lower() in captioning.CAPTION_SUFFIXES
     if body.text is not None:
         # A hand-typed caption needs no model at all, set it and return,
@@ -1861,7 +1861,7 @@ def caption_media(
         if not model:
             raise HTTPException(
                 status_code=409,
-                detail="No installed model reports it can see images, install or "
+                detail="No installed model can read images. Install or "
                 "pick one in Settings → Models.",
             )
         media_dir = deps.get_config().data_dir / "media"
@@ -1913,7 +1913,7 @@ def ocr_media(
     local OCR is fast, and the frontend already blocks caption/vision-OCR
     regenerate behind a spinner the same way.
     """
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     if Path(upload.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
         raise HTTPException(status_code=415, detail="Only images can be read this way.")
     if body.text is not None:
@@ -2407,7 +2407,7 @@ def media_ocr_regions(
     from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
     beside its regions, each separately readable, instead of one wall of
     text with no way to tell which part of the page a line came from."""
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     suffix = Path(upload.filename).suffix.lower()
     if suffix not in ocr.OCR_SUFFIXES and suffix != ".pdf":
         raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
@@ -2444,7 +2444,7 @@ def attachment_ocr_regions(
         raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     stored = (attachment.vision_ocr_text or attachment.ocr_text or "")
     label = (
         f"Read by {attachment.vision_ocr_model or 'a vision model'}"
@@ -2538,7 +2538,7 @@ def _vision_read_page(path: Path, index: int, reader: str = "vision") -> OcrPage
     if not model:
         raise HTTPException(
             status_code=409,
-            detail="No installed model reports it can see images, install or "
+            detail="No installed model can read images. Install or "
             "pick one in Settings → Models.",
         )
     count = pdfpages.page_count(path)
@@ -2616,7 +2616,7 @@ def _checked_reader(reader: str) -> str:
     if name not in READERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown reader {reader!r}: expected one of {', '.join(READERS)}.",
+            detail=f"Pick one of these readers: {', '.join(READERS)}.",
         )
     return name
 
@@ -2921,7 +2921,7 @@ def _describe_page(
     if not model:
         raise HTTPException(
             status_code=409,
-            detail="No installed model reports it can see images, install or "
+            detail="No installed model can read images. Install or "
             "pick one in Settings → Models.",
         )
     count = pdfpages.page_count(path)
@@ -3234,7 +3234,7 @@ def attachment_ocr_range_read(
         raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return _read_range(path, pages, reader, _page_read_key(attachment_id, None))
 
 
@@ -3247,7 +3247,7 @@ def media_ocr_range_read(
 ) -> OcrRangeReadOut:
     """Read a whole PDF, or the pages named by `pages` (e.g. `1-5`, `2,7`)."""
     reader = _checked_reader(reader)
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     if Path(upload.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
@@ -3269,7 +3269,7 @@ def attachment_ocr_page_read(
         raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return _read_page(path, page, reader, _page_read_key(attachment_id, None))
 
 
@@ -3281,7 +3281,7 @@ def media_ocr_page_read(
     session: Session = Depends(get_session),
 ) -> OcrPageReadOut:
     reader = _checked_reader(reader)
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     if Path(upload.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
@@ -3340,7 +3340,7 @@ def _region_image(crop: UploadFile) -> bytes:
     if not data:
         raise HTTPException(status_code=400, detail="That region came through empty.")
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise HTTPException(status_code=415, detail="A region has to be sent as a PNG.")
+        raise HTTPException(status_code=415, detail="That region has to be a PNG image.")
     return data
 
 
@@ -3363,7 +3363,7 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     mode = (mode or "read").strip().lower()
     if mode not in {"read", "describe"}:
         raise HTTPException(
-            status_code=400, detail=f"Unknown mode {mode!r}: expected 'read' or 'describe'."
+            status_code=400, detail="Pick read or describe."
         )
     data = _region_image(crop)
     if mode == "read":
@@ -3388,7 +3388,7 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     if not model:
         raise HTTPException(
             status_code=409,
-            detail="No installed model reports it can see images, install or "
+            detail="No installed model can read images. Install or "
             "pick one in Settings → Models.",
         )
     label = "Describing" if mode == "describe" else "Reading"
@@ -3456,7 +3456,7 @@ def media_region_read(
     session: Session = Depends(get_session),
 ) -> OcrRegionReadOut:
     """`attachment_region_read`'s sibling for a `/media/` upload."""
-    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     return _read_region(crop, page, mode, reader)
 
 
@@ -3477,7 +3477,7 @@ def attachment_page_caption(
         raise HTTPException(status_code=415, detail="Only PDF pages are described one at a time.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="File is missing from disk")
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return _describe_page(path, page, _page_read_key(attachment_id, None))
 
 
@@ -3489,7 +3489,7 @@ def media_page_caption(
 ) -> OcrPageReadOut:
     """`attachment_page_caption`'s sibling for a `/media/` upload: two id
     spaces, two routes, one implementation underneath."""
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     if Path(upload.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDF pages are described one at a time.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
@@ -3520,7 +3520,7 @@ def media_page_reads(
     session: Session = Depends(get_session),
 ) -> OcrRangeReadOut:
     """Every page of this upload that has already been read."""
-    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     return _stored_range(_page_read_key(None, upload_id))
 
 
@@ -3580,7 +3580,7 @@ def delete_media_page_read(
     session: Session = Depends(get_session),
 ) -> OcrRangeReadOut:
     """Forget one page's reading."""
-    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     _forget_page_read(_page_read_key(None, upload_id), page)
     return _stored_range(_page_read_key(None, upload_id))
 
@@ -3636,7 +3636,7 @@ def clean_media_reading_loops(
     upload_id: int, session: Session = Depends(get_session)
 ) -> MediaUploadOut:
     """`clean_attachment_reading_loops`'s sibling for a media upload."""
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     changed = _clean_reading_fields(
         ("vision_ocr_text", upload.vision_ocr_text),
         ("ocr_text", upload.ocr_text),
@@ -3698,7 +3698,7 @@ def vision_ocr_media(
     one model call, no different from the AI-edit or link-reason calls this
     app already blocks on behind a spinner.
     """
-    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
     if Path(upload.filename).suffix.lower() not in vision_ocr.VISION_OCR_SUFFIXES:
         raise HTTPException(status_code=415, detail="Only images can be read this way.")
     if body.text is not None:
@@ -3734,7 +3734,7 @@ def vision_ocr_media(
     if not model:
         raise HTTPException(
             status_code=409,
-            detail="No installed model reports it can see images, install or "
+            detail="No installed model can read images. Install or "
             "pick one in Settings → Models.",
         )
     media_dir = deps.get_config().data_dir / "media"
@@ -3766,10 +3766,10 @@ def get_media(filename: str) -> FileResponse:
     """
     name = safe_filename(filename)
     if Path(name).suffix.lower() not in MEDIA_SUFFIXES:
-        raise HTTPException(status_code=404, detail="Media file not found")
+        raise HTTPException(status_code=404, detail="That media file could not be found.")
     path = deps.get_config().data_dir / "media" / name
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Media file not found")
+        raise HTTPException(status_code=404, detail="That media file could not be found.")
     # `nosniff` is already set globally, but the header below is the one that
     # decides whether a PDF opens in the page or downloads, and an inline PDF
     # viewer is a script host. Nothing here needs to render in-place: markdown

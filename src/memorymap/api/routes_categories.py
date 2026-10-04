@@ -100,7 +100,7 @@ class SplitBody(BaseModel):
 def _existing_category(session: Session, category_id: int) -> Category:
     category = session.get(Category, category_id)
     if category is None:
-        raise HTTPException(status_code=400, detail="That category no longer exists")
+        raise HTTPException(status_code=400, detail="That category no longer exists.")
     return category
 
 
@@ -115,7 +115,7 @@ def _same_space(source: Category, target: Category) -> None:
     if (source.workspace_id or "default") != (target.workspace_id or "default"):
         raise HTTPException(
             status_code=400,
-            detail="Those categories are in different spaces, so they can't be merged",
+            detail="Those categories are in different spaces, so they can't be merged.",
         )
 
 
@@ -350,7 +350,7 @@ def delete_category(
     if into is not None:
         target = _existing_category(session, into)
         if target.id == category.id:
-            raise HTTPException(status_code=400, detail="A category cannot be moved into itself")
+            raise HTTPException(status_code=400, detail="A category cannot be moved into itself.")
         _same_space(category, target)
         try:
             manager.rename_category(session, category.id, target.name)

@@ -97,7 +97,7 @@ def delete_tag(body: DeleteBody, session: Session = Depends(get_session)) -> dic
     """Take a tag off every note that has it. The notes stay."""
     wanted = [t for t in [body.name, *body.names] if t.strip()]
     if not wanted:
-        raise HTTPException(status_code=400, detail="Say which tag to remove")
+        raise HTTPException(status_code=400, detail="Say which tag to remove.")
     return _answer(manager.remove_tags(session, wanted))
 
 

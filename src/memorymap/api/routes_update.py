@@ -623,15 +623,15 @@ def apply_update(tag: str | None = None) -> dict:
     if not config.get_preference("auto_update_enabled", False):
         raise HTTPException(
             status_code=403,
-            detail="Automatic updates are turned off in Settings → About, "
-            "turn on 'Update automatically' first, or download the "
+            detail="Automatic updates are turned off in Settings → About. "
+            "Turn on 'Update automatically' first, or download the "
             "installer from the release page instead.",
         )
     if not _can_auto_apply():
         raise HTTPException(
             status_code=409,
             detail="Automatic updates are only available for the packaged "
-            "Windows app right now, download the new version from the "
+            "Windows app right now. Download the new version from the "
             "release page instead.",
         )
     with _lock:
@@ -660,7 +660,7 @@ def apply_update(tag: str | None = None) -> dict:
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
-                detail="Couldn't reach GitHub to fetch the update, check your "
+                detail="Couldn't reach GitHub to fetch the update. Check your "
                 "internet connection and try again.",
             ) from exc
         if tag:

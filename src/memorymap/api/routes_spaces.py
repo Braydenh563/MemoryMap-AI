@@ -48,16 +48,16 @@ def _generate_space_id(name: str, session: Session) -> str:
 
 def _validate_icon(icon: str) -> str:
     if not _ICON_RE.match(icon):
-        raise HTTPException(400, "icon must match ^ph-[a-z0-9-]{1,40}$")
+        raise HTTPException(400, "Pick an icon from the list.")
     return icon
 
 
 def _validate_name(name: str) -> str:
     name = name.strip()
     if not name:
-        raise HTTPException(400, "name must not be empty")
+        raise HTTPException(400, "A space needs a name.")
     if len(name) > _MAX_NAME_LEN:
-        raise HTTPException(400, f"name must be at most {_MAX_NAME_LEN} characters")
+        raise HTTPException(400, f"A space name can be at most {_MAX_NAME_LEN} characters.")
     return name
 
 
@@ -81,7 +81,7 @@ def create_space(space_in: SpaceCreate, session: Session = Depends(get_session))
 
 @router.put("/spaces/{space_id}", response_model=SpaceResponse)
 def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depends(get_session)):
-    space = deps.get_or_404(session, Space, space_id, "Space not found")
+    space = deps.get_or_404(session, Space, space_id, "That space could not be found.")
     # Only fields the caller actually sent are applied, so an omitted field
     # doesn't get overwritten with None (SpaceUpdate's fields are optional).
     provided = space_in.model_dump(exclude_unset=True)
@@ -172,12 +172,12 @@ def delete_space(
     delete all its contents, and the other to move its contents to a
     different space")."""
     if space_id in RESERVED_SPACE_IDS:
-        raise HTTPException(400, "Cannot delete default spaces")
-    space = deps.get_or_404(session, Space, space_id, "Space not found")
+        raise HTTPException(400, "The default spaces cannot be deleted.")
+    space = deps.get_or_404(session, Space, space_id, "That space could not be found.")
     if move_to:
         if move_to == space_id:
-            raise HTTPException(400, "Pick a different space to move its contents to")
-        deps.get_or_404(session, Space, move_to, "The space to move to was not found")
+            raise HTTPException(400, "Pick a different space to move its contents to.")
+        deps.get_or_404(session, Space, move_to, "The space to move to could not be found.")
         response = SpaceResponse.model_validate(space)
         _move_space_contents(session, space_id, move_to)
         session.delete(space)

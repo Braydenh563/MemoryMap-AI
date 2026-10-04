@@ -203,7 +203,7 @@ def forget_everything(body: ForgetBody, session: Session = Depends(get_session))
     """
     if not body.confirm:
         raise HTTPException(
-            status_code=400, detail="pass confirm: true to forget everything learned"
+            status_code=400, detail="Confirm that you want to forget everything learned, then try again."
         )
     facts.forget(session)
     session.commit()
@@ -260,7 +260,7 @@ def bulk_action(body: BulkBody, session: Session = Depends(get_session)) -> dict
 def get_fact(fact_id: int, session: Session = Depends(get_session)) -> dict:
     row = facts.visible(session, fact_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="no such derived fact")
+        raise HTTPException(status_code=404, detail="That learned fact could not be found.")
     return facts.as_json(row)
 
 
@@ -269,7 +269,7 @@ def patch_fact(fact_id: int, body: FactPatch, session: Session = Depends(get_ses
     """Correct what a fact says. No later run overwrites it."""
     row = facts.visible(session, fact_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="no such derived fact")
+        raise HTTPException(status_code=404, detail="That learned fact could not be found.")
     before = row.text
     facts.edit(session, row, body.text)
     learning.record(
@@ -288,7 +288,7 @@ def reset_fact(fact_id: int, session: Session = Depends(get_session)) -> dict:
     """Put the model's own words back."""
     row = facts.visible(session, fact_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="no such derived fact")
+        raise HTTPException(status_code=404, detail="That learned fact could not be found.")
     facts.reset(session, row)
     session.commit()
     return facts.as_json(row)
@@ -305,7 +305,7 @@ def delete_fact(fact_id: int, session: Session = Depends(get_session)) -> Respon
     """
     row = facts.visible(session, fact_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="no such derived fact")
+        raise HTTPException(status_code=404, detail="That learned fact could not be found.")
     learning.record(
         session,
         kind="delete_fact",

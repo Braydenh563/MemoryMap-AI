@@ -581,12 +581,12 @@ def _resolve_skill(body: ChatRequest) -> dict | None:
         return None
     found = skills.find(deps.get_config(), body.skill, set(tools.TOOLS))
     if found is None:
-        raise HTTPException(status_code=404, detail=f"No skill called “{body.skill}”")
+        raise HTTPException(status_code=404, detail=f"No skill called “{body.skill}”.")
     missing = skills.missing_inputs(found, body.skill_inputs or {})
     if missing:
         raise HTTPException(
             status_code=422,
-            detail=f"“{found['name']}” needs {', '.join(missing)} before it can run",
+            detail=f"“{found['name']}” needs {', '.join(missing)} before it can run.",
         )
     return {
         "skill": found,
@@ -2169,7 +2169,7 @@ def execute_confirmed_tool(
     after the user clicks Confirm. Only registry tools can run, and the
     result carries the same human label shown in chat."""
     if body.name not in tools.TOOLS:
-        raise HTTPException(status_code=404, detail=f"Unknown tool '{body.name}'")
+        raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
     result = tools.execute_tool(session, body.name, body.arguments)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])

@@ -92,7 +92,7 @@ def get_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
     """
     from memorymap.api.routes_entries import _to_out_bulk  # avoids a route-module cycle
 
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     ids = json.loads(turn.raw_result_ids or "[]")
     entries = []
     if ids:
@@ -154,7 +154,7 @@ def _live_grounding(session: Session, turn: AskTurn) -> list[dict]:
 
 @router.put("/{turn_id}/pin")
 def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_session)) -> dict:
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     turn.pinned = pinned
     session.commit()
     return _summary(turn)
@@ -162,7 +162,7 @@ def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_sess
 
 @router.delete("/{turn_id}")
 def delete_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     session.delete(turn)
     session.commit()
     return {"deleted": True}

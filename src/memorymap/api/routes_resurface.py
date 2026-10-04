@@ -107,7 +107,7 @@ def today(
         try:
             day = date.fromisoformat(as_of)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail="as_of must be YYYY-MM-DD") from exc
+            raise HTTPException(status_code=422, detail="Write the date as year-month-day, like 2026-10-04.") from exc
     # Once a day, whichever read gets here first. `ensure_fresh` says why the
     # read is allowed to do this rather than a night shift: the night shift
     # only runs with the AI on, and this feature needs no model.

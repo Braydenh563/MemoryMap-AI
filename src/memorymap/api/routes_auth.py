@@ -352,7 +352,10 @@ def _refuse_if_throttled(client: str = "unknown") -> None:
     if remaining > 0:
         raise HTTPException(
             status_code=429,
-            detail=f"Too many wrong passwords, try again in {int(remaining) + 1}s",
+            detail=(
+                f"Too many wrong passwords. Try again in {int(remaining) + 1} "
+                f"second{'' if int(remaining) == 0 else 's'}."
+            ),
         )
 
 
@@ -419,7 +422,7 @@ def require_unlock(
         return  # setup not done yet, nothing to protect
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     if not _token_valid(x_auth_token, idle_ttl):
-        raise HTTPException(status_code=401, detail="Locked: unlock first")
+        raise HTTPException(status_code=401, detail="The app is locked. Unlock it first.")
 
 
 def require_unlock_media(
@@ -444,7 +447,7 @@ def require_unlock_media(
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     token = x_auth_token or _media_tickets.get(memorymap_media or "")
     if not _token_valid(token, idle_ttl):
-        raise HTTPException(status_code=401, detail="Locked: unlock first")
+        raise HTTPException(status_code=401, detail="The app is locked. Unlock it first.")
 
 
 def _issue_token() -> str:
@@ -473,7 +476,7 @@ def status(
 def setup(body: PasswordBody, request: Request, response: Response, session: Session = Depends(get_session)) -> dict:
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
-        raise HTTPException(status_code=400, detail="A password is already set")
+        raise HTTPException(status_code=400, detail="A password is already set.")
     password_hash = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
     session.add(User(username="owner", password_hash=password_hash))
     # Create the vault now, while the password is in hand. Deferring it would
@@ -498,10 +501,10 @@ def unlock(
     _refuse_if_throttled(client)
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
         _unlock_failed(client)
-        raise HTTPException(status_code=401, detail="Wrong password")
+        raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
@@ -574,7 +577,7 @@ def auto_session(
     reload.
     """
     if not _auto_session_allowed(request, session, config):
-        raise HTTPException(status_code=403, detail="Enter your password to unlock")
+        raise HTTPException(status_code=403, detail="Enter your password to unlock.")
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     if x_auth_token and _token_valid(x_auth_token, idle_ttl):
         token = x_auth_token
@@ -612,10 +615,10 @@ def unlock_vault(
     _refuse_if_throttled(client)
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
         _unlock_failed(client)
-        raise HTTPException(status_code=401, detail="Wrong password")
+        raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
     vault_open = vault.open_with(session, body.password)
     try:
@@ -661,7 +664,7 @@ def set_password_on_open(
     """
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not body.enabled:
         client = _client_key(request)
         _refuse_if_throttled(client)
@@ -670,7 +673,7 @@ def set_password_on_open(
         ):
             if body.current_password:
                 _unlock_failed(client)
-            raise HTTPException(status_code=401, detail="That isn't your current password")
+            raise HTTPException(status_code=401, detail="That isn't your current password.")
         _unlock_succeeded(client)
     config.set_preference(PASSWORD_ON_OPEN_KEY, body.enabled)
     log_action(
@@ -710,7 +713,7 @@ def set_lan_access(
     """
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="Set a password first")
+        raise HTTPException(status_code=400, detail="Set a password first.")
     if body.enabled:
         client = _client_key(request)
         _refuse_if_throttled(client)
@@ -719,7 +722,7 @@ def set_lan_access(
         ):
             if body.current_password:
                 _unlock_failed(client)
-            raise HTTPException(status_code=401, detail="That isn't your current password")
+            raise HTTPException(status_code=401, detail="That isn't your current password.")
         _unlock_succeeded(client)
     config.set_preference(netbind.LAN_PREF, body.enabled)
     log_action(
@@ -801,11 +804,11 @@ def change_password(
     """
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not bcrypt.checkpw(body.current_password.encode(), user.password_hash.encode()):
-        raise HTTPException(status_code=401, detail="That isn't your current password")
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
     if body.current_password == body.new_password:
-        raise HTTPException(status_code=400, detail="That's already your password")
+        raise HTTPException(status_code=400, detail="That's already your password.")
 
     if vault.exists(session) and vault.key() is None:
         # A session started without a password (sign-in off) has the vault
@@ -823,7 +826,7 @@ def change_password(
         )
     if vault.exists(session) and not vault.rewrap(session, body.new_password):
         raise HTTPException(
-            status_code=500, detail="Couldn't move your private notes to the new password"
+            status_code=500, detail="Couldn't move your private notes to the new password."
         )
 
     user.password_hash = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
@@ -882,12 +885,12 @@ def rotate_vault_key(
     """
     user = _get_user(session)
     if user is None:
-        raise HTTPException(status_code=400, detail="No password set yet, use setup")
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not bcrypt.checkpw(body.current_password.encode(), user.password_hash.encode()):
-        raise HTTPException(status_code=401, detail="That isn't your current password")
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
 
     if not vault.exists(session):
-        raise HTTPException(status_code=400, detail="There's no vault to rotate yet")
+        raise HTTPException(status_code=400, detail="There are no private notes to re-encrypt yet.")
     if vault.key() is None:
         vault.open_with(session, body.current_password)  # see change-password
         vault.grant(x_auth_token)
@@ -933,7 +936,7 @@ def rotate_vault_key(
         if crypto.decrypt(new_key, new_ciphertext) != plaintext:
             raise HTTPException(
                 status_code=500,
-                detail="Re-encryption didn't verify: nothing was changed.",
+                detail="The re-encrypted notes did not check out, so nothing was changed.",
             )
 
     for entry, _plaintext, new_ciphertext in rewritten:

@@ -156,6 +156,6 @@ def delete_backup(name: str) -> dict:
     path = folder / name
     # Path(name).name guards traversal; only files inside backups/ die.
     if path.name != name or not path.is_file():
-        raise HTTPException(status_code=404, detail="Backup not found")
+        raise HTTPException(status_code=404, detail="That backup could not be found.")
     path.unlink()
     return {"deleted": name}

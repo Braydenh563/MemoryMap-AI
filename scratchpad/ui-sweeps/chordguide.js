@@ -12,7 +12,8 @@
 const { boot } = require('./lib.js');
 
 (async () => {
-  const { browser, page } = await boot();
+  const W = +(process.env.W || 1440);
+  const { browser, page } = await boot(W < 600 ? { viewport: { width: W, height: 844 }, hasTouch: true, isMobile: true } : {});
   let bad = 0;
 
   await page.keyboard.press('m');
@@ -29,7 +30,17 @@ const { boot } = require('./lib.js');
       // A row taller than one line of its own text is a wrapped pair.
       wrapped: rows.filter((row) => row.getBoundingClientRect().height > parseFloat(getComputedStyle(row).lineHeight) * 2).length,
       pointerEvents: getComputedStyle(g).pointerEvents,
-      keys: rows.map((row) => `${row.querySelector('kbd').textContent}:${row.querySelector('span').textContent}`).join(' '),
+      keys: rows.map((row) => `${row.querySelector('kbd').textContent}:${row.querySelector('.rich-picker-label').textContent}`).join(' '),
+      // INBOX 484: the keycaps are one column per group (one right edge), every
+      // row has an icon tile, the panel is on the popover shell, and the hint
+      // line is there.
+      keyEdges: [...g.querySelectorAll('.chord-guide-group')].map((grp) =>
+        new Set([...grp.querySelectorAll('.rich-picker-keys')].map((k) => Math.round(k.getBoundingClientRect().right))).size),
+      tiles: rows.filter((row) => row.querySelector('.rich-picker-tile i.ph')).length,
+      radius: getComputedStyle(g.querySelector('.chord-guide-panel')).borderTopLeftRadius,
+      hint: !!g.querySelector('.chord-guide-hint'),
+      here: [...g.querySelectorAll('.chord-guide-row.is-here')].map((r) => r.textContent.trim()),
+      panelFits: (() => { const p = g.querySelector('.chord-guide-panel').getBoundingClientRect(); return p.left >= 0 && p.right <= innerWidth && p.top >= 0 && p.bottom <= innerHeight; })(),
       atPoint: (() => {
         const el = document.elementFromPoint(Math.round(innerWidth / 2), Math.round(innerHeight / 2));
         return el ? el.id || el.className || el.tagName : 'none';
@@ -43,10 +54,15 @@ const { boot } = require('./lib.js');
     console.log(`guide: ${shown.box}, covers the viewport: ${shown.coversViewport}, ${shown.rows} rows, wrapped rows: ${shown.wrapped}, pointer-events: ${shown.pointerEvents}`);
     console.log(`   ${shown.keys}`);
     console.log(`   element under the centre of the screen: ${shown.atPoint}`);
-    if (shown.rows !== 10) { bad += 1; console.log('   FAIL: expected ten entries (seven tabs, three actions)'); }
+    console.log(`   key edges per group: ${shown.keyEdges}, tiles: ${shown.tiles}, radius: ${shown.radius}, hint: ${shown.hint}, here: ${shown.here}, fits: ${shown.panelFits}`);
+    if (shown.rows !== 12) { bad += 1; console.log('   FAIL: expected twelve entries (seven tabs, five actions)'); }
+    if (shown.keyEdges.some((n) => n !== 1)) { bad += 1; console.log('   FAIL: the keycaps do not share one column'); }
+    if (shown.tiles !== shown.rows) { bad += 1; console.log('   FAIL: a row has no icon'); }
+    if (!shown.hint || shown.here.length !== 1 || !shown.panelFits) { bad += 1; console.log('   FAIL: hint line, the current tab, or the panel off screen'); }
     if (shown.wrapped) { bad += 1; console.log('   FAIL: a key and its label are split across lines'); }
     if (shown.pointerEvents !== 'none') { bad += 1; console.log('   FAIL: the guide takes pointer events'); }
     if (!shown.coversViewport) { bad += 1; console.log('   FAIL: the guide is not full screen'); }
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
   }
 
   // The chord resolves: the guide goes, and the second key acts.

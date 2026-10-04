@@ -331,8 +331,9 @@ HELP_TOPICS: list[dict] = [
             "Ctrl+Shift+A the popup agent, Ctrl+Shift+H ask Atlas about the app, "
             "Ctrl+Shift+O a new chat, Ctrl+Shift+G agent mode on or off, Ctrl+. "
             "stop the answer, Ctrl+Shift+P clip a note to your next question. "
-            "Press m then a letter to jump to a tab; the hint that appears shows "
-            "which letter goes where."
+            "Press m then a letter to jump to a tab; the panel that appears lists "
+            "Go to and Do with each letter beside its name, marks the tab you are "
+            "on, and takes a click as well."
         ),
         "badge": {"label": "Shortcuts", "section": "shortcuts"},
     },
@@ -1042,6 +1043,24 @@ HELP_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        #: INBOX 486, the owner on a callout: "I have no clue how to use these
+        #: things". Its own entry: the documents entry is at the reply cap.
+        {
+            "id": "callouts",
+            "keywords": (
+                "callout", "callouts", "change the kind", "note box", "warning box",
+                "tip box", "admonition", "collapsible callout",
+            ),
+            "body": (
+                "Callouts: type / in a document or a note and pick Note, Tip, Warning "
+                "or another kind. The box is tinted by its kind and its icon names "
+                "it; click the icon to change the kind or to make the box fold. The "
+                "first line, after the icon, is the title, written like any text, "
+                "and the lines under it are the body (an empty body says what goes "
+                "there). Source view shows the markdown: > [!tip] Title."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
         {
             "id": "graph-controls",
             "keywords": (
@@ -1079,6 +1098,7 @@ HELP_TOPICS.extend(
             "id": "chat-controls",
             "keywords": (
                 "fork", "compress", "regenerate", "plan first", "attach a note",
+                "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
                 "footnote",
@@ -1091,7 +1111,10 @@ HELP_TOPICS.extend(
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload something new, Web search, "
                 "Plan first (the agent shows its steps before it starts), Skills, "
-                "and Agent or Ask mode. Each message's menu can copy it, edit your "
+                "and Agent or Ask mode. The note button beside the box opens Attach: "
+                "a tab each for notes, documents, files, images and mind maps, one "
+                "search, a count on each tab of what is held; the arrows move, Space "
+                "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
                 "messages (Undo goes back), show how full the model's context is, "
@@ -1221,7 +1244,7 @@ HELP_TOPICS.extend(
                 "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
                 "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
-                "notes), a (Guide), p (Popup agent). A second m closes the hint. "
+                "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
                 "selected text, Ctrl+Shift+K opens the quick sketch pad, and "

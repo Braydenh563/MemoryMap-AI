@@ -276,6 +276,13 @@ const CALLOUT_KINDS = {
   toggle: { icon: "ph:caret-circle-right", label: "Toggle", about: "Folded away until clicked, no colour" },
 };
 
+//: What an empty callout body says until something is written in it.
+function calloutHint(kind) {
+  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
+  const meta = CALLOUT_KINDS[kind];
+  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
+}
+
 //: The canonical kind for a name as written (`Warning`, `caution`, `tldr`),
 //: or null for a name that is not one.
 function calloutKindOf(raw) {
@@ -730,7 +737,9 @@ function editorRememberBlock(id) {
 //: inserted into an empty box does not start it with two empty lines and one
 //: inserted between paragraphs does not glue itself to either. A block with
 //: nothing to type (a rule, `[TOC]`) leaves the caret on the line after it.
-function editorBlock(textarea, before, placeholder = "", after = "") {
+//: `caretInside`: no placeholder text, the caret where it would have started
+//: (a callout's body line, which the Live view hints at instead, INBOX 486).
+function editorBlock(textarea, before, placeholder = "", after = "", { caretInside = false } = {}) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const value = String(textarea.value || "");
@@ -741,7 +750,7 @@ function editorBlock(textarea, before, placeholder = "", after = "") {
   const trail = next.startsWith("\n\n") ? "" : next.startsWith("\n") ? "\n" : "\n\n";
   const text = lead + before + body + after + trail;
   const from = lead.length + before.length;
-  if (!body && !after) {
+  if (!body && !after && !caretInside) {
     editorSplice(textarea, start, end, text, { from: text.length, to: text.length });
     return;
   }
@@ -814,7 +823,10 @@ function editorBlockRows(context) {
       keys: `> [!${kind}]`,
       keywords: ["callout", "box", "frame", "admonition", "panel", kind, meta.label, ...(meta.aliases || [])],
       sample: `> [!${kind}] ${meta.label}\n> ${meta.about}.`,
-      run: (t) => editorBlock(t, `> [!${kind}] ${meta.label}\n> `, "What matters about this?"),
+      //: The kind's name as the title, once, and an empty body with the caret
+      //: in it (INBOX 486: "Note Note" then a stock question as the body was
+      //: the kind twice and a sentence to delete before writing).
+      run: (t) => editorBlock(t, `> [!${kind}] ${meta.label}\n> `, "", "", { caretInside: true }),
     });
   }
 

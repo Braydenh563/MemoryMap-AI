@@ -37198,6 +37198,32 @@ width, 47% of the column at 1440.
      list). Product polish sweep: agent.
      Polish rounds landed 2026-10-04; remaining polish lives in the placed queue (WORLD_CLASS_PLAN 484 to 507).
 
+484. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the `m`
+     leader menu: "m then a key", Go to and Do columns, key chips).** "can
+     you redesign this menu to be better, more professional, more modern and
+     more impressive??" Next Opus slot.
+     Built: rich-picker rows, key chips in one column, current tab marked, key map pinned (64fa7a5).
+485. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
+     Attach popup: on Files a floating selection toolbar (duplicate, redo,
+     cut, ...) over the search field; on Images a second, offset search box
+     drawn over the first).** "a popup controls menu keeps poping up when I
+     navigate the attach popup" / "and there is an overlapping textbox?? that
+     whole panel needs to be better redesigned". Bugs first (orchestrator):
+     the bar is a chat reply's action row (copy, regenerate, shorter,
+     simpler, fork); a guard now keeps every row hidden while the panel is
+     open (`attachbar.js`). Neither trigger reproduced headless (a pointer
+     grid over the panel, a keyboard walk out of it; the second search box
+     not in light or dark, any density, large text, with images), so a stale
+     cached file is a suspect: see 487. Then the redesign (next Opus slot,
+     from DESIGN.md's reference dialog).
+     Built: the second search box was the global search-input rule beating a one-class reset when unfocused; fixed, panel redesigned with counts, grid for images, keys, phone sheet (6236875).
+486. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a callout
+     block in the editor: a note icon, "Note Note", then "> What matters
+     about this?").** "I have no clue how to use these things and they are
+     unintuitive". The callout reads its kind twice and gives no clue how to
+     change the kind, title or body. Next Opus slot, with 484 and 485.
+     Built: kind shown once with a caret menu, markers hidden in Live, empty body hint, Guide entry (cb7c30d).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

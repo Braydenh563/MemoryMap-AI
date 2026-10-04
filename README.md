@@ -210,37 +210,44 @@ asks first, and every step it takes is shown.
 
 **Keep it tidy.** Each note shows how sure the filing was and the tags it
 suggested, one press to keep each (with no AI they come from your own tags
-on the notes most like it). A tag manager renames, merges and removes tags
-across every note with one Undo, a category chip moves its note in one
-click, and each category can have a colour of its own.
+on the notes most like it). Manage categories creates, renames, merges,
+splits and deletes categories and moves notes between them, each step
+undoable; a tag manager does the same for tags, and a category chip moves
+its note in one click. Anything the AI can change, you can change by hand.
 
 **See the shape of it.** The Graph draws your notes as a map, coloured by
 category and linked by meaning, with the reason for each link written
-down. The Timeline puts every note on a time axis. The Dashboard shows
-your capture streak, statistics, a weekly digest and whatever widgets you
-choose.
+down; dense clusters, loose webs and notes on their own each keep the
+shape their links give them. The Timeline puts every note and reminder on
+a time axis. The Dashboard shows your capture streak, statistics, a weekly
+digest and whatever widgets you choose.
 
 **Write at length.** Documents is a long-form editor with Live, Source,
 Split and Read views, a formatting toolbar, spelling and style checks you
-can click on, version history, and code files with line numbers.
+can click on, version history, focus mode, and code files with line
+numbers. A document reopens where you left it: the caret and the place
+you were reading.
 
-**Think on a canvas.** The Whiteboard holds sketches, shapes, images and
-note cards on a pannable surface. A board can be a **mind map**: a root
-topic with branches you grow by hand or from your notes (Tab adds a
-child, Enter a sibling, Ctrl+D copies, Ctrl+Z restores a deleted branch),
-exportable as Markdown or OPML.
+**Think on a canvas.** A board holds cards, sketches, images and shapes on
+a pannable surface. A shape holds text, and a connector can carry a label
+("yes", "no"), so a flowchart reads on its own. A board can be a **mind
+map**: a root topic with branches you grow by hand or from your notes (Tab
+adds a child, Enter a sibling, Ctrl+D copies, Ctrl+Z restores a deleted
+branch). A topic can be a task with a box to tick, and every topic above it
+counts what is done; a topic can hold a note behind it; View, Number the
+branches numbers them 1, 1.1, 1.2. Maps export as Markdown, OPML or
+FreeMind, tasks and notes included.
 
-**Keep everything in one Library.** Notes, documents, chats, files, tags,
-bookmarks (a reading list with Unread and Pinned filters), a Contents tree
-of documents and their headings, the AI skills page, the recycle bin and
-the activity log. Every image you add is
-read three ways where each is available (a caption, a vision-model
-transcription and Tesseract OCR), all editable, all searchable. Attach any
-file to a chat message: images go to a vision model, and documents,
-spreadsheets, PDFs and code are imported with their text extracted.
-Scanned PDFs are read page by page by an OCR model. The OCR workspace
-says whether Tesseract can read, in which language, and installs it from
-the same place.
+**Keep everything in one Library.** Notes, documents, chats, boards, files,
+tags, bookmarks (a reading list with Unread and Pinned filters), a Contents
+tree of documents and their headings, the AI skills page, the recycle bin
+and the activity log. Every image you add is read three ways where each is
+available (a caption, a vision-model transcription and Tesseract OCR), all
+editable, all searchable. Attach any file to a chat message: images go to a
+vision model, and documents, spreadsheets, PDFs and code are imported with
+their text extracted. Scanned PDFs are read page by page by an OCR model,
+and the OCR workspace lets you check and correct each region before it
+becomes a note.
 
 **Remember.** Reminders with priority, repeats and snooze, or type "call
 Sam tomorrow evening" and let the AI schedule it.
@@ -252,10 +259,6 @@ duplicates on a schedule you set. It never deletes anything. Every
 background job shows when it last ran and how it went, beside its control
 and in Settings, Background tasks.
 
-**Meet Atlas.** The notebook's own guide, who files your notes, answers
-"how do I" questions from the app's own documentation, and can keep you
-company in the corner of any page. More below.
-
 **Faces for everyone.** Every person and persona gets a small drawn
 character read from their name (a mood word, an animal, a costume), and
 Settings, Profile, Your look lets you shuffle yours or choose every part:
@@ -266,6 +269,15 @@ default. On a computer only you use, Settings, Account and security can turn
 that off: the app opens straight in on this computer, another device on your
 network still needs the password, and private notes stay encrypted until you
 unlock them.
+
+**Says what went wrong, plainly.** Every error is a sentence that says what
+happened and what to do ("No installed model can read images. Install or
+pick one in Settings"), never a status code or a field name; the raw text
+goes to Settings, Logs.
+
+**Quick to open.** Each stylesheet and script is compressed once per
+version and kept on disk, so a start fetches the app in a few milliseconds
+a file rather than compressing it again.
 
 Built to be reached by keyboard and screen reader: one main landmark per
 tab, named controls, 4.5:1 contrast, a layout that holds at 200% and 400%
@@ -279,12 +291,14 @@ interface zoom, a guided tour of the real controls, and daily local backups.
 
 <p align="center">
   <img src="docs/screenshots/atlas.png" alt="Atlas, delighted: a small astral figure on a night-sky tile, eyes closed in a wide smile with rosy cheeks and two sparkles, a ring of orbiting stars round its head and a nebula stream curling round its body" width="260">
-  <br><b>The star spirit who keeps your notebook</b>
 </p>
 
-- **Files your notes**: a category, tags and the notes each one relates to.
-- **Answers from your notebook**: sentence by sentence, with the note behind each one.
-- **Keeps you company**: a companion in the corner of any page that reacts to what you do, or a character of your own, drawn from a name.
+<p align="center"><b>The star spirit who keeps your notebook.</b></p>
+
+Atlas files every note you write, answers your questions from your own
+notes with the source behind each sentence, and answers "how do I" from the
+app's own help. Turn on the corner companion and it keeps you company on any
+page, reacting to what you do and dozing when you leave it alone.
 
 ## The AI, and life without it
 
@@ -355,7 +369,7 @@ ruff check .                    # what CI lints with
 node --check frontend/js/app.js    # the frontend has no build step: check each file you touch
 ```
 
-The frontend is 61 plain scripts in `frontend/js/` that share one global
+The frontend is 64 plain scripts in `frontend/js/` that share one global
 scope: 37 load at boot in the order `frontend/index.html` lists them, the
 rest on first use; the app's own boot code is `app.js` and the 24 files after
 it, one 50,000-line file until 0.3.3.
@@ -392,7 +406,11 @@ Version 0.3.32. Capture, chat with checkable answers, the graph, documents,
 boards and mind maps, the OCR workspace, private notes and themes are
 built and stable, with desktop builds for Windows and Linux. New in this
 release: Atlas has a body and a second look, a companion keeps you company
-on every page, and signing in is optional on your own computer.
+on every page, and signing in is optional on your own computer. Since then,
+on the way to the next one: shapes that hold text and labelled connectors on
+boards, tasks, notes and numbered branches in mind maps, documents that
+reopen where you left them, faster starts, and error messages in plain
+sentences.
 
 A guided tour (Settings, then Help) walks through the basics one step at a
 time. What changed is in [CHANGELOG.md](CHANGELOG.md); what comes next is in

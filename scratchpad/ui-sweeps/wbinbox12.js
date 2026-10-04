@@ -62,11 +62,15 @@ async function newBoard(page, name) {
 
   // --- the eleven arrange actions ------------------------------------------
   const arrange = await page.evaluate(() => {
-    const group = document.querySelector('.wb-context-group[data-wb-ctx="arrange"]');
+    //: The arrange controls are four groups now (hold together, line up,
+    //: space out, same size), each `data-wb-ctx="arrange"`: read all of them,
+    //: not the first, which held only Group and Ungroup and made this check
+    //: report ten controls missing that were on the bar.
+    const groups = [...document.querySelectorAll('.wb-context-group[data-wb-ctx="arrange"]')];
     const order = document.querySelector('.wb-context-group[data-wb-ctx="order"]');
     const shown = (el) => el && !el.classList.contains("hidden") && el.getBoundingClientRect().height > 0;
     const ids = (el) => (shown(el) ? [...el.querySelectorAll("button")].map((b) => b.id) : []);
-    return { arrange: ids(group), order: ids(order), arrangeShown: shown(group), orderShown: shown(order) };
+    return { arrange: groups.flatMap(ids), order: ids(order), arrangeShown: groups.some(shown), orderShown: shown(order) };
   });
   const want = [
     "wb-multi-group", "wb-multi-ungroup",

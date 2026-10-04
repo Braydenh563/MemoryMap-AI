@@ -3337,10 +3337,24 @@ function wbMapTypeaheadLive() {
   return Boolean(wbMapTypeahead);
 }
 
+//: **Enter in that window is the Enter that ends the name** (measured
+//: 2026-10-04: Tab, "First branch", Enter typed at speed saved two empty
+//: topics, because the Enter reached the map's own Enter and added a sibling
+//: before the first topic's editor had opened, and the sibling's create then
+//: started a fresh, empty typeahead). It is held as `commit`, and the editor
+//: closes on the typed text as soon as it opens. Keys after it are swallowed
+//: rather than appended: they were typed after the name was finished, and a
+//: shortcut fired from them would act on a topic that is not there yet.
 function wbMapCatchTypeahead(e) {
-  if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return false;
+  if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    wbMapTypeahead.commit = true;
+    return true;
+  }
+  if (e.key.length !== 1) return false;
   e.preventDefault();
-  wbMapTypeahead.text += e.key;
+  if (!wbMapTypeahead.commit) wbMapTypeahead.text += e.key;
   return true;
 }
 
@@ -3601,6 +3615,7 @@ function wbMapEditNode(id) {
   // rather than kept from before, the same trap `wbCreateTextBox` documents.
   requestAnimationFrame(() => {
     const typed = wbMapTypeahead?.text || "";
+    const commit = Boolean(wbMapTypeahead?.commit);
     wbMapTypeahead = null;
     const el = document.querySelector(`.wb-object[data-id="${id}"] .wb-map-text`);
     if (!el) return;
@@ -3616,6 +3631,9 @@ function wbMapEditNode(id) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    //: The Enter typed ahead (`wbMapCatchTypeahead`): the blur is the same
+    //: commit the editor's own Enter makes.
+    if (commit) el.blur();
   });
 }
 

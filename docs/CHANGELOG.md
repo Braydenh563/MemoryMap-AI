@@ -70,6 +70,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind maps: Tab, a name and Enter typed before the new topic's editor has opened now name that topic; the Enter used to add a second, empty topic and the name was lost.
 - Search results open from the keyboard (Tab to one, Enter or Space), and the sidebars' "All in Library" link fits on one line.
 - Whiteboard and mind map, audited (INBOX 445): M picks the highlighter without opening the quick-nav guide (which swallowed the stroke, and M then D left the board); a map's letters no longer pick hidden board tools; Escape leaves a text box selected; the shape Fill switch draws filled shapes when on (it was inverted); the tool bar shows only the settings the held tool uses; Ctrl+Shift+arrows move a topic among its siblings, Enter adds the new topic right after the current one and Shift+Enter right before it, Ctrl+Z brings back a deleted branch with its styling, undo keeps 100 steps; what you type straight after Tab or Enter is the new topic's text; Tab walks a board's items from the keyboard, each one announced, and Select all takes pictures; group and branch drags no longer re-measure the board every frame.
 - A note card's time stays on screen when you point at the card (it faded out to make room for the buttons), at the right of the details line, and says "edited" when the note has been.

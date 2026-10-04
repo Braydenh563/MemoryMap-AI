@@ -147,6 +147,17 @@ def test_keys_typed_before_a_new_topics_editor_opens_are_kept():
     assert "wbMapTypeahead = null" in edit and "el.textContent = typed" in edit
 
 
+def test_an_enter_typed_ahead_ends_the_name_rather_than_adding_a_sibling():
+    # Tab, a name and Enter at speed saved two empty topics (2026-10-04): the
+    # Enter reached the map's own Enter before the editor opened. It is held
+    # as a commit, and the editor closes on the typed text when it opens.
+    catch = _function_body(MAP, "wbMapCatchTypeahead")
+    assert catch.index('e.key === "Enter"') < catch.index("e.key.length !== 1")
+    assert "wbMapTypeahead.commit = true" in catch
+    edit = _function_body(MAP, "wbMapEditNode")
+    assert "wbMapTypeahead?.commit" in edit and "if (commit) el.blur()" in edit
+
+
 def test_a_drag_measures_nothing_it_does_not_have_to():
     # The cull reads the gesture's cached canvas box, not clientWidth.
     assert "wbCullNow(undefined, rect ?" in _function_body(WB, "wbScheduleCull")

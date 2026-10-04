@@ -51,8 +51,12 @@ def test_every_resize_grip_states_its_value():
     assert "trackSeparatorValue(handle, aside, SIDEBAR_MIN, SIDEBAR_MAX)" in sheets
     assert "trackSeparatorValue(handle, panel, WEB_PANEL_MIN, WEB_PANEL_MAX)" in sheets
     assert "trackSeparatorValue(handle, $(\"doc-prose-panel\")" in _read("documents.js")
-    # Every separator built anywhere goes through it.
-    for path in FRONTEND.glob("*.js"):
+    # Every separator built anywhere goes through it. `js/`, not the root:
+    # the root holds only the service worker, so this loop checked nothing
+    # (found 2026-10-04).
+    scripts = sorted((FRONTEND / "js").glob("*.js"))
+    assert len(scripts) > 20
+    for path in scripts:
         text = path.read_text(encoding="utf-8")
         if 'setAttribute("role", "separator")' in text and 'tabindex", "0"' in text:
             assert "trackSeparatorValue(" in text, path.name

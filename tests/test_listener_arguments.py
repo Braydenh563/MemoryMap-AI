@@ -11,11 +11,16 @@ is wrapped in an arrow at the listener instead.
 import re
 from pathlib import Path
 
-FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+# `frontend/js/`, where the scripts have lived since the move out of the
+# root: reading `frontend/*.js` found only the service worker, so this
+# checked nothing (found 2026-10-04). The non-empty assertion below keeps a
+# later move from silently emptying it again.
+FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "js"
 
 
 def test_no_listener_hands_its_event_to_a_non_event_parameter():
     sources = {p.name: p.read_text(encoding="utf-8") for p in FRONTEND.glob("*.js")}
+    assert len(sources) > 20, f"read {len(sources)} scripts from {FRONTEND}"
     everything = "\n".join(sources.values())
     params = {
         m.group(1): m.group(2)

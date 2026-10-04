@@ -34,6 +34,12 @@ with its owner named in the entry.
 
 ## Open items
 
+486. **The owner, 2026-10-04 evening, verbatim, with a screenshot (a callout
+     block in the editor: a note icon, "Note Note", then "> What matters
+     about this?").** "I have no clue how to use these things and they are
+     unintuitive". The callout reads its kind twice and gives no clue how to
+     change the kind, title or body. Next Opus slot, with 484 and 485.
+
 485. **The owner, 2026-10-04 evening, verbatim, with two screenshots (the
      Attach popup: on Files a floating selection toolbar (duplicate, redo,
      cut, ...) over the search field; on Images a second, offset search box

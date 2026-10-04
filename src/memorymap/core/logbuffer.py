@@ -193,7 +193,14 @@ SAFE_QUERY_KEYS = frozenset(
 )
 
 #: A path and its query string inside a log line: `/search?q=sourdough&limit=5`.
-_PATH_QUERY = re.compile(r"(/[^\s\"?#]*)\?([^\s\"#]*)")
+#:
+#: **A match starts only at the start of a run** (`(?<![^\s"?#])`), and the run
+#: is taken whole as group 1 (it is written back unchanged either way). The
+#: first form began at every `/` and scanned to the end of the run each time,
+#: so `"what? " + "/" * 28000` took 2.4 s on the thread that writes every log
+#: line; now each run is read twice, once to see it holds a `/` and once to
+#: take it.
+_PATH_QUERY = re.compile(r"(?<![^\s\"?#])(?=[^\s\"?#]*/)([^\s\"?#]*)\?([^\s\"#]*)")
 
 
 def _scrub_query_string(query: str) -> str:

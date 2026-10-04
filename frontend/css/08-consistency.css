@@ -8030,10 +8030,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    stroke, which from the waist read as strings. */
 .nm-atlas .atl-tail-ribbon-fill { fill: var(--atl-hi); }
 .nm-atlas .atl-tail-ribbon-back .atl-tail-ribbon-fill { fill: var(--atl-neb-c); }
-/* Her sash (atlas.js, `sash`; INBOX 480): the waist the gown hangs from, a
-   soft lilac band with a sheen, filled, no outline. */
-.nm-atlas .atl-sash-fill { fill: var(--atl-neb-c); opacity: 0.5; }
-.nm-atlas .atl-sash-sheen { fill: white; opacity: 0.32; }
 .nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
 .nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
 .nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }

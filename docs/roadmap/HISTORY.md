@@ -37224,6 +37224,13 @@ width, 47% of the column at 1440.
      change the kind, title or body. Next Opus slot, with 484 and 485.
      Built: kind shown once with a caret menu, markers hidden in Live, empty body hint, Guide entry (cb7c30d).
 
+515. **The owner, 2026-10-04, verbatim, with a crop (a lilac band at the
+     waist).** "there's a wierd waist wrap around the feminine atlas". The
+     sash 480 added to cover the join; the strings it covered were already
+     removed (the ribbon tails' lit edges), so it had nothing to hide. Fixed:
+     sash removed, the torso fades into the gown; `atlaswaistjoin.js` 4x
+     stand pose, dark, shows no band and no strings.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

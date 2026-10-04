@@ -15163,6 +15163,16 @@ function boardTypeFilter() {
   return BOARD_FILTERS.some((f) => f.key === stored) ? stored : "all";
 }
 
+//: The Maps / Boards / All narrowing, in one place for the same reason
+//: `wbVisibleBoards` is: `syncLibraryBoardsTicks` (library.js) rebuilds the
+//: list the gallery drew to line each tick up with its card, and without this
+//: it counted every board while the grid showed one kind, so the lengths
+//: never matched and no tick was attached while Maps or Boards was on.
+window.wbBoardsOfTypeFilter = function wbBoardsOfTypeFilter(boards) {
+  const wanted = BOARD_FILTERS.find((f) => f.key === boardTypeFilter())?.type ?? null;
+  return wanted ? boards.filter((b) => (b.type || "board") === wanted) : boards;
+};
+
 //: The chip row itself. `.library-chip`, the app's own filter-chip recipe,
 //: with the count on the chip, the Everything sub-tab's rule and for the same
 //: reason: a filter you have to press to discover is empty wastes a click
@@ -15227,8 +15237,7 @@ async function renderLibraryBoardsGallery() {
   const counts = { all: boards.length, map: 0, board: 0 };
   for (const b of boards) counts[b.type === "map" ? "map" : "board"] += 1;
   renderBoardTypeFilter(counts);
-  const wanted = BOARD_FILTERS.find((f) => f.key === boardTypeFilter())?.type ?? null;
-  const inScope = wanted ? boards.filter((b) => (b.type || "board") === wanted) : boards;
+  const inScope = window.wbBoardsOfTypeFilter(boards);
   const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
   const shown = window.wbVisibleBoards(inScope, needle);
   //: `.library-list` is the Library's own rows mode (00-tokens-shell.css) and

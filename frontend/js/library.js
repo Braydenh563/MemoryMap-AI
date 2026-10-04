@@ -9072,7 +9072,9 @@ async function syncLibraryBoardsTicks() {
   //: same filter" this function's comment above requires: the counts still
   //: match under a reorder, so a private copy would silently tick the wrong
   //: boards rather than bail.
-  const shown = window.wbVisibleBoards(boards, needle);
+  //: The Maps / Boards / All chip first, as the gallery does: with it on, the
+  //: grid holds one kind, and the unnarrowed list was longer than the cards.
+  const shown = window.wbVisibleBoards(window.wbBoardsOfTypeFilter(boards), needle);
   if (shown.length !== cards.length) return;
   // A board ticked in an earlier render that no longer exists (deleted from
   // its own ⋯ menu, or from elsewhere) shouldn't go on counting toward the bar.

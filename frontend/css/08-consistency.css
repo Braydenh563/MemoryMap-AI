@@ -3372,6 +3372,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
   font-size: var(--text-sm);
   padding: var(--space-1) var(--space-4);
+  /* The touch floor, as the Settings starters beside it take it: --target-min
+     is 28px (what these measured) with a mouse and 44px under a coarse
+     pointer or below 820, so a phone's finger gets a real target and the
+     desktop look is unchanged. Measured at 390 touch: 28px before. */
+  min-height: var(--target-min);
 }
 
 :is(#chat-suggest, #suggested-questions, #recent-questions) > .chip:hover {

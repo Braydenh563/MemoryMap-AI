@@ -310,11 +310,14 @@ initHelpToggles();
 //: built in `renderChatEmptyState`). Appended once, here, so all three read
 //: from the one builder: a hidden empty state is still in the document, so
 //: there is nothing to wait for.
-for (const [id, question] of [
-  ["empty-message", "How does the app decide where a note goes?"],
-  ["library-empty", "What can I keep in the Library?"],
+//: The Notes one is said shorter (the question sent is unchanged): the default
+//: label ("Ask Atlas: How does the app decide where a note goes?") took two
+//: lines at 390, 332x46, the shape Chat's offer was given a label to avoid.
+for (const [id, question, label] of [
+  ["empty-message", "How does the app decide where a note goes?", "Ask Atlas where notes go"],
+  ["library-empty", "What can I keep in the Library?", undefined],
 ]) {
-  $(id)?.appendChild(atlasSuggestion(question));
+  $(id)?.appendChild(atlasSuggestion(question, label));
 }
 
 //: **The concept-map door, in the tab people look for it in.** Reported: "the

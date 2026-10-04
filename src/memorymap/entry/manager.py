@@ -553,6 +553,12 @@ def _update_entry_fields(
     """The edit itself. One write, one `edited` event; see `update_entry`."""
     was = events.entry_state(entry)
     changed = []
+    if content is not None and entry.is_private:
+        #: Whoever the caller is, a private note's text lands encrypted.
+        stored = content_for_entry(entry, content)
+        if stored is None:
+            raise PermissionError("The encryption key isn't loaded.")
+        content = stored
     if content is not None and content != entry.content:
         entry.content = content
         changed.append("content")
@@ -2325,6 +2331,53 @@ def strip_inline_markdown(text: str) -> str:
     )
 
 
+def content_for_entry(entry: Entry, text: str) -> str | None:
+    """`text` (from a past version) in the form this note stores its text in
+    now: ciphertext when it is private, plain when it is not. None when that
+    needs the vault and it is locked. A version written while the note was in
+    the other state would otherwise put ciphertext in a note anyone reads, or
+    plain text in a private one."""
+    from memorymap.core import crypto, vault
+
+    if bool(entry.is_private) == crypto.is_encrypted(text):
+        return text
+    key = vault.key()
+    if key is None:
+        return None
+    return crypto.encrypt(key, text) if entry.is_private else crypto.decrypt(key, text)
+
+
+def _encrypt_history(session: Session, entry: Entry, key: bytes) -> None:
+    """Encrypt what the note's history already holds in the clear.
+
+    A note is made private after it was written, so its `created` and
+    `edited` events and its version snapshots carry the plaintext: scanning
+    every column for a private note's words found them in `audit_log.payload`
+    (2026-10-04). Same rule as the embedding and the dates above. The history
+    sheet and a replay read through `_readable`, which decrypts either form.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog, EntryRevision
+
+    for revision in session.scalars(select(EntryRevision).where(EntryRevision.entry_id == entry.id)):
+        if not crypto.is_encrypted(revision.content):
+            revision.content = crypto.encrypt(key, revision.content)
+    for row in session.scalars(
+        select(AuditLog).where(AuditLog.entity_type == "entry", AuditLog.entity_id == entry.id)
+    ):
+        payload = row.payload
+        if not isinstance(payload, dict):
+            continue
+        changed = {}
+        for side in ("before", "after"):
+            state = payload.get(side)
+            text = state.get("content") if isinstance(state, dict) else None
+            if isinstance(text, str) and text and not crypto.is_encrypted(text):
+                changed[side] = {**state, "content": crypto.encrypt(key, text)}
+        if changed:
+            row.payload = {**payload, **changed}  # a new dict: the JSON column only notices a new value
+
+
 @events.writes("entry", "edited")
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
@@ -2360,6 +2413,7 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # its text and stored in the clear has to be cleared out here too.
         # "The appointment is tomorrow" plus a date is most of the note.
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        _encrypt_history(session, entry, key)
     else:
         if crypto.is_encrypted(entry.content):
             entry.content = crypto.decrypt(key, entry.content)

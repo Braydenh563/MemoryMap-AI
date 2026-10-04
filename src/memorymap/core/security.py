@@ -652,6 +652,11 @@ def is_internal_address(address) -> bool:  # noqa: ANN001  # an ipaddress object
         or address.is_reserved
         or address.is_multicast
         or address.is_unspecified
+        #: Everything the registry does not mark global: the shared address
+        #: space 100.64.0.0/10 (carrier NAT, Tailscale, Alibaba's metadata
+        #: service at 100.100.100.200) is neither `is_private` nor
+        #: `is_reserved` to Python and was fetchable.
+        or not address.is_global
     )
 
 

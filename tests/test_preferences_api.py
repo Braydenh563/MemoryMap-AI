@@ -384,3 +384,14 @@ def test_a_retired_avatar_part_is_dropped_on_write_and_on_read(client):
     deps.get_config().set_preference("avatar_style", {"hand": "middlefinger", "hair": "bob", "junk": "x", "mood": "Bad Value"})
     got = client.get("/preferences").json()["avatar_style"]
     assert got == {"hair": "bob"}
+
+
+def test_the_audit_log_does_not_copy_a_settings_personal_or_long_words(client):
+    """Only the user profile was kept out of the log; a name, the writing
+    dictionary and whole skills were copied in full at every save."""
+    client.put("/preferences", json={"display_name": "Quentin Marlowe", "communication_style": "concise"})
+    client.put("/preferences", json={"writing_dictionary": ["Marlowe", "Quentinesque"]})
+    rows = client.get("/audit?entity_type=preferences&limit=50").json()
+    details = " | ".join(row["detail"] or "" for row in rows)
+    assert "Marlowe" not in details and "Quentin" not in details
+    assert "communication_style=concise" in details

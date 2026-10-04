@@ -394,3 +394,46 @@ def test_a_locked_vault_hands_out_no_private_text_anywhere(client, session):
     session.commit()
     entries, _mode = search_manager.retrieve(session, secret, deps.get_embeddings(), limit=10)
     assert entry_id not in [e.id for e in entries], "retrieval fed a private note to the model"
+
+
+def test_editing_a_private_note_keeps_it_encrypted(client, session):
+    """Found 2026-10-04 by scanning a data dir for a private note's words: a
+    save of a private note wrote the new text plain into `entries.content`
+    (and so into the full-text index) while the note stayed flagged private."""
+    marked = _make_private(client, session, "first draft of the secret")
+    saved = client.put(f"/entries/{marked['id']}", json={"content": "second draft quokkaword"})
+    assert saved.status_code == 200
+    assert saved.json()["content"] == "second draft quokkaword"
+
+    session.expire_all()
+    stored = session.get(Entry, marked["id"])
+    assert stored.is_private is True and crypto.is_encrypted(stored.content)
+    assert "quokkaword" not in stored.content
+    index = session.connection().exec_driver_sql(
+        "SELECT count(*) FROM entries_fts WHERE entries_fts MATCH 'quokkaword'"
+    ).scalar()
+    assert index == 0
+    assert client.get(f"/entries/{marked['id']}").json()["content"] == "second draft quokkaword"
+
+
+def test_saving_a_private_note_unchanged_records_nothing(client, session):
+    marked = _make_private(client, session, "same words")
+    before = len(client.get(f"/entries/{marked['id']}/history").json()["revisions"])
+    client.put(f"/entries/{marked['id']}", json={"content": "same words"})
+    assert len(client.get(f"/entries/{marked['id']}/history").json()["revisions"]) == before
+
+
+def test_a_locked_vault_refuses_an_edit_of_a_private_note(client, session):
+    marked = _make_private(client, session, "kept safe")
+    vault.close()
+    refused = client.put(f"/entries/{marked['id']}", json={"content": "overwritten"})
+    assert refused.status_code == 409
+    vault.create(session, "test-passphrase")
+
+
+def test_add_context_refuses_a_private_note(client, session):
+    """It appended plain text to the ciphertext, which made the note unreadable."""
+    marked = _make_private(client, session, "do not touch")
+    refused = client.post(f"/entries/{marked['id']}/context", json={"text": "more"})
+    assert refused.status_code == 400
+    assert client.get(f"/entries/{marked['id']}").json()["content"] == "do not touch"

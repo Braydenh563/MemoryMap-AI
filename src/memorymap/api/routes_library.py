@@ -89,10 +89,21 @@ _MD_BLOCK_MARKER = re.compile(r"^(?:#{1,6}\s+|>\s?)", re.MULTILINE)
 #: strike marker `strip_inline_markdown` could not pair (a marker split by
 #: the clip, or a run like `***`) goes on its own rather than surviving as
 #: `Offline Links**:`.
-_MD_TABLE_RULE = re.compile(r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$", re.MULTILINE)
-_MD_LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+", re.MULTILINE)
+#: **Spaces and tabs, never `\s`, in the two line-shaped patterns.** `\s`
+#: crosses newlines, so at every line start `^\s*` swallowed all the blank
+#: lines after it and failed, once per line: cubic in the run. Measured:
+#: 500 blank lines in one note took 0.84 s, 1,000 took 6.5 s and 2,000 took
+#: 49 s, in a single-worker server, on every Library list that clipped it.
+#: Written so no two stars sit side by side with nothing between them: that
+#: adjacency is what made a failed match on a long run of spaces quadratic.
+_MD_TABLE_RULE = re.compile(
+    r"^(?:[ \t]*\|)?(?:[ \t]*:?-{2,}:?[ \t]*\|)+[ \t]*(?::?-+:?[ \t]*)?\r?$", re.MULTILINE
+)
+_MD_LIST_MARKER = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+", re.MULTILINE)
 _MD_WIKI_LINK = re.compile(r"\[\[#?\s*([^\]\n|]{1,300})(?:\|([^\]\n]{1,300}))?\]\]")
-_MD_TABLE_PIPE = re.compile(r"\s*\|\s*")
+#: A bare pipe: the whitespace round it is folded by the `split()` below, and
+#: `\s*\|\s*` was quadratic in a long run of whitespace.
+_MD_TABLE_PIPE = re.compile(r"\|")
 _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 

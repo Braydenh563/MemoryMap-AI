@@ -144,7 +144,6 @@ class MentionLinkIn(BaseModel):
     end: int = Field(gt=0)
 
 
-MOVED = "That mention has moved since the list was drawn. Refresh the list."
 
 
 @router.post("/{entry_id}/mentions/link")
@@ -171,7 +170,7 @@ def link_mention(entry_id: int, body: MentionLinkIn, session: Session = Depends(
     words = text[start:end] if end <= len(text) and start < end else ""
     inside = any(s < end and start < e for s, e in (m.span() for m in WIKI_LINK.finditer(text)))
     if not words or words.casefold() not in names or inside:
-        raise HTTPException(status_code=409, detail=MOVED)
+        raise HTTPException(status_code=409, detail="That mention has moved since the list was drawn. Refresh the list.")
     rewritten = f"{text[:start]}[[{words}]]{text[end:]}"
     if body.kind == "note":
         routes_entries.update_entry(body.id, EntryUpdate(content=rewritten), session)

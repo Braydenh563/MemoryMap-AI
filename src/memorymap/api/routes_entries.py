@@ -2253,6 +2253,14 @@ class PrivacyBody(BaseModel):
 HISTORY_PAGE = 50
 
 
+def _stored_form(entry, text: str) -> str:  # noqa: ANN001
+    """A past version's text, in the form this note stores it in now."""
+    stored = manager.content_for_entry(entry, text or "")
+    if stored is None:
+        raise HTTPException(status_code=409, detail="Unlock the app first: this version needs the encryption key.")
+    return stored
+
+
 def _readable(content: str) -> str:
     """Decrypt stored content for display, the same way a note itself is.
 
@@ -2606,9 +2614,11 @@ def restore_event(
             status_code=400, detail="That event did not change the note's text."
         )
 
+    if "content" in state:
+        restored = _stored_form(entry, state["content"])
     manager.record_revision(session, entry)
     if "content" in state:
-        entry.content = state["content"]
+        entry.content = restored
     if "tags" in state:
         entry.tags = json.dumps(state["tags"])
     manager.mark_edited(entry)
@@ -2645,8 +2655,9 @@ def restore_revision(
     if revision is None or revision.entry_id != entry.id:
         raise HTTPException(status_code=404, detail="That version no longer exists.")
 
+    restored = _stored_form(entry, revision.content)
     manager.record_revision(session, entry)
-    entry.content = revision.content
+    entry.content = restored
     entry.tags = revision.tags
     manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "restored an earlier version")

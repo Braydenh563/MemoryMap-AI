@@ -37140,3 +37140,51 @@ export writes the ink and the card-coloured halo as attributes. Measured,
 0.5px of the shaft's middle at rest, mid-drag of an end and on a curve 92 units
 off the chord; 17.07:1 light, 14.01:1 dark); on the base script it fails from
 its first check.
+
+### From MINDMAP_PLAN.md §13f's remainder (decision 16): the board's menus on a map
+
+The Insert and Arrange markup a map's top bar carries is the board's own (20
+controls, all live on a board; a map's own View rows are hidden on a board the
+same way), so it stays. Found while measuring it: `wbSyncMapChrome` found each
+wrap from its menu, and a menu open on a board has been moved to `<body>` by
+`escapeAndCapMenu`, so a map opened without a click elsewhere drew both
+toggles. Found from `[aria-controls]` now, and the open menu is closed,
+restored home and uncapped. `scratchpad/ui-sweeps/maptopbar.js` 8/8 at
+1280x520, 4/8 on the base.
+
+### From MINDMAP_PLAN.md §12.2 item 7 (decision 17): numbered branches
+
+`numbered` in the board's settings blob (`_board_numbered`,
+`_store_board_numbered`), set by `PUT /whiteboard/boards/{id}` and returned by
+`/tree`; one event per change. `_outline_numbers` gives every topic its place
+(a root none, its children 1, 2, its grandchildren 1.1), iterative and
+seen-guarded; Markdown writes `- [ ] 1.2 Text` and `_strip_outline_numbers`
+takes the numbers off an import only when every topic's matches its place;
+OPML writes and reads `_number`. On the canvas: `.wb-map-number` before the
+label, filled by `wbMapNumbers` (one walk per index, part of
+`wbObjectPaintKey`), in `--muted` and in the label's ink on a core or filled
+topic, where the muted grey measured 4.39:1 on the blue branch's tint. The
+switch is `#wb-map-numbered` in the View menu's Map group. The picture export
+carries the number. Five API tests in `tests/test_mindmap.py`;
+`scratchpad/ui-sweeps/mapnumbers.js` 16/16 at 1440 and 390 in light and dark
+(muted 5.91:1 light and 7.96:1 dark; on a filled topic 12.72:1 and above in
+light, 7.61:1 and above in dark); the switch does not exist on the base.
+
+### From MINDMAP_PLAN.md §12.2 item 5's first half (decision 18): a note behind a topic
+
+`data.note` (`WhiteboardObjectData`, `MAX_TOPIC_NOTE_CHARS` 10,000), in
+`MAP_STYLE_FIELDS` and `MAP_CONTENT_FIELDS` on the server and
+`WB_MAP_CONTENT_KEYS` on the client. On the canvas a `.wb-map-note` mark after
+the label, its title the note's first line; `wbMapOpenNote` opens
+`.help-popover.wb-map-note-peek` through `placeHelpPopover`, a textarea whose
+keys are its own, and `wbMapCloseNote` saves on close through
+`wbMapSetNodeStyle`. The topic menu's Topic group has "Add a note…", "Open the
+note…" and "Remove the note". Markdown: `_markdown_note_lines` writes the note
+at the bullet's content column between blank lines, escaping a leading `\`,
+`-`, `*`, `+` or `#`; `_parse_markdown_outline` gathers indented non-bullet
+lines into the last topic's note, paragraphs kept. OPML and FreeMind: `_note`.
+Six API tests in `tests/test_mindmap.py` (with tasks and numbers in the same
+Markdown round trip); `scratchpad/ui-sweeps/mapnotes.js` 16/16 at 1440 and
+390, light and dark (the hint 5.91:1 light, 7.96:1 dark; the text 17.07:1 and
+14.61:1; the mark at rest 17.07:1 and 14.01:1); the menu row does not exist on
+the base.

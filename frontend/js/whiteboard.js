@@ -5121,6 +5121,22 @@ function wbBuildContextMenu(kind) {
           wbMapSetTask(mapNode, "open")
         );
       }
+      //: A note behind it (MINDMAP_PLAN.md decision 18): written and read in
+      //: the popover its marker opens; a topic's only, since a note node
+      //: already has the notebook's note behind it.
+      if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+        const hasNote = Boolean(mapNode.data?.note);
+        sub(hasNote ? "Open the note…" : "Add a note…",
+          hasNote ? "Or press the note mark on the topic" : "Longer text behind the topic, shown when you open it",
+          () => wbMapOpenNote(mapNode.id, document.querySelector(`.wb-object[data-id="${mapNode.id}"] .wb-map-note`)));
+        if (hasNote) {
+          sub("Remove the note", "The topic stays; Ctrl+Z brings the note back", async () => {
+            await wbMapSetNodeStyle(mapNode, { note: null });
+            renderWhiteboardNow();
+            wbAnnounce("Note removed.");
+          });
+        }
+      }
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
@@ -6714,7 +6730,10 @@ function wbBuildExportSvg(scope) {
       //: A task's box travels as the ballot-box glyph (MINDMAP_PLAN.md
       //: decision 15): the icon font does not follow the topic into the file.
       const box = obj.data?.task === "done" ? "☑ " : obj.data?.task === "open" ? "☐ " : "";
-      const lines = wbSvgWrapLines(box + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: And its number on a numbered map (decision 17), as the canvas
+      //: draws it: after the box, before the label.
+      const place = wbMapNumberOf(exportMapIndex, obj.id);
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
       parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
@@ -7649,6 +7668,7 @@ async function initWhiteboard() {
   //: redrawn.
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
   $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
+  $("wb-map-numbered")?.addEventListener("change", (e) => wbMapSetNumbered(e.target.checked));
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
   $("wb-zoom-actual")?.addEventListener("click", () =>
     d3.select(document.getElementById("whiteboard-container")).transition().duration(160).call(wbZoom.scaleTo, 1)
@@ -14589,7 +14609,9 @@ function wbObjectPaintKey(d, ctx) {
     `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.
-    `|${wbMapTaskTallyKey(index, d.id)}`;
+    `|${wbMapTaskTallyKey(index, d.id)}` +
+    //: Its number (decision 17): a sibling added above it renumbers it.
+    `|${wbMapNumberOf(index, d.id)}`;
 }
 
 function wbMapTaskTallyKey(index, id) {

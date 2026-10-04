@@ -210,6 +210,8 @@ async function wbRefreshMapState() {
       type: tree.type,
       layout: tree.layout,
       theme: tree.theme && typeof tree.theme === "object" ? tree.theme : {},
+      //: Whether the map numbers its branches (MINDMAP_PLAN.md decision 17).
+      numbered: tree.numbered === true,
       labels,
       facets,
       crossLinks: tree.cross_links || [],
@@ -1418,6 +1420,12 @@ function wbBuildMapNode(el, d) {
     .attr("aria-hidden", "true")
     .attr("draggable", "false")
     .property("hidden", true);
+  //: **The topic's place in the outline** (MINDMAP_PLAN.md decision 17),
+  //: "1.2", on a map that numbers its branches. Its own element before the
+  //: label rather than text inside it, so a rename never edits it and the
+  //: label's editor never sees it. Hidden on a map that does not number and
+  //: on a root, which is the map's subject rather than a place in it.
+  body.append("span").attr("class", "wb-map-number").attr("aria-hidden", "true").property("hidden", true);
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
@@ -1425,6 +1433,24 @@ function wbBuildMapNode(el, d) {
   //: hidden on a topic with none under it. Quiet text after the label, not a
   //: pill: a count is a fact about the branch, not a control.
   body.append("span").attr("class", "wb-map-progress").property("hidden", true);
+  //: **The marker of a note behind this topic** (MINDMAP_PLAN.md decision
+  //: 18). Hidden until there is one, the link marker's rule. A press opens
+  //: the note in the help popover's shell, anchored here; the id is read at
+  //: the press, as the task box does, because this closure's datum is
+  //: replaced by every state fetch.
+  body.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-note")
+    .attr("aria-haspopup", "dialog")
+    .attr("aria-expanded", "false")
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation())
+    .on("dblclick", (event) => event.stopPropagation())
+    .on("click", function (event) {
+      event.stopPropagation();
+      wbMapOpenNote(d.id, this);
+    })
+    .append("i").attr("class", "ph ph-notepad").attr("aria-hidden", "true");
   //: Where a topic points (§12.1 item 2's "link"). A real button, not a
   //: decoration: the whole point of setting a link is opening it, and a
   //: marker you have to go back to the strip to follow is a label. Hidden
@@ -1751,6 +1777,12 @@ function wbPaintMapNode(el, d, index, colors, fills) {
     if (parent) mirrored = d.x + (d.width || WB_MAP_NODE_W) / 2 < parent.x + (parent.width || WB_MAP_NODE_W) / 2;
   }
   el.classed("wb-map-node-mirrored", Boolean(mirrored));
+  const number = node.querySelector(".wb-map-number");
+  if (number) {
+    const place = wbMapNumberOf(index, d.id);
+    number.hidden = !place;
+    number.textContent = place;
+  }
   const progress = node.querySelector(".wb-map-progress");
   if (progress) {
     const tally = index ? wbMapTaskTally(index).get(d.id) : null;
@@ -1800,6 +1832,148 @@ function wbMapTaskTally(index) {
   }
   wbMapTaskTallies.set(index, tallies);
   return tallies;
+}
+
+//: **Every topic's place in the outline** (decision 17), `id -> "1.2"`, in
+//: one walk per index for the reason the task tally is: the paint pass asks
+//: for every visible node. A root has none, and each root counts from 1.
+//: Sibling order is the index's (`wbMapBySiblingOrder`), which is the
+//: server's `_sibling_key`, so the canvas and the exports agree.
+const wbMapNumberCache = new WeakMap();
+
+function wbMapNumbers(index) {
+  let numbers = wbMapNumberCache.get(index);
+  if (numbers) return numbers;
+  numbers = new Map();
+  const seen = new Set();
+  const stack = (index.roots || []).map((root) => ["", root]);
+  while (stack.length) {
+    const [prefix, node] = stack.pop();
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    const kids = index.childrenOf.get(node.id) || [];
+    kids.forEach((child, i) => {
+      const place = prefix ? `${prefix}.${i + 1}` : String(i + 1);
+      if (!numbers.has(child.id)) numbers.set(child.id, place);
+      stack.push([place, child]);
+    });
+  }
+  wbMapNumberCache.set(index, numbers);
+  return numbers;
+}
+
+//: This topic's number, or "" on a map that does not number its branches.
+function wbMapNumberOf(index, id) {
+  if (!index || !window.wbMapState?.numbered) return "";
+  return wbMapNumbers(index).get(id) || "";
+}
+
+//: Turn the numbering on or off for this map: one `PUT`, then a render,
+//: because every topic's prefix changes with it.
+async function wbMapSetNumbered(on) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return false;
+  try {
+    await apiJson(`/whiteboard/boards/${boardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ numbered: Boolean(on) }),
+    });
+    window.wbMapState = { ...window.wbMapState, numbered: Boolean(on) };
+    renderWhiteboardNow();
+    wbSyncMapChrome();
+    wbAnnounce(on ? "Branches numbered." : "Branches not numbered.");
+    return true;
+  } catch (err) {
+    toast(err.message || "Couldn't change the numbering.", true);
+    wbSyncMapChrome();
+    return false;
+  }
+}
+
+//: **The note behind a topic, shown on demand** (MINDMAP_PLAN.md decision
+//: 18). The help popover's shell (`.help-popover`, placed by
+//: `placeHelpPopover`), anchored to the marker or, for a topic with no note
+//: yet, to the topic: not a new surface and nothing added to the canvas
+//: (decision 5). It holds one plain text box and saves when it closes, the
+//: theme dialog's rule that there is no OK for something you watch change.
+//: Closed by Escape (spent here, so the map does not also deselect), by a
+//: press anywhere else, or by opening another board. An emptied note is no
+//: note, and the save is one undo step through `wbMapSetNodeStyle`.
+let wbMapNoteState = null;
+
+function wbMapOpenNote(id, anchor) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node || WB_MAP_REFERENCE_KINDS.has(node.kind)) return;
+  //: The mark is a toggle: pressed again while its note is open, it closes
+  //: (and saves) it, as the help popover's own '?' does.
+  if (wbMapNoteState?.id === id) {
+    wbMapCloseNote();
+    return;
+  }
+  wbMapCloseNote();
+  const target = anchor && anchor.isConnected && !anchor.hidden
+    ? anchor
+    : document.querySelector(`.wb-object[data-id="${id}"]`);
+  if (!target) return;
+  const panel = document.createElement("div");
+  panel.className = "help-popover wb-map-note-peek";
+  panel.id = "wb-map-note-peek";
+  panel.setAttribute("role", "dialog");
+  const label = wbMapLabel(node) || "this topic";
+  panel.setAttribute("aria-label", `The note behind ${label}`);
+  const box = document.createElement("textarea");
+  box.className = "wb-map-note-text";
+  box.rows = 6;
+  box.maxLength = 10000;
+  box.value = typeof node.data?.note === "string" ? node.data.note : "";
+  box.placeholder = "Write what this topic needs saying";
+  box.setAttribute("aria-label", `The note behind ${label}`);
+  const hint = document.createElement("p");
+  hint.className = "muted wb-map-note-hint";
+  hint.textContent = "Saved when you close it. Esc closes.";
+  panel.append(box, hint);
+  //: Every key typed here is the note's: Tab, Enter and Delete are map
+  //: gestures on the canvas, and Escape would also deselect the topic.
+  panel.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape" || (event.key === "Enter" && (event.ctrlKey || event.metaKey))) {
+      event.preventDefault();
+      wbMapCloseNote({ restoreFocus: true });
+    }
+  });
+  const outside = (event) => {
+    if (panel.contains(event.target) || target.contains(event.target)) return;
+    wbMapCloseNote();
+  };
+  document.addEventListener("pointerdown", outside, true);
+  document.body.appendChild(panel);
+  wbMapNoteState = { id, panel, anchor: target, outside, before: box.value };
+  if (target.classList.contains("wb-map-note")) target.setAttribute("aria-expanded", "true");
+  placeHelpPopover(panel, target);
+  box.focus({ preventScroll: true });
+}
+
+function wbMapCloseNote({ restoreFocus = false } = {}) {
+  const state = wbMapNoteState;
+  if (!state) return;
+  wbMapNoteState = null;
+  document.removeEventListener("pointerdown", state.outside, true);
+  const value = state.panel.querySelector("textarea")?.value ?? state.before;
+  state.panel.remove();
+  if (state.anchor.classList.contains("wb-map-note")) state.anchor.setAttribute("aria-expanded", "false");
+  const node = (wbState.objects || []).find((o) => o.id === state.id);
+  const next = value.trim();
+  if (node && next !== state.before.trim()) {
+    wbMapSetNodeStyle(node, { note: next || null }).then(() => {
+      renderWhiteboardNow();
+      wbAnnounce(next ? "Note saved." : "Note removed.");
+    });
+  }
+  if (restoreFocus) {
+    const mark = document.querySelector(`.wb-object[data-id="${state.id}"] .wb-map-note`);
+    if (mark && !mark.hidden) mark.focus({ preventScroll: true });
+    else document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+  }
 }
 
 //: Makes a topic a task, takes the box away (`null`), or ticks it. Through
@@ -1925,6 +2099,17 @@ function wbPaintMapNodeStyle(node, d) {
     }
   }
 
+  //: A note (decision 18): read off the topic's own data, never the theme's.
+  const noteMark = node.querySelector(".wb-map-note");
+  if (noteMark) {
+    const note = typeof d.data?.note === "string" ? d.data.note.trim() : "";
+    noteMark.hidden = !note;
+    if (note) {
+      const first = note.split("\n")[0];
+      noteMark.title = `Note: ${first.length > 80 ? `${first.slice(0, 79)}…` : first}`;
+      noteMark.setAttribute("aria-label", "Open the note behind this topic");
+    }
+  }
   const link = node.querySelector(".wb-map-link");
   if (link) {
     const href = typeof data.link === "string" ? data.link : "";
@@ -5610,7 +5795,8 @@ const WB_MAP_STYLE_KEYS = [
 //: ones and a boolean beside each key would be read as neither.
 //: A task (decision 15) is content for the same reason: "reset this topic's
 //: look" must not untick or un-task anything.
-const WB_MAP_CONTENT_KEYS = ["image", "task"];
+//: And a note (decision 18): a reset is about looks, never about words.
+const WB_MAP_CONTENT_KEYS = ["image", "task", "note"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -6155,6 +6341,8 @@ async function wbMapReverseEdge(childId) {
 }
 
 function wbSyncMapChrome() {
+  //: A note open on the board being left goes with it (decision 18).
+  if (wbMapNoteState && !document.querySelector(`.wb-object[data-id="${wbMapNoteState.id}"]`)) wbMapCloseNote();
   //: The map's line style can change here, and the cross-link tool draws it.
   if (wbIsMap()) wbSyncConnectWords(true);
   const isMap = wbIsMap();
@@ -6184,11 +6372,27 @@ function wbSyncMapChrome() {
   //: Hidden, not disabled, for the reason the chip and the layout picker
   //: already are: a whole menu that can never apply here is not something to
   //: read past on every map.
+  //:
+  //: **Kept in the markup, and found through its button** (MINDMAP_PLAN
+  //: decision 16). The two menus are not dead: the one top bar serves both
+  //: kinds, and a board needs all 20 of their controls. And the wrap is
+  //: found from the toggle, never from the menu, because an open menu that
+  //: `escapeAndCapMenu` has moved to <body> is no longer inside its wrap:
+  //: measured at 1280x520, Insert open on a board and a map opened without a
+  //: click elsewhere (a view address, a keyboard path) left both toggles
+  //: drawn on the map. The menu is closed and put home first, so the next
+  //: board opens it from where it was built.
   for (const id of ["wb-insert-menu", "wb-arrange-menu"]) {
     const menu = document.getElementById(id);
-    const wrap = menu?.closest(".wb-board-menu-wrap");
+    const toggle = document.querySelector(`.wb-topbar [aria-controls="${id}"]`);
+    const wrap = toggle?.closest(".wb-board-menu-wrap");
     if (wrap) wrap.hidden = isMap;
-    if (isMap) menu?.classList.add("hidden");
+    if (isMap && menu) {
+      menu.classList.add("hidden");
+      toggle?.setAttribute("aria-expanded", "false");
+      restoreEscapedMenu(menu);
+      menu.style.maxHeight = "";
+    }
   }
   const chip = document.getElementById("wb-map-chip");
   const picker = document.getElementById("wb-map-layout");
@@ -6215,6 +6419,13 @@ function wbSyncMapChrome() {
   if (expandRow) expandRow.hidden = !isMap;
   const themeRow = document.getElementById("wb-map-theme-item");
   if (themeRow) themeRow.hidden = !isMap;
+  //: The numbering switch (decision 17) says what the map does now.
+  const numbered = document.getElementById("wb-map-numbered");
+  if (numbered) {
+    numbered.checked = Boolean(isMap && window.wbMapState?.numbered);
+    const row = numbered.closest(".wb-menu-row");
+    if (row) row.hidden = !isMap;
+  }
   //: The group itself as well as its rows: on a board it held nothing but
   //: its own heading, a group of zero rows drawn between two that have some.
   const mapSection = document.getElementById("wb-view-map-section");

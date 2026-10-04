@@ -11124,6 +11124,49 @@ input[type="file"] {
   color: var(--accent-text);
 }
 
+/* The mark of a note behind a topic (MINDMAP_PLAN.md decision 18): the link
+   marker's recipe in the label's own ink, like the task box, so it reads on a
+   core or filled topic's ground too. */
+.wb-map-note {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  font-size: var(--text-md);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.wb-map-note:hover,
+.wb-map-note:focus-visible {
+  color: var(--accent-text);
+}
+
+/* The note itself, in the help popover's shell (`.help-popover`): one plain
+   text box the width of the popover, and one quiet line under it. */
+.help-popover.wb-map-note-peek {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.wb-map-note-peek .wb-map-note-text {
+  width: 100%;
+  min-height: 7.5em;
+  resize: vertical;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.wb-map-note-peek .wb-map-note-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
 /* A task's box (MINDMAP_PLAN.md decision 15): the link marker's recipe, in
    the label's own ink so it reads on a core topic's filled ground too. */
 .wb-map-task {
@@ -11148,6 +11191,26 @@ input[type="file"] {
 .wb-map-task-done .wb-map-text {
   text-decoration: line-through;
   opacity: 0.65;
+}
+
+/* "1.2": a topic's place in the outline on a numbered map (MINDMAP_PLAN.md
+   decision 17). Quiet text before the label, the count's recipe: a number is
+   a fact about where the topic is, not a control, and it must not outshout
+   the name. */
+.wb-map-number {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* On a core topic's full colour and on a filled topic's tint the muted ink
+   is not a quiet grey any more: measured, 4.39:1 on the blue branch's tint in
+   light. The label's own ink there, which the fill was chosen to keep legible;
+   the smaller size keeps it second to the name. */
+.wb-map-core .wb-map-number,
+.wb-map-filled .wb-map-number {
+  color: inherit;
 }
 
 /* "2/5": quiet text after the label, not a pill (DESIGN.md: a count is quiet

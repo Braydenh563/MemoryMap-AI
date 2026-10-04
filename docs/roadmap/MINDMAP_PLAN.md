@@ -531,13 +531,13 @@ the shift-drag sever).
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
    the plans, 2026-10-04"); the rest is open.
-5. **Notes on nodes**: a text note behind a node (the small marker
-   opens it); a node that is a notebook note shows the note's own text
-   here, editable both ways.
+5. **Notes on nodes**: a node that is a notebook note shows the note's
+   own text here, editable both ways. The text note behind a topic is
+   built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
 6. **Comments** (MindMeister): a thread per node, count marker.
-7. **Multiple roots and floating topics**; **numbering** of branches
-   (1, 1.1, 1.1.1) as a toggle; **auto-colour by branch** as the
-   default theme with eight curated palettes.
+7. **Multiple roots and floating topics**; **auto-colour by branch** as
+   the default theme with eight curated palettes. Numbering is built
+   (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
 8. **Outline view** beside the map (a two-pane split): the same tree as
    indented text, editable, Tab and Shift+Tab re-parent, every edit
    mirrored live.
@@ -1089,6 +1089,51 @@ topic: a control that wide has nowhere to go.
    reader draws those as boxes), and reads it back; OPML and FreeMind carry
    `_task`. No key: Space is the hand tool's hold. Priority, progress
    percentages, flags and due dates (the rest of item 4) stay open.
+16. **The board's Insert and Arrange menus stay in the markup** (taken
+   2026-10-04, §13f's remainder). Read as dead markup on a map; measured, it
+   is the board's own: one top bar serves both kinds and a board uses all 20
+   of those controls, so removing it from a map means building it per kind,
+   a working thing made riskier for no change anybody sees (`hidden` already
+   keeps it out of the tab order and the accessibility tree). What was wrong
+   was the lookup: the wrap was found from the menu, and an open menu
+   escaped to `<body>` is outside its wrap, so a map opened with one open
+   drew both toggles. Found from the button now, and the open menu is closed
+   and put home (`maptopbar.js`).
+17. **Numbering is the map's, by outline place, and off until asked** (taken
+   2026-10-04, §12.2 item 7). One switch in the View menu's Map group (the
+   menu's own switch row), stored as `numbered` beside `type`, `layout` and
+   `theme` in the board's settings and not in the theme: the theme is what a
+   topic follows when it says nothing, and a number is not something one
+   topic can decline. A root is the map's subject and has none; its children
+   are 1, 2, 3 and theirs 1.1, 1.2, counted in sibling order (the canvas's
+   `wbMapBySiblingOrder` and the server's `_sibling_key` are one order), and
+   drawn as quiet text before the label, never inside it, so a rename never
+   edits a number. No trailing dot: `- 2. Write` is an ordered list inside a
+   bullet to every Markdown reader. Markdown writes the number after a
+   task's box and reads it back only when every topic's number is its own
+   place, all or nothing, so "2024 plan" stays a name; OPML carries
+   `_number`. FreeMind does not carry it (the setting is a view; its private
+   attributes are the topics' own).
+18. **A note behind a topic is plain text, a topic's own, and opens in the
+   help popover's shell** (taken 2026-10-04, §12.2 item 5's first half).
+   `data.note`, up to 10,000 characters, content like `task` (no theme sets
+   it, no reset clears it, a copy keeps it). A topic that has one wears a
+   note mark (`.wb-map-note`, the link marker's recipe in the label's ink);
+   the mark, or the topic menu's "Add a note…" / "Open the note…", opens
+   `.help-popover.wb-map-note-peek` anchored to it: one text box, saved when
+   it closes (Escape, a press elsewhere, Ctrl+Enter), an emptied note is no
+   note, one undo step. Not a new surface and nothing new on the strip, the
+   ring or the dock (decision 5, §12.5). Not on a note node: it already has
+   the notebook's note behind it, and showing that note's text here,
+   editable both ways, is item 5's second half, still open. Markdown writes
+   the note as an indented paragraph under its bullet (a reader draws a
+   paragraph inside the item; a line that would read as a bullet or a
+   heading is escaped with a backslash), and the import reads any text
+   indented under a bullet as that topic's note, which is also what a
+   paragraph under a hand-written bullet means. OPML carries `_note`, the
+   spelling OmniOutliner and Workflowy write; FreeMind a private `_note`,
+   because its own `<richcontent TYPE="NOTE">` is HTML this file does not
+   read.
 
 ### Phases, each with the gate it is finished against
 
@@ -1216,9 +1261,8 @@ topic: a control that wide has nowhere to go.
   answered neither of the two gestures anybody tries on a blank part of it: a
   right-click opened nothing and a double-click added nothing. Both now do,
   and `mapdoors.js` (7/7, 3/7 on base, in the gate's sweep list) holds them
-  plus the door count and the naming rule. **What is left**: the Insert and
-  Arrange markup is still in the bar for a map to carry, which is a tidy-up,
-  not a user-visible bug.
+  plus the door count and the naming rule. The Insert and Arrange markup
+  stays (decision 16; HISTORY.md, "Moved from the plans, 2026-10-04").
 
 ### Not verified, and to be taken first by whoever opens this
 

@@ -6235,6 +6235,11 @@ button.ghost.danger:hover {
      enough to see that a list is there and scroll it. */
   max-height: max(12rem, calc(100% - var(--graph-chrome-top) - 12rem));
   overflow-y: auto;
+  /* Measured at 1440x900: 676px of list in a 492px panel, so the wheel does
+     reach the end of it, and a wheel at the end of a scroller chains to what
+     is behind it, which here is the map (a zoom, or a scroll of the page).
+     `contain` keeps the last notch inside the panel. */
+  overscroll-behavior: contain;
 }
 
 /* The legend: the map's key, floating bottom left, clear of the zoom strip at

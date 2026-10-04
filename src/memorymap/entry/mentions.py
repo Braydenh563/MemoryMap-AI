@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from memorymap.entry.manager import WIKI_LINK
+from memorymap.entry.manager import WIKI_LINK, wiki_target
 
 #: How far either side of a hit the context may reach before it gives up
 #: looking for a sentence boundary. A backlink row is two lines in a 280px
@@ -108,7 +108,7 @@ def backlink_spans(content: str, title: str) -> tuple[list[tuple[int, int]], lis
     linked: list[tuple[int, int]] = []
     for match in WIKI_LINK.finditer(content):
         wiki.append(match.span())
-        if match.group(1).strip().lower() == wanted:
+        if wiki_target(match.group(1)).lower() == wanted:
             linked.append(match.span())
     if linked or len(title) < MENTION_MIN_TITLE_CHARS:
         return linked, []

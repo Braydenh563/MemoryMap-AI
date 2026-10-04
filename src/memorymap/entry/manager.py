@@ -2421,7 +2421,7 @@ def plain_label(content: str, limit: int = 80) -> str:
     #: source labels were wiki links and every one of them showed its
     #: brackets. Same rule as the markdown link below: the link keeps its
     #: text, because the text is what the note says.
-    first = WIKI_LINK.sub(r"\1", first)
+    first = wiki_plain(first)
     first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()
@@ -2766,11 +2766,37 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
 WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
 
 
+def wiki_target(inner: str) -> str:
+    """The note a `[[Target|Shown]]` names: the part before the first `|`.
+
+    The part after the bar is only what is drawn. One definition, because
+    several readers (`sync_wiki_links`, a document's backlinks, a note's
+    references row) each used to decide for themselves and gave different
+    answers for the same text.
+    """
+    return (inner or "").split("|", 1)[0].strip()
+
+
+def wiki_shown(inner: str) -> str:
+    """The words a `[[Target|Shown]]` draws: the part after the bar, else the target."""
+    target, bar, shown = (inner or "").partition("|")
+    return (shown.strip() if bar else "") or target.strip()
+
+
+def wiki_plain(text: str) -> str:
+    """Some text with each `[[link]]` replaced by the words it draws."""
+    return WIKI_LINK.sub(lambda match: wiki_shown(match.group(1)), text or "")
+
+
 def wiki_link_targets(content: str) -> list[str]:
-    """The [[names]] mentioned in some text, de-duplicated, in order."""
+    """The [[names]] mentioned in some text, de-duplicated, in order.
+
+    A `[[Target|Shown]]` is named by its target, so `[[bread]]` and
+    `[[Bread|loaf]]` are one name.
+    """
     seen = {}
     for match in WIKI_LINK.finditer(content or ""):
-        name = match.group(1).strip()
+        name = wiki_target(match.group(1))
         if name:
             seen.setdefault(name.lower(), name)
     return list(seen.values())
@@ -2784,7 +2810,7 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
     partial one, and among equals the oldest wins so a link doesn't silently
     change meaning when a newer note happens to start the same way.
     """
-    wanted = (name or "").strip().lower()
+    wanted = wiki_target(name).lower()
     if not wanted:
         return None
     #: **A vault's links name the file, not the first words.** An imported

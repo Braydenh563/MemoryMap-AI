@@ -78,7 +78,7 @@ def _preview(text: str, length: int = 60) -> str:
     """
     from memorymap.entry.properties import strip as strip_properties
 
-    plain = manager.WIKI_LINK.sub(r"\1", strip_properties(text or "").lstrip())
+    plain = manager.wiki_plain(strip_properties(text or "").lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 
@@ -206,7 +206,16 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
     """Make the note's tag suggestions at filing and keep them on it (INBOX
     440). The model's when it is the one that filed (it is up and answering);
     otherwise the notebook's own: the tags its nearest notes carry, and the
-    vocabulary tags the note names. Best effort, never fails the filing."""
+    vocabulary tags the note names. Best effort, never fails the filing.
+
+    **A private note gets none made.** Its tags are the person's own (nothing
+    derives them from its text), and a suggestion is derived from the text, so
+    one made here would put a summary of a private note into a plain column,
+    from ciphertext or the locked placeholder when the vault is shut. What it
+    already holds (a note made private after filing) is handled like its
+    tags: kept, shown where they are, nowhere else."""
+    if getattr(entry, "is_private", False):
+        return
     have = manager.entry_tags(entry)
     discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
     suggested: list[str] = []
@@ -2569,7 +2578,7 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
         if label is None:
             result[entry.id] = rows[:REFERENCE_ROWS_MAX]
             continue
-        wiki = f"[[{label}]]".casefold()
+        wanted = label.casefold()
         candidates: list[tuple[str, int, str, str]] = []
         for document_id, title, content in document_hits[label]:
             candidates.append(("document", document_id, title, content))
@@ -2584,13 +2593,21 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
                 #: A link is a decision someone made; a mention is a coincidence
                 #: until they make it. Saying which is what stops this row being
                 #: a list of every note that happens to share a word.
-                "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+                "how": "links to it" if _links_to(content, wanted) else "mentions it",
             })
         #: Links before mentions, so the rows someone chose come first, and the
         #: boards before both because they are exact.
         rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
         result[entry.id] = rows[:REFERENCE_ROWS_MAX]
     return result
+
+
+def _links_to(content: str | None, wanted: str) -> bool:
+    """Whether some text has a `[[wiki link]]` whose target is `wanted` (casefolded)."""
+    return any(
+        manager.wiki_target(match.group(1)).casefold() == wanted
+        for match in manager.WIKI_LINK.finditer(content or "")
+    )
 
 
 def _reference_rows(session: Session, entry: Entry) -> list[dict]:

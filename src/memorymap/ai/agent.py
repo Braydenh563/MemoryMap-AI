@@ -91,6 +91,13 @@ WRAP_UP_NUDGE = (
     "what is still not done. Do not claim anything you did not do."
 )
 
+#: Sent once after a reply that claims an act no tool performed (see
+#: `unsupported_claims` and the end of a round in `run_agent`).
+CLAIM_RETRY_NUDGE = (
+    "You wrote that you {claims}, but no tool ran, so it has not happened. "
+    "Do it now by calling {tools}, or say plainly that it was not done."
+)
+
 #: Sent after a round whose words only announce an action ("I'll count the
 #: notes in Work", "I will use the count_notes function") and that called no
 #: tool (see `announces_unacted_tool`). Measured with Qwen2.5-1.5B through
@@ -2244,6 +2251,10 @@ def run_agent(
     nudged_empty = False
     #: And one for a round that only said what it would do.
     nudged_intent = False
+    #: And one for a reply that claimed an act no tool performed.
+    nudged_claim = False
+    #: The replies a nudge set aside, for the claim check at the turn's end.
+    said_before = ""
     #: Only a turn that has done nothing at all is nudged: a skill step that
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
@@ -2375,7 +2386,35 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(answer, state.ran_writes)
+            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes)
+            #: **Reflect and retry: a claimed act is asked for once** (INBOX
+            #: 527, Qwen2.5-1.5B): "Make a note: buy oat milk" got "I've made a
+            #: new note for you" and no call, and the heads-up below was all
+            #: the user got. Now the model is told what it claimed and which
+            #: tool does it, once, while it still has a round; the heads-up is
+            #: what is left when the retry does not do it either, checked
+            #: against everything said this turn, not only the last reply.
+            needed = [
+                tool
+                for label, _verb, needs in _CLAIMED_ACTIONS
+                if label in unsupported
+                for tool in sorted(needs)
+                if tool in {t["function"]["name"] for t in state.offered}
+            ]
+            if unsupported and needed and not nudged_claim and round_number + 1 < allowance:
+                nudged_claim = True
+                said_before += f"{answer}\n"
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append(
+                    {
+                        "role": "user",
+                        "content": CLAIM_RETRY_NUDGE.format(
+                            claims=", ".join(unsupported), tools=" or ".join(needed)
+                        ),
+                    }
+                )
+                yield {"type": "answer", "delta": "\n\n"}
+                continue
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
                 # is useless when the answer claimed five different things, 

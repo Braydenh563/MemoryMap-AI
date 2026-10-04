@@ -277,3 +277,55 @@ def test_no_match_is_not_said_to_be_an_empty_notebook():
     prompt = agent.build_agent_messages("How many notes do I have?", [])[-1]["content"]
     assert "looks empty" not in prompt
     assert "No notes matched" in prompt and "count_notes" in prompt
+
+
+# --- reflect and retry: a claimed act is asked for once -------------------------
+
+
+class _Claims:
+    """Claims a note, then (asked) calls create_note, then says done."""
+
+    def __init__(self, obey=True):
+        self.obey = obey
+        self.replies = 0
+        self.sent: list[list[dict]] = []
+
+    def chat_tools_stream(self, model, messages, offered, mode=None):
+        self.sent.append(list(messages))
+        self.replies += 1
+        if self.replies == 2 and self.obey:
+            call = {"name": "create_note", "arguments": {"content": "buy oat milk"}}
+            yield {"final": {"content": "", "tool_calls": [call], "raw_tool_calls": []}}
+            return
+        text = "I've made a new note for you." if self.replies == 1 or not self.obey else "Saved."
+        yield {"content_delta": text}
+        yield {"final": {"content": text, "tool_calls": [], "streamed": True}}
+
+
+def _offer(monkeypatch):
+    monkeypatch.setattr(
+        agent.tools, "ollama_tools", lambda allowed=None: [{"function": {"name": "create_note"}}]
+    )
+
+
+def test_a_claimed_note_is_asked_for_and_then_made(monkeypatch, app_state):
+    _offer(monkeypatch)
+    ran = []
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda s, n, a, **k: ran.append(n) or {"id": 5, "label": "made"})
+    fake = _Claims()
+    events = list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _Models(), fake))
+    assert ran == ["create_note"]
+    nudge = fake.sent[1][-1]["content"]
+    assert "saved a note" in nudge and "create_note" in nudge
+    answer = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert "Heads up" not in answer
+
+
+def test_a_second_false_claim_still_gets_the_heads_up(monkeypatch, app_state):
+    _offer(monkeypatch)
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {})
+    fake = _Claims(obey=False)
+    events = list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _Models(), fake))
+    answer = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert fake.replies == 2, "asked once, not twice"
+    assert "Heads up: I said I saved a note" in answer

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Agent: a reply that says it did something no tool did ("I've made a new note for you") is now asked, once, to actually do it, naming the tool, and the heads-up that it did not happen is kept for when the retry fails too, checked against everything said in the turn (INBOX 527).
 - Agent: when no note matches the words of a question, the prompt no longer says the notebook looks empty; it says nothing matched and that count_notes and search_notes know more (Qwen2.5-1.5B, with four notes saved, answered "How many notes do I have?" with "There are no notes in your notebook") (INBOX 527).
 - Agent: tool calls the model asks for in the same reply no longer wait on each other: two web searches in one reply both run (the second was parked behind a confirm, as if the first page had asked for it; a call chosen after reading a page still asks first), and several pages asked for together are fetched side by side, so three pages take about as long as one (INBOX 527).
 - Agent: a tool result too big for what is left of the conversation is shortened to fit (long text clipped, then the list kept from the front, with a note saying what was cut) instead of being dropped whole with the tools taken away; on a 4k-window model one page of long notes used to end the turn's reading with nothing read (INBOX 527).

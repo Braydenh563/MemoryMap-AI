@@ -161,6 +161,32 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    INBOX 445): `WB_TOOL_SETTINGS` maps a tool to its settings; a tool with
    none (a link, the eraser, the sticky, the text box, the bucket) shows no
    bar, and nothing that acts on a selection shows with nothing selected.
+12. **A closed shape holds text** (taken 2026-10-04, the competitor pass:
+   tldraw, Excalidraw, Miro and FigJam all do it, and a flowchart is the
+   first thing anyone draws with the four shape tools). The text is `label`
+   in the shape's own data blob, drawn as an SVG `<text>` inside the shape's
+   group, so it moves, resizes, turns, exports and undoes with the shape
+   rather than being a text box parked on top. Double-click the shape or
+   press Enter with it selected; Enter or Escape ends, Shift+Enter breaks the
+   line; the right-click menu says "Add text". Centred in the shape's label
+   area (the inscribed band of an ellipse, the middle half of a diamond, the
+   lower half of a triangle), wrapped to it, re-wrapped on a resize. Ink is
+   the theme's text colour, or black or white on a fill of half opacity or
+   more (`wbCoreInkFor`, the core topic's rule). No size, font or alignment
+   controls: the bar keeps its seven, and those three are not what a first
+   flowchart misses. Lines, arrows and pen strokes take no text; a label on
+   a connector is decision 13.
+13. **A connector holds a label** (taken 2026-10-04, the same pass: Miro,
+   FigJam and Excalidraw all label a connector, and "yes" and "no" on the two
+   arrows out of a diamond are what decision 12's flowchart needs next).
+   `label` in the link's own data, one line of at most 80 characters (the
+   map edge label's limit), drawn at the middle of the shaft, on the curve
+   when the line is bent, in the map's edge-label recipe (ink haloed in the
+   card colour) one size up. **The double-click keeps the bend** (asked for
+   directly, earlier, and a gesture people already use here): the label is
+   Enter on the selected connector and "Add a label" on its right-click menu.
+   A cross-link on a map is the map's and keeps its ring; this is the
+   board's links. Shares decision 12's one editor (`wbOpenSketchLabelEditor`).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
@@ -540,6 +566,22 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     below 1024 the way the phone band already hides other labels, and
     re-measure; it is worth about 60px, which is more than the 2px the wrap
     is short by. Owner: whoever next opens the pad's bar.
+    **Re-measured 2026-10-04, and the recommendation would buy nothing.** The
+    labels sit *above* their rows (a section is a column), and every label is
+    narrower than its row at 820 on Large text (Draw 37 over 104, Shapes 52
+    over 176, Ink 22 over 153, Size 29 over 97, Canvas 51 over 176), so hiding
+    them takes height, not width. The rows alone are 706px plus four 4.5px
+    separators, 724px, in a 705px inner bar: 19px short, still `rows=2` in
+    `sketchbar.js`. The width is in the rows: the Ink dots' gaps (6 x 5px at
+    Large text) and the Size slider's fixed 3rem are the two places with
+    room. **Half done the same day**: between 600 and 1023px the dots drop
+    their gap (a dot's own 2px transparent ring keeps the discs 4px apart), and
+    820 on Large text is one row (`sketchbar.js` 2 findings to 1; 1024 and
+    1440 unchanged). **Still open: 820 on Large text with Spacious density**,
+    41px short (rows 701px plus four 6px separators in a 684px inner bar), more
+    than the slider (about 9px) and the separators (24px) could give together.
+    Recommendation: let that one combination take two rows, and say so in the
+    sweep, rather than shrink 44px targets.
 
 ## Placed from INBOX, 2026-09-23
 

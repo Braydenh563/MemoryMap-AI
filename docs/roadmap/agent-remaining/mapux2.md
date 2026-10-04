@@ -141,8 +141,9 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
   pointer at the line's mid-point), so the ring never opens there.
   `maptwokinds.js` works around it by pressing at 35% of the line's length.
   The fix is a `contextmenu` on the grip that opens the same ring.
-- **Nothing says which kind a connect drag is about to make while it is in
-  flight.** Both kinds say what they made once it lands. A live cue on the
+- ~~**Nothing says which kind a connect drag is about to make while it is in
+  flight.**~~ Built 2026-10-04 (`maplinkcue.js`; HISTORY.md, "Moved from the
+  plans, 2026-10-04"). Both kinds say what they made once it lands. A live cue on the
   drag preview is the remaining half of §13.2's "one gesture produces either,
   decided by something invisible".
 

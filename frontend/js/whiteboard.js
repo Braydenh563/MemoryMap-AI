@@ -4539,9 +4539,12 @@ function wbApplyBulkMove(origin, dx, dy) {
       if (el && (!entry.pathEl || !entry.pathEl.isConnected)) {
         entry.pathEl = el.querySelector(".sketch-path");
         entry.hitEl = el.querySelector(".sketch-hitbox");
+        entry.labelEl = el.querySelector(":scope > .sketch-label");
       }
       entry.pathEl?.setAttribute("d", newD);
       entry.hitEl?.setAttribute("d", newD);
+      // A shape's text rides along (decision 12; `wbNudgeShapeLabel`).
+      entry.labelEl?.setAttribute("transform", `translate(${dx} ${dy})`);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
@@ -4622,6 +4625,7 @@ function wbRestoreMove(kind, d) {
     if (d._dragOriginalD != null) {
       el?.querySelector(".sketch-path")?.setAttribute("d", d._dragOriginalD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", d._dragOriginalD);
+      wbLayoutShapeLabel(el);
     }
     delete d._dragLiveD;
   } else {
@@ -5105,6 +5109,18 @@ function wbBuildContextMenu(kind) {
     });
 
     subItem("Content", sub => {
+      //: A task (MINDMAP_PLAN.md decision 15): made here, ticked by its box.
+      const task = mapNode.data?.task;
+      if (task === "open" || task === "done") {
+        sub(task === "done" ? "Mark as not done" : "Mark as done", "Or press the box on the topic", () =>
+          wbMapToggleTaskDone(mapNode.id)
+        );
+        sub("Stop being a task", "The topic stays; its box goes", () => wbMapSetTask(mapNode, null));
+      } else {
+        sub("Make this a task", "A box to tick; the topics above count what is done", () =>
+          wbMapSetTask(mapNode, "open")
+        );
+      }
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
@@ -5154,7 +5170,10 @@ function wbBuildContextMenu(kind) {
         );
       }
       sub("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
-        selectWbTool("link-straight");
+        //: Through the module's handle: `selectWbTool` lives inside
+        //: `initWhiteboard`, so a bare call from this top-level builder threw
+        //: and the row did nothing (found by `maplinkcue.js`, 2026-10-04).
+        wbSelectToolRef?.("link-straight");
         toast("Drag from this topic to the one it should join.");
       });
     });
@@ -5184,6 +5203,28 @@ function wbBuildContextMenu(kind) {
         wbMapResetToBranch(mapNode.id)
       );
     });
+  }
+  //: The words for decision 12's gesture, so typing into a shape is found
+  //: by someone who has not tried a double-click on it.
+  if (kind === "sketch" && wbSelectedItem?.kind === "sketch" && wbMultiSelection.size <= 1) {
+    const shape = (wbState.sketches || []).find((s) => s.id === wbSelectedItem.id);
+    const parsed = shape ? wbSketchParsedData(shape) : null;
+    if (wbShapeLabelKind(parsed)) {
+      item(parsed.label ? "Edit the text" : "Add text", "Double-click the shape, or press Enter", () =>
+        wbEditShapeLabel(shape)
+      );
+    }
+    let linkParsed = null;
+    try {
+      linkParsed = shape ? JSON.parse(shape.data) : null;
+    } catch {
+      linkParsed = null;
+    }
+    if (wbLinkTakesLabel(shape, linkParsed)) {
+      item(linkParsed.label ? "Edit the label" : "Add a label", "Or select the connector and press Enter", () =>
+        wbEditLinkLabel(shape)
+      );
+    }
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -6536,6 +6577,28 @@ function wbBuildExportSvg(scope) {
     if (!el) continue;
     const clone = el.cloneNode(true);
     clone.removeAttribute("class");
+    //: A shape's text (decision 12) is painted by the stylesheet, which does
+    //: not travel into a standalone SVG: its ink, size and face go on as
+    //: attributes, read off the label as drawn.
+    const labels = el.querySelectorAll(":scope > .sketch-label, :scope > .wb-link-label");
+    const copies = clone.querySelectorAll(":scope > .sketch-label, :scope > .wb-link-label");
+    labels.forEach((label, i) => {
+      const look = getComputedStyle(label);
+      const copy = copies[i];
+      if (!copy) return;
+      copy.removeAttribute("class");
+      copy.removeAttribute("style");
+      copy.removeAttribute("data-kind");
+      copy.setAttribute("fill", wbExportColour(look.fill) || "#1f2430");
+      copy.setAttribute("font-size", look.fontSize);
+      copy.setAttribute("font-family", look.fontFamily);
+      //: A connector's label is haloed in the card colour (decision 13).
+      if (look.paintOrder && look.paintOrder.startsWith("stroke") && look.stroke !== "none") {
+        copy.setAttribute("stroke", wbExportColour(look.stroke) || "none");
+        copy.setAttribute("stroke-width", look.strokeWidth);
+        copy.setAttribute("paint-order", "stroke");
+      }
+    });
     parts.push(clone.outerHTML);
   }
 
@@ -6648,7 +6711,10 @@ function wbBuildExportSvg(scope) {
         );
         labelTop = py + ph + 16;
       }
-      const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: A task's box travels as the ballot-box glyph (MINDMAP_PLAN.md
+      //: decision 15): the icon font does not follow the topic into the file.
+      const box = obj.data?.task === "done" ? "☑ " : obj.data?.task === "open" ? "☐ " : "";
+      const lines = wbSvgWrapLines(box + wbMapLabel(obj), size.w - 28, 4, 7.5);
       parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
@@ -9640,6 +9706,30 @@ async function initWhiteboard() {
       wbMindMapAddChild(wbSelectedItem.id);
       return;
     }
+    //: Enter on one selected shape types into it (decision 12; tldraw's key).
+    if (
+      e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey
+      && wbSelectedItem?.kind === "sketch" && wbMultiSelection.size <= 1
+    ) {
+      const sketch = (wbState.sketches || []).find((s) => s.id === wbSelectedItem.id);
+      if (sketch && wbShapeLabelKind(wbSketchParsedData(sketch))) {
+        e.preventDefault();
+        wbEditShapeLabel(sketch);
+        return;
+      }
+      //: And on one selected connector, its label (decision 13).
+      let linkParsed = null;
+      try {
+        linkParsed = sketch ? JSON.parse(sketch.data) : null;
+      } catch {
+        linkParsed = null;
+      }
+      if (sketch && wbLinkTakesLabel(sketch, linkParsed)) {
+        e.preventDefault();
+        wbEditLinkLabel(sketch);
+        return;
+      }
+    }
     if (e.key === "Enter" && wbSelectedItem?.kind === "node") {
       e.preventDefault();
       wbMindMapAddSibling(wbSelectedItem.id);
@@ -11288,6 +11378,324 @@ function wbSketchIsClosedShape(sketch) {
   return /[Zz]\s*$/.test(trimmed) || /\ba\s/i.test(trimmed);
 }
 
+//: **Text inside a shape** (WHITEBOARD_PLAN.md decision 12). A rectangle,
+//: ellipse, diamond or triangle carries `label` in its own data blob, drawn as
+//: an SVG `<text>` inside the shape's own group: so it moves, resizes, turns,
+//: exports and undoes with the shape because it *is* the shape, not a text
+//: box parked on top that a drag could leave behind. Double-click the shape
+//: (or Enter with it selected) to type; Enter or Escape ends, Shift+Enter
+//: breaks the line. tldraw, Excalidraw, Miro and FigJam all do exactly this,
+//: and a flowchart is the first thing anybody draws with these four tools.
+const WB_SHAPE_LABEL_MAX = 500;
+
+//: Which shape a sketch is, for its label: the tool that drew it, or a
+//: rectangle for a closed path drawn before `shape` was stored. `null` for
+//: anything open (a pen stroke, a line, an arrow), which takes no label.
+function wbShapeLabelKind(parsed) {
+  if (!parsed || typeof parsed.d !== "string") return null;
+  if (WB_FILLABLE_SHAPES.has(parsed.shape)) return parsed.shape;
+  const trimmed = parsed.d.trim();
+  return /[Zz]\s*$/.test(trimmed) ? "rect" : null;
+}
+
+//: The part of a shape's box a label is written in: the whole width of a
+//: rectangle, the inscribed band of an ellipse (cos 45), the middle half of
+//: a diamond, and the lower half of a triangle, centred on its centroid
+//: (two thirds of the way down from the apex) where it is widest enough to
+//: hold a word.
+function wbShapeLabelArea(kind, bbox) {
+  const pad = 8;
+  const cx = bbox.minX + bbox.width / 2;
+  if (kind === "triangle") {
+    return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad) };
+  }
+  const share = kind === "circle" ? 0.7 : kind === "diamond" ? 0.5 : 1;
+  return { cx, cy: bbox.minY + bbox.height / 2, w: Math.max(24, bbox.width * share - pad * 2) };
+}
+
+//: Greedy word wrap against the label's own rendered width
+//: (`getComputedTextLength`, in the shape's own units, so zoom never enters
+//: into it). A line break typed with Shift+Enter is kept. Where the text
+//: cannot be measured (the board is hidden), an average glyph of 0.55em
+//: stands in, which is the same estimate the export's own wrap uses.
+function wbWrapShapeLabel(textEl, text, width, fontSize) {
+  const measure = (s) => {
+    textEl.textContent = s;
+    const w = textEl.getComputedTextLength();
+    return w > 0 ? w : s.length * fontSize * 0.55;
+  };
+  const lines = [];
+  for (const paragraph of String(text).split("\n")) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && measure(next) > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+//: Lays the label out from the path the group is drawing *now*, so a resize
+//: or a turn in flight re-wraps it, and clears the translation a move puts on
+//: it (`wbNudgeShapeLabel`). The wrap is kept on the element against the text
+//: and the width it was made for, so a render that changed nothing about the
+//: shape measures nothing.
+function wbLayoutShapeLabel(groupEl) {
+  // A connector's label is laid out from the same live path (decision 13).
+  wbLayoutLinkLabel(groupEl);
+  const label = groupEl?.querySelector?.(":scope > .sketch-label");
+  if (!label) return;
+  label.removeAttribute("transform");
+  const bbox = wbPathBBox(groupEl.querySelector(".sketch-path")?.getAttribute("d") || "");
+  if (!bbox) return;
+  const area = wbShapeLabelArea(label.dataset.kind, bbox);
+  const fontSize = parseFloat(getComputedStyle(label).fontSize) || 16;
+  const lineHeight = fontSize * 1.25;
+  const key = `${label.__wbText}|${Math.round(area.w / 4)}|${fontSize}`;
+  if (label.__wbKey !== key) {
+    label.__wbLines = wbWrapShapeLabel(label, label.__wbText, area.w, fontSize);
+    label.__wbKey = key;
+    label.replaceChildren(
+      ...label.__wbLines.map((line, i) => {
+        const span = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        // A blank line keeps its height: an empty tspan collapses to nothing.
+        span.textContent = line || " ";
+        span.setAttribute("dy", i === 0 ? "0" : String(lineHeight));
+        return span;
+      })
+    );
+  }
+  const lines = label.__wbLines.length;
+  label.setAttribute("x", String(area.cx));
+  label.setAttribute("y", String(area.cy - ((lines - 1) * lineHeight) / 2));
+  for (const span of label.children) span.setAttribute("x", String(area.cx));
+}
+
+//: A move is only a translation, so a drag frame moves the label by the
+//: same offset rather than re-reading the path: the next render lays it out
+//: again from the saved path and drops this.
+function wbNudgeShapeLabel(groupEl, dx, dy) {
+  const label = groupEl?.querySelector?.(":scope > .sketch-label");
+  if (label) label.setAttribute("transform", `translate(${dx} ${dy})`);
+}
+
+//: The ink the label is written in: the theme's own text colour on an
+//: unfilled shape (the stylesheet's `var(--text)`), and black or white on a
+//: filled one, whichever reads on that fill (`wbCoreInkFor`, the same rule a
+//: core topic's label follows on its branch colour). A fill under half
+//: opacity is mostly board, so it keeps the theme's ink.
+function wbShapeLabelInk(parsed) {
+  if (!parsed?.fill || (parsed.fillOpacity != null && parsed.fillOpacity < 0.5)) return null;
+  return typeof wbCoreInkFor === "function" ? wbCoreInkFor(parsed.fill) : null;
+}
+
+//: Adds, updates or removes a shape's label for one render.
+function wbPaintShapeLabel(groupEl, parsed) {
+  const kind = wbShapeLabelKind(parsed);
+  const text = kind && typeof parsed.label === "string" ? parsed.label : "";
+  let label = groupEl.querySelector(":scope > .sketch-label");
+  if (!text) {
+    label?.remove();
+    return;
+  }
+  if (!label) {
+    label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "sketch-label");
+    // Presentation attributes rather than stylesheet rules for the two that
+    // place the text: the export clones this node into a standalone SVG,
+    // where no stylesheet follows it.
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dominant-baseline", "central");
+    label.setAttribute("pointer-events", "none");
+    groupEl.appendChild(label);
+  }
+  label.dataset.kind = kind;
+  label.__wbText = text;
+  label.style.fill = wbShapeLabelInk(parsed) || "";
+  wbLayoutShapeLabel(groupEl);
+}
+
+//: Types into a shape (decision 12): an editor over the shape's label area,
+//: in the card layer so it takes the caret above the drawing, through the
+//: board's one in-place text recipe (`wbBeginTextEdit` / `wbEditedText`).
+function wbEditShapeLabel(sketch) {
+  const parsed = wbSketchParsedData(sketch);
+  const kind = wbShapeLabelKind(parsed);
+  const bbox = kind ? wbPathBBox(parsed.d) : null;
+  if (!bbox) return;
+  const area = wbShapeLabelArea(kind, bbox);
+  const h = Math.max(bbox.height, 24);
+  wbOpenSketchLabelEditor(sketch, parsed, {
+    box: { x: area.cx - area.w / 2, y: area.cy - h / 2, w: area.w, h },
+    ink: wbShapeLabelInk(parsed),
+    multiline: true,
+    max: WB_SHAPE_LABEL_MAX,
+    name: "Text in this shape",
+    said: ["Text added to the shape.", "Text taken off the shape."],
+  });
+}
+
+//: **One editor for a sketch's words**, a shape's text (decision 12) or a
+//: connector's label (decision 13): placed over `box` in board units, one
+//: undo step and only for a real change, Enter or Escape to finish (Shift+Enter
+//: breaks the line where `multiline`), the board's keys kept off it.
+function wbOpenSketchLabelEditor(sketch, parsed, { box, ink, multiline, max, name, said, extraClass = "" }) {
+  const layer = document.getElementById("wb-html-layer");
+  if (!sketch || !parsed || !layer || document.querySelector(".wb-shape-label-editor")) return;
+  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const editor = document.createElement("div");
+  editor.className = `wb-shape-label-editor ${extraClass}`.trim();
+  editor.setAttribute("role", "textbox");
+  editor.setAttribute("aria-multiline", multiline ? "true" : "false");
+  editor.setAttribute("aria-label", name);
+  // Through CSSOM: the CSP refuses a `style=` attribute.
+  editor.style.width = `${box.w}px`;
+  editor.style.height = `${box.h}px`;
+  editor.style.transform = `translate(${box.x}px, ${box.y}px)`;
+  if (ink) editor.style.color = ink;
+  editor.textContent = parsed.label || "";
+  layer.appendChild(editor);
+  group?.classList.add("wb-shape-label-editing");
+  wbBeginTextEdit(editor);
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  let done = false;
+  const finish = async () => {
+    if (done) return;
+    done = true;
+    let text = wbEditedText(editor);
+    if (!multiline) text = text.replace(/\s*\n\s*/g, " ");
+    text = text.replace(/^\s+|\s+$/g, "").slice(0, max);
+    editor.remove();
+    group?.classList.remove("wb-shape-label-editing");
+    if (text === (parsed.label || "")) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    await wbSaveSketchProps(sketch, { label: text || undefined });
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+    wbScheduleRender();
+    wbAnnounce(text ? said[0] : said[1]);
+  };
+  editor.addEventListener("keydown", (event) => {
+    // The board's keys must not act on what is being typed.
+    event.stopPropagation();
+    if (event.key === "Escape" || (event.key === "Enter" && (!event.shiftKey || !multiline))) {
+      event.preventDefault();
+      editor.blur();
+    }
+  });
+  editor.addEventListener("pointerdown", (event) => event.stopPropagation());
+  editor.addEventListener("dblclick", (event) => event.stopPropagation());
+  editor.addEventListener("blur", finish);
+}
+
+//: **A label on a connector** (WHITEBOARD_PLAN.md decision 13): "yes" and
+//: "no" on the two arrows out of a diamond, which a flowchart cannot do
+//: without. `label` in the link's own data, one line, drawn at the middle of
+//: the line's shaft in the map's edge-label recipe (the ink, stroked in the
+//: card colour underneath so it reads where it crosses its own line). A link
+//: on a map between two topics is the map's (its ring, its words), so this is
+//: the board's links only.
+const WB_LINK_LABEL_MAX = 80;
+
+function wbLinkTakesLabel(sketch, parsed) {
+  if (!parsed || !String(parsed.type || "").startsWith("link-")) return false;
+  return !(sketch && typeof wbMapCrossLinkInfo === "function" && wbMapCrossLinkInfo(sketch.id));
+}
+
+//: The middle of a link's shaft: the first subpath of its drawn `d`, before
+//: any arrowhead strokes appended after it, measured on one hidden path so
+//: a curve's middle is where the curve is rather than the chord's.
+let wbLinkMeasurePath = null;
+
+function wbLinkMidpoint(d) {
+  const shaft = String(d || "").split(/\s(?=M)/)[0];
+  if (!shaft) return null;
+  if (!wbLinkMeasurePath || !wbLinkMeasurePath.isConnected) {
+    const host = document.getElementById("wb-svg-layer");
+    if (!host) return null;
+    wbLinkMeasurePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    wbLinkMeasurePath.setAttribute("class", "wb-link-measure");
+    wbLinkMeasurePath.setAttribute("visibility", "hidden");
+    wbLinkMeasurePath.setAttribute("aria-hidden", "true");
+    host.appendChild(wbLinkMeasurePath);
+  }
+  wbLinkMeasurePath.setAttribute("d", shaft);
+  try {
+    const length = wbLinkMeasurePath.getTotalLength();
+    const p = wbLinkMeasurePath.getPointAtLength(length / 2);
+    return { x: p.x, y: p.y };
+  } catch {
+    return null;
+  }
+}
+
+function wbLayoutLinkLabel(groupEl) {
+  const label = groupEl?.querySelector?.(":scope > .wb-link-label");
+  if (!label) return;
+  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"));
+  if (!p) return;
+  label.setAttribute("x", String(p.x));
+  label.setAttribute("y", String(p.y));
+}
+
+function wbPaintLinkLabel(groupEl, sketch, parsed) {
+  const text = wbLinkTakesLabel(sketch, parsed) && typeof parsed.label === "string" ? parsed.label : "";
+  let label = groupEl.querySelector(":scope > .wb-link-label");
+  if (!text) {
+    label?.remove();
+    return;
+  }
+  if (!label) {
+    label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "wb-link-label");
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dominant-baseline", "central");
+    label.setAttribute("pointer-events", "none");
+    groupEl.appendChild(label);
+  }
+  if (label.textContent !== text) label.textContent = text;
+  wbLayoutLinkLabel(groupEl);
+}
+
+function wbEditLinkLabel(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch?.data);
+  } catch {
+    parsed = null;
+  }
+  if (!wbLinkTakesLabel(sketch, parsed)) return;
+  const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"));
+  if (!p) return;
+  const w = 180;
+  const h = 32;
+  wbOpenSketchLabelEditor(sketch, parsed, {
+    box: { x: p.x - w / 2, y: p.y - h / 2, w, h },
+    ink: null,
+    multiline: false,
+    max: WB_LINK_LABEL_MAX,
+    name: "Label on this connector",
+    said: ["Label added to the connector.", "Label taken off the connector."],
+    extraClass: "wb-link-label-editor",
+  });
+}
+
 function wbSketchParsedData(sketch) {
   try {
     const parsed = JSON.parse(sketch.data);
@@ -11523,6 +11931,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
     const repaint = () => {
       const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, bendLive);
       for (const el of paths()) el?.setAttribute("d", d);
+      wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
       //: A map's ribbon is a filled outline; mid-bend the path is an open
       //: curve, which a fill would close into a wedge. Stroke it in the same
       //: colour until the render after the gesture redraws it properly.
@@ -11601,6 +12010,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
+            wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
 
             const hit = hoveredItemAt(live.x, live.y);
             if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], live.x, live.y));
@@ -11757,6 +12167,7 @@ function wbRestoreMultiSnapshot(rows) {
       const selector = `.sketch-group[data-id="${item.id}"]`;
       document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", row.d);
       document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", row.d);
+      wbLayoutShapeLabel(document.querySelector(selector));
       continue;
     }
     wbRestoreBox(row.entry.kind, item, row.before);
@@ -11951,6 +12362,7 @@ function wbRenderMultiSelectionHandles() {
                 const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
                 document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
                 document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+                wbLayoutShapeLabel(document.querySelector(selector));
                 row.entry.item._liveD = newD;
                 continue;
               }
@@ -12040,6 +12452,7 @@ function wbRenderMultiSelectionHandles() {
               const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
               document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
               document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+              wbLayoutShapeLabel(document.querySelector(selector));
               row.entry.item._liveD = newD;
               continue;
             }
@@ -12165,6 +12578,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
               delete sketch._liveD;
               document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
               document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+              wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
             });
           })
           .on("drag", (event) => {
@@ -12183,6 +12597,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+            wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
             sketch._liveD = newD; // read at drag end, without waiting for a full render
           })
           .on("end", async () => {
@@ -12248,6 +12663,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             rotateLiveD = null;
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+            wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
           });
         })
         .on("drag", (event) => {
@@ -12258,6 +12674,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           rotateLiveAngle = currentAngle;
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+          wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
         })
         .on("end", async () => {
           const before = sketch._rotateUndoBefore;
@@ -12521,6 +12938,7 @@ function renderWhiteboard() {
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      wbNudgeShapeLabel(el, dx, dy);
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       wbQueueSelectionBar();
@@ -12579,6 +12997,15 @@ function renderWhiteboard() {
       // double-click is left to whatever else wants it.
       let parsed = null;
       try { parsed = JSON.parse(d.data); } catch { parsed = null; }
+      //: A closed shape's double-click types into it (decision 12).
+      if (wbShapeLabelKind(parsed) && (window.currentTool === "select" || window.currentTool === "pan")) {
+        event.stopPropagation();
+        event.preventDefault();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
+        selectWbItem("sketch", d.id);
+        wbEditShapeLabel(d);
+        return;
+      }
       if (!parsed || !(parsed.type || "").startsWith("link-")) return;
       event.stopPropagation();
       const endpoints = wbResolveLinkEndpoints(parsed);
@@ -12697,9 +13124,12 @@ function renderWhiteboard() {
     let fillOpacity = 1;
     let dashArray = null;
     let isHighlighterStroke = false;
+    let shapeData = null;
+    let linkData = null;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
+        shapeData = parsed;
         pathData = parsed.d;
         // `shape` names the tool that drew it, which is what says "highlighter"
         // rather than "a stroke that happens to carry an opacity": a pen
@@ -12722,6 +13152,7 @@ function renderWhiteboard() {
         }
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
       } else if (parsed.type && parsed.type.startsWith("link-")) {
+        linkData = parsed;
         stroke = parsed.color || stroke;
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
@@ -12773,8 +13204,11 @@ function renderWhiteboard() {
       // "zero-length dashes" instead of "solid", a reused element from a
       // dashed sketch must not leave a stale dasharray on a solid one.
       .attr("stroke-dasharray", dashArray);
+    // After the path, which the label is laid out from (decision 12).
+    wbPaintShapeLabel(this, shapeData);
+    wbPaintLinkLabel(this, d, linkData);
   });
-    
+
   sketchSelection.exit().remove();
 
   // Render Nodes (Cards)
@@ -14152,7 +14586,15 @@ function wbObjectPaintKey(d, ctx) {
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
-    `|${ctx.fills?.get(d.id) ? "filled" : ""}`;
+    `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
+    //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
+    //: changes this topic's "1/2" without changing anything of its own.
+    `|${wbMapTaskTallyKey(index, d.id)}`;
+}
+
+function wbMapTaskTallyKey(index, id) {
+  const tally = index ? wbMapTaskTally(index).get(id) : null;
+  return tally ? `${tally.done}/${tally.total}` : "";
 }
 
 //: **Every link sketch on the board, parsed once and filed under both of its
@@ -14259,6 +14701,12 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
     }
     entry.path?.setAttribute("d", pathData);
     entry.hitbox?.setAttribute("d", look ? look.line : pathData);
+    //: A connector's label rides on the line (decision 13), looked up once
+    //: per gesture like the two paths.
+    if (entry.label === undefined || (entry.label && !entry.label.isConnected)) {
+      entry.label = entry.el?.querySelector(":scope > .wb-link-label") || null;
+    }
+    if (entry.label) wbLayoutLinkLabel(entry.el);
   }
 }
 
@@ -14287,6 +14735,7 @@ function dragStart(event, d) {
       d.linkingPath = null;
       wbLinkDragActive = false;
       wbClearAnchorHints();
+      wbMapClearLinkCue();
     });
   } else {
     // `.raise()` deliberately does NOT happen here, see the matching
@@ -14344,6 +14793,10 @@ function dragging(event, d) {
     const hover = wbLinkCandidateAt(mx, my, d._linkKind || "node", d.id);
     if (hover) wbShowAnchorHints(hover[0], hover[1], wbNearestAnchor(hover[0], hover[1], mx, my));
     else wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
+    //: Which kind of connection the release will make, said before it is
+    //: made (MINDMAP_PLAN §13c; `wbMapLinkCue`).
+    const cue = wbMapLinkCue(d, hover ? hover[1] : null);
+    d.linkingPath.classList.toggle("wb-link-preview-crosslink", cue === "cross-link");
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels, the
@@ -14432,6 +14885,8 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const cancelledLink = wbEndGesture(d._gesture);
     delete d._gesture;
+    // The in-flight cue goes with the gesture, released or taken back.
+    wbMapClearLinkCue();
     if (cancelledLink) {
       d.linkingPath?.remove();
       d.linkingPath = null;

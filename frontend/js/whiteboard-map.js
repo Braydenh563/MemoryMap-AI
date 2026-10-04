@@ -1373,6 +1373,24 @@ function wbBuildMapNode(el, d) {
   //: (§12.1 item 2) are one element, so the enter selection cannot build one
   //: shape and `wbPaintMapNode` a slightly different one. The class is set in
   //: the paint pass, which is the only place that knows what the node wears.
+  //: **A task's box** (MINDMAP_PLAN.md decision 15). Built for every node and
+  //: hidden on one that is not a task, the rule the icon beside it follows. A
+  //: real checkbox to a screen reader and a real button to the hand: a press
+  //: ticks it without starting a node drag or a rename, and the id is read at
+  //: the click rather than kept, because the datum this closure saw is
+  //: replaced by every state fetch.
+  body.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-task")
+    .attr("role", "checkbox")
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation())
+    .on("dblclick", (event) => event.stopPropagation())
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapToggleTaskDone(d.id);
+    })
+    .append("i").attr("class", "ph ph-square").attr("aria-hidden", "true");
   body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
   //: **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's
   //: fourth, Coggle's text/link/image/icon). Built for every node and hidden
@@ -1403,6 +1421,10 @@ function wbBuildMapNode(el, d) {
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
+  //: How many of the tasks under this topic are done (decision 15), "2/5",
+  //: hidden on a topic with none under it. Quiet text after the label, not a
+  //: pill: a count is a fact about the branch, not a control.
+  body.append("span").attr("class", "wb-map-progress").property("hidden", true);
   //: Where a topic points (§12.1 item 2's "link"). A real button, not a
   //: decoration: the whole point of setting a link is opening it, and a
   //: marker you have to go back to the strip to follow is a label. Hidden
@@ -1729,7 +1751,74 @@ function wbPaintMapNode(el, d, index, colors, fills) {
     if (parent) mirrored = d.x + (d.width || WB_MAP_NODE_W) / 2 < parent.x + (parent.width || WB_MAP_NODE_W) / 2;
   }
   el.classed("wb-map-node-mirrored", Boolean(mirrored));
+  const progress = node.querySelector(".wb-map-progress");
+  if (progress) {
+    const tally = index ? wbMapTaskTally(index).get(d.id) : null;
+    progress.hidden = !tally;
+    if (tally) {
+      progress.textContent = `${tally.done}/${tally.total}`;
+      progress.title = `${tally.done} of ${tally.total} tasks under this topic are done`;
+      progress.classList.toggle("wb-map-progress-complete", tally.done === tally.total);
+    }
+  }
   wbPaintMapNodeStyle(node, d);
+}
+
+//: **Every topic's count of the tasks under it** (decision 15), in one walk
+//: of the tree per index rather than one walk per topic: the paint pass asks
+//: for every visible node on every render, and a subtree walk each would be
+//: the per-member cost 13a measured. Kept against the index object, which a
+//: render builds once and drops afterwards.
+const wbMapTaskTallies = new WeakMap();
+
+function wbMapTaskTally(index) {
+  let tallies = wbMapTaskTallies.get(index);
+  if (tallies) return tallies;
+  tallies = new Map();
+  const visit = (node, seen) => {
+    let done = 0;
+    let total = 0;
+    for (const child of index.childrenOf.get(node.id) || []) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      const below = visit(child, seen);
+      done += below.done;
+      total += below.total;
+      const task = child.data?.task;
+      if (task === "open" || task === "done") {
+        total += 1;
+        if (task === "done") done += 1;
+      }
+    }
+    if (total) tallies.set(node.id, { done, total });
+    return { done, total };
+  };
+  const seen = new Set();
+  for (const root of index.roots) {
+    seen.add(root.id);
+    visit(root, seen);
+  }
+  wbMapTaskTallies.set(index, tallies);
+  return tallies;
+}
+
+//: Makes a topic a task, takes the box away (`null`), or ticks it. Through
+//: `wbMapSetNodeStyle` for its one undo step and its save, then a render,
+//: because the counts on every topic above this one change with it.
+async function wbMapSetTask(node, value) {
+  if (!node) return;
+  await wbMapSetNodeStyle(node, { task: value });
+  renderWhiteboardNow();
+  wbAnnounce(
+    value === "done" ? "Done." : value === "open" ? "A task, not done yet." : "No longer a task."
+  );
+}
+
+function wbMapToggleTaskDone(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  const task = node?.data?.task;
+  if (task !== "open" && task !== "done") return;
+  wbMapSetTask(node, task === "done" ? "open" : "done");
 }
 
 //: What the node edit strip sets, drawn on the node (§12.1 item 2).
@@ -1765,6 +1854,21 @@ function wbPaintMapNodeStyle(node, d) {
   else delete node.dataset.spine;
   if (data.align) node.dataset.align = data.align;
   else delete node.dataset.align;
+  //: A task (decision 15): its box, and a done task's label struck through.
+  //: Read off the node's own data, never the theme's: a task is content.
+  const task = d.data?.task === "open" || d.data?.task === "done" ? d.data.task : null;
+  node.classList.toggle("wb-map-task-done", task === "done");
+  const box = node.querySelector(".wb-map-task");
+  if (box) {
+    box.hidden = !task;
+    if (task) {
+      box.setAttribute("aria-checked", task === "done" ? "true" : "false");
+      box.title = task === "done" ? "Done: press to mark it not done" : "Press to mark it done";
+      box.setAttribute("aria-label", task === "done" ? "Done" : "Not done");
+      const glyph = box.querySelector("i");
+      if (glyph) glyph.className = task === "done" ? "ph ph-check-square" : "ph ph-square";
+    }
+  }
   // Px through CSSOM, which is what a text box's own `font_size` already
   // does (`renderWbObjects`): the value is per node and arbitrary, so it
   // cannot be a token, and the stylesheet's own `var(--text-md)` is the
@@ -2220,8 +2324,22 @@ async function wbMapPlaceAsChild(d, target, branch) {
 //:
 //: Returns true when it took the gesture, false to let the cross-link happen.
 async function wbMapJoinByLink(source, target) {
-  if (!wbIsMap() || !source || !target) return false;
-  if (!WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return false;
+  const plan = wbMapJoinPlan(source, target);
+  if (!plan) return false;
+  //: `wbMapTransplant` is the one mover: it moves the branch, unpins the
+  //: node, tidies both ends and says what it did. A second copy of that here
+  //: is how the two would drift apart.
+  return wbMapTransplant(plan.child, plan.parent.id, false, { via: "link" });
+}
+
+//: **What a connect drag between two topics will make**, decided without
+//: making it: `{parent, child}` when the release joins one to the tree under
+//: the other, `null` when it will be a cross-link (or nothing on a map). One
+//: function for the drop and for the cue in flight (`wbMapLinkCue`), so the
+//: cue cannot promise one kind and the release make the other.
+function wbMapJoinPlan(source, target) {
+  if (!wbIsMap() || !source || !target) return null;
+  if (!WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return null;
   const index = wbMapIndex();
   //: **The map's own first root is in the tree, not loose.** It is the one
   //: node that legitimately has no parent (`wbMapStats` counts every *other*
@@ -2242,11 +2360,47 @@ async function wbMapJoinByLink(source, target) {
     parent = target;
     child = source;
   }
-  if (!parent || !child) return false;
-  //: `wbMapTransplant` is the one mover: it moves the branch, unpins the
-  //: node, tidies both ends and says what it did. A second copy of that here
-  //: is how the two would drift apart.
-  return wbMapTransplant(child, parent.id, false, { via: "link" });
+  if (!parent || !child) return null;
+  return { parent, child };
+}
+
+//: **Which of the two connections a drag is about to make, while it is in
+//: flight** (MINDMAP_PLAN §13c's remainder: "nothing says which kind a drag
+//: is about to make while it is in flight, only after it lands"). The topic
+//: under the pointer wears the answer: the accent ring the branch drag
+//: already uses for "lands under this" when the release will join the tree,
+//: a dashed muted ring when it will be a cross-link; the preview line is
+//: dashed for a cross-link; and the announcer says it in words, once per
+//: change. Transient, so decision 5 (nothing added to the resting canvas)
+//: holds. Returns the kind, or null when the pointer is not on a topic.
+let wbMapLinkCueState = null;
+
+function wbMapLinkCue(source, target) {
+  const onTopics = wbIsMap() && source && target
+    && WB_MAP_KINDS.has(source.kind) && WB_MAP_KINDS.has(target.kind);
+  if (!onTopics) {
+    wbMapClearLinkCue();
+    return null;
+  }
+  const plan = wbMapJoinPlan(source, target);
+  const kind = plan ? "branch" : "cross-link";
+  if (wbMapLinkCueState?.id === target.id && wbMapLinkCueState.kind === kind) return kind;
+  wbMapClearLinkCue();
+  const el = document.querySelector(`.wb-object[data-id="${target.id}"]`);
+  el?.classList.add(plan ? "wb-map-link-cue-branch" : "wb-map-link-cue-cross");
+  wbMapLinkCueState = { id: target.id, kind };
+  const name = (node) => `"${(wbMapLabel(node) || "Untitled").slice(0, 40)}"`;
+  wbAnnounce(plan
+    ? `Release to put ${name(plan.child)} under ${name(plan.parent)}.`
+    : `Release to cross-link ${name(source)} and ${name(target)}.`);
+  return kind;
+}
+
+function wbMapClearLinkCue() {
+  if (!wbMapLinkCueState) return;
+  document.querySelector(`.wb-object[data-id="${wbMapLinkCueState.id}"]`)
+    ?.classList.remove("wb-map-link-cue-branch", "wb-map-link-cue-cross");
+  wbMapLinkCueState = null;
 }
 
 //: Open the library item a reference node stands for. One place, because
@@ -3337,10 +3491,24 @@ function wbMapTypeaheadLive() {
   return Boolean(wbMapTypeahead);
 }
 
+//: **Enter in that window is the Enter that ends the name** (measured
+//: 2026-10-04: Tab, "First branch", Enter typed at speed saved two empty
+//: topics, because the Enter reached the map's own Enter and added a sibling
+//: before the first topic's editor had opened, and the sibling's create then
+//: started a fresh, empty typeahead). It is held as `commit`, and the editor
+//: closes on the typed text as soon as it opens. Keys after it are swallowed
+//: rather than appended: they were typed after the name was finished, and a
+//: shortcut fired from them would act on a topic that is not there yet.
 function wbMapCatchTypeahead(e) {
-  if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return false;
+  if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    wbMapTypeahead.commit = true;
+    return true;
+  }
+  if (e.key.length !== 1) return false;
   e.preventDefault();
-  wbMapTypeahead.text += e.key;
+  if (!wbMapTypeahead.commit) wbMapTypeahead.text += e.key;
   return true;
 }
 
@@ -3601,6 +3769,7 @@ function wbMapEditNode(id) {
   // rather than kept from before, the same trap `wbCreateTextBox` documents.
   requestAnimationFrame(() => {
     const typed = wbMapTypeahead?.text || "";
+    const commit = Boolean(wbMapTypeahead?.commit);
     wbMapTypeahead = null;
     const el = document.querySelector(`.wb-object[data-id="${id}"] .wb-map-text`);
     if (!el) return;
@@ -3616,6 +3785,9 @@ function wbMapEditNode(id) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+    //: The Enter typed ahead (`wbMapCatchTypeahead`): the blur is the same
+    //: commit the editor's own Enter makes.
+    if (commit) el.blur();
   });
 }
 
@@ -5436,7 +5608,9 @@ const WB_MAP_STYLE_KEYS = [
 //: it the one control on this map you cannot press to find out what it does.
 //: Two lists rather than one flag, because the two questions are different
 //: ones and a boolean beside each key would be read as neither.
-const WB_MAP_CONTENT_KEYS = ["image"];
+//: A task (decision 15) is content for the same reason: "reset this topic's
+//: look" must not untick or un-task anything.
+const WB_MAP_CONTENT_KEYS = ["image", "task"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint

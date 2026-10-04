@@ -1860,3 +1860,92 @@ def test_deleting_a_topic_with_no_links_returns_an_empty_list(client):
     leaf = _node(client, board["id"], parent_id=root["id"], text="Leaf")
     body = client.delete(f"/whiteboard/objects/{leaf['id']}").json()
     assert body["links"] == []
+
+
+
+# --- a topic that is a task (MINDMAP_PLAN.md decision 15) ---------------------
+
+
+def _set_data(client, board, node, patch):
+    return client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], **patch},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+
+
+def _task_map(client):
+    board = _map(client, name="Launch")
+    root = _node(client, board["id"], text="Launch")
+    open_ = _node(client, board["id"], parent_id=root["id"], text="Write the post")
+    done = _node(client, board["id"], parent_id=root["id"], text="Book the room")
+    assert _set_data(client, board, open_, {"task": "open"}).status_code == 200
+    assert _set_data(client, board, done, {"task": "done"}).status_code == 200
+    return board
+
+
+def test_a_task_is_open_or_done_and_nothing_else(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Maybe")
+    assert _set_data(client, board, node, {"task": "half"}).status_code == 422
+    assert _set_data(client, board, node, {"task": "done"}).status_code == 200
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"task": "done"}
+
+
+def test_a_markdown_export_writes_tasks_as_task_list_items_and_reads_them_back(client):
+    board = _task_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "  - [ ] Write the post" in text and "  - [x] Book the room" in text
+    assert "- Launch" in text and "[ ] Launch" not in text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "markdown", "content": text, "name": "Back"}
+    )
+    assert back.status_code == 201, back.text
+    kids = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"][0]["children"]
+    assert {(k["text"], k["style"].get("task")) for k in kids} == {
+        ("Write the post", "open"),
+        ("Book the room", "done"),
+    }
+
+
+def test_a_task_round_trips_through_both_xml_formats(client):
+    board = _task_map(client)
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_task="open"' in text and '_task="done"' in text
+        back = client.post(
+            "/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt}
+        )
+        assert back.status_code == 201, back.text
+        # A FreeMind file's root is the map's title on the way back in, so
+        # every node is read rather than the first root's children.
+        seen, stack = [], list(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+        while stack:
+            node = stack.pop()
+            seen.append(node["style"].get("task"))
+            stack.extend(node["children"])
+        assert sorted(t for t in seen if t) == ["done", "open"], fmt
+
+
+def test_resetting_a_maps_looks_keeps_its_tasks(client):
+    board = _task_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    kids = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]["children"]
+    assert sorted(k["style"].get("task") for k in kids) == ["done", "open"]
+
+
+def test_a_bracket_with_nothing_after_it_is_a_topic_not_a_task(client):
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "markdown", "content": "# T\n- [ ]\n- [x] Done thing\n", "name": "Edge"},
+    )
+    assert back.status_code == 201, back.text
+    roots = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"]
+    assert [(r["text"], r["style"].get("task")) for r in roots] == [("[ ]", None), ("Done thing", "done")]

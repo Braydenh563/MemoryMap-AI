@@ -147,6 +147,17 @@ def test_keys_typed_before_a_new_topics_editor_opens_are_kept():
     assert "wbMapTypeahead = null" in edit and "el.textContent = typed" in edit
 
 
+def test_an_enter_typed_ahead_ends_the_name_rather_than_adding_a_sibling():
+    # Tab, a name and Enter at speed saved two empty topics (2026-10-04): the
+    # Enter reached the map's own Enter before the editor opened. It is held
+    # as a commit, and the editor closes on the typed text when it opens.
+    catch = _function_body(MAP, "wbMapCatchTypeahead")
+    assert catch.index('e.key === "Enter"') < catch.index("e.key.length !== 1")
+    assert "wbMapTypeahead.commit = true" in catch
+    edit = _function_body(MAP, "wbMapEditNode")
+    assert "wbMapTypeahead?.commit" in edit and "if (commit) el.blur()" in edit
+
+
 def test_a_drag_measures_nothing_it_does_not_have_to():
     # The cull reads the gesture's cached canvas box, not clientWidth.
     assert "wbCullNow(undefined, rect ?" in _function_body(WB, "wbScheduleCull")
@@ -215,3 +226,30 @@ def test_focus_mode_reads_the_cross_links_by_the_names_the_server_sends():
     near = _function_body(MAP, "wbMapFocusHidden")
     assert "link.from_id" in near and "link.to_id" in near
     assert "source_id" not in near and "target_id" not in near
+
+
+# --- 2026-10-04: the connect drag's cue, and a menu row that threw -----------
+
+
+def test_a_connect_drag_says_which_connection_it_will_make_in_flight():
+    # MINDMAP_PLAN 13c's remainder. One decision for the cue and the drop, so
+    # the cue cannot promise one kind and the release make the other.
+    join = _function_body(MAP, "wbMapJoinByLink")
+    assert "wbMapJoinPlan(source, target)" in join
+    cue = _function_body(MAP, "wbMapLinkCue")
+    assert "wbMapJoinPlan(source, target)" in cue and "wbAnnounce(" in cue
+    drag = _function_body(WB, "dragging")
+    assert "wbMapLinkCue(d, hover ? hover[1] : null)" in drag
+    assert "wb-link-preview-crosslink" in drag
+    # Released, taken back by Escape: the cue goes either way.
+    assert "wbMapClearLinkCue()" in _function_body(WB, "dragEndNode")
+
+
+def test_nothing_outside_the_boards_setup_calls_its_private_tool_picker():
+    # `selectWbTool` is declared inside `initWhiteboard`; a top-level function
+    # that calls it by name throws (the topic menu's "Connect this topic to
+    # another" did, 2026-10-04). Outside, the handle is `wbSelectToolRef`.
+    init = _function_body(WB, "initWhiteboard")
+    code = re.sub(r"(?m)^\s*//.*$", "", WB)
+    inside = len(re.findall(r"\bselectWbTool\(", re.sub(r"(?m)^\s*//.*$", "", init)))
+    assert len(re.findall(r"\bselectWbTool\(", code)) == inside

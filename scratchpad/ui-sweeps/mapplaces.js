@@ -59,6 +59,8 @@ const ACTION_OF_ID = {
   "wb-map-bold": "look-bold",
   "wb-map-italic": "look-italic",
   "wb-map-core": "look-core",
+  //: The fill switch (a9973cf) is a look; this table did not know it yet.
+  "wb-map-fill": "look-fill",
   "wb-map-text-size": "look-size",
   "wb-map-align": "look-align",
   "wb-map-strip-color": "look-colour",

@@ -528,7 +528,9 @@ the shift-drag sever).
    and a label, curved, dashed by default so it reads as secondary.
 4. **Markers and task info**: priority 1 to 5, progress 0 to 100, flags,
    due date (a reminder can be created from it), a checkbox; filter the
-   map by marker; the outline view shows them as columns.
+   map by marker; the outline view shows them as columns. The checkbox and
+   the count up the branch are built (decision 15; HISTORY.md, "Moved from
+   the plans, 2026-10-04"); the rest is open.
 5. **Notes on nodes**: a text note behind a node (the small marker
    opens it); a node that is a notebook note shows the note's own text
    here, editable both ways.
@@ -1072,6 +1074,21 @@ topic: a control that wide has nowhere to go.
    The alternative, Tab always walking the topics like a board's items, was
    refused because it takes away the one key every mind map builds with.
    Escape then Tab still leaves from an armed map.
+15. **A topic can be a task, and §12.2 item 4 starts there** (taken
+   2026-10-04, the competitor pass: MindNode and XMind both put a box on a
+   topic and count the done ones up the branch, and a map of a plan is what
+   a notebook's maps are for). `data.task` is `open` or `done`, one field so
+   "done but not a task" cannot be stored; content, not a look, so the theme
+   never sets it and neither reset clears it. Made from the topic's menu
+   ("Make this a task", "Stop being a task"), ticked by its box on the topic
+   (a real checkbox button, so no new control on the strip, the ring or the
+   dock: decision 5 and §12.5's three surfaces stand), counted as quiet text
+   after every ancestor's label ("1/2", the success ink at "2/2"). Markdown
+   carries it as `- [ ]` / `- [x]`, the one thing a node wears that Markdown
+   has a word for (decision 12's reasoning about that file holds: every
+   reader draws those as boxes), and reads it back; OPML and FreeMind carry
+   `_task`. No key: Space is the hand tool's hold. Priority, progress
+   percentages, flags and due dates (the rest of item 4) stay open.
 
 ### Phases, each with the gate it is finished against
 
@@ -1152,9 +1169,9 @@ topic: a control that wide has nowhere to go.
   bend grip did nothing~~: **built 2026-09-26**, the grips (bend and both
   ends) hand the press to the link's own hit stroke
   (`wbForwardGripContextMenu`), so the grip opens the same ring as the line;
-  `maptwokinds.js` 18/18, the new check failing on base. **What is left of
-  13c**: nothing yet says which kind a drag is about to make *while* it is in
-  flight, only after it lands.
+  `maptwokinds.js` 18/18, the new check failing on base. The in-flight cue
+  (which kind a connect drag will make, before it lands) is built
+  2026-10-04 (HISTORY.md, "Moved from the plans, 2026-10-04").
 - ~~**13d. A free link survives an export.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13d: a cross-link survives an export"). FreeMind

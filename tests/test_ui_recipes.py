@@ -3722,3 +3722,42 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     #: The emblem is the logo's own renderer, copied rather than drawn per reply.
     assert "renderEmblem(scratch, size, { animate: true })" in js["assistant-avatar.js"]
     assert "renderEmblem(" not in chat
+
+
+def test_board_text_is_made_editable_in_one_place() -> None:
+    """WHITEBOARD_PLAN decision 12 added a third thing typed in place on the
+    board (a shape's text, after a text box and a topic), and DESIGN.md's
+    recipe index names the one way to do it: `wbBeginTextEdit` turns an
+    element into a plain-text editor (so Enter is a line break the save can
+    read, not a `<div>`) and `wbEndTextEdit` turns it back. An editor that
+    sets `contenteditable` itself skips both halves, which is how "start",
+    Enter, "- item" once saved as "start- item"."""
+    for name in ("whiteboard.js", "whiteboard-map.js"):
+        text = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
+        code = re.sub(r"(?m)^\s*//.*$", "", text)
+        makers = [
+            m.start()
+            for m in re.finditer(r"""(?:setAttribute\(\s*"contenteditable",\s*"(?:true|plaintext-only)"|contentEditable\s*=\s*["'](?:true|plaintext-only))""", code)
+        ]
+        begin = code.find("function wbBeginTextEdit(")
+        end = code.find("\n}", begin)
+        strays = [at for at in makers if not (begin != -1 and begin < at < end)]
+        assert not strays, f"{name} makes board text editable outside wbBeginTextEdit ({len(strays)} places)"
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    #: A shape's text and a connector's label (decision 13) share one editor.
+    edit = wb[wb.index("function wbOpenSketchLabelEditor(") :][:4000]
+    assert "wbBeginTextEdit(editor)" in edit and "wbEditedText(editor)" in edit
+    for caller in ("wbEditShapeLabel", "wbEditLinkLabel"):
+        assert "wbOpenSketchLabelEditor(" in wb[wb.index(f"function {caller}(") :][:1500], caller
+
+
+def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
+    """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
+    the width was in the rows (the group labels sit above them and are all
+    narrower). Between 600 and 1023px the dots drop their gap; their own
+    transparent ring keeps them apart. `scratchpad/ui-sweeps/sketchbar.js`
+    is the measurement; this keeps the rule from being lost in a merge."""
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    at = css.index("@media (min-width: 600px) and (max-width: 1023px) {")
+    block = css[at : css.index("\n}", at)]
+    assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block

@@ -3413,6 +3413,8 @@ $("sampling-reset")?.addEventListener("click", async () => {
 // a control would be more chrome than text, the threshold is where a hint
 // stops being a label's tail and starts being a paragraph.
 const SETTINGS_HINT_INLINE_CHARS = 90;
+//: Ids for switches that had none, so their label can name them (below).
+let settingSwitchSeq = 0;
 
 function collapseLongSettingHints(root) {
   const scope = root || document.getElementById("settings-modal");
@@ -3483,7 +3485,18 @@ function collapseLongSettingHints(root) {
     // previous report about this same row was.
     const settingCheck = parent.closest(".setting-check");
     if (settingCheck) {
-      settingCheck.insertBefore(toggle, settingCheck.querySelector("input[type=checkbox]"));
+      const box = settingCheck.querySelector("input[type=checkbox]");
+      settingCheck.insertBefore(toggle, box);
+      //: **The row's words must still toggle the row's switch.** A label
+      //: activates its first labelable descendant, and the "?" is a button,
+      //: placed above, before the checkbox: pressing "Keep Atlas on this
+      //: machine" opened its help and left the setting as it was (found by the
+      //: deepflows sweep). Naming the checkbox with `for` is what a label
+      //: uses when it has one, wherever the button sits.
+      if (box && settingCheck.tagName === "LABEL") {
+        if (!box.id) box.id = `setting-switch-${++settingSwitchSeq}`;
+        settingCheck.htmlFor = box.id;
+      }
       continue;
     }
     const row = document.createElement("span");

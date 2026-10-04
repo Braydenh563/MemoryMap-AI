@@ -2907,6 +2907,29 @@ body.scroll-top-visible .skills-split > .tab-main {
   padding-block: 0;
 }
 
+/* **It is a select, so it wears a select's face** (the owner: "clean up the
+   styling ... of the top bar"). It wore the standalone quiet button's: a
+   tinted fill, a 600 label and an edge, the one control in the bar with a
+   fill, so the space read louder than the tab you are on. Now the face every
+   select in a dock has (`.dock .select-shell > .select-opener`): the field's
+   inset ground, the 3:1 control edge, a 400 label, the edge warming under the
+   pointer. Same height, same width; the tab strip beside it is the same inset
+   ground, so the two read as one kind of thing. */
+#top-bar .space-switcher-btn.ghost {
+  background: var(--field-inset);
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px var(--field-inset);
+  font-weight: 400;
+  color: var(--ink);
+}
+
+#top-bar .space-switcher-btn.ghost:hover,
+#top-bar .space-switcher-btn.ghost[aria-expanded="true"] {
+  background: var(--field-inset);
+  border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
+}
+
 .space-switcher-name {
   min-width: 0;
   overflow: hidden;
@@ -9226,11 +9249,30 @@ button.connection-row {
   /* The shell as well as the select: `enhanceSelect` (sheets-selects.js) puts every
      native select inside a `.select-shell`, and that shell is what the bar
      actually lays out, so a cap on the select alone measured as no change at
-     all (212px before and after). */
+     all (212px before and after).
+
+     **A floor that gives way, not a fixed cap** (INBOX 479). At 8rem the name
+     read "Board · ..." at 820 with 89px of empty bar beside it (122px on a
+     map, 273 at 1152). The picker now asks for its whole name up to the
+     desktop's 14rem and is the one thing in the bar that shrinks, to 6rem;
+     the right half keeps its width, so nothing is pushed off the end. */
   .wb-topbar #wb-board-select,
   .wb-topbar .select-shell {
-    max-width: 8rem;
+    max-width: 14rem;
+    min-width: 6rem;
+    flex: 0 1 auto;
   }
+}
+
+@media (min-width: 48.01rem) {
+  .wb-topbar-right {
+    flex-shrink: 0;
+  }
+}
+
+/* The map's chip is one short word; the picker beside it gives way first. */
+.wb-topbar #wb-map-chip {
+  flex: none;
 }
 
 @media (max-width: 76rem) {
@@ -13205,7 +13247,15 @@ header#top-bar {
 .wb-rail .select-shell {
   flex: 0 0 auto;
   min-width: 9rem;
-  height: var(--target-min);
+  /* The tools' own 36px (`.wb-tool-group button`): at `--target-min` it was
+     28px in a row of 36px tools, and the Map section's '?' 32px, three
+     heights in one rail (INBOX 479). Never under a touch target. */
+  height: max(2.25rem, var(--target-min));
+}
+
+.wb-rail .wb-tool-section-row > .graph-help-toggle {
+  width: max(2.25rem, var(--target-min));
+  height: max(2.25rem, var(--target-min));
 }
 
 /* The picker's visible face is `.select-opener`, a button, and the rail's

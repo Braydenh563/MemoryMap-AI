@@ -1418,13 +1418,29 @@ header#top-bar h1 {
    one, with the wordmark. */
 header#top-bar.tabs-wrapped {
   flex-wrap: wrap;
-  row-gap: 0.5rem;
+  row-gap: 0;
+}
+
+/* **The row is broken by an empty line, so the well can hug its tabs**
+   (INBOX 479). The strip used to take the row by being 100% wide, which drew
+   its inset well across the whole window: at 820, 788px of well round 430px
+   of tabs. A well is drawn round what it holds everywhere else (the sub-tab
+   strips, every segment). A zero-height full-width item forces the break
+   instead, and the strip sits centred at its own width, 0.5rem below. */
+header#top-bar.tabs-wrapped::after {
+  content: "";
+  order: 2;
+  flex-basis: 100%;
+  height: 0;
 }
 
 header#top-bar.tabs-wrapped #tab-bar {
   order: 3;
-  flex-basis: 100%;
-  width: 100%;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+  margin-top: 0.5rem;
 }
 
 /* Generic version of the same edge-fade `#tab-bar` uses, for every other

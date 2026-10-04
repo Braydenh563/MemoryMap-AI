@@ -2107,8 +2107,17 @@
   background: none;
 }
 
+/* **The seam is drawn, not implied** (the owner, of this row: "clean up the
+   styling, spacing and alignment etc of the top bar"). `.header-divider`, the
+   line this note above relies on, left the markup, and what stayed was
+   16px between Settings and Lock against 6.4px between every other pair:
+   Lock and Quit read as two buttons that had drifted, not as a group. Now
+   the status bar's own seam (`.status-zone[data-status-zone="control"]`):
+   a hairline with the same room either side, 8px and 8px. */
 .header-cluster-end {
-  margin-left: var(--space-3);
+  margin-left: 0;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
 }
 
 .header-cluster > button,

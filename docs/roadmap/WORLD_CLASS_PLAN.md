@@ -3169,3 +3169,11 @@ breadcrumbs).
 504. **The owner, 2026-10-04 evening, verbatim.** "also add more capablilty
      and utility to the manage tags and categories panels." Placed
      (WORLD_CLASS_PLAN, "Placed from INBOX, 2026-10-04").
+
+507. **From the dock audit (479, `scratchpad/dock-audit-479.md`), found and
+     not fixed.** Graph: fold the View menu into the gear (two ways in).
+     Boards and maps: one "New" with board and mind map inside (8 controls
+     today). Zoom controls: one orientation and order on Graph, board and
+     map. Help '?' on the Library's All, Documents and Bookmarks sub-tabs.
+     Reminders: one "Add" per card. The documents dock onto the shared dock
+     recipe (DOCUMENTS_PLAN). Sonnet-sized except the zoom unification.

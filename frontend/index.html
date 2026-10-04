@@ -2295,6 +2295,17 @@ Link to another note with [[its first few words]]."></textarea>
                    each proxy and once for the menu row that is the control. In DOM order they were sitting after it, so the
                    row's last *tabbable* thing was not the one the eye ends
                    on. -->
+              <!-- **Help where every other dock keeps it** (INBOX 479): refresh,
+                   help, more. It lived in the empty conversation's corner
+                   (INBOX 236 took it out of the middle) and went the moment a
+                   chat had a message; every other tab's dock ends with its
+                   '?'. The words name the persona: `renderChatEmptyState`. -->
+              <button type="button" id="chat-help-toggle" class="icon-only ghost small graph-help-toggle"
+                data-help-for="chat-help" aria-controls="chat-help" aria-expanded="false"
+                title="About this chat" aria-label="About this chat"><i class="ph ph-question" aria-hidden="true"></i></button>
+              <div class="help-body hidden" id="chat-help" role="dialog" aria-label="About this chat">
+                <p id="chat-help-text">Atlas answers from your saved notes and shows the notes behind each answer. In Agent mode it can also create, tag, link and organise notes for you, and asks before anything it cannot undo.</p>
+              </div>
               <span id="chat-actions-menu" class="chat-actions-menu dock-more"></span>
             </div>
           </div>
@@ -5589,9 +5600,10 @@ Link to another note with [[its first few words]]."></textarea>
              `hidden` until `wbSyncMapChrome` finds the open board is a map,
              rather than disabled: a control that can never apply to an
              ordinary whiteboard is not one worth reading past on every board.
-             The chip is `.library-chip`, the app's own filter-chip recipe,
-             not a badge invented for this bar. -->
-        <span id="wb-map-chip" class="library-chip active" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
+             The chip is `.dock-chip`, a fact beside the name (the Graph's
+             count wears it): it was `.library-chip.active`, the filter chip's
+             on state, which read as a toggle already pressed (INBOX 479). -->
+        <span id="wb-map-chip" class="dock-chip" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
       </div>
       <div class="wb-topbar-right">
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
@@ -6666,7 +6678,7 @@ Link to another note with [[its first few words]]."></textarea>
                small enough that a plain substring pass costs nothing. -->
           <input id="library-images-search" type="search" class="library-search"
             placeholder="Search filenames, captions and text found in files…"
-            aria-label="Search the image gallery">
+            aria-label="Search the images">
           <!-- **Files is a reading list now, so it filters by whether a thing
                has been read.** Asked for directly: "because the ocr worspace
                exists, redesign the files library subtab and its capabilities."
@@ -7711,8 +7723,10 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Settings">
     <div class="card modal-card">
-      <div class="row space-between">
-        <h2>Settings</h2>
+      <!-- The dialog head every popup wears (DESIGN.md, "A dialog's head";
+           INBOX 479): its utilities were 28px beside a 32px Close. -->
+      <div class="row space-between dialog-head">
+        <h2 class="dialog-head-title">Settings</h2>
         <div class="row">
           <!-- The status bar's own back/forward pair (footer, `#status-back`/
                `#status-forward`) sit at a lower z-index than every modal on
@@ -7743,13 +7757,13 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- The person, in the head every pane shares: their mark, and the
                way to the profile from any pane. Painted by `paintUserMarks`
                (chat-agent.js). -->
-          <button id="settings-profile-btn" class="ghost small icon-only settings-profile-btn" type="button"
+          <button id="settings-profile-btn" class="ghost small icon-only dialog-head-btn settings-profile-btn" type="button"
             title="Your profile" aria-label="Your profile"><span class="profile-mark" data-user-mark="18" aria-hidden="true"></span></button>
-          <button id="settings-guide-btn" class="ghost small icon-only" type="button"
+          <button id="settings-guide-btn" class="ghost small icon-only dialog-head-btn" type="button"
             title="Ask Atlas how this app works" aria-label="Ask Atlas how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
-            <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-            <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+            <button id="settings-nav-back" class="ghost small icon-only dialog-head-btn" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <button id="settings-nav-forward" class="ghost small icon-only dialog-head-btn" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
           </span>
           <!-- Only meaningful on Appearance, so it is shown there and hidden
                everywhere else: a control that does nothing on nine screens out

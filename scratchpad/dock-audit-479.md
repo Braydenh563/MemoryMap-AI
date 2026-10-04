@@ -62,7 +62,9 @@ mark moved no wrap): a
 2. **Settings' head was not on the dialog-head recipe.** Profile, guide, Back
    and Forward at 28x28 beside a 32x32 Close; the title an `h2` at the card's
    own voice rather than `.dialog-head-title`. Every other dialog head is 32px
-   utilities (DESIGN.md, "A dialog's head"). **Planned**: the row is
+   utilities (DESIGN.md, "A dialog's head"). **Fixed** (after: all six 32x32
+   on one centre line at 1440, the title 16px/600; 44x44 at 390, one 44px
+   row): the row is
    `.dialog-head`, the title `.dialog-head-title`, the four utilities
    `.dialog-head-btn`.
 3. **The map's top bar showed a fact dressed as a pressed toggle.** `#wb-map-chip`
@@ -70,27 +72,35 @@ mark moved no wrap): a
    filled, bold box that reads as a button already pressed, and pressing it does
    nothing. It also says what the picker beside it already says ("Mind map ·
    Portugal trip"). A fact in a bar is `.dock-chip` (the Graph's "75 notes · 87
-   links", the Timeline's "88 items · 54 days"). **Planned**: `.dock-chip`.
+   links", the Timeline's "88 items · 54 days"). **Fixed**: `.dock-chip`, a
+   quiet bordered fact at 400, no fill.
 4. **The map's tool rail had three control heights.** Tools 36px, the '?' 32px,
    the layout picker 28px, in one row (the inventory read the rail as two rows
-   because the tops differ). The rail recipe is one control height. **Planned**:
+   because the tops differ). The rail recipe is one control height. **Fixed**
+   (after: twelve controls, all 36px on one centre line at 1440):
    the picker and the '?' take the tools' 36px.
 5. **The wrapped tab strip was a full-width slab.** From 600 to 1199, when the
    seven tabs take a row of their own (`.tabs-wrapped`), the strip was
    `width: 100%`: at 820, a 788px tinted well with 430px of small captions in
    its middle and 180px of empty well either side. A well is drawn round what
    it holds everywhere else (the Notes and Library sub-tab strips, the segment).
-   **Planned**: the wrapped strip hugs its tabs and is centred.
+   **Fixed**: the wrapped strip hugs its tabs and is centred (after: a 446px
+   well at x=187 at 820, 490px at x=75 at 640; the header's height unchanged,
+   124px at 820; nothing scrolls).
 6. **Chat was the one tab whose dock had no help.** Every other tab dock ends
    refresh, help, more; Chat's '?' lived in the corner of the empty
    conversation (INBOX 236 moved it there) and is gone the moment a
-   conversation has a message. **Open**: moving it is a change to an
-   owner-placed control; recommended for INBOX: the same `data-help-for` button
-   in `.dock-actions` before the ⋯, the empty state keeping none.
+   conversation has a message. **Fixed**: the same `data-help-for` button in
+   `.dock-actions` before the ⋯ (32x32 at 1440, 44x44 at 390), its words still
+   naming the persona; the welcome keeps none. INBOX 236's ask (not in the
+   middle of the welcome) still holds: it is at the dock's end.
 7. **The board picker truncates to its prefix at tablet widths.** At 820 the
    picker reads "Board · ..." (8rem cap below 76rem) with 104px of empty bar
-   between it and the search button. **Planned**: the picker keeps its cap and may
-   grow into the bar's free width up to its 14rem desktop width.
+   between it and the search button. **Fixed**: the picker asks for its whole
+   name up to the desktop's 14rem and is the one control in the bar that
+   gives way, to 6rem; the right half keeps its width. After: 217px at 820
+   ("Board · Harbor launc..."), 224px (the whole name) from 1024; 0px of
+   overflow at 1152, 1024, 820, 780 and 390; the map's chip stays whole.
 8. **Zoom controls differ between the graph and the board.** Graph: a vertical
    stack, Zoom in, Zoom out, Fit, Full screen, bottom right. Board and map: a
    horizontal pill, Zoom out, Fit, Zoom in, bottom right, with Full screen in the
@@ -119,7 +129,8 @@ mark moved no wrap): a
     six of eight. **Open**: low impact, needs help copy written.
 12. **Files search announced as "Search the image gallery".** The Files sub-tab
     shares the Images dock and its search kept the gallery's accessible name.
-    **Planned**: the name follows the sub-tab.
+    **Fixed**: the name follows the sub-tab ("Search the images", "Search
+    the files").
 13. **Reminders has two "Add" buttons in one card**: the magic field's ghost
     "Add" and the form's filled "+ Add". **Open**: copy decision (recommend
     "Add" for the form, the wand alone with "Add from this sentence" on its
@@ -155,6 +166,22 @@ mark moved no wrap): a
     light and dark. From 1024 up only; below it the words are hidden and each
     glyph centres in its own box like Back and Undo.
 
+17. **The top bar** (the owner: "clean up the styling, spacing and alignment
+    etc of the top bar"; `topbar479.js`, new). Every item 44px and on one
+    centre line (31.6px) at 1440, 1024, 820 and 390: alignment was not the
+    fault. Two things were. The space picker was the one control in the bar
+    with a fill: the standalone quiet button's tint, a 600 label and an edge,
+    louder than the selected tab (listed above under things that shout). And
+    Settings to Lock was 16px against 6.4px between every other pair, with
+    nothing drawn: the `.header-divider` the cluster rule's note relies on
+    had left the markup, so Lock and Quit read as drifted rather than grouped.
+    **Fixed**: the picker wears every dock select's face (the field's inset
+    ground, the 3:1 control edge, a 400 label), so it reads as the same kind
+    of thing as the tab strip's inset well beside it; Lock and Quit sit past
+    the status bar's own seam, a hairline with 8px either side; on a phone
+    the seam goes with the buttons it separated. The logo tile is the bar's
+    44px, unchanged.
+
 Checked and consistent (no finding): one control height per dock at every width
 (32px desktop, 44px touch); zone order on every `.dock`; one filled control per
 dock; utilities in refresh, help, more order; the status bar's three zones at
@@ -165,8 +192,8 @@ corner at 390 and 820 (no overlap).
 
 `|` is the zone hairline. Bold is the one filled control.
 
-- **Top bar**: mark, space · tabs (centred) · notifications, theme, settings |
-  lock, quit. Unchanged. Wrapped (600 to 1199): the strip on its own row,
+- **Top bar**: mark, space (a select's face) · tabs (centred) · notifications,
+  theme, settings | lock, quit, the seam drawn (fixed, item 17). Wrapped (600 to 1199): the strip on its own row,
   hugging its tabs, centred (planned).
 - **Status bar**: state | tools | control. Unchanged.
 - **Dashboard**: find doorway | Customise, ⋯ (fixed, INBOX 488).
@@ -174,7 +201,7 @@ corner at 390 and 820 (no overlap).
   ⋯. Target: Select into ⋯ (seven).
 - **Notes, Write with Atlas**: title | model, **Draft**, Undo, '?', ⋯. Unchanged.
 - **Notes, Capture**: the formatting strip (a toolbar, not a dock). Unchanged.
-- **Chat**: thread title and facts | fork, compress, '?', ⋯ (target: '?' added).
+- **Chat**: thread title and facts | fork, compress, '?', ⋯ ('?' added, fixed).
   Composer: attach note, attach file, field, dictate, **Send**; second row:
   Skills, Web, Plan | model | Ask/Agent | gear. Unchanged.
 - **Graph**: Graph and count | search | View | **New note**, refresh, '?', ⋯
@@ -215,10 +242,9 @@ What a DOM sweep cannot see is below, from the census and the screenshots.
   status bar (11.2px, a status line); heights 32px on desktop docks, 28px in the
   status bar, 36px in the rail and the chat composer. One finding: the
   documents dock (item 10).
-- **Things that shout**: the space switcher is the loudest control in the top
-  bar (44px, 600, a bordered tinted face beside 36px tabs), louder than the
-  selected tab. Open: Phase 8 asked for "a select-shaped control"; recommend
-  the field face (`--field` ground, the 3:1 edge) at the tabs' height.
+- **Things that shout**: the space switcher was the loudest control in the
+  top bar (600, a bordered tinted face), louder than the selected tab. Fixed
+  with item 17: the select face Phase 8 asked for.
 - **A fact dressed as a control**: the map chip (item 3, planned).
 - **Gradients**: the page ground (`--page`) is a three-stop wash per theme, the
   only decorative gradient; unslop-ui's own data says mesh and wash grounds do

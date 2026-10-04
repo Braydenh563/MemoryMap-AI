@@ -357,29 +357,12 @@
   margin: 0;
 }
 
-/* **The '?' in the corner, not in the sentence** (INBOX 236). The welcome is a
-   centred column, and a help button in the middle of it is the first thing the
-   eye lands on and the last thing a person opening a new chat wants. Top right
-   of the welcome's own box is where this app puts a help button on every other
-   surface (`.help-head > .graph-help-toggle`), and absolute keeps it out of the
-   column's flow so the three lines stay centred on each other.
-
-   `.chat-empty` gains the positioning context for it; it has nothing else
-   positioned inside it. */
+/* The welcome's '?' went to the chat dock (INBOX 479; INBOX 236 had moved it
+   to this corner). Static stays: nothing inside the welcome is positioned. */
 .chat-empty {
-  /* Static on purpose: the welcome is a 52ch column centred in the pane, so
-     a corner of *its* box is still the middle of the page (the owner, after
-     the first move: "the '?' tooltip button on a new chat is kinda in the
-     middle of the page still??"). `#chat-messages` is the positioned
-     ancestor, so the button lands in the pane's own top-right corner. */
   position: static;
 }
 
-.chat-empty-help-toggle {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-}
 
 /* Inside the welcome the chips are the *call to action*, so they get room and
    a centre line; in the dock (where they go back the moment a message arrives)

@@ -137,6 +137,10 @@ MemoryMap-AI/
 │   │   ├── jobs.py          # the one bounded worker pool: two lanes (cpu for
 │   │   │                    #   Tesseract and extractors, one worker for the
 │   │   │                    #   model), every *_in_background enqueues
+│   │   ├── jobstore.py      # the durable half: a `jobs` row per queued
+│   │   │                    #   reading or filing, leased and heartbeated
+│   │   │                    #   while it runs, resumed at launch after a
+│   │   │                    #   quit or a kill; GET /jobs, /jobs/stream
 │   │   ├── jobruns.py       # when each kind of job last ran and how it went:
 │   │   │                    #   one `job_runs` row per kind, written through
 │   │   │                    #   `job_run(kind)`, read by GET /jobs/last-runs
@@ -337,7 +341,7 @@ are grouped by feature area:
 | `routes_voice` | `/voice` | local Whisper transcription |
 | `routes_help` | `/help` | the Help tab's mini AI chat (`POST /help/ask`), app guidance only, no persisted history |
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
-| `routes_tasks` | `/tasks` | what is running in the background right now (`GET /tasks`), and `GET /jobs/last-runs`: when each kind of job last ran and how it went, one entry per kind in `jobruns.KINDS`, from the database so it survives a restart |
+| `routes_tasks` | `/tasks` | what is running in the background right now (`GET /tasks`), and `GET /jobs/last-runs`: when each kind of job last ran and how it went, one entry per kind in `jobruns.KINDS`, from the database so it survives a restart; `GET /jobs` and the server-sent `GET /jobs/stream`, the durable job rows (`core/jobstore.py`), and `POST /jobs/{id}/cancel` for a queued one |
 | `routes_library` | `/library` | **everything you have made, in one list**: notes, documents, chats, files, tags, bin, activity, assembled server-side |
 | `routes_whiteboard` | `/whiteboard` | note cards and freehand sketches on a pannable canvas (§39C). A *board* is itself an entry, so it is searchable and filable like anything else; `board_id IS NULL` is the unnamed scratch board |
 | `routes_debug` | `/debug` | `GET /debug/health`: one cheap, under-20ms read across data that already exists elsewhere (running jobs, task history, the log), for "is this notebook okay" in one glance |
@@ -783,6 +787,13 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   and the other kinds in `jobruns.KINDS`; read by `GET /jobs/last-runs`.
   A bookkeeping failure never fails the job. `core/taskhistory.py` is the
   other half: what *stopped* since this process started, in memory.
+- **jobs** (WORLD_CLASS_PLAN B2): one row per queued piece of pool work
+  whose kind has a named handler in `core/jobstore.HANDLERS` (OCR,
+  captions, the vision reads, document reads, filing): `kind`, JSON
+  `payload` (never code), `state` (queued, running, done, failed,
+  cancelled), `attempts`, and the lease (`owner`, `lease_until`,
+  `heartbeat`). Launch resumes queued rows and running rows whose lease
+  lapsed, at most three tries each; finished rows are pruned after a week.
 - **bookmarks** carry `is_read` (a saved link you have been through).
 
 **Migrations:** `database.py` runs an additive auto-migrator at startup: new

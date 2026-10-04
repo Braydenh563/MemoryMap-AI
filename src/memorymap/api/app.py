@@ -792,6 +792,9 @@ def create_app() -> FastAPI:
     # A job record still saying "running" belongs to the process that just
     # ended; say so before anything new can be mistaken for it.
     jobruns.mark_interrupted()
+    # The durable jobs (core/jobstore.py): the readings and filings a closed
+    # or killed process left queued or half done are queued again, once.
+    jobs.resume()
     ledger_path = deps.get_config().data_dir / egress.LEDGER_NAME
     _purge_expired_bin_entries()
     _compact_event_log()

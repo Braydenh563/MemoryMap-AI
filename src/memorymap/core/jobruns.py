@@ -109,6 +109,12 @@ def _database(db):  # noqa: ANN001, ANN202
     return db if db is not None else _peek_db()
 
 
+def peek_database(db=None):  # noqa: ANN001, ANN201
+    """`db` if given, else the app's database if it has one, else None.
+    Public for `core/jobstore.py`, which records through the same source."""
+    return _database(db)
+
+
 class Run:
     """The handle `job_run` yields. Set `result`; call `cancel` for a stop."""
 

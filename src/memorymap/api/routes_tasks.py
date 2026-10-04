@@ -22,15 +22,18 @@ and records endings only, see `core/taskhistory.py`.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, taskhistory
+from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
 
 router = APIRouter(tags=["tasks"])
@@ -272,7 +275,13 @@ def collect() -> list[dict]:
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
     for task in tasks:
-        task["cancellable"] = task["kind"] in bgtasks.CANCELLABLE_KINDS or task["kind"] in FILING_KINDS
+        task["cancellable"] = (
+            task["kind"] in bgtasks.CANCELLABLE_KINDS
+            or task["kind"] in FILING_KINDS
+            # A queued job the `jobs` table holds: cancelling its row is a
+            # real stop (`jobstore.cancel`). A running one is not offered.
+            or bool(task.get("queued") and task.get("job_id"))
+        )
     return tasks
 
 
@@ -319,6 +328,72 @@ def jobs_last_runs() -> dict:
     return {"jobs": jobruns.last_runs(deps.get_db())}
 
 
+@router.get("/jobs")
+def list_jobs(limit: int = Query(default=50, ge=1, le=500)) -> dict:
+    """The durable job table (WORLD_CLASS_PLAN B2): what is queued and
+    running, oldest first, then the latest endings. Survives a restart, like
+    `/jobs/last-runs` and unlike `/tasks`."""
+    return {"jobs": jobstore.list_jobs(deps.get_db(), limit=limit, labels=bgpool.LABELS)}
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: int) -> dict:
+    """Stop one queued job by its row. Never 404 or 409, the same contract
+    as `/tasks/cancel`: a job that ended while the click travelled is an
+    answer, not an error."""
+    stopped, detail = jobstore.cancel(job_id, db=deps.get_db())
+    return {"status": "ok", "stopped": stopped, "detail": detail}
+
+
+#: How often the stream looks at the change counter, and how long it stays
+#: open before asking the client to reconnect. A cap rather than for ever:
+#: a stream nobody closes holds a connection through a quit, and
+#: `EventSource` reconnects on its own.
+_STREAM_POLL_SECONDS = 0.5
+_STREAM_PING_SECONDS = 15.0
+_STREAM_MAX_SECONDS = 300.0
+
+
+@router.get("/jobs/stream")
+async def jobs_stream(
+    request: Request,
+    seconds: float = Query(default=_STREAM_MAX_SECONDS, ge=0, le=_STREAM_MAX_SECONDS),
+    limit: int = Query(default=50, ge=1, le=500),
+) -> StreamingResponse:
+    """Server-sent events: the `/jobs` list, sent at once and again on every
+    change (`jobstore.version`), plus a comment line every 15 s so a proxy
+    does not close an idle stream. `seconds=0` sends the one snapshot and
+    ends, for a reader that wants it once."""
+    db = deps.get_db()
+
+    def snapshot() -> str:
+        rows = jobstore.list_jobs(db, limit=limit, labels=bgpool.LABELS)
+        return f"event: jobs\ndata: {json.dumps({'jobs': rows})}\n\n"
+
+    async def events():
+        seen = jobstore.version()
+        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot)
+        started = last_sent = time.monotonic()
+        while time.monotonic() - started < seconds:
+            await asyncio.sleep(_STREAM_POLL_SECONDS)
+            if await request.is_disconnected():
+                return
+            now_version = jobstore.version()
+            if now_version != seen:
+                seen = now_version
+                last_sent = time.monotonic()
+                yield await asyncio.to_thread(snapshot)
+            elif time.monotonic() - last_sent >= _STREAM_PING_SECONDS:
+                last_sent = time.monotonic()
+                yield ": ping\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
+
+
 class CancelTaskBody(BaseModel):
     """Which job to stop. `kind` is what `/tasks` reported for it."""
 
@@ -343,6 +418,12 @@ def cancel_task(body: CancelTaskBody) -> dict:
     time a click arrives the job it was about may genuinely be over. The
     honest response is `stopped: false` and a sentence saying so.
     """
+    kind = body.kind.strip()
+    if kind.startswith("job-") and kind not in FILING_KINDS:
+        count = jobstore.cancel_queued(kind[len("job-"):], body.name.strip())
+        if count:
+            return {"status": "ok", "stopped": True, "detail": f"Stopped {count} waiting job{'' if count == 1 else 's'}."}
+        return {"status": "ok", "stopped": False, "detail": "It is already running and will finish."}
     if body.kind.strip() in FILING_KINDS:
         try:
             stopped, detail = _stop_filing()

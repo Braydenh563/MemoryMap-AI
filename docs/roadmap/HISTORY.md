@@ -7,6 +7,28 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the first round)
+
+### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A forced first round (`agent._first_round_tools`) is offered the writes and the reads that find a note or a reminder (`_LOCATING_TOOLS`: `search_notes`, `get_note`, `list_notes`, `list_reminders`), nothing else; the next round has the whole toolbox again | 3B, forced: "Add X to my note" opened with `get_current_time`, "Pin my dentist note" with `count_notes` | harmless read first 2 of 22 before, 0 of 22 after | `test_harness_tiers.py` (`test_a_forced_first_round_is_offered_the_writes_and_the_finders`, `test_the_round_after_a_forced_one_has_the_whole_toolbox_again`) |
+| A forced edit of a named note ("put X in my Y note", `tools.adds_to_a_named_note`) is not offered `create_note` | "Put 'buy stamps' in my shopping note" made a new note, 2 of 2 | 0 of 2; `search_notes` both times | `test_a_forced_edit_of_a_named_note_is_not_offered_a_new_note` |
+| Filing a note cues `edit_note` ("file ", "filed ", "move " in its group): the category goes on the note | "File the dentist note under Health" was offered only the category tree's four tools | `edit_note` offered | same file |
+| A question's first round (`_INFORMATION_QUESTION`: a wh-word, or an auxiliary with its subject) is offered no write; "can you pin it?" keeps its writes; the writes come back on the next round | "What tags and what categories am I using?" opened with `tag_note` (the H4 report) | no write can be first; in this sample 0 of 13 questions opened with a write before and after (the `tag_note` case did not reproduce: 3 of 3 `notebook_overview` before, 3 of 3 `list_tags` after) | `test_a_question_s_first_round_is_offered_no_write`, `test_a_request_said_as_a_question_keeps_its_writes`, `test_a_question_that_becomes_a_job_gets_its_writes_after_reading`, `test_a_large_model_s_first_round_is_not_narrowed` |
+
+Measured on Qwen2.5-3B-Instruct Q4_K_M under llama-server `--jinja -t 2`,
+the app's own system prompt and toolbox (`scratchpad/harness_firstcall.py`,
+whose probe now sends the first round's own tools), four contended cores, a
+median 80 to 94 s a round. Forced, the eleven note-targeting imperatives
+twice each: a right first tool 17 of 22 before, 20 of 22 after. The two
+misses after: one prose answer with `tool_choice: "required"` on the request
+(the server's grammar did not hold), and one `create_category` before
+`edit_note` for "File ... under Health". Unforced, ten questions and the
+tags-and-categories question three times: right 10 of 13 before, 12 of 13
+after. Small and tiny tiers only; a large model's first round is unchanged.
+
 ## Moved from the plans, 2026-10-04 (presenting a board's frames)
 
 ### From WHITEBOARD_PLAN.md, the open "presentation mode" row (decision 16)

@@ -1,5 +1,10 @@
 # Harness and whiteboard 1004: what is left
 
+Measured (3B, forced first rounds of eleven note-targeting imperatives,
+two tries each): a right first tool 17 of 22 before, 20 of 22 after; a
+harmless read first 2 to 0; a new note for a named one 2 to 0. Questions:
+right 10 of 13 to 12 of 13, a write first 0 to 0.
+
 Part A (AGENT_SKILLS_REFORM H4's found-not-fixed) and Part B
 (WHITEBOARD_PLAN's open rows) of the 2026-10-04 brief. What landed is in
 HISTORY.md ("Moved from the plans, 2026-10-04": the first round, board frames,

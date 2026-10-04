@@ -354,4 +354,9 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     about 50 minutes on these cores, so a 4B pass was left for a quieter
     machine); Ollama's native dialect (no Ollama binary in the sandbox;
     installing one was not attempted); ten picture tries (five were run).
+  - **The first round, fixed 2026-10-04** (a forced round took a harmless
+    read, a question was offered writes): HISTORY.md, "Moved from the
+    plans, 2026-10-04 (the first round)". 3B, forced first rounds of the
+    eleven note-targeting imperatives, two tries each: a right first tool
+    17 of 22 before, 20 of 22 after.
 

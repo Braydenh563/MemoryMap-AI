@@ -13,7 +13,12 @@ cheap half of the client.
 
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 JS = Path(__file__).resolve().parent.parent / "frontend" / "js"
 
@@ -49,8 +54,7 @@ def test_the_chat_answer_carries_the_alts_and_the_prompt_names_the_pictures(ai_c
     body = ai_client.post("/chat", json={"question": "what did I photograph on the walk? moss"}).json()
     assert body["picture_alts"] == {"/media/moss123.png": "moss on a wall"}
     prompt = "\n".join(str(m.get("content", "")) for m in fake_ollama.chat_calls[-1])
-    assert "(has 1 picture, shown beside it;" in prompt
-    assert '"the picture in note 1" points at one' in prompt
+    assert "(has 1 picture: write [picture 1] where showing one helps)" in prompt
 
 
 def test_the_turn_keeps_the_alts_for_a_reopened_chat(client):
@@ -79,3 +83,105 @@ def test_the_client_draws_thumbnails_beside_the_chip():
     assert "meta?.picture_alts || null" in (JS / "chat-attach.js").read_text(encoding="utf-8")
     assert "answerMeta?.picture_alts || null" in ask
     assert "message.picture_alts || null" in (JS / "sheets-selects.js").read_text(encoding="utf-8")
+
+
+# INBOX 526: the picture inside the bubble itself, by a `[picture N]` token.
+
+
+def test_image_size_reads_the_headers(tmp_path):
+    import struct
+    import zlib
+
+    from memorymap.core.imagesize import image_size
+
+    def png(w, h):
+        def chunk(kind, data):
+            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+        return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+
+    (tmp_path / "a.png").write_bytes(png(800, 600))
+    jpeg = b"\xff\xd8\xff\xe0\x00\x04ab\xff\xc0\x00\x0b\x08\x01\x2c\x01\x90\x01\x01\x11\x00"
+    (tmp_path / "b.jpg").write_bytes(jpeg)
+    (tmp_path / "c.gif").write_bytes(b"GIF89a" + struct.pack("<HH", 40, 30) + b"\0" * 8)
+    (tmp_path / "d.png").write_bytes(b"not an image")
+    assert image_size(tmp_path / "a.png") == (800, 600)
+    assert image_size(tmp_path / "b.jpg") == (400, 300)
+    assert image_size(tmp_path / "c.gif") == (40, 30)
+    assert image_size(tmp_path / "d.png") is None
+    assert image_size(tmp_path / "missing.png") is None
+
+
+def test_picture_sizes_ride_the_answer_and_the_saved_turn(ai_client, fake_ollama, session, tmp_path):
+    from memorymap.core import deps
+
+    media = deps.get_config().data_dir / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    (media / "sz123.png").write_bytes(
+        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 800, 600, 8, 2, 0, 0, 0))
+    )
+    ai_client.post("/entries", json={"content": "Whiteboard from the sprint:\n\n![](/media/sz123.png)"})
+    body = ai_client.post("/chat", json={"question": "what is on the sprint whiteboard?"}).json()
+    assert body["picture_sizes"] == {"/media/sz123.png": [800, 600]}
+    prompt = "\n".join(str(m.get("content", "")) for m in fake_ollama.chat_calls[-1])
+    assert "write [picture 1]" in prompt
+    created = ai_client.post(
+        "/conversations",
+        json={
+            "question": "q",
+            "answer": "a [picture 1]",
+            "picture_sizes": {"/media/sz123.png": [800, 600], "https://x/y.png": [1, 1]},
+        },
+    ).json()
+    messages = ai_client.get(f"/conversations/{created['id']}").json()["messages"]
+    assert messages[1]["picture_sizes"] == {"/media/sz123.png": [800, 600]}
+
+
+def test_a_note_with_two_pictures_offers_the_second_token():
+    from memorymap.ai.librarian import _pictures_hint
+
+    assert "[picture 3] or [picture 3.2]" in _pictures_hint({"pictures": 2}, 3)
+    assert _pictures_hint({"pictures": 0}, 3) == ""
+
+
+def test_the_client_places_figures_from_tokens():
+    ask = (JS / "capture-ask.js").read_text(encoding="utf-8")
+    start = ask.index("function placeAnswerFigures(")
+    body = ask[start : ask.index("\n}\n", start)]
+    # The token is always removed; a figure needs a note with pictures; three at most.
+    for needle in ("PICTURE_TOKEN", "FIGURES_MAX", "notePictures(", "PICTURE_ASK", "words.length < 200"):
+        assert needle in body
+    assert "FIGURES_MAX = 3" in ask
+    assert 'querySelector(".answer-figure")' in body
+    figure = ask[ask.index("function answerFigure(") :][:2500]
+    for needle in ('img.loading = "lazy"', "img.width", "img.height", "openLightbox(pictureItems", "flashEntry(", "From note"):
+        assert needle in figure
+    # A half-written token never reaches the page while the answer streams.
+    assert "holdPictureTokens(latest)" in ask
+    # Every surface that shows an answer places them: live Ask, live Chat, a reopened chat, a reopened Ask.
+    assert "placeAnswerFigures(answerBox, answerMeta, question)" in ask
+    assert "placeAnswerFigures(" in (JS / "chat-attach.js").read_text(encoding="utf-8")
+    assert "placeAnswerFigures(" in (JS / "sheets-selects.js").read_text(encoding="utf-8")
+    assert "placeAnswerFigures(" in (JS / "ask-history.js").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_half_written_token_is_held_back_and_a_whole_one_removed():
+    ask = (JS / "capture-ask.js").read_text(encoding="utf-8")
+    token = ask[ask.index("const PICTURE_TOKEN") : ask.index("\n", ask.index("const PICTURE_TOKEN"))]
+    hold = ask[ask.index("function holdPictureTokens") :]
+    hold = hold[: hold.index("\n}\n") + 2]
+    script = token + "\n" + hold + """
+const cases = ["See [picture 1] now", "See [picture 2.1] and [Picture 3]", "See [pic", "See [picture 1", "See [picture 12.",
+  "A [link", "A [link](x) and [", "Done."];
+console.log(JSON.stringify(cases.map(holdPictureTokens)));"""
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    assert json.loads(out) == [
+        "See  now", "See  and ", "See ", "See ", "See ", "A [link", "A [link](x) and ", "Done.",
+    ]

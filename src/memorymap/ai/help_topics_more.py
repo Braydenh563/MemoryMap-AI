@@ -670,15 +670,23 @@ MORE_TOPICS.extend(
             "keywords": (
                 "pictures in answers", "images in answers", "image in chat",
                 "picture in chat", "sketch in chat", "show the picture",
-                "thumbnail", "photo in the answer", "picture in note",
+                "thumbnail", "photo in the answer", "picture in note", "[picture 1]",
+                "figure in the answer", "show me the sketch",
             ),
             "body": (
                 "When an answer in Chat or Ask draws on a note with pictures or "
                 "sketches, the note's numbered chip under Grounded in has up to "
                 "three small pictures beside it (a +n says there are more). The "
                 "chip opens the note; a picture opens in the image viewer, with "
-                "its caption and the text read off it. Atlas is told which notes "
-                "have pictures, so it can point at one as the picture in note 2."
+                "its caption and the text read off it. Atlas can also place a "
+                "picture inside its answer by writing [picture 2] for note 2 "
+                "([picture 2.2] for its second): it appears as a figure under "
+                "the paragraph, with its caption and a From note 2 link that "
+                "opens the note, and a click opens the image viewer. Ask for "
+                "the picture (show me the sketch) and a cited note that is "
+                "mostly pictures gets one even if Atlas does not write the "
+                "token. At most three figures an answer; reopening the chat "
+                "draws them again."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

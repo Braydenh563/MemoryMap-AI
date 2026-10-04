@@ -20,6 +20,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timezone
 from itertools import chain
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -69,6 +70,7 @@ from memorymap.core.database import (
 )
 from memorymap.core.config import days_from_today, user_now
 from memorymap.core.deps import get_session
+from memorymap.core.imagesize import image_size
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
@@ -641,6 +643,8 @@ class ChatResponse(BaseModel):
     match_info: dict[str, dict] = {}
     # Words for the retrieved notes' pictures, by url (INBOX 502).
     picture_alts: dict[str, str] = {}
+    # Their real [width, height], so an answer's figure holds its space (INBOX 526).
+    picture_sizes: dict[str, list[int]] = {}
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
     # Whether Ollama is reachable, lets the UI distinguish "offline"
@@ -900,6 +904,23 @@ def _picture_alts(session: Session, entries: list) -> dict[str, str]:
         if words:
             alts[f"/media/{upload.filename}"] = words[:PICTURE_ALT_CHARS]
     return alts
+
+
+def _picture_sizes(entries: list) -> dict[str, list[int]]:
+    """`/media/<file>` -> [width, height] for the same pictures, read from the
+    file headers (`core/imagesize`), so an answer's figure (INBOX 526) holds
+    its space before the image loads. A picture whose size is unknown is left
+    out and the figure sizes itself."""
+    names = list(
+        dict.fromkeys(name for entry in entries for name in _MEDIA_REF.findall(entry.content or ""))
+    )[:PICTURE_ALTS_MAX]
+    media_dir = deps.get_config().data_dir / "media"
+    sizes = {}
+    for name in names:
+        size = image_size(media_dir / Path(name).name)
+        if size:
+            sizes[f"/media/{name}"] = list(size)
+    return sizes
 
 
 def _mostly_pictures(content: str) -> bool:
@@ -1239,6 +1260,7 @@ def _prepare(
         #: Words for each retrieved note's pictures, for the thumbnails an
         #: answer draws beside a citation (INBOX 502, `_picture_alts`).
         "picture_alts": _picture_alts(session, entries),
+        "picture_sizes": _picture_sizes(entries),
         "search_mode": mode,
         # Ids that came along because they are *connected* to a match, so the
         # results panel can label them rather than presenting a note about
@@ -1350,6 +1372,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_thinking=ai_thinking,
         raw_results=prepared["raw_results"],
         picture_alts=prepared.get("picture_alts") or {},
+        picture_sizes=prepared.get("picture_sizes") or {},
         search_mode=prepared["search_mode"],
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
@@ -1782,6 +1805,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "type": "meta",
             "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
             "picture_alts": prepared.get("picture_alts") or {},
+            "picture_sizes": prepared.get("picture_sizes") or {},
             "search_mode": prepared["search_mode"],
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],

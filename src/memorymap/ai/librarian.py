@@ -417,18 +417,15 @@ def _written_hint(note: dict) -> str:
 
 
 def _pictures_hint(note: dict, number: int) -> str:
-    """' (has 2 pictures, shown beside it; "the picture in note 3" points at
-    one)', or "" for a note without any.
-
-    INBOX 502: the answer now draws a cited note's pictures as thumbnails
-    beside its citation, so the model may refer to one by the note's number
-    and the reader finds it there. Said per note, only where there are any.
-    """
+    """' (has 2 pictures: write [picture 3] or [picture 3.2] to show one)', or
+    "" for a note without any. INBOX 526: the token is replaced by the picture
+    in the answer's bubble; one per note is drawn beside its citation anyway."""
     count = note.get("pictures") or 0
     if not count:
         return ""
     plural = "s" if count != 1 else ""
-    return f' (has {count} picture{plural}, shown beside it; "the picture in note {number}" points at one)'
+    more = f" or [picture {number}.2]" if count > 1 else ""
+    return f" (has {count} picture{plural}: write [picture {number}]{more} where showing one helps)"
 
 
 def _dates_hint(note: dict) -> str:

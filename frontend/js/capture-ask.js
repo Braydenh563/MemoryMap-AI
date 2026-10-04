@@ -1237,14 +1237,11 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
 }
 
 //: **One mark per run, at its end** (the owner, 2026-09-24: "the amount of
-//: intext referencing like with the 1's is a little excessive"). Measured on
-//: that answer: a paragraph of three sentences from the one guide carried
-//: three 1s in a row, and one of four carried four. A run of sentences in one
-//: paragraph backed by the same notes is one claim to the reader, and the
-//: convention (and every answer engine's) is one mark where the run ends.
-//: A mark stays where the set of notes changes or the paragraph does, so no
-//: sentence loses the source it came from; its hover passage moves to the
-//: run's last mark, which is the one still drawn.
+//: intext referencing like with the 1's is a little excessive"; a four-sentence
+//: paragraph from one guide carried four). Sentences of one paragraph backed by
+//: the same notes are one claim, so one mark where the run ends; it stays where
+//: the set of notes or the paragraph changes, and its hover passage moves to
+//: the run's last mark.
 const CITATION_BLOCK = "p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6, dd";
 function collapseCitationRuns(targets) {
   for (const target of targets) {
@@ -1722,10 +1719,13 @@ function notePictures(entry) {
   return [...seen.values()];
 }
 
+const pictureItems = (pictures) =>
+  pictures.map((p) => ({ filename: p.url.split("/").pop(), getUrl: () => mediaSrc(p.url) }));
+
 function groundingThumbs(pictures, n, alts) {
   const row = document.createElement("span");
   row.className = "answer-grounding-thumbs";
-  const items = pictures.map((p) => ({ filename: p.url.split("/").pop(), getUrl: () => mediaSrc(p.url) }));
+  const items = pictureItems(pictures);
   pictures.slice(0, GROUNDING_THUMBS).forEach((picture, i) => {
     const words = (alts && alts[picture.url]) || picture.alt || "";
     const name = `Picture ${i + 1} in note ${n}${words ? `: ${words}` : ""}`;
@@ -1830,23 +1830,110 @@ function renderAnswerGrounding(
   target.classList.remove("hidden");
 }
 
+//: **Pictures inside the answer** (INBOX 526): the model writes `[picture N]`
+//: (N = the note's prompt number, `.2` for its second picture); the token
+//: becomes a figure after its block. No token: a cited note whose pictures are
+//: the point gets one after its first citation. Three at most; run after the
+//: citations, on every surface that shows an answer.
+const PICTURE_TOKEN = /\[picture (\d{1,3})(?:\.(\d{1,2}))?\]/gi;
+const FIGURES_MAX = 3;
+const PICTURE_ASK = /\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan)/i;
+
+//: A live paint holds back a half-written token.
+function holdPictureTokens(text) {
+  const clean = String(text ?? "").replace(PICTURE_TOKEN, "");
+  const tail = clean.match(/\[[^\]\n]{0,14}$/);
+  return tail && "[picture 9.9]".startsWith(tail[0].toLowerCase().replace(/\d+/g, "9")) ? clean.slice(0, tail.index) : clean;
+}
+
+function answerFigure(entry, n, k, alts, sizes) {
+  const pictures = notePictures(entry);
+  const picture = pictures[k];
+  if (!picture) return null;
+  const words = (alts && alts[picture.url]) || picture.alt || "";
+  const node = (tag, className, parent, text = "") => {
+    const el = document.createElement(tag);
+    el.className = className;
+    el.textContent = text;
+    parent.append(el);
+    return el;
+  };
+  const figure = node("figure", "answer-figure", document.createDocumentFragment());
+  const open = node("button", "answer-figure-open", figure);
+  open.type = "button";
+  open.addEventListener("click", () => openLightbox(pictureItems(pictures), k));
+  const img = node("img", "", open);
+  img.src = mediaSrc(picture.url);
+  img.alt = words || `Picture ${k + 1} from note ${n}`;
+  img.loading = "lazy";
+  const [w, h] = (sizes && sizes[picture.url]) || [];
+  if (w > 0 && h > 0) {
+    //: Fitted to the 320px cap here, so the box is the picture's own shape.
+    img.width = Math.round(w * Math.min(1, 320 / h));
+    img.height = Math.min(h, 320);
+  }
+  img.addEventListener("error", () => figure.remove());
+  const caption = node("figcaption", "answer-figure-caption", figure);
+  if (words) node("span", "muted answer-figure-words", caption, words.split("\n")[0]);
+  const from = node("button", "link-button answer-figure-from", caption, `From note ${n}: ${noteLabel(entry, 40)}`);
+  from.type = "button";
+  from.addEventListener("click", () => flashEntry(entry.id));
+  return figure;
+}
+
+function placeAnswerFigures(answerEl, meta, question) {
+  const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
+  if (!targets.length || targets.some((t) => t.querySelector(".answer-figure"))) return;
+  const notes = meta?.raw_results || [];
+  const { picture_alts: alts, picture_sizes: sizes } = meta || {};
+  const last = new Map(); // top-level block -> the figure last put after it
+  const drawn = new Set();
+  const put = (target, from, n, k) => {
+    const entry = notes[n - 1];
+    if (!entry || drawn.has(`${n}.${k}`) || drawn.size >= FIGURES_MAX) return;
+    const figure = answerFigure(entry, n, k, alts, sizes);
+    if (!figure) return;
+    drawn.add(`${n}.${k}`);
+    let block = from;
+    while (block && block.parentNode !== target) block = block.parentNode;
+    if (block) (last.get(block) || block).after(figure);
+    else target.append(figure);
+    last.set(block, figure);
+  };
+  let wrote = false;
+  for (const target of targets) {
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const found = [...node.data.matchAll(PICTURE_TOKEN)];
+      if (!found.length) continue;
+      wrote = true;
+      node.data = node.data.replace(PICTURE_TOKEN, "");
+      for (const m of found) put(target, node.parentElement, Number(m[1]), m[2] ? Number(m[2]) - 1 : 0);
+    }
+  }
+  if (wrote) return;
+  const asked = PICTURE_ASK.test(question || "");
+  for (const target of targets) {
+    for (const mark of target.querySelectorAll(".answer-citation")) {
+      const n = notes.findIndex((e) => e.id === Number(mark.dataset.noteId)) + 1;
+      const entry = notes[n - 1];
+      if (!entry) continue;
+      const words = String(entry.content || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+      if (notePictures(entry).length && (asked || words.length < 200)) put(target, mark, n, 0);
+    }
+  }
+}
+
 //: **The answer object** (CHAT_PLAN.md decision 3, Phase 3). One shape for an
 //: answer whichever surface produced it: `{question, text, sentences, sources,
-//: related, next, stats, verification}`, where a sentence is
-//: `{text, marks: [{note_id, start, end, score}]}`.
-//:
-//: Built here rather than at each call site because the three surfaces were
-//: reading three different shapes of the same stream. Grounding arrives as one
-//: row per *(sentence, note)* pair, which is the shape the scorer produces and
-//: the wrong shape to render from: a sentence backed by two notes arrives
-//: twice, and a renderer walking the rows draws the sentence twice with one
-//: mark each instead of once with two. Folding it is a four-line job that had
-//: been done differently, or not at all, in every place that needed it.
-//:
-//: `start`/`end` are the passage span of CHAT_PLAN decision 2 (Phase 1, not
-//: built): carried through when the backend sends one and left `null`
-//: otherwise, never defaulted to 0, because a start of 0 is a claim that the
-//: passage begins at the note's first word and a renderer would highlight it.
+//: related, next, stats, verification}`, a sentence being `{text, marks:
+//: [{note_id, start, end, score}]}`. Grounding arrives one row per (sentence,
+//: note) pair and is folded here, so a sentence backed by two notes is drawn
+//: once with two marks. `start`/`end` (CHAT_PLAN decision 2) are carried when
+//: the backend sends them and left `null` otherwise, never 0: a start of 0
+//: claims the passage begins at the note's first word.
 function answerObject({
   question = "",
   text = "",
@@ -2464,7 +2551,7 @@ function liveMarkdownRenderer(box, afterPaint = null) {
     lastRun = performance.now();
     if (latest === rendered) return; // nothing new since last paint
     rendered = latest;
-    renderMarkdown(box, latest);
+    renderMarkdown(box, holdPictureTokens(latest));
     afterPaint?.();
   };
 
@@ -2898,6 +2985,7 @@ async function askQuestion(preset) {
           answerMeta?.picture_alts || null
         );
       }
+      placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab.

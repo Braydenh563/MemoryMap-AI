@@ -199,6 +199,7 @@ async function viewAskHistoryTurn(id) {
       turn.support || null
     );
   }
+  placeAnswerFigures(answerBox, historyMeta, turn.question);
   renderAskAnswerFoot(remembered, historyMeta);
   $("thinking-box").replaceChildren();
   //: A remembered turn says *when* rather than *what by*: the model that

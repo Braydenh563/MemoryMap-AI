@@ -826,6 +826,7 @@ function renderDocList() {
           }).catch((e) => toast(e.message, true));
           loadDocuments(currentDoc?.id);
         }),
+        appLinkMenuItem("document", doc.id),
         // Not destructive, so not grouped with Delete below, same
         // "keep it, but out of the way" action the Notes tab already has
         // for entries (BACKLOG §30b's named remaining scope: chats and
@@ -8453,7 +8454,10 @@ function docOpenWikiTarget(name) {
 function docOpenLink(href) {
   const clean = String(href || "").trim();
   if (!clean || /^(javascript|data|vbscript):/i.test(clean)) return;
-  window.open(clean, "_blank", "noopener,noreferrer");
+  //: This app's own address (INBOX 483) opens its view in this window.
+  const hash = appAddressHash(clean);
+  if (hash) location.hash = hash;
+  else window.open(clean, "_blank", "noopener,noreferrer");
 }
 
 // --- keeping the two panes looking at the same place --------------------------
@@ -12240,6 +12244,10 @@ $("doc-connections").addEventListener("click", () => {
   // own left edge.
   $("doc-dock-menu")?.removeAttribute("open");
   openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+});
+$("doc-copy-link").addEventListener("click", () => {
+  $("doc-dock-menu")?.removeAttribute("open");
+  if (currentDoc) copyObjectAddress("document", currentDoc.id);
 });
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-html").addEventListener("click", exportDocumentHtml);

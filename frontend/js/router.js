@@ -1,32 +1,17 @@
 // router.js: every view has an address (WORLD_CLASS_PLAN 22.1 item 1).
 //
-// "No URLs. Every view is `/`. Reload always lands on the Dashboard, the
-// browser's Back leaves the app, a note or chat cannot be linked or
-// bookmarked, and `document.title` never names the view." This file gives
-// each view a hash (`#/notes/12`, `#/chat/45`, `#/docs/7`, `#/library/images`,
-// `#/settings/appearance`) and keeps three things in step:
+// Each view gets a hash (`#/notes/12`, `#/chat/45`, `#/docs/7`,
+// `#/library/images`, `#/settings/appearance`), and this file keeps three
+// things in step: navigation.js's back stack (the source of truth for what a
+// step is and how to go back to one, `openHistoryEntry`), the address bar (a
+// new view is pushed, a refinement replaces) and the window title.
 //
-//   - navigation.js's own back stack, which stays the source of truth for
-//     what a step *is* (a tab, a sub-tab, a document, a board) and how to go
-//     back to one (`openHistoryEntry`). Its comment explains why pushState was
-//     refused ("Back would walk out of the app on the first press past the
-//     start"); that was right with no router, and the answer here is that the
-//     browser's entries are now this app's own views, each carrying the id of
-//     the stack entry it mirrors, so the browser's Back and the in-app Back
-//     are one walk through one list;
-//   - the address bar: a new view is pushed, a refinement of the same view
-//     (a sub-tab settling, a note's title arriving) replaces;
-//   - the window title: "Half marathon, week 4 · Notes · MemoryMap AI".
-//
-// `popstate` drives navigation: the in-app Back and Forward call
-// `history.go`, the browser answers with `popstate`, and this file opens the
-// entry that state names. A hash with no entry behind it (a pasted link, a
-// bookmark, one typed by hand) is opened as a fresh visit. A hash that is not
-// a route at all (a document's heading anchor, `#intro`) is left alone.
-//
-// Loaded right after navigation.js; nothing here runs at load except the
-// listener and remembering the address the page was opened with, which the
-// boot opens once the notebook is unlocked (`routerRestore`, app.js).
+// `popstate` drives navigation: the in-app Back and Forward call `history.go`
+// and the browser's answer opens the entry its state names. A hash with no
+// entry behind it (a pasted link, a bookmark) opens as a fresh visit; one that
+// is not a route (a heading anchor, `#intro`) is left alone. Nothing runs at
+// load but the listener and the address the page was opened with, which the
+// boot opens after the unlock (`routerRestore`, app.js).
 
 const ROUTE_TABS = { dashboard: "dashboard", notes: "notes", chat: "chat", docs: "documents", library: "library", graph: "graph", timeline: "timeline", reminders: "reminders", settings: "settings" };
 const ROUTE_NOTES_SECTIONS = ["capture", "writing-room", "ask"];
@@ -35,32 +20,93 @@ const ROUTE_NOTES_SECTIONS = ["capture", "writing-room", "ask"];
 //: kind; "All" is the view whose id kept the old name, documents.
 const ROUTE_LIBRARY = { all: "library-view-documents", documents: "library-view-docs", boards: "library-view-whiteboard", images: "library-view-media:images", files: "library-view-media:files", skills: "library-view-skills", links: "library-view-links", contents: "library-view-contents" };
 
+//: The things with an address of their own: the tab, the history section's
+//: prefix and the path word before the id. One table for `routeHash` (a
+//: history entry) and `routeHashFor` (a kind and an id), so a new kind is one row.
+const ROUTE_OBJECTS = {
+  note: { tab: "notes", prefix: "note:", path: "notes" },
+  chat: { tab: "chat", prefix: "conv:", path: "chat" },
+  document: { tab: "documents", prefix: "doc:", path: "docs" },
+  board: { tab: "library", prefix: "board:", path: "library/board" },
+  map: { tab: "library", prefix: "board:", path: "library/board" },
+  graph: { tab: "graph", prefix: "focus:", path: "graph/focus" },
+};
+const ROUTE_OBJECT_LIST = Object.values(ROUTE_OBJECTS);
+
 //: The hash for one history entry (`{tab, section}`, navigation.js).
 function routeHash(entry) {
   const tab = entry && entry.tab;
   const section = entry && entry.section != null ? String(entry.section) : "";
-  const id = (prefix) => (section.startsWith(prefix) ? section.slice(prefix.length) : "");
+  const object = ROUTE_OBJECT_LIST.find((row) => row.tab === tab && section.length > row.prefix.length && section.startsWith(row.prefix));
+  if (object) return `#/${object.path}/${section.slice(object.prefix.length)}`;
   switch (tab) {
     case "notes":
-      if (id("note:")) return `#/notes/${id("note:")}`;
       return ROUTE_NOTES_SECTIONS.includes(section) ? `#/notes/${section}` : "#/notes";
     case "chat":
-      return id("conv:") ? `#/chat/${id("conv:")}` : "#/chat";
+      return "#/chat";
     case "documents":
-      return id("doc:") ? `#/docs/${id("doc:")}` : "#/docs";
-    case "library":
-      if (id("board:")) return `#/library/board/${id("board:")}`;
-      {
-        const word = Object.keys(ROUTE_LIBRARY).find((key) => ROUTE_LIBRARY[key] === section);
-        return word ? `#/library/${word}` : "#/library";
-      }
+      return "#/docs";
+    case "library": {
+      const word = Object.keys(ROUTE_LIBRARY).find((key) => ROUTE_LIBRARY[key] === section);
+      return word ? `#/library/${word}` : "#/library";
+    }
     case "graph":
-      return id("focus:") ? `#/graph/focus/${id("focus:")}` : "#/graph";
+      return "#/graph";
     case "settings":
       return section ? `#/settings/${section}` : "#/settings";
     default:
       return ROUTE_TABS[tab] === tab ? `#/${tab}` : "#/dashboard";
   }
+}
+
+//: One object's hash (`routeHashFor("note", 12)` is `#/notes/12`), or "" for
+//: a kind with no address or an id that is not a number.
+function routeHashFor(kind, id) {
+  const object = ROUTE_OBJECTS[kind];
+  return object && /^\d+$/.test(String(id)) ? routeHash({ tab: object.tab, section: object.prefix + id }) : "";
+}
+
+//: "Copy app link": the full address of one object, to paste into another
+//: app or a note. Origin and path, never the query. True when it was copied.
+async function copyObjectAddress(kind, id) {
+  const hash = routeHashFor(kind, id);
+  if (!hash) {
+    toast("This has no address until it is saved.");
+    return false;
+  }
+  if (!(await copyToClipboard(location.origin + location.pathname + hash))) return false;
+  toast("Link copied.");
+  return true;
+}
+
+//: The "Copy app link" menu row, the same in every object's menu (the wiki
+//: link row, where there is one, is "Copy wiki link"). `id` may be a function,
+//: for a menu built before its object is known (the open chat).
+function appLinkMenuItem(kind, id) {
+  return makeMenuItem("ph:link Copy app link", `Copy this ${kind}'s address to open it in the app`, () => copyObjectAddress(kind, typeof id === "function" ? id() : id));
+}
+
+//: The hash of an address that points at a view of this app (this origin and
+//: page, a route the router opens), or "": a pasted app link then opens in this
+//: window instead of a new tab. Only the hash is ever used as the link.
+function appAddressHash(url) {
+  if (!/^(?:https?:\/\/|#\/)/i.test(String(url || "").trim())) return "";
+  try {
+    const parsed = new URL(String(url).trim(), location.href);
+    return parsed.origin === location.origin && parsed.pathname === location.pathname && routeEntry(parsed.hash) ? parsed.hash : "";
+  } catch {
+    return "";
+  }
+}
+
+//: What an app link reads as in text: the title when the view was visited
+//: (`historyTitles`), else the kind and id ("Note 12"), else the view's name.
+function appAddressLabel(hash) {
+  const entry = routeEntry(hash);
+  const kind = entry && Object.keys(ROUTE_OBJECTS).find((key) => ROUTE_OBJECTS[key].tab === entry.tab && String(entry.section).startsWith(ROUTE_OBJECTS[key].prefix));
+  if (!kind) return (entry && ROUTE_VIEW_NAMES[entry.tab]) || hash;
+  const title = typeof historyTitles !== "undefined" && historyTitles.get(entry.section);
+  return title || `${kind.charAt(0).toUpperCase()}${kind.slice(1)} ${entry.section.slice(ROUTE_OBJECTS[kind].prefix.length)}`;
 }
 
 //: The entry a hash names, or null when the hash is not a route (an empty

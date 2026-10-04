@@ -37,8 +37,9 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("unsaved-guard", ("two windows", "keep your version"), "I edited a note in two windows"),
     ("note-history", ("You and Atlas",), "who changed my note"),
     ("draft-template", ("Draft with Atlas", "template"), "make a template with ai"),
-    ("note-sorts", ("Recently edited", "Copy [[link]]"), "sort notes by recently edited"),
+    ("note-sorts", ("Recently edited", "Copy wiki link"), "sort notes by recently edited"),
     ("connections-column", ("Connections column",), "see a note's links beside the list"),
+    ("addresses", ("Copy app link", "same window"), "how do I copy a link to a note to open it in the app"),
     # Filing, tags and categories
     ("suggested-tags", ("+ tag",), "what are the plus tags on my note"),
     ("filing-confidence", ("83%",), "what does the percentage mean on a note"),

@@ -230,7 +230,7 @@ def test_recently_edited_sort_copy_link_and_list_keys():
     for key in ('"Home"', '"End"', '"Delete"', '"F2"'):
         assert key in keys, key
     assert "binNoteWithUndo(entry)" in keys
-    assert "Copy [[link]]" in _read("menus.js")
+    assert "Copy wiki link" in _read("menus.js") and "appLinkMenuItem(\"note\"" in _read("menus.js")
 
 
 def test_the_notes_chrome_says_less():

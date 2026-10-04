@@ -571,15 +571,16 @@ MORE_TOPICS.extend(
         {
             "id": "notes-list",
             "keywords": (
-                "sort notes", "recently edited", "a to z", "copy link", "copy [[link]]",
+                "sort notes", "recently edited", "a to z", "copy link", "copy wiki link", "copy app link",
                 "connections column", "beside the list", "forgotten", "close to this",
                 "most used", "note order", "f2",
             ),
             "body": (
                 "Sort notes: Newest first, Oldest first, Recently edited, A to Z "
                 "(\"note 2\" before \"note 10\"), Most used or Forgotten first; "
-                "the choice is remembered. A note's menu has Copy [[link]] to "
-                "paste a link to it anywhere, and editing a note has a title "
+                "the choice is remembered. A note's menu has Copy wiki link to "
+                "paste a [[link]] to it into another note, and Copy app link for "
+                "an address that opens it in the app. Editing a note has a title "
                 "field. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "
                 "or more, the note you open has a Connections column beside the "
@@ -593,13 +594,20 @@ MORE_TOPICS.extend(
             "keywords": (
                 "address", "url", "address bar", "web address", "browser back",
                 "back button", "deep link", "link to this view", "own address",
+                "copy app link", "app link", "link to a note", "hyperlink", "share a note",
             ),
             "body": (
                 "Every view has its own address, such as #/notes/12, #/chat/45, "
                 "#/docs/7, #/library/images or #/settings/appearance. A reload "
                 "keeps the view, a bookmark or a pasted link opens it, the "
                 "browser's Back and Forward walk the app's own history, and the "
-                "window title names the view and what is open in it."
+                "window title names the view and what is open in it. To link to one "
+                "thing, open its menu and choose Copy app link (notes, documents, "
+                "boards, mind maps and chats have it): it copies an address that "
+                "opens that thing while the app is running. Paste it into a note "
+                "or a document and it becomes a link that opens in the same "
+                "window. Copy wiki link is the other one: a [[link]] for pointing "
+                "at a note or document from inside a note."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

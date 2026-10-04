@@ -8328,6 +8328,11 @@ async function initWhiteboard() {
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
+  $("wb-copy-link")?.addEventListener("click", () => {
+    const id = window.currentBoardId ?? null;
+    if (id === null) return toast("The default board has no address. Make a board first.");
+    copyObjectAddress(wbIsMap() ? "map" : "board", id);
+  });
   $("wb-export")?.addEventListener("click", wbExportBoard);
 
   // Tool Selection
@@ -15375,12 +15380,15 @@ async function renderLibraryBoardsGallery() {
           makeMenuItem("ph:note-pencil Add to a note", "Put this board in a note as an object", async () => {
             if (typeof addBoardToNote === "function") await addBoardToNote(board);
           }),
+          appLinkMenuItem(board.type === "map" ? "map" : "board", board.id),
           makeMenuItem("ph:trash Delete", "Delete this board", async () => {
             if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;
             await apiJson(`/entries/${board.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
             renderLibraryBoardsGallery();
           }),
-        ],
+        //: Six rows is past the ceiling (DESIGN.md): what you do to it, its
+        //: address, and the row that ends it.
+        ].map((item) => ({ ...item, group: /Copy app link/.test(item.label) ? "copy" : /Delete/.test(item.label) ? "end" : "act" })),
         `Actions for "${board.title}"`
       );
       menu.classList.add("library-card-menu");

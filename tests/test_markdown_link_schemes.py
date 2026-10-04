@@ -17,7 +17,7 @@ def test_markdown_links_go_through_the_scheme_allow_list():
     # cuts the maths out first and calls it (INBOX 423c).
     body = src[src.index("function appendInlineRun(") :]
     body = body[: body.index("\nfunction ", 1)]
-    assert "a.href = safeHref(linkUrl)" in body, "the markdown link anchor must use safeHref"
+    assert "a.href = safeHref(linkTarget)" in body, "the markdown link anchor must use safeHref"
     assert "a.href = linkUrl" not in body
 
 

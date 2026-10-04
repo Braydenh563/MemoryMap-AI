@@ -692,14 +692,14 @@ function renderLibrary(options) {
 // and the chat list already make: three buttons on a card this size is most of
 // the card, and the actions are things you do occasionally to a thing you are
 // mostly here to open.
-// **Copy title, and copy a link to it** (pass2.md, micro-conventions: "copy
-// link/copy title on items"). Measured: of the Library's menus only a saved
-// link could be copied. A title is what you paste into a message; a
-// `[[link]]` is what you paste into a note or a document to point at a
-// document, the same reference the "/" menu writes and `resolveWikiTarget`
-// opens. A note is left out of the second: an untitled note is named by its
-// first sixty characters, which is not a name a link can be trusted to find.
-function libraryCopyActions(kind, title) {
+// **Copy title, and copy a link to it** (pass2.md, micro-conventions). A
+// title is what you paste into a message; a `[[wiki link]]` is what a note or
+// a document uses to point at a document (the "/" menu writes the same, and
+// `resolveWikiTarget` opens it); an app link is the address that opens the
+// thing in this app (INBOX 483, `appLinkMenuItem`, router.js). A note has no
+// wiki link here: an untitled one is named by its first sixty characters,
+// which is not a name a link can be trusted to find.
+function libraryCopyActions(kind, title, id) {
   const name = String(title || "").replace(/^#{1,6}\s+/, "").trim();
   if (!name || kind === "activity" || kind === "tag") return [];
   const out = [
@@ -707,18 +707,19 @@ function libraryCopyActions(kind, title) {
   ];
   if (kind === "document") {
     out.push(
-      makeMenuItem("ph:link Copy link", "Copy a [[link]] to paste into a note or a document", () =>
+      makeMenuItem("ph:brackets-square Copy wiki link", "Copy a [[wiki link]] to paste into a note or a document", () =>
         copyToClipboard(`[[${name}]]`)
       )
     );
   }
+  if (id != null && ["note", "document", "chat", "board", "map"].includes(kind)) out.push(appLinkMenuItem(kind, id));
   return out;
 }
 
 //: Before the first destructive row, so Delete stays the last thing in the
 //: menu, where every menu in the app keeps it.
-function withLibraryCopyActions(items, kind, title) {
-  const copies = libraryCopyActions(kind, title);
+function withLibraryCopyActions(items, kind, title, id) {
+  const copies = libraryCopyActions(kind, title, id);
   //: Before Archive as well as Delete, so the rows that put a thing away stay
   //: together at the end rather than the copies splitting them.
   const put = /\b(Delete|Move to bin|Remove|Archive|Unarchive)\b/;
@@ -1369,7 +1370,7 @@ function libraryCard(item) {
   //: reader lands on, and it says the kind and the category as the card did.
   cardOpener(title, () => openLibraryItem(item), `${kindWord}: ${item.title}. ${item.detail}.`);
 
-  const actions = withLibraryCopyActions(libraryActions(item), item.kind, item.title);
+  const actions = withLibraryCopyActions(libraryActions(item), item.kind, item.title, item.id);
   if (actions.length) {
     const menu = kebabMenu(actions, `Actions for ${item.title}`);
     menu.classList.add("library-card-menu");
@@ -3140,7 +3141,7 @@ async function renderLibraryDocuments() {
           libraryDocsSelection.delete(doc.id);
           renderLibraryDocuments();
         }),
-      ], "document", doc.title),
+      ], "document", doc.title, doc.id),
       `Actions for "${doc.title || "Untitled"}"`
     );
     menu.classList.add("doc-list-menu");

@@ -560,20 +560,12 @@ function removeChatBubble(bubble) {
   return deleteChatTurn(assistant);
 }
 
-// Copying has to actually work, in three descending steps.
-//
-// `navigator.clipboard` is only defined in a SECURE CONTEXT. On
-// http://localhost that is satisfied, which is why this looked fine, but the
-// moment the app is reached at http://192.168.1.20:8000, over a tunnel, or
-// through anything that is not localhost, the whole API is simply `undefined`
-// and every copy button in the app becomes a no-op that says "couldn't copy".
-// That is worst on the Logs screen, where the thing being copied is the error
-// you are trying to report to somebody.
-//
-// So: the modern API, then the old `execCommand` path that works on plain
-// http, and finally, if even that is refused, hand the text to the user in a
-// selected textarea so Ctrl+C still gets it out. The last step is the one that
-// makes "you can always copy this" a true statement rather than a hope.
+// Copying has to work in three descending steps. `navigator.clipboard` exists
+// only in a SECURE CONTEXT: fine on http://localhost, `undefined` on a LAN
+// address or a tunnel, which made every copy button a no-op (worst on the Logs
+// screen, where the text is the error you are reporting). So: the modern API,
+// then `execCommand` (works on plain http), then the text in a selected
+// textarea so Ctrl+C still gets it out.
 function copyViaTextarea(text) {
   const staging = document.createElement("textarea");
   staging.value = text;
@@ -2249,6 +2241,7 @@ function mountChatActionsMenu() {
             copyToClipboard(text);
           },
         },
+        { ...appLinkMenuItem("chat", () => chatConv.id), group: "keep" },
         { label: "ph:trash Delete this chat", group: "end", danger: true, run: click("chat-delete") },
       ],
       "More actions for this conversation"

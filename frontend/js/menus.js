@@ -1636,24 +1636,12 @@ function entryOverflowMenu(entry) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
-  // **Built on first open, not on render, and that is a scale fix rather than
-  // a micro-optimisation.** This menu is 19 items across four groups, call it
-  // 45-60 DOM nodes once the submenu wrappers, icon `<i>`s and label `<span>`s
-  // are counted: and `entryItem()` builds one of these for *every* note card.
-  // The Notes list renders the whole notebook (there is no windowing), so a
-  // 2,500-note notebook built well over a hundred thousand permanently-hidden
-  // nodes, and rebuilt all of them on every `renderEntries()`, which runs on
-  // every search keystroke, every sort change, every filter and every save.
-  //
-  // Almost none of it is ever looked at: a person opens the ⋯ menu on one note
-  // at a time, if at all. Deferring the items costs one function call on the
-  // first open and nothing after.
-  //
-  // The opener itself still renders eagerly, deliberately, it carries the
-  // `aria-haspopup`/`aria-expanded` state and it occupies a place in the tab
-  // order, so making *it* lazy would change focus behaviour. Only the contents
-  // are deferred, and `openActionMenu` is called after `fillMenu()` so it still
-  // finds a first item to focus.
+  // **Built on first open, not on render: a scale fix.** This menu is about 50
+  // nodes and `entryItem()` builds one per note card, on every renderEntries()
+  // (every search keystroke, sort, filter and save); a 2,500-note notebook built
+  // over a hundred thousand hidden nodes nobody opens. The opener renders eagerly
+  // (it carries the aria state and a tab stop); only the contents are deferred,
+  // and `openActionMenu` runs after `fillMenu()` so it finds a first item.
   let filled = false;
   function fillMenu() {
     if (filled) return;
@@ -1806,13 +1794,14 @@ function entryOverflowMenu(entry) {
       //: (INBOX 432: there was no copy link at all). Its name as `[[` finds
       //: it, the title or the first words.
       {
-        label: "ph:brackets-square Copy [[link]]",
-        title: "Copy a [[wiki link]] to this note, to paste into another",
+        label: "ph:brackets-square Copy wiki link",
+        title: "Copy a [[wiki link]] to this note, to paste into another note or document",
         run: async () => {
           const name = noteSortName(entry).split("\n")[0].slice(0, 80).trim();
           if (await copyToClipboard(`[[${name}]]`)) toast("Link copied. Paste it into any note.");
         },
       },
+      appLinkMenuItem("note", entry.id),
       { label: "ph:approximate-equals Similar notes", run: () => toggleRelated(entry) },
       {
         label: "ph:arrow-u-up-left Referenced by",

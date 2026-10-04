@@ -114,3 +114,135 @@ def test_opening_a_note_gives_it_an_address():
     flash = body[body.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
     assert 'recordTabVisit("notes", `note:${id}`' in flash
+
+
+# "Copy app link" (INBOX 483): one address table for entry-to-hash and
+# kind-and-id-to-hash, one helper that copies the full address.
+OBJECT_CASES = [
+    ("note", 12, "#/notes/12"),
+    ("chat", 45, "#/chat/45"),
+    ("document", 7, "#/docs/7"),
+    ("board", 3, "#/library/board/3"),
+    ("map", 3, "#/library/board/3"),
+    ("graph", 9, "#/graph/focus/9"),
+]
+
+
+def _run_for(expr: str):
+    script = _functions("routeHash", "routeEntry", "routeHashFor") + f"\nprocess.stdout.write(JSON.stringify({expr}));"
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+@pytest.mark.parametrize(("kind", "ident", "hash_"), OBJECT_CASES)
+def test_an_object_has_an_address_the_router_opens(kind, ident, hash_):
+    assert _run_for(f"routeHashFor({json.dumps(kind)}, {ident})") == hash_
+    # The address a menu copies must be one a pasted link opens.
+    assert _run_for(f"routeEntry(routeHashFor({json.dumps(kind)}, {ident}))") is not None
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+@pytest.mark.parametrize(("kind", "ident"), [("nowhere", 1), ("note", "abc"), ("note", ""), ("chat", "1/2"), ("note", None)])
+def test_a_kind_or_id_with_no_address_gives_none(kind, ident):
+    assert _run_for(f"routeHashFor({json.dumps(kind)}, {json.dumps(ident)})") == ""
+
+
+def test_the_copy_helper_writes_the_full_address_through_the_shared_clipboard_helper():
+    router = ROUTER.read_text(encoding="utf-8")
+    helper = router[router.index("async function copyObjectAddress(") :]
+    helper = helper[: helper.index("\n}\n")]
+    assert "location.origin + location.pathname + hash" in helper
+    assert "copyToClipboard(" in helper and "toast(" in helper
+
+
+
+#: Where "Copy app link" must be offered: the file, and what it calls (a built
+#: menu calls `appLinkMenuItem(kind, id)`, a markup menu's button its own handler).
+COPY_LINK_SITES = [
+    ("menus.js", 'appLinkMenuItem("note", entry.id)'),
+    ("library.js", "appLinkMenuItem(kind, id)"),
+    ("whiteboard.js", 'appLinkMenuItem(board.type === "map" ? "map" : "board", board.id)'),
+    ("documents.js", 'appLinkMenuItem("document", doc.id)'),
+    ("documents.js", 'copyObjectAddress("document", currentDoc.id)'),
+    ("sheets-selects.js", 'appLinkMenuItem("chat", conversation.id)'),
+    ("chat.js", 'appLinkMenuItem("chat", () => chatConv.id)'),
+    ("whiteboard.js", 'copyObjectAddress(wbIsMap() ? "map" : "board", id)'),
+]
+
+
+@pytest.mark.parametrize(("name", "needle"), COPY_LINK_SITES)
+def test_every_object_menu_offers_copy_app_link(name, needle):
+    source = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
+    assert needle in source, f"{name} lost its Copy app link row"
+
+
+def test_the_document_and_board_menus_have_the_row_in_markup():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for ident in ("doc-copy-link", "wb-copy-link"):
+        assert f'id="{ident}"' in html, f"{ident} is gone from index.html"
+        assert "Copy app link" in html
+
+
+def test_the_app_link_row_is_one_recipe_and_the_wiki_row_is_named_apart():
+    router = ROUTER.read_text(encoding="utf-8")
+    assert '"ph:link Copy app link"' in router
+    # Where a wiki link is copied the two rows must be told apart (INBOX 483).
+    for name in ("menus.js", "library.js"):
+        source = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
+        assert "Copy wiki link" in source and "Copy [[link]]" not in source
+
+
+# An app address pasted into a note or document opens in this window
+# (INBOX 483): only this origin and page, only a route the router opens.
+def _run_address(expr: str):
+    script = (
+        'globalThis.location = {origin: "http://127.0.0.1:8877", pathname: "/", href: "http://127.0.0.1:8877/"};\n'
+        + _functions("routeHash", "routeEntry", "appAddressHash")
+        + f"\nprocess.stdout.write(JSON.stringify({expr}));"
+    )
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("http://127.0.0.1:8877/#/notes/12", "#/notes/12"),
+        ("http://127.0.0.1:8877/#/library/board/3", "#/library/board/3"),
+        ("http://127.0.0.1:8877/#/docs/7", "#/docs/7"),
+        ("http://127.0.0.1:8877/#/chat/45", "#/chat/45"),
+        ("http://127.0.0.1:8877/#/settings/appearance", "#/settings/appearance"),
+        ("#/notes/12", "#/notes/12"),
+        ("http://example.com/#/notes/12", ""),
+        ("http://127.0.0.1:8878/#/notes/12", ""),
+        ("https://127.0.0.1:8877/#/notes/12", ""),
+        ("http://127.0.0.1:8877/other/#/notes/12", ""),
+        ("http://127.0.0.1:8877/#/nowhere", ""),
+        ("http://127.0.0.1:8877/#/notes/abc", ""),
+        ("http://127.0.0.1:8877/", ""),
+        ("#intro", ""),
+        ("javascript:alert(1)", ""),
+        ("data:text/html,<b>x</b>", ""),
+        ("/media/x.pdf", ""),
+        ("", ""),
+    ],
+)
+def test_only_this_apps_own_routes_are_app_addresses(url, expected):
+    assert _run_address(f"appAddressHash({json.dumps(url)})") == expected
+
+
+def test_a_pasted_app_address_opens_in_this_window_and_other_links_keep_their_behaviour():
+    notes = (ROOT / "frontend" / "js" / "notes-list.js").read_text(encoding="utf-8")
+    body = notes[notes.index("function appendInlineRun(") :]
+    body = body[: body.index("\nfunction ", 1)]
+    # Still through the scheme allow-list, whatever address it is.
+    assert "a.href = safeHref(linkTarget)" in body
+    assert "const linkTarget = appAddressHash(linkUrl) || linkUrl;" in body
+    # A new tab only for a web link that is not this app's own address.
+    assert "if (linkTarget === linkUrl && /^https?:\\/\\//i.test(linkUrl))" in body
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    opener = docs[docs.index("function docOpenLink(") :]
+    opener = opener[: opener.index("\n}\n")]
+    assert "appAddressHash(clean)" in opener and "window.open(clean" in opener

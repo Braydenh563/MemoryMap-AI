@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A note's connections row has a Show less after +N more links (it opened and could not close again), and a connection chip reads plain words: a link shows its text, no brackets, no URL, no ** or _ (INBOX 474)
 - Notes list: a long note's clamped preview shows 4 lines by default (3 compact, 5 spacious), up from 2 on desktop and 1 on a phone, through one `--note-preview-lines` token; blank lines still collapse while clamped (INBOX 473)
 - Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
 - The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)

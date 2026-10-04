@@ -2047,18 +2047,20 @@ function entryItem(entry, options = {}) {
       //: The preview is clipped by the server, so an image can arrive cut
       //: in half (`![WallpaperEngineOverride_rand`, owner's screenshot) and
       //: a heading with its `#`: both go, whole or truncated.
-      const label = (link.preview || "")
-        .replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
-        .replace(/^\s*#{1,6}\s+/, "")
-        .replace(/\s{2,}/g, " ")
+      //: **Plain words** (INBOX 474: a chip showed "[something](https://..."):
+      //: the server clips at 60 characters, so a token arrives half open and
+      //: the inline renderer printed it as typed. The last rule takes a `[`
+      //: whose `]` was cut off.
+      const label = plainText(
+        (link.preview || "").replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
+      )
+        .replace(/\[([^\]]*)$/, "$1")
         .trim();
       const short = label.length > LINK_CHIP_CHARS
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
-      // chip() sets plain textContent, right for a tag or category name but
-      // not here: `link.preview` is a clip of the *other* note's own text,
-      // which can carry the same **bold**/`code` a reader would expect to
-      // see rendered, the way the note's own body already does.
+      // The label is plain text (a chip is navigation, not content; see
+      // above), so it needs no rendering and cannot show half a token.
       //
       // The click handler is built first and passed into chip()'s own
       // onClick param: every sibling chip() call site in this file does
@@ -2089,7 +2091,7 @@ function entryItem(entry, options = {}) {
       );
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
-      renderInlineMarkdown(linkPreview, short, [], true);
+      linkPreview.textContent = short;
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
@@ -2178,12 +2180,17 @@ function entryItem(entry, options = {}) {
       more.type = "button";
       more.className = "ghost small entry-links-more";
       const hidden = connections.length - LINKS_SHOWN;
-      more.textContent = `+${hidden} more link${hidden === 1 ? "" : "s"}`;
+      //: A toggle (INBOX 474): it stays and reads "Show less" while open.
+      const label = () => linkRow.classList.contains("show-all")
+        ? "Show less"
+        : `+${hidden} more link${hidden === 1 ? "" : "s"}`;
+      more.textContent = label();
       more.setAttribute("aria-expanded", "false");
       more.addEventListener("click", (event) => {
         event.stopPropagation();
-        linkRow.classList.add("show-all");
-        more.remove();
+        const open = linkRow.classList.toggle("show-all");
+        more.textContent = label();
+        more.setAttribute("aria-expanded", String(open));
       });
       linkRow.appendChild(more);
     }

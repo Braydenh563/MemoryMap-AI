@@ -9058,7 +9058,7 @@ async function downloadDocumentExport(path, fallbackName) {
       } catch (error) {
         detail = "";
       }
-      throw new Error(detail || `Export failed (${response.status})`);
+      throw new Error(plainHttpError(response.status, detail, "The export did not work. Try again."));
     }
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
@@ -9090,7 +9090,7 @@ async function exportDocumentMarkdown() {
     const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
       headers: { "X-Auth-Token": authToken() },
     });
-    if (!response.ok) throw new Error(`Export failed (${response.status})`);
+    if (!response.ok) throw new Error("The export did not work. Try again.");
     // The filename is decided server-side, so read it back off the header.
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
@@ -16558,7 +16558,7 @@ async function docAiReview() {
     }
     if (!response.ok) {
       const detail = await response.json().catch(() => ({}));
-      throw new Error(detail.detail || `Request failed (${response.status})`);
+      throw new Error(plainHttpError(response.status, detail.detail));
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();

@@ -459,6 +459,8 @@ async function api(path, options = {}) {
     if (networkErr?.name !== "AbortError" && networkErr?.name !== "TimeoutError") {
       noteServerDown();
     }
+    //: "Failed to fetch" and its kin go to the log above; the toast gets a sentence.
+    if (networkErr instanceof TypeError) networkErr.message = "MemoryMap is not answering. Is it still running?";
     throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
@@ -484,9 +486,8 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    let errMsg = typeof detail.detail === 'string'
-      ? detail.detail
-      : (typeof detail.detail?.message === 'string' ? detail.detail.message : (JSON.stringify(detail.detail) || `Request failed (${response.status})`));
+    const rawMsg = typeof detail.detail === 'string' ? detail.detail : JSON.stringify(detail.detail);
+    let errMsg = plainHttpError(response.status, detail.detail);
     //: **Out of space is the one failure the person can act on, so the part
     //: that says how travels with it.** The server answers 507 with a
     //: `hint` naming the folder, the room left and roughly how much to free
@@ -501,7 +502,7 @@ async function api(path, options = {}) {
     if (!silent) {
       // Log HTTP errors so they always appear in Settings → Logs for debugging.
       recordBrowserLog("ERROR", [
-        `[HTTP ${response.status}] ${fetchOptions.method || 'GET'} ${path}: ${errMsg}`
+        `[HTTP ${response.status}] ${fetchOptions.method || 'GET'} ${path}: ${rawMsg}`
       ]);
     }
     //: The status and the structured detail travel on the error, so a

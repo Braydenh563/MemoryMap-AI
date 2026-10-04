@@ -1121,7 +1121,7 @@ async function downloadSupportBundle() {
     const response = await fetch("/support-bundle", {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
     });
-    if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
+    if (!response.ok) throw new Error("Couldn't build the support bundle. Try again.");
     await saveFile("memorymap-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {

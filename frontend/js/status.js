@@ -883,6 +883,41 @@ function toastHost() {
   return host;
 }
 
+// What a person is told when a request fails (INBOX 472, "official, not a
+// demo"). Every error toast in the app prints `error.message`, and that
+// message was whatever the server's `detail` held: FastAPI's validation
+// answer is a list, so a toast read `[{"type":"missing","loc":["body",...`
+// (and `[object Object]` where a caller concatenated it); a server fault was
+// the bare word "Internal error"; a missing route was "Not Found". A detail
+// the app's own code wrote as a sentence ("Entry not found") is kept exactly,
+// because a few callers read it. Only the shapes no person should see are
+// replaced; `api()` still logs the raw text to Settings > Logs, where
+// someone diagnosing it wants it.
+//
+// `fallback` is for a caller that knows what it was doing ("Upload failed.")
+// and would rather say that than a generic line when the server gave nothing
+// a person can read.
+//
+// It lives here, not in app.js: app.js is at its gzip cap
+// (tests/test_static_compression.py) and this is only called at run time.
+const GENERIC_HTTP_DETAIL = /^(not found|method not allowed|internal error|internal server error|bad request|unprocessable entity|forbidden|bad gateway|service unavailable|gateway timeout)\.?$/i;
+function plainHttpError(status, detail, fallback = "") {
+  if (typeof detail === "string" && detail.trim() && !GENERIC_HTTP_DETAIL.test(detail.trim())) return detail;
+  if (typeof detail?.message === "string" && detail.message.trim()) return detail.message;
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0] || {};
+    const loc = Array.isArray(first.loc) ? first.loc.filter((part) => part !== "body" && part !== "query") : [];
+    const field = loc.length ? String(loc[loc.length - 1]).replace(/_/g, " ") : "";
+    return field ? `Check the ${field} and try again.` : "That was not accepted. Check what you entered and try again.";
+  }
+  if (fallback) return fallback;
+  if (status === 404) return "That could not be found. It may have been deleted.";
+  if (status === 400 || status === 405 || status === 422) return "That was not accepted. Try again.";
+  if (status === 403) return "That is not allowed.";
+  if (status >= 500) return "Something went wrong inside MemoryMap. Try again; if it keeps happening, Settings > Logs has the details.";
+  return "That did not work. Try again.";
+}
+
 let lastToastKey = "";
 let lastToastAt = 0;
 function toast(message, isError = false, { exempt = false } = {}) {

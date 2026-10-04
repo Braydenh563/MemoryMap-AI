@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Error messages read as sentences: a failed request no longer toasts a raw JSON list, "Internal error", "Not Found", "Failed to fetch" or "Upload failed (500)"; the plain wording comes from one function, and the raw text still goes to Settings > Logs (INBOX 472)
 - Faster starts and every request: each stylesheet and script is compressed once per version and kept on disk (the 448 KB stylesheet went from 22 to 46 ms per fetch to 4 to 6 ms, the first fetch after a restart included), and the two remaining `BaseHTTPMiddleware` layers are pure ASGI, 0.3 to 0.8 ms less on every request.
 - The Atlas companion's skirt gestures in a float or glide (the `rotate` limb loops on its `<svg>` root, never on the compositor) run on the same kind of box, so a float costs about half the style recalcs and a third fewer layouts (122ms to 69ms of recalc in the 2.6s window, 62 to 39 recalcs, 35 to 24 layouts).
 - The Atlas companion no longer restyles the page every frame at rest: the body's sway, the tail's and the nebula's flow ran as `rotate` and `translate` loops on `<svg>` roots, which Chromium never puts on the compositor, so each cost a style recalc per frame (108ms of every 2.6s idle, now 7ms). They run on a plain box around each root, and the figure looks the same, frame for frame.

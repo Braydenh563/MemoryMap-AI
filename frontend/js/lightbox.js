@@ -268,7 +268,7 @@ function attachFileTo(entry) {
       if (!response.ok) {
         failures++;
         const detail = await response.json().catch(() => ({}));
-        toast(detail.detail || `${file.name}: upload failed (${response.status})`, true);
+        toast(plainHttpError(response.status, detail.detail, `${file.name}: the upload did not work. Try again.`), true);
       }
     }
     const attached = files.length - failures;

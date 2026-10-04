@@ -7705,8 +7705,10 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Settings">
     <div class="card modal-card">
-      <div class="row space-between">
-        <h2>Settings</h2>
+      <!-- The dialog head every popup wears (DESIGN.md, "A dialog's head";
+           INBOX 479): its utilities were 28px beside a 32px Close. -->
+      <div class="row space-between dialog-head">
+        <h2 class="dialog-head-title">Settings</h2>
         <div class="row">
           <!-- The status bar's own back/forward pair (footer, `#status-back`/
                `#status-forward`) sit at a lower z-index than every modal on
@@ -7737,13 +7739,13 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- The person, in the head every pane shares: their mark, and the
                way to the profile from any pane. Painted by `paintUserMarks`
                (chat-agent.js). -->
-          <button id="settings-profile-btn" class="ghost small icon-only settings-profile-btn" type="button"
+          <button id="settings-profile-btn" class="ghost small icon-only dialog-head-btn settings-profile-btn" type="button"
             title="Your profile" aria-label="Your profile"><span class="profile-mark" data-user-mark="18" aria-hidden="true"></span></button>
-          <button id="settings-guide-btn" class="ghost small icon-only" type="button"
+          <button id="settings-guide-btn" class="ghost small icon-only dialog-head-btn" type="button"
             title="Ask Atlas how this app works" aria-label="Ask Atlas how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
-            <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-            <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+            <button id="settings-nav-back" class="ghost small icon-only dialog-head-btn" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <button id="settings-nav-forward" class="ghost small icon-only dialog-head-btn" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
           </span>
           <!-- Only meaningful on Appearance, so it is shown there and hidden
                everywhere else: a control that does nothing on nine screens out
